@@ -88,6 +88,12 @@ interface IFormValues {
   txMessage: string;
 }
 
+type IQuickSelectRecipient = {
+  address: string;
+  memo?: string;
+  note?: string;
+};
+
 type ISendInputFlowParamList = IModalSendParamList &
   IModalSignatureConfirmParamList;
 type ISendDataInputRouteName =
@@ -645,6 +651,207 @@ function SendDataInputContainer() {
     [],
   );
 
+  const fillRecipientFromQuickSelect = useCallback(
+    ({
+      selectedAddress,
+      selectedMemo,
+      selectedNote,
+    }: {
+      selectedAddress: string;
+      selectedMemo?: string;
+      selectedNote?: string;
+    }) => {
+      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo));
+      form.setValue('note', normalizeOptionalRecipientText(selectedNote));
+
+      const currentTo = form.getValues('to') as IAddressInputValue | undefined;
+      // Skip resetting when the same address is already resolved,
+      // otherwise we'd wipe the resolved state and the validation
+      // won't re-trigger (same raw text), causing the Next button
+      // to disappear.
+      if (
+        shouldSkipResolvedRecipientUpdate({
+          currentTo,
+          selectedAddress,
+        })
+      ) {
+        return;
+      }
+
+      form.setValue('to.raw', selectedAddress, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    },
+    [form],
+  );
+
+  const shouldStayOnDataStepForQuickSelect = useCallback(
+    ({
+      selectedMemo,
+      selectedNote,
+    }: {
+      selectedMemo?: string;
+      selectedNote?: string;
+    }) => {
+      const needsMemo = vaultSettings?.withMemo && !selectedMemo;
+      const needsPaymentId =
+        vaultSettings?.withPaymentId && !form.getValues('paymentId');
+      const needsNote = vaultSettings?.withNote && !selectedNote;
+      return needsMemo || needsPaymentId || needsNote;
+    },
+    [
+      form,
+      vaultSettings?.withMemo,
+      vaultSettings?.withNote,
+      vaultSettings?.withPaymentId,
+    ],
+  );
+
+  const navigateQuickSelectRecipientToAmount = useCallback(
+    async ({
+      selectedAddress,
+      selectedMemo,
+      selectedNote,
+    }: {
+      selectedAddress: string;
+      selectedMemo?: string;
+      selectedNote?: string;
+    }) => {
+      if (isNavigatingRef.current) return;
+      isNavigatingRef.current = true;
+      try {
+        const queryResult =
+          await backgroundApiProxy.serviceAccountProfile.queryAddress({
+            networkId: currentAccount.networkId,
+            accountId: currentAccount.accountId,
+            address: selectedAddress,
+            enableAddressContract: true,
+          });
+        if (queryResult.validStatus !== 'valid') {
+          // Address invalid — fall back to input for feedback
+          fillRecipientFromQuickSelect({
+            selectedAddress,
+            selectedMemo,
+            selectedNote,
+          });
+          return;
+        }
+        const resolvedAddress =
+          queryResult.resolveAddress ||
+          queryResult.validAddress ||
+          selectedAddress;
+
+        defaultLogger.transaction.send.addressInput({
+          addressInputMethod: addressInputChangeType.current,
+        });
+
+        pushAmountInput({
+          networkId: currentAccount.networkId,
+          accountId: currentAccount.accountId,
+          isNFT,
+          token: tokenInfo,
+          nfts,
+          recipientAddress: resolvedAddress,
+          recipientIsContract: queryResult.isContract ?? false,
+          recipientMemo: selectedMemo || undefined,
+          recipientPaymentId: form.getValues('paymentId') || undefined,
+          recipientNote: selectedNote || undefined,
+          amount: scannedAmount || sendAmount || undefined,
+          isAllNetworks,
+          onSuccess,
+          onFail,
+          onCancel,
+        });
+      } catch {
+        // Validation failed — fall back to filling input
+        fillRecipientFromQuickSelect({
+          selectedAddress,
+          selectedMemo,
+          selectedNote,
+        });
+      } finally {
+        isNavigatingRef.current = false;
+      }
+    },
+    [
+      currentAccount.accountId,
+      currentAccount.networkId,
+      fillRecipientFromQuickSelect,
+      form,
+      isAllNetworks,
+      isNFT,
+      nfts,
+      onCancel,
+      onFail,
+      onSuccess,
+      pushAmountInput,
+      scannedAmount,
+      sendAmount,
+      tokenInfo,
+    ],
+  );
+
+  const handleQuickSelectRecipient = useCallback(
+    ({
+      address: selectedAddress,
+      memo: selectedMemo,
+      note: selectedNote,
+    }: IQuickSelectRecipient) => {
+      const isFromAccount =
+        addressInputChangeType.current ===
+        EInputAddressChangeType.AccountSelector;
+      const isFromAddressBook =
+        addressInputChangeType.current === EInputAddressChangeType.AddressBook;
+
+      if (isFromAccount || isFromAddressBook) {
+        if (
+          shouldStayOnDataStepForQuickSelect({
+            selectedMemo,
+            selectedNote,
+          })
+        ) {
+          // Chain still needs memo/paymentId/note input, so keep
+          // the user on the data step instead of skipping ahead.
+          fillRecipientFromQuickSelect({
+            selectedAddress,
+            selectedMemo,
+            selectedNote,
+          });
+          return;
+        }
+
+        // Fill form immediately so back-navigation shows the selection.
+        fillRecipientFromQuickSelect({
+          selectedAddress,
+          selectedMemo,
+          selectedNote,
+        });
+
+        void navigateQuickSelectRecipientToAmount({
+          selectedAddress,
+          selectedMemo,
+          selectedNote,
+        });
+        return;
+      }
+
+      // For recent recipients / paste / manual: fill the input
+      // and let the user review before proceeding.
+      fillRecipientFromQuickSelect({
+        selectedAddress,
+        selectedMemo,
+        selectedNote,
+      });
+    },
+    [
+      fillRecipientFromQuickSelect,
+      navigateQuickSelectRecipientToAmount,
+      shouldStayOnDataStepForQuickSelect,
+    ],
+  );
+
   const enableAllowListValidation = useMemo(
     () => !networkUtils.isLightningNetworkByNetworkId(networkId),
     [networkId],
@@ -765,122 +972,7 @@ function SendDataInputContainer() {
               onActiveTabChange={setQuickSelectActiveTab}
               onInputTypeChange={handleAddressInputChangeType}
               onMatchStatusChange={setHasQuickSelectMatches}
-              onSelect={({
-                address: selectedAddress,
-                memo: selectedMemo,
-                note: selectedNote,
-              }) => {
-                const fillRecipientInput = () => {
-                  form.setValue(
-                    'memo',
-                    normalizeOptionalRecipientText(selectedMemo),
-                  );
-                  form.setValue(
-                    'note',
-                    normalizeOptionalRecipientText(selectedNote),
-                  );
-                  const currentTo = form.getValues('to') as
-                    | IAddressInputValue
-                    | undefined;
-                  // Skip resetting when the same address is already resolved,
-                  // otherwise we'd wipe the resolved state and the validation
-                  // won't re-trigger (same raw text), causing the Next button
-                  // to disappear.
-                  if (
-                    shouldSkipResolvedRecipientUpdate({
-                      currentTo,
-                      selectedAddress,
-                    })
-                  ) {
-                    return;
-                  }
-                  form.setValue('to.raw', selectedAddress, {
-                    shouldDirty: true,
-                    shouldTouch: true,
-                    shouldValidate: true,
-                  });
-                };
-
-                const isFromAccount =
-                  addressInputChangeType.current ===
-                  EInputAddressChangeType.AccountSelector;
-                const isFromAddressBook =
-                  addressInputChangeType.current ===
-                  EInputAddressChangeType.AddressBook;
-
-                if (isFromAccount || isFromAddressBook) {
-                  const needsMemo = vaultSettings?.withMemo && !selectedMemo;
-                  const needsPaymentId = vaultSettings?.withPaymentId;
-                  const needsNote = vaultSettings?.withNote && !selectedNote;
-
-                  if (needsMemo || needsPaymentId || needsNote) {
-                    // Chain still needs memo/paymentId/note input, so keep
-                    // the user on the data step instead of skipping ahead.
-                    fillRecipientInput();
-                    return;
-                  }
-
-                  // Fill form immediately so back-navigation shows the selection
-                  fillRecipientInput();
-
-                  void (async () => {
-                    if (isNavigatingRef.current) return;
-                    isNavigatingRef.current = true;
-                    try {
-                      const queryResult =
-                        await backgroundApiProxy.serviceAccountProfile.queryAddress(
-                          {
-                            networkId: currentAccount.networkId,
-                            accountId: currentAccount.accountId,
-                            address: selectedAddress,
-                            enableAddressContract: true,
-                          },
-                        );
-                      if (queryResult.validStatus !== 'valid') {
-                        // Address invalid — fall back to input for feedback
-                        fillRecipientInput();
-                        return;
-                      }
-                      const resolvedAddress =
-                        queryResult.resolveAddress ||
-                        queryResult.validAddress ||
-                        selectedAddress;
-
-                      defaultLogger.transaction.send.addressInput({
-                        addressInputMethod: addressInputChangeType.current,
-                      });
-
-                      pushAmountInput({
-                        networkId: currentAccount.networkId,
-                        accountId: currentAccount.accountId,
-                        isNFT,
-                        token: tokenInfo,
-                        nfts,
-                        recipientAddress: resolvedAddress,
-                        recipientIsContract: queryResult.isContract ?? false,
-                        recipientMemo: selectedMemo || undefined,
-                        recipientPaymentId:
-                          form.getValues('paymentId') || undefined,
-                        recipientNote: selectedNote || undefined,
-                        amount: scannedAmount || sendAmount || undefined,
-                        isAllNetworks,
-                        onSuccess,
-                        onFail,
-                        onCancel,
-                      });
-                    } catch {
-                      // Validation failed — fall back to filling input
-                      fillRecipientInput();
-                    } finally {
-                      isNavigatingRef.current = false;
-                    }
-                  })();
-                } else {
-                  // For recent recipients / paste / manual: fill the input
-                  // and let the user review before proceeding.
-                  fillRecipientInput();
-                }
-              }}
+              onSelect={handleQuickSelectRecipient}
             />
           </Form>
         </AccountSelectorProviderMirror>

@@ -28,6 +28,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
@@ -79,6 +80,7 @@ type IQuickItem = {
   note?: string;
   deriveLabel?: string;
   walletId?: string;
+  wallet?: IDBWallet;
 };
 
 const QuickSelectListItem = memo(
@@ -90,6 +92,7 @@ const QuickSelectListItem = memo(
       <QuickSelectListItemFrame
         address={item.address}
         walletId={item.walletId}
+        wallet={item.wallet}
         onPress={onPress}
         testID={`recipient-item-${item.address}`}
         primary={
@@ -119,7 +122,7 @@ const QuickSelectListItem = memo(
     prevProps.item.deriveLabel === nextProps.item.deriveLabel &&
     prevProps.item.memo === nextProps.item.memo &&
     prevProps.item.note === nextProps.item.note &&
-    prevProps.onPress === nextProps.onPress,
+    prevProps.item.wallet?.id === nextProps.item.wallet?.id,
 );
 QuickSelectListItem.displayName = 'QuickSelectListItem';
 
@@ -135,7 +138,11 @@ type IWalletGroup = {
   walletName: string;
   isHardwareWallet: boolean;
   accounts: IAccountWithDeriveInfo[];
+  wallet: IDBWallet;
 };
+
+const NETWORK_ACCOUNTS_FETCH_CONCURRENCY = 4;
+const WALLET_GROUP_FETCH_CONCURRENCY = 6;
 
 // Get wallet accounts on the specified network (with derive type info)
 async function getWalletNetworkAccounts(
@@ -148,8 +155,8 @@ async function getWalletNetworkAccounts(
     return [];
   }
 
-  const accountsRequest = dbIndexedAccounts.map(async (indexedAccount) => {
-    try {
+  const accountRequestTaskFactories = dbIndexedAccounts.map(
+    (indexedAccount) => async () => {
       const resp =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
           {
@@ -159,16 +166,17 @@ async function getWalletNetworkAccounts(
           },
         );
       return resp.networkAccounts;
-    } catch {
-      return [];
-    }
-  });
+    },
+  );
 
-  const results = await Promise.all(accountsRequest);
+  const results = await promiseAllSettledEnhanced(accountRequestTaskFactories, {
+    continueOnError: true,
+    concurrency: NETWORK_ACCOUNTS_FETCH_CONCURRENCY,
+  });
   // Extract all accounts with derive type info
   const allAccounts = flatten(
     map(results, (item) =>
-      item
+      (item ?? [])
         .filter((acc) => acc.account)
         .map((acc) => ({
           account: acc.account as INetworkAccount,
@@ -206,7 +214,27 @@ function AccountRecipients({
           includingAccounts: true,
         });
 
-        const groups: IWalletGroup[] = [];
+        const walletGroupTaskFactories: Array<
+          () => Promise<IWalletGroup | null>
+        > = [];
+
+        const createWalletGroupTaskFactory =
+          (wallet: IDBWallet, walletName: string) =>
+          async (): Promise<IWalletGroup | null> => {
+            const accounts = await getWalletNetworkAccounts(wallet, networkId);
+            if (accounts.length === 0) {
+              return null;
+            }
+            return {
+              walletId: wallet.id,
+              walletName,
+              isHardwareWallet: accountUtils.isHwWallet({
+                walletId: wallet.id,
+              }),
+              accounts,
+              wallet,
+            };
+          };
 
         for (const wallet of wallets) {
           // Skip watch-only, deprecated, and deleted (mocked) wallets
@@ -216,48 +244,37 @@ function AccountRecipients({
             wallet.deprecated ||
             wallet.isMocked;
 
-          if (!shouldSkip) {
-            // Process main wallet
-            const mainWalletAccounts = await getWalletNetworkAccounts(
-              wallet,
-              networkId,
-            );
-            if (mainWalletAccounts.length > 0) {
-              groups.push({
-                walletId: wallet.id,
-                walletName: wallet.name,
-                isHardwareWallet: accountUtils.isHwWallet({
-                  walletId: wallet.id,
-                }),
-                accounts: mainWalletAccounts,
-              });
-            }
+          if (shouldSkip) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
 
-            // Process hidden wallets
-            if (wallet.hiddenWallets?.length) {
-              for (const hiddenWallet of wallet.hiddenWallets) {
-                if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
-                  const hiddenWalletAccounts = await getWalletNetworkAccounts(
-                    hiddenWallet,
-                    networkId,
-                  );
-                  if (hiddenWalletAccounts.length > 0) {
-                    groups.push({
-                      walletId: hiddenWallet.id,
-                      walletName: `${wallet.name} - ${hiddenWallet.name}`,
-                      isHardwareWallet: accountUtils.isHwWallet({
-                        walletId: hiddenWallet.id,
-                      }),
-                      accounts: hiddenWalletAccounts,
-                    });
-                  }
-                }
-              }
+          walletGroupTaskFactories.push(
+            createWalletGroupTaskFactory(wallet, wallet.name),
+          );
+
+          for (const hiddenWallet of wallet.hiddenWallets ?? []) {
+            if (hiddenWallet.deprecated || hiddenWallet.isMocked) {
+              // eslint-disable-next-line no-continue
+              continue;
             }
+            walletGroupTaskFactories.push(
+              createWalletGroupTaskFactory(
+                hiddenWallet,
+                `${wallet.name} - ${hiddenWallet.name}`,
+              ),
+            );
           }
         }
 
-        return groups;
+        const groups = await promiseAllSettledEnhanced(
+          walletGroupTaskFactories,
+          {
+            continueOnError: true,
+            concurrency: WALLET_GROUP_FETCH_CONCURRENCY,
+          },
+        );
+        return groups.filter((group): group is IWalletGroup => !!group);
       },
       [networkId],
       { initResult: [], watchLoading: true, undefinedResultIfError: true },
@@ -372,11 +389,54 @@ function AccountRecipients({
       return {
         title: group?.walletName ?? '',
         walletId: group?.walletId ?? '',
+        wallet: group?.wallet,
         hasMultipleDeriveTypes,
         data: accounts,
       };
     });
   }, [filteredWalletGroups]);
+
+  // Flatten sections for simple rendering with section headers
+  type IFlatItem =
+    | { type: 'header'; title: string; walletId: string }
+    | {
+        type: 'account';
+        account: INetworkAccount;
+        deriveInfo?: IAccountDeriveInfo;
+        hasMultipleDeriveTypes: boolean;
+        walletId: string;
+        walletName: string;
+        wallet?: IDBWallet;
+      };
+
+  const flattenedItems = useMemo<IFlatItem[]>(
+    () =>
+      sections.flatMap((section) => {
+        const items: IFlatItem[] = [];
+        // Add section header
+        if (section.title) {
+          items.push({
+            type: 'header',
+            title: section.title,
+            walletId: section.walletId,
+          });
+        }
+        // Add account items
+        (section.data ?? []).forEach((item) => {
+          items.push({
+            type: 'account',
+            account: item.account,
+            deriveInfo: item.deriveInfo,
+            hasMultipleDeriveTypes: section.hasMultipleDeriveTypes,
+            walletId: section.walletId,
+            walletName: section.title,
+            wallet: section.wallet,
+          });
+        });
+        return items;
+      }),
+    [sections],
+  );
 
   // Show skeleton on initial load or while loading (when isLoadingAccounts is undefined or true)
   const isInitialLoading =
@@ -399,42 +459,6 @@ function AccountRecipients({
     );
   }
 
-  // Flatten sections for simple rendering with section headers
-  type IFlatItem =
-    | { type: 'header'; title: string; walletId: string }
-    | {
-        type: 'account';
-        account: INetworkAccount;
-        deriveInfo?: IAccountDeriveInfo;
-        hasMultipleDeriveTypes: boolean;
-        walletId: string;
-        walletName: string;
-      };
-
-  const flattenedItems: IFlatItem[] = sections.flatMap((section) => {
-    const items: IFlatItem[] = [];
-    // Add section header
-    if (section.title) {
-      items.push({
-        type: 'header',
-        title: section.title,
-        walletId: section.walletId,
-      });
-    }
-    // Add account items
-    (section.data ?? []).forEach((item) => {
-      items.push({
-        type: 'account',
-        account: item.account,
-        deriveInfo: item.deriveInfo,
-        hasMultipleDeriveTypes: section.hasMultipleDeriveTypes,
-        walletId: section.walletId,
-        walletName: section.title,
-      });
-    });
-    return items;
-  });
-
   // Use .map() instead of ListView to prevent component remounting on tab switch
   // ListView may unmount children when display changes from none to flex
   return (
@@ -455,7 +479,13 @@ function AccountRecipients({
         if (!item.account) {
           return null;
         }
-        const { account, deriveInfo, hasMultipleDeriveTypes, walletId } = item;
+        const {
+          account,
+          deriveInfo,
+          hasMultipleDeriveTypes,
+          walletId,
+          wallet,
+        } = item;
         const itemAddress =
           account.address ?? account.addressDetail?.address ?? '';
         const deriveLabel = hasMultipleDeriveTypes
@@ -477,6 +507,7 @@ function AccountRecipients({
               address: itemAddress,
               deriveLabel,
               walletId,
+              wallet,
             }}
             onPress={() => handleSelectAccount({ account, deriveInfo })}
           />
@@ -686,16 +717,12 @@ export default function RecipientQuickSelect({
     addressBook: false,
   });
 
-  // When activeTab changes, mark it as visited (delayed to avoid render issues)
+  // When activeTab changes, mark it as visited.
   useEffect(() => {
-    if (!visitedTabs[activeTab]) {
-      // Small delay to ensure smooth transition
-      const timer = setTimeout(() => {
-        setVisitedTabs((prev) => ({ ...prev, [activeTab]: true }));
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab, visitedTabs]);
+    setVisitedTabs((prev) =>
+      prev[activeTab] ? prev : { ...prev, [activeTab]: true },
+    );
+  }, [activeTab]);
 
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);

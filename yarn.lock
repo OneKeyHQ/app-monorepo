@@ -8775,14 +8775,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-auto-size-input@npm:1.1.36":
-  version: 1.1.36
-  resolution: "@onekeyfe/react-native-auto-size-input@npm:1.1.36"
+"@onekeyfe/react-native-auto-size-input@npm:1.1.46":
+  version: 1.1.46
+  resolution: "@onekeyfe/react-native-auto-size-input@npm:1.1.46"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.33.2
-  checksum: 10/299c782ee379e10b40b29e2f82a886bf6d3fe2287be1dd167b93f089c2417a50c218d5764f3c690a0700039d58ede2b7c451c0d80c566f29c9b61c642bf81639
+  checksum: 10/0e4bd990fb732f50b9cd767dd3423c78c9d382e9b982c1adda76775e839788d10e32a9ca8006936185db0c4615aff66c1069b1621731612d4ac7a60553d84f36
   languageName: node
   linkType: hard
 
@@ -8991,7 +8991,7 @@ __metadata:
     "@onekeyfe/hd-transport-electron": "npm:1.1.24"
     "@onekeyfe/hd-web-sdk": "npm:1.1.24"
     "@onekeyfe/onekey-cross-webview": "npm:2.2.63"
-    "@onekeyfe/react-native-auto-size-input": "npm:1.1.36"
+    "@onekeyfe/react-native-auto-size-input": "npm:1.1.46"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
     "@polkadot/extension-inject": "npm:0.54.1"
@@ -9384,7 +9384,7 @@ __metadata:
     "@notifee/react-native": "npm:9.1.8"
     "@onekeyfe/react-native-animated-charts": "npm:2.0.1"
     "@onekeyfe/react-native-app-update": "npm:1.1.36"
-    "@onekeyfe/react-native-auto-size-input": "npm:1.1.36"
+    "@onekeyfe/react-native-auto-size-input": "npm:1.1.46"
     "@onekeyfe/react-native-background-thread": "npm:1.1.36"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.4"
     "@onekeyfe/react-native-bundle-update": "npm:1.1.36"

@@ -369,8 +369,7 @@ function SendAmountInputContainer() {
       amountValue = sanitizeFiatInputText(amountValue);
     }
     setIsUseFiat((prev) => !prev);
-    form.setValue('amount', amountValue);
-    void form.trigger('amount');
+    form.setValue('amount', amountValue, { shouldValidate: true });
   }, [
     form,
     isUseFiat,
@@ -566,12 +565,12 @@ function SendAmountInputContainer() {
         balance,
         percent: stage,
         decimals,
+        compactResult: true,
       });
       if (isUseFiat) {
         result = sanitizeFiatInputText(result);
       }
-      form.setValue('amount', result);
-      void form.trigger('amount');
+      form.setValue('amount', result, { shouldValidate: true });
       setIsMaxSend(stage === 100);
     },
     [
@@ -598,6 +597,88 @@ function SendAmountInputContainer() {
       },
     });
   }, [navigation, currentAccountId, networkId]);
+
+  const normalizeAmountInputValue = useCallback(
+    (rawValue: string) => {
+      let inputValue = (rawValue ?? '').replace(/\s/g, '');
+
+      if (inputValue.startsWith('.')) {
+        inputValue = `0${inputValue}`;
+      }
+
+      if (
+        inputValue.length > 1 &&
+        inputValue.startsWith('0') &&
+        !inputValue.startsWith('0.')
+      ) {
+        inputValue = inputValue.replace(/^0+/, '') || '0';
+        if (inputValue.startsWith('.')) {
+          inputValue = `0${inputValue}`;
+        }
+      }
+
+      let filteredValue = inputValue.replace(/[^\d.]/g, '');
+      const parts = filteredValue.split('.');
+      if (parts.length > 2) {
+        filteredValue = `${parts[0]}.${parts.slice(1).join('')}`;
+      }
+      inputValue = filteredValue;
+
+      if (isUseFiat) {
+        inputValue = sanitizeFiatInputText(inputValue);
+      }
+
+      const hadUserInput = (rawValue ?? '').trim().length > 0;
+      if (!inputValue && hadUserInput) {
+        return '0';
+      }
+
+      const valueBN = new BigNumber(inputValue || 0);
+      if (valueBN.isNaN()) {
+        return '0';
+      }
+
+      if (isIntegerAmount) {
+        return valueBN.toFixed(0);
+      }
+
+      if (!isUseFiat) {
+        let decimals = tokenDetails?.info.decimals ?? 8;
+        if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+          decimals = chainValueUtils.getLightningAmountDecimals({
+            lnUnit,
+            decimals,
+          });
+        }
+
+        const decimalPlaces = valueBN.decimalPlaces();
+        if (decimalPlaces && decimalPlaces > decimals) {
+          return valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR);
+        }
+      }
+
+      return inputValue;
+    },
+    [
+      isIntegerAmount,
+      isLightningNetwork,
+      isUseFiat,
+      lnUnit,
+      tokenDetails?.info.decimals,
+    ],
+  );
+
+  const handleAmountInputChange = useCallback(
+    (e: { target: { name: string; value: string } }) => {
+      setIsMaxSend(false);
+      const rawInputValue = e.target?.value ?? '';
+      const normalizedInputValue = normalizeAmountInputValue(rawInputValue);
+      if (normalizedInputValue !== rawInputValue) {
+        form.setValue('amount', normalizedInputValue);
+      }
+    },
+    [form, normalizeAmountInputValue],
+  );
 
   // Track if amount input is focused
   const [isAmountInputFocused, setIsAmountInputFocused] = useState(false);
@@ -1034,88 +1115,7 @@ function SendAmountInputContainer() {
           rules={{
             required: true,
             validate: handleValidateTokenAmount,
-            onChange: (e: { target: { name: string; value: string } }) => {
-              setIsMaxSend(false);
-
-              // Remove spaces from input
-              let inputValue = (e.target?.value ?? '').replace(/\s/g, '');
-
-              // Auto-prepend "0" if input starts with "." (e.g., ".5" -> "0.5")
-              if (inputValue.startsWith('.')) {
-                inputValue = `0${inputValue}`;
-              }
-
-              // Remove leading zeros before significant digits (but keep "0" and "0.xxx")
-              if (inputValue.length > 1 && inputValue.startsWith('0')) {
-                // If it's like "007", remove leading zeros
-                // But keep "0.5" as is
-                if (!inputValue.startsWith('0.')) {
-                  inputValue = inputValue.replace(/^0+/, '') || '0';
-                  // Handle case like "00.5" -> "0.5"
-                  if (inputValue.startsWith('.')) {
-                    inputValue = `0${inputValue}`;
-                  }
-                }
-              }
-
-              // If value was modified, update the form
-              if (inputValue !== e.target?.value) {
-                form.setValue('amount', inputValue);
-              }
-
-              // Filter out non-numeric characters (keep digits and at most one decimal point)
-              // This preserves "12a34" as "1234" instead of "12" (like MetaMask)
-              let filteredValue = inputValue.replace(/[^\d.]/g, '');
-              // Ensure only one decimal point
-              const parts = filteredValue.split('.');
-              if (parts.length > 2) {
-                filteredValue = `${parts[0]}.${parts.slice(1).join('')}`;
-              }
-              // Update form if value was filtered
-              if (filteredValue !== inputValue) {
-                form.setValue('amount', filteredValue || '0');
-                inputValue = filteredValue;
-              }
-
-              if (isUseFiat) {
-                const fiatValue = sanitizeFiatInputText(inputValue);
-                if (fiatValue !== inputValue) {
-                  form.setValue('amount', fiatValue || '0');
-                  inputValue = fiatValue;
-                }
-              }
-
-              const valueBN = new BigNumber(inputValue || 0);
-
-              // If still NaN after filtering, reset to 0
-              if (valueBN.isNaN()) {
-                form.setValue('amount', '0');
-                return;
-              }
-
-              // Handle integer-only tokens
-              if (isIntegerAmount) {
-                form.setValue('amount', valueBN.toFixed(0));
-                return;
-              }
-
-              let decimals = tokenDetails?.info.decimals ?? 8;
-
-              if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
-                decimals = chainValueUtils.getLightningAmountDecimals({
-                  lnUnit,
-                  decimals,
-                });
-              }
-
-              const dp = valueBN.decimalPlaces();
-              if (!isUseFiat && dp && dp > decimals) {
-                form.setValue(
-                  'amount',
-                  valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR),
-                );
-              }
-            },
+            onChange: handleAmountInputChange,
           }}
         >
           <SendAutoSizeAmountInput
@@ -1162,16 +1162,13 @@ function SendAmountInputContainer() {
     ),
     [
       currencySymbol,
-      form,
+      handleAmountInputChange,
       handleToggleFiatMode,
       handleValidateTokenAmount,
       isIntegerAmount,
-      isLightningNetwork,
       isUseFiat,
       linkedAmount.linkedAmount,
       linkedAmount.originalAmount,
-      lnUnit,
-      tokenDetails?.info.decimals,
       tokenSymbol,
     ],
   );
@@ -1340,8 +1337,8 @@ function SendAmountInputContainer() {
             form.setValue(
               'amount',
               isUseFiat ? sanitizeFiatInputText(maxBalanceFiat) : maxBalance,
+              { shouldValidate: true },
             );
-            void form.trigger('amount');
             setIsMaxSend(true);
           }}
         >

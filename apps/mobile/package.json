@@ -54,7 +54,7 @@
     "@notifee/react-native": "9.1.8",
     "@onekeyfe/react-native-animated-charts": "2.0.1",
     "@onekeyfe/react-native-app-update": "1.1.36",
-    "@onekeyfe/react-native-auto-size-input": "1.1.36",
+    "@onekeyfe/react-native-auto-size-input": "1.1.46",
     "@onekeyfe/react-native-background-thread": "1.1.36",
     "@onekeyfe/react-native-ble-utils": "0.1.4",
     "@onekeyfe/react-native-bundle-update": "1.1.36",

@@ -19,10 +19,12 @@ export const calcPercentBalance = ({
   balance,
   percent,
   decimals,
+  compactResult,
 }: {
   balance: string;
   percent: number;
   decimals?: number;
+  compactResult?: boolean;
 }) => {
   const valueNumber = BigNumber(balance);
 
@@ -40,6 +42,12 @@ export const calcPercentBalance = ({
 
   // Calculate percentage value
   const value = valueNumber.multipliedBy(percent).dividedBy(100);
+
+  if (!compactResult) {
+    return decimals !== null && decimals !== undefined
+      ? value.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
+      : value.toFixed();
+  }
 
   // Apply display rules for decimal formatting
   let targetDecimals: number;

@@ -16,10 +16,13 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -63,6 +66,7 @@ type IQuickItem = {
   isAddressBook?: boolean;
   walletName?: string;
   walletId?: string;
+  wallet?: IDBWallet;
 };
 
 function QuickSelectListItemBase({
@@ -146,6 +150,7 @@ function QuickSelectListItemBase({
     <QuickSelectListItemFrame
       address={item.address}
       walletId={item.walletId}
+      wallet={item.wallet}
       onPress={onPress}
       onLongPress={platformEnv.isNative ? handleLongPress : undefined}
       onHoverIn={() => setIsHovered(true)}
@@ -254,10 +259,10 @@ const QuickSelectListItem = memo(
     prevProps.item.isAddressBook === nextProps.item.isAddressBook &&
     prevProps.item.walletName === nextProps.item.walletName &&
     prevProps.item.walletId === nextProps.item.walletId &&
+    prevProps.item.wallet?.id === nextProps.item.wallet?.id &&
     prevProps.networkId === nextProps.networkId &&
     prevProps.intl.locale === nextProps.intl.locale &&
-    prevProps.formatRelativeTime === nextProps.formatRelativeTime &&
-    prevProps.onPress === nextProps.onPress,
+    prevProps.formatRelativeTime === nextProps.formatRelativeTime,
 );
 
 function RecentRecipients(props: IRecentRecipientsProps) {
@@ -334,6 +339,47 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     }).sorted;
   }, [isSearchActive, recentRecipients, trimmedSearchKey]);
 
+  const recentWalletIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          recentRecipients
+            .map((recipient) => recipient.walletId)
+            .filter((walletId): walletId is string => !!walletId),
+        ),
+      ),
+    [recentRecipients],
+  );
+  const { result: recentWalletMap = new Map<string, IDBWallet>() } =
+    usePromiseResult<Map<string, IDBWallet>>(
+      async () => {
+        if (recentWalletIds.length === 0) {
+          return new Map();
+        }
+
+        const walletEntries = await Promise.all(
+          recentWalletIds.map(async (walletId) => {
+            try {
+              const wallet = await backgroundApiProxy.serviceAccount.getWallet({
+                walletId,
+              });
+              return [walletId, wallet] as const;
+            } catch {
+              return undefined;
+            }
+          }),
+        );
+
+        return new Map(
+          walletEntries.filter(
+            (entry): entry is readonly [string, IDBWallet] => !!entry,
+          ),
+        );
+      },
+      [recentWalletIds],
+      { initResult: new Map(), undefinedResultIfError: true },
+    );
+
   // Notify parent of match status and count
   useEffect(() => {
     // Skip reporting stale counts during debounce gap to prevent badge flickering
@@ -364,6 +410,9 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             isAddressBook: recipient.isAddressBook,
             walletName: recipient.walletName,
             walletId: recipient.walletId,
+            wallet: recipient.walletId
+              ? recentWalletMap.get(recipient.walletId)
+              : undefined,
           }}
           intl={intl}
           networkId={networkId}
@@ -409,6 +458,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     isSearchActive,
     networkId,
     onSelect,
+    recentWalletMap,
   ]);
 
   return (

@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { checkIsScamTx } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { ITransferRecipient } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  ITransferRecipient,
+} from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const MAX_RECIPIENTS = 20;
 
@@ -16,6 +22,157 @@ type IRecipientExtraInfo = {
   networkName?: string;
   memo?: string;
 };
+
+function hasPositiveTransferAmount(amount?: string) {
+  if (!amount) return false;
+  const amountBN = new BigNumber(amount);
+  return !amountBN.isNaN() && amountBN.gt(0);
+}
+
+function getRecipientMemoFromDecodedTx(decodedTx: IDecodedTx) {
+  const extra = decodedTx.extraInfo as Record<string, unknown> | null;
+  if (!extra) {
+    return undefined;
+  }
+  return (
+    (extra.memo as string) ??
+    (extra.note as string) ??
+    (extra.destinationTag !== null && extra.destinationTag !== undefined
+      ? String(extra.destinationTag)
+      : undefined)
+  );
+}
+
+function extractOutgoingRecipientFromDecodedTx({
+  decodedTx,
+  ownerAddress,
+  includeMemo,
+}: {
+  decodedTx: IDecodedTx;
+  ownerAddress?: string;
+  includeMemo?: boolean;
+}) {
+  let recipient: string | undefined;
+  let hasOutgoingSend = false;
+  let hasNonZeroAmount = false;
+
+  for (const action of decodedTx.actions ?? []) {
+    if (action.functionCall) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
+    const assetTransfer = action.assetTransfer;
+    if (!assetTransfer) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
+    const firstSend = assetTransfer.sends?.[0];
+    if (firstSend) {
+      hasOutgoingSend = true;
+      if (hasPositiveTransferAmount(firstSend.amount)) {
+        hasNonZeroAmount = true;
+      }
+      if (!recipient && firstSend.to) {
+        recipient = firstSend.to;
+      }
+    }
+
+    if (hasOutgoingSend && !recipient && assetTransfer.to) {
+      recipient = assetTransfer.to;
+    }
+
+    if (recipient) {
+      break;
+    }
+  }
+
+  if (hasOutgoingSend && !recipient && decodedTx.to) {
+    recipient = decodedTx.to;
+  }
+
+  if (!hasOutgoingSend || !hasNonZeroAmount || !recipient) {
+    return undefined;
+  }
+
+  const normalizedOwnerAddress = ownerAddress?.toLowerCase();
+  if (
+    normalizedOwnerAddress &&
+    recipient.toLowerCase() === normalizedOwnerAddress
+  ) {
+    return undefined;
+  }
+
+  return {
+    address: recipient,
+    time: decodedTx.updatedAt ?? decodedTx.createdAt ?? 0,
+    memo: includeMemo ? getRecipientMemoFromDecodedTx(decodedTx) : undefined,
+  };
+}
+
+function collectRecipientsFromHistoryTxs({
+  txs,
+  ownerAddress,
+  networkName,
+  includeMemo,
+  seedMap,
+}: {
+  txs: IAccountHistoryTx[];
+  ownerAddress?: string;
+  networkName?: string;
+  includeMemo?: boolean;
+  seedMap?: Map<string, IRecipientExtraInfo>;
+}) {
+  const recipientMap = seedMap
+    ? new Map<string, IRecipientExtraInfo>(seedMap)
+    : new Map<string, IRecipientExtraInfo>();
+
+  for (const tx of txs) {
+    if (checkIsScamTx({ tx })) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
+    const { decodedTx } = tx;
+    if (!decodedTx) {
+      if (recipientMap.size >= MAX_RECIPIENTS) break;
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    if (
+      decodedTx.status === EDecodedTxStatus.Failed ||
+      decodedTx.status === EDecodedTxStatus.Dropped
+    ) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
+    const recipientInfo = extractOutgoingRecipientFromDecodedTx({
+      decodedTx,
+      ownerAddress,
+      includeMemo,
+    });
+    if (!recipientInfo) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
+    const recipientLower = recipientInfo.address.toLowerCase();
+    if (!recipientMap.has(recipientLower)) {
+      recipientMap.set(recipientLower, {
+        address: recipientInfo.address,
+        time: recipientInfo.time,
+        networkName,
+        memo: recipientInfo.memo,
+      });
+    }
+
+    if (recipientMap.size >= MAX_RECIPIENTS) break;
+  }
+
+  return recipientMap;
+}
 
 export type IEnrichedRecentRecipient = IAddressQueryResult & {
   lastTransferTime?: number;
@@ -137,85 +294,14 @@ export function useRecentRecipientsData({
                 { accountId, networkId },
               );
 
-            const localMap =
-              recipientExtraMap ?? new Map<string, IRecipientExtraInfo>();
             const ownerAddress =
               txsToProcess[0]?.decodedTx?.owner?.toLowerCase() ?? '';
-
-            for (const tx of txsToProcess) {
-              if (checkIsScamTx({ tx })) {
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-              const { decodedTx } = tx;
-              if (!decodedTx) {
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-              if (
-                decodedTx.status === EDecodedTxStatus.Failed ||
-                decodedTx.status === EDecodedTxStatus.Dropped
-              ) {
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-
-              let recipient: string | undefined;
-              let hasOutgoingSend = false;
-              let hasNonZeroAmount = false;
-
-              if (decodedTx.actions) {
-                for (const action of decodedTx.actions) {
-                  if (action.functionCall) {
-                    // eslint-disable-next-line no-continue
-                    continue;
-                  }
-                  const assetTransfer = action.assetTransfer;
-                  if (assetTransfer?.sends && assetTransfer.sends.length > 0) {
-                    hasOutgoingSend = true;
-                    const firstSend = assetTransfer.sends[0];
-                    if (
-                      firstSend.amount &&
-                      firstSend.amount !== '0' &&
-                      firstSend.amount !== ''
-                    ) {
-                      hasNonZeroAmount = true;
-                    }
-                    if (!recipient && firstSend.to) {
-                      recipient = firstSend.to;
-                    }
-                  }
-                  if (hasOutgoingSend && !recipient && assetTransfer?.to) {
-                    recipient = assetTransfer.to;
-                  }
-                  if (recipient) break;
-                }
-              }
-
-              if (hasOutgoingSend && !recipient && decodedTx.to) {
-                recipient = decodedTx.to;
-              }
-              if (
-                !hasOutgoingSend ||
-                !hasNonZeroAmount ||
-                !recipient ||
-                recipient.toLowerCase() === ownerAddress
-              ) {
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-
-              const recipientLower = recipient.toLowerCase();
-              if (!localMap.has(recipientLower)) {
-                const txTime = decodedTx.updatedAt ?? decodedTx.createdAt ?? 0;
-                localMap.set(recipientLower, {
-                  address: recipient,
-                  time: txTime,
-                  networkName: currentNetworkName,
-                });
-              }
-              if (localMap.size >= MAX_RECIPIENTS) break;
-            }
+            const localMap = collectRecipientsFromHistoryTxs({
+              txs: txsToProcess,
+              ownerAddress,
+              networkName: currentNetworkName,
+              seedMap: recipientExtraMap ?? undefined,
+            });
 
             recipientExtraMap = localMap;
             recipientAddresses = Array.from(localMap.values()).map(
@@ -283,106 +369,14 @@ export function useRecentRecipientsData({
               txsToProcess = historyResult.txs ?? [];
             }
 
-            const recipientMap = new Map<string, IRecipientExtraInfo>();
             const ownerAddress =
               txsToProcess[0]?.decodedTx?.owner?.toLowerCase() ?? '';
-
-            for (const tx of txsToProcess) {
-              if (checkIsScamTx({ tx })) {
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-
-              const { decodedTx } = tx;
-              if (!decodedTx) {
-                if (recipientMap.size >= MAX_RECIPIENTS) break;
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-              if (
-                decodedTx.status === EDecodedTxStatus.Failed ||
-                decodedTx.status === EDecodedTxStatus.Dropped
-              ) {
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-
-              const txTime = decodedTx.updatedAt ?? decodedTx.createdAt ?? 0;
-              let recipient: string | undefined;
-              let hasOutgoingSend = false;
-              let hasNonZeroAmount = false;
-
-              if (decodedTx.actions) {
-                for (const action of decodedTx.actions) {
-                  if (action.functionCall) {
-                    // eslint-disable-next-line no-continue
-                    continue;
-                  }
-
-                  const assetTransfer = action.assetTransfer;
-                  if (!assetTransfer) {
-                    // eslint-disable-next-line no-continue
-                    continue;
-                  }
-
-                  if (assetTransfer.sends && assetTransfer.sends.length > 0) {
-                    hasOutgoingSend = true;
-                    const firstSend = assetTransfer.sends[0];
-                    if (
-                      firstSend.amount &&
-                      firstSend.amount !== '0' &&
-                      firstSend.amount !== ''
-                    ) {
-                      hasNonZeroAmount = true;
-                    }
-                    if (!recipient && firstSend.to) {
-                      recipient = firstSend.to;
-                    }
-                  }
-
-                  if (hasOutgoingSend && !recipient && assetTransfer.to) {
-                    recipient = assetTransfer.to;
-                  }
-
-                  if (recipient) break;
-                }
-              }
-
-              if (hasOutgoingSend && !recipient && decodedTx.to) {
-                recipient = decodedTx.to;
-              }
-
-              if (
-                !hasOutgoingSend ||
-                !hasNonZeroAmount ||
-                !recipient ||
-                recipient.toLowerCase() === ownerAddress
-              ) {
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-
-              const recipientLower = recipient.toLowerCase();
-              if (!recipientMap.has(recipientLower)) {
-                const extra = decodedTx.extraInfo as Record<string, unknown>;
-                const txMemo =
-                  (extra?.memo as string) ??
-                  (extra?.note as string) ??
-                  (extra?.destinationTag !== null &&
-                  extra?.destinationTag !== undefined
-                    ? String(extra.destinationTag)
-                    : undefined);
-
-                recipientMap.set(recipientLower, {
-                  address: recipient,
-                  time: txTime,
-                  networkName: currentNetworkName,
-                  memo: txMemo,
-                });
-              }
-
-              if (recipientMap.size >= MAX_RECIPIENTS) break;
-            }
+            const recipientMap = collectRecipientsFromHistoryTxs({
+              txs: txsToProcess,
+              ownerAddress,
+              networkName: currentNetworkName,
+              includeMemo: true,
+            });
 
             recipientAddresses = Array.from(recipientMap.values()).map(
               (r) => r.address,

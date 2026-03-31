@@ -6,36 +6,47 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 function AccountAvatarWithWallet({
   address,
   walletId,
+  wallet,
 }: {
   address: string;
   walletId?: string;
+  wallet?: IDBWallet;
 }) {
-  const { result: wallet } = usePromiseResult(
+  const { result: resolvedWallet } = usePromiseResult(
     async () => {
+      if (wallet) {
+        return wallet;
+      }
       if (!walletId) return undefined;
       const w = await backgroundApiProxy.serviceAccount.getWallet({ walletId });
       return w;
     },
-    [walletId],
-    { initResult: undefined },
+    [wallet, walletId],
+    { initResult: wallet },
   );
 
-  return <AccountAvatar size="default" address={address} wallet={wallet} />;
+  return (
+    <AccountAvatar size="default" address={address} wallet={resolvedWallet} />
+  );
 }
 
 const MemoizedAccountAvatarWithWallet = memo(
   AccountAvatarWithWallet,
   (prev, next) =>
-    prev.address === next.address && prev.walletId === next.walletId,
+    prev.address === next.address &&
+    prev.walletId === next.walletId &&
+    prev.wallet?.id === next.wallet?.id,
 );
 
 type IQuickSelectListItemFrameProps = {
   address: string;
   walletId?: string;
+  wallet?: IDBWallet;
   onPress?: () => void;
   onLongPress?: () => void;
   onHoverIn?: () => void;
@@ -49,6 +60,7 @@ type IQuickSelectListItemFrameProps = {
 function QuickSelectListItemFrame({
   address,
   walletId,
+  wallet,
   onPress,
   onLongPress,
   onHoverIn,
@@ -60,9 +72,13 @@ function QuickSelectListItemFrame({
 }: IQuickSelectListItemFrameProps) {
   const renderAvatar = useCallback(
     () => (
-      <MemoizedAccountAvatarWithWallet address={address} walletId={walletId} />
+      <MemoizedAccountAvatarWithWallet
+        address={address}
+        walletId={walletId}
+        wallet={wallet}
+      />
     ),
-    [address, walletId],
+    [address, wallet, walletId],
   );
 
   return (

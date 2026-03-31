@@ -127,7 +127,7 @@
     "@onekeyfe/hd-transport-electron": "1.1.24",
     "@onekeyfe/hd-web-sdk": "1.1.24",
     "@onekeyfe/onekey-cross-webview": "2.2.63",
-    "@onekeyfe/react-native-auto-size-input": "1.1.36",
+    "@onekeyfe/react-native-auto-size-input": "1.1.46",
     "@polkadot/extension-inject": "0.54.1",
     "@polkadot/types": "14.3.1",
     "@polkadot/util-crypto": "13.2.3",
