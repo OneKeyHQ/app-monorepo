@@ -265,7 +265,7 @@ function BasicEarnHome({
   );
 
   useEffect(() => {
-    if (!showContent) {
+    if (!showContent || !isEarnTabFocused) {
       return;
     }
 
@@ -279,7 +279,7 @@ function BasicEarnHome({
       switchType,
     });
     earnModeSwitchTypeRef.current = 'default';
-  }, [defaultMode, showContent]);
+  }, [defaultMode, isEarnTabFocused, showContent]);
 
   useEffect(() => {
     const handleSwitchEarnMode = ({
@@ -300,6 +300,13 @@ function BasicEarnHome({
   }, [defaultMode, handleModeChange]);
 
   const media = useMedia();
+  const earnFocusTabRoutes = useMemo(
+    () =>
+      platformEnv.isNative
+        ? [ETabRoutes.Earn, ETabRoutes.Discovery]
+        : [ETabRoutes.Earn],
+    [],
+  );
 
   const handleListenTabFocusState = useCallback(
     (isFocus: boolean, isHideByModal: boolean) => {
@@ -332,10 +339,7 @@ function BasicEarnHome({
     [actions, prefetchEarnAvailableAssets, refetchFAQ],
   );
 
-  useListenTabFocusState(
-    [ETabRoutes.Earn, ETabRoutes.Discovery],
-    handleListenTabFocusState,
-  );
+  useListenTabFocusState(earnFocusTabRoutes, handleListenTabFocusState);
 
   const defaultModeRef = useRef(defaultMode);
   defaultModeRef.current = defaultMode;
