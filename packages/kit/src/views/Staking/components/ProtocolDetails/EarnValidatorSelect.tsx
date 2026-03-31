@@ -10,6 +10,8 @@ import {
 import type { ISelectItem } from '@onekeyhq/components/src/forms/Select/type';
 import type { IEarnSelectField } from '@onekeyhq/shared/types/staking';
 
+import { StakingTestIDs } from '../../testIDs';
+
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
 
@@ -61,7 +63,7 @@ export function EarnValidatorSelect({
   }, [select.options, selectedValue]);
 
   return (
-    <YStack gap="$1">
+    <YStack gap="$1" testID={StakingTestIDs.validatorSelect}>
       <XStack jc="space-between" ai="center">
         <XStack ai="center" gap="$1">
           {title ? (
@@ -83,6 +85,7 @@ export function EarnValidatorSelect({
               cursor={disabled ? 'not-allowed' : 'pointer'}
               opacity={disabled ? 0.5 : 1}
               hoverStyle={disabled ? undefined : { opacity: 0.8 }}
+              testID={StakingTestIDs.validatorSelectTrigger}
             >
               <SizableText size="$bodyMdMedium">{selectedLabel}</SizableText>
               <Icon

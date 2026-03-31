@@ -31,6 +31,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { StakingTestIDs } from '../../testIDs';
 import { formatApy, formatStakingDistanceToNowStrict } from '../utils';
 
 import { ProtocolRewards } from './ProtocolRewards';
@@ -48,6 +49,7 @@ type IPortfolioItemProps = {
   useLoading?: boolean;
   badgeType?: IBadgeType;
   badgeText?: string;
+  testID?: string;
 };
 
 function PortfolioItem({
@@ -63,6 +65,7 @@ function PortfolioItem({
   useLoading,
   badgeType,
   badgeText,
+  testID,
 }: IPortfolioItemProps) {
   const [loading, setLoading] = useState(false);
   const handlePress = useCallback(async () => {
@@ -127,6 +130,7 @@ function PortfolioItem({
           variant="primary"
           onPress={handlePress}
           loading={loading}
+          testID={testID}
         >
           {buttonText}
         </Button>
@@ -473,7 +477,7 @@ function PortfolioInfo({
 
   return (
     <>
-      <YStack gap="$6">
+      <YStack gap="$6" testID={StakingTestIDs.portfolioSection}>
         <XStack justifyContent="space-between">
           <SizableText size="$headingLg">
             {intl.formatMessage({ id: ETranslations.earn_portfolio })}
@@ -483,6 +487,7 @@ function PortfolioInfo({
               variant="tertiary"
               iconAfter="ChevronRightOutline"
               onPress={onPortfolioDetails}
+              testID={StakingTestIDs.portfolioDetailsBtn}
             >
               {intl.formatMessage({ id: ETranslations.global_details })}
             </Button>
@@ -573,6 +578,7 @@ function PortfolioInfo({
                 id: ETranslations.earn_claim,
               })}
               tooltip={tooltipForClaimable}
+              testID={StakingTestIDs.portfolioClaimBtn}
             />
           ) : null}
           {rewards && Number(rewards) > 0 ? (
@@ -588,6 +594,7 @@ function PortfolioInfo({
               buttonText={intl.formatMessage({
                 id: ETranslations.earn_claim,
               })}
+              testID={StakingTestIDs.portfolioRewardsClaimBtn}
               tooltip={
                 isLessThanMinClaimable
                   ? intl.formatMessage(

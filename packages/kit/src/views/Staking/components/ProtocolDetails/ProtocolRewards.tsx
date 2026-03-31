@@ -16,6 +16,8 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { StakingTestIDs } from '../../testIDs';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IEarnRewardNum,
@@ -114,6 +116,7 @@ function RewardItem({
             size="small"
             variant="primary"
             disabled={validClaimableNow.isZero()}
+            testID={StakingTestIDs.protocolRewardsClaimBtn}
             onPress={() => {
               onClaim?.({
                 amount: validClaimableNow.toFixed(),
@@ -200,6 +203,7 @@ export function ProtocolRewards({
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       bg="$bgSubdued"
+      testID={StakingTestIDs.protocolRewardsSection}
     >
       <XStack alignItems="center" gap="$1">
         <SizableText color="$textSubdued" size="$bodyMd">
