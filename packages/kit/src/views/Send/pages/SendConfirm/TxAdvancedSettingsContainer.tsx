@@ -28,6 +28,7 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
+import { SendTestIDs } from '../../testIDs';
 
 type IProps = {
   accountId: string;
@@ -270,6 +271,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
         <InfoItem
           label={
             <Button
+              testID={SendTestIDs.advancedSettings}
               alignSelf="flex-start"
               variant="tertiary"
               size="small"

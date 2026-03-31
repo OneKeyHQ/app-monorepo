@@ -103,6 +103,7 @@ import {
 import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog';
 import CoinControlBadge from '../../components/CoinControlBadge';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+import { SendTestIDs } from '../../testIDs';
 
 import RecentRecipients from './RecentRecipients';
 
@@ -1264,6 +1265,7 @@ function SendDataInputContainer() {
           labelAddon={renderAmountInputAddOn()}
         >
           <AmountInput
+            testID={SendTestIDs.amountInput}
             reversible
             enableMaxAmount
             balanceProps={{
@@ -1300,6 +1302,7 @@ function SendDataInputContainer() {
               }),
             }}
             tokenSelectorTriggerProps={{
+              testID: SendTestIDs.tokenSelector,
               selectedTokenImageUri: isNFT
                 ? nft?.metadata?.image
                 : tokenInfo?.logoURI,
@@ -1479,6 +1482,7 @@ function SendDataInputContainer() {
           }}
         >
           <TextArea
+            testID={SendTestIDs.memoInput}
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
@@ -1837,7 +1841,7 @@ function SendDataInputContainer() {
         title={intl.formatMessage({ id: ETranslations.send_title })}
         headerRight={renderAddressSecurityHeaderRightButton}
       />
-      <Page.Body px="$5" testID="send-recipient-amount-form">
+      <Page.Body px="$5" testID={SendTestIDs.dataInputPage}>
         <AccountSelectorProviderMirror
           config={{
             sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
@@ -1901,6 +1905,7 @@ function SendDataInputContainer() {
               </Form.Field>
             ) : null}
             <AddressInputField
+              testID={SendTestIDs.recipientInput}
               name="to"
               onScanResult={onScanResult}
               accountId={currentAccount.accountId}

@@ -40,6 +40,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+import { SendTestIDs } from '../../testIDs';
 
 import CoinControlStrategyPopover from './CoinControlStrategyPopover';
 
@@ -417,7 +418,7 @@ function CoinControlPage() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.wallet_coin_control })}
       />
-      <Page.Body>
+      <Page.Body testID={SendTestIDs.coinControlPage}>
         <YStack flex={1}>
           {/* Strategy Selector */}
           <XStack
