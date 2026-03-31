@@ -28,6 +28,17 @@ const sentryConfig = getSentryExpoConfig(projectRoot);
 const config = mergeConfig(defaultConfig, sentryConfig);
 
 config.projectRoot = projectRoot;
+config.watchFolders = Array.from(
+  new Set([...(config.watchFolders || []), monorepoRoot]),
+);
+config.resolver = config.resolver || {};
+config.resolver.nodeModulesPaths = Array.from(
+  new Set([
+    path.resolve(projectRoot, 'node_modules'),
+    path.resolve(monorepoRoot, 'node_modules'),
+    ...(config.resolver.nodeModulesPaths || []),
+  ]),
+);
 
 // When running under React Native Harness, set unstable_serverRoot to the monorepo root
 // so Metro can resolve test files from packages/ (e.g. packages/shared/src/**/*.test.ts).
@@ -243,8 +254,21 @@ const originalRewriteRequestUrl =
     ? config.server.rewriteRequestUrl
     : (url) => url;
 config.server = config.server || {};
-config.server.rewriteRequestUrl = (url) =>
-  originalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
+config.server.rewriteRequestUrl = (url) => {
+  let rewrittenUrl = originalRewriteRequestUrl(url).replace(
+    '&lazy=true',
+    '&lazy=false',
+  );
+
+  if (rewrittenUrl.startsWith('/background.bundle')) {
+    rewrittenUrl = rewrittenUrl.replace(
+      '/background.bundle',
+      '/apps/mobile/background.bundle',
+    );
+  }
+
+  return rewrittenUrl;
+};
 
 // Apply split code plugin, then wrap with Rozenite plugin
 const splitCodePlugin = require('./plugins');

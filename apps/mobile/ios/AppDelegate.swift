@@ -50,7 +50,7 @@ private enum BackgroundThreadBridge {
     return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
   }
 
-  static func installSharedBridgeInMainRuntime(_ host: RCTHost) {
+  static func installSharedBridgeInMainRuntime(_ host: AnyObject) {
     guard let cls = managerClass() else {
       NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip installSharedBridgeInMainRuntime")
       return
@@ -297,9 +297,8 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #endif
   }
 
-  override func hostDidStart(_ host: RCTHost) {
-    super.hostDidStart(host)
-
+  @objc(hostDidStart:)
+  func handleHostDidStart(_ host: AnyObject) {
     guard isNativeBackgroundThreadEnabled() else {
       NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: background thread disabled by ENABLE_NATIVE_BACKGROUND_THREAD")
       return
