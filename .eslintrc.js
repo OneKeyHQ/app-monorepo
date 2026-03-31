@@ -331,6 +331,8 @@ module.exports = {
   },
   ignorePatterns: [
     '*.wasm.bin',
+    '.worktree/**',
+    '.claude/worktrees/**',
     'apps/desktop/public/static/js-sdk*',
     'packages/components/src/primitives/Icon/Icons.tsx',
     'packages/components/src/primitives/Icon/react/*',
