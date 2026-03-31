@@ -18,6 +18,7 @@ import PasswordVerifyContainer from '../../../components/Password/container/Pass
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 
 function PasscodeFormView() {
   const intl = useIntl();
@@ -79,7 +80,7 @@ function PasscodeFormView() {
 
 function CreatePasscodePage() {
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.createPasscodePage}>
       <OnboardingLayout>
         <OnboardingLayout.Header />
         <OnboardingLayout.Body constrained={false} scrollable={false}>

@@ -56,6 +56,7 @@ interface IPinInputLayoutProps {
   isVerifyPinPage?: boolean;
   onAutoInputPin?: () => void;
   showInputSkeleton?: boolean;
+  testID?: string;
 }
 
 export interface IPinInputLayoutRef {
@@ -86,6 +87,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       isVerifyPinPage,
       onAutoInputPin,
       showInputSkeleton = false,
+      testID,
     },
     ref,
   ) => {
@@ -153,6 +155,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
 
     return (
       <Page
+        testID={testID}
         onUnmounted={onUnmounted}
         onClose={() => {
           void onClose?.();

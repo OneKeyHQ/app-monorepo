@@ -60,6 +60,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 import {
   useConnectDeviceError,
   useDeviceConnect,
@@ -519,7 +520,7 @@ function FinalizeWalletSetupPage({
   );
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.finalizeSetupPage}>
       <OnboardingLayout>
         <OnboardingLayout.Header
           showBackButton={false}

@@ -49,6 +49,7 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -406,7 +407,7 @@ function GetStarted() {
   const bgColor = theme.bgApp.val;
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.getStartedPage}>
       <OnboardingLayout>
         <OnboardingLayout.Header showBackButton={false}>
           <OnboardingLayout.Back exit />
@@ -501,6 +502,7 @@ function GetStarted() {
               <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
                 <Button
+                  testID={OnboardingTestIDs.connectHardwareButton}
                   size="large"
                   variant="primary"
                   alignSelf="stretch"
@@ -519,6 +521,7 @@ function GetStarted() {
                 {isKeylessWalletEnabled ? (
                   <>
                     <Button
+                      testID={OnboardingTestIDs.googleSignInButton}
                       bg="$gray3"
                       hoverStyle={{ bg: '$gray4' }}
                       pressStyle={{ bg: '$gray5' }}
@@ -566,6 +569,7 @@ function GetStarted() {
                       </XStack>
                     </Button>
                     <Button
+                      testID={OnboardingTestIDs.appleSignInButton}
                       bg="$gray3"
                       hoverStyle={{ bg: '$gray4' }}
                       pressStyle={{ bg: '$gray5' }}
@@ -613,6 +617,7 @@ function GetStarted() {
                       </XStack>
                     </Button>
                     <Button
+                      testID={OnboardingTestIDs.importWalletButton}
                       variant="tertiary"
                       size="large"
                       alignSelf="stretch"
@@ -626,6 +631,7 @@ function GetStarted() {
                   </>
                 ) : (
                   <Button
+                    testID={OnboardingTestIDs.createWalletButton}
                     bg="$gray3"
                     hoverStyle={{ bg: '$gray4' }}
                     pressStyle={{ bg: '$gray5' }}

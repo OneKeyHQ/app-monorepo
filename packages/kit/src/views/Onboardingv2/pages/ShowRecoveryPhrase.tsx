@@ -28,6 +28,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRecoveryPhraseProtected } from '../../../hooks/useRecoveryPhraseProtected/useRecoveryPhraseProtected';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -107,14 +108,14 @@ export default function ShowRecoveryPhrase() {
         copyText(mnemonic);
       },
       confirmButtonProps: {
-        testID: 'copy-recovery-phrase-confirm',
+        testID: OnboardingTestIDs.copyRecoveryPhraseConfirm,
         variant: 'secondary',
       },
       onCancelText: intl.formatMessage({
         id: ETranslations.global_cancel_copy,
       }),
       cancelButtonProps: {
-        testID: 'copy-recovery-phrase-cancel',
+        testID: OnboardingTestIDs.copyRecoveryPhraseCancel,
         variant: 'primary',
       },
     });
@@ -128,7 +129,7 @@ export default function ShowRecoveryPhrase() {
   }, [handleCopyMnemonic]);
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.showRecoveryPhrasePage}>
       <OnboardingLayout>
         <OnboardingLayout.Header title={displayName} />
         <OnboardingLayout.Body>

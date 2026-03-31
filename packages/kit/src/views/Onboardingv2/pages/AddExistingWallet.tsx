@@ -23,6 +23,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 
 type IAddExistingWalletOption = {
@@ -188,7 +189,7 @@ export default function AddExistingWallet() {
   );
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.addExistingWalletPage}>
       <OnboardingLayout>
         <OnboardingLayout.Header
           title={intl.formatMessage({

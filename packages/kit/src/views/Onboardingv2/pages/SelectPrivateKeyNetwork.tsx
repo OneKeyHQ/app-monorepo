@@ -69,6 +69,7 @@ import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { toastSuccessWhenImportAddressOrPrivateKey } from '../../../utils/toastExistingWalletSwitch';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 
 type IFormValues = {
   // networkId?: string;
@@ -780,7 +781,7 @@ function SelectPrivateKeyNetworkView() {
               undefinedResultIfReRun={false}
               renderTrigger={({ label, onPress }) => (
                 <XStack
-                  testID="wallet-derivation-path-selector-trigger"
+                  testID={OnboardingTestIDs.derivationPathSelector}
                   alignItems="center"
                   p="$3"
                   py="$2.5"
@@ -833,7 +834,7 @@ function SelectPrivateKeyNetworkView() {
   ]);
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.selectPrivateKeyNetworkPage}>
       <OnboardingLayout>
         <OnboardingLayout.Header
           title={intl.formatMessage({

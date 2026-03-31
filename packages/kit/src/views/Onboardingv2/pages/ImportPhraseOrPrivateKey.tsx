@@ -41,6 +41,7 @@ import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/I
 import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { PhaseInputArea } from '../components/PhaseInputArea';
+import { OnboardingTestIDs } from '../testIDs';
 
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
 import type { RouteProp } from '@react-navigation/core';
@@ -308,7 +309,7 @@ export default function ImportPhraseOrPrivateKey() {
   );
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.importPhrasePage}>
       <OnboardingLayout>
         <OnboardingLayout.Header
           title={intl.formatMessage({
