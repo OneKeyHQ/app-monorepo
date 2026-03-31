@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "在浏览器中查看地址",
   "settings.view_transaction_in_explorer": "在浏览器中查看交易",
   "settings.whats_new": "新功能",
+  "settings_menu_bar_tray": "菜单栏",
+  "settings_menu_bar_tray_desc": "在 macOS 菜单栏显示 OneKey，快速查看资产和交易。",
   "settings_protection.allowlist_content": "启用此功能后，您只能向钱包内的账户或地址簿中保存的地址发送资金。",
   "settings_protection.allowlist_title": "转账白名单",
   "setup_choose_option_create_new_wallet": "创建新钱包：如果这是您的第一个钱包",
