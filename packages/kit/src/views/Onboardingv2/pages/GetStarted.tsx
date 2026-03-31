@@ -338,6 +338,9 @@ function GetStarted() {
 
   const autoLoginKeylessProvider = route?.params?.autoLoginKeylessProvider;
   const autoConnectNonce = route?.params?.autoConnectNonce;
+  const isWebKeylessSidePanelMode = Boolean(
+    route?.params?.fromExt && autoLoginKeylessProvider,
+  );
   const loadingDialogRef = useRef<IDialogInstance | null>(null);
 
   const handleGoogleLogin = useCallback(async () => {
@@ -395,7 +398,9 @@ function GetStarted() {
   useAutoStartKeylessProvider({
     autoStartProvider: autoLoginKeylessProvider,
     autoStartTriggerKey: autoConnectNonce,
-    enabled: isKeylessWalletEnabled && !enableKeylessWalletLoading,
+    enabled:
+      (isKeylessWalletEnabled || isWebKeylessSidePanelMode) &&
+      !enableKeylessWalletLoading,
     onGoogleLogin: handleGoogleLogin,
     onAppleLogin: handleAppleLogin,
   });
@@ -500,23 +505,25 @@ function GetStarted() {
             >
               <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
-                <Button
-                  size="large"
-                  variant="primary"
-                  alignSelf="stretch"
-                  childrenAsText={false}
-                  onPress={handleGetStarted}
-                >
-                  <XStack alignItems="center" gap="$2">
-                    <AnimatedDeviceAvatar deviceSize={DEVICE_SIZE} />
-                    <SizableText size="$bodyLgMedium" color="$textInverse">
-                      {intl.formatMessage({
-                        id: ETranslations.global_connect_hardware_wallet,
-                      })}
-                    </SizableText>
-                  </XStack>
-                </Button>
-                {isKeylessWalletEnabled ? (
+                {isWebKeylessSidePanelMode ? null : (
+                  <Button
+                    size="large"
+                    variant="primary"
+                    alignSelf="stretch"
+                    childrenAsText={false}
+                    onPress={handleGetStarted}
+                  >
+                    <XStack alignItems="center" gap="$2">
+                      <AnimatedDeviceAvatar deviceSize={DEVICE_SIZE} />
+                      <SizableText size="$bodyLgMedium" color="$textInverse">
+                        {intl.formatMessage({
+                          id: ETranslations.global_connect_hardware_wallet,
+                        })}
+                      </SizableText>
+                    </XStack>
+                  </Button>
+                )}
+                {isKeylessWalletEnabled || isWebKeylessSidePanelMode ? (
                   <>
                     <Button
                       bg="$gray3"
@@ -612,37 +619,41 @@ function GetStarted() {
                         </SizableText>
                       </XStack>
                     </Button>
-                    <Button
-                      variant="tertiary"
-                      size="large"
-                      alignSelf="stretch"
-                      mx="$0"
-                      onPress={handleCreateOrImportWallet}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.more_options,
-                      })}
-                    </Button>
+                    {isWebKeylessSidePanelMode ? null : (
+                      <Button
+                        variant="tertiary"
+                        size="large"
+                        alignSelf="stretch"
+                        mx="$0"
+                        onPress={handleCreateOrImportWallet}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.more_options,
+                        })}
+                      </Button>
+                    )}
                   </>
                 ) : (
-                  <Button
-                    bg="$gray3"
-                    hoverStyle={{ bg: '$gray4' }}
-                    pressStyle={{ bg: '$gray5' }}
-                    size="large"
-                    alignSelf="stretch"
-                    childrenAsText={false}
-                    onPress={handleCreateOrImportWallet}
-                  >
-                    <XStack gap="$2" alignItems="center">
-                      <Icon name="PlusLargeOutline" size="$5" />
-                      <SizableText size="$bodyLgMedium">
-                        {intl.formatMessage({
-                          id: ETranslations.onboarding_create_or_import_wallet,
-                        })}
-                      </SizableText>
-                    </XStack>
-                  </Button>
+                  (isWebKeylessSidePanelMode ? null : (
+                    <Button
+                      bg="$gray3"
+                      hoverStyle={{ bg: '$gray4' }}
+                      pressStyle={{ bg: '$gray5' }}
+                      size="large"
+                      alignSelf="stretch"
+                      childrenAsText={false}
+                      onPress={handleCreateOrImportWallet}
+                    >
+                      <XStack gap="$2" alignItems="center">
+                        <Icon name="PlusLargeOutline" size="$5" />
+                        <SizableText size="$bodyLgMedium">
+                          {intl.formatMessage({
+                            id: ETranslations.onboarding_create_or_import_wallet,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    </Button>
+                  ))
                 )}
               </Stack>
             </YStack>
