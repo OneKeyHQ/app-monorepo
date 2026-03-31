@@ -32,7 +32,9 @@ const autoLogger = {
           }
         }, 600);
 
-        recentErrorStacks.add(error.stack);
+        if (error.stack) {
+          recentErrorStacks.add(error.stack);
+        }
         if (recentErrorStacks.size > MAX_RECENT_ERRORS) {
           // Remove oldest entry
           const first = recentErrorStacks.values().next().value;
