@@ -101,7 +101,7 @@ function renderHook<Result, Props = undefined>(
   let renderer: TestRenderer.ReactTestRenderer;
   syncAct(() => {
     const element = createElement(HookContainer, {
-      hookProps: initialProps,
+      hookProps: initialProps as unknown as Props,
     }) as any;
     const wrappedElement = Wrapper
       ? (createElement(Wrapper, null, element) as any)
