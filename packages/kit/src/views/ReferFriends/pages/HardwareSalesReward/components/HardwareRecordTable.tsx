@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareRecordItem } from '@onekeyhq/shared/src/referralCode/type';
@@ -81,6 +82,7 @@ function TableRow({ item }: ITableRowProps) {
             ai="center"
             jc="center"
             animation="quick"
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={isExpanded ? '180deg' : '0deg'}
           >
             <Icon

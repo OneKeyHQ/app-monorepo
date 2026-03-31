@@ -2,8 +2,8 @@
 
 // @ts-ignore
 /* eslint-disable  */
-  
-  export enum ETranslations {
+
+export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
   Limit_expire_hour = 'Limit.expire_hour',
@@ -2600,6 +2600,28 @@
   passphrase_character_limit = 'passphrase_character_limit',
   passphrase_disabled_dialog_desc = 'passphrase_disabled_dialog_desc',
   passphrase_disabled_dialog_title = 'passphrase_disabled_dialog_title',
+  perp_guide_article_basic_concepts = 'perp.guide_article_basic_concepts',
+  perp_guide_article_deposit_withdrawal = 'perp.guide_article_deposit_withdrawal',
+  perp_guide_article_introduction = 'perp.guide_article_introduction',
+  perp_guide_article_open_position = 'perp.guide_article_open_position',
+  perp_guide_article_position_sharing = 'perp.guide_article_position_sharing',
+  perp_guide_article_trading_fees = 'perp.guide_article_trading_fees',
+  perp_guide_article_video_tutorials = 'perp.guide_article_video_tutorials',
+  perp_guide_article_view_close_positions = 'perp.guide_article_view_close_positions',
+  perp_guide_desc_basic_concepts = 'perp.guide_desc_basic_concepts',
+  perp_guide_desc_deposit_withdrawal = 'perp.guide_desc_deposit_withdrawal',
+  perp_guide_desc_introduction = 'perp.guide_desc_introduction',
+  perp_guide_desc_open_position = 'perp.guide_desc_open_position',
+  perp_guide_desc_position_sharing = 'perp.guide_desc_position_sharing',
+  perp_guide_desc_trading_fees = 'perp.guide_desc_trading_fees',
+  perp_guide_desc_video_tutorials = 'perp.guide_desc_video_tutorials',
+  perp_guide_desc_view_close_positions = 'perp.guide_desc_view_close_positions',
+  perp_guide_funds_and_fees = 'perp.guide_funds_and_fees',
+  perp_guide_getting_started = 'perp.guide_getting_started',
+  perp_guide_help_center = 'perp.guide_help_center',
+  perp_guide_search_placeholder = 'perp.guide_search_placeholder',
+  perp_guide_trading_operations = 'perp.guide_trading_operations',
+  perp_guide_video_tutorials = 'perp.guide_video_tutorials',
   perp_0_fee = 'perp.0_fee',
   perp_account_action = 'perp.account_action',
   perp_account_action_rewards = 'perp.account_action_rewards',
@@ -3853,6 +3875,8 @@
   settings_view_address_in_explorer = 'settings.view_address_in_explorer',
   settings_view_transaction_in_explorer = 'settings.view_transaction_in_explorer',
   settings_whats_new = 'settings.whats_new',
+  settings_menu_bar_tray = 'settings_menu_bar_tray',
+  settings_menu_bar_tray_desc = 'settings_menu_bar_tray_desc',
   settings_protection_allowlist_content = 'settings_protection.allowlist_content',
   settings_protection_allowlist_title = 'settings_protection.allowlist_title',
   setup_choose_option_create_new_wallet = 'setup_choose_option_create_new_wallet',

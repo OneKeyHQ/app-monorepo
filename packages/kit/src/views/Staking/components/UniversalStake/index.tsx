@@ -16,12 +16,18 @@ import {
   IconButton,
   Image,
   Page,
+  Popover,
   SizableText,
+  Skeleton,
   Stack,
   Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import {
@@ -35,6 +41,7 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -89,6 +96,7 @@ import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
 } from '../ProtocolDetails/PendleSharedComponents';
+import { ProtocolImage, formatTvl } from '../ProtocolDisplayShared';
 import {
   calcPriceImpactInfo,
   showHighPriceImpactDialog,
@@ -102,7 +110,220 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
+import type { IManagePositionProtocolSwitchConfig } from '../../pages/ManagePosition/components/ManagePositionContent';
 import type { FontSizeTokens } from 'tamagui';
+
+function withRewardUnit(text: string, rewardUnit: string): string {
+  return /\s*(APY|APR)\s*$/i.test(text) ? text : `${text} ${rewardUnit}`;
+}
+
+function getProtocolAprDisplay({
+  protocol,
+  fallbackText,
+}: {
+  protocol?: IManagePositionProtocolSwitchConfig['currentProtocol'];
+  fallbackText?: string;
+}) {
+  const rewardUnit = protocol?.provider.rewardUnit || 'APR';
+
+  if (protocol?.aprInfo?.highlight?.text) {
+    return {
+      text: withRewardUnit(protocol.aprInfo.highlight.text, rewardUnit),
+      color: (protocol.aprInfo.highlight.color || '$textSuccess') as string,
+      textDecorationLine: 'none' as const,
+    };
+  }
+
+  if (protocol?.aprInfo?.normal?.text) {
+    return {
+      text: withRewardUnit(protocol.aprInfo.normal.text, rewardUnit),
+      color: (protocol.aprInfo.normal.color || '$text') as string,
+      textDecorationLine: 'none' as const,
+    };
+  }
+
+  if (protocol?.aprInfo?.deprecated?.text) {
+    return {
+      text: withRewardUnit(protocol.aprInfo.deprecated.text, rewardUnit),
+      color: (protocol.aprInfo.deprecated.color || '$textSubdued') as string,
+      textDecorationLine: 'line-through' as const,
+    };
+  }
+
+  if (protocol) {
+    return {
+      text: `${protocol.provider.aprWithoutFee || '0'} ${rewardUnit}`,
+      color: '$textSuccess',
+      textDecorationLine: 'none' as const,
+    };
+  }
+
+  if (fallbackText) {
+    return {
+      text: fallbackText,
+      color: '$textSuccess',
+      textDecorationLine: 'none' as const,
+    };
+  }
+
+  return undefined;
+}
+
+function ProtocolSwitchTriggerRow({
+  currentProtocol,
+  fallbackProviderName,
+  fallbackProviderLogoUri,
+  fallbackAprText,
+  isLoading,
+  isSwitchEnabled,
+  onPress,
+}: {
+  currentProtocol?: IManagePositionProtocolSwitchConfig['currentProtocol'];
+  fallbackProviderName?: string;
+  fallbackProviderLogoUri?: string;
+  fallbackAprText?: string;
+  isLoading?: boolean;
+  isSwitchEnabled: boolean;
+  onPress: () => void;
+}) {
+  const providerName = capitalizeString(
+    currentProtocol?.provider.name || fallbackProviderName || '',
+  );
+  const subtitle = [
+    formatTvl(currentProtocol?.provider.tvl),
+    currentProtocol?.provider.vaultName,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const aprDisplay = getProtocolAprDisplay({
+    protocol: currentProtocol,
+    fallbackText: fallbackAprText,
+  });
+  const showChevron = isSwitchEnabled || isLoading;
+  let aprElement = null;
+
+  if (aprDisplay) {
+    aprElement = (
+      <SizableText
+        size="$headingLg"
+        color={aprDisplay.color}
+        textDecorationLine={aprDisplay.textDecorationLine}
+      >
+        {aprDisplay.text}
+      </SizableText>
+    );
+  } else if (isLoading) {
+    aprElement = <Skeleton h="$5" w={72} borderRadius="$2" />;
+  }
+
+  return (
+    <XStack
+      role={isSwitchEnabled ? 'button' : undefined}
+      userSelect={isSwitchEnabled ? 'none' : undefined}
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+      px="$2"
+      mx="$-2"
+      py="$1"
+      borderRadius="$2"
+      hoverStyle={isSwitchEnabled ? { bg: '$bgHover' } : undefined}
+      pressStyle={isSwitchEnabled ? { bg: '$bgActive' } : undefined}
+      onPress={isSwitchEnabled ? onPress : undefined}
+    >
+      <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
+        <ProtocolImage
+          logoURI={currentProtocol?.provider.logoURI || fallbackProviderLogoUri}
+          networkLogoURI={currentProtocol?.network.logoURI}
+        />
+        <YStack flex={1} minWidth={0} gap="$0.5">
+          {isLoading && !providerName ? (
+            <Skeleton h="$5" w={96} borderRadius="$2" />
+          ) : (
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
+              {providerName}
+            </SizableText>
+          )}
+          {subtitle ? (
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {subtitle}
+            </SizableText>
+          ) : null}
+        </YStack>
+      </XStack>
+      <XStack alignItems="center" gap="$1" flexShrink={0}>
+        {aprElement}
+        {showChevron ? (
+          <Icon
+            name="ChevronDownSmallOutline"
+            color={isSwitchEnabled ? '$iconSubdued' : '$iconDisabled'}
+            size="$5"
+          />
+        ) : null}
+      </XStack>
+    </XStack>
+  );
+}
+
+function ProtocolSwitcher({
+  tokenSymbol,
+  accountId,
+  fallbackProviderName,
+  fallbackProviderLogoUri,
+  fallbackAprText,
+  protocolSwitchConfig,
+}: {
+  tokenSymbol: string;
+  accountId: string;
+  fallbackProviderName?: string;
+  fallbackProviderLogoUri?: string;
+  fallbackAprText?: string;
+  protocolSwitchConfig: IManagePositionProtocolSwitchConfig;
+}) {
+  const isSwitchEnabled = protocolSwitchConfig.protocols.length > 1;
+  const trigger = (
+    <ProtocolSwitchTriggerRow
+      currentProtocol={protocolSwitchConfig.currentProtocol}
+      fallbackProviderName={fallbackProviderName}
+      fallbackProviderLogoUri={fallbackProviderLogoUri}
+      fallbackAprText={fallbackAprText}
+      isLoading={protocolSwitchConfig.isLoading}
+      isSwitchEnabled={isSwitchEnabled}
+      onPress={() => {}}
+    />
+  );
+
+  if (!isSwitchEnabled) {
+    return trigger;
+  }
+
+  return (
+    <Popover
+      title=""
+      showHeader={false}
+      placement="bottom-end"
+      renderTrigger={trigger}
+      floatingPanelProps={{
+        w: 360,
+        p: '$0',
+      }}
+      renderContent={({ closePopover }) => (
+        <ProtocolListContent
+          variant="switcher"
+          symbol={tokenSymbol}
+          accountId={accountId}
+          protocols={protocolSwitchConfig.protocols}
+          isLoading={protocolSwitchConfig.isLoading}
+          selectedProtocol={protocolSwitchConfig.selectedProtocol}
+          onProtocolSelect={async (protocol) => {
+            await protocolSwitchConfig.onProtocolSelect(protocol);
+            closePopover();
+          }}
+        />
+      )}
+    />
+  );
+}
 
 type IUniversalStakeProps = {
   accountId: string;
@@ -139,6 +360,7 @@ type IUniversalStakeProps = {
     token?: IToken;
   };
   beforeFooter?: ReactElement | null;
+  protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   ongoingValidator?: IEarnSelectField;
@@ -177,6 +399,7 @@ export function UniversalStake({
   approveTarget,
   currentAllowance,
   beforeFooter,
+  protocolSwitchConfig,
   showApyDetail = false,
   isInModalContext = false,
   ongoingValidator,
@@ -214,7 +437,7 @@ export function UniversalStake({
   );
   const [
     {
-      currencyInfo: { symbol },
+      currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
 
@@ -862,7 +1085,7 @@ export function UniversalStake({
       if (impactInfo) {
         const userConfirmed = await showHighPriceImpactDialog(intl, {
           percent: impactInfo.percent,
-          lossAmount: `${symbol}${impactInfo.lossAmount}`,
+          lossAmount: `${currencySymbol}${impactInfo.lossAmount}`,
         });
         if (!userConfirmed) return;
       }
@@ -910,7 +1133,7 @@ export function UniversalStake({
     providerName,
     onQuoteReset,
     intl,
-    symbol,
+    currencySymbol,
     tokenInfo?.price,
     receiveInputConfig,
     transactionConfirmation?.effectiveApy,
@@ -1437,8 +1660,67 @@ export function UniversalStake({
         />
       );
     }
+
+    // When entering from trending list (protocolSwitchConfig present),
+    // only show info-style rewards (those with title.color).
+    // For details page and Position Manage modal, show the full content
+    // including the "Est. annual rewards" title and all reward rows.
+    const isFromTrending = !!protocolSwitchConfig;
+
+    if (isFromTrending) {
+      const infoRewards = transactionConfirmation?.rewards?.filter(
+        (reward) => !!reward.title.color,
+      );
+      if (!infoRewards?.length) return null;
+      return (
+        <YStack gap="$2">
+          {infoRewards.map((reward) => {
+            const hasTooltip = reward.tooltip?.type === 'text';
+            let descriptionTextSize = (
+              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+            ) as FontSizeTokens;
+            if (reward.description.size) {
+              descriptionTextSize = reward.description.size;
+            }
+            return (
+              <XStack
+                key={reward.title.text}
+                gap="$1"
+                ai="flex-start"
+                mt="$1.5"
+                flexWrap="wrap"
+              >
+                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                  <EarnText
+                    text={reward.title}
+                    color={reward.title.color}
+                    size={reward.title.size}
+                  />
+                  <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                    <EarnText
+                      text={reward.description}
+                      size={descriptionTextSize}
+                      color={reward.description.color ?? '$textSubdued'}
+                      flexShrink={1}
+                    />
+                    {hasTooltip ? (
+                      <EarnTooltip
+                        title={reward.title.text}
+                        tooltip={reward.tooltip}
+                      />
+                    ) : null}
+                  </XStack>
+                </XStack>
+              </XStack>
+            );
+          })}
+        </YStack>
+      );
+    }
+
+    // Full content for details page and Position Manage modal
     return (
-      <YStack gap="$2">
+      <YStack gap="$1.5">
         <XStack ai="center" gap="$1">
           <EarnText
             text={transactionConfirmation?.title}
@@ -1468,7 +1750,6 @@ export function UniversalStake({
               key={reward.title.text}
               gap="$1"
               ai="flex-start"
-              mt="$1.5"
               flexWrap="wrap"
             >
               <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
@@ -1504,6 +1785,7 @@ export function UniversalStake({
     pendleTipText,
     transactionConfirmation,
     quoteLoading,
+    protocolSwitchConfig,
   ]);
 
   const shouldShowSummaryCard = shouldShowStakingSummaryCard({
@@ -1545,7 +1827,7 @@ export function UniversalStake({
               }}
               valueProps={{
                 value: currentValue,
-                currency: currentValue ? symbol : undefined,
+                currency: currentValue ? currencySymbol : undefined,
               }}
               enableMaxAmount
               onSelectPercentageStage={onSelectPercentageStage}
@@ -1557,7 +1839,7 @@ export function UniversalStake({
           <ManagePageV2ReceiveInput
             receive={transactionConfirmation?.receive}
             config={effectiveReceiveInputConfig}
-            fiatSymbol={symbol}
+            fiatSymbol={currencySymbol}
             payFiatValue={currentValue}
             loading={quoteLoading}
           />
@@ -1632,12 +1914,24 @@ export function UniversalStake({
       {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
-          pt={hasSummarySection ? '$5' : '$3.5'}
+          pt={protocolSwitchConfig ? '$3.5' : '$5'}
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {showApyHeader && apyDetail ? (
+          {protocolSwitchConfig ? (
+            <YStack mb="$3.5">
+              <ProtocolSwitcher
+                tokenSymbol={actionSymbol}
+                accountId={accountId}
+                fallbackProviderName={providerName}
+                fallbackProviderLogoUri={providerLogo}
+                fallbackAprText={apyDetail?.description?.text}
+                protocolSwitchConfig={protocolSwitchConfig}
+              />
+            </YStack>
+          ) : null}
+          {showApyHeader && apyDetail && !protocolSwitchConfig ? (
             <XStack gap="$1" ai="center" mb="$3.5">
               <EarnText
                 text={apyDetail.description}
@@ -1651,7 +1945,7 @@ export function UniversalStake({
             </XStack>
           ) : null}
           {summaryContent}
-          {hasSummarySection ? <Divider my="$5" /> : null}
+          {summaryContent ? <Divider my="$5" /> : null}
           <YStack gap="$5">
             {ongoingValidator ? (
               <EarnValidatorSelect
@@ -1661,7 +1955,7 @@ export function UniversalStake({
                 disabled={amountInputDisabled}
               />
             ) : null}
-            {showPendleTransactionSection ? (
+            {showPendleTransactionSection && !protocolSwitchConfig ? (
               <Accordion
                 overflow="hidden"
                 width="100%"
@@ -1711,6 +2005,7 @@ export function UniversalStake({
                             </XStack>
                             <YStack
                               animation="quick"
+                              animateOnly={ANIMATE_ONLY_TRANSFORM}
                               rotate={
                                 open && !isAccordionTriggerDisabled
                                   ? '180deg'
@@ -1736,6 +2031,7 @@ export function UniversalStake({
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                       px={0}
                       pb={0}

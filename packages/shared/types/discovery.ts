@@ -80,6 +80,16 @@ export interface IDiscoveryListParams {
   network?: string;
 }
 
+export enum ETranslateEngine {
+  standard = 'standard',
+  ai = 'ai',
+}
+
+export enum ETranslateDisplayMode {
+  replace = 'replace',
+  bilingual = 'bilingual',
+}
+
 export enum EHostSecurityLevel {
   High = 'high',
   Medium = 'medium',

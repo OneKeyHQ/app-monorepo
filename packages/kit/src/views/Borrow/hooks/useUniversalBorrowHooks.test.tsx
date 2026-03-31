@@ -1,6 +1,3 @@
-/**
- * @jest-environment jsdom
- */
 /* eslint-disable import/first */
 
 jest.mock('react-intl', () => {
@@ -15,6 +12,16 @@ jest.mock('react-intl', () => {
     }),
   };
 });
+
+// Mock the leaf module directly — in the harness, Metro's `export *` creates
+// non-configurable getter descriptors on barrel modules, so mutating the barrel
+// fails silently. Mocking the leaf ensures the getter chain resolves to our mock.
+jest.mock('@onekeyhq/components/src/actions/Toast', () => ({
+  __esModule: true,
+  Toast: {
+    error: jest.fn(),
+  },
+}));
 
 jest.mock('@onekeyhq/components', () => ({
   __esModule: true,
@@ -68,11 +75,17 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   },
 }));
 
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
 
 import { useUniversalBorrowRepayWithCollateral } from './useUniversalBorrowHooks';
+
+// In the harness, Metro's export * creates non-configurable getters so
+// jest.mock('@onekeyhq/components') can't replace the Toast export.
+// Instead, spy on the Toast object's error method directly — the object
+// itself is a plain mutable const, only the module re-export is read-only.
+const toastErrorSpy = jest.spyOn(Toast, 'error').mockImplementation(jest.fn());
 
 const signatureConfirmMock = (globalThis as any)
   .__borrowSignatureConfirmMock as {
@@ -100,7 +113,7 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
     backgroundMock.serviceStaking.updateEarnOrder.mockReset();
     backgroundMock.serviceStaking.updateOrderStatusByTxId.mockReset();
     backgroundMock.serviceStaking.waitForSolTxFinalized.mockReset();
-    (Toast.error as jest.Mock).mockReset();
+    toastErrorSpy.mockClear();
   });
 
   it('advances to repay after setup LUT finalizes even if repay confirm is cancelled', async () => {
@@ -164,15 +177,11 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
     const onSetupLutReadyForRepay = jest.fn();
     const onSuccess = jest.fn();
 
-    const { result } = renderHook(
-      () =>
-        useUniversalBorrowRepayWithCollateral({
-          networkId: 'sol--101',
-          accountId: 'hd-1--m/44',
-        }),
-      {
-        reactStrictMode: false,
-      },
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'hd-1--m/44',
+      }),
     );
 
     await act(async () => {
@@ -200,7 +209,7 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       status: 'Confirmed',
     });
     expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(1);
-    expect(Toast.error).not.toHaveBeenCalled();
+    expect(toastErrorSpy).not.toHaveBeenCalled();
   });
 
   it('keeps the repay confirm summary aligned with the fresh quote after setup LUT', async () => {
@@ -261,15 +270,11 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       },
     );
 
-    const { result } = renderHook(
-      () =>
-        useUniversalBorrowRepayWithCollateral({
-          networkId: 'sol--101',
-          accountId: 'hd-1--m/44',
-        }),
-      {
-        reactStrictMode: false,
-      },
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'hd-1--m/44',
+      }),
     );
 
     await act(async () => {
@@ -370,15 +375,11 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       },
     );
 
-    const { result } = renderHook(
-      () =>
-        useUniversalBorrowRepayWithCollateral({
-          networkId: 'sol--101',
-          accountId: 'hd-1--m/44',
-        }),
-      {
-        reactStrictMode: false,
-      },
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'hd-1--m/44',
+      }),
     );
 
     await act(async () => {
@@ -471,15 +472,11 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       },
     );
 
-    const { result } = renderHook(
-      () =>
-        useUniversalBorrowRepayWithCollateral({
-          networkId: 'sol--101',
-          accountId: 'hd-1--m/44',
-        }),
-      {
-        reactStrictMode: false,
-      },
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'hd-1--m/44',
+      }),
     );
 
     await act(async () => {
@@ -513,6 +510,6 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       routeKey: 'fresh-route-after-timeout',
       slippageBps: undefined,
     });
-    expect(Toast.error).not.toHaveBeenCalled();
+    expect(toastErrorSpy).not.toHaveBeenCalled();
   });
 });

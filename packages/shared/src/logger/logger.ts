@@ -1,108 +1,35 @@
 import appGlobals from '../appGlobals';
 
-import { AccountScope } from './scopes/account';
-import { AccountSelectorScope } from './scopes/accountSelector';
-import { AddressInputScope } from './scopes/addressInput';
-import { AppScope } from './scopes/app';
-import { ApprovalScope } from './scopes/approval';
-import { CloudBackupScope } from './scopes/cloudBackup';
-import { CloudSyncScope } from './scopes/cloudSync';
-import { DemoScope } from './scopes/demo';
-import { DexScope } from './scopes/dex';
-import { DiscoveryScope } from './scopes/discovery';
-import { FiatCryptoScope } from './scopes/fiatCrypto';
-import { HardwareScope } from './scopes/hardware';
-import { IpTableScope } from './scopes/ipTable';
-import { MarketScope } from './scopes/market';
-import { NetworkDoctorScope } from './scopes/networkDoctor';
-import { NotificationScope } from './scopes/notification/notification';
-import { OnboardingScope } from './scopes/onboarding';
-import { PerpScope } from './scopes/perp';
-import { PrimeScope } from './scopes/prime';
-import { ReferralScope } from './scopes/referral';
-import { RewardScope } from './scopes/reward';
-import { RookieGuideScope } from './scopes/rookieGuide';
-import { ScanQrCodeScope } from './scopes/scanQrCode';
-import { SettingScope } from './scopes/setting';
-import { SignatureRecordScope } from './scopes/signatureRecord';
-import { StakingScope } from './scopes/staking';
-import { SwapScope } from './scopes/swap';
-import { TokenScope } from './scopes/token';
-import { TransactionScope } from './scopes/transaction';
-import { UIScope } from './scopes/ui';
-import { UniversalSearchScope } from './scopes/universalSearch';
-import { UpdateScope } from './scopes/update';
-import { WalletScope } from './scopes/wallet';
+import { createLoggerScope, getLoggerScopeKeys } from './loggerRegistry';
 
-export class DefaultLogger {
-  account = new AccountScope();
+import type { ILoggerScopeKey, ILoggerScopeMap } from './loggerRegistry';
 
-  cloudBackup = new CloudBackupScope();
+class DefaultLoggerContainer {
+  private _cache = new Map<ILoggerScopeKey, unknown>();
 
-  cloudSync = new CloudSyncScope();
-
-  accountSelector = new AccountSelectorScope();
-
-  app = new AppScope();
-
-  approval = new ApprovalScope();
-
-  demo = new DemoScope();
-
-  setting = new SettingScope();
-
-  addressInput = new AddressInputScope();
-
-  signatureRecord = new SignatureRecordScope();
-
-  update = new UpdateScope();
-
-  discovery = new DiscoveryScope();
-
-  token = new TokenScope();
-
-  swap = new SwapScope();
-
-  staking = new StakingScope();
-
-  transaction = new TransactionScope();
-
-  hardware = new HardwareScope();
-
-  ipTable = new IpTableScope();
-
-  networkDoctor = new NetworkDoctorScope();
-
-  fiatCrypto = new FiatCryptoScope();
-
-  notification = new NotificationScope();
-
-  market = new MarketScope();
-
-  perp = new PerpScope();
-
-  scanQrCode = new ScanQrCodeScope();
-
-  wallet = new WalletScope();
-
-  ui = new UIScope();
-
-  referral = new ReferralScope();
-
-  reward = new RewardScope();
-
-  dex = new DexScope();
-
-  prime = new PrimeScope();
-
-  onboarding = new OnboardingScope();
-
-  universalSearch = new UniversalSearchScope();
-
-  rookieGuide = new RookieGuideScope();
+  getScope<K extends ILoggerScopeKey>(key: K): ILoggerScopeMap[K] {
+    let instance = this._cache.get(key) as ILoggerScopeMap[K] | undefined;
+    if (!instance) {
+      instance = createLoggerScope(key);
+      this._cache.set(key, instance);
+    }
+    return instance;
+  }
 }
 
-const defaultLogger = new DefaultLogger();
+export type IDefaultLogger = DefaultLoggerContainer & ILoggerScopeMap;
+
+for (const key of getLoggerScopeKeys()) {
+  Object.defineProperty(DefaultLoggerContainer.prototype, key, {
+    configurable: true,
+    enumerable: true,
+    get(this: DefaultLoggerContainer) {
+      return this.getScope(key);
+    },
+  });
+}
+
+const defaultLogger = new DefaultLoggerContainer() as IDefaultLogger;
 appGlobals.$defaultLogger = defaultLogger;
 
 export { defaultLogger };

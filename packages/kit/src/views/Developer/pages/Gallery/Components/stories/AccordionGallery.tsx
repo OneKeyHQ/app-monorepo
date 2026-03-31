@@ -5,6 +5,10 @@ import {
   View,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 import { Layout } from './utils/Layout';
 
@@ -34,6 +38,7 @@ const AccordionGallery = () => (
                       <SizableText>1. Take a cold shower</SizableText>
                       <View
                         animation="quick"
+                        animateOnly={ANIMATE_ONLY_TRANSFORM}
                         rotate={open ? '180deg' : '0deg'}
                         transformOrigin="center"
                       >
@@ -49,6 +54,7 @@ const AccordionGallery = () => (
                 <Accordion.HeightAnimator animation="quick">
                   <Accordion.Content
                     animation="quick"
+                    animateOnly={ANIMATE_ONLY_OPACITY}
                     exitStyle={{ opacity: 0 }}
                   >
                     <SizableText>
@@ -70,6 +76,7 @@ const AccordionGallery = () => (
                       <SizableText>2. Eat 4 eggs</SizableText>
                       <View
                         animation="quick"
+                        animateOnly={ANIMATE_ONLY_TRANSFORM}
                         rotate={open ? '180deg' : '0deg'}
                         transformOrigin="center"
                       >
@@ -85,6 +92,7 @@ const AccordionGallery = () => (
                 <Accordion.HeightAnimator animation="quick">
                   <Accordion.Content
                     animation="quick"
+                    animateOnly={ANIMATE_ONLY_OPACITY}
                     exitStyle={{ opacity: 0 }}
                   >
                     <SizableText>
@@ -120,6 +128,7 @@ const AccordionGallery = () => (
                       <SizableText>1. Take a cold shower</SizableText>
                       <View
                         animation="quick"
+                        animateOnly={ANIMATE_ONLY_TRANSFORM}
                         rotate={open ? '180deg' : '0deg'}
                         transformOrigin="center"
                       >
@@ -135,6 +144,7 @@ const AccordionGallery = () => (
                 <Accordion.HeightAnimator animation="quick">
                   <Accordion.Content
                     animation="quick"
+                    animateOnly={ANIMATE_ONLY_OPACITY}
                     exitStyle={{ opacity: 0 }}
                   >
                     <SizableText>

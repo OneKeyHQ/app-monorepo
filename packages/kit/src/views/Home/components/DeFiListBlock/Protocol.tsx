@@ -16,6 +16,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -405,6 +406,7 @@ function Protocol({
               <View
                 ml="$2"
                 animation="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={open ? '180deg' : '0deg'}
                 transformOrigin="center"
               >

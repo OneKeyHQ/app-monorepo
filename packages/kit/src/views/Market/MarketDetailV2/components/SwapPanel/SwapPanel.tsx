@@ -101,6 +101,7 @@ export function SwapPanel({
         formattedValue: '0.00',
         formattedAmount: '0.00',
         isZero: true,
+        pnl: undefined,
       };
     }
     const tokenPriceBN = new BigNumber(positionInfo?.tokenPrice || '0');
@@ -113,6 +114,7 @@ export function SwapPanel({
       formattedValue,
       formattedAmount,
       isZero,
+      pnl: positionInfo.pnl,
     };
   }, [portfolioData, swapToken.contractAddress]);
 
@@ -149,59 +151,63 @@ export function SwapPanel({
   }
 
   if (platformEnv.isNative) {
+    const pnl = myPositionInfo.pnl;
+    const unrealizedBN = new BigNumber(pnl?.unrealizedPnlUsd ?? 0);
+    const hasPnl = pnl?.isPnlSupported && !unrealizedBN.isNaN();
+    const pnlIsPositive = hasPnl && unrealizedBN.gt(0);
+    const pnlIsNegative = hasPnl && unrealizedBN.lt(0);
+
+    let pnlColor = '$textSubdued';
+    if (pnlIsPositive) pnlColor = '$textSuccess';
+    if (pnlIsNegative) pnlColor = '$textCritical';
+
+    let pnlPrefix = '';
+    if (pnlIsPositive) pnlPrefix = '+';
+    if (pnlIsNegative) pnlPrefix = '-';
+
     return (
       <YStack>
         <Divider />
         <XStack
           px="$5"
-          py="$2"
+          pt="$2.5"
           justifyContent="space-between"
           alignItems="center"
         >
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.dexmarket_details_myposition,
-            })}
-          </SizableText>
-          <XStack gap="$1" alignItems="baseline">
+          <XStack gap="$2" alignItems="center">
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_details_myposition,
+              })}
+            </SizableText>
             {myPositionInfo.isZero ? (
-              <SizableText size="$bodySmMedium">0.00</SizableText>
+              <SizableText size="$bodySmMedium">
+                {currencyInfo.symbol}0.00
+              </SizableText>
             ) : (
               <NumberSizeableText
                 size="$bodySmMedium"
-                formatter="balance"
-                formatterOptions={{ tokenSymbol: '' }}
+                formatter="value"
+                formatterOptions={{
+                  currency: currencyInfo.symbol,
+                }}
               >
-                {myPositionInfo.formattedAmount}
+                {myPositionInfo.formattedValue}
               </NumberSizeableText>
             )}
-            {myPositionInfo.isZero ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                ({currencyInfo.symbol}0.00)
-              </SizableText>
-            ) : (
-              <XStack alignItems="baseline">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  (
-                </SizableText>
-                <NumberSizeableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  formatter="value"
-                  formatterOptions={{
-                    currency: currencyInfo.symbol,
-                  }}
-                >
-                  {myPositionInfo.formattedValue}
-                </NumberSizeableText>
-                <SizableText size="$bodySm" color="$textSubdued">
-                  )
-                </SizableText>
-              </XStack>
-            )}
           </XStack>
+          {hasPnl ? (
+            <XStack gap="$1" alignItems="center">
+              <SizableText size="$bodySmMedium" color={pnlColor}>
+                {`${pnlPrefix}$${unrealizedBN.abs().toFixed(2)}`}
+              </SizableText>
+              <SizableText size="$bodySm" color={pnlColor}>
+                {`(${pnl?.unrealizedPnlPercent ?? '0'}%)`}
+              </SizableText>
+            </XStack>
+          ) : null}
         </XStack>
-        <Stack px="$5" pb={bottom || '$4'} pt="$2">
+        <Stack px="$5" pb={bottom || '$4'} pt="$2.5">
           <SwapPanelFooterButtons
             onTrade={handleTrade}
             onInstant={handleInstant}

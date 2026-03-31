@@ -20,6 +20,8 @@ googleusercontent
 reown
 cloudfs
 morelink
+worktrees
+worktree
 getters
 timestamps
 Autopurge
@@ -284,6 +286,8 @@ decrypt
 Decrypt
 decrypted
 decrypting
+dedup
+Dedup
 Deduplicate
 Deduplication
 deduplication

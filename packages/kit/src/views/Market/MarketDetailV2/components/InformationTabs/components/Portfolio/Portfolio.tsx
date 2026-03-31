@@ -13,36 +13,42 @@ import { PortfolioItemSmall } from './layout/PortfolioItemSmall';
 
 import type { FlatListProps } from 'react-native';
 
+const CONTENT_CONTAINER_STYLE = {
+  flexGrow: 1,
+  paddingBottom: platformEnv.isNativeAndroid ? 84 : 32,
+};
+
 interface IPortfolioProps {
   accountAddress?: string;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  tokenLogoUrl?: string;
 }
 
 function PortfolioBase({
   accountAddress,
   portfolioData,
   isRefreshing,
+  tokenLogoUrl,
 }: IPortfolioProps) {
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtLg, gtXl } = useMedia();
+  const columnWidth = gtXl ? 240 : 130;
 
   const renderItem: FlatListProps<IMarketAccountPortfolioItem>['renderItem'] =
     useCallback(
-      ({
-        item,
-        index,
-      }: {
-        item: IMarketAccountPortfolioItem;
-        index: number;
-      }) => {
+      ({ item }: { item: IMarketAccountPortfolioItem }) => {
         return gtLg ? (
-          <PortfolioItemNormal item={item} index={index} />
+          <PortfolioItemNormal
+            item={item}
+            tokenLogoUrl={tokenLogoUrl}
+            columnWidth={columnWidth}
+          />
         ) : (
-          <PortfolioItemSmall item={item} index={index} />
+          <PortfolioItemSmall item={item} />
         );
       },
-      [gtLg],
+      [gtLg, tokenLogoUrl, columnWidth],
     );
 
   return (
@@ -50,10 +56,7 @@ function PortfolioBase({
       showsVerticalScrollIndicator={false}
       data={accountAddress ? portfolioData : []}
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
-      contentContainerStyle={{
-        flexGrow: 1,
-        paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,
-      }}
+      contentContainerStyle={CONTENT_CONTAINER_STYLE}
       renderItem={renderItem}
       keyExtractor={(item: IMarketAccountPortfolioItem) =>
         `${item.accountAddress}-${item.tokenAddress}`

@@ -1,5 +1,5 @@
 // oxlint-disable unicorn/prefer-global-this
-/* eslint-disable unicorn/prefer-global-this */
+/* eslint-disable unicorn/prefer-global-this, max-classes-per-file */
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
