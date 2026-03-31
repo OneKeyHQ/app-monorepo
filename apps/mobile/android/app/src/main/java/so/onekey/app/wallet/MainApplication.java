@@ -34,7 +34,6 @@ import expo.modules.ReactNativeHostWrapper;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.List;
 
 public class MainApplication extends Application implements ReactApplication {
@@ -95,26 +94,7 @@ public class MainApplication extends Application implements ReactApplication {
 
     @Nullable
     private String getCurrentBackgroundBundlePath() {
-      try {
-        Method method =
-          BundleUpdateStoreAndroid.INSTANCE
-            .getClass()
-            .getMethod("getCurrentBundleBackgroundJSBundle", android.content.Context.class);
-        Object value = method.invoke(BundleUpdateStoreAndroid.INSTANCE, this);
-        return value instanceof String ? (String) value : null;
-      } catch (NoSuchMethodException e) {
-        OneKeyLog.info(
-          "BundleUpdate",
-          "getCurrentBackgroundBundlePath: getter unavailable, fallback builtin"
-        );
-        return null;
-      } catch (Exception e) {
-        OneKeyLog.warn(
-          "BundleUpdate",
-          "getCurrentBackgroundBundlePath: failed to read background bundle path, error=" + e.getMessage()
-        );
-        return null;
-      }
+      return BundleUpdateStoreAndroid.INSTANCE.getCurrentBundleBackgroundJSBundle(this);
     }
 
     private boolean isBackgroundBundlePathExists(@NonNull String bundlePath) {
