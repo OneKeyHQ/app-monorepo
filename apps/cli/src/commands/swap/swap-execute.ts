@@ -552,13 +552,16 @@ export function registerSwapExecuteCommand(parent: Command): void {
               | undefined;
 
             // Determine the correct spender (allowanceTarget).
-            // Only proceed with approve check if we have a known spender from
-            // the quote or build-tx response. When allowanceResult is null,
-            // the API determined no approval is needed — trust that decision.
-            // Falling back to tx.to is WRONG (it's the router, not the approve contract).
+            // Primary source: allowanceResult from quote or build-tx response.
+            // Fallback: tx.to (the swap router) — most DEX aggregators use
+            // the router as the transferFrom caller, so it IS the spender.
+            // We MUST NOT skip the allowance check when allowanceResult is null,
+            // because null only means the provider didn't return allowance info,
+            // NOT that the token is already approved.
             const knownSpender =
               orderAllowance?.allowanceTarget ??
-              buildAllowance?.allowanceTarget;
+              buildAllowance?.allowanceTarget ??
+              swapTxTo;
 
             if (knownSpender) {
               approveSpender = knownSpender;
@@ -582,8 +585,6 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 onChainAllowance.shouldResetApprove ??
                 false;
             }
-            // else: no allowanceResult means the API determined no approval
-            // is needed (on-chain allowance already sufficient). Skip approve.
           }
 
           // Build confirmation action string — include approve info if applicable

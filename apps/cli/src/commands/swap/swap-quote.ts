@@ -157,7 +157,10 @@ export async function fetchQuotesViaSSE(
     );
   }
 
-  const quotes: IFetchQuoteResult[] = [];
+  // Deduplicate by provider — keep only the latest quote per provider,
+  // matching the app-side behaviour that replaces quotes on each SSE update.
+  const quotesByProvider = new Map<string, IFetchQuoteResult>();
+  let currentEventId: string | undefined;
   let receivedAnyEvent = false;
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -197,15 +200,17 @@ export async function fetchQuotesViaSSE(
                 );
               }
 
-              // Check for totalQuoteCount info event
+              // Check for totalQuoteCount info event — track eventId
               const asInfo = obj as unknown as ISseEventInfo;
-              if (
-                typeof asInfo.totalQuoteCount === 'number' &&
-                asInfo.totalQuoteCount === 0
-              ) {
-                // No providers support this pair — stop reading
-                streamDone = true;
-                break;
+              if (typeof asInfo.totalQuoteCount === 'number') {
+                if (asInfo.totalQuoteCount === 0) {
+                  // No providers support this pair — stop reading
+                  streamDone = true;
+                  break;
+                }
+                if (asInfo.eventId) {
+                  currentEventId = asInfo.eventId;
+                }
               }
 
               // Check for quote result data
@@ -213,6 +218,14 @@ export async function fetchQuotesViaSSE(
               if (Array.isArray(asQuoteResult.data)) {
                 for (const item of asQuoteResult.data) {
                   if (isValidQuoteItem(item)) {
+                    // Skip quotes whose eventId doesn't match the current event
+                    if (
+                      currentEventId &&
+                      (item as any).eventId &&
+                      (item as any).eventId !== currentEventId
+                    ) {
+                      continue;
+                    }
                     const quoteItem: IFetchQuoteResult = {
                       ...item,
                       fromTokenInfo:
@@ -232,7 +245,9 @@ export async function fetchQuotesViaSSE(
                           decimals: 0,
                         } as any),
                     };
-                    quotes.push(quoteItem);
+                    // Replace any previous quote from the same provider
+                    const providerKey = `${quoteItem.info.provider}::${quoteItem.info.providerName}`;
+                    quotesByProvider.set(providerKey, quoteItem);
                   }
                 }
               }
@@ -256,7 +271,7 @@ export async function fetchQuotesViaSSE(
     );
   }
 
-  return quotes;
+  return [...quotesByProvider.values()];
 }
 
 async function tryGetWalletAddress(
@@ -580,7 +595,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
 
           output.success(
             {
-              quotes: validQuotes.map(formatQuoteItem),
+              quotes: sortedQuotes.map(formatQuoteItem),
               security,
               metadata: {
                 from: {
