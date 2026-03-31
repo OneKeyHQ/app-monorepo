@@ -106,7 +106,6 @@ const PageView = () => {
             renderTabBar={(props) => <Tabs.TabBar {...props} />}
           >
             <Tabs.Tab
-              testID={SettingTestIDs.signatureTransactions}
               name={intl.formatMessage({
                 id: ETranslations.settings_transactions,
               })}
@@ -114,7 +113,6 @@ const PageView = () => {
               <Transactions />
             </Tabs.Tab>
             <Tabs.Tab
-              testID={SettingTestIDs.signatureSignText}
               name={intl.formatMessage({
                 id: ETranslations.settings_sign_text,
               })}
@@ -122,7 +120,6 @@ const PageView = () => {
               <SignText />
             </Tabs.Tab>
             <Tabs.Tab
-              testID={SettingTestIDs.signatureConnectedSites}
               name={intl.formatMessage({
                 id: ETranslations.explore_dapp_connections,
               })}
