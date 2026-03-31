@@ -9,8 +9,10 @@ const fs = require('fs-extra');
 const mobileDirPath = __dirname;
 const projectRootPath = path.join(mobileDirPath, '../..');
 const indexFilePath = path.join(mobileDirPath, 'index.ts');
+const backgroundIndexFilePath = path.join(mobileDirPath, 'background.ts');
 const bundleOutputPath = path.join(mobileDirPath, 'out-dir-bundle');
 const zipOutputPath = path.join(mobileDirPath, 'out-dir-bundle-zip');
+const backgroundProtocolVersion = '1';
 
 const SENTRY_ORG = 'onekey-bb';
 const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
@@ -75,7 +77,7 @@ const shouldIgnoreFile = (fileName) => {
   });
 };
 
-const generateMetadataJson = async (dirPath) => {
+const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
   const metadata = {};
 
   const traverseDirectory = (currentPath) => {
@@ -107,6 +109,12 @@ const generateMetadataJson = async (dirPath) => {
 
   if (fs.existsSync(dirPath)) {
     traverseDirectory(dirPath);
+
+    Object.entries(extraMetadata).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && `${value}`.length > 0) {
+        metadata[key] = `${value}`;
+      }
+    });
 
     // Write metadata.json
     const metadataPath = path.join(dirPath, 'metadata.json');
@@ -153,23 +161,27 @@ const generateFileInfo = async (filePath, outputFilePath, appType) => {
   log(`Size: ${size} bytes`);
 };
 
-const buildIOSBundle = async () => {
-  log('build ios bundle start');
-  ensureBundleOutputPath();
-  ensureZipOutputPath();
+const runReactNativeBundle = ({
+  platform,
+  entryFile,
+  assetsDest,
+  bundleOutput,
+  sourceMapOutput,
+}) => {
   execSync(
     `npx react-native bundle \
     --dev false \
     --minify false \
-    --platform ios \
-    --entry-file ${indexFilePath} \
+    --platform ${platform} \
+    --entry-file ${entryFile} \
     --reset-cache \
-    --assets-dest ${buildIOSOutputAssetPath('assets')} \
-    --bundle-output ${buildIOSOutputAssetPath('main.jsbundle')} \
-    --sourcemap-output ${buildIOSOutputAssetPath('main.jsbundle.map')}
+    --assets-dest ${assetsDest} \
+    --bundle-output ${bundleOutput} \
+    --sourcemap-output ${sourceMapOutput}
     `,
     {
       stdio: 'inherit',
+      cwd: mobileDirPath,
       env: {
         ...process.env,
         NODE_OPTIONS: '--max-old-space-size=8192',
@@ -177,6 +189,124 @@ const buildIOSBundle = async () => {
       },
     },
   );
+};
+
+const composeSourceMaps = ({
+  packagerMapPath,
+  hermesMapPath,
+  outputPath,
+  label,
+}) => {
+  const composeSourceMapsCommand = `${nodeExecutablePath} ${path.join(
+    projectRootPath,
+    'node_modules/react-native/scripts/compose-source-maps.js',
+  )} ${packagerMapPath} ${hermesMapPath} -o ${outputPath}`;
+  log(`${label} compose source maps command`, composeSourceMapsCommand);
+  execSync(composeSourceMapsCommand, { stdio: 'inherit' });
+  log(`${label} compose source maps done`);
+};
+
+const copyDebugIdToSourceMap = ({ packagerMapPath, sourceMapPath, label }) => {
+  log(`${label} copy debugid`);
+  execSync(
+    `${nodeExecutablePath} ${path.join(
+      projectRootPath,
+      'node_modules/@sentry/react-native/scripts/copy-debugid.js',
+    )} ${packagerMapPath} ${sourceMapPath}`,
+    { stdio: 'inherit' },
+  );
+  log(`${label} copy debugid done`);
+};
+
+const uploadSourceMapsToSentry = ({
+  bundlePath,
+  sourceMapPath,
+  label,
+}) => {
+  if (!(SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT)) {
+    return;
+  }
+  log(`${label} upload source maps`);
+  execSync(
+    `${path.join(
+      projectRootPath,
+      'node_modules/@sentry/cli/bin/sentry-cli',
+    )} sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${bundlePath} ${sourceMapPath} --org=${SENTRY_ORG} --project=${SENTRY_PROJECT} --auth-token=${SENTRY_AUTH_TOKEN}`,
+    {
+      stdio: 'inherit',
+      cwd: projectRootPath,
+    },
+  );
+  log(`${label} upload source maps done`);
+};
+
+const buildBackgroundBundle = async ({
+  platform,
+  buildOutputAssetPath,
+  assetsOutputPath,
+}) => {
+  const backgroundBundleJsPath = buildOutputAssetPath('background.bundle.js');
+  const backgroundBundleHbcPath = buildOutputAssetPath('background.bundle.hbc');
+  const backgroundBundlePath = buildOutputAssetPath('background.bundle');
+  const backgroundBundlePackagerMapPath = buildOutputAssetPath(
+    'background.bundle.packager.map',
+  );
+  const backgroundBundleMapPath = buildOutputAssetPath('background.bundle.map');
+
+  log(`build ${platform} background bundle start`);
+  runReactNativeBundle({
+    platform,
+    entryFile: backgroundIndexFilePath,
+    assetsDest: assetsOutputPath,
+    bundleOutput: backgroundBundleJsPath,
+    sourceMapOutput: backgroundBundlePackagerMapPath,
+  });
+  log(`build ${platform} background bundle done`);
+
+  log(`build ${platform} background bundle compress to hbc`);
+  execSync(
+    `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${backgroundBundleHbcPath} ${backgroundBundleJsPath}`,
+    { stdio: 'inherit' },
+  );
+  log(`build ${platform} background bundle compress to hbc done`);
+
+  composeSourceMaps({
+    packagerMapPath: backgroundBundlePackagerMapPath,
+    hermesMapPath: `${backgroundBundleHbcPath}.map`,
+    outputPath: backgroundBundleMapPath,
+    label: `build ${platform} background bundle`,
+  });
+  copyDebugIdToSourceMap({
+    packagerMapPath: backgroundBundlePackagerMapPath,
+    sourceMapPath: backgroundBundleMapPath,
+    label: `build ${platform} background bundle`,
+  });
+
+  fs.moveSync(backgroundBundleHbcPath, backgroundBundlePath, {
+    overwrite: true,
+  });
+  uploadSourceMapsToSentry({
+    bundlePath: backgroundBundlePath,
+    sourceMapPath: backgroundBundleMapPath,
+    label: `build ${platform} background bundle`,
+  });
+
+  fs.rmSync(backgroundBundleJsPath, { force: true });
+  fs.rmSync(backgroundBundlePackagerMapPath, { force: true });
+  fs.rmSync(`${backgroundBundleHbcPath}.map`, { force: true });
+};
+
+const buildIOSBundle = async () => {
+  log('build ios bundle start');
+  ensureBundleOutputPath();
+  ensureZipOutputPath();
+  runReactNativeBundle({
+    platform: 'ios',
+    entryFile: indexFilePath,
+    assetsDest: buildIOSOutputAssetPath('assets'),
+    bundleOutput: buildIOSOutputAssetPath('main.jsbundle'),
+    sourceMapOutput: buildIOSOutputAssetPath('main.jsbundle.map'),
+  });
   log('build ios bundle done');
 
   log('build ios bundle hbc');
@@ -254,6 +384,13 @@ const buildIOSBundle = async () => {
     );
     log('build ios bundle upload source maps done');
   }
+
+  await buildBackgroundBundle({
+    platform: 'ios',
+    buildOutputAssetPath: buildIOSOutputAssetPath,
+    assetsOutputPath: buildIOSOutputAssetPath('assets'),
+  });
+
   const distPath = buildIOSOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
     fs.mkdirSync(distPath);
@@ -266,6 +403,10 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('main.jsbundle.hbc'),
     buildIOSOutputAssetPath('dist/main.jsbundle.hbc'),
   );
+  fs.moveSync(
+    buildIOSOutputAssetPath('background.bundle'),
+    buildIOSOutputAssetPath('dist/background.bundle'),
+  );
   log('build ios bundle compress dist to zip');
 
   const webEmbedIOSPath = path.join(distPath, 'web-embed');
@@ -275,7 +416,10 @@ const buildIOSBundle = async () => {
   execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${webEmbedIOSPath}/`, {
     stdio: 'inherit',
   });
-  generateMetadataJson(distPath);
+  generateMetadataJson(distPath, {
+    requiresBackgroundBundle: 'true',
+    backgroundProtocolVersion,
+  });
   execSync(`cd ${distPath} && zip -r dist.zip .`, {
     stdio: 'inherit',
   });
@@ -296,26 +440,13 @@ const buildAndroidBundle = async () => {
   log('build android bundle start');
   ensureBundleOutputPath();
   ensureZipOutputPath();
-  execSync(
-    `npx react-native bundle \
-    --dev false \
-    --minify false \
-    --platform android \
-    --entry-file ${indexFilePath} \
-    --reset-cache \
-    --assets-dest ${buildAndroidOutputAssetPath('assets')} \
-    --bundle-output ${buildAndroidOutputAssetPath('main.jsbundle')} \
-    --sourcemap-output ${buildAndroidOutputAssetPath('main.jsbundle.map')}    
-    `,
-    {
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        NODE_OPTIONS: '--max-old-space-size=8192',
-        NODE_ENV: 'production',
-      },
-    },
-  );
+  runReactNativeBundle({
+    platform: 'android',
+    entryFile: indexFilePath,
+    assetsDest: buildAndroidOutputAssetPath('assets'),
+    bundleOutput: buildAndroidOutputAssetPath('main.jsbundle'),
+    sourceMapOutput: buildAndroidOutputAssetPath('main.jsbundle.map'),
+  });
   log('build android bundle done');
 
   log('build android bundle compress to hbc');
@@ -382,6 +513,13 @@ const buildAndroidBundle = async () => {
     });
     log('build android bundle upload source maps done');
   }
+
+  await buildBackgroundBundle({
+    platform: 'android',
+    buildOutputAssetPath: buildAndroidOutputAssetPath,
+    assetsOutputPath: buildAndroidOutputAssetPath('assets'),
+  });
+
   const distPath = buildAndroidOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
     fs.mkdirSync(distPath);
@@ -394,6 +532,10 @@ const buildAndroidBundle = async () => {
     buildAndroidOutputAssetPath('main.jsbundle.hbc'),
     buildAndroidOutputAssetPath('dist/main.jsbundle.hbc'),
   );
+  fs.moveSync(
+    buildAndroidOutputAssetPath('background.bundle'),
+    buildAndroidOutputAssetPath('dist/background.bundle'),
+  );
 
   const webEmbedAndroidPath = path.join(distPath, 'web-embed');
   if (!fs.existsSync(webEmbedAndroidPath)) {
@@ -404,7 +546,10 @@ const buildAndroidBundle = async () => {
   });
 
   log('build android bundle compress dist to zip');
-  generateMetadataJson(distPath);
+  generateMetadataJson(distPath, {
+    requiresBackgroundBundle: 'true',
+    backgroundProtocolVersion,
+  });
   execSync(`cd ${distPath} && zip -r dist.zip .`, {
     stdio: 'inherit',
   });
@@ -424,9 +569,10 @@ const buildAndroidBundle = async () => {
 const buildWebEmbed = async () => {
   log('build web embed');
   execSync(
-    `cd ${path.join(projectRootPath, 'apps/web-embed')} &&  webpack build`,
+    `npx webpack build`,
     {
       stdio: 'inherit',
+      cwd: path.join(projectRootPath, 'apps/web-embed'),
       env: {
         ...process.env,
         NODE_OPTIONS: '--max-old-space-size=8192',

@@ -135,6 +135,21 @@ describe('getJsBundlePath', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getBackgroundJsBundlePath - Returns current background JS bundle path
+// ---------------------------------------------------------------------------
+describe('getBackgroundJsBundlePath', () => {
+  test('getBackgroundJsBundlePath sync returns a string', () => {
+    const path = BundleUpdateModule.getBackgroundJsBundlePath();
+    expect(typeof path).toBe('string');
+  });
+
+  test('getBackgroundJsBundlePathAsync returns a string', async () => {
+    const path = await BundleUpdateModule.getBackgroundJsBundlePathAsync();
+    expect(typeof path).toBe('string');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getWebEmbedPathAsync / getWebEmbedPath
 // ---------------------------------------------------------------------------
 describe('getWebEmbedPath', () => {

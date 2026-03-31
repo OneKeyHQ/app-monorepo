@@ -151,4 +151,5 @@ export interface IBundleUpdate {
   getNativeBuildNumber: () => Promise<string>;
   getBuiltinBundleVersion: () => Promise<string>;
   getJsBundlePath: () => Promise<string>;
+  getBackgroundJsBundlePath: () => Promise<string>;
 }

@@ -72,6 +72,7 @@ export const BundleUpdate: IBundleUpdate = {
   getNativeBuildNumber: () => Promise.resolve(''),
   getBuiltinBundleVersion: () => Promise.resolve(''),
   getJsBundlePath: () => Promise.resolve(''),
+  getBackgroundJsBundlePath: () => Promise.resolve(''),
 };
 
 export const useDownloadProgress: IUseDownloadProgress = () => 0;
