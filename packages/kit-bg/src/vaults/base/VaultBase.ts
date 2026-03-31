@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-/* eslint max-classes-per-file: "off" */
+/* eslint-disable max-classes-per-file */
 
 import qs from 'querystring';
 
