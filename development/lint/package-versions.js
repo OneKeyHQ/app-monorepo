@@ -10,10 +10,10 @@ console.log(`[${getTimestamp()}] Package versions check started...`);
 
 const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
 
-// Find all workspace package.json files (excluding node_modules)
+// Find all workspace package.json files (excluding node_modules and git worktrees)
 function findPackageJsonFiles(rootDir) {
   const result = execSync(
-    `find "${rootDir}" -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*"`,
+    `find "${rootDir}" -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/.worktree/*" -not -path "*/.claude/worktrees/*"`,
     { encoding: 'utf-8' },
   );
   return result
