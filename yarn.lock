@@ -8259,6 +8259,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/cli@workspace:apps/cli":
+  version: 0.0.0-use.local
+  resolution: "@onekeyfe/cli@workspace:apps/cli"
+  dependencies:
+    "@onekeyhq/core": "workspace:*"
+    "@onekeyhq/shared": "workspace:*"
+    axios: "npm:^1.7.0"
+    chalk: "npm:^4.1.2"
+    commander: "npm:^12.0.0"
+    tsup: "npm:^8.0.0"
+    yaml: "npm:^2.8.0"
+    zod: "npm:^3.23.0"
+  bin:
+    onekey: ./bin/onekey
+  languageName: unknown
+  linkType: soft
+
 "@onekeyfe/coinselect@npm:3.1.17":
   version: 3.1.17
   resolution: "@onekeyfe/coinselect@npm:3.1.17"
@@ -9401,21 +9418,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onekeyhq/cli@workspace:apps/cli":
-  version: 0.0.0-use.local
-  resolution: "@onekeyhq/cli@workspace:apps/cli"
-  dependencies:
-    axios: "npm:^1.7.0"
-    chalk: "npm:^4.1.2"
-    commander: "npm:^12.0.0"
-    tsup: "npm:^8.0.0"
-    yaml: "npm:^2.8.0"
-    zod: "npm:^3.23.0"
-  bin:
-    onekey: ./bin/onekey
-  languageName: unknown
-  linkType: soft
-
 "@onekeyhq/components@npm:*, @onekeyhq/components@workspace:packages/components":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
@@ -9445,7 +9447,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onekeyhq/core@workspace:packages/core":
+"@onekeyhq/core@workspace:*, @onekeyhq/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/core@workspace:packages/core"
   dependencies:
@@ -9738,7 +9740,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onekeyhq/shared@npm:*, @onekeyhq/shared@workspace:packages/shared":
+"@onekeyhq/shared@npm:*, @onekeyhq/shared@workspace:*, @onekeyhq/shared@workspace:packages/shared":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/shared@workspace:packages/shared"
   dependencies:

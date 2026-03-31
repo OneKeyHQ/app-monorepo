@@ -1,5 +1,5 @@
 {
-  "name": "@onekeyhq/cli",
+  "name": "@onekeyfe/cli",
   "version": "0.1.0",
   "description": "OneKey wallet CLI for developers and AI agents",
   "bin": {
@@ -14,17 +14,17 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "npx jest",
-    "typecheck": "npx tsc --noEmit"
+    "typecheck": "npx tsc --noEmit",
+    "prepublishOnly": "yarn build"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@onekeyhq/core": "workspace:*",
     "@onekeyhq/shared": "workspace:*",
     "axios": "^1.7.0",
     "chalk": "^4.1.2",
     "commander": "^12.0.0",
+    "tsup": "^8.0.0",
     "yaml": "^2.8.0",
     "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "tsup": "^8.0.0"
   }
 }
