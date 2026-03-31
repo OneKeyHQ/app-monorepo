@@ -103,7 +103,6 @@ const MarketSelectorDesktop = ({
     const baseProps = {
       elevation: 0,
       flexGrow: 1,
-      flexBasis: 0,
       '$platform-native': {
         elevation: 0,
       },
@@ -132,7 +131,7 @@ const MarketSelectorDesktop = ({
       <SegmentControl
         value={mode}
         options={options}
-        width={264}
+        minWidth={264}
         onChange={(value) => onModeChange?.(value as IEarnHomeMode)}
         slotBackgroundColor={backgroundColor}
         activeBackgroundColor={activeBackgroundColor}
