@@ -48,6 +48,7 @@ export interface IUseMarketWatchlistTokenListParams {
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
+  pollingInterval?: number;
 }
 
 export function useMarketWatchlistTokenList({
@@ -55,6 +56,7 @@ export function useMarketWatchlistTokenList({
   initialSortBy,
   initialSortType,
   pageSize = 100,
+  pollingInterval = timerUtils.getTimeDurationMs({ seconds: 30 }),
 }: IUseMarketWatchlistTokenListParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
@@ -107,7 +109,7 @@ export function useMarketWatchlistTokenList({
     },
     [watchlist, spotItems, isInitialLoad],
     {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      pollingInterval,
       watchLoading: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
