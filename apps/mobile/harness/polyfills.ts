@@ -13,20 +13,19 @@ import { Buffer } from 'buffer';
 // React 19's react-test-renderer uses MessageChannel for scheduling.
 // Hermes does not provide it, so we polyfill with a setTimeout-based shim.
 if (typeof (globalThis as any).MessageChannel === 'undefined') {
-  (globalThis as any).MessageChannel = class MessageChannel {
+  (globalThis as any).MessageChannel = function MessageChannel(this: {
     port1: { onmessage: ((ev: { data: any }) => void) | null };
     port2: { postMessage: (data: any) => void };
-    constructor() {
-      this.port1 = { onmessage: null };
-      const port1 = this.port1;
-      this.port2 = {
-        postMessage(data: any) {
-          setTimeout(() => {
-            port1.onmessage?.({ data });
-          }, 0);
-        },
-      };
-    }
+  }) {
+    this.port1 = { onmessage: null };
+    const port1 = this.port1;
+    this.port2 = {
+      postMessage(data: any) {
+        setTimeout(() => {
+          port1.onmessage?.({ data });
+        }, 0);
+      },
+    };
   };
 }
 

@@ -17,6 +17,8 @@ interface IMarketTokenListNetworkSelectorNormalProps {
   placement?: IPopoverProps['placement'];
   onStartListSelect?: () => void;
   startListSelect?: boolean;
+  borderColor?: string;
+  gradientBgColor?: string;
 }
 
 export interface IMarketTokenListNetworkSelectorNormalRef {
@@ -37,6 +39,8 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       placement,
       onStartListSelect,
       startListSelect,
+      borderColor,
+      gradientBgColor,
     },
     ref,
   ) => {
@@ -70,6 +74,8 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
         placement={placement}
         onStartListSelect={onStartListSelect}
         startListSelect={startListSelect}
+        borderColor={borderColor}
+        gradientBgColor={gradientBgColor}
       />
     );
   },
