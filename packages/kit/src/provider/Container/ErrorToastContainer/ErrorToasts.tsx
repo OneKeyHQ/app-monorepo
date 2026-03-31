@@ -9,7 +9,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
+import { CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   ECustomCloudSyncError,
   ECustomOneKeyHardwareError,
@@ -143,7 +143,7 @@ function NeedFirmwareUpgradeFromWebButton() {
   );
 }
 
-function NavigateToCloudSyncButton() {
+function NavigateToCloudSyncSwitchButton() {
   const intl = useIntl();
 
   return (
@@ -151,14 +151,14 @@ function NavigateToCloudSyncButton() {
       variant="primary"
       size="small"
       onPress={() => {
-        Toast.dismiss(CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID);
+        Toast.dismiss(CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID);
         rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
           screen: EModalRoutes.PrimeModal,
           params: { screen: EPrimePages.PrimeCloudSync },
         });
       }}
     >
-      {intl.formatMessage({ id: ETranslations.global_view_details })}
+      {intl.formatMessage({ id: ETranslations.switch_now__action })}
     </Button>
   );
 }
@@ -174,8 +174,8 @@ export function getErrorAction({
   }
 
   // Cloud sync: navigate to Cloud Sync settings page
-  if (errorCode === ECustomCloudSyncError.OnekeyIdSyncUnavailable) {
-    return <NavigateToCloudSyncButton />;
+  if (errorCode === ECustomCloudSyncError.OnekeyIdSyncSunsetReminder) {
+    return <NavigateToCloudSyncSwitchButton />;
   }
 
   // Default: show contact support + copy diagnostic info buttons
