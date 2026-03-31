@@ -25,6 +25,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
+import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
@@ -108,6 +109,7 @@ function PerpContent() {
       customToolbarItems={
         <>
           <PerpsActivityCenterAction size="small" copyAsUrl />
+          <PerpGuidePopover />
           <PerpSettingsButton testID="perp-header-settings-button" />
           <HeaderIconButton
             icon="DownloadOutline"

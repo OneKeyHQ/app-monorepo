@@ -4,12 +4,16 @@ import timerUtils from '../utils/timerUtils';
 
 import utils from './utils';
 
-import type { ILogLevel } from './types';
+import type { ILogger, ILoggerMethods } from './types';
 
-const dangerLogger = RNLogger.createLogger<ILogLevel>({
+const createLogger = RNLogger.createLogger as unknown as (
+  opts: Record<string, unknown>,
+) => ILogger;
+
+const dangerLogger = createLogger({
   async: true,
-  // eslint-disable-next-line @typescript-eslint/unbound-method
-  asyncFunc: timerUtils.setTimeoutPromised,
+  asyncFunc: (...args: Parameters<typeof timerUtils.setTimeoutPromised>) =>
+    timerUtils.setTimeoutPromised(...args),
   dateFormat: 'time', // time, local, utc, iso
   transport: [consoleTransport],
   transportOptions: {
@@ -19,16 +23,12 @@ const dangerLogger = RNLogger.createLogger<ILogLevel>({
   // 06:37:59 | app | INFO :  log message
 });
 
-const loggerExtensions: Record<
-  string,
-  ReturnType<typeof dangerLogger.extend>
-> = {};
+const loggerExtensions: Record<string, ILoggerMethods> = {};
 
-export function getLoggerExtension(name: string) {
+export function getLoggerExtension(name: string): ILoggerMethods {
   if (!name) {
     return dangerLogger;
   }
-  // eslint-disable-next-line no-param-reassign
   // name += '@*!&&';
   if (!loggerExtensions[name]) {
     loggerExtensions[name] = dangerLogger.extend(name);
