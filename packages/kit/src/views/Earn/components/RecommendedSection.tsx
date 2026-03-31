@@ -192,6 +192,7 @@ const RecommendedItem = memo(
         gap="$4"
         px="$4"
         py="$3.5"
+        minHeight={CARD_MIN_HEIGHT}
         borderRadius="$3"
         borderCurve="continuous"
         bg="$bgSubdued"
