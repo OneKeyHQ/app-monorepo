@@ -17,8 +17,8 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { isEncodedTxMatch } from './marketEncodedTxUtils';
-import type { IMarketGasInfoEntry } from './marketDirectSendTx';
 
+import type { IMarketGasInfoEntry } from './marketDirectSendTx';
 
 function shouldEnableMarketReviewFeeLevel(steps: ISwapStep[]) {
   return steps.some((step) => step.type === ESwapStepType.APPROVE_TX);
