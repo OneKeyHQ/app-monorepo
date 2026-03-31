@@ -18,6 +18,8 @@ interface ISwapNetworkToggleGroupProps {
   placement?: IPopoverProps['placement'];
   onStartListSelect?: () => void;
   startListSelect?: boolean;
+  borderColor?: string;
+  gradientBgColor?: string;
 }
 
 // Layout constants for desktop network filter scrolling
@@ -45,6 +47,8 @@ const MarketNetworkFilter = forwardRef<
       placement,
       onStartListSelect,
       startListSelect,
+      borderColor: borderColorProp,
+      gradientBgColor,
     },
     ref,
   ) => {
@@ -82,7 +86,7 @@ const MarketNetworkFilter = forwardRef<
         maxWidth="100%"
         overflow="hidden"
         borderWidth={1}
-        borderColor="$neutral4"
+        borderColor={borderColorProp || '$neutral4'}
         borderRadius="$3"
       >
         <XStack flex={1} position="relative">
@@ -121,10 +125,12 @@ const MarketNetworkFilter = forwardRef<
           <GradientMask
             opacity={shouldShowLeftGradient ? 1 : 0}
             position="left"
+            bgColor={gradientBgColor}
           />
           <GradientMask
             opacity={shouldShowRightGradient ? 1 : 0}
             position="right"
+            bgColor={gradientBgColor}
           />
         </XStack>
 

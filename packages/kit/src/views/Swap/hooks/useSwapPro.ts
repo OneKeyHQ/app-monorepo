@@ -25,6 +25,7 @@ import {
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigNetwork,
+  IMarketTokenListItem,
   IMarketTokenTransaction,
 } from '@onekeyhq/shared/types/marketV2';
 import {
@@ -78,6 +79,14 @@ import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPan
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
+
+type ISwapProSearchTokenListItem = IMarketSearchV2Token & {
+  networkLogoURI: string;
+};
+
+const SWAP_PRO_SEARCH_RESULTS_REFRESH_INTERVAL = timerUtils.getTimeDurationMs({
+  seconds: 15,
+});
 
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
@@ -869,9 +878,59 @@ export function useSwapProTokenSearch(
 ) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchTokenList, setSearchTokenList] = useState<
-    (IMarketSearchV2Token & { networkLogoURI: string })[]
+    ISwapProSearchTokenListItem[]
   >([]);
   const lastLoggedSearchRef = useRef<string>(''); // query__networkId
+  const searchTokenListRef =
+    useRef<ISwapProSearchTokenListItem[]>(searchTokenList);
+
+  if (searchTokenListRef.current !== searchTokenList) {
+    searchTokenListRef.current = searchTokenList;
+  }
+
+  const mergeBatchQuotes = useCallback(
+    (
+      currentItems: ISwapProSearchTokenListItem[],
+      latestItems: Array<IMarketTokenListItem | undefined>,
+    ) => {
+      let hasChanges = false;
+      const merged = currentItems.map((item, index) => {
+        const latest = latestItems[index];
+        if (!latest) {
+          return item;
+        }
+
+        const nextItem: ISwapProSearchTokenListItem = {
+          ...item,
+          price: latest.price ?? item.price,
+          liquidity: latest.liquidity ?? item.liquidity,
+          volume_24h: latest.volume24h ?? item.volume_24h,
+          volume24h: latest.volume24h ?? item.volume24h,
+          marketCap: latest.marketCap ?? item.marketCap,
+          priceChange24hPercent:
+            latest.priceChange24hPercent ?? item.priceChange24hPercent,
+        };
+
+        if (
+          nextItem.price === item.price &&
+          nextItem.liquidity === item.liquidity &&
+          nextItem.volume_24h === item.volume_24h &&
+          nextItem.volume24h === item.volume24h &&
+          nextItem.marketCap === item.marketCap &&
+          nextItem.priceChange24hPercent === item.priceChange24hPercent
+        ) {
+          return item;
+        }
+
+        hasChanges = true;
+        return nextItem;
+      });
+
+      return hasChanges ? merged : currentItems;
+    },
+    [],
+  );
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -933,6 +992,68 @@ export function useSwapProTokenSearch(
       isCancelled = true;
     };
   }, [input, selectedNetworkId]);
+
+  const searchTokenListLength = searchTokenList.length;
+  // Use a content-based key so the polling effect restarts when search
+  // results change, even if the count stays the same.
+  const searchTokenListKey = useMemo(
+    () => searchTokenList.map((t) => `${t.network}:${t.address}`).join(','),
+    [searchTokenList],
+  );
+  useEffect(() => {
+    if (searchTokenListLength === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const refreshQuotes = async () => {
+      const snapshot = searchTokenListRef.current;
+      try {
+        const { list } =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+            tokenAddressList: snapshot.map((item) => ({
+              chainId: item.network,
+              contractAddress: item.address,
+              isNative: item.isNative,
+            })),
+            skipCache: true,
+          });
+
+        if (isCancelled) {
+          return;
+        }
+
+        // Discard if search results were replaced by a new search
+        if (searchTokenListRef.current !== snapshot) {
+          return;
+        }
+
+        setSearchTokenList((prev) => mergeBatchQuotes(prev, list ?? []));
+      } catch (error) {
+        if (!isCancelled) {
+          console.error(error);
+        }
+      } finally {
+        if (!isCancelled) {
+          timer = setTimeout(
+            () => void refreshQuotes(),
+            SWAP_PRO_SEARCH_RESULTS_REFRESH_INTERVAL,
+          );
+        }
+      }
+    };
+
+    void refreshQuotes();
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergeBatchQuotes, searchTokenListKey]);
+
   return {
     searchLoading,
     searchTokenList,
