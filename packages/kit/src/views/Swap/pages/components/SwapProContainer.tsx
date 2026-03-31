@@ -31,6 +31,7 @@ import {
   useSwapProTokenDetailInfo,
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
+import { SwapTestIDs } from '../../testIDs';
 
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
@@ -164,6 +165,7 @@ const SwapProContainer = ({
 
   return (
     <ScrollView
+      testID={SwapTestIDs.proContainer}
       style={{ flex: 1 }}
       ref={scrollViewRef}
       contentContainerStyle={{

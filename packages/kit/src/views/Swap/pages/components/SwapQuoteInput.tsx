@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 
 import { IconButton, Stack, YStack } from '@onekeyhq/components';
+import { SwapTestIDs } from '../../testIDs';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -92,6 +93,7 @@ const SwapQuoteInput = ({
         }}
       >
         <IconButton
+          testID={SwapTestIDs.switchTokensButton}
           alignSelf="center"
           bg="$bgApp"
           variant="tertiary"

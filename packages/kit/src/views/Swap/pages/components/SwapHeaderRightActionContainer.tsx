@@ -61,6 +61,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
@@ -507,6 +508,7 @@ const SwapHeaderRightActionContainer = ({
     <HeaderButtonGroup>
       {slippageTitle ? (
         <XStack
+          testID={SwapTestIDs.settingsButton}
           onPress={onOpenSwapSettings}
           borderRadius="$3"
           bg="$bgSubdued"
@@ -532,6 +534,7 @@ const SwapHeaderRightActionContainer = ({
         </XStack>
       ) : (
         <HeaderIconButton
+          testID={SwapTestIDs.settingsButton}
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
           iconProps={{ size: iconSize ?? 20, color: iconColor }}

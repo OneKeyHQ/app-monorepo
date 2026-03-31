@@ -50,6 +50,7 @@ import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
 import { useSwapRecipientAddressInfo } from '../../hooks/useSwapAccount';
+import { SwapTestIDs } from '../../testIDs';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import {
@@ -330,6 +331,7 @@ const SwapQuoteResult = ({
       return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
         <YStack gap="$3">
           <SwapProviderInfoItem
+            testID={SwapTestIDs.providerSelector}
             providerIcon={quoteResult?.info.providerLogo ?? ''}
             providerName={quoteResult?.info.providerName ?? ''}
             isBest={quoteResult?.isBest}

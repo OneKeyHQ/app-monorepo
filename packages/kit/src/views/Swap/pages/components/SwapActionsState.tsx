@@ -54,6 +54,7 @@ import {
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
@@ -315,6 +316,7 @@ const SwapActionsState = ({
           {/* In modal: show savings above button; In non-modal: show below */}
           {isModalPage && !md ? costSavingsComponent : null}
           <Button
+            testID={SwapTestIDs.swapButton}
             onPress={onActionHandlerBefore}
             size={isModalPage && !md ? 'medium' : 'large'}
             variant="primary"

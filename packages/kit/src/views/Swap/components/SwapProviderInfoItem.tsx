@@ -26,6 +26,7 @@ interface ISwapProviderInfoItemProps {
   showLock?: boolean;
   onPress?: () => void;
   isLoading?: boolean;
+  testID?: string;
 }
 
 const SwapProviderInfoItemTitleContent = ({
@@ -66,10 +67,11 @@ const SwapProviderInfoItem = ({
   showLock: _showLock,
   onPress,
   isLoading,
+  testID,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
   return (
-    <XStack justifyContent="space-between" alignItems="center">
+    <XStack testID={testID} justifyContent="space-between" alignItems="center">
       <SwapProviderInfoItemTitleContentMemo onekeyFee={onekeyFee} />
       {isLoading ? (
         <Stack py="$1">
