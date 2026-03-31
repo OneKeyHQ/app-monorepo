@@ -239,6 +239,95 @@ android {
     }
 }
 
+static def capitalizeVariantName(String variantName) {
+    return variantName.substring(0, 1).toUpperCase() + variantName.substring(1)
+}
+
+def registerBackgroundReleaseBundleTask(variant, appProjectRootDir) {
+    if (!variant.buildType?.name?.equalsIgnoreCase("release")) {
+        return
+    }
+
+    def variantName = variant.name
+    def targetName = capitalizeVariantName(variantName)
+    def mainBundleTaskName = "createBundle${targetName}JsAndAssets"
+    def backgroundBundleTaskName = "createBackgroundBundle${targetName}JsAndAssets"
+    def syncBackgroundBundleTaskName = "syncBackgroundBundle${targetName}Assets"
+    def mergeAssetsTaskName = "merge${targetName}Assets"
+    def compressAssetsTaskName = "compress${targetName}Assets"
+    def injectSentryAssetsTaskName = "injectSentryDebugMetaPropertiesIntoAssets${targetName}"
+
+    def mainBundleAssetsDir = file("$buildDir/generated/assets/${mainBundleTaskName}")
+    def mainBundleResourcesDir = file("$buildDir/generated/res/${mainBundleTaskName}")
+    def reactBackgroundSourceMapsDir = file("$buildDir/generated/sourcemaps/react-background/${variantName}")
+    def backgroundBundleOutputFile = file("$buildDir/generated/assets/${mainBundleTaskName}/background.bundle")
+    def backgroundBundleSourceMapFile = file("$buildDir/generated/sourcemaps/react-background/${variantName}/background.bundle.map")
+    def mergedAssetsDir = file("$buildDir/intermediates/assets/${variantName}/${mergeAssetsTaskName}")
+    def sentryInjectedAssetsDir = file("$buildDir/intermediates/assets/${variantName}/${injectSentryAssetsTaskName}")
+
+    def backgroundBundleTask = tasks.register(backgroundBundleTaskName, Exec) {
+        dependsOn(tasks.named(mainBundleTaskName))
+        workingDir appProjectRootDir
+
+        doFirst {
+            mainBundleAssetsDir.mkdirs()
+            mainBundleResourcesDir.mkdirs()
+            reactBackgroundSourceMapsDir.mkdirs()
+        }
+
+        commandLine(
+            "node",
+            "scripts/build-release-background-bundle.js",
+            "--platform",
+            "android",
+            "--entry-file",
+            "background.ts",
+            "--bundle-output",
+            backgroundBundleOutputFile.absolutePath,
+            "--assets-dest",
+            mainBundleResourcesDir.absolutePath,
+            "--sourcemap-output",
+            backgroundBundleSourceMapFile.absolutePath,
+        )
+    }
+
+    tasks.named("merge${targetName}Assets").configure {
+        dependsOn(backgroundBundleTask)
+    }
+    tasks.named("merge${targetName}Resources").configure {
+        dependsOn(backgroundBundleTask)
+    }
+
+    def syncBackgroundBundleTask = tasks.register(syncBackgroundBundleTaskName) {
+        dependsOn(backgroundBundleTask)
+        dependsOn(tasks.named(mergeAssetsTaskName))
+
+        doLast {
+            copy {
+                from(backgroundBundleOutputFile)
+                into(mergedAssetsDir)
+            }
+            sentryInjectedAssetsDir.mkdirs()
+            copy {
+                from(backgroundBundleOutputFile)
+                into(sentryInjectedAssetsDir)
+            }
+        }
+    }
+
+    tasks.matching { it.name == injectSentryAssetsTaskName }.configureEach {
+        dependsOn(syncBackgroundBundleTask)
+    }
+    tasks.named(compressAssetsTaskName).configure {
+        dependsOn(syncBackgroundBundleTask)
+    }
+}
+
+def backgroundBundleProjectRootDir = new File(projectRoot)
+android.applicationVariants.configureEach { variant ->
+    registerBackgroundReleaseBundleTask(variant, backgroundBundleProjectRootDir)
+}
+
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:
 // android.packagingOptions.pickFirsts=/LICENSE,**/picasa.ini

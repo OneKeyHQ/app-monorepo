@@ -278,6 +278,7 @@
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				EA7958392B70B02A00E0382F /* Bundle React Native code and images */,
+				F14A4B1031B7C10000000001 /* Bundle Background React Native code */,
 				C274DAC62AE2644400755275 /* Embed Foundation Extensions */,
 				2FA0D2DF4C8B4E3B9FCE32CA /* Upload Debug Symbols to Sentry */,
 				076068C12E7EF3BA00E007B2 /* Embed Frameworks */,
@@ -499,6 +500,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios relative | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n/bin/sh `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode.sh'\"` `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
+		};
+		F14A4B1031B7C10000000001 /* Bundle Background React Native code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../background.ts",
+				"$(SRCROOT)/../scripts/build-release-background-bundle.js",
+			);
+			name = "Bundle Background React Native code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(CONFIGURATION_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/background.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  echo \"Skipping background bundle in Debug configuration\"\n  exit 0\nfi\n\nif [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\nif [[ -z \"$NODE_BINARY\" ]]; then\n  export NODE_BINARY=\"node\"\nfi\n\n\"$NODE_BINARY\" \"$PROJECT_ROOT/scripts/build-release-background-bundle.js\" \\\n  --platform ios \\\n  --entry-file \"$PROJECT_ROOT/background.ts\" \\\n  --bundle-output \"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/background.bundle\" \\\n  --assets-dest \"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" \\\n  --sourcemap-output \"$CONFIGURATION_BUILD_DIR/background.bundle.map\"\n";
+			showEnvVarsInLog = 0;
 		};
 		EFE2221F1F14C7E02A5D3839 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
