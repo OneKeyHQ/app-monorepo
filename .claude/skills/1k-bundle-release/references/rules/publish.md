@@ -91,26 +91,56 @@ Field details:
 
 Write the updated JSON with 2-space indentation.
 
-## Step 3: Commit and push
+## Step 3: Create branch, commit, and open PR
+
+Never push directly to the release branch. Create a PR instead.
+
+### Create a branch and commit
 
 ```bash
+release_branch_name="chore/release-${seq}"
+git checkout -b "$release_branch_name"
 git add RELEASES.json
 git commit -m "chore: release #$seq"
-git push origin $RELEASE_BRANCH
+git push origin "$release_branch_name"
+```
+
+### Create PR targeting the release branch
+
+```bash
+gh pr create \
+  --base "$RELEASE_BRANCH" \
+  --title "chore: release #$seq" \
+  --body "$(cat <<'EOF'
+## Summary
+- Record release #$seq in RELEASES.json
+- Commit: $short_sha
+- PRs included: $pr_list
+
+## Release Notes
+$notes
+EOF
+)"
+```
+
+After PR is created, switch back to the release branch:
+
+```bash
+git checkout "$RELEASE_BRANCH"
 ```
 
 ## Step 4: Output
 
 ```
-=== Release #$seq Published ===
+=== Release #$seq PR Created ===
 
 📦 Commit: $short_sha ($RELEASE_BRANCH)
 📋 PRs: #1234, #1256, #1260
 📝 Notes: $notes
+🔗 PR: $pr_url
 
-To trigger CI build, use workflow_dispatch on branch: $RELEASE_BRANCH
+Merge the PR, then trigger CI build via workflow_dispatch on branch: $RELEASE_BRANCH
 
-Release recorded in RELEASES.json.
 Next step: /1k-bundle-release sync (sync changes to x)
 ```
 
