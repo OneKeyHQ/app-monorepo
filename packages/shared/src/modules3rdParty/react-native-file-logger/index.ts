@@ -1,5 +1,6 @@
 export const NativeLogger = {
   write: (_level: number, _msg: string) => {},
+  flushPendingRepeat: () => {},
   getLogDirectory: () => '',
   getLogFilePaths: () => Promise.resolve([] as string[]),
   deleteLogFiles: () => Promise.resolve(),

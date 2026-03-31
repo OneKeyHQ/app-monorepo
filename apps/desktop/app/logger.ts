@@ -9,6 +9,11 @@ import path from 'path';
 
 import logger from 'electron-log/main';
 
+import {
+  consumeDesktopDedupMessage,
+  flushDesktopDedupState,
+} from '@onekeyhq/shared/src/logger/desktopDedupState';
+
 // ---------------------------------------------------------------------------
 // File transport configuration
 // ---------------------------------------------------------------------------
@@ -181,6 +186,53 @@ function sanitizeAndTruncateData(data: any[]): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// Dedup hook: collapses identical consecutive file-transport messages.
+// Uses hook for true skip semantics (returning null prevents any write).
+// Repeat prefix is stored for the format function to prepend.
+// ---------------------------------------------------------------------------
+
+const MAX_PENDING_REPEAT_PREFIX = 100;
+let pendingRepeatPrefix: string[] = [];
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+logger.hooks.push((message: any, _transFn: any, transName?: string) => {
+  if (transName !== 'file') {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return message;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const level: string = message?.level ?? 'info';
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+  const rawData: any[] = message?.data ?? [];
+  const dataStr = rawData
+    .map((d: any) => {
+      if (typeof d === 'string') return d;
+      try {
+        return JSON.stringify(d);
+      } catch {
+        return String(d);
+      }
+    })
+    .join(' ');
+  const key = `[${level}] ${dataStr}`;
+
+  const { shouldSkip, repeatPrefix } = consumeDesktopDedupMessage(key, level);
+  if (shouldSkip) {
+    return null; // truly skip — no file write at all
+  }
+
+  if (
+    repeatPrefix.length > 0 &&
+    pendingRepeatPrefix.length < MAX_PENDING_REPEAT_PREFIX
+  ) {
+    pendingRepeatPrefix = [...pendingRepeatPrefix, ...repeatPrefix];
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return message;
+});
+
+// ---------------------------------------------------------------------------
 // Rate limiting via logger.hooks (runs before any transport)
 // Returning null drops the message entirely.
 // - DEBUG/INFO: 400/s, burst 2000
@@ -266,10 +318,14 @@ logger.transports.file.format = (params: {
 }) => {
   const filtered = sanitizeAndTruncateData(params.data);
 
+  // Pick up any pending repeat prefix set by the dedup hook
+  const repeatPrefix = pendingRepeatPrefix;
+  pendingRepeatPrefix = [];
+
   if (params.message?.scope === 'app') {
     // App-scoped messages from renderer: write filtered data as-is
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return filtered;
+    return [...repeatPrefix, ...filtered];
   }
 
   // Main process messages: add timestamp and level prefix
@@ -278,8 +334,30 @@ logger.transports.file.format = (params: {
   const pad3 = (n: number) => String(n).padStart(3, '0');
   const ts = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${pad3(d.getMilliseconds())}`;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return [`[${ts}] [${params.level}]`, ...filtered];
+  return [...repeatPrefix, `[${ts}] [${params.level}]`, ...filtered];
 };
+
+/** Flush pending dedup state before log export so the tail repeat count is not lost. */
+export function flushDesktopDedup() {
+  flushDesktopDedupState((message, level) => {
+    if (level === 'error') {
+      logger.error(message);
+    } else if (level === 'warn') {
+      logger.warn(message);
+    } else {
+      logger.info(message);
+    }
+  });
+
+  // Drain any pending repeat prefixes that were set by the dedup hook
+  // but never consumed by file.format (e.g. when rate-limit hook dropped the message)
+  if (pendingRepeatPrefix.length > 0) {
+    for (const prefix of pendingRepeatPrefix) {
+      logger.info(prefix);
+    }
+    pendingRepeatPrefix = [];
+  }
+}
 
 // Startup marker matching native: OneKeyLog.info("App", "OneKey started")
 logger.info('[App] OneKey started');
