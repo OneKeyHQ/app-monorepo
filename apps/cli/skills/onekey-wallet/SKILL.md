@@ -159,40 +159,56 @@ onekey import --mnemonic [--force]
 
 ### `onekey history`
 
-List swap transaction history from local pending storage.
+List on-chain transaction history for a wallet address.
 
 ```bash
-onekey history [--chain <chain>] [--limit <n>]
+onekey history --chain <chain> [--token <token>] [--address <address>] [--limit <n>] [--detail]
 ```
 
 | Parameter | Required | Description |
 |---|---|---|
-| `--chain` | No | Filter by chain |
-| `--limit` | No | Max records (default 20, max 100) |
+| `--chain` | Yes | Target blockchain (e.g. `eth`, `bsc`, `base`) |
+| `--token` | No | Filter by token symbol or contract address |
+| `--address` | No | Override wallet address (defaults to imported wallet) |
+| `--limit` | No | Max records (default 20, max 50) |
+| `--detail` | No | Include block, nonce, confirmations, label |
 
-**Returns:** Array of history records:
+**Returns (list mode):**
 ```json
 [
   {
-    "orderId": "uuid",
-    "status": "pending | executed | failed",
-    "chain": "eth",
-    "from": "USDC",
-    "to": "ETH",
-    "amount": "100",
     "txHash": "0x...",
-    "provider": "1inch",
-    "createdAt": "2026-03-30T...",
-    "updatedAt": "2026-03-30T..."
+    "type": "Send",
+    "status": "success",
+    "from": "0x...",
+    "to": "0x...",
+    "sends": [{ "token": "USDC", "amount": "100", "fiatValue": "100.00" }],
+    "receives": [],
+    "gasFee": "0.0012",
+    "gasFeeFiatValue": "2.45",
+    "timestamp": "2026-03-31T10:30:00Z"
   }
 ]
 ```
 
+**Returns (detail mode — additional fields per tx):**
+```json
+{
+  "block": 19234567,
+  "nonce": 42,
+  "confirmations": 128,
+  "networkName": "ETH",
+  "label": "Swap",
+  "contractAddress": "0x..."
+}
+```
+
 **Agent notes:**
-- This shows LOCAL swap history (from `onekey swap` operations).
-- For live status of a specific swap, use `onekey swap status` (see `onekey-swap`).
-- If user asks "did my swap complete", check history first, then query
-  status for any pending orders.
+- This shows **on-chain** transaction history from the blockchain.
+- For swap order history (local), use `onekey swap history`.
+- Supports querying any address via `--address` without wallet import.
+- Use `--token` to filter by specific token (symbol or contract address).
+- Use `--detail` for full transaction metadata.
 
 ### `onekey logout`
 
@@ -310,3 +326,4 @@ onekey import --mnemonic
 - Balance check before swap → called by `onekey-swap`.
 - Token contract lookup → use `onekey-market` to find contract addresses.
 - Security audit → use `onekey-security` before interacting with unknown contracts.
+- Swap order history → use `onekey swap history` (see `onekey-swap`).

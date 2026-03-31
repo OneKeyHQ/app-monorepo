@@ -299,12 +299,12 @@
     }
   },
   {
-    "id": "wallet-history",
+    "id": "wallet-history-basic",
     "skill": "onekey-wallet",
-    "prompt": "看一下我最近的交易记录",
+    "prompt": "show my transaction history on ethereum",
     "expect": {
-      "commands": ["onekey history"],
-      "forbidden": ["--help", "onekey token", "onekey swap status"]
+      "commands": ["onekey history --chain eth"],
+      "forbidden": ["--help", "swap history"]
     }
   },
   {
@@ -314,6 +314,33 @@
     "expect": {
       "commands": ["onekey history --chain bsc --limit 5"],
       "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "wallet-history-token-filter",
+    "skill": "onekey-wallet",
+    "prompt": "show my USDC transactions on base",
+    "expect": {
+      "commands": ["onekey history --chain base --token USDC"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "wallet-history-detail",
+    "skill": "onekey-wallet",
+    "prompt": "show me detailed transaction history for 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 on eth",
+    "expect": {
+      "commands": ["onekey history --chain eth --address 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 --detail"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "swap-history-migration",
+    "skill": "onekey-swap",
+    "prompt": "show my swap orders",
+    "expect": {
+      "commands": ["onekey swap history"],
+      "forbidden": ["--help", "onekey history --chain"]
     }
   },
   {

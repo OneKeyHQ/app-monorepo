@@ -193,6 +193,25 @@ onekey swap status --chain <chain> [--order <orderId>] [--tx <txHash>] [--watch]
   inform user of expected wait time.
 - On success, display: actual received amount, transaction hash, gas fee.
 
+### `onekey swap history`
+
+List local swap order history.
+
+```bash
+onekey swap history [--chain <chain>] [--limit <n>]
+```
+
+| Parameter | Required | Description |
+|---|---|---|
+| `--chain` | No | Filter by chain |
+| `--limit` | No | Max records (default 20, max 100) |
+
+**Agent notes:**
+- Shows LOCAL swap order records from `onekey swap build/execute`.
+- For on-chain transaction history, use `onekey history` (see `onekey-wallet`).
+- If user asks "did my swap complete", check this first, then use
+  `onekey swap status` for any pending orders.
+
 ## Workflows
 
 ### Same-Chain Swap (Standard Flow)
