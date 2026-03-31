@@ -11,7 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CLI_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+CLI_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CASES_FILE="$SCRIPT_DIR/cases.json"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 MODEL=""
@@ -55,7 +55,7 @@ SYSTEM_PROMPT="You are testing the OneKey CLI. You have access to the onekey CLI
 IMPORTANT RULES:
 - Read the skill files FIRST before running any command.
 - Skill files are at: $CLI_DIR/skills/
-- Read skills/SKILL.md first, then the relevant sub-skill.
+- Read the relevant skill file for the task (skills/wallet/, skills/swap/, skills/market/, or skills/security/).
 - Do NOT use --help to discover commands. The skill files have everything you need.
 - Run the actual CLI commands to answer the user's question.
 - After running commands, present the results to the user.
