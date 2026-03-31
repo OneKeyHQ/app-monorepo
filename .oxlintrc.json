@@ -43,6 +43,7 @@
     "restriction": "off"
   },
   "rules": {
+    "max-classes-per-file": ["error", 1],
     "prettier/prettier": ["error"],
     "@cspell/spellchecker": [
       "warn",
