@@ -46,11 +46,9 @@ export function BulkCopyAddressesButton({
           });
           // FullModal can cause hierarchy issues
           navigation?.pushModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeFeatures,
+            screen: EPrimePages.PrimeDashboard,
             params: {
-              showAllFeatures: false,
-              selectedFeature: EPrimeFeatures.BulkCopyAddresses,
-              selectedSubscriptionPeriod: 'P1Y',
+              fromFeature: EPrimeFeatures.BulkCopyAddresses,
               networkId,
             },
           });
