@@ -49,13 +49,16 @@ import type {
   IUserFillsParameters,
   IWsActiveAssetCtx,
   IWsAllDexsClearinghouseState,
+  IWsSpotState,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import localDb from '../../dbs/local/localDb';
 import {
   perpTokenSelectorTabsAtom,
+  perpsAbstractionModeAtom,
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
@@ -69,6 +72,7 @@ import {
   perpsDepositNetworksAtom,
   perpsDepositTokensAtom,
   perpsLastUsedLeverageAtom,
+  perpsSpotBalancesAtom,
   perpsTradesHistoryDataAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -780,6 +784,48 @@ export default class ServiceHyperliquid extends ServiceBase {
     });
   }
 
+  async updateSpotBalances(spotStateData: IWsSpotState) {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    const dataUser = spotStateData?.user?.toLowerCase();
+
+    // Active-account alignment: only process data for current account
+    if (!activeAddress || activeAddress !== dataUser) return;
+
+    const balances = spotStateData?.spotState?.balances || [];
+
+    // Calculate total USD value from spot balances
+    // Price lookup: USDC (token=0) → 1:1, others → allMids.mids["@{token}"]
+    let totalUsd = new BigNumber(0);
+    const mids = hyperLiquidCache.allMids?.mids;
+    for (const balance of balances) {
+      const amount = new BigNumber(balance.total);
+      if (amount.isZero()) continue;
+      if (balance.token === 0) {
+        // USDC — quote currency, not in allMids, 1:1 USD
+        totalUsd = totalUsd.plus(amount);
+      } else {
+        const midKey = `@${balance.token}`;
+        const midPrice = mids?.[midKey];
+        if (midPrice) {
+          totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
+        }
+      }
+    }
+
+    await perpsSpotBalancesAtom.set({
+      accountAddress: activeAddress as IHex,
+      balances: balances.map((b) => ({
+        coin: b.coin,
+        token: b.token,
+        total: b.total,
+        hold: b.hold,
+        entryNtl: b.entryNtl,
+      })),
+      spotTotalUsd: totalUsd.toFixed(),
+    });
+  }
+
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   @backgroundMethod()
@@ -857,6 +903,8 @@ export default class ServiceHyperliquid extends ServiceBase {
       }, 300);
     }
 
+    await perpsAbstractionModeAtom.set(undefined);
+    await perpsSpotBalancesAtom.set(undefined);
     await perpsActiveAccountAtom.set(perpsAccount);
     return perpsAccount;
   }
@@ -925,6 +973,72 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
+
+  async fetchUserAbstraction(
+    userAddress: IHex,
+  ): Promise<string | undefined> {
+    // Active-account alignment check
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (
+      activeAccount?.accountAddress?.toLowerCase() !==
+      userAddress.toLowerCase()
+    ) {
+      return undefined;
+    }
+
+    const { infoClient } = hyperLiquidApiClients;
+    try {
+      const mode = await infoClient.userAbstraction({ user: userAddress });
+
+      // Re-check alignment after async call
+      const currentAccount = await perpsActiveAccountAtom.get();
+      if (
+        currentAccount?.accountAddress?.toLowerCase() !==
+        userAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
+
+      await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+        userAddress,
+        mode,
+      );
+      await perpsAbstractionModeAtom.set({
+        accountAddress: userAddress.toLowerCase() as IHex,
+        mode: mode as EHyperLiquidAbstractionMode,
+      });
+      return mode;
+    } catch {
+      // Fallback to SimpleDb cached value — need alignment checks around every await
+      const preDbAccount = await perpsActiveAccountAtom.get();
+      if (
+        preDbAccount?.accountAddress?.toLowerCase() !==
+        userAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
+      const cached =
+        await this.backgroundApi.simpleDb.perp.getUserAbstractionMode(
+          userAddress,
+        );
+      // Post-async alignment: user could have switched during SimpleDb read
+      const postDbAccount = await perpsActiveAccountAtom.get();
+      if (
+        postDbAccount?.accountAddress?.toLowerCase() !==
+        userAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
+      if (cached) {
+        await perpsAbstractionModeAtom.set({
+          accountAddress: userAddress.toLowerCase() as IHex,
+          mode: cached as EHyperLiquidAbstractionMode,
+        });
+        return cached;
+      }
+      return undefined; // NOT "default" — unknown is unknown
+    }
+  }
 
   @backgroundMethod()
   async checkPerpsAccountStatus({
@@ -996,6 +1110,9 @@ export default class ServiceHyperliquid extends ServiceBase {
       } else {
         hyperLiquidCache.activatedUser[accountAddress] = true;
         statusDetails.activatedOk = true;
+
+        // Fetch abstraction mode for the active account
+        void this.fetchUserAbstraction(accountAddress);
 
         // Builder fee must be approved before agent setup
         await this.checkBuilderFeeStatus({
