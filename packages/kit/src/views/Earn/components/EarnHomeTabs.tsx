@@ -20,7 +20,7 @@ export const EarnHomeTabs = ({
   return (
     <YStack flex={1}>
       <MarketSelector mode={activeMode} onModeChange={onModeChange} />
-      <Stack flex={1} pt="$4">
+      <Stack flex={1} pt={24}>
         <Stack
           flex={1}
           display={isEarnMode ? 'flex' : 'none'}

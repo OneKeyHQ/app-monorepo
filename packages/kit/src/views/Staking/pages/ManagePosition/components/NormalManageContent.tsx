@@ -33,6 +33,8 @@ import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
 import { WithdrawSection } from './WithdrawSection';
 
+import type { IManagePositionProtocolSwitchConfig } from './ManagePositionContent';
+
 type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
 type IManageActionData = IEarnManagePageActionData | undefined;
 
@@ -65,6 +67,7 @@ interface INormalManageContentProps {
   appNavigation: IAppNavigation;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   ongoingValidator?: IEarnSelectField;
   managePageData?: IEarnManagePageResponse;
   type?: EManagePositionType;
@@ -98,6 +101,7 @@ export function NormalManageContent({
   appNavigation,
   showApyDetail,
   fallbackTokenImageUri,
+  stakeProtocolSwitchConfig,
   ongoingValidator,
   managePageData,
   type = EManagePositionType.Staking,
@@ -562,8 +566,9 @@ export function NormalManageContent({
     if (depositDisabled && selectedTabIndex === 0) {
       setSelectedTabIndex(1);
       focusedTab.value = tabNames[1];
+      onTabChange?.('withdraw');
     }
-  }, [depositDisabled, selectedTabIndex, focusedTab, tabNames]);
+  }, [depositDisabled, selectedTabIndex, focusedTab, tabNames, onTabChange]);
 
   const isWithdrawOrder = useMemo(() => {
     return (
@@ -713,6 +718,7 @@ export function NormalManageContent({
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          protocolSwitchConfig={stakeProtocolSwitchConfig}
           ongoingValidator={ongoingValidator}
           useBorrowApi={useBorrowApi}
           borrowMarketAddress={marketAddress}

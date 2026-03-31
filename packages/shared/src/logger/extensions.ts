@@ -1,37 +1,28 @@
-import { logger as RNLogger, consoleTransport } from 'react-native-logs';
-
-import timerUtils from '../utils/timerUtils';
-
 import utils from './utils';
 
-import type { ILogger, ILoggerMethods } from './types';
+import type { ILogLevel } from './types';
 
-const createLogger = RNLogger.createLogger as unknown as (
-  opts: Record<string, unknown>,
-) => ILogger;
+// Lightweight replacement for react-native-logs.
+// Preserves the same output format ("HH:MM:SS | LEVEL : msg")
+// but removes the redundant async deferral (logFn already has setTimeout).
 
-const dangerLogger = createLogger({
-  async: true,
-  asyncFunc: (...args: Parameters<typeof timerUtils.setTimeoutPromised>) =>
-    timerUtils.setTimeoutPromised(...args),
-  dateFormat: 'time', // time, local, utc, iso
-  transport: [consoleTransport],
-  transportOptions: {
-    consoleFunc: utils.consoleFunc,
-  },
-  // format logger msg here
-  // 06:37:59 | app | INFO :  log message
-});
+type ILogFn = (msg: string) => void;
+type ILogger = Record<ILogLevel, ILogFn>;
 
-const loggerExtensions: Record<string, ILoggerMethods> = {};
+function formatAndSend(level: string, msg: string) {
+  const d = new Date();
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const ts = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  utils.consoleFunc(`${ts} | ${level.toUpperCase()} : ${msg}`);
+}
 
-export function getLoggerExtension(name: string): ILoggerMethods {
-  if (!name) {
-    return dangerLogger;
-  }
-  // name += '@*!&&';
-  if (!loggerExtensions[name]) {
-    loggerExtensions[name] = dangerLogger.extend(name);
-  }
-  return loggerExtensions[name];
+const baseLogger: ILogger = {
+  debug: (msg) => formatAndSend('debug', msg),
+  info: (msg) => formatAndSend('info', msg),
+  warn: (msg) => formatAndSend('warn', msg),
+  error: (msg) => formatAndSend('error', msg),
+};
+
+export function getLoggerExtension(_name: string): ILogger {
+  return baseLogger;
 }
