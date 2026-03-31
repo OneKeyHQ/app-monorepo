@@ -59,7 +59,7 @@ const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
   seconds: 3,
 });
 
-type IEarnModeSwitchType = 'default' | 'tap';
+type IEarnModeSwitchType = 'default' | 'tap' | 'swipe';
 
 function BasicEarnHome({
   showHeader,
@@ -348,9 +348,9 @@ function BasicEarnHome({
     (direction: 'left' | 'right') => {
       const currentMode = defaultModeRef.current;
       if (direction === 'left' && currentMode === 'earn') {
-        handleModeChange('borrow');
+        handleModeChange('borrow', 'swipe');
       } else if (direction === 'right' && currentMode === 'borrow') {
-        handleModeChange('earn');
+        handleModeChange('earn', 'swipe');
       } else if (direction === 'right' && currentMode === 'earn') {
         appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
           tab: ETranslations.global_market,
