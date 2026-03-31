@@ -237,7 +237,7 @@ const RecommendedItem = memo(
             <XStack gap="$1" ai="center" pt="$3">
               <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
               <SizableText
-                size="$bodySmMedium"
+                size="$bodySm"
                 color="$textSubdued"
                 numberOfLines={1}
                 ellipsizeMode="tail"
