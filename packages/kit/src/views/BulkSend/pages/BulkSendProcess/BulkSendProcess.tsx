@@ -35,6 +35,7 @@ import type {
 import { isHardwareInterruptErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   type EModalBulkSendRoutes,
   type IModalBulkSendParamList,
@@ -133,6 +134,82 @@ function buildFeeInfoByPreset({
   };
 }
 
+type IFeeContextSource = 'estimate' | 'reviewFallback';
+
+type IFeeContextCacheItem = {
+  cacheKey: string;
+  feeInfo: IFeeInfoUnit;
+  estimateFeeParams?: IEstimateFeeParams;
+  nativeTokenPrice: number;
+  timestamp: number;
+  source: IFeeContextSource;
+  selectedFeeInfo?: ISendSelectedFeeInfo;
+};
+
+function serializeFeeCachePart(value: unknown): string {
+  if (value === null) return 'null';
+
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return JSON.stringify(value);
+  }
+  if (typeof value === 'bigint') return JSON.stringify(value.toString());
+  if (typeof value === 'undefined') return 'undefined';
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => serializeFeeCachePart(item)).join(',')}]`;
+  }
+
+  if (value instanceof Uint8Array) {
+    return `[${Array.from(value).join(',')}]`;
+  }
+
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .toSorted()
+      .map(
+        (key) => `${JSON.stringify(key)}:${serializeFeeCachePart(record[key])}`,
+      )
+      .join(',')}}`;
+  }
+
+  return JSON.stringify(String(value));
+}
+
+function buildFeeContextCacheKey({
+  feePresetIndex,
+  txAccountId,
+  accountAddress,
+  encodedTx,
+}: {
+  feePresetIndex: number;
+  txAccountId: string;
+  accountAddress: string;
+  encodedTx: IUnsignedTxPro['encodedTx'];
+}) {
+  return [
+    feePresetIndex,
+    txAccountId,
+    accountAddress,
+    serializeFeeCachePart(encodedTx),
+  ].join('::');
+}
+
+function buildFeeResultFromSelectedFeeInfo(
+  selectedFeeInfo: ISendSelectedFeeInfo,
+) {
+  return {
+    total: selectedFeeInfo.total,
+    totalNative: selectedFeeInfo.totalNative,
+    totalFiat: selectedFeeInfo.totalFiat,
+    totalNativeForDisplay:
+      selectedFeeInfo.totalNativeForDisplay ?? selectedFeeInfo.totalNative,
+    totalFiatForDisplay:
+      selectedFeeInfo.totalFiatForDisplay ?? selectedFeeInfo.totalFiat,
+  };
+}
+
 type IBulkSendProcessRouteParams =
   IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendProcess];
 
@@ -142,6 +219,7 @@ function BulkSendProcessContent({
   isInModal,
   isMaxMode,
   feePresetIndex = 1,
+  feeInfo: reviewFeeInfo,
   unsignedTxs: initialUnsignedTxs,
   tokenInfo,
   transfersInfo,
@@ -219,87 +297,176 @@ function BulkSendProcessContent({
     >
   >({});
 
-  // Fee overflow only needs to be checked once (same network for all txs)
-  const feeOverflowCheckedRef = useRef(false);
+  // Fee overflow checks and fee caches must be bound to the current tx shape.
+  const feeOverflowCheckedKeysRef = useRef<Set<string>>(new Set());
 
   // Guard against concurrent processing loops (e.g. retry re-triggers usePromiseResult)
   const isProcessingRef = useRef(false);
 
-  // Fee estimation cache — same network/structure, refresh every 30s
+  // Fee estimation cache — scoped per tx key, refresh every 30s.
   const FEE_CACHE_TTL_MS = 30_000;
-  const feeCacheRef = useRef<{
-    feeInfo: IFeeInfoUnit;
-    estimateFeeParams: IEstimateFeeParams | undefined;
-    nativeTokenPrice: number;
-    timestamp: number;
-  } | null>(null);
+  const feeCacheRef = useRef<Map<string, IFeeContextCacheItem>>(new Map());
+
+  const logFeeProcess = useCallback(
+    (
+      level: 'info' | 'error',
+      message: string,
+      params?: Record<string, unknown>,
+    ) => {
+      const logPayload = {
+        message,
+        networkId,
+        feePresetIndex,
+        ...params,
+      };
+      if (level === 'error') {
+        defaultLogger.transaction.send.consoleError(
+          '[BulkSendProcess.fee]',
+          logPayload,
+        );
+        return;
+      }
+      defaultLogger.transaction.send.consoleLog(
+        '[BulkSendProcess.fee]',
+        logPayload,
+      );
+    },
+    [feePresetIndex, networkId],
+  );
 
   const getCachedFeeContext = useCallback(
     async ({
+      txIndex,
       txAccountId,
       accountAddress,
       encodedTx,
     }: {
+      txIndex: number;
       txAccountId: string;
       accountAddress: string;
       encodedTx: IUnsignedTxPro['encodedTx'];
     }) => {
-      const cached = feeCacheRef.current;
+      const cacheKey = buildFeeContextCacheKey({
+        feePresetIndex,
+        txAccountId,
+        accountAddress,
+        encodedTx,
+      });
+      const cached = feeCacheRef.current.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < FEE_CACHE_TTL_MS) {
+        logFeeProcess('info', 'fee-cache-hit', {
+          txIndex,
+          txAccountId,
+          source: cached.source,
+          cacheKeyPreview: cacheKey.slice(0, 96),
+        });
         return cached;
       }
 
-      const buildResult =
-        await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+      try {
+        const buildResult =
+          await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+            accountId: txAccountId,
+            networkId,
+            encodedTx,
+          });
+
+        const resp = await backgroundApiProxy.serviceGas.estimateFee({
           accountId: txAccountId,
           networkId,
-          encodedTx,
+          encodedTx: buildResult.encodedTx,
+          accountAddress,
         });
 
-      const resp = await backgroundApiProxy.serviceGas.estimateFee({
-        accountId: txAccountId,
-        networkId,
-        encodedTx: buildResult.encodedTx,
-        accountAddress,
-      });
+        const feesInfo: IFeesInfoUnit = {
+          common: {
+            baseFee: resp.common.baseFee,
+            feeDecimals: resp.common.feeDecimals,
+            feeSymbol: resp.common.feeSymbol,
+            nativeDecimals: resp.common.nativeDecimals,
+            nativeSymbol: resp.common.nativeSymbol,
+            nativeTokenPrice: resp.common.nativeTokenPrice,
+          },
+          gas: resp.gas,
+          gasEIP1559: normalizeGasEIP1559Presets(resp.gasEIP1559),
+          feeUTXO: resp.feeUTXO,
+          feeTron: resp.feeTron,
+          feeSol: resp.feeSol,
+          feeCkb: resp.feeCkb,
+          feeAlgo: resp.feeAlgo,
+          feeDot: resp.feeDot,
+          feeBudget: resp.feeBudget,
+          feeNeoN3: resp.feeNeoN3,
+        };
 
-      const feesInfo: IFeesInfoUnit = {
-        common: {
-          baseFee: resp.common.baseFee,
-          feeDecimals: resp.common.feeDecimals,
-          feeSymbol: resp.common.feeSymbol,
-          nativeDecimals: resp.common.nativeDecimals,
-          nativeSymbol: resp.common.nativeSymbol,
-          nativeTokenPrice: resp.common.nativeTokenPrice,
-        },
-        gas: resp.gas,
-        gasEIP1559: normalizeGasEIP1559Presets(resp.gasEIP1559),
-        feeUTXO: resp.feeUTXO,
-        feeTron: resp.feeTron,
-        feeSol: resp.feeSol,
-        feeCkb: resp.feeCkb,
-        feeAlgo: resp.feeAlgo,
-        feeDot: resp.feeDot,
-        feeBudget: resp.feeBudget,
-        feeNeoN3: resp.feeNeoN3,
-      };
+        const nextFeeContext: IFeeContextCacheItem = {
+          cacheKey,
+          feeInfo: buildFeeInfoByPreset({
+            feesInfo,
+            presetIndex: feePresetIndex,
+          }),
+          estimateFeeParams: buildResult.estimateFeeParams,
+          nativeTokenPrice: resp.common.nativeTokenPrice ?? 0,
+          timestamp: Date.now(),
+          source: 'estimate',
+        };
 
-      const nextFeeContext = {
-        feeInfo: buildFeeInfoByPreset({
-          feesInfo,
-          presetIndex: feePresetIndex,
-        }),
-        estimateFeeParams: buildResult.estimateFeeParams,
-        nativeTokenPrice: resp.common.nativeTokenPrice ?? 0,
-        timestamp: Date.now(),
-      };
+        feeCacheRef.current.set(cacheKey, nextFeeContext);
+        logFeeProcess('info', 'fee-estimated', {
+          txIndex,
+          txAccountId,
+          source: nextFeeContext.source,
+          cacheKeyPreview: cacheKey.slice(0, 96),
+        });
+        return nextFeeContext;
+      } catch (error) {
+        const canUseReviewFallback =
+          txIndex === 0 &&
+          unsignedTxs.length === initialUnsignedTxs.length &&
+          reviewFeeInfo?.feeInfo;
 
-      feeCacheRef.current = nextFeeContext;
-      // Reset fee overflow check when fee is re-fetched
-      feeOverflowCheckedRef.current = false;
-      return nextFeeContext;
+        if (canUseReviewFallback) {
+          const fallbackFeeContext: IFeeContextCacheItem = {
+            cacheKey,
+            feeInfo: reviewFeeInfo.feeInfo,
+            estimateFeeParams: undefined,
+            nativeTokenPrice:
+              reviewFeeInfo.feeInfo.common.nativeTokenPrice ?? 0,
+            timestamp: Date.now(),
+            source: 'reviewFallback',
+            selectedFeeInfo: reviewFeeInfo,
+          };
+          feeCacheRef.current.set(cacheKey, fallbackFeeContext);
+          logFeeProcess('info', 'fee-review-fallback', {
+            txIndex,
+            txAccountId,
+            cacheKeyPreview: cacheKey.slice(0, 96),
+            error:
+              (error as Error)?.message ??
+              (error as { data?: { message?: string } })?.data?.message,
+          });
+          return fallbackFeeContext;
+        }
+
+        logFeeProcess('error', 'fee-estimate-failed', {
+          txIndex,
+          txAccountId,
+          cacheKeyPreview: cacheKey.slice(0, 96),
+          error:
+            (error as Error)?.message ??
+            (error as { data?: { message?: string } })?.data?.message,
+        });
+        throw error;
+      }
     },
-    [feePresetIndex, networkId],
+    [
+      feePresetIndex,
+      initialUnsignedTxs.length,
+      logFeeProcess,
+      networkId,
+      reviewFeeInfo,
+      unsignedTxs.length,
+    ],
   );
 
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
@@ -461,18 +628,28 @@ function BulkSendProcessContent({
 
           // Estimate fees using the rebuilt tx for accuracy
           const feeContext = await getCachedFeeContext({
+            txIndex: i,
             txAccountId,
             accountAddress,
             encodedTx: updatedTx.encodedTx,
           });
-          const { feeInfo, estimateFeeParams, nativeTokenPrice } = feeContext;
-
-          const feeResult = calculateFeeForSend({
+          const {
+            cacheKey: feeCacheKey,
             feeInfo,
-            nativeTokenPrice,
-            txSize: updatedTx.txSize,
             estimateFeeParams,
-          });
+            nativeTokenPrice,
+            selectedFeeInfo,
+            source: feeSource,
+          } = feeContext;
+
+          const feeResult = selectedFeeInfo
+            ? buildFeeResultFromSelectedFeeInfo(selectedFeeInfo)
+            : calculateFeeForSend({
+                feeInfo,
+                nativeTokenPrice,
+                txSize: updatedTx.txSize,
+                estimateFeeParams,
+              });
 
           if (isAborted.current) break;
           await waitUntilInProgress();
@@ -550,8 +727,17 @@ function BulkSendProcessContent({
             nonceInfo,
           });
 
-          // Fee overflow check — only once (same network for all txs)
-          if (!feeOverflowCheckedRef.current) {
+          logFeeProcess('info', 'fee-applied-to-tx', {
+            txIndex: i,
+            txAccountId,
+            feeSource,
+            rebuildSucceeded,
+            usedFallbackNonce: !!nonceInfo,
+            usedMaxSendAmount: !!updatedMaxSendAmount,
+            cacheKeyPreview: feeCacheKey.slice(0, 96),
+          });
+
+          if (!feeOverflowCheckedKeysRef.current.has(feeCacheKey)) {
             const isFeeInfoOverflow =
               await backgroundApiProxy.serviceSend.preCheckIsFeeInfoOverflow({
                 encodedTx: updatedTx.encodedTx,
@@ -561,7 +747,13 @@ function BulkSendProcessContent({
                 accountAddress,
               });
 
-            feeOverflowCheckedRef.current = true;
+            feeOverflowCheckedKeysRef.current.add(feeCacheKey);
+            logFeeProcess('info', 'fee-overflow-checked', {
+              txIndex: i,
+              txAccountId,
+              isFeeInfoOverflow,
+              cacheKeyPreview: feeCacheKey.slice(0, 96),
+            });
 
             if (isAborted.current) break;
             await waitUntilInProgress();
@@ -814,8 +1006,8 @@ function BulkSendProcessContent({
         }
       });
       setTxStatusMap({});
-      feeOverflowCheckedRef.current = false;
-      feeCacheRef.current = null;
+      feeOverflowCheckedKeysRef.current.clear();
+      feeCacheRef.current.clear();
       // Preserve original successful results so onSuccess receives all successes
       // resultsRef.current is NOT cleared here — retry appends new successes
       // Reset processing guard and progress index before updating unsignedTxs to allow the new loop
