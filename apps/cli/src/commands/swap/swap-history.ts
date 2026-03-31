@@ -1,12 +1,12 @@
-import { listPending } from '../core';
-import { resolveChain } from '../core/chain-resolver';
-import { AppError } from '../errors';
+import { listPending } from '../../core';
+import { resolveChain } from '../../core/chain-resolver';
+import { AppError } from '../../errors';
 
-import type { OutputFormatter } from '../output';
+import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
-export function registerHistoryCommand(program: Command): void {
-  program
+export function registerSwapHistoryCommand(parent: Command): void {
+  parent
     .command('history')
     .description('List swap transaction history')
     .option('--chain <chain>', 'Filter by chain')
@@ -18,7 +18,7 @@ export function registerHistoryCommand(program: Command): void {
 
       try {
         if (options.chain) {
-          resolveChain(options.chain); // throws on invalid chain
+          resolveChain(options.chain);
         }
 
         const limit = Math.max(
