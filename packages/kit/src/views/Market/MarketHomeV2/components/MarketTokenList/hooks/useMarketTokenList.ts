@@ -23,6 +23,7 @@ interface IUseMarketTokenListParams {
   pageSize?: number;
   type?: string;
   timeRange?: string;
+  pollingInterval?: number;
 }
 
 export function useMarketTokenList({
@@ -32,6 +33,7 @@ export function useMarketTokenList({
   pageSize = 20,
   type,
   timeRange,
+  pollingInterval = timerUtils.getTimeDurationMs({ seconds: 60 }),
 }: IUseMarketTokenListParams) {
   const timeFrame = timeRange ? TIME_RANGE_TO_API_MAP[timeRange] : undefined;
   // Get minLiquidity from market config
@@ -103,7 +105,7 @@ export function useMarketTokenList({
     ],
     {
       watchLoading: hasNetworkId,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
+      pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
