@@ -19,28 +19,34 @@ allowed-tools: Read, Grep, Glob, Bash, WebFetch
 2. **Scope** — `git diff origin/x...HEAD --stat` to see change scope
 3. **Triage** — Determine which review modules apply (see triage table)
 4. **Primary Review** — Read each changed file, apply relevant checks from `references/`
-5. **Codex Cross-Review** — If Codex MCP available, run full parallel review (see below)
+5. **Codex Cross-Review** — If Codex available, run full parallel review (see below)
 6. **PR Comment Analysis** — Fetch all existing PR comments (bot + human), analyze with local codebase context (see below)
 7. **Merge Findings** — Combine primary + Codex + PR comment findings, deduplicate, annotate confidence
 8. **Score** — Rate the PR across 4 dimensions (see Scoring System). **This step is MANDATORY — every report MUST include the scoring table.**
 9. **Report** — Generate structured report using the unified format. **Follow the template exactly — every section is required.**
 10. **GH Comment** — For Blocker issues, offer to post inline PR comments (with confirmation)
 
-## Codex MCP Integration
+## Codex Cross-Review Integration
 
-Check if `mcp__codex__codex` is in available tools.
+Check if Codex is available by confirming the `codex:codex-rescue` subagent type can be dispatched. If uncertain, invoke `/codex:setup` to check readiness.
 
 **If available:**
-1. Send the full diff to Codex for an independent full review:
+1. Dispatch a full independent review to Codex via `Agent(subagent_type="codex:codex-rescue")`:
    ```
-   Review this PR diff for the OneKey crypto wallet monorepo. Focus on:
+   Agent(
+     subagent_type = "codex:codex-rescue",
+     prompt = "Review this PR diff for the OneKey crypto wallet monorepo. Focus on:
    - Security vulnerabilities (secret leakage, auth bypass, supply-chain risks)
    - Runtime bugs (race conditions, null safety, memory leaks)
    - Architecture violations (import hierarchy, cross-platform issues)
    - Code quality (hooks safety, error handling, performance)
    Report each finding with: file:line, severity (Critical/High/Medium/Low), description, fix suggestion.
+
+   Diff:
+   ${FULL_DIFF}"
+   )
    ```
-2. Retrieve response via `mcp__codex__codex-reply`
+2. Parse Agent result for structured findings
 3. Merge into primary review:
    - **Both found same issue** → Mark `{Cross-validated ✅}`, auto-promote to 🔵 High confidence
    - **Codex-only finding** → Include with tag `[Codex]`, review manually to assign confidence
