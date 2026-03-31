@@ -7,7 +7,7 @@
     "email": "dev@onekey.so"
   },
   "homepage": "https://onekey.so",
-  "repository": "https://github.com/AAAPrivateGroup/x-app-monorepo",
+  "repository": "https://github.com/OneKeyHQ/app-monorepo",
   "license": "Apache-2.0",
   "keywords": ["crypto", "wallet", "defi", "swap", "cli"],
   "skills": "./skills/"

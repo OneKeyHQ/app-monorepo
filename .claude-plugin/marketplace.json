@@ -12,7 +12,7 @@
       "name": "onekey",
       "source": {
         "source": "git-subdir",
-        "url": "AAAPrivateGroup/x-app-monorepo",
+        "url": "OneKeyHQ/app-monorepo",
         "path": "apps/cli"
       },
       "description": "OneKey crypto wallet CLI skills — wallet, swap, market, security"
