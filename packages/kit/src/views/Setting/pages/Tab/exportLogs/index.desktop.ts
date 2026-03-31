@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { prepareLoggerExport } from '@onekeyhq/shared/src/logger/exportSupport';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type {
@@ -44,6 +45,7 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(100);
+  await prepareLoggerExport();
   const result = await globalThis.desktopApiProxy.dev.collectLoggerDigest({
     fileBaseName: baseName,
   });
@@ -83,6 +85,7 @@ export const exportLogs = async (fileBaseName?: string) => {
     });
   }
   await waitAsync(50);
+  await prepareLoggerExport();
   await globalThis.desktopApiProxy.dev.exportLoggerZip({
     fileBaseName: baseName,
   });

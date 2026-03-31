@@ -28,6 +28,7 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
@@ -88,6 +89,22 @@ export type IMarketTokenListResult = {
   currentSortType?: 'asc' | 'desc';
 };
 
+export type IMarketTokenListLiveOverride = Partial<
+  Pick<
+    IMarketToken,
+    | 'price'
+    | 'change24h'
+    | 'marketCap'
+    | 'liquidity'
+    | 'transactions'
+    | 'uniqueTraders'
+    | 'holders'
+    | 'turnover'
+    | 'walletInfo'
+  >
+> &
+  Pick<IMarketToken, 'networkId' | 'address'>;
+
 type IMarketTokenListBaseProps = {
   networkId?: string;
   onItemPress?: (item: IMarketToken) => void;
@@ -115,6 +132,9 @@ type IMarketTokenListBaseProps = {
   ) => void;
   onScrollBegin?: () => void;
   showStockSubtitle?: boolean;
+  hiddenDesktopColumns?: readonly string[];
+  liveTokenOverride?: IMarketTokenListLiveOverride;
+  rowBg?: string;
 };
 
 function MarketTokenListBase({
@@ -138,6 +158,9 @@ function MarketTokenListBase({
   onItemContextMenu,
   onScrollBegin,
   showStockSubtitle = true,
+  hiddenDesktopColumns,
+  liveTokenOverride,
+  rowBg,
 }: IMarketTokenListBaseProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -172,19 +195,80 @@ function MarketTokenListBase({
     copyFrom,
     hasStock,
     showStockSubtitle,
+    hiddenDesktopColumns,
   );
 
   // Client-side sorting: sort data locally when clientSort is enabled
   const data = useMemo(() => {
-    if (!clientSort || !currentSortBy || !currentSortType) return rawData;
-    const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
-    if (!field) return rawData;
-    return [...rawData].toSorted((a, b) => {
-      const aVal = (a[field] as number) ?? 0;
-      const bVal = (b[field] as number) ?? 0;
-      return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
+    let nextData = rawData;
+
+    if (clientSort && currentSortBy && currentSortType) {
+      const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
+      if (field) {
+        nextData = [...rawData].toSorted((a, b) => {
+          const aVal = (a[field] as number) ?? 0;
+          const bVal = (b[field] as number) ?? 0;
+          return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
+        });
+      }
+    }
+
+    if (!liveTokenOverride?.networkId || !liveTokenOverride.address) {
+      return nextData;
+    }
+
+    let hasMatchedToken = false;
+    const dataWithLiveOverride = nextData.map((item) => {
+      const isMatchedToken = equalTokenNoCaseSensitive({
+        token1: {
+          networkId: item.networkId,
+          contractAddress: item.address,
+        },
+        token2: {
+          networkId: liveTokenOverride.networkId,
+          contractAddress: liveTokenOverride.address,
+        },
+      });
+
+      if (!isMatchedToken) {
+        return item;
+      }
+
+      hasMatchedToken = true;
+      return {
+        ...item,
+        ...(liveTokenOverride.price !== undefined && {
+          price: liveTokenOverride.price,
+        }),
+        ...(liveTokenOverride.change24h !== undefined && {
+          change24h: liveTokenOverride.change24h,
+        }),
+        ...(liveTokenOverride.marketCap !== undefined && {
+          marketCap: liveTokenOverride.marketCap,
+        }),
+        ...(liveTokenOverride.liquidity !== undefined && {
+          liquidity: liveTokenOverride.liquidity,
+        }),
+        ...(liveTokenOverride.transactions !== undefined && {
+          transactions: liveTokenOverride.transactions,
+        }),
+        ...(liveTokenOverride.uniqueTraders !== undefined && {
+          uniqueTraders: liveTokenOverride.uniqueTraders,
+        }),
+        ...(liveTokenOverride.holders !== undefined && {
+          holders: liveTokenOverride.holders,
+        }),
+        ...(liveTokenOverride.turnover !== undefined && {
+          turnover: liveTokenOverride.turnover,
+        }),
+        ...(liveTokenOverride.walletInfo !== undefined && {
+          walletInfo: liveTokenOverride.walletInfo,
+        }),
+      };
     });
-  }, [clientSort, rawData, currentSortBy, currentSortType]);
+
+    return hasMatchedToken ? dataWithLiveOverride : nextData;
+  }, [clientSort, rawData, currentSortBy, currentSortType, liveTokenOverride]);
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   // Skip for clientSort mode — banner detail pages manage their own sort state
@@ -503,6 +587,7 @@ function MarketTokenListBase({
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize={60}
               onRow={stableOnRow}
+              {...(rowBg ? { rowProps: { bg: rowBg } } : undefined)}
             />
           )}
           {webTabIntegrated ? (

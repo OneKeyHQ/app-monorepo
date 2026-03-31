@@ -58,7 +58,12 @@ export function PrimeTermsAndPrivacy() {
   );
 
   return (
-    <SizableText size="$bodyMd" color="$textSubdued">
+    <SizableText
+      size="$bodyMd"
+      color="$textSubdued"
+      textAlign="center"
+      $gtMd={{ textAlign: 'left' }}
+    >
       {intl.formatMessage(
         { id: ETranslations.prime_agree_to_terms_privacy },
         {
