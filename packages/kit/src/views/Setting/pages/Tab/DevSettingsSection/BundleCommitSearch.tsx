@@ -43,7 +43,7 @@ function checkIsCurrentBundle(
 const SEARCH_DEBOUNCE_MS = 500;
 
 export function BundleCommitSearch({ searchText }: { searchText: string }) {
-  const [searching, setSearching] = useState(false);
+  const [searching, setSearching] = useState(!!searchText.trim());
   const [searchResults, setSearchResults] = useState<
     { version: string; bundle: IBundleInfo }[]
   >([]);

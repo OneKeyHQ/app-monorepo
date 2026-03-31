@@ -1546,7 +1546,7 @@ class ServiceAppUpdate extends ServiceBase {
         const match = bundles.find(
           (b) =>
             (b.commitHash || '').toLowerCase().startsWith(needle) ||
-            b.ciBundleVersion.includes(needle),
+            b.ciBundleVersion.toLowerCase().includes(needle),
         );
         return match ? { version: v.version, bundle: match } : null;
       }),
