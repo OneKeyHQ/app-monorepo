@@ -128,9 +128,9 @@ function CompactNetworkSelector({
         return (
           <Stack
             key={network.id}
-            p="$0.5"
+            p="$1"
             borderRadius="$full"
-            bg={isSelected ? '$bgActive' : '$transparent'}
+            bg={isSelected ? '$neutral6' : '$transparent'}
             focusable
             hoverStyle={!isSelected ? { bg: '$bgStrongHover' } : undefined}
             pressStyle={!isSelected ? { bg: '$bgStrongActive' } : undefined}
