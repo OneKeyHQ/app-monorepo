@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Page } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -12,13 +14,46 @@ import {
   type EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { type ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 
-import { ManagePositionContent } from './components/ManagePositionContent';
+import {
+  type IManagePositionProtocolSwitchConfig,
+  ManagePositionContent,
+} from './components/ManagePositionContent';
+
+type ISelectedProtocol = {
+  networkId: string;
+  provider: string;
+  vault?: string;
+};
+
+function getProtocolKey(protocol: ISelectedProtocol) {
+  return `${protocol.provider.toLowerCase()}-${protocol.networkId}-${protocol.vault ?? ''}`;
+}
+
+function createSelectedProtocolFromItem(
+  item: IStakeProtocolListItem,
+): ISelectedProtocol {
+  return {
+    networkId: item.network.networkId,
+    provider: item.provider.name,
+    vault: earnUtils.isVaultBasedProvider({
+      providerName: item.provider.name,
+    })
+      ? item.provider.vault
+      : undefined,
+  };
+}
+
+function getProtocolItemKey(item: IStakeProtocolListItem) {
+  return getProtocolKey(createSelectedProtocolFromItem(item));
+}
 
 const ManagePositionPage = () => {
   const route = useAppRoute<
@@ -28,59 +63,171 @@ const ManagePositionPage = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
 
-  // parse route params, support two types of routes
   const resolvedParams = useMemo<{
     accountId: string;
     indexedAccountId: string | undefined;
-    networkId: string;
     symbol: ISupportedSymbol;
-    provider: string;
-    vault: string | undefined;
     tokenImageUri: string | undefined;
+    enableProtocolSwitch: boolean;
+    initialProtocol: ISelectedProtocol;
+    initialTab: 'deposit' | 'withdraw';
   }>(() => {
-    const { networkId, symbol, provider, vault, tokenImageUri } = route.params;
-    return {
-      // Only use othersWalletAccountId for external wallets.
-      // NEVER use account?.id — it's network-specific and will mismatch cross-network.
-      accountId: selectedAccount.othersWalletAccountId || '',
-      indexedAccountId:
-        selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id,
+    const {
       networkId,
-      symbol: symbol as ISupportedSymbol,
+      symbol,
       provider,
       vault,
       tokenImageUri,
+      enableProtocolSwitch,
+      tab,
+    } = route.params;
+
+    return {
+      accountId: selectedAccount.othersWalletAccountId || '',
+      indexedAccountId:
+        selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id,
+      symbol: symbol as ISupportedSymbol,
+      tokenImageUri,
+      enableProtocolSwitch: !!enableProtocolSwitch,
+      initialProtocol: {
+        networkId,
+        provider,
+        vault,
+      },
+      initialTab: tab ?? 'deposit',
     };
-  }, [route.params, activeAccount, selectedAccount]);
+  }, [activeAccount, route.params, selectedAccount]);
+
+  const initialProtocolKey = useMemo(
+    () => getProtocolKey(resolvedParams.initialProtocol),
+    [resolvedParams.initialProtocol],
+  );
+  const initialProtocolKeyRef = useRef(initialProtocolKey);
+  const [selectedProtocol, setSelectedProtocol] = useState<ISelectedProtocol>(
+    resolvedParams.initialProtocol,
+  );
+  const [selectedTab, setSelectedTab] = useState<'deposit' | 'withdraw'>(
+    resolvedParams.initialTab,
+  );
+
+  useEffect(() => {
+    if (initialProtocolKeyRef.current !== initialProtocolKey) {
+      initialProtocolKeyRef.current = initialProtocolKey;
+      setSelectedProtocol(resolvedParams.initialProtocol);
+    }
+  }, [initialProtocolKey, resolvedParams.initialProtocol]);
+
+  useEffect(() => {
+    setSelectedTab(resolvedParams.initialTab);
+  }, [initialProtocolKey, resolvedParams.initialTab]);
 
   const {
     accountId,
     indexedAccountId,
-    networkId,
     symbol,
-    provider,
-    vault,
     tokenImageUri,
+    enableProtocolSwitch,
   } = resolvedParams;
+  const protocolSwitchNetworkId = resolvedParams.initialProtocol.networkId;
 
-  // Get tab from route params
-  const defaultTab = route.params?.tab;
+  const { result: protocols, isLoading: isProtocolListLoading } =
+    usePromiseResult(
+      async () => {
+        // Protocol switching is symbol-based and can still work for HD/HW
+        // accounts where only indexedAccountId is available.
+        if (!enableProtocolSwitch) {
+          return [];
+        }
+
+        return backgroundApiProxy.serviceStaking.getProtocolList({
+          symbol,
+          accountId,
+          indexedAccountId,
+          networkId: protocolSwitchNetworkId,
+          filterNetworkId: protocolSwitchNetworkId,
+        });
+      },
+      [
+        accountId,
+        enableProtocolSwitch,
+        indexedAccountId,
+        protocolSwitchNetworkId,
+        symbol,
+      ],
+      {
+        initResult: [],
+        watchLoading: true,
+      },
+    );
+
+  const selectedProtocolKey = useMemo(
+    () => getProtocolKey(selectedProtocol),
+    [selectedProtocol],
+  );
+  const currentProtocol = useMemo(
+    () =>
+      protocols.find(
+        (item) => getProtocolItemKey(item) === getProtocolKey(selectedProtocol),
+      ),
+    [protocols, selectedProtocol],
+  );
+
+  const handleProtocolSelect = useCallback(
+    (protocol: IStakeProtocolListItem) => {
+      const nextProtocol = createSelectedProtocolFromItem(protocol);
+
+      setSelectedProtocol((currentSelection) => {
+        if (getProtocolKey(currentSelection) === getProtocolKey(nextProtocol)) {
+          return currentSelection;
+        }
+
+        return nextProtocol;
+      });
+    },
+    [],
+  );
+
+  const stakeProtocolSwitchConfig = useMemo<
+    IManagePositionProtocolSwitchConfig | undefined
+  >(() => {
+    if (!enableProtocolSwitch) {
+      return undefined;
+    }
+
+    return {
+      currentProtocol,
+      isLoading: isProtocolListLoading,
+      protocols,
+      selectedProtocol,
+      onProtocolSelect: handleProtocolSelect,
+    };
+  }, [
+    currentProtocol,
+    enableProtocolSwitch,
+    handleProtocolSelect,
+    isProtocolListLoading,
+    protocols,
+    selectedProtocol,
+  ]);
 
   return (
     <Page scrollEnabled>
       <Page.Header title={symbol} />
       <Page.Body>
         <ManagePositionContent
+          key={selectedProtocolKey}
           showApyDetail
           isInModalContext
-          networkId={networkId}
+          networkId={selectedProtocol.networkId}
           symbol={symbol}
-          provider={provider}
-          vault={vault}
+          provider={selectedProtocol.provider}
+          vault={selectedProtocol.vault}
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           fallbackTokenImageUri={tokenImageUri}
-          defaultTab={defaultTab}
+          defaultTab={selectedTab}
+          onTabChange={setSelectedTab}
+          stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
         />
       </Page.Body>
     </Page>
