@@ -105,7 +105,6 @@ const MarketSelectorDesktop = ({
     const baseProps = {
       elevation: 0,
       flexGrow: 1,
-      flexBasis: 0,
       '$platform-native': {
         elevation: 0,
       },
@@ -135,7 +134,7 @@ const MarketSelectorDesktop = ({
         testID={EarnTestIDs.marketSelector}
         value={mode}
         options={options}
-        width={264}
+        minWidth={264}
         onChange={(value) => onModeChange?.(value as IEarnHomeMode)}
         slotBackgroundColor={backgroundColor}
         activeBackgroundColor={activeBackgroundColor}
@@ -145,8 +144,8 @@ const MarketSelectorDesktop = ({
   );
 };
 
-// Horizontal inset for the underline (matches $5 = 20)
-const UNDERLINE_INSET = 20;
+// Horizontal inset for the underline within each tab cell
+const UNDERLINE_INSET = 0;
 
 const animatedStyles = StyleSheet.create({
   container: {
@@ -323,8 +322,8 @@ const MarketSelectorMobile = ({
             <YStack
               position="absolute"
               bottom={0}
-              left="$5"
-              right="$5"
+              left={0}
+              right={0}
               h="$0.5"
               bg="$text"
               borderRadius={1}
@@ -348,7 +347,7 @@ const MarketSelectorMobile = ({
   // When pageScrollPosition is available, render the animated tab bar
   if (pageScrollPosition) {
     return (
-      <Stack px="$3" pt="$4">
+      <Stack px="$pagePadding" pt="$4">
         <AnimatedTabBar
           pageScrollPosition={pageScrollPosition}
           onModeChange={onModeChange}
@@ -359,7 +358,7 @@ const MarketSelectorMobile = ({
 
   // Fallback: SegmentControl-based approach for web/tablet
   return (
-    <Stack px="$3" pt="$4">
+    <Stack px="$pagePadding" pt="$4">
       <SegmentControl
         value={mode}
         options={options}

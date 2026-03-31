@@ -100,14 +100,53 @@ Propose a resolution based on the analysis. For each conflict:
 - Show both versions side-by-side
 - Recommend resolution, explaining which parts to keep from each side
 
-### 4. User chooses
+### 4. Stage ONLY the conflicting files
+
+**CRITICAL: Never use `git add -A` or `git add .` during rebase conflict resolution.** These commands pick up untracked files in the working directory (audit reports, temp files, etc.) and silently add them to the commit. Instead, always stage specific files:
+
+```bash
+# ✅ Correct — stage only the resolved files
+git add path/to/resolved-file.ts path/to/another-file.ts
+
+# ❌ NEVER do this during rebase
+git add -A
+git add .
+```
+
+### 5. User chooses
 
 | Option | Action |
 |--------|--------|
-| **a) Accept suggestion** | Apply the resolution, `git add` conflicting files, `git rebase --continue` |
-| **b) Manual edit** | User edits files, then confirm → `git add` + `git rebase --continue` |
+| **a) Accept suggestion** | Apply the resolution, `git add <specific files>`, `git rebase --continue` |
+| **b) Manual edit** | User edits files, then confirm → `git add <specific files>` + `git rebase --continue` |
 | **c) Skip this commit** | `git rebase --skip`, add to skipped list, continue |
 | **d) Abort entire sync** | `git rebase --abort`, clean up sync branch, exit |
+
+## Step 2.5: Exclude release-only files
+
+After rebase completes, remove files that belong exclusively to the release branch:
+
+```bash
+git rm RELEASES.json 2>/dev/null && git commit -m "chore: exclude RELEASES.json from x sync"
+```
+
+**Why:** `RELEASES.json` records commit SHAs from the release branch. After rebase, those SHAs don't exist on `x`, making the file meaningless. It should only live on `release/*` branches.
+
+## Step 2.6: Pre-push sanity check
+
+Before pushing, verify no untracked files were accidentally staged during rebase:
+
+```bash
+# Check what files this branch adds vs origin/x
+git diff --name-only --diff-filter=A origin/x..HEAD
+```
+
+Review the list. If you see files that shouldn't be synced (audit reports, temp files, release-only files), remove them:
+
+```bash
+git rm <accidental-file>
+git commit --amend --no-edit
+```
 
 ## Step 3: Push sync branch and create PR
 

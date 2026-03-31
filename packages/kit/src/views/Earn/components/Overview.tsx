@@ -103,7 +103,7 @@ const Rebate = ({
         renderTrigger={
           <XStack cursor="pointer" ai="center">
             <EarnText
-              size="$bodySmMedium"
+              size="$bodyMd"
               color="$textSubdued"
               text={rebateData?.title}
             />
@@ -295,7 +295,7 @@ const OverviewComponent = ({
   return (
     <YStack
       testID={EarnTestIDs.portfolioOverview}
-      gap="$1"
+      gap={8}
       px="$0"
       flex={1}
       $gtLg={{
@@ -351,8 +351,7 @@ const OverviewComponent = ({
             currency: settings.currencyInfo.symbol,
             showPlusMinusSigns: Number(earnings24h) !== 0,
           }}
-          size="$bodyLgMedium"
-          fontWeight={400}
+          size="$bodyMdMedium"
           color={getNumberColor(earnings24h)}
           numberOfLines={1}
           $gtLg={{
@@ -365,7 +364,7 @@ const OverviewComponent = ({
         </NumberSizeableText>
         <XStack gap="$1.5" alignItems="center">
           <SizableText
-            size="$bodyLg"
+            size="$bodyMdMedium"
             color="$textSubdued"
             $gtLg={{
               pl: '$0.5',

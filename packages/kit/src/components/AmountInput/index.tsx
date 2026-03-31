@@ -373,7 +373,7 @@ export function AmountInput({
           })}
         >
           {balanceProps.iconText ? (
-            <SizableText color="$textSubdued" size="$bodyMd" mr="$1">
+            <SizableText color="$textSubdued" size="$bodySm" mr="$1">
               {balanceProps.iconText}
             </SizableText>
           ) : (
