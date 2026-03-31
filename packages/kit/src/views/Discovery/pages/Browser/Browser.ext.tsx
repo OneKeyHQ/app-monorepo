@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   type ETabDiscoveryRoutes,
   ETabRoutes,
@@ -26,6 +27,19 @@ import { withBrowserProvider } from './WithBrowserProvider';
 
 import type { RouteProp } from '@react-navigation/core';
 
+type IExploreTabName = 'market' | 'earn' | 'browser';
+type IExploreTabSwitchType = 'default' | 'tap' | 'swipe';
+
+function getExploreTabName(tab: ETranslations): IExploreTabName {
+  if (tab === ETranslations.global_market) {
+    return 'market';
+  }
+  if (tab === ETranslations.global_earn) {
+    return 'earn';
+  }
+  return 'browser';
+}
+
 function MobileBrowser() {
   const route =
     useRoute<
@@ -36,6 +50,9 @@ function MobileBrowser() {
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
     defaultTab || settings.selectedBrowserTab || ETranslations.global_market,
   );
+  const exploreTabSwitchTypeRef = useRef<IExploreTabSwitchType>('default');
+  const hasLoggedExploreTabViewRef = useRef(false);
+
   const handleChangeHeaderTab = useCallback(async (tab: ETranslations) => {
     setSelectedHeaderTab(tab);
     setTimeout(async () => {
@@ -43,11 +60,25 @@ function MobileBrowser() {
     }, 150);
   }, []);
 
+  useEffect(() => {
+    const switchType = hasLoggedExploreTabViewRef.current
+      ? exploreTabSwitchTypeRef.current
+      : 'default';
+
+    hasLoggedExploreTabViewRef.current = true;
+    defaultLogger.discovery.browser.exploreTabView({
+      tabName: getExploreTabName(selectedHeaderTab),
+      switchType,
+    });
+    exploreTabSwitchTypeRef.current = 'default';
+  }, [selectedHeaderTab]);
+
   const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
       previousDefaultTab.current = defaultTab;
       if (defaultTab) {
+        exploreTabSwitchTypeRef.current = 'default';
         setTimeout(async () => {
           await handleChangeHeaderTab(defaultTab);
         }, 100);
@@ -56,7 +87,12 @@ function MobileBrowser() {
   }, [defaultTab, handleChangeHeaderTab]);
 
   useEffect(() => {
-    const listener = (event: { tab: ETranslations; openUrl?: boolean }) => {
+    const listener = (event: {
+      tab: ETranslations;
+      openUrl?: boolean;
+      switchType?: IExploreTabSwitchType;
+    }) => {
+      exploreTabSwitchTypeRef.current = event.switchType ?? 'default';
       void handleChangeHeaderTab(event.tab);
     };
     appEventBus.on(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);

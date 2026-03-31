@@ -432,9 +432,11 @@ export interface IAppEventBusPayload {
       | ETranslations.global_browser
       | ETranslations.global_earn;
     openUrl?: boolean;
+    switchType?: 'default' | 'tap' | 'swipe';
   };
   [EAppEventBusNames.SwitchEarnMode]: {
     mode: 'earn' | 'borrow';
+    switchType?: 'default' | 'tap';
   };
   [EAppEventBusNames.SwitchEarnTab]: {
     tab: 'assets' | 'portfolio' | 'faqs';
