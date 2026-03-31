@@ -1,4 +1,5 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import '@onekeyhq/shared/src/storage/appStorage';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -18,21 +19,14 @@ class ServiceBootstrap extends ServiceBase {
     void this.initDeferred();
   }
 
-  private logTiming(label: string, startMs: number) {
-    const elapsed = Date.now() - startMs;
-    // eslint-disable-next-line no-console
-    console.log(`[ServiceBootstrap] ${label}: ${elapsed}ms`);
-  }
-
   private async timed<T>(label: string, fn: () => Promise<T>): Promise<T> {
     const start = Date.now();
     try {
       const result = await fn();
-      this.logTiming(label, start);
       return result;
-    } catch (error) {
-      this.logTiming(`${label} (FAILED)`, start);
-      throw error;
+    } finally {
+      const durationMs = Date.now() - start;
+      defaultLogger.app.bootstrap.initCriticalStep(label, durationMs);
     }
   }
 
@@ -41,6 +35,7 @@ class ServiceBootstrap extends ServiceBase {
    * This runs during cold start and must complete before background is "ready".
    */
   public async initCritical() {
+    defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
     try {
@@ -48,19 +43,22 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceSetting.initSystemLocale(),
       );
     } catch (error) {
-      console.error('ServiceBootstrap initCritical: locale error', error);
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'initSystemLocale (FAILED)',
+        0,
+      );
     }
     try {
       await this.timed('refreshLocaleMessages', () =>
         this.backgroundApi.serviceSetting.refreshLocaleMessages(),
       );
     } catch (error) {
-      console.error(
-        'ServiceBootstrap initCritical: locale messages error',
-        error,
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'refreshLocaleMessages (FAILED)',
+        0,
       );
     }
-    this.logTiming('initCritical TOTAL', criticalStart);
+    defaultLogger.app.bootstrap.initCriticalDone(Date.now() - criticalStart);
   }
 
   /**
@@ -70,46 +68,55 @@ class ServiceBootstrap extends ServiceBase {
    */
   public async initDeferred() {
     const deferredStart = Date.now();
+
+    const timedDeferred = async (label: string, fn: () => Promise<unknown>) => {
+      const start = Date.now();
+      try {
+        await fn();
+        defaultLogger.app.bootstrap.initDeferredStep(
+          label,
+          Date.now() - start,
+        );
+      } catch (e: unknown) {
+        defaultLogger.app.bootstrap.initDeferredStepFailed(
+          label,
+          Date.now() - start,
+        );
+      }
+    };
+
     try {
       await Promise.all([
-        this.timed('walletConnect.initializeOnStart', () =>
+        timedDeferred('walletConnect.initializeOnStart', () =>
           this.backgroundApi.walletConnect.initializeOnStart(),
-        ).catch((e: unknown) =>
-          console.error('walletConnect init error', e),
         ),
-        this.timed('walletConnect.cleanupInactiveSessions', () =>
+        timedDeferred('walletConnect.cleanupInactiveSessions', () =>
           this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
-        ).catch((e: unknown) =>
-          console.error('walletConnect cleanup error', e),
         ),
-        this.timed('serviceSwap.syncSwapHistoryPendingList', () =>
+        timedDeferred('serviceSwap.syncSwapHistoryPendingList', () =>
           this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
-        ).catch((e: unknown) => console.error('swap sync error', e)),
-        this.timed('serviceSetting.fetchReviewControl', () =>
+        ),
+        timedDeferred('serviceSetting.fetchReviewControl', () =>
           this.backgroundApi.serviceSetting.fetchReviewControl(),
-        ).catch((e: unknown) =>
-          console.error('review control error', e),
         ),
-        this.timed('servicePassword.addExtIntervalCheckLockStatusListener', () =>
-          this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
-        ).catch((e: unknown) =>
-          console.error('lock status listener error', e),
+        timedDeferred(
+          'servicePassword.addExtIntervalCheckLockStatusListener',
+          () =>
+            this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
         ),
-        this.timed('serviceNotification.init', () =>
+        timedDeferred('serviceNotification.init', () =>
           this.backgroundApi.serviceNotification.init(),
-        ).catch((e: unknown) =>
-          console.error('notification init error', e),
         ),
-        this.timed('serviceToken.clearLastActiveTabNameData', () =>
+        timedDeferred('serviceToken.clearLastActiveTabNameData', () =>
           this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
-        ).catch((e: unknown) =>
-          console.error('clear tab name error', e),
         ),
       ]);
     } catch (error) {
-      console.error('ServiceBootstrap initDeferred: batch error', error);
+      // individual errors already handled by timedDeferred
     }
-    this.logTiming('initDeferred batch', deferredStart);
+    defaultLogger.app.bootstrap.initDeferredBatchDone(
+      Date.now() - deferredStart,
+    );
 
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();
@@ -117,7 +124,7 @@ class ServiceBootstrap extends ServiceBase {
       try {
         await this.backgroundApi.serviceDevSetting.initAnalytics();
       } catch (error) {
-        console.error(error);
+        // ignore
       }
     }
     void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
@@ -137,7 +144,7 @@ class ServiceBootstrap extends ServiceBase {
       .then(() =>
         this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
       );
-    this.logTiming('initDeferred TOTAL', deferredStart);
+    defaultLogger.app.bootstrap.initDeferredDone(Date.now() - deferredStart);
   }
 }
 
