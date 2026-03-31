@@ -275,7 +275,11 @@ export const BundleUpdate: IBundleUpdate = {
     });
     // Reset boot_fail_count before planned restart so that the OTA bundle
     // switch is not misinterpreted as consecutive crash-loops by BootRecovery.
-    try { BootRecovery.markBootSuccess(); } catch { /* Silently fail — recovery must not block restart */ }
+    try {
+      BootRecovery.markBootSuccess();
+    } catch {
+      /* Silently fail — recovery must not block restart */
+    }
     defaultLogger.app.appUpdate.restartRNApp();
     setTimeout(() => {
       RNRestart.restart();
@@ -287,7 +291,11 @@ export const BundleUpdate: IBundleUpdate = {
     await ReactNativeBundleUpdate.resetToBuiltInBundle();
   },
   restart: () => {
-    try { BootRecovery.markBootSuccess(); } catch { /* Silently fail — recovery must not block restart */ }
+    try {
+      BootRecovery.markBootSuccess();
+    } catch {
+      /* Silently fail — recovery must not block restart */
+    }
     setTimeout(() => {
       RNRestart.restart();
     }, 2500);
@@ -320,7 +328,11 @@ export const BundleUpdate: IBundleUpdate = {
   switchBundle: async (params) => {
     await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
     if (params.appVersion && params.bundleVersion) {
-      try { BootRecovery.markBootSuccess(); } catch { /* Silently fail — recovery must not block restart */ }
+      try {
+        BootRecovery.markBootSuccess();
+      } catch {
+        /* Silently fail — recovery must not block restart */
+      }
       setTimeout(() => {
         RNRestart.restart();
       }, 2500);
