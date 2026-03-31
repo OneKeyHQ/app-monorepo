@@ -14,3 +14,5 @@ export type { IAuditSummary, ISecurityAuditResult } from './security-checker';
 export { resolveChain, listEvmChains } from './chain-resolver';
 export type { IChainConfig } from './chain-resolver';
 export { resolveToken } from './token-resolver';
+export { fetchHistory, formatHistoryList } from './history-fetcher';
+export type { IFetchHistoryParams, IHistoryItem } from './history-fetcher';
