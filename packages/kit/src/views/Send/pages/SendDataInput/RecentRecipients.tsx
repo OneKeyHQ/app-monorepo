@@ -35,10 +35,7 @@ import {
   normalizeSearchKey,
   prioritizeNameThenAddressMatches,
 } from './searchMatchUtils';
-import {
-  type IEnrichedRecentRecipient,
-  useRecentRecipientsData,
-} from './useRecentRecipientsData';
+import { useRecentRecipientsData } from './useRecentRecipientsData';
 
 interface IRecentRecipientsProps {
   accountId?: string;
@@ -276,10 +273,6 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     refreshKey,
   } = props;
 
-  const [filteredRecentRecipients, setFilteredRecentRecipients] = useState<
-    IEnrichedRecentRecipient[]
-  >([]);
-
   const { formatDistanceToNowStrict } = useFormatDate();
 
   // Compact time format: "2h ago" / "3d ago" for Latin, "2小时前" / "3天前" for CJK
@@ -323,12 +316,11 @@ function RecentRecipients(props: IRecentRecipientsProps) {
   // Detect debounce gap: searchKey changed but debounce hasn't settled yet
   const isDebouncing = isSearchMode && rawSearchKey !== debouncedSearchKey;
 
-  useEffect(() => {
+  const filteredRecentRecipients = useMemo(() => {
     if (!isSearchActive) {
-      setFilteredRecentRecipients(recentRecipients);
-      return;
+      return recentRecipients;
     }
-    const { sorted } = prioritizeNameThenAddressMatches({
+    return prioritizeNameThenAddressMatches({
       items: recentRecipients,
       isNameMatch: (recipient) =>
         (recipient.walletAccountName
@@ -339,8 +331,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
           false),
       isAddressMatch: (recipient) =>
         recipient.input?.toLowerCase().includes(trimmedSearchKey) ?? false,
-    });
-    setFilteredRecentRecipients(sorted);
+    }).sorted;
   }, [isSearchActive, recentRecipients, trimmedSearchKey]);
 
   // Notify parent of match status and count
