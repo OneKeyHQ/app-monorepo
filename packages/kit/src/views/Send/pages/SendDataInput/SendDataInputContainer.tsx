@@ -1201,7 +1201,7 @@ function SendDataInputContainer() {
           activeDeriveType={deriveType}
           disableSelector={disableAddressTypeSelector}
           showTriggerWhenDisabled={showAddressTypeSelectorWhenDisabled}
-          tokenMap={map}
+          refreshOnOpen
           onSelect={async ({ account: a }) => {
             if (a) {
               setCurrentAccount((prev) => ({
@@ -1247,7 +1247,6 @@ function SendDataInputContainer() {
     isLightningNetwork,
     isUseFiat,
     lnUnit,
-    map,
     showAddressTypeSelectorWhenDisabled,
     displayCoinControlButton,
     vaultSettings?.mergeDeriveAssetsEnabled,
