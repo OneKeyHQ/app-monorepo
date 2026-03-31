@@ -8,11 +8,10 @@ command signatures, workflows, and security rules.
 
 | Skill | Path | Use When |
 |---|---|---|
-| **Master** | `skills/SKILL.md` | Always read first — pre-flight checks, security rules, routing, parameter conventions |
-| **Market** | `skills/onekey-market/SKILL.md` | Token search, price, trending, kline, trades, liquidity |
-| **Swap** | `skills/onekey-swap/SKILL.md` | Swap quoting, building, execution, status tracking |
-| **Security** | `skills/onekey-security/SKILL.md` | Token security audit, risk classification, transaction simulation |
-| **Wallet** | `skills/onekey-wallet/SKILL.md` | Balance, transfer, wallet import, history, logout |
+| **Wallet** | `skills/wallet/SKILL.md` | Balance, transfer, wallet import, history, logout |
+| **Swap** | `skills/swap/SKILL.md` | Swap quoting, building, execution, status tracking |
+| **Market** | `skills/market/SKILL.md` | Token search, price, trending, kline, trades, liquidity |
+| **Security** | `skills/security/SKILL.md` | Token security audit, risk classification, transaction simulation |
 
 ## Quick Start
 
@@ -20,9 +19,9 @@ command signatures, workflows, and security rules.
 # Run the CLI locally (from monorepo)
 apps/cli/bin/onekey <command>
 
-# Or if installed globally
+# Or if installed globally (npm install -g @onekeyfe/cli)
 onekey <command>
 ```
 
-Read `skills/SKILL.md` for pre-flight checks, security rules, and the full
-skill routing table.
+Each skill file includes pre-flight checks, security rules, and parameter
+conventions. Read the relevant skill for your task.
