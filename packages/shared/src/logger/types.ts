@@ -39,6 +39,9 @@ export enum EScopeName {
   cloudSync = 'cloudSync',
   ipTable = 'ipTable',
   networkDoctor = 'networkDoctor',
+  staking = 'staking',
+  update = 'update',
+  market = 'market',
   onboarding = 'onboarding',
   universalSearch = 'universalSearch',
   rookieGuide = 'rookieGuide',
@@ -52,19 +55,6 @@ export type IMethodDecoratorMetadata = {
   type?: 'local' | 'server' | 'console';
 };
 
-export class Metadata {
-  args: any;
-
-  metadata: IMethodDecoratorMetadata | IMethodDecoratorMetadata[];
-
-  constructor(
-    args: any,
-    metadata: IMethodDecoratorMetadata | IMethodDecoratorMetadata[],
-  ) {
-    this.args = args;
-    this.metadata = metadata;
-  }
-}
 export interface IScene {
   getName: () => string;
 }
