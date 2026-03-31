@@ -63,9 +63,20 @@ function trackPrimeSubscriptionSuccess({
   });
 }
 
+function formatPriceString(
+  amount: BigNumber | number,
+  currencyCode: string,
+): string {
+  const bn = amount instanceof BigNumber ? amount : new BigNumber(amount);
+  const decimals = bn.isInteger() ? 0 : 2;
+  const formatted = bn.toFormat(decimals);
+  return `${formatted} ${currencyCode}`;
+}
+
 const primePaymentUtils = {
   extractCurrencySymbol,
   trackPrimeSubscriptionSuccess,
+  formatPriceString,
 };
 
 export default primePaymentUtils;
