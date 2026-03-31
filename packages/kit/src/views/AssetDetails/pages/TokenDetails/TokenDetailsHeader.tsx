@@ -48,6 +48,7 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { AssetDetailsTestIDs } from '../../testIDs';
 import ActionBuy from './ActionBuy';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -298,10 +299,12 @@ function TokenDetailsHeader(props: IProps) {
           {/* Actions */}
           <RawActions>
             <RawActions.Send
+              testID={AssetDetailsTestIDs.sendBtn}
               onPress={handleSendPress}
               trackID="wallet-token-details-send"
             />
             <RawActions.Receive
+              testID={AssetDetailsTestIDs.receiveBtn}
               disabled={isReceiveDisabled}
               onPress={async () => {
                 if (
@@ -326,6 +329,7 @@ function TokenDetailsHeader(props: IProps) {
               trackID="wallet-token-details-receive"
             />
             <RawActions.Swap
+              testID={AssetDetailsTestIDs.swapBtn}
               onPress={handleOnSwap}
               disabled={disableSwapAction}
               trackID="wallet-token-details-swap"
@@ -358,6 +362,7 @@ function TokenDetailsHeader(props: IProps) {
           <>
             <Divider />
             <YStack
+              testID={AssetDetailsTestIDs.copyAddressBtn}
               userSelect="none"
               onPress={() =>
                 copyAccountAddress({

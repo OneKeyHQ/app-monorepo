@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Button, Dialog, SizableText, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ReferFriendsTestIDs } from '../../../../../../../testIDs';
 import { NoteDialogContent } from './NoteDialogContent';
 
 interface INoteCellProps {
@@ -41,6 +42,7 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
   if (note) {
     return (
       <Button
+        testID={ReferFriendsTestIDs.editNoteBtn}
         childrenAsText={false}
         variant="tertiary"
         size="small"
@@ -64,6 +66,7 @@ export function NoteCell({ code, note, onNoteUpdated }: INoteCellProps) {
 
   return (
     <Button
+      testID={ReferFriendsTestIDs.addNoteBtn}
       variant="tertiary"
       size="small"
       icon="PlusSmallOutline"

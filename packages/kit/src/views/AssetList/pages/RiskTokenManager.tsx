@@ -45,6 +45,7 @@ import {
   useTokenListActions,
   withTokenListProvider,
 } from '../../../states/jotai/contexts/tokenList';
+import { AssetListTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 import type {
@@ -103,6 +104,7 @@ function RiskTokenManager() {
   const headerRight = useCallback(() => {
     return (
       <Button
+        testID={AssetListTestIDs.riskTokenEditBtn}
         size="sm"
         variant="tertiary"
         onPress={() => {
@@ -371,6 +373,7 @@ function RiskTokenManager() {
             };
           }) => (
             <ListItem
+              testID={AssetListTestIDs.riskTokenListItem}
               key={token.$key ?? token.uniqueKey}
               onPress={() => handleOnPressToken(token)}
             >
@@ -413,6 +416,7 @@ function RiskTokenManager() {
               {isEditing ? (
                 <YStack alignItems="flex-end" flex={1}>
                   <Button
+                    testID={AssetListTestIDs.riskTokenToggleBtn}
                     size="small"
                     variant="secondary"
                     onPress={(e: GestureResponderEvent) => {

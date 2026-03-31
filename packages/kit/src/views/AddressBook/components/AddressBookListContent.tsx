@@ -22,6 +22,7 @@ import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { AccountAvatar } from '../../../components/AccountAvatar';
+import { AddressBookTestIDs } from '../testIDs';
 
 import { AddressBookSectionList } from './AddressBookSectionList';
 import { ListItemIconButton } from './ListItemIconButton';
@@ -307,6 +308,7 @@ export const AddressBookListContent = ({
     <Stack flex={1}>
       <Stack px="$5" pb="$2">
         <SearchBar
+          testID={AddressBookTestIDs.searchBar}
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={searchKey}
           onChangeText={(text) => setSearchKey(text)}

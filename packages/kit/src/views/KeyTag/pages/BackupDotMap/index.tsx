@@ -17,6 +17,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalKeyTagParamList } from '@onekeyhq/shared/src/routes';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 
+import { KeyTagTestIDs } from '../../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 const BackupDotMap = () => {
@@ -44,6 +46,7 @@ const BackupDotMap = () => {
       <IconButton
         icon="QuestionmarkOutline"
         variant="tertiary"
+        testID={KeyTagTestIDs.helpBtn}
         onPress={() => {
           appNavigation.push(EModalKeyTagRoutes.BackupDocs);
         }}
@@ -87,6 +90,7 @@ const BackupDotMap = () => {
               id: ETranslations.wallet_backup_backup_confirmation,
             })}
             value={continueOperate}
+            testID={KeyTagTestIDs.backupConfirmCheckbox}
             onChange={(checked) => {
               setContinueOperate(!!checked);
             }}

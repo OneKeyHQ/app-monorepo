@@ -23,6 +23,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { SignAndVerifyMessageTestIDs } from '../testIDs';
+
 type IVerifyFormData = {
   message: string;
   address: string;
@@ -226,12 +228,13 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
               )}
             />
             <Form.Field name="hexFormat">
-              <Switch size="small" />
+              <Switch testID={SignAndVerifyMessageTestIDs.verifyHexFormatSwitch} size="small" />
             </Form.Field>
           </XStack>
         }
       >
         <TextAreaInput
+          testID={SignAndVerifyMessageTestIDs.verifyMessageInput}
         // size="large"
         // placeholder={intl.formatMessage({
         //   id: ETranslations.message_signing_address_placeholder,
@@ -276,7 +279,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           ),
         }}
       >
-        <Input />
+        <Input testID={SignAndVerifyMessageTestIDs.verifyAddressInput} />
       </Form.Field>
 
       {displayFormatForm ? (
@@ -347,6 +350,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           name="format"
         >
           <Radio
+            testID={SignAndVerifyMessageTestIDs.verifyFormatRadio}
             orientation="horizontal"
             gap="$5"
             options={formatRadioOptions}
@@ -365,7 +369,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           }),
         }}
       >
-        <TextAreaInput />
+        <TextAreaInput testID={SignAndVerifyMessageTestIDs.verifySignatureInput} />
       </Form.Field>
     </Form>
   );

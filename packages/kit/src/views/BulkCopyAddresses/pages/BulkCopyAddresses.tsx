@@ -65,6 +65,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
+import { BulkCopyAddressesTestIDs } from '../testIDs';
 
 enum EBulkCopyType {
   Account = 'account',
@@ -603,6 +604,7 @@ function BulkCopyAddresses({
               })}
             >
               <Select
+                testID={BulkCopyAddressesTestIDs.deriveTypeSelect}
                 title={intl.formatMessage({
                   id: ETranslations.global_derivation_path,
                 })}
@@ -651,7 +653,7 @@ function BulkCopyAddresses({
               },
             }}
           >
-            <Input />
+            <Input testID={BulkCopyAddressesTestIDs.startIndexInput} />
           </Form.Field>
           <Form.Field
             name="amount"
@@ -684,6 +686,7 @@ function BulkCopyAddresses({
             }}
           >
             <Input
+              testID={BulkCopyAddressesTestIDs.amountInput}
               addOns={[
                 {
                   label: '1',
@@ -848,6 +851,7 @@ function BulkCopyAddresses({
               })}
             >
               <Select
+                testID={BulkCopyAddressesTestIDs.walletSelect}
                 title={intl.formatMessage({
                   id: ETranslations.global_select_wallet,
                 })}
@@ -911,12 +915,14 @@ function BulkCopyAddresses({
               })}
             >
               <ControlledNetworkSelectorTrigger
+                testID={BulkCopyAddressesTestIDs.networkSelect}
                 networkIds={availableNetworksIds}
               />
             </Form.Field>
           </Form>
           <YStack gap="$5">
             <SegmentControl
+              testID={BulkCopyAddressesTestIDs.copyTypeSegment}
               fullWidth
               value={copyType}
               onChange={(v) => {
@@ -956,6 +962,7 @@ function BulkCopyAddresses({
           }}
         >
           <Button
+            testID={BulkCopyAddressesTestIDs.exportBtn}
             variant="primary"
             size="medium"
             onPress={() =>
@@ -978,6 +985,7 @@ function BulkCopyAddresses({
           </Button>
           {isHwWallet && copyType === EBulkCopyType.Account ? (
             <Button
+              testID={BulkCopyAddressesTestIDs.exportWithoutDeviceBtn}
               size="medium"
               variant="tertiary"
               disabled={isDisabled}

@@ -31,6 +31,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
+import { ChainSelectorTestIDs } from '../../testIDs';
 import { CELL_HEIGHT } from '../../types';
 import RecentNetworks from '../RecentNetworks';
 
@@ -464,7 +465,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     <Stack flex={1}>
       <Stack px="$5" pb="$4">
         <SearchBar
-          testID="chain-selector"
+          testID={ChainSelectorTestIDs.sectionListSearchBar}
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={text}
           onChangeText={onChangeText}

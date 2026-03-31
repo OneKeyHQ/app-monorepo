@@ -47,6 +47,7 @@ import {
 } from '../components/ApprovalManagementContext';
 import ApprovedTokenItem from '../components/ApprovedTokenItem';
 import { useBulkRevoke } from '../hooks/useBulkRevoke';
+import { ApprovalManagementTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -358,6 +359,7 @@ function ApprovalDetails() {
           </YStack>
           <XStack gap="$5" alignItems="center">
             <IconButton
+              testID={ApprovalManagementTestIDs.copyContractAddressBtn}
               title={intl.formatMessage({ id: ETranslations.global_copy })}
               variant="tertiary"
               icon="Copy3Outline"
@@ -368,6 +370,7 @@ function ApprovalDetails() {
               }}
             />
             <IconButton
+              testID={ApprovalManagementTestIDs.viewInExplorerBtn}
               title={intl.formatMessage({
                 id: ETranslations.global_view_in_blockchain_explorer,
               })}
@@ -446,6 +449,7 @@ function ApprovalDetails() {
                 })}
               </SizableText>
               <Button
+                testID={ApprovalManagementTestIDs.bulkRevokeToggleBtn}
                 variant="tertiary"
                 size="small"
                 onPress={() => {

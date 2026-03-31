@@ -40,6 +40,8 @@ import {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { DeviceManagementTestIDs } from '../../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function HardwareTroubleshootingModal() {
@@ -181,6 +183,7 @@ function HardwareTroubleshootingModal() {
                 variant="tertiary"
                 icon="Copy3Outline"
                 onPress={onCopyPress}
+                testID={DeviceManagementTestIDs.copySerialBtn}
               />
             </XStack>
           )}
@@ -211,6 +214,7 @@ function HardwareTroubleshootingModal() {
             <Button
               variant="tertiary"
               size="small"
+              testID={DeviceManagementTestIDs.moreFaqsBtn}
               onPress={() => {
                 if (platformEnv.isDesktop || platformEnv.isNative) {
                   openUrlInDiscovery({ url: HELP_CENTER_HARDWARE_FAQ_URL });
@@ -253,6 +257,7 @@ function HardwareTroubleshootingModal() {
                   ai="center"
                   jc="center"
                   gap="$2"
+                  testID={`${DeviceManagementTestIDs.faqItem}-${i}`}
                   onPress={() =>
                     handleFaqItemPress(hardwareTroubleshootingQuestions[i].link)
                   }

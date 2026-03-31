@@ -18,6 +18,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
+import { ChainSelectorTestIDs } from '../../testIDs';
 import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
 
@@ -178,7 +179,7 @@ function NetworksSectionList() {
     <Stack flex={1}>
       <Stack px="$5">
         <SearchBar
-          testID="all-networks-manager-search-bar"
+          testID={ChainSelectorTestIDs.allNetworksSearchBar}
           placeholder={intl.formatMessage({
             id: ETranslations.global_search,
           })}

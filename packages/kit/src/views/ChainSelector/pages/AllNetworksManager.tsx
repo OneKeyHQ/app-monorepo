@@ -24,6 +24,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { ChainSelectorTestIDs } from '../testIDs';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { AllNetworksManagerContext } from '../components/AllNetworksManager/AllNetworksManagerContext';
 import NetworksSectionList from '../components/AllNetworksManager/NetworksSectionList';
@@ -298,6 +299,7 @@ function AllNetworksManager() {
           <Page.FooterActions
             onConfirmText={confirmButtonText}
             confirmButtonProps={{
+              testID: ChainSelectorTestIDs.allNetworksConfirmBtn,
               loading: isCreatingEnabledAddresses,
               disabled: (() => {
                 if (enabledNetworks.length <= 0) {

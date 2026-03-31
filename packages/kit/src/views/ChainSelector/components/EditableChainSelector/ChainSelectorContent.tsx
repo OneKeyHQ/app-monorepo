@@ -32,6 +32,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
+import { ChainSelectorTestIDs } from '../../testIDs';
 import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
 import RecentNetworks from '../RecentNetworks';
@@ -506,7 +507,7 @@ export const EditableChainSelectorContent = ({
       <Stack flex={1} position="relative">
         <Stack px="$5">
           <SearchBar
-            testID="chain-selector"
+            testID={ChainSelectorTestIDs.searchBar}
             placeholder={intl.formatMessage({
               id: ETranslations.global_search,
             })}
@@ -600,6 +601,7 @@ export const EditableChainSelectorContent = ({
               <ListItem
                 userSelect="none"
                 onPress={() => onAddCustomNetwork?.()}
+                testID={ChainSelectorTestIDs.addCustomNetworkEditModeBtn}
               >
                 <Stack p="$1" borderRadius="$full" bg="$bgStrong">
                   <Icon name="PlusSmallOutline" color="$iconSubdued" />

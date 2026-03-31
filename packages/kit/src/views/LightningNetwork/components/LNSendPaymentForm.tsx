@@ -9,6 +9,7 @@ import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { LightningNetworkTestIDs } from '../testIDs';
 import { LightningUnitSwitch } from '../../../components/UnitSwitch';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
@@ -303,6 +304,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
         description={amountDescription}
       >
         <Input
+          testID={LightningNetworkTestIDs.sendAmountInput}
           editable={!amountReadOnly}
           readonly={amountReadOnly}
           placeholder={intl.formatMessage({
@@ -337,7 +339,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
           }}
           defaultValue=""
         >
-          <TextArea editable={!commentReadOnly} disabled={commentReadOnly} />
+          <TextArea testID={LightningNetworkTestIDs.sendCommentInput} editable={!commentReadOnly} disabled={commentReadOnly} />
         </Form.Field>
       ) : null}
     </Form>

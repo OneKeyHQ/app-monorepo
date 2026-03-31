@@ -41,6 +41,7 @@ import { usePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
 import { ExtPerp, shouldOpenExpandExtPerp } from '../../Perp/pages/ExtPerp';
+import { PerpTradeTestIDs } from '../testIDs';
 
 import type {
   IElectronWebView,
@@ -188,6 +189,7 @@ function WebviewPerpTradeView() {
         return (
           <DelayedRender delay={600}>
             <Button
+              testID={PerpTradeTestIDs.connectBtn}
               isLoading={isConnectingRef.current}
               onPress={async () => {
                 try {
@@ -242,6 +244,7 @@ function WebviewPerpTradeView() {
             <Tooltip
               renderTrigger={
                 <IconButton
+                  testID={PerpTradeTestIDs.disconnectBtn}
                   icon="BrokenLinkOutline"
                   size={platformEnv.isNative ? 'small' : undefined}
                   variant={platformEnv.isNative ? 'tertiary' : undefined}

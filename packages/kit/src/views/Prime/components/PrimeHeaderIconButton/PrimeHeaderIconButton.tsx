@@ -8,6 +8,8 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
+import { PrimeTestIDs } from '../../testIDs';
+
 export function useOnPrimeButtonPressed({
   onPress,
   networkId,
@@ -78,7 +80,7 @@ export function PrimeHeaderIconButton({
     icon,
   } = useOnPrimeButtonPressed({ onPress, networkId });
   return (
-    <Stack testID="headerRightPrimeButton">
+    <Stack testID={PrimeTestIDs.primeHeaderBtn}>
       <HeaderIconButton
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}

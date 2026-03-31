@@ -8,6 +8,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import useLiteCard from '../../hooks/useLiteCard';
+import { LiteCardTestIDs } from '../../testIDs';
 
 import { Header } from './Header';
 
@@ -25,6 +26,7 @@ const CREATE_LITE_CARD_SECTION_LIST = (
           id: ETranslations.settings_backup_recovery_phrase_to_onekey_lite,
         }),
         onPress: liteCard.backupWallet,
+        testID: LiteCardTestIDs.backupItem,
       },
       {
         icon: 'FolderDownloadOutline',
@@ -33,6 +35,7 @@ const CREATE_LITE_CARD_SECTION_LIST = (
           id: ETranslations.settings_import_recovery_phrase_from_onekey_lite,
         }),
         onPress: liteCard.importWallet,
+        testID: LiteCardTestIDs.importItem,
       },
     ],
   },
@@ -43,12 +46,14 @@ const CREATE_LITE_CARD_SECTION_LIST = (
         icon: 'PasswordOutline',
         title: intl.formatMessage({ id: ETranslations.settings_change_pin }),
         onPress: liteCard.changePIN,
+        testID: LiteCardTestIDs.changePinItem,
       },
       {
         icon: 'RenewOutline',
         title: intl.formatMessage({ id: ETranslations.global_reset }),
         isCritical: true,
         onPress: liteCard.reset,
+        testID: LiteCardTestIDs.resetItem,
       },
     ],
   },
@@ -79,11 +84,13 @@ export default function Home() {
         detail: string;
         isCritical: boolean;
         onPress: () => void;
+        testID?: string;
       };
     }) => (
       <ListItem
         icon={item.icon}
         title={item.title}
+        testID={item.testID}
         titleProps={{
           color: item.isCritical ? '$textCritical' : '$text',
         }}

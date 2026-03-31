@@ -28,6 +28,7 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { AssetSelectorTestIDs } from '../testIDs';
 import { useCurrency } from '../../../components/Currency';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -469,6 +470,7 @@ function TokenSelector() {
       />
       <Page.Body>
         <TokenListView
+          testID={AssetSelectorTestIDs.tokenSelectorList}
           accountId={accountId}
           networkId={networkId}
           indexedAccountId={indexedAccountId}

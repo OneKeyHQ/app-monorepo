@@ -7,6 +7,7 @@ import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { DeveloperTestIDs } from '../testIDs';
 
 const DevHomeStack1 = (
   props: IPageScreenProps<
@@ -28,6 +29,7 @@ const DevHomeStack1 = (
       <SizableText>{`a: ${route.params.a}, b:${route.params.b}`}</SizableText>
       <YStack>
         <Button
+          testID={DeveloperTestIDs.prevPageBtn}
           onPress={() => {
             navigation.pop();
           }}
@@ -35,6 +37,7 @@ const DevHomeStack1 = (
           上一页
         </Button>
         <Button
+          testID={DeveloperTestIDs.nextPageBtn}
           onPress={() => {
             navigation.push(ETabDeveloperRoutes.DevHomeStack2);
           }}

@@ -18,6 +18,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
+import { ChainSelectorTestIDs } from '../../testIDs';
 
 import type { IServerNetworkMatch } from '../../types';
 
@@ -148,6 +149,7 @@ export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
     <Stack flex={1}>
       <Stack px="$5" pb="$2">
         <SearchBar
+          testID={ChainSelectorTestIDs.listViewSearchBar}
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={text}
           onChangeText={onChangeText}

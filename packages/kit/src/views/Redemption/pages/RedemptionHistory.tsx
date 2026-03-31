@@ -17,6 +17,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IRedemptionRecordItem } from '@onekeyhq/shared/src/referralCode/type';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
+import { RedemptionTestIDs } from '../testIDs';
+
 interface IRedemptionHistoryItemProps {
   item: IRedemptionRecordItem;
 }
@@ -103,8 +105,11 @@ export default function RedemptionHistory() {
     return (
       <ScrollView>
         <YStack>
-          {historyData.map((item) => (
-            <RedemptionHistoryItem key={item._id} item={item} />
+          {historyData.map((item, index) => (
+            <RedemptionHistoryItem
+              key={item._id}
+              item={item}
+            />
           ))}
         </YStack>
       </ScrollView>

@@ -4,6 +4,7 @@ import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { DeveloperTestIDs } from '../testIDs';
 
 const DevHomeStack2 = () => {
   const navigation =
@@ -13,6 +14,7 @@ const DevHomeStack2 = () => {
     <Page>
       <YStack>
         <Button
+          testID={DeveloperTestIDs.prevPageBtn}
           onPress={() => {
             navigation.pop();
           }}
@@ -20,6 +22,7 @@ const DevHomeStack2 = () => {
           上一页
         </Button>
         <Button
+          testID={DeveloperTestIDs.homePageBtn}
           onPress={() => {
             navigation.navigate(ETabDeveloperRoutes.DevHome);
           }}

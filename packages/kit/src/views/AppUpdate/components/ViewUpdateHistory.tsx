@@ -6,6 +6,8 @@ import { Button, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { AppUpdateTestIDs } from '../testIDs';
+
 export function ViewUpdateHistory() {
   const intl = useIntl();
   const handlePress = useCallback(() => {
@@ -14,6 +16,7 @@ export function ViewUpdateHistory() {
   return (
     <XStack>
       <Button
+        testID={AppUpdateTestIDs.viewUpdateHistoryBtn}
         mt="$5"
         iconAfter="ArrowTopRightOutline"
         onPress={handlePress}

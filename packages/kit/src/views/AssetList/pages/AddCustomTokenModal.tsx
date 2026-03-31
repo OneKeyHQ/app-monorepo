@@ -53,11 +53,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { NetworkAvatar } from '../../../components/NetworkAvatar/NetworkAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useDappCloseHandler } from '../../DAppConnection/pages/DappOpenModalPage';
-import {
-  useAddToken,
-  useAddTokenForm,
-  useCheckAccountExist,
-} from '../hooks/useAddToken';
+import { useAddToken, useAddTokenForm, useCheckAccountExist } from '../hooks/useAddToken';
+import { AssetListTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -495,6 +492,7 @@ function AddCustomTokenModal() {
               name="contractAddress"
             >
               <Input
+                testID={AssetListTestIDs.contractAddressInput}
                 size="large"
                 $gtMd={{
                   size: 'medium',
@@ -520,6 +518,7 @@ function AddCustomTokenModal() {
             name="symbol"
           >
             <Input
+              testID={AssetListTestIDs.symbolInput}
               size="large"
               $gtMd={{
                 size: 'medium',
@@ -534,6 +533,7 @@ function AddCustomTokenModal() {
             name="decimals"
           >
             <Input
+              testID={AssetListTestIDs.decimalsInput}
               size="large"
               $gtMd={{
                 size: 'medium',

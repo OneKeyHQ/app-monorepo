@@ -32,6 +32,7 @@ import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { DeveloperTestIDs } from '../testIDs';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useCookie from '../../../hooks/useCookie';
@@ -82,11 +83,13 @@ function ConnectWalletConnectDapp() {
   return (
     <PartContainer title="WalletConnect connect to Dapp">
       <TextArea
+        testID={DeveloperTestIDs.walletConnectInput}
         placeholder="walletconnect dapp qrcode uri"
         value={val}
         onChangeText={setVal}
       />
       <Button
+        testID={DeveloperTestIDs.walletConnectBtn}
         onPress={async () => {
           if (val) {
             await backgroundApiProxy.walletConnect.connectToDapp(val);
@@ -121,7 +124,7 @@ function TestButtons() {
       >
         切换到首页
       </Button>
-      <Button onPress={onPress} testID="me-settings">
+      <Button onPress={onPress} testID={DeveloperTestIDs.settingsBtn}>
         设置
       </Button>
       {platformEnv.isExtensionUiPopup ? (
@@ -205,6 +208,7 @@ const TabDeveloper = () => {
           >
             <PartContainer title="Components">
               <Button
+                testID={DeveloperTestIDs.galleryBtn}
                 onPress={() => {
                   rootNavigationRef.current?.navigate(
                     ERootRoutes.Main,
@@ -226,6 +230,7 @@ const TabDeveloper = () => {
 
             <PartContainer title="Debug Router & Tabs & List">
               <Button
+                testID={DeveloperTestIDs.devHomeBtn}
                 onPress={() => {
                   navigation.push(ETabDeveloperRoutes.DevHome);
                 }}
@@ -236,6 +241,7 @@ const TabDeveloper = () => {
 
             <PartContainer title="Debugger Signature Records">
               <Button
+                testID={DeveloperTestIDs.signatureRecordsBtn}
                 onPress={() => {
                   navigation.push(ETabDeveloperRoutes.SignatureRecord);
                 }}

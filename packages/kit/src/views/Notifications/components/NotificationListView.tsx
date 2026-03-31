@@ -55,6 +55,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
+import { NotificationsTestIDs } from '../testIDs';
 
 import type { IListItemProps } from '../../../components/ListItem';
 
@@ -97,6 +98,7 @@ function HeaderRight({
   return (
     <HeaderButtonGroup {...style}>
       <HeaderIconButton
+        testID={NotificationsTestIDs.markAllReadBtn}
         icon="CheckRadioOutline"
         title={intl.formatMessage({
           id: ETranslations.global_mark_all_as_confirmation_title_tooltip,
@@ -105,6 +107,7 @@ function HeaderRight({
       />
       {canShowNotificationSettings ? (
         <HeaderIconButton
+          testID={NotificationsTestIDs.settingsBtn}
           icon="SettingsOutline"
           onPress={handleSettingsButtonPress}
         />
@@ -516,6 +519,7 @@ export function NotificationListView({
                 </XStack>
               ) : null}
               <NotificationItemMemo
+                testID={`${NotificationsTestIDs.notificationItem}-${index}`}
                 key={item.msgId || index}
                 item={item}
                 onPress={async () => {

@@ -9,6 +9,8 @@ import {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { ReferFriendsTestIDs } from '../../../testIDs';
+
 export function RulesButton() {
   const intl = useIntl();
   const { md } = useMedia();
@@ -28,6 +30,7 @@ export function RulesButton() {
   if (md) {
     return (
       <IconButton
+        testID={ReferFriendsTestIDs.rulesBtn}
         variant="tertiary"
         icon="QuestionmarkOutline"
         onPress={handlePress}
@@ -38,6 +41,7 @@ export function RulesButton() {
 
   return (
     <Button
+      testID={ReferFriendsTestIDs.rulesBtn}
       variant="tertiary"
       size={platformEnv.isWeb ? 'small' : undefined}
       icon="QuestionmarkOutline"

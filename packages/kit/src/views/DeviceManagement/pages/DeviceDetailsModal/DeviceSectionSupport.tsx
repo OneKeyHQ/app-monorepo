@@ -10,6 +10,8 @@ import { useFirmwareVerifyDialog } from '../../../Onboarding/pages/ConnectHardwa
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
 import { ListItemGroup } from '../ListItemGroup';
 
+import { DeviceManagementTestIDs } from '../../testIDs';
+
 import { useDialogDeviceAbout } from './dialog/DialogDeviceAbout';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
@@ -72,6 +74,7 @@ function DeviceSectionSupport({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressAboutDevice}
+        testID={DeviceManagementTestIDs.aboutDeviceItem}
       />
       <ListItem
         key="authRequest"
@@ -82,6 +85,7 @@ function DeviceSectionSupport({
         drillIn
         onPress={onPressAuthRequest}
         isLoading={isFirmwareVerifyDialogLoading}
+        testID={DeviceManagementTestIDs.authRequestItem}
       />
       <ListItem
         key="checkForUpdates"
@@ -91,6 +95,7 @@ function DeviceSectionSupport({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={() => onPressCheckForUpdates()}
+        testID={DeviceManagementTestIDs.checkForUpdatesItem}
       />
       <ListItem
         key="troubleshooting"
@@ -100,6 +105,7 @@ function DeviceSectionSupport({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressTroubleshooting}
+        testID={DeviceManagementTestIDs.troubleshootingItem}
       />
     </ListItemGroup>
   );

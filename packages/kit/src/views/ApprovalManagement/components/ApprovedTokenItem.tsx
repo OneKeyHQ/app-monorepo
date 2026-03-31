@@ -20,6 +20,8 @@ import { useTokenMapAtom } from '../../../states/jotai/contexts/approvalList';
 
 import { useApprovalManagementContext } from './ApprovalManagementContext';
 
+import { ApprovalManagementTestIDs } from '../testIDs';
+
 type IProps = {
   accountId: string;
   networkId: string;
@@ -105,6 +107,7 @@ function ApprovedTokenItem(props: IProps) {
         isSelectMode ? (
           <Stack>
             <Checkbox
+              testID={ApprovalManagementTestIDs.tokenItemCheckbox}
               value={isSelected}
               onChange={() => {
                 void onSelect({
@@ -139,6 +142,7 @@ function ApprovedTokenItem(props: IProps) {
       />
       {isSelectMode ? null : (
         <Button
+          testID={ApprovalManagementTestIDs.tokenRevokeBtn}
           size="small"
           loading={isBuildingRevokeTxs ? isSelected : null}
           disabled={isBuildingRevokeTxs}

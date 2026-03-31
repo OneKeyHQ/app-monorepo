@@ -42,6 +42,7 @@ import networkUtils, {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ChainSelectorTestIDs } from '../../testIDs';
 import { useFindNetworksWithoutAccount } from '../../hooks/useFindNetworksWithoutAccount';
 
 import { NetworkContent } from './NetworkContent';
@@ -500,6 +501,7 @@ function UnifiedNetworkSelector() {
       <HeaderIconButton
         icon="PlusLargeSolid"
         onPress={handleAddCustomNetwork}
+        testID={ChainSelectorTestIDs.unifiedAddNetworkBtn}
         title={intl.formatMessage({
           id: ETranslations.custom_network_add_network_action_text,
         })}
@@ -719,7 +721,7 @@ function UnifiedNetworkSelector() {
                   // error already handled inside handlePortfolioDone
                 }
               }}
-              testID="page-footer-confirm"
+              testID={ChainSelectorTestIDs.unifiedPortfolioConfirmBtn}
             >
               {confirmButtonText}
             </Button>

@@ -36,6 +36,7 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { buildChangeHistoryInputAddon } from '../../../components/ChangeHistoryDialog/ChangeHistoryDialog';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { AddressBookTestIDs } from '../testIDs';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { IAddressItem } from '../type';
@@ -90,7 +91,7 @@ export function CreateOrEditContent({
           icon="DeleteOutline"
           variant="tertiary"
           onPress={() => onRemove(item)}
-          testID="address-form-remove"
+          testID={AddressBookTestIDs.formRemoveBtn}
         />
       ) : null,
     [onRemove, item],
@@ -181,6 +182,7 @@ export function CreateOrEditContent({
           placeholder={intl.formatMessage({
             id: ETranslations.global_Note,
           })}
+          testID={AddressBookTestIDs.formNoteInput}
         />
       </Form.Field>
     );
@@ -256,6 +258,7 @@ export function CreateOrEditContent({
           placeholder={intl.formatMessage({
             id: ETranslations.send_tag_placeholder,
           })}
+          testID={AddressBookTestIDs.formMemoInput}
         />
       </Form.Field>
     );
@@ -330,13 +333,13 @@ export function CreateOrEditContent({
                 });
               },
             }}
-            testID="address-form-name-field"
+            testID={AddressBookTestIDs.formNameInput}
           >
             <Input
               placeholder={intl.formatMessage({
                 id: ETranslations.address_book_add_address_name_required,
               })}
-              testID="address-form-name"
+              testID={AddressBookTestIDs.formNameInput}
               flex={1}
               addOns={
                 nameHistoryInfo?.entityId
@@ -383,7 +386,7 @@ export function CreateOrEditContent({
                 });
               },
             }}
-            testID="address-form-address-field"
+            testID={AddressBookTestIDs.formAddressInput}
           >
             <AddressInput
               networkId={networkId}
@@ -392,7 +395,7 @@ export function CreateOrEditContent({
               })}
               editable={!disabledAddressEdit}
               autoError={false}
-              testID="address-form-address"
+              testID={AddressBookTestIDs.formAddressInput}
               enableNameResolve
               enableAddressContract
             />
@@ -431,7 +434,7 @@ export function CreateOrEditContent({
               loading: isSubmitLoading || form.formState.isSubmitting,
               disabled: !form.formState.isValid || pending,
               onPress: form.submit,
-              testID: 'address-form-save',
+              testID: AddressBookTestIDs.formSaveBtn,
             }}
           />
         </Stack>

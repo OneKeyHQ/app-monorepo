@@ -11,6 +11,8 @@ import { LITE_CARD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { LiteCardTestIDs } from '../../testIDs';
+
 export function Header() {
   const intl = useIntl();
   return (
@@ -56,6 +58,7 @@ export function Header() {
         focusVisibleStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
         hoverStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
         onPress={() => openUrlExternal(LITE_CARD_URL)}
+        testID={LiteCardTestIDs.getOneBtn}
       >
         {intl.formatMessage({ id: ETranslations.global_get_one })}
       </Button>

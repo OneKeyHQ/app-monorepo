@@ -39,6 +39,7 @@ import {
 import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 import ApprovalActions from '../components/ApprovalActions';
 import { useBulkRevoke } from '../hooks/useBulkRevoke';
+import { ApprovalManagementTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -289,6 +290,7 @@ function ApprovalList() {
   const renderHeaderRight = useCallback(() => {
     return (
       <Button
+        testID={ApprovalManagementTestIDs.editBtn}
         size="medium"
         variant="tertiary"
         onPress={() => {

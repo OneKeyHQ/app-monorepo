@@ -37,6 +37,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
 import { DeviceGuideView } from '../DeviceGuideModal/DeviceGuideView';
@@ -176,6 +177,7 @@ function DeviceListItem({
       )}
       onPress={() => onPress(item.wallet)}
       drillIn
+      testID={DeviceManagementTestIDs.deviceListItem}
     >
       {renderItemText}
     </ListItem>
@@ -412,6 +414,7 @@ function DeviceManagementV2ListWeb() {
             confirmButtonProps={{
               icon: 'PlusSmallOutline',
               variant: 'secondary',
+              testID: DeviceManagementTestIDs.addNewDeviceBtn,
             }}
           />
         </Page.Footer>

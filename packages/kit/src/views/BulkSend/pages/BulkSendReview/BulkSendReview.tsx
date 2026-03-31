@@ -38,6 +38,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { usePreCheckFeeInfo } from '../../../SignatureConfirm/hooks/usePreCheckFeeInfo';
 import BulkSendTxDetails from '../../components/BulkSendTxDetails';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
+import { BulkSendTestIDs } from '../../testIDs';
 
 import BulkSendApprovalCard from './components/BulkSendApprovalCard';
 import BulkSendReviewAlert from './components/BulkSendReviewAlert';
@@ -689,6 +690,7 @@ function BaseBulkSendReview({
         <Page.FooterActions
           onConfirmText={confirmButtonText}
           confirmButtonProps={{
+            testID: BulkSendTestIDs.reviewConfirmBtn,
             onPress: handleConfirm,
             disabled: isConfirmDisabled,
             loading: isSubmitting || isRecheckingApproval,

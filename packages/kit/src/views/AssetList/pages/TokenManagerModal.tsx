@@ -23,6 +23,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { AssetListTestIDs } from '../testIDs';
 import { TokenManagerList } from '../components/TokenManager/TokenManagerList';
 import { useAccountInfoForManageToken } from '../hooks/useAddToken';
 import { useTokenManagement } from '../hooks/useTokenManagement';
@@ -255,6 +256,7 @@ function TokenManagerModal() {
       <Page.Body>
         <Stack px="$5" pb="$4">
           <SearchBar
+            testID={AssetListTestIDs.tokenManagerSearchBar}
             placeholder={intl.formatMessage({
               id: ETranslations.token_selector_search_placeholder,
             })}

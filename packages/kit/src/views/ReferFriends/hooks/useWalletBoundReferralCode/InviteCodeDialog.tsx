@@ -25,6 +25,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ReferFriendsTestIDs } from '../../testIDs';
 import { AllWalletsBoundEmpty } from './AllWalletsBoundEmpty';
 import { NoWalletEmpty } from './NoWalletEmpty';
 import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus';
@@ -281,6 +282,7 @@ export function InviteCodeDialog({
             }}
           >
             <Input
+              testID={ReferFriendsTestIDs.referralCodeInput}
               placeholder={intl.formatMessage({
                 id: ETranslations.referral_wallet_code_placeholder,
               })}

@@ -16,6 +16,7 @@ import type { IBorrowAlert } from '@onekeyhq/shared/types/staking';
 
 import { NoAddressWarning } from '../../Staking/components/ProtocolDetails/NoAddressWarning';
 import { BorrowProvider, useBorrowContext } from '../BorrowProvider';
+import { BorrowTestIDs } from '../testIDs';
 import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
 import { BorrowDataGate } from '../components/BorrowDataGate';
@@ -197,6 +198,7 @@ const BorrowHomeContent = memo(
             // on tab switch, which would clamp scroll position to 0.
             <YStack flex={1} gap="$5">
               <SegmentControl
+                testID={BorrowTestIDs.segmentControl}
                 value={activeTab}
                 options={tabOptions}
                 onChange={(value) => {

@@ -36,6 +36,7 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { AssetSelectorTestIDs } from '../testIDs';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
@@ -210,6 +211,7 @@ function AggregateTokenListItem({
 
   return (
     <ListItem
+      testID={AssetSelectorTestIDs.aggregateTokenListItem}
       key={token.$key}
       title={token.networkName || network?.name}
       avatarProps={{

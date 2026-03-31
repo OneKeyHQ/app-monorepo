@@ -9,6 +9,8 @@ import {
   XStack,
 } from '@onekeyhq/components';
 
+import { LiteCardTestIDs } from '../testIDs';
+
 const KEYBOARD_DELETE_CHAR = 'x';
 
 export function PasswordKeyboard({
@@ -82,6 +84,7 @@ export function PasswordKeyboard({
             icon="XBackspaceOutline"
             color="$iconSubdued"
             variant="tertiary"
+            testID={LiteCardTestIDs.keyboardDeleteBtn}
             onPress={() => onItemPress(KEYBOARD_DELETE_CHAR)}
           />
         </Stack>

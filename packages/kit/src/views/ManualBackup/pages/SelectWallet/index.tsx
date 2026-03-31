@@ -12,6 +12,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { ManualBackupTestIDs } from '../../testIDs';
+
 export default function ManualBackupSelectWalletPage() {
   const intl = useIntl();
   const walletList = usePromiseResult(async () => {
@@ -49,6 +51,7 @@ export default function ManualBackupSelectWalletPage() {
         <WalletListView
           walletList={walletList}
           onPick={onPick}
+          testID={ManualBackupTestIDs.walletList}
           ListEmptyComponent={
             <Empty
               illustration="QuestionMark"

@@ -16,6 +16,8 @@ import { ECloudBackupRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { ICloudBackupParamList } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
+import { CloudBackupTestIDs } from '../../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 export default function List() {
@@ -68,6 +70,7 @@ export default function List() {
             };
           }) => (
             <ListItem
+              testID={CloudBackupTestIDs.backupListItem}
               onPress={() => {
                 navigation.pushModal(EModalRoutes.CloudBackupModal, {
                   screen: ECloudBackupRoutes.CloudBackupDetail,
