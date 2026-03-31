@@ -195,7 +195,11 @@ For each finding report: file path, line, severity, category, description, sugge
 )
 ```
 
-If diff > 50KB, include only security-critical portions and note omissions.
+If diff > 50KB, prioritize including in the prompt:
+1. Dependency changes (`package.json` + `yarn.lock` diffs)
+2. Security-critical source diffs (vault, signing, crypto, auth)
+3. CI/CD and build config changes
+4. Note which areas were omitted from the prompt.
 
 #### I.2 — Parse Codex findings
 

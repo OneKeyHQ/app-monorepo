@@ -54,7 +54,7 @@ Ask for the missing ref. Do **not** assume defaults unless the user explicitly s
 
 ## 3) Pre-flight: Codex readiness check
 
-Before starting any audit work, verify that Codex is operational. This is a soft prerequisite — the audit uses Codex for cross-validation, so an unavailable Codex means a degraded audit.
+Before starting any audit work, verify that Codex is operational. This is a hard prerequisite — the audit relies on Codex for cross-validation, so a broken Codex means a degraded audit.
 
 ### Check procedure
 
@@ -184,7 +184,11 @@ For each finding report:
 )
 ```
 
-If the diff is too large (>50KB), include only the security-critical portions in the prompt and note which areas were omitted.
+If the diff is too large (>50KB), prioritize including in the prompt:
+1. Dependency changes (`package.json` + `yarn.lock` diffs)
+2. Security-critical source diffs (vault, signing, crypto, auth)
+3. CI/CD and build config changes
+4. Note which areas were omitted from the prompt.
 
 #### I.2 — Parse Codex findings
 
