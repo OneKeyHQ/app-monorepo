@@ -30,7 +30,11 @@ export class LoggerRuntime {
     this._pendingEntries = [];
 
     for (const { entry, processor } of queued) {
-      processor(entry);
+      try {
+        processor(entry);
+      } catch (error) {
+        console.error('Logger drain error:', error);
+      }
     }
   }
 }

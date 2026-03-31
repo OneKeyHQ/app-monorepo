@@ -348,6 +348,15 @@ export function flushDesktopDedup() {
       logger.info(message);
     }
   });
+
+  // Drain any pending repeat prefixes that were set by the dedup hook
+  // but never consumed by file.format (e.g. when rate-limit hook dropped the message)
+  if (pendingRepeatPrefix.length > 0) {
+    for (const prefix of pendingRepeatPrefix) {
+      logger.info(prefix);
+    }
+    pendingRepeatPrefix = [];
+  }
 }
 
 // Startup marker matching native: OneKeyLog.info("App", "OneKey started")

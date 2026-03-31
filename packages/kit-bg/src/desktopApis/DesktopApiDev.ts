@@ -11,8 +11,8 @@ import fetch from 'node-fetch';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
+import { flushDesktopDedup } from '@onekeyhq/desktop/app/logger';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { flushDesktopDedupState } from '@onekeyhq/shared/src/logger/desktopDedupState';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
@@ -68,16 +68,8 @@ class DesktopApiDev {
       throw new OneKeyLocalError('fileBaseName is required');
     }
     const baseName = params.fileBaseName;
-    // Flush pending dedup state so the tail repeat count is written to the log file
-    flushDesktopDedupState((message, level) => {
-      if (level === 'error') {
-        logger.error(message);
-      } else if (level === 'warn') {
-        logger.warn(message);
-      } else {
-        logger.info(message);
-      }
-    });
+    // Flush pending dedup state (including pendingRepeatPrefix) so nothing is lost on export
+    flushDesktopDedup();
 
     const logFilePath = logger.transports.file.getFile().path;
     const logDir = path.dirname(logFilePath);

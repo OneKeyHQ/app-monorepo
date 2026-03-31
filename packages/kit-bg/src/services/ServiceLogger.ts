@@ -43,11 +43,9 @@ class ServiceLogger extends ServiceBase {
         this.buffer.push(message);
       } else {
         this.buffer[this.writeIndex] = message;
-      }
-      this.writeIndex = (this.writeIndex + 1) % this.maxLength;
-      if (this.writeIndex === 0 && this.buffer.length >= this.maxLength) {
         this.isFull = true;
       }
+      this.writeIndex = (this.writeIndex + 1) % this.maxLength;
     }
     return Promise.resolve(true);
   }
