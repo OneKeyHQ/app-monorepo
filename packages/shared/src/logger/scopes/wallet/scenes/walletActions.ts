@@ -101,6 +101,13 @@ export class WalletActionsScene extends BaseScene {
   }
 
   @LogToServer()
+  public actionApprovals(
+    params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
+  ) {
+    return params;
+  }
+
+  @LogToServer()
   public actionStaking(params: IWalletActionBaseParams) {
     return params;
   }
