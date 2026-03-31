@@ -191,6 +191,7 @@ function sanitizeAndTruncateData(data: any[]): string[] {
 // Repeat prefix is stored for the format function to prepend.
 // ---------------------------------------------------------------------------
 
+const MAX_PENDING_REPEAT_PREFIX = 100;
 let pendingRepeatPrefix: string[] = [];
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -221,7 +222,9 @@ logger.hooks.push((message: any, _transFn: any, transName?: string) => {
     return null; // truly skip — no file write at all
   }
 
-  pendingRepeatPrefix = [...pendingRepeatPrefix, ...repeatPrefix];
+  if (repeatPrefix.length > 0 && pendingRepeatPrefix.length < MAX_PENDING_REPEAT_PREFIX) {
+    pendingRepeatPrefix = [...pendingRepeatPrefix, ...repeatPrefix];
+  }
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return message;
 });
