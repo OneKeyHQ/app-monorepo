@@ -496,18 +496,18 @@ export function registerSwapExecuteCommand(parent: Command): void {
           if (order.fromToken.contractAddress) {
             try {
               const tokenResults = await apiClient.post<
-                Array<{ info: { balance?: string; balanceParsed?: string } }>
+                Array<{ balance?: string; balanceParsed?: string }>
               >('wallet', '/wallet/v1/account/token/search', {
                 networkId: chainConfig.networkId,
                 contractList: [order.fromToken.contractAddress],
                 accountAddress: fromAddress,
               });
-              const tokenBalance = tokenResults?.[0]?.info?.balance;
+              const tokenBalance = tokenResults?.[0]?.balance;
               if (tokenBalance !== undefined) {
-                const txDataRecord = order.txData as {
-                  fromTokenAmount?: string;
-                };
-                const requiredAmount = txDataRecord.fromTokenAmount ?? '0';
+                const requiredAmount = amountToSmallestUnit(
+                  order.amount,
+                  order.fromToken.decimals,
+                );
                 if (
                   BigInt(tokenBalance) < BigInt(requiredAmount) &&
                   BigInt(requiredAmount) > 0n

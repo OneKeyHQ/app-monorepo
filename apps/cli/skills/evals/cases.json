@@ -254,6 +254,24 @@
     }
   },
   {
+    "id": "wallet-balance-specific-token",
+    "skill": "onekey-wallet",
+    "prompt": "我在 Base 上有多少 USDC",
+    "expect": {
+      "commands": ["onekey balance --chain base --token USDC"],
+      "forbidden": ["--help", "onekey token price"]
+    }
+  },
+  {
+    "id": "wallet-balance-before-swap",
+    "skill": "onekey-wallet",
+    "prompt": "我想换点 ETH，先看看我 Base 上 USDC 够不够",
+    "expect": {
+      "commands": ["onekey balance --chain base --token USDC"],
+      "forbidden": ["--help", "onekey swap"]
+    }
+  },
+  {
     "id": "wallet-transfer-native",
     "skill": "onekey-wallet",
     "prompt": "给 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 转 0.01 ETH",

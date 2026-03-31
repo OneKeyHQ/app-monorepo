@@ -31,30 +31,51 @@ Wallet management and asset operations skill for OneKey CLI.
 
 ### `onekey balance`
 
-Query wallet token balance on a specific chain.
+Query wallet token balance on a specific chain. Two modes:
+1. **All assets** (no `--token`): lists every token the wallet holds.
+2. **Specific token** (`--token`): returns balance for one token.
 
 ```bash
-onekey balance --chain <chain> [--address <address>]
+onekey balance --chain <chain> [--token <token>] [--address <address>]
 ```
 
 | Parameter | Required | Description |
 |---|---|---|
 | `--chain` | Yes | Target blockchain (e.g. `eth`, `bsc`, `base`) |
+| `--token` | No | Token symbol (e.g. `USDC`) or contract address. Omit to list all assets |
 | `--address` | No | Override wallet address (defaults to imported wallet) |
 
-**Returns:**
+**Returns (all assets — no `--token`):**
 ```json
 {
   "address": "0x...",
-  "chain": "eth",
-  "balance": "1.234567"
+  "chain": "base",
+  "tokens": [
+    { "symbol": "ETH", "balance": "1.5", "contractAddress": "", "fiatValue": "3000", "isNative": true },
+    { "symbol": "USDC", "balance": "500", "contractAddress": "0x833...", "fiatValue": "500", "isNative": false }
+  ]
+}
+```
+
+**Returns (specific token — with `--token`):**
+```json
+{
+  "address": "0x...",
+  "chain": "base",
+  "token": "USDC",
+  "contractAddress": "0x833...",
+  "balance": "500",
+  "balanceRaw": "500000000"
 }
 ```
 
 **Agent notes:**
 - Balance is returned in human-readable units (e.g. `1.5` ETH, not wei).
-- Queries the native token balance by default.
-- Used by `onekey-swap` as mandatory pre-trade balance check.
+- Without `--token`: returns all tokens sorted by fiat value (native first).
+- With `--token`: returns single token. For native tokens, use the chain's
+  native symbol (e.g. `ETH` on Ethereum, `BNB` on BSC).
+- **Before swap/transfer**: always use `--token` to verify the specific token
+  balance. Example: `onekey balance --chain base --token USDC`.
 - If no wallet is imported, will fail — guide user to `onekey import` first.
 
 ### `onekey transfer`

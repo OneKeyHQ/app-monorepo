@@ -145,13 +145,30 @@ describe('Transfer integration — Sepolia testnet (binary)', () => {
   // 2. Balance query (real Sepolia API)
   // -----------------------------------------------------------------------
   describe('balance query', () => {
-    it('returns balance for Sepolia', async () => {
+    it('returns token list for Sepolia', async () => {
       const { parsed } = await runJSON(['balance', '--chain', 'sepolia']);
+
+      expect(parsed.status).toBe('success');
+      const data = parsed.data as Record<string, unknown>;
+      expect(data.tokens).toBeDefined();
+      expect(Array.isArray(data.tokens)).toBe(true);
+    }, 60_000);
+
+    it('returns specific native token balance for Sepolia', async () => {
+      // Sepolia nativeSymbol is TETH, not ETH
+      const { parsed } = await runJSON([
+        'balance',
+        '--chain',
+        'sepolia',
+        '--token',
+        'TETH',
+      ]);
 
       expect(parsed.status).toBe('success');
       const data = parsed.data as Record<string, unknown>;
       expect(data.balance).toBeDefined();
       expect(typeof data.balance).toBe('string');
+      expect(data.token).toBe('TETH');
     }, 60_000);
   });
 

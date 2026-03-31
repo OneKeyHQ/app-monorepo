@@ -201,7 +201,8 @@ onekey swap status --chain <chain> [--order <orderId>] [--tx <txHash>] [--watch]
 User: "Swap 100 USDC to ETH on Ethereum"
 
 Step 1 — Balance check
-→ onekey balance --chain eth
+→ onekey balance --chain eth --token USDC   (verify from-token balance)
+→ onekey balance --chain eth --token ETH    (verify gas balance)
 → Verify: USDC balance ≥ 100 AND ETH balance sufficient for gas
 → Insufficient → inform user of shortfall, abort
 
