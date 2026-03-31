@@ -121,7 +121,7 @@ export interface IMarketStockInfo {
   subtitle: string;
   source?: string;
   sourceLogoUri: string;
-  isOpen: boolean;
+  isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
 }
