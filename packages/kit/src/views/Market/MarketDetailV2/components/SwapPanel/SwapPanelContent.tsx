@@ -231,115 +231,115 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       keyboardDismissMode="on-drag"
     >
       <YStack gap="$4">
-      {/* Trade type selector */}
-      <TradeTypeSelector value={tradeType} onChange={setTradeType} />
+        {/* Trade type selector */}
+        <TradeTypeSelector value={tradeType} onChange={setTradeType} />
 
-      <YStack gap="$3">
-        {/* Token input section */}
-        <SwapPanelTop
-          enableAddressTypeSelector={enableAddressTypeSelector}
-          activeAccount={activeAccount}
-          balance={balance}
-          balanceToken={balanceToken}
-          balanceLoading={balanceLoading}
-          handleBalanceClick={handleBalanceClick}
-        />
-        <TokenInputSection
-          ref={tokenBuyInputRef}
-          style={tradeType === ESwapDirection.BUY ? {} : { display: 'none' }}
-          tradeType={ESwapDirection.BUY}
-          swapNativeTokenReserveGas={swapNativeTokenReserveGas}
-          onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-          selectedToken={paymentToken}
-          selectableTokens={defaultTokens}
-          onTokenChange={(token) => setPaymentToken(token)}
-          balance={balance}
-          onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
-          disableNativeToken={disableNativeToken}
-        />
-        <TokenInputSection
-          ref={tokenSellInputRef}
-          style={tradeType === ESwapDirection.SELL ? {} : { display: 'none' }}
-          tradeType={ESwapDirection.SELL}
-          swapNativeTokenReserveGas={swapNativeTokenReserveGas}
-          onChange={(amount) => setSellAmount(new BigNumber(amount))}
-          selectedToken={balanceToken}
-          selectableTokens={defaultTokens}
-          onTokenChange={(token) => setPaymentToken(token)}
-          balance={balance}
-          onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
-        />
-
-        {/* Rate display */}
-        <RateDisplay
-          rate={priceRate?.rate}
-          fromTokenSymbol={priceRate?.fromTokenSymbol}
-          toTokenSymbol={priceRate?.toTokenSymbol}
-          loading={priceRate?.loading}
-        />
-
-        {/* Balance display */}
-        {tradeType === ESwapDirection.SELL ? (
-          <SellForSelector
-            defaultTokens={defaultTokens}
-            currentSelectToken={balanceToken as ISwapTokenBase}
-            onTokenSelect={(token) => setPaymentToken(token as IToken)}
-            symbol={paymentToken?.symbol ?? '-'}
-            isLoading={!hasInitialReady}
+        <YStack gap="$3">
+          {/* Token input section */}
+          <SwapPanelTop
+            enableAddressTypeSelector={enableAddressTypeSelector}
+            activeAccount={activeAccount}
+            balance={balance}
+            balanceToken={balanceToken}
+            balanceLoading={balanceLoading}
+            handleBalanceClick={handleBalanceClick}
           />
+          <TokenInputSection
+            ref={tokenBuyInputRef}
+            style={tradeType === ESwapDirection.BUY ? {} : { display: 'none' }}
+            tradeType={ESwapDirection.BUY}
+            swapNativeTokenReserveGas={swapNativeTokenReserveGas}
+            onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
+            selectedToken={paymentToken}
+            selectableTokens={defaultTokens}
+            onTokenChange={(token) => setPaymentToken(token)}
+            balance={balance}
+            onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
+            disableNativeToken={disableNativeToken}
+          />
+          <TokenInputSection
+            ref={tokenSellInputRef}
+            style={tradeType === ESwapDirection.SELL ? {} : { display: 'none' }}
+            tradeType={ESwapDirection.SELL}
+            swapNativeTokenReserveGas={swapNativeTokenReserveGas}
+            onChange={(amount) => setSellAmount(new BigNumber(amount))}
+            selectedToken={balanceToken}
+            selectableTokens={defaultTokens}
+            onTokenChange={(token) => setPaymentToken(token)}
+            balance={balance}
+            onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
+          />
+
+          {/* Rate display */}
+          <RateDisplay
+            rate={priceRate?.rate}
+            fromTokenSymbol={priceRate?.fromTokenSymbol}
+            toTokenSymbol={priceRate?.toTokenSymbol}
+            loading={priceRate?.loading}
+          />
+
+          {/* Balance display */}
+          {tradeType === ESwapDirection.SELL ? (
+            <SellForSelector
+              defaultTokens={defaultTokens}
+              currentSelectToken={balanceToken as ISwapTokenBase}
+              onTokenSelect={(token) => setPaymentToken(token as IToken)}
+              symbol={paymentToken?.symbol ?? '-'}
+              isLoading={!hasInitialReady}
+            />
+          ) : null}
+        </YStack>
+
+        {speedCheckError ? (
+          <SizableText size="$bodyMd" color="$textCritical">
+            {speedCheckError}
+          </SizableText>
         ) : null}
-      </YStack>
 
-      {speedCheckError ? (
-        <SizableText size="$bodyMd" color="$textCritical">
-          {speedCheckError}
-        </SizableText>
-      ) : null}
+        {!isApproved &&
+        !speedCheckError &&
+        currentInputAmount.gt(0) &&
+        balance.gte(currentInputAmount) ? (
+          <ApproveButton onApprove={onApprove} loading={isLoading} />
+        ) : (
+          <ActionButton
+            supportSpeedSwap={!!supportSpeedSwap?.enabled}
+            onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
+            loading={isLoading}
+            actionToken={supportSpeedSwap?.actionToken}
+            actionOtherToken={supportSpeedSwap?.actionOtherToken}
+            tradeType={tradeType}
+            onPress={isWrapped ? onWrappedSwap : onSwap}
+            amount={currentInputAmount.toFixed()}
+            token={balanceToken}
+            balance={balance}
+            isWrapped={isWrapped}
+            networkId={networkId}
+            disabled={!!speedCheckError}
+            onSwapAction={() =>
+              swapAnalytics.logSwapAction({
+                tradeType,
+                networkId,
+                paymentToken,
+                balanceToken,
+              })
+            }
+          />
+        )}
 
-      {!isApproved &&
-      !speedCheckError &&
-      currentInputAmount.gt(0) &&
-      balance.gte(currentInputAmount) ? (
-        <ApproveButton onApprove={onApprove} loading={isLoading} />
-      ) : (
-        <ActionButton
-          supportSpeedSwap={!!supportSpeedSwap?.enabled}
-          onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
-          loading={isLoading}
-          actionToken={supportSpeedSwap?.actionToken}
-          actionOtherToken={supportSpeedSwap?.actionOtherToken}
-          tradeType={tradeType}
-          onPress={isWrapped ? onWrappedSwap : onSwap}
-          amount={currentInputAmount.toFixed()}
-          token={balanceToken}
-          balance={balance}
-          isWrapped={isWrapped}
-          networkId={networkId}
-          disabled={!!speedCheckError}
-          onSwapAction={() =>
-            swapAnalytics.logSwapAction({
-              tradeType,
-              networkId,
-              paymentToken,
-              balanceToken,
-            })
-          }
-        />
-      )}
-
-      {/* Slippage setting */}
-      {isWrapped ? null : (
-        <SlippageSetting
-          autoDefaultValue={slippageAutoValue}
-          isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
-          onSlippageChange={(item) => {
-            setSlippage(item.value);
-            swapAnalytics.setSlippageSetting(
-              item.key === ESwapSlippageSegmentKey.CUSTOM,
-            );
-          }}
-        />
-      )}
+        {/* Slippage setting */}
+        {isWrapped ? null : (
+          <SlippageSetting
+            autoDefaultValue={slippageAutoValue}
+            isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
+            onSlippageChange={(item) => {
+              setSlippage(item.value);
+              swapAnalytics.setSlippageSetting(
+                item.key === ESwapSlippageSegmentKey.CUSTOM,
+              );
+            }}
+          />
+        )}
       </YStack>
     </ScrollView>
   );
