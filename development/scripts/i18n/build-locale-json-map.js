@@ -58,7 +58,11 @@ fs.writeFileSync(
     // fix lint of type file.
     // Simply lint the file, it's faster than eslint.
     .replaceAll('	', '  ')
-    .replaceAll('  =', ' =')}`,
+    .replaceAll('  =', ' =')
+    // fix enum member names with dots (invalid TS identifiers)
+    .replace(/^(\s+)([a-z0-9_.]+)\s*=/gm, (match, indent, member) =>
+      member.includes('.') ? `${indent}${member.replace(/\./g, '_')} =` : match,
+    )}`,
   'utf8',
 );
 
