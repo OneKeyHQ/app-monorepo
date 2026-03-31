@@ -4,6 +4,7 @@ import { IconButton, SizableText, Stack } from '@onekeyhq/components';
 import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { AccountManagerTestIDs } from '../../../testIDs';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 export function AccountSelectorCreateWalletButton() {
@@ -25,7 +26,7 @@ export function AccountSelectorCreateWalletButton() {
         }}
         icon="PlusLargeOutline"
         p="$2"
-        testID="add-wallet"
+        testID={AccountManagerTestIDs.addWalletButton}
         variant="primary"
       />
       <SizableText textAlign="center" size="$bodySm" mt="$1">

@@ -16,6 +16,8 @@ import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+
+import { AccountManagerTestIDs } from '../../testIDs';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
@@ -127,7 +129,7 @@ export function BatchCreateAccountButton({
 
   return (
     <ActionList.Item
-      testID="batch-create-account-button-trigger"
+      testID={AccountManagerTestIDs.batchCreateAccountButton}
       icon="ChecklistOutline"
       label={intl.formatMessage({
         id: ETranslations.global_manage_accounts,

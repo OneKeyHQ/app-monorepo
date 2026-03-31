@@ -12,6 +12,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountManagerTestIDs } from '../../testIDs';
+
 function WalletBoundReferralCodeButtonView({
   wallet,
   onClose,
@@ -106,7 +108,7 @@ function WalletBoundReferralCodeButtonView({
 
   return (
     <ActionList.Item
-      testID="wallet-bound-referral-code-button"
+      testID={AccountManagerTestIDs.walletBoundReferralCode}
       icon="GiftOutline"
       label={intl.formatMessage({
         id: ETranslations.referral_wallet_edit_code,

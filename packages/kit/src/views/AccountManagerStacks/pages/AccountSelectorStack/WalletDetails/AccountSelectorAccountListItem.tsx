@@ -33,6 +33,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
 import { useAccountSelectorAvatarNetwork } from '../../../hooks/useAccountSelectorAvatarNetwork';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 import { AccountAddress } from './AccountAddress';
 import { AccountValueWithSpotlight } from './AccountValue';
@@ -361,7 +362,7 @@ export function AccountSelectorAccountListItem({
   return (
     <Stack>
       <ListItem
-        testID={`account-item-index-${index}`}
+        testID={AccountManagerTestIDs.accountItem(index)}
         key={item.id}
         renderAvatar={
           <AccountAvatar

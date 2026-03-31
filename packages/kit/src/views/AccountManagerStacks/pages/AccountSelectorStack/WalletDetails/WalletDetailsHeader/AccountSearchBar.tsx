@@ -19,6 +19,7 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AccountManagerTestIDs } from '../../../../testIDs';
 import { useAddAccount } from '../hooks/useAddAccount';
 
 export function AccountSearchBar({
@@ -106,7 +107,7 @@ export function AccountSearchBar({
           title={intl.formatMessage({ id: ETranslations.global_add_account })}
           renderTrigger={
             <IconButton
-              testID="account-search-bar-add-button"
+              testID={AccountManagerTestIDs.searchBarAddButton}
               icon="PlusSmallOutline"
               size="small"
             />
@@ -114,7 +115,7 @@ export function AccountSearchBar({
           renderItems={({ handleActionListClose }) => (
             <>
               <ActionList.Item
-                testID="add-account-button"
+                testID={AccountManagerTestIDs.addAccountButton}
                 icon="PlusSmallOutline"
                 label={intl.formatMessage({
                   id: ETranslations.global_add_account,
