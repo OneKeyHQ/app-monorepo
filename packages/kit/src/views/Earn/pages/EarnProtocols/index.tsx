@@ -404,9 +404,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           }
           return (
             <AprText
+              hideSuffix={isDesktopLayout}
               asset={{
                 aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
                 aprInfo: item?.aprInfo,
+                rewardUnit: item?.provider?.rewardUnit,
               }}
             />
           );
