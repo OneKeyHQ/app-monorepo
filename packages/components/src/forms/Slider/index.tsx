@@ -152,6 +152,7 @@ export const Slider = ({
     props,
     segments,
     sliderValue,
+    testID,
   ]);
   const handleMinPress = useCallback(() => {
     handleValueChange([min]);
