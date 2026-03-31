@@ -107,7 +107,7 @@ const StockIsOpenBadge = memo(({ stock }: { stock: IMarketStockInfo }) => {
     </XStack>
   );
 
-  if (!description) {
+  if (!description || platformEnv.isNative) {
     return badge;
   }
 
@@ -137,7 +137,7 @@ const StockSourceLogo = memo(
       />
     );
 
-    if (stock.title) {
+    if (stock.title && !platformEnv.isNative) {
       return (
         <Tooltip
           hovering
