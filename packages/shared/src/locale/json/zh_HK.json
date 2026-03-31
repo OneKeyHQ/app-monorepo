@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "在瀏覽器中查看地址",
   "settings.view_transaction_in_explorer": "在瀏覽器中查看交易",
   "settings.whats_new": "新功能",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "啟用此功能後，您只能向錢包內的帳戶或地址簿中儲存的地址發送資金。",
   "settings_protection.allowlist_title": "轉帳白名單",
   "setup_choose_option_create_new_wallet": "建立新 Wallet：如果這是你的第一個 wallet",

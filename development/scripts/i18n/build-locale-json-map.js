@@ -2,6 +2,8 @@ const path = require('path');
 
 const fs = require('fs-extra');
 
+const transformTranslationEnumKey = require('./transform-translation-enum-key');
+
 const localeJsonPath = path.join(
   __dirname,
   '../../../packages/shared/src/locale/json',
@@ -46,15 +48,36 @@ const typeFile = path.join(
   '../../../packages/shared/src/locale/enum/translations.ts',
 );
 
-const text = fs.readFileSync(typeFile, 'utf8');
+function stripGeneratedHeader(text) {
+  return text
+    .replace(
+      /^(?:\/\/ This file is automatically created by `yarn [^`]+`\.\n+\s*\/\/ @ts-ignore\n\/\* eslint-disable  \*\/\n\s*)+/,
+      '',
+    )
+    .trimStart();
+}
+
+function normalizeTranslationEnumMembers(text) {
+  return text.replace(
+    /^(\s*)([^=\n]+?)\s*=\s*'([^']+)',$/gm,
+    (_match, indent, _memberName, translationKey) => {
+      const normalizedMemberName = transformTranslationEnumKey(
+        translationKey.split('.'),
+      );
+
+      return `${indent}${normalizedMemberName} = '${translationKey}',`;
+    },
+  );
+}
+
+const text = stripGeneratedHeader(fs.readFileSync(typeFile, 'utf8'));
 fs.writeFileSync(
   typeFile,
-  `// This file is automatically created by \`yarn i18n:pull\`.\n
-// @ts-ignore
-/* eslint-disable  */
-  
-  ${text
+  `// This file is automatically created by \`yarn i18n:pull\`.\n\n// @ts-ignore\n/* eslint-disable  */\n\n${text
     .replace('export enum Translations {', 'export enum ETranslations {')
+    .replace(/export enum ETranslations \{[\s\S]*$/, (enumText) =>
+      normalizeTranslationEnumMembers(enumText),
+    )
     // fix lint of type file.
     // Simply lint the file, it's faster than eslint.
     .replaceAll('	', '  ')
