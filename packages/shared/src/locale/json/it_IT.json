@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "Visualizza indirizzo in esplora risorse",
   "settings.view_transaction_in_explorer": "Visualizza transazione nell'explorer",
   "settings.whats_new": "Cosa c'è di nuovo",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "Quando questa funzione è attiva, puoi inviare fondi solo verso account del tuo portafoglio o indirizzi salvati nella rubrica.",
   "settings_protection.allowlist_title": "Trasferisci lista di autorizzazione",
   "setup_choose_option_create_new_wallet": "Crea un nuovo wallet: se è il tuo primo wallet",

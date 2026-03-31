@@ -20,6 +20,8 @@ googleusercontent
 reown
 cloudfs
 morelink
+worktrees
+worktree
 getters
 timestamps
 Autopurge
