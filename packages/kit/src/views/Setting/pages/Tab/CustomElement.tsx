@@ -83,6 +83,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useLanguageSelector, useResetApp } from '../../hooks';
+import { SettingTestIDs } from '../../testIDs';
 import { handleOpenDevMode } from '../../utils/devMode';
 import { useOptions } from '../AppAutoLock/useOptions';
 
@@ -107,7 +108,13 @@ export function CurrencyListItem(props: ICustomElementProps) {
   const [settings] = useSettingsPersistAtom();
   const text = settings.currencyInfo?.id ?? '';
   return (
-    <TabSettingsListItem {...props} userSelect="none" drillIn onPress={onPress}>
+    <TabSettingsListItem
+      {...props}
+      userSelect="none"
+      drillIn
+      onPress={onPress}
+      testID={SettingTestIDs.currencyItem}
+    >
       <ListItem.Text
         primaryTextProps={props?.titleProps}
         primary={text.toUpperCase()}
@@ -130,7 +137,11 @@ export function LanguageListItem(props: ICustomElementProps) {
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
-        <TabSettingsListItem {...props} userSelect="none">
+        <TabSettingsListItem
+          {...props}
+          userSelect="none"
+          testID={SettingTestIDs.languageItem}
+        >
           <XStack alignItems="center">
             <ListItem.Text
               primaryTextProps={props?.titleProps}
@@ -191,7 +202,11 @@ export function ThemeListItem(props: ICustomElementProps) {
       onChange={onChange}
       placement="bottom-end"
       renderTrigger={({ label }) => (
-        <TabSettingsListItem {...props} userSelect="none">
+        <TabSettingsListItem
+          {...props}
+          userSelect="none"
+          testID={SettingTestIDs.themeItem}
+        >
           <XStack alignItems="center">
             <ListItem.Text
               primaryTextProps={props?.titleProps}
@@ -287,7 +302,7 @@ export function ResetAppListItem(props: ICustomElementProps) {
       iconProps={{ ...iconProps, color: '$iconCritical' }}
       titleProps={{ ...titleProps, color: '$textCritical' }}
       onPress={resetApp}
-      testID="setting-erase-data"
+      testID={SettingTestIDs.eraseDataButton}
       drillIn
     />
   );
@@ -671,7 +686,7 @@ export function SocialButtonGroup() {
         ai={isTabNavigator ? 'flex-start' : 'center'}
         pt={platformEnv.isNativeIOSPad ? '$3' : undefined}
         userSelect="none"
-        testID="setting-version"
+        testID={SettingTestIDs.versionItem}
       >
         <SizableText
           color={textColor}

@@ -41,6 +41,8 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICustomRpcItem } from '@onekeyhq/shared/types/customRpc';
 
+import { SettingTestIDs } from '../../testIDs';
+
 type IEditRpcParams = {
   network: IServerNetwork;
   rpcInfo?: ICustomRpcItem;
@@ -438,7 +440,7 @@ function CustomRPC() {
           estimatedItemSize={60}
           keyExtractor={(item) => item.networkId}
           renderItem={({ item }) => (
-            <ListItem testID="CustomRpcItemContainer">
+            <ListItem testID={SettingTestIDs.customRpcItem}>
               <Switch
                 disabled={item.network.isCustomNetwork}
                 size={ESwitchSize.small}
