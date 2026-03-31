@@ -16,6 +16,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
+import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { useTakeScreenshot } from '../../hooks/useTakeScreenshot';
 import { ESiteMode } from '../../types';
 
@@ -64,6 +65,8 @@ function MobileBrowserBottomBar({
     handleBrowserOpen,
     disabledGoBack,
     disabledGoForward,
+    isTranslated,
+    handleTranslate,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
   // Replicate TabCountButton's press logic for RNGH
@@ -291,6 +294,8 @@ function MobileBrowserBottomBar({
     [displayHomePage, handleShowOptions],
   );
 
+  const translateGesture = useMemo(() => Gesture.Tap(), []);
+
   return (
     <Stack
       flexDirection="row"
@@ -336,6 +341,15 @@ function MobileBrowserBottomBar({
       <GestureDetector gesture={refreshGesture}>
         <View style={barStyles.buttonContainer}>
           <RefreshButton onRefresh={handleRefresh} />
+        </View>
+      </GestureDetector>
+
+      <GestureDetector gesture={translateGesture}>
+        <View style={barStyles.buttonContainer}>
+          <TranslatePopoverTrigger
+            isTranslated={isTranslated}
+            onTranslate={handleTranslate}
+          />
         </View>
       </GestureDetector>
 
