@@ -108,6 +108,8 @@ export enum EAtomNames {
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
+  marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
+  marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',

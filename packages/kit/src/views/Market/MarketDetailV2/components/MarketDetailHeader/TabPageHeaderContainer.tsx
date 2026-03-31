@@ -30,7 +30,8 @@ export function TabPageHeaderContainer({
         alignItems="center"
         justifyContent="space-between"
         px="$5"
-        h="$12"
+        minHeight="$12"
+        py="$2"
         {...(shouldApplyTopMargin ? { mt: top || '$2' } : {})}
       >
         {children}
