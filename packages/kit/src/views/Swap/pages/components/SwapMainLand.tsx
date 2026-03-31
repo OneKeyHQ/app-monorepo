@@ -97,6 +97,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
+import { SwapTestIDs } from '../../testIDs';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
@@ -1274,7 +1275,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     <>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
-          testID="swap-content-container"
+          testID={SwapTestIDs.pageContainer}
           flex={1}
           width="100%"
           pt={pageType !== EPageType.modal ? '$5' : '$2.5'}

@@ -10,6 +10,7 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { HomeTestIDs } from '../testIDs';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import ReferralCodeBlock from '../components/NotBakcedUp/ReferralCodeBlock';
 import { onHomePageRefresh } from '../components/PullToRefresh';
@@ -113,7 +114,7 @@ function BaseHomeHeaderContainer() {
         pointerEvents="box-none"
       >
         <Stack
-          testID="Wallet-Tab-Header"
+          testID={HomeTestIDs.headerContainer}
           gap="$5"
           pt="$5"
           $gtMd={{
