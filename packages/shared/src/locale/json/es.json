@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "Ver dirección en el explorador",
   "settings.view_transaction_in_explorer": "Ver transacción en el explorador",
   "settings.whats_new": "¿Qué hay de nuevo?",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "Cuando esta función está activada, solo puedes enviar fondos a cuentas de tu billetera o direcciones guardadas en la libreta de direcciones.",
   "settings_protection.allowlist_title": "Transferir lista de permitidos",
   "setup_choose_option_create_new_wallet": "Crear billetera nueva: Si esta es tu primera billetera",
