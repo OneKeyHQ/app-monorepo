@@ -242,6 +242,14 @@ export function calculateRequiredSubscriptions(
         },
       }),
     );
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.SPOT_STATE,
+        params: {
+          user: state.currentUser,
+        },
+      }),
+    );
     const userFillsParams: IEventUserFillsParameters = {
       user: state.currentUser,
       aggregateByTime: true,
