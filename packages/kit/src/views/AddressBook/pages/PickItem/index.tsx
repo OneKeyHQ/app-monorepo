@@ -71,7 +71,6 @@ const PickItemPage = () => {
         <ContentContainer
           loading={isLoading}
           error={Boolean(!isLoading && !result)}
-          unsafe={Boolean(result && !result.isSafe)}
           onRefresh={run}
         >
           <AddressBookListContent

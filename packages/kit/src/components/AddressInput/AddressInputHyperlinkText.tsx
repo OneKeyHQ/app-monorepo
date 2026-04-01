@@ -5,7 +5,7 @@ import { useFormContext } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 
@@ -68,15 +68,21 @@ export function AddressInputHyperlinkText({
       navigation,
     ],
   );
+  // Filter out "undefined" string which can occur from edge cases
+  const messageId =
+    error?.message && error.message !== 'undefined'
+      ? (error.message as ETranslations)
+      : ETranslations.send_address_invalid;
+
   return (
     <HyperlinkText
       color="$textCritical"
       size="$bodyMd"
       textAlign={errorMessageAlign}
-      key={error?.message}
+      key={messageId}
       testID={testID ? `${testID}-message` : undefined}
-      translationId={error?.message as ETranslations}
-      defaultMessage={error?.message as ETranslations}
+      translationId={messageId}
+      defaultMessage={messageId}
       autoExecuteParsedAction={false}
       onAction={onAction}
     />
