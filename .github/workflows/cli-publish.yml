@@ -59,7 +59,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           cd apps/cli
-          IS_PRERELEASE=${{ needs.get-version.outputs.is_prerelease }}
+          IS_PRERELEASE="${{ needs.get-version.outputs.is_prerelease }}"
           if [ "$IS_PRERELEASE" = "true" ]; then
             npm publish --access public --dist-tag next
           else
@@ -67,5 +67,7 @@ jobs:
           fi
 
       - name: Summary
+        env:
+          CLI_VERSION: ${{ needs.get-version.outputs.version }}
         run: |
-          echo "Published @onekeyfe/cli v${{ needs.get-version.outputs.version }}"
+          echo "Published @onekeyfe/cli v${CLI_VERSION}"

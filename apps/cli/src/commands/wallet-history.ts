@@ -71,7 +71,7 @@ export function registerWalletHistoryCommand(program: Command): void {
 
           let items: IHistoryItem[] = formatHistoryList(
             resp,
-            chainConfig.feeDecimals,
+            chainConfig.nativeDecimals,
             detail,
           );
 

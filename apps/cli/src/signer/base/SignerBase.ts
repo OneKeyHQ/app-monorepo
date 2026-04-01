@@ -31,24 +31,27 @@ export class SignerBase {
       );
     }
 
-    const encryptedMnemonic = await this.keychain.get(KEYCHAIN_MNEMONIC_KEY);
-    if (!encryptedMnemonic) {
-      throw new AppError(
-        ERROR_CODES.AUTH_NO_WALLET.code,
-        'No wallet found. Import a wallet first.',
-        'Run: onekey import --mnemonic',
-      );
-    }
-
-    const encryptionKey = encryptionKeyBuf.toString('utf-8');
-    let mnemonicBuf: Buffer | null = null;
-
     try {
-      mnemonicBuf = await decrypt(encryptedMnemonic, encryptionKey);
-      const mnemonic = mnemonicBuf.toString('utf-8');
-      return await revealableSeedFromMnemonic(mnemonic, CLI_PASSWORD);
+      const encryptedMnemonic = await this.keychain.get(KEYCHAIN_MNEMONIC_KEY);
+      if (!encryptedMnemonic) {
+        throw new AppError(
+          ERROR_CODES.AUTH_NO_WALLET.code,
+          'No wallet found. Import a wallet first.',
+          'Run: onekey import --mnemonic',
+        );
+      }
+
+      const encryptionKey = encryptionKeyBuf.toString('utf-8');
+      let mnemonicBuf: Buffer | null = null;
+
+      try {
+        mnemonicBuf = await decrypt(encryptedMnemonic, encryptionKey);
+        const mnemonic = mnemonicBuf.toString('utf-8');
+        return await revealableSeedFromMnemonic(mnemonic, CLI_PASSWORD);
+      } finally {
+        if (mnemonicBuf) secureWipe(mnemonicBuf);
+      }
     } finally {
-      if (mnemonicBuf) secureWipe(mnemonicBuf);
       secureWipe(encryptionKeyBuf);
     }
   }
