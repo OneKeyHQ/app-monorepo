@@ -397,29 +397,32 @@ function TxConfirmActions(props: IProps) {
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
 
+      // Save recent recipient for all transfer types
       const isLightningNetwork =
         networkUtils.isLightningNetworkByNetworkId(networkId);
-      if (isLightningNetwork || transferPayload?.originalRecipient) {
-        let addressToSave: undefined | string | null =
-          transferPayload?.originalRecipient;
+      let addressToSave: undefined | string | null =
+        transferPayload?.originalRecipient;
 
-        if (isLightningNetwork) {
-          addressToSave = (unsignedTxs[0].encodedTx as IEncodedTxLightning)
-            ?.lightningAddress;
+      if (isLightningNetwork) {
+        addressToSave = (unsignedTxs[0].encodedTx as IEncodedTxLightning)
+          ?.lightningAddress;
 
-          if (!addressToSave) {
-            addressToSave = transferInfo?.lnurl;
-          }
+        if (!addressToSave) {
+          addressToSave = transferInfo?.lnurl;
         }
+      }
 
-        if (addressToSave) {
-          void backgroundApiProxy.serviceSignatureConfirm.updateRecentRecipients(
-            {
-              networkId,
-              address: addressToSave,
-            },
-          );
-        }
+      // Fallback to transferInfo.to only for send flows (transferPayload present)
+      // to avoid saving contract addresses from dApp interactions
+      if (!addressToSave && transferInfo?.to && transferPayload) {
+        addressToSave = transferInfo.to;
+      }
+
+      if (addressToSave) {
+        void backgroundApiProxy.serviceSignatureConfirm.updateRecentRecipients({
+          networkId,
+          address: addressToSave,
+        });
       }
 
       if (isQueueMode && unsignedTxQueue && unsignedTxQueue.size > 1) {

@@ -198,9 +198,20 @@ export function usePromiseResult<T>(
             }
           }
         } catch (err) {
-          if (shouldSetState(config) && undefinedResultIfError) {
+          // AbortError is expected when IndexedDB transactions are cancelled
+          // (e.g., when component unmount or tab switches during search)
+          // Treat it as a non-critical error and don't re-throw
+          const isAbortError =
+            typeof DOMException !== 'undefined' &&
+            err instanceof DOMException &&
+            err.name === 'AbortError';
+
+          if (
+            shouldSetState(config) &&
+            (undefinedResultIfError || isAbortError)
+          ) {
             setResult(undefined);
-          } else {
+          } else if (!isAbortError) {
             throw err;
           }
         } finally {
