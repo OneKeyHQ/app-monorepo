@@ -59,6 +59,7 @@ export const NetworkAvatarBase = ({
     <Image
       size={size}
       src={logoURI}
+      bg="$bgApp"
       borderRadius="$full"
       source={{ uri: logoURI }}
       fallback={

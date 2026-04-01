@@ -62,7 +62,7 @@ function SingleLineReceiverInput() {
         let isAllowed = false;
         try {
           const isBTCNetwork = networkUtils.isBTCNetwork(selectedNetworkId);
-          let walletAccountItems =
+          let walletAccountItems: { accountId: string }[] =
             await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
               networkId: selectedNetworkId,
               address: trimmedAddress,
@@ -92,12 +92,10 @@ function SingleLineReceiverInput() {
               networkId: selectedNetworkId,
             });
             const addressBookItem =
-              await backgroundApiProxy.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
-                {
-                  networkId: isEvmNetwork ? undefined : selectedNetworkId,
-                  address: trimmedAddress,
-                },
-              );
+              await backgroundApiProxy.serviceAddressBook.findItem({
+                networkId: isEvmNetwork ? undefined : selectedNetworkId,
+                address: trimmedAddress,
+              });
             isAllowed = !!addressBookItem;
           } catch {
             // ignore
