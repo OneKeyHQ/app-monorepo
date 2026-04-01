@@ -3,47 +3,11 @@ import type { ComponentProps } from 'react';
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 
-// Helper to strip trailing APR/APY suffix from a text string
-const stripRewardUnitSuffix = (text: string) =>
-  text.replace(/\s*(APR|APY)$/i, '');
-
-const withRewardUnit = (text: string, rewardUnit: string) =>
-  /\s*(APY|APR)\s*$/i.test(text) ? text : `${text} ${rewardUnit}`;
-
-const formatRewardText = ({
-  text,
-  rewardUnit,
-  hideSuffix,
-}: {
-  text: string;
-  rewardUnit: string;
-  hideSuffix: boolean;
-}) =>
-  hideSuffix
-    ? stripRewardUnitSuffix(text).trim()
-    : withRewardUnit(text, rewardUnit);
-
-// Helper function to build APR text
-const buildAprText = (apr: string, unit: string) => `${apr} ${unit}`;
-
-const buildAprRangeText = ({
-  minAprInfo,
-  maxAprInfo,
-  rewardUnit,
-}: {
-  minAprInfo?: IEarnAvailableAsset['minAprInfo'];
-  maxAprInfo?: IEarnAvailableAsset['maxAprInfo'];
-  rewardUnit?: IEarnAvailableAsset['rewardUnit'];
-}) => {
-  const minText = minAprInfo?.normal?.text?.trim();
-  const maxText = maxAprInfo?.normal?.text?.trim();
-
-  if (!minText || !maxText || !rewardUnit) {
-    return undefined;
-  }
-
-  return `${stripRewardUnitSuffix(minText).trim()} - ${stripRewardUnitSuffix(maxText).trim()} ${rewardUnit}`.trim();
-};
+import {
+  buildAprRangeText,
+  buildAprText,
+  formatRewardText,
+} from './AprText.utils';
 
 // APR text component with aprInfo support
 export function AprText({
