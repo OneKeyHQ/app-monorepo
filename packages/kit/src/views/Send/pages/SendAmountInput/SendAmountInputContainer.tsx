@@ -33,7 +33,10 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
-import { useSelectedUTXOsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import {
+  useSelectedUTXOsAtom,
+  useSendConfirmActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -112,6 +115,7 @@ function SendAmountInputContainer() {
   const [isMaxSend, setIsMaxSend] = useState(false);
   const [settings] = useSettingsPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
+  const sendConfirmActions = useSendConfirmActions();
 
   const route =
     useRoute<
@@ -1066,6 +1070,7 @@ function SendAmountInputContainer() {
           onSelect={async ({ account: a }) => {
             if (a) {
               setCurrentAccountId(a.id);
+              sendConfirmActions.current.clearSelectedUTXOs();
             }
           }}
         />,
