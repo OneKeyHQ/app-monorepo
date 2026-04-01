@@ -414,11 +414,11 @@ function MarketTokenListBase({
     [navigateToPerps, toMarketDetailPage],
   );
 
-  // Show skeleton on initial load or network switching
-  // Initial load: when there's no data yet
-  // Network switching: when network is changing (provides better UX feedback)
+  // Show skeleton only when there's no data to display.
+  // When switching networks with existing data, keep old data visible
+  // until new data arrives — avoids unnecessary skeleton flash.
   const showSkeleton =
-    (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
+    (Boolean(isLoading) || Boolean(isNetworkSwitching)) && data.length === 0;
 
   const TableEmptyComponent = useMemo(() => {
     if (isLoading) return null;
