@@ -23,8 +23,26 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
     ? ['send', 'receive', 'swap']
     : ['send', 'receive', 'buy'],
   moreActions: isExtPopupOrSidePanel
-    ? ['buy', 'explorer', 'copy', 'bulkSend', 'sign', 'reward', 'export']
-    : ['swap', 'explorer', 'copy', 'bulkSend', 'sign', 'reward', 'export'],
+    ? [
+        'buy',
+        'explorer',
+        'copy',
+        'approvals',
+        'bulkSend',
+        'sign',
+        'reward',
+        'export',
+      ]
+    : [
+        'swap',
+        'explorer',
+        'copy',
+        'approvals',
+        'bulkSend',
+        'sign',
+        'reward',
+        'export',
+      ],
   moreActionGroups: [
     {
       type: 'trading',
@@ -33,7 +51,7 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
     },
     {
       type: 'tools',
-      actions: ['explorer', 'copy', 'bulkSend', 'sign', 'reward'],
+      actions: ['explorer', 'copy', 'approvals', 'bulkSend', 'sign', 'reward'],
       order: 2,
     },
     {

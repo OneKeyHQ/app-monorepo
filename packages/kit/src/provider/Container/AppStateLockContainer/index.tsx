@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { Suspense, useCallback, useEffect, useRef } from 'react';
 
 import { AnimatePresence, Spinner, YStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -125,6 +126,7 @@ export function AppStateLockContainer({
             lockContainerRef={lockContainerRef as any}
             key="unlock-screen"
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 1,
             }}

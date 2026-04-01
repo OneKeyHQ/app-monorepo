@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IFormFieldProps } from '../types';
@@ -91,6 +92,7 @@ export function Switch({
         borderRadius="$full"
         bg="$bg"
         animation="switch"
+        animateOnly={ANIMATE_ONLY_TRANSFORM}
         {...thumbProps}
       />
     </TMSwitch>
