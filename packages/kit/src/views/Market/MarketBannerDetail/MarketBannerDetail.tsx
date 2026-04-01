@@ -13,6 +13,7 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -68,6 +69,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
   const { gtMd } = useMedia();
 
   const [bannerSort, setBannerSort] = useMarketBannerListSortAtom();
@@ -250,12 +252,14 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         <Stack flex={1}>
           <MarketListColumnHeader />
           <FlatList<IMarketToken>
+            style={{ flex: 1 }}
             data={transformedData}
             renderItem={renderBannerItem}
             keyExtractor={bannerKeyExtractor}
             showsVerticalScrollIndicator={false}
             initialNumToRender={15}
             maxToRenderPerBatch={20}
+            contentContainerStyle={{ paddingBottom: tabBarHeight }}
             ListFooterComponent={
               transformedData.length > 0 ? <ListEndIndicator /> : null
             }
