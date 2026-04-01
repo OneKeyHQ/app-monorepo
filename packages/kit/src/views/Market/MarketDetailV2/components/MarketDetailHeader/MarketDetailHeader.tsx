@@ -84,7 +84,7 @@ export function MarketDetailHeader() {
 
           <XStack flex={1} ai="center" gap="$2">
             <Token
-              size="sm"
+              size="md"
               tokenImageUri={tokenDetail?.logoUrl}
               tokenImageUris={stableLogoUrls}
               networkImageUri={networkLogoUri}
@@ -172,7 +172,7 @@ export function MarketDetailHeader() {
               <MarketStarV2
                 chainId={networkId}
                 contractAddress={tokenDetail?.address ?? ''}
-                size="small"
+                size="large"
                 from={EWatchlistFrom.Detail}
                 tokenSymbol={tokenDetail?.symbol ?? ''}
                 isNative={isNative}
@@ -182,6 +182,7 @@ export function MarketDetailHeader() {
                 address={tokenDetail?.address ?? ''}
                 isNative={isNative}
                 useIconButton
+                size="large"
               />
             </XStack>
           ) : null}
