@@ -56,6 +56,7 @@ export function ErrorToastContainer() {
         errorCode: p.errorCode,
         requestId: p.requestId,
         diagnosticText: p.diagnosticText,
+        i18nKey: p.i18nKey,
       });
 
       Toast[p.method]({
