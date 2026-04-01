@@ -195,6 +195,13 @@ export function WebViewWebEmbed({
           }
           break;
         }
+        case 'webembed-debug': {
+          console.log('[WebEmbed-Debug]', JSON.stringify(data.data));
+          defaultLogger.app.webembed.webViewOnLoad({
+            url: `[DEBUG] ${JSON.stringify(data.data)}`,
+          });
+          break;
+        }
         default:
           break;
       }
@@ -306,6 +313,26 @@ export function WebViewWebEmbed({
         onHttpError={handleHttpError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
+            window.addEventListener('DOMContentLoaded', function() {
+              var scripts = document.querySelectorAll('script[src]');
+              var scriptInfo = [];
+              scripts.forEach(function(s) { scriptInfo.push(s.src); });
+              window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'webembed-debug',
+                data: {
+                  scriptsFound: scriptInfo.length,
+                  scriptSrcs: scriptInfo,
+                  onekeyExists: typeof globalThis.$onekey !== 'undefined',
+                  documentTitle: document.title,
+                }
+              }));
+            });
+            window.addEventListener('error', function(e) {
+              window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'webembed-debug',
+                data: { jsError: e.message, filename: e.filename, lineno: e.lineno }
+              }));
+            }, true);
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
               webEmbedAppSettings,
             )};
