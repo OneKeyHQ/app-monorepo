@@ -10,7 +10,9 @@ import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
-import PerpTradersHistoryList from '../components/OrderInfoPanel/PerpTradersHistoryListModal';
+const PerpTradersHistoryList = LazyLoadPage(
+  () => import('../components/OrderInfoPanel/PerpTradersHistoryListModal'),
+);
 
 const PagePerp = LazyLoadRootTabPage(
   () => import(/* webpackPrefetch: true */ '../pages/Perp'),
