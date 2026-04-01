@@ -12,6 +12,8 @@ const mockVerifyTransaction = jest.fn();
 const mockSignAndSendTransaction = jest.fn();
 const mockBuildDecodedTx = jest.fn();
 const mockSaveSendConfirmHistoryTxs = jest.fn();
+const mockPreActionsBeforeSending = jest.fn();
+const mockAfterSendTxAction = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -36,6 +38,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceHistory: {
       saveSendConfirmHistoryTxs: mockSaveSendConfirmHistoryTxs,
+    },
+    serviceSignatureConfirm: {
+      preActionsBeforeSending: mockPreActionsBeforeSending,
+      afterSendTxAction: mockAfterSendTxAction,
     },
   },
 }));
@@ -97,6 +103,8 @@ describe('marketDirectSendTx', () => {
     mockSignAndSendTransaction.mockReset();
     mockBuildDecodedTx.mockReset();
     mockSaveSendConfirmHistoryTxs.mockReset();
+    mockPreActionsBeforeSending.mockReset();
+    mockAfterSendTxAction.mockReset();
 
     mockGetVaultSettings.mockResolvedValue({});
     mockBuildEstimateFeeParams.mockImplementation(async ({ encodedTx }) => ({
@@ -119,6 +127,8 @@ describe('marketDirectSendTx', () => {
       totalFeeInNative: '0.0001',
     });
     mockSaveSendConfirmHistoryTxs.mockResolvedValue(undefined);
+    mockPreActionsBeforeSending.mockResolvedValue(undefined);
+    mockAfterSendTxAction.mockResolvedValue(undefined);
   });
 
   it('sends a single unsigned tx through the direct sign-and-send path', async () => {
@@ -312,5 +322,88 @@ describe('marketDirectSendTx', () => {
         }),
       }),
     );
+  });
+
+  it('keeps Tron high fee selection aligned with the legacy confirm flow', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockEstimateFee.mockResolvedValue({
+      common: createEstimateFeeResult().common,
+      feeTron: [
+        {
+          requiredEnergy: '10',
+          requiredBandwidth: '100',
+        },
+        {
+          requiredEnergy: '20',
+          requiredBandwidth: '200',
+        },
+        {
+          requiredEnergy: '30',
+          requiredBandwidth: '300',
+        },
+      ],
+    });
+
+    const highFeeResult = await estimateMarketDirectGasInfos({
+      accountAddress: 'TUser',
+      accountId: 'account-tron',
+      networkId: 'tron--0x2b6653dc',
+      networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
+      buildUnsignedParams: {
+        accountId: 'account-tron',
+        networkId: 'tron--0x2b6653dc',
+        encodedTx: {
+          raw_data_hex: '0xtron',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(highFeeResult.gasInfos[0].gasInfo.feeTron?.requiredEnergy).toBe(
+      '10',
+    );
+    expect(highFeeResult.gasInfos[0].gasInfo.feeTron?.requiredBandwidth).toBe(
+      '100',
+    );
+  });
+
+  it('runs legacy send hooks around direct send execution', async () => {
+    const preparedUnsignedTx = createUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(preparedUnsignedTx);
+    mockGetVaultSettings.mockResolvedValue({
+      afterSendTxActionEnabled: true,
+    });
+
+    await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xencoded',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(mockPreActionsBeforeSending).toHaveBeenCalledWith({
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      unsignedTxs: [preparedUnsignedTx],
+      tronResourceRentalInfo: undefined,
+    });
+    expect(mockAfterSendTxAction).toHaveBeenCalledWith({
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      result: [
+        expect.objectContaining({
+          signedTx: expect.objectContaining({
+            txid: '0xtx',
+          }),
+        }),
+      ],
+    });
   });
 });

@@ -20,6 +20,7 @@ import type {
   IFeeUTXO,
   IGasEIP1559,
   IGasLegacy,
+  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISwapGasInfo } from '@onekeyhq/shared/types/swap/types';
@@ -44,6 +45,8 @@ type IMarketDirectSendParams = {
   approveUnsignedTxArr?: IUnsignedTxPro[];
   gasInfos?: IMarketGasInfoEntry[];
   networkFeeLevel?: ESwapNetworkFeeLevel;
+  tronResourceRentalInfo?: ITronResourceRentalInfo;
+  useDefaultRpc?: boolean;
 };
 
 type IEstimateMarketDirectGasInfosParams = Omit<
@@ -61,6 +64,22 @@ function pickFeeLevelValue<T>(
 
   if (networkFeeLevel === ESwapNetworkFeeLevel.HIGH) {
     return values?.[2] ?? values?.[1] ?? values?.[0];
+  }
+
+  return values?.[1] ?? values?.[0];
+}
+
+function pickTronFeeLevelValue(
+  values: IFeeTron[] | undefined,
+  networkFeeLevel?: ESwapNetworkFeeLevel,
+): IFeeTron | undefined {
+  if (networkFeeLevel === ESwapNetworkFeeLevel.LOW) {
+    return values?.[0];
+  }
+
+  // Keep Market review aligned with the legacy Swap/Market fallback flow.
+  if (networkFeeLevel === ESwapNetworkFeeLevel.HIGH) {
+    return values?.[0];
   }
 
   return values?.[1] ?? values?.[0];
@@ -112,7 +131,7 @@ function buildGasInfo(
     gas: pickFeeLevelValue(gasRes.gas, networkFeeLevel),
     gasEIP1559: pickFeeLevelValue(gasRes.gasEIP1559, networkFeeLevel),
     feeUTXO: pickFeeLevelValue(gasRes.feeUTXO, networkFeeLevel),
-    feeTron: pickFeeLevelValue(gasRes.feeTron, networkFeeLevel),
+    feeTron: pickTronFeeLevelValue(gasRes.feeTron, networkFeeLevel),
     feeSol: pickFeeLevelValue(gasRes.feeSol, networkFeeLevel),
     feeCkb: pickFeeLevelValue(gasRes.feeCkb, networkFeeLevel),
     feeAlgo: pickFeeLevelValue(gasRes.feeAlgo, networkFeeLevel),
@@ -467,11 +486,15 @@ async function updateUnsignedTxAndSendTx({
   networkId,
   unsignedTxItem,
   gasInfo,
+  tronResourceRentalInfo,
+  useDefaultRpc,
 }: {
   accountId: string;
   networkId: string;
   unsignedTxItem: IUnsignedTxPro;
   gasInfo: ISwapGasInfo;
+  tronResourceRentalInfo?: ITronResourceRentalInfo;
+  useDefaultRpc?: boolean;
 }): Promise<ISendTxOnSuccessData> {
   if (!gasInfo.common) {
     throw new OneKeyError('gasInfo.common is required');
@@ -501,6 +524,7 @@ async function updateUnsignedTxAndSendTx({
         feeDot: gasInfo.feeDot,
         feeBudget: gasInfo.feeBudget,
       },
+      tronResourceRentalInfo,
     });
 
   await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
@@ -508,6 +532,13 @@ async function updateUnsignedTxAndSendTx({
     accountId,
     unsignedTxs: [updatedUnsignedTxItem],
     precheckTiming: ESendPreCheckTimingEnum.Confirm,
+  });
+
+  await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending({
+    accountId,
+    networkId,
+    unsignedTxs: [updatedUnsignedTxItem],
+    tronResourceRentalInfo,
   });
 
   const {
@@ -538,6 +569,8 @@ async function updateUnsignedTxAndSendTx({
     accountId,
     unsignedTx: updatedUnsignedTxItem,
     signOnly: false,
+    tronResourceRentalInfo,
+    useDefaultRpc,
   });
 
   const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
@@ -566,12 +599,27 @@ async function updateUnsignedTxAndSendTx({
     },
   });
 
-  return {
+  const result = {
     signedTx,
     decodedTx,
     approveInfo: updatedUnsignedTxItem.approveInfo,
     feeInfo: gasInfo as IFeeInfoUnit,
   };
+
+  const vaultSettings =
+    await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId,
+    });
+
+  if (vaultSettings?.afterSendTxActionEnabled) {
+    await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
+      networkId,
+      accountId,
+      result: [result],
+    });
+  }
+
+  return result;
 }
 
 export async function sendMarketDirectUnsignedTxs({
@@ -582,6 +630,8 @@ export async function sendMarketDirectUnsignedTxs({
   approveUnsignedTxArr,
   gasInfos = [],
   networkFeeLevel,
+  tronResourceRentalInfo,
+  useDefaultRpc,
 }: IMarketDirectSendParams): Promise<ISendTxOnSuccessData[]> {
   if (!accountId || !networkId || !accountAddress) {
     throw new OneKeyError('account error');
@@ -632,6 +682,8 @@ export async function sendMarketDirectUnsignedTxs({
         networkId,
         unsignedTxItem,
         gasInfo,
+        tronResourceRentalInfo,
+        useDefaultRpc,
       }),
     );
   }

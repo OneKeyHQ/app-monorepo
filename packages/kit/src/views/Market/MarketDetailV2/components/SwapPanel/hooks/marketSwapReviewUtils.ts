@@ -115,6 +115,49 @@ export function assertMarketSignedBuildInvariant({
   return rebuilt;
 }
 
+export function assertMarketSignPreviewInvariant({
+  reviewedQuoteResult,
+  signingQuoteResult,
+}: {
+  reviewedQuoteResult: IFetchQuoteResult;
+  signingQuoteResult: IFetchQuoteResult;
+}) {
+  const reviewed = assertMarketReviewQuoteResult(reviewedQuoteResult);
+  const signing = assertMarketReviewQuoteResult(signingQuoteResult);
+
+  if (
+    reviewed.info.provider !== signing.info.provider ||
+    reviewed.info.providerName !== signing.info.providerName
+  ) {
+    throw new OneKeyLocalError(
+      'Market sign review provider changed before signing.',
+    );
+  }
+
+  if (!areQuoteAmountsEqual(reviewed.fromAmount, signing.fromAmount)) {
+    throw new OneKeyLocalError(
+      'Market sign review amount changed before signing.',
+    );
+  }
+
+  if (!areQuoteAmountsEqual(reviewed.toAmount, signing.toAmount)) {
+    throw new OneKeyLocalError(
+      'Market sign review expected receive changed before signing.',
+    );
+  }
+
+  if (
+    reviewed.minToAmount &&
+    !areQuoteAmountsEqual(reviewed.minToAmount, signing.minToAmount)
+  ) {
+    throw new OneKeyLocalError(
+      'Market sign review min receive changed before signing.',
+    );
+  }
+
+  return signing;
+}
+
 export function normalizeMarketReviewQuoteResult({
   quoteResult,
   shouldApprove,

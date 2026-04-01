@@ -12,6 +12,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import {
   areMarketApproveAmountsEqual,
   assertMarketReviewQuoteResult,
+  assertMarketSignPreviewInvariant,
   assertMarketSignedBuildInvariant,
   attachMarketOneInchFusionSignature,
   buildMarketApproveInfos,
@@ -134,6 +135,55 @@ describe('marketSwapReviewUtils', () => {
         skipSendTransAction: true,
       }),
     ).toThrow('min receive changed');
+  });
+
+  it('fails closed when the signing quote changes after preview', () => {
+    expect(() =>
+      assertMarketSignPreviewInvariant({
+        reviewedQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+        }),
+        signingQuoteResult: createQuoteResult({
+          info: {
+            provider: 'other',
+            providerName: 'Other',
+          },
+        }),
+      }),
+    ).toThrow('provider changed before signing');
+
+    expect(() =>
+      assertMarketSignPreviewInvariant({
+        reviewedQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+        }),
+        signingQuoteResult: createQuoteResult({
+          fromAmount: '2',
+        }),
+      }),
+    ).toThrow('amount changed before signing');
+
+    expect(() =>
+      assertMarketSignPreviewInvariant({
+        reviewedQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+        }),
+        signingQuoteResult: createQuoteResult({
+          toAmount: '2400',
+        }),
+      }),
+    ).toThrow('expected receive changed before signing');
+
+    expect(() =>
+      assertMarketSignPreviewInvariant({
+        reviewedQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+        }),
+        signingQuoteResult: createQuoteResult({
+          minToAmount: '2399',
+        }),
+      }),
+    ).toThrow('min receive changed before signing');
   });
 
   it('removes allowance when market speed check says approval is not needed', () => {
