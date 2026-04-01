@@ -999,6 +999,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         void this.backgroundApi.serviceHyperliquid.recalculateSpotTotalUsd();
         // Emit to frontend (PerpsGlobalEffects listens for allMids updates)
         this._emitHyperliquidDataUpdate(subscriptionType, data);
+        this._updateNetworkLiveness();
         return;
       }
       if (subscriptionType === ESubscriptionType.WEB_DATA2) {
@@ -1072,6 +1073,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           data as IWsSpotState,
         );
         this._emitHyperliquidDataUpdate(subscriptionType, data);
+        this._updateNetworkLiveness();
         return;
       }
 
@@ -1129,6 +1131,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         error,
       );
     }
+  }
+
+  private _updateNetworkLiveness() {
+    const now = Date.now();
+    if (!this._pingIntervalTimer) {
+      this._startPingLoop();
+    }
+    this._scheduleNetworkTimeout(now);
   }
 
   private _scheduleNetworkTimeout(messageTimestamp: number): void {
