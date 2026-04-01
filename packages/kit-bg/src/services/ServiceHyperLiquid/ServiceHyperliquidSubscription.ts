@@ -997,6 +997,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         hyperLiquidCache.allMids = data as IWsAllMids;
         // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)
         void this.backgroundApi.serviceHyperliquid.recalculateSpotTotalUsd();
+        // Emit to frontend (PerpsGlobalEffects listens for allMids updates)
+        this._emitHyperliquidDataUpdate(subscriptionType, data);
         return;
       }
       if (subscriptionType === ESubscriptionType.WEB_DATA2) {

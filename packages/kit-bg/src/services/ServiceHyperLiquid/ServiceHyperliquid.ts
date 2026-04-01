@@ -854,7 +854,8 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Re-calculate spotTotalUsd from cached balances when allMids becomes available
   async recalculateSpotTotalUsd() {
     const spotData = await perpsSpotBalancesAtom.get();
-    if (!spotData?.balances?.length || spotData.spotTotalUsd) return;
+    if (!spotData?.balances?.length || spotData.spotTotalUsd !== undefined)
+      return;
 
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
@@ -1238,7 +1239,11 @@ export default class ServiceHyperliquid extends ServiceBase {
             }
           })();
 
+          statusDetails.internalRebateBoundOk = true;
+          statusDetails.referralCodeOk = true;
+
           // Check abstraction mode — requires user wallet signature
+          // Placed after referralCodeOk so a signature rejection doesn't block other status
           const currentMode = await this.fetchUserAbstraction(accountAddress);
           const isAbstractionCorrect =
             currentMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
@@ -1259,9 +1264,6 @@ export default class ServiceHyperliquid extends ServiceBase {
               verifiedMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
               verifiedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
           }
-
-          statusDetails.internalRebateBoundOk = true;
-          statusDetails.referralCodeOk = true;
         }
       }
     } finally {
