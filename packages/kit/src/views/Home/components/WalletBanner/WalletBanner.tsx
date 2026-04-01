@@ -27,6 +27,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -393,7 +394,7 @@ function WebBannerScroller({
           opacity={showLeftArrow ? 1 : 0}
           pointerEvents={showLeftArrow ? 'auto' : 'none'}
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).
           style={{
@@ -428,7 +429,7 @@ function WebBannerScroller({
           opacity={showRightArrow ? 1 : 0}
           pointerEvents={showRightArrow ? 'auto' : 'none'}
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).
           style={{

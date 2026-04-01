@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Empty, YStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -42,6 +43,7 @@ function BlockAccessView({
         justifyContent="center"
         alignItems="center"
         animation="quick"
+        animateOnly={ANIMATE_ONLY_OPACITY}
       >
         <Empty
           icon="ErrorOutline"

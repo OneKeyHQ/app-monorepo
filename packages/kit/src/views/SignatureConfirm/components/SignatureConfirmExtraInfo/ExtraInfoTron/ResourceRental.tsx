@@ -19,6 +19,10 @@ import {
   useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import {
   useSignatureConfirmActions,
@@ -205,6 +209,7 @@ function ResourceRental() {
                 </SizableText>
                 <View
                   animation="quick"
+                  animateOnly={ANIMATE_ONLY_TRANSFORM}
                   rotate={open ? '180deg' : '0deg'}
                   transformOrigin="center"
                 >
@@ -217,6 +222,7 @@ function ResourceRental() {
             <Accordion.Content
               backgroundColor="transparent"
               animation="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY}
               exitStyle={{ opacity: 0 }}
               px="$3"
             >
