@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   DebugRenderTracker,
@@ -34,6 +35,7 @@ export function AccountSelectorTriggerBase({
   showConnectWalletModalInDappMode,
   linkNetworkId,
   linkNetwork,
+  containerProps,
   ...others
 }: {
   num: number;
@@ -43,6 +45,7 @@ export function AccountSelectorTriggerBase({
   showWalletAvatar?: boolean;
   showWalletName?: boolean;
   showConnectWalletModalInDappMode?: boolean;
+  containerProps?: IXStackProps;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const { sceneName } = useAccountSelectorSceneInfo();
   const {
@@ -106,6 +109,7 @@ export function AccountSelectorTriggerBase({
         }
         onPress={handleAccountSelectorPress}
         userSelect="none"
+        {...containerProps}
       >
         {isWebDappModeWithNoWallet ? (
           <Button
@@ -191,6 +195,7 @@ export function AccountSelectorTriggerBase({
     ),
     [
       account,
+      containerProps,
       dbAccount,
       displayLabel,
       handleAccountSelectorPress,
