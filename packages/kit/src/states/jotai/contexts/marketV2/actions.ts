@@ -215,7 +215,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           return;
         }
 
-        // Extract token, websocket and perpsInfo data from response format
+        // Extract token, websocket and perpsInfo from response format
         const tokenData = responseData.data.token;
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
