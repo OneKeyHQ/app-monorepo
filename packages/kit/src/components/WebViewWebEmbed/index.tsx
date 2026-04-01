@@ -321,7 +321,7 @@ export function WebViewWebEmbed({
                 type: 'webembed-debug',
                 data: {
                   scriptsFound: scriptInfo.length,
-                  scriptSrcs: scriptInfo,
+                  scriptSources: scriptInfo,
                   onekeyExists: typeof globalThis.$onekey !== 'undefined',
                   documentTitle: document.title,
                 }
@@ -360,11 +360,17 @@ export function WebViewWebEmbed({
     devSettingsPersistAtom.enabled,
     devSettingsPersistAtom.settings?.disableWebEmbedApi,
     allowFileAccessByUrl,
+    iosAllowingReadAccessToURL,
     remoteUrl,
     nativeWebviewSource,
     onWebViewRef,
     customReceiveHandler,
     handleMessage,
+    handleLoadStart,
+    handleLoad,
+    handleLoadEnd,
+    handleError,
+    handleHttpError,
   ]);
 
   useEffect(() => {
