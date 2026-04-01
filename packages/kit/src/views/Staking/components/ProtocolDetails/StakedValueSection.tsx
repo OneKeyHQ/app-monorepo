@@ -55,7 +55,10 @@ function StakedValueInfo({
     if (shouldRegisterBeforeStake) {
       return (
         <XStack gap="$2">
-          <Button {...registerButtonProps} testID={StakingTestIDs.stakedValueRegisterBtn}>
+          <Button
+            {...registerButtonProps}
+            testID={StakingTestIDs.stakedValueRegisterBtn}
+          >
             {intl.formatMessage({ id: ETranslations.earn_register })}
           </Button>
         </XStack>
@@ -63,10 +66,16 @@ function StakedValueInfo({
     }
     return (
       <XStack gap="$2">
-        <Button {...withdrawButtonProps} testID={StakingTestIDs.stakedValueWithdrawBtn}>
+        <Button
+          {...withdrawButtonProps}
+          testID={StakingTestIDs.stakedValueWithdrawBtn}
+        >
           {intl.formatMessage({ id: ETranslations.global_withdraw })}
         </Button>
-        <Button {...stakeButtonProps} testID={StakingTestIDs.stakedValueStakeBtn}>
+        <Button
+          {...stakeButtonProps}
+          testID={StakingTestIDs.stakedValueStakeBtn}
+        >
           {intl.formatMessage({ id: ETranslations.earn_deposit })}
         </Button>
       </XStack>

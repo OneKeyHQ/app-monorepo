@@ -18,20 +18,21 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
-import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
-import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../components/DAppRequestContent';
 import { DAppRequestedDappList } from '../components/DAppRequestContent/DAppRequestedDappList';
 import {
   DAppRequestFooter,
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
-import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 import { useRiskDetection } from '../hooks/useRiskDetection';
 import { DAppConnectionTestIDs } from '../testIDs';
 
 import DappOpenModalPage from './DappOpenModalPage';
+
+import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
+import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 
 function ConnectionModal() {
   const intl = useIntl();
@@ -215,7 +216,10 @@ function ConnectionModal() {
   );
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove} testID={DAppConnectionTestIDs.ConnectionModal}>
+    <DappOpenModalPage
+      dappApprove={dappApprove}
+      testID={DAppConnectionTestIDs.ConnectionModal}
+    >
       <>
         <Page.Header headerShown={false} />
         <Page.Body>

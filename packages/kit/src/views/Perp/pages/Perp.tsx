@@ -38,6 +38,7 @@ import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 function PerpLayout() {

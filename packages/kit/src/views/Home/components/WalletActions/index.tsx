@@ -28,7 +28,6 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { HomeTestIDs } from '../../testIDs';
 
 import { RawActions } from './RawActions';
-import type { IActionCustomization } from './types';
 import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionBuyMain } from './WalletActionBuyMain';
 import { WalletActionMore } from './WalletActionMore';
@@ -36,6 +35,8 @@ import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionReceive } from './WalletActionReceive';
 import { WalletActionStaking } from './WalletActionStaking';
 import { WalletActionSwap } from './WalletActionSwap';
+
+import type { IActionCustomization } from './types';
 
 function WalletActionSend({
   customization,

@@ -139,13 +139,21 @@ export function TestSimpleModal() {
       />
       <Page.Body bg="burlywood">
         <XStack>
-          <Switch testID={TestModalTestIDs.showHeaderSwitch} value={showHeader} onChange={changeHeaderStatus} />
+          <Switch
+            testID={TestModalTestIDs.showHeaderSwitch}
+            value={showHeader}
+            onChange={changeHeaderStatus}
+          />
           <SizableText>
             {showHeader ? 'Show Header' : 'Hide Header'}
           </SizableText>
         </XStack>
         <XStack>
-          <Switch testID={TestModalTestIDs.showFooterSwitch} value={showFooter} onChange={changeFooterStatus} />
+          <Switch
+            testID={TestModalTestIDs.showFooterSwitch}
+            value={showFooter}
+            onChange={changeFooterStatus}
+          />
           <SizableText>
             {showFooter ? 'Show Footer' : 'Hide Fotter'}
           </SizableText>
@@ -173,16 +181,27 @@ export function TestSimpleModal() {
           </SizableText>
         </XStack>
         <XStack>
-          <Switch testID={TestModalTestIDs.showNewHeaderSwitch} value={showNewHeader} onChange={changeNewHeaderStatus} />
+          <Switch
+            testID={TestModalTestIDs.showNewHeaderSwitch}
+            value={showNewHeader}
+            onChange={changeNewHeaderStatus}
+          />
           <SizableText>
             {showNewHeader ? 'Show New Header' : 'Hide New Header'}
           </SizableText>
         </XStack>
         <SizableText>这是一个普通的 Modal 测试</SizableText>
         <YStack gap="$4" m="$4">
-          <Button testID={TestModalTestIDs.pushNextPageBtn} onPress={navigateToNextPage}>Push to Next Page</Button>
+          <Button
+            testID={TestModalTestIDs.pushNextPageBtn}
+            onPress={navigateToNextPage}
+          >
+            Push to Next Page
+          </Button>
           <Page.Close>
-            <Button testID={TestModalTestIDs.backToPreviousBtn}>Back To Previous Page</Button>
+            <Button testID={TestModalTestIDs.backToPreviousBtn}>
+              Back To Previous Page
+            </Button>
           </Page.Close>
           <Page.Close>
             <Button

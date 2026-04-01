@@ -453,16 +453,19 @@ export const SignForm = ({
               )}
             />
             <Form.Field name="hexFormat">
-              <Switch testID={SignAndVerifyMessageTestIDs.signHexFormatSwitch} size="small" />
+              <Switch
+                testID={SignAndVerifyMessageTestIDs.signHexFormatSwitch}
+                size="small"
+              />
             </Form.Field>
           </XStack>
         }
       >
         <TextAreaInput
           testID={SignAndVerifyMessageTestIDs.signMessageInput}
-        // placeholder={intl.formatMessage({
-        //   id: ETranslations.message_signing_address_placeholder,
-        // })}
+          // placeholder={intl.formatMessage({
+          //   id: ETranslations.message_signing_address_placeholder,
+          // })}
         />
       </Form.Field>
 
@@ -752,7 +755,12 @@ export const SignForm = ({
             <Divider />
 
             <YStack py="$2" px="$3">
-              <Button testID={SignAndVerifyMessageTestIDs.signCopyAllBtn} onPress={onCopySignature} size="small" variant="tertiary">
+              <Button
+                testID={SignAndVerifyMessageTestIDs.signCopyAllBtn}
+                onPress={onCopySignature}
+                size="small"
+                variant="tertiary"
+              >
                 {intl.formatMessage({ id: ETranslations.global_copy_all })}
               </Button>
             </YStack>

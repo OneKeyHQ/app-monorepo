@@ -57,7 +57,12 @@ function BaseFAQContent({
   }
 
   return (
-    <Accordion testID={EarnTestIDs.faqSection} type="multiple" gap="$2" defaultValue={defaultValue}>
+    <Accordion
+      testID={EarnTestIDs.faqSection}
+      type="multiple"
+      gap="$2"
+      defaultValue={defaultValue}
+    >
       {faqList.map(({ question, answer }, index) => (
         <Accordion.Item value={String(index)} key={question}>
           <Accordion.Trigger

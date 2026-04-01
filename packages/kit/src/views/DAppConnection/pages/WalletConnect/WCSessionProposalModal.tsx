@@ -17,13 +17,14 @@ import {
   DAppRequestFooter,
   DAppRequestLayout,
 } from '../../components/DAppRequestLayout';
+import { useRiskDetection } from '../../hooks/useRiskDetection';
+import { DAppConnectionTestIDs } from '../../testIDs';
+import DappOpenModalPage from '../DappOpenModalPage';
+
 import type {
   IHandleAccountChanged,
   IHandleAccountChangedParams,
 } from '../../hooks/useHandleAccountChanged';
-import { useRiskDetection } from '../../hooks/useRiskDetection';
-import { DAppConnectionTestIDs } from '../../testIDs';
-import DappOpenModalPage from '../DappOpenModalPage';
 import type { WalletKitTypes } from '@reown/walletkit';
 
 function SessionProposalModal() {
@@ -160,7 +161,10 @@ function SessionProposalModal() {
   }, [accountChangedParamsMap]);
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove} testID={DAppConnectionTestIDs.WCSessionProposalModal}>
+    <DappOpenModalPage
+      dappApprove={dappApprove}
+      testID={DAppConnectionTestIDs.WCSessionProposalModal}
+    >
       <>
         <Page.Header headerShown={false} />
         <Page.Body>

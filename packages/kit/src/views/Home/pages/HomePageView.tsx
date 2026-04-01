@@ -60,6 +60,7 @@ import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =

@@ -28,6 +28,7 @@ import { useAccountInfoForManageToken } from '../hooks/useAddToken';
 import { useTokenManagement } from '../hooks/useTokenManagement';
 import { useTokenSearch } from '../hooks/useTokenSearch';
 import { AssetListTestIDs } from '../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function TokenManagerModal() {

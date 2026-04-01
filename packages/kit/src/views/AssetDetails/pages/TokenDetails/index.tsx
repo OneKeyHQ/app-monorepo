@@ -71,14 +71,16 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { AssetDetailsTestIDs } from '../../testIDs';
+
 import {
   TokenDetailsContext,
   useTokenDetailsContext,
 } from './TokenDetailsContext';
-import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import TokenDetailsFooter from './TokenDetailsFooter';
 import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
+
+import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import type { RouteProp } from '@react-navigation/core';
 
 const num = 0;
@@ -413,7 +415,12 @@ function TokenDetailsView() {
             snapPoints: [92],
             snapPointsMode: 'percent',
           }}
-          renderTrigger={<HeaderIconButton testID={AssetDetailsTestIDs.headerInfoBtn} icon="InfoCircleOutline" />}
+          renderTrigger={
+            <HeaderIconButton
+              testID={AssetDetailsTestIDs.headerInfoBtn}
+              icon="InfoCircleOutline"
+            />
+          }
           renderContent={renderAggregateTokens}
           floatingPanelProps={{
             width: 320,
@@ -454,7 +461,12 @@ function TokenDetailsView() {
     return isEmpty(sections) ? null : (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}
-        renderTrigger={<HeaderIconButton testID={AssetDetailsTestIDs.headerMoreBtn} icon="DotHorOutline" />}
+        renderTrigger={
+          <HeaderIconButton
+            testID={AssetDetailsTestIDs.headerMoreBtn}
+            icon="DotHorOutline"
+          />
+        }
         sections={sections}
       />
     );

@@ -167,7 +167,10 @@ function DAppSignMessageContent({
   );
 
   return (
-    <YStack justifyContent="center" testID={DAppConnectionTestIDs.SignMessageContent}>
+    <YStack
+      justifyContent="center"
+      testID={DAppConnectionTestIDs.SignMessageContent}
+    >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText color="$text" size="$headingMd" mb="$2">
           {intl.formatMessage({ id: ETranslations.dapp_connect_message })}

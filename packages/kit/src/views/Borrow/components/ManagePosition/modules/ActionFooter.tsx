@@ -11,6 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { BorrowTestIDs } from '../../../testIDs';
 import { showLiquidationRiskDialog } from '../../showLiquidationRiskDialog';
 import { useManagePositionContext } from '../ManagePositionContext';
+
 import type { IActionFooterProps, IBorrowActionType } from '../types';
 
 const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {

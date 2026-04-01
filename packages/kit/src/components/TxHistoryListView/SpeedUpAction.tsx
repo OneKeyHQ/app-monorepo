@@ -67,7 +67,11 @@ export function SpeedUpAction({ networkId, onSpeedUp }: ISpeedUpActionProps) {
         title={intl.formatMessage({ id: ETranslations.global_speed_up })}
         sections={sections}
         renderTrigger={
-          <Button testID="tx-history-speed-up-btn" size="small" variant="primary">
+          <Button
+            testID="tx-history-speed-up-btn"
+            size="small"
+            variant="primary"
+          >
             {intl.formatMessage({ id: ETranslations.global_speed_up })}
           </Button>
         }

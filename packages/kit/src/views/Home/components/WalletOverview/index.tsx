@@ -11,7 +11,12 @@ type IProps = {
 function WalletOverview(props: IProps) {
   const { address, value, isFetchingValue } = props;
   return (
-    <YStack paddingHorizontal="$4" paddingVertical="$8" gap="$1" testID={HomeTestIDs.walletOverview}>
+    <YStack
+      paddingHorizontal="$4"
+      paddingVertical="$8"
+      gap="$1"
+      testID={HomeTestIDs.walletOverview}
+    >
       <SizableText
         color="$textSubdued"
         width="$16"

@@ -95,7 +95,11 @@ function ProfitInfo({
               })}
             >
               <XStack gap="$1" alignItems="center">
-                <SizableText size="$bodyLgMedium" color="$textSuccess" testID={StakingTestIDs.profitApr}>
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSuccess"
+                  testID={StakingTestIDs.profitApr}
+                >
                   {`${formatApy(apr)}% ${rewardUnit}`}
                 </SizableText>
               </XStack>
@@ -109,7 +113,11 @@ function ProfitInfo({
               })}
             >
               <XStack gap="$1" alignItems="center">
-                <SizableText size="$bodyLgMedium" color="$textSuccess" testID={StakingTestIDs.profitApr}>
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSuccess"
+                  testID={StakingTestIDs.profitApr}
+                >
                   {`${formatApy(
                     isFalconProvider ? aprWithoutFee : apys?.dailyNetApy,
                   )}% ${rewardUnit}`}

@@ -12,6 +12,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { LightningUnitSwitch } from '../../../components/UnitSwitch';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { LightningNetworkTestIDs } from '../testIDs';
+
 import type { UseFormReturn } from 'react-hook-form';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -275,7 +276,10 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
         }}
         defaultValue=""
       >
-        <TextArea testID={LightningNetworkTestIDs.invoiceDescriptionInput} editable={!memo} />
+        <TextArea
+          testID={LightningNetworkTestIDs.invoiceDescriptionInput}
+          editable={!memo}
+        />
       </Form.Field>
     </Form>
   );

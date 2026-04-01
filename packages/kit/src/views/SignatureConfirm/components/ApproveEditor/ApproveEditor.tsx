@@ -272,7 +272,10 @@ function ApproveEditor(props: IProps) {
             },
           }}
         >
-          <Switch testID={SignatureConfirmTestIDs.ApproveEditorUnlimitedSwitch} size="small" />
+          <Switch
+            testID={SignatureConfirmTestIDs.ApproveEditorUnlimitedSwitch}
+            size="small"
+          />
         </Form.Field>
       </Form>
       <Dialog.Footer

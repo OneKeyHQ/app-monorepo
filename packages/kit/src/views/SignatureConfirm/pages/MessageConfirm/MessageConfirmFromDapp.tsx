@@ -14,11 +14,12 @@ import {
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
+
 import type {
   NavigationAction,
   StackActionType,
 } from '@react-navigation/native';
-import { SignatureConfirmTestIDs } from '../../testIDs';
 
 function MessageConfirmFromDapp() {
   const navigation = useNavigation();
@@ -135,7 +136,10 @@ function MessageConfirmFromDapp() {
   ]);
 
   return (
-    <Page onClose={handlePageClose} testID={SignatureConfirmTestIDs.MessageConfirmFromDappPage}>
+    <Page
+      onClose={handlePageClose}
+      testID={SignatureConfirmTestIDs.MessageConfirmFromDappPage}
+    >
       <Page.Body bg="$bgApp">
         <Stack
           h="100%"

@@ -76,7 +76,11 @@ function SearchResultItem({
   onPress: () => void;
 }) {
   return (
-    <ListItem testID={EarnTestIDs.assetItem(asset.symbol)} userSelect="none" onPress={onPress}>
+    <ListItem
+      testID={EarnTestIDs.assetItem(asset.symbol)}
+      userSelect="none"
+      onPress={onPress}
+    >
       <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
       <ListItem.Text
         flex={1}

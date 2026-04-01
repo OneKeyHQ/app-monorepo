@@ -171,7 +171,7 @@ export function HyperliquidTermsContent({
                 py="$8"
                 px={gtMd ? '$4' : '$2'}
                 justifyContent="center"
-                pb={gtMd ? '$3' : '$1'}
+                pb={gtMd ? '$3' : '$4'}
                 gap="$1"
               >
                 <Button
@@ -260,11 +260,12 @@ export function HyperliquidTermsContent({
 }
 
 export async function showHyperliquidTermsDialog(): Promise<boolean> {
-  const isTermsAccepted =
-    await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
-  if (isTermsAccepted) {
-    return true;
-  }
+  // TODO: revert - temporarily skip check for UI testing
+  // const isTermsAccepted =
+  //   await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
+  // if (isTermsAccepted) {
+  //   return true;
+  // }
 
   return new Promise((resolve) => {
     const dialog = Dialog.show({

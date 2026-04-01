@@ -26,6 +26,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { ReceiveTestIDs } from '../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -107,7 +108,11 @@ function ExchangeOpenRedirect() {
             )}
           </SizableText>
           {countdown > 0 ? (
-            <XStack testID={ReceiveTestIDs.ExchangeRedirectCountdown} alignItems="center" gap="$2">
+            <XStack
+              testID={ReceiveTestIDs.ExchangeRedirectCountdown}
+              alignItems="center"
+              gap="$2"
+            >
               <Spinner size="small" />
               <SizableText size="$bodyLg" color="$textSubdued">
                 {intl.formatMessage(

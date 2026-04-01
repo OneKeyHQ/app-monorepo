@@ -44,6 +44,7 @@ import { DeviceGuideView } from '../DeviceGuideModal/DeviceGuideView';
 
 import SectionHeader from './SectionHeader';
 import { VerifiedBadge } from './VerifiedBadge';
+
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 export type IDeviceManagementListItem = IHwQrWalletWithDevice & {

@@ -111,7 +111,11 @@ function WalletAddressHeaderRight({
       <Popover
         title={intl.formatMessage({ id: ETranslations.global_settings })}
         renderTrigger={
-          <IconButton variant="tertiary" icon="SliderHorOutline" testID={WalletAddressTestIDs.settingsPopoverBtn} />
+          <IconButton
+            variant="tertiary"
+            icon="SliderHorOutline"
+            testID={WalletAddressTestIDs.settingsPopoverBtn}
+          />
         }
         renderContent={
           <Content

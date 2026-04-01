@@ -39,8 +39,9 @@ import {
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import { DiscoveryTestIDs } from '../../testIDs';
-import type { IWebTab } from '../../types';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
+
+import type { IWebTab } from '../../types';
 import type { View } from 'react-native';
 
 export const tabGridRefs: Record<string, View> = {};

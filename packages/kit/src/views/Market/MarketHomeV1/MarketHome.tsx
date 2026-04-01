@@ -143,7 +143,9 @@ function MarketHome() {
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body testID={MarketTestIDs.marketPage}>{renderTabContainer()}</Page.Body>
+      <Page.Body testID={MarketTestIDs.marketPage}>
+        {renderTabContainer()}
+      </Page.Body>
     </Page>
   );
 }

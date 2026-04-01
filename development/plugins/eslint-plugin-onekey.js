@@ -65,8 +65,7 @@ const requireTestid = {
     return {
       JSXOpeningElement(node) {
         const name =
-          node.name.name ||
-          (node.name.object && node.name.object.name);
+          node.name.name || (node.name.object && node.name.object.name);
         if (!components.includes(name)) return;
         const hasTestID = node.attributes.some(
           (attr) =>

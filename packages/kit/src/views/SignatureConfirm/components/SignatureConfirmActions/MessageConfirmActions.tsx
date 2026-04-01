@@ -333,7 +333,10 @@ function MessageConfirmActions(props: IProps) {
   });
 
   return (
-    <Page.Footer disableKeyboardAnimation testID={SignatureConfirmTestIDs.MessageConfirmFooter}>
+    <Page.Footer
+      disableKeyboardAnimation
+      testID={SignatureConfirmTestIDs.MessageConfirmFooter}
+    >
       <Page.FooterActions
         testID={SignatureConfirmTestIDs.MessageConfirmActions}
         onConfirmText={intl.formatMessage({

@@ -49,8 +49,8 @@ import { NetworkContent } from './NetworkContent';
 import PortfolioContent from './PortfolioContent';
 import { TabSwitcher } from './TabSwitcher';
 
-import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from './TabSwitcher';
+import type { IServerNetworkMatch } from '../../types';
 import type { RouteProp } from '@react-navigation/core';
 import type NativePagerView from 'react-native-pager-view';
 

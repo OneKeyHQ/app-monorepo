@@ -10,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountManagerTestIDs } from '../../testIDs';
+
 import {
   getTitleAndDescription,
   showWalletRemoveDialog,

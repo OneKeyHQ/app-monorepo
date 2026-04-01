@@ -18,6 +18,7 @@ import type { IModalKeyTagParamList } from '@onekeyhq/shared/src/routes';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 
 import { KeyTagTestIDs } from '../../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 const BackupDotMap = () => {

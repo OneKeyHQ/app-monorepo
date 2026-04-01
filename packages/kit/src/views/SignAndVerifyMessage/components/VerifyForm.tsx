@@ -228,17 +228,20 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
               )}
             />
             <Form.Field name="hexFormat">
-              <Switch testID={SignAndVerifyMessageTestIDs.verifyHexFormatSwitch} size="small" />
+              <Switch
+                testID={SignAndVerifyMessageTestIDs.verifyHexFormatSwitch}
+                size="small"
+              />
             </Form.Field>
           </XStack>
         }
       >
         <TextAreaInput
           testID={SignAndVerifyMessageTestIDs.verifyMessageInput}
-        // size="large"
-        // placeholder={intl.formatMessage({
-        //   id: ETranslations.message_signing_address_placeholder,
-        // })}
+          // size="large"
+          // placeholder={intl.formatMessage({
+          //   id: ETranslations.message_signing_address_placeholder,
+          // })}
         />
       </Form.Field>
 
@@ -369,7 +372,9 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           }),
         }}
       >
-        <TextAreaInput testID={SignAndVerifyMessageTestIDs.verifySignatureInput} />
+        <TextAreaInput
+          testID={SignAndVerifyMessageTestIDs.verifySignatureInput}
+        />
       </Form.Field>
     </Form>
   );

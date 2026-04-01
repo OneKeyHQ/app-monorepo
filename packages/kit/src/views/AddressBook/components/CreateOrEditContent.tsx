@@ -38,6 +38,7 @@ import { buildChangeHistoryInputAddon } from '../../../components/ChangeHistoryD
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { AddressBookTestIDs } from '../testIDs';
+
 import type { IAddressItem } from '../type';
 
 type ICreateOrEditContentProps = {

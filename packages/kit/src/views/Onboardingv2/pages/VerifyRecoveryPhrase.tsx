@@ -29,6 +29,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { OnboardingTestIDs } from '../testIDs';
 import { shuffleWordsIndices } from '../utils';
+
 import type { RouteProp } from '@react-navigation/core';
 
 export default function VerifyRecoveryPhrase() {

@@ -18,6 +18,7 @@ import { useSearchModalData } from '../../hooks/useSearchModalData';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function SearchModal() {

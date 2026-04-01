@@ -122,7 +122,11 @@ function HeaderLeftToolBar({
           titlePlacement="bottom"
           icon={loading ? 'CrossedLargeOutline' : 'RotateClockwiseOutline'}
           onPress={loading ? stopLoading : reload}
-          testID={loading ? 'action-header-item-stop-loading' : DiscoveryTestIDs.browserRefreshButton}
+          testID={
+            loading
+              ? 'action-header-item-stop-loading'
+              : DiscoveryTestIDs.browserRefreshButton
+          }
         />
       </HeaderButtonGroup>
       <HeaderLeftToolBarInput

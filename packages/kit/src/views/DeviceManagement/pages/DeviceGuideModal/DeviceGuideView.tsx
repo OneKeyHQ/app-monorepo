@@ -26,6 +26,7 @@ import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
+
 import type { ImageSourcePropType } from 'react-native';
 import type { OnProgressData, ReactVideoSource } from 'react-native-video';
 

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+
 import { differenceBy, isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -72,6 +73,7 @@ import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 import { WalletAddressTestIDs } from '../../testIDs';
 
 import { WalletAddressContext } from './WalletAddressContext';
+
 import type { IWalletAddressContext } from './WalletAddressContext';
 
 const log = debugUtils.createSimpleDebugLog('<WalletAddressPage>', true);

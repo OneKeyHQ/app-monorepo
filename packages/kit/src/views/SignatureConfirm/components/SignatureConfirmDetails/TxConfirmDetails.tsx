@@ -149,7 +149,10 @@ function TxConfirmDetails(props: IProps) {
   ]);
 
   return (
-    <SignatureConfirmItem gap="$5" testID={SignatureConfirmTestIDs.TxConfirmDetails}>
+    <SignatureConfirmItem
+      gap="$5"
+      testID={SignatureConfirmTestIDs.TxConfirmDetails}
+    >
       {renderSignatureConfirmDetails()}
     </SignatureConfirmItem>
   );

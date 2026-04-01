@@ -53,8 +53,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { NetworkAvatar } from '../../../components/NetworkAvatar/NetworkAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useDappCloseHandler } from '../../DAppConnection/pages/DappOpenModalPage';
-import { useAddToken, useAddTokenForm, useCheckAccountExist } from '../hooks/useAddToken';
+import {
+  useAddToken,
+  useAddTokenForm,
+  useCheckAccountExist,
+} from '../hooks/useAddToken';
 import { AssetListTestIDs } from '../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function normalizeAddress(address: string) {

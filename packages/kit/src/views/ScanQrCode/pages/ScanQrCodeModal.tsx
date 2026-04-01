@@ -35,6 +35,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ScanQrCode } from '../components';
 import { ScanQrCodeTestIDs } from '../testIDs';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
+
 import type { RouteProp } from '@react-navigation/core';
 
 appGlobals.$$scanNavigation = undefined;

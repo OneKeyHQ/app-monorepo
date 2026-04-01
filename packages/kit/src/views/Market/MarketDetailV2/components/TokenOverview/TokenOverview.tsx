@@ -18,8 +18,9 @@ import { useTokenSecurity } from '../TokenSecurityAlert/hooks/useTokenSecurity';
 import { getTotalSecurityDisplayInfo } from '../TokenSecurityAlert/utils/utils';
 
 import { StatCard } from './components/StatCard';
-import type { IStatItem } from './components/StatCard';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
+
+import type { IStatItem } from './components/StatCard';
 
 // Helper functions for value formatting
 const formatTokenValue = (value: string | number | undefined): string => {

@@ -50,6 +50,7 @@ import {
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 const listedNetworkMap = getListedNetworkMap();

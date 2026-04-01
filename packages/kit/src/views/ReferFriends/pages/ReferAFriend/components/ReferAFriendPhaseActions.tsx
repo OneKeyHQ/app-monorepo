@@ -56,7 +56,13 @@ export function ReferAFriendPhaseActions({
 
   if (phaseState === EPhaseState.next) {
     return (
-      <Button testID={ReferFriendsTestIDs.nextBtn} variant="primary" w="100%" size="large" onPress={handleNext}>
+      <Button
+        testID={ReferFriendsTestIDs.nextBtn}
+        variant="primary"
+        w="100%"
+        size="large"
+        onPress={handleNext}
+      >
         {intl.formatMessage({
           id: ETranslations.global_next,
         })}
@@ -78,7 +84,13 @@ export function ReferAFriendPhaseActions({
             id: ETranslations.perp_term_previous,
           })}
         </Button>
-        <Button testID={ReferFriendsTestIDs.joinBtn} variant="primary" flex={1} size="large" onPress={handleJoin}>
+        <Button
+          testID={ReferFriendsTestIDs.joinBtn}
+          variant="primary"
+          flex={1}
+          size="large"
+          onPress={handleJoin}
+        >
           {intl.formatMessage({
             id: ETranslations.global_join,
           })}

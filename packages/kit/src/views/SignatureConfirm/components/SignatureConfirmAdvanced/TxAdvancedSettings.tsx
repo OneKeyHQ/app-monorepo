@@ -273,7 +273,11 @@ function TxAdvancedSettings(props: IProps) {
                 </Button>
               }
             >
-              <Input testID={SignatureConfirmTestIDs.NonceInput} flex={1} placeholder={currentNonce} />
+              <Input
+                testID={SignatureConfirmTestIDs.NonceInput}
+                flex={1}
+                placeholder={currentNonce}
+              />
             </Form.Field>
           </Form>
         ) : null}
@@ -305,7 +309,11 @@ function TxAdvancedSettings(props: IProps) {
     return null;
   }
 
-  return <AdvancedSettings testID={SignatureConfirmTestIDs.TxAdvancedSettings}>{renderAdvancedSettings()}</AdvancedSettings>;
+  return (
+    <AdvancedSettings testID={SignatureConfirmTestIDs.TxAdvancedSettings}>
+      {renderAdvancedSettings()}
+    </AdvancedSettings>
+  );
 }
 
 export { TxAdvancedSettings };

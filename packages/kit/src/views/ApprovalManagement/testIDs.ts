@@ -20,7 +20,8 @@ export const ApprovalManagementTestIDs = {
   // --- Bulk Revoke Item ---
   bulkRevokeInfoBtn: 'approval-management-bulk-revoke-info-btn',
   bulkRevokeFillUpBtn: 'approval-management-bulk-revoke-fill-up-btn',
-  bulkRevokeCopyContractBtn: 'approval-management-bulk-revoke-copy-contract-btn',
+  bulkRevokeCopyContractBtn:
+    'approval-management-bulk-revoke-copy-contract-btn',
   bulkRevokeViewTxBtn: 'approval-management-bulk-revoke-view-tx-btn',
   bulkRevokeCopyTxBtn: 'approval-management-bulk-revoke-copy-tx-btn',
 

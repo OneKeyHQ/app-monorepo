@@ -31,6 +31,7 @@ import {
   type IParseMessageResp,
   type ISignatureConfirmDisplay,
 } from '@onekeyhq/shared/types/signatureConfirm';
+
 import {
   DAppRiskyAlert,
   DAppSiteMark,
@@ -45,6 +46,7 @@ import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoadin
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import SwapInfo from '../../components/SwapInfo';
 import { SignatureConfirmTestIDs } from '../../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 export function useDappCloseHandler(
@@ -331,14 +333,21 @@ function MessageConfirm() {
   }, [sourceInfo, accountId, skipBackupCheck]);
 
   return (
-    <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled testID={SignatureConfirmTestIDs.MessageConfirmPage}>
+    <Page
+      scrollEnabled
+      onClose={handleOnClose}
+      safeAreaEnabled
+      testID={SignatureConfirmTestIDs.MessageConfirmPage}
+    >
       <Page.Header
         title={
           parsedMessage?.title ||
           intl.formatMessage({ id: ETranslations.sig_signature_request_label })
         }
       />
-      <Page.Body testID={SignatureConfirmTestIDs.MessageConfirmBody} px="$5">{renderMessageConfirmContent()}</Page.Body>
+      <Page.Body testID={SignatureConfirmTestIDs.MessageConfirmBody} px="$5">
+        {renderMessageConfirmContent()}
+      </Page.Body>
       <MessageConfirmActions
         accountId={accountId}
         networkId={networkId}

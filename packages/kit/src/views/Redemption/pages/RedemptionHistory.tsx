@@ -106,10 +106,7 @@ export default function RedemptionHistory() {
       <ScrollView>
         <YStack>
           {historyData.map((item, index) => (
-            <RedemptionHistoryItem
-              key={item._id}
-              item={item}
-            />
+            <RedemptionHistoryItem key={item._id} item={item} />
           ))}
         </YStack>
       </ScrollView>

@@ -43,8 +43,9 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
-import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
 import { DAppConnectionTestIDs } from '../../testIDs';
+
+import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
 
 type IReadonlyDAppAccountData = {
   account: INetworkAccount | undefined;

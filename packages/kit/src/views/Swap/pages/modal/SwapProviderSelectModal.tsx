@@ -40,6 +40,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import SwapProviderListItem from '../../components/SwapProviderListItem';
 import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
+
 import type { RouteProp } from '@react-navigation/core';
 
 enum ESwapProviderStatus {

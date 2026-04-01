@@ -25,6 +25,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ReceiveTestIDs } from '../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function ReceiveInvoice() {

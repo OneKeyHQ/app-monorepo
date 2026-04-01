@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from 'react';
+
 import { compact, range } from 'lodash';
 import { useWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
@@ -53,6 +54,7 @@ import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import { OnboardingTestIDs } from '../testIDs';
 
 import { PHRASE_LENGTHS, useSuggestion } from './useSuggestion';
+
 import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
 
 const KeyDownView = View as unknown as ComponentType<

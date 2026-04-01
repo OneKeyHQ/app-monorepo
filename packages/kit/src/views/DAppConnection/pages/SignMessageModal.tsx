@@ -275,7 +275,10 @@ function SignMessageModal() {
   };
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove} testID={DAppConnectionTestIDs.SignMessageModal}>
+    <DappOpenModalPage
+      dappApprove={dappApprove}
+      testID={DAppConnectionTestIDs.SignMessageModal}
+    >
       <>
         <Page.Header headerShown={false} />
         <Page.Body>

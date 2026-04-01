@@ -125,6 +125,7 @@ import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
+
 import type { ScrollView as ScrollViewNative } from 'react-native';
 
 interface ISwapMainLoadProps {

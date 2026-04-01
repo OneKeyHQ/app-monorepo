@@ -296,5 +296,10 @@ export function WalletActionMore() {
     ],
   );
 
-  return <RawActions.More renderItemsAsync={renderItemsAsync} testID={HomeTestIDs.moreButton} />;
+  return (
+    <RawActions.More
+      renderItemsAsync={renderItemsAsync}
+      testID={HomeTestIDs.moreButton}
+    />
+  );
 }

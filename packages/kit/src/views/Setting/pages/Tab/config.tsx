@@ -54,6 +54,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { SettingTestIDs } from '../../testIDs';
+
 import {
   AutoLockListItem,
   BTCFreshAddressListItem,
@@ -75,6 +76,7 @@ import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
 // import { OneKeyIdTabItem } from './OneKeyIdTabItem';
 import { SubSearchSettings } from './SubSettings';
+
 import type { RouteProp } from '@react-navigation/native';
 
 export interface ISubSettingConfig {

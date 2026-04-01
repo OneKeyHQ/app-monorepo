@@ -47,7 +47,11 @@ function MessageAdvancedSettings(props: IProps) {
     [rawMessage],
   );
 
-  return <AdvancedSettings testID={SignatureConfirmTestIDs.MessageAdvancedSettings}>{renderAdvancedSettings()}</AdvancedSettings>;
+  return (
+    <AdvancedSettings testID={SignatureConfirmTestIDs.MessageAdvancedSettings}>
+      {renderAdvancedSettings()}
+    </AdvancedSettings>
+  );
 }
 
 export { MessageAdvancedSettings };

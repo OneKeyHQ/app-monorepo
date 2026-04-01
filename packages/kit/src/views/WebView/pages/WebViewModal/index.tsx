@@ -28,12 +28,12 @@ import type {
 } from '@onekeyhq/shared/src/routes/webView';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { WebViewTestIDs } from '../../testIDs';
+
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-
-import { WebViewTestIDs } from '../../testIDs';
 import type { RouteProp } from '@react-navigation/core';
 
 export default function WebViewModal() {
@@ -87,7 +87,12 @@ export default function WebViewModal() {
   const headerRight = useCallback(
     () => (
       <ActionList
-        renderTrigger={<HeaderIconButton icon="DotHorOutline" testID={WebViewTestIDs.optionsMenuBtn} />}
+        renderTrigger={
+          <HeaderIconButton
+            icon="DotHorOutline"
+            testID={WebViewTestIDs.optionsMenuBtn}
+          />
+        }
         title={intl.formatMessage({ id: ETranslations.explore_options })}
         sections={[
           {

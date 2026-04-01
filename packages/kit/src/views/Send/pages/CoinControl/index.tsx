@@ -43,6 +43,7 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 import { SendTestIDs } from '../../testIDs';
 
 import CoinControlStrategyPopover from './CoinControlStrategyPopover';
+
 import type { RouteProp } from '@react-navigation/core';
 
 // Sort type enum

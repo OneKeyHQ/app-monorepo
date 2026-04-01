@@ -10,6 +10,7 @@ import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 import RefreshButton from './RefreshButton';
 import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
+
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 
 function MobileBrowserBottomBar({

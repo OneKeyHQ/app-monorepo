@@ -48,6 +48,7 @@ import {
 import ApprovedTokenItem from '../components/ApprovedTokenItem';
 import { useBulkRevoke } from '../hooks/useBulkRevoke';
 import { ApprovalManagementTestIDs } from '../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function ApprovalDetails() {

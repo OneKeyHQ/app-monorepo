@@ -73,7 +73,12 @@ function DAppSiteMark({
   }, [urlSecurityInfo?.level]);
 
   return (
-    <XStack testID={DAppConnectionTestIDs.SiteMark} alignItems="center" alignSelf="flex-start" gap="$1.5">
+    <XStack
+      testID={DAppConnectionTestIDs.SiteMark}
+      alignItems="center"
+      alignSelf="flex-start"
+      gap="$1.5"
+    >
       <Image
         size="$5"
         bg="$bgSubdued"

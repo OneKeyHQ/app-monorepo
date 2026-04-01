@@ -25,7 +25,11 @@ function AdvancedSettings(props: IProps) {
       borderTopWidth={StyleSheet.hairlineWidth}
       borderTopColor="$borderSubdued"
     >
-      <Accordion type="multiple" collapsable testID={SignatureConfirmTestIDs.AdvancedSettingsAccordion}>
+      <Accordion
+        type="multiple"
+        collapsable
+        testID={SignatureConfirmTestIDs.AdvancedSettingsAccordion}
+      >
         <Accordion.Item value="advance">
           <Accordion.Trigger
             unstyled

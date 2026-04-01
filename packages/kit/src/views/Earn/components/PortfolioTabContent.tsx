@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
 } from 'react';
+
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -46,14 +47,15 @@ import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnToolti
 import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
+import { usePortfolioAction } from '../hooks/usePortfolioAction';
+import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
+import { EarnTestIDs } from '../testIDs';
+
 import type {
   IRefreshOptions,
   IUseEarnPortfolioReturn,
 } from '../hooks/useEarnPortfolio';
-import { usePortfolioAction } from '../hooks/usePortfolioAction';
-import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
-import { EarnTestIDs } from '../testIDs';
 
 const useIsDesktopLayout = () => {
   const media = useMedia();
@@ -554,7 +556,13 @@ const ProtocolHeader = ({
   const currencyInfo = useCurrency();
 
   return (
-    <YStack px="$pagePadding" py="$3" testID={EarnTestIDs.portfolioItem(portfolioItem.protocol.providerDetail.name)}>
+    <YStack
+      px="$pagePadding"
+      py="$3"
+      testID={EarnTestIDs.portfolioItem(
+        portfolioItem.protocol.providerDetail.name,
+      )}
+    >
       <XStack ai="center">
         <Token
           size="xs"

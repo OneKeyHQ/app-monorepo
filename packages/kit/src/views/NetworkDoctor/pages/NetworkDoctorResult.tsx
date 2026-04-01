@@ -223,7 +223,11 @@ function NetworkDoctorResult() {
                 id: ETranslations.global_network_doctor_not_started,
               })}
             </SizableText>
-            <Button variant="secondary" onPress={handleClose} testID={NetworkDoctorTestIDs.closeBtn}>
+            <Button
+              variant="secondary"
+              onPress={handleClose}
+              testID={NetworkDoctorTestIDs.closeBtn}
+            >
               {intl.formatMessage({
                 id: ETranslations.global_close,
               })}

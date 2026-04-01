@@ -12,9 +12,11 @@ import {
   type IConnectionItemWithStorageType,
   type IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
-import type { IHandleAccountChangedParams } from '../../hooks/useHandleAccountChanged';
+
 import { DAppConnectionTestIDs } from '../../testIDs';
 import { DAppAccountListItem } from '../DAppAccountList';
+
+import type { IHandleAccountChangedParams } from '../../hooks/useHandleAccountChanged';
 
 function ConnectionListItem({
   item,

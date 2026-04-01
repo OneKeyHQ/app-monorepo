@@ -71,6 +71,7 @@ import {
 import { OnboardingTestIDs } from '../testIDs';
 
 import MatrixBackground from './MatrixBackground';
+
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);

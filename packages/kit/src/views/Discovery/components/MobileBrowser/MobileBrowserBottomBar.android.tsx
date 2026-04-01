@@ -24,6 +24,7 @@ import { ESiteMode } from '../../types';
 import RefreshButton from './RefreshButton';
 import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
+
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)

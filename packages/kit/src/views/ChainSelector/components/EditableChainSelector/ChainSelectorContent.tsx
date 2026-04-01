@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -43,6 +44,7 @@ import {
   CELL_HEIGHT,
   ZERO_VALUE_TOOLTIP_HEIGHT,
 } from './type';
+
 import type {
   IEditableChainSelectorContext,
   IEditableChainSelectorSection,

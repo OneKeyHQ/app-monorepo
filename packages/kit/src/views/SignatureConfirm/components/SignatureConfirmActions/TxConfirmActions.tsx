@@ -616,7 +616,10 @@ function TxConfirmActions(props: IProps) {
   }, [intl, sendFeeStatus.discountPercent, signOnly]);
 
   return (
-    <Page.Footer disableKeyboardAnimation testID={SignatureConfirmTestIDs.TxConfirmFooter}>
+    <Page.Footer
+      disableKeyboardAnimation
+      testID={SignatureConfirmTestIDs.TxConfirmFooter}
+    >
       <Page.FooterActions
         testID={SignatureConfirmTestIDs.TxConfirmActions}
         confirmButtonProps={{

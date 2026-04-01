@@ -6,7 +6,8 @@ export const ChainSelectorTestIDs = {
 
   // --- EditableChainSelector ---
   addCustomNetworkBtn: 'chain-selector-add-custom-network-btn',
-  addCustomNetworkEditModeBtn: 'chain-selector-add-custom-network-edit-mode-btn',
+  addCustomNetworkEditModeBtn:
+    'chain-selector-add-custom-network-edit-mode-btn',
 
   // --- AllNetworksManager ---
   allNetworksSearchBar: 'chain-selector-all-networks-search-bar',

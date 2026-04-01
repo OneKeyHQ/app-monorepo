@@ -55,6 +55,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import BulkRevokeItem from '../components/BulkRevokeItem';
 import { ApprovalManagementTestIDs } from '../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function getConfirmText({

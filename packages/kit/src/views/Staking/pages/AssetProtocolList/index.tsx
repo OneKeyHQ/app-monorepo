@@ -185,7 +185,11 @@ function AssetProtocolListContent({
       estimatedItemSize={60}
       data={items}
       renderItem={({ item }: { item: IStakeProtocolListItem }) => (
-        <ListItem userSelect="none" onPress={() => onPress?.({ item })} testID={StakingTestIDs.protocolListItem}>
+        <ListItem
+          userSelect="none"
+          onPress={() => onPress?.({ item })}
+          testID={StakingTestIDs.protocolListItem}
+        >
           <Token
             size="lg"
             borderRadius="$2"

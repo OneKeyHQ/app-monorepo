@@ -109,9 +109,7 @@ function BasicMarketStarV2({
   return (
     <IconButton
       testID={
-        tokenSymbol
-          ? MarketTestIDs.tokenStarButton(tokenSymbol)
-          : undefined
+        tokenSymbol ? MarketTestIDs.tokenStarButton(tokenSymbol) : undefined
       }
       title={intl.formatMessage({
         id: checked

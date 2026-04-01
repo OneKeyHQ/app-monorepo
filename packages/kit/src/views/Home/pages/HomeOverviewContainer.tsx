@@ -618,7 +618,11 @@ function HomeOverviewContainer() {
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
   return (
-    <YStack gap="$2.5" alignItems="flex-start" testID={HomeTestIDs.walletOverview}>
+    <YStack
+      gap="$2.5"
+      alignItems="flex-start"
+      testID={HomeTestIDs.walletOverview}
+    >
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />

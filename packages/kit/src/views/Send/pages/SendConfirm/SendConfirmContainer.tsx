@@ -35,6 +35,7 @@ import TxActionsContainer from './TxActionsContainer';
 import { TxAdvancedSettingsContainer } from './TxAdvancedSettingsContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
 import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function SendConfirmContainer() {

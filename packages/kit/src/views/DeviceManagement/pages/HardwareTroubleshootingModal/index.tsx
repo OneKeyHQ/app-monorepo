@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function HardwareTroubleshootingModal() {

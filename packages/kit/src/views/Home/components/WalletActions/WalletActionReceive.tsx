@@ -17,6 +17,7 @@ import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes
 import { HomeTestIDs } from '../../testIDs';
 
 import { RawActions } from './RawActions';
+
 import type { IActionCustomization } from './types';
 
 function WalletActionReceive({

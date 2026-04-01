@@ -45,6 +45,7 @@ import BackupListLoading from '../../components/BackupListLoading';
 import { useDeleteBackupDialog } from '../../components/useDeleteBackupDialog';
 import { useRestorePasswordVerifyDialog } from '../../components/useResotrePasswordVerify';
 import { CloudBackupTestIDs } from '../../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 export default function Detail() {

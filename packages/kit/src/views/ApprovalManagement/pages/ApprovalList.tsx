@@ -40,6 +40,7 @@ import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelec
 import ApprovalActions from '../components/ApprovalActions';
 import { useBulkRevoke } from '../hooks/useBulkRevoke';
 import { ApprovalManagementTestIDs } from '../testIDs';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function ApprovalList() {
