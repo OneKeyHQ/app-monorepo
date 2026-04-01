@@ -159,8 +159,14 @@ export class BackgroundApiProxyBase
     return true;
   }
 
-  private callLocalBridgeReceiveHandler(payload: IJsBridgeMessagePayload) {
-    const backgroundApi = this.ensureLocalBackgroundApi();
+  private async callLocalBridgeReceiveHandler(
+    payload: IJsBridgeMessagePayload,
+  ) {
+    let backgroundApi = this.ensureLocalBackgroundApi();
+    if (!backgroundApi) {
+      // Sync factory unavailable (e.g. native-ui stub) — try async factory
+      backgroundApi = await this.ensureLocalBackgroundApiAsync();
+    }
     if (!backgroundApi) {
       throw new OneKeyLocalError('backgroundApi not found in non-ext env');
     }

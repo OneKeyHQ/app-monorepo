@@ -31,6 +31,9 @@ const segmentStates = new Map<string, SegmentLoadState>();
 const loadedSegments = new Set<string>();
 const failedSegments = new Map<string, Error>();
 const inflightSegments = new Map<string, Promise<void>>();
+// Module-level set tracking segments currently being resolved in any call chain.
+// Used for cross-inflight cycle detection.
+const globalLoading = new Set<string>();
 
 let nativeLoader: ISplitBundleNativeLoader | null = null;
 
@@ -62,10 +65,7 @@ function ensureNativeLoader(): ISplitBundleNativeLoader {
   return nativeLoader;
 }
 
-async function loadSegmentInternal(
-  segmentKey: string,
-  visiting: Set<string>,
-): Promise<void> {
+async function loadSegmentInternal(segmentKey: string): Promise<void> {
   // Already loaded
   if (loadedSegments.has(segmentKey)) {
     return;
@@ -83,63 +83,68 @@ async function loadSegmentInternal(
     return inflight;
   }
 
-  const promise = (async () => {
-    // Cycle detection
-    if (visiting.has(segmentKey)) {
-      throw new SegmentLoadError(
-        segmentKey,
-        `Circular dependency detected: ${[...visiting, segmentKey].join(' → ')}`,
-      );
-    }
-    visiting.add(segmentKey);
-
-    // Lookup manifest
-    const entry = getSegmentEntry(segmentKey);
-    if (!entry) {
-      throw new SegmentLoadError(
-        segmentKey,
-        'Segment not found in manifest',
-      );
-    }
-
-    // Runtime access control
-    const currentRuntime = getRuntimeKind();
-    if (!isSegmentAllowedInRuntime(entry.runtime, currentRuntime)) {
-      throw new SegmentLoadError(
-        segmentKey,
-        `Segment runtime '${entry.runtime}' not allowed in '${currentRuntime}' runtime`,
-      );
-    }
-
-    segmentStates.set(segmentKey, 'resolving');
-
-    // Recursively load dependencies first
-    if (entry.dependsOn.length > 0) {
-      for (const dep of entry.dependsOn) {
-        await loadSegmentInternal(dep, visiting);
-      }
-    }
-
-    // Register with native
-    segmentStates.set(segmentKey, 'registering');
-    const loader = ensureNativeLoader();
-
-    const startMs = Date.now();
-    await loader.loadSegment({
-      segmentId: entry.id,
-      segmentKey: entry.key,
-      relativePath: entry.relativePath,
-      sha256: entry.sha256,
-    });
-    const durationMs = Date.now() - startMs;
-
-    defaultLogger.app.bootstrap.initDeferredStep(
-      `segment:${segmentKey}`,
-      durationMs,
+  // Cycle detection: uses module-level set so all concurrent call chains
+  // share visibility into what's currently being resolved.
+  if (globalLoading.has(segmentKey)) {
+    throw new SegmentLoadError(
+      segmentKey,
+      `Circular dependency detected: ${segmentKey} is already being loaded`,
     );
+  }
 
-    segmentStates.set(segmentKey, 'ready');
-    loadedSegments.add(segmentKey);
+  const promise = (async () => {
+    globalLoading.add(segmentKey);
+    try {
+      // Lookup manifest
+      const entry = getSegmentEntry(segmentKey);
+      if (!entry) {
+        throw new SegmentLoadError(
+          segmentKey,
+          'Segment not found in manifest',
+        );
+      }
+
+      // Runtime access control
+      const currentRuntime = getRuntimeKind();
+      if (!isSegmentAllowedInRuntime(entry.runtime, currentRuntime)) {
+        throw new SegmentLoadError(
+          segmentKey,
+          `Segment runtime '${entry.runtime}' not allowed in '${currentRuntime}' runtime`,
+        );
+      }
+
+      segmentStates.set(segmentKey, 'resolving');
+
+      // Recursively load dependencies first
+      if (entry.dependsOn.length > 0) {
+        for (const dep of entry.dependsOn) {
+          await loadSegmentInternal(dep);
+        }
+      }
+
+      // Register with native
+      segmentStates.set(segmentKey, 'registering');
+      const loader = ensureNativeLoader();
+
+      const startMs = Date.now();
+      await loader.loadSegment({
+        segmentId: entry.id,
+        segmentKey: entry.key,
+        relativePath: entry.relativePath,
+        sha256: entry.sha256,
+      });
+      const durationMs = Date.now() - startMs;
+
+      defaultLogger.app.bootstrap.initDeferredStep(
+        `segment:${segmentKey}`,
+        durationMs,
+      );
+
+      segmentStates.set(segmentKey, 'ready');
+      loadedSegments.add(segmentKey);
+    } finally {
+      globalLoading.delete(segmentKey);
+    }
   })();
 
   inflightSegments.set(segmentKey, promise);
@@ -177,7 +182,7 @@ export function setNativeLoader(loader: ISplitBundleNativeLoader): void {
  * Load a segment by its key. Called by the global `__loadBundleAsync`.
  */
 export async function loadSegment(segmentKey: string): Promise<void> {
-  return loadSegmentInternal(segmentKey, new Set());
+  return loadSegmentInternal(segmentKey);
 }
 
 /**
@@ -187,7 +192,7 @@ export async function loadSegment(segmentKey: string): Promise<void> {
 export async function retrySegment(segmentKey: string): Promise<void> {
   failedSegments.delete(segmentKey);
   segmentStates.delete(segmentKey);
-  return loadSegmentInternal(segmentKey, new Set());
+  return loadSegmentInternal(segmentKey);
 }
 
 /**

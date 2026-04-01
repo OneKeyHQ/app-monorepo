@@ -132,10 +132,7 @@ module.exports = async function segmentSerializer(
     } else if (asyncTypes.every((v) => v === asyncFlag)) {
       asyncRoots.set(moduleId, key);
     } else if (asyncTypes.length === 1 && asyncRoots.has(asyncTypes[0])) {
-      // Child of an async root — add to that chunk
-      if (!asyncRoots.has(asyncTypes[0])) {
-        mainModuleIds.add(moduleId);
-      }
+      // Child of an async root — stays out of main (handled in Step 2 re-scan)
     } else {
       mainModuleIds.add(moduleId);
     }
@@ -204,7 +201,40 @@ module.exports = async function segmentSerializer(
     }
   }
 
-  // Step 6: Write segment files and build manifest
+  // Step 6: Compute inter-segment dependencies
+  // Segment A dependsOn segment B if any module in A imports a module in B
+  const segmentDeps = new Map(); // segmentKey → Set<segmentKey>
+  for (const [segmentKey, modIds] of segmentModules) {
+    const deps = new Set();
+    for (const modId of modIds) {
+      // Find the absolutePath for this moduleId
+      for (const [absPath, modData] of graph.dependencies) {
+        if (fileToIdMap.get(absPath) !== modId) continue;
+        for (const [, dep] of modData.dependencies) {
+          const depId = fileToIdMap.get(dep.absolutePath);
+          const depSeg = moduleToSegment.get(depId);
+          if (depSeg && depSeg !== segmentKey) {
+            deps.add(depSeg);
+          }
+        }
+      }
+    }
+    segmentDeps.set(segmentKey, deps);
+  }
+
+  // Step 6b: Derive runtime from segment key path
+  const runtimeTarget = process.env.METRO_RUNTIME_TARGET; // 'main' | 'background'
+  function deriveRuntime(segmentKey) {
+    if (segmentKey.includes('kit-bg.') || segmentKey.includes('services.')) {
+      return 'background';
+    }
+    if (segmentKey.includes('kit.views.') || segmentKey.includes('components.')) {
+      return 'main';
+    }
+    return 'shared';
+  }
+
+  // Step 7: Write segment files and build manifest
   const manifest = { segments: {} };
 
   if (segmentOutputs.size > 0) {
@@ -229,41 +259,42 @@ module.exports = async function segmentSerializer(
       `info Writing segment: ${segmentKey} (id=${segmentId}, modules=${segModules.length}) → ${outputPath}`,
     );
 
+    const deps = segmentDeps.get(segmentKey);
     manifest.segments[segmentKey] = {
       id: segmentId,
       key: segmentKey,
-      runtime: 'shared', // Default; override via bundle-groups.config
+      runtime: deriveRuntime(segmentKey),
       relativePath,
       sha256: segHash,
-      dependsOn: [],
+      dependsOn: deps ? [...deps].sort() : [],
       size: Buffer.byteLength(code),
     };
   }
 
-  // Step 7: Inject manifest into main bundle as __SEGMENT_MANIFEST__
+  // Step 8: Inject manifest into main bundle as __SEGMENT_MANIFEST__
   const manifestCode = `globalThis.__SEGMENT_MANIFEST__=${JSON.stringify(manifest)};`;
   // Prepend manifest before the first module
   const preWithManifest = `${pre}\n${manifestCode}\n`;
 
-  // Step 8: Write manifest to disk for build-bundle.js consumption
+  // Step 9: Write manifest to disk for build-bundle.js consumption
   const manifestPath = path.resolve(outputSegmentDir, '../segment-manifest.json');
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`info Writing segment manifest → ${manifestPath}`);
 
-  // Step 9: Rewrite asyncRequire paths for production
-  // In production mode, replace dev server URLs with segment keys
+  // Step 10: Rewrite asyncRequire paths for production
+  // In production mode, replace dev server URLs with segment keys.
+  // mod is [moduleId, codeString] — only process string code entries.
   if (!bundleOptions.dev) {
     for (const mod of mainModules) {
-      // Look for asyncRequire path entries and replace with segment keys
+      if (typeof mod[1] !== 'string') continue;
       for (const [moduleId, segmentKey] of moduleToSegment) {
-        // The paths map in asyncRequire uses numeric module IDs as keys
-        const devUrl = new RegExp(
-          `"${moduleId}"\\s*:\\s*"[^"]*"`,
+        // Match asyncRequire path map entries: e.g. "12345":"http://..."
+        // Use word boundary after the ID to avoid matching longer numeric IDs
+        const pattern = new RegExp(
+          `"${moduleId}"(\\s*:\\s*)"[^"]*"`,
           'g',
         );
-        if (typeof mod[1] === 'string' && mod[1].match(devUrl)) {
-          mod[1] = mod[1].replace(devUrl, `"${moduleId}":"${segmentKey}"`);
-        }
+        mod[1] = mod[1].replace(pattern, `"${moduleId}"$1"${segmentKey}"`);
       }
     }
   }

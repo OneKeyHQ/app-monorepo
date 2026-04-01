@@ -1,0 +1,60 @@
+name: Startup Graph Budget Check
+
+on:
+  pull_request:
+    branches:
+      - x
+    paths:
+      - 'packages/**'
+      - 'apps/mobile/**'
+      - 'yarn.lock'
+
+# Cancel previous runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  budget-check:
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Run Startup Graph Budget Check
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          METRO_RUNTIME_TARGET: 'main'
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+
+      - name: Upload Budget Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: budget-check-report
+          path: apps/mobile/out-dir-analysis/budget-check-report.json
+          retention-days: 30

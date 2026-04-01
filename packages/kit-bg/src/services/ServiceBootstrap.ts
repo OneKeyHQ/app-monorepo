@@ -73,10 +73,7 @@ class ServiceBootstrap extends ServiceBase {
       const start = Date.now();
       try {
         await fn();
-        defaultLogger.app.bootstrap.initDeferredStep(
-          label,
-          Date.now() - start,
-        );
+        defaultLogger.app.bootstrap.initDeferredStep(label, Date.now() - start);
       } catch (e: unknown) {
         defaultLogger.app.bootstrap.initDeferredStepFailed(
           label,
@@ -118,32 +115,52 @@ class ServiceBootstrap extends ServiceBase {
       Date.now() - deferredStart,
     );
 
-    // wait for local messages to be loaded
-    void this.backgroundApi.serviceContextMenu.init();
+    // Fire-and-forget tasks — each wrapped for error isolation and timing
+    void timedDeferred('serviceContextMenu.init', () =>
+      this.backgroundApi.serviceContextMenu.init(),
+    );
     if (platformEnv.isExtension) {
-      try {
-        await this.backgroundApi.serviceDevSetting.initAnalytics();
-      } catch (error) {
-        // ignore
-      }
-    }
-    void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
-    void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
-    void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
-    void this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting();
-    void this.backgroundApi.serviceAccount.migrateHardwareLtcXPub();
-    void this.backgroundApi.serviceSetting.migrateBTCFreshAddressSetting();
-    void this.backgroundApi.serviceHardware.removeDeviceHomeScreen();
-    void systemTimeUtils.startServerTimeInterval();
-    void this.backgroundApi.serviceIpTable.init();
-    void this.backgroundApi.serviceCloudBackupV2.init();
-    // Restore persisted whitelist first, then fetch fresh data from server.
-    // Sequencing prevents the stale persisted data from overwriting a newer fetch result.
-    void this.backgroundApi.serviceSetting
-      .restoreFiatPaySiteWhitelistFromPersist()
-      .then(() =>
-        this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
+      void timedDeferred('serviceDevSetting.initAnalytics', () =>
+        this.backgroundApi.serviceDevSetting.initAnalytics(),
       );
+    }
+    void timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
+      this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
+    );
+    void timedDeferred('customTokens.migrateFromV1LegacyData', () =>
+      this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData(),
+    );
+    void timedDeferred('serviceAccount.migrateHdWalletsBackedUpStatus', () =>
+      this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus(),
+    );
+    void timedDeferred('serviceHistory.migrateFilterScamHistorySetting', () =>
+      this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting(),
+    );
+    void timedDeferred('serviceAccount.migrateHardwareLtcXPub', () =>
+      this.backgroundApi.serviceAccount.migrateHardwareLtcXPub(),
+    );
+    void timedDeferred('serviceSetting.migrateBTCFreshAddressSetting', () =>
+      this.backgroundApi.serviceSetting.migrateBTCFreshAddressSetting(),
+    );
+    void timedDeferred('serviceHardware.removeDeviceHomeScreen', () =>
+      this.backgroundApi.serviceHardware.removeDeviceHomeScreen(),
+    );
+    void timedDeferred('systemTimeUtils.startServerTimeInterval', async () => {
+      systemTimeUtils.startServerTimeInterval();
+    });
+    void timedDeferred('serviceIpTable.init', () =>
+      this.backgroundApi.serviceIpTable.init(),
+    );
+    void timedDeferred('serviceCloudBackupV2.init', () =>
+      this.backgroundApi.serviceCloudBackupV2.init(),
+    );
+    void timedDeferred('serviceSetting.restoreFiatPaySiteWhitelist', () =>
+      this.backgroundApi.serviceSetting
+        .restoreFiatPaySiteWhitelistFromPersist()
+        .then(() =>
+          this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
+        ),
+    );
     defaultLogger.app.bootstrap.initDeferredDone(Date.now() - deferredStart);
   }
 }

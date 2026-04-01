@@ -300,7 +300,24 @@ const buildBackgroundBundle = async ({
 };
 
 /**
+ * Run async tasks with a concurrency limit.
+ */
+const runWithConcurrency = async (tasks, concurrency) => {
+  const results = [];
+  let index = 0;
+  const run = async () => {
+    while (index < tasks.length) {
+      const currentIndex = index++;
+      results[currentIndex] = await tasks[currentIndex]();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, run));
+  return results;
+};
+
+/**
  * Build HBC segments from JS segment files produced by the segment serializer.
+ * Compiles segments in parallel (up to 4 concurrent hermesc processes) for speed.
  * For each .seg.js file in the segments directory:
  *   1. Compile to HBC with hermesc
  *   2. Compose sourcemaps
@@ -330,7 +347,9 @@ const buildSegments = async ({ platform, buildOutputAssetPath }) => {
 
   log(`build ${platform} segments: ${segFiles.length} segments found`);
 
-  for (const segFile of segFiles) {
+  const CONCURRENCY = parseInt(process.env.SEGMENT_BUILD_CONCURRENCY || '4', 10);
+
+  const tasks = segFiles.map((segFile) => async () => {
     const baseName = segFile.replace('.seg.js', '');
     const segJsPath = path.join(segmentsInputDir, segFile);
     const segHbcPath = path.join(segmentsOutputDir, `${baseName}.seg.hbc`);
@@ -375,7 +394,9 @@ const buildSegments = async ({ platform, buildOutputAssetPath }) => {
     if (fs.existsSync(`${segHbcPath}.map`)) {
       fs.rmSync(`${segHbcPath}.map`, { force: true });
     }
-  }
+  });
+
+  await runWithConcurrency(tasks, CONCURRENCY);
 
   log(`build ${platform} segments done`);
 };
