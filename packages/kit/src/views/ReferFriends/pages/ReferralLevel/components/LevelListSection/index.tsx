@@ -27,15 +27,27 @@ export function LevelListSection({
       borderCurve="continuous"
       overflow="hidden"
     >
-      {displayLevels.map((level, index) => (
-        <LevelAccordionItem
-          key={level.level}
-          level={level}
-          isCurrent={level.isCurrent}
-          isFirst={index === 0}
-          isLast={index === displayLevels.length - 1}
-        />
-      ))}
+      {displayLevels.map((level, index) => {
+        const ascendingIndex = levels.length - 1 - index;
+        const isHighestLevel = ascendingIndex === levels.length - 1;
+        const isLowestLevel = ascendingIndex === 0;
+        const retentionConditions = isLowestLevel
+          ? undefined
+          : levels[ascendingIndex - 1].upgradeConditions;
+
+        return (
+          <LevelAccordionItem
+            key={level.level}
+            level={level}
+            isCurrent={level.isCurrent}
+            isFirst={index === 0}
+            isLast={index === displayLevels.length - 1}
+            isHighestLevel={isHighestLevel}
+            isLowestLevel={isLowestLevel}
+            retentionConditions={retentionConditions}
+          />
+        );
+      })}
     </Accordion>
   );
 }

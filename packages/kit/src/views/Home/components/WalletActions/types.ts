@@ -14,6 +14,7 @@ export type IWalletActionType =
   | 'reward'
   | 'export'
   | 'vote'
+  | 'approvals'
   | 'custom';
 
 export type IMoreActionGroupType = 'trading' | 'tools' | 'developer' | 'others';

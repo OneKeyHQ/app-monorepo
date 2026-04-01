@@ -18,6 +18,7 @@ import type {
   IDeferredPromise,
   ISegmentControlProps,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -373,6 +374,7 @@ function BasicTokenPriceChart({
             opacity={1}
             flex={1}
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
             exitStyle={{
               opacity: 0,
             }}

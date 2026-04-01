@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
 
 import { Accordion, Icon, Stack } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IFAQAccordionProps<T> = {
   items?: T[];
@@ -48,7 +52,11 @@ export function FAQAccordion<T>({
               {({ open }: { open: boolean }) => (
                 <>
                   {renderTitle(item, { open })}
-                  <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                  <Stack
+                    animation="quick"
+                    animateOnly={ANIMATE_ONLY_TRANSFORM}
+                    rotate={open ? '180deg' : '0deg'}
+                  >
                     <Icon
                       name="ChevronDownSmallOutline"
                       color={open ? '$iconActive' : '$iconSubdued'}
@@ -64,6 +72,7 @@ export function FAQAccordion<T>({
                 pt="$2"
                 pb="$5"
                 animation="100ms"
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 enterStyle={{ opacity: 0 }}
                 exitStyle={{ opacity: 0 }}
               >
