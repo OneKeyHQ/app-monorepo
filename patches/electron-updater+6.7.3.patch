@@ -45,7 +45,7 @@ index e5dd61f..1797c9f 100644
  export interface InstallOptions {
      readonly isSilent: boolean;
 diff --git a/node_modules/electron-updater/out/BaseUpdater.js b/node_modules/electron-updater/out/BaseUpdater.js
-index 00f99bd..2f801c0 100644
+index 00f99bd..c66c20c 100644
 --- a/node_modules/electron-updater/out/BaseUpdater.js
 +++ b/node_modules/electron-updater/out/BaseUpdater.js
 @@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
@@ -80,12 +80,12 @@ index 00f99bd..2f801c0 100644
 +            return;
 +        }
 +        try {
-+          cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath);
++          const cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath);
 +          this.downloadedUpdateHelper.updateFile(installerPath);
 +          this.downloadedUpdateHelper.updateDownloadedFileInfo(cachedInfo.downloadedFileInfo);
 +        }
 +        catch (error) {
-+            logger.info(error);
++            this._logger.info(error);
 +            return null;
 +        }
 +    }
@@ -107,7 +107,7 @@ index 26ea883..eeb032b 100644
  interface CachedUpdateInfo {
      fileName: string;
 diff --git a/node_modules/electron-updater/out/DownloadedUpdateHelper.js b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
-index e6c33ea..15169a8 100644
+index e6c33ea..ba20aeb 100644
 --- a/node_modules/electron-updater/out/DownloadedUpdateHelper.js
 +++ b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
 @@ -50,6 +50,15 @@ class DownloadedUpdateHelper {
