@@ -18,6 +18,7 @@ import {
   buildMarketApproveInfos,
   buildMarketSwapApprovingTransaction,
   buildWrappedMarketQuoteResult,
+  canReuseMarketSigningQuoteResult,
   extractMarketSwapSuccessResult,
   normalizeMarketReviewQuoteResult,
 } from './marketSwapReviewUtils';
@@ -273,6 +274,59 @@ describe('marketSwapReviewUtils', () => {
       orderHash: '0xhash',
       signature: '0xsig',
     });
+  });
+
+  it('reuses the reviewed signing quote when the required signing context is already present', () => {
+    expect(
+      canReuseMarketSigningQuoteResult(
+        createQuoteResult({
+          swapShouldSignedData: {
+            oneInchFusionOrder: {
+              makerAddress: '0xmaker',
+              typedData: {},
+            },
+          } as never,
+          quoteResultCtx: {
+            oneInchFusionOrderCtx: {
+              orderStruct: { salt: '1' },
+              extension: '0xext',
+              quoteId: 'quote-1',
+              orderHash: '0xhash',
+            },
+          },
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      canReuseMarketSigningQuoteResult(
+        createQuoteResult({
+          swapShouldSignedData: {
+            unSignedInfo: {},
+            unSignedData: {},
+          } as never,
+          quoteResultCtx: {
+            cowSwapUnSignedOrder: {
+              receiver: '0xreceiver',
+            },
+          },
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      canReuseMarketSigningQuoteResult(
+        createQuoteResult({
+          swapShouldSignedData: {
+            oneInchFusionOrder: {
+              makerAddress: '0xmaker',
+              typedData: {},
+            },
+          } as never,
+          quoteResultCtx: undefined,
+        }),
+      ),
+    ).toBe(false);
   });
 
   it('builds a review-visible approving transaction payload', () => {

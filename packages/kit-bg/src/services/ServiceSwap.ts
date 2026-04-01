@@ -2459,6 +2459,7 @@ export default class ServiceSwap extends ServiceBase {
     fromToken,
     toToken,
     fromTokenAmount,
+    toTokenAmount,
     userAddress,
     provider,
     receivingAddress,
@@ -2471,6 +2472,7 @@ export default class ServiceSwap extends ServiceBase {
     fromToken: ISwapToken;
     toToken: ISwapToken;
     fromTokenAmount: string;
+    toTokenAmount?: string;
     provider: string;
     userAddress: string;
     receivingAddress: string;
@@ -2498,6 +2500,7 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,
+      toTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
       protocol,
@@ -2520,10 +2523,18 @@ export default class ServiceSwap extends ServiceBase {
       );
       return data?.data;
     } catch (e) {
-      const error = e as { code: number; message: string; requestId: string };
+      const error = e as {
+        code?: number;
+        message?: string;
+        requestId?: string;
+        response?: {
+          status?: number;
+          data?: unknown;
+        };
+      };
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
-        title: error?.message,
+        title: error?.message ?? 'Request failed',
         message: error?.requestId,
       });
       return undefined;

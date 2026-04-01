@@ -14,6 +14,7 @@ import {
   buildMarketReviewState,
   findMarketTxConfirmFeeInfo,
   shouldAutoContinueMarketResetApprove,
+  shouldSkipMarketSignedPrebuild,
 } from './marketReviewExecutionUtils';
 
 const fromToken: ISwapToken = {
@@ -212,5 +213,36 @@ describe('marketReviewExecutionUtils', () => {
         isReviewDialogOpen: false,
       }),
     ).toBe(true);
+  });
+
+  it('skips signed-order prebuild when the review has no approve txs', () => {
+    expect(
+      shouldSkipMarketSignedPrebuild({
+        quoteResult: createQuoteResult({
+          swapShouldSignedData: {
+            unSignedInfo: {},
+          } as never,
+        }),
+        approveUnsignedTxCount: 0,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSkipMarketSignedPrebuild({
+        quoteResult: createQuoteResult({
+          swapShouldSignedData: {
+            unSignedInfo: {},
+          } as never,
+        }),
+        approveUnsignedTxCount: 1,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldSkipMarketSignedPrebuild({
+        quoteResult: createQuoteResult(),
+        approveUnsignedTxCount: 0,
+      }),
+    ).toBe(false);
   });
 });

@@ -907,6 +907,9 @@ describe('useMarketSwapReviewActions', () => {
       expect(result.current.swapSteps.steps[0].status).toBe(
         ESwapStepStatus.FAILED,
       );
+      expect(result.current.swapSteps.steps[0].errorMessage).toBe(
+        'send failed',
+      );
     });
   });
 });

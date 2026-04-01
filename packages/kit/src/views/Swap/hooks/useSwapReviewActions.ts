@@ -158,9 +158,10 @@ export function useSwapReviewActions({
   );
 
   const markStepFailed = useCallback(
-    (stepIndex: number) => {
+    (stepIndex: number, errorMessage?: string) => {
       updateStep(stepIndex, {
         status: ESwapStepStatus.FAILED,
+        errorMessage,
         stepSubTitle: undefined,
       });
     },
@@ -350,8 +351,11 @@ export function useSwapReviewActions({
               });
               break;
             }
-          } catch {
-            markStepFailed(i);
+          } catch (error) {
+            markStepFailed(
+              i,
+              error instanceof Error ? error.message : undefined,
+            );
             break;
           }
         }

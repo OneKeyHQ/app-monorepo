@@ -106,3 +106,13 @@ export function shouldAutoContinueMarketResetApprove({
     Number(approvedSwapInfo.resetApproveValue) > 0,
   );
 }
+
+export function shouldSkipMarketSignedPrebuild({
+  quoteResult,
+  approveUnsignedTxCount,
+}: {
+  quoteResult?: IFetchQuoteResult;
+  approveUnsignedTxCount?: number;
+}) {
+  return Boolean(quoteResult?.swapShouldSignedData && !approveUnsignedTxCount);
+}

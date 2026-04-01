@@ -83,6 +83,7 @@ export async function buildMarketExecutionPayload({
 }> {
   let transferInfo: ITransferInfo | undefined;
   let encodedTx: IEncodedTx | undefined;
+  const serviceOrderId = buildRes.orderId ?? buildRes.result.quoteId;
 
   if (buildRes.swftOrder) {
     transferInfo = {
@@ -195,6 +196,7 @@ export async function buildMarketExecutionPayload({
     receivingAddress,
     swapBuildResData: {
       ...buildRes,
+      orderId: serviceOrderId,
       result: {
         ...buildRes.result,
         slippage: buildRes.result.slippage ?? slippage,
@@ -210,15 +212,9 @@ export async function buildMarketExecutionPayload({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       buildRes.ctx?.cowSwapOrderId ||
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      buildRes.ctx?.oneInchFusionOrderHash,
+      buildRes.ctx?.oneInchFusionOrderHash ||
+      buildRes.result.swapShouldSignedData,
     ),
-    orderId:
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      buildRes.ctx?.cowSwapOrderId ??
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      buildRes.ctx?.oneInchFusionOrderHash ??
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      buildRes.ctx?.changeHeroOrderId ??
-      buildRes.orderId,
+    orderId: serviceOrderId,
   };
 }

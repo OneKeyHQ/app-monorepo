@@ -112,6 +112,94 @@ describe('marketBuildExecutionUtils', () => {
     });
   });
 
+  it('marks signed orders to skip on-chain sending and preserves quote-based order ids', async () => {
+    const result = await buildMarketExecutionPayload({
+      accountId: 'account-1',
+      buildRes: createBuildRes({
+        result: {
+          ...createBuildRes().result,
+          quoteId: 'quote-1',
+          swapShouldSignedData: {
+            unSignedInfo: {},
+          } as never,
+        },
+      }),
+      currentFromToken: fromToken,
+      currentToToken: toToken,
+      fromAmount: '1',
+      receivingAddress: '0xuser',
+      slippage: 1,
+      userAddress: '0xuser',
+      onBuildOkxSwapEncodedTx: jest.fn(),
+      onBuildLMSwapEncodedTx: jest.fn(),
+      onBuildInternalDappTx: jest.fn(),
+    });
+
+    expect(result.skipSendTransAction).toBe(true);
+    expect(result.orderId).toBe('quote-1');
+    expect(result.swapInfo.swapBuildResData.orderId).toBe('quote-1');
+  });
+
+  it('keeps service order ids on swap build data when provider order ids also exist', async () => {
+    const result = await buildMarketExecutionPayload({
+      accountId: 'account-1',
+      buildRes: createBuildRes({
+        swftOrder: {
+          orderId: 'swft-order-1',
+        } as never,
+        ctx: {
+          cowSwapOrderId: 'cow-order-1',
+          oneInchFusionOrderHash: 'fusion-order-1',
+          changeHeroOrderId: 'change-hero-order-1',
+        },
+        orderId: 'build-order-1',
+        result: {
+          ...createBuildRes().result,
+          quoteId: 'quote-1',
+        },
+      }),
+      currentFromToken: fromToken,
+      currentToToken: toToken,
+      fromAmount: '1',
+      receivingAddress: '0xuser',
+      slippage: 1,
+      userAddress: '0xuser',
+      onBuildOkxSwapEncodedTx: jest.fn(),
+      onBuildLMSwapEncodedTx: jest.fn(),
+      onBuildInternalDappTx: jest.fn(),
+    });
+
+    expect(result.orderId).toBe('build-order-1');
+    expect(result.swapInfo.swapBuildResData.orderId).toBe('build-order-1');
+  });
+
+  it('falls back to quote ids for service order tracking when build order ids are missing', async () => {
+    const result = await buildMarketExecutionPayload({
+      accountId: 'account-1',
+      buildRes: createBuildRes({
+        ctx: {
+          oneInchFusionOrderHash: '0xfusion-hash',
+        },
+        result: {
+          ...createBuildRes().result,
+          quoteId: 'quote-1',
+        },
+      }),
+      currentFromToken: fromToken,
+      currentToToken: toToken,
+      fromAmount: '1',
+      receivingAddress: '0xuser',
+      slippage: 1,
+      userAddress: '0xuser',
+      onBuildOkxSwapEncodedTx: jest.fn(),
+      onBuildLMSwapEncodedTx: jest.fn(),
+      onBuildInternalDappTx: jest.fn(),
+    });
+
+    expect(result.orderId).toBe('quote-1');
+    expect(result.swapInfo.swapBuildResData.orderId).toBe('quote-1');
+  });
+
   it('supports BTC and Sui internal dapp payloads', async () => {
     const buildInternalDappTx = jest.fn<
       Promise<IEncodedTx>,

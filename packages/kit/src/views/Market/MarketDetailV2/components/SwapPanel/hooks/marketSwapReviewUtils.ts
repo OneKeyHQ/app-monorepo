@@ -283,6 +283,32 @@ export function attachMarketOneInchFusionSignature({
   return quoteResult;
 }
 
+export function canReuseMarketSigningQuoteResult(
+  quoteResult?: IFetchQuoteResult,
+) {
+  const signPayload = quoteResult?.swapShouldSignedData;
+
+  if (!signPayload) {
+    return false;
+  }
+
+  if (
+    (signPayload.unSignedMessage || signPayload.unSignedData) &&
+    quoteResult.quoteResultCtx?.cowSwapUnSignedOrder
+  ) {
+    return true;
+  }
+
+  if (
+    signPayload.oneInchFusionOrder &&
+    quoteResult.quoteResultCtx?.oneInchFusionOrderCtx
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function buildMarketSwapApprovingTransaction({
   quoteResult,
   amount,

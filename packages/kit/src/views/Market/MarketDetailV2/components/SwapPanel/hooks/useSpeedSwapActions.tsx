@@ -87,6 +87,7 @@ import { resolveMarketReviewAllowanceState } from './marketReviewAllowance';
 import {
   buildMarketReviewState,
   shouldAutoContinueMarketResetApprove,
+  shouldSkipMarketSignedPrebuild,
 } from './marketReviewExecutionUtils';
 import {
   buildDefaultMarketSpeedCheckState,
@@ -104,6 +105,7 @@ import {
   buildMarketApproveInfos,
   buildMarketSwapApprovingTransaction,
   buildWrappedMarketQuoteResult,
+  canReuseMarketSigningQuoteResult,
   extractMarketSwapSuccessResult,
   normalizeMarketReviewQuoteResult,
 } from './marketSwapReviewUtils';
@@ -398,16 +400,26 @@ export function useSpeedSwapActions(props: {
       gasFeeInNative?: string;
     }) => {
       const txNetworkId = swapInfo.sender.token.networkId;
-      const historyOrderId =
-        swapInfo.swapBuildResData.swftOrder?.orderId ??
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        swapInfo.swapBuildResData.ctx?.cowSwapOrderId ??
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        swapInfo.swapBuildResData.ctx?.oneInchFusionOrderHash ??
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        swapInfo.swapBuildResData.ctx?.changeHeroOrderId ??
+      const buildCtx = swapInfo.swapBuildResData.ctx as
+        | {
+            cowSwapOrderId?: string;
+            oneInchFusionOrderHash?: string;
+            changeHeroOrderId?: string;
+          }
+        | undefined;
+      const serviceOrderId =
         swapInfo.swapBuildResData.orderId ??
         swapInfo.swapBuildResData.result?.quoteId;
+      const historyOrderId =
+        swapInfo.swapBuildResData.swftOrder?.orderId ??
+        (txHash
+          ? (buildCtx?.cowSwapOrderId ??
+            buildCtx?.oneInchFusionOrderHash ??
+            buildCtx?.changeHeroOrderId)
+          : (serviceOrderId ??
+            buildCtx?.cowSwapOrderId ??
+            buildCtx?.oneInchFusionOrderHash ??
+            buildCtx?.changeHeroOrderId));
       const fromNetworkPreset = Object.values(presetNetworksMap).find(
         (item) => item.id === swapInfo.sender.token.networkId,
       );
@@ -416,10 +428,8 @@ export function useSpeedSwapActions(props: {
       );
       const useOrderId = Boolean(
         (!txHash && historyOrderId) ||
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        swapInfo.swapBuildResData.ctx?.cowSwapOrderId ||
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        swapInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
+        buildCtx?.cowSwapOrderId ||
+        buildCtx?.oneInchFusionOrderHash,
       );
 
       if (
@@ -482,7 +492,7 @@ export function useSpeedSwapActions(props: {
               swapInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
             otherFeeInfos:
               swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
-            orderId: historyOrderId,
+            orderId: serviceOrderId,
             supportUrl: swapInfo.swapBuildResData.result?.supportUrl,
             orderSupportUrl: swapInfo.swapBuildResData.result?.orderSupportUrl,
             oneKeyFeeExtraInfo:
@@ -702,7 +712,7 @@ export function useSpeedSwapActions(props: {
           }
 
           const reviewBuildRes: IFetchBuildTxResponse = {
-            orderId: stringUtils.generateUUID(),
+            ...(quoteResult.quoteId ? { orderId: quoteResult.quoteId } : {}),
             result: {
               ...quoteResult,
               slippage: quoteResult.slippage ?? slippage,
@@ -1026,6 +1036,13 @@ export function useSpeedSwapActions(props: {
             gasInfos: feeState.gasInfos,
             gasFeeFiatValue: feeState.gasFeeFiatValue,
           };
+        } else if (
+          shouldSkipMarketSignedPrebuild({
+            quoteResult: snapshot.quoteResult,
+            approveUnsignedTxCount: approveUnsignedTxArr?.length,
+          })
+        ) {
+          netWorkFee = undefined;
         } else {
           const feeState = await estimateMarketDirectGasInfos({
             accountAddress: snapshot.accountAddress,
@@ -1477,6 +1494,10 @@ export function useSpeedSwapActions(props: {
     }: {
       snapshot: IMarketReviewExecutionSnapshot;
     }): Promise<IFetchQuoteResult> => {
+      if (canReuseMarketSigningQuoteResult(snapshot.quoteResult)) {
+        return snapshot.quoteResult;
+      }
+
       if (!isStock) {
         return snapshot.quoteResult;
       }
@@ -1908,6 +1929,8 @@ export function useSpeedSwapActions(props: {
             toToken: snapshot.swapInfo.receiver.token,
             fromTokenAmount:
               signedQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
+            toTokenAmount:
+              signedQuoteResult.toAmount ?? snapshot.swapInfo.receiver.amount,
             provider: signedQuoteResult.info.provider,
             userAddress: snapshot.accountAddress,
             receivingAddress: snapshot.swapInfo.receivingAddress,
@@ -1937,10 +1960,24 @@ export function useSpeedSwapActions(props: {
           buildRes,
           quoteResult: signedQuoteResult,
         });
+        const buildCtx = buildResFinal.ctx as
+          | {
+              cowSwapOrderId?: string;
+              oneInchFusionOrderHash?: string;
+              changeHeroOrderId?: string;
+            }
+          | undefined;
+        const signedOrderTrackingId =
+          swapInfo.swapBuildResData.orderId ??
+          buildCtx?.cowSwapOrderId ??
+          buildCtx?.oneInchFusionOrderHash ??
+          buildCtx?.changeHeroOrderId;
+        const shouldPersistSignedOrder =
+          skipSendTransAction || Boolean(signedOrderTrackingId);
         const reviewedBuildResult = assertMarketSignedBuildInvariant({
           reviewedQuoteResult: snapshot.quoteResult,
           rebuiltQuoteResult: buildResFinal.result,
-          skipSendTransAction,
+          skipSendTransAction: shouldPersistSignedOrder,
         });
 
         reviewExecutionSnapshotRef.current = {
@@ -1969,7 +2006,7 @@ export function useSpeedSwapActions(props: {
           buildRes: buildResFinal,
         };
 
-        if (skipSendTransAction) {
+        if (shouldPersistSignedOrder) {
           const result = await handleMarketSignedOrderSuccess({
             swapInfo,
           });
