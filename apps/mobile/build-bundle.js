@@ -6,6 +6,8 @@ const path = require('path');
 
 const fs = require('fs-extra');
 
+const { SEGMENTS_INPUT_DIR } = require('./plugins/segmentPaths');
+
 const mobileDirPath = __dirname;
 const projectRootPath = path.join(mobileDirPath, '../..');
 const indexFilePath = path.join(mobileDirPath, 'index.ts');
@@ -326,7 +328,7 @@ const runWithConcurrency = async (tasks, concurrency) => {
  *   5. Clean up intermediate files
  */
 const buildSegments = async ({ platform, buildOutputAssetPath }) => {
-  const segmentsInputDir = path.join(mobileDirPath, 'dist/segments');
+  const segmentsInputDir = SEGMENTS_INPUT_DIR;
   if (!fs.existsSync(segmentsInputDir)) {
     log(`No segments directory found at ${segmentsInputDir}, skipping`);
     return;

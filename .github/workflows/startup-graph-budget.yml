@@ -24,6 +24,7 @@ jobs:
     strategy:
       matrix:
         node-version: [24.x]
+        entry: [main, background]
 
     steps:
       - uses: actions/checkout@v4
@@ -44,17 +45,18 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn install --immutable
 
-      - name: Run Startup Graph Budget Check
+      - name: Run Startup Graph Budget Check (${{ matrix.entry }})
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
-          METRO_RUNTIME_TARGET: 'main'
+          METRO_RUNTIME_TARGET: ${{ matrix.entry }}
+          ENTRY: ${{ matrix.entry }}
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Upload Budget Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: budget-check-report
+          name: budget-check-report-${{ matrix.entry }}
           path: apps/mobile/out-dir-analysis/budget-check-report.json
           retention-days: 30

@@ -10,7 +10,9 @@ module.exports = (config, projectRoot) => {
     const fs = require('fs-extra');
     const connect = require('connect');
     const dynamicImports = require('./dynamicImports');
+    const segmentSerializer = require('./segmentSerializer');
     const { fileToIdMap } = require('./map');
+    const useSegments = process.env.SPLIT_BUNDLE_SEGMENTS === 'true';
     const workspaceRoot = path.resolve(projectRoot, '../..');
     // 1. Watch all files within the monorepo
     config.watchFolders = [workspaceRoot];
@@ -121,6 +123,10 @@ module.exports = (config, projectRoot) => {
       bundleOptions,
     ) => {
       beforeCustomSerializer(entryPoint, prepend, graph, bundleOptions);
+      // Use segment serializer for production named segments when enabled
+      if (useSegments && !bundleOptions.dev) {
+        return segmentSerializer(entryPoint, prepend, graph, bundleOptions);
+      }
       const bundle = await dynamicImports(
         entryPoint,
         prepend,

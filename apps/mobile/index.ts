@@ -16,6 +16,26 @@ type IAppModule = typeof import('./App');
 require('@onekeyhq/shared/src/performance/init');
 require('./jsReady');
 require('@onekeyhq/shared/src/polyfills');
+
+// Install production split bundle loader before any async imports execute.
+// In dev mode __SEGMENT_MANIFEST__ is undefined so this is a no-op.
+if (!__DEV__) {
+  try {
+    const { getSegmentManifest } =
+      require('./src/splitBundle/segmentManifest') as typeof import('./src/splitBundle/segmentManifest');
+    const manifest = getSegmentManifest();
+    if (Object.keys(manifest.segments).length > 0) {
+      const { installProdBundleLoader } =
+        require('./src/splitBundle/installProdBundleLoader') as typeof import('./src/splitBundle/installProdBundleLoader');
+      const { getNativeSplitBundleLoader } =
+        require('./src/splitBundle/nativeBridge') as typeof import('./src/splitBundle/nativeBridge');
+      installProdBundleLoader(getNativeSplitBundleLoader());
+    }
+  } catch {
+    // Split bundle loader not available — async imports will use default behavior
+  }
+}
+
 require('./src/backgroundThread/setupMainThreadBackgroundRunner');
 
 const { I18nManager } =

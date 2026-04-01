@@ -17,6 +17,7 @@ const path = require('path');
 const fs = require('fs-extra');
 
 const { fileToIdMap } = require('./map');
+const { SEGMENTS_INPUT_DIR, SEGMENT_MANIFEST_PATH } = require('./segmentPaths');
 
 const baseJSBundle = require(
   path.resolve(
@@ -86,10 +87,43 @@ function sha256(content) {
 }
 
 // ---------------------------------------------------------------------------
+// Segment source map generator (#32)
+// ---------------------------------------------------------------------------
+
+function generateSegmentSourceMap(segModules, graph, _fileToIdMap, moduleIdToAbsPath) {
+  const sections = [];
+  let lineOffset = 0;
+
+  for (const [moduleId, code] of segModules) {
+    const absPath = moduleIdToAbsPath.get(moduleId);
+    if (absPath) {
+      const modData = graph.dependencies.get(absPath);
+      if (modData && modData.output) {
+        for (const output of modData.output) {
+          if (output.data && output.data.map) {
+            sections.push({
+              offset: { line: lineOffset, column: 0 },
+              map: output.data.map,
+            });
+          }
+        }
+      }
+    }
+    // Count lines in this module's code for the next offset
+    const lineCount = typeof code === 'string'
+      ? (code.match(/\n/g) || []).length + 1
+      : 1;
+    lineOffset += lineCount;
+  }
+
+  return JSON.stringify({ version: 3, sections });
+}
+
+// ---------------------------------------------------------------------------
 // Main serializer
 // ---------------------------------------------------------------------------
 
-const outputSegmentDir = path.resolve(__dirname, '../dist/segments');
+const outputSegmentDir = SEGMENTS_INPUT_DIR;
 
 module.exports = async function segmentSerializer(
   entryPoint,
@@ -202,33 +236,98 @@ module.exports = async function segmentSerializer(
   }
 
   // Step 6: Compute inter-segment dependencies
+  // Build moduleId → absolutePath reverse index first to avoid O(n²) graph scan (#27)
+  const moduleIdToAbsPath = new Map();
+  for (const [absPath] of graph.dependencies) {
+    const id = fileToIdMap.get(absPath);
+    if (id !== undefined) {
+      moduleIdToAbsPath.set(id, absPath);
+    }
+  }
+
   // Segment A dependsOn segment B if any module in A imports a module in B
   const segmentDeps = new Map(); // segmentKey → Set<segmentKey>
   for (const [segmentKey, modIds] of segmentModules) {
     const deps = new Set();
     for (const modId of modIds) {
-      // Find the absolutePath for this moduleId
-      for (const [absPath, modData] of graph.dependencies) {
-        if (fileToIdMap.get(absPath) !== modId) continue;
-        for (const [, dep] of modData.dependencies) {
-          const depId = fileToIdMap.get(dep.absolutePath);
-          const depSeg = moduleToSegment.get(depId);
-          if (depSeg && depSeg !== segmentKey) {
-            deps.add(depSeg);
-          }
+      const absPath = moduleIdToAbsPath.get(modId);
+      if (!absPath) continue;
+      const modData = graph.dependencies.get(absPath);
+      if (!modData) continue;
+      for (const [, dep] of modData.dependencies) {
+        const depId = fileToIdMap.get(dep.absolutePath);
+        const depSeg = moduleToSegment.get(depId);
+        if (depSeg && depSeg !== segmentKey) {
+          deps.add(depSeg);
         }
       }
     }
     segmentDeps.set(segmentKey, deps);
   }
 
-  // Step 6b: Derive runtime from segment key path
+  // Step 6b: Detect cycles in segment dependency DAG (#28)
+  // Topological sort — if we can't visit all segments, a cycle exists.
+  {
+    const visited = new Set();
+    const inStack = new Set();
+    const cyclePath = [];
+    let hasCycle = false;
+
+    function dfs(node) {
+      if (hasCycle) return;
+      if (inStack.has(node)) {
+        hasCycle = true;
+        cyclePath.push(node);
+        return;
+      }
+      if (visited.has(node)) return;
+      inStack.add(node);
+      const neighbors = segmentDeps.get(node);
+      if (neighbors) {
+        for (const neighbor of neighbors) {
+          dfs(neighbor);
+          if (hasCycle) {
+            cyclePath.push(node);
+            return;
+          }
+        }
+      }
+      inStack.delete(node);
+      visited.add(node);
+    }
+
+    for (const segKey of segmentDeps.keys()) {
+      dfs(segKey);
+      if (hasCycle) break;
+    }
+
+    if (hasCycle) {
+      const cycle = cyclePath.reverse().join(' → ');
+      throw new Error(
+        `[segmentSerializer] Circular segment dependency detected: ${cycle}\n` +
+        'Segment dependsOn graph must be a DAG. Fix the import structure to break the cycle.',
+      );
+    }
+  }
+
+  // Step 6c: Derive runtime from segment key path (#25)
+  // Uses precise prefix matching on the OneKey package structure:
+  //   seg:kit-bg.xxx → background (only exact "kit-bg." prefix)
+  //   seg:kit.views.xxx → main (only exact "kit.views." prefix)
+  //   seg:components.xxx → main (only exact "components." prefix)
+  // The runtimeTarget env var overrides when set (e.g. building background-only).
   const runtimeTarget = process.env.METRO_RUNTIME_TARGET; // 'main' | 'background'
   function deriveRuntime(segmentKey) {
-    if (segmentKey.includes('kit-bg.') || segmentKey.includes('services.')) {
+    // If building for a specific target, all segments belong to that target
+    if (runtimeTarget === 'main' || runtimeTarget === 'background') {
+      return runtimeTarget;
+    }
+    // Strip "seg:" prefix for matching
+    const keyPath = segmentKey.replace(/^seg:/, '');
+    if (keyPath.startsWith('kit-bg.') || keyPath.startsWith('kit-bg.src.services.')) {
       return 'background';
     }
-    if (segmentKey.includes('kit.views.') || segmentKey.includes('components.')) {
+    if (keyPath.startsWith('kit.views.') || keyPath.startsWith('components.')) {
       return 'main';
     }
     return 'shared';
@@ -255,6 +354,12 @@ module.exports = async function segmentSerializer(
     const outputPath = path.resolve(outputSegmentDir, `${safeName}.seg.js`);
 
     await fs.writeFile(outputPath, code);
+
+    // Write packager source map for Sentry symbolication (#32)
+    const packagerMapPath = path.resolve(outputSegmentDir, `${safeName}.seg.packager.map`);
+    const sourceMap = generateSegmentSourceMap(segModules, graph, fileToIdMap, moduleIdToAbsPath);
+    await fs.writeFile(packagerMapPath, sourceMap);
+
     console.log(
       `info Writing segment: ${segmentKey} (id=${segmentId}, modules=${segModules.length}) → ${outputPath}`,
     );
@@ -277,7 +382,7 @@ module.exports = async function segmentSerializer(
   const preWithManifest = `${pre}\n${manifestCode}\n`;
 
   // Step 9: Write manifest to disk for build-bundle.js consumption
-  const manifestPath = path.resolve(outputSegmentDir, '../segment-manifest.json');
+  const manifestPath = SEGMENT_MANIFEST_PATH;
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`info Writing segment manifest → ${manifestPath}`);
 

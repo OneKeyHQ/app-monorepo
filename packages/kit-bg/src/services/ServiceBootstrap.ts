@@ -115,52 +115,61 @@ class ServiceBootstrap extends ServiceBase {
       Date.now() - deferredStart,
     );
 
-    // Fire-and-forget tasks — each wrapped for error isolation and timing
-    void timedDeferred('serviceContextMenu.init', () =>
-      this.backgroundApi.serviceContextMenu.init(),
-    );
-    if (platformEnv.isExtension) {
-      void timedDeferred('serviceDevSetting.initAnalytics', () =>
-        this.backgroundApi.serviceDevSetting.initAnalytics(),
-      );
-    }
-    void timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
-      this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
-    );
-    void timedDeferred('customTokens.migrateFromV1LegacyData', () =>
-      this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData(),
-    );
-    void timedDeferred('serviceAccount.migrateHdWalletsBackedUpStatus', () =>
-      this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus(),
-    );
-    void timedDeferred('serviceHistory.migrateFilterScamHistorySetting', () =>
-      this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting(),
-    );
-    void timedDeferred('serviceAccount.migrateHardwareLtcXPub', () =>
-      this.backgroundApi.serviceAccount.migrateHardwareLtcXPub(),
-    );
-    void timedDeferred('serviceSetting.migrateBTCFreshAddressSetting', () =>
-      this.backgroundApi.serviceSetting.migrateBTCFreshAddressSetting(),
-    );
-    void timedDeferred('serviceHardware.removeDeviceHomeScreen', () =>
-      this.backgroundApi.serviceHardware.removeDeviceHomeScreen(),
-    );
-    void timedDeferred('systemTimeUtils.startServerTimeInterval', async () => {
-      systemTimeUtils.startServerTimeInterval();
-    });
-    void timedDeferred('serviceIpTable.init', () =>
-      this.backgroundApi.serviceIpTable.init(),
-    );
-    void timedDeferred('serviceCloudBackupV2.init', () =>
-      this.backgroundApi.serviceCloudBackupV2.init(),
-    );
-    void timedDeferred('serviceSetting.restoreFiatPaySiteWhitelist', () =>
-      this.backgroundApi.serviceSetting
-        .restoreFiatPaySiteWhitelistFromPersist()
-        .then(() =>
-          this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
-        ),
-    );
+    // Fire-and-forget tasks — each wrapped for error isolation and timing.
+    // These are intentionally not awaited; individual timedDeferred logs
+    // record each task's duration independently.
+    const fireAndForgetTasks = [
+      timedDeferred('serviceContextMenu.init', () =>
+        this.backgroundApi.serviceContextMenu.init(),
+      ),
+      ...(platformEnv.isExtension
+        ? [
+            timedDeferred('serviceDevSetting.initAnalytics', () =>
+              this.backgroundApi.serviceDevSetting.initAnalytics(),
+            ),
+          ]
+        : []),
+      timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
+        this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
+      ),
+      timedDeferred('customTokens.migrateFromV1LegacyData', () =>
+        this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData(),
+      ),
+      timedDeferred('serviceAccount.migrateHdWalletsBackedUpStatus', () =>
+        this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus(),
+      ),
+      timedDeferred('serviceHistory.migrateFilterScamHistorySetting', () =>
+        this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting(),
+      ),
+      timedDeferred('serviceAccount.migrateHardwareLtcXPub', () =>
+        this.backgroundApi.serviceAccount.migrateHardwareLtcXPub(),
+      ),
+      timedDeferred('serviceSetting.migrateBTCFreshAddressSetting', () =>
+        this.backgroundApi.serviceSetting.migrateBTCFreshAddressSetting(),
+      ),
+      timedDeferred('serviceHardware.removeDeviceHomeScreen', () =>
+        this.backgroundApi.serviceHardware.removeDeviceHomeScreen(),
+      ),
+      timedDeferred('systemTimeUtils.startServerTimeInterval', async () => {
+        systemTimeUtils.startServerTimeInterval();
+      }),
+      timedDeferred('serviceIpTable.init', () =>
+        this.backgroundApi.serviceIpTable.init(),
+      ),
+      timedDeferred('serviceCloudBackupV2.init', () =>
+        this.backgroundApi.serviceCloudBackupV2.init(),
+      ),
+      timedDeferred('serviceSetting.restoreFiatPaySiteWhitelist', () =>
+        this.backgroundApi.serviceSetting
+          .restoreFiatPaySiteWhitelistFromPersist()
+          .then(() =>
+            this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
+          ),
+      ),
+    ];
+    // Wait for all fire-and-forget tasks to settle so initDeferredDone
+    // reflects actual total deferred init time (#26).
+    await Promise.allSettled(fireAndForgetTasks);
     defaultLogger.app.bootstrap.initDeferredDone(Date.now() - deferredStart);
   }
 }

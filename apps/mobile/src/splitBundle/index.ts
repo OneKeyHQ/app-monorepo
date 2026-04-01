@@ -12,7 +12,12 @@ export {
   getSegmentCount,
   isSegmentAllowedInRuntime,
 } from './segmentManifest';
-export { getRuntimeKind, isMainRuntime, isBackgroundRuntime } from './runtimeInfo';
+export {
+  getRuntimeKind,
+  isMainRuntime,
+  isBackgroundRuntime,
+} from './runtimeInfo';
+export { getNativeSplitBundleLoader } from './nativeBridge';
 export type {
   RuntimeSourceKind,
   RuntimeKind,
