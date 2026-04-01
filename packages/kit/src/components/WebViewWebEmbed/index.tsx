@@ -130,9 +130,7 @@ export function WebViewWebEmbed({
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
     if (webEmbedPath) {
       return {
-        uri: platformEnv.isNativeAndroid
-          ? `file://${webEmbedPath}/index.html`
-          : webEmbedPath,
+        uri: `file://${webEmbedPath}/index.html`,
       };
     }
     // Android
