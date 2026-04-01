@@ -44,6 +44,7 @@ import { usePortfolioData } from '../components/InformationTabs/components/Portf
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
+import { StockTokenOverview } from '../components/TokenOverview/StockTokenOverview';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 function MobileTradingViewTouchBridge({
@@ -71,8 +72,13 @@ function MobileTradingViewTouchBridge({
 }
 
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
-  const { tokenAddress, networkId, tokenDetail, websocketConfig } =
-    useTokenDetail();
+  const {
+    tokenAddress,
+    networkId,
+    tokenDetail,
+    websocketConfig,
+    isStockToken,
+  } = useTokenDetail();
   const tokenSymbol = tokenDetail?.symbol;
   const intl = useIntl();
 
@@ -300,8 +306,14 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             onTouchStart={handleSecondTabTouchStart}
             onTouchEnd={handleSecondTabTouchEnd}
           >
-            <TokenOverview />
-            <TokenActivityOverview />
+            {isStockToken ? (
+              <StockTokenOverview />
+            ) : (
+              <>
+                <TokenOverview />
+                <TokenActivityOverview />
+              </>
+            )}
             <Stack h={100} w="100%" />
           </ScrollView>
         </YStack>
@@ -315,6 +327,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       tokenDetail?.logoUrl,
       handleSecondTabTouchStart,
       handleSecondTabTouchEnd,
+      isStockToken,
     ],
   );
 
