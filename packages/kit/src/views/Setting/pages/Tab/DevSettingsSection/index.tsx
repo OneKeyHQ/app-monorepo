@@ -939,7 +939,7 @@ const BaseDevSettingsSection = () => {
                         icon="CodeOutline"
                         title="JS Bundle Manager"
                         subtitle="Manage and switch JS bundles"
-                        searchKeywords="bundle commit version branch hash 热更新"
+                        searchKeywords="bundle commit version branch hash"
                         onPress={() => {
                           navigation.push(
                             EModalSettingRoutes.SettingDevBundleManagerModal,
