@@ -83,7 +83,6 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 
-import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { CrashDevSettings } from './CrashDevSettings';
@@ -1520,8 +1519,6 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
-                      <AddressBookDevSetting />
-
                       <SectionFieldItem
                         icon="WalletOutline"
                         name="allowAddSameHDWallet"
