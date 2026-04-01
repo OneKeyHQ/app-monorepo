@@ -13,7 +13,7 @@ interface IShareButtonProps {
   networkId: string;
   address: string;
   isNative?: boolean;
-  size?: IIconButtonProps['size'] | string;
+  size?: string;
   useIconButton?: boolean;
 }
 
@@ -45,7 +45,7 @@ export function ShareButton({
       <IconButton
         icon="ShareOutline"
         variant="tertiary"
-        size={size || 'medium'}
+        size={(size as IIconButtonProps['size']) || 'medium'}
         onPress={handleShare}
       />
     );
