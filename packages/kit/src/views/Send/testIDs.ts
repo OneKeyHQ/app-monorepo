@@ -14,7 +14,7 @@ export const SendTestIDs = {
   pasteButton: 'send-paste-button',
 
   // Send confirm
-  confirmPage: 'tx-confirmation-body', // preserve existing
+  confirmPage: 'send-confirm-page',
   confirmButton: 'send-confirm-button',
   cancelButton: 'send-cancel-button',
 
