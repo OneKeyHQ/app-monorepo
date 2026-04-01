@@ -5,6 +5,8 @@ import { Stack } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ErrorBoundarySimple } from '../ErrorBoundary';
+
 // Helper type to extract component props from a lazy-loaded module
 type IExtractComponentProps<T> = T extends () => Promise<{
   default: ComponentType<infer P>;
@@ -28,11 +30,9 @@ export function LazyLoadPage<
     fallback,
   );
   function LazyLoadPageContainer(props: IExtractComponentProps<T>) {
-    if (unStyle) {
-      return <LazyLoadComponent {...props} />;
-    }
-
-    return (
+    const content = unStyle ? (
+      <LazyLoadComponent {...props} />
+    ) : (
       <Stack
         flex={1}
         className="LazyLoadPageContainer"
@@ -48,6 +48,10 @@ export function LazyLoadPage<
         <LazyLoadComponent {...props} />
       </Stack>
     );
+
+    // ErrorBoundary catches React.lazy failures (segment load errors)
+    // so the app doesn't white-screen crash (§7.7 non-critical lazy segment).
+    return <ErrorBoundarySimple>{content}</ErrorBoundarySimple>;
   }
   return memo(LazyLoadPageContainer) as ComponentType<
     IExtractComponentProps<T>

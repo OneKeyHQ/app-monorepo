@@ -64,6 +64,7 @@ const allocationRules = [
       'packages/kit-bg/src/states/jotai/',
       'packages/components/src/hocs/Provider/',
       'packages/components/src/layouts/',
+      'packages/kit/src/components/LazyLoadPage/',
       'packages/kit/src/provider/',
       'packages/kit/src/routes/',
     ],
