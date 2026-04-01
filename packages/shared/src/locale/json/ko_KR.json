@@ -3336,6 +3336,8 @@
   "redemption.status_pending": "대기 중",
   "redemption.status_success": "성공",
   "redemption.success_title": "교환 성공",
+  "referral.link_perps_desc": "Perps 거래에 초대",
+  "referral.link_perps_title": "Perps",
   "referral.accept": "수용하다",
   "referral.address_update_desc": "코드가 {mail}로 전송되었습니다. 주소를 업데이트하기 전에 확인해 주세요.",
   "referral.address_updated": "수신 주소가 업데이트되었습니다",

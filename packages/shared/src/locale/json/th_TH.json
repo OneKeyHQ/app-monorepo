@@ -3336,6 +3336,8 @@
   "redemption.status_pending": "รอดำเนินการ",
   "redemption.status_success": "สำเร็จ",
   "redemption.success_title": "แลกของรางวัลสำเร็จ",
+  "referral.link_perps_desc": "เชิญเทรด Perps",
+  "referral.link_perps_title": "Perps",
   "referral.accept": "ยอมรับ",
   "referral.address_update_desc": "รหัสได้ถูกส่งไปยัง {mail} กรุณายืนยันก่อนที่จะอัปเดตที่อยู่",
   "referral.address_updated": "ที่อยู่สำหรับรับได้รับการอัปเดต",

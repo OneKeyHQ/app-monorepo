@@ -3336,6 +3336,8 @@
   "redemption.status_pending": "लंबित",
   "redemption.status_success": "सफल",
   "redemption.success_title": "रिडेम्प्शन सफल",
+  "referral.link_perps_desc": "Perps ट्रेड करने के लिए आमंत्रित करें",
+  "referral.link_perps_title": "Perps",
   "referral.accept": "स्वीकार करना",
   "referral.address_update_desc": "{mail} पर एक कोड भेजा गया है, कृपया पता अपडेट करने से पहले सत्यापित करें।",
   "referral.address_updated": "प्राप्ति पता अपडेट किया गया",

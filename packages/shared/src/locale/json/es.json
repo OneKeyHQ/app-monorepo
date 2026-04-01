@@ -3336,6 +3336,8 @@
   "redemption.status_pending": "Pendiente",
   "redemption.status_success": "Éxito",
   "redemption.success_title": "Canje exitoso",
+  "referral.link_perps_desc": "Invitar a operar perps",
+  "referral.link_perps_title": "Perps",
   "referral.accept": "Aceptar",
   "referral.address_update_desc": "Se ha enviado un código a {mail}, por favor verifique antes de actualizar la dirección.",
   "referral.address_updated": "Dirección de recepción actualizada",

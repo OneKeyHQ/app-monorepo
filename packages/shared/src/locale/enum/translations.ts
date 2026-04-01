@@ -3341,6 +3341,8 @@ export enum ETranslations {
   redemption_status_pending = 'redemption.status_pending',
   redemption_status_success = 'redemption.status_success',
   redemption_success_title = 'redemption.success_title',
+  referral_link_perps_desc = 'referral.link_perps_desc',
+  referral_link_perps_title = 'referral.link_perps_title',
   referral_accept = 'referral.accept',
   referral_address_update_desc = 'referral.address_update_desc',
   referral_address_updated = 'referral.address_updated',
