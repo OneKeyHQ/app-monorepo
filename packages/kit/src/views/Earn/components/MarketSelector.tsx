@@ -141,8 +141,8 @@ const MarketSelectorDesktop = ({
   );
 };
 
-// Horizontal inset for the underline within each tab cell
-const UNDERLINE_INSET = 0;
+// Horizontal inset for the underline (matches $5 = 20)
+const UNDERLINE_INSET = 20;
 
 const animatedStyles = StyleSheet.create({
   container: {
@@ -319,8 +319,8 @@ const MarketSelectorMobile = ({
             <YStack
               position="absolute"
               bottom={0}
-              left={0}
-              right={0}
+              left="$5"
+              right="$5"
               h="$0.5"
               bg="$text"
               borderRadius={1}
@@ -344,7 +344,7 @@ const MarketSelectorMobile = ({
   // When pageScrollPosition is available, render the animated tab bar
   if (pageScrollPosition) {
     return (
-      <Stack px="$pagePadding" pt="$4">
+      <Stack px="$3" pt="$4">
         <AnimatedTabBar
           pageScrollPosition={pageScrollPosition}
           onModeChange={onModeChange}
@@ -355,7 +355,7 @@ const MarketSelectorMobile = ({
 
   // Fallback: SegmentControl-based approach for web/tablet
   return (
-    <Stack px="$pagePadding" pt="$4">
+    <Stack px="$3" pt="$4">
       <SegmentControl
         value={mode}
         options={options}
