@@ -13,6 +13,23 @@ export class SimpleDbEntityAddressBook extends SimpleDbEntityBase<IAddressBookDa
 
   override enableCache = false;
 
+  // Primary methods (hash-free)
+
+  updateItems(items: IAddressItem[]) {
+    return this.setRawData(() => ({
+      items,
+      hash: '',
+      backupHash: '',
+    }));
+  }
+
+  async getItems(): Promise<IAddressItem[]> {
+    const rawData = await this.getRawData();
+    return rawData?.items ?? [];
+  }
+
+  // Legacy methods (kept for migration compatibility)
+
   updateItemsAndHash({ items, hash }: { items: IAddressItem[]; hash: string }) {
     return this.setRawData((rawData) => ({
       items,
@@ -26,16 +43,12 @@ export class SimpleDbEntityAddressBook extends SimpleDbEntityBase<IAddressBookDa
     return { items: rawData?.items ?? [], hash: rawData?.hash ?? '' };
   }
 
-  setBackupHash(text: string) {
+  clearBackupHash() {
     return this.setRawData((rawData) => ({
       items: rawData?.items ?? [],
       hash: rawData?.hash ?? '',
-      backupHash: text,
+      backupHash: '',
     }));
-  }
-
-  clearBackupHash() {
-    return this.setBackupHash('');
   }
 
   async getBackupHash() {
