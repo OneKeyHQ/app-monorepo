@@ -1569,6 +1569,10 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
+                      <SearchFilterItem keywords="AddressBook 地址簿">
+                        <AddressBookDevSetting />
+                      </SearchFilterItem>
+
                       <SectionFieldItem
                         icon="WalletOutline"
                         name="allowAddSameHDWallet"
