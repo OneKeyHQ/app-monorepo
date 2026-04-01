@@ -125,6 +125,7 @@ function BaseMarketTokenSelectorContent() {
           isLoading={searchLoading}
           items={searchTokenList}
           onPress={handleSelectToken}
+          rowBg="$bg"
         />
       ) : (
         <>
