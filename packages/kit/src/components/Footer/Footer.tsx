@@ -79,7 +79,7 @@ export function PerpFooterActions() {
   );
 
   return (
-    <>
+    <XStack alignItems="center" gap="$3" flexShrink={0}>
       <XStack
         alignItems="center"
         gap="$1"
@@ -113,7 +113,7 @@ export function PerpFooterActions() {
           },
         ]}
       />
-    </>
+    </XStack>
   );
 }
 
@@ -159,7 +159,8 @@ export function Footer() {
   return (
     <XStack
       width="100%"
-      px="$2"
+      pl="$2"
+      pr="$6"
       py="$2"
       borderTopWidth={1}
       borderTopColor="$borderSubdued"

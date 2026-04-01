@@ -13,6 +13,10 @@ import {
   View,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 import {
   batchGetPublicKeys,
@@ -94,6 +98,7 @@ function CustomAccordionItem({
         <SizableText>{title}</SizableText>
         <View
           animation="quick"
+          animateOnly={ANIMATE_ONLY_TRANSFORM}
           rotate={isOpen ? '0deg' : '-90deg'}
           transformOrigin="center"
         >
@@ -103,6 +108,7 @@ function CustomAccordionItem({
 
       <YStack
         animation="quick"
+        animateOnly={ANIMATE_ONLY_OPACITY}
         opacity={isOpen ? 1 : 0}
         overflow="hidden"
         style={{
