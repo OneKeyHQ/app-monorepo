@@ -97,7 +97,7 @@ interface IHistoryItemBase {
   timestamp: string;
 }
 
-interface IHistoryItemDetail extends IHistoryItemBase {
+export interface IHistoryItemDetail extends IHistoryItemBase {
   block: number | null;
   nonce: number;
   confirmations: number | null;

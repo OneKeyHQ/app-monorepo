@@ -306,7 +306,7 @@ section_swap() {
     skip "swap execute (build failed)"
   fi
   # Swap status: conditional on execute success (needs txHash)
-  if [ "$se_status" = "success" ] && [ -n "$sb_orderId" ]; then
+  if [ "${se_status:-}" = "success" ] && [ -n "${sb_orderId:-}" ]; then
     local ss_output
     ss_output=$("$BIN" --json --env test swap status --chain eth \
       --order "$sb_orderId" 2>/dev/null) || true

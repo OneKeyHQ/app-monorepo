@@ -2,7 +2,7 @@ import { secureWipe } from './crypto-utils';
 
 interface ICacheEntry {
   value: Buffer;
-  timerId: NodeJS.Timeout;
+  timerId: ReturnType<typeof setTimeout>;
 }
 
 const DEFAULT_TTL_MS = 1_800_000; // 30 minutes
@@ -14,7 +14,7 @@ export class SecureCache {
     const effectiveTtl = ttlMs <= 0 ? DEFAULT_TTL_MS : ttlMs;
     this.delete(key);
 
-    const timerId: NodeJS.Timeout = setTimeout(() => {
+    const timerId: ReturnType<typeof setTimeout> = setTimeout(() => {
       this.delete(key);
     }, effectiveTtl);
 

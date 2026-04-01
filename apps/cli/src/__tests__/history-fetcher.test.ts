@@ -1,3 +1,4 @@
+import type { IHistoryItemDetail } from '../core/history-fetcher';
 import {
   formatAmount,
   formatHistoryItem,
@@ -141,7 +142,12 @@ describe('history-fetcher', () => {
     });
 
     it('includes detail fields when detail=true', () => {
-      const result = formatHistoryItem(baseTx, TOKENS_MAP, 18, true);
+      const result = formatHistoryItem(
+        baseTx,
+        TOKENS_MAP,
+        18,
+        true,
+      ) as IHistoryItemDetail;
       expect(result.block).toBe(19_234_567);
       expect(result.nonce).toBe(5);
       expect(result.confirmations).toBe(128);
