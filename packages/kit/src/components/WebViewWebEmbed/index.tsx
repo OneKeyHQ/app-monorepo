@@ -29,6 +29,7 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
+import type { WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
 // /onboarding/auto_typing
@@ -196,7 +197,7 @@ export function WebViewWebEmbed({
     }
   }, []);
 
-  const handleError = useCallback((event: { nativeEvent: any }) => {
+  const handleError = useCallback((event: WebViewErrorEvent) => {
     const { code, description, url } = event?.nativeEvent || {};
     defaultLogger.app.webembed.webViewOnError({
       code: code || 0,
