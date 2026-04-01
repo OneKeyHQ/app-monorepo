@@ -163,13 +163,19 @@ export function MarketTradeButton({
       ) : (
         <>
           {platformEnv.isWeb && actionDisabled ? (
-            <Button flex={1} variant="primary" onPress={showAccountSelector}>
+            <Button
+              flex={1}
+              variant="primary"
+              onPress={showAccountSelector}
+              testID="market-handle-buy-btn"
+            >
               {intl.formatMessage({ id: ETranslations.global_connect })}
             </Button>
           ) : (
             <>
               <XStack gap="$2.5" flex={1}>
                 <Button
+                  testID="market-handle-buy-btn"
                   flex={1}
                   variant="primary"
                   onPress={handleSwap}
@@ -179,6 +185,7 @@ export function MarketTradeButton({
                 </Button>
                 {canStaking ? (
                   <Button
+                    testID="market-btn"
                     flex={1}
                     variant="secondary"
                     onPress={handleStaking}
@@ -190,6 +197,7 @@ export function MarketTradeButton({
                 {show.buy ? (
                   <ReviewControl>
                     <Button
+                      testID="market-btn"
                       flex={1}
                       variant="secondary"
                       onPress={handleBuy}
@@ -207,6 +215,7 @@ export function MarketTradeButton({
                     title={token.symbol.toUpperCase() || ''}
                     renderTrigger={
                       <IconButton
+                        testID="market-icon-btn"
                         title={intl.formatMessage({
                           id: ETranslations.global_more,
                         })}

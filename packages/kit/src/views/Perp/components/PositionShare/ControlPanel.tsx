@@ -92,6 +92,7 @@ export function ControlPanel({
       <XStack gap="$6" mb={isMobile ? '$4' : undefined} alignItems="center">
         <YStack gap="$1" alignItems="center">
           <IconButton
+            testID="perp-icon-btn"
             title={intl.formatMessage({
               id: ETranslations.perps_share_position_btn_save_img,
             })}
@@ -116,6 +117,7 @@ export function ControlPanel({
         {isMobile ? (
           <YStack gap="$1" alignItems="center">
             <IconButton
+              testID="perp-icon-btn"
               title={intl.formatMessage({
                 id: ETranslations.explore_share,
               })}
@@ -140,6 +142,7 @@ export function ControlPanel({
         ) : null}
         <YStack gap="$1" alignItems="center">
           <IconButton
+            testID="perp-icon-btn"
             title={intl.formatMessage({
               id: ETranslations.perps_share_position_btn_copy_link,
             })}
@@ -164,6 +167,7 @@ export function ControlPanel({
         </YStack>
         <YStack gap="$1" alignItems="center">
           <IconButton
+            testID="perp-icon-btn"
             title={intl.formatMessage({
               id: ETranslations.perps_share_position_btn_Share_on_x,
             })}

@@ -71,6 +71,7 @@ export function ContractAddress({
         {contractAddress}
       </SizableText>
       <IconButton
+        testID="universal-search-gap-icon-btn"
         variant="tertiary"
         size="small"
         iconSize={iconSize}

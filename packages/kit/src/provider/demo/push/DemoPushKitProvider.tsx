@@ -22,12 +22,14 @@ export function DemoPushKitProvider() {
     <SafeAreaView style={{ flex: 1 }}>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Button
+          testID="provider-demo-push-kit-provider-btn"
           title="打开权限设置"
           onPress={() => {
             void linkingOpenSettings();
           }}
         />
         <Button
+          testID="provider-demo-push-kit-provider-btn"
           title="显示本地通知"
           onPress={async () => {
             const uuid = UUID.v4() as string;

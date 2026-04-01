@@ -61,6 +61,7 @@ export function ThemeButton({ size, iconSize }: IThemeButtonProps) {
 
   return (
     <Select
+      testID="tab-page-header-handle-change-select"
       title={intl.formatMessage({ id: ETranslations.settings_theme })}
       items={options}
       value={theme}

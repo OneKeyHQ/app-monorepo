@@ -269,6 +269,7 @@ function AccountAccordionItem({
         {account.name}
       </SizableText>
       <Switch
+        testID="setting-switch"
         size="small"
         value={isAccountEnabled}
         onChange={(value) => toggleAccountSwitch(value, account)}
@@ -487,6 +488,7 @@ function WalletAccordionItem({
               </XStack>
             </XStack>
             <Switch
+              testID="setting-switch"
               size="small"
               value={isWalletEnabled}
               onChange={toggleWalletSwitch}
@@ -653,7 +655,7 @@ function LoadingView({ show }: { show: boolean }) {
             <Skeleton w="$10" h="$10" radius={8} />
             <Skeleton.BodyLg />
           </XStack>
-          <Switch size="small" disabled />
+          <Switch size="small" disabled testID="setting-loading-view-switch" />
         </XStack>
       ))}
     </Skeleton.Group>

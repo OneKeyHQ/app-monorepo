@@ -171,6 +171,7 @@ export const EditableListItem = ({
               {Array.isArray(actions)
                 ? actions?.map((action) => (
                     <Button
+                      testID="chain-selector-btn"
                       key={action.title}
                       size="small"
                       variant="secondary"

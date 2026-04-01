@@ -72,6 +72,7 @@ export function EarnValidatorSelect({
           <EarnTooltip tooltip={tooltip} />
         </XStack>
         <Select
+          testID="staking-selected-option-select"
           title={select.title?.text ?? ''}
           items={items}
           value={selectedValue}

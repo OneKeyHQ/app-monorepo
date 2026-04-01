@@ -68,6 +68,7 @@ export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
         网络选择器 {selectedAccount.networkId}
       </SizableText>
       <Select
+        testID="account-selector-actions-select"
         items={items}
         value={selectedAccount.networkId}
         onChange={(id) =>

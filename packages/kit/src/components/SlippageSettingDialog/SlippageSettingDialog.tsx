@@ -153,6 +153,7 @@ const SlippageSettingDialog = ({
               (item: number, index: number) => (
                 <>
                   <Button
+                    testID="slippage-setting-dialog-key-value-btn"
                     key={item}
                     variant="secondary"
                     size="medium"

@@ -197,6 +197,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       <YStack gap="$2">
         <XStack>
           <Button
+            testID="prime-btn"
             width="auto"
             size="small"
             variant="tertiary"

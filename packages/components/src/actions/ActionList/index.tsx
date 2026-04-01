@@ -348,7 +348,11 @@ function BasicActionList({
 
   const trigger = useMemo(() => {
     return (
-      <Trigger onPress={handleActionListOpen} disabled={disabled}>
+      <Trigger
+        onPress={handleActionListOpen}
+        disabled={disabled}
+        testID="src-trigger-trigger"
+      >
         {renderTrigger}
       </Trigger>
     );
@@ -571,7 +575,11 @@ function ActionListFrame(props: IActionListProps) {
     return <BasicActionList {...props} />;
   }
   return (
-    <Trigger onPress={handleActionListOpen} disabled={disabled}>
+    <Trigger
+      onPress={handleActionListOpen}
+      disabled={disabled}
+      testID="src-handle-action-list-open-trigger"
+    >
       {renderTrigger}
     </Trigger>
   );

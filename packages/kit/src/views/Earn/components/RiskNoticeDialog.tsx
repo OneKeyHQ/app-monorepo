@@ -67,6 +67,7 @@ function RiskNoticeDialogContent({
       {riskNoticeDialogContent.checkboxes.map((checkbox) => (
         <XStack key={checkbox.text} alignItems="flex-start" gap="$2">
           <Checkbox
+            testID="earn-is-confirm-disabled-checkbox"
             labelContainerProps={{
               flex: 1,
             }}

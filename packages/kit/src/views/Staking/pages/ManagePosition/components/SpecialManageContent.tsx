@@ -78,6 +78,7 @@ export function SpecialManageContent({
     if (isSingleButton && primaryButton) {
       return (
         <Button
+          testID="staking-action-buttons-content-btn"
           variant={primaryButton.variant ?? 'primary'}
           onPress={primaryButton.onPress}
           disabled={primaryButton.disabled}
@@ -94,6 +95,7 @@ export function SpecialManageContent({
           {secondaryButton ? (
             <YStack flex={1}>
               <Button
+                testID="staking-action-buttons-content-btn"
                 variant={secondaryButton.variant}
                 onPress={secondaryButton.onPress}
                 disabled={secondaryButton.disabled}
@@ -106,6 +108,7 @@ export function SpecialManageContent({
           {primaryButton ? (
             <YStack flex={1}>
               <Button
+                testID="staking-btn"
                 variant={primaryButton.variant ?? 'primary'}
                 onPress={primaryButton.onPress}
                 disabled={primaryButton.disabled}
@@ -148,6 +151,7 @@ export function SpecialManageContent({
 
     return (
       <Button
+        testID="staking-render-history-right-button-btn"
         variant="tertiary"
         size="small"
         icon="ClockTimeHistoryOutline"

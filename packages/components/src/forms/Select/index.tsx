@@ -84,7 +84,11 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
     : (value as string);
   const label = useTriggerLabel(renderValue);
   return (
-    <Trigger onPress={handleTriggerPressed} disabled={disabled}>
+    <Trigger
+      onPress={handleTriggerPressed}
+      disabled={disabled}
+      testID="src-label-trigger"
+    >
       {renderTrigger({
         onPress: renderTriggerOnPress,
         value: renderValue,

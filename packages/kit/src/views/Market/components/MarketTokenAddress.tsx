@@ -101,6 +101,7 @@ export function MarketTokenAddress({
         )}`}</SizableText>
       </XStack>
       <IconButton
+        testID="market-icon-btn"
         title={intl.formatMessage({ id: ETranslations.global_copy })}
         variant="tertiary"
         color="$iconSubdued"
@@ -117,6 +118,7 @@ export function MarketTokenAddress({
         }}
       />
       <IconButton
+        testID="market-icon-btn"
         title={intl.formatMessage({
           id: ETranslations.global_view_in_blockchain_explorer,
         })}

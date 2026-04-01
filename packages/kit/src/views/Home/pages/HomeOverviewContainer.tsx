@@ -316,6 +316,7 @@ function HomeOverviewContainer() {
   const refreshButton = useMemo(() => {
     return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
       <IconButton
+        testID="home-refresh-button-icon-btn"
         icon="RefreshCcwOutline"
         variant="tertiary"
         loading={isLoading}
@@ -671,6 +672,7 @@ function HomeOverviewContainer() {
       </YStack>
       {vaultSettings?.hasFrozenBalance ? (
         <Button
+          testID="home-btn"
           onPress={handleBalanceDetailsOnPress}
           variant="tertiary"
           size="small"
@@ -683,6 +685,7 @@ function HomeOverviewContainer() {
       ) : undefined}
       {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
+          testID="home-btn"
           onPress={handleResourceDetailsOnPress}
           variant="tertiary"
           size="small"

@@ -314,6 +314,7 @@ function ReferralCodeBlock({
             renderErrorMessage={() => <></>}
           >
             <Input
+              testID="home-render-referral-code-actions-input"
               h={48}
               size="large"
               // w="100%"
@@ -332,6 +333,7 @@ function ReferralCodeBlock({
           </Form.Field>
         </Stack>
         <Button
+          testID="home-btn"
           size="large"
           variant="secondary"
           onPress={handleJoinReferral}

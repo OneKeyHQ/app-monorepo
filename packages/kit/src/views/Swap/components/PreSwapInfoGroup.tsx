@@ -125,6 +125,7 @@ const PreSwapInfoGroup = ({
     return (
       <XStack alignItems="center" gap="$2">
         <Select
+          testID="swap-network-fee-select-select"
           onChange={onSelectNetworkFeeLevel}
           renderTrigger={() => (
             <XStack cursor="pointer" gap="$1" alignItems="center">

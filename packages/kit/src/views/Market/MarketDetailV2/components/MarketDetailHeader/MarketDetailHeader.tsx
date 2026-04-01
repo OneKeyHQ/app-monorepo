@@ -151,6 +151,7 @@ export function MarketDetailHeader() {
                       })}
                     </SizableText>
                     <InteractiveIcon
+                      testID="market-icon"
                       icon="Copy3Outline"
                       size="$4"
                       onPress={() => {

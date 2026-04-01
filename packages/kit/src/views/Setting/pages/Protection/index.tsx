@@ -120,7 +120,10 @@ const SettingProtectionModal = () => {
           <Empty
             icon="UnlockedOutline"
             button={
-              <Button onPress={() => checkEnableProtection()}>
+              <Button
+                onPress={() => checkEnableProtection()}
+                testID="setting-render-enable-protection-btn"
+              >
                 {intl.formatMessage({
                   id: ETranslations.global_unlock,
                 })}
@@ -144,6 +147,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              testID="setting-switch"
               size={ESwitchSize.small}
               value={tokenRiskReminder}
               onChange={async (value) => {
@@ -164,6 +168,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              testID="setting-switch"
               size={ESwitchSize.small}
               value={isEnableTransferAllowList}
               onChange={async (value) => {
@@ -192,6 +197,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              testID="setting-switch"
               size={ESwitchSize.small}
               value={!protectCreateTransaction}
               onChange={async (value) => {
@@ -209,6 +215,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              testID="setting-switch"
               size={ESwitchSize.small}
               value={!protectCreateOrRemoveWallet}
               onChange={async (value) => {

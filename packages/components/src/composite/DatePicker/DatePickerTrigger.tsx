@@ -121,6 +121,7 @@ export const DatePickerTrigger = memo(
 
     return (
       <Input
+        testID="src-add-ons-input"
         value={hasValue ? displayValue : ''}
         disabled={disabled}
         placeholder={placeholder || displayValue}

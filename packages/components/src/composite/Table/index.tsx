@@ -540,6 +540,7 @@ function BasicTable<T>({
           right={gtMd ? '$8' : '$4'}
         >
           <IconButton
+            testID="src-icon-btn"
             title=""
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$transparent"

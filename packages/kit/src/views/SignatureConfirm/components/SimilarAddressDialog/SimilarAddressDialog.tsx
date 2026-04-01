@@ -193,6 +193,7 @@ function SimilarAddressContent({
       </XStack>
       <YStack gap="$6">
         <Checkbox
+          testID="signature-confirm-checkbox"
           value={checkState}
           label={intl.formatMessage({
             id: ETranslations.wallet_i_understand_risks_and_proceed,

@@ -70,23 +70,43 @@ export function MarketListTradeButton({
   return (
     <XStack gap="$1.5">
       {platformEnv.isWeb && !wallet ? (
-        <Button variant="primary" size="small" onPress={showAccountSelector}>
+        <Button
+          variant="primary"
+          size="small"
+          onPress={showAccountSelector}
+          testID="market-on-staking-btn"
+        >
           {intl.formatMessage({ id: ETranslations.global_connect })}
         </Button>
       ) : (
         <>
-          <Button variant="secondary" size="small" onPress={onSwap}>
+          <Button
+            variant="secondary"
+            size="small"
+            onPress={onSwap}
+            testID="market-on-staking-btn"
+          >
             {intl.formatMessage({ id: ETranslations.global_trade })}
           </Button>
           {isSupportBuy ? (
             <ReviewControl>
-              <Button variant="secondary" size="small" onPress={onBuy}>
+              <Button
+                variant="secondary"
+                size="small"
+                onPress={onBuy}
+                testID="market-on-staking-btn"
+              >
                 {intl.formatMessage({ id: ETranslations.global_buy })}
               </Button>
             </ReviewControl>
           ) : null}
           {canStaking ? (
-            <Button variant="secondary" size="small" onPress={onStaking}>
+            <Button
+              variant="secondary"
+              size="small"
+              onPress={onStaking}
+              testID="market-on-staking-btn"
+            >
               {intl.formatMessage({ id: ETranslations.global_earn })}
             </Button>
           ) : null}

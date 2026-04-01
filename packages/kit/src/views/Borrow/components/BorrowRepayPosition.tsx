@@ -993,6 +993,7 @@ function RepayWithCollateralForm({
               style={arrowOverlayStyle}
             >
               <IconButton
+                testID="borrow-icon-btn"
                 alignSelf="center"
                 bg="$bgApp"
                 variant="tertiary"

@@ -287,6 +287,7 @@ function BasicPortfolioActionIcon({
 
   return (
     <Button
+      testID="staking-on-portfolio-details-btn"
       disabled={actionIcon.disabled}
       variant="tertiary"
       iconAfter="ChevronRightOutline"
@@ -331,6 +332,7 @@ function BasicClaimActionIcon({
 
   return (
     <Button
+      testID="staking-handle-claim-action-btn"
       size="small"
       variant="primary"
       loading={loading}
@@ -385,6 +387,7 @@ function BasicListaCheckActionIcon({
 
   return (
     <Button
+      testID="staking-handle-press-btn"
       size="small"
       variant="primary"
       loading={loading}
@@ -496,6 +499,7 @@ function BasicClaimWithKycActionIcon({
 
   return (
     <Button
+      testID="staking-btn"
       size="small"
       variant="primary"
       loading={loading}
@@ -588,6 +592,7 @@ function BasicEarnActionIcon({
           title={title || ''}
           renderTrigger={
             <IconButton
+              testID="staking-claim-with-kyc-action-icon-btn"
               icon={actionIcon.data.icon.icon}
               size="small"
               variant="tertiary"
@@ -624,6 +629,7 @@ function BasicEarnActionIcon({
   }
   return icon ? (
     <IconButton
+      testID="staking-icon-btn"
       size="small"
       icon={icon}
       onPress={onPress}

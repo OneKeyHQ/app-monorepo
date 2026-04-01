@@ -818,6 +818,7 @@ function SelectPrivateKeyNetworkView() {
             name="accountName"
           >
             <Input
+              testID="onboardingv2-input"
               maxLength={MAX_LENGTH_ACCOUNT_NAME}
               placeholder={intl.formatMessage({
                 id: ETranslations.form_enter_account_name_placeholder,
@@ -929,6 +930,7 @@ function SelectPrivateKeyNetworkView() {
                         })}
                       </SizableText>
                       <Button
+                        testID="onboardingv2-btn"
                         variant="tertiary"
                         size="small"
                         onPress={handleShowMoreNetworks}
@@ -946,6 +948,7 @@ function SelectPrivateKeyNetworkView() {
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
           <Button
+            testID="onboardingv2-btn"
             w="100%"
             maxWidth={400}
             disabled={submitButtonDisabled}

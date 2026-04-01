@@ -209,6 +209,7 @@ const SwapProviderSelectModal = () => {
         })}
         renderTrigger={
           <IconButton
+            testID="swap-right-info-component-icon-btn"
             variant="tertiary"
             size="medium"
             icon="InfoCircleOutline"
@@ -274,6 +275,7 @@ const SwapProviderSelectModal = () => {
           if (type === ESwapProviderStatus.AVAILABLE) {
             return (
               <Select
+                testID="swap-select"
                 title={intl.formatMessage({
                   id: ETranslations.provider_sort_title,
                 })}
@@ -282,6 +284,7 @@ const SwapProviderSelectModal = () => {
                 value={providerSort}
                 renderTrigger={({ value, label, placeholder }) => (
                   <Button
+                    testID="swap-btn"
                     mt="$1"
                     alignSelf="flex-start"
                     variant="tertiary"

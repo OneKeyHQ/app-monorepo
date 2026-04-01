@@ -170,6 +170,7 @@ function WebDappEmptyView() {
             pb="$2"
           >
             <Button
+              testID="web-dapp-btn"
               size="small"
               variant="tertiary"
               onPress={handleShowMoreOptions}

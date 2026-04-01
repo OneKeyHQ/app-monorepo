@@ -34,6 +34,7 @@ function Back() {
   const navigation = useAppNavigation();
   return (
     <IconButton
+      testID="home-navigation-icon-btn"
       icon="ChevronLeftSolid"
       onPress={() => {
         if (getHomeTabStackLength() > 1) {

@@ -173,6 +173,7 @@ export default function ImportWatchedAccountV2() {
             </HeightTransition>
             {gtMd ? (
               <Button
+                testID="onboardingv2-btn"
                 disabled={isConfirmDisabled}
                 size="large"
                 variant="primary"
@@ -187,6 +188,7 @@ export default function ImportWatchedAccountV2() {
         {!gtMd ? (
           <OnboardingLayout.Footer>
             <Button
+              testID="onboardingv2-btn"
               disabled={isConfirmDisabled}
               size="large"
               variant="primary"

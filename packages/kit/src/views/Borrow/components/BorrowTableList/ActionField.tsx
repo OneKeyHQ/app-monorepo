@@ -108,6 +108,7 @@ export const ActionField = ({
   return (
     <XStack gap="$2" alignItems="center" justifyContent="flex-end">
       <Button
+        testID="borrow-btn"
         size="small"
         variant="secondary"
         disabled={disabled}
@@ -121,7 +122,12 @@ export const ActionField = ({
         <ActionList
           title=""
           renderTrigger={
-            <IconButton icon="DotVerOutline" size="small" variant="tertiary" />
+            <IconButton
+              icon="DotVerOutline"
+              size="small"
+              variant="tertiary"
+              testID="borrow-icon-btn"
+            />
           }
           items={actionItems}
         />

@@ -150,6 +150,7 @@ function BasicDialogHeader({
       {/* close button */}
       {showExitButton ? (
         <IconButton
+          testID="src-icon-btn"
           trackID={trackID}
           position="absolute"
           zIndex={1}

@@ -327,6 +327,7 @@ function StepActions(props: IKeylessKeyStepCardProps) {
         {shouldShowActionButtons ? (
           <YStack gap="$2">
             <Button
+              testID="onboardingv2-should-show-action-buttons-btn"
               variant="primary"
               onPress={onStepAction}
               loading={isStepLoading}
@@ -336,6 +337,7 @@ function StepActions(props: IKeylessKeyStepCardProps) {
             </Button>
             {onSecondaryAction && secondaryButtonText ? (
               <Button
+                testID="onboardingv2-btn"
                 variant="secondary"
                 onPress={onSecondaryAction}
                 loading={isStepLoading}

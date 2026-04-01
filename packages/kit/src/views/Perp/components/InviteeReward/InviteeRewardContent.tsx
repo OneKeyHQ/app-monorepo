@@ -43,6 +43,7 @@ function NoWalletEmptyState() {
         })}
       />
       <Button
+        testID="perp-to-on-boarding-page-btn"
         mt="$5"
         onPress={() => {
           void toOnBoardingPage();

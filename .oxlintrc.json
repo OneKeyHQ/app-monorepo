@@ -609,7 +609,13 @@
         "packages/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal/**/*.tsx",
         "packages/kit/src/views/Setting/pages/ClearAppCache/**/*.tsx",
         "packages/kit/src/views/Prime/pages/PrimeDashboard/PrimeDebugPanel.tsx",
-        "packages/kit/src/views/Prime/pages/PrimeCloudSync/PagePrimeCloudSyncDebug.tsx"
+        "packages/kit/src/views/Prime/pages/PrimeCloudSync/PagePrimeCloudSyncDebug.tsx",
+        "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/DevUnitTests/**/*.tsx",
+        "packages/kit/src/views/Setting/pages/DevBundleManagerModal/**/*.tsx",
+        "packages/kit/src/views/Onboardingv2/pages/KeylessOnboardingDebugPanel.tsx",
+        "packages/kit/src/views/Developer/pages/**/*.tsx",
+        "packages/kit/src/provider/Container/FullWindowOverlayContainer/DevOverlayWindow.tsx"
       ],
       "rules": {
         "onekey/require-testid": "off"

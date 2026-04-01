@@ -360,6 +360,7 @@ function OrderConfirmContent({
         {/* skip order confirm checkbox */}
         <XStack justifyContent="space-between" alignItems="center" gap="$2">
           <Checkbox
+            testID="perp-checkbox"
             labelProps={{
               fontSize: '$bodyMdMedium',
               color: '$textSubdued',
@@ -375,6 +376,7 @@ function OrderConfirmContent({
 
       <TradingGuardWrapper>
         <Button
+          testID="perp-btn"
           variant="primary"
           size="medium"
           disabled={isSubmitting}

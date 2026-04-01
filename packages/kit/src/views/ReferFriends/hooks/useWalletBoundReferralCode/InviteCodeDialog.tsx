@@ -225,6 +225,7 @@ export function InviteCodeDialog({
           })}
         </SizableText>
         <Select
+          testID="refer-friends-select"
           title={intl.formatMessage({
             id: ETranslations.referral_select_wallet,
           })}

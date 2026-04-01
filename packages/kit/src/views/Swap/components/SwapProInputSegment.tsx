@@ -21,6 +21,7 @@ const SwapProInputSegment = ({
         return (
           <Fragment key={`${item.value}-${index}`}>
             <Button
+              testID="swap-text-btn"
               onPress={() => onSelect(item.value)}
               size="small"
               py="$1.5"

@@ -506,6 +506,7 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
           </SizableText>
           <XStack gap="$2" flexWrap="wrap">
             <Button
+              testID="onboardingv2-btn"
               flex={1}
               minWidth="$40"
               icon="OpenOutline"
@@ -516,6 +517,7 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
               {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
             </Button>
             <Button
+              testID="onboardingv2-btn"
               flex={1}
               minWidth="$40"
               icon="HelpSupportOutline"
@@ -636,7 +638,12 @@ function BluetoothCard({
                 id: ETranslations.device_select_device_popup,
               })}
             </SizableText>
-            <Button variant="primary" mt="$2" onPress={onConnect}>
+            <Button
+              variant="primary"
+              mt="$2"
+              onPress={onConnect}
+              testID="onboardingv2-btn"
+            >
               {intl.formatMessage({
                 id: ETranslations.global_start_connection,
               })}
@@ -904,6 +911,7 @@ function USBOrBLEConnectionIndicator({
                     })}
                   </SizableText>
                   <Button
+                    testID="onboardingv2-btn"
                     variant="primary"
                     mt="$2"
                     onPress={onConnectWebDevice}
@@ -1169,7 +1177,12 @@ function QRWalletConnect({
       <SizableText color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.qr_connection_re_add })}
       </SizableText>
-      <Button mt="$3" size="large" onPress={handleCreateQRWallet}>
+      <Button
+        mt="$3"
+        size="large"
+        onPress={handleCreateQRWallet}
+        testID="onboardingv2-btn"
+      >
         {intl.formatMessage({ id: ETranslations.qr_connection_cta })}
       </Button>
     </YStack>
@@ -1308,7 +1321,11 @@ function ConnectYourDevicePage({
                       id: ETranslations.global_advanced,
                     })}
                     renderTrigger={
-                      <IconButton variant="tertiary" icon="DotHorOutline" />
+                      <IconButton
+                        variant="tertiary"
+                        icon="DotHorOutline"
+                        testID="onboardingv2-icon-btn"
+                      />
                     }
                     renderContent={
                       <QRWalletConnect

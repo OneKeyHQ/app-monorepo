@@ -230,7 +230,9 @@ const CoinControlStrategyPopover = ({
           />
         </YStack>
       }
-      renderTrigger={<Trigger label={selectedLabel} />}
+      renderTrigger={
+        <Trigger testID="coin-control-strategy-trigger" label={selectedLabel} />
+      }
       floatingPanelProps={{
         width: platformEnv.isNative ? '$72' : 353,
         borderRadius: '$6',

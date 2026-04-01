@@ -40,6 +40,7 @@ function LiquidityFilterControl({
       onOpenChange={setIsOpen}
       renderTrigger={
         <Button
+          testID="market-popover-title-btn"
           variant="tertiary"
           size="small"
           color="$text"

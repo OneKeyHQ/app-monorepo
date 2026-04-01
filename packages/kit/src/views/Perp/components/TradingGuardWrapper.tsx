@@ -89,7 +89,12 @@ function TradingGuardWrapperInternal({
 
   if (perpsAccountLoading.selectAccountLoading) {
     return (
-      <Button variant="primary" size="medium" disabled>
+      <Button
+        variant="primary"
+        size="medium"
+        disabled
+        testID="perp-is-disabled-btn"
+      >
         <Spinner />
       </Button>
     );
@@ -97,7 +102,12 @@ function TradingGuardWrapperInternal({
 
   if (perpsAccountStatus.accountNotSupport) {
     return (
-      <Button variant="primary" size="medium" disabled>
+      <Button
+        variant="primary"
+        size="medium"
+        disabled
+        testID="perp-is-disabled-btn"
+      >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
           {appLocale.intl.formatMessage({
             id: ETranslations.perp_trade_button_account_unsupported,
@@ -110,6 +120,7 @@ function TradingGuardWrapperInternal({
   if (shouldShowEnableTrading || !children) {
     return (
       <Button
+        testID="perp-is-disabled-btn"
         variant="primary"
         size="medium"
         disabled={disabled || isEnableTradingLoading}

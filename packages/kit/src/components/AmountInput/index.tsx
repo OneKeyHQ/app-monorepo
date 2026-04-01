@@ -121,6 +121,7 @@ export function AmountInput({
 
     return (
       <Input
+        testID="amount-input-input-element-input"
         autoCorrect={false}
         spellCheck={false}
         autoComplete="off"

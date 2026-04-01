@@ -244,6 +244,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
       {action ? (
         <XStack gap="$4" alignItems="center">
           <Button
+            testID="src-btn"
             size="small"
             variant={action.primaryVariant}
             onPress={action.onPrimaryPress}
@@ -254,6 +255,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
           </Button>
           {action.secondary ? (
             <Button
+              testID="src-btn"
               size="small"
               variant={action.secondaryVariant ?? 'tertiary'}
               onPress={action.onSecondaryPress}
@@ -267,6 +269,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
       ) : null}
       {closable ? (
         <IconButton
+          testID="src-icon-btn"
           title={intl.formatMessage({ id: ETranslations.explore_dismiss })}
           icon="CrossedSmallSolid"
           size="small"

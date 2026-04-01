@@ -61,7 +61,12 @@ function SignInSecurityPageView() {
               },
             }}
           >
-            <Input autoFocus flex={1} placeholder="Enter your email" />
+            <Input
+              autoFocus
+              flex={1}
+              placeholder="Enter your email"
+              testID="setting-handle-edit-email-input"
+            />
           </Dialog.FormField>
         </Dialog.Form>
       ),

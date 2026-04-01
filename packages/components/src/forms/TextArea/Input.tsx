@@ -65,6 +65,7 @@ function BaseTextArea(
   useAutoScrollToTop(ref);
   return (
     <Input
+      testID="src-ref-input"
       containerProps={textAreaContainerProps}
       addOnsContainerProps={textAreaAddOnsContainerProps}
       addOnsItemProps={textAreaAddOnsItemProps}

@@ -129,6 +129,7 @@ function PerpDesktopLayout() {
                       marginTop={-2}
                     >
                       <IconButton
+                        testID="perp-icon-btn"
                         icon={
                           showOrderBook
                             ? 'ChevronRightSmallSolid'

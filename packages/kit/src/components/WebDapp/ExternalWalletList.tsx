@@ -424,6 +424,7 @@ function KeylessProviderButtons() {
     <Stack px="$1.5" pb="$3" alignItems="center">
       <YStack w="100%" maxWidth={520} gap="$2">
         <Button
+          testID="web-dapp-connection-info-btn"
           bg="$gray3"
           hoverStyle={{ bg: '$gray4' }}
           pressStyle={{ bg: '$gray5' }}
@@ -461,6 +462,7 @@ function KeylessProviderButtons() {
           </XStack>
         </Button>
         <Button
+          testID="web-dapp-btn"
           bg="$gray3"
           hoverStyle={{ bg: '$gray4' }}
           pressStyle={{ bg: '$gray5' }}

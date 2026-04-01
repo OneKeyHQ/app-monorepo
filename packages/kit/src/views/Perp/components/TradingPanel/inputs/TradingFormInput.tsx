@@ -35,7 +35,11 @@ export const InputAccessoryDoneButton = ({
       borderTopColor="$borderSubduedLight"
     >
       {leftContent}
-      <Button variant="tertiary" onPress={() => Keyboard.dismiss()}>
+      <Button
+        variant="tertiary"
+        onPress={() => Keyboard.dismiss()}
+        testID="perp-is-keyboard-shown-btn"
+      >
         {intl.formatMessage({ id: ETranslations.global_done })}
       </Button>
     </XStack>
@@ -170,6 +174,7 @@ export const TradingFormInput = memo(
           }
         >
           <Input
+            testID="perp-input"
             flex={1}
             h={platformEnv.isNativeAndroid ? 40 : 36}
             size="small"
@@ -238,6 +243,7 @@ export const TradingFormInput = memo(
       >
         <YStack>
           <Input
+            testID="perp-input"
             h={32}
             placeholder={placeholder}
             textAlign="right"

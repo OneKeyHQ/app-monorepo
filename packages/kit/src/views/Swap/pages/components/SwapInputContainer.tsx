@@ -100,6 +100,7 @@ export function PercentageStageOnKeyboard({
           />
         ))}
         <Button
+          testID="swap-stage-list-to-show-btn"
           icon="KeyboardDownOutline"
           flex={1}
           h="$10"

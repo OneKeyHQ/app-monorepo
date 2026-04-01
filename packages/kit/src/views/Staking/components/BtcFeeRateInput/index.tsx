@@ -129,6 +129,7 @@ const BtcFeeRateInputDialogContent = ({
       {feeType === 'custom' ? (
         <YStack>
           <Input
+            testID="staking-is-disabled-input"
             addOns={[
               {
                 label: 'sat/vB',
@@ -174,6 +175,7 @@ const BtcFeeRateInputDialogContent = ({
       )}
       <Stack pt="$5">
         <Button
+          testID="staking-btn"
           size="large"
           variant="primary"
           onPress={onSave}

@@ -266,6 +266,7 @@ function CreateOrImportWallet() {
                         })}
                       </Card.Title>
                       <Button
+                        testID="onboardingv2-btn"
                         px="$1"
                         py="$0.5"
                         mx="$-1"
@@ -398,6 +399,7 @@ function CreateOrImportWallet() {
                       })}
                     </Card.Title>
                     <Button
+                      testID="onboardingv2-btn"
                       px="$1"
                       py="$0.5"
                       mx="$-1"
@@ -569,6 +571,7 @@ function CreateOrImportWallet() {
                         })}
                   </Card.Title>
                   <Button
+                    testID="onboardingv2-btn"
                     px="$1"
                     py="$0.5"
                     mx="$-1"
@@ -678,6 +681,7 @@ function CreateOrImportWallet() {
                     })}
                   </Card.Title>
                   <Button
+                    testID="onboardingv2-btn"
                     px="$1"
                     py="$0.5"
                     mx="$-1"

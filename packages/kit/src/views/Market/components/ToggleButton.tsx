@@ -19,7 +19,12 @@ function OptionButton({
     onPress(value);
   }, [onPress, value]);
   return (
-    <Button variant={variant} onPress={handlePress} {...props}>
+    <Button
+      variant={variant}
+      onPress={handlePress}
+      {...props}
+      testID="market-handle-press-btn"
+    >
       {label}
     </Button>
   );

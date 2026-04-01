@@ -78,6 +78,7 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   }
   return (
     <Select
+      testID="address-input-intl-select"
       title={intl.formatMessage({
         id: ETranslations.send_ens_choose_address_title,
       })}

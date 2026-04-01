@@ -23,6 +23,7 @@ function FeeSelectorTrigger(props: IProps) {
 
   return (
     <Button
+      testID="send-intl-btn"
       onPress={onPress}
       disabled={disabled}
       size="small"

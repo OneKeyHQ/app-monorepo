@@ -283,6 +283,7 @@ export function BundleItem({
 
         {!isCurrentBundle && (status === 'idle' || status === 'error') ? (
           <IconButton
+            testID="setting-download-disabled-icon-btn"
             icon="DownloadOutline"
             size="small"
             variant="tertiary"
@@ -352,6 +353,7 @@ export function BundleItem({
       {!isCurrentBundle && status === 'downloaded' ? (
         <XStack justifyContent="flex-end">
           <Button
+            testID="setting-btn"
             variant="primary"
             size="small"
             alignSelf="flex-end"

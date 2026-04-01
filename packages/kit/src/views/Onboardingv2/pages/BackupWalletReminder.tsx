@@ -87,7 +87,12 @@ export default function BackupWalletReminder() {
             ))}
           </YStack>
           {gtMd ? (
-            <Button size="large" variant="primary" onPress={handleContinue}>
+            <Button
+              size="large"
+              variant="primary"
+              onPress={handleContinue}
+              testID="onboardingv2-btn"
+            >
               {intl.formatMessage({
                 id: ETranslations.global_show_recovery_phrase,
               })}
@@ -97,6 +102,7 @@ export default function BackupWalletReminder() {
         {!gtMd ? (
           <OnboardingLayout.Footer>
             <Button
+              testID="onboardingv2-btn"
               w="100%"
               size="large"
               variant="primary"

@@ -122,7 +122,12 @@ export default function ShowRecoveryPhrase() {
   }, [copyText, intl, mnemonic]);
   const copyButton = useMemo(() => {
     return (
-      <Button size="large" onPress={handleCopyMnemonic} childrenAsText={false}>
+      <Button
+        size="large"
+        onPress={handleCopyMnemonic}
+        childrenAsText={false}
+        testID="onboardingv2-copy-button-btn"
+      >
         <Icon name="Copy3Outline" />
       </Button>
     );
@@ -174,6 +179,7 @@ export default function ShowRecoveryPhrase() {
             {gtMd ? (
               <XStack gap="$2">
                 <Button
+                  testID="onboardingv2-btn"
                   flex={1}
                   size="large"
                   variant="primary"
@@ -192,6 +198,7 @@ export default function ShowRecoveryPhrase() {
           <OnboardingLayout.Footer>
             <XStack gap="$2">
               <Button
+                testID="onboardingv2-btn"
                 flex={1}
                 size="large"
                 variant="primary"

@@ -93,6 +93,7 @@ const SwapInputActions = ({
             }}
           >
             <Button
+              testID="swap-btn"
               height="$5"
               px="$1.5"
               py="$0"

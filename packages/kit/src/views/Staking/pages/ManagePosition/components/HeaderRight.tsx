@@ -62,6 +62,7 @@ export const HeaderRight = ({
     <XStack ai="center" gap="$3.5">
       {showPendleControls ? (
         <IconButton
+          testID="staking-has-content-icon-btn"
           icon="SliderHorOutline"
           variant="tertiary"
           size="small"
@@ -73,6 +74,7 @@ export const HeaderRight = ({
       ) : null}
       {!pendingCount && showHistory ? (
         <Button
+          testID="staking-has-content-btn"
           h="$8"
           mr="unset"
           variant="tertiary"

@@ -285,7 +285,7 @@ function YourFeesSection({
         <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
           Failed to fetch fees. Please try again.
         </SizableText>
-        <Button size="small" onPress={onRetry}>
+        <Button size="small" onPress={onRetry} testID="perp-btn">
           Retry
         </Button>
       </YStack>

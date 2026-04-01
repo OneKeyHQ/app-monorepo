@@ -70,7 +70,10 @@ export const showDevModePasswordDialog = async () => {
               required: { value: true, message: 'password is required.' },
             }}
           >
-            <Input placeholder="Please enter the dev mode password." />
+            <Input
+              placeholder="Please enter the dev mode password."
+              testID="setting-input"
+            />
           </Dialog.FormField>
         </Dialog.Form>
       ),

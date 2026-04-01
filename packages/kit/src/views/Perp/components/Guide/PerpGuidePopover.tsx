@@ -18,6 +18,7 @@ export function PerpGuidePopover({
 
   const trigger = renderTrigger ?? (
     <IconButton
+      testID="perp-trigger-icon-btn"
       icon="BookOpenOutline"
       size="small"
       variant="tertiary"

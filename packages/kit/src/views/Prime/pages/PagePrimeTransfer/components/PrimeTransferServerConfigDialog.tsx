@@ -93,6 +93,7 @@ function ServerConfigContent() {
             />
             {serverType === EPrimeTransferServerType.CUSTOM && !isLoading ? (
               <Input
+                testID="prime-input"
                 autoFocus
                 size={gtMd ? 'medium' : 'large'}
                 placeholder={intl.formatMessage({
@@ -129,6 +130,7 @@ function ServerConfigContent() {
   return (
     <YStack gap="$4">
       <Radio
+        testID="prime-radio"
         value={serverType}
         onChange={(value) => setServerType(value as EPrimeTransferServerType)}
         options={radioOptions}

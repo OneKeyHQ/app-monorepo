@@ -381,6 +381,7 @@ export function PrimeLoginPasswordDialog({
                   return (
                     <Stack>
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_strong_password_desc,
                         })}
@@ -389,6 +390,7 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minLength}
                       />
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_password_number,
                         })}
@@ -397,6 +399,7 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minNumberCharacter}
                       />
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_password_letter,
                         })}
@@ -405,6 +408,7 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minLetterCharacter}
                       />
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_password_special_characters,
                         })}

@@ -329,6 +329,7 @@ const OverviewComponent = ({
             {totalFiatValue}
           </NumberSizeableText>
           <IconButton
+            testID="earn-icon-btn"
             icon="RefreshCcwOutline"
             variant="tertiary"
             loading={isLoading}
@@ -379,6 +380,7 @@ const OverviewComponent = ({
             placement="bottom-start"
             renderTrigger={
               <IconButton
+                testID="earn-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="InfoCircleOutline"

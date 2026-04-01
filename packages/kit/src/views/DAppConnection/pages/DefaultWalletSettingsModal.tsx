@@ -268,6 +268,7 @@ function DefaultWalletSettingsModal() {
           })}
         >
           <Switch
+            testID="d-app-connection-switch"
             size={ESwitchSize.small}
             value={result?.isDefaultWallet ?? true}
             onChange={onToggleDefaultWallet}

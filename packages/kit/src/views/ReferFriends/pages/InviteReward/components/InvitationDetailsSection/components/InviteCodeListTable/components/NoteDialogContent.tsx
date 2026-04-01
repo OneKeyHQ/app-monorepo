@@ -73,6 +73,7 @@ export function NoteDialogContent({
     <Stack gap="$5" py="$2">
       <Stack gap="$2">
         <Input
+          testID="refer-friends-handle-input-change-input"
           placeholder={intl.formatMessage({
             id: ETranslations.referral_code_created_placeholder,
           })}
@@ -91,10 +92,16 @@ export function NoteDialogContent({
         ) : null}
       </Stack>
       <XStack gap="$3" justifyContent="flex-end">
-        <Button size="medium" onPress={handleCancel} disabled={isSubmitting}>
+        <Button
+          size="medium"
+          onPress={handleCancel}
+          disabled={isSubmitting}
+          testID="refer-friends-btn"
+        >
           {intl.formatMessage({ id: ETranslations.global_cancel })}
         </Button>
         <Button
+          testID="refer-friends-btn"
           size="medium"
           variant="primary"
           onPress={handleSave}

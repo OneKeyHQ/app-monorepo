@@ -268,6 +268,7 @@ export function ImportSingleChainBase({
             name="accountName"
           >
             <Input
+              testID="onboarding-input"
               maxLength={MAX_LENGTH_ACCOUNT_NAME}
               placeholder={intl.formatMessage({
                 id: ETranslations.form_enter_account_name_placeholder,

@@ -129,6 +129,7 @@ export function LanguageListItem(props: ICustomElementProps) {
   const { options, value, onChange } = useLanguageSelector();
   return (
     <Select
+      testID="setting-language-list-item-select"
       offset={{ mainAxis: -4, crossAxis: -10 }}
       title={props?.title || ''}
       items={options}
@@ -196,6 +197,7 @@ export function ThemeListItem(props: ICustomElementProps) {
 
   return (
     <Select
+      testID="setting-on-change-select"
       offset={{ mainAxis: -4, crossAxis: -10 }}
       title={props?.title || ''}
       items={options}
@@ -380,6 +382,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
 
   return (
     <Select
+      testID="setting-new-transport-type-select"
       offset={{ mainAxis: -4, crossAxis: -10 }}
       title={props?.title || ''}
       items={transportOptions}
@@ -533,6 +536,7 @@ function SocialButton({
     <Tooltip
       renderTrigger={
         <IconButton
+          testID="setting-on-press-icon-btn"
           w={buttonSize}
           h={buttonSize}
           bg="$bgSubdued"
@@ -562,6 +566,7 @@ function SupportButton({ text }: { text: string }) {
     <Tooltip
       renderTrigger={
         <IconButton
+          testID="setting-on-press-icon-btn"
           bg="$bgSubdued"
           w={buttonSize}
           h={buttonSize}
@@ -736,6 +741,7 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID="setting-toggle-bluetooth-switch"
         size={ESwitchSize.small}
         value={enableDesktopBluetooth}
         onChange={toggleBluetooth}
@@ -757,6 +763,7 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID="setting-toggle-b-t-c-fresh-address-switch"
         alignSelf="flex-start"
         size={ESwitchSize.small}
         value={enableBTCFreshAddress}

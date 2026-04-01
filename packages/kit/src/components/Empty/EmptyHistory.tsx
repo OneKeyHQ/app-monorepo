@@ -74,7 +74,13 @@ function EmptyHistory({
         networkId={networkId ?? ''}
         indexedAccountId={indexedAccountId ?? account?.indexedAccountId ?? ''}
         renderSelectorTrigger={
-          <Button size="medium" variant="secondary" onPress={() => {}} mt="$6">
+          <Button
+            size="medium"
+            variant="secondary"
+            onPress={() => {}}
+            mt="$6"
+            testID="empty-render-view-in-explorer-button-btn"
+          >
             {intl.formatMessage({
               id: ETranslations.global_block_explorer,
             })}
@@ -91,6 +97,7 @@ function EmptyHistory({
       />
     ) : (
       <Button
+        testID="empty-btn"
         size="medium"
         variant="secondary"
         onPress={handleOnPress}

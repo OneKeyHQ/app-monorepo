@@ -51,7 +51,11 @@ function NewPinCreatedPage() {
                 })}
               </SizableText>
             </YStack>
-            <Button size="large" onPress={handleClose}>
+            <Button
+              size="large"
+              onPress={handleClose}
+              testID="onboardingv2-btn"
+            >
               {intl.formatMessage({ id: ETranslations.global_close })}
             </Button>
           </OnboardingLayout.ConstrainedContent>

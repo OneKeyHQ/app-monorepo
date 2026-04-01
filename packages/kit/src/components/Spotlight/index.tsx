@@ -236,6 +236,7 @@ function SpotlightContent({
           <Stack>{content}</Stack>
           <XStack jc="flex-end">
             <Button
+              testID="spotlight-btn"
               variant="primary"
               borderRadius="$2"
               size="small"

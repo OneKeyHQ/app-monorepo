@@ -9,6 +9,7 @@ const headerTooltipProps = {
 function HeaderIconButton(props: IIconButtonProps) {
   return (
     <IconButton
+      testID="src-header-icon-button-icon-btn"
       tooltipProps={headerTooltipProps}
       variant="tertiary"
       focusVisibleStyle={undefined}

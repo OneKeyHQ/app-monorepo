@@ -8,6 +8,7 @@ export default function PageV4MigrationDevSettings() {
       <Page.Header title="V4MigrationDevSettings" />
       <YStack>
         <Button
+          testID="setting-page-v4-migration-dev-settings-btn"
           onPress={() => {
             console.log('use `Clear App Data` instead');
           }}
@@ -16,6 +17,7 @@ export default function PageV4MigrationDevSettings() {
         </Button>
 
         <Button
+          testID="setting-page-v4-migration-dev-settings-btn"
           onPress={() => {
             setV4migrationData(() => ({
               v4migrationAutoStartDisabled: false,

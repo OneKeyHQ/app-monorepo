@@ -508,6 +508,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             </SizableText>
             {isEditableRouteParams ? (
               <Button
+                testID="account-manager-btn"
                 mt="$6"
                 icon="PlusLargeOutline"
                 onPress={async () => {

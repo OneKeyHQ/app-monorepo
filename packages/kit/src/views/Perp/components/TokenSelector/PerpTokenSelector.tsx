@@ -67,7 +67,6 @@ import {
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
-import { PerpTestIDs } from '../../testIDs';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';

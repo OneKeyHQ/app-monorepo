@@ -842,6 +842,7 @@ const SwapProviderListPanel = ({
       {shouldShowContent && hasQuotes ? (
         <XStack px="$5" pt="$3">
           <Select
+            testID="swap-select"
             title={intl.formatMessage({
               id: ETranslations.provider_sort_title,
             })}
@@ -850,6 +851,7 @@ const SwapProviderListPanel = ({
             value={providerSort}
             renderTrigger={({ value, label, placeholder }) => (
               <Button
+                testID="swap-btn"
                 alignSelf="flex-start"
                 variant="tertiary"
                 size="small"

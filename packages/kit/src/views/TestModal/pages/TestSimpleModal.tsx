@@ -205,6 +205,7 @@ export function TestSimpleModal() {
           </Page.Close>
           <Page.Close>
             <Button
+              testID="test-modal-btn"
               onPress={() =>
                 new Promise((resolve) => {
                   setTimeout(() => {
@@ -219,6 +220,7 @@ export function TestSimpleModal() {
           </Page.Close>
           <Page.Close>
             <Button
+              testID="test-modal-btn"
               onPress={() =>
                 new Promise((resolve) => {
                   setTimeout(() => {
@@ -270,9 +272,9 @@ export function TestSimpleModal() {
               justifyContent="space-between"
               width="100%"
             >
-              <Button>Close All</Button>
+              <Button testID="test-modal-close-all-btn">Close All</Button>
               <SizableText>+</SizableText>
-              <Button>Done</Button>
+              <Button testID="test-modal-done-btn">Done</Button>
             </XStack>
           ) : null}
         </Page.Footer>

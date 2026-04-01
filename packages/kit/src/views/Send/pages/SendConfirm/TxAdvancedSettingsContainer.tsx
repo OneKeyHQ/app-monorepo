@@ -208,6 +208,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
             )}
             labelAddon={
               <Button
+                testID="send-formatted-value-btn"
                 size="small"
                 variant="tertiary"
                 onPress={() => showNonceFaq()}
@@ -218,7 +219,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
               </Button>
             }
           >
-            <Input flex={1} placeholder={currentNonce} />
+            <Input flex={1} placeholder={currentNonce} testID="send-input" />
           </Form.Field>
         ) : null}
         <Form.Field
@@ -228,6 +229,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
           name="data"
           labelAddon={
             <Button
+              testID="send-btn"
               size="small"
               variant="tertiary"
               onPress={() => showHexDataFaq()}

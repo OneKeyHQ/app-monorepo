@@ -500,6 +500,7 @@ const ClosePositionForm = memo(
         </XStack>
         <TradingGuardWrapper>
           <Button
+            testID="perp-processed-value-btn"
             size="medium"
             variant="primary"
             onPress={handleSubmit}

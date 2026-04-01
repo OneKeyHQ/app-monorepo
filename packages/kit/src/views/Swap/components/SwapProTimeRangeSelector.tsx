@@ -59,6 +59,7 @@ const SwapProTimeRangeSelector = ({
 
   return (
     <Select
+      testID="swap-select"
       items={items}
       value={selectedValue.value}
       onChange={(value) => {

@@ -45,6 +45,7 @@ export function TradeTypeSelector({
       value: ESwapDirection.BUY,
       label: (
         <Button
+          testID="market-options-btn"
           onPress={() => {
             console.log('onPress');
             onChange(ESwapDirection.BUY);
@@ -62,6 +63,7 @@ export function TradeTypeSelector({
       value: ESwapDirection.SELL,
       label: (
         <Button
+          testID="market-options-btn"
           onPress={() => {
             console.log('onPress');
             onChange(ESwapDirection.SELL);

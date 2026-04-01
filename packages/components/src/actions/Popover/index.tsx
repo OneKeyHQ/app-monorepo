@@ -446,7 +446,11 @@ function RawPopover({
       {...props}
     >
       <TMPopover.Trigger asChild>
-        <Trigger ref={triggerRef} onPress={openPopover}>
+        <Trigger
+          ref={triggerRef}
+          onPress={openPopover}
+          testID="src-scroll-view-style-trigger"
+        >
           {renderTrigger}
         </Trigger>
       </TMPopover.Trigger>
@@ -638,7 +642,9 @@ function BasicPopover({
     return (
       <>
         {renderTrigger ? (
-          <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
+          <Trigger testID="popover-trigger" onPress={openPopover}>
+            {renderTrigger}
+          </Trigger>
         ) : null}
         {isOpen || keepChildrenMounted ? (
           <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
@@ -684,6 +690,7 @@ function Tooltip({
   const triggerMemo = useMemo(
     () => (
       <IconButton
+        testID="src-trigger-memo-icon-btn"
         iconColor="$iconSubdued"
         iconSize={iconSize}
         icon="InfoCircleOutline"

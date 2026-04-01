@@ -600,6 +600,7 @@ function PerpPortfolioContentComponent({
   const portfolioButtons = (
     <XStack gap="$2">
       <Button
+        testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
         size="medium"
@@ -616,6 +617,7 @@ function PerpPortfolioContentComponent({
         })}
       </Button>
       <Button
+        testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
         size="medium"

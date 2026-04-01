@@ -64,6 +64,7 @@ function DebugButton() {
   return (
     <DebugRenderTracker name="PerpsHeaderRight__DebugButton">
       <IconButton
+        testID="perp-debug-button-icon-btn"
         icon="BugSolid"
         size="small"
         variant="tertiary"
@@ -153,6 +154,7 @@ function MobileGuideButton() {
   const { showGuide } = useShowGuide();
   return (
     <IconButton
+      testID="perp-mobile-guide-button-icon-btn"
       icon="BookOpenOutline"
       size="small"
       variant="tertiary"

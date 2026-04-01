@@ -117,6 +117,7 @@ const SwapProLimitPriceSlider = ({
         />
       </XStack>
       <Input
+        testID="swap-input-b-n-input"
         containerProps={{
           flex: 0.4,
           borderWidth: 0,

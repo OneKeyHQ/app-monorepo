@@ -83,6 +83,7 @@ function V4AccountNameSelector({
   return (
     <Stack pt="$2">
       <Select
+        testID="rename-dialog-item-select"
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
         floatingPanelProps={{
           maxHeight: 272,
@@ -90,6 +91,7 @@ function V4AccountNameSelector({
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         renderTrigger={({ value, label, placeholder }) => (
           <Button
+            testID="rename-dialog-item-btn"
             size="small"
             alignSelf="flex-start"
             variant="tertiary"
@@ -394,6 +396,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
             }}
           >
             <Input
+              testID="rename-dialog-input"
               size="large"
               $gtMd={{ size: 'medium' }}
               maxLength={20}

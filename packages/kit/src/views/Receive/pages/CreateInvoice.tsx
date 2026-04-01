@@ -324,6 +324,7 @@ function CreateInvoice() {
             borderTopColor="$borderSubdued"
           >
             <Button
+              testID="receive-btn"
               variant="tertiary"
               onPress={() => void dismissKeyboardWithDelay(100)}
             >

@@ -92,6 +92,7 @@ function Address(props: IProps) {
         {component.isNavigable ? (
           <XStack gap="$3" ml="$5">
             <IconButton
+              testID="signature-confirm-icon-btn"
               title={intl.formatMessage({
                 id: ETranslations.global_view_in_blockchain_explorer,
               })}

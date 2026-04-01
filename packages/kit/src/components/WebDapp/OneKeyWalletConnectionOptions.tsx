@@ -200,6 +200,7 @@ function OneKeyWalletConnectionOptions({
       >
         {isOneKeyInstalled ? null : (
           <Button
+            testID="web-dapp-btn"
             size="small"
             variant="secondary"
             cursor="pointer"

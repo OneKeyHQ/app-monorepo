@@ -599,6 +599,7 @@ const SetTpslForm = memo(
 
           <YStack alignItems="flex-start" gap="$2" width="100%">
             <Checkbox
+              testID="perp-checkbox"
               value={configureAmount}
               onChange={(checked) => setConfigureAmount(Boolean(checked))}
               label={appLocale.intl.formatMessage({
@@ -649,6 +650,7 @@ const SetTpslForm = memo(
         </YStack>
         <TradingGuardWrapper>
           <Button
+            testID="perp-processed-value-btn"
             size={isMobile ? 'large' : 'medium'}
             variant="primary"
             onPress={handleSubmit}

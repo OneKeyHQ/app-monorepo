@@ -153,6 +153,7 @@ function NetworksSectionList() {
                   {item.section.totalValue}
                 </Currency>
                 <Checkbox
+                  testID="chain-selector-checkbox"
                   value={checkState}
                   onChange={() => {
                     const shouldEnable = checkState !== true;

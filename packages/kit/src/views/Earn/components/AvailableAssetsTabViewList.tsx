@@ -485,6 +485,7 @@ export function AvailableAssetsTabViewList() {
         </SizableText>
         {media.gtMd ? null : (
           <IconButton
+            testID="earn-icon-btn"
             variant="tertiary"
             icon="SearchOutline"
             iconSize="$5"

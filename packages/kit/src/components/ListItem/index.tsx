@@ -227,7 +227,12 @@ const ListItemText = (props: IListItemTextProps) => {
 
 /* IconButton */
 const ListItemIconButton = (props: IIconButtonProps) => (
-  <IconButton variant="tertiary" size="medium" {...props} />
+  <IconButton
+    variant="tertiary"
+    size="medium"
+    {...props}
+    testID="list-item-list-item-icon-button-icon-btn"
+  />
 );
 
 // CheckMark

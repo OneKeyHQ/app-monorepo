@@ -38,6 +38,7 @@ const OnboardingLayoutBack = memo(({ exit }: { exit?: boolean }) => {
 
   return (
     <IconButton
+      testID="onboardingv2-handle-back-icon-btn"
       size="medium"
       icon={icon}
       variant="tertiary"
@@ -65,6 +66,7 @@ const OnboardingLayoutLanguageSelector = memo(() => {
   return (
     <YStack ml="auto">
       <Select
+        testID="onboardingv2-handle-language-change-select"
         offset={{ mainAxis: 8, crossAxis: 8 }}
         title={intl.formatMessage({ id: ETranslations.global_language })}
         items={options}
@@ -76,6 +78,7 @@ const OnboardingLayoutLanguageSelector = memo(() => {
         renderTrigger={({ label }) =>
           gtMd ? (
             <Button
+              testID="onboardingv2-handle-language-change-btn"
               size="small"
               icon="GlobusOutline"
               variant="tertiary"
@@ -84,7 +87,12 @@ const OnboardingLayoutLanguageSelector = memo(() => {
               {label}
             </Button>
           ) : (
-            <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
+            <IconButton
+              icon="GlobusOutline"
+              variant="tertiary"
+              ml="auto"
+              testID="onboardingv2-icon-btn"
+            />
           )
         }
       />

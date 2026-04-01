@@ -86,6 +86,7 @@ function AdvancedSettingsFormField({
             </SizableText>
           </Stack>
           <IconButton
+            testID="account-manager-text-icon-btn"
             icon={
               collapse ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'
             }
@@ -146,6 +147,7 @@ function AdvancedSettingsFormField({
             }}
           >
             <Input
+              testID="account-manager-value-num-input"
               secureTextEntry={false}
               placeholder={intl.formatMessage({
                 id: ETranslations.global_serial_number_start,

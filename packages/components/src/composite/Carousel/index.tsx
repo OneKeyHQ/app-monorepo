@@ -353,6 +353,7 @@ export function Carousel<T>({
           >
             {showPaginationButton ? (
               <IconButton
+                testID="src-icon-btn"
                 icon="ChevronLeftSmallOutline"
                 variant="tertiary"
                 onPress={scrollToPreviousPage}
@@ -375,6 +376,7 @@ export function Carousel<T>({
             </XStack>
             {showPaginationButton ? (
               <IconButton
+                testID="src-icon-btn"
                 icon="ChevronRightSmallOutline"
                 variant="tertiary"
                 onPress={scrollToNextPage}

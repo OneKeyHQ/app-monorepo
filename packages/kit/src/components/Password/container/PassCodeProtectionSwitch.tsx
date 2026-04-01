@@ -18,6 +18,7 @@ const PassCodeProtectionSwitch = ({
 
   return (
     <Switch
+      testID="password-pass-code-protection-switch-switch"
       value={enablePasswordErrorProtection}
       onChange={(value: boolean) => {
         onTransition?.(async () => {

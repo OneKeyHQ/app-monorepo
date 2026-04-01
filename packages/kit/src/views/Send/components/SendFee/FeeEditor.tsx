@@ -927,6 +927,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="send-render-fee-editor-form-input"
                 flex={1}
                 addOns={[
                   {
@@ -966,6 +967,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="send-input"
                 flex={1}
                 addOns={[
                   {
@@ -1008,6 +1010,7 @@ function FeeEditor(props: IProps) {
                 }}
               >
                 <Input
+                  testID="send-input"
                   flex={1}
                   addOns={[
                     {
@@ -1044,6 +1047,7 @@ function FeeEditor(props: IProps) {
                 }}
               >
                 <Input
+                  testID="send-input"
                   flex={1}
                   addOns={[
                     {
@@ -1077,6 +1081,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="send-input"
                 flex={1}
                 addOns={[
                   {
@@ -1119,7 +1124,7 @@ function FeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} />
+              <Input flex={1} testID="send-input" />
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
@@ -1138,6 +1143,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="send-input"
                 flex={1}
                 addOns={[
                   {
@@ -1183,7 +1189,7 @@ function FeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} />
+              <Input flex={1} testID="send-input" />
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
@@ -1203,6 +1209,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="send-input"
                 flex={1}
                 addOns={[
                   {
@@ -1237,6 +1244,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="send-input"
                 addOns={[
                   {
                     label: 'sat/vB',
@@ -1270,6 +1278,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="send-input"
                 flex={1}
                 addOns={[
                   {
@@ -1304,6 +1313,7 @@ function FeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="send-input"
                 flex={1}
                 addOns={[
                   {
@@ -1810,6 +1820,7 @@ function FeeEditor(props: IProps) {
         {isMultiTxs ? null : renderFeeOverview()}
         {vaultSettings?.editFeeEnabled ? (
           <Button
+            testID="send-callback-btn"
             mt="$4"
             disabled={isSaveFeeDisabled}
             variant="primary"

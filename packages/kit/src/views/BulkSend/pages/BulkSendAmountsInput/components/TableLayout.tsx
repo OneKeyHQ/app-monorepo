@@ -144,6 +144,7 @@ function IntervalCard() {
           {INTERVAL_SETTINGS_TITLE}
         </SizableText>
         <Button
+          testID="bulk-send-interval-summary-btn"
           variant="tertiary"
           size="small"
           iconAfter="ChevronDownSmallOutline"
@@ -590,6 +591,7 @@ function AmountCard() {
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
+                  testID="bulk-send-input"
                   flex={1}
                   value={localRangeMin}
                   onChangeText={handleRangeMinChange}
@@ -648,6 +650,7 @@ function AmountCard() {
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
+                  testID="bulk-send-input"
                   flex={1}
                   value={localRangeMax}
                   onChangeText={handleRangeMaxChange}
@@ -726,6 +729,7 @@ function AmountCard() {
           })}
         </SizableText>
         <Select
+          testID="bulk-send-select"
           title=""
           value={amountInputMode}
           onChange={handleModeChange}
@@ -733,6 +737,7 @@ function AmountCard() {
           placement="bottom-end"
           renderTrigger={({ label, onPress }) => (
             <Button
+              testID="bulk-send-btn"
               variant="tertiary"
               size="small"
               iconAfter="ChevronDownSmallOutline"
@@ -1037,6 +1042,7 @@ function TransferInfoListSection() {
                 if (isCustomMode) {
                   return (
                     <Input
+                      testID="bulk-send-input"
                       value={transfer.amount}
                       onChangeText={(value) => handleAmountChange(index, value)}
                       placeholder="0"
@@ -1082,6 +1088,7 @@ function TransferInfoListSection() {
             {/* ACTION */}
             <Stack width={64} alignItems="flex-end">
               <IconButton
+                testID="bulk-send-icon-btn"
                 icon="DeleteOutline"
                 variant="tertiary"
                 size="small"

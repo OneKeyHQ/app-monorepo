@@ -136,6 +136,7 @@ export function ExploreView({
     <>
       <XStack py="$2">
         <Select
+          testID="discovery-open-chain-selector-select"
           title={intl.formatMessage({ id: ETranslations.explore_categories })}
           items={selectOptions}
           value={selectedCategory}

@@ -511,6 +511,7 @@ export function OrderBook({
               </PerpBookText>
               {showTickSelector ? (
                 <Select
+                  testID="perp-select"
                   floatingPanelProps={{
                     width: 150,
                   }}
@@ -807,6 +808,7 @@ export function OrderBook({
               </PerpBookText>
               {showTickSelector ? (
                 <Select
+                  testID="perp-select"
                   floatingPanelProps={{
                     width: 150,
                   }}
@@ -1499,6 +1501,7 @@ export function OrderBookMobile({
       </View>
       {showTickSelector ? (
         <Select
+          testID="perp-select"
           floatingPanelProps={{
             width: 150,
           }}

@@ -100,6 +100,7 @@ export const BBOSelector = memo<IBBOSelectorProps>(
           gap="$3"
         >
           <Select
+            testID="perp-current-value-select"
             items={bboOptions}
             value={currentValue}
             onChange={handleChange}
@@ -137,6 +138,7 @@ export const BBOSelector = memo<IBBOSelectorProps>(
 
     return (
       <Select
+        testID="perp-select"
         items={bboOptions}
         value={currentValue}
         onChange={handleChange}

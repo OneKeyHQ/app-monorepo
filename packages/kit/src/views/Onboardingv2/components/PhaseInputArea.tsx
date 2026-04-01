@@ -91,6 +91,7 @@ function WordItem({
   return (
     <Stack position="relative">
       <Button
+        testID="onboardingv2-handle-press-btn"
         size="small"
         ref={buttonRef}
         onPress={handlePress}
@@ -179,7 +180,13 @@ function PageFooter({
   const intl = useIntl();
   // const isShow = useIsKeyboardShown();
   return (
-    <Button mt="$10" size="large" variant="primary" onPress={onConfirm}>
+    <Button
+      mt="$10"
+      size="large"
+      variant="primary"
+      onPress={onConfirm}
+      testID="onboardingv2-is-show-btn"
+    >
       {intl.formatMessage({ id: ETranslations.global_confirm })}
     </Button>
   );
@@ -584,6 +591,7 @@ export function PhaseInputArea({
         <XStack pt="$2" justifyContent="space-between">
           {showPhraseLengthSelector ? (
             <Select
+              testID="onboardingv2-has-filled-phrases-select"
               title={intl.formatMessage({
                 id: ETranslations.select_recovery_phrase_length,
               })}

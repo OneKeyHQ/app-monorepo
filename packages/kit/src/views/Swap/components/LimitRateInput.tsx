@@ -52,6 +52,7 @@ const LimitRateInput = ({
         {fromTokenInfo ? `1 ${currency.from} = ` : '-'}
       </SizableText>
       <Input
+        testID="swap-currency-input"
         key={`${currency.from}-${currency.to}`}
         autoScrollTopDelayMs={2500}
         keyboardType="decimal-pad"

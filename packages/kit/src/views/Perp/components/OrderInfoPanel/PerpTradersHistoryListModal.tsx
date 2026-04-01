@@ -85,7 +85,12 @@ export function PerpTradersHistoryListModal() {
       return null;
     }
     return (
-      <Button onPress={onViewAllUrl} variant="tertiary" size="small">
+      <Button
+        onPress={onViewAllUrl}
+        variant="tertiary"
+        size="small"
+        testID="perp-header-right-btn"
+      >
         {intl.formatMessage({
           id: ETranslations.global_view_more,
         })}

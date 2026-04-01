@@ -204,6 +204,7 @@ export default function ICloudBackupDetails({
               debugComponent={
                 <YStack gap="$2">
                   <Button
+                    testID="onboardingv2-is-button-disabled-btn"
                     onPress={async () => {
                       Dialog.debugMessage({
                         debugMessage: backupData,
@@ -213,6 +214,7 @@ export default function ICloudBackupDetails({
                     showBackupData
                   </Button>
                   <Button
+                    testID="onboardingv2-is-button-disabled-btn"
                     onPress={async () => {
                       showCloudBackupPasswordDialog({
                         onSubmit: async (password) => {
@@ -234,6 +236,7 @@ export default function ICloudBackupDetails({
                     showBackupPrivateData
                   </Button>
                   <Button
+                    testID="onboardingv2-private-data-btn"
                     onPress={async () => {
                       setWalletDataMocked([]);
                     }}
@@ -241,6 +244,7 @@ export default function ICloudBackupDetails({
                     Mock Empty Wallets
                   </Button>
                   <Button
+                    testID="onboardingv2-private-data-btn"
                     loading={checkLoading}
                     disabled={isButtonDisabled}
                     flex={1}
@@ -270,6 +274,7 @@ export default function ICloudBackupDetails({
             {actionType === 'backup' ? (
               <>
                 <Button
+                  testID="onboardingv2-btn"
                   loading={checkLoading}
                   disabled={isButtonDisabled}
                   flex={1}
@@ -280,6 +285,7 @@ export default function ICloudBackupDetails({
                   {intl.formatMessage({ id: ETranslations.backup_backup_now })}
                 </Button>
                 <Button
+                  testID="onboardingv2-btn"
                   loading={checkLoading}
                   size="large"
                   onPress={async () => {
@@ -298,6 +304,7 @@ export default function ICloudBackupDetails({
               <>
                 {!hideRestoreButton ? (
                   <Button
+                    testID="onboardingv2-btn"
                     loading={checkLoading}
                     disabled={isButtonDisabled}
                     flex={1}
@@ -309,6 +316,7 @@ export default function ICloudBackupDetails({
                   </Button>
                 ) : null}
                 <Button
+                  testID="onboardingv2-btn"
                   loading={checkLoading}
                   disabled={!route.params?.backupId}
                   size="large"

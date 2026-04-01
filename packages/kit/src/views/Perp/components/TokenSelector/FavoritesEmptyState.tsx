@@ -159,6 +159,7 @@ export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
         justifyContent="center"
       >
         <Button
+          testID="perp-btn"
           size="medium"
           variant="primary"
           onPress={handleAddToFavorites}

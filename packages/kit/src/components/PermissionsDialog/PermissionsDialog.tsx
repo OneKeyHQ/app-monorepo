@@ -12,6 +12,7 @@ export const showNotificationPermissionsDialog = () =>
         <SizableText>手动开启权限的步骤引导： 1、2、3</SizableText>
         <SizableText>更多详情，请查看帮助中心 →</SizableText>
         <Button
+          testID="permissions-dialog-show-notification-permissions-dialog-btn"
           onPress={() => {
             void backgroundApiProxy.serviceNotification.openPermissionSettings();
           }}
@@ -19,6 +20,7 @@ export const showNotificationPermissionsDialog = () =>
           前往权限设置页 → （部分端可能无法跳转，或跳转错误）
         </Button>
         <Button
+          testID="permissions-dialog-show-notification-permissions-dialog-btn"
           onPress={() => {
             void backgroundApiProxy.serviceNotification.showNotification({
               title: 'test message',

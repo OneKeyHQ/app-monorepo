@@ -345,6 +345,7 @@ function ReferralLandingPage() {
             bg="$bgApp"
           >
             <Button
+              testID="home-btn"
               variant="primary"
               flex={1}
               size="large"

@@ -671,6 +671,7 @@ function SendReplaceTxContainer() {
               {renderNewFee()}
             </Stack>
             <IconButton
+              testID="send-icon-btn"
               title={intl.formatMessage({ id: ETranslations.global_edit })}
               icon="PencilOutline"
               onPress={handleEditReplaceTxFeeInfo}
@@ -678,6 +679,7 @@ function SendReplaceTxContainer() {
             {/* Show only after customizing the fee */}
             {shouldShowResetButton ? (
               <IconButton
+                testID="send-icon-btn"
                 title={intl.formatMessage({ id: ETranslations.global_reset })}
                 ml="$2"
                 icon="UndoOutline"

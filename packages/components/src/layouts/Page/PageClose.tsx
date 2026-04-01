@@ -21,7 +21,11 @@ export function PageClose({
   }, [navigation]);
 
   return (
-    <Trigger onPress={handleClose} disabled={disabled}>
+    <Trigger
+      onPress={handleClose}
+      disabled={disabled}
+      testID="src-handle-close-trigger"
+    >
       {children}
     </Trigger>
   );

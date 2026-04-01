@@ -107,6 +107,7 @@ const PaginationDoneOnKeyboard = ({
         ) : null}
       </XStack>
       <Button
+        testID="perp-btn"
         variant="tertiary"
         onPress={() => {
           Keyboard.dismiss();
@@ -133,6 +134,7 @@ export const InputWithAccessoryDoneView = ({
   return (
     <XStack {...(xStackProps ?? {})}>
       <Input
+        testID="perp-input-with-accessory-done-view-input"
         {...props}
         onBlur={(e) => {
           if (props.onBlur) {
@@ -219,6 +221,7 @@ const PaginationFooter = ({
       {totalPages > 1 ? (
         <>
           <IconButton
+            testID="perp-handle-input-blur-icon-btn"
             borderRadius="$full"
             borderWidth="$px"
             borderColor="$border"
@@ -257,6 +260,7 @@ const PaginationFooter = ({
             </SizableText>
           </XStack>
           <IconButton
+            testID="perp-icon-btn"
             borderRadius="$full"
             borderWidth="$px"
             borderColor="$border"
@@ -270,6 +274,7 @@ const PaginationFooter = ({
       ) : null}
       {onViewAll ? (
         <Button
+          testID="perp-btn"
           variant="tertiary"
           size="small"
           onPress={() => {

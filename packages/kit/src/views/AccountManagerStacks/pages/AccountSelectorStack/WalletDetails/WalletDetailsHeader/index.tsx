@@ -155,6 +155,7 @@ export function WalletDetailsHeader({
             }
             renderSelectorTrigger={
               <IconButton
+                testID="account-manager-icon-btn"
                 onPress={() => {}}
                 icon="BranchesOutline"
                 variant="tertiary"

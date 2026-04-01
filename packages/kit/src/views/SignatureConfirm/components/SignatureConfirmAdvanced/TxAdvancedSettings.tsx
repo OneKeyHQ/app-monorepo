@@ -263,6 +263,7 @@ function TxAdvancedSettings(props: IProps) {
               )}
               labelAddon={
                 <Button
+                  testID="signature-confirm-formatted-value-btn"
                   size="small"
                   variant="tertiary"
                   onPress={() => showNonceFaq()}

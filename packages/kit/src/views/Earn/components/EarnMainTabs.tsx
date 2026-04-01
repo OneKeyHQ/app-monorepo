@@ -200,6 +200,7 @@ const EarnMainTabsComponent = ({
                   })}
                   renderTrigger={
                     <IconButton
+                      testID="earn-handle-tab-press-icon-btn"
                       variant="tertiary"
                       icon="SliderHorOutline"
                       iconSize="$6"
@@ -218,6 +219,7 @@ const EarnMainTabsComponent = ({
                         }}
                         childrenBefore={
                           <Switch
+                            testID="earn-switch"
                             size={ESwitchSize.small}
                             value={hideSmallAssets}
                             onChange={setHideSmallAssets}

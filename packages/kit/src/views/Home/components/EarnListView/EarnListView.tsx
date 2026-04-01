@@ -55,6 +55,7 @@ function EarnListView() {
       headerContainerProps={{ px: '$pagePadding' }}
       headerActions={
         <Button
+          testID="home-block-data-btn"
           size="small"
           variant="tertiary"
           iconAfter="ChevronRightSmallOutline"

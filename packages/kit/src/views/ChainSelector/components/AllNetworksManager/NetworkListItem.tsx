@@ -90,7 +90,11 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
             {networkTotalValue || '0'}
           </Currency>
         ) : null}
-        <Checkbox value={isEnabledInAllNetworks} onChange={handleToggle} />
+        <Checkbox
+          value={isEnabledInAllNetworks}
+          onChange={handleToggle}
+          testID="chain-selector-checkbox"
+        />
       </XStack>
     </ListItem>
   );

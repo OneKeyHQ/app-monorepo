@@ -78,6 +78,7 @@ function TxHistoryListItem(props: IProps) {
         />
         {cancelTxEnabled ? (
           <Button
+            testID="tx-history-list-view-render-cancel-actions-btn"
             size="small"
             onPress={() =>
               handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
@@ -93,6 +94,7 @@ function TxHistoryListItem(props: IProps) {
       <>
         {speedUpCancelEnabled ? (
           <Button
+            testID="tx-history-list-view-render-speed-up-cancel-action-btn"
             size="small"
             variant="primary"
             onPress={() =>
@@ -109,6 +111,7 @@ function TxHistoryListItem(props: IProps) {
 
     const renderCheckSpeedUpState = () => (
       <Button
+        testID="tx-history-list-view-render-check-speed-up-state-btn"
         size="small"
         variant="primary"
         onPress={() => handleCheckSpeedUpState()}

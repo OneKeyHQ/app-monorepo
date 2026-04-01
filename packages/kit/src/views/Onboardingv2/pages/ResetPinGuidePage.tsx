@@ -93,7 +93,12 @@ function ResetPinGuidePage() {
               ))}
 
               {gtMd ? (
-                <Button size="large" variant="primary" onPress={handleDone}>
+                <Button
+                  size="large"
+                  variant="primary"
+                  onPress={handleDone}
+                  testID="onboardingv2-btn"
+                >
                   {intl.formatMessage({
                     id: ETranslations.i_have_done_these_steps,
                   })}
@@ -105,6 +110,7 @@ function ResetPinGuidePage() {
         {!gtMd ? (
           <OnboardingLayout.Footer>
             <Button
+              testID="onboardingv2-btn"
               size="large"
               w="100%"
               variant="primary"

@@ -1396,6 +1396,7 @@ function SendDataInputContainer() {
             </SizableText>
           )}
           <Input
+            testID="send-value-string-input"
             size="large"
             $gtMd={{
               size: 'medium',
@@ -1526,6 +1527,7 @@ function SendDataInputContainer() {
           }}
         >
           <TextArea
+            testID="send-render-payment-id-form-textarea"
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder="Payment ID"
@@ -1560,6 +1562,7 @@ function SendDataInputContainer() {
         }}
       >
         <TextArea
+          testID="send-max-length-textarea"
           numberOfLines={2}
           size={media.gtMd ? 'medium' : 'large'}
           placeholder={intl.formatMessage({
@@ -1658,6 +1661,7 @@ function SendDataInputContainer() {
         description={toAddress.isContract ? '' : txMessageDescription}
         labelAddon={
           <Button
+            testID="send-to-address-btn"
             size="small"
             variant="tertiary"
             onPress={() => showTxMessageFaq(!!toAddress.isContract)}

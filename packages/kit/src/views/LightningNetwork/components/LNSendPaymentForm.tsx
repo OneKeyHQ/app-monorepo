@@ -260,7 +260,12 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
                 name={name}
                 key={content}
               >
-                <TextArea editable={false} disabled numberOfLines={2} />
+                <TextArea
+                  editable={false}
+                  disabled
+                  numberOfLines={2}
+                  testID="lightning-network-name-textarea"
+                />
               </Form.Field>
             );
           }

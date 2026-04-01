@@ -174,6 +174,7 @@ export default function VerifyRecoveryPhrase() {
                 {question.words.map((word, wordIndex) => (
                   <XStack key={wordIndex} flexGrow={1} flexBasis={0}>
                     <Button
+                      testID="onboardingv2-btn"
                       key={wordIndex}
                       size="large"
                       flex={1}

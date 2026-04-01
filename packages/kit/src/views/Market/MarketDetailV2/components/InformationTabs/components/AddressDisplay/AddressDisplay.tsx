@@ -58,6 +58,7 @@ function AddressDisplayBase({
     () =>
       enableCopy ? (
         <InteractiveIcon
+          testID="market-copy-icon-icon"
           icon="Copy3Outline"
           onPress={handleCopyAddress}
           size="$4"
@@ -70,6 +71,7 @@ function AddressDisplayBase({
     () =>
       enableOpenInBrowser ? (
         <InteractiveIcon
+          testID="market-open-in-browser-button-icon"
           icon="OpenOutline"
           onPress={handleOpenInBrowser}
           size="$4"

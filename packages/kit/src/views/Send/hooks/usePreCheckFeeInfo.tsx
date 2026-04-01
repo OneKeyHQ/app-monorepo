@@ -23,6 +23,7 @@ function ExtremelyHighFeeDialogContent({
     <>
       <Stack>
         <Checkbox
+          testID="send-intl-checkbox"
           value={checkState}
           label={intl.formatMessage({
             id: ETranslations.fee_alert_dialog_checkbox_label,

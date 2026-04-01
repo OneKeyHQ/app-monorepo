@@ -352,7 +352,7 @@ const SwapHistoryListModal = ({
             },
           ]}
           renderTrigger={
-            <Button variant="tertiary">
+            <Button variant="tertiary" testID="swap-btn">
               {intl.formatMessage({ id: ETranslations.global_clear })}
             </Button>
           }
@@ -381,6 +381,7 @@ const SwapHistoryListModal = ({
     const renderHeaderTitle = () => (
       <LazyHeaderTitle>
         <Select
+          testID="swap-render-header-title-select"
           title={title}
           items={[
             {

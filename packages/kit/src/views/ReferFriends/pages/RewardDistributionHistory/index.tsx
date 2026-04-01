@@ -151,6 +151,7 @@ function RewardDistributionHistoryPageWrapper() {
                   </SizableText>
                   {item.tx ? (
                     <IconButton
+                      testID="refer-friends-icon-btn"
                       variant="tertiary"
                       icon="OpenOutline"
                       size="small"

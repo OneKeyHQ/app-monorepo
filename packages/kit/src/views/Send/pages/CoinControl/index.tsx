@@ -122,6 +122,7 @@ const UTXOListItem = memo(
         {/* Left: Checkbox + Index number */}
         <XStack ai="center" gap="$2" w={80} $md={{ w: 60 }}>
           <Checkbox
+            testID="send-shortened-address-checkbox"
             value={isSelected}
             onChange={handlePress}
             shouldStopPropagation
@@ -457,6 +458,7 @@ function CoinControlPage() {
               {intl.formatMessage({ id: ETranslations.wallet_sort_coins })}
             </SizableText>
             <Select
+              testID="send-select"
               title={intl.formatMessage({ id: ETranslations.market_sort_by })}
               value={sortType}
               onChange={setSortType}
@@ -518,6 +520,7 @@ function CoinControlPage() {
         <XStack px="$5" py="$5" gap="$3" ai="center" bg="$bgApp">
           {/* Select all checkbox */}
           <Checkbox
+            testID="send-checkbox"
             value={checkboxValue}
             onChange={handleSelectAll}
             shouldStopPropagation
@@ -537,7 +540,7 @@ function CoinControlPage() {
           </YStack>
 
           {/* Done button */}
-          <Button variant="primary" onPress={handleDone}>
+          <Button variant="primary" onPress={handleDone} testID="send-btn">
             {intl.formatMessage({
               id: ETranslations.global_done,
             })}

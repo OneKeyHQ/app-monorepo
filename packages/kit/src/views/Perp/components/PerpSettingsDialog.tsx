@@ -46,6 +46,7 @@ function PerpSettingsPopoverContent({
         cursor="default"
       >
         <Switch
+          testID="perp-intl-switch"
           size={ESwitchSize.small}
           value={perpsCustomSettings.skipOrderConfirm}
           onChange={(value) => {
@@ -68,6 +69,7 @@ function PerpSettingsPopoverContent({
         cursor="default"
       >
         <Switch
+          testID="perp-switch"
           size={ESwitchSize.small}
           value={perpsCustomSettings.showTradeMarks ?? true}
           onChange={(value) => {
@@ -90,6 +92,7 @@ function PerpSettingsPopoverContent({
         cursor="default"
       >
         <Switch
+          testID="perp-switch"
           size={ESwitchSize.small}
           value={perpsCustomSettings.showChartLines ?? true}
           onChange={(value) => {

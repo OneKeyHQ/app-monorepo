@@ -24,6 +24,7 @@ export const showWalletBackupDialog = ({
     renderContent: (
       <XStack gap="$2.5">
         <Button
+          testID="wallet-backup-dialog-btn"
           size="medium"
           variant="secondary"
           onPress={() => dialog.close()}
@@ -39,7 +40,11 @@ export const showWalletBackupDialog = ({
             wallet={wallet}
             onSelected={() => dialog.close()}
           >
-            <Button size="medium" variant="primary">
+            <Button
+              size="medium"
+              variant="primary"
+              testID="wallet-backup-dialog-btn"
+            >
               {appLocale.intl.formatMessage({
                 id: ETranslations.global_backup,
               })}

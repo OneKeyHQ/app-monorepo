@@ -31,7 +31,13 @@ function SectionHeading({
 
 function SectionButton({ children, ...rest }: IButtonProps) {
   return (
-    <Button size="medium" variant="tertiary" ml="auto" {...rest}>
+    <Button
+      size="medium"
+      variant="tertiary"
+      ml="auto"
+      {...rest}
+      testID="discovery-section-button-btn"
+    >
       {children}
     </Button>
   );

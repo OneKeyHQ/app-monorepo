@@ -794,6 +794,7 @@ function PerpTradingForm({
           <XStack alignItems="center" flex={1} gap="$2.5">
             <YStack flex={1}>
               <Select
+                testID="perp-mobile-selected-order-type-select"
                 items={mobileOrderTypeOptions}
                 title={intl.formatMessage({
                   id: ETranslations.perp_trade_order_type,
@@ -898,6 +899,7 @@ function PerpTradingForm({
                 );
               })}
               <Select
+                testID="perp-select"
                 items={triggerTypeOptions}
                 title="Trigger"
                 value={triggerOrderType}

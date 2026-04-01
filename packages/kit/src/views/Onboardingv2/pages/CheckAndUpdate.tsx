@@ -1098,6 +1098,7 @@ function CheckAndUpdatePage({
                           </YStack>
                         ))}
                         <Button
+                          testID="onboardingv2-btn"
                           variant="primary"
                           $platform-native={{
                             size: 'large',
@@ -1134,6 +1135,7 @@ function CheckAndUpdatePage({
                         </SizableText>
                         <XStack gap="$2">
                           <Button
+                            testID="onboardingv2-btn"
                             variant="primary"
                             onPress={toFirmwareUpgradePage}
                           >
@@ -1142,7 +1144,10 @@ function CheckAndUpdatePage({
                             })}
                           </Button>
                           {!hasUpgradeForceRef.current ? (
-                            <Button onPress={handleSkipUpdate}>
+                            <Button
+                              onPress={handleSkipUpdate}
+                              testID="onboardingv2-btn"
+                            >
                               {intl.formatMessage({
                                 id: ETranslations.global_skip,
                               })}
@@ -1174,13 +1179,20 @@ function CheckAndUpdatePage({
                             })}
                         </SizableText>
                         <XStack gap="$2">
-                          <Button variant="primary" onPress={handleRetry}>
+                          <Button
+                            variant="primary"
+                            onPress={handleRetry}
+                            testID="onboardingv2-btn"
+                          >
                             {intl.formatMessage({
                               id: ETranslations.global_retry,
                             })}
                           </Button>
                           {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
-                            <Button onPress={handleSkipCurrentStep}>
+                            <Button
+                              onPress={handleSkipCurrentStep}
+                              testID="onboardingv2-btn"
+                            >
                               {intl.formatMessage({
                                 id: ETranslations.global_skip,
                               })}
@@ -1198,6 +1210,7 @@ function CheckAndUpdatePage({
                 (step) => step.state !== ECheckAndUpdateStepState.Idle,
               ) ? (
                 <Button
+                  testID="onboardingv2-btn"
                   animation="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   variant="primary"

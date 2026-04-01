@@ -467,6 +467,7 @@ const SwapProActionButton = ({
 
   return (
     <Button
+      testID="swap-sub-value-btn"
       disabled={actionButtonDisabled}
       onPress={debouncedOnSwapProActionClick}
       variant="primary"

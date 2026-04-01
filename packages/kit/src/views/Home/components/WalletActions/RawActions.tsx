@@ -41,6 +41,7 @@ function ActionItem({
   if (showButtonStyle) {
     return (
       <Button
+        testID="home-action-item-btn"
         icon={icon}
         {...(!label && {
           py: '$2',
@@ -102,6 +103,7 @@ function ActionItem({
 
       {/* Desktop: Pill button */}
       <Button
+        testID="home-btn"
         variant="secondary"
         size="large"
         icon={icon}

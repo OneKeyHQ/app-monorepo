@@ -82,6 +82,7 @@ export function PaginationButton({
   return (
     <Animated.View pointerEvents="box-none" style={containerStyle}>
       <IconButton
+        testID="src-icon-props-icon-btn"
         disabled={!isVisible}
         variant={variant}
         icon={icon}

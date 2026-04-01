@@ -63,6 +63,7 @@ const PreSwapTipInfo = ({
       {/* Checkbox */}
       {quoteShowTip.showCheckbox ? (
         <Checkbox
+          testID="swap-checkbox"
           value={checked}
           onChange={(checkedValue) => setChecked(!!checkedValue)}
           label={quoteShowTip.checkboxLabel}
@@ -72,11 +73,18 @@ const PreSwapTipInfo = ({
       {/* Action Buttons */}
       <XStack gap="$3" pt="$2">
         {quoteShowTip.showCancelButton ? (
-          <Button flex={1} variant="secondary" size="medium" onPress={onCancel}>
+          <Button
+            flex={1}
+            variant="secondary"
+            size="medium"
+            onPress={onCancel}
+            testID="swap-btn"
+          >
             {intl.formatMessage({ id: ETranslations.global_cancel })}
           </Button>
         ) : null}
         <Button
+          testID="swap-btn"
           flex={1}
           variant="primary"
           size="medium"

@@ -1577,6 +1577,7 @@ function DepositWithdrawContent({
             ) : null}
           </XStack>
           <Input
+            testID="perp-input"
             alignItems="center"
             flex={1}
             placeholder={intl.formatMessage({
@@ -1863,6 +1864,7 @@ function DepositWithdrawContent({
       </YStack>
 
       <Button
+        testID="perp-btn"
         variant="primary"
         size="medium"
         disabled={

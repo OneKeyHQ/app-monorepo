@@ -1088,6 +1088,7 @@ function BulkSendProcessContent({
             failedTxCount === 0 &&
             skippedTxCount === 0 ? undefined : (
               <Button
+                testID="bulk-send-status-btn"
                 $md={
                   {
                     flexGrow: 1,

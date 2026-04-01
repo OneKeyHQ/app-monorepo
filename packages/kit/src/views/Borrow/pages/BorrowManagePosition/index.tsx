@@ -82,6 +82,7 @@ const BorrowManagePosition = () => {
 
     return (
       <Button
+        testID="borrow-header-right-btn"
         variant="tertiary"
         // size="small"
         onPress={handleViewReserveDetails}

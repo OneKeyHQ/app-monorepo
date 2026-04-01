@@ -154,7 +154,7 @@ function DialogContent({
             },
           }}
         >
-          <Input autoFocus flex={1} />
+          <Input autoFocus flex={1} testID="setting-trimmed-value-input" />
         </Form.Field>
       </Form>
       <Dialog.Footer
@@ -443,6 +443,7 @@ function CustomRPC() {
           renderItem={({ item }) => (
             <ListItem testID={SettingTestIDs.customRpcItem}>
               <Switch
+                testID="setting-switch"
                 disabled={item.network.isCustomNetwork}
                 size={ESwitchSize.small}
                 value={item.enabled}
@@ -472,7 +473,11 @@ function CustomRPC() {
               <ActionList
                 title={intl.formatMessage({ id: ETranslations.global_more })}
                 renderTrigger={
-                  <IconButton icon="DotHorOutline" variant="tertiary" />
+                  <IconButton
+                    icon="DotHorOutline"
+                    variant="tertiary"
+                    testID="setting-icon-btn"
+                  />
                 }
                 items={[
                   {

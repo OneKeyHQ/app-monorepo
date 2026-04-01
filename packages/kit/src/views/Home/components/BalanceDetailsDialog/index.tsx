@@ -249,6 +249,7 @@ function BalanceDetailsContent({
         <XStack justifyContent="space-between" alignItems="center">
           <XStack>
             <Button
+              testID="home-render-frozen-balance-btn"
               variant="tertiary"
               iconAfter="QuestionmarkOutline"
               color="$textSubdued"
@@ -345,6 +346,7 @@ function BalanceDetailsContent({
                 </XStack>
               </Stack>
               <Switch
+                testID="home-switch"
                 size={ESwitchSize.small}
                 value={settings.inscriptionProtection}
                 onChange={(value) => {

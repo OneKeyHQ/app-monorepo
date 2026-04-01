@@ -28,6 +28,7 @@ const SwapProCurrentSymbolEnable = ({
       cursor="pointer"
     >
       <Checkbox
+        testID="swap-toggle-swap-pro-enable-current-symbol-checkbox"
         value={swapProEnableCurrentSymbol}
         onChange={toggleSwapProEnableCurrentSymbol}
       />

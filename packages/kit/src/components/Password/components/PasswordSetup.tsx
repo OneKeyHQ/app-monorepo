@@ -404,6 +404,7 @@ const PasswordSetup = ({
         (passCodeFirstStep ||
           currentPasswordMode === EPasswordMode.PASSWORD) ? (
           <Button
+            testID="password-btn"
             size="small"
             variant="tertiary"
             onPress={async () => {

@@ -64,6 +64,7 @@ export function V4MigrationDone({
           })}
         </SizableText>
         <Button
+          testID="onboarding-btn"
           size="large"
           $gtMd={
             {

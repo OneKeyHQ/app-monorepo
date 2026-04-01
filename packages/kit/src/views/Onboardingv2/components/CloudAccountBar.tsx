@@ -77,7 +77,12 @@ export function CloudAccountBar() {
         ) : (
           <>
             <SizableText flex={1}>{googleEmail}</SizableText>
-            <Button variant="primary" size="small" onPress={logoutCloud}>
+            <Button
+              variant="primary"
+              size="small"
+              onPress={logoutCloud}
+              testID="onboardingv2-btn"
+            >
               {intl.formatMessage({ id: ETranslations.global_logout })}
             </Button>
           </>

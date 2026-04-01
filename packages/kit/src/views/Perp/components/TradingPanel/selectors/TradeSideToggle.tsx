@@ -74,6 +74,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         value: 'long',
         label: (
           <Button
+            testID="perp-options-btn"
             {...getCommonButtonStyle(isMobile)}
             bg={getLongBgColor()}
             onPress={() => onChange('long')}
@@ -96,6 +97,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         value: 'short',
         label: (
           <Button
+            testID="perp-options-btn"
             {...getCommonButtonStyle(isMobile)}
             bg={getShortBgColor()}
             onPress={() => onChange('short')}

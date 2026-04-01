@@ -139,7 +139,12 @@ const ProviderManageContainer = ({
               />
             ))}
       </Accordion>
-      <Button loading={isSaving} variant="primary" onPress={() => onSave()}>
+      <Button
+        loading={isSaving}
+        variant="primary"
+        onPress={() => onSave()}
+        testID="swap-btn"
+      >
         {intl.formatMessage({ id: ETranslations.action_save })}
       </Button>
     </YStack>

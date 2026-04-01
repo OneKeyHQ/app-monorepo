@@ -251,6 +251,7 @@ const OpenOrdersRow = memo(
               </XStack>
             </YStack>
             <Button
+              testID="perp-btn"
               size="small"
               variant="secondary"
               onPress={handleCancelOrder}

@@ -157,7 +157,12 @@ const ListFooterComponent = ({
                 indexedAccountId ?? account?.indexedAccountId ?? ''
               }
               renderSelectorTrigger={
-                <Button size="small" variant="secondary" onPress={() => {}}>
+                <Button
+                  size="small"
+                  variant="secondary"
+                  onPress={() => {}}
+                  testID="tx-history-list-view-btn"
+                >
                   {intl.formatMessage({
                     id: ETranslations.global_block_explorer,
                   })}

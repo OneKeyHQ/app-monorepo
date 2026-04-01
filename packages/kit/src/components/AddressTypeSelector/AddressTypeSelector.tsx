@@ -302,6 +302,7 @@ function AddressTypeSelectorContent(
       {doubleConfirm ? (
         <XStack px="$2" pb="$2">
           <Button
+            testID="address-type-selector-btn"
             flex={1}
             size="medium"
             variant="primary"
@@ -402,6 +403,7 @@ const SelectorTitle = ({
         ) : null}
       </XStack>
       <IconButton
+        testID="address-type-selector-icon-btn"
         $gtMd={{
           display: 'none',
         }}

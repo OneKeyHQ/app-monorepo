@@ -128,7 +128,12 @@ const AppStateLock = ({
           <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
             {v4migrationData?.isMigrationModalOpen ||
             v4migrationData?.isProcessing ? null : (
-              <Button size="small" variant="tertiary" onPress={resetApp}>
+              <Button
+                size="small"
+                variant="tertiary"
+                onPress={resetApp}
+                testID="app-state-lock.tsx-btn"
+              >
                 {intl.formatMessage({
                   id: ETranslations.login_forgot_passcode,
                 })}

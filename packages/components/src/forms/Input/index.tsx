@@ -634,6 +634,7 @@ function BaseInputUnControlled(
 
   return (
     <Input
+      testID="src-handle-change-input"
       ref={inputRef}
       allowFontScaling={false}
       {...(inputProps as any)}

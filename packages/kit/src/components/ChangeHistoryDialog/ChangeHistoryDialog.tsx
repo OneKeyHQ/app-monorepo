@@ -54,6 +54,7 @@ function ChangeHistoryDialogContent({
             }
             return (
               <Button
+                testID="change-history-dialog-intl-btn"
                 key={item.value}
                 onPress={() => {
                   onChange?.(item.value);

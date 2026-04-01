@@ -9,6 +9,7 @@ function NotificationsTestButton({ ...rest }: IButtonProps) {
   const intl = useIntl();
   return (
     <Button
+      testID="setting-intl-btn"
       onPress={() => {
         void backgroundApiProxy.serviceNotification.showNotification({
           title: intl.formatMessage({

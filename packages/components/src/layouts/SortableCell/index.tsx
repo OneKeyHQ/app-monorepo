@@ -57,6 +57,7 @@ function BaseSortableCell(
           <AnimatePresence exitBeforeEnter>
             {isEditing ? (
               <IconButton
+                testID="src-base-sortable-cell-icon-btn"
                 onPress={onDeletePress}
                 icon="MinusCircleSolid"
                 variant="destructive"
@@ -73,6 +74,7 @@ function BaseSortableCell(
           <AnimatePresence exitBeforeEnter>
             {isEditing ? (
               <IconButton
+                testID="src-icon-btn"
                 icon="MenuOutline"
                 onPressIn={drag}
                 animation="quick"

@@ -777,6 +777,7 @@ function HistoryDetails() {
         />
         {cancelTxEnabled ? (
           <Button
+            testID="asset-details-render-cancel-actions-btn"
             size="small"
             onPress={() =>
               handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
@@ -792,6 +793,7 @@ function HistoryDetails() {
       <>
         {speedUpCancelEnabled ? (
           <Button
+            testID="asset-details-render-speed-up-cancel-action-btn"
             size="small"
             variant="primary"
             onPress={() =>
@@ -808,6 +810,7 @@ function HistoryDetails() {
 
     const renderCheckSpeedUpState = () => (
       <Button
+        testID="asset-details-render-check-speed-up-state-btn"
         size="small"
         variant="primary"
         onPress={() => handleCheckSpeedUpState()}
@@ -1245,6 +1248,7 @@ function HistoryDetails() {
               <InfoItem
                 renderContent={
                   <Button
+                    testID="asset-details-btn"
                     size="medium"
                     onPress={handleViewUTXOsOnPress}
                     variant="secondary"

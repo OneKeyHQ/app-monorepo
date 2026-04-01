@@ -24,6 +24,7 @@ function RestorePasswordVerify() {
         }}
       >
         <Input
+          testID="cloud-backup-intl-input"
           autoFocus
           size="large"
           placeholder={intl.formatMessage({

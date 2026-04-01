@@ -555,6 +555,7 @@ export function FirmwareUpdateProgressBarV2({
       return (
         <Stack my="$6">
           <Button
+            testID="firmware-update-debug-info-btn"
             size="small"
             onPress={() => {
               setShowDebugInfo((v) => !v);

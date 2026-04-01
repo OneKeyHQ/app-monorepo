@@ -554,6 +554,7 @@ function FinalizeWalletSetupPage({
               </SizableText>
               <XStack gap="$2.5" mt="$4">
                 <Button
+                  testID="onboardingv2-btn"
                   flex={1}
                   variant="primary"
                   size="large"
@@ -563,7 +564,12 @@ function FinalizeWalletSetupPage({
                     id: ETranslations.global_retry,
                   })}
                 </Button>
-                <Button flex={1} size="large" onPress={closePage}>
+                <Button
+                  flex={1}
+                  size="large"
+                  onPress={closePage}
+                  testID="onboardingv2-btn"
+                >
                   {intl.formatMessage({
                     id: ETranslations.global_exit,
                   })}

@@ -168,6 +168,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
               })}
               renderTrigger={
                 <Button
+                  testID="sign-and-verify-message-hex-format-btn"
                   size="small"
                   variant="tertiary"
                   iconAfter="QuestionmarkOutline"
@@ -297,6 +298,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
               })}
               renderTrigger={
                 <Button
+                  testID="sign-and-verify-message-btn"
                   iconAfter="QuestionmarkOutline"
                   size="small"
                   variant="tertiary"

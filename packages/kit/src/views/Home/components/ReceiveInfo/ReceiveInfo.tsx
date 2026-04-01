@@ -235,6 +235,7 @@ function ReceiveInfo({
             </YStack>
           </XStack>
           <Button
+            testID="home-btn"
             alignSelf="start"
             size="large"
             variant="primary"

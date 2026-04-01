@@ -41,6 +41,7 @@ const TpslDoneButton = ({ onDone }: { onDone: () => void }) => {
       borderTopColor="$borderSubduedLight"
     >
       <Button
+        testID="perp-view-show-btn"
         variant="tertiary"
         onPress={() => {
           Keyboard.dismiss();
@@ -66,7 +67,11 @@ const TpslInputWithDone = ({
 }: ITpslInputWithDoneProps) => {
   return (
     <>
-      <Input {...inputProps} inputAccessoryViewID={accessoryViewId} />
+      <Input
+        {...inputProps}
+        inputAccessoryViewID={accessoryViewId}
+        testID="perp-tpsl-input-with-done-input"
+      />
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={accessoryViewId}>
           <TpslDoneButton onDone={onDone} />

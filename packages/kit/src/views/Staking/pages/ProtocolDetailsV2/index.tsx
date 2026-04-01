@@ -137,7 +137,11 @@ function SubscriptionSection({
     return (
       <XStack gap="$2">
         {subscriptionActions.map((action) => (
-          <Button key={action.text} {...action.buttonProps}>
+          <Button
+            key={action.text}
+            {...action.buttonProps}
+            testID="staking-render-action-buttons-btn"
+          >
             {action.text ?? ''}
           </Button>
         ))}

@@ -1204,6 +1204,7 @@ export function UniversalWithdraw({
             style={receiveArrowOverlayStyle}
           >
             <IconButton
+              testID="staking-icon-btn"
               alignSelf="center"
               bg="$bgApp"
               variant="tertiary"

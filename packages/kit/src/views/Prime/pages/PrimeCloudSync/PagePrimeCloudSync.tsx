@@ -544,6 +544,7 @@ function AppDataSection() {
             </SizableText>
           </Stack>
           <Button
+            testID="prime-btn"
             size="large"
             variant="primary"
             onPress={handleCreateKeylessWallet}
@@ -567,6 +568,7 @@ function AppDataSection() {
           })} : ${keylessLastUpdateTime}`}
         >
           <Switch
+            testID="prime-switch"
             size={ESwitchSize.small}
             onChange={handleToggleKeylessSync}
             value={false}
@@ -587,6 +589,7 @@ function AppDataSection() {
             })} : ${keylessLastUpdateTime}`}
           >
             <Switch
+              testID="prime-switch"
               size={ESwitchSize.small}
               onChange={handleToggleKeylessSync}
               value={!!config.isCloudSyncEnabledKeyless}
@@ -653,6 +656,7 @@ function AppDataSection() {
             })} : ${keylessLastUpdateTime}`}
           >
             <Switch
+              testID="prime-switch"
               size={ESwitchSize.small}
               onChange={handleToggleKeylessSync}
               value={!!config.isCloudSyncEnabledKeyless}
@@ -701,6 +705,7 @@ function AppDataSection() {
             })} : ${oneKeyIdLastUpdateTime}`}
           >
             <Switch
+              testID="prime-switch"
               size={ESwitchSize.small}
               onChange={handleToggleIdSync}
               value={config.isCloudSyncEnabled}
@@ -745,6 +750,7 @@ export default function PagePrimeCloudSync() {
   const renderDebugHeaderRight = useCallback(
     () => (
       <Button
+        testID="prime-render-debug-header-right-btn"
         variant="tertiary"
         onPress={() => {
           navigation.navigate(EPrimePages.PrimeCloudSyncDebug);

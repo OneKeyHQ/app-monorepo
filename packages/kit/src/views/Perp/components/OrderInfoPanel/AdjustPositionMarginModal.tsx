@@ -211,6 +211,7 @@ const AdjustPositionMarginForm = memo(
 
     const customSuffix = (
       <Select
+        testID="perp-custom-suffix-select"
         items={selectItems}
         value={action}
         onChange={handleActionChange}
@@ -329,6 +330,7 @@ const AdjustPositionMarginForm = memo(
 
         <TradingGuardWrapper>
           <Button
+            testID="perp-btn"
             size="medium"
             variant="primary"
             onPress={handleSubmit}

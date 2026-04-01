@@ -216,6 +216,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                   <XStack gap="$2">
                     {secondaryButtonText && onSecondaryButtonPress ? (
                       <Button
+                        testID="onboardingv2-btn"
                         size="large"
                         variant="secondary"
                         flexGrow={1}
@@ -226,6 +227,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                       </Button>
                     ) : null}
                     <Button
+                      testID="onboardingv2-btn"
                       size="large"
                       variant={isSubmitDisabled ? 'secondary' : 'primary'}
                       flexGrow={1}
@@ -254,6 +256,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                   y={platformEnv.isNativeIOS ? '$5' : '$0'}
                 >
                   <Button
+                    testID="onboardingv2-btn"
                     size="large"
                     variant={isSubmitDisabled ? 'secondary' : 'primary'}
                     {...submitButtonProps}
@@ -262,6 +265,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                   </Button>
                   {secondaryButtonText && onSecondaryButtonPress ? (
                     <Button
+                      testID="onboardingv2-btn"
                       m="$0"
                       py="$3"
                       size="large"

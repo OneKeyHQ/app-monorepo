@@ -93,7 +93,11 @@ const SwapSettingsCommonItem = ({
         {content}
       </SizableText>
     </YStack>
-    <Switch value={value} onChange={onChange} />
+    <Switch
+      value={value}
+      onChange={onChange}
+      testID="swap-swap-settings-common-item-switch"
+    />
   </XStack>
 );
 
@@ -208,6 +212,7 @@ const SwapSlippageCustomContent = ({
           {swapSlippageCustomDefaultList.map((item, index) => (
             <>
               <Button
+                testID="swap-btn"
                 key={item}
                 variant="secondary"
                 size="medium"

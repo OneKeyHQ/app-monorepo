@@ -106,6 +106,7 @@ export function QuickAmountSelector({
       {amountItems.map((amount, index) => (
         <Fragment key={`item-${amount.value}`}>
           <Button
+            testID="market-amounts-length-btn"
             key={`button-${amount.value}`}
             flex={1}
             size="medium"

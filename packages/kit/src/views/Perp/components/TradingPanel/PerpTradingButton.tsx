@@ -200,7 +200,13 @@ export function PerpTradingButton({
   }, [isAccountLoading, isLong, themeVariant]);
 
   const createAddressButtonRender = useCallback((props: IButtonProps) => {
-    return <Button {...sharedButtonProps} {...props} />;
+    return (
+      <Button
+        testID="perp-create-address-btn"
+        {...sharedButtonProps}
+        {...props}
+      />
+    );
   }, []);
 
   const getTpslErrorMessage = useCallback(
@@ -274,7 +280,7 @@ export function PerpTradingButton({
 
   if (loading || perpsAccountLoading?.selectAccountLoading) {
     return (
-      <Button {...sharedButtonProps} disabled>
+      <Button {...sharedButtonProps} disabled testID="perp-order-confirm-btn">
         <Spinner />
       </Button>
     );

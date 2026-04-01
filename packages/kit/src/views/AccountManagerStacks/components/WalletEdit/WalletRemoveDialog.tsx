@@ -47,6 +47,7 @@ export function WalletRemoveDialog({
     <>
       {shouldShowCheckbox ? (
         <Checkbox
+          testID="account-manager-is-confirm-disabled-checkbox"
           value={value}
           onChange={handleChange}
           label={intl.formatMessage({

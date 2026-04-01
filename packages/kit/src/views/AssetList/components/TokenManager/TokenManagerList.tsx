@@ -116,6 +116,7 @@ function ListFooterComponent({
             })}
           </SizableText>
           <Button
+            testID="asset-list-intl-btn"
             mt="$6"
             size="medium"
             variant="primary"

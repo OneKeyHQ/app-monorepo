@@ -125,6 +125,7 @@ function TranslateSettings() {
         />
         {isCustomLanguage ? (
           <Select
+            testID="discovery-select"
             title={intl.formatMessage({
               id: ETranslations.browser_translate_target_language,
             })}
@@ -195,6 +196,7 @@ export function TranslatePopoverContent({
         pt={platformEnv.isDesktop ? '$5' : undefined}
       >
         <Button
+          testID="discovery-handle-action-btn"
           variant="tertiary"
           size="small"
           icon="ChevronLeftOutline"
@@ -221,13 +223,19 @@ export function TranslatePopoverContent({
           {targetLanguageLabel}
         </SizableText>
         <IconButton
+          testID="discovery-icon-btn"
           icon="SettingsOutline"
           variant="tertiary"
           size="small"
           onPress={() => setShowSettings(true)}
         />
       </XStack>
-      <Button variant="primary" size="medium" onPress={handleAction}>
+      <Button
+        variant="primary"
+        size="medium"
+        onPress={handleAction}
+        testID="discovery-btn"
+      >
         {intl.formatMessage({
           id: isTranslated
             ? ETranslations.browser_restore_original

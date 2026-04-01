@@ -50,6 +50,7 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
         </SizableText>
         {showIcon ? (
           <IconButton
+            testID="refer-friends-bn-icon-btn"
             icon="InfoCircleOutline"
             variant="tertiary"
             size="small"

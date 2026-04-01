@@ -84,6 +84,7 @@ export function OpenInAppButton({
               })}
             </SizableText>
             <Button
+              testID="open-in-app-button-btn"
               size="small"
               iconAfter="ArrowTopRightOutline"
               onPress={() => {
@@ -100,7 +101,7 @@ export function OpenInAppButton({
   }, [buildFullUrl, intl]);
 
   return (
-    <Button size="small" onPress={handlePress}>
+    <Button size="small" onPress={handlePress} testID="open-in-app-button-btn">
       {intl.formatMessage({ id: ETranslations.open_in_mobile_app })}
     </Button>
   );

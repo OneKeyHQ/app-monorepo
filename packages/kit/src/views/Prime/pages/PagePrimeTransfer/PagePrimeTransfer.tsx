@@ -167,6 +167,7 @@ export default function PagePrimeTransfer() {
       return (
         <>
           <Button
+            testID="prime-debug-buttons-btn"
             onPress={() => {
               Dialog.debugMessage({
                 debugMessage: {
@@ -181,6 +182,7 @@ export default function PagePrimeTransfer() {
             Show Route Params
           </Button>
           <Button
+            testID="prime-debug-buttons-btn"
             onPress={async () => {
               const data =
                 await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
@@ -192,6 +194,7 @@ export default function PagePrimeTransfer() {
             Get transfer data
           </Button>
           <Button
+            testID="prime-data-btn"
             onPress={async () => {
               const data =
                 await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
@@ -205,6 +208,7 @@ export default function PagePrimeTransfer() {
             Navigate to preview
           </Button>
           <Button
+            testID="prime-param-btn"
             onPress={() => {
               disableExitPrevention();
             }}
@@ -212,6 +216,7 @@ export default function PagePrimeTransfer() {
             Change shouldPreventExit to false
           </Button>
           <Button
+            testID="prime-param-btn"
             onPress={() => {
               void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
             }}
@@ -219,6 +224,7 @@ export default function PagePrimeTransfer() {
             Disconnect WebSocket
           </Button>
           <Button
+            testID="prime-param-btn"
             onPress={async () => {
               const endpoint2 =
                 await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();

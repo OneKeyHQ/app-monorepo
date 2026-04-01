@@ -141,6 +141,7 @@ function HistoryListModal() {
           </>
         ) : null}
         <Button
+          testID="discovery-btn"
           variant="tertiary"
           size="medium"
           onPress={() => setIsEditing((prev) => !prev)}

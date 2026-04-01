@@ -406,6 +406,7 @@ const useParseQRCode = () => {
                     actionsAlign="left"
                     actions={[
                       <Button
+                        testID="scan-qr-code-toast-btn"
                         key="1"
                         variant="primary"
                         size="small"
@@ -432,6 +433,7 @@ const useParseQRCode = () => {
                         })}
                       </Button>,
                       <Button
+                        testID="scan-qr-code-btn"
                         key="2"
                         size="small"
                         onPressIn={() => {

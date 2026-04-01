@@ -117,6 +117,7 @@ function MarketHomeTabBar({
             </XStack>
             {ctx.isTokenCacheReady ? (
               <IconButton
+                testID="market-is-spot-or-perps-icon-btn"
                 icon="PencilOutline"
                 size="small"
                 variant="tertiary"

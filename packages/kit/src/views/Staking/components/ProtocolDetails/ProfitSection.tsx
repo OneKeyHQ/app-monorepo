@@ -205,6 +205,7 @@ function ProfitInfo({
                     })}
                     renderTrigger={
                       <IconButton
+                        testID="staking-icon-btn"
                         iconColor="$iconSubdued"
                         size="small"
                         icon="InfoCircleOutline"

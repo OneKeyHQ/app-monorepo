@@ -25,6 +25,7 @@ const SpendUTXO = () => {
           })}
         >
           <Switch
+            testID="setting-intl-switch"
             size={ESwitchSize.large}
             value={settings.spendDustUTXO}
             onChange={async (value) => {

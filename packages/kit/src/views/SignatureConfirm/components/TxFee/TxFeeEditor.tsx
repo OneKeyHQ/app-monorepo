@@ -1065,6 +1065,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-render-fee-editor-form-input"
                 flex={1}
                 addOns={[
                   {
@@ -1104,6 +1105,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 flex={1}
                 addOns={[
                   {
@@ -1146,6 +1148,7 @@ function TxFeeEditor(props: IProps) {
                 }}
               >
                 <Input
+                  testID="signature-confirm-input"
                   flex={1}
                   addOns={[
                     {
@@ -1182,6 +1185,7 @@ function TxFeeEditor(props: IProps) {
                 }}
               >
                 <Input
+                  testID="signature-confirm-input"
                   flex={1}
                   addOns={[
                     {
@@ -1215,6 +1219,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 flex={1}
                 addOns={[
                   {
@@ -1260,7 +1265,7 @@ function TxFeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} />
+              <Input flex={1} testID="signature-confirm-input" />
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
@@ -1279,6 +1284,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 flex={1}
                 addOns={[
                   {
@@ -1324,7 +1330,7 @@ function TxFeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} />
+              <Input flex={1} testID="signature-confirm-input" />
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
@@ -1344,6 +1350,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 flex={1}
                 addOns={[
                   {
@@ -1381,6 +1388,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 addOns={[
                   {
                     label: 'sat/vB',
@@ -1414,6 +1422,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 flex={1}
                 addOns={[
                   {
@@ -1448,6 +1457,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 flex={1}
                 addOns={[
                   {
@@ -1481,6 +1491,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 flex={1}
                 addOns={[
                   {
@@ -1506,6 +1517,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 flex={1}
                 addOns={[
                   {
@@ -1531,6 +1543,7 @@ function TxFeeEditor(props: IProps) {
               }}
             >
               <Input
+                testID="signature-confirm-input"
                 flex={1}
                 addOns={[
                   {
@@ -2105,6 +2118,7 @@ function TxFeeEditor(props: IProps) {
           currentFeeType !== EFeeType.Custom ||
           !customFee ? null : (
             <Checkbox
+              testID="signature-confirm-checkbox"
               value={defaultCustomFeeInfoEnabled}
               onChange={() => {
                 setDefaultCustomFeeInfoEnabled(!defaultCustomFeeInfoEnabled);
@@ -2130,6 +2144,7 @@ function TxFeeEditor(props: IProps) {
         {isMultiTxs ? null : renderFeeOverview()}
         {vaultSettings?.editFeeEnabled ? (
           <Button
+            testID="signature-confirm-btn"
             mt="$4"
             disabled={isSaveFeeDisabled}
             variant="primary"

@@ -72,6 +72,7 @@ const EnableSystemIdleTimeItem = ({
         })}
       >
         <Switch
+          testID="setting-switch-disabled-switch"
           size={ESwitchSize.small}
           disabled={switchDisabled}
           value={switchValue}

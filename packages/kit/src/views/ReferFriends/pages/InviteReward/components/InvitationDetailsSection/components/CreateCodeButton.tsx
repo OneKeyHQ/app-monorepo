@@ -62,6 +62,7 @@ export function CreateCodeButton({
         }),
         actions: (
           <Button
+            testID="refer-friends-invite-url-btn"
             variant="primary"
             size="small"
             onPress={() => {

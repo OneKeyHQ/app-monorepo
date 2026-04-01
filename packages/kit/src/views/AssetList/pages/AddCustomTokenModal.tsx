@@ -70,6 +70,7 @@ function CreateAddressButton(props: IButtonProps) {
   const intl = useIntl();
   return (
     <Button
+      testID="asset-list-intl-btn"
       $md={
         {
           flexGrow: 1,

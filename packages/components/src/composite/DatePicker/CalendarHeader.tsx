@@ -84,6 +84,7 @@ export const CalendarHeader = memo(
           <XStack alignItems="center">
             {showPrevYearButton ? (
               <IconButton
+                testID="src-icon-btn"
                 icon="ChevronDoubleLeftOutline"
                 variant="tertiary"
                 size={iconSize}
@@ -94,6 +95,7 @@ export const CalendarHeader = memo(
             )}
             {showPrevButton ? (
               <IconButton
+                testID="src-icon-btn"
                 icon="ChevronLeftSmallOutline"
                 variant="tertiary"
                 size={iconSize}
@@ -106,6 +108,7 @@ export const CalendarHeader = memo(
           <XStack alignItems="center">
             {showNextButton ? (
               <IconButton
+                testID="src-icon-btn"
                 icon="ChevronRightSmallOutline"
                 variant="tertiary"
                 size={iconSize}
@@ -116,6 +119,7 @@ export const CalendarHeader = memo(
             )}
             {showNextYearButton ? (
               <IconButton
+                testID="src-icon-btn"
                 icon="ChevronDoubleRightOutline"
                 variant="tertiary"
                 size={iconSize}

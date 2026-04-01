@@ -25,7 +25,15 @@ interface IEmptyProps extends YStackProps {
 }
 
 export function EmptyButton(props: IButtonProps) {
-  return <Button variant="primary" size="medium" mt="$6" {...props} />;
+  return (
+    <Button
+      testID="empty-btn"
+      variant="primary"
+      size="medium"
+      mt="$6"
+      {...props}
+    />
+  );
 }
 export function Empty(props: IEmptyProps) {
   const {

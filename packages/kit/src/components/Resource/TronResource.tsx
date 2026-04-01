@@ -189,6 +189,7 @@ function ResourceDetailsContent({
     <Stack gap="$5">
       <XStack justifyContent="flex-start">
         <Button
+          testID="resource-dialog-instance-btn"
           flex={1}
           textAlign="left"
           justifyContent="flex-start"

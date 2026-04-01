@@ -455,6 +455,7 @@ export function KeylessShareCardsView({ mode }: IKeylessShareCardsViewProps) {
             }}
           >
             <Input
+              testID="onboardingv2-handle-import-custom-mnemonic-input"
               autoFocus
               flex={1}
               placeholder="Enter your custom mnemonic phrase"
@@ -563,7 +564,10 @@ export function KeylessShareCardsView({ mode }: IKeylessShareCardsViewProps) {
             h="$10"
             debugComponent={
               <YStack gap="$2">
-                <Button onPress={handleImportCustomMnemonic}>
+                <Button
+                  onPress={handleImportCustomMnemonic}
+                  testID="onboardingv2-btn"
+                >
                   ImportCustomMnemonic
                 </Button>
               </YStack>

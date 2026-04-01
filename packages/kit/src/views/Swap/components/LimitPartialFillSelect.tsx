@@ -71,6 +71,7 @@ const SwapLimitPartialFillSelect = ({
         </SizableText>
       </XStack>
       <Select
+        testID="swap-select"
         placement="bottom-end"
         items={selectItems}
         value={currentSelectPartiallyFillValue?.value}

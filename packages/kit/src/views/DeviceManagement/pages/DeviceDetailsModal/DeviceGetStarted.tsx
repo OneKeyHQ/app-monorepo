@@ -183,6 +183,7 @@ function DeviceGetStarted() {
             {intl.formatMessage({ id: ETranslations.global_faqs })}
           </SizableText>
           <Button
+            testID="device-management-intl-btn"
             size="small"
             variant="tertiary"
             title={intl.formatMessage({ id: ETranslations.global_learn_more })}

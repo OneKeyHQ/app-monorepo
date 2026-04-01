@@ -76,7 +76,12 @@ function PreviewHeader({
       </SizableText>
       <XStack pr="$2.5">
         {buttonProps ? (
-          <Button size="small" variant="tertiary" onPress={buttonProps.onPress}>
+          <Button
+            size="small"
+            variant="tertiary"
+            onPress={buttonProps.onPress}
+            testID="prime-intl-btn"
+          >
             {intl.formatMessage({
               id: buttonProps.isAllSelected
                 ? ETranslations.global_deselect_all
@@ -170,6 +175,7 @@ function PreviewItem({
         </YStack>
         <Stack w="$5">
           <Checkbox
+            testID="prime-checkbox"
             disabled={selectedItemMapInfo[itemId].disabled}
             shouldStopPropagation
             value={selectedItemMapInfo[itemId].checked}
@@ -496,6 +502,7 @@ export default function PagePrimeTransferPreview() {
       return (
         <>
           <Button
+            testID="prime-debug-buttons-btn"
             onPress={() => {
               Dialog.debugMessage({
                 debugMessage: selectedTransferData || transferData,

@@ -341,6 +341,7 @@ function TokenDetailsView() {
               {!token.address ? null : (
                 <XStack gap="$3" alignItems="center">
                   <Button
+                    testID="asset-details-btn"
                     size="small"
                     variant="tertiary"
                     onPress={() => copyText(token.address)}

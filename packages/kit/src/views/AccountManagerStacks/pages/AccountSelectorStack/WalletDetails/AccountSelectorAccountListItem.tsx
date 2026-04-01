@@ -41,6 +41,7 @@ import { AccountValueWithSpotlight } from './AccountValue';
 function PlusButton({ onPress, loading }: IButtonProps) {
   return (
     <IconButton
+      testID="account-manager-plus-button-icon-btn"
       borderWidth={0}
       borderRadius="$2"
       variant="tertiary"

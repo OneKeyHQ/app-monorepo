@@ -495,7 +495,11 @@ export function ConfirmOnDeviceToastContent({
         <Stack minWidth="$8">
           {showErrorButton ? (
             <Toast.Close>
-              <IconButton size="small" icon="CrossedSmallOutline" />
+              <IconButton
+                size="small"
+                icon="CrossedSmallOutline"
+                testID="hardware-timeout-icon-btn"
+              />
             </Toast.Close>
           ) : null}
         </Stack>

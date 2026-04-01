@@ -202,6 +202,7 @@ const InAppNotification = () => {
   const approvingSuccessAction = useMemo(() => {
     return (
       <Button
+        testID="provider-approving-success-action-btn"
         variant="primary"
         size="small"
         onPress={approvingSuccessActionConfirm}
@@ -465,6 +466,7 @@ const InAppNotification = () => {
           if (isEarnTransaction || isBorrowTransaction) {
             earnAction = (
               <Button
+                testID="provider-is-borrow-transaction-btn"
                 variant="primary"
                 size="small"
                 onPress={async () => {

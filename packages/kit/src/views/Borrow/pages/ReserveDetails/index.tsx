@@ -175,6 +175,7 @@ const ReserveDetailsPage = () => {
   const headerRight = useCallback(
     () => (
       <IconButton
+        testID="borrow-header-right-icon-btn"
         icon="ShareOutline"
         size="small"
         variant="tertiary"
