@@ -140,16 +140,19 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
     }
 
     if (Object.keys(allSegments).length > 0) {
-      metadata.runtimeGraphVersion = '2';
-      metadata.mainEntry = JSON.stringify({
+      // MetadataV2 fields as proper typed values (not stringified).
+      // V1 consumers iterate flat string→string entries and skip non-string
+      // values, so nested objects don't interfere with v1 file-hash lookups.
+      metadata.runtimeGraphVersion = 2;
+      metadata.mainEntry = {
         file: 'main.jsbundle.hbc',
         sha256: metadata['main.jsbundle.hbc'] || '',
-      });
-      metadata.backgroundEntry = JSON.stringify({
+      };
+      metadata.backgroundEntry = {
         file: 'background.bundle',
         sha256: metadata['background.bundle'] || '',
-      });
-      metadata.segments = JSON.stringify(allSegments);
+      };
+      metadata.segments = allSegments;
       log(`MetadataV2: ${Object.keys(allSegments).length} segment(s) embedded`);
     }
 
