@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -151,6 +152,7 @@ function BasicFind({ id }: { id: string }) {
           top="$2.5"
           zIndex={100_000}
           animation="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{
             opacity: 0,
             y: -20,

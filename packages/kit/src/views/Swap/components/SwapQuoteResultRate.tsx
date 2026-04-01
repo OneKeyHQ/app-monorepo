@@ -13,6 +13,10 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -137,6 +141,7 @@ const SwapQuoteResultRate = ({
             flex={1}
             justifyContent="flex-end"
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             y={openResult ? '$1' : '$0'}
             opacity={openResult ? 0 : 1}
             // gap="$2"
@@ -170,7 +175,11 @@ const SwapQuoteResultRate = ({
           </XStack>
         )}
         {!quoting && onOpenResult ? (
-          <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
+          <Stack
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
+            rotate={openResult ? '180deg' : '0deg'}
+          >
             <Icon
               name="ChevronDownSmallOutline"
               color={openResult ? '$iconActive' : '$iconSubdued'}
@@ -191,7 +200,11 @@ const SwapQuoteResultRate = ({
               />
             ) : null}
             {onOpenResult ? (
-              <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
+              <Stack
+                animation="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
+                rotate={openResult ? '180deg' : '0deg'}
+              >
                 <Icon
                   name="ChevronDownSmallOutline"
                   color={openResult ? '$iconActive' : '$iconSubdued'}

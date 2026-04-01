@@ -18,6 +18,10 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EFirmwareUpdateSteps,
@@ -121,7 +125,11 @@ function ChangeLogSection({
                 active={open}
               />
             </XStack>
-            <Stack animation="quick" rotate={open ? '-180deg' : '0deg'}>
+            <Stack
+              animation="quick"
+              animateOnly={ANIMATE_ONLY_TRANSFORM}
+              rotate={open ? '-180deg' : '0deg'}
+            >
               <Icon
                 name="ChevronDownSmallOutline"
                 size="$6"
@@ -134,6 +142,7 @@ function ChangeLogSection({
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
           animation="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{ opacity: 0 }}
           px="$5"
           pb="$5"

@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
+  PERPS_CAMPAIGN_HELP_LINK,
   REFERRAL_HELP_LINK,
   buildReferralUrl,
 } from '@onekeyhq/shared/src/config/appConfig';
@@ -291,56 +292,13 @@ export const useReferFriends = () => {
         }
       };
 
-      const dialog = Dialog.show({
-        icon: 'GiftOutline',
-        title: sourceConfig?.title,
-        description: (
-          <FormatHyperlinkText
-            size="$bodyMd"
-            underlineTextProps={{ color: '$textInfo' }}
-            onAction={() => {
-              void dialog.close();
-            }}
-          >
-            {sourceConfig?.subtitle}
-          </FormatHyperlinkText>
-        ),
-        renderContent: isLogin ? (
-          <YStack gap="$5">
-            <YStack gap="$2">
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({ id: ETranslations.referral_your_code })}
-              </SizableText>
-              <XStack
-                gap="$3"
-                bg="$bgStrong"
-                borderRadius="$2"
-                px="$2"
-                py="$1.5"
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <SizableText size="$bodyLgMedium">{myReferralCode}</SizableText>
-                <IconButton
-                  title={intl.formatMessage({ id: ETranslations.global_copy })}
-                  variant="tertiary"
-                  icon="Copy3Outline"
-                  size="small"
-                  iconColor="$iconSubdued"
-                  onPress={() => {
-                    copyText(myReferralCode);
-                    defaultLogger.referral.page.copyReferralCode();
-                  }}
-                />
-              </XStack>
-            </YStack>
-
-            {copyAsUrl ? (
+      const getRenderContent = () => {
+        if (isLogin) {
+          return (
+            <YStack gap="$5">
               <YStack gap="$2">
                 <SizableText size="$bodyMdMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_referral_link,
-                  })}
+                  {intl.formatMessage({ id: ETranslations.referral_your_code })}
                 </SizableText>
                 <XStack
                   gap="$3"
@@ -351,12 +309,8 @@ export const useReferFriends = () => {
                   justifyContent="space-between"
                   alignItems="center"
                 >
-                  <SizableText
-                    size="$bodyLgMedium"
-                    numberOfLines={1}
-                    flexShrink={1}
-                  >
-                    {copyContent}
+                  <SizableText size="$bodyLgMedium">
+                    {myReferralCode}
                   </SizableText>
                   <IconButton
                     title={intl.formatMessage({
@@ -366,17 +320,61 @@ export const useReferFriends = () => {
                     icon="Copy3Outline"
                     size="small"
                     iconColor="$iconSubdued"
-                    flexShrink={0}
                     onPress={() => {
-                      copyText(copyContent);
+                      copyText(myReferralCode);
                       defaultLogger.referral.page.copyReferralCode();
                     }}
                   />
                 </XStack>
               </YStack>
-            ) : null}
-          </YStack>
-        ) : (
+
+              {copyAsUrl ? (
+                <YStack gap="$2">
+                  <SizableText size="$bodyMdMedium">
+                    {intl.formatMessage({
+                      id: ETranslations.referral_referral_link,
+                    })}
+                  </SizableText>
+                  <XStack
+                    gap="$3"
+                    bg="$bgStrong"
+                    borderRadius="$2"
+                    px="$2"
+                    py="$1.5"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <SizableText
+                      size="$bodyLgMedium"
+                      numberOfLines={1}
+                      flexShrink={1}
+                    >
+                      {copyContent}
+                    </SizableText>
+                    <IconButton
+                      title={intl.formatMessage({
+                        id: ETranslations.global_copy,
+                      })}
+                      variant="tertiary"
+                      icon="Copy3Outline"
+                      size="small"
+                      iconColor="$iconSubdued"
+                      flexShrink={0}
+                      onPress={() => {
+                        copyText(copyContent);
+                        defaultLogger.referral.page.copyReferralCode();
+                      }}
+                    />
+                  </XStack>
+                </YStack>
+              ) : null}
+            </YStack>
+          );
+        }
+        if (source === 'Perps') {
+          return null;
+        }
+        return (
           <YStack gap="$5">
             <XStack gap="$4">
               <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgSuccess">
@@ -405,15 +403,39 @@ export const useReferFriends = () => {
               </YStack>
             </XStack>
           </YStack>
-        ),
+        );
+      };
+
+      const dialog = Dialog.show({
+        icon: 'GiftOutline',
+        title: sourceConfig?.title,
+        description:
+          source === 'Perps' ? (
+            intl.formatMessage({
+              id: ETranslations.perps_referral_campaign__desc,
+            })
+          ) : (
+            <FormatHyperlinkText
+              size="$bodyMd"
+              underlineTextProps={{ color: '$textInfo' }}
+              onAction={() => {
+                void dialog.close();
+              }}
+            >
+              {sourceConfig?.subtitle}
+            </FormatHyperlinkText>
+          ),
+        renderContent: getRenderContent(),
         onCancelText: intl.formatMessage({
           id: ETranslations.referral_intro_learn_more,
         }),
         onCancel: () => {
+          const learnMoreUrl =
+            source === 'Perps' ? PERPS_CAMPAIGN_HELP_LINK : REFERRAL_HELP_LINK;
           if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
+            openUrlInDiscovery({ url: learnMoreUrl });
           } else {
-            openUrlExternal(REFERRAL_HELP_LINK);
+            openUrlExternal(learnMoreUrl);
           }
         },
         onConfirmText: intl.formatMessage({
