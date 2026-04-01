@@ -14,8 +14,8 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
@@ -24,12 +24,12 @@ import {
   EJotaiContextStoreNames,
   useMarketBannerListSortAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
   EEnterWay,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type ETabMarketRoutes,
@@ -264,7 +264,12 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             maxToRenderPerBatch={20}
             contentContainerStyle={{ paddingBottom: tabBarHeight }}
             ListEmptyComponent={
-              <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+              <Stack
+                flex={1}
+                alignItems="center"
+                justifyContent="center"
+                p="$8"
+              >
                 <SizableText size="$bodyLg" color="$textSubdued">
                   {intl.formatMessage({ id: ETranslations.global_no_data })}
                 </SizableText>
