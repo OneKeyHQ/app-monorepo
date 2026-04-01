@@ -15,6 +15,7 @@ const backgroundIndexFilePath = path.join(mobileDirPath, 'background.ts');
 const bundleOutputPath = path.join(mobileDirPath, 'out-dir-bundle');
 const zipOutputPath = path.join(mobileDirPath, 'out-dir-bundle-zip');
 const backgroundProtocolVersion = '1';
+const useUnionBuild = process.env.UNION_BUILD === 'true';
 
 const SENTRY_ORG = 'onekey-bb';
 const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
@@ -441,10 +442,27 @@ const buildSegments = async ({ platform, buildOutputAssetPath, inputDir, outputS
   log(`build ${platform} segments done`);
 };
 
+const runUnionBuildAnalysis = (platform) => {
+  log(`union build analysis: platform=${platform}`);
+  execSync(
+    `${nodeExecutablePath} ${path.join(mobileDirPath, 'scripts/unionBuild.js')} --platform ${platform}`,
+    {
+      stdio: 'inherit',
+      env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' },
+    },
+  );
+  log('union build analysis done');
+};
+
 const buildIOSBundle = async () => {
   log('build ios bundle start');
   ensureBundleOutputPath();
   ensureZipOutputPath();
+
+  if (useUnionBuild) {
+    runUnionBuildAnalysis('ios');
+  }
+
   runReactNativeBundle({
     platform: 'ios',
     entryFile: indexFilePath,
@@ -608,6 +626,11 @@ const buildAndroidBundle = async () => {
   log('build android bundle start');
   ensureBundleOutputPath();
   ensureZipOutputPath();
+
+  if (useUnionBuild) {
+    runUnionBuildAnalysis('android');
+  }
+
   runReactNativeBundle({
     platform: 'android',
     entryFile: indexFilePath,
