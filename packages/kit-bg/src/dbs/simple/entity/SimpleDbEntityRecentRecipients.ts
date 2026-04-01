@@ -76,9 +76,11 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
           if (isEvmKey) {
             // Merge into shared EVM recipients, keep newer entries
             for (const [address, data] of Object.entries(recipients)) {
-              const existing = evmRecipients[address];
+              // Normalize to lowercase to match updateRecentRecipients behavior
+              const normalizedAddr = address.toLowerCase();
+              const existing = evmRecipients[normalizedAddr];
               if (!existing || data.updatedAt > existing.updatedAt) {
-                evmRecipients[address] = {
+                evmRecipients[normalizedAddr] = {
                   ...data,
                   networkId: data.networkId || storageKey,
                 };

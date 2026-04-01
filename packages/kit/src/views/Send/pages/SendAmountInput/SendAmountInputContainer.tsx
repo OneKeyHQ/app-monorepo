@@ -1108,6 +1108,7 @@ function SendAmountInputContainer() {
     displayCoinControlButton,
     handleCoinControlPress,
     networkId,
+    sendConfirmActions,
     vaultSettings?.mergeDeriveAssetsEnabled,
     walletId,
   ]);
