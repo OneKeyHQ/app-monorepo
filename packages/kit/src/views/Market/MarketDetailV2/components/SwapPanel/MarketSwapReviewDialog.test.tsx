@@ -12,7 +12,7 @@ import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
 
-const swapReviewDialogMock = jest.fn(() => null);
+const swapReviewDialogMock = jest.fn<void, [unknown]>();
 
 jest.mock(
   '@onekeyhq/kit/src/views/Swap/pages/components/SwapReviewDialog',
