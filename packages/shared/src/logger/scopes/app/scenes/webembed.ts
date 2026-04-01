@@ -128,31 +128,6 @@ export class WebembedScene extends BaseScene {
   }
 
   @LogToLocal()
-  public webViewOnLoadStart({ url }: { url: string }) {
-    return { url };
-  }
-
-  @LogToLocal()
-  public webViewOnLoad({ url }: { url: string }) {
-    return { url };
-  }
-
-  @LogToLocal()
-  public webViewOnLoadEnd({
-    url,
-    isError,
-    errorCode,
-    errorDescription,
-  }: {
-    url: string;
-    isError: boolean;
-    errorCode?: number;
-    errorDescription?: string;
-  }) {
-    return { url, isError, errorCode, errorDescription };
-  }
-
-  @LogToLocal()
   public webViewOnError({
     code,
     description,
@@ -163,23 +138,5 @@ export class WebembedScene extends BaseScene {
     url: string;
   }) {
     return { code, description, url };
-  }
-
-  @LogToLocal()
-  public webViewOnHttpError({
-    statusCode,
-    description,
-    url,
-  }: {
-    statusCode: number;
-    description: string;
-    url: string;
-  }) {
-    return { statusCode, description, url };
-  }
-
-  @LogToLocal()
-  public webViewConnectBridge({ connected }: { connected: boolean }) {
-    return { connected };
   }
 }

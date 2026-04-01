@@ -29,11 +29,6 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
-import type {
-  WebViewErrorEvent,
-  WebViewHttpErrorEvent,
-  WebViewNavigationEvent,
-} from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
 // /onboarding/auto_typing
@@ -195,60 +190,16 @@ export function WebViewWebEmbed({
           }
           break;
         }
-        case 'webembed-debug': {
-          console.log('[WebEmbed-Debug]', JSON.stringify(data.data));
-          defaultLogger.app.webembed.webViewOnLoad({
-            url: `[DEBUG] ${JSON.stringify(data.data)}`,
-          });
-          break;
-        }
         default:
           break;
       }
     }
   }, []);
 
-  const handleLoadStart = useCallback((event: WebViewNavigationEvent) => {
-    defaultLogger.app.webembed.webViewOnLoadStart({
-      url: event?.nativeEvent?.url || 'unknown',
-    });
-  }, []);
-
-  const handleLoad = useCallback((event: WebViewNavigationEvent) => {
-    defaultLogger.app.webembed.webViewOnLoad({
-      url: event?.nativeEvent?.url || 'unknown',
-    });
-  }, []);
-
-  const handleLoadEnd = useCallback(
-    (event: WebViewNavigationEvent | WebViewErrorEvent) => {
-      const nativeEvent = event?.nativeEvent;
-      const isError = 'code' in nativeEvent;
-      defaultLogger.app.webembed.webViewOnLoadEnd({
-        url: (nativeEvent as any)?.url || 'unknown',
-        isError,
-        errorCode: isError ? (nativeEvent as any)?.code : undefined,
-        errorDescription: isError
-          ? (nativeEvent as any)?.description
-          : undefined,
-      });
-    },
-    [],
-  );
-
   const handleError = useCallback((event: { nativeEvent: any }) => {
     const { code, description, url } = event?.nativeEvent || {};
     defaultLogger.app.webembed.webViewOnError({
       code: code || 0,
-      description: description || 'unknown',
-      url: url || 'unknown',
-    });
-  }, []);
-
-  const handleHttpError = useCallback((event: WebViewHttpErrorEvent) => {
-    const { statusCode, description, url } = event?.nativeEvent || {};
-    defaultLogger.app.webembed.webViewOnHttpError({
-      statusCode: statusCode || 0,
       description: description || 'unknown',
       url: url || 'unknown',
     });
@@ -306,33 +257,9 @@ export function WebViewWebEmbed({
         onWebViewRef={onWebViewRef}
         customReceiveHandler={customReceiveHandler}
         onMessage={handleMessage}
-        onLoadStart={handleLoadStart}
-        onLoad={handleLoad}
-        onLoadEnd={handleLoadEnd}
         onError={handleError}
-        onHttpError={handleHttpError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
-            window.addEventListener('DOMContentLoaded', function() {
-              var scripts = document.querySelectorAll('script[src]');
-              var scriptInfo = [];
-              scripts.forEach(function(s) { scriptInfo.push(s.src); });
-              window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'webembed-debug',
-                data: {
-                  scriptsFound: scriptInfo.length,
-                  scriptSources: scriptInfo,
-                  onekeyExists: typeof globalThis.$onekey !== 'undefined',
-                  documentTitle: document.title,
-                }
-              }));
-            });
-            window.addEventListener('error', function(e) {
-              window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'webembed-debug',
-                data: { jsError: e.message, filename: e.filename, lineno: e.lineno }
-              }));
-            }, true);
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
               webEmbedAppSettings,
             )};
@@ -366,11 +293,7 @@ export function WebViewWebEmbed({
     onWebViewRef,
     customReceiveHandler,
     handleMessage,
-    handleLoadStart,
-    handleLoad,
-    handleLoadEnd,
     handleError,
-    handleHttpError,
   ]);
 
   useEffect(() => {
@@ -388,7 +311,6 @@ export function WebViewWebEmbed({
       return;
     }
     jsBridge.globalOnMessageEnabled = true;
-    defaultLogger.app.webembed.webViewConnectBridge({ connected: true });
     backgroundApiProxy.connectWebEmbedBridge(
       jsBridge as unknown as JsBridgeBase,
     );
