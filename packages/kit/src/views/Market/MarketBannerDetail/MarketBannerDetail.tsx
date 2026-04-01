@@ -299,6 +299,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     transformedData,
     renderBannerItem,
     bannerKeyExtractor,
+    tabBarHeight,
+    intl,
   ]);
 
   return (
