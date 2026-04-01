@@ -111,7 +111,7 @@ module.exports = async () => {
       'apps/mobile/e2e',
       // CLI integration/smoke tests require a built binary and must not run in unit-test CI.
       '\\.integration\\.test\\.ts$',
-      '\\.smoke\\.test\\.ts$',
+      '-smoke\\.test\\.ts$',
       '\\.claude/worktrees/',
       '\\.worktree/',
       'packages/core/src/chains/ada',

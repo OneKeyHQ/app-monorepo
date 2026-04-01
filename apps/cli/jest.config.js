@@ -20,7 +20,7 @@ module.exports = {
   testMatch: ['<rootDir>/src/**/*.test.ts'],
   testPathIgnorePatterns: [
     '\\.integration\\.test\\.ts$',
-    '\\.smoke\\.test\\.ts$',
+    '-smoke\\.test\\.ts$',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
 };
