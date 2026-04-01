@@ -274,7 +274,7 @@ function PerpTradingForm({
     if (!available) return '0';
     const longValue = Number(available[0] ?? 0);
     const shortValue = Number(available[1] ?? 0);
-    return new BigNumber(Math.max(longValue, shortValue)).toFixed(
+    return new BigNumber(Math.min(longValue, shortValue)).toFixed(
       2,
       BigNumber.ROUND_DOWN,
     );
