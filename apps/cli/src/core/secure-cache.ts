@@ -18,9 +18,9 @@ export class SecureCache {
       this.delete(key);
     }, effectiveTtl);
 
-    if (typeof timerId === 'object' && 'unref' in timerId) {
-      timerId.unref();
-    }
+    // Node.js setTimeout returns Timeout with unref(); CI tsconfig resolves to number
+    const t = timerId as unknown as { unref?: () => void };
+    t.unref?.();
     this.cache.set(key, { value, timerId });
   }
 
