@@ -392,11 +392,7 @@ export function HomePageView({
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
       const testID = tabTestIDMap[props.name];
-      return (
-        <Stack testID={testID}>
-          <TabBarItem {...props} />
-        </Stack>
-      );
+      return <TabBarItem {...props} testID={testID} />;
     },
     [tabTestIDMap],
   );

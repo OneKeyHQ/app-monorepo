@@ -100,7 +100,7 @@ export function BorrowSwapOrBridge({
           size="small"
           onPress={handleSwapPress}
           disabled={!showSwap}
-          testID="borrow-handle-bridge-press-btn"
+          testID="borrow-handle-swap-press-btn"
         >
           {intl.formatMessage({ id: ETranslations.global_swap })}
         </Button>

@@ -95,6 +95,7 @@ export function TabBarItem({
   animatedPillIndicator,
   indexDecimal,
   index: tabIndex,
+  testID,
 }: ITabBarItemProps) {
   const handlePress = useCallback(() => {
     onPress(name);
@@ -119,6 +120,7 @@ export function TabBarItem({
 
     return (
       <YStack
+        testID={testID}
         ai="center"
         jc="center"
         px="$3.5"
@@ -159,6 +161,7 @@ export function TabBarItem({
 
   return (
     <YStack
+      testID={testID}
       h={44}
       // minWidth={52}
       ai="center"
@@ -516,6 +519,7 @@ export interface ITabBarItemProps {
   // Provided when animatedPillIndicator is true for UI-thread text color.
   indexDecimal?: SharedValue<number>;
   index?: number;
+  testID?: string;
 }
 
 const PILL_GRADIENT_THRESHOLD = 2;
