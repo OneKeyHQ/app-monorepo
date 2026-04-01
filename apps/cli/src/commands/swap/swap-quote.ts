@@ -32,8 +32,14 @@ interface ISseEventInfo {
   eventId: string;
 }
 
+interface ISseQuoteItem extends IFetchQuoteResult {
+  eventId?: string;
+  fromTokenInfo?: IFetchQuoteResult['fromTokenInfo'];
+  toTokenInfo?: IFetchQuoteResult['toTokenInfo'];
+}
+
 interface ISseEventQuoteResult {
-  data: IFetchQuoteResult[];
+  data: ISseQuoteItem[];
 }
 
 interface ISseEventError {
@@ -158,7 +164,7 @@ export async function fetchQuotesViaSSE(
   }
 
   // Deduplicate by provider — keep only the latest quote per provider,
-  // matching the app-side behaviour that replaces quotes on each SSE update.
+  // matching the app-side behavior that replaces quotes on each SSE update.
   const quotesByProvider = new Map<string, IFetchQuoteResult>();
   let currentEventId: string | undefined;
   let receivedAnyEvent = false;
@@ -221,33 +227,26 @@ export async function fetchQuotesViaSSE(
                     // Skip quotes whose eventId doesn't match the current event
                     if (
                       currentEventId &&
-                      (item as any).eventId &&
-                      (item as any).eventId !== currentEventId
+                      item.eventId &&
+                      item.eventId !== currentEventId
                     ) {
-                      continue;
+                      // eventId mismatch — skip stale quote
+                    } else {
+                      const defaultTokenInfo = {
+                        networkId: '',
+                        symbol: '',
+                        contractAddress: '',
+                        decimals: 0,
+                      } as IFetchQuoteResult['fromTokenInfo'];
+                      const quoteItem: IFetchQuoteResult = {
+                        ...item,
+                        fromTokenInfo: item.fromTokenInfo ?? defaultTokenInfo,
+                        toTokenInfo: item.toTokenInfo ?? defaultTokenInfo,
+                      };
+                      // Replace any previous quote from the same provider
+                      const providerKey = `${quoteItem.info.provider}::${quoteItem.info.providerName}`;
+                      quotesByProvider.set(providerKey, quoteItem);
                     }
-                    const quoteItem: IFetchQuoteResult = {
-                      ...item,
-                      fromTokenInfo:
-                        (item as any).fromTokenInfo ??
-                        ({
-                          networkId: '',
-                          symbol: '',
-                          contractAddress: '',
-                          decimals: 0,
-                        } as any),
-                      toTokenInfo:
-                        (item as any).toTokenInfo ??
-                        ({
-                          networkId: '',
-                          symbol: '',
-                          contractAddress: '',
-                          decimals: 0,
-                        } as any),
-                    };
-                    // Replace any previous quote from the same provider
-                    const providerKey = `${quoteItem.info.provider}::${quoteItem.info.providerName}`;
-                    quotesByProvider.set(providerKey, quoteItem);
                   }
                 }
               }
@@ -455,7 +454,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
           );
 
           // Build SSE quote params
-          const protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
+          const _protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
           const quoteParams: Record<string, string | number> = {
             fromTokenAddress: fromResolved.contractAddress,
             toTokenAddress: toResolved.contractAddress,

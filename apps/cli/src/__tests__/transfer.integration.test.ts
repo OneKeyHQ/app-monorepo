@@ -28,7 +28,7 @@ function loadTestMnemonic(): string {
   const match = content.match(/^TEST_MNEMONIC=(.+)$/m);
   const mnemonic = match?.[1]?.trim();
   if (!mnemonic) {
-    // eslint-disable-next-line no-restricted-syntax
+    // oxlint-disable-next-line onekey/no-raw-error -- test utility, not app code
     throw new Error('TEST_MNEMONIC not found in apps/cli/.env.test');
   }
   return mnemonic;
@@ -82,7 +82,7 @@ function runJSON(
     try {
       parsed = JSON.parse(extractJson(result.stdout));
     } catch {
-      // eslint-disable-next-line no-restricted-syntax
+      // oxlint-disable-next-line onekey/no-raw-error -- test utility
       throw new Error(
         `Failed to parse JSON output:\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
       );

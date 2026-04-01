@@ -122,13 +122,7 @@ describe('swap networks --bridge (integration)', () => {
   });
 
   it('returns fewer networks than unfiltered list', () => {
-    const allOutput = run(
-      '--json',
-      '--env',
-      'test',
-      'swap',
-      'networks',
-    );
+    const allOutput = run('--json', '--env', 'test', 'swap', 'networks');
     const bridgeOutput = run(
       '--json',
       '--env',
@@ -140,11 +134,11 @@ describe('swap networks --bridge (integration)', () => {
     const allParsed = JSON.parse(extractJson(allOutput));
     const bridgeParsed = JSON.parse(extractJson(bridgeOutput));
     const allNetworks = Array.isArray(allParsed) ? allParsed : allParsed.data;
-    const bridgeNetworks = Array.isArray(bridgeParsed) ? bridgeParsed : bridgeParsed.data;
+    const bridgeNetworks = Array.isArray(bridgeParsed)
+      ? bridgeParsed
+      : bridgeParsed.data;
     if (Array.isArray(allNetworks) && Array.isArray(bridgeNetworks)) {
-      expect(bridgeNetworks.length).toBeLessThanOrEqual(
-        allNetworks.length,
-      );
+      expect(bridgeNetworks.length).toBeLessThanOrEqual(allNetworks.length);
     }
   });
 });

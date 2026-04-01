@@ -6,21 +6,21 @@ const SWAP_TX_TO = '0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
 
 describe('resolveApproveSpender', () => {
   it('prefers orderAllowance target when present', () => {
-    expect(
-      resolveApproveSpender(ORDER_TARGET, BUILD_TARGET, SWAP_TX_TO),
-    ).toBe(ORDER_TARGET);
+    expect(resolveApproveSpender(ORDER_TARGET, BUILD_TARGET, SWAP_TX_TO)).toBe(
+      ORDER_TARGET,
+    );
   });
 
   it('falls back to buildAllowance target when order has none', () => {
-    expect(
-      resolveApproveSpender(undefined, BUILD_TARGET, SWAP_TX_TO),
-    ).toBe(BUILD_TARGET);
+    expect(resolveApproveSpender(undefined, BUILD_TARGET, SWAP_TX_TO)).toBe(
+      BUILD_TARGET,
+    );
   });
 
   it('falls back to swapTxTo when neither allowance has a target', () => {
-    expect(
-      resolveApproveSpender(undefined, undefined, SWAP_TX_TO),
-    ).toBe(SWAP_TX_TO);
+    expect(resolveApproveSpender(undefined, undefined, SWAP_TX_TO)).toBe(
+      SWAP_TX_TO,
+    );
   });
 
   it('never returns undefined — swapTxTo is always the final fallback', () => {

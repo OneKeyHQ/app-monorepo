@@ -10,11 +10,11 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
-import { listEvmChains, resolveChain } from '../core/chain-resolver';
 import {
   _resetSwapNetworksCache,
   fetchSwapNetworks,
 } from '../commands/swap/swap-networks';
+import { listEvmChains, resolveChain } from '../core/chain-resolver';
 import { apiClient } from '../infra';
 
 /* ------------------------------------------------------------------ */

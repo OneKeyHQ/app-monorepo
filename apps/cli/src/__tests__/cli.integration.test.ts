@@ -51,10 +51,9 @@ describe('onekey CLI (integration)', () => {
       caughtError = e as NodeJS.ErrnoException & { stdout?: string };
     }
     expect(caughtError).not.toBeNull();
-    const parsed = JSON.parse(extractJson(caughtError!.stdout ?? '{}')) as Record<
-      string,
-      unknown
-    >;
+    const parsed = JSON.parse(
+      extractJson(caughtError!.stdout ?? '{}'),
+    ) as Record<string, unknown>;
     expect(parsed.status).toBe('error');
     expect((parsed.error as Record<string, unknown>).code).toBe(
       'PARAM_INVALID_CONFIG',

@@ -1,6 +1,6 @@
 import {
-  fetchSwapNetworks,
   _resetSwapNetworksCache,
+  fetchSwapNetworks,
 } from '../commands/swap/swap-networks';
 import { apiClient } from '../infra';
 

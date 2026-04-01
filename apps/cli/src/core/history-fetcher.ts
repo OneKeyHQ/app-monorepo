@@ -227,7 +227,7 @@ export function formatHistoryList(
 ): IHistoryItem[] {
   return resp.data
     .slice()
-    .sort((a, b) => b.timestamp - a.timestamp)
+    .toSorted((a, b) => b.timestamp - a.timestamp)
     .map((tx) => formatHistoryItem(tx, resp.tokens, feeDecimals, detail));
 }
 

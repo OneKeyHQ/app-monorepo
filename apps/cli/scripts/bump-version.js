@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+
 const semver = require('semver');
 
 const pkgPath = path.resolve(__dirname, '../package.json');
@@ -17,5 +18,5 @@ const release = type === 'alpha' || type === 'beta' ? 'prerelease' : type;
 const preid = type === 'alpha' || type === 'beta' ? type : undefined;
 
 pkg.version = semver.inc(pkg.version, release, preid);
-fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
 console.log(pkg.version);

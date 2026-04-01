@@ -3,7 +3,6 @@ import 'fake-indexeddb/auto';
 
 import {
   registerBalanceCommand,
-  registerWalletHistoryCommand,
   registerImportCommand,
   registerLogoutCommand,
   registerMarketCommands,
@@ -13,6 +12,7 @@ import {
   registerTokenCommands,
   registerTransferCommand,
   registerVersionCommand,
+  registerWalletHistoryCommand,
 } from './commands';
 import { secureCache } from './core';
 import { ERROR_CODES } from './errors';

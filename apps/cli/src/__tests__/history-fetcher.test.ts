@@ -1,5 +1,5 @@
-import type { IHistoryItemDetail } from '../core/history-fetcher';
 import {
+  type IHistoryItemDetail,
   formatAmount,
   formatHistoryItem,
   formatHistoryList,

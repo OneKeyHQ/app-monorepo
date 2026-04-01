@@ -34,10 +34,7 @@ export function stripDebugOutput(raw: string): string {
   //   }
   // Remove it as a whole, then strip deprecation warnings.
   const cleaned = raw
-    .replace(
-      /isExtensionBackgroundServiceWorker\s*\{[\s\S]*?\}/g,
-      '',
-    )
+    .replace(/isExtensionBackgroundServiceWorker\s*\{[\s\S]*?\}/g, '')
     .split('\n')
     .filter((line) => !line.includes('DeprecationWarning'))
     .join('\n')

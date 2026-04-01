@@ -43,20 +43,24 @@ export async function fetchSwapNetworks(): Promise<ISwapNetworkResult[]> {
 
     const results: ISwapNetworkResult[] = [];
     for (const net of res) {
-      if (typeof net.networkId !== 'string') continue;
-      if (!net.networkId.startsWith('evm--')) continue;
-      const preset = presetMap.get(net.networkId);
-      if (!preset) continue;
-
-      results.push({
-        networkId: net.networkId,
-        name: preset.name,
-        chainId: preset.chainId,
-        nativeSymbol: preset.symbol,
-        supportSingleSwap: !!net.supportSingleSwap,
-        supportCrossChainSwap: !!net.supportCrossChainSwap,
-        supportLimit: !!net.supportLimit,
-      });
+      if (typeof net.networkId !== 'string') {
+        // skip entries without networkId
+      } else if (!net.networkId.startsWith('evm--')) {
+        // skip non-EVM networks
+      } else {
+        const preset = presetMap.get(net.networkId);
+        if (preset) {
+          results.push({
+            networkId: net.networkId,
+            name: preset.name,
+            chainId: preset.chainId,
+            nativeSymbol: preset.symbol,
+            supportSingleSwap: !!net.supportSingleSwap,
+            supportCrossChainSwap: !!net.supportCrossChainSwap,
+            supportLimit: !!net.supportLimit,
+          });
+        }
+      }
     }
 
     cachedNetworks = results;

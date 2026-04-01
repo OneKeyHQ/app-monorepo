@@ -13,10 +13,7 @@ export function registerWalletHistoryCommand(program: Command): void {
     .command('history')
     .description('List on-chain transaction history')
     .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, bsc)')
-    .option(
-      '--token <token>',
-      'Filter by token symbol or contract address',
-    )
+    .option('--token <token>', 'Filter by token symbol or contract address')
     .option('--address <address>', 'Override wallet address to query')
     .option('--limit <n>', 'Max records (default 20, max 50)', '20')
     .option('--detail', 'Include detail fields (block, nonce, confirmations)')

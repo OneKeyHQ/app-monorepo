@@ -81,11 +81,13 @@ describe('cross-chain validation errors', () => {
 describe('protocol config integration', () => {
   it('getProtocolConfig is importable and functional', () => {
     // This test verifies the module can be loaded at runtime
-    const {
-      getProtocolConfig,
-      SWAP_CONFIG,
-      BRIDGE_CONFIG,
-    } = require('../commands/swap/swap-protocol-config');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+    const { getProtocolConfig, SWAP_CONFIG, BRIDGE_CONFIG } =
+      require('../commands/swap/swap-protocol-config') as {
+        getProtocolConfig: (from: string, to: string) => unknown;
+        SWAP_CONFIG: { protocol: string };
+        BRIDGE_CONFIG: { protocol: string };
+      };
 
     expect(getProtocolConfig('evm--1', 'evm--1')).toBe(SWAP_CONFIG);
     expect(getProtocolConfig('evm--1', 'evm--42161')).toBe(BRIDGE_CONFIG);
@@ -96,13 +98,28 @@ describe('protocol config integration', () => {
 
 describe('pending storage bridge fields', () => {
   it('IPendingOrder accepts bridge fields', () => {
-    const { savePending, loadPending, _setPendingDirForTest, _resetPendingDir } =
-      require('../core/pending-storage');
-    const { mkdtempSync } = require('node:fs');
-    const { tmpdir } = require('node:os');
-    const { join } = require('node:path');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const {
+      savePending,
+      loadPending,
+      _setPendingDirForTest,
+      _resetPendingDir,
+    } = require('../core/pending-storage') as {
+      savePending: (id: string, data: unknown) => void;
+      loadPending: (
+        id: string,
+        opts?: { expiryMs: number },
+      ) => Record<string, unknown>;
+      _setPendingDirForTest: (dir: string) => void;
+      _resetPendingDir: () => void;
+    };
+    const nodeFs = require('node:fs') as typeof import('node:fs');
+    const nodeOs = require('node:os') as typeof import('node:os');
+    const nodePath = require('node:path') as typeof import('node:path');
 
-    const tempDir = mkdtempSync(join(tmpdir(), 'bridge-smoke-'));
+    const tempDir = nodeFs.mkdtempSync(
+      nodePath.join(nodeOs.tmpdir(), 'bridge-smoke-'),
+    );
     _setPendingDirForTest(tempDir);
 
     try {
@@ -127,10 +144,17 @@ describe('pending storage bridge fields', () => {
       expect(loaded.protocolType).toBe('Bridge');
 
       // Verify dynamic expiry: 10-min-old order with 30-min expiry should load
-      const oldOrder = { ...order, orderId: 'smoke-bridge-002', createdAt: Date.now() - 10 * 60_000, updatedAt: Date.now() };
+      const oldOrder = {
+        ...order,
+        orderId: 'smoke-bridge-002',
+        createdAt: Date.now() - 10 * 60_000,
+        updatedAt: Date.now(),
+      };
       savePending(oldOrder.orderId, oldOrder);
       expect(() => loadPending(oldOrder.orderId)).toThrow(/expired/);
-      const loadedOld = loadPending(oldOrder.orderId, { expiryMs: 30 * 60_000 });
+      const loadedOld = loadPending(oldOrder.orderId, {
+        expiryMs: 30 * 60_000,
+      });
       expect(loadedOld.orderId).toBe('smoke-bridge-002');
     } finally {
       _resetPendingDir();
