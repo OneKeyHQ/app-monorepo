@@ -7,7 +7,6 @@ import {
   timestamp,
 } from '@cowprotocol/contracts';
 import BigNumber from 'bignumber.js';
-import { ethers } from 'ethers';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
@@ -35,6 +34,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
@@ -66,6 +66,8 @@ import {
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { ESwapDirection } from './useTradeType';
+
+const getEthers = createLazySdkLoader(() => import('ethers'));
 
 export function useSpeedSwapActions(props: {
   marketToken: ISwapToken;
@@ -495,15 +497,16 @@ export function useSpeedSwapActions(props: {
                 validTo: timestamp(unSignedOrder.validTo),
                 appData: hashify(unSignedOrder.appData),
               };
+              const { ethers: ethersLib } = await getEthers();
               const populated =
-                await ethers.utils._TypedDataEncoder.resolveNames(
+                await ethersLib.utils._TypedDataEncoder.resolveNames(
                   unSignedData.domain,
                   unSignedData.types,
                   normalizeData,
                   async (value: string) => value,
                 );
               dataMessage = JSON.stringify(
-                ethers.utils._TypedDataEncoder.getPayload(
+                ethersLib.utils._TypedDataEncoder.getPayload(
                   populated.domain,
                   unSignedData.types,
                   populated.value,

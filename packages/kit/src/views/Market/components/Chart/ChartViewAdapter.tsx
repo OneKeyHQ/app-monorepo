@@ -1,13 +1,14 @@
 import type { FC } from 'react';
 import { useEffect, useRef } from 'react';
 
-import { createChart } from 'lightweight-charts';
-
 import { useTheme } from '@onekeyhq/components';
+import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 
 import { createChartDom, updateChartDom } from './chartUtils';
 
 import type { IChartViewAdapterProps } from './chartUtils';
+
+const getChartLib = createLazySdkLoader(() => import('lightweight-charts'));
 
 const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
   data,
@@ -25,17 +26,28 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
     if (!chartContainerRef.current) {
       return;
     }
-    const { chart, handleResize } = createChartDom(
-      createChart,
-      chartContainerRef.current,
-      onHover,
-      height,
-      textSubduedColor,
-    );
+
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
+    void getChartLib().then(({ createChart }) => {
+      if (cancelled || !chartContainerRef.current) return;
+      const { chart, handleResize } = createChartDom(
+        createChart,
+        chartContainerRef.current,
+        onHover,
+        height,
+        textSubduedColor,
+      );
+      cleanup = () => {
+        window.removeEventListener('resize', handleResize);
+        chart.remove();
+      };
+    });
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
+      cancelled = true;
+      cleanup?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [textSubduedColor]);

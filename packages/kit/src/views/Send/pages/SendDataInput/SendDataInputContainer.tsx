@@ -11,7 +11,6 @@ import {
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { utils } from 'ethers';
 import { isEmpty, isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -85,6 +84,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
@@ -107,6 +107,10 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
+
+const getEthersUtils = createLazySdkLoader(
+  () => import('ethers').then((m) => m.utils),
+);
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';
 const showTxMessageFaq = (isContractTo: boolean) => {
@@ -1566,14 +1570,15 @@ function SendDataInputContainer() {
   }, [displayNoteForm, intl, media.gtMd, noteMaxLength]);
 
   const handleTxMessageOnChange = useCallback(
-    (e: { target: { name: string; value: string } }) => {
+    async (e: { target: { name: string; value: string } }) => {
       const value = e.target?.value;
       if (!value) {
         setTxMessageLinkedString('');
         return;
       }
 
-      if (utils.isHexString(value)) {
+      const ethersUtils = await getEthersUtils();
+      if (ethersUtils.isHexString(value)) {
         setIsHexTxMessage(true);
         setTxMessageLinkedString(hexUtils.hexStringToUtf8String(value));
       } else {
@@ -1585,12 +1590,13 @@ function SendDataInputContainer() {
   );
 
   const handleValidateTxMessage = useCallback(
-    (value: string) => {
+    async (value: string) => {
       if (!value) return undefined;
 
       const toAddress = form.getValues('to');
       if (toAddress.isContract) {
-        if (!utils.isHexString(value)) {
+        const ethersUtils = await getEthersUtils();
+        if (!ethersUtils.isHexString(value)) {
           return intl.formatMessage({
             id: ETranslations.global_hex_data_error,
           });
