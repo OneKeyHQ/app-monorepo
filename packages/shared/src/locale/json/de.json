@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "Ausstehend",
   "redemption.status_success": "Erfolg",
   "redemption.success_title": "Einlösung erfolgreich",
-  "referral.link_perps_desc": "Zum Perps-Handel einladen",
-  "referral.link_perps_title": "Perps",
   "referral.accept": "Akzeptieren",
   "referral.address_update_desc": "Ein Code wurde an {mail} gesendet, bitte verifizieren Sie ihn, bevor Sie die Adresse aktualisieren.",
   "referral.address_updated": "Empfangsadresse aktualisiert",

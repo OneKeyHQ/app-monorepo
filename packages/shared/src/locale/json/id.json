@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "Tertunda",
   "redemption.status_success": "Berhasil",
   "redemption.success_title": "Penukaran berhasil",
-  "referral.link_perps_desc": "Undang untuk trading perps",
-  "referral.link_perps_title": "Perps",
   "referral.accept": "Menerima",
   "referral.address_update_desc": "Kode telah dikirim ke {mail}, silakan verifikasi sebelum memperbarui alamat.",
   "referral.address_updated": "Alamat penerima diperbarui",

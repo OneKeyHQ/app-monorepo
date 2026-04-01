@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "En attente",
   "redemption.status_success": "Succès",
   "redemption.success_title": "Rédemption réussie",
-  "referral.link_perps_desc": "Inviter à trader des perps",
-  "referral.link_perps_title": "Perps",
   "referral.accept": "Accepter",
   "referral.address_update_desc": "Un code a été envoyé à {mail}, veuillez vérifier avant de mettre à jour l'adresse.",
   "referral.address_updated": "Adresse de réception mise à jour",

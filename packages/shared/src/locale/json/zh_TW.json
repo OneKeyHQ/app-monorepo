@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "處理中",
   "redemption.status_success": "成功",
   "redemption.success_title": "兌換成功",
-  "referral.link_perps_desc": "邀請進行合約交易",
-  "referral.link_perps_title": "合約",
   "referral.accept": "接受",
   "referral.address_update_desc": "已將驗證碼發送至 {mail}，請完成驗證以更新地址。",
   "referral.address_updated": "收件地址已更新",

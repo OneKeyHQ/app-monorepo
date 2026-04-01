@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "Очікується",
   "redemption.status_success": "Успішно",
   "redemption.success_title": "Викуп успішний",
-  "referral.link_perps_desc": "Запросити торгувати perps",
-  "referral.link_perps_title": "Perps",
   "referral.accept": "Прийняти",
   "referral.address_update_desc": "Код було надіслано на {mail}, будь ласка, підтвердіть перед оновленням адреси.",
   "referral.address_updated": "Адресу отримання оновлено",

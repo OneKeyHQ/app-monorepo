@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "Đang chờ xử lý",
   "redemption.status_success": "Thành công",
   "redemption.success_title": "Đổi thưởng thành công",
-  "referral.link_perps_desc": "Mời giao dịch perps",
-  "referral.link_perps_title": "Perps",
   "referral.accept": "Chấp nhận",
   "referral.address_update_desc": "Một mã đã được gửi đến {mail}, vui lòng xác minh trước khi cập nhật địa chỉ.",
   "referral.address_updated": "Địa chỉ nhận đã được cập nhật",

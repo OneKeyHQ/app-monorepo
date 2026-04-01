@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "В ожидании",
   "redemption.status_success": "Успех",
   "redemption.success_title": "Погашение успешно",
-  "referral.link_perps_desc": "Пригласить торговать perps",
-  "referral.link_perps_title": "Perps",
   "referral.accept": "Принимать",
   "referral.address_update_desc": "Код был отправлен на {mail}, пожалуйста, подтвердите его перед обновлением адреса.",
   "referral.address_updated": "Адрес получения обновлён",

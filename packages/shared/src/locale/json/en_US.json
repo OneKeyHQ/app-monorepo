@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "Pending",
   "redemption.status_success": "Success",
   "redemption.success_title": "Redemption successful",
-  "referral.link_perps_desc": "Invite to trade perps",
-  "referral.link_perps_title": "Perps",
   "referral.accept": "Accept",
   "referral.address_update_desc": "A code has been sent to {mail}, please verify before updating the address.",
   "referral.address_updated": "Receiving address updated",

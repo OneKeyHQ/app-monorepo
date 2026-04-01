@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "保留中",
   "redemption.status_success": "成功",
   "redemption.success_title": "引き換え成功",
-  "referral.link_perps_desc": "Perps取引に招待",
-  "referral.link_perps_title": "Perps",
   "referral.accept": "受け入れる",
   "referral.address_update_desc": "{mail}にコードが送信されました。住所を更新する前に確認してください。",
   "referral.address_updated": "受取先住所が更新されました",

@@ -3336,8 +3336,6 @@
   "redemption.status_pending": "অপেক্ষমাণ",
   "redemption.status_success": "সফল",
   "redemption.success_title": "রিডিম সফল",
-  "referral.link_perps_desc": "পার্পস ট্রেড করতে আমন্ত্রণ জানান",
-  "referral.link_perps_title": "Perps",
   "referral.accept": "গ্রহণ করুন",
   "referral.address_update_desc": "একটি কোড {mail} এ পাঠানো হয়েছে, ঠিকানা আপডেট করার আগে দয়া করে যাচাই করুন।",
   "referral.address_updated": "প্রাপ্তির ঠিকানা আপডেট করা হয়েছে",
