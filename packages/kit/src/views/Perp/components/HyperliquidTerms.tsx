@@ -261,12 +261,11 @@ export function HyperliquidTermsContent({
 }
 
 export async function showHyperliquidTermsDialog(): Promise<boolean> {
-  // TODO: revert - temporarily skip check for UI testing
-  // const isTermsAccepted =
-  //   await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
-  // if (isTermsAccepted) {
-  //   return true;
-  // }
+  const isTermsAccepted =
+    await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
+  if (isTermsAccepted) {
+    return true;
+  }
 
   return new Promise((resolve) => {
     const dialog = Dialog.show({

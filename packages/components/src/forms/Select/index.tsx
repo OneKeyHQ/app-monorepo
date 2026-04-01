@@ -87,7 +87,6 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
     <Trigger
       onPress={handleTriggerPressed}
       disabled={disabled}
-      testID="src-label-trigger"
     >
       {renderTrigger({
         onPress: renderTriggerOnPress,

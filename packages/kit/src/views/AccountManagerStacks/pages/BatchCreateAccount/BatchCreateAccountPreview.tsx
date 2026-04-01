@@ -497,7 +497,6 @@ function BatchCreateAccountPreviewPage({
                 <Divider />
                 <Stack mt="$5">
                   <Select.Item
-                    testID="batch-create-account-derive-type-select"
                     label={currentDeriveTypeInfo.label}
                     description={currentDeriveTypeInfo.description}
                   />

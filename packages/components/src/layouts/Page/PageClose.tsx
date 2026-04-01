@@ -24,7 +24,6 @@ export function PageClose({
     <Trigger
       onPress={handleClose}
       disabled={disabled}
-      testID="src-handle-close-trigger"
     >
       {children}
     </Trigger>
