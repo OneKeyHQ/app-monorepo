@@ -85,6 +85,7 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   const label = useTriggerLabel(renderValue);
   return (
     <Trigger
+      testID="select-trigger"
       onPress={handleTriggerPressed}
       disabled={disabled}
     >

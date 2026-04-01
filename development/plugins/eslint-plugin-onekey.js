@@ -67,6 +67,8 @@ const requireTestid = {
         const name =
           node.name.name || (node.name.object && node.name.object.name);
         if (!components.includes(name)) return;
+        // Skip member expressions like Select.Item (only check Select itself)
+        if (node.name.property) return;
         const hasTestID = node.attributes.some(
           (attr) =>
             attr.type === 'JSXAttribute' &&

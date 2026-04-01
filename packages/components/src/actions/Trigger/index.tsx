@@ -59,7 +59,12 @@ function BasicTrigger(
       const handlePressWithStatus = disabled ? noop : debounceHandlePress;
 
       return (
-        <Stack ref={ref} testID={testID} onLayout={onLayout} onPress={handlePressWithStatus}>
+        <Stack
+          ref={ref}
+          testID={testID}
+          onLayout={onLayout}
+          onPress={handlePressWithStatus}
+        >
           {cloneElement(child, {
             onPress: handlePressWithStatus,
             disabled,
