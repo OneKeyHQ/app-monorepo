@@ -94,7 +94,11 @@ function generateSegmentSourceMap(segModules, graph, _fileToIdMap, moduleIdToAbs
   const sections = [];
   let lineOffset = 0;
 
-  for (const [moduleId, code] of segModules) {
+  // Sort modules by ID to match bundleToString's output order (#41)
+  const sorted = segModules.slice().sort((a, b) => a[0] - b[0]);
+
+  for (let i = 0; i < sorted.length; i++) {
+    const [moduleId, code] = sorted[i];
     const absPath = moduleIdToAbsPath.get(moduleId);
     if (absPath) {
       const modData = graph.dependencies.get(absPath);
@@ -109,11 +113,15 @@ function generateSegmentSourceMap(segModules, graph, _fileToIdMap, moduleIdToAbs
         }
       }
     }
-    // Count lines in this module's code for the next offset
-    const lineCount = typeof code === 'string'
-      ? (code.match(/\n/g) || []).length + 1
-      : 1;
-    lineOffset += lineCount;
+    if (typeof code === 'string' && code.length > 0) {
+      // Count lines in the module code itself
+      const codeLines = (code.match(/\n/g) || []).length;
+      // bundleToString appends \n after each non-empty module (#42),
+      // except the last module when post is empty. For segments,
+      // post is always empty and the trailing \n is sliced off the last module.
+      const trailingNewline = i < sorted.length - 1 ? 1 : 0;
+      lineOffset += codeLines + trailingNewline;
+    }
   }
 
   return JSON.stringify({ version: 3, sections });
@@ -383,20 +391,29 @@ module.exports = async function segmentSerializer(
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`info Writing segment manifest → ${manifestPath}`);
 
-  // Step 10: Rewrite asyncRequire paths for production
+  // Step 10: Rewrite asyncRequire paths for production (#49)
   // In production mode, replace dev server URLs with segment keys.
-  // mod is [moduleId, codeString] — only process string code entries.
+  // Only matches entries preceded by { or , to avoid false positives
+  // in unrelated JSON/object literals within module code.
   if (!bundleOptions.dev) {
-    for (const mod of mainModules) {
-      if (typeof mod[1] !== 'string') continue;
-      for (const [moduleId, segmentKey] of moduleToSegment) {
-        // Match asyncRequire path map entries: e.g. "12345":"http://..."
-        // Use word boundary after the ID to avoid matching longer numeric IDs
-        const pattern = new RegExp(
-          `"${moduleId}"(\\s*:\\s*)"[^"]*"`,
-          'g',
-        );
-        mod[1] = mod[1].replace(pattern, `"${moduleId}"$1"${segmentKey}"`);
+    // Build a single regex that matches all async module IDs at once
+    const asyncModuleIds = [...moduleToSegment.keys()];
+    if (asyncModuleIds.length > 0) {
+      const idAlternation = asyncModuleIds.map(String).join('|');
+      // Match: {  "ID" : "..." or ,  "ID" : "..."
+      // The lookbehind ensures we're inside a paths map object literal
+      const pattern = new RegExp(
+        `([{,]\\s*)"(${idAlternation})"(\\s*:\\s*)"[^"]*"`,
+        'g',
+      );
+      for (const mod of mainModules) {
+        if (typeof mod[1] !== 'string') continue;
+        mod[1] = mod[1].replace(pattern, (_, prefix, modId, colon) => {
+          const segKey = moduleToSegment.get(Number(modId));
+          return segKey
+            ? `${prefix}"${modId}"${colon}"${segKey}"`
+            : _;
+        });
       }
     }
   }

@@ -1,5 +1,6 @@
 import { getSharedRPC } from '@onekeyfe/react-native-background-thread';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
@@ -8,8 +9,8 @@ import {
   BACKGROUND_THREAD_REQUEST_KEY_PREFIX,
   type IBackgroundThreadAppEventRequest,
   type IBackgroundThreadBridgeCallRequest,
-  type IBackgroundThreadBridgeConnectRequest,
   type IBackgroundThreadBridgeChannel,
+  type IBackgroundThreadBridgeConnectRequest,
   type IBackgroundThreadBridgeSendPayload,
   type IBackgroundThreadBridgeStatePayload,
   type IBackgroundThreadJotaiStateBroadcastPayload,
@@ -68,6 +69,10 @@ let handlerRetryCount = 0;
 let handlerRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let handlerInstalled = false;
 let readySignalEmitted = false;
+// Ring buffer size for broadcast sequences (#48).
+// If the producer wraps before the consumer reads a slot, the old message is lost.
+// 4096 slots gives ~4K messages of headroom before overwrite.
+const BROADCAST_RING_SIZE = 4096;
 let jotaiStateBroadcastSequence = 0;
 let appEventBroadcastSequence = 0;
 let bridgeSendSequence = 0;
@@ -135,7 +140,8 @@ function broadcastJotaiStateUpdateFromBgToUi(
     return false;
   }
 
-  jotaiStateBroadcastSequence = (jotaiStateBroadcastSequence + 1) % 512;
+  jotaiStateBroadcastSequence =
+    (jotaiStateBroadcastSequence + 1) % BROADCAST_RING_SIZE;
   sharedRPC.write(
     buildBackgroundThreadJotaiStateKey(`${jotaiStateBroadcastSequence}`),
     serializeBackgroundThreadJotaiStateBroadcastPayload(payload),
@@ -152,7 +158,8 @@ function emitAppEventFromBgToUi(payload: {
     return false;
   }
 
-  appEventBroadcastSequence = (appEventBroadcastSequence + 1) % 512;
+  appEventBroadcastSequence =
+    (appEventBroadcastSequence + 1) % BROADCAST_RING_SIZE;
   sharedRPC.write(
     buildBackgroundThreadAppEventKey(`${appEventBroadcastSequence}`),
     serializeBackgroundThreadAppEventBroadcastPayload(payload),
@@ -160,13 +167,15 @@ function emitAppEventFromBgToUi(payload: {
   return true;
 }
 
-function sendBridgeMessageFromBgToUi(payload: IBackgroundThreadBridgeSendPayload) {
+function sendBridgeMessageFromBgToUi(
+  payload: IBackgroundThreadBridgeSendPayload,
+) {
   const sharedRPC = getSharedRPC();
   if (!sharedRPC) {
     return false;
   }
 
-  bridgeSendSequence = (bridgeSendSequence + 1) % 512;
+  bridgeSendSequence = (bridgeSendSequence + 1) % BROADCAST_RING_SIZE;
   sharedRPC.write(
     buildBackgroundThreadBridgeSendKey(`${bridgeSendSequence}`),
     serializeBackgroundThreadBridgeSendPayload(payload),
@@ -256,7 +265,7 @@ async function handleRequest(callId: string) {
         result = handleBridgeConnectRequest(request);
         break;
       default:
-        throw new Error(
+        throw new OneKeyLocalError(
           `Background request type is not supported: ${(request as IBackgroundThreadRequest).type}`,
         );
     }
