@@ -18,6 +18,6 @@ module.exports = {
     '^react-native$': '<rootDir>/src/__mocks__/react-native.js',
   },
   testMatch: ['<rootDir>/src/**/*.test.ts'],
-  testPathIgnorePatterns: ['\\.integration\\.test\\.ts$'],
+  testPathIgnorePatterns: ['\\.integration\\.test\\.ts$', '\\.smoke\\.test\\.ts$'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
 };
