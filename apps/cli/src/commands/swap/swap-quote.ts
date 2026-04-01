@@ -32,11 +32,14 @@ interface ISseEventInfo {
   eventId: string;
 }
 
-interface ISseQuoteItem extends IFetchQuoteResult {
+type ISseQuoteItem = Omit<
+  IFetchQuoteResult,
+  'fromTokenInfo' | 'toTokenInfo'
+> & {
   eventId?: string;
   fromTokenInfo?: IFetchQuoteResult['fromTokenInfo'];
   toTokenInfo?: IFetchQuoteResult['toTokenInfo'];
-}
+};
 
 interface ISseEventQuoteResult {
   data: ISseQuoteItem[];
