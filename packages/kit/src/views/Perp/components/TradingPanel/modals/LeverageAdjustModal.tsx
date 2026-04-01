@@ -30,6 +30,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import {
+  CONTEXTUAL_ARTICLE_IDS,
+  buildHelpUrl,
+  openGuideUrl,
+} from '../../Guide/perpGuideData';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -200,6 +205,28 @@ const LeverageContent = memo(
               </SizableText>
             </XStack>
           </YStack>
+          <XStack
+            gap="$1"
+            alignItems="center"
+            justifyContent="flex-start"
+            onPress={() => {
+              openGuideUrl(
+                buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.leverage}`),
+              );
+            }}
+            cursor="default"
+          >
+            <Icon name="QuestionmarkOutline" size="$3.5" color="$iconSubdued" />
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              hoverStyle={{ color: '$text' }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_guide_article_basic_concepts,
+              })}
+            </SizableText>
+          </XStack>
           <TradingGuardWrapper>
             <Button
               onPress={handleConfirm}

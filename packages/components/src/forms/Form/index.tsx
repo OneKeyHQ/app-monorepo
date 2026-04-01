@@ -24,7 +24,7 @@ import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HeightTransition } from '../../content';
+import { HeightTransition } from '../../content/HeightTransition';
 import {
   Button,
   Label,
@@ -33,6 +33,7 @@ import {
   XStack,
   YStack,
 } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
 
@@ -255,6 +256,7 @@ function Field({
             <SizableText
               pt="$1.5"
               animation="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={errorAnimationStyle}
               exitStyle={errorAnimationStyle}
               textAlign={errorMessageAlign}

@@ -295,6 +295,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
               renderHeader={renderInformationHeader}
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              tokenLogoUrl={tokenDetail?.logoUrl}
             />
           </YStack>
         );
@@ -323,6 +324,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       renderInformationHeader,
       portfolioData,
       isRefreshing,
+      tokenDetail?.logoUrl,
       handleSecondTabTouchStart,
       handleSecondTabTouchEnd,
       isStockToken,

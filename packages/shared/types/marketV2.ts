@@ -121,7 +121,7 @@ export interface IMarketStockInfo {
   subtitle: string;
   source?: string;
   sourceLogoUri: string;
-  isOpen: boolean;
+  isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
   // Stock fundamentals (from FMP API)
@@ -446,6 +446,14 @@ export interface IMarketTokenDetailResponse {
   data: IMarketTokenDetailData;
 }
 
+export interface IMarketAccountPortfolioPnl {
+  isPnlSupported: boolean;
+  totalPnlUsd: string;
+  totalPnlPercent: string;
+  unrealizedPnlUsd: string;
+  unrealizedPnlPercent: string;
+}
+
 export interface IMarketAccountPortfolioItem {
   accountAddress: string;
   tokenAddress: string;
@@ -453,6 +461,7 @@ export interface IMarketAccountPortfolioItem {
   symbol: string;
   tokenPrice: string;
   totalPrice: string;
+  pnl?: IMarketAccountPortfolioPnl;
 }
 
 export interface IMarketAccountPortfolioResponse {

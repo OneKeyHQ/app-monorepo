@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -12,12 +12,16 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
+import { WalletActionApprovals } from './WalletActionApprovals';
 import { WalletActionBulkSend } from './WalletActionBulkSend';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCopy } from './WalletActionCopy';
@@ -54,6 +58,28 @@ export function WalletActionMore() {
   const displaySignAndVerify = usePromiseResult(async () => {
     return vaultSettings?.enabledInternalSignAndVerify;
   }, [vaultSettings]);
+
+  const isApprovalEnabled = useMemo(() => {
+    const networksSupportApproval = getNetworksSupportBulkRevokeApproval();
+    if (network?.isAllNetworks) {
+      if (
+        accountUtils.isOthersAccount({
+          accountId: account?.id ?? '',
+        })
+      ) {
+        return networkUtils.isEvmNetwork({
+          networkId: account?.createAtNetwork ?? '',
+        });
+      }
+      return true;
+    }
+    return networksSupportApproval[network?.id ?? ''] ?? false;
+  }, [
+    network?.isAllNetworks,
+    network?.id,
+    account?.id,
+    account?.createAtNetwork,
+  ]);
 
   const renderItemsAsync = useCallback(
     async ({
@@ -118,6 +144,8 @@ export function WalletActionMore() {
               return displaySignAndVerify.result;
             case 'reward':
               return !!rewardCenterConfig;
+            case 'approvals':
+              return isApprovalEnabled;
             default:
               return config.moreActions.includes(action);
           }
@@ -160,6 +188,13 @@ export function WalletActionMore() {
                   rewardCenterConfig={rewardCenterConfig}
                 />
               ) : null;
+            case 'approvals':
+              return (
+                <WalletActionApprovals
+                  key="approvals"
+                  onClose={handleActionListClose}
+                />
+              );
             case 'vote':
               return (
                 <WalletActionVote
@@ -252,6 +287,7 @@ export function WalletActionMore() {
       vaultSettings?.copyAddressDisabled,
       displaySignAndVerify.result,
       rewardCenterConfig,
+      isApprovalEnabled,
       getActionCustomization,
       devSettings?.settings?.showDevExportPrivateKey,
       sceneName,

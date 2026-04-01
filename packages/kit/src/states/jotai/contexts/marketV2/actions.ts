@@ -94,6 +94,71 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(perpsInfoAtom(), undefined);
   });
 
+  changeActiveToken = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: { tokenAddress: string; networkId: string; isNative: boolean },
+    ) => {
+      const { tokenAddress, networkId, isNative } = payload;
+      // Set atom values directly — `this.xxx.call(set)` doesn't work
+      // because `this` is not the class instance inside contextAtomMethod.
+      set(tokenDetailAtom(), undefined);
+      set(tokenDetailWebsocketAtom(), undefined);
+      set(perpsInfoAtom(), undefined);
+      set(tokenAddressAtom(), tokenAddress);
+      set(networkIdAtom(), networkId);
+      set(isNativeAtom(), isNative);
+
+      let isStale = false;
+      try {
+        set(tokenDetailLoadingAtom(), true);
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+            tokenAddress,
+            networkId,
+          );
+
+        // Stale check: discard if user already switched to a different token
+        const currentAddress = get(tokenAddressAtom());
+        const currentNetworkId = get(networkIdAtom());
+        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+          isStale = true;
+          return;
+        }
+
+        const responseData = response as unknown as IMarketTokenDetailResponse;
+        if (
+          typeof responseData?.data?.token?.name === 'undefined' ||
+          responseData.data.token.name === ''
+        ) {
+          return;
+        }
+        set(tokenDetailAtom(), responseData.data.token);
+        set(tokenDetailWebsocketAtom(), responseData.data.websocket);
+        set(perpsInfoAtom(), responseData.data.perpsInfo);
+      } catch (error) {
+        console.error('Failed to fetch token detail:', error);
+        const currentAddress = get(tokenAddressAtom());
+        const currentNetworkId = get(networkIdAtom());
+        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+          isStale = true;
+        } else {
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
+        }
+      } finally {
+        // Skip loading reset when stale — another caller (fetchTokenDetail
+        // from useAutoRefreshTokenDetail) may already be in-flight with
+        // loading=true for the new token.
+        if (!isStale) {
+          set(tokenDetailLoadingAtom(), false);
+        }
+      }
+    },
+  );
+
   // ShowWatchlistOnly Actions
   setShowWatchlistOnly = contextAtomMethod((_, set, payload: boolean) => {
     set(showWatchlistOnlyAtom(), payload);
@@ -115,6 +180,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   fetchTokenDetail = contextAtomMethod(
     async (get, set, tokenAddress: string, networkId: string) => {
+      let isStale = false;
       try {
         set(tokenDetailLoadingAtom(), true);
 
@@ -123,6 +189,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             tokenAddress,
             networkId,
           );
+
+        // Stale check first: discard if user already switched to a different
+        // token via changeActiveToken during this async fetch. Must run before
+        // the data validity check so that early returns don't clobber loading.
+        const currentAddress = get(tokenAddressAtom());
+        const currentNetworkId = get(networkIdAtom());
+        if (currentAddress !== tokenAddress && currentAddress !== '') {
+          isStale = true;
+          return;
+        }
+        if (currentNetworkId !== networkId && currentNetworkId !== '') {
+          isStale = true;
+          return;
+        }
 
         // Assume new format with data.token and data.websocket
         const responseData = response as unknown as IMarketTokenDetailResponse;
@@ -172,12 +252,24 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return finalTokenData;
       } catch (error) {
         console.error('Failed to fetch token detail:', error);
-        set(tokenDetailAtom(), undefined);
-        set(tokenDetailWebsocketAtom(), undefined);
-        set(perpsInfoAtom(), undefined);
+        // Only clear atoms if we're still on the same token
+        const currentAddress = get(tokenAddressAtom());
+        const currentNetworkId = get(networkIdAtom());
+        if (
+          (currentAddress === tokenAddress || currentAddress === '') &&
+          (currentNetworkId === networkId || currentNetworkId === '')
+        ) {
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
+        } else {
+          isStale = true;
+        }
         throw error;
       } finally {
-        set(tokenDetailLoadingAtom(), false);
+        if (!isStale) {
+          set(tokenDetailLoadingAtom(), false);
+        }
       }
     },
   );
@@ -491,6 +583,7 @@ export function useTokenDetailActions() {
   const setPerpsInfo = actions.setPerpsInfo.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
+  const changeActiveToken = actions.changeActiveToken.use();
 
   return useRef({
     setTokenDetail,
@@ -502,6 +595,7 @@ export function useTokenDetailActions() {
     setPerpsInfo,
     fetchTokenDetail,
     clearTokenDetail,
+    changeActiveToken,
   });
 }
 

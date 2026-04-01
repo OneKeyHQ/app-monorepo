@@ -99,12 +99,17 @@ export enum EAtomNames {
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
+  // translate
+  translateSettingsPersistAtom = 'translateSettingsPersistAtom',
+
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
+  marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
+  marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',

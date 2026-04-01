@@ -152,6 +152,7 @@ export function DesktopLayout() {
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
               isBTCNetwork={isBTCNetwork}
+              tokenLogoUrl={tokenDetail?.logoUrl}
             />
           </Stack>
         </YStack>

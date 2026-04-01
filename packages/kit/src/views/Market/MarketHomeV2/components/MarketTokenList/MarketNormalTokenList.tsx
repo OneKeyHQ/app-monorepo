@@ -4,6 +4,8 @@ import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
 
+import type { IMarketTokenListLiveOverride } from './MarketTokenListBase';
+
 type IMarketNormalTokenListProps = {
   networkId?: string;
   selectedCategory?: string;
@@ -17,6 +19,10 @@ type IMarketNormalTokenListProps = {
   listContainerProps?: {
     paddingBottom: number;
   };
+  hiddenDesktopColumns?: readonly string[];
+  liveTokenOverride?: IMarketTokenListLiveOverride;
+  pollingInterval?: number;
+  rowBg?: string;
 };
 
 function MarketNormalTokenList({
@@ -30,6 +36,10 @@ function MarketNormalTokenList({
   tabIntegrated,
   tabName,
   listContainerProps,
+  hiddenDesktopColumns,
+  liveTokenOverride,
+  pollingInterval,
+  rowBg,
 }: IMarketNormalTokenListProps) {
   const normalResult = useMarketTokenList({
     networkId,
@@ -38,6 +48,7 @@ function MarketNormalTokenList({
     pageSize: 20,
     type: selectedCategory,
     timeRange,
+    pollingInterval,
   });
 
   return (
@@ -52,6 +63,9 @@ function MarketNormalTokenList({
       tabName={tabName}
       listContainerProps={listContainerProps}
       showStockSubtitle={false}
+      hiddenDesktopColumns={hiddenDesktopColumns}
+      liveTokenOverride={liveTokenOverride}
+      rowBg={rowBg}
     />
   );
 }

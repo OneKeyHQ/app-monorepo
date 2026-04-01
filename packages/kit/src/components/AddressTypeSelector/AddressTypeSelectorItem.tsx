@@ -10,7 +10,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -171,10 +170,7 @@ function AddressTypeSelectorItem(props: IProps) {
         });
       }}
     >
-      <AddressTypeFiat
-        accountId={account?.id}
-        xpub={(account as IDBUtxoAccount)?.xpub}
-      />
+      <AddressTypeFiat account={account} />
     </ListItem>
   );
 }
