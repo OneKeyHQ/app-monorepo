@@ -53,7 +53,6 @@ import {
   perpsWebSocketDataUpdateTimesAtom,
   perpsWebSocketReadyStateAtom,
 } from '../../states/jotai/atoms/perps';
-
 import ServiceBase from '../ServiceBase';
 
 import hyperLiquidCache from './hyperLiquidCache';
