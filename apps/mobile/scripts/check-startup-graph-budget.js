@@ -166,6 +166,30 @@ async function main() {
     );
   }
 
+  // Check allocation report violations (Phase 4)
+  const allocationReportPath = path.resolve(
+    mobileDirPath,
+    `dist/allocation-report-${entryName}.json`,
+  );
+  if (fs.existsSync(allocationReportPath)) {
+    try {
+      const allocationReport = JSON.parse(
+        fs.readFileSync(allocationReportPath, 'utf-8'),
+      );
+      if (allocationReport.violations && allocationReport.violations.length > 0) {
+        failures.push(
+          `Allocation violations (forbidden modules in startup): ${allocationReport.violations.join(', ')}`,
+        );
+      }
+      console.log('\nAllocation Report:');
+      console.log(`  Startup modules: ${allocationReport.startup?.moduleCount || 'N/A'}`);
+      console.log(`  Startup size:    ${((allocationReport.startup?.estimatedSizeBytes || 0) / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`  Segments:        ${Object.keys(allocationReport.segments || {}).length}`);
+    } catch (e) {
+      console.warn(`  Warning: Could not read allocation report: ${e.message}`);
+    }
+  }
+
   report.failures = failures;
   report.pass = failures.length === 0;
 

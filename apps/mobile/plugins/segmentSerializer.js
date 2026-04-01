@@ -18,6 +18,7 @@ const fs = require('fs-extra');
 
 const { fileToIdMap } = require('./map');
 const { getSegmentsDir, getManifestPath } = require('./segmentPaths');
+const { allocationRules, forbiddenInStartup, promotedSegments } = require('../bundle-groups.config');
 
 const baseJSBundle = require(
   path.resolve(
@@ -234,15 +235,25 @@ module.exports = async function segmentSerializer(
   const mainModules = [];
   const segmentOutputs = new Map(); // segmentKey → [moduleId, code][]
 
+  // Promoted segments (Phase 4): merge their modules into main instead of segments
+  const promotedSet = new Set(promotedSegments);
+
   for (const [moduleId, moduleCode] of modules) {
     const seg = moduleToSegment.get(moduleId);
-    if (seg) {
+    if (seg && !promotedSet.has(seg)) {
       if (!segmentOutputs.has(seg)) {
         segmentOutputs.set(seg, []);
       }
       segmentOutputs.get(seg).push([moduleId, moduleCode]);
     } else {
       mainModules.push([moduleId, moduleCode]);
+    }
+  }
+
+  if (promotedSet.size > 0) {
+    const promoted = [...promotedSet].filter((k) => segmentModules.has(k));
+    if (promoted.length > 0) {
+      console.log(`info Promoted ${promoted.length} segment(s) into eager entry: ${promoted.join(', ')}`);
     }
   }
 
@@ -321,24 +332,67 @@ module.exports = async function segmentSerializer(
     }
   }
 
-  // Step 6c: Derive runtime from segment key path (#25)
-  // Uses precise prefix matching on the OneKey package structure:
-  //   seg:kit-bg.xxx → background (only exact "kit-bg." prefix)
-  //   seg:kit.views.xxx → main (only exact "kit.views." prefix)
-  //   seg:components.xxx → main (only exact "components." prefix)
-  // NOTE: runtimeTarget override was removed (#36) — in single-entry builds,
-  // overriding all segments to the current target would make 'shared' impossible.
-  // The override only makes sense in a future union-graph build.
-  function deriveRuntime(segmentKey) {
-    // Strip "seg:" prefix for matching
-    const keyPath = segmentKey.replace(/^seg:/, '');
-    if (keyPath.startsWith('kit-bg.')) {
-      return 'background';
+  // Step 6c: Derive runtime and allocation layer from bundle-groups.config (Phase 4)
+  // Maps allocation layers to segment runtime:
+  //   *.main → 'main', *.background → 'background', *.shared / kernel.shared → 'shared'
+  function getAllocationLayer(relPath) {
+    for (const rule of allocationRules) {
+      if (rule.paths.some((p) => relPath.startsWith(p) || relPath.includes(`/${p}`))) {
+        return rule.layer;
+      }
     }
-    if (keyPath.startsWith('kit.views.') || keyPath.startsWith('components.')) {
+    return 'feature.shared';
+  }
+
+  function layerToRuntime(layer) {
+    if (layer.endsWith('.main') || layer === 'startup.main' || layer === 'bootstrap.main') {
       return 'main';
     }
+    if (layer.endsWith('.background') || layer === 'startup.background' || layer === 'bootstrap.background') {
+      return 'background';
+    }
     return 'shared';
+  }
+
+  function deriveRuntime(segmentKey) {
+    const modIds = segmentModules.get(segmentKey);
+    if (!modIds) return 'shared';
+    // Determine layer from the majority of modules in this segment
+    const layerCounts = {};
+    for (const modId of modIds) {
+      const absPath = moduleIdToAbsPath.get(modId);
+      if (!absPath) continue;
+      const relPath = absPath.replace(monorepoRoot, '').replace(/^\//, '');
+      const layer = getAllocationLayer(relPath);
+      layerCounts[layer] = (layerCounts[layer] || 0) + 1;
+    }
+    // Pick the most common layer
+    let dominantLayer = 'feature.shared';
+    let maxCount = 0;
+    for (const [layer, count] of Object.entries(layerCounts)) {
+      if (count > maxCount) {
+        dominantLayer = layer;
+        maxCount = count;
+      }
+    }
+    return layerToRuntime(dominantLayer);
+  }
+
+  // Step 6d: Validate forbidden modules in startup graph (Phase 4)
+  const startupViolations = [];
+  for (const moduleId of mainModuleIds) {
+    const absPath = moduleIdToAbsPath.get(moduleId);
+    if (!absPath) continue;
+    const relPath = absPath.replace(monorepoRoot, '').replace(/^\//, '');
+    if (forbiddenInStartup.some((fp) => relPath.startsWith(fp) || relPath.includes(`/${fp}`))) {
+      startupViolations.push(relPath);
+    }
+  }
+  if (startupViolations.length > 0) {
+    console.warn(
+      `[segmentSerializer] WARNING: ${startupViolations.length} forbidden module(s) found in startup graph:\n` +
+      startupViolations.map((v) => `  - ${v}`).join('\n'),
+    );
   }
 
   // Step 7: Write segment files and build manifest
@@ -395,6 +449,40 @@ module.exports = async function segmentSerializer(
   const manifestPath = getManifestPath(runtimeTarget);
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`info Writing segment manifest → ${manifestPath}`);
+
+  // Step 9b: Write allocation report (Phase 4)
+  const allocationReport = {
+    runtimeTarget,
+    startup: {
+      moduleCount: mainModuleIds.size,
+      estimatedSizeBytes: 0,
+    },
+    segments: {},
+    violations: startupViolations,
+  };
+  // Estimate startup size
+  for (const moduleId of mainModuleIds) {
+    const absPath = moduleIdToAbsPath.get(moduleId);
+    if (absPath) {
+      const modData = graph.dependencies.get(absPath);
+      if (modData && modData.output) {
+        for (const o of modData.output) {
+          if (o.data && o.data.code) allocationReport.startup.estimatedSizeBytes += o.data.code.length;
+        }
+      }
+    }
+  }
+  for (const [segmentKey, entry] of Object.entries(manifest.segments)) {
+    const modIds = segmentModules.get(segmentKey);
+    allocationReport.segments[segmentKey] = {
+      runtime: entry.runtime,
+      moduleCount: modIds ? modIds.size : 0,
+      size: entry.size,
+    };
+  }
+  const reportPath = path.resolve(outputSegmentDir, '..', `allocation-report-${runtimeTarget}.json`);
+  await fs.writeFile(reportPath, JSON.stringify(allocationReport, null, 2));
+  console.log(`info Writing allocation report → ${reportPath}`);
 
   // Step 10: Rewrite asyncRequire paths for production (#49)
   // In production mode, replace dev server URLs with segment keys.
