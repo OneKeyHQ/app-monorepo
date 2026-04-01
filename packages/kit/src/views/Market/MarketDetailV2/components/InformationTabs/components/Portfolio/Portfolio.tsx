@@ -2,7 +2,7 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, Tabs, useMedia } from '@onekeyhq/components';
+import { Empty, Tabs, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
@@ -65,13 +65,12 @@ function PortfolioBase({
         accountAddress && isRefreshing ? (
           <PortfolioSkeleton />
         ) : (
-          <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
-            <SizableText size="$bodyLg" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.dexmarket_details_nodata,
-              })}
-            </SizableText>
-          </Stack>
+          <Empty
+            description={intl.formatMessage({
+              id: ETranslations.dexmarket_details_nodata,
+            })}
+            pt="$16"
+          />
         )
       }
     />
