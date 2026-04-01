@@ -51,6 +51,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const [hasInitialReady, setHasInitialReady] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
+  const reviewDialogRequestIdRef = useRef(0);
 
   const {
     setPaymentToken,
@@ -387,11 +388,17 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         return;
       }
 
+      const requestId = reviewDialogRequestIdRef.current + 1;
+      reviewDialogRequestIdRef.current = requestId;
+
       try {
         const nextReviewState = await prepareMarketSwapReview({
           isWrap,
           networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
         });
+        if (reviewDialogRequestIdRef.current !== requestId) {
+          return;
+        }
         const previousDialog = reviewDialogRef.current;
         if (previousDialog) {
           reviewDialogRef.current = null;
@@ -421,8 +428,16 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
             />
           ),
         });
+        if (reviewDialogRequestIdRef.current !== requestId) {
+          setIsReviewDialogOpen(false);
+          void dialog.close();
+          return;
+        }
         reviewDialogRef.current = dialog;
       } catch (error) {
+        if (reviewDialogRequestIdRef.current !== requestId) {
+          return;
+        }
         Toast.error({
           title:
             error instanceof Error

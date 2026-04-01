@@ -276,6 +276,45 @@ describe('marketSwapReviewUtils', () => {
     });
   });
 
+  it('returns a new quote result instead of mutating the original fusion context', () => {
+    const quoteResult = createQuoteResult({
+      quoteResultCtx: {
+        oneInchFusionOrderCtx: {
+          orderStruct: { salt: '1' },
+          extension: '0xext',
+          quoteId: 'quote-1',
+          orderHash: '0xhash',
+        },
+      },
+    });
+    const originalQuoteResultCtx = quoteResult.quoteResultCtx;
+    const originalOrderCtx = originalQuoteResultCtx?.oneInchFusionOrderCtx;
+
+    const result = attachMarketOneInchFusionSignature({
+      quoteResult,
+      signature: '0xsig',
+    });
+
+    expect(result).not.toBe(quoteResult);
+    expect(result.quoteResultCtx).not.toBe(originalQuoteResultCtx);
+    expect(result.quoteResultCtx.oneInchFusionOrderCtx).not.toBe(
+      originalOrderCtx,
+    );
+    expect(quoteResult.quoteResultCtx?.oneInchFusionOrderCtx).toEqual({
+      orderStruct: { salt: '1' },
+      extension: '0xext',
+      quoteId: 'quote-1',
+      orderHash: '0xhash',
+    });
+    expect(result.quoteResultCtx.oneInchFusionOrderCtx).toEqual({
+      orderStruct: { salt: '1' },
+      extension: '0xext',
+      quoteId: 'quote-1',
+      orderHash: '0xhash',
+      signature: '0xsig',
+    });
+  });
+
   it('reuses the reviewed signing quote when the required signing context is already present', () => {
     expect(
       canReuseMarketSigningQuoteResult(

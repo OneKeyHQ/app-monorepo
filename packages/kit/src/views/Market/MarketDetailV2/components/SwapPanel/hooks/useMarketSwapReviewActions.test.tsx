@@ -267,6 +267,57 @@ describe('useMarketSwapReviewActions', () => {
     );
   });
 
+  it('keeps preSwapStepsStart stable across swap step updates', async () => {
+    const adapter = createAdapter();
+    adapter.sendSwapTx.mockImplementation(
+      async (params: ISendMarketSwapParams) => {
+        params?.onBroadcast?.({
+          txHash: '0xswap',
+          orderId: 'order-1',
+        });
+      },
+    );
+
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({ adapter });
+        const [swapSteps] = useSwapStepsAtom();
+        return {
+          actions,
+          swapSteps,
+        };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+              },
+            ],
+          }),
+        ),
+      },
+    );
+
+    const initialPreSwapStepsStart = result.current.actions.preSwapStepsStart;
+
+    await act(async () => {
+      await result.current.actions.preSwapStepsStart();
+    });
+
+    await waitFor(() => {
+      expect(result.current.swapSteps.steps[0].status).toBe(
+        ESwapStepStatus.PENDING,
+      );
+    });
+
+    expect(result.current.actions.preSwapStepsStart).toBe(
+      initialPreSwapStepsStart,
+    );
+  });
+
   it('uses the review store fee level when refreshing prebuild data', async () => {
     const adapter = createAdapter();
     adapter.prepareReview.mockResolvedValue(

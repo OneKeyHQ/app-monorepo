@@ -203,6 +203,53 @@ describe('marketDirectSendTx', () => {
     expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(2);
   });
 
+  it('falls back to sequential estimation when batch tx fee results are shorter than expected for direct send', async () => {
+    const approveUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        data: '0xapprove',
+      } as never,
+      nonce: 1,
+    });
+    const swapUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        data: '0xswap',
+      } as never,
+      nonce: 2,
+    });
+
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(swapUnsignedTx);
+    mockGetVaultSettings.mockResolvedValue({
+      supportBatchEstimateFee: {
+        'evm--1': true,
+      },
+    });
+    mockBatchEstimateFee.mockResolvedValue({
+      common: createEstimateFeeResult().common,
+      txFees: [createEstimateFeeResult()],
+    });
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xswap',
+        } as never,
+        isInternalSwap: true,
+      },
+      approveUnsignedTxArr: [approveUnsignedTx],
+    });
+
+    expect(result.gasInfos).toHaveLength(2);
+    expect(mockBatchEstimateFee).toHaveBeenCalledTimes(1);
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(result.gasFeeFiatValue).toBeDefined();
+  });
+
   it('builds gas infos from the selected fee level', async () => {
     const preparedUnsignedTx = createUnsignedTx();
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(preparedUnsignedTx);
@@ -245,6 +292,36 @@ describe('marketDirectSendTx', () => {
     expect(highFeeResult.preparedUnsignedTx).toBe(preparedUnsignedTx);
   });
 
+  it('ignores gas infos without common data when aggregating fiat values', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockEstimateFee.mockResolvedValue({
+      gas: [
+        {
+          gasPrice: '1',
+          gasLimit: '21000',
+        },
+      ],
+    } as never);
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xencoded',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(result.gasInfos).toHaveLength(1);
+    expect(result.gasInfos[0].gasInfo.common).toBeUndefined();
+    expect(result.gasFeeFiatValue).toBeUndefined();
+  });
+
   it('estimates approve-only gas infos from the selected fee level', async () => {
     const resetApproveUnsignedTx = createUnsignedTx({
       encodedTx: {
@@ -279,6 +356,43 @@ describe('marketDirectSendTx', () => {
     expect(lowFeeResult.gasInfos[0].gasInfo.gas?.gasPrice).toBe('1');
     expect(highFeeResult.gasInfos[0].gasInfo.gas?.gasPrice).toBe('3');
     expect(mockEstimateFee).toHaveBeenCalledTimes(4);
+  });
+
+  it('falls back to sequential estimation when batch tx fee results are shorter than expected for approve-only gas infos', async () => {
+    const approveUnsignedTxA = createUnsignedTx({
+      encodedTx: {
+        data: '0xapprove-a',
+      } as never,
+      nonce: 1,
+    });
+    const approveUnsignedTxB = createUnsignedTx({
+      encodedTx: {
+        data: '0xapprove-b',
+      } as never,
+      nonce: 2,
+    });
+
+    mockGetVaultSettings.mockResolvedValue({
+      supportBatchEstimateFee: {
+        'evm--1': true,
+      },
+    });
+    mockBatchEstimateFee.mockResolvedValue({
+      common: createEstimateFeeResult().common,
+      txFees: [createEstimateFeeResult()],
+    });
+
+    const result = await estimateMarketApproveGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
+      approveUnsignedTxArr: [approveUnsignedTxA, approveUnsignedTxB],
+    });
+
+    expect(result.gasInfos).toHaveLength(2);
+    expect(mockBatchEstimateFee).toHaveBeenCalledTimes(1);
+    expect(mockEstimateFee).toHaveBeenCalledTimes(2);
   });
 
   it('preserves the selected fee level when send-time gas info must be rebuilt', async () => {

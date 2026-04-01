@@ -140,7 +140,36 @@ function buildGasInfo(
   };
 }
 
-async function resolveMarketGasInfos({
+async function estimateUnsignedTxGasInfo({
+  accountAddress,
+  accountId,
+  networkId,
+  unsignedTxItem,
+  networkFeeLevel,
+}: {
+  accountAddress: string;
+  accountId: string;
+  networkId: string;
+  unsignedTxItem: IUnsignedTxPro;
+  networkFeeLevel?: ESwapNetworkFeeLevel;
+}) {
+  const estimateFeeParams =
+    await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+      networkId,
+      accountId,
+      encodedTx: unsignedTxItem.encodedTx,
+    });
+  const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
+    ...estimateFeeParams,
+    accountAddress,
+    networkId,
+    accountId,
+  });
+
+  return buildGasInfo(gasRes, gasRes.common, networkFeeLevel);
+}
+
+async function resolveMarketGasInfosSequentially({
   accountAddress,
   accountId,
   networkId,
@@ -160,44 +189,6 @@ async function resolveMarketGasInfos({
     unsignedTx,
     approveUnsignedTxArr,
   });
-  const vaultSettings =
-    await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId,
-    });
-
-  if (
-    approveUnsignedTxArr?.length &&
-    vaultSettings.supportBatchEstimateFee?.[networkId]
-  ) {
-    const estimateFeeParamsArr = await Promise.all(
-      unsignedTxArr.map((item) =>
-        backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-          networkId,
-          accountId,
-          encodedTx: item.encodedTx,
-        }),
-      ),
-    );
-
-    const gasResArr = await backgroundApiProxy.serviceGas.batchEstimateFee({
-      networkId,
-      accountId,
-      encodedTxs: estimateFeeParamsArr.map((item) => item.encodedTx ?? {}),
-    });
-
-    for (let i = 0; i < unsignedTxArr.length; i += 1) {
-      gasInfos.push({
-        encodeTx: unsignedTxArr[i].encodedTx,
-        gasInfo: buildGasInfo(
-          gasResArr.txFees[i],
-          gasResArr.common,
-          networkFeeLevel,
-        ),
-      });
-    }
-
-    return gasInfos;
-  }
 
   if (approveUnsignedTxArr?.length) {
     let lastTxUseGasInfo: IFeeInfoUnit | undefined;
@@ -262,19 +253,13 @@ async function resolveMarketGasInfos({
           },
         });
       } else {
-        const estimateFeeParams =
-          await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-            networkId,
-            accountId,
-            encodedTx: unsignedTxItem.encodedTx,
-          });
-        const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
-          ...estimateFeeParams,
+        const gasInfo = await estimateUnsignedTxGasInfo({
           accountAddress,
-          networkId,
           accountId,
+          networkId,
+          unsignedTxItem,
+          networkFeeLevel,
         });
-        const gasInfo = buildGasInfo(gasRes, gasRes.common, networkFeeLevel);
 
         if (i === unsignedTxArr.length - 2) {
           lastTxUseGasInfo = gasInfo as IFeeInfoUnit;
@@ -290,25 +275,93 @@ async function resolveMarketGasInfos({
     return gasInfos;
   }
 
-  const estimateFeeParams =
-    await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-      networkId,
-      accountId,
-      encodedTx: unsignedTx.encodedTx,
-    });
-  const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
-    ...estimateFeeParams,
-    accountAddress,
-    networkId,
-    accountId,
-  });
-
   return [
     {
       encodeTx: unsignedTx.encodedTx,
-      gasInfo: buildGasInfo(gasRes, gasRes.common, networkFeeLevel),
+      gasInfo: await estimateUnsignedTxGasInfo({
+        accountAddress,
+        accountId,
+        networkId,
+        unsignedTxItem: unsignedTx,
+        networkFeeLevel,
+      }),
     },
   ];
+}
+
+async function resolveMarketGasInfos({
+  accountAddress,
+  accountId,
+  networkId,
+  unsignedTx,
+  approveUnsignedTxArr,
+  networkFeeLevel,
+}: {
+  accountAddress: string;
+  accountId: string;
+  networkId: string;
+  unsignedTx: IUnsignedTxPro;
+  approveUnsignedTxArr?: IUnsignedTxPro[];
+  networkFeeLevel?: ESwapNetworkFeeLevel;
+}): Promise<IMarketGasInfoEntry[]> {
+  const unsignedTxArr = buildUnsignedTxArr({
+    unsignedTx,
+    approveUnsignedTxArr,
+  });
+  const vaultSettings =
+    await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId,
+    });
+
+  if (
+    approveUnsignedTxArr?.length &&
+    vaultSettings.supportBatchEstimateFee?.[networkId]
+  ) {
+    const estimateFeeParamsArr = await Promise.all(
+      unsignedTxArr.map((item) =>
+        backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+          networkId,
+          accountId,
+          encodedTx: item.encodedTx,
+        }),
+      ),
+    );
+
+    const gasResArr = await backgroundApiProxy.serviceGas.batchEstimateFee({
+      networkId,
+      accountId,
+      encodedTxs: estimateFeeParamsArr.map((item) => item.encodedTx ?? {}),
+    });
+
+    if (gasResArr.txFees.length !== unsignedTxArr.length) {
+      return resolveMarketGasInfosSequentially({
+        accountAddress,
+        accountId,
+        networkId,
+        unsignedTx,
+        approveUnsignedTxArr,
+        networkFeeLevel,
+      });
+    }
+
+    return unsignedTxArr.map((unsignedTxItem, index) => ({
+      encodeTx: unsignedTxItem.encodedTx,
+      gasInfo: buildGasInfo(
+        gasResArr.txFees[index],
+        gasResArr.common,
+        networkFeeLevel,
+      ),
+    }));
+  }
+
+  return resolveMarketGasInfosSequentially({
+    accountAddress,
+    accountId,
+    networkId,
+    unsignedTx,
+    approveUnsignedTxArr,
+    networkFeeLevel,
+  });
 }
 
 async function resolveExactUnsignedTxGasInfos({
@@ -350,6 +403,26 @@ async function resolveExactUnsignedTxGasInfos({
       encodedTxs: estimateFeeParamsArr.map((item) => item.encodedTx ?? {}),
     });
 
+    if (gasResArr.txFees.length !== unsignedTxArr.length) {
+      const fallbackGasInfos: IMarketGasInfoEntry[] = [];
+      for (const unsignedTxItem of unsignedTxArr) {
+        const gasInfo = await estimateUnsignedTxGasInfo({
+          accountAddress,
+          accountId,
+          networkId,
+          unsignedTxItem,
+          networkFeeLevel,
+        });
+
+        fallbackGasInfos.push({
+          encodeTx: unsignedTxItem.encodedTx,
+          gasInfo,
+        });
+      }
+
+      return fallbackGasInfos;
+    }
+
     return unsignedTxArr.map((unsignedTxItem, index) => ({
       encodeTx: unsignedTxItem.encodedTx,
       gasInfo: buildGasInfo(
@@ -361,22 +434,15 @@ async function resolveExactUnsignedTxGasInfos({
   }
 
   for (const unsignedTxItem of unsignedTxArr) {
-    const estimateFeeParams =
-      await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-        networkId,
-        accountId,
-        encodedTx: unsignedTxItem.encodedTx,
-      });
-    const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
-      ...estimateFeeParams,
-      accountAddress,
-      networkId,
-      accountId,
-    });
-
     gasInfos.push({
       encodeTx: unsignedTxItem.encodedTx,
-      gasInfo: buildGasInfo(gasRes, gasRes.common, networkFeeLevel),
+      gasInfo: await estimateUnsignedTxGasInfo({
+        accountAddress,
+        accountId,
+        networkId,
+        unsignedTxItem,
+        networkFeeLevel,
+      }),
     });
   }
 
@@ -385,9 +451,13 @@ async function resolveExactUnsignedTxGasInfos({
 
 function buildGasFeeFiatValue(gasInfos: IMarketGasInfoEntry[]) {
   const gasFeeFiatValue = gasInfos.reduce((acc, item) => {
+    if (!item.gasInfo.common) {
+      return acc;
+    }
+
     const feeResult = calculateFeeForSend({
       feeInfo: item.gasInfo as IFeeInfoUnit,
-      nativeTokenPrice: item.gasInfo.common?.nativeTokenPrice ?? 0,
+      nativeTokenPrice: item.gasInfo.common.nativeTokenPrice ?? 0,
     });
 
     return acc.plus(new BigNumber(feeResult.totalFiatMinForDisplay));

@@ -130,8 +130,17 @@ export function useSwapReviewActions({
   const [inAppNotificationAtom] = useInAppNotificationAtom();
   const handledApproveStatusRef = useRef<string>('');
   const latestApproveTxIdRef = useRef<string>('');
+  const adapterRef = useRef(adapter);
+  const intlRef = useRef(intl);
+  const networkFeeLevelRef = useRef(swapStepNetFeeLevel.networkFeeLevel);
+  const swapStepsStateRef = useRef(swapStepsState);
   const { replaceReviewState, setBeforeActionsLoading, updateStep } =
     useReviewStepStateActions();
+
+  adapterRef.current = adapter;
+  intlRef.current = intl;
+  networkFeeLevelRef.current = swapStepNetFeeLevel.networkFeeLevel;
+  swapStepsStateRef.current = swapStepsState;
 
   const clearPreSwapGasInfos = useCallback(
     (preSwapData: ISwapPreSwapData) => {
@@ -222,15 +231,20 @@ export function useSwapReviewActions({
       preSwapData: ISwapPreSwapData;
       quoteResult?: IFetchQuoteResult;
     }) => {
-      const steps = swapStepsValues?.steps ?? swapStepsState.steps;
+      const currentSwapStepsState = swapStepsStateRef.current;
+      const steps = swapStepsValues?.steps ?? currentSwapStepsState.steps;
       const preSwapData =
-        swapStepsValues?.preSwapData ?? swapStepsState.preSwapData;
+        swapStepsValues?.preSwapData ?? currentSwapStepsState.preSwapData;
       const quoteResult =
-        swapStepsValues?.quoteResult ?? swapStepsState.quoteResult;
+        swapStepsValues?.quoteResult ?? currentSwapStepsState.quoteResult;
 
       if (!steps.length) {
         return;
       }
+
+      const currentAdapter = adapterRef.current;
+      const currentIntl = intlRef.current;
+      const networkFeeLevel = networkFeeLevelRef.current;
 
       for (let i = 0; i < steps.length; i += 1) {
         const step = steps[i];
@@ -252,18 +266,18 @@ export function useSwapReviewActions({
                 break;
               }
 
-              await adapter.sendApproveTx({
+              await currentAdapter.sendApproveTx({
                 amount:
                   quoteResult.fromAmount ?? preSwapData.fromTokenAmount ?? '0',
                 gasInfos: preSwapData.netWorkFee?.gasInfos,
                 isResetApprove: step.isResetApprove,
-                networkFeeLevel: swapStepNetFeeLevel.networkFeeLevel,
+                networkFeeLevel,
                 quoteResult,
                 onBroadcast: ({ txHash }) => {
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
                     txHash,
-                    stepSubTitle: intl.formatMessage({
+                    stepSubTitle: currentIntl.formatMessage({
                       id: ETranslations.swap_btn_approving,
                     }),
                   });
@@ -276,9 +290,9 @@ export function useSwapReviewActions({
             }
 
             if (step.type === ESwapStepType.WRAP_TX) {
-              await adapter.sendWrappedTx({
+              await currentAdapter.sendWrappedTx({
                 gasInfos: preSwapData.netWorkFee?.gasInfos,
-                networkFeeLevel: swapStepNetFeeLevel.networkFeeLevel,
+                networkFeeLevel,
                 onBroadcast: ({ txHash, orderId }) => {
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
@@ -294,9 +308,9 @@ export function useSwapReviewActions({
             }
 
             if (step.type === ESwapStepType.SEND_TX) {
-              await adapter.sendSwapTx({
+              await currentAdapter.sendSwapTx({
                 gasInfos: preSwapData.netWorkFee?.gasInfos,
-                networkFeeLevel: swapStepNetFeeLevel.networkFeeLevel,
+                networkFeeLevel,
                 onBroadcast: ({ txHash, orderId }) => {
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
@@ -312,8 +326,8 @@ export function useSwapReviewActions({
             }
 
             if (step.type === ESwapStepType.SIGN_MESSAGE) {
-              await adapter.sendSignMessage({
-                networkFeeLevel: swapStepNetFeeLevel.networkFeeLevel,
+              await currentAdapter.sendSignMessage({
+                networkFeeLevel,
                 onBroadcast: ({ txHash, orderId }) => {
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
@@ -334,10 +348,10 @@ export function useSwapReviewActions({
                 break;
               }
 
-              await adapter.sendSwapTx({
-                approvesInfo: adapter.buildApproveInfos(quoteResult),
+              await currentAdapter.sendSwapTx({
+                approvesInfo: currentAdapter.buildApproveInfos(quoteResult),
                 gasInfos: preSwapData.netWorkFee?.gasInfos,
-                networkFeeLevel: swapStepNetFeeLevel.networkFeeLevel,
+                networkFeeLevel,
                 onBroadcast: ({ txHash, orderId }) => {
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
@@ -361,14 +375,7 @@ export function useSwapReviewActions({
         }
       }
     },
-    [
-      adapter,
-      intl,
-      markStepFailed,
-      swapStepNetFeeLevel.networkFeeLevel,
-      swapStepsState,
-      updateStep,
-    ],
+    [markStepFailed, updateStep],
   );
 
   const approveTransaction = getSwapReviewApproveTransaction({
@@ -405,7 +412,8 @@ export function useSwapReviewActions({
       approveTransaction.status === ESwapApproveTransactionStatus.SUCCESS
         ? ESwapStepStatus.SUCCESS
         : ESwapStepStatus.FAILED;
-    const stepIndex = swapStepsState.steps.findIndex(
+    const currentSwapStepsState = swapStepsStateRef.current;
+    const stepIndex = currentSwapStepsState.steps.findIndex(
       (step) =>
         step.txHash === trackedApproveTxId ||
         (!trackedApproveTxId &&
@@ -417,7 +425,7 @@ export function useSwapReviewActions({
       return;
     }
 
-    const nextSteps = [...swapStepsState.steps];
+    const nextSteps = [...currentSwapStepsState.steps];
     nextSteps[stepIndex] = {
       ...nextSteps[stepIndex],
       status: approveStepStatus,
@@ -432,12 +440,14 @@ export function useSwapReviewActions({
       return;
     }
 
-    const nextPreSwapData = clearPreSwapGasInfos(swapStepsState.preSwapData);
+    const nextPreSwapData = clearPreSwapGasInfos(
+      currentSwapStepsState.preSwapData,
+    );
 
     void preSwapStepsStart({
       steps: nextSteps,
       preSwapData: nextPreSwapData,
-      quoteResult: swapStepsState.quoteResult,
+      quoteResult: currentSwapStepsState.quoteResult,
     });
   }, [
     approveTransaction,
@@ -445,9 +455,6 @@ export function useSwapReviewActions({
     clearPreSwapGasInfos,
     inAppNotificationAtom,
     preSwapStepsStart,
-    swapStepsState.preSwapData,
-    swapStepsState.quoteResult,
-    swapStepsState.steps,
     updateStep,
   ]);
 

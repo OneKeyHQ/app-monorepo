@@ -275,12 +275,16 @@ export function attachMarketOneInchFusionSignature({
     throw new OneKeyLocalError('Market 1inch fusion context missing.');
   }
 
-  quoteResult.quoteResultCtx.oneInchFusionOrderCtx = {
-    ...oneInchFusionOrderCtx,
-    signature,
+  return {
+    ...quoteResult,
+    quoteResultCtx: {
+      ...quoteResult.quoteResultCtx,
+      oneInchFusionOrderCtx: {
+        ...oneInchFusionOrderCtx,
+        signature,
+      },
+    },
   };
-
-  return quoteResult;
 }
 
 export function canReuseMarketSigningQuoteResult(

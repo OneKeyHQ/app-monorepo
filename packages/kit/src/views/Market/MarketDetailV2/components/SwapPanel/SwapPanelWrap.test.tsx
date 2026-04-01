@@ -251,6 +251,69 @@ describe('SwapPanelWrap', () => {
     expect(showDialogMock).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps only the latest review-open request when users click quickly', async () => {
+    let resolveFirstReview:
+      | ((value: {
+          steps: unknown[];
+          preSwapData: Record<string, never>;
+          quoteResult: undefined;
+        }) => void)
+      | undefined;
+    let resolveSecondReview:
+      | ((value: {
+          steps: unknown[];
+          preSwapData: Record<string, never>;
+          quoteResult: undefined;
+        }) => void)
+      | undefined;
+
+    prepareMarketSwapReviewMock
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirstReview = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecondReview = resolve;
+          }),
+      );
+
+    render(<SwapPanelWrap />);
+
+    fireEvent.click(screen.getByTestId('swap-action'));
+    fireEvent.click(screen.getByTestId('swap-action'));
+
+    expect(prepareMarketSwapReviewMock).toHaveBeenCalledTimes(2);
+    expect(showDialogMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveSecondReview?.({
+        steps: [],
+        preSwapData: {},
+        quoteResult: undefined,
+      });
+    });
+
+    await waitFor(() => {
+      expect(showDialogMock).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      resolveFirstReview?.({
+        steps: [],
+        preSwapData: {},
+        quoteResult: undefined,
+      });
+    });
+
+    await waitFor(() => {
+      expect(showDialogMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('does not open the preview while action state is still loading', () => {
     mockSpeedCheckLoading = true;
 
