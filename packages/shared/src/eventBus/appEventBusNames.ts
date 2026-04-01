@@ -115,6 +115,7 @@ export enum EAppEventBusNames {
   ShowHardwareErrorDialog = 'ShowHardwareErrorDialog',
   SwapPanelDismissKeyboard = 'SwapPanelDismissKeyboard',
   ShowFallbackUpdateDialog = 'ShowFallbackUpdateDialog',
+  PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
   ShowNotificationPageNavigation = 'ShowNotificationPageNavigation',
   ShowNotificationInDappPage = 'ShowNotificationInDappPage',

@@ -29,7 +29,7 @@ if (platformEnv.isNativeAndroid) {
   void getLegacyAndroidSplash().preventAutoHideAsync();
 }
 
-export function SplashView({ onExit, ready }: ISplashViewProps) {
+export function SplashView({ onExit, canDismissSplash }: ISplashViewProps) {
   const hideSplash = useCallback(() => {
     void hideAsync();
     if (platformEnv.isNativeAndroid) {
@@ -39,9 +39,10 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
   }, [onExit]);
 
   useEffect(() => {
-    void ready.then(() => {
-      hideSplash();
-    });
-  }, [hideSplash, ready]);
+    if (!canDismissSplash) {
+      return;
+    }
+    hideSplash();
+  }, [canDismissSplash, hideSplash]);
   return null;
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { type LayoutChangeEvent } from 'react-native';
@@ -7,11 +7,16 @@ import { Stack } from '../../primitives/Stack';
 
 import { SplashView } from './SplashView';
 
-export type ISplashProps = PropsWithChildren;
+export type ISplashProps = PropsWithChildren<{
+  canDismissSplash?: boolean;
+}>;
 
-const noop = () => {};
-export function Splash({ children }: ISplashProps) {
-  const resolveSplash = useRef<() => void>(noop);
+export function Splash({
+  children,
+  canDismissSplash: externalCanDismissSplash = true,
+}: ISplashProps) {
+  const [isContentReady, setIsContentReady] = useState(false);
+  const canDismissSplash = isContentReady ? externalCanDismissSplash : false;
   const handleExitComplete = useCallback(() => {
     globalThis.$$onekeyUIVisibleAt = Date.now();
     if (typeof globalThis.nativePerformanceNow === 'function') {
@@ -25,23 +30,18 @@ export function Splash({ children }: ISplashProps) {
     if (height) {
       // close the splash after the react commit phase.
       setTimeout(() => {
-        resolveSplash.current?.();
+        setIsContentReady(true);
       });
     }
   }, []);
 
-  const ready = useMemo(
-    () =>
-      new Promise<void>((resolve) => {
-        resolveSplash.current = resolve;
-      }),
-    [],
-  );
-
   return (
     <Stack flex={1} onLayout={handleLayout}>
       {children}
-      <SplashView ready={ready} onExit={handleExitComplete} />
+      <SplashView
+        canDismissSplash={canDismissSplash}
+        onExit={handleExitComplete}
+      />
     </Stack>
   );
 }

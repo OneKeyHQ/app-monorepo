@@ -15,6 +15,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -1101,6 +1105,7 @@ class ServicePendingInstallTask {
     const traceId = generateUUID();
     const requestSeq = null;
     let shouldRunPostRefresh = false;
+    let shouldEmitProcessFinishedEvent = true;
     let processedTaskSnapshot: Partial<IPendingInstallTask> | null = null;
     const lockNow = Date.now();
     if (this.isProcessingPendingTask) {
@@ -1392,6 +1397,7 @@ class ServicePendingInstallTask {
 
       try {
         await this.executePendingInstallTask(runningTask);
+        shouldEmitProcessFinishedEvent = false;
         const durationMs = Date.now() - startedAt;
         await setPendingInstallTask({
           ...runningTask,
@@ -1415,6 +1421,8 @@ class ServicePendingInstallTask {
           message === 'BUILTIN_FALLBACK_RELAUNCH' ||
           message === 'BUILTIN_ALREADY_ACTIVE'
         ) {
+          shouldEmitProcessFinishedEvent =
+            message !== 'BUILTIN_FALLBACK_RELAUNCH';
           defaultLogger.app.appUpdate.pendingSwitchResult({
             traceId,
             requestSeq,
@@ -1457,6 +1465,12 @@ class ServicePendingInstallTask {
         lockState: 'released',
         lockTimeoutMs: PROCESS_LOCK_TIMEOUT_MS,
       });
+      if (shouldEmitProcessFinishedEvent) {
+        appEventBus.emit(
+          EAppEventBusNames.PendingInstallTaskProcessFinished,
+          undefined,
+        );
+      }
     }
   }
 }
