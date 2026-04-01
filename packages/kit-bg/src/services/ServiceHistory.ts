@@ -35,11 +35,13 @@ import type {
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsParams,
+  IFetchTransferRecipientsResp,
   IFetchTxDetailsParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
   IServerFetchAccountHistoryDetailParams,
+  ITransferRecipient,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
@@ -896,6 +898,49 @@ class ServiceHistory extends ServiceBase {
       addressMap,
       hasMore,
     };
+  }
+
+  @backgroundMethod()
+  public async fetchTransferRecipients(params: {
+    accountId: string;
+    networkId: string;
+    limit?: number;
+  }): Promise<{ supported: boolean; data: ITransferRecipient[] }> {
+    const { accountId, networkId, limit = 10 } = params;
+
+    // Get account address for API
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+
+    try {
+      const resp = await client.get<{ data: IFetchTransferRecipientsResp }>(
+        '/wallet/v1/account/transfer-recipient',
+        {
+          params: {
+            networkId,
+            accountAddress,
+            limit,
+          },
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
+      );
+
+      const { supported, data } = resp.data.data;
+      return { supported: supported ?? true, data: data ?? [] };
+    } catch (error) {
+      console.error('Failed to fetch transfer recipients:', error);
+      return { supported: false, data: [] };
+    }
   }
 
   @backgroundMethod()
