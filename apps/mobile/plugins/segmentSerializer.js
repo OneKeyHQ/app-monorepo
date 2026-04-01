@@ -335,9 +335,10 @@ module.exports = async function segmentSerializer(
   // Step 6c: Derive runtime and allocation layer from bundle-groups.config (Phase 4)
   // Maps allocation layers to segment runtime:
   //   *.main → 'main', *.background → 'background', *.shared / kernel.shared → 'shared'
+  // P1-1 fix: use startsWith only — includes('/' + p) causes substring false matches
   function getAllocationLayer(relPath) {
     for (const rule of allocationRules) {
-      if (rule.paths.some((p) => relPath.startsWith(p) || relPath.includes(`/${p}`))) {
+      if (rule.paths.some((p) => relPath.startsWith(p))) {
         return rule.layer;
       }
     }
@@ -345,54 +346,56 @@ module.exports = async function segmentSerializer(
   }
 
   function layerToRuntime(layer) {
-    if (layer.endsWith('.main') || layer === 'startup.main' || layer === 'bootstrap.main') {
-      return 'main';
-    }
-    if (layer.endsWith('.background') || layer === 'startup.background' || layer === 'bootstrap.background') {
-      return 'background';
-    }
-    return 'shared';
+    if (layer.endsWith('.main')) return 'main';
+    if (layer.endsWith('.background')) return 'background';
+    return 'shared'; // kernel.shared, feature.shared
   }
 
+  // P1-2 fix: conservative runtime — use the most permissive (widest) runtime.
+  // If ANY module is 'shared', the segment is 'shared'.
+  // Only mark 'main' if ALL modules are main-only, same for 'background'.
   function deriveRuntime(segmentKey) {
     const modIds = segmentModules.get(segmentKey);
     if (!modIds) return 'shared';
-    // Determine layer from the majority of modules in this segment
-    const layerCounts = {};
+    let hasMain = false;
+    let hasBackground = false;
+    let hasShared = false;
     for (const modId of modIds) {
       const absPath = moduleIdToAbsPath.get(modId);
       if (!absPath) continue;
       const relPath = absPath.replace(monorepoRoot, '').replace(/^\//, '');
-      const layer = getAllocationLayer(relPath);
-      layerCounts[layer] = (layerCounts[layer] || 0) + 1;
+      const runtime = layerToRuntime(getAllocationLayer(relPath));
+      if (runtime === 'shared') hasShared = true;
+      else if (runtime === 'main') hasMain = true;
+      else if (runtime === 'background') hasBackground = true;
     }
-    // Pick the most common layer
-    let dominantLayer = 'feature.shared';
-    let maxCount = 0;
-    for (const [layer, count] of Object.entries(layerCounts)) {
-      if (count > maxCount) {
-        dominantLayer = layer;
-        maxCount = count;
-      }
-    }
-    return layerToRuntime(dominantLayer);
+    // Mixed or any shared → shared (most permissive)
+    if (hasShared || (hasMain && hasBackground)) return 'shared';
+    if (hasMain) return 'main';
+    if (hasBackground) return 'background';
+    return 'shared';
   }
 
   // Step 6d: Validate forbidden modules in startup graph (Phase 4)
+  // P1-3: STRICT_ALLOCATION=true throws instead of warning
+  const strictAllocation = process.env.STRICT_ALLOCATION === 'true';
   const startupViolations = [];
   for (const moduleId of mainModuleIds) {
     const absPath = moduleIdToAbsPath.get(moduleId);
     if (!absPath) continue;
     const relPath = absPath.replace(monorepoRoot, '').replace(/^\//, '');
-    if (forbiddenInStartup.some((fp) => relPath.startsWith(fp) || relPath.includes(`/${fp}`))) {
+    if (forbiddenInStartup.some((fp) => relPath.startsWith(fp))) {
       startupViolations.push(relPath);
     }
   }
   if (startupViolations.length > 0) {
-    console.warn(
-      `[segmentSerializer] WARNING: ${startupViolations.length} forbidden module(s) found in startup graph:\n` +
-      startupViolations.map((v) => `  - ${v}`).join('\n'),
-    );
+    const msg =
+      `[segmentSerializer] ${startupViolations.length} forbidden module(s) in startup graph:\n` +
+      startupViolations.map((v) => `  - ${v}`).join('\n');
+    if (strictAllocation) {
+      throw new Error(msg);
+    }
+    console.warn(`WARNING: ${msg}`);
   }
 
   // Step 7: Write segment files and build manifest
