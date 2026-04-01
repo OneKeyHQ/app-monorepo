@@ -13,12 +13,6 @@ import type {
   RuntimeBundleContext,
 } from './types';
 
-// resolveSegmentPath is added in Phase 3 but may not be in the published types yet
-interface SplitBundleLoaderWithResolve {
-  getRuntimeBundleContext(): Promise<Record<string, unknown>>;
-  resolveSegmentPath(relativePath: string, sha256: string): Promise<string>;
-}
-
 let cachedLoader: ISplitBundleNativeLoader | null = null;
 
 export function getBackgroundNativeSplitBundleLoader(): ISplitBundleNativeLoader {
@@ -28,9 +22,7 @@ export function getBackgroundNativeSplitBundleLoader(): ISplitBundleNativeLoader
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { SplitBundleLoader } =
-    require('@onekeyfe/react-native-split-bundle-loader') as {
-      SplitBundleLoader: SplitBundleLoaderWithResolve;
-    };
+    require('@onekeyfe/react-native-split-bundle-loader') as typeof import('@onekeyfe/react-native-split-bundle-loader');
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { BackgroundThread } =
     require('@onekeyfe/react-native-background-thread') as typeof import('@onekeyfe/react-native-background-thread');
