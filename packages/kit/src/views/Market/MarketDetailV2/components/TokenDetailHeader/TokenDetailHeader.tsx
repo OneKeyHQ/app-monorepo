@@ -38,7 +38,7 @@ export function TokenDetailHeader({
   containerProps?: ComponentProps<typeof XStack>;
 }) {
   const { lg, md } = useMedia();
-  const { tokenDetail, networkId, isNative } = useTokenDetail();
+  const { tokenDetail, networkId, isNative, isStockToken } = useTokenDetail();
   const [containerWidth, setContainerWidth] = useState(0);
   const [scrollX, setScrollX] = useState(0);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
@@ -114,6 +114,7 @@ export function TokenDetailHeader({
           networkId={networkId}
           isNative={isNative}
           showStats={showStats}
+          isStockToken={isStockToken}
         />
       )}
 
