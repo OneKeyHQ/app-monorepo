@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 
 import {
@@ -28,6 +29,7 @@ import {
   EEnterWay,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type ETabMarketRoutes,
@@ -66,6 +68,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const { tokenListId, type } = route.params;
   const isPerps = type === EMarketBannerType.Perps;
 
+  const intl = useIntl();
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
@@ -260,6 +263,13 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             initialNumToRender={15}
             maxToRenderPerBatch={20}
             contentContainerStyle={{ paddingBottom: tabBarHeight }}
+            ListEmptyComponent={
+              <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+                <SizableText size="$bodyLg" color="$textSubdued">
+                  {intl.formatMessage({ id: ETranslations.global_no_data })}
+                </SizableText>
+              </Stack>
+            }
             ListFooterComponent={
               transformedData.length > 0 ? <ListEndIndicator /> : null
             }
