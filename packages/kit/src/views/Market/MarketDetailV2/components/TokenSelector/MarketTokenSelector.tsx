@@ -26,21 +26,16 @@ import {
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { MarketTokenListNetworkSelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
-import SwapProSearchTokenList from '@onekeyhq/kit/src/views/Swap/pages/components/SwapProSearchTokenList';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 
-import { TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import {
+  TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS,
+  TOKEN_SELECTOR_POLLING_INTERVAL,
+} from './constants';
+import { MarketSearchTokenTable } from './MarketSearchTokenTable';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
-
-const TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS = [
-  'transactions',
-  'uniqueTraders',
-  'holders',
-  'tokenAge',
-] as const;
 
 function BaseMarketTokenSelectorContent() {
   const intl = useIntl();
@@ -60,10 +55,8 @@ function BaseMarketTokenSelectorContent() {
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
-  const { searchLoading, searchTokenList } = useSwapProTokenSearch(
-    searchValueDebounce,
-    selectedNetworkId,
-  );
+  const { searchLoading, searchTokenList } =
+    useSwapProTokenSearch(searchValueDebounce);
 
   const liveTokenOverride = useLiveTokenOverride();
 
@@ -114,17 +107,6 @@ function BaseMarketTokenSelectorContent() {
     [navigateToTokenDetail],
   );
 
-  const handleSearchTokenSelect = useCallback(
-    (token: IMarketSearchV2Token & { networkLogoURI: string }) => {
-      navigateToTokenDetail({
-        address: token.address,
-        networkId: token.network,
-        isNative: token.isNative,
-      });
-    },
-    [navigateToTokenDetail],
-  );
-
   return (
     <YStack p="$3" gap="$1" height={600}>
       <Stack px="$2" pb="$2">
@@ -139,10 +121,10 @@ function BaseMarketTokenSelectorContent() {
       </Stack>
 
       {searchValueDebounce ? (
-        <SwapProSearchTokenList
+        <MarketSearchTokenTable
           isLoading={searchLoading}
           items={searchTokenList}
-          onPress={handleSearchTokenSelect}
+          onPress={handleSelectToken}
         />
       ) : (
         <>
@@ -156,7 +138,7 @@ function BaseMarketTokenSelectorContent() {
             gradientBgColor={theme.bg.val}
           />
 
-          {startListSelect ? (
+          <Stack flex={1} display={startListSelect ? 'flex' : 'none'}>
             <MarketWatchlistTokenList
               onItemPress={handleSelectToken}
               hidePerps
@@ -165,7 +147,8 @@ function BaseMarketTokenSelectorContent() {
               pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
               rowBg="$bg"
             />
-          ) : (
+          </Stack>
+          <Stack flex={1} display={startListSelect ? 'none' : 'flex'}>
             <MarketNormalTokenList
               onItemPress={handleSelectToken}
               networkId={selectedNetworkId}
@@ -174,7 +157,7 @@ function BaseMarketTokenSelectorContent() {
               pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
               rowBg="$bg"
             />
-          )}
+          </Stack>
         </>
       )}
     </YStack>
@@ -242,7 +225,8 @@ function BaseMarketTokenSelector() {
               size="$heading2xl"
               color="$text"
               numberOfLines={1}
-              maxWidth="$60"
+              ellipsizeMode="tail"
+              maxWidth="$48"
               flexShrink={1}
             >
               {symbol}
