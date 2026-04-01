@@ -18,24 +18,14 @@ if (!platformEnv.isExtensionUi && !shouldDeferLocalBackgroundApi) {
 
 // Async lazy fallback: dynamically loads the real BackgroundApi implementation
 // only if the native background thread transport fails at runtime.
-// IMPORTANT: We must prevent Metro from statically tracing BackgroundApi and its
-// entire dependency graph into the main bundle. We use the Metro resolver to
-// redirect this import to a stub at build time, and only load the real
-// implementation at runtime via an opaque require when the fallback is needed.
+// Uses async import() so Metro's segment serializer can place BackgroundApi
+// in a separate segment loaded on demand via __loadBundleAsync.
 async function loadRealBackgroundApi(): Promise<IBackgroundApi> {
   globalThis.$onekeyIsInBackground =
     platformEnv.isExtensionBackground || platformEnv.isNativeBackgroundThread;
-  // Use indirect require via Function constructor to prevent Metro's static
-  // dependency collector from tracing BackgroundApi into the main bundle.
-  // This is the standard RN pattern for truly lazy runtime-only requires.
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const dynamicRequire = new Function(
-    'modulePath',
-    'return require(modulePath)',
-  ) as (modulePath: string) => { default: new () => IBackgroundApi };
-  const BackgroundApi = dynamicRequire(
-    '@onekeyhq/kit-bg/src/apis/BackgroundApi',
-  ).default;
+  const { default: BackgroundApi } = await import(
+    '@onekeyhq/kit-bg/src/apis/BackgroundApi'
+  );
   return new BackgroundApi();
 }
 

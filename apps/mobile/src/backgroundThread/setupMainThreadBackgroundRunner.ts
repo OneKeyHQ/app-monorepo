@@ -287,12 +287,14 @@ function handleRuntimeSignal(sharedRPC: ISharedRPC) {
 
   if (
     transportState === 'fallback-local' ||
-    transportState === 'remote-broken' ||
     transportState === 'ready'
   ) {
     return;
   }
 
+  // Allow recovery from remote-broken: if the background runtime
+  // signals ready again (e.g. after a transient failure), transition
+  // back to ready state (#35).
   remoteBrokenReason = undefined;
   transportState = 'ready';
   clearReadyTimeoutTimer();

@@ -430,7 +430,11 @@ export class BackgroundApiProxyBase
         );
       }
     }
-    return this.backgroundApi?.bridgeReceiveHandler(payload);
+    // Use async fallback if backgroundApi is not yet available (native-ui stub)
+    if (!this.backgroundApi) {
+      return this.callLocalBridgeReceiveHandler(payload);
+    }
+    return this.backgroundApi.bridgeReceiveHandler(payload);
   };
 
   // init in NON-Ext UI env

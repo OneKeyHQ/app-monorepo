@@ -315,16 +315,13 @@ module.exports = async function segmentSerializer(
   //   seg:kit-bg.xxx → background (only exact "kit-bg." prefix)
   //   seg:kit.views.xxx → main (only exact "kit.views." prefix)
   //   seg:components.xxx → main (only exact "components." prefix)
-  // The runtimeTarget env var overrides when set (e.g. building background-only).
-  const runtimeTarget = process.env.METRO_RUNTIME_TARGET; // 'main' | 'background'
+  // NOTE: runtimeTarget override was removed (#36) — in single-entry builds,
+  // overriding all segments to the current target would make 'shared' impossible.
+  // The override only makes sense in a future union-graph build.
   function deriveRuntime(segmentKey) {
-    // If building for a specific target, all segments belong to that target
-    if (runtimeTarget === 'main' || runtimeTarget === 'background') {
-      return runtimeTarget;
-    }
     // Strip "seg:" prefix for matching
     const keyPath = segmentKey.replace(/^seg:/, '');
-    if (keyPath.startsWith('kit-bg.') || keyPath.startsWith('kit-bg.src.services.')) {
+    if (keyPath.startsWith('kit-bg.')) {
       return 'background';
     }
     if (keyPath.startsWith('kit.views.') || keyPath.startsWith('components.')) {

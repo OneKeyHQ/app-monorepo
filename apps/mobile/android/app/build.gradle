@@ -224,6 +224,9 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+        // Keep .hbc segment files uncompressed so AssetFileDescriptor.getLength()
+        // works without full-stream reads (#38).
+        noCompress '.hbc'
     }
 
     // @onekeyfe/react-native-app-update: replace with noop stub for non-prod flavors

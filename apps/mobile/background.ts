@@ -7,6 +7,10 @@
 ).__ONEKEY_RUNTIME_KIND__ = 'background';
 
 require('@onekeyhq/shared/src/polyfills');
+
+// TODO: Install installProdBundleLoader here when background bundle
+// has async imports that require segment loading (Phase 2.5+).
+// Currently background.ts uses only synchronous requires.
 const { setBackgroundThreadRequestExecutor } =
   require('./src/backgroundThread/setupBackgroundThreadRPCHandler') as typeof import('./src/backgroundThread/setupBackgroundThreadRPCHandler');
 const backgroundApiProxy = (
