@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -278,6 +278,66 @@ describe('SwapPanelWrap', () => {
       expect(Toast.error).toHaveBeenCalledWith({
         title: ETranslations.global_unknown_error,
       });
+    });
+  });
+
+  it('keeps the new review dialog state when the previous dialog closes later', async () => {
+    const firstDialog = {
+      close: jest.fn(),
+    };
+    const secondDialog = {
+      close: jest.fn(),
+    };
+
+    showDialogMock
+      .mockReturnValueOnce(firstDialog)
+      .mockReturnValueOnce(secondDialog);
+
+    render(<SwapPanelWrap />);
+
+    fireEvent.click(screen.getByTestId('swap-action'));
+
+    await waitFor(() => {
+      expect(showDialogMock).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(
+        useSpeedSwapActionsMock.mock.calls.at(-1)?.[0]?.isReviewDialogOpen,
+      ).toBe(true);
+    });
+
+    fireEvent.click(screen.getByTestId('swap-action'));
+
+    await waitFor(() => {
+      expect(showDialogMock).toHaveBeenCalledTimes(2);
+    });
+    expect(firstDialog.close).toHaveBeenCalledTimes(1);
+
+    const firstOnClose = showDialogMock.mock.calls[0]?.[0]?.onClose as
+      | (() => void)
+      | undefined;
+    const secondOnClose = showDialogMock.mock.calls[1]?.[0]?.onClose as
+      | (() => void)
+      | undefined;
+
+    await act(async () => {
+      firstOnClose?.();
+    });
+
+    await waitFor(() => {
+      expect(
+        useSpeedSwapActionsMock.mock.calls.at(-1)?.[0]?.isReviewDialogOpen,
+      ).toBe(true);
+    });
+
+    await act(async () => {
+      secondOnClose?.();
+    });
+
+    await waitFor(() => {
+      expect(
+        useSpeedSwapActionsMock.mock.calls.at(-1)?.[0]?.isReviewDialogOpen,
+      ).toBe(false);
     });
   });
 });

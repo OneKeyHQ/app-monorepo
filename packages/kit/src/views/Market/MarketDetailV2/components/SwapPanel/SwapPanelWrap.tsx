@@ -391,9 +391,14 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           isWrap,
           networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
         });
-        void reviewDialogRef.current?.close();
+        const previousDialog = reviewDialogRef.current;
+        if (previousDialog) {
+          reviewDialogRef.current = null;
+          void previousDialog.close();
+        }
         setIsReviewDialogOpen(true);
-        const dialog = inPageDialog.show({
+        let dialog: IDialogInstance | null = null;
+        dialog = inPageDialog.show({
           title: intl.formatMessage({
             id: ETranslations.global_review_order,
           }),
@@ -401,6 +406,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           showCancelButton: false,
           showConfirmButton: false,
           onClose: () => {
+            if (reviewDialogRef.current !== dialog) {
+              return;
+            }
             reviewDialogRef.current = null;
             setIsReviewDialogOpen(false);
           },
@@ -408,7 +416,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
             <MarketSwapReviewDialog
               adapter={reviewAdapter}
               reviewState={nextReviewState}
-              onDone={() => dialog.close()}
+              onDone={() => void dialog?.close()}
             />
           ),
         });
