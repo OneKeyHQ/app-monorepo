@@ -98,10 +98,7 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       // Lookup manifest
       const entry = getSegmentEntry(segmentKey);
       if (!entry) {
-        throw new SegmentLoadError(
-          segmentKey,
-          'Segment not found in manifest',
-        );
+        throw new SegmentLoadError(segmentKey, 'Segment not found in manifest');
       }
 
       // Runtime access control
