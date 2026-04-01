@@ -1474,12 +1474,10 @@ export function useSpeedSwapActions(props: {
             throw new OneKeyError('sign message failed');
           }
 
-          attachMarketOneInchFusionSignature({
+          return attachMarketOneInchFusionSignature({
             quoteResult: signedQuoteResult,
             signature,
           });
-
-          return signedQuoteResult;
         }
       }
 
@@ -1929,8 +1927,6 @@ export function useSpeedSwapActions(props: {
             toToken: snapshot.swapInfo.receiver.token,
             fromTokenAmount:
               signedQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
-            toTokenAmount:
-              signedQuoteResult.toAmount ?? snapshot.swapInfo.receiver.amount,
             provider: signedQuoteResult.info.provider,
             userAddress: snapshot.accountAddress,
             receivingAddress: snapshot.swapInfo.receivingAddress,

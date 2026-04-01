@@ -107,6 +107,7 @@ import {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 
@@ -2459,7 +2460,6 @@ export default class ServiceSwap extends ServiceBase {
     fromToken,
     toToken,
     fromTokenAmount,
-    toTokenAmount,
     userAddress,
     provider,
     receivingAddress,
@@ -2472,7 +2472,6 @@ export default class ServiceSwap extends ServiceBase {
     fromToken: ISwapToken;
     toToken: ISwapToken;
     fromTokenAmount: string;
-    toTokenAmount?: string;
     provider: string;
     userAddress: string;
     receivingAddress: string;
@@ -2496,13 +2495,10 @@ export default class ServiceSwap extends ServiceBase {
           }
         : {}),
     };
-    const params: IFetchBuildTxParams = {
-      fromTokenAddress: fromToken.contractAddress,
-      toTokenAddress: toToken.contractAddress,
+    const params: IFetchBuildTxParams = buildSpeedSwapTxParams({
+      fromToken,
+      toToken,
       fromTokenAmount,
-      toTokenAmount,
-      fromNetworkId: fromToken.networkId,
-      toNetworkId: toToken.networkId,
       protocol,
       provider,
       userAddress,
@@ -2511,7 +2507,7 @@ export default class ServiceSwap extends ServiceBase {
       kind,
       walletType,
       quoteResultCtx,
-    };
+    });
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
