@@ -7,6 +7,22 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 const stripRewardUnitSuffix = (text: string) =>
   text.replace(/\s*(APR|APY)$/i, '');
 
+const withRewardUnit = (text: string, rewardUnit: string) =>
+  /\s*(APY|APR)\s*$/i.test(text) ? text : `${text} ${rewardUnit}`;
+
+const formatRewardText = ({
+  text,
+  rewardUnit,
+  hideSuffix,
+}: {
+  text: string;
+  rewardUnit: string;
+  hideSuffix: boolean;
+}) =>
+  hideSuffix
+    ? stripRewardUnitSuffix(text).trim()
+    : withRewardUnit(text, rewardUnit);
+
 // Helper function to build APR text
 const buildAprText = (apr: string, unit: string) => `${apr} ${unit}`;
 
@@ -52,7 +68,6 @@ export function AprText({
     minAprInfo,
     maxAprInfo,
   } = asset;
-  const strip = hideSuffix ? stripRewardUnitSuffix : (t: string) => t;
   const aprRangeText = buildAprRangeText({
     minAprInfo,
     maxAprInfo,
@@ -71,7 +86,11 @@ export function AprText({
           '$text'
         }
       >
-        {strip(aprRangeText)}
+        {formatRewardText({
+          text: aprRangeText,
+          rewardUnit,
+          hideSuffix,
+        })}
       </SizableText>
     );
   }
@@ -94,7 +113,11 @@ export function AprText({
             textAlign="right"
             color={highlight.color || '$textSuccess'}
           >
-            {strip(highlight.text)}
+            {formatRewardText({
+              text: highlight.text,
+              rewardUnit,
+              hideSuffix,
+            })}
           </SizableText>
         </XStack>
         <SizableText
@@ -103,7 +126,11 @@ export function AprText({
           color={deprecated.color || '$textSubdued'}
           textDecorationLine="line-through"
         >
-          {strip(deprecated.text)}
+          {formatRewardText({
+            text: deprecated.text,
+            rewardUnit,
+            hideSuffix,
+          })}
         </SizableText>
       </YStack>
     );
@@ -126,7 +153,11 @@ export function AprText({
           textAlign="right"
           color={highlight.color || '$textSuccess'}
         >
-          {strip(highlight.text)}
+          {formatRewardText({
+            text: highlight.text,
+            rewardUnit,
+            hideSuffix,
+          })}
         </SizableText>
       </XStack>
     );
@@ -141,7 +172,11 @@ export function AprText({
         textAlign="right"
         color={normal.color || '$text'}
       >
-        {strip(normal.text)}
+        {formatRewardText({
+          text: normal.text,
+          rewardUnit,
+          hideSuffix,
+        })}
       </SizableText>
     );
   }
@@ -156,7 +191,11 @@ export function AprText({
         color={deprecated.color || '$textSubdued'}
         textDecorationLine="line-through"
       >
-        {strip(deprecated.text)}
+        {formatRewardText({
+          text: deprecated.text,
+          rewardUnit,
+          hideSuffix,
+        })}
       </SizableText>
     );
   }
