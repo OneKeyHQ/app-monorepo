@@ -44,7 +44,6 @@ import type {
   IMarginTableMap,
   IPerpsActiveAssetData,
   IPerpsActiveAssetDataRaw,
-  IPerpsAssetPosition,
   IPerpsUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
