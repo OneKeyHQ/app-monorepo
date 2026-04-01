@@ -145,7 +145,10 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
       const recentRecipients = rawData?.recentRecipients ?? {};
       const networkRecipients = recentRecipients[storageKey];
       if (networkRecipients) {
-        delete networkRecipients[address];
+        const normalizedAddress = networkUtils.isEvmNetwork({ networkId })
+          ? address.toLowerCase()
+          : address;
+        delete networkRecipients[normalizedAddress];
       }
       return { recentRecipients };
     });
@@ -197,8 +200,13 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
       const recentRecipients = rawData?.recentRecipients ?? {};
       const networkRecipients = recentRecipients[storageKey] ?? {};
 
+      // Normalize EVM addresses to lowercase to avoid duplicates from checksum variants
+      const normalizedAddress = networkUtils.isEvmNetwork({ networkId })
+        ? address.toLowerCase()
+        : address;
+
       // Add or update current address with the actual networkId for display
-      networkRecipients[address] = {
+      networkRecipients[normalizedAddress] = {
         updatedAt,
         networkId, // Store the actual network where transfer occurred
       };

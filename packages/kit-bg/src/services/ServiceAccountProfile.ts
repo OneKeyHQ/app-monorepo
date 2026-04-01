@@ -552,11 +552,14 @@ class ServiceAccountProfile extends ServiceBase {
           const targetLower = resolveAddress.toLowerCase();
           let isInRecipients = false;
 
-          // Check transfer-recipient API using current networkId
+          // Use evm--1 (not current networkId) because the backend aggregates
+          // all EVM chain transfer recipients under evm--1. This ensures an
+          // address transferred to on Arbitrum is recognized as "interacted"
+          // when sending on Ethereum mainnet (consistent with useRecentRecipientsData).
           const { data: recipients } =
             await this.backgroundApi.serviceHistory.fetchTransferRecipients({
               accountId,
-              networkId,
+              networkId: 'evm--1',
               limit: 10,
             });
           isInRecipients = recipients.some(
