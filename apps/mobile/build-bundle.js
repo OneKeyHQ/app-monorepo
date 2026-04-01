@@ -6,7 +6,7 @@ const path = require('path');
 
 const fs = require('fs-extra');
 
-const { SEGMENTS_INPUT_DIR, getSegmentsDir } = require('./plugins/segmentPaths');
+const { SEGMENTS_INPUT_DIR, getSegmentsDir, getManifestPath } = require('./plugins/segmentPaths');
 
 const mobileDirPath = __dirname;
 const projectRootPath = path.join(mobileDirPath, '../..');
@@ -117,6 +117,41 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
         metadata[key] = `${value}`;
       }
     });
+
+    // MetadataV2: embed segment manifest data (Phase 6)
+    // Merge segment entries from both main and background manifests.
+    // This adds runtimeGraphVersion, mainEntry, backgroundEntry, and segments
+    // while preserving v1 backward compatibility (flat file→hash entries).
+    const mainManifestPath = getManifestPath('main');
+    const bgManifestPath = getManifestPath('background');
+    const allSegments = {};
+
+    for (const manifestPath of [mainManifestPath, bgManifestPath]) {
+      if (fs.existsSync(manifestPath)) {
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+          if (manifest.segments) {
+            Object.assign(allSegments, manifest.segments);
+          }
+        } catch (e) {
+          log(`Warning: Could not read segment manifest ${manifestPath}: ${e.message}`);
+        }
+      }
+    }
+
+    if (Object.keys(allSegments).length > 0) {
+      metadata.runtimeGraphVersion = '2';
+      metadata.mainEntry = JSON.stringify({
+        file: 'main.jsbundle.hbc',
+        sha256: metadata['main.jsbundle.hbc'] || '',
+      });
+      metadata.backgroundEntry = JSON.stringify({
+        file: 'background.bundle',
+        sha256: metadata['background.bundle'] || '',
+      });
+      metadata.segments = JSON.stringify(allSegments);
+      log(`MetadataV2: ${Object.keys(allSegments).length} segment(s) embedded`);
+    }
 
     // Write metadata.json
     const metadataPath = path.join(dirPath, 'metadata.json');
