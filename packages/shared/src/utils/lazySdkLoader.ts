@@ -13,10 +13,16 @@ export function createLazySdkLoader<T>(
   return () => {
     if (cached) return Promise.resolve(cached);
     if (!loading) {
-      loading = factory().then((mod) => {
-        cached = mod;
-        return mod;
-      });
+      loading = factory().then(
+        (mod) => {
+          cached = mod;
+          return mod;
+        },
+        (error) => {
+          loading = null;
+          throw error;
+        },
+      );
     }
     return loading;
   };

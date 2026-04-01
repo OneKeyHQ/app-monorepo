@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+type LoadBundleAsyncGlobal = typeof globalThis & {
+  __loadBundleAsync?: (bundlePath: string) => Promise<void>;
+};
+
 beforeEach(() => {
   jest.resetModules();
   jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -38,6 +42,7 @@ beforeEach(() => {
 afterEach(() => {
   delete (globalThis as any).__ONEKEY_RUNTIME_KIND__;
   delete (globalThis as any).__SEGMENT_MANIFEST__;
+  delete (globalThis as any).__loadBundleAsync;
 });
 
 function getLoader() {
@@ -123,5 +128,48 @@ describe('installProdBundleLoader', () => {
     mock.loadSegment.mockResolvedValueOnce(undefined);
     await retrySegment('seg:test.a');
     expect(isSegmentLoaded('seg:test.a')).toBe(true);
+  });
+
+  it('installs global __loadBundleAsync and routes it to segment loading', async () => {
+    const mock = createMockNativeLoader();
+    const { installProdBundleLoader, isSegmentLoaded } = getLoader();
+
+    installProdBundleLoader(mock);
+
+    await expect(
+      (globalThis as LoadBundleAsyncGlobal).__loadBundleAsync?.('seg:test.a'),
+    ).resolves.toBe(undefined);
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects circular dependsOn graphs', async () => {
+    (globalThis as any).__SEGMENT_MANIFEST__ = {
+      segments: {
+        'seg:test.a': {
+          id: 1,
+          key: 'seg:test.a',
+          runtime: 'shared',
+          relativePath: 'segments/a.seg.hbc',
+          sha256: 'aaa',
+          dependsOn: ['seg:test.b'],
+        },
+        'seg:test.b': {
+          id: 2,
+          key: 'seg:test.b',
+          runtime: 'shared',
+          relativePath: 'segments/b.seg.hbc',
+          sha256: 'bbb',
+          dependsOn: ['seg:test.a'],
+        },
+      },
+    };
+    const { installProdBundleLoader, loadSegment } = getLoader();
+
+    installProdBundleLoader(createMockNativeLoader());
+
+    await expect(loadSegment('seg:test.a')).rejects.toThrow(
+      'Circular dependency detected',
+    );
   });
 });
