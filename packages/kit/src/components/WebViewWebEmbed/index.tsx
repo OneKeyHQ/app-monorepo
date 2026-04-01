@@ -248,9 +248,16 @@ export function WebViewWebEmbed({
   }, []);
 
   const allowFileAccessByUrl = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
+    const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    return !!webEmbedPath || undefined;
+  }, []);
+
+  const iosAllowingReadAccessToURL = useMemo(() => {
+    if (platformEnv.isNativeIOS) {
       const webEmbedPath = BundleUpdate.getWebEmbedPath();
-      return !!webEmbedPath;
+      if (webEmbedPath) {
+        return `file://${webEmbedPath}/`;
+      }
     }
     return undefined;
   }, []);
@@ -282,6 +289,7 @@ export function WebViewWebEmbed({
       <WebView
         allowFileAccess={allowFileAccessByUrl}
         allowFileAccessFromFileURLs={allowFileAccessByUrl}
+        allowingReadAccessToURL={iosAllowingReadAccessToURL}
         pullToRefreshEnabled={false}
         useGeckoView={false}
         // *** use remote url
