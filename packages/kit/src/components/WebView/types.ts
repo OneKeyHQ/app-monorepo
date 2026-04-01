@@ -84,6 +84,10 @@ export interface IInpageProviderWebViewProps
    * @default false
    */
   allowFileAccess?: boolean;
+  /** @platform ios
+   * @description URL string that specifies the directory WKWebView can read from when loading local file URLs.
+   */
+  allowingReadAccessToURL?: string;
   /** @platform native
    * @description Whitelisted origins that may request camera or microphone access.
    */
