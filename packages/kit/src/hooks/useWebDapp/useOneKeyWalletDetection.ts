@@ -2,9 +2,9 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import { createStore } from 'mipd';
 
-import type { EIP6963ProviderDetail } from 'mipd';
-
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
+
+import type { EIP6963ProviderDetail } from 'mipd';
 
 const ONE_KEY_RDNS_PATTERNS = ['so.onekey.app.wallet'];
 
@@ -33,9 +33,7 @@ function getSnapshot() {
   return cachedProviders;
 }
 
-function findOneKeyProvider(
-  providers: readonly EIP6963ProviderDetail[],
-) {
+function findOneKeyProvider(providers: readonly EIP6963ProviderDetail[]) {
   return providers.find((provider) => {
     if (!provider?.info) return false;
     const rdns = provider.info.rdns?.toLowerCase() ?? '';

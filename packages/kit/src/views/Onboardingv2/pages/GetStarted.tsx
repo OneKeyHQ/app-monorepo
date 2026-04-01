@@ -634,28 +634,27 @@ function GetStarted() {
                       </Button>
                     )}
                   </>
-                ) : (
-                  (isWebKeylessSidePanelMode ? null : (
-                    <Button
-                      bg="$gray3"
-                      hoverStyle={{ bg: '$gray4' }}
-                      pressStyle={{ bg: '$gray5' }}
-                      size="large"
-                      alignSelf="stretch"
-                      childrenAsText={false}
-                      onPress={handleCreateOrImportWallet}
-                    >
-                      <XStack gap="$2" alignItems="center">
-                        <Icon name="PlusLargeOutline" size="$5" />
-                        <SizableText size="$bodyLgMedium">
-                          {intl.formatMessage({
-                            id: ETranslations.onboarding_create_or_import_wallet,
-                          })}
-                        </SizableText>
-                      </XStack>
-                    </Button>
-                  ))
-                )}
+                ) : null}
+                {!isKeylessWalletEnabled && !isWebKeylessSidePanelMode ? (
+                  <Button
+                    bg="$gray3"
+                    hoverStyle={{ bg: '$gray4' }}
+                    pressStyle={{ bg: '$gray5' }}
+                    size="large"
+                    alignSelf="stretch"
+                    childrenAsText={false}
+                    onPress={handleCreateOrImportWallet}
+                  >
+                    <XStack gap="$2" alignItems="center">
+                      <Icon name="PlusLargeOutline" size="$5" />
+                      <SizableText size="$bodyLgMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.onboarding_create_or_import_wallet,
+                        })}
+                      </SizableText>
+                    </XStack>
+                  </Button>
+                ) : null}
               </Stack>
             </YStack>
           </YStack>
