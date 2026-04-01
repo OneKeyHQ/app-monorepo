@@ -456,7 +456,7 @@ const BaseDevSettingsSection = () => {
         defaultValue={
           searchText ? visibleSectionKeys : visibleSectionKeys.slice(0, 1)
         }
-        key={visibleSectionKeys.join(',')}
+        key={`${searchText.trim() ? 'searching' : 'idle'}-${visibleSectionKeys.join(',')}`}
       >
         {visibleSectionKeys.map((sectionKey) => {
           const isPinned = pinnedSections.includes(sectionKey);
