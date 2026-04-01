@@ -10,6 +10,8 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
+import { ANIMATE_ONLY_TRANSFORM } from '../../utils/animationConstants';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 const PROGRESS_NAME = 'Progress';
@@ -98,7 +100,7 @@ const ProgressIndicator = ProgressIndicatorFrame.styleable<
         x={x}
         width={context.width}
         {...(!props.unstyled && {
-          animateOnly: ['transform'],
+          animateOnly: ANIMATE_ONLY_TRANSFORM,
           opacity: context.width === 0 ? 0 : 1,
         })}
         {...indicatorProps}

@@ -12,6 +12,7 @@ import type {
   StackProps,
   TamaguiElement,
 } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IconButton } from '../../actions/IconButton';
@@ -60,6 +61,7 @@ function BaseSortableCell(
                 icon="MinusCircleSolid"
                 variant="destructive"
                 animation="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={enterStyleAnimated}
               />
             ) : null}
@@ -74,6 +76,7 @@ function BaseSortableCell(
                 icon="MenuOutline"
                 onPressIn={drag}
                 animation="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={enterStyleAnimated}
               />
             ) : null}

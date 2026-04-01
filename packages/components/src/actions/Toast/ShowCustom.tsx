@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { usePageWidth } from '../../hooks/usePage';
 import { useOverlayZIndex } from '../../hooks/useStyle';
 import { Stack, ThemeableStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 import { Trigger } from '../Trigger';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -178,6 +179,7 @@ function BasicShowToaster({
             maxWidth={platformEnv.isNative ? '$96' : undefined}
             px={platformEnv.isNative ? '$5' : undefined}
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             viewportName={containerName}
           >
             <CustomToasterContext.Provider value={value}>

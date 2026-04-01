@@ -10,10 +10,12 @@ import type {
 } from '@onekeyhq/components';
 import {
   Form,
+  Icon,
   Page,
   SizableText,
   Spinner,
   Stack,
+  XStack,
   YStack,
   useForm,
   useFormWatch,
@@ -303,17 +305,41 @@ function BasicEditAddress() {
                 </Form.Field>
               </Form>
             </AddressInputContext.Provider>
-            <YStack gap="$5" mt="$1.5">
-              <SizableText color="$textSubdued" size="$bodyMd">
-                {intl.formatMessage({
-                  id: ETranslations.referral_reward_edit_address_desc_1,
-                })}
-              </SizableText>
-              <SizableText color="$textSubdued" size="$bodyMd">
-                {intl.formatMessage({
-                  id: ETranslations.referral_reward_edit_address_desc_2,
-                })}
-              </SizableText>
+            <YStack gap="$3" mt="$1.5">
+              <XStack gap="$2" ai="center">
+                <Icon name="CheckRadioOutline" size="$5" color="$iconSuccess" />
+                <SizableText size="$bodyMd">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_use_onekey_address,
+                  })}
+                </SizableText>
+              </XStack>
+              <XStack gap="$2" ai="center">
+                <Icon name="BlockOutline" size="$5" color="$iconCritical" />
+                <SizableText size="$bodyMd">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_avoid_exchange_address,
+                  })}
+                </SizableText>
+              </XStack>
+              <Stack
+                borderTopWidth="$px"
+                borderColor="$borderSubdued"
+                mt="$2"
+                pt="$3"
+                gap="$3"
+              >
+                <SizableText color="$textSubdued" size="$bodyMd">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_reward_edit_address_desc_1,
+                  })}
+                </SizableText>
+                <SizableText color="$textSubdued" size="$bodyMd">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_reward_edit_address_desc_2,
+                  })}
+                </SizableText>
+              </Stack>
             </YStack>
           </ReferFriendsPageContainer>
         )}
