@@ -415,18 +415,10 @@ const BaseDevSettingsSection = () => {
   );
 
   const visibleSectionKeys = useMemo(() => {
-    const query = searchText.toLowerCase().trim();
-    let keys = sectionMeta.map((s) => s.key);
-    if (query) {
-      keys = sectionMeta
-        .filter(
-          (s) =>
-            s.title.toLowerCase().includes(query) ||
-            s.description.toLowerCase().includes(query) ||
-            (s.keywords && s.keywords.toLowerCase().includes(query)),
-        )
-        .map((s) => s.key);
-    }
+    // Show all sections — individual items are filtered by SearchFilterItem.
+    // This avoids the problem where item keywords missing from section-level
+    // keywords would make those items unreachable via search.
+    const keys = sectionMeta.map((s) => s.key);
     // Sort: pinned first
     const pinSet = new Set(pinnedSections);
     keys.sort((a, b) => {
@@ -435,7 +427,7 @@ const BaseDevSettingsSection = () => {
       return ap - bp;
     });
     return keys;
-  }, [searchText, sectionMeta, pinnedSections]);
+  }, [sectionMeta, pinnedSections]);
 
   if (!devSettings.enabled) {
     return null;
