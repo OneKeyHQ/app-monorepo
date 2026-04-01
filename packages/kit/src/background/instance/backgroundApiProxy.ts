@@ -1,10 +1,10 @@
 import BackgroundApiProxy from '@onekeyhq/kit-bg/src/apis/BackgroundApiProxy';
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiInit from './backgroundApiInit';
 
-import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
 let backgroundApi = null;
 
@@ -23,9 +23,8 @@ if (!platformEnv.isExtensionUi && !shouldDeferLocalBackgroundApi) {
 async function loadRealBackgroundApi(): Promise<IBackgroundApi> {
   globalThis.$onekeyIsInBackground =
     platformEnv.isExtensionBackground || platformEnv.isNativeBackgroundThread;
-  const { default: BackgroundApi } = await import(
-    '@onekeyhq/kit-bg/src/apis/BackgroundApi'
-  );
+  const { default: BackgroundApi } =
+    await import('@onekeyhq/kit-bg/src/apis/BackgroundApi');
   return new BackgroundApi();
 }
 

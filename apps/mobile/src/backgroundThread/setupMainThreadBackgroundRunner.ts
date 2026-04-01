@@ -3,9 +3,9 @@ import {
   getSharedRPC,
 } from '@onekeyfe/react-native-background-thread';
 
+import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -19,9 +19,9 @@ import {
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
   buildBackgroundThreadRequestKey,
-  parseBackgroundThreadCallId,
   parseBackgroundThreadAppEventBroadcastPayload,
   parseBackgroundThreadBridgeSendPayload,
+  parseBackgroundThreadCallId,
   parseBackgroundThreadJotaiStateBroadcastPayload,
   parseBackgroundThreadResponse,
   serializeBackgroundThreadRequest,
@@ -240,14 +240,19 @@ function switchToFallbackLocal(reason: string) {
 }
 
 function getRemoteBrokenReason(reason?: string) {
-  return remoteBrokenReason || reason || 'Background runtime unavailable after ready';
+  return (
+    remoteBrokenReason || reason || 'Background runtime unavailable after ready'
+  );
 }
 
 function switchToRemoteBroken(reason: string) {
   if (!isNativeBackgroundThreadTransportEnabled()) {
     return false;
   }
-  if (transportState === 'fallback-local' || transportState === 'remote-broken') {
+  if (
+    transportState === 'fallback-local' ||
+    transportState === 'remote-broken'
+  ) {
     return false;
   }
 
@@ -276,7 +281,8 @@ function handleRuntimeSignal(sharedRPC: ISharedRPC) {
   }
 
   if (runtimePayload.status === 'failed') {
-    const reason = runtimePayload.errorMessage || 'Background runtime init failed';
+    const reason =
+      runtimePayload.errorMessage || 'Background runtime init failed';
     if (transportState === 'ready' || transportState === 'remote-broken') {
       switchToRemoteBroken(reason);
     } else {
@@ -285,10 +291,7 @@ function handleRuntimeSignal(sharedRPC: ISharedRPC) {
     return;
   }
 
-  if (
-    transportState === 'fallback-local' ||
-    transportState === 'ready'
-  ) {
+  if (transportState === 'fallback-local' || transportState === 'ready') {
     return;
   }
 
@@ -318,7 +321,9 @@ function handleBackgroundThreadResponse(sharedRPC: ISharedRPC, key: string) {
 
   const response = parseBackgroundThreadResponse(sharedRPC.read(key));
   if (!response) {
-    switchToRemoteBroken(`Invalid background response payload. callId=${callId}`);
+    switchToRemoteBroken(
+      `Invalid background response payload. callId=${callId}`,
+    );
     return;
   }
 
@@ -361,7 +366,10 @@ function handleBackgroundThreadJotaiStateUpdate(
   });
 }
 
-function handleBackgroundThreadAppEventUpdate(sharedRPC: ISharedRPC, key: string) {
+function handleBackgroundThreadAppEventUpdate(
+  sharedRPC: ISharedRPC,
+  key: string,
+) {
   const payload = parseBackgroundThreadAppEventBroadcastPayload(
     sharedRPC.read(key),
   );
@@ -377,10 +385,7 @@ function handleBackgroundThreadAppEventUpdate(sharedRPC: ISharedRPC, key: string
   });
 }
 
-function handleBackgroundThreadBridgeSend(
-  sharedRPC: ISharedRPC,
-  key: string,
-) {
+function handleBackgroundThreadBridgeSend(sharedRPC: ISharedRPC, key: string) {
   const payload = parseBackgroundThreadBridgeSendPayload(sharedRPC.read(key));
   if (!payload) {
     return;
@@ -392,7 +397,11 @@ function handleBackgroundThreadBridgeSend(
   }
 
   const bridgeOrigin = bridge.remoteInfo?.origin;
-  if (payload.targetOrigin && bridgeOrigin && payload.targetOrigin !== bridgeOrigin) {
+  if (
+    payload.targetOrigin &&
+    bridgeOrigin &&
+    payload.targetOrigin !== bridgeOrigin
+  ) {
     return;
   }
 
