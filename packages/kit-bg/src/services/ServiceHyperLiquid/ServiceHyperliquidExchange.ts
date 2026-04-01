@@ -1062,7 +1062,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async setAbstractionWithUserWallet(params: {
     userAccountId: string;
     userAddress: string;
-    abstraction: 'disabled' | 'unifiedAccount' | 'portfolioMargin' | 'dexAbstraction';
+    abstraction:
+      | 'disabled'
+      | 'unifiedAccount'
+      | 'portfolioMargin'
+      | 'dexAbstraction';
   }): Promise<void> {
     await this.checkAccountCanTrade();
     const wallet =

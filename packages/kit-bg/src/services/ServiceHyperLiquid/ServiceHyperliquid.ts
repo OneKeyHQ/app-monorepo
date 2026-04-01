@@ -30,6 +30,7 @@ import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
   XYZ_ASSET_ID_OFFSET,
   XYZ_DEX_PREFIX,
@@ -53,7 +54,6 @@ import type {
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
-import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -748,7 +748,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         acc.withdrawable = acc.withdrawable.plus(state.withdrawable || '0');
 
         // Aggregate unrealized PnL from all positions
-        const positions = (assetPositions || []) as IPerpsAssetPosition[];
+        const positions = assetPositions || [];
         positions.forEach((position) => {
           const pnl = position.position?.unrealizedPnl;
           if (pnl) {
@@ -824,8 +824,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     let totalUsd = new BigNumber(0);
     for (const balance of balances) {
       const amount = new BigNumber(balance.total);
-      if (amount.isZero()) continue;
-      if (balance.token === 0) {
+      if (amount.isZero()) {
+        // skip zero balances
+      } else if (balance.token === 0) {
         // USDC — quote currency, 1:1 USD
         totalUsd = totalUsd.plus(amount);
       } else {
@@ -834,7 +835,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         if (midPrice) {
           totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
         }
-        // Tokens without a perp market (no entry in allMids) are skipped
       }
     }
 
@@ -866,8 +866,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     let totalUsd = new BigNumber(0);
     for (const balance of spotData.balances) {
       const amount = new BigNumber(balance.total);
-      if (amount.isZero()) continue;
-      if (balance.token === 0) {
+      if (amount.isZero()) {
+        // skip zero balances
+      } else if (balance.token === 0) {
         totalUsd = totalUsd.plus(amount);
       } else {
         const midPrice = mids[balance.coin];
@@ -1032,14 +1033,11 @@ export default class ServiceHyperliquid extends ServiceBase {
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   @backgroundMethod()
-  async fetchUserAbstraction(
-    userAddress: IHex,
-  ): Promise<string | undefined> {
+  async fetchUserAbstraction(userAddress: IHex): Promise<string | undefined> {
     // Active-account alignment check
     const activeAccount = await perpsActiveAccountAtom.get();
     if (
-      activeAccount?.accountAddress?.toLowerCase() !==
-      userAddress.toLowerCase()
+      activeAccount?.accountAddress?.toLowerCase() !== userAddress.toLowerCase()
     ) {
       return undefined;
     }
@@ -1255,7 +1253,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               userAddress: accountAddress,
               abstraction: 'unifiedAccount',
             });
-            const verifiedMode = await this.fetchUserAbstraction(accountAddress);
+            const verifiedMode =
+              await this.fetchUserAbstraction(accountAddress);
             statusDetails.abstractionOk =
               verifiedMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
               verifiedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;

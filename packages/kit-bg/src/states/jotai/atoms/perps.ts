@@ -81,10 +81,13 @@ export const {
 export const {
   target: perpsAbstractionModeAtom,
   use: usePerpsAbstractionModeAtom,
-} = globalAtom<{
-  accountAddress: IHex | undefined;
-  mode: EHyperLiquidAbstractionMode | undefined;
-} | undefined>({
+} = globalAtom<
+  | {
+      accountAddress: IHex | undefined;
+      mode: EHyperLiquidAbstractionMode | undefined;
+    }
+  | undefined
+>({
   name: EAtomNames.perpsAbstractionModeAtom,
   initialValue: undefined,
 });
@@ -98,17 +101,18 @@ export interface ISpotBalanceItem {
   hold: string;
   entryNtl: string;
 }
-export const {
-  target: perpsSpotBalancesAtom,
-  use: usePerpsSpotBalancesAtom,
-} = globalAtom<{
-  accountAddress: IHex | undefined;
-  balances: ISpotBalanceItem[];
-  spotTotalUsd: string | undefined;
-} | undefined>({
-  name: EAtomNames.perpsSpotBalancesAtom,
-  initialValue: undefined,
-});
+export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
+  globalAtom<
+    | {
+        accountAddress: IHex | undefined;
+        balances: ISpotBalanceItem[];
+        spotTotalUsd: string | undefined;
+      }
+    | undefined
+  >({
+    name: EAtomNames.perpsSpotBalancesAtom,
+    initialValue: undefined,
+  });
 // #endregion
 
 export const {

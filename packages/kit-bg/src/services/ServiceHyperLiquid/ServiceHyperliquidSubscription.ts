@@ -12,6 +12,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
@@ -29,23 +30,21 @@ import type {
   IWsAllDexsClearinghouseState,
   IWsAllMids,
   IWsOpenOrders,
+  IWsSpotState,
   IWsUserFills,
   IWsWebData2,
-  IWsSpotState,
   IWsWebData3,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
-import {
+import type {
   EHyperLiquidAbstractionMode,
-  ESubscriptionType,
+  IL2BookOptions,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
   perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
-  perpsActiveAccountStatusAtom,
-  perpsSpotBalancesAtom,
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsCandlesWebviewReloadHookAtom,
@@ -54,9 +53,8 @@ import {
   perpsWebSocketDataUpdateTimesAtom,
   perpsWebSocketReadyStateAtom,
 } from '../../states/jotai/atoms/perps';
-import ServiceBase from '../ServiceBase';
 
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import ServiceBase from '../ServiceBase';
 
 import hyperLiquidCache from './hyperLiquidCache';
 import {
@@ -137,7 +135,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   pendingSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
-
 
   async buildRequiredSubscriptionsMap() {
     const client = await this.getWebSocketClient();
@@ -942,8 +939,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   async updateDevSettings() {
     const devSettings = await devSettingsPersistAtom.get();
-    this._showPerpsRenderStats =
-      !!(devSettings.enabled && devSettings.settings?.showPerpsRenderStats);
+    this._showPerpsRenderStats = !!(
+      devSettings.enabled && devSettings.settings?.showPerpsRenderStats
+    );
   }
 
   private async _handleSubscriptionData(
@@ -1034,7 +1032,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
           // Account alignment check
           const activeAccount = await perpsActiveAccountAtom.get();
-          if (activeAccount?.accountAddress?.toLowerCase() !== userAddress.toLowerCase()) {
+          if (
+            activeAccount?.accountAddress?.toLowerCase() !==
+            userAddress.toLowerCase()
+          ) {
             return;
           }
 
@@ -1046,11 +1047,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             });
             // Persist to SimpleDb only for non-watch-only accounts
             const isWatcher = activeAccount?.accountId
-              ? accountUtils.isWatchingAccount({ accountId: activeAccount.accountId })
+              ? accountUtils.isWatchingAccount({
+                  accountId: activeAccount.accountId,
+                })
               : false;
             if (!isWatcher) {
               await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
-                userAddress, wsAbstraction,
+                userAddress,
+                wsAbstraction,
               );
             }
           }
