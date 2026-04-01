@@ -17,6 +17,12 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import type {
+  ISwapReviewAdapter,
+  ISwapReviewApproveBroadcastResult,
+  ISwapReviewGasInfoEntry,
+  ISwapReviewState,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -72,7 +78,6 @@ import type {
 
 import { buildMarketExecutionPayload } from './marketBuildExecutionUtils';
 import {
-  type IMarketGasInfoEntry,
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
   sendMarketDirectUnsignedTxs,
@@ -102,58 +107,7 @@ import {
 } from './marketSwapReviewUtils';
 import { ESwapDirection } from './useTradeType';
 
-import type { IMarketSwapReviewState } from '../MarketSwapReviewInitializer';
-
-export type IMarketSwapBroadcastResult = {
-  txHash?: string;
-  orderId?: string;
-  gasFeeFiatValue?: string;
-  gasFeeInNative?: string;
-};
-
-export type IMarketApproveBroadcastResult = {
-  txHash: string;
-  amount: string;
-};
-
-export type IMarketSwapReviewAdapter = {
-  prepareMarketSwapReview: (params?: {
-    fromAmount?: string;
-    fromToken?: ISwapToken;
-    toToken?: ISwapToken;
-    isWrap?: boolean;
-    quoteResult?: IFetchQuoteResult;
-    networkFeeLevel?: ESwapNetworkFeeLevel;
-  }) => Promise<IMarketSwapReviewState>;
-  sendMarketApproveTx: (params: {
-    amount: string;
-    gasInfos?: IMarketGasInfoEntry[];
-    isResetApprove?: boolean;
-    networkFeeLevel?: ESwapNetworkFeeLevel;
-    quoteResult: IFetchQuoteResult;
-    onBroadcast?: (result: IMarketApproveBroadcastResult) => void;
-    onCancel?: () => void;
-  }) => Promise<void>;
-  sendMarketSwapTx: (params?: {
-    approvesInfo?: IApproveInfo[];
-    gasInfos?: IMarketGasInfoEntry[];
-    networkFeeLevel?: ESwapNetworkFeeLevel;
-    onBroadcast?: (result: IMarketSwapBroadcastResult) => void;
-    onCancel?: () => void;
-  }) => Promise<void>;
-  sendMarketWrappedTx: (params?: {
-    gasInfos?: IMarketGasInfoEntry[];
-    networkFeeLevel?: ESwapNetworkFeeLevel;
-    onBroadcast?: (result: IMarketSwapBroadcastResult) => void;
-    onCancel?: () => void;
-  }) => Promise<void>;
-  sendMarketSignMessage: (params?: {
-    networkFeeLevel?: ESwapNetworkFeeLevel;
-    onBroadcast?: (result: IMarketSwapBroadcastResult) => void;
-    onCancel?: () => void;
-  }) => Promise<void>;
-  buildMarketApproveInfos: (quoteResult?: IFetchQuoteResult) => IApproveInfo[];
-};
+export type IMarketSwapReviewAdapter = ISwapReviewAdapter;
 
 type IMarketReviewExecutionSnapshot = {
   kind: 'swap' | 'wrap';
@@ -1036,7 +990,7 @@ export function useSpeedSwapActions(props: {
         texts: buildReviewStepTexts(snapshot.quoteResult.info.providerName),
       });
 
-      let netWorkFee: IMarketSwapReviewState['preSwapData']['netWorkFee'];
+      let netWorkFee: ISwapReviewState['preSwapData']['netWorkFee'];
       try {
         const approveUnsignedTxArr = await buildMarketApproveUnsignedTxArr({
           approveInfos: buildMarketApproveInfos({
@@ -1109,7 +1063,7 @@ export function useSpeedSwapActions(props: {
   );
 
   const prepareMarketSwapReview = useCallback<
-    IMarketSwapReviewAdapter['prepareMarketSwapReview']
+    IMarketSwapReviewAdapter['prepareReview']
   >(
     async ({
       fromAmount,
@@ -1494,7 +1448,7 @@ export function useSpeedSwapActions(props: {
       data: ISendTxOnSuccessData[];
       isResetApprove?: boolean;
       networkId: string;
-      onBroadcast?: (result: IMarketApproveBroadcastResult) => void;
+      onBroadcast?: (result: ISwapReviewApproveBroadcastResult) => void;
     }) => {
       const txId = data[0]?.signedTx.txid;
       const approveAmount = data[0]?.approveInfo?.amount ?? approveInfo.amount;
@@ -1563,9 +1517,9 @@ export function useSpeedSwapActions(props: {
       networkId: string;
       approveInfo: IApproveInfo;
       approvingTransaction: ISwapApproveTransaction;
-      gasInfos?: IMarketGasInfoEntry[];
+      gasInfos?: ISwapReviewGasInfoEntry[];
       networkFeeLevel?: ESwapNetworkFeeLevel;
-      onBroadcast?: (result: IMarketApproveBroadcastResult) => void;
+      onBroadcast?: (result: ISwapReviewApproveBroadcastResult) => void;
       onCancel?: () => void;
     }) => {
       try {
@@ -1697,9 +1651,7 @@ export function useSpeedSwapActions(props: {
     };
   }, [handleMarketResetApprove]);
 
-  const sendMarketSwapTx = useCallback<
-    IMarketSwapReviewAdapter['sendMarketSwapTx']
-  >(
+  const sendMarketSwapTx = useCallback<IMarketSwapReviewAdapter['sendSwapTx']>(
     async ({
       approvesInfo,
       gasInfos,
@@ -1762,7 +1714,7 @@ export function useSpeedSwapActions(props: {
   );
 
   const sendMarketWrappedTx = useCallback<
-    IMarketSwapReviewAdapter['sendMarketWrappedTx']
+    IMarketSwapReviewAdapter['sendWrappedTx']
   >(
     async ({ gasInfos, networkFeeLevel, onBroadcast, onCancel } = {}) => {
       const snapshot = requireReviewExecutionSnapshot('wrap');
@@ -1798,7 +1750,7 @@ export function useSpeedSwapActions(props: {
   );
 
   const sendMarketSignMessage = useCallback<
-    IMarketSwapReviewAdapter['sendMarketSignMessage']
+    IMarketSwapReviewAdapter['sendSignMessage']
   >(
     async ({
       networkFeeLevel: _networkFeeLevel,
@@ -1928,7 +1880,7 @@ export function useSpeedSwapActions(props: {
   );
 
   const sendMarketApproveTx = useCallback<
-    IMarketSwapReviewAdapter['sendMarketApproveTx']
+    IMarketSwapReviewAdapter['sendApproveTx']
   >(
     async ({
       amount,

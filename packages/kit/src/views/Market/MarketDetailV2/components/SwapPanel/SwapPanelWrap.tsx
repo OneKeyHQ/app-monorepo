@@ -14,6 +14,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -347,14 +348,14 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     }
   }, [speedConfig?.slippage, setSlippage]);
 
-  const reviewAdapter = useMemo(
+  const reviewAdapter = useMemo<ISwapReviewAdapter>(
     () => ({
-      prepareMarketSwapReview,
-      sendMarketApproveTx,
-      sendMarketSwapTx,
-      sendMarketWrappedTx,
-      sendMarketSignMessage,
-      buildMarketApproveInfos,
+      prepareReview: prepareMarketSwapReview,
+      sendApproveTx: sendMarketApproveTx,
+      sendSwapTx: sendMarketSwapTx,
+      sendWrappedTx: sendMarketWrappedTx,
+      sendSignMessage: sendMarketSignMessage,
+      buildApproveInfos: buildMarketApproveInfos,
     }),
     [
       buildMarketApproveInfos,

@@ -107,20 +107,20 @@ function createReviewState({
 
 function createAdapter(): jest.Mocked<IMarketSwapReviewAdapter> {
   return {
-    prepareMarketSwapReview: jest.fn(),
-    sendMarketApproveTx: jest.fn(),
-    sendMarketSwapTx: jest.fn(),
-    sendMarketWrappedTx: jest.fn(),
-    sendMarketSignMessage: jest.fn(),
-    buildMarketApproveInfos: jest.fn(),
+    prepareReview: jest.fn(),
+    sendApproveTx: jest.fn(),
+    sendSwapTx: jest.fn(),
+    sendWrappedTx: jest.fn(),
+    sendSignMessage: jest.fn(),
+    buildApproveInfos: jest.fn(),
   };
 }
 
 type ISendMarketSwapParams = Parameters<
-  IMarketSwapReviewAdapter['sendMarketSwapTx']
+  IMarketSwapReviewAdapter['sendSwapTx']
 >[0];
 type ISendMarketWrappedParams = Parameters<
-  IMarketSwapReviewAdapter['sendMarketWrappedTx']
+  IMarketSwapReviewAdapter['sendWrappedTx']
 >[0];
 
 function createWrapper(
@@ -167,7 +167,7 @@ describe('useMarketSwapReviewActions', () => {
         toAmount: '2600',
       }),
     });
-    adapter.prepareMarketSwapReview.mockResolvedValue(nextReviewState);
+    adapter.prepareReview.mockResolvedValue(nextReviewState);
 
     const { result } = renderHook(
       () => {
@@ -200,7 +200,7 @@ describe('useMarketSwapReviewActions', () => {
       );
     });
 
-    expect(adapter.prepareMarketSwapReview).toHaveBeenCalledWith({
+    expect(adapter.prepareReview).toHaveBeenCalledWith({
       fromAmount: '1',
       fromToken,
       toToken,
@@ -218,7 +218,7 @@ describe('useMarketSwapReviewActions', () => {
 
   it('starts a send step through the market speed swap adapter', async () => {
     const adapter = createAdapter();
-    adapter.sendMarketSwapTx.mockImplementation(
+    adapter.sendSwapTx.mockImplementation(
       async (params: ISendMarketSwapParams) => {
         params?.onBroadcast?.({
           txHash: '0xswap',
@@ -260,7 +260,7 @@ describe('useMarketSwapReviewActions', () => {
       );
     });
     expect(result.current.swapSteps.steps[0].txHash).toBe('0xswap');
-    expect(adapter.sendMarketSwapTx).toHaveBeenCalledWith(
+    expect(adapter.sendSwapTx).toHaveBeenCalledWith(
       expect.objectContaining({
         networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
       }),
@@ -269,7 +269,7 @@ describe('useMarketSwapReviewActions', () => {
 
   it('uses the review store fee level when refreshing prebuild data', async () => {
     const adapter = createAdapter();
-    adapter.prepareMarketSwapReview.mockResolvedValue(
+    adapter.prepareReview.mockResolvedValue(
       createReviewState({
         steps: [
           {
@@ -307,7 +307,7 @@ describe('useMarketSwapReviewActions', () => {
       );
     });
 
-    expect(adapter.prepareMarketSwapReview).toHaveBeenCalledWith(
+    expect(adapter.prepareReview).toHaveBeenCalledWith(
       expect.objectContaining({
         networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
       }),
@@ -316,7 +316,7 @@ describe('useMarketSwapReviewActions', () => {
 
   it('preserves in-flight review steps while refreshing fee data', async () => {
     const adapter = createAdapter();
-    adapter.prepareMarketSwapReview.mockResolvedValue(
+    adapter.prepareReview.mockResolvedValue(
       createReviewState({
         steps: [
           {
@@ -407,9 +407,7 @@ describe('useMarketSwapReviewActions', () => {
 
   it('clears stale network fee data when fee refresh fails', async () => {
     const adapter = createAdapter();
-    adapter.prepareMarketSwapReview.mockRejectedValue(
-      new Error('prebuild failed'),
-    );
+    adapter.prepareReview.mockRejectedValue(new Error('prebuild failed'));
 
     const { result } = renderHook(
       () => {
@@ -465,7 +463,7 @@ describe('useMarketSwapReviewActions', () => {
 
   it('starts an approve step through the review-visible swap approving state', async () => {
     const adapter = createAdapter();
-    adapter.sendMarketApproveTx.mockImplementation(
+    adapter.sendApproveTx.mockImplementation(
       async ({ onBroadcast, quoteResult }) => {
         expect(quoteResult.fromAmount).toBe('1');
         onBroadcast?.({
@@ -518,7 +516,7 @@ describe('useMarketSwapReviewActions', () => {
     expect(result.current.swapSteps.steps[0].stepSubTitle).toBe(
       ETranslations.swap_btn_approving,
     );
-    expect(adapter.sendMarketApproveTx).toHaveBeenCalledWith(
+    expect(adapter.sendApproveTx).toHaveBeenCalledWith(
       expect.objectContaining({
         networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
       }),
@@ -535,7 +533,7 @@ describe('useMarketSwapReviewActions', () => {
         gasInfo: {} as never,
       },
     ];
-    adapter.sendMarketApproveTx.mockImplementation(
+    adapter.sendApproveTx.mockImplementation(
       async ({ onBroadcast, quoteResult }) => {
         expect(quoteResult.fromAmount).toBe('1');
         onBroadcast?.({
@@ -544,7 +542,7 @@ describe('useMarketSwapReviewActions', () => {
         });
       },
     );
-    adapter.sendMarketSwapTx.mockImplementation(
+    adapter.sendSwapTx.mockImplementation(
       async (params: ISendMarketSwapParams) => {
         params?.onBroadcast?.({
           txHash: '0xswap',
@@ -615,13 +613,13 @@ describe('useMarketSwapReviewActions', () => {
     });
 
     await waitFor(() => {
-      expect(adapter.sendMarketApproveTx).toHaveBeenCalledWith(
+      expect(adapter.sendApproveTx).toHaveBeenCalledWith(
         expect.objectContaining({
           gasInfos: staleGasInfos,
           networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
         }),
       );
-      expect(adapter.sendMarketSwapTx).toHaveBeenCalledWith(
+      expect(adapter.sendSwapTx).toHaveBeenCalledWith(
         expect.objectContaining({
           gasInfos: undefined,
           networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
@@ -641,7 +639,7 @@ describe('useMarketSwapReviewActions', () => {
 
   it('marks the approve step failed when the speed approve status fails after txId is cleared', async () => {
     const adapter = createAdapter();
-    adapter.sendMarketApproveTx.mockImplementation(
+    adapter.sendApproveTx.mockImplementation(
       async ({ onBroadcast, quoteResult }) => {
         expect(quoteResult.fromAmount).toBe('1');
         onBroadcast?.({
@@ -709,7 +707,7 @@ describe('useMarketSwapReviewActions', () => {
         ESwapStepStatus.FAILED,
       );
     });
-    expect(adapter.sendMarketSwapTx).not.toHaveBeenCalled();
+    expect(adapter.sendSwapTx).not.toHaveBeenCalled();
   });
 
   it('passes approve infos into batch approve and swap execution', async () => {
@@ -719,8 +717,8 @@ describe('useMarketSwapReviewActions', () => {
         owner: '0xuser',
       },
     ] as never[];
-    adapter.buildMarketApproveInfos.mockReturnValue(approveInfos as never);
-    adapter.sendMarketSwapTx.mockImplementation(
+    adapter.buildApproveInfos.mockReturnValue(approveInfos as never);
+    adapter.sendSwapTx.mockImplementation(
       async (params: ISendMarketSwapParams) => {
         params?.onBroadcast?.({
           txHash: '0xbatch',
@@ -764,8 +762,8 @@ describe('useMarketSwapReviewActions', () => {
       await result.current.actions.preSwapStepsStart();
     });
 
-    expect(adapter.buildMarketApproveInfos).toHaveBeenCalledWith(quoteResult);
-    expect(adapter.sendMarketSwapTx).toHaveBeenCalledWith(
+    expect(adapter.buildApproveInfos).toHaveBeenCalledWith(quoteResult);
+    expect(adapter.sendSwapTx).toHaveBeenCalledWith(
       expect.objectContaining({
         approvesInfo: approveInfos,
         networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
@@ -776,7 +774,7 @@ describe('useMarketSwapReviewActions', () => {
 
   it('starts a wrap step through the wrapped adapter path', async () => {
     const adapter = createAdapter();
-    adapter.sendMarketWrappedTx.mockImplementation(
+    adapter.sendWrappedTx.mockImplementation(
       async (params: ISendMarketWrappedParams) => {
         params?.onBroadcast?.({
           txHash: '0xwrap',
@@ -815,7 +813,7 @@ describe('useMarketSwapReviewActions', () => {
       await result.current.actions.preSwapStepsStart();
     });
 
-    expect(adapter.sendMarketWrappedTx).toHaveBeenCalledWith(
+    expect(adapter.sendWrappedTx).toHaveBeenCalledWith(
       expect.objectContaining({
         networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
       }),
@@ -825,7 +823,7 @@ describe('useMarketSwapReviewActions', () => {
 
   it('starts a sign step through the market review sign adapter path', async () => {
     const adapter = createAdapter();
-    adapter.sendMarketSignMessage.mockImplementation(
+    adapter.sendSignMessage.mockImplementation(
       async ({ networkFeeLevel, onBroadcast } = {}) => {
         expect(networkFeeLevel).toBe(ESwapNetworkFeeLevel.MEDIUM);
         onBroadcast?.({
@@ -866,7 +864,7 @@ describe('useMarketSwapReviewActions', () => {
       await result.current.actions.preSwapStepsStart();
     });
 
-    expect(adapter.sendMarketSignMessage).toHaveBeenCalledWith(
+    expect(adapter.sendSignMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
       }),
@@ -876,7 +874,7 @@ describe('useMarketSwapReviewActions', () => {
 
   it('marks the step failed when the market adapter throws', async () => {
     const adapter = createAdapter();
-    adapter.sendMarketSwapTx.mockRejectedValue(new Error('send failed'));
+    adapter.sendSwapTx.mockRejectedValue(new Error('send failed'));
 
     const { result } = renderHook(
       () => {
