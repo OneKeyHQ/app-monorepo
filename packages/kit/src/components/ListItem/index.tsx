@@ -355,10 +355,12 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     // outer Pressable and prevents onPress from firing.
     let contentRest: typeof rest = rest;
     let nativePressStyle: IStackProps['pressStyle'];
+    let nativeLongPress: (() => void) | undefined;
     if (useNativePressable) {
-      const { pressStyle, hoverStyle, ...filtered } = rest;
+      const { pressStyle, hoverStyle, onLongPress, ...filtered } = rest;
       contentRest = filtered;
       nativePressStyle = pressStyle;
+      nativeLongPress = onLongPress as (() => void) | undefined;
     }
 
     const content = (
@@ -439,6 +441,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       return (
         <Pressable
           onPress={handleItemPress}
+          onLongPress={nativeLongPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           unstable_pressDelay={50}

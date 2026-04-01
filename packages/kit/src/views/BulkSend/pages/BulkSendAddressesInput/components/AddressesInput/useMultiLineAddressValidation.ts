@@ -506,7 +506,7 @@ function useMultiLineAddressValidation(
                 const trimmedAddress = address.trim();
 
                 try {
-                  let walletAccountItems =
+                  let walletAccountItems: { accountId: string }[] =
                     await backgroundApiProxy.serviceAccount.getAccountNameFromAddress(
                       {
                         networkId: selectedNetworkId,
@@ -539,12 +539,10 @@ function useMultiLineAddressValidation(
 
                 try {
                   const addressBookItem =
-                    await backgroundApiProxy.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
-                      {
-                        networkId: isEvmNetwork ? undefined : selectedNetworkId,
-                        address: trimmedAddress,
-                      },
-                    );
+                    await backgroundApiProxy.serviceAddressBook.findItem({
+                      networkId: isEvmNetwork ? undefined : selectedNetworkId,
+                      address: trimmedAddress,
+                    });
                   return {
                     index,
                     isAllowed: !!addressBookItem,
