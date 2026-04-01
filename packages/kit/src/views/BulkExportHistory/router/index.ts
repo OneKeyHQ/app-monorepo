@@ -7,6 +7,10 @@ const BulkExportHistory = LazyLoad(
   () =>
     import('@onekeyhq/kit/src/views/BulkExportHistory/pages/BulkExportHistory'),
 );
+const BulkExportHistorySelectNetworks = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/BulkExportHistory/pages/BulkExportHistorySelectNetworks'),
+);
 
 export const BulkExportHistoryModalRouter: IModalFlowNavigatorConfig<
   EModalBulkExportHistoryRoutes,
@@ -15,5 +19,9 @@ export const BulkExportHistoryModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalBulkExportHistoryRoutes.BulkExportHistoryModal,
     component: BulkExportHistory,
+  },
+  {
+    name: EModalBulkExportHistoryRoutes.BulkExportHistorySelectNetworks,
+    component: BulkExportHistorySelectNetworks,
   },
 ];
