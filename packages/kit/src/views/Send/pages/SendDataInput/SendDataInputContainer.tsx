@@ -683,11 +683,22 @@ function SendDataInputContainer() {
         return;
       }
 
-      form.setValue('to.raw', selectedAddress, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
+      form.setValue(
+        'to',
+        {
+          raw: selectedAddress,
+          pending: true,
+          resolved: undefined,
+          isContract: undefined,
+          validateError: undefined,
+          similarAddress: undefined,
+        },
+        {
+          shouldDirty: true,
+          shouldTouch: true,
+          shouldValidate: true,
+        },
+      );
     },
     [form],
   );
