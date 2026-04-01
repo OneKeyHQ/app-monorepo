@@ -28,12 +28,12 @@ import WebView from '../WebView';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import type { WebViewMessageEvent } from 'react-native-webview';
 import type {
   WebViewErrorEvent,
   WebViewHttpErrorEvent,
-  WebViewMessageEvent,
   WebViewNavigationEvent,
-} from 'react-native-webview';
+} from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
 // /onboarding/auto_typing
