@@ -18,7 +18,9 @@ export class SecureCache {
       this.delete(key);
     }, effectiveTtl);
 
-    timerId.unref();
+    if (typeof timerId === 'object' && 'unref' in timerId) {
+      timerId.unref();
+    }
     this.cache.set(key, { value, timerId });
   }
 
