@@ -171,7 +171,7 @@ export function HyperliquidTermsContent({
                 py="$8"
                 px={gtMd ? '$4' : '$2'}
                 justifyContent="center"
-                pb={gtMd ? '$3' : '$4'}
+                pb={gtMd ? '$3' : '$1'}
                 gap="$1"
               >
                 <Button
