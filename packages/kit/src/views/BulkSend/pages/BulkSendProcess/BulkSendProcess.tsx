@@ -421,8 +421,12 @@ function BulkSendProcessContent({
         });
         return nextFeeContext;
       } catch (error) {
+        const isTxShapeUnchanged =
+          serializeFeeCachePart(encodedTx) ===
+          serializeFeeCachePart(initialUnsignedTxs[0]?.encodedTx);
         const canUseReviewFallback =
           txIndex === 0 &&
+          isTxShapeUnchanged &&
           unsignedTxs.length === initialUnsignedTxs.length &&
           reviewFeeInfo?.feeInfo;
 
@@ -463,7 +467,7 @@ function BulkSendProcessContent({
     },
     [
       feePresetIndex,
-      initialUnsignedTxs.length,
+      initialUnsignedTxs,
       logFeeProcess,
       networkId,
       reviewFeeInfo,
