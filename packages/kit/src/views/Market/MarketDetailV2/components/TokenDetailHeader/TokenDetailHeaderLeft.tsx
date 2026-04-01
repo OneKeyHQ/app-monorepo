@@ -132,7 +132,8 @@ export function TokenDetailHeaderLeft({
                 size="$headingLg"
                 color="$text"
                 numberOfLines={1}
-                maxWidth="$60"
+                ellipsizeMode="tail"
+                maxWidth="$48"
                 flexShrink={1}
               >
                 {symbol}

@@ -15,6 +15,10 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -243,6 +247,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
                     ) : null}
                     <View
                       animation="quick"
+                      animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={open ? '180deg' : '0deg'}
                       transformOrigin="center"
                     >
@@ -262,6 +267,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
             >
               <Accordion.Content
                 animation="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 exitStyle={{ opacity: 0 }}
                 backgroundColor="transparent"
                 padding="$0"

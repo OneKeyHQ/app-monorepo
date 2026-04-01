@@ -15,6 +15,7 @@ import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   formatPriceChangeDisplay,
+  formatRatioValue,
   formatStatValueWithFormatter,
 } from '../../utils/statValue';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
@@ -43,12 +44,23 @@ const usdCurrencyFormatter: INumberFormatProps = {
   },
 };
 
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {label}
+      </SizableText>
+      <SizableText size="$bodySmMedium">{value}</SizableText>
+    </XStack>
+  );
+}
+
 export function InformationPanel() {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { tokenDetail, networkId, tokenAddress } = useTokenDetail();
+  const { tokenDetail, networkId, tokenAddress, isStockToken } =
+    useTokenDetail();
 
-  // Directly use the security data hook to check if we have security data
   const { securityData } = useTokenSecurity({
     tokenAddress,
     networkId,
@@ -129,27 +141,56 @@ export function InformationPanel() {
         </XStack>
       </YStack>
 
-      {/* Stats Row */}
       <YStack gap="$1" width="$40" pt="$1">
-        <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.global_market_cap })}
-          </SizableText>
-          <SizableText size="$bodySmMedium">{formattedMarketCap}</SizableText>
-        </XStack>
-        <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.global_liquidity })}
-          </SizableText>
-          <SizableText size="$bodySmMedium">{formattedLiquidity}</SizableText>
-        </XStack>
-        <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.dexmarket_holders })}
-          </SizableText>
-          <SizableText size="$bodySmMedium">{formattedHolders}</SizableText>
-        </XStack>
-        {/* Audit / Security - Only show when we have security data */}
+        {isStockToken && tokenDetail.stock ? (
+          <>
+            <StatRow
+              label={intl.formatMessage({
+                id: ETranslations.global_market_cap,
+              })}
+              value={formatStatValueWithFormatter(
+                tokenDetail.stock.marketCap,
+                usdCurrencyFormatter,
+              )}
+            />
+            <StatRow
+              label={intl.formatMessage({
+                id: ETranslations.dexmarket_stock_24h_volume,
+              })}
+              value={formatStatValueWithFormatter(
+                tokenDetail.stock.volume24h,
+                usdCurrencyFormatter,
+              )}
+            />
+            <StatRow
+              label={intl.formatMessage({
+                id: ETranslations.dexmarket_stock_pe_ttm,
+              })}
+              value={formatRatioValue(tokenDetail.stock.peRatio)}
+            />
+          </>
+        ) : (
+          <>
+            <StatRow
+              label={intl.formatMessage({
+                id: ETranslations.global_market_cap,
+              })}
+              value={formattedMarketCap}
+            />
+            <StatRow
+              label={intl.formatMessage({
+                id: ETranslations.global_liquidity,
+              })}
+              value={formattedLiquidity}
+            />
+            <StatRow
+              label={intl.formatMessage({
+                id: ETranslations.dexmarket_holders,
+              })}
+              value={formattedHolders}
+            />
+          </>
+        )}
         {networkId && address && securityData ? (
           <XStack gap="$1" ai="center" width="100%" jc="space-between">
             <SizableText

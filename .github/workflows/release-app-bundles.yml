@@ -211,6 +211,8 @@ jobs:
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+      skip_pages_deploy: true
+      test_endpoint: app-bundle.onekeytest.com
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}

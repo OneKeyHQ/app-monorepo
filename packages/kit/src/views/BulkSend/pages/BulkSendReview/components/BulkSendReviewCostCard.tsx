@@ -74,6 +74,10 @@ function BulkSendReviewCostCard({
 
   const displayTxCount = transferTxCount ?? 0;
   const showSplit = bulkSendMode === EBulkSendMode.OneToMany && isTransferSplit;
+  const showFeeLevel =
+    !isMultiTxs ||
+    bulkSendMode === EBulkSendMode.ManyToOne ||
+    bulkSendMode === EBulkSendMode.ManyToMany;
 
   return (
     <YStack px="$5" gap="$3">
@@ -175,8 +179,8 @@ function BulkSendReviewCostCard({
                     </>
                   )}
                 </XStack>
-                {/* Fee Level - Only show for single tx */}
-                {!isMultiTxs && (feeLevel || isError)
+                {/* Fee Level */}
+                {showFeeLevel && (feeLevel || isError)
                   ? (() => {
                       const canEditFee =
                         !isError &&
