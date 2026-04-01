@@ -110,26 +110,26 @@ export function sortSwapQuotes(
 
   // Step 2: Pre-compute all sort orders
   // ---- Gas fee sort (ascending) ----
-  const gasFeeSorted = [...resetList].sort((a, b) => {
+  const gasFeeSorted = [...resetList].toSorted((a, b) => {
     const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
     const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
     return aBig.comparedTo(bBig);
   });
 
   // ---- Duration sort (ascending) ----
-  const durationSorted = [...resetList].sort((a, b) => {
+  const durationSorted = [...resetList].toSorted((a, b) => {
     const aVal = new BigNumber(a.estimatedTime || Infinity);
     const bVal = new BigNumber(b.estimatedTime || Infinity);
     return aVal.comparedTo(bVal);
   });
 
   // ---- Received sort (descending, with slippage adjustment) ----
-  const receivedSorted = [...resetList].sort(
+  const receivedSorted = [...resetList].toSorted(
     makeReceivedComparator(true, fromTokenAmountBN),
   );
 
   // ---- Received original sort (no slippage, for receivedBest badge) ----
-  const receivedOriginalSorted = [...resetList].sort(
+  const receivedOriginalSorted = [...resetList].toSorted(
     makeReceivedComparator(false, fromTokenAmountBN),
   );
 
@@ -145,13 +145,13 @@ export function sortSwapQuotes(
     recommendedSortedApproved.length > 0 &&
     receivedSorted[0].allowanceResult
   ) {
-    const recommendedSortedApprovedSorted = [...recommendedSortedApproved].sort(
-      (a, b) => {
-        const aVal = new BigNumber(a.toAmount || 0);
-        const bVal = new BigNumber(b.toAmount || 0);
-        return bVal.comparedTo(aVal);
-      },
-    );
+    const recommendedSortedApprovedSorted = [
+      ...recommendedSortedApproved,
+    ].toSorted((a, b) => {
+      const aVal = new BigNumber(a.toAmount || 0);
+      const bVal = new BigNumber(b.toAmount || 0);
+      return bVal.comparedTo(aVal);
+    });
 
     const recommendedSortedAllowanceSortedBestAmountBN = new BigNumber(
       recommendedSortedApprovedSorted[0].toAmount || 0,
@@ -194,7 +194,7 @@ export function sortSwapQuotes(
   }
 
   // Step 5: Post-sort limit re-ordering (stable sort)
-  sortedList = [...sortedList].sort((a, b) => {
+  sortedList = [...sortedList].toSorted((a, b) => {
     if (a.limit && b.limit) {
       const aMin = new BigNumber(a.limit?.min || 0);
       const aMax = new BigNumber(a.limit?.max || 0);
