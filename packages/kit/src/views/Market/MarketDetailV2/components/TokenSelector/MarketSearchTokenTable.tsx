@@ -43,10 +43,12 @@ function MarketSearchTokenTable({
   items,
   onPress,
   isLoading,
+  rowBg,
 }: {
   items: (IMarketSearchV2Token & { networkLogoURI: string })[];
   onPress: (item: IMarketToken) => void;
   isLoading?: boolean;
+  rowBg?: string;
 }) {
   const intl = useIntl();
 
@@ -99,6 +101,7 @@ function MarketSearchTokenTable({
         keyExtractor={(item) => item.id}
         estimatedItemSize={60}
         onRow={onRow}
+        {...(rowBg ? { rowProps: { bg: rowBg } } : undefined)}
       />
     </Stack>
   );
