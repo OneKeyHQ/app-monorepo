@@ -19,8 +19,8 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { AccountManagerTestIDs } from '../testIDs';
 import { useAddAccount } from '../hooks/useAddAccount';
+import { AccountManagerTestIDs } from '../testIDs';
 
 export function AccountSearchBar({
   searchText,
