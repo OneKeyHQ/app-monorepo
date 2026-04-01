@@ -1,3 +1,4 @@
+import type { IIconButtonProps } from '@onekeyhq/components';
 import {
   HeaderIconButton,
   IconButton,
@@ -12,7 +13,7 @@ interface IShareButtonProps {
   networkId: string;
   address: string;
   isNative?: boolean;
-  size?: string;
+  size?: IIconButtonProps['size'] | string;
   useIconButton?: boolean;
 }
 
@@ -44,7 +45,7 @@ export function ShareButton({
       <IconButton
         icon="ShareOutline"
         variant="tertiary"
-        size="medium"
+        size={size || 'medium'}
         onPress={handleShare}
       />
     );
