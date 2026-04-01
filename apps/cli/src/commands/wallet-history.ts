@@ -69,11 +69,7 @@ export function registerWalletHistoryCommand(program: Command): void {
             limit,
           });
 
-          let items: IHistoryItem[] = formatHistoryList(
-            resp,
-            chainConfig.nativeDecimals,
-            detail,
-          );
+          let items: IHistoryItem[] = formatHistoryList(resp, detail);
 
           // Set networkName for detail mode
           if (detail) {

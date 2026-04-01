@@ -98,7 +98,7 @@ describe('history-fetcher', () => {
       to: '0xReceiver',
       timestamp: 1_711_872_000,
       nonce: 5,
-      gasFee: '2100000000000000',
+      gasFee: '0.0021',
       gasFeeFiatValue: '5.25',
       functionCode: '',
       params: [],
@@ -122,7 +122,7 @@ describe('history-fetcher', () => {
     };
 
     it('formats a send tx in list mode', () => {
-      const result = formatHistoryItem(baseTx, TOKENS_MAP, 18, false);
+      const result = formatHistoryItem(baseTx, TOKENS_MAP, false);
       expect(result.txHash).toBe('0xabc123');
       expect(result.type).toBe('Send');
       expect(result.status).toBe('success');
@@ -145,7 +145,6 @@ describe('history-fetcher', () => {
       const result = formatHistoryItem(
         baseTx,
         TOKENS_MAP,
-        18,
         true,
       ) as IHistoryItemDetail;
       expect(result.block).toBe(19_234_567);
@@ -171,7 +170,7 @@ describe('history-fetcher', () => {
           },
         ],
       };
-      const result = formatHistoryItem(erc20Tx, TOKENS_MAP, 18, false);
+      const result = formatHistoryItem(erc20Tx, TOKENS_MAP, false);
       expect(result.sends[0].token).toBe('USDC');
       expect(result.sends[0].amount).toBe('100');
       expect(result.sends[0].fiatValue).toBe('100.00');
@@ -179,7 +178,7 @@ describe('history-fetcher', () => {
 
     it('handles tx with empty sends and receives', () => {
       const emptyTx = { ...baseTx, sends: [], receives: [] };
-      const result = formatHistoryItem(emptyTx, TOKENS_MAP, 18, false);
+      const result = formatHistoryItem(emptyTx, TOKENS_MAP, false);
       expect(result.sends).toEqual([]);
       expect(result.receives).toEqual([]);
     });
@@ -199,7 +198,7 @@ describe('history-fetcher', () => {
           },
         ],
       };
-      const result = formatHistoryItem(unknownTx, TOKENS_MAP, 18, false);
+      const result = formatHistoryItem(unknownTx, TOKENS_MAP, false);
       expect(result.sends[0].token).toBe('0xUnknownContract');
       expect(result.sends[0].amount).toBe('1000000');
     });
@@ -250,14 +249,14 @@ describe('history-fetcher', () => {
         },
       ];
       const resp = { data: txs, tokens: {}, nfts: {}, hasMore: false };
-      const result = formatHistoryList(resp, 18, false);
+      const result = formatHistoryList(resp, false);
       expect(result[0].txHash).toBe('0xb');
       expect(result[1].txHash).toBe('0xa');
     });
 
     it('returns empty array for empty data', () => {
       const resp = { data: [], tokens: {}, nfts: {}, hasMore: false };
-      const result = formatHistoryList(resp, 18, false);
+      const result = formatHistoryList(resp, false);
       expect(result).toEqual([]);
     });
   });

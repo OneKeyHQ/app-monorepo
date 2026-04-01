@@ -191,9 +191,11 @@ function formatTransfer(
 export function formatHistoryItem(
   tx: IHistoryTx,
   tokensMap: ITokenMap,
-  feeDecimals: number,
   detail: boolean,
 ): IHistoryItem {
+  // gasFee from the server API is already in native token units (e.g. "0.0021" ETH).
+  // The App (VaultBase.buildOnChainHistoryTx) assigns it directly to totalFeeInNative
+  // without any decimal conversion, and the UI displays it as-is. We do the same here.
   const base: IHistoryItemBase = {
     txHash: tx.tx,
     type: tx.type,
@@ -202,7 +204,7 @@ export function formatHistoryItem(
     to: tx.to,
     sends: tx.sends.map((s) => formatTransfer(s, tokensMap, detail)),
     receives: tx.receives.map((r) => formatTransfer(r, tokensMap, detail)),
-    gasFee: formatAmount(tx.gasFee, feeDecimals),
+    gasFee: tx.gasFee,
     gasFeeFiatValue: tx.gasFeeFiatValue,
     timestamp: new Date(tx.timestamp * 1000).toISOString(),
   };
@@ -222,13 +224,12 @@ export function formatHistoryItem(
 
 export function formatHistoryList(
   resp: IHistoryApiResponse,
-  feeDecimals: number,
   detail: boolean,
 ): IHistoryItem[] {
   return resp.data
     .slice()
     .toSorted((a, b) => b.timestamp - a.timestamp)
-    .map((tx) => formatHistoryItem(tx, resp.tokens, feeDecimals, detail));
+    .map((tx) => formatHistoryItem(tx, resp.tokens, detail));
 }
 
 // --- API call ---
