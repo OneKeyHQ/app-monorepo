@@ -7,6 +7,10 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -49,7 +53,11 @@ export function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
                     >
                       {q}
                     </SizableText>
-                    <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                    <Stack
+                      animation="quick"
+                      animateOnly={ANIMATE_ONLY_TRANSFORM}
+                      rotate={open ? '180deg' : '0deg'}
+                    >
                       <Icon
                         name="ChevronDownSmallOutline"
                         color={open ? '$iconActive' : '$iconSubdued'}
@@ -65,6 +73,7 @@ export function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
                   pt="$2"
                   pb="$5"
                   animation="100ms"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 >

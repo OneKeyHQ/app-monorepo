@@ -21,6 +21,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { SizableText, XStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 import { Shortcut } from '../Shortcut';
 
 import { TooltipContext } from './context';
@@ -296,6 +297,7 @@ export function Tooltip({
           enterStyle={tooltipEnterStyle}
           exitStyle={tooltipExitStyle}
           animation="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >
