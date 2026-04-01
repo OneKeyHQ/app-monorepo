@@ -75,7 +75,7 @@
     "_packageVersions": "node ./development/lint/package-versions.js",
     "lint:project": "yarn _tsc && yarn _lint && concurrently --kill-others-on-fail \"yarn _electron\" \"yarn _folder\" \"yarn _lang\" \"yarn _packageVersions\"",
     "lint": "yarn lint:project",
-    "eslint": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"/.eslintcache",
+    "eslint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"/.eslintcache",
     "oxlint": "npx oxlint --tsconfig ./tsconfig.json --type-aware . --fix",
     "lint:only": "npx oxlint --tsconfig ./tsconfig.json --type-aware . --fix --deny-warnings",
     "lint:staged": "git diff --cached --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx)$' | grep -v '^packages/shared/src/locale/enum/translations.ts$' | grep -v '^packages/shared/src/locale/localeJsonMap.ts$' | xargs -r npx oxlint --tsconfig ./tsconfig.json --type-aware --fix --deny-warnings",
