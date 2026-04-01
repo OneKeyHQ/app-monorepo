@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -84,7 +85,11 @@ function TxHistorySettingsContent({
   onFilterLowValueHistoryChange,
   exportHistoryText,
   exportHistoryTitle,
-  isPrimeUser,
+  accountId,
+  indexedAccountId,
+  isPrimeSubscriptionActive,
+  networkId,
+  walletId,
 }: {
   filterScamHistorySupported: boolean;
   networkName: string;
@@ -94,7 +99,11 @@ function TxHistorySettingsContent({
   onFilterLowValueHistoryChange: (value: boolean) => void;
   exportHistoryText: string;
   exportHistoryTitle: ReactNode;
-  isPrimeUser: boolean;
+  accountId: string | undefined;
+  indexedAccountId: string | undefined;
+  isPrimeSubscriptionActive: boolean;
+  networkId: string | undefined;
+  walletId: string | undefined;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -102,12 +111,20 @@ function TxHistorySettingsContent({
 
   const handleExportHistoryPress = useCallback(async () => {
     await closePopover?.();
+    await timerUtils.wait(150);
 
-    if (isPrimeUser) {
+    if (isPrimeSubscriptionActive) {
+      navigation.pushModal(EModalRoutes.BulkExportHistoryModal, {
+        screen: EModalBulkExportHistoryRoutes.BulkExportHistoryModal,
+        params: {
+          accountId,
+          indexedAccountId,
+          networkId,
+          walletId,
+        },
+      });
       return;
     }
-
-    await timerUtils.wait(150);
 
     navigation.pushModal(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeDashboard,
@@ -115,7 +132,15 @@ function TxHistorySettingsContent({
         fromFeature: EPrimeFeatures.HistoryExport,
       },
     });
-  }, [closePopover, isPrimeUser, navigation]);
+  }, [
+    accountId,
+    closePopover,
+    indexedAccountId,
+    isPrimeSubscriptionActive,
+    navigation,
+    networkId,
+    walletId,
+  ]);
 
   return (
     <Stack py="$2">
@@ -177,10 +202,7 @@ function TxHistorySettingsContent({
 function TxHistorySettings() {
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = !!(
-    user?.primeSubscription?.isActive && user?.onekeyUserId
-  );
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const exportHistoryText = useMemo(
     () =>
       intl.formatMessage({
@@ -192,7 +214,7 @@ function TxHistorySettings() {
     () => (
       <XStack alignItems="center" gap="$2">
         <SizableText size="$bodyLgMedium">{exportHistoryText}</SizableText>
-        {isPrimeUser ? null : (
+        {isPrimeSubscriptionActive ? null : (
           <Badge badgeSize="sm" badgeType="default">
             <Badge.Text size="$bodySmMedium">
               {intl.formatMessage({
@@ -203,7 +225,7 @@ function TxHistorySettings() {
         )}
       </XStack>
     ),
-    [exportHistoryText, intl, isPrimeUser],
+    [exportHistoryText, intl, isPrimeSubscriptionActive],
   );
 
   const handleFilterScamHistoryOnChange = useCallback(
@@ -229,7 +251,7 @@ function TxHistorySettings() {
   );
 
   const {
-    activeAccount: { network },
+    activeAccount: { account, indexedAccount, network, wallet },
   } = useActiveAccount({ num: 0 });
 
   const filterScamHistorySupported = useMemo(
@@ -264,7 +286,11 @@ function TxHistorySettings() {
             onFilterLowValueHistoryChange={handleFilterLowValueHistoryOnChange}
             exportHistoryText={exportHistoryText}
             exportHistoryTitle={exportHistoryTitle}
-            isPrimeUser={isPrimeUser}
+            accountId={account?.id}
+            indexedAccountId={indexedAccount?.id}
+            isPrimeSubscriptionActive={!!isPrimeSubscriptionActive}
+            networkId={network?.id}
+            walletId={wallet?.id}
           />
         }
       />
