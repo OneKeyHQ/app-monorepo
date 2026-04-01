@@ -70,6 +70,7 @@
     "@onekeyfe/react-native-skeleton": "1.1.49",
     "@onekeyfe/react-native-sni-connect": "1.1.0",
     "@onekeyfe/react-native-splash-screen": "1.1.49",
+    "@onekeyfe/react-native-split-bundle-loader": "0.1.1",
     "@onekeyfe/react-native-tab-view": "1.1.49",
     "@onekeyfe/react-native-text-input": "0.3.0",
     "@onekeyhq/components": "*",

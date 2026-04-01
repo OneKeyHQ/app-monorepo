@@ -8950,6 +8950,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-split-bundle-loader@npm:0.1.1":
+  version: 0.1.1
+  resolution: "@onekeyfe/react-native-split-bundle-loader@npm:0.1.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/57c9a3df7d521cb8647c278fb23fd2002962afdde5a654518cea29125391f1e4bf294ca672b142dd8526bcbccc0829d7f9848e3d214af04ff6b72f391a2096d8
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-tab-view@npm:1.1.49":
   version: 1.1.49
   resolution: "@onekeyfe/react-native-tab-view@npm:1.1.49"
@@ -9425,6 +9435,7 @@ __metadata:
     "@onekeyfe/react-native-skeleton": "npm:1.1.49"
     "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
     "@onekeyfe/react-native-splash-screen": "npm:1.1.49"
+    "@onekeyfe/react-native-split-bundle-loader": "npm:0.1.1"
     "@onekeyfe/react-native-tab-view": "npm:1.1.49"
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
     "@onekeyhq/components": "npm:*"
