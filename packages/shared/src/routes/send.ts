@@ -16,6 +16,7 @@ import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalSendRoutes {
   SendDataInput = 'SendDataInput',
+  SendAmountInput = 'SendAmountInput',
   SendConfirmFromDApp = 'SendConfirmFromDApp',
   SendConfirmFromSwap = 'SendConfirmFromSwap',
   SendConfirm = 'SendConfirm',
@@ -40,6 +41,23 @@ export type IModalSendParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     isAllNetworks?: boolean;
+  };
+  [EModalSendRoutes.SendAmountInput]: {
+    networkId: string;
+    accountId: string;
+    isNFT: boolean;
+    token?: IToken | null;
+    nfts?: IAccountNFT[];
+    recipientAddress: string;
+    recipientMemo?: string;
+    recipientPaymentId?: string;
+    recipientNote?: string;
+    recipientIsContract?: boolean;
+    amount?: string;
+    isAllNetworks?: boolean;
+    onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
+    onFail?: (error: Error) => void;
+    onCancel?: () => void;
   };
   [EModalSendRoutes.SendConfirm]: {
     networkId: string;

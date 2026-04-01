@@ -1985,12 +1985,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
 
     let syncItemsForAddressBook: IDBCloudSyncItem[] = [];
-    const { isSafe, items: safeAddressBookItems } =
-      await this.backgroundApi.serviceAddressBook.getSafeRawItems({ password });
-    if (isSafe && safeAddressBookItems?.length) {
+    const addressBookItems =
+      await this.backgroundApi.serviceAddressBook.getItemsByNetwork({});
+    if (addressBookItems?.length) {
       syncItemsForAddressBook =
         await this.syncManagers.addressBook.buildInitSyncDBItems({
-          dbRecords: safeAddressBookItems,
+          dbRecords: addressBookItems,
           allDevices,
           syncCredential,
           // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
