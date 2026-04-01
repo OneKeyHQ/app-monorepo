@@ -18,6 +18,7 @@ export {
   isBackgroundRuntime,
 } from './runtimeInfo';
 export { getNativeSplitBundleLoader } from './nativeBridge';
+export { getBackgroundNativeSplitBundleLoader } from './nativeBridgeBackground';
 export type {
   RuntimeSourceKind,
   RuntimeKind,

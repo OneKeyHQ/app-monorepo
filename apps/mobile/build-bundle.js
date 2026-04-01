@@ -6,7 +6,7 @@ const path = require('path');
 
 const fs = require('fs-extra');
 
-const { SEGMENTS_INPUT_DIR } = require('./plugins/segmentPaths');
+const { SEGMENTS_INPUT_DIR, getSegmentsDir } = require('./plugins/segmentPaths');
 
 const mobileDirPath = __dirname;
 const projectRootPath = path.join(mobileDirPath, '../..');
@@ -327,8 +327,8 @@ const runWithConcurrency = async (tasks, concurrency) => {
  *   4. Upload to Sentry
  *   5. Clean up intermediate files
  */
-const buildSegments = async ({ platform, buildOutputAssetPath }) => {
-  const segmentsInputDir = SEGMENTS_INPUT_DIR;
+const buildSegments = async ({ platform, buildOutputAssetPath, inputDir, outputSubdir }) => {
+  const segmentsInputDir = inputDir || SEGMENTS_INPUT_DIR;
   if (!fs.existsSync(segmentsInputDir)) {
     log(`No segments directory found at ${segmentsInputDir}, skipping`);
     return;
@@ -342,7 +342,7 @@ const buildSegments = async ({ platform, buildOutputAssetPath }) => {
     return;
   }
 
-  const segmentsOutputDir = buildOutputAssetPath('segments');
+  const segmentsOutputDir = buildOutputAssetPath(outputSubdir || 'segments');
   if (!fs.existsSync(segmentsOutputDir)) {
     fs.mkdirSync(segmentsOutputDir, { recursive: true });
   }
@@ -504,6 +504,14 @@ const buildIOSBundle = async () => {
     buildOutputAssetPath: buildIOSOutputAssetPath,
   });
 
+  // Build background segments (Phase 3)
+  await buildSegments({
+    platform: 'ios',
+    buildOutputAssetPath: buildIOSOutputAssetPath,
+    inputDir: getSegmentsDir('background'),
+    outputSubdir: 'segments-background',
+  });
+
   const distPath = buildIOSOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
     fs.mkdirSync(distPath);
@@ -524,6 +532,10 @@ const buildIOSBundle = async () => {
   const iosSegmentsDir = buildIOSOutputAssetPath('segments');
   if (fs.existsSync(iosSegmentsDir)) {
     fs.moveSync(iosSegmentsDir, buildIOSOutputAssetPath('dist/segments'));
+  }
+  const iosSegmentsBgDir = buildIOSOutputAssetPath('segments-background');
+  if (fs.existsSync(iosSegmentsBgDir)) {
+    fs.moveSync(iosSegmentsBgDir, buildIOSOutputAssetPath('dist/segments-background'));
   }
   log('build ios bundle compress dist to zip');
 
@@ -644,6 +656,14 @@ const buildAndroidBundle = async () => {
     buildOutputAssetPath: buildAndroidOutputAssetPath,
   });
 
+  // Build background segments (Phase 3)
+  await buildSegments({
+    platform: 'android',
+    buildOutputAssetPath: buildAndroidOutputAssetPath,
+    inputDir: getSegmentsDir('background'),
+    outputSubdir: 'segments-background',
+  });
+
   const distPath = buildAndroidOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
     fs.mkdirSync(distPath);
@@ -664,6 +684,10 @@ const buildAndroidBundle = async () => {
   const androidSegmentsDir = buildAndroidOutputAssetPath('segments');
   if (fs.existsSync(androidSegmentsDir)) {
     fs.moveSync(androidSegmentsDir, buildAndroidOutputAssetPath('dist/segments'));
+  }
+  const androidSegmentsBgDir = buildAndroidOutputAssetPath('segments-background');
+  if (fs.existsSync(androidSegmentsBgDir)) {
+    fs.moveSync(androidSegmentsBgDir, buildAndroidOutputAssetPath('dist/segments-background'));
   }
 
   const webEmbedAndroidPath = path.join(distPath, 'web-embed');

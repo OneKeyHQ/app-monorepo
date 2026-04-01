@@ -8,9 +8,21 @@
 
 require('@onekeyhq/shared/src/polyfills');
 
-// TODO: Install installProdBundleLoader here when background bundle
-// has async imports that require segment loading (Phase 2.5+).
-// Currently background.ts uses only synchronous requires.
+// Install production split bundle loader for background runtime (Phase 3).
+// Uses BackgroundThread.loadSegmentInBackground to register segments
+// with the background Hermes runtime.
+if (!__DEV__) {
+  const { getSegmentManifest } =
+    require('./src/splitBundle/segmentManifest') as typeof import('./src/splitBundle/segmentManifest');
+  const manifest = getSegmentManifest();
+  if (Object.keys(manifest.segments).length > 0) {
+    const { installProdBundleLoader } =
+      require('./src/splitBundle/installProdBundleLoader') as typeof import('./src/splitBundle/installProdBundleLoader');
+    const { getBackgroundNativeSplitBundleLoader } =
+      require('./src/splitBundle/nativeBridgeBackground') as typeof import('./src/splitBundle/nativeBridgeBackground');
+    installProdBundleLoader(getBackgroundNativeSplitBundleLoader());
+  }
+}
 const { setBackgroundThreadRequestExecutor } =
   require('./src/backgroundThread/setupBackgroundThreadRPCHandler') as typeof import('./src/backgroundThread/setupBackgroundThreadRPCHandler');
 const backgroundApiProxy = (

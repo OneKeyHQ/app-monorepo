@@ -124,9 +124,8 @@ module.exports = (config, projectRoot) => {
     ) => {
       beforeCustomSerializer(entryPoint, prepend, graph, bundleOptions);
       // Use segment serializer for production named segments when enabled.
-      // Skip for background runtime — it uses only synchronous requires (#55).
-      const isBackground = process.env.METRO_RUNTIME_TARGET === 'background';
-      if (useSegments && !bundleOptions.dev && !isBackground) {
+      // Both main and background runtimes produce segments (Phase 3).
+      if (useSegments && !bundleOptions.dev) {
         return segmentSerializer(entryPoint, prepend, graph, bundleOptions);
       }
       const bundle = await dynamicImports(
