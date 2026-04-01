@@ -18,6 +18,7 @@ const fs = require('fs-extra');
 
 const { fileToIdMap } = require('./map');
 const { getSegmentsDir, getManifestPath } = require('./segmentPaths');
+const { deriveSegmentKey, allocateSegmentIds, monorepoRoot, SEGMENT_ID_BASE } = require('./segmentUtils');
 const { allocationRules, forbiddenInStartup, promotedSegments } = require('../bundle-groups.config');
 
 const baseJSBundle = require(
@@ -34,50 +35,6 @@ const bundleToString = require(
     'metro/src/lib/bundleToString',
   ),
 );
-
-// ---------------------------------------------------------------------------
-// Segment naming: derive a readable segment key from the async module path
-// ---------------------------------------------------------------------------
-
-const monorepoRoot = path.resolve(__dirname, '../../..');
-
-function deriveSegmentKey(absolutePath) {
-  const rel = absolutePath
-    .replace(monorepoRoot, '')
-    .replace(/^\//, '')
-    .replace(/\.(ts|tsx|js|jsx)$/, '');
-
-  // packages/kit-bg/src/services/ServiceSwap → seg:kit-bg.services.ServiceSwap
-  // packages/kit/src/views/Discovery → seg:kit.views.Discovery
-  if (rel.startsWith('packages/')) {
-    const parts = rel.replace('packages/', '').replace('/src/', '.').split('/');
-    return `seg:${parts.join('.')}`;
-  }
-
-  // node_modules/some-lib → seg:nm.some-lib
-  if (rel.includes('node_modules/')) {
-    const afterNm = rel.split('node_modules/').pop();
-    return `seg:nm.${afterNm.split('/')[0]}`;
-  }
-
-  // Default: use file path
-  return `seg:${rel.replace(/\//g, '.')}`;
-}
-
-// ---------------------------------------------------------------------------
-// Stable segmentId allocation
-// ---------------------------------------------------------------------------
-
-const SEGMENT_ID_BASE = 1000; // Start segment IDs from 1000
-
-function allocateSegmentIds(segmentKeys) {
-  const sorted = [...segmentKeys].sort();
-  const idMap = new Map();
-  sorted.forEach((key, index) => {
-    idMap.set(key, SEGMENT_ID_BASE + index);
-  });
-  return idMap;
-}
 
 // ---------------------------------------------------------------------------
 // SHA-256 for segment integrity
@@ -142,7 +99,9 @@ module.exports = async function segmentSerializer(
   prepend,
   graph,
   bundleOptions,
+  options = {},
 ) {
+  const { entryReachability } = options;
   const asyncFlag = 'async';
 
   // Step 1: Categorize modules into main vs async chunks
@@ -357,6 +316,25 @@ module.exports = async function segmentSerializer(
   function deriveRuntime(segmentKey) {
     const modIds = segmentModules.get(segmentKey);
     if (!modIds) return 'shared';
+
+    // Union build path: use actual graph reachability instead of config-driven heuristic
+    if (entryReachability) {
+      const { mainReachable, bgReachable } = entryReachability;
+      let fromMain = false;
+      let fromBg = false;
+      for (const modId of modIds) {
+        const absPath = moduleIdToAbsPath.get(modId);
+        if (!absPath) continue;
+        if (mainReachable.has(absPath)) fromMain = true;
+        if (bgReachable.has(absPath)) fromBg = true;
+      }
+      if (fromMain && fromBg) return 'shared';
+      if (fromMain) return 'main';
+      if (fromBg) return 'background';
+      return 'shared';
+    }
+
+    // Fallback: config-driven allocation
     let hasMain = false;
     let hasBackground = false;
     let hasShared = false;
