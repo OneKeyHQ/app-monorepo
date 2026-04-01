@@ -10,6 +10,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -48,6 +49,7 @@ function ReferAFriendPage({
           <YStack
             key="intro-phase"
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 0,
             }}
@@ -72,6 +74,7 @@ function ReferAFriendPage({
           <YStack
             key="howto-phase"
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 0,
             }}

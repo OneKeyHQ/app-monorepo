@@ -18,6 +18,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -280,7 +285,7 @@ function CreateOrImportWallet() {
                           </SizableText>
                           <YStack
                             animation="quick"
-                            animateOnly={['transform']}
+                            animateOnly={ANIMATE_ONLY_TRANSFORM}
                             rotate={hardwareExpanded ? '0' : '90deg'}
                           >
                             <Icon
@@ -302,7 +307,7 @@ function CreateOrImportWallet() {
                       {hardwareExpanded ? (
                         <YStack
                           animation="quick"
-                          animateOnly={['opacity']}
+                          animateOnly={ANIMATE_ONLY_OPACITY}
                           enterStyle={{ opacity: 0 }}
                           exitStyle={{ opacity: 0 }}
                         >
@@ -412,7 +417,7 @@ function CreateOrImportWallet() {
                         </SizableText>
                         <YStack
                           animation="quick"
-                          animateOnly={['transform']}
+                          animateOnly={ANIMATE_ONLY_TRANSFORM}
                           rotate={keylessExpanded ? '0' : '90deg'}
                         >
                           <Icon
@@ -434,7 +439,7 @@ function CreateOrImportWallet() {
                       <YStack
                         key="loading"
                         animation="quick"
-                        animateOnly={['transform', 'opacity']}
+                        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                         enterStyle={{ scale: 0.7, opacity: 0 }}
                         exitStyle={{ scale: 0.7, opacity: 0 }}
                         pr="$0.5"
@@ -445,7 +450,7 @@ function CreateOrImportWallet() {
                       <YStack
                         key="icon"
                         animation="quick"
-                        animateOnly={['transform', 'opacity']}
+                        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                         enterStyle={{ scale: 0.7, opacity: 0 }}
                         exitStyle={{ scale: 0.7, opacity: 0 }}
                       >
@@ -462,7 +467,7 @@ function CreateOrImportWallet() {
                     {keylessExpanded ? (
                       <YStack
                         animation="quick"
-                        animateOnly={['opacity']}
+                        animateOnly={ANIMATE_ONLY_OPACITY}
                         enterStyle={{ opacity: 0 }}
                         exitStyle={{ opacity: 0 }}
                       >
@@ -583,7 +588,7 @@ function CreateOrImportWallet() {
                       </SizableText>
                       <YStack
                         animation="quick"
-                        animateOnly={['transform']}
+                        animateOnly={ANIMATE_ONLY_TRANSFORM}
                         rotate={expanded ? '0' : '90deg'}
                       >
                         <Icon
@@ -602,7 +607,7 @@ function CreateOrImportWallet() {
                   {expanded ? (
                     <YStack
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       enterStyle={{ opacity: 0 }}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -692,7 +697,7 @@ function CreateOrImportWallet() {
                       </SizableText>
                       <YStack
                         animation="quick"
-                        animateOnly={['transform']}
+                        animateOnly={ANIMATE_ONLY_TRANSFORM}
                         rotate={existingExpanded ? '0' : '90deg'}
                       >
                         <Icon
@@ -711,7 +716,7 @@ function CreateOrImportWallet() {
                   {existingExpanded ? (
                     <YStack
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       enterStyle={{ opacity: 0 }}
                       exitStyle={{ opacity: 0 }}
                     >

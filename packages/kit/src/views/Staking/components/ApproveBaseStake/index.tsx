@@ -23,6 +23,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
@@ -1021,6 +1025,7 @@ export function ApproveBaseStake({
                     )}
                     <YStack
                       animation="quick"
+                      animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={
                         open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
                       }
@@ -1043,6 +1048,7 @@ export function ApproveBaseStake({
             <Accordion.HeightAnimator animation="quick">
               <Accordion.Content
                 animation="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 exitStyle={{ opacity: 0 }}
                 px={0}
                 pb={0}
