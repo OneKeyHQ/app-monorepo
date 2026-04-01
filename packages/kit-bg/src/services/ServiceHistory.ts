@@ -34,6 +34,7 @@ import type {
   IChangedPendingTxInfo,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
+  IFetchAccountTransactionRangeResp,
   IFetchHistoryTxDetailsParams,
   IFetchTxDetailsParams,
   IOnChainHistoryTx,
@@ -765,6 +766,16 @@ class ServiceHistory extends ServiceBase {
     const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildFetchHistoryListParams(params);
+  }
+
+  @backgroundMethod()
+  public async fetchAccountTransactionRange() {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.get<{
+      data: IFetchAccountTransactionRangeResp;
+    }>('/wallet/v1/account/transaction/range');
+
+    return resp.data.data;
   }
 
   @backgroundMethod()

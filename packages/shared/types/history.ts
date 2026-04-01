@@ -200,6 +200,15 @@ export type IFetchAccountHistoryResp = {
   hasMore?: boolean;
 };
 
+export type IAccountTransactionRange = {
+  minTimestampMs: number;
+  maxTimestampMs: number;
+};
+
+export type IFetchAccountTransactionRangeResp = IAccountTransactionRange & {
+  networkMap?: Record<string, IAccountTransactionRange>;
+};
+
 export type IFetchHistoryTxDetailsParams = {
   accountId: string;
   networkId: string;
