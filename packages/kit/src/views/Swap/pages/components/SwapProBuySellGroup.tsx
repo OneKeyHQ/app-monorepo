@@ -1,11 +1,11 @@
 import { YStack } from '@onekeyhq/components';
-import { SwapTestIDs } from '../../testIDs';
 import {
   useSwapProTimeRangeAtom,
   useSwapProTokenMarketDetailInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { swapProTimeRangeItems } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
+import { SwapTestIDs } from '../../testIDs';
 import SwapProBuySellInfo from '../../components/SwapProBuySellInfo';
 import SwapProTimeRangeSelector from '../../components/SwapProTimeRangeSelector';
 

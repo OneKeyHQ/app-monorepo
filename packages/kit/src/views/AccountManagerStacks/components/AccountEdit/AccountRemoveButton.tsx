@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { ActionList, Dialog } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { AccountManagerTestIDs } from '../../testIDs';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAccountSelectorActions,
@@ -17,6 +16,8 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { AccountManagerTestIDs } from '../../testIDs';
 
 let shouldShowHdOrHwAccountRemoveDialog = true;
 

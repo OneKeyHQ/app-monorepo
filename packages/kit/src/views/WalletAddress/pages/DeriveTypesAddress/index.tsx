@@ -47,9 +47,9 @@ import {
 } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { WalletAddressTestIDs } from '../../testIDs';
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 const DeriveTypesAddressContent = createContext<{
   network?: IServerNetwork;

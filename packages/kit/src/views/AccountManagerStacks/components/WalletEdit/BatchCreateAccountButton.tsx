@@ -16,11 +16,11 @@ import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-
-import { AccountManagerTestIDs } from '../../testIDs';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+
+import { AccountManagerTestIDs } from '../../testIDs';
 
 export function BatchCreateAccountButton({
   focusedWalletInfo,

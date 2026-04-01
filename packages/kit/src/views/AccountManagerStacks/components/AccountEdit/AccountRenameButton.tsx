@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { ActionList, Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
-import { AccountManagerTestIDs } from '../../testIDs';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -18,6 +17,7 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AccountManagerTestIDs } from '../../testIDs';
 import { showUpdateHardwareWalletLegacyXfpDialog } from '../../../Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 
 export function useAccountRenameMethod({

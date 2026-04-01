@@ -16,13 +16,13 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { StakingTestIDs } from '../../testIDs';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IEarnRewardNum,
   IEarnTokenItem,
 } from '@onekeyhq/shared/types/staking';
+
+import { StakingTestIDs } from '../../testIDs';
 
 function RewardItem({
   rewardTokenAddress,

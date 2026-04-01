@@ -9,7 +9,6 @@ import {
   useIsSplitView,
   useMedia,
 } from '@onekeyhq/components';
-import { MarketTestIDs } from '../testIDs';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -23,6 +22,7 @@ import type {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { MarketTestIDs } from '../testIDs';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
