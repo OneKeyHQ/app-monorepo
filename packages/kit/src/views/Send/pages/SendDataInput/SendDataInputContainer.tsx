@@ -108,8 +108,8 @@ import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
 
-const getEthersUtils = createLazySdkLoader(
-  () => import('ethers').then((m) => m.utils),
+const getEthersUtils = createLazySdkLoader(() =>
+  import('ethers').then((m) => m.utils),
 );
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';

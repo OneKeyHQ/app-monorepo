@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import {
-  isBackgroundRuntime,
   getRuntimeKind,
+  isBackgroundRuntime,
   isMainRuntime,
 } from '../runtimeInfo';
 

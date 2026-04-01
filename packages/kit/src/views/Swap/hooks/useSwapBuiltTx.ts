@@ -478,13 +478,12 @@ export function useSwapBuildTx() {
       if (item.cancelInfo) {
         const { domain, types, data, signedType } = item.cancelInfo;
         const { ethers: ethersLib } = await getEthers();
-        const populated =
-          await ethersLib.utils._TypedDataEncoder.resolveNames(
-            domain,
-            types,
-            data,
-            async (value: string) => value,
-          );
+        const populated = await ethersLib.utils._TypedDataEncoder.resolveNames(
+          domain,
+          types,
+          data,
+          async (value: string) => value,
+        );
         const dataMessage = JSON.stringify(
           ethersLib.utils._TypedDataEncoder.getPayload(
             populated.domain,

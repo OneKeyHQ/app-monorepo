@@ -4,11 +4,11 @@ import { useTheme } from '@tamagui/core';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { ILightweightChartTheme } from '@onekeyhq/kit/src/components/LightweightChart/types';
-import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 import {
   createAreaSeriesOptions,
   createChartOptions,
 } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartOptions';
+import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 
 import {
   CHART_HEIGHT,
