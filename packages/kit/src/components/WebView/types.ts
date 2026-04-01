@@ -11,6 +11,7 @@ import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import type {
   WebViewErrorEvent,
+  WebViewHttpErrorEvent,
   WebViewNavigationEvent,
   WebViewSharedProps,
   WebViewSource,
@@ -44,6 +45,8 @@ export interface IInpageProviderWebViewProps
   onLoadStart?: (event: WebViewNavigationEvent) => void;
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
+  onError?: (event: WebViewErrorEvent) => void;
+  onHttpError?: (event: WebViewHttpErrorEvent) => void;
   onScroll?: IWebViewOnScroll;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
