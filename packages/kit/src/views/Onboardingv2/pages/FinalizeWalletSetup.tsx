@@ -24,6 +24,10 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import type {
   IDBIndexedAccount,
   IDBWallet,
@@ -583,7 +587,7 @@ function FinalizeWalletSetupPage({
               {platformEnv.isNativeAndroid ? svgMask : null}
               <YStack
                 animation="quick"
-                animateOnly={['opacity']}
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 enterStyle={{
                   opacity: 0,
                 }}
@@ -652,7 +656,7 @@ function FinalizeWalletSetupPage({
                         <YStack
                           key={`icon-${currentStep}`}
                           animation="quick"
-                          animateOnly={['transform', 'opacity']}
+                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                           enterStyle={{
                             y: 4,
                             opacity: 0,
@@ -691,7 +695,7 @@ function FinalizeWalletSetupPage({
                     size="$heading2xl"
                     textAlign="center"
                     animation="quick"
-                    animateOnly={['transform', 'opacity']}
+                    animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                     enterStyle={{
                       y: 8,
                       opacity: 0,
