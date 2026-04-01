@@ -17,7 +17,7 @@ const path = require('path');
 const fs = require('fs-extra');
 
 const { fileToIdMap } = require('./map');
-const { SEGMENTS_INPUT_DIR, SEGMENT_MANIFEST_PATH } = require('./segmentPaths');
+const { getSegmentsDir, getManifestPath } = require('./segmentPaths');
 
 const baseJSBundle = require(
   path.resolve(
@@ -131,7 +131,10 @@ function generateSegmentSourceMap(segModules, graph, _fileToIdMap, moduleIdToAbs
 // Main serializer
 // ---------------------------------------------------------------------------
 
-const outputSegmentDir = SEGMENTS_INPUT_DIR;
+// Per-target segment output dir (#51). Resolved at serializer call time
+// based on METRO_RUNTIME_TARGET to isolate main/background outputs.
+const runtimeTarget = process.env.METRO_RUNTIME_TARGET || 'main';
+const outputSegmentDir = getSegmentsDir(runtimeTarget);
 
 module.exports = async function segmentSerializer(
   entryPoint,
@@ -342,6 +345,8 @@ module.exports = async function segmentSerializer(
   const manifest = { segments: {} };
 
   if (segmentOutputs.size > 0) {
+    // Clean and recreate to remove stale segments from prior builds (#54)
+    await fs.remove(outputSegmentDir);
     await fs.ensureDir(outputSegmentDir);
   }
 
@@ -387,7 +392,7 @@ module.exports = async function segmentSerializer(
   const preWithManifest = `${pre}\n${manifestCode}\n`;
 
   // Step 9: Write manifest to disk for build-bundle.js consumption
-  const manifestPath = SEGMENT_MANIFEST_PATH;
+  const manifestPath = getManifestPath(runtimeTarget);
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`info Writing segment manifest → ${manifestPath}`);
 
