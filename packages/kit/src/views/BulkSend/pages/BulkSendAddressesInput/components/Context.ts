@@ -29,6 +29,8 @@ export type IBulkSendAddressesInputContext = {
   ) => void;
   bulkSendMode: EBulkSendMode;
   setBulkSendMode: (bulkSendMode: EBulkSendMode) => void;
+  duplicateAddressCount: number;
+  setDuplicateAddressCount: (count: number) => void;
 };
 export const BulkSendAddressesInputContext =
   createContext<IBulkSendAddressesInputContext>({
@@ -49,6 +51,8 @@ export const BulkSendAddressesInputContext =
     setTokenDetailsState: () => {},
     bulkSendMode: EBulkSendMode.OneToMany,
     setBulkSendMode: () => {},
+    duplicateAddressCount: 0,
+    setDuplicateAddressCount: () => {},
   });
 
 export const useBulkSendAddressesInputContext = () =>
