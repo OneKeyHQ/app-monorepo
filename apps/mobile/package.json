@@ -80,7 +80,7 @@
     "@react-native-community/slider": "5.0.1",
     "@react-native-documents/picker": "^12.0.1",
     "@react-native-google-signin/google-signin": "16.1.0",
-    "@reown/appkit-ethers5-react-native": "https://github.com/huhuanming/appkit-ethers5-react-native#dd8e2171ce1d1eebf9abb6351517caebd92c3a11",
+    "@reown/appkit-ethers5-react-native": "https://github.com/OneKeyHQ/app-modules#9d96daccc13625e5b3c8b236f9357956b049b884",
     "@sentry/react-native": "6.22.0",
     "@shopify/flash-list": "2.2.0",
     "@types/react-native-canvas": "^0.1.13",
