@@ -2995,7 +2995,7 @@
   "perps.trade_reward": "Récompense commerciale",
   "perps__claim_failed__msg": "Échec de la réclamation de la réduction. Veuillez réessayer plus tard",
   "perps__claim_fee_discount__desc": "Signez une fois gratuitement pour bénéficier en permanence de 4% de réduction sur les frais de trading Perps. Pas de gas requis, effectif immédiatement.",
-  "perps__claim_fee_discount__title": "4% off su commissioni Perps",
+  "perps__claim_fee_discount__title": "Réduction de 4 % sur les frais Perps",
   "perps__claim_fee_discount_short__desc": "Signez une fois, économisez 4%",
   "perps__claim_now__action": "Réclamer maintenant",
   "perps__fee_discount_activated__msg": "Réduction des frais activée",

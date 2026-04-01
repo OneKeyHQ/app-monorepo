@@ -2995,7 +2995,7 @@
   "perps.trade_reward": "Торгова винагорода",
   "perps__claim_failed__msg": "Не вдалося отримати знижку. Спробуйте пізніше",
   "perps__claim_fee_discount__desc": "Підпишіть один раз безкоштовно, щоб назавжди отримати знижку 4% на комісії Perps. Газ не потрібен, діє миттєво.",
-  "perps__claim_fee_discount__title": "Отримати знижку 4% на комісію Perps",
+  "perps__claim_fee_discount__title": "Знижка 4% на комісію Perps",
   "perps__claim_fee_discount_short__desc": "Підпишіть раз, знижка 4%",
   "perps__claim_now__action": "Отримати зараз",
   "perps__fee_discount_activated__msg": "Знижку на комісію активовано",
