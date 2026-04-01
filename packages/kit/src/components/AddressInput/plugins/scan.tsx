@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton } from '@onekeyhq/components';
+import { Button, IconButton } from '@onekeyhq/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type {
   IChainValue,
@@ -20,6 +20,7 @@ import type { IAddressPluginProps } from '../types';
 export type IScanPluginProps = IAddressPluginProps & {
   networkId: string;
   onScanResult?: (result: IQRCodeHandlerParseResult<IChainValue>) => void;
+  display?: 'icon' | 'button';
 };
 
 export function ScanPlugin({
@@ -28,6 +29,7 @@ export function ScanPlugin({
   disabled,
   onScanResult,
   networkId,
+  display = 'icon',
 }: IScanPluginProps) {
   const { start } = useScanQrCode();
   const intl = useIntl();
@@ -57,10 +59,26 @@ export function ScanPlugin({
       onScanResult?.(result);
     }, 120);
   }, [networkId, onChange, onScanResult, start]);
+
+  if (display === 'button') {
+    return (
+      <Button
+        size="small"
+        variant="secondary"
+        icon="ScanSolid"
+        disabled={disabled}
+        onPress={disabled ? undefined : onPress}
+        testID={testID}
+      >
+        {intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}
+      </Button>
+    );
+  }
+
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}
-      variant="tertiary"
+      variant="secondary"
       icon="ScanSolid"
       onPress={disabled ? undefined : onPress}
       testID={testID}
