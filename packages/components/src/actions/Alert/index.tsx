@@ -208,7 +208,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
           </AlertIcon>
         </Stack>
       ) : null}
-      <YStack flex={1} gap="$1">
+      <YStack flex={actionLayout === 'vertical' ? undefined : 1} gap="$1">
         {title ? (
           <SizableText
             size="$bodyMdMedium"
