@@ -651,6 +651,11 @@ function SendDataInputContainer() {
     [],
   );
 
+  const enableAllowListValidation = useMemo(
+    () => !networkUtils.isLightningNetworkByNetworkId(networkId),
+    [networkId],
+  );
+
   const fillRecipientFromQuickSelect = useCallback(
     ({
       selectedAddress,
@@ -727,15 +732,23 @@ function SendDataInputContainer() {
             networkId: currentAccount.networkId,
             accountId: currentAccount.accountId,
             address: selectedAddress,
+            enableNameResolve: true,
+            enableAddressBook: true,
+            enableWalletName: true,
             enableAddressContract: true,
+            enableVerifySendFundToSelf: true,
+            enableAllowListValidation,
+            ignoreSimilarAddressInAddressBook: true,
+            enableCheckSimilarAddressInAddressBook: true,
           });
-        if (queryResult.validStatus !== 'valid') {
+        if (queryResult.validStatus !== 'valid' || queryResult.similarAddress) {
           // Address invalid — fall back to input for feedback
           fillRecipientFromQuickSelect({
             selectedAddress,
             selectedMemo,
             selectedNote,
           });
+          void form.trigger('to');
           return;
         }
         const resolvedAddress =
@@ -780,6 +793,7 @@ function SendDataInputContainer() {
       currentAccount.networkId,
       fillRecipientFromQuickSelect,
       form,
+      enableAllowListValidation,
       isAllNetworks,
       isNFT,
       nfts,
@@ -850,11 +864,6 @@ function SendDataInputContainer() {
       navigateQuickSelectRecipientToAmount,
       shouldStayOnDataStepForQuickSelect,
     ],
-  );
-
-  const enableAllowListValidation = useMemo(
-    () => !networkUtils.isLightningNetworkByNetworkId(networkId),
-    [networkId],
   );
 
   return (
