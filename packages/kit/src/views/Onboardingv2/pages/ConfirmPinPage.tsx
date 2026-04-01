@@ -15,7 +15,6 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { PinInputLayout } from '../components/PinInputLayout';
 import { OnboardingTestIDs } from '../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 
 function ConfirmPinPage() {

@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/types/discovery';
 
 import { DAppConnectionTestIDs } from '../../testIDs';
+
 import { DAppRiskyAlertDetail } from './DAppRiskyAlertDetail';
 
 function DAppRiskyAlert({

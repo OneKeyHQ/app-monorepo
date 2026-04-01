@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
 } from 'react';
-
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -28,14 +27,12 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
+import type { ILocalDataType } from '../hooks/useSearchModalData';
 import { useWebSiteHandler } from '../hooks/useWebSiteHandler';
 import { DappSearchModalSectionHeader } from '../pages/SearchModal/DappSearchModalSectionHeader';
-
-import { DiscoveryIcon } from './DiscoveryIcon';
-
 import { DiscoveryTestIDs } from '../testIDs';
 
-import type { ILocalDataType } from '../hooks/useSearchModalData';
+import { DiscoveryIcon } from './DiscoveryIcon';
 
 const LoadingSkeleton = (
   <Image.Loading>

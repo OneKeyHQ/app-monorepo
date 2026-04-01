@@ -20,13 +20,14 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { ApproveEditorTestIDs } from './testIDs';
 import {
   useSendConfirmActions,
   useTokenApproveInfoAtom,
   useUnsignedTxsAtom,
 } from '../../states/jotai/contexts/sendConfirm';
 import { SendConfirmProviderMirror } from '../Send/components/SendConfirmProvider/SendConfirmProviderMirror';
+
+import { ApproveEditorTestIDs } from './testIDs';
 
 export type IProps = {
   accountId: string;

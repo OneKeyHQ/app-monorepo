@@ -29,8 +29,6 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { DiscoveryTestIDs } from '../../testIDs';
-
 import MobileTabListItem from '../../components/MobileTabListItem';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
@@ -40,9 +38,9 @@ import {
   useDisabledAddedNewTab,
   useWebTabs,
 } from '../../hooks/useWebTabs';
-import { withBrowserProvider } from '../Browser/WithBrowserProvider';
-
+import { DiscoveryTestIDs } from '../../testIDs';
 import type { IWebTab } from '../../types';
+import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 import type { View } from 'react-native';
 
 export const tabGridRefs: Record<string, View> = {};

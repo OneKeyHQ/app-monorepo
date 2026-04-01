@@ -1014,7 +1014,10 @@ export function EnterPhase({
               </SizableText>
             }
           >
-            <Switch testID="hardware-ui-passphrase-hide-immediately-switch" size={ESwitchSize.small} />
+            <Switch
+              testID="hardware-ui-passphrase-hide-immediately-switch"
+              size={ESwitchSize.small}
+            />
           </Form.Field>
         ) : null}
       </Form>

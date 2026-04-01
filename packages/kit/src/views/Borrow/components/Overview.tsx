@@ -5,7 +5,6 @@ import {
   useMemo,
   useState,
 } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
@@ -44,8 +43,8 @@ import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
 import { useBorrowRewards } from '../hooks/useBorrowRewards';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
-
 import { BorrowTestIDs } from '../testIDs';
+
 import { BorrowBonusTooltip } from './BorrowBonusTooltip';
 import { showBorrowClaimRewardsDialog } from './BorrowClaimRewardsDialog';
 import { BorrowHealthFactorTooltip } from './BorrowHealthFactorTooltip';

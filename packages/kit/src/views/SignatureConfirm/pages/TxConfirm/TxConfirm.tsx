@@ -50,7 +50,6 @@ import SwapInfo from '../../components/SwapInfo';
 import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
 import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
 import { SignatureConfirmTestIDs } from '../../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 
 function TxConfirm() {

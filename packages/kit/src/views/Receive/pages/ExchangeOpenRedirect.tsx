@@ -26,7 +26,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { ReceiveTestIDs } from '../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
 

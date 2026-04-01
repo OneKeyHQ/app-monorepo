@@ -26,18 +26,17 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
 import { SearchResultContent } from '../../../components/SearchResultContent';
-import { DiscoveryTestIDs } from '../../../testIDs';
+import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
 import { useSearchModalData } from '../../../hooks/useSearchModalData';
 import { useSearchPopover } from '../../../hooks/useSearchPopover';
 import {
   useSearchPopoverShortcutsFeatureFlag,
   useSearchPopoverUIFeatureFlag,
 } from '../../../hooks/useSearchPopoverFeatureFlag';
+import { DiscoveryTestIDs } from '../../../testIDs';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
-
-import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
 import type { TextInput } from 'react-native';
 
 export function SearchInput() {

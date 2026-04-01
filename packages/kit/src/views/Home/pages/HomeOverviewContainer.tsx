@@ -46,8 +46,8 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { HomeTestIDs } from '../testIDs';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { HomeTestIDs } from '../testIDs';
 
 // Grace period (ms) after an account switch during which the previous
 // balance is shown as a placeholder to avoid a skeleton flash.

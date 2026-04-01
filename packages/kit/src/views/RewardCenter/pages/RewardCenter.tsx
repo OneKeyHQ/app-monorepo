@@ -44,7 +44,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { RewardCenterTestIDs } from '../testIDs';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerRewardCenter,
@@ -56,7 +55,7 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
-
+import { RewardCenterTestIDs } from '../testIDs';
 import type { RouteProp } from '@react-navigation/core';
 
 const networkIdsMap = getNetworkIdsMap();

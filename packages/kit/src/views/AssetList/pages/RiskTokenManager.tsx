@@ -46,7 +46,6 @@ import {
   withTokenListProvider,
 } from '../../../states/jotai/contexts/tokenList';
 import { AssetListTestIDs } from '../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 import type {
   GestureResponderEvent,

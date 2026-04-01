@@ -32,12 +32,12 @@ import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { DeveloperTestIDs } from '../testIDs';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useCookie from '../../../hooks/useCookie';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useV4MigrationActions } from '../../Onboarding/pages/V4Migration/hooks/useV4MigrationActions';
+import { DeveloperTestIDs } from '../testIDs';
 
 const useStorage = platformEnv.isNative
   ? (key: EAppSyncStorageKeys, initialValue?: boolean) => {

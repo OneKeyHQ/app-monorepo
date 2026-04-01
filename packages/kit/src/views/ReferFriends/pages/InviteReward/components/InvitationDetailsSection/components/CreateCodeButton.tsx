@@ -12,7 +12,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { generateInviteUrlFromTemplate } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { ReferFriendsTestIDs } from '../../../../../testIDs';
+import { ReferFriendsTestIDs } from '../testIDs';
 
 interface ICreateCodeButtonProps {
   remainingCodes?: number;

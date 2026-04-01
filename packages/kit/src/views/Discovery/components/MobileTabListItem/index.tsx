@@ -14,7 +14,6 @@ import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animation
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { DiscoveryTestIDs } from '../../testIDs';
-
 import type { IWebTab } from '../../types';
 
 function MobileTabListItem({

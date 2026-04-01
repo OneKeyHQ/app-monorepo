@@ -22,11 +22,10 @@ import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
 import { SignForm } from '../../components/SignForm';
-import { VerifyForm } from '../../components/VerifyForm';
-import { SignAndVerifyMessageTestIDs } from '../../testIDs';
-
 import type { ISignFormData } from '../../components/SignForm';
+import { VerifyForm } from '../../components/VerifyForm';
 import type { IVerifyFormData } from '../../components/VerifyForm';
+import { SignAndVerifyMessageTestIDs } from '../../testIDs';
 import type { RouteProp } from '@react-navigation/core';
 
 const formatSignedMessage = ({

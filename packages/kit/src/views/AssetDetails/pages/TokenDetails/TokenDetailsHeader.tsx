@@ -49,6 +49,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { AssetDetailsTestIDs } from '../../testIDs';
+
 import ActionBuy from './ActionBuy';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';

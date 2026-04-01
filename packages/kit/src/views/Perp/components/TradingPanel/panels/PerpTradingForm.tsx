@@ -46,9 +46,9 @@ import {
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { PerpTestIDs } from '../../../testIDs';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
+import { PerpTestIDs } from '../../../testIDs';
 import {
   type ITradeSide,
   getTradingSideTextColor,

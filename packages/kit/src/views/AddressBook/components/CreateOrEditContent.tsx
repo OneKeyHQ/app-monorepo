@@ -36,9 +36,8 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { buildChangeHistoryInputAddon } from '../../../components/ChangeHistoryDialog/ChangeHistoryDialog';
 import { useAccountData } from '../../../hooks/useAccountData';
-import { AddressBookTestIDs } from '../testIDs';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-
+import { AddressBookTestIDs } from '../testIDs';
 import type { IAddressItem } from '../type';
 
 type ICreateOrEditContentProps = {

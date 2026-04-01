@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import { RedemptionTestIDs } from '../testIDs';
+
 import { showRedemptionSuccessDialog } from './RedemptionSuccessDialog';
 
 interface IRedemptionFormValues {

@@ -5,8 +5,8 @@ import { Checkbox, Dialog, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IEarnRiskNoticeDialog } from '@onekeyhq/shared/types/staking';
 
-import { EarnTestIDs } from '../testIDs';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { EarnTestIDs } from '../testIDs';
 
 function RiskNoticeDialogContent({
   onConfirm,

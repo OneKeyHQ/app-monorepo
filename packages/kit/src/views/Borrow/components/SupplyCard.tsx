@@ -17,7 +17,6 @@ import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/us
 import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
-
 import { BorrowTestIDs } from '../testIDs';
 import {
   ActionField,

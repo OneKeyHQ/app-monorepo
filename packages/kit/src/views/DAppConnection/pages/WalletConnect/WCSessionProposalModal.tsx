@@ -17,15 +17,13 @@ import {
   DAppRequestFooter,
   DAppRequestLayout,
 } from '../../components/DAppRequestLayout';
-import { useRiskDetection } from '../../hooks/useRiskDetection';
-import DappOpenModalPage from '../DappOpenModalPage';
-
-import { DAppConnectionTestIDs } from '../../testIDs';
-
 import type {
   IHandleAccountChanged,
   IHandleAccountChangedParams,
 } from '../../hooks/useHandleAccountChanged';
+import { useRiskDetection } from '../../hooks/useRiskDetection';
+import { DAppConnectionTestIDs } from '../../testIDs';
+import DappOpenModalPage from '../DappOpenModalPage';
 import type { WalletKitTypes } from '@reown/walletkit';
 
 function SessionProposalModal() {

@@ -10,13 +10,13 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { HomeTestIDs } from '../testIDs';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import ReferralCodeBlock from '../components/NotBakcedUp/ReferralCodeBlock';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 import { ReceiveInfo } from '../components/ReceiveInfo';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
+import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 

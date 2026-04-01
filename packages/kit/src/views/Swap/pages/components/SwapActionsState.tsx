@@ -43,7 +43,6 @@ import {
   ESwapDirectionType,
   ESwapQuoteKind,
 } from '@onekeyhq/shared/types/swap/types';
-
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,

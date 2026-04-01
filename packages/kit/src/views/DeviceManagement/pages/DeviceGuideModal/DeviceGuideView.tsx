@@ -26,7 +26,6 @@ import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
-
 import type { ImageSourcePropType } from 'react-native';
 import type { OnProgressData, ReactVideoSource } from 'react-native-video';
 
@@ -256,7 +255,12 @@ function ButtonContainer() {
 
   return (
     <YStack width="100%" gap="$4" py="$5" testID="blank-page-mobile-buttons">
-      <Button size="large" variant="primary" onPress={onAddDevice} testID={DeviceManagementTestIDs.connectHardwareBtn}>
+      <Button
+        size="large"
+        variant="primary"
+        onPress={onAddDevice}
+        testID={DeviceManagementTestIDs.connectHardwareBtn}
+      >
         {intl.formatMessage({
           id: ETranslations.global_connect_hardware_wallet,
         })}

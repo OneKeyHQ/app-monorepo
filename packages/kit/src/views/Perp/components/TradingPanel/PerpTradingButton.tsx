@@ -37,9 +37,9 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { PerpTestIDs } from '../../testIDs';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
+import { PerpTestIDs } from '../../testIDs';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 import { showHyperliquidTermsDialog } from '../HyperliquidTerms';
 

@@ -40,10 +40,10 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
-import { DiscoveryTestIDs } from '../../testIDs';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const TIMESTAMP_DIFF_MULTIPLIER = 2;

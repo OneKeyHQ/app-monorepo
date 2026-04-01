@@ -19,17 +19,16 @@ import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/netwo
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
 import { ChainSelectorTestIDs } from '../../testIDs';
+import type {
+  IPureChainSelectorSectionListItem,
+  IServerNetworkMatch,
+} from '../../types';
 import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 import NetworkListHeader from './NetworkListHeader';
 import NetworkListItem from './NetworkListItem';
-
-import type {
-  IPureChainSelectorSectionListItem,
-  IServerNetworkMatch,
-} from '../../types';
 
 const ListEmptyComponent = () => {
   const intl = useIntl();

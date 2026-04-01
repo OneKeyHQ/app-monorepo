@@ -13,9 +13,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { MarketTestIDs } from '../testIDs';
-
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
+import { MarketTestIDs } from '../testIDs';
 
 import { useWatchListV2Action } from './watchListHooksV2';
 

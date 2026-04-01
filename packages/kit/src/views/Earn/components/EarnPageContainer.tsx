@@ -16,10 +16,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { EarnTestIDs } from '../testIDs';
-
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
-
+import { EarnTestIDs } from '../testIDs';
 import type { RefreshControlProps } from 'react-native';
 
 interface IEarnPageContainerProps {

@@ -669,7 +669,10 @@ function AddressTypeSelector(props: IProps) {
       showHeader={false}
       renderTrigger={
         renderSelectorTrigger ?? (
-          <AddressTypeSelectorTrigger activeDeriveInfo={activeDeriveInfo} testID={testID} />
+          <AddressTypeSelectorTrigger
+            activeDeriveInfo={activeDeriveInfo}
+            testID={testID}
+          />
         )
       }
       renderContent={renderContent}

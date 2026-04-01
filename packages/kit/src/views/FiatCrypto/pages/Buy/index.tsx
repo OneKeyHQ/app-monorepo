@@ -19,7 +19,6 @@ import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenL
 import { SellOrBuyContent } from '../../components/SellOrBuy';
 import { TokenDataContainer } from '../../components/TokenDataContainer';
 import { FiatCryptoTestIDs } from '../../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 import type NativePagerView from 'react-native-pager-view';
 

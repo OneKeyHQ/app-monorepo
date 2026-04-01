@@ -27,9 +27,8 @@ import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { withBrowserProvider } from '../Browser/WithBrowserProvider';
-
 import type { IBrowserHistory } from '../../types';
+import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 function groupDataByDate(data: IBrowserHistory[]) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(

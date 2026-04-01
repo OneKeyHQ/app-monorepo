@@ -17,7 +17,6 @@ import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 import { useFirmwareChangeDialog } from './dialog/DialogFirmwareChange';
-
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 
 function DeviceSectionDangerZone({

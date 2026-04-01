@@ -17,8 +17,8 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { AccountManagerTestIDs } from '../../testIDs';
 import { showUpdateHardwareWalletLegacyXfpDialog } from '../../../Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
+import { AccountManagerTestIDs } from '../../testIDs';
 
 export function useAccountRenameMethod({
   name,

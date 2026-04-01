@@ -26,12 +26,12 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferFriendsTestIDs } from '../../testIDs';
+
 import { AllWalletsBoundEmpty } from './AllWalletsBoundEmpty';
 import { NoWalletEmpty } from './NoWalletEmpty';
+import type { IReferralCodeWalletInfo } from './types';
 import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
-
-import type { IReferralCodeWalletInfo } from './types';
 
 export function InviteCodeDialog({
   wallet,

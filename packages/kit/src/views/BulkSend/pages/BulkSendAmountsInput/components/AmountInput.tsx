@@ -26,13 +26,13 @@ import {
   type IAmountInputError,
 } from '@onekeyhq/shared/types/bulkSend';
 
+import { BulkSendTestIDs } from '../../../testIDs';
 import {
   filterNumericInput,
   generateRandomAmountsFromRange,
   getBulkSendMinTransferDisplayAmount,
   validateRangeInput,
 } from '../../../utils';
-import { BulkSendTestIDs } from '../../../testIDs';
 
 import { useBulkSendAmountsInputContext } from './Context';
 

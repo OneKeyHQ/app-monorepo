@@ -75,11 +75,10 @@ import {
   TokenDetailsContext,
   useTokenDetailsContext,
 } from './TokenDetailsContext';
+import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import TokenDetailsFooter from './TokenDetailsFooter';
 import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
-
-import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import type { RouteProp } from '@react-navigation/core';
 
 const num = 0;

@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { NumberSizeableText, XStack, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MarketTestIDs } from '../../../../testIDs';
+import { MarketTestIDs } from '../../../testIDs';
 import { PriceChangeBadge } from '../../PriceChangeBadge';
 
 import { TokenIdentityItem } from './TokenIdentityItem';

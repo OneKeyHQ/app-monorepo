@@ -36,7 +36,6 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { EarnNavigation } from '../earnUtils';
-
 import { EarnTestIDs } from '../testIDs';
 
 import { AprText } from './AprText';

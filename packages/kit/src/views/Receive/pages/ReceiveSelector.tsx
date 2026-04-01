@@ -35,6 +35,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
+import type { IListItemProps } from '../../../components/ListItem';
 import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
@@ -44,8 +45,6 @@ import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenList
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
 import { ReceiveTestIDs } from '../testIDs';
-
-import type { IListItemProps } from '../../../components/ListItem';
 import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
 

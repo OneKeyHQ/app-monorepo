@@ -8,7 +8,6 @@ import {
   type StyleProp,
   type TextStyle,
 } from 'react-native';
-
 import {
   Button,
   Dialog,

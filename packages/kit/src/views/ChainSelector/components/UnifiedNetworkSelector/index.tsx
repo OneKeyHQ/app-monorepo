@@ -42,15 +42,15 @@ import networkUtils, {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { ChainSelectorTestIDs } from '../../testIDs';
 import { useFindNetworksWithoutAccount } from '../../hooks/useFindNetworksWithoutAccount';
+import { ChainSelectorTestIDs } from '../../testIDs';
 
 import { NetworkContent } from './NetworkContent';
 import PortfolioContent from './PortfolioContent';
 import { TabSwitcher } from './TabSwitcher';
 
-import type { ITabType } from './TabSwitcher';
 import type { IServerNetworkMatch } from '../../types';
+import type { ITabType } from './TabSwitcher';
 import type { RouteProp } from '@react-navigation/core';
 import type NativePagerView from 'react-native-pager-view';
 

@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from 'react';
-
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { utils } from 'ethers';
@@ -106,7 +105,6 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 import { SendTestIDs } from '../../testIDs';
 
 import RecentRecipients from './RecentRecipients';
-
 import type { RouteProp } from '@react-navigation/core';
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';

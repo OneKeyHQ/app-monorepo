@@ -45,7 +45,6 @@ import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import { FeeEditor } from '../../components/SendFee';
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { SendTestIDs } from '../../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 
 function SendReplaceTxContainer() {

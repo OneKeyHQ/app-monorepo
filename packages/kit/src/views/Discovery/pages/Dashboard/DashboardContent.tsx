@@ -21,7 +21,6 @@ import { BookmarksSection } from './BookmarksSection';
 import { DiveInContent } from './DiveInContent';
 import { TrendingSection } from './TrendingSection';
 import { Welcome } from './Welcome';
-
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 function DashboardContent({

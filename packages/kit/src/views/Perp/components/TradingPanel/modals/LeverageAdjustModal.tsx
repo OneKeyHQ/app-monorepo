@@ -29,8 +29,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { PerpTestIDs } from '../../../testIDs';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { PerpTestIDs } from '../../../testIDs';
 import {
   CONTEXTUAL_ARTICLE_IDS,
   buildHelpUrl,

@@ -97,7 +97,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
-import { SwapTestIDs } from '../../testIDs';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
@@ -117,6 +116,7 @@ import {
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
@@ -125,7 +125,6 @@ import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
-
 import type { ScrollView as ScrollViewNative } from 'react-native';
 
 interface ISwapMainLoadProps {

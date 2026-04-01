@@ -18,13 +18,12 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { useTakeScreenshot } from '../../hooks/useTakeScreenshot';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { ESiteMode } from '../../types';
 
-import { DiscoveryTestIDs } from '../../testIDs';
 import RefreshButton from './RefreshButton';
 import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
-
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)

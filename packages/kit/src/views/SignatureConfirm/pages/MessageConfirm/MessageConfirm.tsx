@@ -31,7 +31,6 @@ import {
   type IParseMessageResp,
   type ISignatureConfirmDisplay,
 } from '@onekeyhq/shared/types/signatureConfirm';
-
 import {
   DAppRiskyAlert,
   DAppSiteMark,
@@ -46,7 +45,6 @@ import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoadin
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import SwapInfo from '../../components/SwapInfo';
 import { SignatureConfirmTestIDs } from '../../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 
 export function useDappCloseHandler(

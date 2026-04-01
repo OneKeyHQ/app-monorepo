@@ -9,7 +9,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { MarketTestIDs } from '../testIDs';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
@@ -17,6 +16,7 @@ import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV
 import { useMarketBasicConfig } from '../hooks';
 import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
+import { MarketTestIDs } from '../testIDs';
 
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';

@@ -6,7 +6,7 @@ import { Button, useClipboard } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { ReferFriendsTestIDs } from '../../../../../../../testIDs';
+import { ReferFriendsTestIDs } from '../../../testIDs';
 
 export function CopyLinkButton({
   url,

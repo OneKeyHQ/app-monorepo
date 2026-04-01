@@ -77,7 +77,11 @@ function PageProvider({
       {redirect ? null : (
         <PageContext.Provider value={value}>
           <>
-            <PageContainer lazyLoad={lazyLoad} fullPage={fullPage} testID={testID}>
+            <PageContainer
+              lazyLoad={lazyLoad}
+              fullPage={fullPage}
+              testID={testID}
+            >
               {children}
             </PageContainer>
             <PagePortal pagePortalId={pagePortalId} />

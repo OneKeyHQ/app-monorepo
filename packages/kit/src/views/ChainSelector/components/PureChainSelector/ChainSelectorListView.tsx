@@ -19,7 +19,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
 import { ChainSelectorTestIDs } from '../../testIDs';
-
 import type { IServerNetworkMatch } from '../../types';
 
 const ListEmptyComponent = () => {

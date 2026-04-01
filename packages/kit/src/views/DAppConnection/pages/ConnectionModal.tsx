@@ -18,22 +18,20 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
+import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../components/DAppRequestContent';
 import { DAppRequestedDappList } from '../components/DAppRequestContent/DAppRequestedDappList';
 import {
   DAppRequestFooter,
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
+import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 import { useRiskDetection } from '../hooks/useRiskDetection';
-
-import DappOpenModalPage from './DappOpenModalPage';
-
 import { DAppConnectionTestIDs } from '../testIDs';
 
-import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
-import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
-import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
+import DappOpenModalPage from './DappOpenModalPage';
 
 function ConnectionModal() {
   const intl = useIntl();

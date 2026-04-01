@@ -15,7 +15,6 @@ import { AddressBookListContent } from '../../components/AddressBookListContent'
 import { ContentContainer } from '../../components/ContentContainer';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
 import { AddressBookTestIDs } from '../../testIDs';
-
 import type { IAddressItem } from '../../type';
 import type { RouteProp } from '@react-navigation/core';
 

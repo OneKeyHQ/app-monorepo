@@ -17,10 +17,9 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ListItem } from '../../../components/ListItem';
 import { useTokenMapAtom } from '../../../states/jotai/contexts/approvalList';
+import { ApprovalManagementTestIDs } from '../testIDs';
 
 import { useApprovalManagementContext } from './ApprovalManagementContext';
-
-import { ApprovalManagementTestIDs } from '../testIDs';
 
 type IProps = {
   accountId: string;

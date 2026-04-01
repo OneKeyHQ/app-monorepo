@@ -65,7 +65,6 @@ import {
   UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
 import { useSettingsSearch } from '../hooks/useSettingsSearch';
-
 import { UniversalSearchTestIDs } from '../testIDs';
 
 import { RecentSearched } from './components/RecentSearched';

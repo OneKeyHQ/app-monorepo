@@ -5,7 +5,8 @@ import { useIntl } from 'react-intl';
 import { Button, Dialog, SizableText, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { ReferFriendsTestIDs } from '../../../../../../../testIDs';
+import { ReferFriendsTestIDs } from '../../../testIDs';
+
 import { NoteDialogContent } from './NoteDialogContent';
 
 interface INoteCellProps {

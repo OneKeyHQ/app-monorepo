@@ -39,9 +39,7 @@ import { Token } from '../../../components/Token';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { openTransactionDetailsUrl } from '../../../utils/explorerUtils';
-
 import { ApprovalManagementTestIDs } from '../testIDs';
-
 import type { IntlShape } from 'react-intl';
 
 type IProps = {

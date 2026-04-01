@@ -11,7 +11,12 @@ export function ReferralListButton() {
   const navigateToYourReferred = useNavigateToYourReferred();
 
   return (
-    <Button testID={ReferFriendsTestIDs.referralListBtn} size="small" variant="tertiary" onPress={navigateToYourReferred}>
+    <Button
+      testID={ReferFriendsTestIDs.referralListBtn}
+      size="small"
+      variant="tertiary"
+      onPress={navigateToYourReferred}
+    >
       {intl.formatMessage({ id: ETranslations.referral_referral_list })}
     </Button>
   );

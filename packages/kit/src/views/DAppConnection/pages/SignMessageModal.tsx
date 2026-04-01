@@ -43,10 +43,9 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+import { DAppConnectionTestIDs } from '../testIDs';
 
 import DappOpenModalPage from './DappOpenModalPage';
-
-import { DAppConnectionTestIDs } from '../testIDs';
 
 const WalletAccountListItem = ({
   networkId,

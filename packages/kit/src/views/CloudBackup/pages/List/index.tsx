@@ -17,7 +17,6 @@ import type { ICloudBackupParamList } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { CloudBackupTestIDs } from '../../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 
 export default function List() {

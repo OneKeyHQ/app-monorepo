@@ -5,9 +5,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { swapProTimeRangeItems } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-import { SwapTestIDs } from '../../testIDs';
 import SwapProBuySellInfo from '../../components/SwapProBuySellInfo';
 import SwapProTimeRangeSelector from '../../components/SwapProTimeRangeSelector';
+import { SwapTestIDs } from '../../testIDs';
 
 const SwapProBuySellGroup = ({
   supportSpeedSwap,

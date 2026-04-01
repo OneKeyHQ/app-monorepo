@@ -50,9 +50,8 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { OnboardingTestIDs } from '../testIDs';
 import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
-
+import { OnboardingTestIDs } from '../testIDs';
 import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
 

@@ -11,6 +11,7 @@ import {
 import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 import { DAppConnectionTestIDs } from '../../testIDs';
+
 import { DAppRiskyAlert } from './DAppRiskyAlert';
 import { DAppSignMessageAlert } from './DAppSignMessagAlert';
 import { DAppSiteMark } from './DAppSiteMark';

@@ -34,22 +34,20 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
-import { MarketTestIDs } from '../testIDs';
-
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
+import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import {
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
+import type { EModalMarketRoutes, IModalMarketParamList } from '../router';
+import { MarketTestIDs } from '../testIDs';
 
 import { PerpsTokenListSection } from './PerpsTokenListSection';
-
-import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import type { EModalMarketRoutes, IModalMarketParamList } from '../router';
 import type { RouteProp } from '@react-navigation/core';
 
 type IMarketBannerDetailRouteParams = RouteProp<

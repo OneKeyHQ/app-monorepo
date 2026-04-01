@@ -44,14 +44,13 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { OnboardingTestIDs } from '../testIDs';
 import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBConnectForFirmwareUpdate';
+import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType } from '../utils';
-
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 enum ECheckAndUpdateStepState {

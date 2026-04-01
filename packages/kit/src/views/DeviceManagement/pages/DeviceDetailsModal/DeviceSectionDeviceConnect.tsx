@@ -10,9 +10,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
-import { ListItemGroup } from '../ListItemGroup';
-
 import { DeviceManagementTestIDs } from '../../testIDs';
+import { ListItemGroup } from '../ListItemGroup';
 
 import { useDialogForgetDevice } from './dialog/DialogForgetDevice';
 

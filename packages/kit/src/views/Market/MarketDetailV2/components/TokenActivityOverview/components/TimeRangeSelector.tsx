@@ -1,7 +1,6 @@
 import { ButtonFrame, SizableText, Stack, YStack } from '@onekeyhq/components';
 
-import { MarketTestIDs } from '../../../../testIDs';
-
+import { MarketTestIDs } from '../../../testIDs';
 import type { ITimeRangeOption, ITimeRangeSelectorProps } from '../types';
 
 function getPercentageColor(option: ITimeRangeOption) {

@@ -15,6 +15,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountManagerTestIDs } from '../../testIDs';
+
 import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabelSetDialog';
 
 export function WalletRenameButton({

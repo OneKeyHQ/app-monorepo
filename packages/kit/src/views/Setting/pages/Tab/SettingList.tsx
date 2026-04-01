@@ -14,11 +14,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
+import { SettingTestIDs } from '../../testIDs';
+
 import { type ISettingsConfig, useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
 import { SearchView } from './SearchView';
-import { SettingTestIDs } from '../../testIDs';
 import { useSearch } from './useSearch';
 
 function SettingListItem({

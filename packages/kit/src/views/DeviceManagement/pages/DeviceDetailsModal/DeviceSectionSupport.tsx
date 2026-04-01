@@ -8,12 +8,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFirmwareVerifyDialog } from '../../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
-import { DeviceManagementTestIDs } from '../../testIDs';
-
 import { useDialogDeviceAbout } from './dialog/DialogDeviceAbout';
-
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 

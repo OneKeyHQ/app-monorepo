@@ -19,8 +19,8 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { HomeTestIDs } from '../../testIDs';
-import { RawActions } from './RawActions';
 
+import { RawActions } from './RawActions';
 import type { IActionCustomization } from './types';
 
 function WalletActionSwap({

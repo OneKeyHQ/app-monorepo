@@ -23,8 +23,8 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { OnboardingTestIDs } from '../testIDs';
 import { useCloudBackup } from '../hooks/useCloudBackup';
+import { OnboardingTestIDs } from '../testIDs';
 
 type IAddExistingWalletOption = {
   title: string;

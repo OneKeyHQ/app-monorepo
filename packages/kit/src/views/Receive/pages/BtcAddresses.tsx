@@ -28,7 +28,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { ReceiveTestIDs } from '../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 
 const PAGE_SIZE = 10;

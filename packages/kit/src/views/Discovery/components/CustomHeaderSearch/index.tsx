@@ -5,8 +5,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 interface ICustomHeaderRightProps {
   handleSearchBarPress: (url: string) => void;

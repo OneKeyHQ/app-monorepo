@@ -14,9 +14,9 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowAlert } from '@onekeyhq/shared/types/staking';
 
+import type { IStakePendingTx } from '../../Earn/hooks/useStakingPendingTxs';
 import { NoAddressWarning } from '../../Staking/components/ProtocolDetails/NoAddressWarning';
 import { BorrowProvider, useBorrowContext } from '../BorrowProvider';
-import { BorrowTestIDs } from '../testIDs';
 import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
 import { BorrowDataGate } from '../components/BorrowDataGate';
@@ -25,8 +25,7 @@ import { Markets } from '../components/Markets';
 import { Overview } from '../components/Overview';
 import { SuppliedCard } from '../components/SuppliedCard';
 import { SupplyCard } from '../components/SupplyCard';
-
-import type { IStakePendingTx } from '../../Earn/hooks/useStakingPendingTxs';
+import { BorrowTestIDs } from '../testIDs';
 
 type IBorrowTab = 'supply' | 'borrow';
 

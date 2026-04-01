@@ -17,9 +17,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { HomeTestIDs } from '../../testIDs';
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
-import { HomeTestIDs } from '../../testIDs';
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionApprovals } from './WalletActionApprovals';

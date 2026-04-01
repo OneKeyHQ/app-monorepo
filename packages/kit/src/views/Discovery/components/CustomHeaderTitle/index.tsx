@@ -6,10 +6,10 @@ import { Icon, Popover, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DiscoveryTestIDs } from '../../testIDs';
 import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 

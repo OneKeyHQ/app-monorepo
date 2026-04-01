@@ -134,7 +134,10 @@ export function showDevOnlyPasswordDialog({
             required: { value: true, message: 'password is required.' },
           }}
         >
-          <Input testID={SettingTestIDs.devOnlyPassword} placeholder="devOnlyPassword" />
+          <Input
+            testID={SettingTestIDs.devOnlyPassword}
+            placeholder="devOnlyPassword"
+          />
         </Dialog.FormField>
       </Dialog.Form>
     ),

@@ -49,9 +49,9 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
-import { HomeTestIDs } from '../testIDs';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -60,7 +60,6 @@ import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
-
 import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =

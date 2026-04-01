@@ -4,8 +4,8 @@ import { IconButton, SizableText, Stack } from '@onekeyhq/components';
 import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { AccountManagerTestIDs } from '../../../testIDs';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 export function AccountSelectorCreateWalletButton() {
   const intl = useIntl();

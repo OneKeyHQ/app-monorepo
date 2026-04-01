@@ -38,8 +38,8 @@ import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs'
 import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { OnboardingTestIDs } from '../testIDs';
 import { useCloudBackup } from '../hooks/useCloudBackup';
+import { OnboardingTestIDs } from '../testIDs';
 
 export default function ICloudBackupDetails({
   route,

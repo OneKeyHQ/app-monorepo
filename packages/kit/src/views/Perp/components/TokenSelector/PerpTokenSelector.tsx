@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
@@ -60,14 +59,13 @@ import {
   DEFAULT_PERP_TOKEN_SORT_FIELD,
   XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-
-import { PerpTestIDs } from '../../testIDs';
 import {
   type IFavoriteItem,
   usePerpActiveTabValidation,
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
+import { PerpTestIDs } from '../../testIDs';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';

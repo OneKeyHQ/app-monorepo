@@ -62,7 +62,13 @@ export function BasicPage({ children, testID }: IBasicPageProps) {
       : undefined;
   }, [isDesktopLayout]);
   return isLayoutMount ? (
-    <Stack bg="$bgApp" flex={1} testID={testID} {...heightStyle} {...desktopProps}>
+    <Stack
+      bg="$bgApp"
+      flex={1}
+      testID={testID}
+      {...heightStyle}
+      {...desktopProps}
+    >
       {children}
     </Stack>
   ) : null;

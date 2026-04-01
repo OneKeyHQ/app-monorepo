@@ -25,7 +25,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ReceiveTestIDs } from '../testIDs';
-
 import type { RouteProp } from '@react-navigation/core';
 
 function ReceiveInvoice() {
@@ -129,7 +128,12 @@ function ReceiveInvoice() {
             {paymentRequest}
           </SizableText>
         </ConfirmHighlighter>
-        <Button testID={ReceiveTestIDs.CopyInvoiceButton} mt="$5" icon="Copy3Outline" onPress={handleCopyInvoice}>
+        <Button
+          testID={ReceiveTestIDs.CopyInvoiceButton}
+          mt="$5"
+          icon="Copy3Outline"
+          onPress={handleCopyInvoice}
+        >
           {intl.formatMessage({ id: ETranslations.global_copy })}
         </Button>
       </>

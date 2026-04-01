@@ -62,9 +62,8 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
-import { EAddressState } from '../types';
 import { ReceiveTestIDs } from '../testIDs';
-
+import { EAddressState } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 
 function ReceiveToken() {

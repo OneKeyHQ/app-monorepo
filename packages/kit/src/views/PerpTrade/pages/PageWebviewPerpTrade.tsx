@@ -35,6 +35,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import type {
+  IElectronWebView,
+  IWebViewRef,
+} from '../../../components/WebView/types';
 import { WebViewWithFeatures } from '../../../components/WebView/WebViewWithFeatures';
 import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
 import { usePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
@@ -42,11 +46,6 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
 import { ExtPerp, shouldOpenExpandExtPerp } from '../../Perp/pages/ExtPerp';
 import { PerpTradeTestIDs } from '../testIDs';
-
-import type {
-  IElectronWebView,
-  IWebViewRef,
-} from '../../../components/WebView/types';
 import type { WebView as ReactNativeWebView } from 'react-native-webview';
 
 const origin = HYPER_LIQUID_ORIGIN;

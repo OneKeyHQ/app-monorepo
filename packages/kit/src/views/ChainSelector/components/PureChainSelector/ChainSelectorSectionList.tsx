@@ -33,12 +33,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
 import { ChainSelectorTestIDs } from '../../testIDs';
 import { CELL_HEIGHT } from '../../types';
-import RecentNetworks from '../RecentNetworks';
-
 import type {
   IPureChainSelectorSectionListItem,
   IServerNetworkMatch,
 } from '../../types';
+import RecentNetworks from '../RecentNetworks';
 
 const ListEmptyComponent = () => {
   const intl = useIntl();

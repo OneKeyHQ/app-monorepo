@@ -18,7 +18,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { MarketTestIDs } from '../testIDs';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
@@ -26,6 +25,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { MarketHomeList } from '../components/MarketHomeList';
 import { MarketWatchList } from '../components/MarketWatchList';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
+import { MarketTestIDs } from '../testIDs';
 
 function MarketHome() {
   const { result: categories } = usePromiseResult(

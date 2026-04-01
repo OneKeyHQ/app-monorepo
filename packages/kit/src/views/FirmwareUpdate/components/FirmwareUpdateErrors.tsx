@@ -37,7 +37,6 @@ import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { FirmwareUpdateBaseMessageView } from './FirmwareUpdateBaseMessageView';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
-
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 // like: DeviceNotFound

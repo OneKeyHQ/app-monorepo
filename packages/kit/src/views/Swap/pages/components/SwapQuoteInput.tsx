@@ -15,13 +15,13 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
-import { SwapTestIDs } from '../../testIDs';
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
 import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 
 import SwapInputContainer from './SwapInputContainer';
 

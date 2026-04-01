@@ -7,8 +7,8 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { HomeTestIDs } from '../../testIDs';
-import { RawActions } from './RawActions';
 
+import { RawActions } from './RawActions';
 import type { IActionCustomization } from './types';
 
 function WalletActionStaking({

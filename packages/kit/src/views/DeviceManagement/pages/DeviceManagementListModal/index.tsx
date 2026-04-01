@@ -37,14 +37,13 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
-import { DeviceManagementTestIDs } from '../../testIDs';
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
 import { DeviceGuideView } from '../DeviceGuideModal/DeviceGuideView';
 
 import SectionHeader from './SectionHeader';
 import { VerifiedBadge } from './VerifiedBadge';
-
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 export type IDeviceManagementListItem = IHwQrWalletWithDevice & {

@@ -42,6 +42,7 @@ import {
 
 import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 import SwapProInputSegment from '../../components/SwapProInputSegment';
 import {
   useSwapLimitPriceCheck,
@@ -51,8 +52,6 @@ import {
 import { SwapTestIDs } from '../../testIDs';
 
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
-
-import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 import type { TextInput } from 'react-native';
 
 interface ISwapProInputContainerProps {

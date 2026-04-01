@@ -51,13 +51,12 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
+import type { IListItemProps } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { NotificationsTestIDs } from '../testIDs';
-
-import type { IListItemProps } from '../../../components/ListItem';
 
 let maxAccountLimitWarningDismissed = false;
 

@@ -23,12 +23,11 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { AssetListTestIDs } from '../testIDs';
 import { TokenManagerList } from '../components/TokenManager/TokenManagerList';
 import { useAccountInfoForManageToken } from '../hooks/useAddToken';
 import { useTokenManagement } from '../hooks/useTokenManagement';
 import { useTokenSearch } from '../hooks/useTokenSearch';
-
+import { AssetListTestIDs } from '../testIDs';
 import type { RouteProp } from '@react-navigation/core';
 
 function TokenManagerModal() {

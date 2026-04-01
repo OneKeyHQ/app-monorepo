@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
 } from 'react';
-
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -43,19 +42,18 @@ import {
 import { useCurrency } from '../../../components/Currency';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
-import { EarnTestIDs } from '../testIDs';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
-import { usePortfolioAction } from '../hooks/usePortfolioAction';
-import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
-
 import type {
   IRefreshOptions,
   IUseEarnPortfolioReturn,
 } from '../hooks/useEarnPortfolio';
+import { usePortfolioAction } from '../hooks/usePortfolioAction';
+import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
+import { EarnTestIDs } from '../testIDs';
 
 const useIsDesktopLayout = () => {
   const media = useMedia();

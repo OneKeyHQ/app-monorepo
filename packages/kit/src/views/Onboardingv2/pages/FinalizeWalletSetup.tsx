@@ -64,14 +64,13 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { OnboardingTestIDs } from '../testIDs';
 import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
+import { OnboardingTestIDs } from '../testIDs';
 
 import MatrixBackground from './MatrixBackground';
-
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);

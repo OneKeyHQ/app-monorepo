@@ -36,7 +36,6 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { AssetSelectorTestIDs } from '../testIDs';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
@@ -50,7 +49,7 @@ import {
   useTokenListActions,
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
-
+import { AssetSelectorTestIDs } from '../testIDs';
 import type { RouteProp } from '@react-navigation/core';
 
 const listedNetworkMap = getListedNetworkMap();

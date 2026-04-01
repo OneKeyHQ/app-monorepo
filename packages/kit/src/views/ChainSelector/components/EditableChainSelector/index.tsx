@@ -13,6 +13,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { ChainSelectorTestIDs } from '../../testIDs';
+
 import { EditableChainSelectorContent } from './ChainSelectorContent';
 
 type IEditableChainSelectorProps = {

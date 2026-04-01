@@ -18,9 +18,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import { DiscoveryTestIDs } from '../../testIDs';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 function DesktopCustomTabBarItem({
   id,
