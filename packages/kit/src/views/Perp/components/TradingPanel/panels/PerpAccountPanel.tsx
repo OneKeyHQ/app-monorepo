@@ -165,7 +165,7 @@ function PerpAccountPanel() {
             })}
           </SizableText>
           <PerpsAccountNumberValue
-            value={accountSummary?.withdrawable ?? ''}
+            value={computedValue?.withdrawable ?? ''}
             skeletonWidth={60}
           />
         </XStack>

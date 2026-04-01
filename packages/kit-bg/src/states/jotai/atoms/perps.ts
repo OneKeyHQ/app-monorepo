@@ -116,6 +116,7 @@ export const {
   use: usePerpsComputedAccountValueAtom,
 } = globalAtomComputedR<{
   accountValue: string | undefined;
+  withdrawable: string | undefined;
   isLoading: boolean;
 }>({
   read: (get) => {
@@ -125,9 +126,14 @@ export const {
 
     const mode = modeData?.mode;
 
-    // Mode unknown → use existing clearinghouse value as fallback, mark loading
-    if (!mode) {
-      return { accountValue: summary?.accountValue, isLoading: true };
+    // Mode unknown or DEFAULT → use existing clearinghouse value as fallback, mark loading
+    // DEFAULT is treated like disabled (spot+perps) until auto-correction sets it to unified
+    if (!mode || mode === EHyperLiquidAbstractionMode.DEFAULT) {
+      return {
+        accountValue: summary?.accountValue,
+        withdrawable: summary?.withdrawable,
+        isLoading: true,
+      };
     }
 
     const isUnified =
@@ -135,11 +141,26 @@ export const {
       mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
 
     if (isUnified) {
-      // Unified/portfolio: account value = spot balance only
+      // Unified/portfolio: all values from spotState
+      // Per HL docs: "Individual perp dex user states are not meaningful"
       if (!spotData?.spotTotalUsd) {
-        return { accountValue: undefined, isLoading: true };
+        // Spot data not yet loaded — return undefined for skeleton screen
+        return {
+          accountValue: undefined,
+          withdrawable: undefined,
+          isLoading: true,
+        };
       }
-      return { accountValue: spotData.spotTotalUsd, isLoading: false };
+      // Withdrawable = USDC available (total - hold)
+      const usdcBalance = spotData.balances?.find((b) => b.token === 0);
+      const usdcWithdrawable = usdcBalance
+        ? new BigNumber(usdcBalance.total).minus(usdcBalance.hold).toFixed()
+        : '0';
+      return {
+        accountValue: spotData.spotTotalUsd,
+        withdrawable: usdcWithdrawable,
+        isLoading: false,
+      };
     }
 
     // disabled / dexAbstraction: account value = spot + perps clearinghouse
@@ -147,6 +168,7 @@ export const {
     const spotValue = new BigNumber(spotData?.spotTotalUsd || '0');
     return {
       accountValue: spotValue.plus(perpsValue).toFixed(),
+      withdrawable: summary?.withdrawable,
       isLoading: !spotData?.spotTotalUsd,
     };
   },
@@ -187,6 +209,7 @@ export type IPerpsActiveAccountStatusDetails = {
   referralCodeOk: boolean;
   builderFeeOk: boolean;
   internalRebateBoundOk: boolean;
+  abstractionOk: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -226,7 +249,8 @@ export const {
       details?.builderFeeOk &&
       details?.referralCodeOk &&
       details?.activatedOk &&
-      details?.internalRebateBoundOk;
+      details?.internalRebateBoundOk &&
+      details?.abstractionOk;
     const isReadOnlyAccount = account?.accountId
       ? accountUtils.isWatchingAccount({ accountId: account.accountId })
       : false;

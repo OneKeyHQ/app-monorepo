@@ -303,11 +303,15 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
           ...prev?.abstractionModeUsers,
           [userAddress.toLowerCase()]: mode,
         },
-        // Dual-write: only dexAbstraction maps to legacy true
-        dexAbstractionEnabledUsers: {
-          ...prev?.dexAbstractionEnabledUsers,
-          [userAddress.toLowerCase()]: mode === 'dexAbstraction',
-        },
+        // Dual-write legacy field only for dexAbstraction; leave untouched for other modes
+        ...(mode === 'dexAbstraction'
+          ? {
+              dexAbstractionEnabledUsers: {
+                ...prev?.dexAbstractionEnabledUsers,
+                [userAddress.toLowerCase()]: true,
+              },
+            }
+          : {}),
       }),
     );
   }

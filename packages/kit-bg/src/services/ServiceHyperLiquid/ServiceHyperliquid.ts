@@ -795,21 +795,46 @@ export default class ServiceHyperliquid extends ServiceBase {
     const balances = spotStateData?.spotState?.balances || [];
 
     // Calculate total USD value from spot balances
-    // Price lookup: USDC (token=0) → 1:1, others → allMids.mids["@{token}"]
-    let totalUsd = new BigNumber(0);
+    // Price lookup: USDC (token=0) → 1:1, others → allMids.mids[coin] (perp mid price by token name)
+    // Note: allMids["HYPE"]=36.20 is the correct USD price
+    //       allMids["@N"] is a spot universe pair index, NOT token index — do NOT use
     const mids = hyperLiquidCache.allMids?.mids;
+    const hasNonUsdcTokens = balances.some(
+      (b) => b.token !== 0 && parseFloat(b.total) > 0,
+    );
+    const midsReady = mids && Object.keys(mids).length > 0;
+
+    // Don't write spotTotalUsd if allMids hasn't loaded yet and we have non-USDC tokens
+    // This prevents briefly showing an artificially low value
+    if (hasNonUsdcTokens && !midsReady) {
+      await perpsSpotBalancesAtom.set({
+        accountAddress: activeAddress as IHex,
+        balances: balances.map((b) => ({
+          coin: b.coin,
+          token: b.token,
+          total: b.total,
+          hold: b.hold,
+          entryNtl: b.entryNtl,
+        })),
+        spotTotalUsd: undefined, // triggers isLoading in computed atom
+      });
+      return;
+    }
+
+    let totalUsd = new BigNumber(0);
     for (const balance of balances) {
       const amount = new BigNumber(balance.total);
       if (amount.isZero()) continue;
       if (balance.token === 0) {
-        // USDC — quote currency, not in allMids, 1:1 USD
+        // USDC — quote currency, 1:1 USD
         totalUsd = totalUsd.plus(amount);
       } else {
-        const midKey = `@${balance.token}`;
-        const midPrice = mids?.[midKey];
+        // Use token name to look up perp mid price (e.g., "HYPE" → 36.20)
+        const midPrice = mids?.[balance.coin];
         if (midPrice) {
           totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
         }
+        // Tokens without a perp market (no entry in allMids) are skipped
       }
     }
 
@@ -822,6 +847,38 @@ export default class ServiceHyperliquid extends ServiceBase {
         hold: b.hold,
         entryNtl: b.entryNtl,
       })),
+      spotTotalUsd: totalUsd.toFixed(),
+    });
+  }
+
+  // Re-calculate spotTotalUsd from cached balances when allMids becomes available
+  async recalculateSpotTotalUsd() {
+    const spotData = await perpsSpotBalancesAtom.get();
+    if (!spotData?.balances?.length || spotData.spotTotalUsd) return;
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    if (!activeAddress || activeAddress !== spotData.accountAddress) return;
+
+    const mids = hyperLiquidCache.allMids?.mids;
+    if (!mids || Object.keys(mids).length === 0) return;
+
+    let totalUsd = new BigNumber(0);
+    for (const balance of spotData.balances) {
+      const amount = new BigNumber(balance.total);
+      if (amount.isZero()) continue;
+      if (balance.token === 0) {
+        totalUsd = totalUsd.plus(amount);
+      } else {
+        const midPrice = mids[balance.coin];
+        if (midPrice) {
+          totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
+        }
+      }
+    }
+
+    await perpsSpotBalancesAtom.set({
+      ...spotData,
       spotTotalUsd: totalUsd.toFixed(),
     });
   }
@@ -974,6 +1031,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
+  @backgroundMethod()
   async fetchUserAbstraction(
     userAddress: IHex,
   ): Promise<string | undefined> {
@@ -1053,6 +1111,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       referralCodeOk: false,
       builderFeeOk: false,
       internalRebateBoundOk: false,
+      abstractionOk: false,
     };
     let status: IPerpsActiveAccountStatusInfoAtom | undefined;
 
@@ -1111,7 +1170,8 @@ export default class ServiceHyperliquid extends ServiceBase {
         hyperLiquidCache.activatedUser[accountAddress] = true;
         statusDetails.activatedOk = true;
 
-        // Fetch abstraction mode for the active account
+        // Read abstraction mode early (no signing needed)
+        // So account value displays correctly before enable trading
         void this.fetchUserAbstraction(accountAddress);
 
         // Builder fee must be approved before agent setup
@@ -1179,6 +1239,28 @@ export default class ServiceHyperliquid extends ServiceBase {
               }
             }
           })();
+
+          // Check abstraction mode — requires user wallet signature
+          const currentMode = await this.fetchUserAbstraction(accountAddress);
+          const isAbstractionCorrect =
+            currentMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+            currentMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+          if (isAbstractionCorrect) {
+            statusDetails.abstractionOk = true;
+          } else if (isEnableTradingTrigger && selectedAccount.accountId) {
+            // Only set abstraction when user explicitly clicks Enable Trading
+            // User wallet signature required — will prompt user
+            await this.exchangeService.setAbstractionWithUserWallet({
+              userAccountId: selectedAccount.accountId,
+              userAddress: accountAddress,
+              abstraction: 'unifiedAccount',
+            });
+            const verifiedMode = await this.fetchUserAbstraction(accountAddress);
+            statusDetails.abstractionOk =
+              verifiedMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+              verifiedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+          }
+
           statusDetails.internalRebateBoundOk = true;
           statusDetails.referralCodeOk = true;
         }
@@ -1958,6 +2040,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           builderFeeOk: false,
           referralCodeOk: false,
           internalRebateBoundOk: false,
+          abstractionOk: false,
         },
       }),
     );

@@ -348,7 +348,7 @@ function DepositWithdrawContent({
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const accountValue = computedValue?.accountValue ?? '';
-  const withdrawable = accountSummary?.withdrawable ?? '';
+  const withdrawable = computedValue?.withdrawable ?? '';
   const [selectedAction, setSelectedAction] =
     useState<IPerpsDepositWithdrawActionType>(params.actionType);
   const [amount, setAmount] = useState('');

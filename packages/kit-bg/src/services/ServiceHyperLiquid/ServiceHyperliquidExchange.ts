@@ -289,23 +289,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setAbstraction(
-    mode: 'i' | 'u' | 'p',
-  ): Promise<{ status: 'ok' } | undefined> {
-    await this.checkAccountCanTrade();
-    const response = await convertHyperLiquidResponse(() =>
-      this.exchangeClient.agentSetAbstraction({ abstraction: mode }),
-    );
-    return response;
-  }
-
-  /** @deprecated Use setAbstraction() instead */
-  @backgroundMethod()
-  async enableDexAbstraction(): Promise<{ status: 'ok' } | undefined> {
-    return this.setAbstraction('u');
-  }
-
-  @backgroundMethod()
   async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
     await this.checkAccountCanTrade();
 
@@ -1073,6 +1056,32 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         `Failed to set position TP/SL: ${String(error)}`,
       );
     }
+  }
+
+  @backgroundMethod()
+  async setAbstractionWithUserWallet(params: {
+    userAccountId: string;
+    userAddress: string;
+    abstraction: 'disabled' | 'unifiedAccount' | 'portfolioMargin' | 'dexAbstraction';
+  }): Promise<void> {
+    await this.checkAccountCanTrade();
+    const wallet =
+      await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
+        userAccountId: params.userAccountId,
+      });
+    const exchangeClient = new ExchangeClient({
+      transport: new HttpTransport(),
+      wallet,
+      signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+    });
+    // TODO: i18n — HL returns English errors like "Cannot disable unified account with open positions..."
+    // Need to add these to hyperliquidErrorLocales config for localization
+    await convertHyperLiquidResponse(() =>
+      exchangeClient.userSetAbstraction({
+        user: params.userAddress as `0x${string}`,
+        abstraction: params.abstraction,
+      }),
+    );
   }
 
   @backgroundMethod()

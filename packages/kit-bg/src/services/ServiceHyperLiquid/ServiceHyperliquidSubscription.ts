@@ -27,6 +27,7 @@ import type {
   IWsActiveAssetCtx,
   IWsAllDexsAssetCtxs,
   IWsAllDexsClearinghouseState,
+  IWsAllMids,
   IWsOpenOrders,
   IWsUserFills,
   IWsWebData2,
@@ -44,6 +45,7 @@ import {
   perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
+  perpsSpotBalancesAtom,
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsCandlesWebviewReloadHookAtom,
@@ -54,6 +56,9 @@ import {
 } from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import hyperLiquidCache from './hyperLiquidCache';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
@@ -133,7 +138,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
 
-  private _abstractionSetupInFlight = false;
 
   async buildRequiredSubscriptionsMap() {
     const client = await this.getWebSocketClient();
@@ -659,6 +663,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.ALL_DEXS_ASSET_CTXS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
+        ESubscriptionType.SPOT_STATE,
       ];
       const removeAllSubscriptionHandlers = () => {
         allTypes.forEach((type) => {
@@ -933,14 +938,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     Record<ESubscriptionType, (data: unknown) => void>
   > = {};
 
+  private _showPerpsRenderStats = false;
+
+  async updateDevSettings() {
+    const devSettings = await devSettingsPersistAtom.get();
+    this._showPerpsRenderStats =
+      !!(devSettings.enabled && devSettings.settings?.showPerpsRenderStats);
+  }
+
   private async _handleSubscriptionData(
     subscriptionType: ESubscriptionType,
     event: CustomEvent,
   ): Promise<void> {
     try {
-      const devSettings = await devSettingsPersistAtom.get();
-      const shouldUpdateWsDataUpdateTimes =
-        devSettings.enabled && devSettings.settings?.showPerpsRenderStats;
+      const shouldUpdateWsDataUpdateTimes = this._showPerpsRenderStats;
 
       if (shouldUpdateWsDataUpdateTimes) {
         void perpsWebSocketDataUpdateTimesAtom.set((prev) => ({
@@ -985,7 +996,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
-        // do nothing
+        // Cache allMids in background for spot balance USD calculation
+        hyperLiquidCache.allMids = data as IWsAllMids;
+        // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)
+        void this.backgroundApi.serviceHyperliquid.recalculateSpotTotalUsd();
+        return;
       }
       if (subscriptionType === ESubscriptionType.WEB_DATA2) {
         void this.backgroundApi.serviceHyperliquid.updateActiveAccountSummary(
@@ -1014,8 +1029,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         const userAddress = userState?.user;
 
         if (userAddress) {
-          // Read abstraction mode from WS (new field in SDK 0.32.2)
-          const wsAbstraction = (userState as any)?.abstraction as string | undefined;
+          // SDK 0.32.2 added userState.abstraction field
+          const wsAbstraction = userState.abstraction;
 
           // Account alignment check
           const activeAccount = await perpsActiveAccountAtom.get();
@@ -1024,38 +1039,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
 
           if (wsAbstraction) {
-            // WS provided a definite mode — update directly
-            await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
-              userAddress, wsAbstraction,
-            );
+            // Update atom for display (all accounts including watch-only)
             await perpsAbstractionModeAtom.set({
               accountAddress: userAddress.toLowerCase() as IHex,
               mode: wsAbstraction as EHyperLiquidAbstractionMode,
             });
-          } else if (!this._abstractionSetupInFlight) {
-            // WS abstraction is undefined — use HTTP to get ground truth
-            this._abstractionSetupInFlight = true;
-            void (async () => {
-              try {
-                const httpMode = await this.backgroundApi.serviceHyperliquid
-                  .fetchUserAbstraction(userAddress);
-                // Only auto-set unified if HTTP confirms "default" (NOT on undefined/error)
-                if (httpMode === 'default') {
-                  const accountStatus = await perpsActiveAccountStatusAtom.get();
-                  if (accountStatus?.canTrade) {
-                    await this.backgroundApi.serviceHyperliquidExchange.setAbstraction('u');
-                    // Re-fetch to confirm new mode
-                    await this.backgroundApi.serviceHyperliquid
-                      .fetchUserAbstraction(userAddress);
-                  }
-                }
-              } catch {
-                // Silently retry on next WEB_DATA3 update
-              } finally {
-                this._abstractionSetupInFlight = false;
-              }
-            })();
+            // Persist to SimpleDb only for non-watch-only accounts
+            const isWatcher = activeAccount?.accountId
+              ? accountUtils.isWatchingAccount({ accountId: activeAccount.accountId })
+              : false;
+            if (!isWatcher) {
+              await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+                userAddress, wsAbstraction,
+              );
+            }
           }
+
+          // Mode correction (setAbstraction) requires user wallet signature,
+          // not agent wallet. It will be handled in the enable trading flow
+          // when the user explicitly initiates it. WEB_DATA3 only reads mode.
         }
         return;
       }

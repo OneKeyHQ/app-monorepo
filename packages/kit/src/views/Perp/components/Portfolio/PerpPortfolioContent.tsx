@@ -303,7 +303,7 @@ function PerpPortfolioContentComponent({
     parseFloat(computedValue?.accountValue ?? '0'),
   );
   const withdrawable = formatPerpsUsd(
-    parseFloat(accountSummary?.withdrawable ?? '0'),
+    parseFloat(computedValue?.withdrawable ?? '0'),
   );
 
   const unrealizedPnlRaw = parseFloat(
