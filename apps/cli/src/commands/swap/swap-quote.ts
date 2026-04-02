@@ -593,7 +593,9 @@ export function registerSwapQuoteCommand(parent: Command): void {
             toNetworkId;
           const routeHeader = formatRouteHeader(fromName, toName);
           const table = renderQuoteTable(sortedQuotes, toResolved.symbol);
-          process.stderr.write(`\n${routeHeader}\n${table}\n\n`);
+          if (output.getMode() === 'human') {
+            process.stderr.write(`\n${routeHeader}\n${table}\n\n`);
+          }
 
           output.success(
             {

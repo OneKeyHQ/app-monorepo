@@ -326,7 +326,9 @@ export function registerSwapBuildCommand(parent: Command): void {
             toResolved.symbol,
             matchedQuote.info.provider,
           );
-          process.stderr.write(`\n${routeHeader}\n${table}\n\n`);
+          if (output.getMode() === 'human') {
+            process.stderr.write(`\n${routeHeader}\n${table}\n\n`);
+          }
 
           // Step 2: POST /swap/v1/build-tx with toTokenAmount from quote
           const buildTxResponse = await apiClient.post<IBuildTxResponse>(
