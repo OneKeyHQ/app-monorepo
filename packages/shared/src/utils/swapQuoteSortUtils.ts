@@ -111,8 +111,8 @@ export function sortSwapQuotes(
   // Step 2: Pre-compute all sort orders
   // ---- Gas fee sort (ascending) ----
   const gasFeeSorted = [...resetList].toSorted((a, b) => {
-    const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
-    const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
+    const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue ?? Infinity);
+    const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue ?? Infinity);
     return aBig.comparedTo(bBig);
   });
 

@@ -15,5 +15,10 @@ export function resolveApproveSpender(
   buildAllowanceTarget: string | undefined,
   swapTxTo: string,
 ): string {
+  if (!orderAllowanceTarget && !buildAllowanceTarget) {
+    process.stderr.write(
+      `[WARN] No allowanceTarget in quote/build — falling back to tx.to (${swapTxTo}). checkAllowance will verify.\n`,
+    );
+  }
   return orderAllowanceTarget ?? buildAllowanceTarget ?? swapTxTo;
 }

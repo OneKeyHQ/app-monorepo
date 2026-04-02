@@ -561,10 +561,10 @@ export function registerSwapExecuteCommand(parent: Command): void {
 
             if (knownSpender) {
               approveSpender = knownSpender;
-              approveCheckAmount =
-                orderAllowance?.amount ??
-                buildAllowance?.amount ??
-                order.amount;
+              // Always use human-readable order.amount for approve calldata.
+              // allowanceResult.amount format is API-dependent — unsafe for
+              // amountToSmallestUnit which expects human-readable input.
+              approveCheckAmount = order.amount;
 
               const onChainAllowance = await checkAllowance(
                 chainConfig.networkId,

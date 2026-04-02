@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 
@@ -90,9 +92,9 @@ function pickBestMatch(candidates: IMarketSearchItem[]): IMarketSearchItem {
     const bRec = b.communityRecognized ? 1 : 0;
     if (bRec !== aRec) return bRec - aRec;
     // then by liquidity descending
-    const aLiq = parseFloat(a.liquidity) || 0;
-    const bLiq = parseFloat(b.liquidity) || 0;
-    return bLiq - aLiq;
+    const aLiq = new BigNumber(a.liquidity || 0);
+    const bLiq = new BigNumber(b.liquidity || 0);
+    return bLiq.comparedTo(aLiq);
   });
   return sorted[0];
 }
