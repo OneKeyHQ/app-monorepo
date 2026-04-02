@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
-index a1da771..f46ba35 100644
+index a1da771..57d9004 100644
 --- a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 +++ b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 @@ -9,6 +9,7 @@ import com.facebook.react.ReactNativeHost
@@ -10,7 +10,7 @@ index a1da771..f46ba35 100644
  import com.facebook.react.bridge.ReactContext
  import com.facebook.react.common.annotations.UnstableReactNativeAPI
  import com.facebook.react.defaults.DefaultComponentsRegistry
-@@ -19,11 +20,71 @@ import com.facebook.react.runtime.JSRuntimeFactory
+@@ -19,11 +20,101 @@ import com.facebook.react.runtime.JSRuntimeFactory
  import com.facebook.react.runtime.ReactHostDelegate
  import com.facebook.react.runtime.ReactHostImpl
  import com.facebook.react.runtime.hermes.HermesInstance
@@ -55,8 +55,21 @@ index a1da771..f46ba35 100644
 +  ): JSBundleLoader {
 +    return object : JSBundleLoader() {
 +      override fun loadScript(delegate: JSBundleLoaderDelegate): String {
++        val totalStart = System.nanoTime()
++
++        val commonStart = System.nanoTime()
 +        delegate.loadScriptFromAssets(context.assets, "assets://$commonAssetName", false)
++        val commonMs = (System.nanoTime() - commonStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main common bundle loaded from assets in ${String.format("%.1f", commonMs)}ms: $commonAssetName")
++
++        val entryStart = System.nanoTime()
 +        delegate.loadScriptFromAssets(context.assets, "assets://$entryAssetName", false)
++        val entryMs = (System.nanoTime() - entryStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main entry bundle loaded from assets in ${String.format("%.1f", entryMs)}ms: $entryAssetName")
++
++        val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main sequential asset load total: ${String.format("%.1f", totalMs)}ms (common=${String.format("%.1f", commonMs)}ms + entry=${String.format("%.1f", entryMs)}ms)")
++
 +        return "assets://$entryAssetName"
 +      }
 +    }
@@ -72,8 +85,25 @@ index a1da771..f46ba35 100644
 +  ): JSBundleLoader {
 +    return object : JSBundleLoader() {
 +      override fun loadScript(delegate: JSBundleLoaderDelegate): String {
++        val totalStart = System.nanoTime()
++
++        val commonFile = File(commonPath)
++        android.util.Log.i("SplitBundle", "main common bundle file: ${commonFile.length() / 1024}KB")
++        val commonStart = System.nanoTime()
 +        delegate.loadScriptFromFile(commonPath, "common.bundle", false)
++        val commonMs = (System.nanoTime() - commonStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main common bundle loaded from file in ${String.format("%.1f", commonMs)}ms: $commonPath")
++
++        val entryFile = File(entryPath)
++        android.util.Log.i("SplitBundle", "main entry bundle file: ${entryFile.length() / 1024}KB")
++        val entryStart = System.nanoTime()
 +        delegate.loadScriptFromFile(entryPath, entryPath, false)
++        val entryMs = (System.nanoTime() - entryStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main entry bundle loaded from file in ${String.format("%.1f", entryMs)}ms: $entryPath")
++
++        val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main sequential file load total: ${String.format("%.1f", totalMs)}ms (common=${String.format("%.1f", commonMs)}ms + entry=${String.format("%.1f", entryMs)}ms)")
++
 +        return entryPath
 +      }
 +    }
@@ -82,7 +112,7 @@ index a1da771..f46ba35 100644
    @UnstableReactNativeAPI
    private class ExpoReactHostDelegate(
      private val weakContext: WeakReference<Context>,
-@@ -44,11 +105,25 @@ object ExpoReactHostFactory {
+@@ -44,11 +135,25 @@ object ExpoReactHostFactory {
          val context = weakContext.get() ?: throw IllegalStateException("Unable to get concrete Context")
          reactNativeHostWrapper.jsBundleFile?.let { jsBundleFile ->
            if (jsBundleFile.startsWith("assets://")) {
