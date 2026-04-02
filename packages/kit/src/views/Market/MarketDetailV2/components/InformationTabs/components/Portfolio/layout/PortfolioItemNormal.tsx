@@ -53,19 +53,19 @@ function PortfolioItemNormalBase({
           color="$text"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
+          formatterOptions={{
+            currency: settingsPersistAtom.currencyInfo.symbol,
+          }}
         >
-          {item.amount}
+          {item.totalPrice}
         </NumberSizeableText>
         <NumberSizeableText
           size="$bodySm"
           color="$textSubdued"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
-          formatterOptions={{
-            currency: settingsPersistAtom.currencyInfo.symbol,
-          }}
         >
-          {item.totalPrice}
+          {item.amount}
         </NumberSizeableText>
       </YStack>
 
