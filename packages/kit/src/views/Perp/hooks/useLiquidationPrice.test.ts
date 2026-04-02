@@ -98,6 +98,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAssetAtom: () => [mockActiveAsset],
   usePerpsActiveAssetCtxAtom: () => [mockActiveAssetCtx],
   usePerpsActiveAssetDataAtom: () => [mockActiveAssetData],
+  usePerpsComputedAccountValueAtom: () => [
+    { accountValue: '10000', isLoading: false },
+  ],
 }));
 
 jest.mock('./useOrderPrice', () => ({
