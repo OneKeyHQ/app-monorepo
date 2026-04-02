@@ -134,3 +134,4 @@ debug.log
 .skillshare/logs/operations.log
 .gstack/
 /apps/mobile/out-dir-analysis
+/apps/mobile/dist-test
