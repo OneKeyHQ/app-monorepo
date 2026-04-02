@@ -1,8 +1,11 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
+import { FlatList } from 'react-native';
 
 import {
+  ListEndIndicator,
   NavBackButton,
   Page,
   SizableText,
@@ -12,6 +15,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
@@ -20,6 +24,7 @@ import {
   EJotaiContextStoreNames,
   useMarketBannerListSortAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
   EEnterWay,
@@ -36,6 +41,9 @@ import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
+import { MarketListColumnHeader } from '../MarketHomeV2/components/MarketListColumnHeader';
+import { TokenListItem } from '../MarketHomeV2/components/MarketTokenList/components/TokenListItem';
+import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import {
@@ -60,9 +68,11 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const { tokenListId, type } = route.params;
   const isPerps = type === EMarketBannerType.Perps;
 
+  const intl = useIntl();
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
   const { gtMd } = useMedia();
 
   const [bannerSort, setBannerSort] = useMarketBannerListSortAtom();
@@ -134,6 +144,15 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     },
     [toDetailPage],
   );
+
+  const renderBannerItem = useCallback(
+    ({ item }: { item: IMarketToken }) => (
+      <TokenListItem item={item} onPress={() => handleItemPress(item)} />
+    ),
+    [handleItemPress],
+  );
+
+  const bannerKeyExtractor = useCallback((item: IMarketToken) => item.id, []);
 
   const setSortBy = useCallback(
     (val: string | undefined) => {
@@ -222,6 +241,48 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     if (isPerps) {
       return <PerpsTokenListSection tokenListId={tokenListId} />;
     }
+    // Native mobile: use FlatList + TokenListItem to match watchlist layout
+    if (platformEnv.isNative && !gtMd) {
+      if (tickerIsLoading && transformedData.length === 0) {
+        return (
+          <Stack flex={1}>
+            <MarketListColumnHeader />
+            <TokenListSkeleton count={15} />
+          </Stack>
+        );
+      }
+      return (
+        <Stack flex={1}>
+          <MarketListColumnHeader />
+          <FlatList<IMarketToken>
+            style={{ flex: 1 }}
+            data={transformedData}
+            renderItem={renderBannerItem}
+            keyExtractor={bannerKeyExtractor}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={15}
+            maxToRenderPerBatch={20}
+            contentContainerStyle={{ paddingBottom: tabBarHeight }}
+            ListEmptyComponent={
+              <Stack
+                flex={1}
+                alignItems="center"
+                justifyContent="center"
+                p="$8"
+              >
+                <SizableText size="$bodyLg" color="$textSubdued">
+                  {intl.formatMessage({ id: ETranslations.global_no_data })}
+                </SizableText>
+              </Stack>
+            }
+            ListFooterComponent={
+              transformedData.length > 0 ? <ListEndIndicator /> : null
+            }
+          />
+        </Stack>
+      );
+    }
+
     const tokenList = (
       <MarketTokenListBase
         result={listResult}
@@ -247,7 +308,19 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         </Stack>
       </Stack>
     );
-  }, [isPerps, tokenListId, listResult, handleItemPress]);
+  }, [
+    isPerps,
+    tokenListId,
+    listResult,
+    handleItemPress,
+    gtMd,
+    tickerIsLoading,
+    transformedData,
+    renderBannerItem,
+    bannerKeyExtractor,
+    tabBarHeight,
+    intl,
+  ]);
 
   return (
     <Page>
