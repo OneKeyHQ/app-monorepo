@@ -170,9 +170,9 @@ async function main() {
         encoding: 'utf-8',
         maxBuffer: 50 * 1024 * 1024,
       });
-    } catch {
-      console.log('No yarn.lock changes detected or git diff failed.');
-      process.exit(0);
+    } catch (e) {
+      console.error('git diff failed:', e instanceof Error ? e.message : e);
+      process.exit(1);
     }
     if (!diff.trim()) {
       console.log('No yarn.lock changes detected.');
