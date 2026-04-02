@@ -8,26 +8,33 @@ import {
 } from '@cowprotocol/contracts';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
+import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast } from '@onekeyhq/components';
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import type {
+  ISwapReviewAdapter,
+  ISwapReviewApproveBroadcastResult,
+  ISwapReviewGasInfoEntry,
+  ISwapReviewState,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IApproveInfo,
-  ITransferInfo,
+  IBuildUnsignedTxParams,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -35,7 +42,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   checkWrappedTokenPair,
@@ -47,6 +53,8 @@ import {
 } from '@onekeyhq/shared/types/message';
 import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchBuildTxResponse,
+  IFetchQuoteResult,
   ISwapApproveTransaction,
   ISwapNativeTokenReserveGas,
   ISwapToken,
@@ -58,14 +66,64 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapFetchCancelCause,
+  ESwapNetworkFeeLevel,
   ESwapQuoteKind,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
   EWrappedType,
 } from '@onekeyhq/shared/types/swap/types';
-import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import type {
+  ISendTxBaseParams,
+  ISendTxOnSuccessData,
+} from '@onekeyhq/shared/types/tx';
 
+import { buildMarketExecutionPayload } from './marketBuildExecutionUtils';
+import {
+  estimateMarketApproveGasInfos,
+  estimateMarketDirectGasInfos,
+  sendMarketDirectUnsignedTxs,
+} from './marketDirectSendTx';
+import { resolveMarketReviewAllowanceState } from './marketReviewAllowance';
+import {
+  buildMarketReviewState,
+  shouldAutoContinueMarketResetApprove,
+  shouldSkipMarketSignedPrebuild,
+} from './marketReviewExecutionUtils';
+import {
+  buildDefaultMarketSpeedCheckState,
+  buildMarketReviewShouldFallback,
+  mergeMarketBuildResultWithQuote,
+  pickMarketQuoteResultByProvider,
+  shouldFetchMarketQuoteFallbackData,
+} from './marketSwapBuildUtils';
+import {
+  areMarketApproveAmountsEqual,
+  assertMarketReviewQuoteResult,
+  assertMarketSignPreviewInvariant,
+  assertMarketSignedBuildInvariant,
+  attachMarketOneInchFusionSignature,
+  buildMarketApproveInfos,
+  buildMarketSwapApprovingTransaction,
+  buildWrappedMarketQuoteResult,
+  canReuseMarketSigningQuoteResult,
+  extractMarketSwapSuccessResult,
+  normalizeMarketReviewQuoteResult,
+} from './marketSwapReviewUtils';
 import { ESwapDirection } from './useTradeType';
+
+export type IMarketSwapReviewAdapter = ISwapReviewAdapter;
+
+type IMarketReviewExecutionSnapshot = {
+  kind: 'swap' | 'wrap';
+  accountAddress: string;
+  accountId: string;
+  networkId: string;
+  shouldFallback: boolean;
+  quoteResult: IFetchQuoteResult;
+  buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
+  swapInfo: ISwapTxInfo;
+  buildRes?: IFetchBuildTxResponse;
+};
 
 export function useSpeedSwapActions(props: {
   marketToken: ISwapToken;
@@ -77,6 +135,8 @@ export function useSpeedSwapActions(props: {
   slippage: number;
   defaultTradeTokens: ISwapTokenBase[];
   antiMEV: boolean;
+  isCustomRpcUnavailable?: boolean;
+  isReviewDialogOpen?: boolean;
   onCloseDialog?: () => void;
 }) {
   const {
@@ -89,6 +149,8 @@ export function useSpeedSwapActions(props: {
     slippage,
     defaultTradeTokens,
     antiMEV,
+    isCustomRpcUnavailable,
+    isReviewDialogOpen,
     // onCloseDialog,
   } = props;
 
@@ -106,9 +168,6 @@ export function useSpeedSwapActions(props: {
   const [swapNativeTokenReserveGas, setSwapNativeTokenReserveGas] = useState<
     ISwapNativeTokenReserveGas[]
   >([]);
-  const [{ isFirstTimeSwap }] = useSettingsPersistAtom();
-  const [speedSwapApproveActionLoading, setSpeedSwapApproveActionLoading] =
-    useState(false);
   const [priceRate, setPriceRate] = useState<
     | {
         rate?: number;
@@ -126,6 +185,13 @@ export function useSpeedSwapActions(props: {
   const [checkSpenderAddress, setCheckSpenderAddress] = useState('');
   const [isStock, setIsStock] = useState(false);
   const speedCheckRequestIdRef = useRef(0);
+  const reviewExecutionSnapshotRef = useRef<
+    IMarketReviewExecutionSnapshot | undefined
+  >(undefined);
+  const defaultMarketSpeedCheckState = useMemo(
+    () => buildDefaultMarketSpeedCheckState(),
+    [],
+  );
 
   const effectiveSpenderAddress = checkSpenderAddress || spenderAddress;
 
@@ -175,6 +241,33 @@ export function useSpeedSwapActions(props: {
     }
   }, [account, balanceToken?.networkId, selectedDeriveType]);
 
+  const marketDeriveInfoRes = usePromiseResult(async () => {
+    if (!balanceToken?.networkId) {
+      return undefined;
+    }
+
+    const defaultDeriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: balanceToken.networkId,
+      });
+
+    const effectiveDeriveType =
+      selectedDeriveType ??
+      defaultDeriveType ??
+      account?.deriveType ??
+      'default';
+
+    return backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
+      networkId: balanceToken.networkId,
+      deriveType: effectiveDeriveType,
+    });
+  }, [account?.deriveType, balanceToken?.networkId, selectedDeriveType]);
+
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId: netAccountRes.result?.id ?? '',
+    networkId: fromToken.networkId,
+  });
+
   // Listen for derive type changes and re-fetch network account
   useEffect(() => {
     const handleDeriveTypeChanged = () => {
@@ -197,11 +290,6 @@ export function useSpeedSwapActions(props: {
     };
   }, [netAccountRes]);
 
-  const { navigationToTxConfirm, navigationToMessageConfirmAsync } =
-    useSignatureConfirm({
-      accountId: netAccountRes.result?.id ?? '',
-      networkId: marketToken?.networkId,
-    });
   const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
     leading: true,
   });
@@ -238,154 +326,59 @@ export function useSpeedSwapActions(props: {
     tradeTokenContractAddress,
   ]);
 
-  const speedSwapApproveTransactionLoading = useMemo(() => {
-    const speedSwapApproveTransaction =
-      inAppNotificationAtom.speedSwapApprovingTransaction;
-    const fromTokenAmountDebouncedBN = new BigNumber(
-      fromTokenAmountDebounced ?? 0,
-    );
-    if (
-      speedSwapApproveTransaction &&
-      inAppNotificationAtom.speedSwapApprovingLoading &&
-      equalTokenNoCaseSensitive({
-        token1: speedSwapApproveTransaction.fromToken,
-        token2: fromToken,
-      }) &&
-      speedSwapApproveTransaction.amount ===
-        fromTokenAmountDebouncedBN.toFixed()
-    ) {
-      return true;
-    }
-    return false;
-  }, [
-    inAppNotificationAtom.speedSwapApprovingLoading,
-    inAppNotificationAtom.speedSwapApprovingTransaction,
-    fromToken,
-    fromTokenAmountDebounced,
-  ]);
-
-  // --- build tx
-
-  const handleSpeedSwapBuildTxSuccess = useCallback(
-    async (data: ISendTxOnSuccessData[]) => {
-      setSpeedSwapBuildTxLoading(false);
-      const transactionSignedInfo = data[0].signedTx;
-      const transactionDecodedInfo = data[0].decodedTx;
-      const txId = transactionSignedInfo.txid;
-      const { swapInfo } = transactionSignedInfo;
-      const {
-        totalFeeInNative,
-        totalFeeFiatValue,
-        networkId: txNetworkId,
-      } = transactionDecodedInfo;
-
-      if (swapInfo) {
-        appEventBus.emit(EAppEventBusNames.SwapSpeedBuildTxSuccess, {
-          fromToken,
-          toToken,
-          fromAmount: swapInfo.sender.amount,
-          toAmount: swapInfo.receiver.amount,
-        });
-
-        const fromNetworkPreset = Object.values(presetNetworksMap).find(
-          (item) => item.id === swapInfo.sender.token.networkId,
-        );
-        const toNetworkPreset = Object.values(presetNetworksMap).find(
-          (item) => item.id === swapInfo.receiver.token.networkId,
-        );
-        if (
-          swapInfo &&
-          (swapInfo.protocol === EProtocolOfExchange.SWAP ||
-            swapInfo.swapBuildResData.result.isWrapped)
-        ) {
-          const useOrderId = false;
-          const swapHistoryItem: ISwapTxHistory = {
-            status: ESwapTxHistoryStatus.PENDING,
-            currency: settingsAtom.currencyInfo?.symbol,
-            accountInfo: {
-              sender: {
-                accountId: swapInfo.sender.accountInfo?.accountId,
-                networkId: swapInfo.sender.accountInfo?.networkId,
-              },
-              receiver: {
-                accountId: swapInfo.receiver.accountInfo?.accountId,
-                networkId: swapInfo.receiver.accountInfo?.networkId,
-              },
-            },
-            baseInfo: {
-              toAmount: swapInfo.receiver.amount,
-              fromAmount: swapInfo.sender.amount,
-              fromToken: swapInfo.sender.token,
-              toToken: swapInfo.receiver.token,
-              fromNetwork: {
-                networkId: fromNetworkPreset?.id ?? '',
-                name: fromNetworkPreset?.name ?? '',
-                symbol: fromNetworkPreset?.symbol ?? '',
-                logoURI: fromNetworkPreset?.logoURI ?? '',
-                shortcode: fromNetworkPreset?.shortcode ?? '',
-              },
-              toNetwork: {
-                networkId: toNetworkPreset?.id ?? '',
-                name: toNetworkPreset?.name ?? '',
-                symbol: toNetworkPreset?.symbol ?? '',
-                logoURI: toNetworkPreset?.logoURI ?? '',
-                shortcode: toNetworkPreset?.shortcode ?? '',
-              },
-            },
-            txInfo: {
-              txId,
-              useOrderId,
-              gasFeeFiatValue: totalFeeFiatValue,
-              gasFeeInNative: totalFeeInNative,
-              sender: swapInfo.accountAddress,
-              receiver: swapInfo.receivingAddress,
-            },
-            date: {
-              created: Date.now(),
-              updated: Date.now(),
-            },
-            swapInfo: {
-              instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '0',
-              provider: swapInfo.swapBuildResData.result?.info,
-              socketBridgeScanUrl:
-                swapInfo.swapBuildResData.socketBridgeScanUrl,
-              oneKeyFee:
-                swapInfo.swapBuildResData.result?.fee?.percentageFee ?? 0,
-              protocolFee:
-                swapInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
-              otherFeeInfos:
-                swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
-              orderId: swapInfo.swapBuildResData.orderId,
-              supportUrl: swapInfo.swapBuildResData.result?.supportUrl,
-              orderSupportUrl:
-                swapInfo.swapBuildResData.result?.orderSupportUrl,
-              oneKeyFeeExtraInfo:
-                swapInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
-            },
-            ctx: swapInfo.swapBuildResData.ctx,
-          };
-          await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
-            swapHistoryItem,
-          );
-          if (
-            swapInfo.sender.token.networkId ===
-            swapInfo.receiver.token.networkId
-          ) {
-            void backgroundApiProxy.serviceNotification.blockNotificationForTxId(
-              {
-                networkId: txNetworkId,
-                tx: txId,
-              },
-            );
-          }
-        }
-      }
-    },
-    [settingsAtom.currencyInfo?.symbol, fromToken, toToken],
+  const buildReviewStepTexts = useCallback(
+    (providerName?: string): ISwapReviewStepTexts => ({
+      wrap: intl.formatMessage({
+        id: ETranslations.swap_page_button_wrap,
+      }),
+      approveAndSwap: intl.formatMessage({
+        id: ETranslations.swap_page_approve_and_swap,
+      }),
+      approveAndSign: intl.formatMessage({
+        id: ETranslations.swap_page_approve_and_sign,
+      }),
+      revokeApprove: intl.formatMessage(
+        {
+          id: ETranslations.global_revoke_approve,
+        },
+        {
+          symbol: fromToken.symbol,
+        },
+      ),
+      approveToken: intl.formatMessage(
+        {
+          id: ETranslations.swap_page_approve_button,
+        },
+        {
+          token: fromToken.symbol,
+        },
+      ),
+      approveTokenWithTarget: intl.formatMessage(
+        {
+          id: ETranslations.swap_page_approve_button,
+        },
+        {
+          token: fromToken.symbol,
+          target: providerName,
+        },
+      ),
+      signAndSubmit: intl.formatMessage({
+        id: ETranslations.swap_review_sign_and_submit,
+      }),
+      sign: intl.formatMessage({
+        id: ETranslations.global_sign,
+      }),
+      confirmSwap: intl.formatMessage({
+        id: ETranslations.swap_review_confirm_swap,
+      }),
+      swap: intl.formatMessage({
+        id: ETranslations.global_swap,
+      }),
+    }),
+    [fromToken.symbol, intl],
   );
 
   const cancelSpeedSwapBuildTx = useCallback(() => {
-    // todo cancel build tx
     setSpeedSwapBuildTxLoading(false);
   }, []);
 
@@ -394,581 +387,851 @@ export function useSpeedSwapActions(props: {
     [fromToken, toToken],
   );
 
-  const speedSwapBuildTx = useCallback(async () => {
-    setSpeedSwapBuildTxLoading(true);
-    const userAddress = netAccountRes.result?.addressDetail.address ?? '';
-    const accountId = netAccountRes.result?.id ?? '';
-
-    // isStock flow: quote-market/speed -> signMessage -> build
-    if (isStock) {
-      try {
-        const quoteRes =
-          await backgroundApiProxy.serviceSwap.fetchSpeedMarketQuote({
-            fromToken,
-            toToken,
-            fromTokenAmount: fromTokenAmountDebounced,
-            userAddress,
-            receivingAddress: userAddress,
-            slippagePercentage: slippage,
-            accountId,
-          });
-        if (!quoteRes?.swapShouldSignedData) {
-          setSpeedSwapBuildTxLoading(false);
-          Toast.error({
-            title:
-              quoteRes?.errorMessage ||
-              intl.formatMessage({
-                id: ETranslations.global_server_error,
-              }),
-          });
-          return;
-        }
-
-        let signedQuoteResultCtx = quoteRes.quoteResultCtx;
-        if (quoteRes.swapShouldSignedData) {
-          const {
-            unSignedInfo,
-            unSignedMessage,
-            unSignedData,
-            oneInchFusionOrder,
-          } = quoteRes.swapShouldSignedData;
-
-          if (oneInchFusionOrder) {
-            // 1inchFusion flow
-            const { makerAddress, typedData } = oneInchFusionOrder;
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            const fusionOrderCtx = signedQuoteResultCtx?.oneInchFusionOrderCtx;
-            if (makerAddress && typedData && fusionOrderCtx) {
-              const dataMessage = JSON.stringify(typedData);
-              const signHash = await navigationToMessageConfirmAsync({
-                unsignedMessage: {
-                  type:
-                    unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
-                  message: dataMessage,
-                  payload: [userAddress.toLowerCase(), dataMessage],
-                },
-                networkId: fromToken.networkId,
-                accountId,
-              });
-              if (!signHash) {
-                setSpeedSwapBuildTxLoading(false);
-                return;
-              }
-              signedQuoteResultCtx = {
-                ...signedQuoteResultCtx,
-                oneInchFusionOrderCtx: {
-                  ...fusionOrderCtx,
-                  signature: signHash,
-                },
-              };
-            }
-          } else if (
-            (unSignedMessage || unSignedData) &&
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            signedQuoteResultCtx?.cowSwapUnSignedOrder
-          ) {
-            // cowSwap flow
-            const unSignedOrder: {
-              sellTokenBalance: string;
-              buyTokenBalance: string;
-              validTo: number;
-              appData: string;
-              receiver: string;
-              buyAmount: string;
-              sellAmount: string;
-              partiallyFillable: boolean;
-            } =
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              signedQuoteResultCtx?.cowSwapUnSignedOrder;
-            unSignedOrder.receiver = userAddress;
-
-            let dataMessage = unSignedMessage;
-            if (!dataMessage && unSignedData) {
-              const normalizeData = {
-                ...unSignedOrder,
-                sellTokenBalance:
-                  (unSignedOrder.sellTokenBalance as OrderBalance) ??
-                  OrderBalance.ERC20,
-                buyTokenBalance: normalizeBuyTokenBalance(
-                  unSignedOrder.buyTokenBalance as OrderBalance,
-                ),
-                validTo: timestamp(unSignedOrder.validTo),
-                appData: hashify(unSignedOrder.appData),
-              };
-              const populated =
-                await ethers.utils._TypedDataEncoder.resolveNames(
-                  unSignedData.domain,
-                  unSignedData.types,
-                  normalizeData,
-                  async (value: string) => value,
-                );
-              dataMessage = JSON.stringify(
-                ethers.utils._TypedDataEncoder.getPayload(
-                  populated.domain,
-                  unSignedData.types,
-                  populated.value,
-                ),
-              );
-            }
-            if (dataMessage) {
-              const signHash = await navigationToMessageConfirmAsync({
-                unsignedMessage: {
-                  type:
-                    unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
-                  message: dataMessage,
-                  payload: [userAddress.toLowerCase(), dataMessage],
-                },
-                networkId: fromToken.networkId,
-                accountId,
-              });
-              if (!signHash) {
-                setSpeedSwapBuildTxLoading(false);
-                return;
-              }
-              signedQuoteResultCtx = {
-                ...signedQuoteResultCtx,
-                cowSwapUnSignedOrder: unSignedOrder,
-                signedResult: {
-                  signature: signHash,
-                  signingScheme: ESigningScheme.EIP712,
-                },
-              };
-            }
+  const persistMarketSwapHistoryItem = useCallback(
+    async ({
+      swapInfo,
+      txHash,
+      gasFeeFiatValue,
+      gasFeeInNative,
+    }: {
+      swapInfo: ISwapTxInfo;
+      txHash?: string;
+      gasFeeFiatValue?: string;
+      gasFeeInNative?: string;
+    }) => {
+      const txNetworkId = swapInfo.sender.token.networkId;
+      const buildCtx = swapInfo.swapBuildResData.ctx as
+        | {
+            cowSwapOrderId?: string;
+            oneInchFusionOrderHash?: string;
+            changeHeroOrderId?: string;
           }
-        }
+        | undefined;
+      const serviceOrderId =
+        swapInfo.swapBuildResData.orderId ??
+        swapInfo.swapBuildResData.result?.quoteId;
+      const historyOrderId =
+        swapInfo.swapBuildResData.swftOrder?.orderId ??
+        (txHash
+          ? (buildCtx?.cowSwapOrderId ??
+            buildCtx?.oneInchFusionOrderHash ??
+            buildCtx?.changeHeroOrderId)
+          : (serviceOrderId ??
+            buildCtx?.cowSwapOrderId ??
+            buildCtx?.oneInchFusionOrderHash ??
+            buildCtx?.changeHeroOrderId));
+      const fromNetworkPreset = Object.values(presetNetworksMap).find(
+        (item) => item.id === swapInfo.sender.token.networkId,
+      );
+      const toNetworkPreset = Object.values(presetNetworksMap).find(
+        (item) => item.id === swapInfo.receiver.token.networkId,
+      );
+      const useOrderId = Boolean(
+        (!txHash && historyOrderId) ||
+        buildCtx?.cowSwapOrderId ||
+        buildCtx?.oneInchFusionOrderHash,
+      );
 
-        const buildParams = {
-          fromToken,
-          toToken,
-          fromTokenAmount: fromTokenAmountDebounced,
-          provider: quoteRes.info?.provider || provider,
-          userAddress,
-          receivingAddress: userAddress,
-          slippagePercentage: slippage,
-          accountId,
-          protocol: EProtocolOfExchange.SWAP,
-          kind: ESwapQuoteKind.SELL,
-          quoteResultCtx: signedQuoteResultCtx,
+      if (
+        swapInfo.protocol === EProtocolOfExchange.SWAP ||
+        swapInfo.swapBuildResData.result.isWrapped
+      ) {
+        const swapHistoryItem: ISwapTxHistory = {
+          status: ESwapTxHistoryStatus.PENDING,
+          currency: settingsAtom.currencyInfo?.symbol,
+          accountInfo: {
+            sender: {
+              accountId: swapInfo.sender.accountInfo?.accountId,
+              networkId: swapInfo.sender.accountInfo?.networkId,
+            },
+            receiver: {
+              accountId: swapInfo.receiver.accountInfo?.accountId,
+              networkId: swapInfo.receiver.accountInfo?.networkId,
+            },
+          },
+          baseInfo: {
+            toAmount: swapInfo.receiver.amount,
+            fromAmount: swapInfo.sender.amount,
+            fromToken: swapInfo.sender.token,
+            toToken: swapInfo.receiver.token,
+            fromNetwork: {
+              networkId: fromNetworkPreset?.id ?? '',
+              name: fromNetworkPreset?.name ?? '',
+              symbol: fromNetworkPreset?.symbol ?? '',
+              logoURI: fromNetworkPreset?.logoURI ?? '',
+              shortcode: fromNetworkPreset?.shortcode ?? '',
+            },
+            toNetwork: {
+              networkId: toNetworkPreset?.id ?? '',
+              name: toNetworkPreset?.name ?? '',
+              symbol: toNetworkPreset?.symbol ?? '',
+              logoURI: toNetworkPreset?.logoURI ?? '',
+              shortcode: toNetworkPreset?.shortcode ?? '',
+            },
+          },
+          txInfo: {
+            txId: txHash,
+            useOrderId,
+            gasFeeFiatValue,
+            gasFeeInNative,
+            orderId: historyOrderId,
+            sender: swapInfo.accountAddress,
+            receiver: swapInfo.receivingAddress,
+          },
+          date: {
+            created: Date.now(),
+            updated: Date.now(),
+          },
+          swapInfo: {
+            instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '0',
+            provider: swapInfo.swapBuildResData.result?.info,
+            socketBridgeScanUrl: swapInfo.swapBuildResData.socketBridgeScanUrl,
+            oneKeyFee:
+              swapInfo.swapBuildResData.result?.fee?.percentageFee ?? 0,
+            protocolFee:
+              swapInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
+            otherFeeInfos:
+              swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
+            orderId: serviceOrderId,
+            supportUrl: swapInfo.swapBuildResData.result?.supportUrl,
+            orderSupportUrl: swapInfo.swapBuildResData.result?.orderSupportUrl,
+            oneKeyFeeExtraInfo:
+              swapInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
+          },
+          ctx: swapInfo.swapBuildResData.ctx,
         };
-        const buildRes =
-          await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx(
-            buildParams,
-          );
-        setSpeedSwapBuildTxLoading(false);
-        if (buildRes) {
+        await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
+          swapHistoryItem,
+        );
+
+        if (
+          txHash &&
+          txNetworkId &&
+          swapInfo.sender.token.networkId === swapInfo.receiver.token.networkId
+        ) {
+          void backgroundApiProxy.serviceNotification.blockNotificationForTxId({
+            networkId: txNetworkId,
+            tx: txHash,
+          });
+        }
+      }
+
+      return {
+        orderId: historyOrderId,
+      };
+    },
+    [settingsAtom.currencyInfo?.symbol],
+  );
+
+  const handleMarketSwapBuildTxSuccess = useCallback(
+    async (data: ISendTxOnSuccessData[]) => {
+      setSpeedSwapBuildTxLoading(false);
+
+      const swapTxData = data
+        .toReversed()
+        .find((item) => item.signedTx.swapInfo);
+      const result = extractMarketSwapSuccessResult(data);
+      const swapInfo = swapTxData?.signedTx.swapInfo;
+
+      if (!swapInfo || !result) {
+        return undefined;
+      }
+
+      appEventBus.emit(EAppEventBusNames.SwapSpeedBuildTxSuccess, {
+        fromToken: swapInfo.sender.token,
+        toToken: swapInfo.receiver.token,
+        fromAmount: swapInfo.sender.amount,
+        toAmount: swapInfo.receiver.amount,
+      });
+
+      const historyResult = await persistMarketSwapHistoryItem({
+        swapInfo,
+        txHash: result.txHash,
+        gasFeeFiatValue: result.gasFeeFiatValue,
+        gasFeeInNative: result.gasFeeInNative,
+      });
+
+      return {
+        ...result,
+        orderId: historyResult.orderId,
+      };
+    },
+    [persistMarketSwapHistoryItem],
+  );
+
+  const handleMarketSignedOrderSuccess = useCallback(
+    async ({ swapInfo }: { swapInfo: ISwapTxInfo }) => {
+      setSpeedSwapBuildTxLoading(false);
+
+      appEventBus.emit(EAppEventBusNames.SwapSpeedBuildTxSuccess, {
+        fromToken: swapInfo.sender.token,
+        toToken: swapInfo.receiver.token,
+        fromAmount: swapInfo.sender.amount,
+        toAmount: swapInfo.receiver.amount,
+      });
+
+      return persistMarketSwapHistoryItem({
+        swapInfo,
+      });
+    },
+    [persistMarketSwapHistoryItem],
+  );
+
+  const matchApproveTransaction = useCallback(
+    (
+      approvingTransaction?: ISwapApproveTransaction,
+      amount?: string,
+      currentFromToken?: ISwapTokenBase,
+      currentToToken?: ISwapTokenBase,
+    ) => {
+      return Boolean(
+        approvingTransaction &&
+        (areMarketApproveAmountsEqual(amount, approvingTransaction.amount) ||
+          areMarketApproveAmountsEqual(
+            amount,
+            approvingTransaction.resetApproveValue,
+          )) &&
+        equalTokenNoCaseSensitive({
+          token1: approvingTransaction.fromToken,
+          token2: currentFromToken,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: approvingTransaction.toToken,
+          token2: currentToToken,
+        }),
+      );
+    },
+    [],
+  );
+
+  const swapApprovingMatchLoading = useMemo(() => {
+    return (
+      inAppNotificationAtom.speedSwapApprovingLoading &&
+      matchApproveTransaction(
+        inAppNotificationAtom.speedSwapApprovingTransaction,
+        fromTokenAmount,
+        fromToken,
+        toToken,
+      )
+    );
+  }, [
+    fromTokenAmount,
+    fromToken,
+    inAppNotificationAtom.speedSwapApprovingLoading,
+    inAppNotificationAtom.speedSwapApprovingTransaction,
+    matchApproveTransaction,
+    toToken,
+  ]);
+
+  const buildMarketExecutionFromBuildRes = useCallback(
+    async ({
+      buildRes,
+      quoteResult,
+      currentFromToken,
+      currentToToken,
+      fromAmount,
+      userAddress,
+      accountId,
+    }: {
+      buildRes: IFetchBuildTxResponse;
+      quoteResult?: IFetchQuoteResult;
+      currentFromToken: ISwapToken;
+      currentToToken: ISwapToken;
+      fromAmount: string;
+      userAddress: string;
+      accountId: string;
+    }) => {
+      const buildResFinal = mergeMarketBuildResultWithQuote({
+        buildRes,
+        quoteResult,
+      });
+      return buildMarketExecutionPayload({
+        accountId,
+        buildRes: buildResFinal,
+        btcDerivationRestrictionErrorMessage: intl.formatMessage({
+          id: ETranslations.feedback_derivation_path_restriction,
+        }),
+        currentFromToken,
+        currentToToken,
+        deriveAddressEncoding: marketDeriveInfoRes.result?.addressEncoding,
+        fromAmount,
+        receivingAddress: userAddress,
+        slippage,
+        userAddress,
+        onBuildOkxSwapEncodedTx: (params) =>
+          backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx(params),
+        onBuildLMSwapEncodedTx: (params) =>
+          backgroundApiProxy.serviceSwap.buildLMSwapEncodedTx(params),
+        onBuildInternalDappTx: (params) =>
+          backgroundApiProxy.serviceStaking.buildInternalDappTx(params),
+      });
+    },
+    [intl, marketDeriveInfoRes.result?.addressEncoding, slippage],
+  );
+
+  const buildSpeedSwapTxData = useCallback(
+    async ({
+      fromAmount,
+      fromToken: currentFromToken,
+      toToken: currentToToken,
+    }: {
+      fromAmount?: string;
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    } = {}) => {
+      const amount = fromAmount ?? fromTokenAmountDebounced;
+      const fromTokenFinal = currentFromToken ?? fromToken;
+      const toTokenFinal = currentToToken ?? toToken;
+      const userAddress = netAccountRes.result?.addressDetail.address ?? '';
+
+      if (!amount || !userAddress || !netAccountRes.result?.id) {
+        throw new OneKeyLocalError(
+          'Market swap review requires account and amount.',
+        );
+      }
+
+      setSpeedSwapBuildTxLoading(true);
+      try {
+        if (isStock) {
+          const quoteResult =
+            await backgroundApiProxy.serviceSwap.fetchSpeedMarketQuote({
+              fromToken: fromTokenFinal,
+              toToken: toTokenFinal,
+              fromTokenAmount: amount,
+              userAddress,
+              receivingAddress: userAddress,
+              slippagePercentage: slippage,
+              accountId: netAccountRes.result.id,
+            });
+
+          if (!quoteResult?.swapShouldSignedData) {
+            throw new OneKeyLocalError(
+              quoteResult?.errorMessage ??
+                'Market stock quote sign payload missing.',
+            );
+          }
+
+          const reviewBuildRes: IFetchBuildTxResponse = {
+            ...(quoteResult.quoteId ? { orderId: quoteResult.quoteId } : {}),
+            result: {
+              ...quoteResult,
+              slippage: quoteResult.slippage ?? slippage,
+            },
+          };
+
           const swapInfo: ISwapTxInfo = {
             protocol: EProtocolOfExchange.SWAP,
             sender: {
-              amount: fromTokenAmount,
-              token: fromToken,
-              accountInfo: { accountId, networkId: fromToken.networkId },
+              amount: quoteResult.fromAmount ?? amount,
+              token: fromTokenFinal,
+              accountInfo: {
+                accountId: netAccountRes.result.id,
+                networkId: fromTokenFinal.networkId,
+              },
             },
             receiver: {
-              amount: buildRes.result.toAmount ?? '',
-              token: toToken,
-              accountInfo: { accountId, networkId: toToken.networkId },
+              amount: quoteResult.toAmount ?? '0',
+              token: toTokenFinal,
+              accountInfo: {
+                accountId: netAccountRes.result.id,
+                networkId: toTokenFinal.networkId,
+              },
             },
             accountAddress: userAddress,
             receivingAddress: userAddress,
-            swapBuildResData: {
-              ...buildRes,
-              result: {
-                ...buildRes.result,
-                slippage: buildRes.result?.slippage ?? slippage,
-              },
-            },
+            swapBuildResData: reviewBuildRes,
           };
-          const fromNetworkPreset = Object.values(presetNetworksMap).find(
-            (item) => item.id === fromToken.networkId,
-          );
-          const toNetworkPreset = Object.values(presetNetworksMap).find(
-            (item) => item.id === toToken.networkId,
-          );
-          const swapHistoryItem: ISwapTxHistory = {
-            status: ESwapTxHistoryStatus.PENDING,
-            currency: settingsAtom.currencyInfo?.symbol,
-            accountInfo: {
-              sender: { accountId, networkId: fromToken.networkId },
-              receiver: { accountId, networkId: toToken.networkId },
-            },
-            baseInfo: {
-              toAmount: swapInfo.receiver.amount,
-              fromAmount: swapInfo.sender.amount,
-              fromToken,
-              toToken,
-              fromNetwork: {
-                networkId: fromNetworkPreset?.id ?? '',
-                name: fromNetworkPreset?.name ?? '',
-                symbol: fromNetworkPreset?.symbol ?? '',
-                logoURI: fromNetworkPreset?.logoURI ?? '',
-                shortcode: fromNetworkPreset?.shortcode ?? '',
-              },
-              toNetwork: {
-                networkId: toNetworkPreset?.id ?? '',
-                name: toNetworkPreset?.name ?? '',
-                symbol: toNetworkPreset?.symbol ?? '',
-                logoURI: toNetworkPreset?.logoURI ?? '',
-                shortcode: toNetworkPreset?.shortcode ?? '',
-              },
-            },
-            txInfo: {
-              txId: undefined,
-              useOrderId: true,
-              orderId:
-                buildRes.orderId ??
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                buildRes.ctx?.oneInchFusionOrderHash,
-              sender: userAddress,
-              receiver: userAddress,
-            },
-            date: { created: Date.now(), updated: Date.now() },
-            swapInfo: {
-              instantRate: buildRes.result?.instantRate ?? '0',
-              provider: buildRes.result?.info,
-              socketBridgeScanUrl: buildRes.socketBridgeScanUrl,
-              oneKeyFee: buildRes.result?.fee?.percentageFee ?? 0,
-              protocolFee: buildRes.result?.fee?.protocolFees ?? 0,
-              otherFeeInfos: buildRes.result?.fee?.otherFeeInfos ?? [],
-              orderId: buildRes.orderId ?? buildRes.result?.quoteId,
-              supportUrl: buildRes.result?.supportUrl,
-              orderSupportUrl: buildRes.result?.orderSupportUrl,
-              oneKeyFeeExtraInfo: buildRes.result?.oneKeyFeeExtraInfo,
-            },
-            ctx: buildRes.ctx,
-          };
-          await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
-            swapHistoryItem,
-          );
-          appEventBus.emit(EAppEventBusNames.SwapSpeedBuildTxSuccess, {
-            fromToken,
-            toToken,
-            fromAmount: fromTokenAmount,
-            toAmount: buildRes.result.toAmount ?? '',
-          });
-          defaultLogger.swap.createSwapOrder.swapCreateOrder({
-            fromTokenAmount,
-            fromAddress: userAddress,
-            toAddress: userAddress,
-            toTokenAmount: buildRes.result?.toAmount ?? '',
-            status: ESwapEventAPIStatus.SUCCESS,
-            swapProvider: buildRes.result?.info.provider ?? '',
-            swapProviderName: buildRes.result?.info.providerName ?? '',
-            swapType: ESwapTabSwitchType.SWAP,
-            slippage: slippage.toString(),
-            sourceChain: fromToken.networkId ?? '',
-            receivedChain: toToken.networkId ?? '',
-            sourceTokenSymbol: fromToken.symbol ?? '',
-            receivedTokenSymbol: toToken.symbol ?? '',
-            feeType: buildRes.result?.fee?.percentageFee?.toString() ?? '0',
-            router: JSON.stringify(buildRes.result?.routesData ?? ''),
-            isFirstTime: isFirstTimeSwap,
-            createFrom: 'marketDex',
-          });
-        }
-        return buildRes;
-      } catch (_e) {
-        setSpeedSwapBuildTxLoading(false);
-        defaultLogger.swap.createSwapOrder.swapCreateOrder({
-          fromTokenAmount,
-          fromAddress: userAddress,
-          toAddress: userAddress,
-          toTokenAmount: '',
-          status: ESwapEventAPIStatus.FAIL,
-          swapProvider: '',
-          swapProviderName: '',
-          swapType: ESwapTabSwitchType.SWAP,
-          slippage: slippage.toString(),
-          sourceChain: fromToken.networkId ?? '',
-          receivedChain: toToken.networkId ?? '',
-          sourceTokenSymbol: fromToken.symbol ?? '',
-          receivedTokenSymbol: toToken.symbol ?? '',
-          feeType: '0',
-          router: '',
-          isFirstTime: isFirstTimeSwap,
-          createFrom: 'marketDex',
-        });
-      }
-      return;
-    }
 
-    const buildParams = {
-      fromToken,
-      toToken,
-      fromTokenAmount: fromTokenAmountDebounced,
-      provider,
-      userAddress,
-      receivingAddress: userAddress,
-      slippagePercentage: slippage,
-      accountId,
-      protocol: EProtocolOfExchange.SWAP,
-      kind: ESwapQuoteKind.SELL,
-    };
-    const buildRes =
-      await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx(buildParams);
-    if (!buildRes) {
-      setSpeedSwapBuildTxLoading(false);
-      return;
-    }
-    try {
-      let transferInfo: ITransferInfo | undefined;
-      let encodedTx: IEncodedTx | undefined;
-      if (buildRes?.OKXTxObject) {
-        encodedTx = await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
-          accountId: netAccountRes.result?.id ?? '',
-          networkId: fromToken.networkId,
-          okxTx: buildRes.OKXTxObject,
-          fromTokenInfo: buildRes.result.fromTokenInfo,
-          type: ESwapTabSwitchType.SWAP,
-        });
-      } else if (buildRes?.tx) {
-        transferInfo = undefined;
-        if (typeof buildRes.tx !== 'string' && buildRes.tx.data) {
-          const valueHex = toBigIntHex(new BigNumber(buildRes.tx.value ?? 0));
-          encodedTx = {
-            ...buildRes?.tx,
-            value: valueHex,
-            from: userAddress,
+          return {
+            buildRes: reviewBuildRes,
+            encodedTx: undefined,
+            transferInfo: undefined,
+            swapInfo,
+            userAddress,
           };
-        } else {
-          encodedTx = buildRes.tx as string;
         }
+
+        const buildRes =
+          await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx({
+            fromToken: fromTokenFinal,
+            toToken: toTokenFinal,
+            fromTokenAmount: amount,
+            provider,
+            userAddress,
+            receivingAddress: userAddress,
+            slippagePercentage: slippage,
+            accountId: netAccountRes.result.id,
+            protocol: EProtocolOfExchange.SWAP,
+            kind: ESwapQuoteKind.SELL,
+          });
+
+        if (!buildRes) {
+          throw new OneKeyLocalError('Market swap review build failed.');
+        }
+
+        let quoteResultForBuild: IFetchQuoteResult | undefined;
+        if (shouldFetchMarketQuoteFallbackData(buildRes)) {
+          const quotes =
+            await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuote({
+              fromToken: fromTokenFinal,
+              toToken: toTokenFinal,
+              fromTokenAmount: amount,
+              userAddress,
+              receivingAddress: userAddress,
+              slippagePercentage: slippage,
+              autoSlippage: false,
+              accountId: netAccountRes.result.id,
+              kind: ESwapQuoteKind.SELL,
+              protocol: ESwapTabSwitchType.SWAP,
+            });
+          quoteResultForBuild = pickMarketQuoteResultByProvider({
+            quotes,
+            provider: buildRes.result.info.provider,
+            providerName: buildRes.result.info.providerName,
+          });
+        }
+        const buildResFinal = mergeMarketBuildResultWithQuote({
+          buildRes,
+          quoteResult: quoteResultForBuild,
+        });
+
+        const { encodedTx, transferInfo, swapInfo } =
+          await buildMarketExecutionFromBuildRes({
+            buildRes: buildResFinal,
+            quoteResult: quoteResultForBuild,
+            currentFromToken: fromTokenFinal,
+            currentToToken: toTokenFinal,
+            fromAmount: amount,
+            userAddress,
+            accountId: netAccountRes.result.id,
+          });
+
+        return {
+          buildRes: buildResFinal,
+          encodedTx,
+          transferInfo,
+          swapInfo,
+          userAddress,
+        };
+      } finally {
+        setSpeedSwapBuildTxLoading(false);
       }
+    },
+    [
+      isStock,
+      fromTokenAmountDebounced,
+      fromToken,
+      netAccountRes.result?.addressDetail.address,
+      netAccountRes.result?.id,
+      provider,
+      slippage,
+      toToken,
+      buildMarketExecutionFromBuildRes,
+    ],
+  );
+
+  const buildWrappedSwapData = useCallback(
+    ({
+      fromAmount,
+      fromToken: currentFromToken,
+      toToken: currentToToken,
+    }: {
+      fromAmount?: string;
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    } = {}) => {
+      const amount = fromAmount ?? fromTokenAmountDebounced;
+      const fromTokenFinal = currentFromToken ?? fromToken;
+      const toTokenFinal = currentToToken ?? toToken;
+      const userAddress = netAccountRes.result?.addressDetail.address ?? '';
+
+      if (!amount || !userAddress || !netAccountRes.result?.id) {
+        throw new OneKeyLocalError(
+          'Market wrap review requires account and amount.',
+        );
+      }
+
+      const wrappedType = fromTokenFinal.isNative
+        ? EWrappedType.DEPOSIT
+        : EWrappedType.WITHDRAW;
+      const wrappedInfo: IWrappedInfo = {
+        from: userAddress,
+        type: wrappedType,
+        contract:
+          wrappedType === EWrappedType.WITHDRAW
+            ? fromTokenFinal.contractAddress
+            : toTokenFinal.contractAddress,
+        amount,
+      };
+      const quoteResult = buildWrappedMarketQuoteResult({
+        fromToken: fromTokenFinal,
+        toToken: toTokenFinal,
+        amount,
+        providerLogo: wrappedTokens.find(
+          (item) => item.networkId === fromTokenFinal.networkId,
+        )?.logo,
+      });
       const swapInfo: ISwapTxInfo = {
         protocol: EProtocolOfExchange.SWAP,
         sender: {
-          amount: fromTokenAmount,
-          token: fromToken,
+          amount,
+          token: fromTokenFinal,
           accountInfo: {
-            accountId: netAccountRes.result?.id ?? '',
-            networkId: fromToken.networkId,
+            accountId: netAccountRes.result.id,
+            networkId: fromTokenFinal.networkId,
           },
         },
         receiver: {
-          amount: buildRes?.result.toAmount ?? '',
-          token: toToken,
+          amount,
+          token: toTokenFinal,
           accountInfo: {
-            accountId: netAccountRes.result?.id ?? '',
-            networkId: toToken.networkId,
+            accountId: netAccountRes.result.id,
+            networkId: toTokenFinal.networkId,
           },
         },
         accountAddress: userAddress,
         receivingAddress: userAddress,
         swapBuildResData: {
-          ...buildRes,
-          result: {
-            ...buildRes?.result,
-            slippage: buildRes?.result?.slippage ?? slippage,
-          },
-        },
-      };
-      // onCloseDialog?.();
-      await navigationToTxConfirm({
-        isInternalSwap: true,
-        transfersInfo: transferInfo ? [transferInfo] : undefined,
-        encodedTx,
-        swapInfo,
-        approvesInfo: [], // todo
-        onSuccess: handleSpeedSwapBuildTxSuccess,
-        onCancel: cancelSpeedSwapBuildTx,
-        disableMev: !antiMEV,
-      });
-
-      defaultLogger.swap.createSwapOrder.swapCreateOrder({
-        fromTokenAmount,
-        fromAddress: userAddress,
-        toAddress: userAddress,
-        toTokenAmount: buildRes.result?.toAmount ?? '',
-        status: ESwapEventAPIStatus.SUCCESS,
-        swapProvider: buildRes.result?.info.provider ?? '',
-        swapProviderName: buildRes.result?.info.providerName ?? '',
-        swapType: ESwapTabSwitchType.SWAP,
-        slippage: slippage.toString(),
-        sourceChain: fromToken.networkId ?? '',
-        receivedChain: toToken.networkId ?? '',
-        sourceTokenSymbol: fromToken.symbol ?? '',
-        receivedTokenSymbol: toToken.symbol ?? '',
-        feeType: buildRes.result?.fee?.percentageFee?.toString() ?? '0',
-        router: JSON.stringify(buildRes.result?.routesData ?? ''),
-        isFirstTime: isFirstTimeSwap,
-        createFrom: 'marketDex',
-      });
-
-      return buildRes;
-    } catch (_e) {
-      setSpeedSwapBuildTxLoading(false);
-      defaultLogger.swap.createSwapOrder.swapCreateOrder({
-        fromTokenAmount,
-        fromAddress: userAddress,
-        toAddress: userAddress,
-        toTokenAmount: buildRes.result?.toAmount ?? '',
-        status: ESwapEventAPIStatus.FAIL,
-        swapProvider: buildRes.result?.info.provider ?? '',
-        swapProviderName: buildRes.result?.info.providerName ?? '',
-        swapType: ESwapTabSwitchType.SWAP,
-        slippage: slippage.toString(),
-        sourceChain: fromToken.networkId ?? '',
-        receivedChain: toToken.networkId ?? '',
-        sourceTokenSymbol: fromToken.symbol ?? '',
-        receivedTokenSymbol: toToken.symbol ?? '',
-        feeType: buildRes.result?.fee?.percentageFee?.toString() ?? '0',
-        router: JSON.stringify(buildRes.result?.routesData ?? ''),
-        isFirstTime: isFirstTimeSwap,
-        createFrom: 'marketDex',
-      });
-    }
-  }, [
-    netAccountRes.result?.addressDetail.address,
-    netAccountRes.result?.id,
-    fromToken,
-    toToken,
-    fromTokenAmountDebounced,
-    provider,
-    slippage,
-    fromTokenAmount,
-    navigationToTxConfirm,
-    handleSpeedSwapBuildTxSuccess,
-    cancelSpeedSwapBuildTx,
-    antiMEV,
-    isFirstTimeSwap,
-    isStock,
-    settingsAtom.currencyInfo?.symbol,
-    navigationToMessageConfirmAsync,
-    intl,
-    // onCloseDialog,
-  ]);
-
-  const speedSwapWrappedTx = useCallback(async () => {
-    if (netAccountRes.result?.addressDetail.address) {
-      const wrappedType = fromToken.isNative
-        ? EWrappedType.DEPOSIT
-        : EWrappedType.WITHDRAW;
-      const wrappedInfo: IWrappedInfo = {
-        from: netAccountRes.result?.addressDetail.address,
-        type: wrappedType,
-        contract:
-          wrappedType === EWrappedType.WITHDRAW
-            ? fromToken.contractAddress
-            : toToken.contractAddress,
-        amount: fromTokenAmountDebounced,
-      };
-      const swapInfo: ISwapTxInfo = {
-        protocol: EProtocolOfExchange.SWAP,
-        sender: {
-          amount: fromTokenAmountDebounced,
-          token: fromToken,
-          accountInfo: {
-            accountId: netAccountRes.result?.id ?? '',
-            networkId: fromToken.networkId,
-          },
-        },
-        receiver: {
-          amount: fromTokenAmountDebounced,
-          token: toToken,
-          accountInfo: {
-            accountId: netAccountRes.result?.id ?? '',
-            networkId: toToken.networkId,
-          },
-        },
-        accountAddress: netAccountRes.result?.addressDetail.address,
-        receivingAddress: netAccountRes.result?.addressDetail.address,
-        swapBuildResData: {
           orderId: stringUtils.generateUUID(),
-          result: {
-            info: {
-              provider: 'wrapped',
-              providerName: 'wrapped',
-              providerLogo: wrappedTokens.find(
-                (item) => item.networkId === fromToken.networkId,
-              )?.logo,
-            },
-            fromTokenInfo: fromToken,
-            toTokenInfo: toToken,
-            fromAmount: fromTokenAmountDebounced,
-            toAmount: fromTokenAmountDebounced,
-          },
+          result: quoteResult,
         },
       };
-      setSpeedSwapBuildTxLoading(true);
-      await navigationToTxConfirm({
-        isInternalSwap: true,
+
+      return {
+        quoteResult,
         wrappedInfo,
         swapInfo,
-        onSuccess: handleSpeedSwapBuildTxSuccess,
-        onCancel: cancelSpeedSwapBuildTx,
-        disableMev: !antiMEV,
-      });
-    }
-  }, [
-    netAccountRes.result?.addressDetail.address,
-    netAccountRes.result?.id,
-    fromToken,
-    toToken,
-    fromTokenAmountDebounced,
-    navigationToTxConfirm,
-    handleSpeedSwapBuildTxSuccess,
-    cancelSpeedSwapBuildTx,
-    antiMEV,
-  ]);
-
-  // --- approve
-
-  const handleSpeedSwapApproveTxSuccess = useCallback(
-    async (data: ISendTxOnSuccessData[]) => {
-      if (data?.[0]) {
-        const transactionSignedInfo = data[0].signedTx;
-        const approveInfo = data[0].approveInfo;
-        const txId = transactionSignedInfo.txid;
-        if (
-          inAppNotificationAtom.speedSwapApprovingTransaction &&
-          !inAppNotificationAtom.speedSwapApprovingTransaction.resetApproveValue
-        ) {
-          void backgroundApiProxy.serviceNotification.blockNotificationForTxId({
-            networkId:
-              inAppNotificationAtom.speedSwapApprovingTransaction.fromToken
-                .networkId,
-            tx: txId,
-          });
-        }
-        setInAppNotificationAtom((prev) => {
-          if (prev.speedSwapApprovingTransaction) {
-            return {
-              ...prev,
-              speedSwapApprovingTransaction: {
-                ...prev.speedSwapApprovingTransaction,
-                txId,
-                resetApproveIsMax: !!approveInfo?.isMax,
-                ...(approveInfo
-                  ? {
-                      amount: approveInfo.amount,
-                    }
-                  : {}),
-              },
-            };
-          }
-          return prev;
-        });
-      }
+      };
     },
     [
-      inAppNotificationAtom.speedSwapApprovingTransaction,
-      setInAppNotificationAtom,
+      fromTokenAmountDebounced,
+      fromToken,
+      netAccountRes.result?.addressDetail.address,
+      netAccountRes.result?.id,
+      toToken,
     ],
   );
 
-  const cancelSpeedSwapApproveTx = useCallback(() => {
-    setInAppNotificationAtom((prev) => {
-      if (prev.speedSwapApprovingTransaction) {
-        return {
-          ...prev,
-          speedSwapApprovingTransaction: {
-            ...prev.speedSwapApprovingTransaction,
-            status: ESwapApproveTransactionStatus.CANCEL,
-          },
-        };
+  const logMarketCreateOrder = useCallback(
+    ({
+      buildRes,
+      amount,
+      userAddress,
+      status,
+    }: {
+      buildRes: IFetchBuildTxResponse;
+      amount: string;
+      userAddress: string;
+      status: ESwapEventAPIStatus;
+    }) => {
+      defaultLogger.swap.createSwapOrder.swapCreateOrder({
+        fromTokenAmount: amount,
+        fromAddress: userAddress,
+        toAddress: userAddress,
+        toTokenAmount: buildRes.result?.toAmount ?? '',
+        status,
+        swapProvider: buildRes.result?.info.provider ?? '',
+        swapProviderName: buildRes.result?.info.providerName ?? '',
+        swapType: ESwapTabSwitchType.SWAP,
+        slippage: slippage.toString(),
+        sourceChain: fromToken.networkId ?? '',
+        receivedChain: toToken.networkId ?? '',
+        sourceTokenSymbol: fromToken.symbol ?? '',
+        receivedTokenSymbol: toToken.symbol ?? '',
+        feeType: buildRes.result?.fee?.percentageFee?.toString() ?? '0',
+        router: JSON.stringify(buildRes.result?.routesData ?? ''),
+        isFirstTime: settingsAtom.isFirstTimeSwap,
+        createFrom: 'marketDex',
+      });
+    },
+    [
+      fromToken.networkId,
+      fromToken.symbol,
+      settingsAtom.isFirstTimeSwap,
+      slippage,
+      toToken.networkId,
+      toToken.symbol,
+    ],
+  );
+
+  const buildMarketApproveUnsignedTxArr = useCallback(
+    async ({
+      approveInfos,
+      accountId,
+      networkId,
+    }: {
+      approveInfos?: IApproveInfo[];
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (!accountId || !networkId || !approveInfos?.length) {
+        return undefined;
       }
-      return prev;
-    });
-  }, [setInAppNotificationAtom]);
+
+      const unsignedTxArr = [];
+      let prevNonce: number | undefined;
+
+      for (const approveInfo of approveInfos) {
+        const unsignedTx =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+            networkId,
+            accountId,
+            approveInfo,
+            prevNonce,
+            isInternalSwap: true,
+            disableMev: !antiMEV,
+          });
+        prevNonce = unsignedTx.nonce;
+        unsignedTxArr.push(unsignedTx);
+      }
+
+      return unsignedTxArr;
+    },
+    [antiMEV],
+  );
+
+  const buildMarketReviewStateFromSnapshot = useCallback(
+    async (
+      snapshot: IMarketReviewExecutionSnapshot,
+      networkFeeLevel: ESwapNetworkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
+    ) => {
+      const nextReviewState = buildMarketReviewState({
+        accountId: snapshot.accountId,
+        networkId: snapshot.networkId,
+        fromToken: snapshot.swapInfo.sender.token,
+        toToken: snapshot.swapInfo.receiver.token,
+        fromTokenAmount:
+          snapshot.quoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
+        toTokenAmount:
+          snapshot.quoteResult.toAmount ?? snapshot.swapInfo.receiver.amount,
+        quoteResult: snapshot.quoteResult,
+        shouldFallback: snapshot.shouldFallback,
+        slippage,
+        texts: buildReviewStepTexts(snapshot.quoteResult.info.providerName),
+      });
+
+      let netWorkFee: ISwapReviewState['preSwapData']['netWorkFee'];
+      try {
+        const approveUnsignedTxArr = await buildMarketApproveUnsignedTxArr({
+          approveInfos: buildMarketApproveInfos({
+            fromUserAddress: snapshot.accountAddress,
+            quoteResult: snapshot.quoteResult,
+          }),
+          accountId: snapshot.accountId,
+          networkId: snapshot.networkId,
+        });
+        if (
+          snapshot.quoteResult.swapShouldSignedData &&
+          approveUnsignedTxArr?.length
+        ) {
+          const feeState = await estimateMarketApproveGasInfos({
+            accountAddress: snapshot.accountAddress,
+            accountId: snapshot.accountId,
+            networkId: snapshot.networkId,
+            approveUnsignedTxArr,
+            networkFeeLevel,
+          });
+
+          netWorkFee = {
+            gasInfos: feeState.gasInfos,
+            gasFeeFiatValue: feeState.gasFeeFiatValue,
+          };
+        } else if (
+          shouldSkipMarketSignedPrebuild({
+            quoteResult: snapshot.quoteResult,
+            approveUnsignedTxCount: approveUnsignedTxArr?.length,
+          })
+        ) {
+          netWorkFee = undefined;
+        } else {
+          const feeState = await estimateMarketDirectGasInfos({
+            accountAddress: snapshot.accountAddress,
+            accountId: snapshot.accountId,
+            networkId: snapshot.networkId,
+            buildUnsignedParams: snapshot.buildUnsignedParams,
+            approveUnsignedTxArr,
+            networkFeeLevel,
+          });
+
+          if (
+            !snapshot.buildUnsignedParams.encodedTx &&
+            feeState.preparedUnsignedTx.encodedTx
+          ) {
+            snapshot.buildUnsignedParams = {
+              ...snapshot.buildUnsignedParams,
+              encodedTx: feeState.preparedUnsignedTx.encodedTx,
+            };
+          }
+
+          netWorkFee = {
+            gasInfos: feeState.gasInfos,
+            gasFeeFiatValue: feeState.gasFeeFiatValue,
+          };
+        }
+      } catch {
+        netWorkFee = undefined;
+      }
+
+      return {
+        steps: nextReviewState.steps,
+        preSwapData: {
+          ...nextReviewState.preSwapData,
+          swapBuildResultData: {
+            swapInfo: snapshot.swapInfo,
+            encodedTx: snapshot.buildUnsignedParams.encodedTx,
+            transferInfo: snapshot.buildUnsignedParams.transfersInfo?.[0],
+          },
+          netWorkFee,
+        },
+        quoteResult: snapshot.quoteResult,
+      };
+    },
+    [buildMarketApproveUnsignedTxArr, buildReviewStepTexts, slippage],
+  );
+
+  const prepareMarketSwapReview = useCallback<
+    IMarketSwapReviewAdapter['prepareReview']
+  >(
+    async ({
+      fromAmount,
+      fromToken: currentFromToken,
+      toToken: currentToToken,
+      isWrap,
+      quoteResult,
+      networkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
+    } = {}) => {
+      if (quoteResult && reviewExecutionSnapshotRef.current) {
+        return buildMarketReviewStateFromSnapshot(
+          reviewExecutionSnapshotRef.current,
+          networkFeeLevel,
+        );
+      }
+
+      const amount = fromAmount ?? fromTokenAmountDebounced;
+      const fromTokenFinal = currentFromToken ?? fromToken;
+      const toTokenFinal = currentToToken ?? toToken;
+
+      if (isWrap || isWrapped) {
+        const shouldFallback = buildMarketReviewShouldFallback({
+          networkId: fromTokenFinal.networkId,
+          isCustomRpcUnavailable,
+        });
+        const {
+          quoteResult: wrappedQuoteResult,
+          wrappedInfo,
+          swapInfo,
+        } = buildWrappedSwapData({
+          fromAmount: amount,
+          fromToken: fromTokenFinal,
+          toToken: toTokenFinal,
+        });
+        reviewExecutionSnapshotRef.current = {
+          kind: 'wrap',
+          accountAddress: swapInfo.accountAddress,
+          accountId: netAccountRes.result?.id ?? '',
+          networkId: fromTokenFinal.networkId,
+          shouldFallback,
+          quoteResult: wrappedQuoteResult,
+          buildUnsignedParams: {
+            networkId: fromTokenFinal.networkId,
+            accountId: netAccountRes.result?.id ?? '',
+            wrappedInfo,
+            swapInfo,
+            isInternalSwap: true,
+            disableMev: !antiMEV,
+          } as ISendTxBaseParams & IBuildUnsignedTxParams,
+          swapInfo,
+        };
+
+        return buildMarketReviewStateFromSnapshot(
+          reviewExecutionSnapshotRef.current,
+          networkFeeLevel,
+        );
+      }
+
+      const { buildRes, encodedTx, transferInfo, swapInfo, userAddress } =
+        await buildSpeedSwapTxData({
+          fromAmount: amount,
+          fromToken: fromTokenFinal,
+          toToken: toTokenFinal,
+        });
+      const allowanceState = await resolveMarketReviewAllowanceState({
+        amount,
+        currentState: {
+          allowanceTarget: effectiveSpenderAddress,
+          shouldApprove,
+          shouldResetApprove,
+        },
+        isWrapped,
+        spenderAddress: effectiveSpenderAddress,
+        token: fromTokenFinal,
+        walletAddress: netAccountRes.result?.addressDetail.address,
+      });
+      setShouldApprove(allowanceState.shouldApprove);
+      setShouldResetApprove(allowanceState.shouldResetApprove);
+      if (allowanceState.allowanceTarget !== effectiveSpenderAddress) {
+        setCheckSpenderAddress(allowanceState.allowanceTarget ?? '');
+      }
+      const normalizedQuoteResult = assertMarketReviewQuoteResult(
+        normalizeMarketReviewQuoteResult({
+          quoteResult: {
+            ...buildRes.result,
+            slippage: buildRes.result.slippage ?? slippage,
+          },
+          shouldApprove: allowanceState.shouldApprove,
+          shouldResetApprove: allowanceState.shouldResetApprove,
+          spenderAddress:
+            allowanceState.allowanceTarget ?? effectiveSpenderAddress,
+          amount,
+        }),
+      );
+      const shouldFallback = buildMarketReviewShouldFallback({
+        networkId: fromTokenFinal.networkId,
+        isCustomRpcUnavailable,
+      });
+      reviewExecutionSnapshotRef.current = {
+        kind: 'swap',
+        accountAddress: userAddress,
+        accountId: netAccountRes.result?.id ?? '',
+        networkId: fromTokenFinal.networkId,
+        shouldFallback,
+        quoteResult: normalizedQuoteResult,
+        buildUnsignedParams: {
+          networkId: fromTokenFinal.networkId,
+          accountId: netAccountRes.result?.id ?? '',
+          transfersInfo: transferInfo ? [transferInfo] : undefined,
+          encodedTx,
+          swapInfo,
+          isInternalSwap: true,
+          disableMev: !antiMEV,
+        } as ISendTxBaseParams & IBuildUnsignedTxParams,
+        swapInfo,
+        buildRes,
+      };
+
+      return buildMarketReviewStateFromSnapshot(
+        reviewExecutionSnapshotRef.current,
+        networkFeeLevel,
+      );
+    },
+    [
+      antiMEV,
+      buildMarketReviewStateFromSnapshot,
+      buildSpeedSwapTxData,
+      buildWrappedSwapData,
+      effectiveSpenderAddress,
+      fromToken,
+      fromTokenAmountDebounced,
+      isCustomRpcUnavailable,
+      isWrapped,
+      netAccountRes.result?.id,
+      netAccountRes.result?.addressDetail.address,
+      shouldApprove,
+      shouldResetApprove,
+      slippage,
+      toToken,
+    ],
+  );
 
   const checkTokenApproveAllowance = useCallback(
     async (amount: string, overrideSpenderAddress?: string) => {
@@ -1028,143 +1291,902 @@ export function useSpeedSwapActions(props: {
     ],
   );
 
-  const approveRun = useCallback(
+  const isUserCancelledError = useCallback((error: unknown) => {
+    const normalizedError = error as
+      | {
+          code?: number;
+          key?: string;
+          message?: string;
+        }
+      | undefined;
+
+    return (
+      normalizedError?.key === 'global.cancel' ||
+      normalizedError?.code === 803 ||
+      normalizedError?.code === -99_999 ||
+      normalizedError?.message?.toLowerCase().includes('reject') === true
+    );
+  }, []);
+
+  const requireReviewExecutionSnapshot = useCallback(
+    (kind?: IMarketReviewExecutionSnapshot['kind']) => {
+      const snapshot = reviewExecutionSnapshotRef.current;
+
+      if (!snapshot) {
+        throw new OneKeyLocalError('Market review snapshot missing.');
+      }
+
+      if (kind && snapshot.kind !== kind) {
+        throw new OneKeyLocalError('Market review snapshot type mismatch.');
+      }
+
+      return snapshot;
+    },
+    [],
+  );
+
+  const openMarketFallbackTxConfirm = useCallback(
     async ({
-      amount,
-      isReset,
-      fromToken: fromTokenParam,
-      toToken: toTokenParam,
+      buildUnsignedParams,
+      approvesInfo,
+      onSuccess,
+      onCancel,
     }: {
-      spenderAddress: string;
-      amount: string;
-      isReset?: boolean;
-      fromToken: ISwapTokenBase;
-      toToken: ISwapTokenBase;
+      buildUnsignedParams: IMarketReviewExecutionSnapshot['buildUnsignedParams'];
+      approvesInfo?: IApproveInfo[];
+      onSuccess?: (data: ISendTxOnSuccessData[]) => void;
+      onCancel?: () => void;
+    }) => {
+      await navigationToTxConfirm({
+        wrappedInfo: buildUnsignedParams.wrappedInfo,
+        transfersInfo: buildUnsignedParams.transfersInfo,
+        encodedTx: buildUnsignedParams.encodedTx,
+        swapInfo: buildUnsignedParams.swapInfo,
+        approvesInfo,
+        isInternalSwap: true,
+        disableMev: buildUnsignedParams.disableMev,
+        onSuccess,
+        onCancel,
+      });
+    },
+    [navigationToTxConfirm],
+  );
+
+  const signMarketReviewQuoteResult = useCallback(
+    async ({
+      quoteResult,
+      accountId,
+      networkId,
+      accountAddress,
+      receivingAddress,
+    }: {
+      quoteResult: IFetchQuoteResult;
+      accountId: string;
+      networkId: string;
+      accountAddress: string;
+      receivingAddress: string;
+    }) => {
+      const signedQuoteResult = cloneDeep(quoteResult);
+      const signPayload = signedQuoteResult.swapShouldSignedData;
+
+      if (!signPayload) {
+        throw new OneKeyLocalError('Market sign payload missing.');
+      }
+
+      const {
+        unSignedInfo,
+        unSignedMessage,
+        unSignedData,
+        oneInchFusionOrder,
+      } = signPayload;
+
+      if (
+        (unSignedMessage || unSignedData) &&
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        signedQuoteResult.quoteResultCtx?.cowSwapUnSignedOrder
+      ) {
+        const unSignedOrder: {
+          sellTokenBalance: string;
+          buyTokenBalance: string;
+          validTo: number;
+          appData: string;
+          receiver: string;
+          buyAmount: string;
+          sellAmount: string;
+          partiallyFillable: boolean;
+        } =
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          signedQuoteResult.quoteResultCtx.cowSwapUnSignedOrder;
+
+        unSignedOrder.receiver = receivingAddress;
+        let dataMessage = unSignedMessage;
+
+        if (!dataMessage && unSignedData) {
+          const populated = await ethers.utils._TypedDataEncoder.resolveNames(
+            unSignedData.domain,
+            unSignedData.types,
+            {
+              ...unSignedOrder,
+              sellTokenBalance:
+                (unSignedOrder.sellTokenBalance as OrderBalance) ??
+                OrderBalance.ERC20,
+              buyTokenBalance: normalizeBuyTokenBalance(
+                unSignedOrder.buyTokenBalance as OrderBalance,
+              ),
+              validTo: timestamp(unSignedOrder.validTo),
+              appData: hashify(unSignedOrder.appData),
+            },
+            async (value: string) => value,
+          );
+
+          dataMessage = JSON.stringify(
+            ethers.utils._TypedDataEncoder.getPayload(
+              populated.domain,
+              unSignedData.types,
+              populated.value,
+            ),
+          );
+        }
+
+        if (!dataMessage) {
+          throw new OneKeyError('sign message failed');
+        }
+
+        const signature = await backgroundApiProxy.serviceSend.signMessage({
+          unsignedMessage: {
+            type: unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
+            message: dataMessage,
+            payload: [accountAddress.toLowerCase(), dataMessage],
+          },
+          networkId,
+          accountId,
+        });
+
+        if (!signature) {
+          throw new OneKeyError('sign message failed');
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        signedQuoteResult.quoteResultCtx.cowSwapUnSignedOrder = unSignedOrder;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        signedQuoteResult.quoteResultCtx.signedResult = {
+          signature,
+          signingScheme: ESigningScheme.EIP712,
+        };
+
+        return signedQuoteResult;
+      }
+
+      if (oneInchFusionOrder) {
+        if (oneInchFusionOrder.makerAddress && oneInchFusionOrder.typedData) {
+          const dataMessage = JSON.stringify(oneInchFusionOrder.typedData);
+          const signature = await backgroundApiProxy.serviceSend.signMessage({
+            unsignedMessage: {
+              type: unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
+              message: dataMessage,
+              payload: [accountAddress.toLowerCase(), dataMessage],
+            },
+            networkId,
+            accountId,
+          });
+
+          if (!signature) {
+            throw new OneKeyError('sign message failed');
+          }
+
+          return attachMarketOneInchFusionSignature({
+            quoteResult: signedQuoteResult,
+            signature,
+          });
+        }
+      }
+
+      throw new OneKeyLocalError('Market sign payload is not supported.');
+    },
+    [],
+  );
+
+  const refreshMarketSigningQuoteResult = useCallback(
+    async ({
+      snapshot,
+    }: {
+      snapshot: IMarketReviewExecutionSnapshot;
+    }): Promise<IFetchQuoteResult> => {
+      if (canReuseMarketSigningQuoteResult(snapshot.quoteResult)) {
+        return snapshot.quoteResult;
+      }
+
+      if (!isStock) {
+        return snapshot.quoteResult;
+      }
+
+      const freshQuoteResult =
+        await backgroundApiProxy.serviceSwap.fetchSpeedMarketQuote({
+          fromToken: snapshot.swapInfo.sender.token,
+          toToken: snapshot.swapInfo.receiver.token,
+          fromTokenAmount: snapshot.swapInfo.sender.amount,
+          userAddress: snapshot.accountAddress,
+          receivingAddress: snapshot.swapInfo.receivingAddress,
+          slippagePercentage: snapshot.quoteResult.slippage ?? slippage,
+          accountId: snapshot.accountId,
+        });
+
+      if (!freshQuoteResult?.swapShouldSignedData) {
+        throw new OneKeyLocalError(
+          freshQuoteResult?.errorMessage ??
+            'Market stock quote sign payload missing.',
+        );
+      }
+
+      return assertMarketSignPreviewInvariant({
+        reviewedQuoteResult: snapshot.quoteResult,
+        signingQuoteResult: {
+          ...snapshot.quoteResult,
+          ...freshQuoteResult,
+          allowanceResult: snapshot.quoteResult.allowanceResult,
+          slippage:
+            freshQuoteResult.slippage ??
+            snapshot.quoteResult.slippage ??
+            slippage,
+        },
+      });
+    },
+    [isStock, slippage],
+  );
+
+  const handleMarketApproveTxSuccess = useCallback(
+    ({
+      approveInfo,
+      approvingTransaction,
+      data,
+      isResetApprove,
+      networkId,
+      onBroadcast,
+    }: {
+      approveInfo: IApproveInfo;
+      approvingTransaction: ISwapApproveTransaction;
+      data: ISendTxOnSuccessData[];
+      isResetApprove?: boolean;
+      networkId: string;
+      onBroadcast?: (result: ISwapReviewApproveBroadcastResult) => void;
+    }) => {
+      const txId = data[0]?.signedTx.txid;
+      const approveAmount = data[0]?.approveInfo?.amount ?? approveInfo.amount;
+
+      if (!txId) {
+        return;
+      }
+
+      if (!isResetApprove) {
+        void backgroundApiProxy.serviceNotification.blockNotificationForTxId({
+          networkId,
+          tx: txId,
+        });
+      }
+
+      setInAppNotificationAtom((prev) => {
+        return {
+          ...prev,
+          speedSwapApprovingTransaction: {
+            ...(prev.speedSwapApprovingTransaction ?? approvingTransaction),
+            txId,
+            amount: approveAmount,
+            resetApproveIsMax: !!data[0]?.approveInfo?.isMax,
+          },
+        };
+      });
+
+      onBroadcast?.({
+        txHash: txId,
+        amount: approveAmount,
+      });
+    },
+    [setInAppNotificationAtom],
+  );
+
+  const cancelMarketApproveTx = useCallback(() => {
+    setInAppNotificationAtom((prev) => {
+      if (!prev.speedSwapApprovingTransaction) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        speedSwapApprovingTransaction: {
+          ...prev.speedSwapApprovingTransaction,
+          status: ESwapApproveTransactionStatus.CANCEL,
+        },
+      };
+    });
+  }, [setInAppNotificationAtom]);
+
+  const startMarketApproveTx = useCallback(
+    async ({
+      accountAddress,
+      accountId,
+      networkId,
+      approveInfo,
+      approvingTransaction,
+      gasInfos,
+      networkFeeLevel,
+      onBroadcast,
+      onCancel,
+    }: {
+      accountAddress: string;
+      accountId: string;
+      networkId: string;
+      approveInfo: IApproveInfo;
+      approvingTransaction: ISwapApproveTransaction;
+      gasInfos?: ISwapReviewGasInfoEntry[];
+      networkFeeLevel?: ESwapNetworkFeeLevel;
+      onBroadcast?: (result: ISwapReviewApproveBroadcastResult) => void;
+      onCancel?: () => void;
     }) => {
       try {
-        setInAppNotificationAtom((pre) => ({
-          ...pre,
+        setInAppNotificationAtom((prev) => ({
+          ...prev,
           speedSwapApprovingLoading: true,
+          speedSwapApprovingTransaction: approvingTransaction,
         }));
-        setSpeedSwapApproveActionLoading(true);
-        const userAddress = netAccountRes.result?.addressDetail.address ?? '';
-        const approveInfo: IApproveInfo = {
-          owner: userAddress,
-          spender: effectiveSpenderAddress,
-          amount: isReset ? '0' : amount,
-          isMax: !isReset,
-          tokenInfo: {
-            ...fromTokenParam,
-            isNative: !!fromTokenParam.isNative,
-            address: fromTokenParam.contractAddress,
-            name: fromTokenParam.name ?? fromTokenParam.symbol,
-          },
-          swapApproveRes: undefined,
-        };
-        await navigationToTxConfirm({
-          approvesInfo: [approveInfo],
-          isInternalSwap: true,
-          onSuccess: handleSpeedSwapApproveTxSuccess,
-          onCancel: cancelSpeedSwapApproveTx,
-          disableMev: !antiMEV,
+
+        const data = await sendMarketDirectUnsignedTxs({
+          accountAddress,
+          accountId,
+          networkId,
+          buildUnsignedParams: {
+            accountId,
+            networkId,
+            approveInfo,
+            isInternalSwap: true,
+            disableMev: !antiMEV,
+          } as ISendTxBaseParams & IBuildUnsignedTxParams,
+          gasInfos,
+          networkFeeLevel,
         });
-        setInAppNotificationAtom((pre) => ({
-          ...pre,
-          speedSwapApprovingTransaction: {
-            swapType: ESwapTabSwitchType.SWAP,
-            protocol: EProtocolOfExchange.SWAP,
-            provider,
-            providerName: provider,
-            unSupportReceiveAddressDifferent: false,
-            fromToken: fromTokenParam,
-            toToken: toTokenParam,
-            amount,
-            toAmount: amount,
-            useAddress: userAddress,
-            spenderAddress: effectiveSpenderAddress,
-            status: ESwapApproveTransactionStatus.PENDING,
-            kind: ESwapQuoteKind.SELL,
-            resetApproveValue: !isReset ? '0' : amount,
-            resetApproveIsMax: !isReset,
-          },
-        }));
-        setSpeedSwapApproveActionLoading(false);
-      } catch (_e) {
-        setInAppNotificationAtom((pre) => ({
-          ...pre,
+        handleMarketApproveTxSuccess({
+          approveInfo,
+          approvingTransaction,
+          data,
+          isResetApprove: approveInfo.amount === '0',
+          networkId,
+          onBroadcast,
+        });
+      } catch (error) {
+        setInAppNotificationAtom((prev) => ({
+          ...prev,
           speedSwapApprovingLoading: false,
         }));
-        setSpeedSwapApproveActionLoading(false);
+        if (isUserCancelledError(error)) {
+          cancelMarketApproveTx();
+          onCancel?.();
+          return;
+        }
+        throw error;
       }
     },
     [
-      setInAppNotificationAtom,
-      netAccountRes.result?.addressDetail.address,
-      effectiveSpenderAddress,
-      navigationToTxConfirm,
-      handleSpeedSwapApproveTxSuccess,
-      cancelSpeedSwapApproveTx,
       antiMEV,
-      provider,
+      cancelMarketApproveTx,
+      handleMarketApproveTxSuccess,
+      isUserCancelledError,
+      setInAppNotificationAtom,
     ],
   );
 
-  const speedSwapApproveHandler = useCallback(async () => {
-    if (shouldResetApprove) {
-      Dialog.show({
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: () => {
-          void approveRun({
-            spenderAddress: effectiveSpenderAddress,
-            amount: fromTokenAmountDebounced,
-            isReset: shouldResetApprove,
-            fromToken,
-            toToken,
-          });
-        },
-        showCancelButton: true,
-        title: intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
-        }),
-        icon: 'ErrorOutline',
-      });
-    } else {
-      void approveRun({
-        spenderAddress: effectiveSpenderAddress,
-        amount: fromTokenAmountDebounced,
-        isReset: shouldResetApprove,
-        fromToken,
-        toToken,
-      });
-    }
-  }, [
-    approveRun,
-    fromToken,
-    fromTokenAmountDebounced,
-    intl,
-    shouldResetApprove,
-    effectiveSpenderAddress,
-    toToken,
-  ]);
-
-  const handleSwapSpeedApprovingReset = useCallback(
+  const handleMarketResetApprove = useCallback(
     ({ approvedSwapInfo }: { approvedSwapInfo: ISwapApproveTransaction }) => {
-      if (approvedSwapInfo.resetApproveValue) {
-        void approveRun({
-          spenderAddress: approvedSwapInfo.spenderAddress,
-          amount: approvedSwapInfo.resetApproveValue,
-          isReset: false,
-          fromToken: approvedSwapInfo.fromToken,
-          toToken: approvedSwapInfo.toToken,
+      if (
+        !shouldAutoContinueMarketResetApprove({
+          approvedSwapInfo,
+          isReviewDialogOpen,
+        })
+      ) {
+        return;
+      }
+
+      const userAddress =
+        netAccountRes.result?.addressDetail.address ??
+        approvedSwapInfo.useAddress;
+      const accountId = netAccountRes.result?.id ?? '';
+      if (!userAddress || !accountId || !approvedSwapInfo.resetApproveValue) {
+        return;
+      }
+
+      const nextApproveInfo: IApproveInfo = {
+        owner: userAddress,
+        spender: approvedSwapInfo.spenderAddress,
+        amount: approvedSwapInfo.resetApproveValue,
+        isMax: true,
+        tokenInfo: {
+          ...approvedSwapInfo.fromToken,
+          isNative: !!approvedSwapInfo.fromToken.isNative,
+          address: approvedSwapInfo.fromToken.contractAddress,
+          name:
+            approvedSwapInfo.fromToken.name ??
+            approvedSwapInfo.fromToken.symbol,
+        },
+        swapApproveRes: undefined,
+      };
+
+      const nextApprovingTransaction: ISwapApproveTransaction = {
+        ...approvedSwapInfo,
+        amount: approvedSwapInfo.resetApproveValue,
+        resetApproveValue: '0',
+        resetApproveIsMax: true,
+        status: ESwapApproveTransactionStatus.PENDING,
+        txId: undefined,
+      };
+
+      void startMarketApproveTx({
+        accountAddress: userAddress,
+        accountId,
+        networkId: approvedSwapInfo.fromToken.networkId,
+        approveInfo: nextApproveInfo,
+        approvingTransaction: nextApprovingTransaction,
+      });
+    },
+    [
+      isReviewDialogOpen,
+      netAccountRes.result?.addressDetail.address,
+      netAccountRes.result?.id,
+      startMarketApproveTx,
+    ],
+  );
+
+  useEffect(() => {
+    appEventBus.off(
+      EAppEventBusNames.SwapSpeedApprovingReset,
+      handleMarketResetApprove,
+    );
+    appEventBus.on(
+      EAppEventBusNames.SwapSpeedApprovingReset,
+      handleMarketResetApprove,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapSpeedApprovingReset,
+        handleMarketResetApprove,
+      );
+    };
+  }, [handleMarketResetApprove]);
+
+  const sendMarketSwapTx = useCallback<IMarketSwapReviewAdapter['sendSwapTx']>(
+    async ({
+      approvesInfo,
+      gasInfos,
+      networkFeeLevel,
+      onBroadcast,
+      onCancel,
+    } = {}) => {
+      const snapshot = requireReviewExecutionSnapshot('swap');
+
+      try {
+        if (snapshot.shouldFallback) {
+          setSpeedSwapBuildTxLoading(true);
+
+          await openMarketFallbackTxConfirm({
+            buildUnsignedParams: snapshot.buildUnsignedParams,
+            approvesInfo: approvesInfo?.length ? approvesInfo : undefined,
+            onSuccess: async (data) => {
+              const result = await handleMarketSwapBuildTxSuccess(data);
+              if (result) {
+                onBroadcast?.(result);
+              }
+              if (snapshot.buildRes) {
+                logMarketCreateOrder({
+                  buildRes: snapshot.buildRes,
+                  amount: snapshot.swapInfo.sender.amount,
+                  userAddress: snapshot.accountAddress,
+                  status: ESwapEventAPIStatus.SUCCESS,
+                });
+              }
+            },
+            onCancel: () => {
+              cancelSpeedSwapBuildTx();
+              onCancel?.();
+            },
+          });
+
+          return;
+        }
+
+        const approveUnsignedTxArr = await buildMarketApproveUnsignedTxArr({
+          approveInfos: approvesInfo,
+          accountId: snapshot.accountId,
+          networkId: snapshot.networkId,
         });
+        const data = await sendMarketDirectUnsignedTxs({
+          accountAddress: snapshot.accountAddress,
+          accountId: snapshot.accountId,
+          networkId: snapshot.networkId,
+          buildUnsignedParams: snapshot.buildUnsignedParams,
+          approveUnsignedTxArr,
+          gasInfos,
+          networkFeeLevel,
+        });
+        const result = await handleMarketSwapBuildTxSuccess(data);
+        if (result) {
+          onBroadcast?.(result);
+        }
+        logMarketCreateOrder({
+          buildRes: snapshot.buildRes as IFetchBuildTxResponse,
+          amount: snapshot.swapInfo.sender.amount,
+          userAddress: snapshot.accountAddress,
+          status: ESwapEventAPIStatus.SUCCESS,
+        });
+      } catch (error) {
+        cancelSpeedSwapBuildTx();
+        if (snapshot.buildRes) {
+          logMarketCreateOrder({
+            buildRes: snapshot.buildRes,
+            amount: snapshot.swapInfo.sender.amount,
+            userAddress: snapshot.accountAddress,
+            status: ESwapEventAPIStatus.FAIL,
+          });
+        }
+        if (isUserCancelledError(error)) {
+          onCancel?.();
+          return;
+        }
+        throw error;
       }
     },
-    [approveRun],
+    [
+      buildMarketApproveUnsignedTxArr,
+      cancelSpeedSwapBuildTx,
+      handleMarketSwapBuildTxSuccess,
+      isUserCancelledError,
+      logMarketCreateOrder,
+      openMarketFallbackTxConfirm,
+      requireReviewExecutionSnapshot,
+    ],
+  );
+
+  const sendMarketWrappedTx = useCallback<
+    IMarketSwapReviewAdapter['sendWrappedTx']
+  >(
+    async ({ gasInfos, networkFeeLevel, onBroadcast, onCancel } = {}) => {
+      const snapshot = requireReviewExecutionSnapshot('wrap');
+
+      try {
+        if (snapshot.shouldFallback) {
+          setSpeedSwapBuildTxLoading(true);
+
+          await openMarketFallbackTxConfirm({
+            buildUnsignedParams: snapshot.buildUnsignedParams,
+            onSuccess: async (data) => {
+              const result = await handleMarketSwapBuildTxSuccess(data);
+              if (result) {
+                onBroadcast?.(result);
+              }
+            },
+            onCancel: () => {
+              cancelSpeedSwapBuildTx();
+              onCancel?.();
+            },
+          });
+
+          return;
+        }
+
+        const data = await sendMarketDirectUnsignedTxs({
+          accountAddress: snapshot.accountAddress,
+          accountId: snapshot.accountId,
+          networkId: snapshot.networkId,
+          buildUnsignedParams: snapshot.buildUnsignedParams,
+          gasInfos,
+          networkFeeLevel,
+        });
+        const result = await handleMarketSwapBuildTxSuccess(data);
+        if (result) {
+          onBroadcast?.(result);
+        }
+      } catch (error) {
+        cancelSpeedSwapBuildTx();
+        if (isUserCancelledError(error)) {
+          onCancel?.();
+          return;
+        }
+        throw error;
+      }
+    },
+    [
+      cancelSpeedSwapBuildTx,
+      handleMarketSwapBuildTxSuccess,
+      isUserCancelledError,
+      openMarketFallbackTxConfirm,
+      requireReviewExecutionSnapshot,
+    ],
+  );
+
+  const sendMarketSignMessage = useCallback<
+    IMarketSwapReviewAdapter['sendSignMessage']
+  >(
+    async ({
+      networkFeeLevel: _networkFeeLevel,
+      onBroadcast,
+      onCancel,
+    } = {}) => {
+      const snapshot = requireReviewExecutionSnapshot('swap');
+
+      try {
+        const signingQuoteResult = await refreshMarketSigningQuoteResult({
+          snapshot,
+        });
+        const signedQuoteResult = await signMarketReviewQuoteResult({
+          quoteResult: signingQuoteResult,
+          accountId: snapshot.accountId,
+          networkId: snapshot.networkId,
+          accountAddress: snapshot.accountAddress,
+          receivingAddress: snapshot.swapInfo.receivingAddress,
+        });
+        const buildRes =
+          await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx({
+            fromToken: snapshot.swapInfo.sender.token,
+            toToken: snapshot.swapInfo.receiver.token,
+            fromTokenAmount:
+              signedQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
+            provider: signedQuoteResult.info.provider,
+            userAddress: snapshot.accountAddress,
+            receivingAddress: snapshot.swapInfo.receivingAddress,
+            slippagePercentage: signedQuoteResult.slippage ?? slippage,
+            quoteResultCtx: signedQuoteResult.quoteResultCtx,
+            accountId: snapshot.accountId,
+            protocol: signedQuoteResult.protocol ?? EProtocolOfExchange.SWAP,
+            kind: signedQuoteResult.kind ?? ESwapQuoteKind.SELL,
+          });
+
+        if (!buildRes) {
+          throw new OneKeyLocalError('Market sign build failed.');
+        }
+
+        const { encodedTx, transferInfo, swapInfo, skipSendTransAction } =
+          await buildMarketExecutionFromBuildRes({
+            buildRes,
+            quoteResult: signedQuoteResult,
+            currentFromToken: snapshot.swapInfo.sender.token,
+            currentToToken: snapshot.swapInfo.receiver.token,
+            fromAmount:
+              signedQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
+            userAddress: snapshot.accountAddress,
+            accountId: snapshot.accountId,
+          });
+        const buildResFinal = mergeMarketBuildResultWithQuote({
+          buildRes,
+          quoteResult: signedQuoteResult,
+        });
+        const buildCtx = buildResFinal.ctx as
+          | {
+              cowSwapOrderId?: string;
+              oneInchFusionOrderHash?: string;
+              changeHeroOrderId?: string;
+            }
+          | undefined;
+        const signedOrderTrackingId =
+          swapInfo.swapBuildResData.orderId ??
+          buildCtx?.cowSwapOrderId ??
+          buildCtx?.oneInchFusionOrderHash ??
+          buildCtx?.changeHeroOrderId;
+        const shouldPersistSignedOrder =
+          skipSendTransAction || Boolean(signedOrderTrackingId);
+        const reviewedBuildResult = assertMarketSignedBuildInvariant({
+          reviewedQuoteResult: snapshot.quoteResult,
+          rebuiltQuoteResult: buildResFinal.result,
+          skipSendTransAction: shouldPersistSignedOrder,
+        });
+
+        reviewExecutionSnapshotRef.current = {
+          kind: 'swap',
+          accountAddress: snapshot.accountAddress,
+          accountId: snapshot.accountId,
+          networkId: snapshot.networkId,
+          shouldFallback: snapshot.shouldFallback,
+          quoteResult: {
+            ...signedQuoteResult,
+            info: reviewedBuildResult.info,
+            fromAmount: reviewedBuildResult.fromAmount,
+            toAmount: reviewedBuildResult.toAmount,
+            minToAmount: reviewedBuildResult.minToAmount,
+          },
+          buildUnsignedParams: {
+            networkId: snapshot.networkId,
+            accountId: snapshot.accountId,
+            transfersInfo: transferInfo ? [transferInfo] : undefined,
+            encodedTx,
+            swapInfo,
+            isInternalSwap: true,
+            disableMev: !antiMEV,
+          } as ISendTxBaseParams & IBuildUnsignedTxParams,
+          swapInfo,
+          buildRes: buildResFinal,
+        };
+
+        if (shouldPersistSignedOrder) {
+          const result = await handleMarketSignedOrderSuccess({
+            swapInfo,
+          });
+
+          onBroadcast?.({
+            orderId: result.orderId,
+          });
+          logMarketCreateOrder({
+            buildRes: buildResFinal,
+            amount: swapInfo.sender.amount,
+            userAddress: snapshot.accountAddress,
+            status: ESwapEventAPIStatus.SUCCESS,
+          });
+        }
+      } catch (error) {
+        cancelSpeedSwapBuildTx();
+        if (snapshot.buildRes) {
+          logMarketCreateOrder({
+            buildRes: snapshot.buildRes,
+            amount: snapshot.swapInfo.sender.amount,
+            userAddress: snapshot.accountAddress,
+            status: ESwapEventAPIStatus.FAIL,
+          });
+        }
+        if (isUserCancelledError(error)) {
+          onCancel?.();
+          return;
+        }
+        throw error;
+      }
+    },
+    [
+      antiMEV,
+      buildMarketExecutionFromBuildRes,
+      cancelSpeedSwapBuildTx,
+      handleMarketSignedOrderSuccess,
+      isUserCancelledError,
+      logMarketCreateOrder,
+      requireReviewExecutionSnapshot,
+      refreshMarketSigningQuoteResult,
+      signMarketReviewQuoteResult,
+      slippage,
+    ],
+  );
+
+  const sendMarketApproveTx = useCallback<
+    IMarketSwapReviewAdapter['sendApproveTx']
+  >(
+    async ({
+      amount,
+      gasInfos,
+      isResetApprove,
+      networkFeeLevel,
+      quoteResult,
+      onBroadcast,
+      onCancel,
+    }) => {
+      const snapshot = reviewExecutionSnapshotRef.current;
+      const userAddress =
+        snapshot?.accountAddress ??
+        netAccountRes.result?.addressDetail.address ??
+        '';
+      const accountId = snapshot?.accountId ?? netAccountRes.result?.id ?? '';
+      const spenderAddressFinal =
+        quoteResult.allowanceResult?.allowanceTarget ?? effectiveSpenderAddress;
+
+      if (!userAddress || !spenderAddressFinal || !accountId) {
+        throw new OneKeyLocalError(
+          'Market swap review approve requires spender and user.',
+        );
+      }
+
+      const approveInfo: IApproveInfo = {
+        owner: userAddress,
+        spender: spenderAddressFinal,
+        amount: isResetApprove ? '0' : amount,
+        isMax: !isResetApprove,
+        tokenInfo: {
+          ...quoteResult.fromTokenInfo,
+          isNative: !!quoteResult.fromTokenInfo.isNative,
+          address: quoteResult.fromTokenInfo.contractAddress,
+          name:
+            quoteResult.fromTokenInfo.name ?? quoteResult.fromTokenInfo.symbol,
+        },
+        swapApproveRes: undefined,
+      };
+
+      try {
+        if (snapshot?.shouldFallback) {
+          const approvingTransaction = buildMarketSwapApprovingTransaction({
+            quoteResult,
+            amount,
+            useAddress: userAddress,
+            spenderAddress: spenderAddressFinal,
+            isResetApprove,
+          });
+
+          setInAppNotificationAtom((prev) => ({
+            ...prev,
+            speedSwapApprovingLoading: true,
+            speedSwapApprovingTransaction: approvingTransaction,
+          }));
+
+          await openMarketFallbackTxConfirm({
+            buildUnsignedParams: {
+              accountId,
+              networkId: quoteResult.fromTokenInfo.networkId,
+              approveInfo,
+              isInternalSwap: true,
+              disableMev: !antiMEV,
+            } as ISendTxBaseParams & IBuildUnsignedTxParams,
+            approvesInfo: [approveInfo],
+            onSuccess: (data) => {
+              handleMarketApproveTxSuccess({
+                approveInfo,
+                approvingTransaction,
+                data,
+                isResetApprove,
+                networkId: quoteResult.fromTokenInfo.networkId,
+                onBroadcast,
+              });
+            },
+            onCancel: () => {
+              setInAppNotificationAtom((prev) => ({
+                ...prev,
+                speedSwapApprovingLoading: false,
+              }));
+              cancelMarketApproveTx();
+              onCancel?.();
+            },
+          });
+
+          return;
+        }
+
+        await startMarketApproveTx({
+          accountAddress: userAddress,
+          accountId,
+          networkId: quoteResult.fromTokenInfo.networkId,
+          approveInfo,
+          approvingTransaction: buildMarketSwapApprovingTransaction({
+            quoteResult,
+            amount,
+            useAddress: userAddress,
+            spenderAddress: spenderAddressFinal,
+            isResetApprove,
+          }),
+          gasInfos,
+          networkFeeLevel,
+          onBroadcast,
+          onCancel,
+        });
+      } catch (error) {
+        setInAppNotificationAtom((prev) => ({
+          ...prev,
+          speedSwapApprovingLoading: false,
+        }));
+        if (isUserCancelledError(error)) {
+          return;
+        }
+        throw error;
+      }
+    },
+    [
+      antiMEV,
+      cancelMarketApproveTx,
+      effectiveSpenderAddress,
+      handleMarketApproveTxSuccess,
+      isUserCancelledError,
+      netAccountRes.result?.addressDetail.address,
+      netAccountRes.result?.id,
+      openMarketFallbackTxConfirm,
+      setInAppNotificationAtom,
+      startMarketApproveTx,
+    ],
+  );
+
+  const buildMarketApproveInfosForReview = useCallback(
+    (quoteResult?: IFetchQuoteResult) =>
+      buildMarketApproveInfos({
+        fromUserAddress: netAccountRes.result?.addressDetail.address,
+        quoteResult,
+      }),
+    [netAccountRes.result?.addressDetail.address],
   );
 
   const syncTokensBalance = useCallback(
@@ -1329,34 +2351,25 @@ export function useSpeedSwapActions(props: {
       syncTokensBalance,
     );
     appEventBus.on(EAppEventBusNames.SwapSpeedBalanceUpdate, syncTokensBalance);
-    appEventBus.off(
-      EAppEventBusNames.SwapSpeedApprovingReset,
-      handleSwapSpeedApprovingReset,
-    );
-    appEventBus.on(
-      EAppEventBusNames.SwapSpeedApprovingReset,
-      handleSwapSpeedApprovingReset,
-    );
     return () => {
       appEventBus.off(
         EAppEventBusNames.SwapSpeedBalanceUpdate,
         syncTokensBalance,
       );
-      appEventBus.off(
-        EAppEventBusNames.SwapSpeedApprovingReset,
-        handleSwapSpeedApprovingReset,
-      );
     };
-  }, [handleSwapSpeedApprovingReset, syncTokensBalance]);
+  }, [syncTokensBalance]);
 
   const runSpeedCheckAndAllowance = useCallback(
     async (amount: string) => {
       const amountBN = new BigNumber(amount || 0);
       if (amountBN.isNaN() || amountBN.lte(0)) {
-        setSpeedCheckError('');
-        setCheckSpenderAddress('');
-        setShouldApprove(false);
-        setShouldResetApprove(false);
+        setSpeedCheckError(defaultMarketSpeedCheckState.speedCheckError);
+        setCheckSpenderAddress(
+          defaultMarketSpeedCheckState.checkSpenderAddress,
+        );
+        setIsStock(defaultMarketSpeedCheckState.isStock);
+        setShouldApprove(defaultMarketSpeedCheckState.shouldApprove);
+        setShouldResetApprove(defaultMarketSpeedCheckState.shouldResetApprove);
         return;
       }
 
@@ -1420,6 +2433,7 @@ export function useSpeedSwapActions(props: {
       }
     },
     [
+      defaultMarketSpeedCheckState,
       fromToken.networkId,
       fromToken.contractAddress,
       fromToken.isNative,
@@ -1451,13 +2465,14 @@ export function useSpeedSwapActions(props: {
         fromTokenAmountDebouncedBN.toFixed(),
       );
     } else {
-      setSpeedCheckError('');
-      setCheckSpenderAddress('');
-      setShouldApprove(false);
-      setShouldResetApprove(false);
-      setIsStock(false);
+      setSpeedCheckError(defaultMarketSpeedCheckState.speedCheckError);
+      setCheckSpenderAddress(defaultMarketSpeedCheckState.checkSpenderAddress);
+      setIsStock(defaultMarketSpeedCheckState.isStock);
+      setShouldApprove(defaultMarketSpeedCheckState.shouldApprove);
+      setShouldResetApprove(defaultMarketSpeedCheckState.shouldResetApprove);
     }
   }, [
+    defaultMarketSpeedCheckState,
     isWrapped,
     balance,
     fromToken.isNative,
@@ -1495,14 +2510,10 @@ export function useSpeedSwapActions(props: {
   ]);
 
   return {
-    speedSwapBuildTx,
-    speedSwapWrappedTx,
     speedSwapBuildTxLoading,
+    swapApprovingMatchLoading,
     checkTokenApproveAllowance,
     checkTokenAllowanceLoading,
-    speedSwapApproveHandler,
-    speedSwapApproveActionLoading,
-    speedSwapApproveTransactionLoading,
     shouldApprove,
     balance,
     balanceToken,
@@ -1512,5 +2523,11 @@ export function useSpeedSwapActions(props: {
     isWrapped,
     speedCheckError,
     speedCheckLoading,
+    prepareMarketSwapReview,
+    sendMarketApproveTx,
+    sendMarketSwapTx,
+    sendMarketWrappedTx,
+    sendMarketSignMessage,
+    buildMarketApproveInfos: buildMarketApproveInfosForReview,
   };
 }
