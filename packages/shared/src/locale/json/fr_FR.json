@@ -1156,7 +1156,7 @@
   "explore.see_all": "Voir tout",
   "explore.set_default": "Définir OneKey comme portefeuille par défaut",
   "explore.set_default_wallet": "Définir OneKey comme portefeuille par défaut",
-  "explore.set_default_wallet_description": "Utilisez OneKey comme portefeuille par défaut pour vous connecter aux dApps.",
+  "explore.set_default_wallet_description": "Utilisez OneKey comme portefeuille par défaut pour les connexions dApp. <strong>Après avoir changé ce paramètre, actualisez la page dApp pour qu'il prenne effet</strong>.",
   "explore.share": "Partager",
   "explore.suggested": "Suggéré",
   "explore.tab_prompt": "Vous pouvez toucher et maintenir pour épingler cet onglet pour un accès rapide.",
