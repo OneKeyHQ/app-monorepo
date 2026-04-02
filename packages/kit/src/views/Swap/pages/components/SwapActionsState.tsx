@@ -294,6 +294,13 @@ const SwapActionsState = ({
       setSwapQuoteEventTotalCount({ count: 0 });
       setSwapQuoteList([]);
 
+      if (
+        swapToAnotherAccountSwitchOn &&
+        !nextSettings.swapToAnotherAccountSwitchOn
+      ) {
+        return;
+      }
+
       void quoteAction(
         swapSlippageRef.current,
         swapFromAddressInfo?.address,
