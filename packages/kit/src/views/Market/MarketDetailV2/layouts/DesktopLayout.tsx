@@ -13,6 +13,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   MarketTradingView,
   PerpetualTradingBanner,
+  StockTradingActivity,
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
@@ -69,8 +70,14 @@ function useIframeWheelPassthrough(scrollRef: RefObject<HTMLElement | null>) {
 }
 
 export function DesktopLayout() {
-  const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
-    useTokenDetail();
+  const {
+    tokenAddress,
+    networkId,
+    tokenDetail,
+    isNative,
+    websocketConfig,
+    isStockToken,
+  } = useTokenDetail();
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
 
@@ -160,11 +167,17 @@ export function DesktopLayout() {
 
             <Divider my="$1" />
 
-            <TokenActivityOverview pl="$3" pr="$5" />
+            {isStockToken ? (
+              <StockTradingActivity />
+            ) : (
+              <>
+                <TokenActivityOverview pl="$3" pr="$5" />
 
-            <Divider />
+                <Divider />
 
-            <TokenSupplementaryInfo />
+                <TokenSupplementaryInfo />
+              </>
+            )}
           </Stack>
         </Stack>
       </XStack>

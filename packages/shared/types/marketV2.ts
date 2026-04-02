@@ -124,6 +124,27 @@ export interface IMarketStockInfo {
   isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
+  // Stock fundamentals (from FMP API)
+  volume24h?: string;
+  volumeShares?: string;
+  turnoverRate?: string;
+  avgDailyVolume1y?: string;
+  weekHigh52?: string;
+  weekLow52?: string;
+  peRatio?: string;
+  pbRatio?: string;
+  psRatio?: string;
+  roe?: string;
+  roa?: string;
+  netProfitMargin?: string;
+  debtToEquity?: string;
+  dividendYield?: string;
+  dividendPerShare?: string;
+  marketCap?: string;
+  sharesOutstanding?: string;
+  underlyingAssetTicker?: string;
+  underlyingAssetName?: string;
+  sharesPerToken?: number;
 }
 
 export interface IMarketTokenListItem {
