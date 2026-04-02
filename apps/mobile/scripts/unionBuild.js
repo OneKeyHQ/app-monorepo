@@ -585,20 +585,31 @@ async function writeBundle({
       : `${manifestCode}\n`;
   }
 
-  // For entry-only bundles (includePre=false), the full `post` from baseJSBundle
-  // contains polyfill startup __r() calls that already ran in common.bundle.
-  // Extract only the LAST __r() call which is the actual entry point require.
+  // Metro's post section has the form:
+  //   __r(initializeCoreId);   ← from getModulesRunBeforeMainModule (e.g. InitializeCore)
+  //   __r(entryId);            ← the actual entry point
+  //
+  // Split bundle strategy:
+  //   common bundle  (includePre=true):  emit runBeforeMainModule __r() calls ONLY
+  //                                      (all but the last), so InitializeCore runs in
+  //                                      both main and background Hermes runtimes when
+  //                                      common.jsbundle is loaded.
+  //   entry bundles  (includePre=false): emit ONLY the entry __r() (last call),
+  //                                      since runBeforeMainModule already ran via common.
   let postSection = '';
   if (includePost) {
+    const rCalls = post.match(/__r\(\d+\)/g) || [];
     if (includePre) {
-      // Common/full bundle: use Metro's original post
-      postSection = post;
+      // Common bundle: emit the runBeforeMainModule __r() calls (all except the entry).
+      // These initialize React Native globals (fetch, timers, etc.) in every runtime
+      // that loads common.jsbundle.
+      if (rCalls.length > 1) {
+        postSection = rCalls.slice(0, -1).map((r) => `${r};`).join('\n') + '\n';
+      }
+      // If there is only one __r() it IS the entry — nothing to emit here.
     } else {
-      // Entry-only bundle: extract only the entry module's __r() from Metro's post.
-      // Metro's post has: __r(polyfill1);\n__r(polyfill2);\n__r(entryId);\n
-      // The last __r() is the actual entry point.
-      const rCalls = post.match(/__r\(\d+\)/g);
-      if (rCalls && rCalls.length > 0) {
+      // Entry-only bundle: emit only the entry module's __r().
+      if (rCalls.length > 0) {
         postSection = `${rCalls[rCalls.length - 1]};\n`;
       }
     }
@@ -870,7 +881,7 @@ async function main() {
         !segmentAbsPaths.has(absolutePath),
       manifest: mergedManifest,
       includePre: true,
-      includePost: false,
+      includePost: true,
       includeManifest: true,
       graph,
       prepend,
