@@ -1,67 +1,100 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import { createStore } from 'mipd';
 
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
+import type { EIP6963ProviderDetail } from 'mipd';
+
+const ONE_KEY_RDNS_PATTERNS = ['so.onekey.app.wallet'];
+
+// ---------------------------------------------------------------------------
+// Module-level singleton MIPD store + useSyncExternalStore glue
+// ---------------------------------------------------------------------------
+const sharedMipdStore =
+  typeof globalThis !== 'undefined' ? createStore() : undefined;
+
+let cachedProviders: readonly EIP6963ProviderDetail[] =
+  sharedMipdStore?.getProviders() ?? [];
+
+const listeners = new Set<() => void>();
+
+sharedMipdStore?.subscribe((updated) => {
+  cachedProviders = updated;
+  listeners.forEach((l) => l());
+});
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function getSnapshot() {
+  return cachedProviders;
+}
+
+function findOneKeyProvider(providers: readonly EIP6963ProviderDetail[]) {
+  return providers.find((provider) => {
+    if (!provider?.info) return false;
+    const rdns = provider.info.rdns?.toLowerCase() ?? '';
+    const name = provider.info.name?.toLowerCase() ?? '';
+    return (
+      ONE_KEY_RDNS_PATTERNS.some((p) => rdns.includes(p)) ||
+      name.includes('onekey')
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useEIP6963Providers — returns the latest provider list, auto-updates
+// ---------------------------------------------------------------------------
+function useEIP6963Providers() {
+  return useSyncExternalStore(subscribe, getSnapshot);
+}
+
+// ---------------------------------------------------------------------------
+// useOneKeyWalletDetection
+// ---------------------------------------------------------------------------
 export function useOneKeyWalletDetection() {
-  // check injected wallet
   const isOneKeyExtWalletInstalled = !!globalThis.$onekey?.$private?.isOneKey;
+  const providers = useEIP6963Providers();
 
-  // get EIP6963 providers
-  const getEIP6963Providers = useCallback(() => {
-    if (typeof globalThis === 'undefined') return [];
+  const oneKeyEIP6963Provider = useMemo(
+    () => findOneKeyProvider(providers),
+    [providers],
+  );
 
-    const mipd = createStore();
-    return mipd.getProviders();
-  }, []);
-
-  // find OneKey EIP6963 provider
-  const oneKeyEIP6963Provider = useMemo(() => {
-    const providers = getEIP6963Providers();
-
-    // OneKey RDNS
-    const oneKeyRdnsPatterns = ['so.onekey.app.wallet'];
-
-    // find OneKey provider
-    const oneKeyProvider = providers.find((provider) => {
-      if (!provider?.info) return false;
-
-      const rdns = provider.info.rdns?.toLowerCase() ?? '';
-      const name = provider.info.name?.toLowerCase() ?? '';
-
-      const rdnsMatch = oneKeyRdnsPatterns.some((pattern) =>
-        rdns.includes(pattern.toLowerCase()),
-      );
-
-      const nameMatch = name.includes('onekey');
-
-      return rdnsMatch || nameMatch;
-    });
-
-    return oneKeyProvider;
-  }, [getEIP6963Providers]);
-
-  // get OneKey connection info via EIP6963 only
   const getOneKeyConnectionInfo =
     useCallback((): IExternalConnectionInfo | null => {
-      if (oneKeyEIP6963Provider) {
+      // Prefer the cached provider from subscribe; fall back to a fresh read.
+      const provider =
+        oneKeyEIP6963Provider ??
+        findOneKeyProvider(sharedMipdStore?.getProviders() ?? []);
+
+      if (provider) {
         return {
           evmEIP6963: {
-            info: oneKeyEIP6963Provider.info,
+            info: provider.info,
+          },
+        };
+      }
+
+      if (isOneKeyExtWalletInstalled) {
+        return {
+          evmInjected: {
+            global: 'ethereum',
+            name: 'OneKey Wallet',
           },
         };
       }
 
       return null;
-    }, [oneKeyEIP6963Provider]);
+    }, [oneKeyEIP6963Provider, isOneKeyExtWalletInstalled]);
 
-  // check if OneKey extension is installed
   const isOneKeyInstalled = useMemo(() => {
     return !!oneKeyEIP6963Provider || isOneKeyExtWalletInstalled;
   }, [oneKeyEIP6963Provider, isOneKeyExtWalletInstalled]);
 
-  // get OneKey provider info for display
   const oneKeyProviderInfo = useMemo(() => {
     if (oneKeyEIP6963Provider) {
       return {
