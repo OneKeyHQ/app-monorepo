@@ -888,7 +888,20 @@ export function AddressInputField(
               return;
             }
             if (!value.resolved) {
-              // Suppress error when quick select has matches (hint shown via description)
+              // Always show critical errors regardless of quick-select state
+              if (
+                value.validateError?.type === 'address-not-allowlist' ||
+                value.validateError?.type === 'prohibit-send-to-self'
+              ) {
+                return (
+                  value.validateError.translationId ||
+                  value.validateError.message ||
+                  intl.formatMessage({
+                    id: ETranslations.send_address_invalid,
+                  })
+                );
+              }
+              // Suppress other errors when quick select has matches (hint shown via description)
               if (hasQuickSelectMatchesRef.current) {
                 return;
               }
