@@ -53,20 +53,11 @@ const ChainSelectorListViewContent = ({
   const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
 
-  const initialScrollIndex = useMemo(() => {
-    if (!networkId) return undefined;
-    const index = networks.findIndex((item) => item.id === networkId);
-    // Only scroll if the selected item is beyond the initial visible area
-    if (index <= 5) return undefined;
-    return index;
-  }, [networks, networkId]);
-
   return (
     <ListView
       ListEmptyComponent={ListEmptyComponent}
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
-      initialScrollIndex={initialScrollIndex}
       initialNumToRender={platformEnv.isNative ? undefined : 40}
       data={networks}
       keyExtractor={(item) => item.id}

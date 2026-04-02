@@ -72,8 +72,16 @@ function AssetSelectorTrigger({
   } = usePromiseResult(
     async () => {
       if (!isOneToMany) {
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getAllNetworks({
+            excludeAllNetworkItem: true,
+          });
         return {
-          availableNetworkIds: [],
+          availableNetworkIds: networks
+            .filter(
+              (item) => !networkUtils.isLightningNetworkByNetworkId(item.id),
+            )
+            .map((item) => item.id),
           unavailableNetworkIds: [],
         };
       }
@@ -262,7 +270,7 @@ function AssetSelectorTrigger({
 
   const handleSelectAsset = useCallback(() => {
     openChainSelector({
-      networkIds: isOneToMany ? availableNetworkIds : undefined,
+      networkIds: availableNetworkIds,
       disableNetworkIds: isOneToMany ? unavailableNetworkIds : undefined,
       defaultNetworkId: selectedNetworkId,
       showNetworkValues: isOneToMany,
