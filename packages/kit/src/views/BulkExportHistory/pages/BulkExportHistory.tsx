@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { differenceInMonths } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -19,10 +20,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  EModalBulkExportHistoryRoutes,
+  EChainSelectorPages,
+  type EModalBulkExportHistoryRoutes,
+  EModalRoutes,
   type IModalBulkExportHistoryParamList,
-} from '@onekeyhq/shared/src/routes/bulkExportHistory';
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IAccountTransactionRange } from '@onekeyhq/shared/types/history';
 
 import BulkExportHistoryNetworkTrigger from '../components/BulkExportHistoryNetworkTrigger';
 import { useBulkExportHistorySupportedNetworks } from '../hooks/useBulkExportHistorySupportedNetworks';
@@ -38,6 +42,17 @@ const DATE_RANGE_OPTIONS = [
   { label: 'Last 3 months', value: EDateRange.Last3Months },
   { label: 'Custom', value: EDateRange.Custom },
 ];
+
+function getExportHistoryRangeMonthsText(range: IAccountTransactionRange) {
+  const endTimestampMs = Math.min(range.maxTimestampMs, Date.now());
+  const startTimestampMs = Math.min(range.minTimestampMs, endTimestampMs);
+  const months = Math.max(
+    1,
+    differenceInMonths(new Date(endTimestampMs), new Date(startTimestampMs)),
+  );
+
+  return `Last ${months} ${months === 1 ? 'month' : 'months'}`;
+}
 
 function BulkExportHistoryContent({
   route,
@@ -69,6 +84,7 @@ function BulkExportHistoryContent({
     supportedNetworkIds,
     selectedNetworkIds,
     setSelectedNetworkIds,
+    networkRangeMap,
     hasRangeData,
     isLoading,
     isRangeLoading,
@@ -81,21 +97,44 @@ function BulkExportHistoryContent({
     [hasRangeData, isRangeLoading],
   );
 
+  const networkSubtitleMap = useMemo(() => {
+    if (!networkRangeMap) {
+      return undefined;
+    }
+
+    return Object.fromEntries(
+      Object.entries(networkRangeMap).map(([networkId, range]) => [
+        networkId,
+        getExportHistoryRangeMonthsText(range),
+      ]),
+    );
+  }, [networkRangeMap]);
+
   const handleCancel = useCallback(() => {
     navigation.pop();
   }, [navigation]);
 
   const handleOpenNetworkSelector = useCallback(() => {
-    navigation.push(
-      EModalBulkExportHistoryRoutes.BulkExportHistorySelectNetworks,
-      {
-        supportedNetworkIds,
+    navigation.pushModal(EModalRoutes.ChainSelectorModal, {
+      screen: EChainSelectorPages.MultiNetworkSelector,
+      params: {
+        title: 'Select networks',
+        searchPlaceholder: 'Search networks',
+        selectAllLabel: 'Select all',
+        networkIds: supportedNetworkIds,
         selectedNetworkIds,
+        networkSubtitleMap,
+        topAlert: {
+          icon: 'InfoCircleOutline',
+          description:
+            'If multiple networks are selected, the overall export range is limited to the shortest window among them.',
+        },
         onSelectedNetworkIdsChange: setSelectedNetworkIds,
       },
-    );
+    });
   }, [
     navigation,
+    networkSubtitleMap,
     selectedNetworkIds,
     setSelectedNetworkIds,
     supportedNetworkIds,

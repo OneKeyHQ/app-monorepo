@@ -8,8 +8,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
-
-import { useBulkExportHistoryNetworkOptions } from '../hooks/useBulkExportHistoryNetworkOptions';
+import { useNetworkOptions } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useNetworkOptions';
 
 const MAX_VISIBLE_NETWORKS = 3;
 
@@ -23,7 +22,7 @@ function BulkExportHistoryNetworkTrigger({
   onPress?: () => void;
 }) {
   const { networks: selectedNetworks, isLoading } =
-    useBulkExportHistoryNetworkOptions(selectedNetworkIds);
+    useNetworkOptions(selectedNetworkIds);
 
   const selectedNetworkNames = useMemo(
     () => selectedNetworks.map((network) => network.name).join(', '),

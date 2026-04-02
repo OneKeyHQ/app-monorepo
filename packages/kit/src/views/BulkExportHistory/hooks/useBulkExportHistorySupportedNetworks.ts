@@ -222,6 +222,7 @@ export function useBulkExportHistorySupportedNetworks({
     supportedNetworkIds,
     selectedNetworkIds: selectedNetworkIdsState,
     setSelectedNetworkIds,
+    networkRangeMap: rangeResp?.networkMap,
     selectedRangeMap,
     effectiveRange,
     hasRangeData: Boolean(selectedRangeMap && effectiveRange),

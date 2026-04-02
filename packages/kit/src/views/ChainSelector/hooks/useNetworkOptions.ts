@@ -3,16 +3,11 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
-export type IBulkExportHistoryNetworkOption = Pick<
-  IServerNetwork,
-  'id' | 'name' | 'logoURI' | 'isCustomNetwork' | 'isAllNetworks'
->;
-
-export function useBulkExportHistoryNetworkOptions(networkIds?: string[]) {
+export function useNetworkOptions(networkIds?: string[]) {
   const { result = [], isLoading } = usePromiseResult(
     async () => {
       if (!networkIds?.length) {
-        return [] as IBulkExportHistoryNetworkOption[];
+        return [] as IServerNetwork[];
       }
 
       try {
@@ -27,16 +22,9 @@ export function useBulkExportHistoryNetworkOptions(networkIds?: string[]) {
 
         return networkIds
           .map((networkId) => networkMap.get(networkId))
-          .filter((network): network is IServerNetwork => Boolean(network))
-          .map((network) => ({
-            id: network.id,
-            name: network.name,
-            logoURI: network.logoURI,
-            isCustomNetwork: network.isCustomNetwork,
-            isAllNetworks: network.isAllNetworks,
-          }));
+          .filter((network): network is IServerNetwork => Boolean(network));
       } catch {
-        return [] as IBulkExportHistoryNetworkOption[];
+        return [] as IServerNetwork[];
       }
     },
     [networkIds],

@@ -11,6 +11,7 @@ export enum EChainSelectorPages {
   ChainSelector = 'ChainSelector',
   AddCustomNetwork = 'AddCustomNetwork',
   AllNetworksManager = 'AllNetworksManager',
+  MultiNetworkSelector = 'MultiNetworkSelector',
   TokenSelector = 'TokenSelector',
   UnifiedNetworkSelector = 'UnifiedNetworkSelector',
 }
@@ -46,10 +47,31 @@ export type IChainSelectorParams = {
   accountId?: string;
 };
 
+export type IMultiNetworkSelectorAlert = {
+  icon?: string;
+  title?: string;
+  description?: string;
+};
+
+export type IMultiNetworkSelectorRouteParams = {
+  title?: string;
+  searchPlaceholder?: string;
+  selectAllLabel?: string;
+  cancelButtonText?: string;
+  confirmButtonText?: string;
+  emptyText?: string;
+  networkIds: string[];
+  selectedNetworkIds: string[];
+  networkSubtitleMap?: Record<string, string | undefined>;
+  topAlert?: IMultiNetworkSelectorAlert;
+  onSelectedNetworkIdsChange?: (networkIds: string[]) => void;
+};
+
 export type IChainSelectorParamList = {
   [EChainSelectorPages.TokenSelector]: ITokenSelectorParamList;
   [EChainSelectorPages.AccountChainSelector]: IAccountChainSelectorRouteParams;
   [EChainSelectorPages.ChainSelector]?: IChainSelectorParams;
+  [EChainSelectorPages.MultiNetworkSelector]: IMultiNetworkSelectorRouteParams;
   [EChainSelectorPages.UnifiedNetworkSelector]: IUnifiedNetworkSelectorRouteParams;
   [EChainSelectorPages.AddCustomNetwork]: {
     state: 'add' | 'edit';

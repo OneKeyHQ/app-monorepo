@@ -18,6 +18,10 @@ const AllNetworksManager = LazyLoadPage(
   () => import('../pages/AllNetworksManager'),
 );
 
+const MultiNetworkSelector = LazyLoadPage(
+  () => import('../components/MultiNetworkSelector'),
+);
+
 const UnifiedNetworkSelector = LazyLoadPage(
   () => import('../components/UnifiedNetworkSelector'),
 );
@@ -45,6 +49,10 @@ export const ChainSelectorRouter: IModalFlowNavigatorConfig<
   {
     name: EChainSelectorPages.AllNetworksManager,
     component: AllNetworksManager,
+  },
+  {
+    name: EChainSelectorPages.MultiNetworkSelector,
+    component: MultiNetworkSelector,
   },
   {
     name: EChainSelectorPages.UnifiedNetworkSelector,
