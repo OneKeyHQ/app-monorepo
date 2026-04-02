@@ -224,6 +224,9 @@ function switchToFallbackLocal(reason: string) {
     return false;
   }
 
+  console.warn(
+    `[BG_TRANSPORT] switchToFallbackLocal: reason=${reason} queuedCalls=${queuedCalls.length}`,
+  );
   transportState = 'fallback-local';
   clearReadyTimeoutTimer();
   flushQueuedCallsToLocal();

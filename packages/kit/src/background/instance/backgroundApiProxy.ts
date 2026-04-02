@@ -21,11 +21,20 @@ if (!platformEnv.isExtensionUi && !shouldDeferLocalBackgroundApi) {
 // Uses async import() so Metro's segment serializer can place BackgroundApi
 // in a separate segment loaded on demand via __loadBundleAsync.
 async function loadRealBackgroundApi(): Promise<IBackgroundApi> {
-  globalThis.$onekeyIsInBackground =
-    platformEnv.isExtensionBackground || platformEnv.isNativeBackgroundThread;
-  const { default: BackgroundApi } =
-    await import('@onekeyhq/kit-bg/src/apis/BackgroundApi');
-  return new BackgroundApi();
+  console.log('[BG_FALLBACK] loadRealBackgroundApi starting...');
+  try {
+    globalThis.$onekeyIsInBackground =
+      platformEnv.isExtensionBackground || platformEnv.isNativeBackgroundThread;
+    const { default: BackgroundApi } =
+      await import('@onekeyhq/kit-bg/src/apis/BackgroundApi');
+    console.log('[BG_FALLBACK] BackgroundApi imported, creating instance...');
+    const api = new BackgroundApi();
+    console.log('[BG_FALLBACK] BackgroundApi instance created');
+    return api;
+  } catch (err) {
+    console.error('[BG_FALLBACK] loadRealBackgroundApi FAILED', err);
+    throw err;
+  }
 }
 
 const backgroundApiProxy = new BackgroundApiProxy({

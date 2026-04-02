@@ -138,3 +138,19 @@ index a1da771..57d9004 100644
          return JSBundleLoader.createAssetLoader(context, "assets://$jsBundleAssetPath", true)
        }
  
+diff --git a/node_modules/expo/ios/AppDelegates/EXAppDelegateWrapper.mm b/node_modules/expo/ios/AppDelegates/EXAppDelegateWrapper.mm
+index f820b49..94c14d2 100644
+--- a/node_modules/expo/ios/AppDelegates/EXAppDelegateWrapper.mm
++++ b/node_modules/expo/ios/AppDelegates/EXAppDelegateWrapper.mm
+@@ -82,6 +82,11 @@ - (void)customizeRootView:(UIView *)rootView
+ 
+ - (void)hostDidStart:(RCTHost *)host
+ {
++  SEL selector = NSSelectorFromString(@"hostDidStart:");
++  id delegate = _expoAppDelegate.factory.delegate;
++  if ([delegate respondsToSelector:selector]) {
++    [delegate performSelector:selector withObject:host];
++  }
+ }
+ 
+ - (void)host:(RCTHost *)host

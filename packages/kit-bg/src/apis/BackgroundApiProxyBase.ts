@@ -308,7 +308,9 @@ export class BackgroundApiProxyBase
     this.backgroundApiFactory = getBackgroundApi;
     this.backgroundApiAsyncFactory = getBackgroundApiAsync;
     jotaiBgSync.setBackgroundApi(this as any);
-    void jotaiBgSync.jotaiInitFromUi();
+    void jotaiBgSync.jotaiInitFromUi().catch((err: unknown) => {
+      console.error('[JOTAI_INIT_ERROR] jotaiInitFromUi failed', err);
+    });
     appEventBus.registerBroadcastMethods(
       EEventBusBroadcastMethodNames.uiToBg,
       async (type, payload) => {
