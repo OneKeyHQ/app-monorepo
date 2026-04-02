@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,7 +9,6 @@ import {
   Icon,
   Page,
   SizableText,
-  Stack,
   XStack,
   useForm,
 } from '@onekeyhq/components';
@@ -25,7 +24,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -33,6 +31,7 @@ import type {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQuickSelect';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -52,11 +51,14 @@ const SwapToAnotherAddressPage = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
     >();
   const paramAddress = route.params?.address;
-  const { accountInfo, address, activeAccount, networkId } = useSwapAddressInfo(
-    ESwapDirectionType.TO,
-  );
+  const {
+    accountInfo,
+    address: _address,
+    activeAccount,
+    networkId,
+  } = useSwapAddressInfo(ESwapDirectionType.TO);
 
-  const [, setSettings] = useSettingsAtom();
+  const [{ swapToAnotherAccountSwitchOn }, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const [selectedQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapManualSelectQuote] = useSwapManualSelectQuoteProvidersAtom();
@@ -70,24 +72,28 @@ const SwapToAnotherAddressPage = () => {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
+  // Only prefill when editing an existing custom address.
+  // When swapToAnotherAccountSwitchOn is true and paramAddress differs from
+  // the user's own address, the user previously set a custom address — prefill it.
   useEffect(() => {
-    if (address && accountInfo?.account?.address === address) {
-      form.setValue('address', { raw: address });
-    }
-  }, [accountInfo?.account?.address, address, form]);
-
-  useEffect(() => {
-    if (paramAddress) {
+    if (paramAddress && swapToAnotherAccountSwitchOn) {
       form.setValue('address', { raw: paramAddress });
     }
-  }, [paramAddress, form]);
+  }, [paramAddress, swapToAnotherAccountSwitchOn, form]);
 
-  const handleOnOpenAccountSelector = useCallback(() => {
-    setSettings((v) => ({
-      ...v,
-      swapToAnotherAccountSwitchOn: true,
-    }));
-  }, [setSettings]);
+  const toAddressRaw = form.watch('address')?.raw ?? '';
+  const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
+
+  const handleQuickSelectRecipient = useCallback(
+    ({ address: selectedAddress }: { address: string }) => {
+      if (selectedAddress) {
+        form.setValue('address', {
+          raw: selectedAddress,
+        } as IAddressInputValue);
+      }
+    },
+    [form],
+  );
 
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
     (data) => {
@@ -125,14 +131,6 @@ const SwapToAnotherAddressPage = () => {
     setSwapToAddress((v) => ({ ...v, address: undefined }));
   }, [setSwapToAddress, setSettings]);
 
-  const accountSelector = useMemo(
-    () => ({
-      num: 1,
-      onBeforeAccountSelectorOpen: handleOnOpenAccountSelector,
-    }),
-    [handleOnOpenAccountSelector],
-  );
-
   return accountInfo && networkId ? (
     <Page scrollEnabled>
       <Page.Header
@@ -141,67 +139,38 @@ const SwapToAnotherAddressPage = () => {
         })}
         headerRight={renderAddressSecurityHeaderRightButton}
       />
-      <Page.Body px="$5" gap="$6">
+      <Page.Body px="$5" gap="$1">
         <Form form={form}>
           <AddressInputField
             name="address"
             networkId={networkId}
+            actionsLayout="recipient"
             enableAddressBook
             enableWalletName
-            // enableVerifySendFundToSelf
             enableAddressInteractionStatus
             enableAddressContract
             enableAllowListValidation
             accountId={accountInfo?.account?.id}
-            {...(!platformEnv.isWeb ? { contacts: true, accountSelector } : {})}
+            hasQuickSelectMatches={hasQuickSelectMatches}
           />
-        </Form>
-        <Stack gap="$4">
-          <XStack>
-            <Stack
-              $md={{
-                pt: '$0.5',
-              }}
-            >
-              <Icon name="CheckRadioOutline" size="$5" color="$iconSuccess" />
-            </Stack>
-            <SizableText
-              flex={1}
-              pl="$2"
-              size="$bodyLg"
-              color="$textSubdued"
-              $gtMd={{
-                size: '$bodyMd',
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.swap_page_recipient_modal_verify,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack>
-            <Stack
-              $md={{
-                pt: '$0.5',
-              }}
-            >
-              <Icon name="BlockOutline" size="$5" color="$iconCritical" />
-            </Stack>
-            <SizableText
-              flex={1}
-              pl="$2"
-              size="$bodyLg"
-              color="$textSubdued"
-              $gtMd={{
-                size: '$bodyMd',
-              }}
-            >
+          <XStack gap="$1.5" alignItems="center">
+            <Icon name="BlockOutline" size="$4" color="$iconSubdued" />
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.swap_page_recipient_modal_do_not,
               })}
             </SizableText>
           </XStack>
-        </Stack>
+          <RecipientQuickSelect
+            accountId={accountInfo?.account?.id ?? ''}
+            networkId={networkId}
+            searchKey={toAddressRaw}
+            isSearchMode={!!toAddressRaw?.trim()}
+            hideTabs={['recent']}
+            onMatchStatusChange={setHasQuickSelectMatches}
+            onSelect={handleQuickSelectRecipient}
+          />
+        </Form>
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
