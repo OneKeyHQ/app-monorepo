@@ -1,4 +1,4 @@
-name: 03-security-checks
+name: 05-security-checks
 
 on:
   pull_request:
