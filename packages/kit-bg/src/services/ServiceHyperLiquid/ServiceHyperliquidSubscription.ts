@@ -1133,10 +1133,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   }
 
+  private _lastLivenessAtomUpdate = 0;
+
   private _updateNetworkLiveness() {
     const now = Date.now();
     if (!this._pingIntervalTimer) {
       this._startPingLoop();
+    }
+    // Throttle atom writes to at most once per 5 seconds to avoid
+    // excessive re-renders from high-frequency events like ALL_MIDS
+    if (now - this._lastLivenessAtomUpdate > 5000) {
+      this._lastLivenessAtomUpdate = now;
+      void perpsNetworkStatusAtom.set(
+        (prev): IPerpsNetworkStatus => ({
+          ...prev,
+          connected: true,
+          lastMessageAt: now,
+        }),
+      );
     }
     this._scheduleNetworkTimeout(now);
   }
