@@ -22,11 +22,13 @@ function useRecommendedTokens({
   indexedAccountId,
   networkId,
   enableFetch,
+  refreshTrigger,
 }: {
   accountId?: string;
   indexedAccountId?: string;
   networkId: string;
   enableFetch: boolean;
+  refreshTrigger?: number;
 }) {
   const fetchRecommendedTokens = useCallback(async () => {
     if (!enableFetch) {
@@ -49,7 +51,7 @@ function useRecommendedTokens({
     run: refreshRecommendedTokens,
   } = usePromiseResult<IRecommendAsset[]>(
     fetchRecommendedTokens,
-    [fetchRecommendedTokens],
+    [fetchRecommendedTokens, refreshTrigger],
     {
       initResult: [],
       watchLoading: true,
@@ -124,6 +126,7 @@ export function Recommended(
         recommendedItemContainerProps?: IYStackProps;
         withHeader?: boolean;
         enableFetch?: boolean;
+        refreshTrigger?: number;
       }
     | undefined,
 ) {
@@ -132,6 +135,7 @@ export function Recommended(
     recommendedItemContainerProps,
     withHeader = true,
     enableFetch = true,
+    refreshTrigger,
   } = props ?? {};
 
   const allNetworkId = getNetworkIdsMap().onekeyall;
@@ -143,6 +147,7 @@ export function Recommended(
     indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
     networkId: allNetworkId,
     enableFetch,
+    refreshTrigger,
   });
 
   const noWalletConnected = !account && !indexedAccount;
@@ -154,7 +159,7 @@ export function Recommended(
       withHeader={withHeader}
       disableHorizontalBleed={disableHorizontalBleed}
       recommendedItemContainerProps={recommendedItemContainerProps}
-      showSkeleton={isLoading === true ? recommendedTokens.length === 0 : null}
+      showSkeleton={isLoading ? recommendedTokens.length === 0 : null}
     />
   );
 }
