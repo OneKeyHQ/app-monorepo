@@ -1347,6 +1347,11 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async clearRecommendedAssetsCache() {
+    void this._getAccountAssetV2.clear();
+  }
+
+  @backgroundMethod()
   async getAvailableAssetsV2() {
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<

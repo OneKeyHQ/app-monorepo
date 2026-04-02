@@ -128,7 +128,6 @@ const ManagePositionPage = () => {
     tokenImageUri,
     enableProtocolSwitch,
   } = resolvedParams;
-  const protocolSwitchNetworkId = resolvedParams.initialProtocol.networkId;
 
   const { result: protocols, isLoading: isProtocolListLoading } =
     usePromiseResult(
@@ -143,17 +142,9 @@ const ManagePositionPage = () => {
           symbol,
           accountId,
           indexedAccountId,
-          networkId: protocolSwitchNetworkId,
-          filterNetworkId: protocolSwitchNetworkId,
         });
       },
-      [
-        accountId,
-        enableProtocolSwitch,
-        indexedAccountId,
-        protocolSwitchNetworkId,
-        symbol,
-      ],
+      [accountId, enableProtocolSwitch, indexedAccountId, symbol],
       {
         initResult: [],
         watchLoading: true,
