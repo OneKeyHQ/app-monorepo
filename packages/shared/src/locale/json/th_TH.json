@@ -1156,7 +1156,7 @@
   "explore.see_all": "ดูทั้งหมด",
   "explore.set_default": "ตั้ง OneKey เป็นกระเป๋าเงินเริ่มต้น",
   "explore.set_default_wallet": "ตั้ง OneKey เป็นกระเป๋าเงินเริ่มต้น",
-  "explore.set_default_wallet_description": "ใช้ OneKey เป็นกระเป๋าเงินเริ่มต้นในการเชื่อมต่อกับ dApps",
+  "explore.set_default_wallet_description": "ใช้ OneKey เป็นกระเป๋าเริ่มต้นสำหรับการเชื่อมต่อ dApp. <strong>หลังจากเปลี่ยนการตั้งค่านี้ ให้รีเฟรชหน้าของ dApp เพื่อให้มีผล</strong>.",
   "explore.share": "แบ่งปัน",
   "explore.suggested": "แนะนำ",
   "explore.tab_prompt": "คุณสามารถแตะและกดค้างเพื่อปักหมุดแท็บนี้เพื่อการเข้าถึงที่รวดเร็ว",
