@@ -9,7 +9,6 @@ import {
   Icon,
   Page,
   SizableText,
-  Stack,
   XStack,
   useForm,
 } from '@onekeyhq/components';
@@ -140,7 +139,7 @@ const SwapToAnotherAddressPage = () => {
         })}
         headerRight={renderAddressSecurityHeaderRightButton}
       />
-      <Page.Body px="$5" gap="$6">
+      <Page.Body px="$5" gap="$3">
         <Form form={form}>
           <AddressInputField
             name="address"
@@ -154,34 +153,14 @@ const SwapToAnotherAddressPage = () => {
             accountId={accountInfo?.account?.id}
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
-          <Stack gap="$3" mt="$2">
-            <XStack gap="$2" alignItems="flex-start">
-              <Icon
-                name="CheckRadioOutline"
-                size="$4"
-                color="$iconSuccess"
-                mt="$0.5"
-              />
-              <SizableText flex={1} size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.swap_page_recipient_modal_verify,
-                })}
-              </SizableText>
-            </XStack>
-            <XStack gap="$2" alignItems="flex-start">
-              <Icon
-                name="BlockOutline"
-                size="$4"
-                color="$iconCritical"
-                mt="$0.5"
-              />
-              <SizableText flex={1} size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.swap_page_recipient_modal_do_not,
-                })}
-              </SizableText>
-            </XStack>
-          </Stack>
+          <XStack gap="$2" alignItems="center" mt="$1">
+            <Icon name="BlockOutline" size="$4" color="$iconCritical" />
+            <SizableText flex={1} size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.swap_page_recipient_modal_do_not,
+              })}
+            </SizableText>
+          </XStack>
           <RecipientQuickSelect
             accountId={accountInfo?.account?.id ?? ''}
             networkId={networkId}
