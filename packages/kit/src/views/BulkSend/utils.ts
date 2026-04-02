@@ -107,11 +107,16 @@ export function checkSenderInsufficientBalance({
 }): boolean {
   const aggregated = new Map<string, BigNumber>();
   for (const transfer of transfersInfo) {
-    if (!transfer.amount || transfer.amount === '') continue;
-    const amount = new BigNumber(transfer.amount);
-    if (amount.isNaN()) continue;
-    const existing = aggregated.get(transfer.from);
-    aggregated.set(transfer.from, existing ? existing.plus(amount) : amount);
+    if (transfer.amount && transfer.amount !== '') {
+      const amount = new BigNumber(transfer.amount);
+      if (!amount.isNaN()) {
+        const existing = aggregated.get(transfer.from);
+        aggregated.set(
+          transfer.from,
+          existing ? existing.plus(amount) : amount,
+        );
+      }
+    }
   }
   for (const [address, totalAmount] of aggregated) {
     const balance = senderBalances[address];
