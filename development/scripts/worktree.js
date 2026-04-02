@@ -59,6 +59,13 @@ function getDateString() {
   return `${month}${day}`;
 }
 
+function getTimeString() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${hours}${minutes}`;
+}
+
 function getCurrentBranch() {
   try {
     return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
@@ -96,6 +103,17 @@ function getRepoRoot() {
       console.error('❌ Failed to get repository root');
       process.exit(1);
     }
+  }
+}
+
+function getCurrentTopLevelPath() {
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      encoding: 'utf-8',
+    }).trim();
+  } catch (_error) {
+    console.error('❌ Failed to get current worktree path');
+    process.exit(1);
   }
 }
 
@@ -140,6 +158,25 @@ function branchExists(branchName) {
   }
 }
 
+function isWorktreeTargetAvailable(worktreePath, branchName) {
+  return !fs.existsSync(worktreePath) && !branchExists(branchName);
+}
+
+function getCurrentWorktreeName(repoRoot, currentTopLevelPath) {
+  const worktreeDir = path.join(repoRoot, '.worktree');
+  const relativePath = path.relative(worktreeDir, currentTopLevelPath);
+
+  if (
+    !relativePath ||
+    relativePath.startsWith('..') ||
+    path.isAbsolute(relativePath)
+  ) {
+    return null;
+  }
+
+  return relativePath;
+}
+
 function getAvailableRandomWorktreeTarget(worktreeDir) {
   const maxAttempts = 5;
 
@@ -149,7 +186,7 @@ function getAvailableRandomWorktreeTarget(worktreeDir) {
     const branchName = `${city}-${date}`;
     const worktreePath = resolveWorktreePath(worktreeDir, branchName);
 
-    if (fs.existsSync(worktreePath) || branchExists(branchName)) {
+    if (!isWorktreeTargetAvailable(worktreePath, branchName)) {
       continue;
     }
 
@@ -163,6 +200,23 @@ function getAvailableRandomWorktreeTarget(worktreeDir) {
 
   console.error(`\n❌ Failed to generate a unique random worktree name after ${maxAttempts} attempts`);
   process.exit(1);
+}
+
+function getDerivedWorktreeTarget(worktreeDir, currentWorktreeName) {
+  const time = getTimeString();
+  const branchName = `${currentWorktreeName}-${time}`;
+  const worktreePath = resolveWorktreePath(worktreeDir, branchName);
+
+  if (!isWorktreeTargetAvailable(worktreePath, branchName)) {
+    console.error(`\n❌ Worktree name already exists: ${branchName}`);
+    process.exit(1);
+  }
+
+  return {
+    branchName,
+    time,
+    worktreePath,
+  };
 }
 
 function parseArgs(rawArgs) {
@@ -283,23 +337,35 @@ exec ${quoteForShell(shellPath)} -i
 
 function createWorktreeAndRunCommand({ commandArgs, commandToRun, customName }) {
   const repoRoot = getRepoRoot();
+  const currentTopLevelPath = getCurrentTopLevelPath();
   const currentBranch = getCurrentBranch();
   const worktreeDir = path.join(repoRoot, '.worktree');
+  const currentWorktreeName = customName
+    ? null
+    : getCurrentWorktreeName(repoRoot, currentTopLevelPath);
+  const derivedTarget = customName || !currentWorktreeName
+    ? null
+    : getDerivedWorktreeTarget(worktreeDir, currentWorktreeName);
   const randomTarget = customName
+    || currentWorktreeName
     ? null
     : getAvailableRandomWorktreeTarget(worktreeDir);
-  const city = customName ? null : randomTarget.city;
-  const date = customName ? null : randomTarget.date;
-  const branchName = customName || randomTarget.branchName;
+  const city = customName || currentWorktreeName ? null : randomTarget.city;
+  const date = customName || currentWorktreeName ? null : randomTarget.date;
+  const time = customName || !currentWorktreeName ? null : derivedTarget.time;
+  const branchName = customName || derivedTarget?.branchName || randomTarget.branchName;
   const worktreePath = customName
     ? resolveWorktreePath(worktreeDir, branchName)
-    : randomTarget.worktreePath;
+    : derivedTarget?.worktreePath || randomTarget.worktreePath;
   const shellPath = process.env.SHELL || '/bin/zsh';
   const stayInWorktreeShell = shouldStayInWorktreeShell(commandArgs);
 
   console.log(`\n📍 Current branch: ${currentBranch}`);
   if (customName) {
     console.log(`🏷️  Custom name: ${customName}`);
+  } else if (currentWorktreeName) {
+    console.log(`🧬 Source worktree: ${currentWorktreeName}`);
+    console.log(`🕒 Time suffix: ${time}`);
   } else {
     console.log(`🌍 Random city: ${city}`);
     console.log(`📅 Date: ${date}`);
@@ -355,8 +421,9 @@ Usage: yarn worktree [-n <name> | --name <name>] [--] <command...>
 
 Creates a new worktree based on current branch, then cd's into it before
 executing the given command. codex and claude stay in the new worktree shell
-after they exit. Without -n/--name, it uses a random city+date name and retries
-if that random name already exists.
+after they exit. Without -n/--name, it uses:
+- current worktree name + HHmm when invoked from an existing worktree
+- otherwise a random city+date name, with up to 5 retries on collisions
 
 Examples (quotes optional):
   yarn worktree claude
