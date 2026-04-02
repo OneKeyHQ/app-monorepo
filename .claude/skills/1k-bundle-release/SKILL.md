@@ -47,7 +47,7 @@ Parse the argument passed to this skill:
 /1k-bundle-release pr                     ← Create PR targeting release/*
   ... QA verifies, merge ...
 /1k-bundle-release diff-check             ← Review changeset before publishing
-/1k-bundle-release publish                ← Record release in RELEASES.json
+/1k-bundle-release publish                ← Record release in RELEASES.json (via PR)
 /1k-bundle-release sync                   ← Rebase changes to x
 ```
 
