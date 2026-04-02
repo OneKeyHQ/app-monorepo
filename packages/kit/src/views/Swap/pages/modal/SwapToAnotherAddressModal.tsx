@@ -51,9 +51,12 @@ const SwapToAnotherAddressPage = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
     >();
   const paramAddress = route.params?.address;
-  const { accountInfo, address: _address, activeAccount, networkId } = useSwapAddressInfo(
-    ESwapDirectionType.TO,
-  );
+  const {
+    accountInfo,
+    address: _address,
+    activeAccount,
+    networkId,
+  } = useSwapAddressInfo(ESwapDirectionType.TO);
 
   const [{ swapToAnotherAccountSwitchOn }, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
@@ -151,7 +154,7 @@ const SwapToAnotherAddressPage = () => {
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
           <XStack gap="$1.5" alignItems="center">
-            <Icon name="BlockOutline" size="$4" color="$iconCritical" />
+            <Icon name="BlockOutline" size="$4" color="$iconSubdued" />
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.swap_page_recipient_modal_do_not,

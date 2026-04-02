@@ -147,6 +147,7 @@ QuickSelectListItem.displayName = 'QuickSelectListItem';
 type IAccountWithDeriveInfo = {
   account: INetworkAccount;
   deriveInfo?: IAccountDeriveInfo;
+  deriveType?: string;
 };
 
 // Wallet account group type
@@ -198,6 +199,7 @@ async function getWalletNetworkAccounts(
           .map((acc) => ({
             account: acc.account as INetworkAccount,
             deriveInfo: acc.deriveInfo,
+            deriveType: acc.deriveType,
           })),
       ),
     );
@@ -256,7 +258,7 @@ function AccountRecipients({
             // (e.g. bip44 + ledger-live for same indexed account on EVM)
             if (senderDeriveType) {
               const filtered = accounts.filter(
-                (a) => !a.deriveInfo || a.deriveInfo.type === senderDeriveType,
+                (a) => !a.deriveType || a.deriveType === senderDeriveType,
               );
               if (filtered.length > 0) {
                 accounts = filtered;
