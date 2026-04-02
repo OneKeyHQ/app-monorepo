@@ -22,7 +22,13 @@ function SwapProPositionListHeader() {
           {intl.formatMessage({ id: ETranslations.dexmarket_token_name })}
         </SizableText>
       </Stack>
-      <XStack flexGrow={1} flexBasis={0} justifyContent="flex-end" gap="$1" alignItems="center">
+      <XStack
+        flexGrow={1}
+        flexBasis={0}
+        justifyContent="flex-end"
+        gap="$1"
+        alignItems="center"
+      >
         <SizableText
           size="$headingXs"
           color="$textSubdued"
