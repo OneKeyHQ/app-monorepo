@@ -9,6 +9,7 @@ import {
   Image,
   ListView,
   Page,
+  SizableText,
   Skeleton,
   Stack,
   Switch,
@@ -25,6 +26,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+
+const strongTextPlain = (chunks: string[]) => chunks.join('');
+const strongTextRich = (chunks: React.ReactNode[]) => (
+  <SizableText size="$bodyMdMedium" color="$text">
+    {chunks}
+  </SizableText>
+);
 
 function EmptyGuide() {
   return (
@@ -151,9 +159,12 @@ function DefaultWalletSettingsModal() {
               id: ETranslations.explore_default_wallet_canceled,
             }),
         message: isDefaultWallet
-          ? intl.formatMessage({
-              id: ETranslations.explore_set_default_wallet_description,
-            })
+          ? (intl.formatMessage(
+              {
+                id: ETranslations.explore_set_default_wallet_description,
+              },
+              { strong: strongTextPlain },
+            ) as string)
           : intl.formatMessage({
               id: ETranslations.explore_default_wallet_canceled_desc,
             }),
@@ -186,9 +197,12 @@ function DefaultWalletSettingsModal() {
           title: intl.formatMessage({
             id: ETranslations.explore_default_wallet_set,
           }),
-          message: intl.formatMessage({
-            id: ETranslations.explore_set_default_wallet_description,
-          }),
+          message: intl.formatMessage(
+            {
+              id: ETranslations.explore_set_default_wallet_description,
+            },
+            { strong: strongTextPlain },
+          ) as string,
         });
       }
       await refreshContextMenu(origin);
@@ -263,9 +277,10 @@ function DefaultWalletSettingsModal() {
       <Page.Body>
         <ListItem
           title={intl.formatMessage({ id: ETranslations.explore_set_default })}
-          subtitle={intl.formatMessage({
-            id: ETranslations.explore_set_default_wallet_description,
-          })}
+          subtitle={intl.formatMessage(
+            { id: ETranslations.explore_set_default_wallet_description },
+            { strong: strongTextRich },
+          )}
         >
           <Switch
             size={ESwitchSize.small}
