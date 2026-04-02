@@ -27,6 +27,14 @@ const fs = require('fs-extra');
 const mobileDirPath = path.resolve(__dirname, '..');
 const monorepoRoot = path.resolve(mobileDirPath, '../..');
 const outDir = path.resolve(mobileDirPath, 'out-dir-analysis');
+const distDir = path.resolve(mobileDirPath, 'dist');
+
+process.env.ONEKEY_PLATFORM = process.env.ONEKEY_PLATFORM || 'app';
+if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
+  process.env.SPLIT_BUNDLE = process.env.SPLIT_BUNDLE || '1';
+  process.env.SPLIT_BUNDLE_SEGMENTS =
+    process.env.SPLIT_BUNDLE_SEGMENTS || 'true';
+}
 
 function relativePath(absPath) {
   return absPath.replace(monorepoRoot, '').replace(/^\//, '');
@@ -61,6 +69,103 @@ function estimateModuleSize(moduleData) {
     }, 0);
   }
   return 0;
+}
+
+function buildReportFromModuleList({ label, modules, estimatedCodeSizeBytes }) {
+  const categories = {};
+  const categorySizes = {};
+
+  for (const relPath of modules) {
+    const cat = categorizeModule(relPath);
+    categories[cat] = (categories[cat] || 0) + 1;
+  }
+
+  const bgApiModules = modules.filter(
+    (m) => m.includes('BackgroundApi') || m.includes('backgroundApiInit'),
+  );
+  const serviceModules = modules.filter(
+    (m) => m.includes('/services/Service') && m.includes('kit-bg'),
+  );
+  const vaultModules = modules.filter(
+    (m) => m.includes('/vaults/') && m.includes('kit-bg'),
+  );
+
+  console.log(`=== ${label} ===`);
+  console.log(`Total modules:          ${modules.length}`);
+  console.log(
+    `Estimated code size:    ${(estimatedCodeSizeBytes / 1024 / 1024).toFixed(2)} MB`,
+  );
+  console.log(`BackgroundApi modules:  ${bgApiModules.length}`);
+  console.log(`Service modules:        ${serviceModules.length}`);
+  console.log(`Vault/chain SDK:        ${vaultModules.length}`);
+
+  console.log('\n--- Module Count by Category ---');
+  const sortedCats = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+  for (const [cat, count] of sortedCats) {
+    const sizeStr = categorySizes[cat]
+      ? ` (${(categorySizes[cat] / 1024).toFixed(0)} KB)`
+      : '';
+    console.log(`  ${cat.padEnd(20)} ${String(count).padStart(6)}${sizeStr}`);
+  }
+
+  if (bgApiModules.length > 0) {
+    console.log('\n--- BackgroundApi Modules ---');
+    bgApiModules.forEach((m) => console.log(`  ${m}`));
+  }
+
+  fs.ensureDirSync(outDir);
+  const moduleListPath = path.join(
+    outDir,
+    `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-modules.txt`,
+  );
+  fs.writeFileSync(moduleListPath, modules.sort().join('\n'));
+
+  const report = {
+    label,
+    totalModules: modules.length,
+    estimatedCodeSizeBytes,
+    backgroundApiModules: bgApiModules.length,
+    serviceModules: serviceModules.length,
+    vaultModules: vaultModules.length,
+    categories,
+    categorySizes,
+    backgroundApiModuleList: bgApiModules,
+    serviceModuleList: serviceModules,
+  };
+  const reportPath = path.join(
+    outDir,
+    `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-report.json`,
+  );
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+
+  console.log(`\nModule list: ${moduleListPath}`);
+  console.log(`JSON report: ${reportPath}`);
+
+  return report;
+}
+
+function tryAnalyzeAllocationReport(entryName, label) {
+  const reportPath = path.resolve(
+    distDir,
+    `allocation-report-${entryName}.json`,
+  );
+  if (!fs.existsSync(reportPath)) {
+    return null;
+  }
+
+  const allocationReport = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  const startup = allocationReport.startup || {};
+  const startupModules = startup.modules;
+  if (!Array.isArray(startupModules)) {
+    return null;
+  }
+
+  console.log(`Using allocation report: ${reportPath}`);
+  return buildReportFromModuleList({
+    label,
+    modules: startupModules,
+    estimatedCodeSizeBytes: startup.estimatedSizeBytes || 0,
+  });
 }
 
 async function buildGraphForEntry(entryName) {
@@ -118,15 +223,12 @@ function analyzeGraph(graph, label) {
   // BackgroundApi specific checks
   const bgApiModules = allModules
     .filter(
-      ([m]) =>
-        m.includes('BackgroundApi') || m.includes('backgroundApiInit'),
+      ([m]) => m.includes('BackgroundApi') || m.includes('backgroundApiInit'),
     )
     .map(([m]) => relativePath(m));
 
   const serviceModules = allModules
-    .filter(
-      ([m]) => m.includes('/services/Service') && m.includes('kit-bg'),
-    )
+    .filter(([m]) => m.includes('/services/Service') && m.includes('kit-bg'))
     .map(([m]) => relativePath(m));
 
   const vaultModules = allModules
@@ -206,6 +308,7 @@ async function main() {
     const origTarget = process.env.METRO_RUNTIME_TARGET;
 
     process.env.ENABLE_NATIVE_BACKGROUND_THREAD = 'false';
+    process.env.ONEKEY_PLATFORM = 'app';
     process.env.METRO_RUNTIME_TARGET = 'main';
     const baselineGraph = await buildGraphForEntry('main');
     const baseline = analyzeGraph(baselineGraph, 'main-baseline');
@@ -213,9 +316,13 @@ async function main() {
     console.log('\n');
 
     process.env.ENABLE_NATIVE_BACKGROUND_THREAD = 'true';
+    process.env.SPLIT_BUNDLE = process.env.SPLIT_BUNDLE || '1';
+    process.env.SPLIT_BUNDLE_SEGMENTS =
+      process.env.SPLIT_BUNDLE_SEGMENTS || 'true';
     process.env.METRO_RUNTIME_TARGET = 'main';
-    const aliasGraph = await buildGraphForEntry('main');
-    const withAlias = analyzeGraph(aliasGraph, 'main-with-alias');
+    const withAlias =
+      tryAnalyzeAllocationReport('main', 'main-with-alias') ||
+      analyzeGraph(await buildGraphForEntry('main'), 'main-with-alias');
 
     // Restore env
     process.env.ENABLE_NATIVE_BACKGROUND_THREAD = origEnableNativeBg;
@@ -238,15 +345,20 @@ async function main() {
       `Reduction:     ${((1 - withAlias.totalModules / baseline.totalModules) * 100).toFixed(1)}% modules, ${((1 - withAlias.estimatedCodeSizeBytes / baseline.estimatedCodeSizeBytes) * 100).toFixed(1)}% code size`,
     );
   } else if (mode === 'background') {
-    const graph = await buildGraphForEntry('background');
-    analyzeGraph(graph, 'background');
+    const report =
+      tryAnalyzeAllocationReport('background', 'background') ||
+      analyzeGraph(await buildGraphForEntry('background'), 'background');
+    return report;
   } else {
-    const graph = await buildGraphForEntry('main');
     const label =
       process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true'
         ? 'main-with-alias'
         : 'main-baseline';
-    analyzeGraph(graph, label);
+    const report =
+      (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true'
+        ? tryAnalyzeAllocationReport('main', label)
+        : null) || analyzeGraph(await buildGraphForEntry('main'), label);
+    return report;
   }
 }
 

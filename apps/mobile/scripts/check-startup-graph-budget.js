@@ -19,6 +19,14 @@ const fs = require('fs-extra');
 
 const mobileDirPath = path.resolve(__dirname, '..');
 const outDir = path.resolve(mobileDirPath, 'out-dir-analysis');
+const distDir = path.resolve(mobileDirPath, 'dist');
+
+process.env.ONEKEY_PLATFORM = process.env.ONEKEY_PLATFORM || 'app';
+if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
+  process.env.SPLIT_BUNDLE = process.env.SPLIT_BUNDLE || '1';
+  process.env.SPLIT_BUNDLE_SEGMENTS =
+    process.env.SPLIT_BUNDLE_SEGMENTS || 'true';
+}
 
 // Budgets — calibrated from Phase 0 baseline measurements.
 // main-with-alias: 17783 modules as of 2026-04-01
@@ -54,66 +62,93 @@ const FORBIDDEN_IN_STARTUP = [
 ];
 
 async function main() {
-  const Metro = require('metro');
-  const { loadConfig } = require('metro-config');
-
   const entryName = process.env.ENTRY || 'main';
-  const entryFile =
-    entryName === 'background'
-      ? path.resolve(mobileDirPath, 'background.ts')
-      : path.resolve(mobileDirPath, 'index.ts');
-
-  const enableNativeBg =
-    process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true';
+  const enableNativeBg = process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true';
 
   console.log('=== Startup Graph Budget Check ===\n');
   console.log(`Entry:          ${entryName}`);
   console.log(`Native BG:      ${enableNativeBg}`);
   console.log(`Module budget:  ${MODULE_BUDGET}`);
-  console.log(`Size budget:    ${(SIZE_BUDGET_BYTES / 1024 / 1024).toFixed(0)} MB\n`);
+  console.log(
+    `Size budget:    ${(SIZE_BUDGET_BYTES / 1024 / 1024).toFixed(0)} MB\n`,
+  );
 
-  const config = await loadConfig({ cwd: mobileDirPath });
+  const allocationReportPath = path.resolve(
+    distDir,
+    `allocation-report-${entryName}.json`,
+  );
 
-  const startTime = Date.now();
-  const graph = await Metro.buildGraph(config, {
-    entries: [entryFile],
-    platform: 'ios',
-    dev: false,
-    minify: false,
-  });
-  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-  const monorepoRoot = path.resolve(mobileDirPath, '../..');
-  const allModules = Array.from(graph.dependencies.entries());
-  const totalModules = allModules.length;
-
-  // Estimate code size
+  let elapsed = '0.0';
+  let totalModules = 0;
   let totalSize = 0;
-  for (const [, moduleData] of allModules) {
-    if (moduleData.output) {
-      for (const o of moduleData.output) {
-        if (o.data && o.data.code) {
-          totalSize += o.data.code.length;
+  let categories = {};
+  let foundForbidden = [];
+
+  if (fs.existsSync(allocationReportPath)) {
+    const allocationReport = JSON.parse(
+      fs.readFileSync(allocationReportPath, 'utf-8'),
+    );
+    const startup = allocationReport.startup || {};
+    const startupModules = startup.modules || [];
+    totalModules = startup.moduleCount || startupModules.length;
+    totalSize = startup.estimatedSizeBytes || 0;
+    categories = {};
+    for (const relPath of startupModules) {
+      const cat = categorizeModule(relPath);
+      categories[cat] = (categories[cat] || 0) + 1;
+    }
+    foundForbidden = Array.isArray(allocationReport.violations)
+      ? allocationReport.violations
+      : startupModules.filter((relPath) =>
+          FORBIDDEN_IN_STARTUP.some((forbidden) => relPath.includes(forbidden)),
+        );
+    console.log(`Using allocation report: ${allocationReportPath}`);
+  } else {
+    const Metro = require('metro');
+    const { loadConfig } = require('metro-config');
+    const entryFile =
+      entryName === 'background'
+        ? path.resolve(mobileDirPath, 'background.ts')
+        : path.resolve(mobileDirPath, 'index.ts');
+    const config = await loadConfig({ cwd: mobileDirPath });
+
+    const startTime = Date.now();
+    const graph = await Metro.buildGraph(config, {
+      entries: [entryFile],
+      platform: 'ios',
+      dev: false,
+      minify: false,
+    });
+    elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    const monorepoRoot = path.resolve(mobileDirPath, '../..');
+    const allModules = Array.from(graph.dependencies.entries());
+    totalModules = allModules.length;
+
+    for (const [, moduleData] of allModules) {
+      if (moduleData.output) {
+        for (const o of moduleData.output) {
+          if (o.data && o.data.code) {
+            totalSize += o.data.code.length;
+          }
         }
       }
     }
-  }
 
-  // Categorize
-  const categories = {};
-  for (const [absPath] of allModules) {
-    const rel = relativePath(absPath, monorepoRoot);
-    const cat = categorizeModule(rel);
-    categories[cat] = (categories[cat] || 0) + 1;
-  }
-
-  // Check forbidden modules
-  const foundForbidden = [];
-  if (enableNativeBg) {
+    categories = {};
     for (const [absPath] of allModules) {
       const rel = relativePath(absPath, monorepoRoot);
-      if (FORBIDDEN_IN_STARTUP.some((f) => rel.includes(f))) {
-        foundForbidden.push(rel);
+      const cat = categorizeModule(rel);
+      categories[cat] = (categories[cat] || 0) + 1;
+    }
+
+    foundForbidden = [];
+    if (enableNativeBg) {
+      for (const [absPath] of allModules) {
+        const rel = relativePath(absPath, monorepoRoot);
+        if (FORBIDDEN_IN_STARTUP.some((f) => rel.includes(f))) {
+          foundForbidden.push(rel);
+        }
       }
     }
   }
@@ -167,24 +202,28 @@ async function main() {
   }
 
   // Check allocation report violations (Phase 4)
-  const allocationReportPath = path.resolve(
-    mobileDirPath,
-    `dist/allocation-report-${entryName}.json`,
-  );
   if (fs.existsSync(allocationReportPath)) {
     try {
       const allocationReport = JSON.parse(
         fs.readFileSync(allocationReportPath, 'utf-8'),
       );
-      if (allocationReport.violations && allocationReport.violations.length > 0) {
+      if (
+        allocationReport.violations &&
+        allocationReport.violations.length > 0
+      ) {
         failures.push(
           `Allocation violations (forbidden modules in startup): ${allocationReport.violations.join(', ')}`,
         );
       }
+      const startup = allocationReport.startup || {};
       console.log('\nAllocation Report:');
-      console.log(`  Startup modules: ${allocationReport.startup?.moduleCount || 'N/A'}`);
-      console.log(`  Startup size:    ${((allocationReport.startup?.estimatedSizeBytes || 0) / 1024 / 1024).toFixed(2)} MB`);
-      console.log(`  Segments:        ${Object.keys(allocationReport.segments || {}).length}`);
+      console.log(`  Startup modules: ${startup.moduleCount || 'N/A'}`);
+      console.log(
+        `  Startup size:    ${((startup.estimatedSizeBytes || 0) / 1024 / 1024).toFixed(2)} MB`,
+      );
+      console.log(
+        `  Segments:        ${Object.keys(allocationReport.segments || {}).length}`,
+      );
     } catch (e) {
       console.warn(`  Warning: Could not read allocation report: ${e.message}`);
     }

@@ -18,8 +18,17 @@ const fs = require('fs-extra');
 
 const { fileToIdMap } = require('./map');
 const { getSegmentsDir, getManifestPath } = require('./segmentPaths');
-const { deriveSegmentKey, allocateSegmentIds, monorepoRoot, SEGMENT_ID_BASE } = require('./segmentUtils');
-const { allocationRules, forbiddenInStartup, promotedSegments } = require('../bundle-groups.config');
+const {
+  deriveSegmentKey,
+  allocateSegmentIds,
+  monorepoRoot,
+  SEGMENT_ID_BASE,
+} = require('./segmentUtils');
+const {
+  allocationRules,
+  forbiddenInStartup,
+  promotedSegments,
+} = require('../bundle-groups.config');
 
 const baseJSBundle = require(
   path.resolve(
@@ -27,12 +36,19 @@ const baseJSBundle = require(
     '../../../node_modules',
     'metro/src/DeltaBundler/Serializers/baseJSBundle',
   ),
-);
+).default;
 const bundleToString = require(
   path.resolve(
     __dirname,
     '../../../node_modules',
     'metro/src/lib/bundleToString',
+  ),
+).default;
+const { sourceMapStringNonBlocking } = require(
+  path.resolve(
+    __dirname,
+    '../../../node_modules',
+    'metro/src/DeltaBundler/Serializers/sourceMapString',
   ),
 );
 
@@ -48,41 +64,32 @@ function sha256(content) {
 // Segment source map generator (#32)
 // ---------------------------------------------------------------------------
 
-function generateSegmentSourceMap(segModules, graph, _fileToIdMap, moduleIdToAbsPath) {
-  const sections = [];
-  let lineOffset = 0;
-
-  // Sort modules by ID to match bundleToString's output order (#41)
+async function generateSegmentSourceMap(
+  segModules,
+  graph,
+  _fileToIdMap,
+  moduleIdToAbsPath,
+) {
   const sorted = segModules.slice().sort((a, b) => a[0] - b[0]);
+  const segmentGraphModules = [];
 
-  for (let i = 0; i < sorted.length; i++) {
-    const [moduleId, code] = sorted[i];
+  for (const [moduleId] of sorted) {
     const absPath = moduleIdToAbsPath.get(moduleId);
-    if (absPath) {
-      const modData = graph.dependencies.get(absPath);
-      if (modData && modData.output) {
-        for (const output of modData.output) {
-          if (output.data && output.data.map) {
-            sections.push({
-              offset: { line: lineOffset, column: 0 },
-              map: output.data.map,
-            });
-          }
-        }
-      }
+    if (!absPath) {
+      continue;
     }
-    if (typeof code === 'string' && code.length > 0) {
-      // Count lines in the module code itself
-      const codeLines = (code.match(/\n/g) || []).length;
-      // bundleToString appends \n after each non-empty module (#42),
-      // except the last module when post is empty. For segments,
-      // post is always empty and the trailing \n is sliced off the last module.
-      const trailingNewline = i < sorted.length - 1 ? 1 : 0;
-      lineOffset += codeLines + trailingNewline;
+    const modData = graph.dependencies.get(absPath);
+    if (modData) {
+      segmentGraphModules.push(modData);
     }
   }
 
-  return JSON.stringify({ version: 3, sections });
+  return sourceMapStringNonBlocking(segmentGraphModules, {
+    excludeSource: false,
+    processModuleFilter: () => true,
+    shouldAddToIgnoreList: () => false,
+    getSourceUrl: (module) => module.path,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -212,7 +219,9 @@ module.exports = async function segmentSerializer(
   if (promotedSet.size > 0) {
     const promoted = [...promotedSet].filter((k) => segmentModules.has(k));
     if (promoted.length > 0) {
-      console.log(`info Promoted ${promoted.length} segment(s) into eager entry: ${promoted.join(', ')}`);
+      console.log(
+        `info Promoted ${promoted.length} segment(s) into eager entry: ${promoted.join(', ')}`,
+      );
     }
   }
 
@@ -286,7 +295,7 @@ module.exports = async function segmentSerializer(
       const cycle = cyclePath.reverse().join(' → ');
       throw new Error(
         `[segmentSerializer] Circular segment dependency detected: ${cycle}\n` +
-        'Segment dependsOn graph must be a DAG. Fix the import structure to break the cycle.',
+          'Segment dependsOn graph must be a DAG. Fix the import structure to break the cycle.',
       );
     }
   }
@@ -394,15 +403,27 @@ module.exports = async function segmentSerializer(
     });
 
     const segHash = sha256(Buffer.from(code));
-    const safeName = segmentKey.replace(/^seg:/, '').replace(/[^a-zA-Z0-9._-]/g, '_');
-    const relativePath = `segments/${safeName}.seg.js`;
+    const safeName = segmentKey
+      .replace(/^seg:/, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_');
+    const relativeDir =
+      runtimeTarget === 'background' ? 'segments-background' : 'segments';
+    const relativePath = `${relativeDir}/${safeName}.seg.hbc`;
     const outputPath = path.resolve(outputSegmentDir, `${safeName}.seg.js`);
 
     await fs.writeFile(outputPath, code);
 
     // Write packager source map for Sentry symbolication (#32)
-    const packagerMapPath = path.resolve(outputSegmentDir, `${safeName}.seg.packager.map`);
-    const sourceMap = generateSegmentSourceMap(segModules, graph, fileToIdMap, moduleIdToAbsPath);
+    const packagerMapPath = path.resolve(
+      outputSegmentDir,
+      `${safeName}.seg.packager.map`,
+    );
+    const sourceMap = await generateSegmentSourceMap(
+      segModules,
+      graph,
+      fileToIdMap,
+      moduleIdToAbsPath,
+    );
     await fs.writeFile(packagerMapPath, sourceMap);
 
     console.log(
@@ -437,6 +458,7 @@ module.exports = async function segmentSerializer(
     startup: {
       moduleCount: mainModuleIds.size,
       estimatedSizeBytes: 0,
+      modules: [],
     },
     segments: {},
     violations: startupViolations,
@@ -445,10 +467,14 @@ module.exports = async function segmentSerializer(
   for (const moduleId of mainModuleIds) {
     const absPath = moduleIdToAbsPath.get(moduleId);
     if (absPath) {
+      allocationReport.startup.modules.push(
+        absPath.replace(monorepoRoot, '').replace(/^\//, ''),
+      );
       const modData = graph.dependencies.get(absPath);
       if (modData && modData.output) {
         for (const o of modData.output) {
-          if (o.data && o.data.code) allocationReport.startup.estimatedSizeBytes += o.data.code.length;
+          if (o.data && o.data.code)
+            allocationReport.startup.estimatedSizeBytes += o.data.code.length;
         }
       }
     }
@@ -461,7 +487,11 @@ module.exports = async function segmentSerializer(
       size: entry.size,
     };
   }
-  const reportPath = path.resolve(outputSegmentDir, '..', `allocation-report-${runtimeTarget}.json`);
+  const reportPath = path.resolve(
+    outputSegmentDir,
+    '..',
+    `allocation-report-${runtimeTarget}.json`,
+  );
   await fs.writeFile(reportPath, JSON.stringify(allocationReport, null, 2));
   console.log(`info Writing allocation report → ${reportPath}`);
 
@@ -484,9 +514,7 @@ module.exports = async function segmentSerializer(
         if (typeof mod[1] !== 'string') continue;
         mod[1] = mod[1].replace(pattern, (_, prefix, modId, colon) => {
           const segKey = moduleToSegment.get(Number(modId));
-          return segKey
-            ? `${prefix}"${modId}"${colon}"${segKey}"`
-            : _;
+          return segKey ? `${prefix}"${modId}"${colon}"${segKey}"` : _;
         });
       }
     }

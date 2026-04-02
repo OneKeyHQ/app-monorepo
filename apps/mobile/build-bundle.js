@@ -6,7 +6,11 @@ const path = require('path');
 
 const fs = require('fs-extra');
 
-const { SEGMENTS_INPUT_DIR, getSegmentsDir, getManifestPath } = require('./plugins/segmentPaths');
+const {
+  SEGMENTS_INPUT_DIR,
+  getSegmentsDir,
+  getManifestPath,
+} = require('./plugins/segmentPaths');
 
 const mobileDirPath = __dirname;
 const projectRootPath = path.join(mobileDirPath, '../..');
@@ -16,6 +20,15 @@ const bundleOutputPath = path.join(mobileDirPath, 'out-dir-bundle');
 const zipOutputPath = path.join(mobileDirPath, 'out-dir-bundle-zip');
 const backgroundProtocolVersion = '1';
 const useUnionBuild = process.env.UNION_BUILD === 'true';
+const enableNativeBackgroundThread =
+  process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true';
+
+if (enableNativeBackgroundThread) {
+  process.env.ONEKEY_PLATFORM = process.env.ONEKEY_PLATFORM || 'app';
+  process.env.SPLIT_BUNDLE = process.env.SPLIT_BUNDLE || '1';
+  process.env.SPLIT_BUNDLE_SEGMENTS =
+    process.env.SPLIT_BUNDLE_SEGMENTS || 'true';
+}
 
 const SENTRY_ORG = 'onekey-bb';
 const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
@@ -54,6 +67,19 @@ const cleanBundleOutput = async () => {
   fs.rmSync(webEmbedOutputPath, { recursive: true, force: true });
   fs.rmSync(bundleOutputPath, { recursive: true, force: true });
   fs.rmSync(zipOutputPath, { recursive: true, force: true });
+  fs.rmSync(getSegmentsDir('main'), { recursive: true, force: true });
+  fs.rmSync(getSegmentsDir('background'), { recursive: true, force: true });
+  fs.rmSync(getManifestPath('main'), { force: true });
+  fs.rmSync(getManifestPath('background'), { force: true });
+  fs.rmSync(path.join(mobileDirPath, 'dist/allocation-report-main.json'), {
+    force: true,
+  });
+  fs.rmSync(
+    path.join(mobileDirPath, 'dist/allocation-report-background.json'),
+    {
+      force: true,
+    },
+  );
 };
 
 const ensureBundleOutputPath = async () => {
@@ -127,7 +153,7 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
     const bgManifestPath = getManifestPath('background');
     const allSegments = {};
 
-    for (const manifestPath of [mainManifestPath, bgManifestPath]) {
+    [mainManifestPath, bgManifestPath].forEach((manifestPath) => {
       if (fs.existsSync(manifestPath)) {
         try {
           const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
@@ -135,10 +161,12 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
             Object.assign(allSegments, manifest.segments);
           }
         } catch (e) {
-          log(`Warning: Could not read segment manifest ${manifestPath}: ${e.message}`);
+          log(
+            `Warning: Could not read segment manifest ${manifestPath}: ${e.message}`,
+          );
         }
       }
-    }
+    });
 
     if (Object.keys(allSegments).length > 0) {
       // MetadataV2 fields as proper typed values (not stringified).
@@ -164,6 +192,64 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
     log(`Total files processed: ${Object.keys(metadata).length}`);
   } else {
     console.warn(`Directory not found: ${dirPath}`);
+  }
+};
+
+const ensureSplitBundleBuildEnv = () => {
+  if (!enableNativeBackgroundThread) {
+    return;
+  }
+  if (process.env.ONEKEY_PLATFORM !== 'app') {
+    throw new Error(
+      '[build-bundle] ONEKEY_PLATFORM must be "app" for native split bundle builds',
+    );
+  }
+  if (!process.env.SPLIT_BUNDLE) {
+    throw new Error(
+      '[build-bundle] SPLIT_BUNDLE must be enabled when ENABLE_NATIVE_BACKGROUND_THREAD=true',
+    );
+  }
+  if (process.env.SPLIT_BUNDLE_SEGMENTS !== 'true') {
+    throw new Error(
+      '[build-bundle] SPLIT_BUNDLE_SEGMENTS must be "true" when ENABLE_NATIVE_BACKGROUND_THREAD=true',
+    );
+  }
+};
+
+const assertSplitBundleOutputs = ({
+  runtimeTarget,
+  bundlePath,
+  requireSegments = true,
+}) => {
+  if (!enableNativeBackgroundThread) {
+    return;
+  }
+
+  const manifestPath = getManifestPath(runtimeTarget);
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(
+      `[build-bundle] Missing segment manifest for ${runtimeTarget}: ${manifestPath}`,
+    );
+  }
+
+  const bundleCode = fs.readFileSync(bundlePath, 'utf8');
+  if (!bundleCode.includes('__SEGMENT_MANIFEST__')) {
+    throw new Error(
+      `[build-bundle] ${runtimeTarget} bundle did not inject __SEGMENT_MANIFEST__`,
+    );
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  if (!manifest.segments || typeof manifest.segments !== 'object') {
+    throw new Error(
+      `[build-bundle] Invalid segment manifest for ${runtimeTarget}: ${manifestPath}`,
+    );
+  }
+
+  if (requireSegments && Object.keys(manifest.segments).length === 0) {
+    throw new Error(
+      `[build-bundle] ${runtimeTarget} manifest is empty; split serializer did not produce any segments`,
+    );
   }
 };
 
@@ -228,6 +314,7 @@ const runReactNativeBundle = ({
         ...process.env,
         NODE_OPTIONS: '--max-old-space-size=8192',
         NODE_ENV: 'production',
+        ONEKEY_PLATFORM: 'app',
         ...(runtimeTarget ? { METRO_RUNTIME_TARGET: runtimeTarget } : {}),
       },
     },
@@ -261,11 +348,7 @@ const copyDebugIdToSourceMap = ({ packagerMapPath, sourceMapPath, label }) => {
   log(`${label} copy debugid done`);
 };
 
-const uploadSourceMapsToSentry = ({
-  bundlePath,
-  sourceMapPath,
-  label,
-}) => {
+const uploadSourceMapsToSentry = ({ bundlePath, sourceMapPath, label }) => {
   if (!(SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT)) {
     return;
   }
@@ -348,11 +431,14 @@ const runWithConcurrency = async (tasks, concurrency) => {
   let index = 0;
   const run = async () => {
     while (index < tasks.length) {
-      const currentIndex = index++;
+      const currentIndex = index;
+      index += 1;
       results[currentIndex] = await tasks[currentIndex]();
     }
   };
-  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, run));
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, tasks.length) }, run),
+  );
   return results;
 };
 
@@ -366,16 +452,21 @@ const runWithConcurrency = async (tasks, concurrency) => {
  *   4. Upload to Sentry
  *   5. Clean up intermediate files
  */
-const buildSegments = async ({ platform, buildOutputAssetPath, inputDir, outputSubdir }) => {
+const buildSegments = async ({
+  platform,
+  buildOutputAssetPath,
+  inputDir,
+  outputSubdir,
+}) => {
   const segmentsInputDir = inputDir || SEGMENTS_INPUT_DIR;
   if (!fs.existsSync(segmentsInputDir)) {
     log(`No segments directory found at ${segmentsInputDir}, skipping`);
     return;
   }
 
-  const segFiles = fs.readdirSync(segmentsInputDir).filter((f) =>
-    f.endsWith('.seg.js'),
-  );
+  const segFiles = fs
+    .readdirSync(segmentsInputDir)
+    .filter((f) => f.endsWith('.seg.js'));
   if (segFiles.length === 0) {
     log('No segment files found, skipping');
     return;
@@ -388,7 +479,10 @@ const buildSegments = async ({ platform, buildOutputAssetPath, inputDir, outputS
 
   log(`build ${platform} segments: ${segFiles.length} segments found`);
 
-  const CONCURRENCY = parseInt(process.env.SEGMENT_BUILD_CONCURRENCY || '4', 10);
+  const CONCURRENCY = parseInt(
+    process.env.SEGMENT_BUILD_CONCURRENCY || '4',
+    10,
+  );
 
   const tasks = segFiles.map((segFile) => async () => {
     const baseName = segFile.replace('.seg.js', '');
@@ -442,36 +536,65 @@ const buildSegments = async ({ platform, buildOutputAssetPath, inputDir, outputS
   log(`build ${platform} segments done`);
 };
 
-const runUnionBuildAnalysis = (platform) => {
-  log(`union build analysis: platform=${platform}`);
+const runUnionBuild = ({
+  platform,
+  mainBundleOutput,
+  mainSourceMapOutput,
+  backgroundBundleOutput,
+  backgroundSourceMapOutput,
+  assetsDest,
+}) => {
+  log(`union build: platform=${platform}`);
   execSync(
-    `${nodeExecutablePath} ${path.join(mobileDirPath, 'scripts/unionBuild.js')} --platform ${platform}`,
+    `${nodeExecutablePath} ${path.join(
+      mobileDirPath,
+      'scripts/unionBuild.js',
+    )} --platform ${platform} --main-bundle-output ${mainBundleOutput} --main-sourcemap-output ${mainSourceMapOutput} --background-bundle-output ${backgroundBundleOutput} --background-sourcemap-output ${backgroundSourceMapOutput} --assets-dest ${assetsDest}`,
     {
       stdio: 'inherit',
-      env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' },
+      env: {
+        ...process.env,
+        NODE_OPTIONS: '--max-old-space-size=8192',
+        NODE_ENV: 'production',
+        ONEKEY_PLATFORM: 'app',
+      },
     },
   );
-  log('union build analysis done');
+  log('union build done');
 };
 
 const buildIOSBundle = async () => {
   log('build ios bundle start');
+  ensureSplitBundleBuildEnv();
   ensureBundleOutputPath();
   ensureZipOutputPath();
 
   if (useUnionBuild) {
-    runUnionBuildAnalysis('ios');
+    runUnionBuild({
+      platform: 'ios',
+      mainBundleOutput: buildIOSOutputAssetPath('main.jsbundle'),
+      mainSourceMapOutput: buildIOSOutputAssetPath('main.jsbundle.map'),
+      backgroundBundleOutput: buildIOSOutputAssetPath('background.bundle.js'),
+      backgroundSourceMapOutput: buildIOSOutputAssetPath(
+        'background.bundle.packager.map',
+      ),
+      assetsDest: buildIOSOutputAssetPath('assets'),
+    });
+  } else {
+    runReactNativeBundle({
+      platform: 'ios',
+      entryFile: indexFilePath,
+      assetsDest: buildIOSOutputAssetPath('assets'),
+      bundleOutput: buildIOSOutputAssetPath('main.jsbundle'),
+      sourceMapOutput: buildIOSOutputAssetPath('main.jsbundle.map'),
+      runtimeTarget: 'main',
+    });
+    log('build ios bundle done');
   }
-
-  runReactNativeBundle({
-    platform: 'ios',
-    entryFile: indexFilePath,
-    assetsDest: buildIOSOutputAssetPath('assets'),
-    bundleOutput: buildIOSOutputAssetPath('main.jsbundle'),
-    sourceMapOutput: buildIOSOutputAssetPath('main.jsbundle.map'),
+  assertSplitBundleOutputs({
     runtimeTarget: 'main',
+    bundlePath: buildIOSOutputAssetPath('main.jsbundle'),
   });
-  log('build ios bundle done');
 
   log('build ios bundle hbc');
   execSync(
@@ -549,11 +672,64 @@ const buildIOSBundle = async () => {
     log('build ios bundle upload source maps done');
   }
 
-  await buildBackgroundBundle({
-    platform: 'ios',
-    buildOutputAssetPath: buildIOSOutputAssetPath,
-    assetsOutputPath: buildIOSOutputAssetPath('assets'),
-  });
+  if (!useUnionBuild) {
+    await buildBackgroundBundle({
+      platform: 'ios',
+      buildOutputAssetPath: buildIOSOutputAssetPath,
+      assetsOutputPath: buildIOSOutputAssetPath('assets'),
+    });
+  } else {
+    assertSplitBundleOutputs({
+      runtimeTarget: 'background',
+      bundlePath: buildIOSOutputAssetPath('background.bundle.js'),
+    });
+
+    const backgroundBundleJsPath = buildIOSOutputAssetPath(
+      'background.bundle.js',
+    );
+    const backgroundBundleHbcPath = buildIOSOutputAssetPath(
+      'background.bundle.hbc',
+    );
+    const backgroundBundlePath = buildIOSOutputAssetPath('background.bundle');
+    const backgroundBundlePackagerMapPath = buildIOSOutputAssetPath(
+      'background.bundle.packager.map',
+    );
+    const backgroundBundleMapPath = buildIOSOutputAssetPath(
+      'background.bundle.map',
+    );
+
+    log('build ios background bundle compress to hbc');
+    execSync(
+      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${backgroundBundleHbcPath} ${backgroundBundleJsPath}`,
+      { stdio: 'inherit' },
+    );
+    log('build ios background bundle compress to hbc done');
+
+    composeSourceMaps({
+      packagerMapPath: backgroundBundlePackagerMapPath,
+      hermesMapPath: `${backgroundBundleHbcPath}.map`,
+      outputPath: backgroundBundleMapPath,
+      label: 'build ios background bundle',
+    });
+    copyDebugIdToSourceMap({
+      packagerMapPath: backgroundBundlePackagerMapPath,
+      sourceMapPath: backgroundBundleMapPath,
+      label: 'build ios background bundle',
+    });
+
+    fs.moveSync(backgroundBundleHbcPath, backgroundBundlePath, {
+      overwrite: true,
+    });
+    uploadSourceMapsToSentry({
+      bundlePath: backgroundBundlePath,
+      sourceMapPath: backgroundBundleMapPath,
+      label: 'build ios background bundle',
+    });
+
+    fs.rmSync(backgroundBundleJsPath, { force: true });
+    fs.rmSync(backgroundBundlePackagerMapPath, { force: true });
+    fs.rmSync(`${backgroundBundleHbcPath}.map`, { force: true });
+  }
 
   await buildSegments({
     platform: 'ios',
@@ -591,7 +767,10 @@ const buildIOSBundle = async () => {
   }
   const iosSegmentsBgDir = buildIOSOutputAssetPath('segments-background');
   if (fs.existsSync(iosSegmentsBgDir)) {
-    fs.moveSync(iosSegmentsBgDir, buildIOSOutputAssetPath('dist/segments-background'));
+    fs.moveSync(
+      iosSegmentsBgDir,
+      buildIOSOutputAssetPath('dist/segments-background'),
+    );
   }
   log('build ios bundle compress dist to zip');
 
@@ -624,22 +803,38 @@ const buildIOSBundle = async () => {
 
 const buildAndroidBundle = async () => {
   log('build android bundle start');
+  ensureSplitBundleBuildEnv();
   ensureBundleOutputPath();
   ensureZipOutputPath();
 
   if (useUnionBuild) {
-    runUnionBuildAnalysis('android');
+    runUnionBuild({
+      platform: 'android',
+      mainBundleOutput: buildAndroidOutputAssetPath('main.jsbundle'),
+      mainSourceMapOutput: buildAndroidOutputAssetPath('main.jsbundle.map'),
+      backgroundBundleOutput: buildAndroidOutputAssetPath(
+        'background.bundle.js',
+      ),
+      backgroundSourceMapOutput: buildAndroidOutputAssetPath(
+        'background.bundle.packager.map',
+      ),
+      assetsDest: buildAndroidOutputAssetPath('assets'),
+    });
+  } else {
+    runReactNativeBundle({
+      platform: 'android',
+      entryFile: indexFilePath,
+      assetsDest: buildAndroidOutputAssetPath('assets'),
+      bundleOutput: buildAndroidOutputAssetPath('main.jsbundle'),
+      sourceMapOutput: buildAndroidOutputAssetPath('main.jsbundle.map'),
+      runtimeTarget: 'main',
+    });
+    log('build android bundle done');
   }
-
-  runReactNativeBundle({
-    platform: 'android',
-    entryFile: indexFilePath,
-    assetsDest: buildAndroidOutputAssetPath('assets'),
-    bundleOutput: buildAndroidOutputAssetPath('main.jsbundle'),
-    sourceMapOutput: buildAndroidOutputAssetPath('main.jsbundle.map'),
+  assertSplitBundleOutputs({
     runtimeTarget: 'main',
+    bundlePath: buildAndroidOutputAssetPath('main.jsbundle'),
   });
-  log('build android bundle done');
 
   log('build android bundle compress to hbc');
   execSync(
@@ -706,11 +901,65 @@ const buildAndroidBundle = async () => {
     log('build android bundle upload source maps done');
   }
 
-  await buildBackgroundBundle({
-    platform: 'android',
-    buildOutputAssetPath: buildAndroidOutputAssetPath,
-    assetsOutputPath: buildAndroidOutputAssetPath('assets'),
-  });
+  if (!useUnionBuild) {
+    await buildBackgroundBundle({
+      platform: 'android',
+      buildOutputAssetPath: buildAndroidOutputAssetPath,
+      assetsOutputPath: buildAndroidOutputAssetPath('assets'),
+    });
+  } else {
+    assertSplitBundleOutputs({
+      runtimeTarget: 'background',
+      bundlePath: buildAndroidOutputAssetPath('background.bundle.js'),
+    });
+
+    const backgroundBundleJsPath = buildAndroidOutputAssetPath(
+      'background.bundle.js',
+    );
+    const backgroundBundleHbcPath = buildAndroidOutputAssetPath(
+      'background.bundle.hbc',
+    );
+    const backgroundBundlePath =
+      buildAndroidOutputAssetPath('background.bundle');
+    const backgroundBundlePackagerMapPath = buildAndroidOutputAssetPath(
+      'background.bundle.packager.map',
+    );
+    const backgroundBundleMapPath = buildAndroidOutputAssetPath(
+      'background.bundle.map',
+    );
+
+    log('build android background bundle compress to hbc');
+    execSync(
+      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${backgroundBundleHbcPath} ${backgroundBundleJsPath}`,
+      { stdio: 'inherit' },
+    );
+    log('build android background bundle compress to hbc done');
+
+    composeSourceMaps({
+      packagerMapPath: backgroundBundlePackagerMapPath,
+      hermesMapPath: `${backgroundBundleHbcPath}.map`,
+      outputPath: backgroundBundleMapPath,
+      label: 'build android background bundle',
+    });
+    copyDebugIdToSourceMap({
+      packagerMapPath: backgroundBundlePackagerMapPath,
+      sourceMapPath: backgroundBundleMapPath,
+      label: 'build android background bundle',
+    });
+
+    fs.moveSync(backgroundBundleHbcPath, backgroundBundlePath, {
+      overwrite: true,
+    });
+    uploadSourceMapsToSentry({
+      bundlePath: backgroundBundlePath,
+      sourceMapPath: backgroundBundleMapPath,
+      label: 'build android background bundle',
+    });
+
+    fs.rmSync(backgroundBundleJsPath, { force: true });
+    fs.rmSync(backgroundBundlePackagerMapPath, { force: true });
+    fs.rmSync(`${backgroundBundleHbcPath}.map`, { force: true });
+  }
 
   await buildSegments({
     platform: 'android',
@@ -744,11 +993,19 @@ const buildAndroidBundle = async () => {
   // Move segments into dist if they exist
   const androidSegmentsDir = buildAndroidOutputAssetPath('segments');
   if (fs.existsSync(androidSegmentsDir)) {
-    fs.moveSync(androidSegmentsDir, buildAndroidOutputAssetPath('dist/segments'));
+    fs.moveSync(
+      androidSegmentsDir,
+      buildAndroidOutputAssetPath('dist/segments'),
+    );
   }
-  const androidSegmentsBgDir = buildAndroidOutputAssetPath('segments-background');
+  const androidSegmentsBgDir = buildAndroidOutputAssetPath(
+    'segments-background',
+  );
   if (fs.existsSync(androidSegmentsBgDir)) {
-    fs.moveSync(androidSegmentsBgDir, buildAndroidOutputAssetPath('dist/segments-background'));
+    fs.moveSync(
+      androidSegmentsBgDir,
+      buildAndroidOutputAssetPath('dist/segments-background'),
+    );
   }
 
   const webEmbedAndroidPath = path.join(distPath, 'web-embed');
@@ -782,22 +1039,26 @@ const buildAndroidBundle = async () => {
 
 const buildWebEmbed = async () => {
   log('build web embed');
-  execSync(
-    `npx webpack build`,
-    {
-      stdio: 'inherit',
-      cwd: path.join(projectRootPath, 'apps/web-embed'),
-      env: {
-        ...process.env,
-        NODE_OPTIONS: '--max-old-space-size=8192',
-        NODE_ENV: 'production',
-      },
+  execSync(`npx webpack build`, {
+    stdio: 'inherit',
+    cwd: path.join(projectRootPath, 'apps/web-embed'),
+    env: {
+      ...process.env,
+      NODE_OPTIONS: '--max-old-space-size=8192',
+      NODE_ENV: 'production',
     },
-  );
+  });
   log('build web embed done');
 };
 
-cleanBundleOutput();
-buildWebEmbed();
-buildIOSBundle();
-buildAndroidBundle();
+async function main() {
+  await cleanBundleOutput();
+  await buildWebEmbed();
+  await buildIOSBundle();
+  await buildAndroidBundle();
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
