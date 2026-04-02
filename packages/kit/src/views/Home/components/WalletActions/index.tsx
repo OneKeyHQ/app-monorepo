@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,7 +14,6 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -69,11 +68,6 @@ function WalletActionSend({
     return settings;
   }, [network?.id]).result;
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-
-  const isSendDisabled = useMemo(
-    () => wallet?.type === WALLET_TYPE_WATCHING,
-    [wallet?.type],
-  );
 
   const handleOnSend = useCallback(async () => {
     if (!network) return;
@@ -236,10 +230,7 @@ function WalletActionSend({
   return (
     <RawActions.Send
       onPress={customization?.onPress || handleOnSend}
-      disabled={
-        customization?.disabled ??
-        (isSendDisabled || vaultSettings?.disabledSendAction)
-      }
+      disabled={customization?.disabled ?? vaultSettings?.disabledSendAction}
       label={customization?.label}
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}

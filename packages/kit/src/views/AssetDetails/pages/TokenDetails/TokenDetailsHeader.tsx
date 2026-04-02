@@ -311,7 +311,6 @@ function TokenDetailsHeader(props: IProps) {
           <RawActions>
             <RawActions.Send
               onPress={handleSendPress}
-              disabled={isWatchOnly}
               trackID="wallet-token-details-send"
             />
             <RawActions.Receive
