@@ -2060,6 +2060,41 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getTradingviewMidPrice(symbol: string): Promise<string | undefined> {
+    if (!symbol) {
+      return undefined;
+    }
+
+    const cachedMid = hyperLiquidCache.allMids?.mids?.[symbol];
+    if (cachedMid) {
+      return cachedMid;
+    }
+    if (
+      hyperLiquidCache.allMids &&
+      Date.now() - hyperLiquidCache.allMidsUpdatedAt <
+        timerUtils.getTimeDurationMs({ seconds: 1 })
+    ) {
+      return undefined;
+    }
+
+    try {
+      const { infoClient } = hyperLiquidApiClients;
+      const allMids = await infoClient.allMids();
+      hyperLiquidCache.allMids = {
+        mids: allMids,
+      };
+      const mid = allMids[symbol];
+      return typeof mid === 'string' ? mid : undefined;
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquid] Failed to load tradingview mid price:',
+        error,
+      );
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
   async getPortfolioHistory({ address }: { address: string }) {
     const { infoClient } = hyperLiquidApiClients;
     return infoClient.portfolio({ user: address as IHex });
