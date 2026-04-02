@@ -116,7 +116,7 @@
     "@metamask/eth-sig-util": "5.1.0",
     "@mysten/sui": "1.28.0",
     "@ngraveio/bc-ur": "^1.1.13",
-    "@nktkas/hyperliquid": "0.29.1",
+    "@nktkas/hyperliquid": "0.32.2",
     "@onekeyfe/cross-inpage-provider-core": "2.2.63",
     "@onekeyfe/cross-inpage-provider-errors": "2.2.63",
     "@onekeyfe/cross-inpage-provider-injected": "2.2.63",
