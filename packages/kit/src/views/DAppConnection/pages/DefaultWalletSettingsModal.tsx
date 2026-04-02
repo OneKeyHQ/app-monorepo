@@ -29,9 +29,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 const strongTextPlain = (chunks: string[]) => chunks.join('');
 const strongTextRich = (chunks: React.ReactNode[]) => (
-  <SizableText size="$bodyMdMedium" color="$text">
-    {chunks}
-  </SizableText>
+  <SizableText color="$text">{chunks}</SizableText>
 );
 
 function EmptyGuide() {
@@ -281,6 +279,9 @@ function DefaultWalletSettingsModal() {
             { id: ETranslations.explore_set_default_wallet_description },
             { strong: strongTextRich },
           )}
+          subtitleProps={{
+            maxWidth: '$96',
+          }}
         >
           <Switch
             size={ESwitchSize.small}
