@@ -145,10 +145,11 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
       }
     });
 
-    // MetadataV2: embed segment manifest data (Phase 6)
+    // MetadataV2: embed structured bundle entries and segment manifest data.
     // Merge segment entries from both main and background manifests.
-    // This adds runtimeGraphVersion, mainEntry, backgroundEntry, and segments
-    // while preserving v1 backward compatibility (flat file→hash entries).
+    // This adds bundleFormat, runtimeGraphVersion, commonEntry, mainEntry,
+    // backgroundEntry, and segments while preserving v1 backward compatibility
+    // (flat file→hash entries).
     const mainManifestPath = getManifestPath('main');
     const bgManifestPath = getManifestPath('background');
     const allSegments = {};
@@ -168,10 +169,25 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
       }
     });
 
-    if (Object.keys(allSegments).length > 0) {
-      // MetadataV2 fields as proper typed values (not stringified).
-      // V1 consumers iterate flat string→string entries and skip non-string
-      // values, so nested objects don't interfere with v1 file-hash lookups.
+    // MetadataV2 fields as proper typed values (not stringified).
+    // V1 consumers iterate flat string→string entries and skip non-string
+    // values, so nested objects don't interfere with v1 file-hash lookups.
+    //
+    // bundleFormat distinguishes the OTA package layout:
+    //   "three-bundle" — common + main + background (union build)
+    //   absent / "two-bundle" — main + background (legacy)
+    //
+    // NOTE: The native BundleUpdate module (Android isReservedMetadataKey,
+    // iOS metadata parsing) must be updated to skip these V2 keys when
+    // iterating file→hash entries for verification. Until then, the nested
+    // objects are harmless for V1 consumers that call getString() — they
+    // receive a JSON-stringified representation which won't match any
+    // on-disk file path and is therefore ignored during file validation.
+    const hasSegments = Object.keys(allSegments).length > 0;
+    const isThreeBundleBuild = useUnionBuild || hasSegments;
+
+    if (isThreeBundleBuild) {
+      metadata.bundleFormat = 'three-bundle';
       metadata.runtimeGraphVersion = 2;
       metadata.commonEntry = {
         file: 'common.jsbundle.hbc',
@@ -185,8 +201,12 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
         file: 'background.bundle',
         sha256: metadata['background.bundle'] || '',
       };
-      metadata.segments = allSegments;
-      log(`MetadataV2: ${Object.keys(allSegments).length} segment(s) embedded`);
+      if (hasSegments) {
+        metadata.segments = allSegments;
+      }
+      log(
+        `MetadataV2: bundleFormat=three-bundle, ${Object.keys(allSegments).length} segment(s)`,
+      );
     }
 
     // Write metadata.json
