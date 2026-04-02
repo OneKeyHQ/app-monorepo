@@ -126,4 +126,17 @@ export class WebembedScene extends BaseScene {
   }) {
     return [module || 'unknown', method || 'unknown'];
   }
+
+  @LogToLocal()
+  public webViewOnError({
+    code,
+    description,
+    url,
+  }: {
+    code: number;
+    description: string;
+    url: string;
+  }) {
+    return { code, description, url };
+  }
 }
