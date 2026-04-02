@@ -1610,9 +1610,41 @@ class ServicePrimeCloudSync extends ServiceBase {
     await primeCloudSyncPersistAtom.set((v) => ({
       ...v,
       isCloudSyncEnabled: enabled,
+      hasEverEnabledOneKeyIdSync:
+        enabled || v.hasEverEnabledOneKeyIdSync || v.isCloudSyncEnabled,
       isCloudSyncEnabledKeyless: enabled ? false : v.isCloudSyncEnabledKeyless,
     }));
     await this.clearCachedSyncCredential();
+  }
+
+  @backgroundMethod()
+  async backfillOneKeyIdSyncHistoryIfNeeded() {
+    await primeCloudSyncPersistAtom.set((v) => {
+      if (!v.isCloudSyncEnabled || v.hasEverEnabledOneKeyIdSync) {
+        return v;
+      }
+      return {
+        ...v,
+        hasEverEnabledOneKeyIdSync: true,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async normalizeCloudSyncStateForPageEnter() {
+    const currentConfig = await primeCloudSyncPersistAtom.get();
+    if (!currentConfig.isCloudSyncEnabled || !currentConfig.isCloudSyncEnabledKeyless) {
+      return false;
+    }
+
+    await primeCloudSyncPersistAtom.set((v) => ({
+      ...v,
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+      hasEverEnabledOneKeyIdSync: true,
+    }));
+    await this.clearCachedSyncCredential();
+    return true;
   }
 
   @backgroundMethod()
