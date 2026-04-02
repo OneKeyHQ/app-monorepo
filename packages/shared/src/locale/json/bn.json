@@ -1156,7 +1156,7 @@
   "explore.see_all": "সবগুলো দেখুন",
   "explore.set_default": "OneKey কে ডিফল্ট ওয়ালেট হিসেবে সেট করুন",
   "explore.set_default_wallet": "OneKey কে ডিফল্ট ওয়ালেট হিসেবে সেট করুন",
-  "explore.set_default_wallet_description": "OneKey কে ডিফল্ট ওয়ালেট হিসেবে ব্যবহার করুন যাতে আপনি dApps এর সাথে সংযোগ করতে পারেন।",
+  "explore.set_default_wallet_description": "DApp সংযোগের জন্য OneKey কে ডিফল্ট ওয়ালেট হিসেবে ব্যবহার করুন। <strong>এই সেটিংটি পরিবর্তন করার পর, এটি কার্যকর করার জন্য dApp পৃষ্ঠাটি রিফ্রেশ করুন</strong>।",
   "explore.share": "শেয়ার",
   "explore.suggested": "প্রস্তাবিত",
   "explore.tab_prompt": "আপনি এই ট্যাবটি দ্রুত অ্যাক্সেসের জন্য পিন করতে স্পর্শ এবং ধরে রাখতে পারেন।",

@@ -1156,7 +1156,7 @@
   "explore.see_all": "See all",
   "explore.set_default": "Set OneKey as Default Wallet",
   "explore.set_default_wallet": "Set OneKey as default wallet",
-  "explore.set_default_wallet_description": "Use OneKey as the default wallet to connect to dApps.",
+  "explore.set_default_wallet_description": "Use OneKey as the default wallet for dApp connections. <strong>After changing this setting, refresh the dApp page for it to take effect</strong>.",
   "explore.share": "Share",
   "explore.suggested": "Suggested",
   "explore.tab_prompt": "You can touch and hold to pin this tab for quick access.",

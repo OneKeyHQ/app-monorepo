@@ -1156,7 +1156,7 @@
   "explore.see_all": "Lihat semua",
   "explore.set_default": "Atur OneKey sebagai Dompet Default",
   "explore.set_default_wallet": "Atur OneKey sebagai dompet default",
-  "explore.set_default_wallet_description": "Gunakan OneKey sebagai dompet default untuk terhubung ke dApps.",
+  "explore.set_default_wallet_description": "Gunakan OneKey sebagai dompet default untuk koneksi dApp. <strong>Setelah mengubah pengaturan ini, segarkan halaman dApp agar perubahan berlaku</strong>.",
   "explore.share": "Bagikan",
   "explore.suggested": "Disarankan",
   "explore.tab_prompt": "Anda dapat menyentuh dan menahan untuk memasang tab ini untuk akses cepat.",
