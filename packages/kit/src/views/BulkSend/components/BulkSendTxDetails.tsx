@@ -477,10 +477,9 @@ function BulkSendTxDetails(props: IProps) {
 
       transfersInfo.forEach((transfer, index) => {
         const address = transfer[addressKey];
-        const resolvedAmount =
-          shouldResolveMaxAmounts && addressKey === 'from'
-            ? senderBalances?.[transfer.from]
-            : transfer.amount;
+        const resolvedAmount = shouldResolveMaxAmounts
+          ? senderBalances?.[transfer.from]
+          : transfer.amount;
         const amount = resolvedAmount ?? '';
 
         if (canEdit) {
