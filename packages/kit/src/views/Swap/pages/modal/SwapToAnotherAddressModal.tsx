@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -32,6 +32,7 @@ import type {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQuickSelect';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -80,6 +81,20 @@ const SwapToAnotherAddressPage = () => {
       form.setValue('address', { raw: paramAddress });
     }
   }, [paramAddress, form]);
+
+  const toAddressRaw = form.watch('address')?.raw ?? '';
+  const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
+
+  const handleQuickSelectRecipient = useCallback(
+    ({ address: selectedAddress }: { address: string }) => {
+      if (selectedAddress) {
+        form.setValue('address', {
+          raw: selectedAddress,
+        } as IAddressInputValue);
+      }
+    },
+    [form],
+  );
 
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
     (data) => {
@@ -137,6 +152,15 @@ const SwapToAnotherAddressPage = () => {
             enableAddressContract
             enableAllowListValidation
             accountId={accountInfo?.account?.id}
+            hasQuickSelectMatches={hasQuickSelectMatches}
+          />
+          <RecipientQuickSelect
+            accountId={accountInfo?.account?.id ?? ''}
+            networkId={networkId}
+            searchKey={toAddressRaw}
+            isSearchMode={!!toAddressRaw?.trim()}
+            onMatchStatusChange={setHasQuickSelectMatches}
+            onSelect={handleQuickSelectRecipient}
           />
         </Form>
         <Stack gap="$4">
