@@ -40,7 +40,6 @@ import {
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { SWAP_FAQ_HELP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -70,6 +69,8 @@ import {
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
 
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
+
+const SWAP_INCOGNITO_HELP_URL = 'https://help.onekey.so/articles/14430164';
 
 interface ISwapActionsStateProps {
   onPreSwap: () => void;
@@ -115,7 +116,7 @@ function SwapIncognitoDialogContent({
     () =>
       `${intl.formatMessage({
         id: ETranslations.trade_incognito_description,
-      })} <url>${SWAP_FAQ_HELP_URL}<underline>${intl.formatMessage({
+      })} <url>${SWAP_INCOGNITO_HELP_URL}<underline>${intl.formatMessage({
         id: ETranslations.trade_incognito_read_more,
       })}</underline></url>`,
     [intl],
