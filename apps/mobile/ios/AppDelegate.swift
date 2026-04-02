@@ -322,16 +322,20 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA main path not found, will fallback")
     }
 
-    let fallbackURL = Bundle.main.url(forResource: "common", withExtension: "jsbundle")
-    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback common.jsbundle=\(fallbackURL?.absoluteString ?? "nil")")
-
-    // Log resolved bundle file size for split-bundle diagnostics
-    if let resolvedURL = fallbackURL {
-      let fileSize = (try? FileManager.default.attributesOfItem(atPath: resolvedURL.path)[.size] as? Int) ?? 0
-      NitroModuleBridge.logInfo("SplitBundle", "bundleURL: \(resolvedURL.lastPathComponent) (\(fileSize / 1024)KB)")
+    // Three-bundle mode: initial bundle is common.jsbundle (polyfills + shared modules).
+    // Single-bundle mode: fall back to main.jsbundle (standard react-native bundle output).
+    let candidates: [(String, String)] = [("common", "jsbundle"), ("main", "jsbundle")]
+    for (name, ext) in candidates {
+      if let url = Bundle.main.url(forResource: name, withExtension: ext) {
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
+        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback \(name).\(ext)=\(url.absoluteString)")
+        NitroModuleBridge.logInfo("SplitBundle", "bundleURL: \(url.lastPathComponent) (\(fileSize / 1024)KB)")
+        return url
+      }
     }
 
-    return fallbackURL
+    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): no bundle found (common.jsbundle / main.jsbundle)")
+    return nil
 #endif
   }
 
