@@ -18,6 +18,7 @@
 // comments don't cause "unknown rule" errors (the real rule lives in oxlint)
 const Module = require('module');
 const path = require('path');
+
 const originalResolve = Module._resolveFilename;
 Module._resolveFilename = function (request, ...args) {
   if (request === 'eslint-plugin-onekey') {

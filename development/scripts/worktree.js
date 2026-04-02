@@ -190,16 +190,14 @@ function getAvailableRandomWorktreeTarget(worktreeDir) {
     const branchName = `${city}-${date}`;
     const worktreePath = resolveWorktreePath(worktreeDir, branchName);
 
-    if (!isWorktreeTargetAvailable(worktreePath, branchName)) {
-      continue;
+    if (isWorktreeTargetAvailable(worktreePath, branchName)) {
+      return {
+        branchName,
+        city,
+        date,
+        worktreePath,
+      };
     }
-
-    return {
-      branchName,
-      city,
-      date,
-      worktreePath,
-    };
   }
 
   console.error(
@@ -227,7 +225,7 @@ function getDerivedWorktreeTarget(worktreeDir, currentWorktreeName) {
 
 function parseArgs(rawArgs) {
   let customName;
-  let showHelp = false;
+  let shouldShowHelp = false;
   const commandArgs = [];
 
   for (let index = 0; index < rawArgs.length; index += 1) {
@@ -247,32 +245,25 @@ function parseArgs(rawArgs) {
 
       customName = nextArg;
       index += 1;
-      continue;
-    }
-
-    if (arg.startsWith('--name=')) {
+    } else if (arg.startsWith('--name=')) {
       customName = arg.slice('--name='.length);
 
       if (!customName) {
         throw new Error('Missing value for --name');
       }
-
-      continue;
-    }
-
-    if (arg === 'help' || arg === '-h' || arg === '--help') {
-      showHelp = true;
+    } else if (arg === 'help' || arg === '-h' || arg === '--help') {
+      shouldShowHelp = true;
+      break;
+    } else {
+      commandArgs.push(...rawArgs.slice(index));
       break;
     }
-
-    commandArgs.push(...rawArgs.slice(index));
-    break;
   }
 
   return {
     commandArgs,
     customName,
-    showHelp,
+    showHelp: shouldShowHelp,
   };
 }
 

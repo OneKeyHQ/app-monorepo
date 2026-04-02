@@ -374,7 +374,7 @@ function AppDataSection() {
           await backgroundApiProxy.serviceKeylessCloudSync.setPendingAutoEnableCloudSyncKeyless(
             true,
           );
-          await handleCreateKeylessWallet();
+          handleCreateKeylessWallet();
         },
       });
       return;

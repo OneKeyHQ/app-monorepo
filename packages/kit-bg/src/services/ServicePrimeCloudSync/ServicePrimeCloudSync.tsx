@@ -1633,7 +1633,10 @@ class ServicePrimeCloudSync extends ServiceBase {
   @backgroundMethod()
   async normalizeCloudSyncStateForPageEnter() {
     const currentConfig = await primeCloudSyncPersistAtom.get();
-    if (!currentConfig.isCloudSyncEnabled || !currentConfig.isCloudSyncEnabledKeyless) {
+    if (
+      !currentConfig.isCloudSyncEnabled ||
+      !currentConfig.isCloudSyncEnabledKeyless
+    ) {
       return false;
     }
 
