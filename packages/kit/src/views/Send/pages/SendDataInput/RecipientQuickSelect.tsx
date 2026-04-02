@@ -7,6 +7,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import {
   Badge,
   Empty,
+  Icon,
   MatchSizeableText,
   SegmentControl,
   SizableText,
@@ -76,6 +77,7 @@ type IQuickItem = {
   id?: string;
   name: string;
   address: string;
+  displayAddress?: string; // Address shown in secondary text (may differ from avatar seed)
   memo?: string;
   note?: string;
   deriveLabel?: string;
@@ -97,7 +99,11 @@ const QuickSelectListItem = memo(
         testID={`recipient-item-${item.address}`}
         primary={
           <XStack gap="$2" alignItems="center">
-            <MatchSizeableText size="$bodyLgMedium">
+            <MatchSizeableText
+              size="$bodyLgMedium"
+              numberOfLines={1}
+              flexShrink={1}
+            >
               {displayName}
             </MatchSizeableText>
             {item.deriveLabel ? (
@@ -108,9 +114,15 @@ const QuickSelectListItem = memo(
           </XStack>
         }
         secondary={
-          <MatchSizeableText size="$bodyMd" color="$textSubdued">
-            {item.memo ? `${item.address} · ${item.memo}` : item.address}
-          </MatchSizeableText>
+          (() => {
+            const showAddr = item.displayAddress ?? item.address;
+            if (!showAddr) return undefined;
+            return (
+              <MatchSizeableText size="$bodyMd" color="$textSubdued">
+                {item.memo ? `${showAddr} · ${item.memo}` : showAddr}
+              </MatchSizeableText>
+            );
+          })()
         }
       />
     );
@@ -149,43 +161,59 @@ async function getWalletNetworkAccounts(
   wallet: IDBWallet,
   networkId: string,
 ): Promise<IAccountWithDeriveInfo[]> {
-  const { dbIndexedAccounts } = wallet;
+  const { dbIndexedAccounts, dbAccounts } = wallet;
 
-  if (!dbIndexedAccounts?.length) {
-    return [];
+  // HD / Hardware wallets use dbIndexedAccounts
+  if (dbIndexedAccounts?.length) {
+    const accountRequestTaskFactories = dbIndexedAccounts.map(
+      (indexedAccount) => async () => {
+        const resp =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              networkId,
+              indexedAccountId: indexedAccount.id,
+              excludeEmptyAccount: true,
+            },
+          );
+        return resp.networkAccounts;
+      },
+    );
+
+    const results = await promiseAllSettledEnhanced(
+      accountRequestTaskFactories,
+      {
+        continueOnError: true,
+        concurrency: NETWORK_ACCOUNTS_FETCH_CONCURRENCY,
+      },
+    );
+    return flatten(
+      map(results, (item) =>
+        (item ?? [])
+          .filter((acc) => acc.account)
+          .map((acc) => ({
+            account: acc.account as INetworkAccount,
+            deriveInfo: acc.deriveInfo,
+          })),
+      ),
+    );
   }
 
-  const accountRequestTaskFactories = dbIndexedAccounts.map(
-    (indexedAccount) => async () => {
-      const resp =
-        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-          {
-            networkId,
-            indexedAccountId: indexedAccount.id,
-            excludeEmptyAccount: true,
-          },
-        );
-      return resp.networkAccounts;
-    },
-  );
+  // Imported / Private-key wallets use dbAccounts directly
+  if (dbAccounts?.length) {
+    const networkImpl = networkId.split('--')[0];
+    return dbAccounts
+      .filter((acc) => {
+        // Match accounts belonging to the target network
+        const accImpl = acc.id?.split('--')?.[0];
+        return accImpl === networkImpl;
+      })
+      .map((acc) => ({
+        account: acc as unknown as INetworkAccount,
+        deriveInfo: undefined,
+      }));
+  }
 
-  const results = await promiseAllSettledEnhanced(accountRequestTaskFactories, {
-    continueOnError: true,
-    concurrency: NETWORK_ACCOUNTS_FETCH_CONCURRENCY,
-  });
-  // Extract all accounts with derive type info
-  const allAccounts = flatten(
-    map(results, (item) =>
-      (item ?? [])
-        .filter((acc) => acc.account)
-        .map((acc) => ({
-          account: acc.account as INetworkAccount,
-          deriveInfo: acc.deriveInfo,
-        })),
-    ),
-  );
-
-  return allAccounts;
+  return [];
 }
 
 function AccountRecipients({
@@ -438,6 +466,17 @@ function AccountRecipients({
     [sections],
   );
 
+  // Collapse state per wallet group (default: all expanded)
+  const [collapsedWallets, setCollapsedWallets] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleCollapse = useCallback((walletId: string) => {
+    setCollapsedWallets((prev) => ({
+      ...prev,
+      [walletId]: !prev[walletId],
+    }));
+  }, []);
+
   // Show skeleton on initial load or while loading (when isLoadingAccounts is undefined or true)
   const isInitialLoading =
     isLoadingAccounts !== false && walletGroups.length === 0;
@@ -464,15 +503,45 @@ function AccountRecipients({
   return (
     <Stack>
       {flattenedItems.map((item) => {
-        // Render section header
+        // Render section header with collapse toggle
         if (item.type === 'header') {
+          const isCollapsed = !!collapsedWallets[item.walletId];
           return (
-            <Stack key={`header-${item.walletId}`} px="$5" pt="$4" pb="$2">
-              <SizableText size="$headingXs" color="$textSubdued">
+            <XStack
+              key={`header-${item.walletId}`}
+              px="$5"
+              pt="$4"
+              pb="$2"
+              alignItems="center"
+              onPress={() => toggleCollapse(item.walletId)}
+              cursor="pointer"
+              hoverStyle={{ opacity: 0.7 }}
+            >
+              <SizableText
+                size="$headingXs"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={1}
+              >
                 {item.title}
               </SizableText>
-            </Stack>
+              <Icon
+                name={
+                  isCollapsed
+                    ? 'ChevronRightSmallOutline'
+                    : 'ChevronDownSmallOutline'
+                }
+                size="$4.5"
+                color="$iconSubdued"
+                ml="$1"
+              />
+            </XStack>
           );
+        }
+
+        // Skip account items when their wallet group is collapsed
+        if (collapsedWallets[item.walletId]) {
+          return null;
         }
 
         // Render account item
@@ -488,15 +557,15 @@ function AccountRecipients({
         } = item;
         const itemAddress =
           account.address ?? account.addressDetail?.address ?? '';
-        const deriveLabel = hasMultipleDeriveTypes
+        // Always show derive label when deriveInfo exists (e.g. LTC Native SegWit / Legacy).
+        // Even with only one created path, the user needs to know which path it is.
+        const deriveLabel = deriveInfo
           ? getDeriveLabel(deriveInfo)
           : undefined;
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
-        const walletName = item.walletName;
-        const displayName = walletName
-          ? `${walletName} / ${account.name ?? ''}`
-          : (account.name ?? '');
+        // Wallet name is already shown in the section header, only show account name
+        const displayName = account.name ?? '';
 
         return (
           <QuickSelectListItem
@@ -504,7 +573,10 @@ function AccountRecipients({
             item={{
               id: account.id ?? '',
               name: displayName,
-              address: itemAddress,
+              // Use account.id as avatar seed when address is empty (e.g. Lightning)
+              address: itemAddress || account.id || '',
+              // Only show address in secondary text when it's a real address
+              displayAddress: itemAddress,
               deriveLabel,
               walletId,
               wallet,
@@ -678,8 +750,12 @@ export default function RecipientQuickSelect({
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
   // Use controlled state from parent if provided, otherwise use local state
+  const isLightningNetwork =
+    networkUtils.isLightningNetworkByNetworkId(networkId);
   const [localActiveTab, setLocalActiveTab] =
-    useState<IRecipientQuickSelectTab>('recent');
+    useState<IRecipientQuickSelectTab>(
+      isLightningNetwork ? 'account' : 'recent',
+    );
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
 
@@ -787,32 +863,45 @@ export default function RecipientQuickSelect({
       return label;
     };
 
-    return [
-      {
+    const isLightning =
+      networkUtils.isLightningNetworkByNetworkId(networkId);
+
+    const options: { label: string; value: IRecipientQuickSelectTab }[] = [];
+
+    // Lightning invoices are one-time, hide Recent tab to avoid showing them
+    if (!isLightning) {
+      options.push({
         label: formatLabel(
           intl.formatMessage({ id: ETranslations.global_recents }),
           'recent',
         ),
         value: 'recent',
-      },
-      {
-        label: formatLabel(
-          intl.formatMessage({
-            id: ETranslations.global_accounts,
-          }),
-          'account',
-        ),
-        value: 'account',
-      },
-      {
+      });
+    }
+
+    options.push({
+      label: formatLabel(
+        intl.formatMessage({
+          id: ETranslations.global_accounts,
+        }),
+        'account',
+      ),
+      value: 'account',
+    });
+
+    // Lightning network doesn't support address book
+    if (!isLightning) {
+      options.push({
         label: formatLabel(
           intl.formatMessage({ id: ETranslations.address_book_title }),
           'addressBook',
         ),
         value: 'addressBook',
-      },
-    ];
-  }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts]);
+      });
+    }
+
+    return options;
+  }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts, networkId]);
 
   return (
     <Animated.View entering={FadeIn.duration(200)}>
@@ -827,7 +916,7 @@ export default function RecipientQuickSelect({
             setActiveTab(value as IRecipientQuickSelectTab);
           }}
         />
-        <Stack mx={-20}>
+        <Stack mx={-20} pb="$3">
           {/* Render active tab, or visited tabs (hidden with display:none to avoid unmount crashes) */}
           {activeTab === 'recent' || visitedTabs.recent ? (
             <Stack display={activeTab === 'recent' ? 'flex' : 'none'}>

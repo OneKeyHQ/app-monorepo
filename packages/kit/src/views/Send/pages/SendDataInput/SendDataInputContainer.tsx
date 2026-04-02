@@ -35,6 +35,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type {
   IChainValue,
   IQRCodeHandlerParseResult,
@@ -55,6 +56,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -160,6 +162,10 @@ function SendDataInputContainer() {
   );
 
   const { account, network, vaultSettings } = useAccountData({
+    accountId: currentAccount.accountId,
+    networkId: currentAccount.networkId,
+  });
+  const signatureConfirm = useSignatureConfirm({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
@@ -359,6 +365,71 @@ function SendDataInputContainer() {
 
       // Reuse the matching amount-input route for the active modal stack.
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
+
+      // For Lightning invoices, decode the invoice to extract embedded amount
+      let invoiceAmount: string | undefined;
+      let isInvoiceAmountLocked = false;
+      const isLightning = networkUtils.isLightningNetworkByNetworkId(
+        currentAccount.networkId,
+      );
+      if (isLightning && toResolved) {
+        try {
+          const isZeroAmount =
+            await backgroundApiProxy.serviceLightning.isZeroAmountInvoice({
+              paymentRequest: toResolved,
+              networkId: currentAccount.networkId,
+              accountId: currentAccount.accountId,
+            });
+          if (!isZeroAmount) {
+            const decoded =
+              await backgroundApiProxy.serviceLightning.decodedInvoice({
+                paymentRequest: toResolved,
+                networkId: currentAccount.networkId,
+                accountId: currentAccount.accountId,
+              });
+            const sats =
+              decoded.satoshis ??
+              (decoded.millisatoshis
+                ? Math.floor(Number(decoded.millisatoshis) / 1000)
+                : undefined);
+            if (sats && sats > 0) {
+              invoiceAmount = String(sats);
+              isInvoiceAmountLocked = true;
+            }
+          }
+        } catch {
+          // If decoding fails, let user enter amount manually
+        }
+      }
+
+      // For fixed-amount Lightning invoices, skip amount page and go to confirm
+      if (isInvoiceAmountLocked && invoiceAmount && account) {
+        const transfersInfo: ITransferInfo[] = [
+          {
+            from: account.address,
+            to: toResolved,
+            amount: invoiceAmount,
+            tokenInfo: tokenInfo ?? undefined,
+          },
+        ];
+        await signatureConfirm.navigationToTxConfirm({
+          transfersInfo,
+          sameModal: true,
+          onSuccess,
+          onFail,
+          onCancel,
+          transferPayload: {
+            amountToSend: invoiceAmount,
+            isMaxSend: false,
+            isNFT: false,
+            originalRecipient: toResolved,
+            isToContract: false,
+          },
+          isInternalTransfer: true,
+        });
+        return;
+      }
+
       pushAmountInput({
         networkId: currentAccount.networkId,
         accountId: currentAccount.accountId,
@@ -370,7 +441,8 @@ function SendDataInputContainer() {
         recipientPaymentId: nextPaymentIdValue || undefined,
         recipientNote: nextNoteValue || undefined,
         recipientIsContract: toVal?.isContract,
-        amount: scannedAmount || sendAmount || undefined,
+        amount: invoiceAmount || scannedAmount || sendAmount || undefined,
+        isInvoiceAmountLocked,
         isAllNetworks,
         onSuccess,
         onFail,
@@ -382,9 +454,11 @@ function SendDataInputContainer() {
       isNavigatingRef.current = false;
     }
   }, [
+    account,
     toResolved,
     form,
     pushAmountInput,
+    signatureConfirm,
     scannedAmount,
     sendAmount,
     currentAccount.networkId,
@@ -886,7 +960,13 @@ function SendDataInputContainer() {
       }}
     >
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.select_address__title })}
+        title={intl.formatMessage({
+          id: networkUtils.isLightningNetworkByNetworkId(
+            currentAccount.networkId,
+          )
+            ? ETranslations.send_title
+            : ETranslations.select_address__title,
+        })}
         headerRight={renderAddressSecurityHeaderRightButton}
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
@@ -954,11 +1034,24 @@ function SendDataInputContainer() {
             ) : null}
             <AddressInputField
               name="to"
-              numberOfLines={2}
+              numberOfLines={
+                networkUtils.isLightningNetworkByNetworkId(
+                  currentAccount.networkId,
+                )
+                  ? 5
+                  : 2
+              }
               actionsLayout="recipient"
-              placeholder={intl.formatMessage({
-                id: ETranslations.search_or_paste_address__desc,
-              })}
+              placeholder={
+                // Lightning has its own placeholder ("Enter invoice, Lightning Address or LNURL")
+                networkUtils.isLightningNetworkByNetworkId(
+                  currentAccount.networkId,
+                )
+                  ? undefined
+                  : intl.formatMessage({
+                      id: ETranslations.search_or_paste_address__desc,
+                    })
+              }
               onScanResult={onScanResult}
               accountId={currentAccount.accountId}
               networkId={currentAccount.networkId}
@@ -983,17 +1076,22 @@ function SendDataInputContainer() {
               />
             ) : null}
             {renderDataInput()}
-            <RecipientQuickSelect
-              accountId={currentAccount.accountId}
-              networkId={currentAccount.networkId}
-              searchKey={toAddressRaw}
-              isSearchMode={!!toAddressRaw?.trim()}
-              activeTab={quickSelectActiveTab}
-              onActiveTabChange={setQuickSelectActiveTab}
-              onInputTypeChange={handleAddressInputChangeType}
-              onMatchStatusChange={setHasQuickSelectMatches}
-              onSelect={handleQuickSelectRecipient}
-            />
+            {/* Lightning Network uses invoices/LNURL, not addresses — hide quick select */}
+            {networkUtils.isLightningNetworkByNetworkId(
+              currentAccount.networkId,
+            ) ? null : (
+              <RecipientQuickSelect
+                accountId={currentAccount.accountId}
+                networkId={currentAccount.networkId}
+                searchKey={toAddressRaw}
+                isSearchMode={!!toAddressRaw?.trim()}
+                activeTab={quickSelectActiveTab}
+                onActiveTabChange={setQuickSelectActiveTab}
+                onInputTypeChange={handleAddressInputChangeType}
+                onMatchStatusChange={setHasQuickSelectMatches}
+                onSelect={handleQuickSelectRecipient}
+              />
+            )}
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>

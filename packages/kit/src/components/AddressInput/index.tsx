@@ -805,8 +805,9 @@ export function AddressInput(props: IAddressInputProps) {
         }
         placeholder={placeholder ?? getAddressInputPlaceholder}
         extension={AddressInputExtension}
-        numberOfLines={screenWidth <= 768 ? 3 : 2}
-        {...(screenWidth <= 768 && { minHeight: 64 })}
+        // Use minHeight for initial size, omit numberOfLines so TextArea
+        // auto-expands with content (e.g. long Lightning addresses/LNURL)
+        minHeight={screenWidth <= 768 ? 64 : 48}
         {...rest}
       />
       <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
@@ -888,7 +889,19 @@ export function AddressInputField(
               return;
             }
             if (!value.resolved) {
-              // Suppress error when quick select has matches (hint shown via description)
+              // Always show allowlist errors — they are security-critical
+              if (
+                value.validateError?.type === 'address-not-allowlist'
+              ) {
+                return (
+                  value.validateError.translationId ||
+                  value.validateError.message ||
+                  intl.formatMessage({
+                    id: ETranslations.send_address_not_allowlist_error,
+                  })
+                );
+              }
+              // Suppress other errors when quick select has matches (hint shown via description)
               if (hasQuickSelectMatchesRef.current) {
                 return;
               }
