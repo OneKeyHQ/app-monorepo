@@ -1044,7 +1044,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             return;
           }
 
-          if (dexAbstractionEnabled != null) {
+          if (dexAbstractionEnabled !== null) {
             // Update atom for display (all accounts including watch-only)
             await perpsAbstractionModeAtom.set({
               accountAddress: userAddress.toLowerCase() as IHex,

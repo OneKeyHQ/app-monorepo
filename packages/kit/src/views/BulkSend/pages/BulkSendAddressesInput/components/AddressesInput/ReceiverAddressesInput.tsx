@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
-import { Form, SizableText, YStack, useFormContext } from '@onekeyhq/components';
+import {
+  Form,
+  SizableText,
+  YStack,
+  useFormContext,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -22,8 +27,6 @@ import LineNumberedTextArea, {
 } from './LineNumberedTextArea';
 import { useMultiLineAddressValidation } from './useMultiLineAddressValidation';
 
-import type { ILineError } from './LineNumberedTextArea';
-
 type IReceiverAddressesInputProps = {
   maxLines?: number;
 };
@@ -31,11 +34,8 @@ type IReceiverAddressesInputProps = {
 // ManyToOne: single-line receiver input
 function SingleLineReceiverInput() {
   const intl = useIntl();
-  const {
-    selectedAccountId,
-    selectedNetworkId,
-    setDuplicateAddressCount,
-  } = useBulkSendAddressesInputContext();
+  const { selectedAccountId, selectedNetworkId, setDuplicateAddressCount } =
+    useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const validationSeqRef = useRef(0);
@@ -121,7 +121,13 @@ function SingleLineReceiverInput() {
 
       return true;
     },
-    [intl, selectedNetworkId, network?.name, isEnableTransferAllowList, setDuplicateAddressCount],
+    [
+      intl,
+      selectedNetworkId,
+      network?.name,
+      isEnableTransferAllowList,
+      setDuplicateAddressCount,
+    ],
   );
 
   const debouncedValidate = useDebouncedValidation(handleValidateAddresses);
