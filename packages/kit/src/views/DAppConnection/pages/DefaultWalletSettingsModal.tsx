@@ -157,12 +157,12 @@ function DefaultWalletSettingsModal() {
               id: ETranslations.explore_default_wallet_canceled,
             }),
         message: isDefaultWallet
-          ? (intl.formatMessage(
+          ? intl.formatMessage(
               {
                 id: ETranslations.explore_set_default_wallet_description,
               },
               { strong: strongTextPlain },
-            ) as string)
+            )
           : intl.formatMessage({
               id: ETranslations.explore_default_wallet_canceled_desc,
             }),
@@ -200,7 +200,7 @@ function DefaultWalletSettingsModal() {
               id: ETranslations.explore_set_default_wallet_description,
             },
             { strong: strongTextPlain },
-          ) as string,
+          ),
         });
       }
       await refreshContextMenu(origin);
