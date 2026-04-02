@@ -304,7 +304,7 @@ const SwapActionsState = ({
         true,
         nextSettings.swapToAnotherAccountSwitchOn
           ? (swapToAnotherAccountAddress.address ?? swapToAddressInfo?.address)
-          : undefined,
+          : swapToAddressInfo?.address,
         value,
       );
     },
