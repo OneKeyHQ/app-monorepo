@@ -40,8 +40,8 @@ export function useInviteCodeList() {
     },
   );
 
-  const refetch = useCallback(() => {
-    void run();
+  const refetch = useCallback(async () => {
+    await run();
   }, [run]);
 
   return {
