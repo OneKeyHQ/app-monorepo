@@ -1156,7 +1156,7 @@
   "explore.see_all": "查看全部",
   "explore.set_default": "将 OneKey 设置为默认钱包",
   "explore.set_default_wallet": "将 OneKey 设置为默认钱包",
-  "explore.set_default_wallet_description": "将 OneKey 用作连接到 dApps 的默认钱包。",
+  "explore.set_default_wallet_description": "将 OneKey 设为连接 dApp 时的默认钱包。<strong>更改设置后，需要刷新 dApp 的页面才会生效</strong>。",
   "explore.share": "分享",
   "explore.suggested": "推荐",
   "explore.tab_prompt": "您可以触摸并长按以固定此标签页，以便快速访问。",
