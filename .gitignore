@@ -132,3 +132,4 @@ debug.log
 /.worktree
 .skillshare/logs/operations.log
 .gstack/
+/apps/mobile/out-dir-analysis
