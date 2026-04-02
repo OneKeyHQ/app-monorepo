@@ -2069,6 +2069,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     if (cachedMid) {
       return cachedMid;
     }
+    if (
+      hyperLiquidCache.allMids &&
+      Date.now() - hyperLiquidCache.allMidsUpdatedAt <
+        timerUtils.getTimeDurationMs({ seconds: 1 })
+    ) {
+      return undefined;
+    }
 
     try {
       const { infoClient } = hyperLiquidApiClients;

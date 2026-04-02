@@ -15,17 +15,6 @@ import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
 import type { ICustomReceiveHandlerData } from '../types';
 
-const serviceHyperliquid = backgroundApiProxy.serviceHyperliquid as {
-  getTradingviewMidPrice: (symbol: string) => Promise<string | undefined>;
-  getTradingviewDisplayPriceScale: (
-    symbol: string,
-  ) => Promise<number | undefined>;
-  setTradingviewDisplayPriceScale: (params: {
-    symbol: string;
-    priceScale: number;
-  }) => Promise<void>;
-};
-
 const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
 
 interface IUseTradingViewMessageHandlerParams {
@@ -68,7 +57,9 @@ async function handleGetHyperliquidPriceScale({
   }
 
   const loadMidPrice = async () => {
-    return serviceHyperliquid.getTradingviewMidPrice(requestSymbol);
+    return backgroundApiProxy.serviceHyperliquid.getTradingviewMidPrice(
+      requestSymbol,
+    );
   };
 
   midValue = await loadMidPrice();
@@ -76,7 +67,9 @@ async function handleGetHyperliquidPriceScale({
   if (!midValue && requestSymbol) {
     try {
       persistedPriceScale =
-        await serviceHyperliquid.getTradingviewDisplayPriceScale(requestSymbol);
+        await backgroundApiProxy.serviceHyperliquid.getTradingviewDisplayPriceScale(
+          requestSymbol,
+        );
     } catch (error) {
       console.error(
         '[TradingViewV2] Failed to load HyperLiquid price scale:',
@@ -99,10 +92,12 @@ async function handleGetHyperliquidPriceScale({
   if (midValue && requestSymbol) {
     priceScale = calculateDisplayPriceScale(midValue);
     try {
-      await serviceHyperliquid.setTradingviewDisplayPriceScale({
-        symbol: requestSymbol,
-        priceScale,
-      });
+      await backgroundApiProxy.serviceHyperliquid.setTradingviewDisplayPriceScale(
+        {
+          symbol: requestSymbol,
+          priceScale,
+        },
+      );
     } catch (error) {
       console.error(
         '[TradingViewV2] Failed to persist HyperLiquid price scale:',
