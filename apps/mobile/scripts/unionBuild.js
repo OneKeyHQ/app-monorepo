@@ -2,8 +2,9 @@
  * Union Graph Build Script
  *
  * Builds a single Metro graph for both main/background entries, then emits:
- * - main eager bundle + source map
- * - background eager bundle + source map
+ * - common eager bundle (polyfills + shared modules + segment manifest)
+ * - main eager bundle (main-only modules + entry require)
+ * - background eager bundle (bg-only modules + entry require)
  * - shared/main/background segments
  * - per-runtime manifests and allocation reports
  * - copied assets
@@ -11,6 +12,8 @@
  * Usage:
  *   UNION_BUILD=true node --max-old-space-size=8192 scripts/unionBuild.js \
  *     --platform ios \
+ *     --common-bundle-output out-dir-bundle/ios/common.jsbundle \
+ *     --common-sourcemap-output out-dir-bundle/ios/common.jsbundle.map \
  *     --main-bundle-output out-dir-bundle/ios/main.jsbundle \
  *     --main-sourcemap-output out-dir-bundle/ios/main.jsbundle.map \
  *     --background-bundle-output out-dir-bundle/ios/background.bundle.js \
@@ -92,6 +95,8 @@ function parseArgs() {
 
   return {
     platform: readArg('platform') || 'ios',
+    commonBundleOutput: readArg('common-bundle-output'),
+    commonSourceMapOutput: readArg('common-sourcemap-output'),
     mainBundleOutput: readArg('main-bundle-output'),
     mainSourceMapOutput: readArg('main-sourcemap-output'),
     backgroundBundleOutput: readArg('background-bundle-output'),
@@ -102,6 +107,8 @@ function parseArgs() {
 
 function assertRequiredArgs(args) {
   const required = [
+    'commonBundleOutput',
+    'commonSourceMapOutput',
     'mainBundleOutput',
     'mainSourceMapOutput',
     'backgroundBundleOutput',
@@ -204,46 +211,102 @@ function buildSegmentAllocation(graph) {
   const asyncFlag = 'async';
   const eagerModuleIds = new Set();
   const asyncRoots = new Map();
-
+  const asyncDescendants = new Map(); // moduleId → rootModuleId
   const findAsyncParent = (fatherId) => {
-    for (const [rootId] of asyncRoots) {
-      if (rootId === fatherId) {
-        return rootId;
-      }
-    }
+    if (asyncRoots.has(fatherId)) return fatherId;
+    if (asyncDescendants.has(fatherId)) return asyncDescendants.get(fatherId);
     return null;
   };
 
-  for (const [absolutePath, moduleData] of graph.dependencies) {
-    const moduleId = fileToIdMap.get(absolutePath);
-    const asyncTypes = [...moduleData.inverseDependencies].map((parentPath) => {
-      const parentId = fileToIdMap.get(parentPath);
-      const parentModule = graph.dependencies.get(parentPath);
-      if (!parentModule) {
-        return undefined;
+  let step1Changed = true;
+  while (step1Changed) {
+    step1Changed = false;
+    for (const [absolutePath, moduleData] of graph.dependencies) {
+      const moduleId = fileToIdMap.get(absolutePath);
+      if (
+        eagerModuleIds.has(moduleId) ||
+        asyncRoots.has(moduleId) ||
+        asyncDescendants.has(moduleId)
+      ) {
+        continue;
       }
-      for (const [, dep] of parentModule.dependencies) {
-        if (dep.absolutePath === absolutePath) {
-          const existingChunk = findAsyncParent(parentId);
-          const asyncType =
-            dep.data && dep.data.data ? dep.data.data.asyncType : undefined;
-          if (existingChunk && asyncType === null) {
-            return existingChunk;
+
+      const asyncTypes = [...moduleData.inverseDependencies].map(
+        (parentPath) => {
+          const parentId = fileToIdMap.get(parentPath);
+          const parentModule = graph.dependencies.get(parentPath);
+          if (!parentModule) {
+            return undefined;
           }
-          return asyncType;
+          for (const [, dep] of parentModule.dependencies) {
+            if (dep.absolutePath === absolutePath) {
+              const existingChunk = findAsyncParent(parentId);
+              const asyncType =
+                dep.data && dep.data.data
+                  ? dep.data.data.asyncType
+                  : undefined;
+              if (existingChunk && asyncType === null) {
+                return existingChunk;
+              }
+              return asyncType;
+            }
+          }
+          return undefined;
+        },
+      );
+
+      // Check if any parent that returned null is actually unclassified
+      // (not yet in asyncRoots, asyncDescendants, or eagerModuleIds).
+      // If so, the null might turn into a rootId in a later iteration — defer.
+      let hasUnclassifiedParentReturningNull = false;
+      const parentPaths = [...moduleData.inverseDependencies];
+      for (let i = 0; i < parentPaths.length; i++) {
+        const parentPath = parentPaths[i];
+        const parentId = fileToIdMap.get(parentPath);
+        if (
+          asyncTypes[i] === null &&
+          !asyncRoots.has(parentId) &&
+          !asyncDescendants.has(parentId) &&
+          !eagerModuleIds.has(parentId)
+        ) {
+          hasUnclassifiedParentReturningNull = true;
+          break;
         }
       }
-      return undefined;
-    });
 
-    if (asyncTypes.length === 0 || asyncTypes.some((value) => value === null)) {
-      eagerModuleIds.add(moduleId);
-    } else if (asyncTypes.every((value) => value === asyncFlag)) {
-      asyncRoots.set(moduleId, absolutePath);
-    } else if (asyncTypes.length === 1 && asyncRoots.has(asyncTypes[0])) {
-      // Child of async root, re-scanned below.
-    } else {
-      eagerModuleIds.add(moduleId);
+      const hasUnresolved =
+        asyncTypes.some((v) => v === undefined) ||
+        hasUnclassifiedParentReturningNull;
+
+      if (asyncTypes.length === 0) {
+        eagerModuleIds.add(moduleId);
+        step1Changed = true;
+      } else if (
+        asyncTypes.some((value) => value === null) &&
+        !hasUnclassifiedParentReturningNull
+      ) {
+        // At least one parent is genuinely eager (classified as eager) → eager.
+        eagerModuleIds.add(moduleId);
+        step1Changed = true;
+      } else if (asyncTypes.every((value) => value === asyncFlag)) {
+        asyncRoots.set(moduleId, absolutePath);
+        step1Changed = true;
+      } else if (
+        !hasUnresolved &&
+        asyncTypes.length >= 1 &&
+        asyncTypes.every(
+          (v) => v === asyncFlag || asyncRoots.has(v),
+        )
+      ) {
+        const rootId = asyncTypes.find((v) => asyncRoots.has(v));
+        asyncDescendants.set(moduleId, rootId);
+        step1Changed = true;
+      } else if (hasUnresolved) {
+        // Defer to next round.
+      } else {
+        eagerModuleIds.add(moduleId);
+        step1Changed = true;
+      }
     }
   }
 
@@ -259,29 +322,41 @@ function buildSegmentAllocation(graph) {
     moduleToSegment.set(moduleId, segmentKey);
   }
 
-  for (const [absolutePath, moduleData] of graph.dependencies) {
-    const moduleId = fileToIdMap.get(absolutePath);
-    if (eagerModuleIds.has(moduleId) || moduleToSegment.has(moduleId)) {
-      continue;
-    }
-
-    const parentSegments = new Set();
-    for (const parentPath of moduleData.inverseDependencies) {
-      const parentId = fileToIdMap.get(parentPath);
-      const parentSeg = moduleToSegment.get(parentId);
-      if (parentSeg) {
-        parentSegments.add(parentSeg);
-      } else {
-        parentSegments.add('main');
+  // Iterate until stable — barrel files (index.ts re-exports) create multi-level
+  // indirection that a single pass cannot resolve.
+  let rescanChanged = true;
+  while (rescanChanged) {
+    rescanChanged = false;
+    for (const [absolutePath, moduleData] of graph.dependencies) {
+      const moduleId = fileToIdMap.get(absolutePath);
+      if (eagerModuleIds.has(moduleId) || moduleToSegment.has(moduleId)) {
+        continue;
       }
-    }
 
-    if (parentSegments.size === 1 && !parentSegments.has('main')) {
-      const segmentKey = [...parentSegments][0];
-      segmentModules.get(segmentKey).add(moduleId);
-      moduleToSegment.set(moduleId, segmentKey);
-    } else {
-      eagerModuleIds.add(moduleId);
+      const parentSegments = new Set();
+      let hasUnresolvedParent = false;
+      for (const parentPath of moduleData.inverseDependencies) {
+        const parentId = fileToIdMap.get(parentPath);
+        const parentSeg = moduleToSegment.get(parentId);
+        if (parentSeg) {
+          parentSegments.add(parentSeg);
+        } else if (eagerModuleIds.has(parentId)) {
+          parentSegments.add('main');
+        } else {
+          hasUnresolvedParent = true;
+        }
+      }
+
+      if (hasUnresolvedParent) continue;
+
+      if (!parentSegments.has('main') && parentSegments.size >= 1) {
+        const segmentKey = [...parentSegments][0];
+        segmentModules.get(segmentKey).add(moduleId);
+        moduleToSegment.set(moduleId, segmentKey);
+        rescanChanged = true;
+      } else {
+        eagerModuleIds.add(moduleId);
+      }
     }
   }
 
@@ -432,14 +507,15 @@ async function writeBundle({
   bundleOutput,
   sourceMapOutput,
   entryPoint,
-  targetReachable,
+  moduleFilter,
   manifest,
+  includePre,
+  includePost,
+  includeManifest,
   graph,
   prepend,
   bundleOptions,
   moduleIdToAbsPath,
-  moduleToSegment,
-  promotedSet,
 }) {
   const { pre, post, modules } = baseJSBundle(
     entryPoint,
@@ -454,11 +530,7 @@ async function writeBundle({
 
   for (const [moduleId, moduleCode] of modules) {
     const absolutePath = moduleIdToAbsPath.get(moduleId);
-    if (!absolutePath || !targetReachable.has(absolutePath)) {
-      continue;
-    }
-    const segmentKey = moduleToSegment.get(moduleId);
-    if (segmentKey && !promotedSet.has(segmentKey)) {
+    if (!absolutePath || !moduleFilter(absolutePath, moduleId)) {
       continue;
     }
     selectedStartupModuleIds.add(moduleId);
@@ -469,20 +541,30 @@ async function writeBundle({
     }
   }
 
-  const manifestCode = `globalThis.__SEGMENT_MANIFEST__=${JSON.stringify(manifest)};`;
+  let preSection = includePre ? pre : '';
+  if (includeManifest && manifest) {
+    const manifestCode = `globalThis.__SEGMENT_MANIFEST__=${JSON.stringify(manifest)};`;
+    preSection = preSection
+      ? `${preSection}\n${manifestCode}\n`
+      : `${manifestCode}\n`;
+  }
+
   const bundle = bundleToString({
-    pre: `${pre}\n${manifestCode}\n`,
-    post,
+    pre: preSection,
+    post: includePost ? post : '',
     modules: selectedWrappedModules,
   });
 
-  const appendScripts = getAppendScripts(
-    entryPoint,
-    [...prepend, ...selectedGraphModules],
-    bundleOptions,
-  );
+  const prependForSourceMap = includePre ? prepend : [];
+  const appendScripts = includePost
+    ? getAppendScripts(
+        entryPoint,
+        [...prependForSourceMap, ...selectedGraphModules],
+        bundleOptions,
+      )
+    : [];
   const map = await sourceMapStringNonBlocking(
-    [...prepend, ...selectedGraphModules, ...appendScripts],
+    [...prependForSourceMap, ...selectedGraphModules, ...appendScripts],
     {
       excludeSource: false,
       processModuleFilter: bundleOptions.processModuleFilter,
@@ -675,6 +757,12 @@ async function main() {
       moduleIdToAbsPath,
     );
 
+    const commonBundleOptions = createBundleOptions({
+      metroServer,
+      config,
+      entryPoint: mainEntry,
+      sourceMapUrl: path.basename(args.commonSourceMapOutput),
+    });
     const mainBundleOptions = createBundleOptions({
       metroServer,
       config,
@@ -692,7 +780,7 @@ async function main() {
       mainEntry,
       prepend,
       graph,
-      mainBundleOptions,
+      commonBundleOptions,
     ).modules;
 
     const { mainManifest, backgroundManifest, promotedSet } =
@@ -707,34 +795,72 @@ async function main() {
         moduleIdToAbsPath,
       });
 
+    // Merge both manifests for the common bundle
+    const mergedManifest = {
+      segments: {
+        ...mainManifest.segments,
+        ...backgroundManifest.segments,
+      },
+    };
+
+    // Common bundle: shared eager modules + polyfills/runtime + manifest
+    const commonBundleResult = await writeBundle({
+      bundleOutput: args.commonBundleOutput,
+      sourceMapOutput: args.commonSourceMapOutput,
+      entryPoint: mainEntry,
+      moduleFilter: (absolutePath, moduleId) =>
+        reachability.shared.has(absolutePath) &&
+        !moduleToSegment.has(moduleId),
+      manifest: mergedManifest,
+      includePre: true,
+      includePost: false,
+      includeManifest: true,
+      graph,
+      prepend,
+      bundleOptions: commonBundleOptions,
+      moduleIdToAbsPath,
+    });
+
+    // Main bundle: main-only eager modules + entry require
     const mainBundleResult = await writeBundle({
       bundleOutput: args.mainBundleOutput,
       sourceMapOutput: args.mainSourceMapOutput,
       entryPoint: mainEntry,
-      targetReachable: reachability.mainReachable,
-      manifest: mainManifest,
+      moduleFilter: (absolutePath, moduleId) =>
+        reachability.mainOnly.has(absolutePath) &&
+        !moduleToSegment.has(moduleId),
+      manifest: null,
+      includePre: false,
+      includePost: true,
+      includeManifest: false,
       graph,
       prepend,
       bundleOptions: mainBundleOptions,
       moduleIdToAbsPath,
-      moduleToSegment,
-      promotedSet,
     });
 
+    // Background bundle: bg-only eager modules + entry require
     const backgroundBundleResult = await writeBundle({
       bundleOutput: args.backgroundBundleOutput,
       sourceMapOutput: args.backgroundSourceMapOutput,
       entryPoint: bgEntry,
-      targetReachable: reachability.bgReachable,
-      manifest: backgroundManifest,
+      moduleFilter: (absolutePath, moduleId) =>
+        reachability.bgOnly.has(absolutePath) &&
+        !moduleToSegment.has(moduleId),
+      manifest: null,
+      includePre: false,
+      includePost: true,
+      includeManifest: false,
       graph,
       prepend,
       bundleOptions: backgroundBundleOptions,
       moduleIdToAbsPath,
-      moduleToSegment,
-      promotedSet,
     });
 
+    const commonViolations = detectStartupViolations(
+      commonBundleResult.startupModuleIds,
+      moduleIdToAbsPath,
+    );
     const mainViolations = detectStartupViolations(
       mainBundleResult.startupModuleIds,
       moduleIdToAbsPath,
@@ -742,6 +868,23 @@ async function main() {
     const backgroundViolations = detectStartupViolations(
       backgroundBundleResult.startupModuleIds,
       moduleIdToAbsPath,
+    );
+
+    await fs.writeFile(
+      path.resolve(mobileDirPath, 'dist/allocation-report-common.json'),
+      JSON.stringify(
+        buildAllocationReport({
+          runtimeTarget: 'common',
+          startupModuleIds: commonBundleResult.startupModuleIds,
+          manifest: mergedManifest,
+          graph,
+          moduleIdToAbsPath,
+          segmentModules,
+          violations: commonViolations,
+        }),
+        null,
+        2,
+      ),
     );
 
     await fs.writeFile(
@@ -790,6 +933,7 @@ async function main() {
           shared: reachability.shared.size,
           estimatedDuplicateModules: reachability.shared.size,
           eagerModules: {
+            common: commonBundleResult.startupModuleIds.size,
             main: mainBundleResult.startupModuleIds.size,
             background: backgroundBundleResult.startupModuleIds.size,
           },
@@ -816,6 +960,13 @@ async function main() {
     );
     await saveAssets(assets, args.platform, args.assetsDest);
 
+    if (commonViolations.length > 0) {
+      console.warn(
+        `[unionBuild] WARNING: forbidden modules in common startup graph:\n${commonViolations
+          .map((item) => `  - ${item}`)
+          .join('\n')}`,
+      );
+    }
     if (mainViolations.length > 0) {
       console.warn(
         `[unionBuild] WARNING: forbidden modules in main startup graph:\n${mainViolations
