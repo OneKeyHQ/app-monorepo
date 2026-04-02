@@ -1156,7 +1156,7 @@
   "explore.see_all": "Ver tudo",
   "explore.set_default": "Defina OneKey como Carteira Padrão",
   "explore.set_default_wallet": "Defina OneKey como carteira padrão",
-  "explore.set_default_wallet_description": "Use o OneKey como a carteira padrão para se conectar aos dApps.",
+  "explore.set_default_wallet_description": "Use OneKey como a carteira padrão para conexões dApp. <strong>Após alterar esta configuração, atualize a página do dApp para que tenha efeito</strong>.",
   "explore.share": "Compartilhar",
   "explore.suggested": "Sugerido",
   "explore.tab_prompt": "Você pode tocar e segurar para fixar esta aba para acesso rápido.",

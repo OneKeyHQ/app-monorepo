@@ -1156,7 +1156,7 @@
   "explore.see_all": "Посмотреть все",
   "explore.set_default": "Установить OneKey как кошелек по умолчанию",
   "explore.set_default_wallet": "Установить OneKey как кошелек по умолчанию",
-  "explore.set_default_wallet_description": "Используйте OneKey в качестве кошелька по умолчанию для подключения к dApps.",
+  "explore.set_default_wallet_description": "Используйте OneKey в качестве основного кошелька для подключений к dApp. <strong>После изменения этой настройки обновите страницу dApp, чтобы изменения вступили в силу</strong>.",
   "explore.share": "Поделиться",
   "explore.suggested": "Предложено",
   "explore.tab_prompt": "Вы можете коснуться и удерживать, чтобы закрепить эту вкладку для быстрого доступа.",
