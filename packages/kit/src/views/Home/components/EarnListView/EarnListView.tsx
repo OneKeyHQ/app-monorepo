@@ -18,7 +18,6 @@ function EarnListView() {
     return (
       <Recommended
         withHeader={false}
-        enableFetch={false}
         disableHorizontalBleed
         recommendedItemContainerProps={{
           bg: '$bgSubdued',
