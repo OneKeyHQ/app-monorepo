@@ -1,4 +1,4 @@
-import { Suspense, memo, useCallback, useEffect, useState } from 'react';
+import { Suspense, memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -37,7 +37,6 @@ const BiologyAuthContainer = ({
 }: IBiologyAuthContainerProps) => {
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
-  const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const intl = useIntl();
 
   const { title } = useBiometricAuthInfo();
@@ -46,14 +45,7 @@ const BiologyAuthContainer = ({
     { biometric: title },
   );
 
-  useEffect(() => {
-    if (platformEnv.isExtensionUiPopup && isBiologyAuthSwitchOn) {
-      void backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(false);
-    }
-  }, [isBiologyAuthSwitchOn]);
-
-  return (biologyAuthIsSupport || webAuthIsSupport) &&
-    !platformEnv.isExtensionUiPopup ? (
+  return biologyAuthIsSupport || webAuthIsSupport ? (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMdMedium">{settingsTitle}</SizableText>
       <Stack>
