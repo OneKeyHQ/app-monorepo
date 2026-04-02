@@ -275,7 +275,8 @@ function AssetSelectorTrigger({
 
   const handleSelectAsset = useCallback(() => {
     openChainSelector({
-      networkIds: availableNetworkIds,
+      networkIds:
+        availableNetworkIds.length > 0 ? availableNetworkIds : undefined,
       disableNetworkIds: isOneToMany ? unavailableNetworkIds : undefined,
       defaultNetworkId: selectedNetworkId,
       showNetworkValues: isOneToMany,
