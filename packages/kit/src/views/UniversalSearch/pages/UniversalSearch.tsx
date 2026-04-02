@@ -24,6 +24,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getSearchTypeTrackingName } from '@onekeyhq/shared/src/logger/scopes/universalSearch/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -69,6 +70,7 @@ import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 interface IUniversalSection {
   tabIndex: number;
   title: string;
+  type: EUniversalSearchType;
   data: IUniversalSearchResultItem[];
   sliceData?: IUniversalSearchResultItem[];
   showMore?: boolean;
@@ -276,6 +278,7 @@ export function UniversalSearch({
     if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
       searchResultSections.push({
         tabIndex: 2,
+        type: EUniversalSearchType.V2MarketToken,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: result[EUniversalSearchType.V2MarketToken]
           .items as IUniversalSearchResultItem[],
@@ -308,6 +311,7 @@ export function UniversalSearch({
       );
       searchResultSections.push({
         tabIndex: 2,
+        type: EUniversalSearchType.V2MarketToken,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: v2Items as IUniversalSearchResultItem[],
       });
@@ -320,6 +324,7 @@ export function UniversalSearch({
   }, [fetchRecommendList]);
 
   const searchInputRef = useRef<string>('');
+  const getSearchInput = useCallback(() => searchInputRef.current, []);
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     console.log('[universalSearch] handleTextChange: ', val);
@@ -388,6 +393,7 @@ export function UniversalSearch({
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Address),
+          type: EUniversalSearchType.Address,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_wallets,
           }),
@@ -403,6 +409,7 @@ export function UniversalSearch({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.V2MarketToken,
           ),
+          type: EUniversalSearchType.V2MarketToken,
           title: intl.formatMessage({
             id: ETranslations.global_market,
           }),
@@ -417,6 +424,7 @@ export function UniversalSearch({
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Perp),
+          type: EUniversalSearchType.Perp,
           title: intl.formatMessage({
             id: ETranslations.global_perp,
           }),
@@ -429,6 +437,7 @@ export function UniversalSearch({
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.MarketToken),
+          type: EUniversalSearchType.MarketToken,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_tokens,
           }),
@@ -443,6 +452,7 @@ export function UniversalSearch({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.AccountAssets,
           ),
+          type: EUniversalSearchType.AccountAssets,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
           }),
@@ -455,6 +465,7 @@ export function UniversalSearch({
           ?.items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Dapp),
+          type: EUniversalSearchType.Dapp,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_dapps,
           }),
@@ -468,6 +479,7 @@ export function UniversalSearch({
         const data = settingsResults as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Settings),
+          type: EUniversalSearchType.Settings,
           title: intl.formatMessage({
             id: ETranslations.global_settings,
           }),
@@ -478,23 +490,30 @@ export function UniversalSearch({
       setSections(searchResultSections);
       setSearchStatus(ESearchStatus.done);
 
-      // Track search event for analytics
-      // Exclude Google search item from result count
-      const resultCount = searchResultSections.reduce((sum, section) => {
-        const count = section.data.filter(
+      // Track search event with per-type breakdown for exposure/reach analysis
+      // Exclude Google search fallback item from counts
+      const filteredSections = searchResultSections.map((section) => ({
+        type: section.type,
+        count: section.data.filter(
           (item) =>
             !(
               item.type === EUniversalSearchType.Dapp &&
               isGoogleSearchItem(item.payload?.dappId)
             ),
-        ).length;
-        return sum + count;
-      }, 0);
+        ).length,
+      }));
+      const resultCount = filteredSections.reduce((sum, s) => sum + s.count, 0);
+      const exposedTypes = filteredSections
+        .filter((s) => s.count > 0)
+        .map((s) => `${getSearchTypeTrackingName(s.type)}:${s.count}`)
+        .join(',');
       defaultLogger.universalSearch.search.universalSearchQuery({
         searchText: input,
         resultCount,
+        exposedTypes,
       });
     } else {
+      searchInputRef.current = '';
       setSearchStatus(ESearchStatus.init);
     }
   }, 1200);
@@ -595,6 +614,7 @@ export function UniversalSearch({
             <UniversalSearchAddressItem
               item={item}
               contextNetworkId={activeAccount?.network?.id}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.MarketToken:
@@ -602,6 +622,7 @@ export function UniversalSearch({
             <UniversalSearchMarketTokenItem
               item={item}
               searchStatus={searchStatus}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.V2MarketToken:
@@ -615,6 +636,7 @@ export function UniversalSearch({
               <UniversalSearchV2MarketTokenItem
                 item={item}
                 isTrending={searchStatus === ESearchStatus.init}
+                getSearchInput={getSearchInput}
               />
             </>
           );
@@ -623,24 +645,40 @@ export function UniversalSearch({
             <UniversalSearchAccountAssetItem
               item={item}
               allAggregateTokenMap={allAggregateTokenMap}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.Dapp:
           return (
             <UniversalSearchDappItem
               item={item}
-              getSearchInput={() => searchInputRef.current}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.Perp:
-          return <UniversalSearchPerpItem item={item} />;
+          return (
+            <UniversalSearchPerpItem
+              item={item}
+              getSearchInput={getSearchInput}
+            />
+          );
         case EUniversalSearchType.Settings:
-          return <UniversalSearchSettingsItem item={item} />;
+          return (
+            <UniversalSearchSettingsItem
+              item={item}
+              getSearchInput={getSearchInput}
+            />
+          );
         default:
           return null;
       }
     },
-    [activeAccount?.network?.id, searchStatus, allAggregateTokenMap],
+    [
+      activeAccount?.network?.id,
+      searchStatus,
+      allAggregateTokenMap,
+      getSearchInput,
+    ],
   );
 
   const keyExtractor = useCallback(
