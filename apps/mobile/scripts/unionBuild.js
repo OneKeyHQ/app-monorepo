@@ -360,18 +360,36 @@ function buildSegmentAllocation(graph) {
     }
   }
 
+  // Build a path-based set of segment modules for use in moduleFilter.
+  // moduleToSegment uses fileToIdMap IDs which may differ from Metro server IDs,
+  // so path-based lookup is the reliable way to check in writeBundle.
+  const segmentAbsPaths = new Set();
+  for (const [moduleId] of moduleToSegment) {
+    // moduleId here is a fileToIdMap ID — find the matching absolutePath
+    for (const [absPath] of graph.dependencies) {
+      if (fileToIdMap.get(absPath) === moduleId) {
+        segmentAbsPaths.add(absPath);
+        break;
+      }
+    }
+  }
+
   return {
     eagerModuleIds,
     segmentModules,
     moduleToSegment,
+    segmentAbsPaths,
     segmentIdMap: allocateSegmentIds([...segmentModules.keys()]),
   };
 }
 
-function buildModuleIndexes(graph) {
+function buildModuleIndexes(graph, createModuleId) {
   const moduleIdToAbsPath = new Map();
+  // Use the same createModuleId function as baseJSBundle to ensure
+  // moduleId → absolutePath mapping is consistent with the serialized output.
+  const getModuleId = createModuleId || ((absPath) => fileToIdMap.get(absPath));
   for (const [absolutePath] of graph.dependencies) {
-    moduleIdToAbsPath.set(fileToIdMap.get(absolutePath), absolutePath);
+    moduleIdToAbsPath.set(getModuleId(absolutePath), absolutePath);
   }
   return { moduleIdToAbsPath };
 }
@@ -503,6 +521,14 @@ function buildAllocationReport({
   };
 }
 
+// Cache the modules array from the first baseJSBundle call.
+// baseJSBundle serializes module code via graph.dependencies[].output, which is
+// stable across calls. But the `post` section (runBeforeMainModule + entry require)
+// differs per entry point, so each call must produce its own `post`.
+// We cache `modules` from the first call to guarantee consistent module code.
+let _cachedModules = null;
+let _cachedPre = null;
+
 async function writeBundle({
   bundleOutput,
   sourceMapOutput,
@@ -517,12 +543,22 @@ async function writeBundle({
   bundleOptions,
   moduleIdToAbsPath,
 }) {
-  const { pre, post, modules } = baseJSBundle(
+  const result = baseJSBundle(
     entryPoint,
     prepend,
     graph,
     bundleOptions,
   );
+
+  // Cache modules and pre from the first call (stable across entries).
+  // Each entry's `post` is entry-specific — always use the fresh one.
+  if (!_cachedModules) {
+    _cachedModules = result.modules;
+    _cachedPre = result.pre;
+  }
+  const modules = _cachedModules;
+  const pre = _cachedPre;
+  const post = result.post;
 
   const selectedWrappedModules = [];
   const selectedGraphModules = [];
@@ -549,9 +585,28 @@ async function writeBundle({
       : `${manifestCode}\n`;
   }
 
+  // For entry-only bundles (includePre=false), the full `post` from baseJSBundle
+  // contains polyfill startup __r() calls that already ran in common.bundle.
+  // Extract only the LAST __r() call which is the actual entry point require.
+  let postSection = '';
+  if (includePost) {
+    if (includePre) {
+      // Common/full bundle: use Metro's original post
+      postSection = post;
+    } else {
+      // Entry-only bundle: extract only the entry module's __r() from Metro's post.
+      // Metro's post has: __r(polyfill1);\n__r(polyfill2);\n__r(entryId);\n
+      // The last __r() is the actual entry point.
+      const rCalls = post.match(/__r\(\d+\)/g);
+      if (rCalls && rCalls.length > 0) {
+        postSection = `${rCalls[rCalls.length - 1]};\n`;
+      }
+    }
+  }
+
   const bundle = bundleToString({
     pre: preSection,
-    post: includePost ? post : '',
+    post: postSection,
     modules: selectedWrappedModules,
   });
 
@@ -747,9 +802,11 @@ async function main() {
     console.log(`BG-only modules:   ${reachability.bgOnly.size}`);
     console.log(`Shared modules:    ${reachability.shared.size}`);
 
-    const { segmentModules, moduleToSegment, segmentIdMap } =
+    const { segmentModules, moduleToSegment, segmentAbsPaths, segmentIdMap } =
       buildSegmentAllocation(graph);
-    const { moduleIdToAbsPath } = buildModuleIndexes(graph);
+    // Use metroServer's createModuleId so moduleIdToAbsPath matches baseJSBundle's IDs
+    const createModuleId = metroServer.getCreateModuleId();
+    const { moduleIdToAbsPath } = buildModuleIndexes(graph, createModuleId);
     const segmentDeps = buildSegmentDeps(
       graph,
       segmentModules,
@@ -810,7 +867,7 @@ async function main() {
       entryPoint: mainEntry,
       moduleFilter: (absolutePath, moduleId) =>
         reachability.shared.has(absolutePath) &&
-        !moduleToSegment.has(moduleId),
+        !segmentAbsPaths.has(absolutePath),
       manifest: mergedManifest,
       includePre: true,
       includePost: false,
@@ -828,7 +885,7 @@ async function main() {
       entryPoint: mainEntry,
       moduleFilter: (absolutePath, moduleId) =>
         reachability.mainOnly.has(absolutePath) &&
-        !moduleToSegment.has(moduleId),
+        !segmentAbsPaths.has(absolutePath),
       manifest: null,
       includePre: false,
       includePost: true,
@@ -846,7 +903,7 @@ async function main() {
       entryPoint: bgEntry,
       moduleFilter: (absolutePath, moduleId) =>
         reachability.bgOnly.has(absolutePath) &&
-        !moduleToSegment.has(moduleId),
+        !segmentAbsPaths.has(absolutePath),
       manifest: null,
       includePre: false,
       includePost: true,
