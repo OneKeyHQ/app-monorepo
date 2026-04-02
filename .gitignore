@@ -130,6 +130,7 @@ debug.log
 .local_docs/
 /.claude/worktrees
 /.worktree
+/.worktrees
 .skillshare/logs/operations.log
 .gstack/
 /apps/mobile/out-dir-analysis
