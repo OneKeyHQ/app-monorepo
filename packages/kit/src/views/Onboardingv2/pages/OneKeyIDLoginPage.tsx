@@ -159,6 +159,8 @@ function OneKeyIDLoginPage() {
       if (loggingInProviderRef.current) {
         return;
       }
+      // Close the same-tick re-entry window before React state updates commit.
+      loggingInProviderRef.current = provider;
       try {
         setLoggingInProvider(provider);
         const result = await signInWithSocialLogin(provider);
@@ -195,6 +197,7 @@ function OneKeyIDLoginPage() {
           }
         }
       } finally {
+        loggingInProviderRef.current = null;
         setLoggingInProvider(null);
       }
     },
@@ -254,7 +257,7 @@ function OneKeyIDLoginPage() {
                 <OptionItem
                   icon="GoogleIllus"
                   title="Google"
-                  onPress={handleGoogleLogin}
+                  onPress={loggingInProvider ? undefined : handleGoogleLogin}
                   isLoading={
                     loggingInProvider === EOAuthSocialLoginProvider.Google
                   }
@@ -270,7 +273,7 @@ function OneKeyIDLoginPage() {
                     color: '$iconActive',
                     y: -1,
                   }}
-                  onPress={handleAppleLogin}
+                  onPress={loggingInProvider ? undefined : handleAppleLogin}
                   isLoading={
                     loggingInProvider === EOAuthSocialLoginProvider.Apple
                   }

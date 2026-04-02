@@ -1411,8 +1411,7 @@ class ServiceAppUpdate extends ServiceBase {
     { promise: true },
   );
 
-  @backgroundMethod()
-  async devFetchBundleVersions(): Promise<
+  private async _devFetchBundleVersions(): Promise<
     { version: string; bundleCount: number }[]
   > {
     try {
@@ -1442,7 +1441,11 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async devFetchBundlesForVersion(version: string): Promise<
+  async devFetchBundleVersions() {
+    return this._devFetchBundleVersions();
+  }
+
+  private async _devFetchBundlesForVersion(version: string): Promise<
     {
       bundleVersion?: string;
       ciBundleVersion: string;
@@ -1519,6 +1522,11 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  async devFetchBundlesForVersion(version: string) {
+    return this._devFetchBundlesForVersion(version);
+  }
+
+  @backgroundMethod()
   async devSearchBundleByCommit(commitHash: string): Promise<
     {
       version: string;
@@ -1539,17 +1547,16 @@ class ServiceAppUpdate extends ServiceBase {
   > {
     const needle = commitHash.trim().toLowerCase();
     if (!needle) return [];
-    const versions = await this.devFetchBundleVersions();
-    const results = await Promise.all(
-      versions.map(async (v) => {
-        const bundles = await this.devFetchBundlesForVersion(v.version);
-        const match = bundles.find((b) =>
-          (b.commitHash || '').toLowerCase().startsWith(needle),
-        );
-        return match ? { version: v.version, bundle: match } : null;
-      }),
+    // Only search the current app version's bundles — dev builds
+    // only switch bundles within the same major version.
+    const currentVersion = String(platformEnv.version);
+    const bundles = await this._devFetchBundlesForVersion(currentVersion);
+    const match = bundles.find(
+      (b) =>
+        (b.commitHash || '').toLowerCase().startsWith(needle) ||
+        (b.ciBundleVersion || '').toLowerCase().includes(needle),
     );
-    return results.filter((r): r is NonNullable<typeof r> => r !== null);
+    return match ? [{ version: currentVersion, bundle: match }] : [];
   }
 }
 
