@@ -143,92 +143,7 @@ export default function PagePrimeFeatures() {
     index: number;
   }>(() => {
     const allFeatures: IFeatureItemInfo[] = [
-      /* OneKey Cloud removed — keyless sync is free, no longer a Prime benefit */
-      {
-        id: EPrimeFeatures.BulkCopyAddresses,
-        banner: (
-          <Image
-            w="100%"
-            h={bannerHeight}
-            maxWidth={393}
-            source={require('@onekeyhq/kit/assets/prime/bulk_copy_banner.png')}
-          />
-        ),
-        title: intl.formatMessage({
-          id: ETranslations.global_bulk_copy_addresses,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.prime_bulk_copy_addresses_desc,
-        }),
-        details: [
-          {
-            icon: 'OrganisationOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_copy_detail_one_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_copy_detail_one_desc,
-            }),
-          },
-          {
-            icon: 'WalletCryptoOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_copy_detail_two_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_copy_detail_two_desc,
-            }),
-          },
-          {
-            icon: 'DownloadOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_copy_detail_three_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_copy_detail_three_desc,
-            }),
-          },
-        ],
-      },
-
-      {
-        id: EPrimeFeatures.BulkRevoke,
-        banner: (
-          <Image
-            w="100%"
-            h={bannerHeight}
-            maxWidth={393}
-            source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
-          />
-        ),
-        title: intl.formatMessage({
-          id: ETranslations.global_bulk_revoke,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.global_bulk_revoke_desc,
-        }),
-        details: [
-          {
-            icon: 'GasOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
-            }),
-          },
-          {
-            icon: 'WalletCryptoOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_one_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
-            }),
-          },
-        ],
-      },
-
+      /* Active features */
       {
         id: EPrimeFeatures.BulkSend,
         banner: (
@@ -277,6 +192,91 @@ export default function PagePrimeFeatures() {
       },
 
       {
+        id: EPrimeFeatures.BulkRevoke,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.global_bulk_revoke,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.global_bulk_revoke_desc,
+        }),
+        details: [
+          {
+            icon: 'GasOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
+            }),
+          },
+          {
+            icon: 'WalletCryptoOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
+            }),
+          },
+        ],
+      },
+
+      {
+        id: EPrimeFeatures.BulkCopyAddresses,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/bulk_copy_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.global_bulk_copy_addresses,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_bulk_copy_addresses_desc,
+        }),
+        details: [
+          {
+            icon: 'OrganisationOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_one_desc,
+            }),
+          },
+          {
+            icon: 'WalletCryptoOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_two_desc,
+            }),
+          },
+          {
+            icon: 'DownloadOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_three_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_copy_detail_three_desc,
+            }),
+          },
+        ],
+      },
+
+      {
         id: EPrimeFeatures.Notifications,
         banner: (
           <Image
@@ -305,6 +305,119 @@ export default function PagePrimeFeatures() {
             }),
             description: intl.formatMessage({
               id: ETranslations.prime_features_increase_notification_limit_one_desc,
+            }),
+          },
+        ],
+      },
+
+      /* Coming soon features */
+      {
+        id: EPrimeFeatures.BlockaidSiteScan,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/dapp_security_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.prime_enhanced_dapp_security_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_enhanced_dapp_security_desc,
+        }),
+        details: [
+          {
+            icon: 'ShieldCheckDoneOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_dapp_security_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_dapp_security_detail_one_desc,
+            }),
+          },
+          {
+            icon: 'ShareOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_dapp_security_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_dapp_security_detail_two_desc,
+            }),
+          },
+        ],
+      },
+      {
+        id: EPrimeFeatures.DAppTranslate,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/ai_translate_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.prime_ai_translate_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_ai_translate_desc,
+        }),
+        details: [
+          {
+            icon: 'AiStarOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_ai_translate_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_ai_translate_detail_one_desc,
+            }),
+          },
+          {
+            icon: 'SwitchHorOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_ai_translate_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_ai_translate_detail_two_desc,
+            }),
+          },
+        ],
+      },
+      {
+        id: EPrimeFeatures.ExtendedHistory,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/extended_history_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.prime_extended_history_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_extended_history_desc,
+        }),
+        details: [
+          {
+            icon: 'CalendarOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_extended_history_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_extended_history_detail_one_desc,
+            }),
+          },
+          {
+            icon: 'SearchOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_extended_history_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_extended_history_detail_two_desc,
             }),
           },
         ],
