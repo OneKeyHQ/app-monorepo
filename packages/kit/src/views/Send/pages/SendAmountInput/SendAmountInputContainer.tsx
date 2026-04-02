@@ -89,7 +89,6 @@ interface IAmountFormValues {
   txMessage: string;
 }
 
-
 function SendAmountInputContainer() {
   const intl = useIntl();
   const _media = useMedia();
@@ -260,7 +259,13 @@ function SendAmountInputContainer() {
     if (isLightningNetwork && lnUnit === ELightningUnit.BTC) return 'BTC';
     if (isLightningNetwork && lnUnit === ELightningUnit.SATS) return 'sats';
     return tokenInfo?.symbol ?? '';
-  }, [isNFT, isLightningNetwork, lnUnit, tokenInfo?.symbol, nft?.metadata?.name]);
+  }, [
+    isNFT,
+    isLightningNetwork,
+    lnUnit,
+    tokenInfo?.symbol,
+    nft?.metadata?.name,
+  ]);
 
   const currentSelectedUtxoInfo = useMemo(() => {
     if (
@@ -486,6 +491,7 @@ function SendAmountInputContainer() {
       intl,
       isLightningNetwork,
       lnUnit,
+      tokenDetails?.balanceParsed,
       tokenDetails?.info.isNative,
       tokenDetails?.price,
       vaultSettings?.nativeMinTransferAmount,
@@ -633,8 +639,6 @@ function SendAmountInputContainer() {
       }
       inputValue = filteredValue;
 
-
-
       const hadUserInput = (rawValue ?? '').trim().length > 0;
       if (!inputValue && hadUserInput) {
         return '0';
@@ -753,7 +757,13 @@ function SendAmountInputContainer() {
           { id: ETranslations.global_hex_data_input_desc_utf },
           { data: txMessageLinkedString },
         );
-  }, [intl, isHexTxMessage, recipientIsContract, txMessage, txMessageLinkedString]);
+  }, [
+    intl,
+    isHexTxMessage,
+    recipientIsContract,
+    txMessage,
+    txMessageLinkedString,
+  ]);
 
   const showTxMessageFaq = useCallback(() => {
     Dialog.show({
@@ -1378,11 +1388,9 @@ function SendAmountInputContainer() {
           size="small"
           ml="$2"
           onPress={() => {
-            form.setValue(
-              'amount',
-              isUseFiat ? maxBalanceFiat : maxBalance,
-              { shouldValidate: true },
-            );
+            form.setValue('amount', isUseFiat ? maxBalanceFiat : maxBalance, {
+              shouldValidate: true,
+            });
             setIsMaxSend(true);
           }}
         >
@@ -1441,7 +1449,6 @@ function SendAmountInputContainer() {
               />
             </XStack>
           ) : null}
-
         </Form>
       </Page.Body>
 

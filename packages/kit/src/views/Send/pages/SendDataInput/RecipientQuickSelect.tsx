@@ -113,17 +113,15 @@ const QuickSelectListItem = memo(
             ) : null}
           </XStack>
         }
-        secondary={
-          (() => {
-            const showAddr = item.displayAddress ?? item.address;
-            if (!showAddr) return undefined;
-            return (
-              <MatchSizeableText size="$bodyMd" color="$textSubdued">
-                {item.memo ? `${showAddr} · ${item.memo}` : showAddr}
-              </MatchSizeableText>
-            );
-          })()
-        }
+        secondary={(() => {
+          const showAddr = item.displayAddress ?? item.address;
+          if (!showAddr) return undefined;
+          return (
+            <MatchSizeableText size="$bodyMd" color="$textSubdued">
+              {item.memo ? `${showAddr} · ${item.memo}` : showAddr}
+            </MatchSizeableText>
+          );
+        })()}
       />
     );
   },
@@ -551,7 +549,7 @@ function AccountRecipients({
         const {
           account,
           deriveInfo,
-          hasMultipleDeriveTypes,
+          hasMultipleDeriveTypes: _hasMultipleDeriveTypes,
           walletId,
           wallet,
         } = item;
@@ -559,9 +557,7 @@ function AccountRecipients({
           account.address ?? account.addressDetail?.address ?? '';
         // Always show derive label when deriveInfo exists (e.g. LTC Native SegWit / Legacy).
         // Even with only one created path, the user needs to know which path it is.
-        const deriveLabel = deriveInfo
-          ? getDeriveLabel(deriveInfo)
-          : undefined;
+        const deriveLabel = deriveInfo ? getDeriveLabel(deriveInfo) : undefined;
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
         // Wallet name is already shown in the section header, only show account name
@@ -863,8 +859,7 @@ export default function RecipientQuickSelect({
       return label;
     };
 
-    const isLightning =
-      networkUtils.isLightningNetworkByNetworkId(networkId);
+    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
 
     const options: { label: string; value: IRecipientQuickSelectTab }[] = [];
 

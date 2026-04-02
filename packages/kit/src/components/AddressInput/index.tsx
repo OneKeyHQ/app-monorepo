@@ -890,9 +890,7 @@ export function AddressInputField(
             }
             if (!value.resolved) {
               // Always show allowlist errors — they are security-critical
-              if (
-                value.validateError?.type === 'address-not-allowlist'
-              ) {
+              if (value.validateError?.type === 'address-not-allowlist') {
                 return (
                   value.validateError.translationId ||
                   value.validateError.message ||
