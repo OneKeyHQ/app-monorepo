@@ -12,6 +12,12 @@ import {
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  WEB_APP_URL,
+  WEB_APP_URL_DEV,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -78,12 +84,34 @@ function ReferralLinkItem({
   );
 }
 
-function removeHttpsPrefix(url: string): string {
-  return url.replace(/^https?:\/\//, '');
-}
-
 interface IReferralLinkPopoverContentProps {
   inviteUrl: string;
+}
+
+const REFERRAL_LINKS = [
+  {
+    pathSuffix: '/shop',
+    titleId: ETranslations.referral_link_hw_title,
+    descId: ETranslations.referral_link_hw_desc,
+    useWebAppUrl: false,
+  },
+  {
+    pathSuffix: '/app/defi',
+    titleId: ETranslations.referral_link_defi_title,
+    descId: ETranslations.referral_link_defi_desc,
+    useWebAppUrl: true,
+  },
+  {
+    pathSuffix: '/app/perps',
+    titleId: ETranslations.referral_link_perps_title,
+    descId: ETranslations.referral_link_perps_desc,
+    useWebAppUrl: true,
+  },
+];
+
+function extractInviteCode(url: string): string | undefined {
+  const match = url.match(/\/r\/([^/]+)/);
+  return match?.[1];
 }
 
 export function ReferralLinkPopoverContent({
@@ -92,44 +120,45 @@ export function ReferralLinkPopoverContent({
   const intl = useIntl();
   const { copyUrl } = useClipboard();
   const { closePopover } = usePopoverContext();
+  const [devSettings] = useDevSettingsPersistAtom();
 
-  const walletInviteUrl = useMemo(() => `${inviteUrl}/app`, [inviteUrl]);
-  const shopInviteUrl = useMemo(() => `${inviteUrl}/shop`, [inviteUrl]);
+  const webAppUrl = useMemo(() => {
+    const useTestUrl =
+      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
+    return useTestUrl ? WEB_APP_URL_DEV : WEB_APP_URL;
+  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
-  const handleCopyWalletLink = useCallback(() => {
-    copyUrl(walletInviteUrl);
-    defaultLogger.referral.page.shareReferralLink('copy');
-    void closePopover?.();
-  }, [closePopover, copyUrl, walletInviteUrl]);
+  const handleCopyLink = useCallback(
+    (url: string) => {
+      copyUrl(url);
+      defaultLogger.referral.page.shareReferralLink('copy');
+      void closePopover?.();
+    },
+    [closePopover, copyUrl],
+  );
 
-  const handleCopyShopLink = useCallback(() => {
-    copyUrl(shopInviteUrl);
-    defaultLogger.referral.page.shareReferralLink('copy');
-    void closePopover?.();
-  }, [closePopover, copyUrl, shopInviteUrl]);
+  const links = useMemo(() => {
+    const inviteCode = extractInviteCode(inviteUrl);
+    return REFERRAL_LINKS.map((link) => ({
+      ...link,
+      url:
+        link.useWebAppUrl && inviteCode
+          ? `${webAppUrl}/r/${inviteCode}${link.pathSuffix}`
+          : `${inviteUrl}${link.pathSuffix}`,
+    }));
+  }, [inviteUrl, webAppUrl]);
 
   return (
     <YStack p="$1" $md={{ pb: '$3' }}>
-      <ReferralLinkItem
-        title={intl.formatMessage({
-          id: ETranslations.referral_link_hw_title,
-        })}
-        description={intl.formatMessage({
-          id: ETranslations.referral_link_hw_desc,
-        })}
-        displayUrl={removeHttpsPrefix(shopInviteUrl)}
-        onCopy={handleCopyShopLink}
-      />
-      <ReferralLinkItem
-        title={intl.formatMessage({
-          id: ETranslations.referral_link_onchain_title,
-        })}
-        description={intl.formatMessage({
-          id: ETranslations.referral_link_onchain_desc,
-        })}
-        displayUrl={removeHttpsPrefix(walletInviteUrl)}
-        onCopy={handleCopyWalletLink}
-      />
+      {links.map((link) => (
+        <ReferralLinkItem
+          key={link.pathSuffix}
+          title={intl.formatMessage({ id: link.titleId })}
+          description={intl.formatMessage({ id: link.descId })}
+          displayUrl={formatInviteUrlForDisplay(link.url)}
+          onCopy={() => handleCopyLink(link.url)}
+        />
+      ))}
     </YStack>
   );
 }
