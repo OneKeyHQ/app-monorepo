@@ -603,6 +603,11 @@ function SendAmountInputContainer() {
         decimals = 6;
       } else if (isIntegerAmount) {
         decimals = 0;
+      } else if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        decimals = chainValueUtils.getLightningAmountDecimals({
+          lnUnit,
+          decimals: decimals ?? 8,
+        });
       }
       const result = calcPercentBalance({
         balance,
@@ -616,7 +621,9 @@ function SendAmountInputContainer() {
     [
       form,
       isIntegerAmount,
+      isLightningNetwork,
       isUseFiat,
+      lnUnit,
       maxBalance,
       maxBalanceFiat,
       tokenDetails?.info.decimals,
