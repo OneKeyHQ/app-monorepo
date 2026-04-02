@@ -4,4 +4,5 @@
 
 #import "JPUSHService.h"
 #import "RCTJPushModule.h"
+#import "EntryBundleLoader.h"
 

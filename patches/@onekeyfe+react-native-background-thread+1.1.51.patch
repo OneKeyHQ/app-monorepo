@@ -1,0 +1,222 @@
+diff --git a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
+index 75aa67a..d620fe9 100644
+--- a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
++++ b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
+@@ -108,6 +108,88 @@ class BackgroundThreadManager private constructor() {
+         return null
+     }
+ 
++    /**
++     * Creates a JSBundleLoader that loads two bundles sequentially from Android assets:
++     * first the common bundle (polyfills + shared modules), then the
++     * entry-specific bundle (entry-only modules + require(entryId)).
++     */
++    private fun createSequentialAssetBundleLoader(
++        appContext: android.content.Context,
++        commonAssetName: String,
++        entryAssetName: String
++    ): JSBundleLoader {
++        return object : JSBundleLoader() {
++            override fun loadScript(delegate: com.facebook.react.bridge.JSBundleLoaderDelegate): String {
++                // Step 1: Load common bundle (polyfills + shared modules)
++                delegate.loadScriptFromAssets(appContext.assets, "assets://$commonAssetName", false)
++                BTLogger.info("Common bundle loaded from assets: $commonAssetName")
++
++                // Step 2: Load entry-specific bundle
++                delegate.loadScriptFromAssets(appContext.assets, "assets://$entryAssetName", false)
++                BTLogger.info("Entry bundle loaded from assets: $entryAssetName")
++
++                return "assets://$entryAssetName"
++            }
++        }
++    }
++
++    /**
++     * Creates a JSBundleLoader that loads two bundles sequentially from local files:
++     * first the common bundle, then the entry-specific bundle.
++     */
++    private fun createSequentialFileBundleLoader(
++        commonPath: String,
++        entryPath: String,
++        entrySourceURL: String
++    ): JSBundleLoader {
++        return object : JSBundleLoader() {
++            override fun loadScript(delegate: com.facebook.react.bridge.JSBundleLoaderDelegate): String {
++                // Step 1: Load common bundle (polyfills + shared modules)
++                val commonFile = File(commonPath)
++                if (!commonFile.exists()) {
++                    BTLogger.error("Common bundle file does not exist: $commonPath")
++                    throw RuntimeException("Common bundle file does not exist: $commonPath")
++                }
++                delegate.loadScriptFromFile(commonFile.absolutePath, "common.bundle", false)
++                BTLogger.info("Common bundle loaded from file: $commonPath")
++
++                // Step 2: Load entry-specific bundle
++                val entryFile = File(entryPath)
++                if (!entryFile.exists()) {
++                    BTLogger.error("Entry bundle file does not exist: $entryPath")
++                    throw RuntimeException("Entry bundle file does not exist: $entryPath")
++                }
++                delegate.loadScriptFromFile(entryFile.absolutePath, entrySourceURL, false)
++                BTLogger.info("Entry bundle loaded from file: $entryPath")
++
++                return entrySourceURL
++            }
++        }
++    }
++
++    /**
++     * Check if common.bundle exists in the Android assets directory.
++     */
++    private fun hasCommonBundleInAssets(appContext: android.content.Context): Boolean {
++        return try {
++            appContext.assets.open("common.bundle").close()
++            true
++        } catch (e: Exception) {
++            false
++        }
++    }
++
++    /**
++     * Resolve the common bundle path for OTA (file-based) loading.
++     * Looks for common.bundle in the same directory as the entry bundle.
++     */
++    private fun resolveCommonBundlePath(entryBundlePath: String): String? {
++        val entryFile = File(entryBundlePath)
++        val parentDir = entryFile.parentFile ?: return null
++        val commonFile = File(parentDir, "common.bundle")
++        return if (commonFile.exists()) commonFile.absolutePath else null
++    }
++
+     private fun createDownloadedBundleLoader(appContext: android.content.Context, entryURL: String): JSBundleLoader {
+         return object : JSBundleLoader() {
+             override fun loadScript(delegate: com.facebook.react.bridge.JSBundleLoaderDelegate): String {
+@@ -163,10 +245,43 @@ class BackgroundThreadManager private constructor() {
+         val localBundlePath = resolveLocalBundlePath(entryURL)
+         val bundleLoader =
+             when {
++                // Debug mode: remote URL — use single bundle (Metro dev server)
+                 isRemoteBundleUrl(entryURL) -> createDownloadedBundleLoader(appContext, entryURL)
+-                localBundlePath != null -> createLocalFileBundleLoader(localBundlePath, entryURL)
+-                entryURL.startsWith("assets://") -> JSBundleLoader.createAssetLoader(appContext, entryURL, true)
+-                else -> JSBundleLoader.createAssetLoader(appContext, "assets://$entryURL", true)
++
++                // OTA / local file path — try sequential loading with common bundle
++                localBundlePath != null -> {
++                    val commonPath = resolveCommonBundlePath(localBundlePath)
++                    if (commonPath != null) {
++                        BTLogger.info("Using sequential file bundle loader: common=$commonPath, entry=$localBundlePath")
++                        createSequentialFileBundleLoader(commonPath, localBundlePath, entryURL)
++                    } else {
++                        BTLogger.info("No common bundle found for OTA path, using single bundle: $localBundlePath")
++                        createLocalFileBundleLoader(localBundlePath, entryURL)
++                    }
++                }
++
++                // Assets-based loading — try sequential loading with common.bundle in assets
++                entryURL.startsWith("assets://") -> {
++                    val entryAssetName = entryURL.removePrefix("assets://")
++                    if (hasCommonBundleInAssets(appContext)) {
++                        BTLogger.info("Using sequential asset bundle loader: common=common.bundle, entry=$entryAssetName")
++                        createSequentialAssetBundleLoader(appContext, "common.bundle", entryAssetName)
++                    } else {
++                        BTLogger.info("No common.bundle in assets, using single bundle: $entryURL")
++                        JSBundleLoader.createAssetLoader(appContext, entryURL, true)
++                    }
++                }
++
++                // Bare filename (e.g. "background.bundle") — treat as asset
++                else -> {
++                    if (hasCommonBundleInAssets(appContext)) {
++                        BTLogger.info("Using sequential asset bundle loader: common=common.bundle, entry=$entryURL")
++                        createSequentialAssetBundleLoader(appContext, "common.bundle", entryURL)
++                    } else {
++                        BTLogger.info("No common.bundle in assets, using single bundle: assets://$entryURL")
++                        JSBundleLoader.createAssetLoader(appContext, "assets://$entryURL", true)
++                    }
++                }
+             }
+ 
+         val delegate = DefaultReactHostDelegate(
+diff --git a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
+index 575f081..49bc792 100644
+--- a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
++++ b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
+@@ -170,6 +170,8 @@ - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
+ 
+ - (NSURL *)bundleURL
+ {
++  // When _jsBundleSource is set (dev mode or explicit override), use it as-is.
++  // This is a single full bundle (not split), so DON'T use common+entry strategy.
+   if (!_jsBundleSource.empty()) {
+     NSString *jsBundleSourceNS = [NSString stringWithUTF8String:_jsBundleSource.c_str()];
+     NSURL *resolvedURL = resolveBundleSourceURL(jsBundleSourceNS);
+@@ -180,11 +182,19 @@ - (NSURL *)bundleURL
+     [BTLogger warn:[NSString stringWithFormat:@"Unable to resolve custom jsBundleSource=%@", jsBundleSourceNS]];
+   }
+ 
+-  NSURL *defaultBundleURL = resolveMainBundleResourceURL(@"background.bundle");
+-  if (defaultBundleURL) {
+-    return defaultBundleURL;
++  // Default: load common bundle (shared polyfills + modules).
++  // The background entry bundle is loaded later in hostDidStart:.
++  NSURL *commonURL = resolveMainBundleResourceURL(@"common.jsbundle");
++  if (commonURL) {
++    return commonURL;
+   }
+-  return [[NSBundle mainBundle] URLForResource:@"background" withExtension:@"bundle"];
++  return [[NSBundle mainBundle] URLForResource:@"common" withExtension:@"jsbundle"];
++}
++
++- (NSString *)resolveBackgroundEntryBundlePath
++{
++  NSURL *url = resolveMainBundleResourceURL(@"background.bundle");
++  return url.path;
+ }
+ 
+ - (void)hostDidStart:(RCTHost *)host
+@@ -203,6 +213,26 @@ - (void)hostDidStart:(RCTHost *)host
+     return;
+   }
+ 
++  // When _jsBundleSource is set, the bundle loaded in bundleURL was already
++  // a full single bundle (dev mode / explicit override), so skip entry loading.
++  BOOL isSplitBundle = _jsBundleSource.empty();
++
++  // Read the background entry bundle data before entering the executor block
++  // (only needed in split-bundle mode).
++  NSData *bgBundleData = nil;
++  NSString *bgBundleSourceURL = nil;
++  if (isSplitBundle) {
++    NSString *bgBundlePath = [self resolveBackgroundEntryBundlePath];
++    if (bgBundlePath) {
++      bgBundleData = [NSData dataWithContentsOfFile:bgBundlePath];
++      bgBundleSourceURL = bgBundlePath.lastPathComponent ?: @"background.bundle";
++      [BTLogger info:[NSString stringWithFormat:@"Background entry bundle loaded from %@ (%lu bytes)",
++                      bgBundlePath, (unsigned long)bgBundleData.length]];
++    } else {
++      [BTLogger warn:@"Background entry bundle not found, __setupBackgroundRPCHandler may not be defined"];
++    }
++  }
++
+   [_rctInstance callFunctionOnBufferedRuntimeExecutor:[=](jsi::Runtime &runtime) {
+     [self setupErrorHandler:runtime];
+ 
+@@ -218,6 +248,17 @@ - (void)hostDidStart:(RCTHost *)host
+     };
+     SharedRPC::install(runtime, std::move(bgExecutor), "background");
+     [BTLogger info:@"SharedStore and SharedRPC installed in background runtime"];
++
++    // In split-bundle mode, evaluate the background entry bundle now.
++    // This must happen BEFORE invokeOptionalGlobalFunction since the entry
++    // bundle defines __setupBackgroundRPCHandler.
++    if (isSplitBundle && bgBundleData && bgBundleData.length > 0) {
++      auto buffer = std::make_shared<jsi::StringBuffer>(
++        std::string(static_cast<const char *>(bgBundleData.bytes), bgBundleData.length));
++      runtime.evaluateJavaScript(std::move(buffer), [bgBundleSourceURL UTF8String]);
++      [BTLogger info:@"Background entry bundle evaluated in runtime"];
++    }
++
+     invokeOptionalGlobalFunction(runtime, "__setupBackgroundRPCHandler");
+   }];
+ }

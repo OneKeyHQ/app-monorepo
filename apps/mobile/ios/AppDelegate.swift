@@ -31,6 +31,13 @@ private enum NitroModuleBridge {
     guard cls.responds(to: selector) else { return nil }
     return cls.perform(selector)?.takeUnretainedValue() as? String
   }
+
+  static func currentBundleCommonJSBundle() -> String? {
+    guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return nil }
+    let selector = NSSelectorFromString("currentBundleCommonJSBundle")
+    guard cls.responds(to: selector) else { return nil }
+    return cls.perform(selector)?.takeUnretainedValue() as? String
+  }
 }
 
 private enum BackgroundThreadBridge {
@@ -272,33 +279,95 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(DEBUG): metroURL=\(metroURL?.absoluteString ?? "nil")")
     return metroURL
 #else
-    // Check for updated bundle via dynamic bridge (avoids Nitro module import)
+    // In split-bundle mode the initial bundle is common.jsbundle (polyfills + shared modules).
+    // The entry-specific main.jsbundle is loaded later in handleHostDidStart via EntryBundleLoader.
+
+    // Check for OTA-updated common bundle first
+    if let bundlePath = NitroModuleBridge.currentBundleCommonJSBundle(), !bundlePath.isEmpty {
+      let isFileURL = bundlePath.hasPrefix("file://")
+      let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
+      let exists = FileManager.default.fileExists(atPath: bundleFilePath)
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA common path=\(bundlePath), exists=\(exists)")
+
+      if exists {
+        if isFileURL, let fileURL = URL(string: bundlePath) {
+          NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA common file URL=\(fileURL.absoluteString)")
+          return fileURL
+        }
+        let fileURL = URL(fileURLWithPath: bundlePath)
+        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA common file path=\(fileURL.absoluteString)")
+        return fileURL
+      }
+
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA common path not found, will fallback")
+    }
+
+    // Fallback: check for OTA main bundle path (legacy single-bundle OTA)
     if let bundlePath = NitroModuleBridge.currentBundleMainJSBundle(), !bundlePath.isEmpty {
       let isFileURL = bundlePath.hasPrefix("file://")
       let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
       let exists = FileManager.default.fileExists(atPath: bundleFilePath)
-      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): otaPath=\(bundlePath), exists=\(exists)")
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA main path=\(bundlePath), exists=\(exists)")
 
       if exists {
         if isFileURL, let fileURL = URL(string: bundlePath) {
-          NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA file URL=\(fileURL.absoluteString)")
+          NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA main file URL=\(fileURL.absoluteString)")
           return fileURL
         }
         let fileURL = URL(fileURLWithPath: bundlePath)
-        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA file path=\(fileURL.absoluteString)")
+        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA main file path=\(fileURL.absoluteString)")
         return fileURL
       }
 
-      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA path not found, will fallback")
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA main path not found, will fallback")
     }
-    let fallbackURL = Bundle.main.url(forResource: "main", withExtension: "jsbundle")
-    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback main.jsbundle=\(fallbackURL?.absoluteString ?? "nil")")
+
+    let fallbackURL = Bundle.main.url(forResource: "common", withExtension: "jsbundle")
+    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback common.jsbundle=\(fallbackURL?.absoluteString ?? "nil")")
     return fallbackURL
+#endif
+  }
+
+  /// Resolves the filesystem path for the main entry bundle (main.jsbundle).
+  /// Returns nil in DEBUG (single bundle from Metro) or if the file cannot be found.
+  private func resolveMainEntryBundlePath() -> String? {
+#if DEBUG
+    return nil
+#else
+    // Check OTA path first
+    if let bundlePath = NitroModuleBridge.currentBundleMainJSBundle(), !bundlePath.isEmpty {
+      let isFileURL = bundlePath.hasPrefix("file://")
+      let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
+      if FileManager.default.fileExists(atPath: bundleFilePath) {
+        NitroModuleBridge.logInfo("BundleUpdate", "resolveMainEntryBundlePath: OTA path=\(bundleFilePath)")
+        return bundleFilePath
+      }
+    }
+
+    // Fallback to built-in main.jsbundle
+    if let url = Bundle.main.url(forResource: "main", withExtension: "jsbundle") {
+      NitroModuleBridge.logInfo("BundleUpdate", "resolveMainEntryBundlePath: builtin=\(url.path)")
+      return url.path
+    }
+
+    NitroModuleBridge.logInfo("BundleUpdate", "resolveMainEntryBundlePath: not found")
+    return nil
 #endif
   }
 
   @objc(hostDidStart:)
   func handleHostDidStart(_ host: AnyObject) {
+#if !DEBUG
+    // In release mode, the initial bundle is common.jsbundle (shared modules only).
+    // Load the main entry bundle now so the app's entry point is executed.
+    if let entryPath = resolveMainEntryBundlePath() {
+      NitroModuleBridge.logInfo("BundleUpdate", "hostDidStart: loading main entry bundle at \(entryPath)")
+      EntryBundleLoader.loadEntryBundle(entryPath, inHost: host)
+    } else {
+      NitroModuleBridge.logInfo("BundleUpdate", "hostDidStart: no main entry bundle to load (split-bundle disabled or missing)")
+    }
+#endif
+
     guard isNativeBackgroundThreadEnabled() else {
       NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: background thread disabled by ENABLE_NATIVE_BACKGROUND_THREAD")
       return
