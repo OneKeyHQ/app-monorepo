@@ -118,7 +118,9 @@ const QuickSelectListItem = memo(
           if (!showAddr) return undefined;
           return (
             <MatchSizeableText size="$bodyMd" color="$textSubdued">
-              {item.memo ? `${showAddr} · ${item.memo}` : showAddr}
+              {item.memo || item.note
+                ? `${showAddr} · ${item.memo || item.note}`
+                : showAddr}
             </MatchSizeableText>
           );
         })()}

@@ -1393,7 +1393,13 @@ function SendAmountInputContainer() {
               {maxBalance}
             </NumberSizeableText>
             {tokenSymbol ? (
-              <SizableText size="$bodyLgMedium" color="$text" ml="$1">
+              <SizableText
+                size="$bodyLgMedium"
+                color="$text"
+                ml="$1"
+                numberOfLines={1}
+                flexShrink={1}
+              >
                 {tokenSymbol}
               </SizableText>
             ) : null}
