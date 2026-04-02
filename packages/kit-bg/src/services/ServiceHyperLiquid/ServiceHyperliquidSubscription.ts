@@ -12,6 +12,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
@@ -27,18 +28,23 @@ import type {
   IWsActiveAssetCtx,
   IWsAllDexsAssetCtxs,
   IWsAllDexsClearinghouseState,
+  IWsAllMids,
   IWsOpenOrders,
+  IWsSpotState,
   IWsUserFills,
   IWsWebData2,
   IWsWebData3,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  EHyperLiquidAbstractionMode,
+  IL2BookOptions,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
+  perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
-  perpsActiveAccountStatusAtom,
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsCandlesWebviewReloadHookAtom,
@@ -49,6 +55,7 @@ import {
 } from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
 
+import hyperLiquidCache from './hyperLiquidCache';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
@@ -183,21 +190,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     };
 
     const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
-
-    // Skip WEB_DATA3 subscription if user already has DEX abstraction enabled
-    if (activeAccount?.accountAddress) {
-      const isDexAbstractionEnabled =
-        await this.backgroundApi.simpleDb.perp.isDexAbstractionEnabled(
-          activeAccount.accountAddress,
-        );
-      if (isDexAbstractionEnabled) {
-        Object.keys(requiredSubSpecsMap).forEach((key) => {
-          if (requiredSubSpecsMap[key]?.type === ESubscriptionType.WEB_DATA3) {
-            delete requiredSubSpecsMap[key];
-          }
-        });
-      }
-    }
 
     return { requiredSubSpecsMap, params };
   }
@@ -667,6 +659,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.ALL_DEXS_ASSET_CTXS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
+        ESubscriptionType.SPOT_STATE,
       ];
       const removeAllSubscriptionHandlers = () => {
         allTypes.forEach((type) => {
@@ -684,7 +677,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       });
 
       // @ts-ignore
-      const wsRequester = innerTransport._wsRequester as {
+      const wsRequester = innerTransport._postRequest as {
         request: (method: string, payload: any) => Promise<void>;
       };
       // const payload = { type: "activeAssetCtx", ...params };
@@ -941,14 +934,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     Record<ESubscriptionType, (data: unknown) => void>
   > = {};
 
+  private _showPerpsRenderStats = false;
+
+  async updateDevSettings() {
+    const devSettings = await devSettingsPersistAtom.get();
+    this._showPerpsRenderStats = !!(
+      devSettings.enabled && devSettings.settings?.showPerpsRenderStats
+    );
+  }
+
   private async _handleSubscriptionData(
     subscriptionType: ESubscriptionType,
     event: CustomEvent,
   ): Promise<void> {
     try {
-      const devSettings = await devSettingsPersistAtom.get();
-      const shouldUpdateWsDataUpdateTimes =
-        devSettings.enabled && devSettings.settings?.showPerpsRenderStats;
+      const shouldUpdateWsDataUpdateTimes = this._showPerpsRenderStats;
 
       if (shouldUpdateWsDataUpdateTimes) {
         void perpsWebSocketDataUpdateTimesAtom.set((prev) => ({
@@ -993,7 +993,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
-        // do nothing
+        // Cache allMids in background for spot balance USD calculation
+        hyperLiquidCache.allMids = data as IWsAllMids;
+        // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)
+        void this.backgroundApi.serviceHyperliquid.recalculateSpotTotalUsd();
+        // Emit to frontend (PerpsGlobalEffects listens for allMids updates)
+        this._emitHyperliquidDataUpdate(subscriptionType, data);
+        this._updateNetworkLiveness();
+        return;
       }
       if (subscriptionType === ESubscriptionType.WEB_DATA2) {
         void this.backgroundApi.serviceHyperliquid.updateActiveAccountSummary(
@@ -1020,34 +1027,53 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         const webData3 = data as IWsWebData3;
         const { userState } = webData3;
         const userAddress = userState?.user;
-        if (userState?.dexAbstractionEnabled) {
-          if (userAddress) {
-            void this.backgroundApi.simpleDb.perp.setDexAbstractionEnabled(
-              userAddress,
-              true,
-            );
+
+        if (userAddress) {
+          // SDK 0.32.2 added userState.abstraction field
+          const wsAbstraction = userState.abstraction;
+
+          // Account alignment check
+          const activeAccount = await perpsActiveAccountAtom.get();
+          if (
+            activeAccount?.accountAddress?.toLowerCase() !==
+            userAddress.toLowerCase()
+          ) {
+            return;
           }
-          void this.cancelSubscriptionByType(ESubscriptionType.WEB_DATA3);
-        } else {
-          // Enable HIP-3 DEX abstraction silently when not enabled
-          void (async () => {
-            const accountStatus = await perpsActiveAccountStatusAtom.get();
-            if (accountStatus?.canTrade) {
-              try {
-                await this.backgroundApi.serviceHyperliquidExchange.enableDexAbstraction();
-                if (userAddress) {
-                  await this.backgroundApi.simpleDb.perp.setDexAbstractionEnabled(
-                    userAddress,
-                    true,
-                  );
-                }
-                void this.cancelSubscriptionByType(ESubscriptionType.WEB_DATA3);
-              } catch {
-                // Silently ignore, will retry on next webData3 update
-              }
+
+          if (wsAbstraction) {
+            // Update atom for display (all accounts including watch-only)
+            await perpsAbstractionModeAtom.set({
+              accountAddress: userAddress.toLowerCase() as IHex,
+              mode: wsAbstraction as EHyperLiquidAbstractionMode,
+            });
+            // Persist to SimpleDb only for non-watch-only accounts
+            const isWatcher = activeAccount?.accountId
+              ? accountUtils.isWatchingAccount({
+                  accountId: activeAccount.accountId,
+                })
+              : false;
+            if (!isWatcher) {
+              await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+                userAddress,
+                wsAbstraction,
+              );
             }
-          })();
+          }
+
+          // Mode correction (setAbstraction) requires user wallet signature,
+          // not agent wallet. It will be handled in the enable trading flow
+          // when the user explicitly initiates it. WEB_DATA3 only reads mode.
         }
+        return;
+      }
+
+      if (subscriptionType === ESubscriptionType.SPOT_STATE) {
+        void this.backgroundApi.serviceHyperliquid.updateSpotBalances(
+          data as IWsSpotState,
+        );
+        this._emitHyperliquidDataUpdate(subscriptionType, data);
+        this._updateNetworkLiveness();
         return;
       }
 
@@ -1105,6 +1131,28 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         error,
       );
     }
+  }
+
+  private _lastLivenessAtomUpdate = 0;
+
+  private _updateNetworkLiveness() {
+    const now = Date.now();
+    if (!this._pingIntervalTimer) {
+      this._startPingLoop();
+    }
+    // Throttle atom writes to at most once per 5 seconds to avoid
+    // excessive re-renders from high-frequency events like ALL_MIDS
+    if (now - this._lastLivenessAtomUpdate > 5000) {
+      this._lastLivenessAtomUpdate = now;
+      void perpsNetworkStatusAtom.set(
+        (prev): IPerpsNetworkStatus => ({
+          ...prev,
+          connected: true,
+          lastMessageAt: now,
+        }),
+      );
+    }
+    this._scheduleNetworkTimeout(now);
   }
 
   private _scheduleNetworkTimeout(messageTimestamp: number): void {

@@ -30,6 +30,7 @@ import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
   XYZ_ASSET_ID_OFFSET,
   XYZ_DEX_PREFIX,
@@ -43,12 +44,12 @@ import type {
   IMarginTableMap,
   IPerpsActiveAssetData,
   IPerpsActiveAssetDataRaw,
-  IPerpsAssetPosition,
   IPerpsUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
   IWsActiveAssetCtx,
   IWsAllDexsClearinghouseState,
+  IWsSpotState,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
@@ -56,6 +57,7 @@ import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliqui
 import localDb from '../../dbs/local/localDb';
 import {
   perpTokenSelectorTabsAtom,
+  perpsAbstractionModeAtom,
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
@@ -69,6 +71,7 @@ import {
   perpsDepositNetworksAtom,
   perpsDepositTokensAtom,
   perpsLastUsedLeverageAtom,
+  perpsSpotBalancesAtom,
   perpsTradesHistoryDataAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -744,7 +747,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         acc.withdrawable = acc.withdrawable.plus(state.withdrawable || '0');
 
         // Aggregate unrealized PnL from all positions
-        const positions = (assetPositions || []) as IPerpsAssetPosition[];
+        const positions = assetPositions || [];
         positions.forEach((position) => {
           const pnl = position.position?.unrealizedPnl;
           if (pnl) {
@@ -777,6 +780,111 @@ export default class ServiceHyperliquid extends ServiceBase {
       totalRawUsd: aggregated.totalRawUsd.toFixed(),
       withdrawable: aggregated.withdrawable.toFixed(),
       totalUnrealizedPnl: aggregated.totalUnrealizedPnl.toFixed(),
+    });
+  }
+
+  async updateSpotBalances(spotStateData: IWsSpotState) {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    const dataUser = spotStateData?.user?.toLowerCase();
+
+    // Active-account alignment: only process data for current account
+    if (!activeAddress || activeAddress !== dataUser) return;
+
+    const balances = spotStateData?.spotState?.balances || [];
+
+    // Calculate total USD value from spot balances
+    // Price lookup: USDC (token=0) → 1:1, others → allMids.mids[coin] (perp mid price by token name)
+    // Note: allMids["HYPE"]=36.20 is the correct USD price
+    //       allMids["@N"] is a spot universe pair index, NOT token index — do NOT use
+    const mids = hyperLiquidCache.allMids?.mids;
+    const hasNonUsdcTokens = balances.some(
+      (b) => b.token !== 0 && parseFloat(b.total) > 0,
+    );
+    const midsReady = mids && Object.keys(mids).length > 0;
+
+    // Don't write spotTotalUsd if allMids hasn't loaded yet and we have non-USDC tokens
+    // This prevents briefly showing an artificially low value
+    if (hasNonUsdcTokens && !midsReady) {
+      await perpsSpotBalancesAtom.set({
+        accountAddress: activeAddress as IHex,
+        balances: balances.map((b) => ({
+          coin: b.coin,
+          token: b.token,
+          total: b.total,
+          hold: b.hold,
+          entryNtl: b.entryNtl,
+        })),
+        spotTotalUsd: undefined, // triggers isLoading in computed atom
+      });
+      return;
+    }
+
+    let totalUsd = new BigNumber(0);
+    for (const balance of balances) {
+      const amount = new BigNumber(balance.total);
+      if (amount.isZero()) {
+        // skip zero balances
+      } else if (balance.token === 0) {
+        // USDC — quote currency, 1:1 USD
+        totalUsd = totalUsd.plus(amount);
+      } else {
+        // Use token name to look up perp mid price (e.g., "HYPE" → 36.20)
+        const midPrice = mids?.[balance.coin];
+        if (midPrice) {
+          totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
+        }
+      }
+    }
+
+    await perpsSpotBalancesAtom.set({
+      accountAddress: activeAddress as IHex,
+      balances: balances.map((b) => ({
+        coin: b.coin,
+        token: b.token,
+        total: b.total,
+        hold: b.hold,
+        entryNtl: b.entryNtl,
+      })),
+      spotTotalUsd: totalUsd.toFixed(),
+    });
+  }
+
+  // Re-calculate spotTotalUsd from cached balances when allMids becomes available
+  async recalculateSpotTotalUsd() {
+    const spotData = await perpsSpotBalancesAtom.get();
+    if (!spotData?.balances?.length || spotData.spotTotalUsd !== undefined)
+      return;
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+    if (!activeAddress || activeAddress !== spotData.accountAddress) return;
+
+    const mids = hyperLiquidCache.allMids?.mids;
+    if (!mids || Object.keys(mids).length === 0) return;
+
+    const { balances } = spotData;
+    let totalUsd = new BigNumber(0);
+    for (const balance of balances) {
+      const amount = new BigNumber(balance.total);
+      if (amount.isZero()) {
+        // skip zero balances
+      } else if (balance.token === 0) {
+        totalUsd = totalUsd.plus(amount);
+      } else {
+        const midPrice = mids[balance.coin];
+        if (midPrice) {
+          totalUsd = totalUsd.plus(amount.multipliedBy(midPrice));
+        }
+      }
+    }
+
+    const computed = totalUsd.toFixed();
+    // Functional updater: only write if spotTotalUsd is still undefined
+    // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
+    await perpsSpotBalancesAtom.set((prev) => {
+      if (!prev || prev.spotTotalUsd !== undefined) return prev;
+      return { ...prev, spotTotalUsd: computed };
     });
   }
 
@@ -857,6 +965,8 @@ export default class ServiceHyperliquid extends ServiceBase {
       }, 300);
     }
 
+    await perpsAbstractionModeAtom.set(undefined);
+    await perpsSpotBalancesAtom.set(undefined);
     await perpsActiveAccountAtom.set(perpsAccount);
     return perpsAccount;
   }
@@ -927,6 +1037,70 @@ export default class ServiceHyperliquid extends ServiceBase {
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   @backgroundMethod()
+  async fetchUserAbstraction(userAddress: IHex): Promise<string | undefined> {
+    // Active-account alignment check
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (
+      activeAccount?.accountAddress?.toLowerCase() !== userAddress.toLowerCase()
+    ) {
+      return undefined;
+    }
+
+    const { infoClient } = hyperLiquidApiClients;
+    try {
+      const mode = await infoClient.userAbstraction({ user: userAddress });
+
+      // Re-check alignment after async call
+      const currentAccount = await perpsActiveAccountAtom.get();
+      if (
+        currentAccount?.accountAddress?.toLowerCase() !==
+        userAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
+
+      await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+        userAddress,
+        mode,
+      );
+      await perpsAbstractionModeAtom.set({
+        accountAddress: userAddress.toLowerCase() as IHex,
+        mode: mode as EHyperLiquidAbstractionMode,
+      });
+      return mode;
+    } catch {
+      // Fallback to SimpleDb cached value — need alignment checks around every await
+      const preDbAccount = await perpsActiveAccountAtom.get();
+      if (
+        preDbAccount?.accountAddress?.toLowerCase() !==
+        userAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
+      const cached =
+        await this.backgroundApi.simpleDb.perp.getUserAbstractionMode(
+          userAddress,
+        );
+      // Post-async alignment: user could have switched during SimpleDb read
+      const postDbAccount = await perpsActiveAccountAtom.get();
+      if (
+        postDbAccount?.accountAddress?.toLowerCase() !==
+        userAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
+      if (cached) {
+        await perpsAbstractionModeAtom.set({
+          accountAddress: userAddress.toLowerCase() as IHex,
+          mode: cached as EHyperLiquidAbstractionMode,
+        });
+        return cached;
+      }
+      return undefined; // NOT "default" — unknown is unknown
+    }
+  }
+
+  @backgroundMethod()
   async checkPerpsAccountStatus({
     isEnableTradingTrigger = false,
   }: {
@@ -939,6 +1113,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       referralCodeOk: false,
       builderFeeOk: false,
       internalRebateBoundOk: false,
+      abstractionOk: false,
     };
     let status: IPerpsActiveAccountStatusInfoAtom | undefined;
 
@@ -996,6 +1171,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       } else {
         hyperLiquidCache.activatedUser[accountAddress] = true;
         statusDetails.activatedOk = true;
+
+        // Read abstraction mode early (no signing needed)
+        // So account value displays correctly before enable trading
+        void this.fetchUserAbstraction(accountAddress);
 
         // Builder fee must be approved before agent setup
         await this.checkBuilderFeeStatus({
@@ -1062,8 +1241,32 @@ export default class ServiceHyperliquid extends ServiceBase {
               }
             }
           })();
+
           statusDetails.internalRebateBoundOk = true;
           statusDetails.referralCodeOk = true;
+
+          // Check abstraction mode — requires user wallet signature
+          // Placed after referralCodeOk so a signature rejection doesn't block other status
+          const currentMode = await this.fetchUserAbstraction(accountAddress);
+          const isAbstractionCorrect =
+            currentMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+            currentMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+          if (isAbstractionCorrect) {
+            statusDetails.abstractionOk = true;
+          } else if (isEnableTradingTrigger && selectedAccount.accountId) {
+            // Only set abstraction when user explicitly clicks Enable Trading
+            // User wallet signature required — will prompt user
+            await this.exchangeService.setAbstractionWithUserWallet({
+              userAccountId: selectedAccount.accountId,
+              userAddress: accountAddress,
+              abstraction: 'unifiedAccount',
+            });
+            const verifiedMode =
+              await this.fetchUserAbstraction(accountAddress);
+            statusDetails.abstractionOk =
+              verifiedMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+              verifiedMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+          }
         }
       }
     } finally {
@@ -1841,6 +2044,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           builderFeeOk: false,
           referralCodeOk: false,
           internalRebateBoundOk: false,
+          abstractionOk: false,
         },
       }),
     );

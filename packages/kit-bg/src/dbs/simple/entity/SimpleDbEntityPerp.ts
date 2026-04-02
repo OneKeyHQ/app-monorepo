@@ -51,6 +51,7 @@ export interface ISimpleDbPerpData {
   hyperliquidTermsAccepted?: boolean;
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
+  abstractionModeUsers?: Record<string, string>; // user address -> EHyperLiquidAbstractionMode
   referralBannerSnoozedUntil?: Record<string, number>; // user address -> timestamp until which the banner is snoozed
   referralBannerCache?: Record<
     string,
@@ -273,6 +274,44 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
           ...prev?.dexAbstractionEnabledUsers,
           [userAddress.toLowerCase()]: enabled,
         },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getUserAbstractionMode(
+    userAddress: string,
+  ): Promise<string | undefined> {
+    const config = await this.getPerpData();
+    const addr = userAddress.toLowerCase();
+    // New field takes priority
+    const mode = config.abstractionModeUsers?.[addr];
+    if (mode) return mode;
+    // Runtime migration: legacy boolean → dexAbstraction mode
+    if (config.dexAbstractionEnabledUsers?.[addr] === true) {
+      return 'dexAbstraction';
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
+  async setUserAbstractionMode(userAddress: string, mode: string) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        abstractionModeUsers: {
+          ...prev?.abstractionModeUsers,
+          [userAddress.toLowerCase()]: mode,
+        },
+        // Dual-write legacy field only for dexAbstraction; leave untouched for other modes
+        ...(mode === 'dexAbstraction'
+          ? {
+              dexAbstractionEnabledUsers: {
+                ...prev?.dexAbstractionEnabledUsers,
+                [userAddress.toLowerCase()]: true,
+              },
+            }
+          : {}),
       }),
     );
   }
