@@ -204,10 +204,6 @@ const SelectGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Select'),
 );
-const SplitBundleGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SplitBundleGallery'),
-);
 const ShortcutGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Shortcut'),
@@ -535,7 +531,6 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentToast, component: ToastGallery },
   { name: EGalleryRoutes.ComponentShortcut, component: ShortcutGallery },
   { name: EGalleryRoutes.ComponentSelect, component: SelectGallery },
-  { name: EGalleryRoutes.ComponentSplitBundle, component: SplitBundleGallery },
   { name: EGalleryRoutes.ComponentTooltip, component: TooltipGallery },
   { name: EGalleryRoutes.ComponentTrigger, component: TriggerGallery },
   {
