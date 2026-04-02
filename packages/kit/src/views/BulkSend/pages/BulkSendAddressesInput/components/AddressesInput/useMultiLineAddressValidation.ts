@@ -92,25 +92,40 @@ function useMultiLineAddressValidation(
     async (
       address: string,
     ): Promise<{ isValid: false; error: string } | IAddressValidation> => {
+      const networkId = selectedNetworkId ?? '';
       const result =
         await backgroundApiProxy.serviceValidator.localValidateAddress({
-          networkId: selectedNetworkId ?? '',
+          networkId,
           address: address.trim(),
         });
       if (!result.isValid) {
+        // Fetch the network name at validation time to avoid stale names
+        // when the user switches networks while addresses are already entered
+        let networkName = network?.name ?? '';
+        if (networkId && networkId !== network?.id) {
+          try {
+            const networkInfo =
+              await backgroundApiProxy.serviceNetwork.getNetwork({
+                networkId,
+              });
+            networkName = networkInfo.name;
+          } catch {
+            // fallback to hook value
+          }
+        }
         return {
           isValid: false,
           error: intl.formatMessage(
             {
               id: ETranslations.wallet_bulk_send_error_invalid_network_address,
             },
-            { network: network?.name ?? '' },
+            { network: networkName },
           ),
         };
       }
       return result;
     },
-    [intl, selectedNetworkId, network?.name],
+    [intl, selectedNetworkId, network?.name, network?.id],
   );
 
   const validateAmount = useCallback(

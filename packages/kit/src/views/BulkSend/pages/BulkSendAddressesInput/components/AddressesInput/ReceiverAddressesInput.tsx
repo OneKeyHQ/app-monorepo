@@ -42,18 +42,31 @@ function SingleLineReceiverInput() {
 
       const trimmedAddress = value.trim();
 
+      const networkId = selectedNetworkId ?? '';
       const result =
         await backgroundApiProxy.serviceValidator.localValidateAddress({
-          networkId: selectedNetworkId ?? '',
+          networkId,
           address: trimmedAddress,
         });
 
       if (!result.isValid) {
+        let networkName = network?.name ?? '';
+        if (networkId && networkId !== network?.id) {
+          try {
+            const networkInfo =
+              await backgroundApiProxy.serviceNetwork.getNetwork({
+                networkId,
+              });
+            networkName = networkInfo.name;
+          } catch {
+            // fallback to hook value
+          }
+        }
         return intl.formatMessage(
           {
             id: ETranslations.wallet_bulk_send_error_invalid_network_address,
           },
-          { network: network?.name ?? '' },
+          { network: networkName },
         );
       }
 
@@ -110,7 +123,7 @@ function SingleLineReceiverInput() {
 
       return true;
     },
-    [intl, selectedNetworkId, network?.name, isEnableTransferAllowList],
+    [intl, selectedNetworkId, network?.name, network?.id, isEnableTransferAllowList],
   );
 
   const debouncedValidate = useDebouncedValidation(handleValidateAddresses);
