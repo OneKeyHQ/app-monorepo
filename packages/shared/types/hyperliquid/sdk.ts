@@ -75,7 +75,7 @@ export type IPerpsClearinghouseState = HL.ClearinghouseStateResponse;
 export type IInfoClient = HL.InfoClient;
 export type IExchangeClient = HL.ExchangeClient;
 export type ISubscriptionClient = HL.SubscriptionClient;
-export type IPerpsSubscription = HL.WebSocketSubscription;
+export type IPerpsSubscription = HL.ISubscription;
 export type IHttpTransport = HL.HttpTransport;
 export type IWebSocketTransport = HL.WebSocketTransport;
 
