@@ -60,6 +60,7 @@ const settings: IVaultSettings = {
   withMemo: true,
   memoMaxLength: 10,
   numericOnlyMemo: true,
+  supportMemoValidation: true, // Enforce XRP destination tag as uint32 (0..4294967295)
 
   cannotSendToSelf: true,
   hasFrozenBalance: true,

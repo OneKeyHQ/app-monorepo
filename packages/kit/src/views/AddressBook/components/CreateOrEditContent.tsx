@@ -58,6 +58,8 @@ type IFormValues = Omit<IAddressItem, 'address'> & {
   address: IAddressInputValue;
 };
 
+const XRP_DESTINATION_TAG_MAX = 4_294_967_295;
+
 function TimeRow({ title, time }: { title: string; time?: number }) {
   if (!time) {
     return null;
@@ -212,11 +214,16 @@ export function CreateOrEditContent({
           })
         : undefined;
       const memoRegExp = vaultSettings?.numericOnlyMemo
-        ? /^[0-9]+$/
+        ? /^\d+$/
         : undefined;
 
       if (!value || !memoRegExp) return undefined;
-      const result = !memoRegExp.test(value);
+      const trimmed = value.trim();
+      const numericValue = Number(trimmed);
+      const result =
+        !memoRegExp.test(trimmed) ||
+        !Number.isSafeInteger(numericValue) ||
+        numericValue > XRP_DESTINATION_TAG_MAX;
       return result ? validateErrMsg : undefined;
     },
     [intl, networkId, vaultSettings?.numericOnlyMemo],

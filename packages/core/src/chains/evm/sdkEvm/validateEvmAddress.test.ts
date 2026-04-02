@@ -32,13 +32,18 @@ describe('validateEvmAddress', () => {
     expect(result.isValid).toBe(true);
   });
 
-  it('should reject address with invalid checksum (mixed case)', async () => {
-    // Invalid checksum - wrong case on specific characters
+  it('should accept mixed-case address with checksum mismatch by fallback', async () => {
+    // Invalid checksum casing on mixed-case address
     const result = await validateEvmAddress(
       '0x5AAEB6053f3e94c9b9a09f33669435e7ef1beaed',
     );
-    // ethers getAddress throws on invalid mixed-case checksum
-    expect(result.isValid).toBe(false);
+    expect(result.isValid).toBe(true);
+    expect(result.displayAddress).toBe(
+      '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
+    );
+    expect(result.normalizedAddress).toBe(
+      '0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed',
+    );
   });
 
   it('should reject address too short', async () => {

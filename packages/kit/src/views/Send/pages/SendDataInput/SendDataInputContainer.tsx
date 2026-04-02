@@ -104,6 +104,8 @@ type ISendDataInputRouteName =
 type ISendAmountInputParams =
   IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxAmountInput];
 
+const XRP_DESTINATION_TAG_MAX = 4_294_967_295;
+
 function SendDataInputContainer() {
   const intl = useIntl();
   const media = useMedia();
@@ -500,10 +502,15 @@ function SendDataInputContainer() {
             id: ETranslations.send_field_only_integer,
           })
         : undefined;
-      const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
+      const memoRegExp = numericOnlyMemo ? /^\d+$/ : undefined;
 
       if (!value || !memoRegExp) return undefined;
-      const result = !memoRegExp.test(value);
+      const trimmed = value.trim();
+      const numericValue = Number(trimmed);
+      const result =
+        !memoRegExp.test(trimmed) ||
+        !Number.isSafeInteger(numericValue) ||
+        numericValue > XRP_DESTINATION_TAG_MAX;
       return result ? validateErrMsg : undefined;
     },
     [
