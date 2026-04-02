@@ -52,9 +52,14 @@ function AssetSelectorTrigger({
 
   const openChainSelector = useConfigurableChainSelector();
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const displayNetworkId = selectedToken?.networkId ?? selectedNetworkId;
 
   const { network } = useAccountData({
-    networkId: selectedNetworkId,
+    networkId: displayNetworkId,
+    options: {
+      checkIsFocused: false,
+      undefinedResultIfReRun: true,
+    },
   });
 
   const title = useMemo(() => {
@@ -348,10 +353,11 @@ function AssetSelectorTrigger({
             indexedAccountId: indexedAccountId ?? '',
             hideBalanceAndValue: !isOneToMany,
             onSelect: (token: IToken) => {
+              const nextNetworkId = token.networkId ?? _network.id;
               setSelectedToken(token);
               setSelectedAccountId(accountId);
               setSelectedIndexedAccountId(indexedAccountId);
-              setSelectedNetworkId(_network.id);
+              setSelectedNetworkId(nextNetworkId);
               navigation.popStack();
             },
           });
@@ -397,15 +403,15 @@ function AssetSelectorTrigger({
         drillIn={media.md}
         renderAvatar={() => (
           <Token
+            key={displayNetworkId}
             tokenImageUri={selectedToken?.logoURI}
             size="lg"
             showNetworkIcon
-            networkImageUri={network?.logoURI}
-            networkId={network?.id}
+            networkId={displayNetworkId}
           />
         )}
         title={title}
-        subtitle={network?.name}
+        subtitle={selectedToken?.networkName ?? network?.name}
         bg="$bgSubdued"
         mx="$0"
         hoverStyle={{
