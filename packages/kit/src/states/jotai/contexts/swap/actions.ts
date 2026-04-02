@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
@@ -469,6 +470,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       fromTokenAmount?: string,
       toTokenAmount?: string,
       receivingAddress?: string,
+      incognito?: boolean,
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       if (shouldRefreshQuote) {
@@ -483,6 +485,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteFetchingAtom(), true);
         }
         const protocol = get(swapTypeSwitchAtom());
+        const { swapIncognitoMode } = await settingsAtom.get();
         const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
         const limitPartiallyFillable = limitPartiallyFillableObj.value;
         const expirationTime = get(swapLimitExpirationTimeAtom());
@@ -498,6 +501,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           autoSlippage,
           blockNumber,
           receivingAddress,
+          incognito: incognito ?? swapIncognitoMode,
           accountId,
           protocol,
           userMarketPriceRate: limitUserMarketPrice.rate,
@@ -752,9 +756,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       fromTokenAmount?: string,
       toTokenAmount?: string,
       receivingAddress?: string,
+      incognito?: boolean,
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       const protocol = get(swapTypeSwitchAtom());
+      const { swapIncognitoMode } = await settingsAtom.get();
       const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
       const limitPartiallyFillable = limitPartiallyFillableObj.value;
       const expirationTime = get(swapLimitExpirationTimeAtom());
@@ -780,6 +786,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toTokenAmount,
         protocol,
         receivingAddress,
+        incognito: incognito ?? swapIncognitoMode,
         userMarketPriceRate: limitUserMarketPrice.rate,
         ...(protocol === ESwapTabSwitchType.LIMIT
           ? {
@@ -827,6 +834,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       kind?: ESwapQuoteKind,
       reQuote?: boolean,
       receivingAddress?: string,
+      incognito?: boolean,
     ) => {
       let fromToken = get(swapSelectFromTokenAtom());
       let toToken = get(swapSelectToTokenAtom());
@@ -919,6 +927,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromTokenAmount.value,
           toTokenAmount.value,
           receivingAddress,
+          incognito,
         );
       } else {
         void this.resetQuoteAction.call(set);
