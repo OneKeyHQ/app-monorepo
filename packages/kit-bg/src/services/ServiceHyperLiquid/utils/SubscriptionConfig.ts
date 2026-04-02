@@ -69,6 +69,10 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 2,
   },
+  [ESubscriptionType.SPOT_STATE]: {
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
   [ESubscriptionType.L2_BOOK]: {
     eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 3,
@@ -233,6 +237,14 @@ export function calculateRequiredSubscriptions(
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.WEB_DATA3,
+        params: {
+          user: state.currentUser,
+        },
+      }),
+    );
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.SPOT_STATE,
         params: {
           user: state.currentUser,
         },

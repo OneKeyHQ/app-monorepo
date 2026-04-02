@@ -20,6 +20,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountMmrAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -90,6 +91,7 @@ function PerpAccountMMRView() {
 
 function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [computedValue] = usePerpsComputedAccountValueAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
   const dialogInTab = useInTabDialog();
@@ -142,7 +144,7 @@ function PerpAccountPanel() {
             }
           />
           <PerpsAccountNumberValue
-            value={accountSummary?.accountValue ?? ''}
+            value={computedValue?.accountValue ?? ''}
             skeletonWidth={70}
           />
         </XStack>
@@ -163,7 +165,7 @@ function PerpAccountPanel() {
             })}
           </SizableText>
           <PerpsAccountNumberValue
-            value={accountSummary?.withdrawable ?? ''}
+            value={computedValue?.withdrawable ?? ''}
             skeletonWidth={60}
           />
         </XStack>

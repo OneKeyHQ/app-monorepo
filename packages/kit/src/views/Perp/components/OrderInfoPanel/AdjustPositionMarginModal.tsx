@@ -17,7 +17,7 @@ import {
   useHyperliquidActions,
   usePerpsActivePositionAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAccountSummaryAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -45,7 +45,7 @@ const AdjustPositionMarginForm = memo(
   ({ coin, onClose = () => {} }: IAdjustPositionMarginFormProps) => {
     const hyperliquidActions = useHyperliquidActions();
     const [{ activePositions }] = usePerpsActivePositionAtom();
-    const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+    const [computedValue] = usePerpsComputedAccountValueAtom();
 
     const currentPosition = useMemo(() => {
       return activePositions.find((p) => p.position.coin === coin)?.position;
@@ -90,8 +90,8 @@ const AdjustPositionMarginForm = memo(
     }, [currentPosition]);
 
     const availableBalance = useMemo(() => {
-      return new BigNumber(accountSummary?.withdrawable || '0');
-    }, [accountSummary?.withdrawable]);
+      return new BigNumber(computedValue?.withdrawable || '0');
+    }, [computedValue?.withdrawable]);
 
     const positionValue = useMemo(() => {
       if (!currentPosition) return new BigNumber(0);
