@@ -416,6 +416,8 @@ function BaseBulkSendAddressesInput() {
     form.setValue('senderAddresses', '');
     form.setValue('receiverAddresses', '');
     form.clearErrors();
+    setDuplicateAddressCount(0);
+    setDuplicateSenderAddressCount(0);
     if (isOneToMany && selectedAccountId && selectedNetworkId) {
       void fetchSelectedAccountAddress();
       setTokenDetailsState({ initialized: false, isRefreshing: true });
