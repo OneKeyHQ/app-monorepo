@@ -1081,9 +1081,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     // TODO: i18n — HL returns English errors like "Cannot disable unified account with open positions..."
     // Need to add these to hyperliquidErrorLocales config for localization
     await convertHyperLiquidResponse(() =>
-      exchangeClient.userDexAbstraction({
+      exchangeClient.userSetAbstraction({
         user: params.userAddress as `0x${string}`,
-        enabled: params.abstraction !== 'disabled',
+        abstraction: params.abstraction,
       }),
     );
   }

@@ -21,7 +21,7 @@ export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
 export type IEventSpotStateParameters = HL.SpotStateWsParameters;
 
 // Abstraction query types
-export type IUserAbstractionResponse = HL.UserDexAbstractionInfoResponse;
+export type IUserAbstractionResponse = HL.UserAbstractionResponse;
 
 export type IHyperliquidEventTarget = EventTarget;
 
