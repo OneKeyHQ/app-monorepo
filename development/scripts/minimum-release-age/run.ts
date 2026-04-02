@@ -22,7 +22,7 @@ const DEFAULT_BASE_BRANCH = 'x';
 // --- Registry fetch ---
 
 function fetchRegistryMeta(name: string, registryUrl: string): Promise<NpmPackageMeta> {
-  const url = `${registryUrl}/${encodeURIComponent(name).replace('%40', '@')}`;
+  const url = `${registryUrl}/${encodeURIComponent(name).replaceAll('%40', '@')}`;
 
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https') ? https : http;
