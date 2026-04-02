@@ -889,13 +889,16 @@ export function AddressInputField(
               return;
             }
             if (!value.resolved) {
-              // Always show allowlist errors — they are security-critical
-              if (value.validateError?.type === 'address-not-allowlist') {
+              // Always show critical errors regardless of quick-select state
+              if (
+                value.validateError?.type === 'address-not-allowlist' ||
+                value.validateError?.type === 'prohibit-send-to-self'
+              ) {
                 return (
                   value.validateError.translationId ||
                   value.validateError.message ||
                   intl.formatMessage({
-                    id: ETranslations.send_address_not_allowlist_error,
+                    id: ETranslations.send_address_invalid,
                   })
                 );
               }

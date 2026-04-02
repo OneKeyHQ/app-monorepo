@@ -550,7 +550,11 @@ function SendDataInputContainer() {
                     size="small"
                     variant="secondary"
                     icon="BroomOutline"
-                    onPress={() => form.setValue('memo', '')}
+                    onPress={() =>
+                      form.setValue('memo', '', {
+                        shouldValidate: true,
+                      })
+                    }
                   >
                     {intl.formatMessage({
                       id: ETranslations.global_clear,
@@ -590,7 +594,11 @@ function SendDataInputContainer() {
                 color="$textSubdued"
                 cursor="pointer"
                 hoverStyle={{ color: '$text' }}
-                onPress={() => form.setValue('paymentId', '')}
+                onPress={() =>
+                  form.setValue('paymentId', '', {
+                    shouldValidate: true,
+                  })
+                }
               >
                 {intl.formatMessage({ id: ETranslations.global_clear })}
               </SizableText>
@@ -637,7 +645,9 @@ function SendDataInputContainer() {
               color="$textSubdued"
               cursor="pointer"
               hoverStyle={{ color: '$text' }}
-              onPress={() => form.setValue('note', '')}
+              onPress={() =>
+                form.setValue('note', '', { shouldValidate: true })
+              }
             >
               {intl.formatMessage({ id: ETranslations.global_clear })}
             </SizableText>
@@ -1104,6 +1114,7 @@ function SendDataInputContainer() {
             })}
             confirmButtonProps={{
               loading: false,
+              disabled: !form.formState.isValid,
             }}
           />
         </Page.Footer>
