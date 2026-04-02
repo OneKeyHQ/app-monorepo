@@ -118,7 +118,7 @@ describe('sortSwapQuotes', () => {
       expect(result.map((q) => q.quoteId)).toEqual(['B', 'NO_FEE']);
     });
 
-    it('treats fee value 0 as zero cost (sorted first)', () => {
+    it('treats fee value 0 as Infinity (|| fallback, matches App atoms.ts)', () => {
       const zeroFee = makeQuote({
         quoteId: 'ZERO_FEE',
         toAmount: '200',
@@ -128,8 +128,8 @@ describe('sortSwapQuotes', () => {
         sort: ESwapProviderSort.GAS_FEE,
         fromTokenAmount: '50',
       });
-      // 0 fee is cheaper than B (fee=2) → sorted first
-      expect(result.map((q) => q.quoteId)).toEqual(['ZERO_FEE', 'B']);
+      // 0 is falsy → || Infinity → pushed to end, matching App behavior
+      expect(result.map((q) => q.quoteId)).toEqual(['B', 'ZERO_FEE']);
     });
   });
 
