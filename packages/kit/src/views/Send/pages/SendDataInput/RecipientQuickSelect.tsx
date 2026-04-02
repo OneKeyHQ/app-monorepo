@@ -200,11 +200,7 @@ async function getWalletNetworkAccounts(
   if (dbAccounts?.length) {
     const networkImpl = networkId.split('--')[0];
     return dbAccounts
-      .filter((acc) => {
-        // Match accounts belonging to the target network
-        const accImpl = acc.id?.split('--')?.[0];
-        return accImpl === networkImpl;
-      })
+      .filter((acc) => acc.impl === networkImpl)
       .map((acc) => ({
         account: acc as unknown as INetworkAccount,
         deriveInfo: undefined,

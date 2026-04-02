@@ -342,9 +342,15 @@ function SendAmountInputContainer() {
       if (price.isZero()) {
         return { originalAmount: '0', linkedAmount: '0' };
       }
-      const linkedAmountValue = amountBN.dividedBy(price);
+      // fiat / pricePerSat = sats. Convert to BTC if lnUnit is BTC.
+      let originalAmt = amountBN.dividedBy(price);
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        originalAmt = new BigNumber(
+          chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
+        );
+      }
       return {
-        originalAmount: linkedAmountValue.toFixed(),
+        originalAmount: originalAmt.toFixed(),
         linkedAmount: amountBN.toFixed(),
       };
     }
