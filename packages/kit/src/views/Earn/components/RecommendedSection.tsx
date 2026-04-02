@@ -330,7 +330,6 @@ const RecommendedListItem = memo(
         <YStack alignItems="flex-end" justifyContent="center">
           <AprText
             size="$bodyLgMedium"
-            hideSuffix
             asset={{
               aprWithoutFee: token.aprWithoutFee ?? '',
               aprInfo: token.aprInfo,

@@ -155,6 +155,73 @@ export function PrimeBenefitsList({
           }
         }}
       /> */}
+      {/* Active features */}
+      <PrimeBenefitsItem
+        icon="ChevronDoubleUpOutline"
+        title={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_title,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_bulk_send_desc,
+        })}
+        isHighlighted={fromFeature === EPrimeFeatures.BulkSend}
+        onPress={() => {
+          if (isPrimeSubscriptionActive) {
+            showBulkSendModeDialog({
+              onSelect: (mode) => {
+                void navigateToBulkSend({
+                  networkId: network?.id,
+                  accountId: account?.id,
+                  indexedAccountId: indexedAccount?.id,
+                  bulkSendMode: mode,
+                });
+              },
+            });
+          } else {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.BulkSend,
+              entryPoint: 'primePage',
+            });
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.BulkSend,
+              selectedSubscriptionPeriod,
+              serverUserInfo,
+            });
+          }
+        }}
+      />
+      <PrimeBenefitsItem
+        icon="FlashOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_bulk_revoke,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.global_bulk_revoke_desc,
+        })}
+        isHighlighted={fromFeature === EPrimeFeatures.BulkRevoke}
+        onPress={() => {
+          if (isPrimeSubscriptionActive) {
+            void navigateToApprovalList({
+              networkId: network?.id,
+              accountId: account?.id,
+              walletId: wallet?.id,
+              indexedAccountId: indexedAccount?.id,
+            });
+          } else {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.BulkRevoke,
+              entryPoint: 'primePage',
+            });
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.BulkRevoke,
+              selectedSubscriptionPeriod,
+              serverUserInfo,
+            });
+          }
+        }}
+      />
       <PrimeBenefitsItem
         icon="Copy3Outline"
         title={intl.formatMessage({
@@ -202,73 +269,6 @@ export function PrimeBenefitsList({
         }}
       />
       <PrimeBenefitsItem
-        icon="FlashOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_bulk_revoke,
-        })}
-        subtitle={intl.formatMessage({
-          id: ETranslations.global_bulk_revoke_desc,
-        })}
-        isHighlighted={fromFeature === EPrimeFeatures.BulkRevoke}
-        onPress={() => {
-          if (isPrimeSubscriptionActive) {
-            void navigateToApprovalList({
-              networkId: network?.id,
-              accountId: account?.id,
-              walletId: wallet?.id,
-              indexedAccountId: indexedAccount?.id,
-            });
-          } else {
-            defaultLogger.prime.subscription.primeEntryClick({
-              featureName: EPrimeFeatures.BulkRevoke,
-              entryPoint: 'primePage',
-            });
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.BulkRevoke,
-              selectedSubscriptionPeriod,
-              serverUserInfo,
-            });
-          }
-        }}
-      />
-
-      <PrimeBenefitsItem
-        icon="ChevronDoubleUpOutline"
-        title={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_title,
-        })}
-        subtitle={intl.formatMessage({
-          id: ETranslations.prime_bulk_send_desc,
-        })}
-        isHighlighted={fromFeature === EPrimeFeatures.BulkSend}
-        onPress={() => {
-          if (isPrimeSubscriptionActive) {
-            showBulkSendModeDialog({
-              onSelect: (mode) => {
-                void navigateToBulkSend({
-                  networkId: network?.id,
-                  accountId: account?.id,
-                  indexedAccountId: indexedAccount?.id,
-                  bulkSendMode: mode,
-                });
-              },
-            });
-          } else {
-            defaultLogger.prime.subscription.primeEntryClick({
-              featureName: EPrimeFeatures.BulkSend,
-              entryPoint: 'primePage',
-            });
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.BulkSend,
-              selectedSubscriptionPeriod,
-              serverUserInfo,
-            });
-          }
-        }}
-      />
-      <PrimeBenefitsItem
         icon="BellOutline"
         title={intl.formatMessage({
           id: ETranslations.global_multi_account_notification,
@@ -300,6 +300,76 @@ export function PrimeBenefitsList({
         }}
       />
 
+      {/* Coming soon features */}
+      <PrimeBenefitsItem
+        isComingSoon
+        icon="ShieldCheckDoneOutline"
+        title={intl.formatMessage({
+          id: ETranslations.prime_enhanced_dapp_security_title,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_enhanced_dapp_security_desc,
+        })}
+        isHighlighted={fromFeature === EPrimeFeatures.BlockaidSiteScan}
+        onPress={() => {
+          defaultLogger.prime.subscription.primeEntryClick({
+            featureName: EPrimeFeatures.BlockaidSiteScan,
+            entryPoint: 'primePage',
+          });
+          navigation.navigate(EPrimePages.PrimeFeatures, {
+            showAllFeatures: true,
+            selectedFeature: EPrimeFeatures.BlockaidSiteScan,
+            selectedSubscriptionPeriod,
+            serverUserInfo,
+          });
+        }}
+      />
+      <PrimeBenefitsItem
+        isComingSoon
+        icon="TranslateOutline"
+        title={intl.formatMessage({
+          id: ETranslations.prime_ai_translate_title,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_ai_translate_desc,
+        })}
+        isHighlighted={fromFeature === EPrimeFeatures.DAppTranslate}
+        onPress={() => {
+          defaultLogger.prime.subscription.primeEntryClick({
+            featureName: EPrimeFeatures.DAppTranslate,
+            entryPoint: 'primePage',
+          });
+          navigation.navigate(EPrimePages.PrimeFeatures, {
+            showAllFeatures: true,
+            selectedFeature: EPrimeFeatures.DAppTranslate,
+            selectedSubscriptionPeriod,
+            serverUserInfo,
+          });
+        }}
+      />
+      <PrimeBenefitsItem
+        isComingSoon
+        icon="CalendarOutline"
+        title={intl.formatMessage({
+          id: ETranslations.prime_extended_history_title,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_extended_history_desc,
+        })}
+        isHighlighted={fromFeature === EPrimeFeatures.ExtendedHistory}
+        onPress={() => {
+          defaultLogger.prime.subscription.primeEntryClick({
+            featureName: EPrimeFeatures.ExtendedHistory,
+            entryPoint: 'primePage',
+          });
+          navigation.navigate(EPrimePages.PrimeFeatures, {
+            showAllFeatures: true,
+            selectedFeature: EPrimeFeatures.ExtendedHistory,
+            selectedSubscriptionPeriod,
+            serverUserInfo,
+          });
+        }}
+      />
       <PrimeBenefitsItem
         isComingSoon
         icon="ClockTimeHistoryOutline"
