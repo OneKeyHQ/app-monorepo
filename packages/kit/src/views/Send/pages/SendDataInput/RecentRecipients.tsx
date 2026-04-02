@@ -10,7 +10,6 @@ import {
   ActionList,
   Divider,
   Empty,
-  Icon,
   MatchSizeableText,
   SizableText,
   Stack,
@@ -158,14 +157,6 @@ function QuickSelectListItemBase({
       testID={`recent-item-${item.address}`}
       primary={
         <XStack gap="$2" alignItems="center">
-          {item.isAddressBook ? (
-            <Icon
-              name="BookOpenOutline"
-              size="$4"
-              color="$iconSubdued"
-              flexShrink={0}
-            />
-          ) : null}
           <SizableText
             size="$bodyLgMedium"
             numberOfLines={1}
@@ -182,9 +173,12 @@ function QuickSelectListItemBase({
               maxWidth="$32"
               numberOfLines={1}
             >
-              {intl.formatMessage({
-                id: ETranslations.address_book_title,
-              })}
+              {isEvmNetwork
+                ? 'EVM'
+                : (item.lastTransferNetworkName ??
+                  intl.formatMessage({
+                    id: ETranslations.address_book_title,
+                  }))}
             </SizableText>
           ) : null}
           {showNetworkBadge ? (
