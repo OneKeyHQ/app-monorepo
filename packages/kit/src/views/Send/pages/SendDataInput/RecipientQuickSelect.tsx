@@ -54,6 +54,7 @@ type IRecipientQuickSelectProps = {
   searchKey?: string;
   isSearchMode?: boolean;
   activeTab?: IRecipientQuickSelectTab;
+  hideTabs?: IRecipientQuickSelectTab[];
   onActiveTabChange?: (tab: IRecipientQuickSelectTab) => void;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
   onSelect?: (params: {
@@ -743,6 +744,7 @@ export default function RecipientQuickSelect({
   onSelect,
   onInputTypeChange,
   onMatchStatusChange,
+  hideTabs,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
   // Use controlled state from parent if provided, otherwise use local state
@@ -750,7 +752,7 @@ export default function RecipientQuickSelect({
     networkUtils.isLightningNetworkByNetworkId(networkId);
   const [localActiveTab, setLocalActiveTab] =
     useState<IRecipientQuickSelectTab>(
-      isLightningNetwork ? 'account' : 'recent',
+      isLightningNetwork || hideTabs?.includes('recent') ? 'account' : 'recent',
     );
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
@@ -895,8 +897,17 @@ export default function RecipientQuickSelect({
       });
     }
 
-    return options;
-  }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts, networkId]);
+    return hideTabs?.length
+      ? options.filter((o) => !hideTabs.includes(o.value))
+      : options;
+  }, [
+    intl,
+    isSearchMode,
+    trimmedSearchKey,
+    tabMatchCounts,
+    networkId,
+    hideTabs,
+  ]);
 
   return (
     <Animated.View entering={FadeIn.duration(200)}>

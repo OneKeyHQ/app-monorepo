@@ -159,6 +159,7 @@ const SwapToAnotherAddressPage = () => {
             networkId={networkId}
             searchKey={toAddressRaw}
             isSearchMode={!!toAddressRaw?.trim()}
+            hideTabs={['recent']}
             onMatchStatusChange={setHasQuickSelectMatches}
             onSelect={handleQuickSelectRecipient}
           />
