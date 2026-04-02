@@ -50,7 +50,8 @@ export const useToOnBoardingPage = () => {
 
         if (
           platformEnv.isExtensionUiPopup ||
-          platformEnv.isExtensionUiSidePanel
+          platformEnv.isExtensionUiSidePanel ||
+          platformEnv.isExtensionUiStandaloneWindow
         ) {
           if (isOnboardingDone) {
             // Returning user - navigate to CreateOrImportWallet with fullOptions
@@ -69,7 +70,10 @@ export const useToOnBoardingPage = () => {
               params: newParams,
             });
           }
-          if (platformEnv.isExtensionUiSidePanel) {
+          if (
+            platformEnv.isExtensionUiSidePanel ||
+            platformEnv.isExtensionUiStandaloneWindow
+          ) {
             window.close();
           }
         } else if (isOnboardingDone) {
@@ -107,12 +111,16 @@ export const useNavigateToPickYourDevicePage = () => {
     () => async () => {
       if (
         platformEnv.isExtensionUiPopup ||
-        platformEnv.isExtensionUiSidePanel
+        platformEnv.isExtensionUiSidePanel ||
+        platformEnv.isExtensionUiStandaloneWindow
       ) {
         await backgroundApiProxy.serviceApp.openExtensionExpandTab({
           path: `/onboarding/${EOnboardingPagesV2.PickYourDevice}`,
         });
-        if (platformEnv.isExtensionUiSidePanel) {
+        if (
+          platformEnv.isExtensionUiSidePanel ||
+          platformEnv.isExtensionUiStandaloneWindow
+        ) {
           window.close();
         }
       } else {
