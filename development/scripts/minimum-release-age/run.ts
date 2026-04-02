@@ -136,7 +136,7 @@ function printResults(
   );
   console.log(`Total packages checked: ${results.size}\n`);
 
-  return tooYoungCount > 0;
+  return { hasTooYoung: tooYoungCount > 0, hasErrors: errorCount > 0 };
 }
 
 // --- Main ---
@@ -189,12 +189,19 @@ async function main() {
   console.log(`Found ${packages.length} package(s) to check...\n`);
 
   const results = await processBatches(packages, config);
-  const hasTooYoung = printResults(results, config);
+  const { hasTooYoung, hasErrors } = printResults(results, config);
 
-  if (hasTooYoung && config.blockOnFailure) {
-    console.log(
-      'Blocking: one or more packages are younger than the minimum release age threshold.',
-    );
+  if ((hasTooYoung || hasErrors) && config.blockOnFailure) {
+    if (hasTooYoung) {
+      console.log(
+        'Blocking: one or more packages are younger than the minimum release age threshold.',
+      );
+    }
+    if (hasErrors) {
+      console.log(
+        'Blocking: one or more packages could not be checked (fail-closed).',
+      );
+    }
     process.exit(1);
   }
 }
