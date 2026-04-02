@@ -54,6 +54,7 @@ export type IModalSendParamList = {
     recipientNote?: string;
     recipientIsContract?: boolean;
     amount?: string;
+    isInvoiceAmountLocked?: boolean;
     isAllNetworks?: boolean;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
