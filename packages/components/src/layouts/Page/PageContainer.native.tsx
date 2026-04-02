@@ -26,10 +26,19 @@ import type {
 export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
 
-  const {
-    contentContainerStyle: rawContentContainerStyle,
-    ...restScrollProps
-  } = scrollProps || {};
+  const rawContentContainerStyle = scrollProps?.contentContainerStyle;
+  const keyboardShouldPersistTaps = scrollProps?.keyboardShouldPersistTaps;
+  const restScrollProps = useMemo(() => {
+    if (!scrollProps) {
+      return {};
+    }
+    const {
+      contentContainerStyle: _contentContainerStyle,
+      keyboardShouldPersistTaps: _keyboardShouldPersistTaps,
+      ...rest
+    } = scrollProps;
+    return rest;
+  }, [scrollProps]);
 
   const [nativeProps, style] = usePropsAndStyle(
     restScrollProps as Record<string, unknown>,
@@ -73,6 +82,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
             style={scrollViewStyle}
             contentContainerStyle={contentContainerStyle}
             bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+            keyboardShouldPersistTaps={keyboardShouldPersistTaps}
           >
             <ScrollViewRefProvider value={contextValue}>
               {children}
@@ -92,6 +102,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
       handleScroll,
       scrollViewStyle,
       contentContainerStyle,
+      keyboardShouldPersistTaps,
       contextValue,
       children,
     ],
