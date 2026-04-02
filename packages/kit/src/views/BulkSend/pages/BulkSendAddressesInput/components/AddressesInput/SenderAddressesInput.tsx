@@ -29,7 +29,32 @@ import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import { useBulkSendAddressesInputContext } from '../Context';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
-import { useMultiLineAddressValidation } from './useMultiLineAddressValidation';
+import {
+  type IBulkSendSenderSelectorAccountItem,
+  useMultiLineAddressValidation,
+} from './useMultiLineAddressValidation';
+
+const buildSenderSelectorAddressKey = (address: string) => address.trim();
+
+function buildSenderSelectorAccountItem(
+  activeAccount: IAccountSelectorActiveAccountInfo,
+): IBulkSendSenderSelectorAccountItem | undefined {
+  if (
+    !activeAccount.wallet ||
+    !activeAccount.account?.id ||
+    !activeAccount.account.address
+  ) {
+    return undefined;
+  }
+
+  return {
+    address: activeAccount.account.address,
+    walletName: activeAccount.wallet.name,
+    accountName: activeAccount.account.name,
+    accountId: activeAccount.account.id,
+    indexedAccountId: activeAccount.indexedAccount?.id,
+  };
+}
 
 function SingleLineSenderInput() {
   const intl = useIntl();
@@ -46,6 +71,9 @@ function SingleLineSenderInput() {
   } = useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
+  const [senderSelectorAccountItems, setSenderSelectorAccountItems] = useState<
+    Record<string, IBulkSendSenderSelectorAccountItem>
+  >({});
 
   const isBTC = useMemo(
     () => networkUtils.isBTCNetwork(selectedNetworkId),
@@ -92,11 +120,46 @@ function SingleLineSenderInput() {
         });
       }
 
+      const trimmedAddress = _value.trim();
+      const fallbackAccountItem =
+        senderSelectorAccountItems[
+          buildSenderSelectorAddressKey(trimmedAddress)
+        ];
+
+      const applySelectorFallback = () => {
+        if (!fallbackAccountItem) {
+          return undefined;
+        }
+
+        if (
+          accountUtils.isWatchingAccount({
+            accountId: fallbackAccountItem.accountId,
+          })
+        ) {
+          return intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_watching_account,
+          });
+        }
+
+        setAddressBadges([
+          {
+            label: `${fallbackAccountItem.walletName} / ${fallbackAccountItem.accountName}`,
+            type: 'success',
+          },
+        ]);
+        selectedAccountIdRef.current = fallbackAccountItem.accountId;
+        selectedIndexedAccountIdRef.current =
+          fallbackAccountItem.indexedAccountId;
+        setSelectedAccountId(fallbackAccountItem.accountId);
+        setSelectedIndexedAccountId(fallbackAccountItem.indexedAccountId);
+        return true;
+      };
+
       const networkId = selectedNetworkId ?? '';
       const result =
         await backgroundApiProxy.serviceValidator.localValidateAddress({
           networkId,
-          address: _value.trim(),
+          address: trimmedAddress,
         });
 
       if (result.isValid) {
@@ -104,10 +167,15 @@ function SingleLineSenderInput() {
           const walletAccountItems =
             await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
               networkId: selectedNetworkId ?? '',
-              address: _value.trim(),
+              address: trimmedAddress,
             });
 
           if (isEmpty(walletAccountItems)) {
+            const fallbackResult = applySelectorFallback();
+            if (fallbackResult !== undefined) {
+              return fallbackResult;
+            }
+
             return intl.formatMessage({
               id: ETranslations.wallet_bulk_send_error_address_not_found,
             });
@@ -197,6 +265,11 @@ function SingleLineSenderInput() {
 
           return true;
         } catch (_) {
+          const fallbackResult = applySelectorFallback();
+          if (fallbackResult !== undefined) {
+            return fallbackResult;
+          }
+
           setAddressBadges([]);
           return intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_address_not_found,
@@ -226,6 +299,7 @@ function SingleLineSenderInput() {
       network?.name,
       network?.id,
       selectedNetworkId,
+      senderSelectorAccountItems,
       setSelectedAccountId,
       setSelectedIndexedAccountId,
     ],
@@ -283,8 +357,22 @@ function SingleLineSenderInput() {
         selectedIndexedAccountIdRef.current = undefined;
         setSelectedIndexedAccountId(undefined);
       }
+
+      const selectorAccountItem = buildSenderSelectorAccountItem(activeAccount);
+      if (selectorAccountItem) {
+        setSenderSelectorAccountItems((prev) => ({
+          ...prev,
+          [buildSenderSelectorAddressKey(selectorAccountItem.address)]:
+            selectorAccountItem,
+        }));
+        void backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+      }
     },
-    [setSelectedAccountId, setSelectedIndexedAccountId],
+    [
+      setSelectedAccountId,
+      setSelectedIndexedAccountId,
+      setSenderSelectorAccountItems,
+    ],
   );
 
   const handleInputTypeChange = useCallback((type: EInputAddressChangeType) => {
@@ -376,6 +464,9 @@ function MultiLineSenderInput({
     selectedAccountId,
     setResolvedSenderAccountIds,
   } = useBulkSendAddressesInputContext();
+  const [senderSelectorAccountItems, setSenderSelectorAccountItems] = useState<
+    Record<string, IBulkSendSenderSelectorAccountItem>
+  >({});
 
   const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
     selectedNetworkId,
@@ -389,7 +480,23 @@ function MultiLineSenderInput({
     onResolvedAccountIds: setResolvedSenderAccountIds,
     duplicateWarningMode,
     onDuplicateAddressCountChange,
+    senderSelectorAccountItems,
   });
+
+  const handleActiveAccountChange = useCallback(
+    (activeAccount: IAccountSelectorActiveAccountInfo) => {
+      const selectorAccountItem = buildSenderSelectorAccountItem(activeAccount);
+      if (selectorAccountItem) {
+        setSenderSelectorAccountItems((prev) => ({
+          ...prev,
+          [buildSenderSelectorAddressKey(selectorAccountItem.address)]:
+            selectorAccountItem,
+        }));
+        void backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+      }
+    },
+    [],
+  );
 
   const validate = useCallback(
     async (value: string) =>
@@ -456,6 +563,7 @@ function MultiLineSenderInput({
         errors={errors}
         networkId={selectedNetworkId}
         accountId={selectedAccountId}
+        onActiveAccountChange={handleActiveAccountChange}
       />
     </Form.Field>
   );

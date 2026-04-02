@@ -22,6 +22,14 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ELineAnnotationType, type ILineError } from './LineNumberedTextArea';
 
+export type IBulkSendSenderSelectorAccountItem = {
+  address: string;
+  walletName: string;
+  accountName: string;
+  accountId: string;
+  indexedAccountId?: string;
+};
+
 type IUseMultiLineAddressValidationParams = {
   selectedNetworkId: string | undefined;
   selectedToken: IToken | undefined;
@@ -35,7 +43,13 @@ type IUseMultiLineAddressValidationParams = {
   onResolvedAccountIds?: (ids: Record<number, string>) => void;
   onDuplicateAddressCountChange?: (count: number) => void;
   duplicateWarningMode?: boolean;
+  senderSelectorAccountItems?: Record<
+    string,
+    IBulkSendSenderSelectorAccountItem
+  >;
 };
+
+const buildSenderSelectorAddressKey = (address: string) => address.trim();
 
 function useMultiLineAddressValidation(
   params: IUseMultiLineAddressValidationParams,
@@ -54,6 +68,7 @@ function useMultiLineAddressValidation(
     onResolvedAccountIds,
     onDuplicateAddressCountChange,
     duplicateWarningMode = false,
+    senderSelectorAccountItems,
   } = params;
 
   const intl = useIntl();
@@ -195,14 +210,38 @@ function useMultiLineAddressValidation(
       address: string,
       networkId: string,
     ): Promise<{ accountId: string } | { error: string }> => {
+      const trimmedAddress = address.trim();
+      const fallbackAccountItem =
+        senderSelectorAccountItems?.[
+          buildSenderSelectorAddressKey(trimmedAddress)
+        ];
+
       try {
         const walletAccountItems =
           await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
             networkId,
-            address: address.trim(),
+            address: trimmedAddress,
           });
 
         if (walletAccountItems.length === 0) {
+          if (fallbackAccountItem) {
+            if (
+              accountUtils.isWatchingAccount({
+                accountId: fallbackAccountItem.accountId,
+              })
+            ) {
+              return {
+                error: intl.formatMessage({
+                  id: ETranslations.wallet_bulk_send_error_watching_account,
+                }),
+              };
+            }
+
+            return {
+              accountId: fallbackAccountItem.accountId,
+            };
+          }
+
           return {
             error: intl.formatMessage({
               id: ETranslations.wallet_bulk_send_error_address_not_found,
@@ -244,6 +283,24 @@ function useMultiLineAddressValidation(
           }),
         };
       } catch (_) {
+        if (fallbackAccountItem) {
+          if (
+            accountUtils.isWatchingAccount({
+              accountId: fallbackAccountItem.accountId,
+            })
+          ) {
+            return {
+              error: intl.formatMessage({
+                id: ETranslations.wallet_bulk_send_error_watching_account,
+              }),
+            };
+          }
+
+          return {
+            accountId: fallbackAccountItem.accountId,
+          };
+        }
+
         return {
           error: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_address_not_found,
@@ -251,7 +308,7 @@ function useMultiLineAddressValidation(
         };
       }
     },
-    [intl],
+    [intl, senderSelectorAccountItems],
   );
 
   const handleValidateAddresses = useCallback(
