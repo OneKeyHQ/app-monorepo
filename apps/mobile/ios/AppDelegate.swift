@@ -280,7 +280,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     return metroURL
 #else
     // In split-bundle mode the initial bundle is common.jsbundle (polyfills + shared modules).
-    // The entry-specific main.jsbundle is loaded later in handleHostDidStart via EntryBundleLoader.
+    // The entry-specific main.jsbundle is loaded later in handleHostDidStart via SplitBundleLoader.
 
     // Check for OTA-updated common bundle first
     if let bundlePath = NitroModuleBridge.currentBundleCommonJSBundle(), !bundlePath.isEmpty {
@@ -362,7 +362,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     // Load the main entry bundle now so the app's entry point is executed.
     if let entryPath = resolveMainEntryBundlePath() {
       NitroModuleBridge.logInfo("BundleUpdate", "hostDidStart: loading main entry bundle at \(entryPath)")
-      EntryBundleLoader.loadEntryBundle(entryPath, inHost: host)
+      SplitBundleLoader.loadEntryBundle(entryPath, inHost: host)
     } else {
       NitroModuleBridge.logInfo("BundleUpdate", "hostDidStart: no main entry bundle to load (split-bundle disabled or missing)")
     }
