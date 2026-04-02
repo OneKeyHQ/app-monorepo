@@ -237,6 +237,29 @@ function useMultiLineAddressValidation(
               };
             }
 
+            // For HD/HW accounts, use indexedAccountId to resolve the correct
+            // account on the current network instead of returning the old accountId
+            if (
+              fallbackAccountItem.indexedAccountId &&
+              (accountUtils.isHdAccount({
+                accountId: fallbackAccountItem.accountId,
+              }) ||
+                accountUtils.isHwAccount({
+                  accountId: fallbackAccountItem.accountId,
+                }))
+            ) {
+              const networkAccounts =
+                await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+                  {
+                    indexedAccountId: fallbackAccountItem.indexedAccountId,
+                    networkIds: [networkId],
+                  },
+                );
+              if (networkAccounts[0]?.account) {
+                return { accountId: networkAccounts[0].account.id };
+              }
+            }
+
             return {
               accountId: fallbackAccountItem.accountId,
             };
