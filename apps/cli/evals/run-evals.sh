@@ -63,7 +63,7 @@ IMPORTANT RULES:
 EVAL MODE — CRITICAL RULES:
 - The CLI is already installed and up-to-date. SKIP all pre-flight checks (onekey version, npm view, version comparison). Go straight to the actual command.
 - NEVER ask clarifying questions. You are in non-interactive eval mode with no user to respond.
-- When information is missing (e.g. no chain specified), use reasonable defaults: default chain is 'eth' (Ethereum). If truly ambiguous, run a search command first (e.g. onekey token search) then proceed.
+- When information is missing (e.g. no chain specified), follow the skill file's rules. If the skill says to search first, run a search command (e.g. onekey token search) to resolve the chain before proceeding. Only default to 'eth' for native ETH operations (balance, transfer) where chain is unambiguous.
 - Token symbols should be UPPERCASE (ETH, USDC, PEPE, CAKE), not lowercase.
 - For batch price queries (onekey market prices), if you only have token symbols, first use 'onekey token search' to resolve contract addresses, then build the --tokens parameter in 'chain:address' format.
 - Execute ALL commands needed for the task. Do not stop after one command if the task requires multiple steps (e.g. due diligence requires info + price + trades + liquidity).

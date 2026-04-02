@@ -33,6 +33,11 @@ update when installing, updating, or handling a failure.
 
 ### `--chain` Resolution
 
+**MANDATORY:** When `--chain` is NOT specified by the user, you MUST run
+`onekey token search --query <symbol>` first to discover which chain(s) the
+token exists on, then use the result to fill `--chain`. Do NOT assume `eth`
+or any other default chain — the token may only exist on BSC, Base, etc.
+
 `--chain` accepts chain name aliases. The CLI has built-in fuzzy matching
 (Levenshtein distance) and alias support.
 
