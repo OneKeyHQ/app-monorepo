@@ -780,6 +780,7 @@ function BulkSendAddressesInput() {
       bulkSendMode,
       setBulkSendMode,
       duplicateAddressCount,
+      setDuplicateAddressCount,
       selectedDeriveType,
       resolvedSenderAccountIds,
       duplicateSenderAddressCount,

@@ -74,6 +74,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       allowsBackForwardNavigationGestures,
       allowFileAccessFromFileURLs,
       allowFileAccess,
+      allowingReadAccessToURL,
+      onError,
+      onHttpError,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -231,6 +234,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
             allowsBackForwardNavigationGestures
           }
           {...nativeWebviewProps}
+          allowingReadAccessToURL={allowingReadAccessToURL}
+          onError={onError}
+          onHttpError={onHttpError}
         />
       </Stack>
     );
