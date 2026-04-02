@@ -159,7 +159,7 @@ export function Recommended(
       withHeader={withHeader}
       disableHorizontalBleed={disableHorizontalBleed}
       recommendedItemContainerProps={recommendedItemContainerProps}
-      showSkeleton={isLoading ? recommendedTokens.length === 0 : null}
+      showSkeleton={isLoading === true && recommendedTokens.length === 0}
     />
   );
 }
