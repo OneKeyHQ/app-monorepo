@@ -50,8 +50,7 @@ function BulkExportHistoryNetworkTrigger({
       borderCurve="continuous"
       borderColor="$borderStrong"
       px="$3"
-      py="$2.5"
-      minHeight="$12"
+      py="$2"
       testID="bulk-export-history-network-trigger"
       {...(!disabled && {
         hoverStyle: {
@@ -66,7 +65,7 @@ function BulkExportHistoryNetworkTrigger({
       })}
     >
       <XStack flex={1} alignItems="center" gap="$3">
-        <XStack alignItems="center" minWidth={44}>
+        <XStack alignItems="center">
           {isLoading && !selectedNetworks.length ? (
             <Spinner size="small" />
           ) : (
@@ -97,6 +96,7 @@ function BulkExportHistoryNetworkTrigger({
               {remainingCount > 0 ? (
                 <XStack
                   px="$1"
+                  minWidth={28}
                   bg="$gray5"
                   borderRadius="$full"
                   ml="$-2"
