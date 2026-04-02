@@ -908,7 +908,13 @@ function SendAmountInputContainer() {
                   tokenDetails?.fiatValue ?? 0,
                 )
               ) {
-                realAmount = tokenDetails?.balanceParsed ?? '0';
+                // balanceParsed is in sats for Lightning. Convert to BTC
+                // when lnUnit=BTC so the downstream convertBtcToSats is correct.
+                const balance = tokenDetails?.balanceParsed ?? '0';
+                realAmount =
+                  isLightningNetwork && lnUnit === ELightningUnit.BTC
+                    ? chainValueUtils.convertSatsToBtc(balance)
+                    : balance;
               } else {
                 realAmount = linkedAmount.originalAmount;
               }
