@@ -55,11 +55,19 @@ async function handleGetHyperliquidPriceScale({
   let persistedPriceScale: number | undefined;
   let midValue: string | undefined;
 
-  const loadMidPrice = async () => {
-    if (!requestSymbol) {
-      return undefined;
-    }
+  if (!requestSymbol) {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: 'HYPERLIQUID_PRICESCALE_RESPONSE',
+      payload: {
+        priceScale,
+        minmov: 1,
+        requestId: request.requestId,
+      },
+    });
+    return;
+  }
 
+  const loadMidPrice = async () => {
     return serviceHyperliquid.getTradingviewMidPrice(requestSymbol);
   };
 
@@ -134,7 +142,18 @@ async function handleGetMarks({
 }) {
   const requestId = request.requestId;
 
-  if (!requestId || !tokenAddress || !networkId) {
+  if (!requestId) {
+    return;
+  }
+
+  if (!tokenAddress || !networkId) {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: 'MARKS_RESPONSE',
+      payload: {
+        marks: [],
+        requestId,
+      },
+    });
     return;
   }
 
