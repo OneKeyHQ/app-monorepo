@@ -84,8 +84,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       networkId,
       address: tokenAddress,
       symbol: useHyperLiquid ? hyperLiquidSymbol : symbol,
-      type: useHyperLiquid ? 'perps' : 'market',
-      storageNamespace: 'market',
+      type: 'market',
+      storageNamespace: useHyperLiquid ? 'market-hyperliquid' : 'market',
+      ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
     };
   }, [
     decimal,
@@ -112,7 +113,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && !isHyperLiquidSource,
+    enabled: isVisible,
   });
 
   useTradingViewV2WebSocket({
