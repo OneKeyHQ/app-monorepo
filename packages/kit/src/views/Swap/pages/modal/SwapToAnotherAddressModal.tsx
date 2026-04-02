@@ -139,7 +139,7 @@ const SwapToAnotherAddressPage = () => {
         })}
         headerRight={renderAddressSecurityHeaderRightButton}
       />
-      <Page.Body px="$5" gap="$3">
+      <Page.Body px="$5" gap="$2">
         <Form form={form}>
           <AddressInputField
             name="address"
@@ -153,9 +153,9 @@ const SwapToAnotherAddressPage = () => {
             accountId={accountInfo?.account?.id}
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
-          <XStack gap="$2" alignItems="center" mt="$1">
+          <XStack gap="$1.5" alignItems="center">
             <Icon name="BlockOutline" size="$4" color="$iconCritical" />
-            <SizableText flex={1} size="$bodySm" color="$textSubdued">
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.swap_page_recipient_modal_do_not,
               })}
