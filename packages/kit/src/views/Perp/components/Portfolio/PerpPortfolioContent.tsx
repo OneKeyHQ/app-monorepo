@@ -19,7 +19,10 @@ import {
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsActiveAccountMmrAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountMmrAtom,
+  usePerpsComputedAccountValueAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatChartUsdPrice,
@@ -287,6 +290,7 @@ function PerpPortfolioContentComponent({
     totalPnl,
     isLoading,
   } = usePerpPortfolioData(timePeriod);
+  const [computedValue] = usePerpsComputedAccountValueAtom();
 
   const chartSeriesData = useMemo((): IMarketTokenChart => {
     if (!chartData) return [];
@@ -296,10 +300,10 @@ function PerpPortfolioContentComponent({
   }, [chartData, chartType]);
 
   const accountValue = formatPerpsUsd(
-    parseFloat(accountSummary?.accountValue ?? '0'),
+    parseFloat(computedValue?.accountValue ?? '0'),
   );
   const withdrawable = formatPerpsUsd(
-    parseFloat(accountSummary?.withdrawable ?? '0'),
+    parseFloat(computedValue?.withdrawable ?? '0'),
   );
 
   const unrealizedPnlRaw = parseFloat(
@@ -325,10 +329,10 @@ function PerpPortfolioContentComponent({
   // Account Health computed values
   const leverageRaw = useMemo(() => {
     const ntlPos = parseFloat(accountSummary?.totalNtlPos ?? '0');
-    const acctVal = parseFloat(accountSummary?.accountValue ?? '0');
+    const acctVal = parseFloat(computedValue?.accountValue ?? '0');
     if (acctVal <= 0) return acctVal < 0 ? MAX_LEVERAGE_GAUGE : 0;
     return Math.abs(ntlPos) / acctVal;
-  }, [accountSummary]);
+  }, [accountSummary?.totalNtlPos, computedValue?.accountValue]);
   const leverageText = leverageRaw > 0 ? `${leverageRaw.toFixed(2)}x` : '--';
   const leverageGaugePct = Math.min(
     (leverageRaw / MAX_LEVERAGE_GAUGE) * 100,
@@ -337,7 +341,7 @@ function PerpPortfolioContentComponent({
 
   const marginUsedRaw = parseFloat(accountSummary?.totalMarginUsed ?? '0');
   const marginUsedText = formatPerpsCompactUsd(marginUsedRaw);
-  const acctValRaw = parseFloat(accountSummary?.accountValue ?? '0');
+  const acctValRaw = parseFloat(computedValue?.accountValue ?? '0');
   // Gauge: margin used as % of account value
   const marginUsedGaugePct =
     acctValRaw > 0 ? (marginUsedRaw / acctValRaw) * 100 : 0;
