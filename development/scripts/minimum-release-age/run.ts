@@ -1,18 +1,18 @@
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
-import https from 'node:https';
 import http from 'node:http';
+import https from 'node:https';
+import * as path from 'node:path';
 
 import {
-  checkPackageAge,
-  parseConfig,
   type CheckResult,
   type MinimumReleaseAgeConfig,
   type NpmPackageMeta,
   type PackageRef,
+  checkPackageAge,
+  parseConfig,
 } from './checkPackageAge';
-import { parseLockfileDiff, parseFullLockfile } from './parseLockfileDiff';
+import { parseFullLockfile, parseLockfileDiff } from './parseLockfileDiff';
 
 // --- Constants ---
 
@@ -21,7 +21,10 @@ const DEFAULT_BASE_BRANCH = 'x';
 
 // --- Registry fetch ---
 
-function fetchRegistryMeta(name: string, registryUrl: string): Promise<NpmPackageMeta> {
+function fetchRegistryMeta(
+  name: string,
+  registryUrl: string,
+): Promise<NpmPackageMeta> {
   const url = `${registryUrl}/${encodeURIComponent(name).replaceAll('%40', '@')}`;
 
   return new Promise((resolve, reject) => {
@@ -40,7 +43,7 @@ function fetchRegistryMeta(name: string, registryUrl: string): Promise<NpmPackag
         res.on('end', () => {
           try {
             resolve(JSON.parse(data) as NpmPackageMeta);
-          } catch (e) {
+          } catch (_e) {
             reject(new Error(`Invalid JSON from ${url}`));
           }
         });
@@ -77,7 +80,10 @@ async function processBatches(
 
 // --- Output formatting ---
 
-function printResults(results: Map<string, CheckResult>, config: MinimumReleaseAgeConfig): boolean {
+function printResults(
+  results: Map<string, CheckResult>,
+  config: MinimumReleaseAgeConfig,
+): boolean {
   let okCount = 0;
   let tooYoungCount = 0;
   let skippedCount = 0;
@@ -89,17 +95,17 @@ function printResults(results: Map<string, CheckResult>, config: MinimumReleaseA
   for (const [key, result] of results) {
     switch (result.status) {
       case 'ok':
-        okCount++;
+        okCount += 1;
         break;
       case 'too_young':
-        tooYoungCount++;
+        tooYoungCount += 1;
         tooYoungEntries.push({ key, ageDays: result.ageDays ?? 0 });
         break;
       case 'skipped':
-        skippedCount++;
+        skippedCount += 1;
         break;
       case 'error':
-        errorCount++;
+        errorCount += 1;
         errorEntries.push({ key, error: result.error ?? 'unknown error' });
         break;
     }
@@ -108,7 +114,9 @@ function printResults(results: Map<string, CheckResult>, config: MinimumReleaseA
   console.log('\n=== Minimum Release Age Check ===\n');
 
   if (tooYoungEntries.length > 0) {
-    console.log(`FAIL: ${tooYoungCount} package(s) younger than ${config.days} days:\n`);
+    console.log(
+      `FAIL: ${tooYoungCount} package(s) younger than ${config.days} days:\n`,
+    );
     for (const entry of tooYoungEntries) {
       console.log(`  - ${entry.key} (${entry.ageDays} day(s) old)`);
     }
@@ -140,7 +148,10 @@ async function main() {
   // Read config from root package.json
   const rootDir = path.resolve(__dirname, '..', '..', '..');
   const pkgJsonPath = path.join(rootDir, 'package.json');
-  const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8')) as Record<string, unknown>;
+  const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8')) as Record<
+    string,
+    unknown
+  >;
   const config = parseConfig(pkgJson);
 
   let packages: PackageRef[];

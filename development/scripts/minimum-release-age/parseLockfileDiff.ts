@@ -19,13 +19,13 @@ export function parseLockfileDiff(diff: string): PackageRef[] {
   // Match added entry header lines like: +"lodash@npm:^4.0.0":
   const entryPattern = /^\+"(?:(@[^@]+\/[^@]+)|([^@"][^@]*))@npm:/;
 
-  for (let i = 0; i < lines.length; i++) {
+  for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
     const entryMatch = entryPattern.exec(line);
     if (entryMatch) {
       const name = entryMatch[1] || entryMatch[2];
       // Look for the version field in the next few added lines
-      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j += 1) {
         const versionMatch = /^\+\s+version:\s+(.+)$/.exec(lines[j]);
         if (versionMatch) {
           const version = versionMatch[1].trim();
@@ -61,13 +61,13 @@ export function parseFullLockfile(content: string): PackageRef[] {
   // Match entry header lines like: "lodash@npm:^4.0.0, lodash@npm:^4.17.0":
   const entryPattern = /^"(?:(@[^@]+\/[^@]+)|([^@"][^@]*))@npm:/;
 
-  for (let i = 0; i < lines.length; i++) {
+  for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
     const entryMatch = entryPattern.exec(line);
     if (entryMatch) {
       const name = entryMatch[1] || entryMatch[2];
       // Look for the version field in the next few lines
-      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j += 1) {
         const versionMatch = /^\s+version:\s+(.+)$/.exec(lines[j]);
         if (versionMatch) {
           const version = versionMatch[1].trim();

@@ -1,11 +1,11 @@
 import {
-  parseConfig,
-  matchesAllowlist,
-  checkPackageAge,
-  type MinimumReleaseAgeConfig,
   type CheckDeps,
+  type MinimumReleaseAgeConfig,
   type NpmPackageMeta,
   type PackageRef,
+  checkPackageAge,
+  matchesAllowlist,
+  parseConfig,
 } from '../checkPackageAge';
 
 // --- parseConfig ---
@@ -121,11 +121,13 @@ describe('checkPackageAge', () => {
   function makeDeps(overrides?: Partial<CheckDeps>): CheckDeps {
     return {
       now: new Date('2025-06-15T00:00:00Z'),
-      fetchMeta: jest.fn<Promise<NpmPackageMeta>, [string, string]>().mockResolvedValue({
-        time: {
-          '1.0.0': '2025-06-01T00:00:00Z',
-        },
-      }),
+      fetchMeta: jest
+        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .mockResolvedValue({
+          time: {
+            '1.0.0': '2025-06-01T00:00:00Z',
+          },
+        }),
       ...overrides,
     };
   }
@@ -134,9 +136,11 @@ describe('checkPackageAge', () => {
     const ref: PackageRef = { name: 'lodash', version: '1.0.0' };
     const deps = makeDeps({
       now: new Date('2025-06-15T00:00:00Z'),
-      fetchMeta: jest.fn<Promise<NpmPackageMeta>, [string, string]>().mockResolvedValue({
-        time: { '1.0.0': '2025-06-01T00:00:00Z' },
-      }),
+      fetchMeta: jest
+        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .mockResolvedValue({
+          time: { '1.0.0': '2025-06-01T00:00:00Z' },
+        }),
     });
 
     const result = await checkPackageAge(ref, baseConfig, deps);
@@ -148,9 +152,11 @@ describe('checkPackageAge', () => {
     const ref: PackageRef = { name: 'new-pkg', version: '0.1.0' };
     const deps = makeDeps({
       now: new Date('2025-06-15T00:00:00Z'),
-      fetchMeta: jest.fn<Promise<NpmPackageMeta>, [string, string]>().mockResolvedValue({
-        time: { '0.1.0': '2025-06-12T00:00:00Z' },
-      }),
+      fetchMeta: jest
+        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .mockResolvedValue({
+          time: { '0.1.0': '2025-06-12T00:00:00Z' },
+        }),
     });
 
     const result = await checkPackageAge(ref, baseConfig, deps);
@@ -159,21 +165,25 @@ describe('checkPackageAge', () => {
   });
 
   test('returns skipped for allowlisted packages', async () => {
-    const ref: PackageRef = { name: '@onekeyhq/components', version: '1.0.0' };
+    const ref: PackageRef = {
+      name: '@onekeyhq/components',
+      version: '1.0.0',
+    };
     const config = { ...baseConfig, allowlist: ['@onekeyhq/*'] };
     const fetchMeta = jest.fn<Promise<NpmPackageMeta>, [string, string]>();
     const deps = makeDeps({ fetchMeta });
 
     const result = await checkPackageAge(ref, config, deps);
     expect(result.status).toBe('skipped');
-    // fetchMeta should not be called for skipped packages
     expect(fetchMeta).not.toHaveBeenCalled();
   });
 
   test('returns error when no time metadata exists', async () => {
     const ref: PackageRef = { name: 'no-time-pkg', version: '1.0.0' };
     const deps = makeDeps({
-      fetchMeta: jest.fn<Promise<NpmPackageMeta>, [string, string]>().mockResolvedValue({}),
+      fetchMeta: jest
+        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .mockResolvedValue({}),
     });
 
     const result = await checkPackageAge(ref, baseConfig, deps);
@@ -184,9 +194,11 @@ describe('checkPackageAge', () => {
   test('returns error when version not found in time metadata', async () => {
     const ref: PackageRef = { name: 'some-pkg', version: '2.0.0' };
     const deps = makeDeps({
-      fetchMeta: jest.fn<Promise<NpmPackageMeta>, [string, string]>().mockResolvedValue({
-        time: { '1.0.0': '2025-01-01T00:00:00Z' },
-      }),
+      fetchMeta: jest
+        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .mockResolvedValue({
+          time: { '1.0.0': '2025-01-01T00:00:00Z' },
+        }),
     });
 
     const result = await checkPackageAge(ref, baseConfig, deps);
@@ -197,9 +209,9 @@ describe('checkPackageAge', () => {
   test('returns error when fetch throws', async () => {
     const ref: PackageRef = { name: 'fail-pkg', version: '1.0.0' };
     const deps = makeDeps({
-      fetchMeta: jest.fn<Promise<NpmPackageMeta>, [string, string]>().mockRejectedValue(
-        new Error('Network timeout'),
-      ),
+      fetchMeta: jest
+        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .mockRejectedValue(new Error('Network timeout')),
     });
 
     const result = await checkPackageAge(ref, baseConfig, deps);
@@ -211,13 +223,14 @@ describe('checkPackageAge', () => {
     const ref: PackageRef = { name: 'boundary-pkg', version: '1.0.0' };
     const deps = makeDeps({
       now: new Date('2025-06-08T00:00:00Z'),
-      fetchMeta: jest.fn<Promise<NpmPackageMeta>, [string, string]>().mockResolvedValue({
-        time: { '1.0.0': '2025-06-01T00:00:00Z' },
-      }),
+      fetchMeta: jest
+        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .mockResolvedValue({
+          time: { '1.0.0': '2025-06-01T00:00:00Z' },
+        }),
     });
 
     const result = await checkPackageAge(ref, baseConfig, deps);
-    // 7 days old, threshold is 7 => ok (not less than 7)
     expect(result.status).toBe('ok');
     expect(result.ageDays).toBe(7);
   });
@@ -226,13 +239,14 @@ describe('checkPackageAge', () => {
     const ref: PackageRef = { name: 'young-pkg', version: '1.0.0' };
     const deps = makeDeps({
       now: new Date('2025-06-07T00:00:00Z'),
-      fetchMeta: jest.fn<Promise<NpmPackageMeta>, [string, string]>().mockResolvedValue({
-        time: { '1.0.0': '2025-06-01T00:00:00Z' },
-      }),
+      fetchMeta: jest
+        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .mockResolvedValue({
+          time: { '1.0.0': '2025-06-01T00:00:00Z' },
+        }),
     });
 
     const result = await checkPackageAge(ref, baseConfig, deps);
-    // 6 days old, threshold is 7 => too_young
     expect(result.status).toBe('too_young');
     expect(result.ageDays).toBe(6);
   });
@@ -243,12 +257,17 @@ describe('checkPackageAge', () => {
       ...baseConfig,
       registryUrl: 'https://custom.registry.example.com',
     };
-    const fetchMeta = jest.fn<Promise<NpmPackageMeta>, [string, string]>().mockResolvedValue({
-      time: { '1.0.0': '2025-01-01T00:00:00Z' },
-    });
+    const fetchMeta = jest
+      .fn<Promise<NpmPackageMeta>, [string, string]>()
+      .mockResolvedValue({
+        time: { '1.0.0': '2025-01-01T00:00:00Z' },
+      });
     const deps = makeDeps({ fetchMeta });
 
     await checkPackageAge(ref, customConfig, deps);
-    expect(fetchMeta).toHaveBeenCalledWith('test-pkg', 'https://custom.registry.example.com');
+    expect(fetchMeta).toHaveBeenCalledWith(
+      'test-pkg',
+      'https://custom.registry.example.com',
+    );
   });
 });

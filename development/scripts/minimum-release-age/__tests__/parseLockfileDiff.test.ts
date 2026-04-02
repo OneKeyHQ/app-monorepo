@@ -1,4 +1,4 @@
-import { parseLockfileDiff, parseFullLockfile } from '../parseLockfileDiff';
+import { parseFullLockfile, parseLockfileDiff } from '../parseLockfileDiff';
 
 // --- parseLockfileDiff ---
 

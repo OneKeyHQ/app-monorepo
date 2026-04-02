@@ -40,11 +40,9 @@ const DEFAULT_CONFIG: MinimumReleaseAgeConfig = {
 
 // --- Functions ---
 
-/**
- * Read minimumReleaseAge config from a parsed package.json object,
- * merging with defaults for any missing fields.
- */
-export function parseConfig(pkg: Record<string, unknown>): MinimumReleaseAgeConfig {
+export function parseConfig(
+  pkg: Record<string, unknown>,
+): MinimumReleaseAgeConfig {
   const raw = pkg.minimumReleaseAge;
   if (!raw || typeof raw !== 'object') {
     return { ...DEFAULT_CONFIG };
@@ -52,44 +50,39 @@ export function parseConfig(pkg: Record<string, unknown>): MinimumReleaseAgeConf
   const cfg = raw as Record<string, unknown>;
   return {
     days: typeof cfg.days === 'number' ? cfg.days : DEFAULT_CONFIG.days,
-    allowlist: Array.isArray(cfg.allowlist) ? (cfg.allowlist as string[]) : DEFAULT_CONFIG.allowlist,
+    allowlist: Array.isArray(cfg.allowlist)
+      ? (cfg.allowlist as string[])
+      : DEFAULT_CONFIG.allowlist,
     blockOnFailure:
-      typeof cfg.blockOnFailure === 'boolean' ? cfg.blockOnFailure : DEFAULT_CONFIG.blockOnFailure,
+      typeof cfg.blockOnFailure === 'boolean'
+        ? cfg.blockOnFailure
+        : DEFAULT_CONFIG.blockOnFailure,
     registryUrl:
-      typeof cfg.registryUrl === 'string' ? cfg.registryUrl : DEFAULT_CONFIG.registryUrl,
+      typeof cfg.registryUrl === 'string'
+        ? cfg.registryUrl
+        : DEFAULT_CONFIG.registryUrl,
   };
 }
 
-/**
- * Convert a simple glob pattern (supporting * wildcard) to a RegExp.
- * Handles patterns like "@onekeyhq/*" or "lodash".
- */
 function globToRegExp(pattern: string): RegExp {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*');
   return new RegExp(`^${escaped}$`);
 }
 
-/**
- * Check whether a package name matches any pattern in the allowlist.
- * Supports exact match and simple glob patterns (e.g. "@scope/*").
- */
 export function matchesAllowlist(name: string, allowlist: string[]): boolean {
   if (allowlist.length === 0) {
     return false;
   }
-  return allowlist.some((pattern) => globToRegExp(pattern).test(name));
+  return allowlist.some((p) => globToRegExp(p).test(name));
 }
 
-/**
- * Check a single package's publish date against the minimum age threshold.
- * Uses dependency injection for `now` and `fetchMeta` to keep it testable.
- */
 export async function checkPackageAge(
   ref: PackageRef,
   config: MinimumReleaseAgeConfig,
   deps: CheckDeps,
 ): Promise<CheckResult> {
-  // Skip allowlisted packages
   if (matchesAllowlist(ref.name, config.allowlist)) {
     return { status: 'skipped' };
   }
