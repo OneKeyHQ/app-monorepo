@@ -37,8 +37,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
-import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
