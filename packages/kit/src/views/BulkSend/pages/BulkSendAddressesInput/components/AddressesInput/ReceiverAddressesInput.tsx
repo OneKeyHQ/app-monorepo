@@ -161,8 +161,9 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     selectedNetworkId,
     selectedToken,
     maxLines,
-    allowAmounts: false,
-    checkDuplicates: true,
+    allowAmounts: true,
+    requireAmounts: false,
+    checkDuplicates: false,
     checkAllowlist: true,
     selectedAccountId,
   });

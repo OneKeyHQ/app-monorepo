@@ -346,7 +346,15 @@ function SingleLineSenderInput() {
   );
 }
 
-function MultiLineSenderInput() {
+function MultiLineSenderInput({
+  allowAmounts = true,
+  duplicateWarningMode,
+  onDuplicateAddressCountChange,
+}: {
+  allowAmounts?: boolean;
+  duplicateWarningMode?: boolean;
+  onDuplicateAddressCountChange?: (count: number) => void;
+}) {
   const intl = useIntl();
   const {
     selectedNetworkId,
@@ -358,13 +366,15 @@ function MultiLineSenderInput() {
   const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
     selectedNetworkId,
     selectedToken,
-    allowAmounts: true,
+    allowAmounts,
     requireAmounts: false,
     checkDuplicates: true,
     checkAllowlist: false,
     selectedAccountId,
     resolveAccountId: true,
     onResolvedAccountIds: setResolvedSenderAccountIds,
+    duplicateWarningMode,
+    onDuplicateAddressCountChange,
   });
 
   const validate = useCallback(
@@ -378,18 +388,42 @@ function MultiLineSenderInput() {
 
   const debouncedValidate = useDebouncedValidation(validate);
 
+  // Wrap debounced validate with a synchronous pre-check for address-only mode.
+  // When amounts are not allowed, immediately reject lines containing commas
+  // to avoid timing issues with debounced async validation.
+  const wrappedValidate = useCallback(
+    (value: string) => {
+      if (!allowAmounts && value) {
+        const hasCommaLine = value
+          .split('\n')
+          .some((line) => line.trim() && line.includes(','));
+        if (hasCommaLine) {
+          return validate(value);
+        }
+      }
+      return (platformEnv.isNativeAndroid ? validate : debouncedValidate)(
+        value,
+      );
+    },
+    [allowAmounts, validate, debouncedValidate],
+  );
+
   return (
     <Form.Field
       name="senderAddresses"
       label={intl.formatMessage({
         id: ETranslations.wallet_bulk_send_label_sending_addresses,
       })}
-      description={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_receiving_desc,
-      })}
+      description={
+        allowAmounts
+          ? intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_label_receiving_desc,
+            })
+          : undefined
+      }
       rules={{
         required: true,
-        validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
+        validate: wrappedValidate,
       }}
     >
       <LineNumberedTextArea
@@ -401,7 +435,9 @@ function MultiLineSenderInput() {
           clearNotMatch: true,
         }}
         placeholder={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_placeholder_addresses,
+          id: allowAmounts
+            ? ETranslations.wallet_bulk_send_placeholder_addresses
+            : ETranslations.wallet_bulk_send_placeholder_address,
         })}
         errors={errors}
         networkId={selectedNetworkId}
@@ -412,12 +448,27 @@ function MultiLineSenderInput() {
 }
 
 function SenderAddressesInput() {
-  const { bulkSendMode } = useBulkSendAddressesInputContext();
+  const { bulkSendMode, setDuplicateSenderAddressCount } =
+    useBulkSendAddressesInputContext();
 
   if (bulkSendMode === EBulkSendMode.OneToMany) {
     return <SingleLineSenderInput />;
   }
-  return <MultiLineSenderInput />;
+
+  // ManyToMany: address-only (no amounts), allow duplicate addresses (warning only)
+  if (bulkSendMode === EBulkSendMode.ManyToMany) {
+    return (
+      <MultiLineSenderInput
+        key="many-to-many"
+        allowAmounts={false}
+        duplicateWarningMode
+        onDuplicateAddressCountChange={setDuplicateSenderAddressCount}
+      />
+    );
+  }
+
+  // ManyToOne: block duplicate sender addresses
+  return <MultiLineSenderInput key="many-to-one" />;
 }
 
 export default SenderAddressesInput;

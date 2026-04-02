@@ -85,6 +85,7 @@ function BaseBulkSendAddressesInput() {
     setSelectedDeriveType,
     resolvedSenderAccountIds,
     setResolvedSenderAccountIds,
+    duplicateSenderAddressCount,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
@@ -554,6 +555,7 @@ function BaseBulkSendAddressesInput() {
       tokenInfo: selectedToken,
       tokenDetails: effectiveTokenDetails,
       bulkSendMode,
+      hasDuplicateSenders: duplicateSenderAddressCount > 0,
     };
 
     if (isInModal) {
@@ -578,6 +580,7 @@ function BaseBulkSendAddressesInput() {
     isInModal,
     setSelectedTokenDetail,
     resolvedSenderAccountIds,
+    duplicateSenderAddressCount,
     intl,
   ]);
 
@@ -731,6 +734,9 @@ function BulkSendAddressesInput() {
     Record<number, string>
   >({});
 
+  const [duplicateSenderAddressCount, setDuplicateSenderAddressCount] =
+    useState(0);
+
   const context = useMemo(
     () => ({
       selectedAccountId,
@@ -753,6 +759,8 @@ function BulkSendAddressesInput() {
       setSelectedDeriveType,
       resolvedSenderAccountIds,
       setResolvedSenderAccountIds,
+      duplicateSenderAddressCount,
+      setDuplicateSenderAddressCount,
     }),
     [
       selectedAccountId,
@@ -772,6 +780,7 @@ function BulkSendAddressesInput() {
       duplicateAddressCount,
       selectedDeriveType,
       resolvedSenderAccountIds,
+      duplicateSenderAddressCount,
     ],
   );
 

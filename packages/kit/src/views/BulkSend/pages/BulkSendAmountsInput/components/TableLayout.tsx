@@ -185,12 +185,14 @@ function AmountCard() {
     bulkSendMode,
     isMaxMode,
     setIsMaxMode,
+    hasDuplicateSenders,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
   const { network } = useAccountData({ networkId });
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const shouldHideMaxMode = !isOneToMany && hasDuplicateSenders;
   const balance = tokenDetails?.balanceParsed ?? '0';
   const minTransferDisplayAmount = useMemo(
     () =>
@@ -782,7 +784,8 @@ function AmountCard() {
         ) : (
           <Stack />
         )}
-        {amountInputMode === EAmountInputMode.Specified ? (
+        {amountInputMode === EAmountInputMode.Specified &&
+        !shouldHideMaxMode ? (
           <SizableText
             size="$bodySmMedium"
             color={isMaxMode ? '$textSuccess' : '$textInteractive'}

@@ -105,9 +105,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     senderBalancesFailed,
     senderAccountIdMap,
     minTransferAmount,
+    hasDuplicateSenders,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const shouldHideMaxMode = !isOneToMany && hasDuplicateSenders;
 
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -752,7 +754,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
                 previewTotalFiatAmount={currentModeData.totalFiatAmount}
                 rangePreviewAmounts={previewState.rangePreviewAmounts}
                 onMaxPress={
-                  amountInputMode === EAmountInputMode.Specified
+                  amountInputMode === EAmountInputMode.Specified &&
+                  !shouldHideMaxMode
                     ? handleMaxPress
                     : undefined
                 }
@@ -784,6 +787,7 @@ function BulkSendAmountsInputContent({
   tokenDetails: initialTokenDetails,
   bulkSendMode,
   isInModal,
+  hasDuplicateSenders: _hasDuplicateSendersProp,
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
   const hasCustomAmounts = useMemo(
@@ -834,6 +838,20 @@ function BulkSendAmountsInputContent({
     useState<ITransferInfoErrors>({});
 
   const [transfersInfo, setTransfersInfo] = useState<ITransferInfo[]>([]);
+
+  // Dynamically compute whether there are duplicate sender addresses
+  const hasDuplicateSenders = useMemo(() => {
+    if (bulkSendMode !== EBulkSendMode.ManyToMany) return false;
+    const senderAddresses = transfersInfo.map((t) => t.from);
+    return new Set(senderAddresses).size !== senderAddresses.length;
+  }, [bulkSendMode, transfersInfo]);
+
+  // Auto-exit Max mode when duplicate senders appear
+  useEffect(() => {
+    if (hasDuplicateSenders && isMaxMode) {
+      setIsMaxMode(false);
+    }
+  }, [hasDuplicateSenders, isMaxMode, setIsMaxMode]);
 
   const [previewState, setPreviewState] = useState<IPreviewState>({
     specifiedPreviewed: false,
@@ -1488,6 +1506,7 @@ function BulkSendAmountsInputContent({
       senderBalancesFailed,
       setSenderBalancesFailed,
       senderAccountIdMap,
+      hasDuplicateSenders,
     }),
     [
       networkId,
@@ -1519,6 +1538,7 @@ function BulkSendAmountsInputContent({
       senderBalancesLoading,
       senderBalancesFailed,
       senderAccountIdMap,
+      hasDuplicateSenders,
     ],
   );
 
