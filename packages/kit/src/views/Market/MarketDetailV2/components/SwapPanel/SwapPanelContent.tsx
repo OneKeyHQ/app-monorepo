@@ -18,7 +18,6 @@ import type {
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { ActionButton } from './components/ActionButton';
-import { ApproveButton } from './components/ApproveButton';
 import { RateDisplay } from './components/RateDisplay';
 import SellForSelector from './components/SellForSelector';
 import { SlippageSetting } from './components/SlippageSetting';
@@ -44,11 +43,9 @@ export type ISwapPanelContentProps = {
     actionOtherToken?: ISwapToken;
     onlySupportCrossChain?: boolean;
   };
-  isApproved: boolean;
   defaultTokens: IToken[];
   balance: BigNumber;
   balanceToken?: IToken;
-  onApprove: () => void;
   onSwap: () => void;
   onWrappedSwap: () => void;
   swapMevNetConfig: string[];
@@ -79,11 +76,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     slippageAutoValue,
     supportSpeedSwap,
     defaultTokens,
-    isApproved,
     balance,
     balanceToken,
     swapNativeTokenReserveGas,
-    onApprove,
     onSwap,
     swapMevNetConfig,
     priceRate,
@@ -290,36 +285,29 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         </SizableText>
       ) : null}
 
-      {!isApproved &&
-      !speedCheckError &&
-      currentInputAmount.gt(0) &&
-      balance.gte(currentInputAmount) ? (
-        <ApproveButton onApprove={onApprove} loading={isLoading} />
-      ) : (
-        <ActionButton
-          supportSpeedSwap={!!supportSpeedSwap?.enabled}
-          onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
-          loading={isLoading}
-          actionToken={supportSpeedSwap?.actionToken}
-          actionOtherToken={supportSpeedSwap?.actionOtherToken}
-          tradeType={tradeType}
-          onPress={isWrapped ? onWrappedSwap : onSwap}
-          amount={currentInputAmount.toFixed()}
-          token={balanceToken}
-          balance={balance}
-          isWrapped={isWrapped}
-          networkId={networkId}
-          disabled={!!speedCheckError}
-          onSwapAction={() =>
-            swapAnalytics.logSwapAction({
-              tradeType,
-              networkId,
-              paymentToken,
-              balanceToken,
-            })
-          }
-        />
-      )}
+      <ActionButton
+        supportSpeedSwap={!!supportSpeedSwap?.enabled}
+        onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
+        loading={isLoading}
+        actionToken={supportSpeedSwap?.actionToken}
+        actionOtherToken={supportSpeedSwap?.actionOtherToken}
+        tradeType={tradeType}
+        onPress={isWrapped ? onWrappedSwap : onSwap}
+        amount={currentInputAmount.toFixed()}
+        token={balanceToken}
+        balance={balance}
+        isWrapped={isWrapped}
+        networkId={networkId}
+        disabled={!!speedCheckError || isLoading}
+        onSwapAction={() =>
+          swapAnalytics.logSwapAction({
+            tradeType,
+            networkId,
+            paymentToken,
+            balanceToken,
+          })
+        }
+      />
 
       {/* Slippage setting */}
       {isWrapped ? null : (
