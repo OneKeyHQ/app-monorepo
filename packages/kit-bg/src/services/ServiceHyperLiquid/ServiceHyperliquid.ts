@@ -863,8 +863,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     const mids = hyperLiquidCache.allMids?.mids;
     if (!mids || Object.keys(mids).length === 0) return;
 
+    const { balances } = spotData;
     let totalUsd = new BigNumber(0);
-    for (const balance of spotData.balances) {
+    for (const balance of balances) {
       const amount = new BigNumber(balance.total);
       if (amount.isZero()) {
         // skip zero balances
@@ -878,9 +879,12 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
     }
 
-    await perpsSpotBalancesAtom.set({
-      ...spotData,
-      spotTotalUsd: totalUsd.toFixed(),
+    const computed = totalUsd.toFixed();
+    // Functional updater: only write if spotTotalUsd is still undefined
+    // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
+    await perpsSpotBalancesAtom.set((prev) => {
+      if (!prev || prev.spotTotalUsd !== undefined) return prev;
+      return { ...prev, spotTotalUsd: computed };
     });
   }
 
