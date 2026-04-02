@@ -37,12 +37,6 @@ function formatMetricValue(key, value) {
   return config.unit ? `${rounded}${config.unit}` : String(rounded);
 }
 
-function formatDeltaPct(value) {
-  if (!Number.isFinite(value)) return 'n/a';
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(1)}%`;
-}
-
 function formatStartedAt(value) {
   if (!value) return 'n/a';
   const date = new Date(value);
@@ -269,17 +263,6 @@ function buildDiagnosisLines(report, representativeRun, metricDetails) {
   return lines.slice(0, 4);
 }
 
-function buildHealthyMetricsSummary(metricDetails) {
-  return metricDetails
-    .filter((item) => !item.triggered)
-    .map(
-      (item) =>
-        `${item.label} ${formatMetricValue(item.key, item.current)} 正常`,
-    )
-    .slice(0, 2)
-    .join('，');
-}
-
 function buildRegressionSummary(metricDetails) {
   const triggered = metricDetails.filter((item) => item.triggered);
   if (!triggered.length) return '检测到性能回归。';
@@ -376,7 +359,9 @@ function buildFallbackText(model) {
   }
   if (model.errorSummary) lines.push(`失败原因: ${model.errorSummary}`);
   lines.push(`平台: ${model.targetLabel}`);
-  lines.push(`分支 / Commit: ${model.branch || 'n/a'} @ ${shortSha(model.commitSha)}`);
+  lines.push(
+    `分支 / Commit: ${model.branch || 'n/a'} @ ${shortSha(model.commitSha)}`,
+  );
   lines.push(`时间: ${formatStartedAt(model.startedAt)}`);
   const actionText = buildActionText(model);
   if (actionText) lines.push(`链接: ${actionText}`);
