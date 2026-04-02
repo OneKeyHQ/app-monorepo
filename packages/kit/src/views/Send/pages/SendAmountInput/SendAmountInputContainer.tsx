@@ -370,7 +370,15 @@ function SendAmountInputContainer() {
       : linkedAmount.linkedAmount;
     // Truncate decimal places when switching back to crypto mode
     if (isUseFiat && amountValue) {
-      const decimals = tokenDetails?.info.decimals ?? 8;
+      // Lightning BTC mode: originalAmount is in BTC, use BTC decimals (8)
+      // Lightning native decimals is 0 (sats), which would truncate BTC values to 0
+      let decimals = tokenDetails?.info.decimals ?? 8;
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        decimals = chainValueUtils.getLightningAmountDecimals({
+          lnUnit,
+          decimals,
+        });
+      }
       const valueBN = new BigNumber(amountValue);
       if (!valueBN.isNaN() && (valueBN.decimalPlaces() ?? 0) > decimals) {
         amountValue = valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR);
@@ -380,9 +388,11 @@ function SendAmountInputContainer() {
     form.setValue('amount', amountValue, { shouldValidate: true });
   }, [
     form,
+    isLightningNetwork,
     isUseFiat,
     linkedAmount.linkedAmount,
     linkedAmount.originalAmount,
+    lnUnit,
     tokenDetails?.info.decimals,
   ]);
 
@@ -416,8 +426,11 @@ function SendAmountInputContainer() {
 
       // For Lightning, normalize amount to sats for validation
       // (minTransferAmount and backend validation expect sats)
+      // In fiat mode, tokenAmountBN = fiat/pricePerSat = already sats, skip conversion.
+      // In token mode with BTC unit, convert BTC→sats.
+      // In token mode with SATS unit, already sats.
       let amountBNForValidation = tokenAmountBN;
-      if (isLightningNetwork) {
+      if (isLightningNetwork && !isUseFiat) {
         amountBNForValidation =
           lnUnit === ELightningUnit.BTC
             ? new BigNumber(
