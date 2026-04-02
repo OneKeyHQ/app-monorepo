@@ -1156,7 +1156,7 @@
   "explore.see_all": "Xem tất cả",
   "explore.set_default": "Đặt OneKey làm Ví mặc định",
   "explore.set_default_wallet": "Đặt OneKey làm ví mặc định",
-  "explore.set_default_wallet_description": "Sử dụng OneKey làm ví mặc định để kết nối với dApps.",
+  "explore.set_default_wallet_description": "Sử dụng OneKey làm ví mặc định cho các kết nối dApp. <strong>Sau khi thay đổi cài đặt này, hãy làm mới trang dApp để nó có hiệu lực</strong>.",
   "explore.share": "Chia sẻ",
   "explore.suggested": "Đề xuất",
   "explore.tab_prompt": "Bạn có thể chạm và giữ để ghim tab này để truy cập nhanh.",
