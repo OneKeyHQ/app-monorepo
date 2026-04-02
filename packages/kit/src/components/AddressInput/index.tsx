@@ -408,7 +408,8 @@ export function AddressInput(props: IAddressInputProps) {
   const { setError, clearErrors, watch } = useFormContext();
   const [loading, setLoading] = useState(false);
   const textRef = useRef('');
-  const rawAddress = watch([name, 'raw'].join('.'));
+  const fieldValue = watch(name);
+  const rawAddress = fieldValue?.raw;
 
   const [queryResult, setQueryResult] = useState<IAddressQueryResult>({});
   const [refreshNum, setRefreshNum] = useState(1);
