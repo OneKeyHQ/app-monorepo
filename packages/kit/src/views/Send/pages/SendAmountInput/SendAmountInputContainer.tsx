@@ -8,7 +8,9 @@ import { InputAccessoryView } from 'react-native';
 
 import {
   Button,
+  Dialog,
   Form,
+  HeightTransition,
   Icon,
   Image,
   Input,
@@ -54,7 +56,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openFiatCryptoUrl,
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -83,28 +88,6 @@ interface IAmountFormValues {
   nftAmount: string;
   txMessage: string;
 }
-
-const FIAT_INPUT_DECIMALS = 2;
-const FIAT_INPUT_MAX_INTEGER_DIGITS = 12;
-
-const sanitizeFiatInputText = (value: string) => {
-  if (!value) return value;
-
-  const normalized = value.replace(/。/g, '.').replace(/[^\d.]/g, '');
-  const [integerPart = '', ...decimalParts] = normalized.split('.');
-  const clampedIntegerPart = integerPart.slice(
-    0,
-    FIAT_INPUT_MAX_INTEGER_DIGITS,
-  );
-
-  if (decimalParts.length === 0) {
-    return clampedIntegerPart;
-  }
-
-  return `${clampedIntegerPart}.${decimalParts
-    .join('')
-    .slice(0, FIAT_INPUT_DECIMALS)}`;
-};
 
 function SendAmountInputContainer() {
   const intl = useIntl();
@@ -140,6 +123,7 @@ function SendAmountInputContainer() {
     onFail,
     onCancel,
     amount: prefillAmount,
+    isInvoiceAmountLocked,
   } = route.params;
 
   const nft = nfts?.[0];
@@ -272,8 +256,16 @@ function SendAmountInputContainer() {
   const currencySymbol = settings.currencyInfo.symbol;
   const tokenSymbol = useMemo(() => {
     if (isNFT) return nft?.metadata?.name ?? '';
+    if (isLightningNetwork && lnUnit === ELightningUnit.BTC) return 'BTC';
+    if (isLightningNetwork && lnUnit === ELightningUnit.SATS) return 'sats';
     return tokenInfo?.symbol ?? '';
-  }, [isNFT, tokenInfo?.symbol, nft?.metadata?.name]);
+  }, [
+    isNFT,
+    isLightningNetwork,
+    lnUnit,
+    tokenInfo?.symbol,
+    nft?.metadata?.name,
+  ]);
 
   const currentSelectedUtxoInfo = useMemo(() => {
     if (
@@ -305,8 +297,9 @@ function SendAmountInputContainer() {
       balance = tokenDetails.balanceParsed;
     }
 
-    if (isLightningNetwork && lnUnit === ELightningUnit.SATS) {
-      return chainValueUtils.convertBtcToSats(balance);
+    // Lightning balanceParsed is already in sats (decimals=0)
+    if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+      return chainValueUtils.convertSatsToBtc(balance);
     }
 
     return balance;
@@ -337,24 +330,37 @@ function SendAmountInputContainer() {
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || 0);
+    // For Lightning in BTC mode, the input is in BTC but price is per-sat.
+    // Convert BTC→sats first to match the price unit.
+    const amountForPrice =
+      isLightningNetwork && lnUnit === ELightningUnit.BTC
+        ? new BigNumber(chainValueUtils.convertBtcToSats(amountBN.toFixed()))
+        : amountBN;
+
     if (isUseFiat) {
       const price = new BigNumber(tokenDetails?.price ?? 0);
       if (price.isZero()) {
         return { originalAmount: '0', linkedAmount: '0' };
       }
-      const linkedAmountValue = amountBN.dividedBy(price);
+      // fiat / pricePerSat = sats. Convert to BTC if lnUnit is BTC.
+      let originalAmt = amountBN.dividedBy(price);
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        originalAmt = new BigNumber(
+          chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
+        );
+      }
       return {
-        originalAmount: linkedAmountValue.toFixed(),
+        originalAmount: originalAmt.toFixed(),
         linkedAmount: amountBN.toFixed(),
       };
     }
     const price = new BigNumber(tokenDetails?.price ?? 0);
-    const linkedAmountValue = amountBN.multipliedBy(price);
+    const linkedAmountValue = amountForPrice.multipliedBy(price);
     return {
       originalAmount: amountBN.toFixed(),
       linkedAmount: linkedAmountValue.toFixed(),
     };
-  }, [amount, isUseFiat, tokenDetails?.price]);
+  }, [amount, isLightningNetwork, isUseFiat, lnUnit, tokenDetails?.price]);
 
   const handleToggleFiatMode = useCallback(() => {
     // When currently in fiat mode (isUseFiat=true), switching to token mode -> use originalAmount
@@ -364,21 +370,29 @@ function SendAmountInputContainer() {
       : linkedAmount.linkedAmount;
     // Truncate decimal places when switching back to crypto mode
     if (isUseFiat && amountValue) {
-      const decimals = tokenDetails?.info.decimals ?? 8;
+      // Lightning BTC mode: originalAmount is in BTC, use BTC decimals (8)
+      // Lightning native decimals is 0 (sats), which would truncate BTC values to 0
+      let decimals = tokenDetails?.info.decimals ?? 8;
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        decimals = chainValueUtils.getLightningAmountDecimals({
+          lnUnit,
+          decimals,
+        });
+      }
       const valueBN = new BigNumber(amountValue);
       if (!valueBN.isNaN() && (valueBN.decimalPlaces() ?? 0) > decimals) {
         amountValue = valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR);
       }
-    } else if (amountValue) {
-      amountValue = sanitizeFiatInputText(amountValue);
     }
     setIsUseFiat((prev) => !prev);
     form.setValue('amount', amountValue, { shouldValidate: true });
   }, [
     form,
+    isLightningNetwork,
     isUseFiat,
     linkedAmount.linkedAmount,
     linkedAmount.originalAmount,
+    lnUnit,
     tokenDetails?.info.decimals,
   ]);
 
@@ -410,11 +424,19 @@ function SendAmountInputContainer() {
           ? amountBN.dividedBy(priceBN)
           : amountBN;
 
+      // For Lightning, normalize amount to sats for validation
+      // (minTransferAmount and backend validation expect sats)
+      // In fiat mode, tokenAmountBN = fiat/pricePerSat = already sats, skip conversion.
+      // In token mode with BTC unit, convert BTC→sats.
+      // In token mode with SATS unit, already sats.
       let amountBNForValidation = tokenAmountBN;
-      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
-        amountBNForValidation = new BigNumber(
-          chainValueUtils.convertBtcToSats(tokenAmountBN.toFixed()),
-        );
+      if (isLightningNetwork && !isUseFiat) {
+        amountBNForValidation =
+          lnUnit === ELightningUnit.BTC
+            ? new BigNumber(
+                chainValueUtils.convertBtcToSats(tokenAmountBN.toFixed()),
+              )
+            : tokenAmountBN; // already in sats
       }
 
       // Minimum transfer amount check
@@ -425,6 +447,12 @@ function SendAmountInputContainer() {
           '0')
         : (vaultSettings?.minTransferAmount ?? '0');
 
+      // Display min amount in the current unit (BTC or sats for Lightning)
+      const displayMinAmount =
+        isLightningNetwork && lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertSatsToBtc(minTransferAmount)
+          : minTransferAmount;
+
       if (
         !isUseFiat &&
         !new BigNumber(minTransferAmount).isZero() &&
@@ -433,7 +461,7 @@ function SendAmountInputContainer() {
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
-          { amount: minTransferAmount, token: tokenSymbol },
+          { amount: displayMinAmount, token: tokenSymbol },
         );
       }
 
@@ -446,7 +474,7 @@ function SendAmountInputContainer() {
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
-          { amount: minTransferAmount, token: tokenSymbol },
+          { amount: displayMinAmount, token: tokenSymbol },
         );
       }
 
@@ -464,11 +492,17 @@ function SendAmountInputContainer() {
 
       // Vault-specific validation
       try {
+        // For Lightning, amountBNForValidation is always in sats.
+        // balanceParsed is also in sats (decimals=0). Use it directly
+        // instead of maxBalance which may be in BTC when lnUnit=BTC.
+        const validationBalance = isLightningNetwork
+          ? (tokenDetails?.balanceParsed ?? '0')
+          : maxBalance;
         await backgroundApiProxy.serviceValidator.validateSendAmount({
           accountId: currentAccountId,
           networkId,
           amount: amountBNForValidation.toFixed(),
-          tokenBalance: maxBalance,
+          tokenBalance: validationBalance,
           to: recipientAddress ?? '',
           isNative,
         });
@@ -482,6 +516,7 @@ function SendAmountInputContainer() {
       intl,
       isLightningNetwork,
       lnUnit,
+      tokenDetails?.balanceParsed,
       tokenDetails?.info.isNative,
       tokenDetails?.price,
       vaultSettings?.nativeMinTransferAmount,
@@ -549,7 +584,11 @@ function SendAmountInputContainer() {
           type: 'buy',
         });
       if (url) {
-        openUrlExternal(url);
+        if (platformEnv.isDesktop || platformEnv.isNative) {
+          openFiatCryptoUrl(url);
+        } else {
+          openUrlExternal(url);
+        }
       }
     } finally {
       setIsBuyLoading(false);
@@ -561,26 +600,30 @@ function SendAmountInputContainer() {
       const balance = isUseFiat ? maxBalanceFiat : maxBalance;
       let decimals = tokenDetails?.info.decimals;
       if (isUseFiat) {
-        decimals = FIAT_INPUT_DECIMALS;
+        decimals = 6;
       } else if (isIntegerAmount) {
         decimals = 0;
+      } else if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        decimals = chainValueUtils.getLightningAmountDecimals({
+          lnUnit,
+          decimals: decimals ?? 8,
+        });
       }
-      let result = calcPercentBalance({
+      const result = calcPercentBalance({
         balance,
         percent: stage,
         decimals,
         compactResult: true,
       });
-      if (isUseFiat) {
-        result = sanitizeFiatInputText(result);
-      }
       form.setValue('amount', result, { shouldValidate: true });
       setIsMaxSend(stage === 100);
     },
     [
       form,
       isIntegerAmount,
+      isLightningNetwork,
       isUseFiat,
+      lnUnit,
       maxBalance,
       maxBalanceFiat,
       tokenDetails?.info.decimals,
@@ -627,10 +670,6 @@ function SendAmountInputContainer() {
         filteredValue = `${parts[0]}.${parts.slice(1).join('')}`;
       }
       inputValue = filteredValue;
-
-      if (isUseFiat) {
-        inputValue = sanitizeFiatInputText(inputValue);
-      }
 
       const hadUserInput = (rawValue ?? '').trim().length > 0;
       if (!inputValue && hadUserInput) {
@@ -738,6 +777,44 @@ function SendAmountInputContainer() {
     [intl, recipientIsContract],
   );
 
+  const txMessageDescription = useMemo(() => {
+    if (recipientIsContract) return '';
+    if (!txMessage) return '';
+    return isHexTxMessage
+      ? intl.formatMessage(
+          { id: ETranslations.global_hex_data_input_desc_hex },
+          { utf: txMessageLinkedString },
+        )
+      : intl.formatMessage(
+          { id: ETranslations.global_hex_data_input_desc_utf },
+          { data: txMessageLinkedString },
+        );
+  }, [
+    intl,
+    isHexTxMessage,
+    recipientIsContract,
+    txMessage,
+    txMessageLinkedString,
+  ]);
+
+  const showTxMessageFaq = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: recipientIsContract
+          ? ETranslations.global_hex_data_default
+          : ETranslations.global_hex_data,
+      }),
+      icon: 'ConsoleOutline',
+      description: intl.formatMessage({
+        id: ETranslations.global_hex_data_faq_desc,
+      }),
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_ok,
+      }),
+    });
+  }, [intl, recipientIsContract]);
+
   const getRecipientValidateMessage = useCallback(
     (status?: Exclude<IAddressValidateStatus, 'valid'>) => {
       if (!status) return;
@@ -844,7 +921,13 @@ function SendAmountInputContainer() {
                   tokenDetails?.fiatValue ?? 0,
                 )
               ) {
-                realAmount = tokenDetails?.balanceParsed ?? '0';
+                // balanceParsed is in sats for Lightning. Convert to BTC
+                // when lnUnit=BTC so the downstream convertBtcToSats is correct.
+                const balance = tokenDetails?.balanceParsed ?? '0';
+                realAmount =
+                  isLightningNetwork && lnUnit === ELightningUnit.BTC
+                    ? chainValueUtils.convertSatsToBtc(balance)
+                    : balance;
               } else {
                 realAmount = linkedAmount.originalAmount;
               }
@@ -1118,6 +1201,7 @@ function SendAmountInputContainer() {
       <>
         <Form.Field
           name="amount"
+          errorMessageAlign="center"
           rules={{
             required: true,
             validate: handleValidateTokenAmount,
@@ -1127,7 +1211,7 @@ function SendAmountInputContainer() {
           <SendAutoSizeAmountInput
             ref={amountInputRef}
             tokenSymbol={isUseFiat ? undefined : tokenSymbol}
-            reversible
+            reversible={!isInvoiceAmountLocked}
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
@@ -1141,6 +1225,7 @@ function SendAmountInputContainer() {
                 ? amountInputAccessoryViewID
                 : undefined,
               placeholder: '0',
+              editable: !isInvoiceAmountLocked,
               onFocus: () => {
                 setIsAmountInputFocused(true);
               },
@@ -1172,6 +1257,7 @@ function SendAmountInputContainer() {
       handleToggleFiatMode,
       handleValidateTokenAmount,
       isIntegerAmount,
+      isInvoiceAmountLocked,
       isUseFiat,
       linkedAmount.linkedAmount,
       linkedAmount.originalAmount,
@@ -1326,7 +1412,13 @@ function SendAmountInputContainer() {
               {maxBalance}
             </NumberSizeableText>
             {tokenSymbol ? (
-              <SizableText size="$bodyLgMedium" color="$text" ml="$1">
+              <SizableText
+                size="$bodyLgMedium"
+                color="$text"
+                ml="$1"
+                numberOfLines={1}
+                flexShrink={1}
+              >
                 {tokenSymbol}
               </SizableText>
             ) : null}
@@ -1340,11 +1432,9 @@ function SendAmountInputContainer() {
           size="small"
           ml="$2"
           onPress={() => {
-            form.setValue(
-              'amount',
-              isUseFiat ? sanitizeFiatInputText(maxBalanceFiat) : maxBalance,
-              { shouldValidate: true },
-            );
+            form.setValue('amount', isUseFiat ? maxBalanceFiat : maxBalance, {
+              shouldValidate: true,
+            });
             setIsMaxSend(true);
           }}
         >
@@ -1377,40 +1467,77 @@ function SendAmountInputContainer() {
           {isNFT ? renderNFTAmountInput : renderAmountInput}
 
           {isLightningNetwork && lnUnit ? (
-            <LightningUnitSwitch
-              value={lnUnit}
-              onChange={(unit: string | number) => {
-                setLnUnit(unit as ELightningUnit);
-                form.setValue('amount', '');
-              }}
-            />
-          ) : null}
-
-          {displayTxMessageForm ? (
-            <Form.Field
-              name="txMessage"
-              label={intl.formatMessage({
-                id: ETranslations.global_hex_data,
-              })}
-              optional
-              rules={{
-                validate: validateTxMessage,
-              }}
-            >
-              <TextArea>
-                <TextAreaInput
-                  placeholder={intl.formatMessage({
-                    id: ETranslations.global_hex_data,
-                  })}
-                />
-              </TextArea>
-            </Form.Field>
+            <XStack justifyContent="center" mt="$2">
+              <LightningUnitSwitch
+                value={lnUnit}
+                onChange={(v) => {
+                  setLnUnit(v as ELightningUnit);
+                  if (!isUseFiat) {
+                    form.setValue(
+                      'amount',
+                      v === ELightningUnit.BTC
+                        ? chainValueUtils.convertSatsToBtc(
+                            form.getValues('amount'),
+                          )
+                        : chainValueUtils.convertBtcToSats(
+                            form.getValues('amount'),
+                          ),
+                    );
+                    if (form.formState.isDirty) {
+                      setTimeout(() => {
+                        void form.trigger('amount');
+                      }, 100);
+                    }
+                  }
+                }}
+              />
+            </XStack>
           ) : null}
         </Form>
       </Page.Body>
 
       <Page.Footer>
         <Stack px="$5" gap="$3">
+          <HeightTransition hide={!displayTxMessageForm}>
+            <Form form={form}>
+              <Form.Field
+                name="txMessage"
+                label={intl.formatMessage({
+                  id: recipientIsContract
+                    ? ETranslations.global_contract_call
+                    : ETranslations.global_hex_data,
+                })}
+                optional
+                rules={{
+                  validate: validateTxMessage,
+                }}
+                description={txMessageDescription}
+                labelAddon={
+                  <Button
+                    size="small"
+                    variant="tertiary"
+                    onPress={showTxMessageFaq}
+                  >
+                    {intl.formatMessage({
+                      id: recipientIsContract
+                        ? ETranslations.global_hex_data_default_faq
+                        : ETranslations.global_hex_data_faq,
+                    })}
+                  </Button>
+                }
+              >
+                <TextArea>
+                  <TextAreaInput
+                    placeholder={intl.formatMessage({
+                      id: recipientIsContract
+                        ? ETranslations.global_hex_data_default
+                        : ETranslations.global_hex_data_input_default,
+                    })}
+                  />
+                </TextArea>
+              </Form.Field>
+            </Form>
+          </HeightTransition>
           {extraContent}
           {renderBalanceCard}
         </Stack>
