@@ -1,0 +1,26 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# OneKey Cross-Platform Development Guidelines
+
+## Platform-Specific Code
+- Use platform extensions for platform-specific implementations:
+  - `.native.ts` for React Native (iOS/Android)
+  - `.web.ts` for web platform
+  - `.desktop.ts` for desktop platform
+  - `.ext.ts` for browser extension
+
+## Platform Detection
+- Use the platform detection utilities `import platformEnv from '@onekeyhq/shared/src/platformEnv'` instead of hardcoding platform checks
+- Follow the established patterns for responsive design across platforms
+
+## Component Design
+- UI components should work consistently across all platforms
+- Use the Tamagui components from `@onekeyhq/components` for cross-platform UI
+
+## File Organization
+- Keep platform-specific code in separate files with appropriate extensions
+- Use the platform resolver to automatically select the correct implementation
+- Minimize platform-specific code by keeping common logic separate

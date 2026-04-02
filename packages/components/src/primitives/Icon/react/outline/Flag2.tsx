@@ -1,0 +1,17 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgFlag2 = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="M4.555 3.105c2.922-1.455 5.514-.691 7.718-.067 2.259.639 4.13 1.138 6.282.067L20 2.385V15.62l-.555.275c-2.922 1.455-5.514.691-7.718.067-2.063-.583-3.802-1.048-5.727-.308V22H4V3.381zm7.172 1.857C9.664 4.378 7.925 3.914 6 4.654v8.895c2.337-.645 4.44-.03 6.273.489 2.063.584 3.801 1.047 5.727.307V5.451c-2.337.645-4.44.03-6.273-.489"
+      clipRule="evenodd"
+    />
+  </Svg>
+);
+export default SvgFlag2;

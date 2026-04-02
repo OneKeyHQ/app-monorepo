@@ -1,0 +1,197 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+  <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        tools:node="remove" />
+  <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
+        tools:node="remove" />
+  <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        tools:node="remove" />
+  <uses-permission-sdk-23
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
+        android:maxSdkVersion="30"
+        tools:node="replace" />
+  <uses-permission-sdk-23
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30"
+        tools:node="replace" />
+
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+  <uses-permission android:name="android.permission.CAMERA"/>
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+  <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
+  <uses-permission android:name="android.permission.VIBRATE"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.NFC"/>
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="com.android.vending.BILLING" />
+
+    <queries>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <category android:name="android.intent.category.BROWSABLE"/>
+      <data android:scheme="https"/>
+    </intent>
+    <!-- Exchange app deep link schemes for canOpenURL detection -->
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="bnc"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="okx"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="coinbase"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="cbwallet"/>
+    </intent>
+    <package android:name="io.metamask"/>
+    <package android:name="me.rainbow"/>
+    <package android:name="io.gnosis.safe"/>
+    <package android:name="io.zerion.android"/>
+    <package android:name="com.wallet.crypto.trustapp"/>
+    <package android:name="vip.mytokenpocket"/>
+    <package android:name="im.token.app"/>
+    <package android:name="app.phantom"/>
+    <package android:name="org.toshi"/>
+    <package android:name="com.binance.dev"/>
+    <package android:name="com.okinc.okex.gp"/>
+  </queries>
+  <application
+  android:usesCleartextTraffic="false"
+  android:enableOnBackInvokedCallback="false"
+   android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@style/AppTheme" android:largeHeap="true" android:supportsRtl="true">
+    <meta-data
+        android:name="com.google.android.play.billingclient.version"
+        android:value="7.1.1"/>
+    <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
+    <meta-data android:name="expo.modules.updates.EXPO_SDK_VERSION" android:value="49.0.0"/>
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
+    <meta-data android:name="expo.modules.notifications.default_notification_icon" android:resource="@drawable/jpush_notification_icon"/>
+    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/jpush_notification_icon"/>
+    <meta-data android:name="expo.modules.notifications.default_notification_color" android:resource="@color/notification_icon_color"/>
+    <activity android:name=".MainActivity" android:label="@string/app_name" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="stateAlwaysHidden|adjustPan" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait" android:supportsPictureInPicture="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="onekey-wallet" />
+        <data android:scheme="so.onekey.app.wallet" />
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="wc" />
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="ethereum" />
+      </intent-filter>
+    </activity>
+    <activity
+        android:name=".RecoveryActivity"
+        android:theme="@style/Theme.Recovery"
+        android:screenOrientation="portrait"
+        android:exported="false" />
+    <!-- <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/> -->
+    <provider
+        android:name="so.onekey.app.wallet.OnekeyFileProvider"
+        android:authorities="${applicationId}.onekeyfile"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/provider_paths"/>
+    </provider>
+    <meta-data
+      android:name="JPUSH_CHANNEL"
+      android:value="${JPUSH_CHANNEL}" />
+    <meta-data
+      android:name="JPUSH_APPKEY"
+      android:value="${JPUSH_APPKEY}" />
+    <meta-data
+      android:name="BUNDLE_VERSION"
+      android:value="${BUILTIN_BUNDLE_VERSION}" />
+
+      <!-- overwrite -->
+      <!-- expo-file-system -->
+      <provider
+          android:name="expo.modules.filesystem.FileSystemFileProvider"
+          android:authorities="so.onekey.app.wallet.FileSystemFileProvider"
+          android:exported="false"
+          android:grantUriPermissions="true"
+          tools:ignore="MissingClass"
+          tools:node="replace"
+          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              tools:replace="android:resource"
+              android:resource="@xml/file_system_provider_paths" />
+      </provider>
+
+      <!-- expo-image-picker -->
+      <provider
+          android:name="expo.modules.imagepicker.fileprovider.ImagePickerFileProvider"
+          android:authorities="so.onekey.app.wallet.ImagePickerFileProvider"
+          android:exported="false"
+          android:grantUriPermissions="true"
+          tools:ignore="MissingClass"
+          tools:node="replace"
+          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              tools:replace="android:resource"
+              android:resource="@xml/image_picker_provider_paths" />
+      </provider>
+
+      <!-- react-mobile-cropper -->
+      <provider
+          android:name="com.canhub.cropper.CropFileProvider"
+          android:authorities="so.onekey.app.wallet.cropper.fileprovider"
+          android:exported="false"
+          android:grantUriPermissions="true"
+          tools:ignore="MissingClass"
+          tools:node="replace"
+          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              tools:replace="android:resource"
+              android:resource="@xml/library_file_paths" />
+      </provider>
+
+      <!-- expo-sharing -->
+      <provider
+          android:name="expo.modules.sharing.SharingFileProvider"
+          android:authorities="so.onekey.app.wallet.SharingFileProvider"
+          android:exported="false"
+          android:grantUriPermissions="true"
+          tools:ignore="MissingClass"
+          tools:node="replace"
+          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              tools:replace="android:resource"
+              android:resource="@xml/sharing_provider_paths" />
+      </provider>
+  </application>
+</manifest>

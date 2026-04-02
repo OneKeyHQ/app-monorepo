@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+  <path d="m16.414 9-3 3 3 3L15 16.414l-3-3-3 3L7.586 15l3-3-3-3L9 7.586l3 3 3-3L16.414 9Z"/>
+  <path fill-rule="evenodd" d="M21 3v18H3V3h18ZM5 19h14V5H5v14Z" clip-rule="evenodd"/>
+</svg>

@@ -1,0 +1,64 @@
+import type { PropsWithChildren, ReactElement } from 'react';
+
+import type {
+  ListItemProps,
+  SheetProps,
+} from '@onekeyhq/components/src/shared/tamagui';
+
+import type { IPopoverProps } from '../../actions';
+import type { IInputProps } from '../Input';
+import type { GestureResponderEvent } from 'react-native';
+
+export interface ISelectRenderTriggerProps {
+  value?: string | number | boolean;
+  label?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  onPress?: (event: GestureResponderEvent) => void;
+}
+
+export interface ISelectTriggerProps {
+  renderTrigger: (props: ISelectRenderTriggerProps) => ReactElement;
+}
+
+export interface ISelectItem {
+  label: string;
+  value: string | number | boolean | undefined;
+  leading?: ListItemProps['icon'];
+  description?: string;
+  disabled?: boolean;
+}
+
+export interface ISelectItemProps extends ISelectItem {
+  onSelect: (item: ISelectItem) => void;
+  selectedValue?: string | number | boolean | undefined | ISelectItem;
+  testID?: string;
+}
+
+export interface ISelectSection {
+  data: ISelectItem[];
+  title?: string;
+}
+
+export type ISelectProps<
+  T extends string | number | boolean | undefined | ISelectItem,
+> = PropsWithChildren<{
+  labelInValue?: boolean;
+  items?: ISelectItem[];
+  sections?: ISelectSection[];
+  placeholder?: string;
+  title: string;
+  value?: T;
+  open?: boolean;
+  onChange?: (value: T) => void;
+  onOpenChange?: (isOpen: boolean) => void;
+  renderTrigger?: ISelectTriggerProps['renderTrigger'];
+  defaultTriggerInputProps?: IInputProps;
+  disabled?: boolean;
+  sheetProps?: SheetProps;
+  floatingPanelProps?: IPopoverProps['floatingPanelProps'];
+  placement?: IPopoverProps['placement'];
+  testID?: string;
+  offset?: IPopoverProps['offset'];
+  usingPercentSnapPoints?: boolean;
+}>;

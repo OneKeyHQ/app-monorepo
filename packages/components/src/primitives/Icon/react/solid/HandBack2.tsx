@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgHandBack2 = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12.072 2c.607 0 1.11.501 1.11 1.134v7.874h1.111v-6.75c0-.632.504-1.132 1.11-1.132s1.11.5 1.11 1.133v7.311h1.111V6.51c0-.632.504-1.132 1.11-1.132s1.111.5 1.112 1.133v7.893c0 4.202-3.358 7.596-7.485 7.596-3.033 0-5.772-1.86-6.925-4.715l-2.74-6.787.033-.056a1.648 1.648 0 0 1 2.624-.302l2.277 2.4V4.258c0-.633.504-1.133 1.11-1.133s1.11.5 1.11 1.133v6.185h1.112v-7.31c0-.633.504-1.134 1.11-1.134Z" />
+  </Svg>
+);
+export default SvgHandBack2;

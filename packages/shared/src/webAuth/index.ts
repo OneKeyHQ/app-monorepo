@@ -1,0 +1,138 @@
+import { Base64 } from 'js-base64';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
+
+export const base64Encode = function (arraybuffer: ArrayBuffer): string {
+  const uint8Array = new Uint8Array(arraybuffer);
+  const base64Data = Base64.fromUint8Array(uint8Array);
+  return base64Data;
+};
+
+export const base64Decode = function (base64: string): Uint8Array {
+  return Base64.toUint8Array(base64);
+};
+
+const isContextSupportWebAuth = Boolean(
+  platformEnv.isExtension && globalThis?.navigator?.credentials,
+);
+
+const isUserVerifyingPlatformAuthenticatorAvailable = async () => {
+  let isAvailable = false;
+  if (globalThis?.PublicKeyCredential) {
+    isAvailable =
+      await globalThis?.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+  }
+  return isAvailable;
+};
+
+const isCMA = async () => {
+  let isAvailable = false;
+  if (globalThis?.PublicKeyCredential) {
+    isAvailable =
+      await globalThis?.PublicKeyCredential.isConditionalMediationAvailable();
+  }
+  return isAvailable;
+};
+
+export const isSupportWebAuth = async () => {
+  let isSupport = false;
+  if (!platformEnv.isE2E && isContextSupportWebAuth) {
+    const isUvPaaAvailable =
+      await isUserVerifyingPlatformAuthenticatorAvailable();
+    const isConditionalMediationAvailable = await isCMA();
+    isSupport = isUvPaaAvailable && isConditionalMediationAvailable;
+  }
+
+  const finalSupport = isSupport && !!navigator?.credentials;
+
+  return finalSupport;
+};
+
+export const verifiedWebAuth = async (credId: string) => {
+  if (!(await isSupportWebAuth())) {
+    throw new OneKeyLocalError('Not support web auth');
+  }
+  const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
+  const getCredentialOptions: CredentialRequestOptions = {
+    mediation: 'required',
+    publicKey: {
+      allowCredentials: [
+        {
+          type: 'public-key',
+          id: base64Decode(credId) as BufferSource,
+        },
+      ],
+      userVerification: 'required',
+      challenge: challenge.buffer,
+      timeout: 60_000,
+    },
+  };
+  try {
+    return await navigator.credentials.get(getCredentialOptions);
+  } catch (e) {
+    if (
+      e instanceof DOMException &&
+      (e.name === 'NotAllowedError' || e.name === 'AbortError')
+    ) {
+      const cancelError = new Error('');
+      cancelError.name = BIOLOGY_AUTH_CANCEL_ERROR;
+      throw cancelError;
+    }
+    return undefined;
+  }
+};
+
+export const registerWebAuth = async (credId?: string) => {
+  if (!(await isSupportWebAuth())) {
+    throw new OneKeyLocalError('Not support web auth');
+  }
+  if (!navigator?.credentials) {
+    throw new OneKeyLocalError('navigator.credentials API is not available');
+  }
+  try {
+    if (credId) {
+      const cred = await verifiedWebAuth(credId);
+      if (cred?.id) {
+        return cred.id;
+      }
+      return undefined;
+    }
+    const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
+    const createCredentialOptions: CredentialCreationOptions = {
+      publicKey: {
+        rp: {
+          name: 'onekey.so',
+        },
+        user: {
+          id: new Uint8Array(16),
+          name: 'OneKey Extension',
+          displayName: 'OneKey Extension',
+        },
+        pubKeyCredParams: [
+          {
+            'type': 'public-key',
+            'alg': -7, // ES256 algorithm
+          },
+          {
+            'type': 'public-key',
+            'alg': -257, // RS256 algorithm
+          },
+        ],
+        timeout: 60_000,
+        challenge: challenge.buffer,
+        authenticatorSelection: {
+          requireResidentKey: true,
+          userVerification: 'required',
+        },
+      },
+    };
+    const cred = await navigator.credentials.create(createCredentialOptions);
+    if (cred) {
+      return cred.id;
+    }
+  } catch (_e) {
+    return undefined;
+  }
+};

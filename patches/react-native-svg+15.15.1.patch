@@ -1,0 +1,51 @@
+diff --git a/node_modules/react-native-svg/apple/RNSVGNode.mm b/node_modules/react-native-svg/apple/RNSVGNode.mm
+index 4b32143..add8f88 100644
+--- a/node_modules/react-native-svg/apple/RNSVGNode.mm
++++ b/node_modules/react-native-svg/apple/RNSVGNode.mm
+@@ -276,15 +276,38 @@ - (void)setClientRect:(CGRect)clientRect
+   }
+   _clientRect = clientRect;
+ #ifdef RCT_NEW_ARCH_ENABLED
++  // [OneKey] Fix EXC_BAD_ACCESS crash when dispatching onSvgLayout during drawRect:.
++  //
++  // This method is called from -[RNSVGSvgView drawRect:] -> renderGroupTo:rect:
++  // -> renderTo:rect: during CoreAnimation's layout-and-display pass. At this
++  // point, the component's EventTarget and its internal InstanceHandle may have
++  // already been deallocated by the JS thread (garbage collection), while the
++  // _eventEmitter pointer itself is still non-null. Directly dispatching the
++  // event here causes Reanimated's global event listener to access a dangling
++  // InstanceHandle pointer, resulting in EXC_BAD_ACCESS (SIGSEGV at 0x8).
++  //
++  // Fix: defer the event emission to the next run loop iteration using
++  // dispatch_async on the main queue. This ensures:
++  // 1. We are not inside the CA transaction commit / drawRect: call stack
++  // 2. The weak self-reference prevents accessing a deallocated view
++  // 3. The _eventEmitter is re-checked after the async dispatch for validity
++  //
++  // See also: the complementary fix in react-native-reanimated
++  // ReanimatedModuleProxy.cpp that filters out topSvgLayout events entirely.
+   if (_eventEmitter != nullptr) {
+-    static_cast<const RNSVGGroupEventEmitter &>(*_eventEmitter)
+-      .onSvgLayout(
+-        {.layout = {
+-            .x = static_cast<int>(_clientRect.origin.x),
+-            .y = static_cast<int>(_clientRect.origin.y),
+-            .width = static_cast<int>(_clientRect.size.width),
+-            .height = static_cast<int>(_clientRect.size.height)
+-        }});
++    CGRect rect = _clientRect;
++    dispatch_async(dispatch_get_main_queue(), ^{
++      if (self->_eventEmitter != nullptr) {
++        static_cast<const RNSVGGroupEventEmitter &>(*self->_eventEmitter)
++          .onSvgLayout(
++            {.layout = {
++                .x = static_cast<int>(rect.origin.x),
++                .y = static_cast<int>(rect.origin.y),
++                .width = static_cast<int>(rect.size.width),
++                .height = static_cast<int>(rect.size.height)
++            }});
++      }
++    });
+   }
+ #else
+   if (self.onSvgLayout) {

@@ -1,0 +1,108 @@
+diff --git a/node_modules/app-builder-lib/out/macPackager.js b/node_modules/app-builder-lib/out/macPackager.js
+index a52a853..1815f53 100644
+--- a/node_modules/app-builder-lib/out/macPackager.js
++++ b/node_modules/app-builder-lib/out/macPackager.js
+@@ -205,6 +205,37 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+             this.packageInDistributableFormat(appPath, arch, targets, taskManager);
+         }
+     }
++    async adjustSignOptions(signOptions, masOptions) {
++      const resourceList = await this.resourceList;
++      const customSignOptions = masOptions || this.platformSpecificBuildOptions;
++      const entitlementsSuffix = masOptions == null ? "mac" : "mas";
++      let entitlements = customSignOptions.entitlements;
++      if (entitlements == null) {
++          const p = `entitlements.${entitlementsSuffix}.plist`;
++          if (resourceList.includes(p)) {
++              entitlements = path.join(this.info.buildResourcesDir, p);
++          }
++          else {
++              entitlements = (0, pathManager_1.getTemplatePath)("entitlements.mac.plist");
++          }
++      }
++      signOptions.entitlements = entitlements;
++      let entitlementsInherit = customSignOptions.entitlementsInherit;
++      if (entitlementsInherit == null) {
++          const p = `entitlements.${entitlementsSuffix}.inherit.plist`;
++          if (resourceList.includes(p)) {
++              entitlementsInherit = path.join(this.info.buildResourcesDir, p);
++          }
++          else {
++              entitlementsInherit = (0, pathManager_1.getTemplatePath)("entitlements.mac.plist");
++          }
++      }
++      signOptions["entitlements-inherit"] = entitlementsInherit;
++      if (customSignOptions.provisioningProfile != null) {
++          signOptions["provisioning-profile"] = customSignOptions.provisioningProfile;
++      }
++      signOptions["entitlements-loginhelper"] = customSignOptions.entitlementsLoginHelper;
++    }
+     async sign(appPath, outDir, masOptions, arch) {
+         if (!(0, macCodeSign_1.isSignAllowed)()) {
+             return false;
+@@ -213,7 +244,7 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+         const options = masOptions == null ? this.platformSpecificBuildOptions : masOptions;
+         const qualifier = options.identity;
+         const fallBackToAdhoc = (arch === builder_util_1.Arch.arm64 || arch === builder_util_1.Arch.universal) && !this.forceCodeSigning;
+-        if (qualifier === null) {
++        if (!isMas && qualifier === null) {
+             if (this.forceCodeSigning) {
+                 throw new builder_util_1.InvalidConfigurationError("identity explicitly is set to null, but forceCodeSigning is set to true");
+             }
+@@ -250,7 +281,7 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+                 builder_util_1.log.warn(null, "falling back to ad-hoc signature for macOS application code signing");
+                 identity = new util_identities_1.Identity("-", undefined);
+             }
+-            else if (noIdentity) {
++            else if (!isMas && noIdentity) {
+                 await (0, macCodeSign_1.reportError)(isMas, certificateTypes, qualifier, keychainFile, this.forceCodeSigning);
+                 return false;
+             }
+@@ -318,6 +349,15 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+             optionsForFile: await this.getOptionsForFile(appPath, isMas, customSignOptions),
+             provisioningProfile: customSignOptions.provisioningProfile || undefined,
+         };
++        builder_util_1.log.info({
++            file: builder_util_1.log.filePath(appPath),
++            identityName: identity ? identity.name : null,
++            identityHash: identity ? identity.hash : null,
++            provisioningProfile: signOptions["provisioning-profile"] || "none",
++        }, "signing");
++        if (isMas) {
++          await this.adjustSignOptions(signOptions, masOptions);
++        }
+         await this.doSign(signOptions, customSignOptions, identity);
+         // https://github.com/electron-userland/electron-builder/issues/1196#issuecomment-312310209
+         if (masOptions != null && !isDevelopment) {
+diff --git a/node_modules/app-builder-lib/out/targets/snap.js b/node_modules/app-builder-lib/out/targets/snap.js
+index be3bb87..1b25951 100644
+--- a/node_modules/app-builder-lib/out/targets/snap.js
++++ b/node_modules/app-builder-lib/out/targets/snap.js
+@@ -58,10 +58,15 @@ class SnapTarget extends core_1.Target {
+         }
+         if (options.base != null) {
+             snap.base = options.base;
++            const coreVersion = Number(snap.base.split("core")[1]);
+             // from core22 onwards adapter is legacy
+-            if (Number(snap.base.split("core")[1]) >= 22) {
++            if (coreVersion >= 22) {
+                 delete appDescriptor.adapter;
+             }
++            // core24+ does not support gnome-3-28-1804, remove default template plug
++            if (coreVersion >= 24 && snap.plugs && snap.plugs["gnome-3-28-1804"]) {
++                delete snap.plugs["gnome-3-28-1804"];
++            }
+         }
+         if (options.grade != null) {
+             snap.grade = options.grade;
+@@ -95,7 +100,9 @@ class SnapTarget extends core_1.Target {
+             summary: options.summary || appInfo.productName,
+             compression: options.compression,
+             description: this.helper.getDescription(options),
+-            architectures: [(0, builder_util_1.toLinuxArchString)(arch, "snap")],
++            ...((options.base != null && Number(options.base.split("core")[1]) >= 24)
++                ? { platforms: { [(0, builder_util_1.toLinuxArchString)(arch, "snap")]: null } }
++                : { architectures: [(0, builder_util_1.toLinuxArchString)(arch, "snap")] }),
+             apps: {
+                 [snapName]: appDescriptor,
+             },

@@ -1,0 +1,80 @@
+import { memo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { SizableText, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useTransactionsLayoutNormal } from './useTransactionsLayoutNormal';
+
+const commonTextProps = {
+  size: '$bodySmMedium',
+  color: '$textSubdued',
+} as const;
+
+function TransactionsHeaderNormalBase() {
+  const intl = useIntl();
+  const { styles, isSmallScreen } = useTransactionsLayoutNormal();
+
+  return (
+    <XStack
+      width="100%"
+      py="$2"
+      pl="$5"
+      pr="$3"
+      alignItems="center"
+      backgroundColor="$bgApp"
+    >
+      <SizableText {...commonTextProps} {...styles.time}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_time,
+        })}
+      </SizableText>
+      <SizableText {...commonTextProps} {...styles.type}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_type,
+        })}
+      </SizableText>
+      <SizableText {...commonTextProps} {...styles.amount}>
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_amount,
+        })}
+      </SizableText>
+
+      {isSmallScreen ? (
+        <SizableText {...commonTextProps} {...styles.priceValue}>
+          {intl.formatMessage({
+            id: ETranslations.dexmarket_details_history_value,
+          })}{' '}
+          /{' '}
+          {intl.formatMessage({
+            id: ETranslations.global_price,
+          })}
+        </SizableText>
+      ) : (
+        <>
+          <SizableText {...commonTextProps} {...styles.price}>
+            {intl.formatMessage({
+              id: ETranslations.global_price,
+            })}
+          </SizableText>
+          <SizableText {...commonTextProps} {...styles.value}>
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_details_history_value,
+            })}
+          </SizableText>
+        </>
+      )}
+
+      <SizableText {...commonTextProps} {...styles.address}>
+        {intl.formatMessage({
+          id: ETranslations.global_address,
+        })}
+      </SizableText>
+    </XStack>
+  );
+}
+
+const TransactionsHeaderNormal = memo(TransactionsHeaderNormalBase);
+
+export { TransactionsHeaderNormal };

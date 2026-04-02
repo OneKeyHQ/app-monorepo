@@ -1,0 +1,126 @@
+diff --git a/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js b/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js
+index b296038..67fde04 100644
+--- a/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js
++++ b/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js
+@@ -382,6 +382,13 @@ function isHTMLElement(node) {
+ }
+ var GESTURE_GRANT_THRESHOLD = 10, shouldGrantGestureMove = function(dir, param) {
+   var dx = param.dx, dy = param.dy;
++  // Fixed an issue where button could not be clicked in toast on android
++  if ((dir === "horizontal" || dir === "left" || dir === "right") && dx === 0) {
++    return false;
++  }
++  if((dir === "vertical" || dir === "up" || dir === "down") && dy === 0) {
++    return false;
++  }
+   return (dir === "horizontal" || dir === "left") && dx < -GESTURE_GRANT_THRESHOLD || (dir === "horizontal" || dir === "right") && dx > GESTURE_GRANT_THRESHOLD || (dir === "vertical" || dir === "up") && dy > -GESTURE_GRANT_THRESHOLD || (dir === "vertical" || dir === "down") && dy < GESTURE_GRANT_THRESHOLD;
+ }, getGestureDistance = function(dir, param) {
+   var dx = param.dx, dy = param.dy, y = 0, x = 0;
+diff --git a/node_modules/@tamagui/toast/dist/cjs/ToastViewport.js b/node_modules/@tamagui/toast/dist/cjs/ToastViewport.js
+index 12c86ed..4c59bc5 100644
+--- a/node_modules/@tamagui/toast/dist/cjs/ToastViewport.js
++++ b/node_modules/@tamagui/toast/dist/cjs/ToastViewport.js
+@@ -162,6 +162,7 @@ const VIEWPORT_NAME = "ToastViewport", VIEWPORT_DEFAULT_HOTKEY = ["F8"], VIEWPOR
+         {
+           ref: wrapperRef,
+           role: "region",
++          zIndex: zIndex,
+           "aria-label": label.replace("{hotkey}", hotkeyLabel),
+           tabIndex: -1,
+           children: [
+diff --git a/node_modules/@tamagui/toast/dist/cjs/ToastViewport.native.js b/node_modules/@tamagui/toast/dist/cjs/ToastViewport.native.js
+index c074bc2..21ce663 100644
+--- a/node_modules/@tamagui/toast/dist/cjs/ToastViewport.native.js
++++ b/node_modules/@tamagui/toast/dist/cjs/ToastViewport.native.js
+@@ -254,6 +254,7 @@ var VIEWPORT_NAME = "ToastViewport", VIEWPORT_DEFAULT_HOTKEY = [
+     ref: wrapperRef,
+     role: "region",
+     "aria-label": label.replace("{hotkey}", hotkeyLabel),
++    zIndex: zIndex,
+     // // Ensure virtual cursor from landmarks menus triggers focus/blur for pause/resume
+     tabIndex: -1,
+     children: [
+diff --git a/node_modules/@tamagui/toast/dist/esm/ToastViewport.js b/node_modules/@tamagui/toast/dist/esm/ToastViewport.js
+index c8bf28d..d679133 100644
+--- a/node_modules/@tamagui/toast/dist/esm/ToastViewport.js
++++ b/node_modules/@tamagui/toast/dist/esm/ToastViewport.js
+@@ -143,6 +143,7 @@ const VIEWPORT_NAME = "ToastViewport", VIEWPORT_DEFAULT_HOTKEY = ["F8"], VIEWPOR
+         {
+           ref: wrapperRef,
+           role: "region",
++          zIndex: zIndex,
+           "aria-label": label.replace("{hotkey}", hotkeyLabel),
+           tabIndex: -1,
+           children: [
+diff --git a/node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs b/node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs
+index d311ad5..21020c1 100644
+--- a/node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs
++++ b/node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs
+@@ -150,6 +150,7 @@ const VIEWPORT_NAME = "ToastViewport",
+       ref: wrapperRef,
+       role: "region",
+       "aria-label": label.replace("{hotkey}", hotkeyLabel),
++      zIndex: zIndex,
+       tabIndex: -1,
+       children: [hasToasts && /* @__PURE__ */jsx(FocusProxy, {
+         __scopeToast,
+diff --git a/node_modules/@tamagui/toast/dist/esm/ToastViewport.native.js b/node_modules/@tamagui/toast/dist/esm/ToastViewport.native.js
+index cb230b8..92bf266 100644
+--- a/node_modules/@tamagui/toast/dist/esm/ToastViewport.native.js
++++ b/node_modules/@tamagui/toast/dist/esm/ToastViewport.native.js
+@@ -234,6 +234,7 @@ var VIEWPORT_NAME = "ToastViewport", VIEWPORT_DEFAULT_HOTKEY = [
+     ref: wrapperRef,
+     role: "region",
+     "aria-label": label.replace("{hotkey}", hotkeyLabel),
++    zIndex: zIndex,
+     // // Ensure virtual cursor from landmarks menus triggers focus/blur for pause/resume
+     tabIndex: -1,
+     children: [
+diff --git a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.js b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.js
+index c8bf28d..81f270d 100644
+--- a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.js
++++ b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.js
+@@ -144,6 +144,7 @@ const VIEWPORT_NAME = "ToastViewport", VIEWPORT_DEFAULT_HOTKEY = ["F8"], VIEWPOR
+           ref: wrapperRef,
+           role: "region",
+           "aria-label": label.replace("{hotkey}", hotkeyLabel),
++          zIndex: zIndex,
+           tabIndex: -1,
+           children: [
+             hasToasts && /* @__PURE__ */ jsx(
+diff --git a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.mjs b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.mjs
+index d311ad5..21020c1 100644
+--- a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.mjs
++++ b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.mjs
+@@ -150,6 +150,7 @@ const VIEWPORT_NAME = "ToastViewport",
+       ref: wrapperRef,
+       role: "region",
+       "aria-label": label.replace("{hotkey}", hotkeyLabel),
++      zIndex: zIndex,
+       tabIndex: -1,
+       children: [hasToasts && /* @__PURE__ */jsx(FocusProxy, {
+         __scopeToast,
+diff --git a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.native.js b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.native.js
+index cb230b8..92bf266 100644
+--- a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.native.js
++++ b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.native.js
+@@ -234,6 +234,7 @@ var VIEWPORT_NAME = "ToastViewport", VIEWPORT_DEFAULT_HOTKEY = [
+     ref: wrapperRef,
+     role: "region",
+     "aria-label": label.replace("{hotkey}", hotkeyLabel),
++    zIndex: zIndex,
+     // // Ensure virtual cursor from landmarks menus triggers focus/blur for pause/resume
+     tabIndex: -1,
+     children: [
+diff --git a/node_modules/@tamagui/toast/src/ToastViewport.tsx b/node_modules/@tamagui/toast/src/ToastViewport.tsx
+index 96f3ca6..2f514e5 100644
+--- a/node_modules/@tamagui/toast/src/ToastViewport.tsx
++++ b/node_modules/@tamagui/toast/src/ToastViewport.tsx
+@@ -261,6 +261,7 @@ const ToastViewport = React.memo(
+ 
+       const contents = (
+         <ToastViewportWrapperFrame
++          zIndex={zIndex}
+           ref={wrapperRef}
+           role="region"
+           aria-label={label.replace('{hotkey}', hotkeyLabel)}

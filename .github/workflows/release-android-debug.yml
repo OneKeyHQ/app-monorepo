@@ -1,0 +1,127 @@
+name: release-android-debug
+
+on:
+  workflow_dispatch:
+    inputs:
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_ENV: production
+  YARN_ENABLE_GLOBAL_CACHE: true
+  ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
+
+jobs:
+  release-android-debug:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
+      # https://github.com/orgs/community/discussions/25678
+      - name: Delete huge unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
+
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          env_file_name: '.env.expo'
+          sentry_project: ''
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn install --immutable
+
+      - name: Build APK
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+        run: |
+          yarn app:web-embed:build
+          cd apps/mobile/android
+          ./gradlew assembleDebug
+
+      # https://github.com/orgs/community/discussions/25678
+      - name: Delete huge unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
+
+      - name: Upload Main Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-prod-debug-${{ github.sha }}
+          path: |
+            ./apps/mobile/android/app/build/outputs/apk/prod/debug
+
+      - name: Upload Google Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-google-debug-${{ github.sha }}
+          path: |
+            ./apps/mobile/android/app/build/outputs/apk/google/debug
+
+      - name: Upload Huawei Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-huawei-debug-${{ github.sha }}
+          path: |
+            ./apps/mobile/android/app/build/outputs/apk/huawei/debug
+
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # pin to SHA
+        with:
+          tool-cache: false
+          android: true
+          dotnet: false
+          haskell: false
+          large-packages: false
+          docker-images: false
+          swap-storage: false

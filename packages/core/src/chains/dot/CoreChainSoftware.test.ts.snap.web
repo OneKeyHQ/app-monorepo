@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DOT Core tests signTransaction 1`] = `
+{
+  "rawTx": "",
+  "signature": "0x007806aea9f31e5b2317a3cb4266ff0e206b15a959fa4da2d861d9d26e134b279cf591ca099e3711c62df36f34d81ee69f08b20e764cf336b0d67a7f2b21580a09",
+  "txid": "",
+}
+`;

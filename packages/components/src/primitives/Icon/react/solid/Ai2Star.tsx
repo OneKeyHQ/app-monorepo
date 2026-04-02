@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgAi2Star = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M16 7c0 2.656.587 4.34 1.624 5.376S20.344 14 23 14v2c-2.656 0-4.34.587-5.376 1.624S16 20.344 16 23h-2c0-2.656-.587-4.34-1.624-5.376S9.656 16 7 16v-2c2.656 0 4.34-.587 5.376-1.624S14 9.656 14 7zM7.5 1c0 1.788.396 2.847 1.024 3.476C9.153 5.104 10.212 5.5 12 5.5v2c-1.788 0-2.847.396-3.476 1.024C7.896 9.153 7.5 10.212 7.5 12h-2c0-1.788-.396-2.847-1.024-3.476C3.847 7.896 2.788 7.5 1 7.5v-2c1.788 0 2.847-.396 3.476-1.024C5.104 3.847 5.5 2.788 5.5 1z" />
+  </Svg>
+);
+export default SvgAi2Star;

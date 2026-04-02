@@ -1,0 +1,79 @@
+import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type { IAddEthereumChainParameter } from '@onekeyhq/kit-bg/src/providers/ProviderApiEthereum';
+
+import type { EAccountSelectorSceneName } from '../../types';
+import type {
+  IRequestInvoiceArgs,
+  IVerifyMessageArgs,
+} from '../../types/lightning/webln';
+import type { IAddCustomTokenRouteParams } from '../../types/token';
+import type { WalletKitTypes } from '@reown/walletkit';
+
+export enum EDAppConnectionModal {
+  'ConnectionModal' = 'ConnectionModal',
+  'ConnectionList' = 'ConnectionList',
+  'WalletConnectSessionProposalModal' = 'WalletConnectSessionProposalModal',
+  'SignMessageModal' = 'SignMessageModal',
+  'AddCustomNetworkModal' = 'AddCustomNetworkModal',
+  'AddCustomTokenModal' = 'AddCustomTokenModal',
+  'CurrentConnectionModal' = 'CurrentConnectionModal',
+  'DefaultWalletSettingsModal' = 'DefaultWalletSettingsModal',
+
+  // WebLN
+  MakeInvoice = 'MakeInvoice',
+  VerifyMessage = 'VerifyMessage',
+  // Nostr
+  NostrSignEventModal = 'NostrSignEventModal',
+  // Cosmos Enigma
+  CosmosEnigmaUnlockModal = 'CosmosEnigmaUnlockModal',
+  // Risk WhiteList
+  RiskWhiteListModal = 'RiskWhiteListModal',
+}
+
+export type IDAppConnectionModalParamList = {
+  [EDAppConnectionModal.ConnectionModal]: undefined;
+  [EDAppConnectionModal.ConnectionList]: undefined;
+  [EDAppConnectionModal.WalletConnectSessionProposalModal]: {
+    proposal: WalletKitTypes.SessionProposal;
+  };
+  [EDAppConnectionModal.SignMessageModal]: {
+    unsignedMessage: IUnsignedMessage;
+    accountId: string;
+    networkId: string;
+    sceneName?: EAccountSelectorSceneName;
+  };
+  [EDAppConnectionModal.AddCustomNetworkModal]: {
+    networkInfo: IAddEthereumChainParameter;
+  };
+  [EDAppConnectionModal.AddCustomTokenModal]: IAddCustomTokenRouteParams;
+  [EDAppConnectionModal.CurrentConnectionModal]: undefined;
+  [EDAppConnectionModal.DefaultWalletSettingsModal]: undefined;
+  // WebLN
+  [EDAppConnectionModal.MakeInvoice]: IRequestInvoiceArgs & {
+    accountId: string;
+    networkId: string;
+  };
+  [EDAppConnectionModal.VerifyMessage]: IVerifyMessageArgs;
+  // Nostr
+  [EDAppConnectionModal.NostrSignEventModal]: {
+    event?: INostrEvent;
+    pubkey?: string;
+    plaintext?: string;
+    ciphertext?: string;
+    sigHash?: string;
+    walletId: string;
+    accountId: string;
+    networkId: string;
+  };
+  // Cosmos Enigma
+  [EDAppConnectionModal.CosmosEnigmaUnlockModal]: {
+    walletId: string;
+    accountId: string;
+    networkId: string;
+  };
+  // Risk WhiteList
+  [EDAppConnectionModal.RiskWhiteListModal]: {
+    url: string;
+  };
+};

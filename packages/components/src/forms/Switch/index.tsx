@@ -1,0 +1,100 @@
+import { useCallback, useMemo, useState } from 'react';
+
+import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { IFormFieldProps } from '../types';
+
+export enum ESwitchSize {
+  'small' = 'small',
+  'large' = 'large',
+}
+
+export type ISwitchProps = IFormFieldProps<
+  boolean,
+  Omit<GetProps<typeof TMSwitch>, 'checked' | 'onCheckedChange' | 'value'> & {
+    size?: 'small' | 'large';
+    thumbProps?: Partial<GetProps<typeof TMSwitch.Thumb>>;
+  }
+> & {
+  isUncontrolled?: boolean;
+};
+
+export function Switch({
+  value,
+  defaultChecked,
+  onChange,
+  size = 'large',
+  disabled,
+  isUncontrolled,
+  thumbProps,
+  ...restProps
+}: ISwitchProps) {
+  const theme = useTheme();
+  const [stateChecked, setStateChecked] = useState(defaultChecked);
+
+  const checked = isUncontrolled ? stateChecked : value;
+
+  const handleCheckedChange = useCallback(
+    (v: boolean) => {
+      if (isUncontrolled) {
+        setStateChecked(v);
+      }
+      onChange?.(v);
+    },
+    [isUncontrolled, onChange],
+  );
+
+  const nativeProps = useMemo(
+    () => ({
+      disabled,
+      ios_backgroundColor: theme.neutral5.val,
+      trackColor: {
+        false: theme.neutral5.val,
+        true: theme.bgPrimary.val,
+      },
+      thumbColor: theme.bg.val,
+      ...(platformEnv.isNativeAndroid && {
+        style: { opacity: disabled ? 0.5 : 1 },
+      }),
+    }),
+    [disabled, theme.neutral5.val, theme.bgPrimary.val, theme.bg.val],
+  );
+
+  return (
+    <TMSwitch
+      tag="span"
+      flexShrink={0}
+      unstyled
+      checked={checked}
+      defaultChecked={defaultChecked}
+      onCheckedChange={handleCheckedChange}
+      native
+      w={size === 'small' ? 38 : 54}
+      h={size === 'small' ? '$6' : '$8'}
+      minHeight={size === 'small' ? '$6' : '$8'}
+      bg={checked ? '$bgPrimary' : '$neutral5'}
+      p="$0"
+      borderRadius="$full"
+      borderWidth="$0.5"
+      borderColor="$transparent"
+      opacity={disabled ? 0.5 : 1}
+      disabled={disabled}
+      nativeProps={nativeProps}
+      {...restProps}
+    >
+      <TMSwitch.Thumb
+        unstyled
+        w={size === 'small' ? '$5' : '$7'}
+        h={size === 'small' ? '$5' : '$7'}
+        borderRadius="$full"
+        bg="$bg"
+        animation="switch"
+        animateOnly={ANIMATE_ONLY_TRANSFORM}
+        {...thumbProps}
+      />
+    </TMSwitch>
+  );
+}

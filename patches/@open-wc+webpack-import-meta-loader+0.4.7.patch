@@ -1,0 +1,32 @@
+diff --git a/node_modules/@open-wc/webpack-import-meta-loader/webpack-import-meta-loader.js b/node_modules/@open-wc/webpack-import-meta-loader/webpack-import-meta-loader.js
+index 3bf4695..c2f99e5 100644
+--- a/node_modules/@open-wc/webpack-import-meta-loader/webpack-import-meta-loader.js
++++ b/node_modules/@open-wc/webpack-import-meta-loader/webpack-import-meta-loader.js
+@@ -39,7 +39,7 @@ module.exports = function (source) {
+         let url = '';
+ 
+         if (!publicPath || publicPath.indexOf('://') < 0) {
+-          url += window.location.protocol + '//' + window.location.host;
++          url += typeof window !=='undefined' ? window.location.protocol + '//' + window.location.host : 'https://app.onekey.so';
+         }
+ 
+         if (publicPath) {
+@@ -48,7 +48,17 @@ module.exports = function (source) {
+           url += '/';
+         }
+ 
+-        return url + relativeUrl;
++        let uri = url + relativeUrl
++
++        // Fix for Windows clients that cannot parse paths like 'file:\/\/\/\/@polkadot/api/packageInfo.js'
++        // The '@' symbol in the path can cause issues in Windows environments
++        // We need to normalize the URI by replacing 'file:\/\/\/\/@' with 'file:///@'
++        if (typeof navigator !== 'undefined' && 
++            navigator.userAgent && 
++            navigator.userAgent.indexOf('Windows') !== -1) {
++          uri = uri.replace("file:\/\/\/\/@", "file:\/\/\/@")
++        }
++        return uri;
+       }
+ ${rewrittenSource}`;
+   } else {

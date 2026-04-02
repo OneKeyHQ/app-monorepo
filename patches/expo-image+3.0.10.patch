@@ -1,0 +1,335 @@
+diff --git a/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt b/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt
+index 00e8ca9..f872d02 100644
+--- a/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt
++++ b/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt
+@@ -63,6 +63,13 @@ class PlaceholderDownsampleStrategy(
+   }
+ }
+ 
++/**
++ * PATCHED: Shared memory limit constant for all downsample strategies.
++ * 16MB allows approximately 2000x2000 ARGB_8888 images.
++ * This prevents OOM when loading large animated GIFs.
++ */
++private const val MAX_SAFE_BITMAP_SIZE = 16 * 1024 * 1024 // 16 MB
++
+ class ContentFitDownsampleStrategy(
+   private val target: ImageViewWrapperTarget,
+   private val contentFit: ContentFit
+@@ -95,8 +102,25 @@ class ContentFitDownsampleStrategy(
+       requestedHeight.toFloat()
+     )
+ 
+-    // We don't want to upscale the image
+-    return min(1f, aspectRation)
++    // PATCHED: Apply memory safety limit in addition to content fit scaling.
++    // This prevents OOM when loading large images (especially animated GIFs).
++    val contentFitScale = min(1f, aspectRation)
++
++    // Calculate the resulting size after content fit scaling
++    val scaledWidth = sourceWidth * contentFitScale
++    val scaledHeight = sourceHeight * contentFitScale
++    val scaledSize = scaledWidth * scaledHeight * 4 // Assume ARGB_8888 (4 bytes per pixel)
++
++    if (scaledSize > MAX_SAFE_BITMAP_SIZE) {
++      // Need additional downsampling to fit within memory limit
++      val srcAspectRatio = min(scaledWidth, scaledHeight).toDouble() / max(scaledWidth, scaledHeight).toDouble()
++      val dstArea = MAX_SAFE_BITMAP_SIZE / 4
++      val dstLongerSide = floor(sqrt(dstArea.toDouble() / srcAspectRatio)).toInt()
++      val safetyScale = dstLongerSide.toFloat() / max(scaledWidth, scaledHeight)
++      return contentFitScale * safetyScale
++    }
++
++    return contentFitScale
+   }
+ 
+   private fun calculateScaleFactor(
+@@ -186,11 +210,17 @@ class SafeDownsampleStrategy(
+ 
+   private val maxBitmapSize by lazy {
+     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+-      return@lazy -1
++      // PATCHED: Use shared MAX_SAFE_BITMAP_SIZE constant for Android < Q.
++      // This prevents OOM when loading large animated GIFs.
++      return@lazy MAX_SAFE_BITMAP_SIZE
+     }
+ 
+     return@lazy try {
+-      val defaultSize = 100 * 1024 * 1024 // 100 MB - from `RecordingCanvas` src
++      // PATCHED: Reduced from 100MB to 16MB to prevent OutOfMemoryError with large GIFs.
++      // 16MB allows approximately 2000x2000 ARGB_8888 images.
++      // For animated GIFs, each frame is decoded separately, so even with this limit,
++      // a GIF with many frames can still cause memory pressure.
++      val defaultSize = MAX_SAFE_BITMAP_SIZE
+ 
+       // We're trying to get the value of `ro.hwui.max_texture_allocation_size` property
+       // which is used by `RecordingCanvas` to determine the maximum bitmap size.
+@@ -202,8 +232,9 @@ class SafeDownsampleStrategy(
+       (getIntMethod.invoke(null, "ro.hwui.max_texture_allocation_size", defaultSize) as Int)
+         .coerceAtLeast(defaultSize)
+     } catch (e: Throwable) {
+-      // If something goes wrong we just return -1 and don't downsample the image.
+-      -1
++      // PATCHED: Changed from -1 (no limit) to MAX_SAFE_BITMAP_SIZE fallback.
++      // Returning -1 means no downsampling, which causes OOM with large images.
++      MAX_SAFE_BITMAP_SIZE
+     }
+   }
+ 
+diff --git a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
+index f08807d..1123b3c 100644
+--- a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
++++ b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
+@@ -41,7 +41,7 @@ import expo.modules.kotlin.modules.Module
+ import expo.modules.kotlin.modules.ModuleDefinition
+ import expo.modules.kotlin.sharedobjects.SharedRef
+ import expo.modules.kotlin.types.Either
+-import expo.modules.kotlin.types.EitherOfThree
++import expo.modules.kotlin.types.EitherOfFour
+ import expo.modules.kotlin.types.toKClass
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+@@ -219,7 +219,7 @@ class ExpoImageModule : Module() {
+         "onDisplay"
+       )
+ 
+-      Prop("source") { view: ExpoImageViewWrapper, sources: EitherOfThree<List<SourceMap>, SharedRef<Drawable>, SharedRef<Bitmap>>? ->
++      Prop("source") { view: ExpoImageViewWrapper, sources: EitherOfFour<List<SourceMap>, SourceMap, SharedRef<Drawable>, SharedRef<Bitmap>>? ->
+         if (sources == null) {
+           view.sources = emptyList()
+           return@Prop
+@@ -230,6 +230,17 @@ class ExpoImageModule : Module() {
+           return@Prop
+         }
+ 
++        // PATCHED: Handle single SourceMap passed as a map object instead of a list.
++        // On the new architecture (Fabric), the bridge may serialize a single-element
++        // source array as a plain map object (DynamicFromMap) instead of an array.
++        // Without this handler, the EitherOfThree type converter throws TypeCastException,
++        // which leaves the underlying folly::dynamic in an inconsistent state, leading to
++        // SIGSEGV in folly::dynamic::destroy() when the app backgrounds under memory pressure.
++        if (sources.`is`(toKClass<SourceMap>())) {
++          view.sources = listOf(sources.get(toKClass<SourceMap>()))
++          return@Prop
++        }
++
+         if (sources.`is`(toKClass<SharedRef<Drawable>>())) {
+           val drawable = sources.get(toKClass<SharedRef<Drawable>>()).ref
+           view.sources = listOf(DecodedSource(drawable))
+diff --git a/node_modules/expo-image/build/index.d.ts b/node_modules/expo-image/build/index.d.ts
+index ce18dad..4043e77 100644
+--- a/node_modules/expo-image/build/index.d.ts
++++ b/node_modules/expo-image/build/index.d.ts
+@@ -2,4 +2,5 @@ export * from './Image.types';
+ export { Image } from './Image';
+ export { ImageBackground } from './ImageBackground';
+ export { useImage } from './useImage';
++export { resolveSource, resolveSources } from './utils/resolveSources';
+ //# sourceMappingURL=index.d.ts.map
+\ No newline at end of file
+diff --git a/node_modules/expo-image/ios/ExpoImage.podspec b/node_modules/expo-image/ios/ExpoImage.podspec
+index 818e050..271ae26 100644
+--- a/node_modules/expo-image/ios/ExpoImage.podspec
++++ b/node_modules/expo-image/ios/ExpoImage.podspec
+@@ -20,10 +20,10 @@ Pod::Spec.new do |s|
+ 
+   s.dependency 'ExpoModulesCore'
+   s.dependency 'SDWebImage', '~> 5.21.0'
+-  s.dependency 'SDWebImageAVIFCoder', '~> 0.11.0'
++  # s.dependency 'SDWebImageAVIFCoder', '~> 0.11.0'
+   s.dependency 'SDWebImageSVGCoder', '~> 1.7.0'
+   s.dependency 'SDWebImageWebPCoder', '~> 0.14.6'
+-  s.dependency 'libavif/libdav1d'
++  # s.dependency 'libavif/libdav1d'
+ 
+   # Swift/Objective-C compatibility
+   s.pod_target_xcconfig = {
+diff --git a/node_modules/expo-image/ios/ImageLoader.swift b/node_modules/expo-image/ios/ImageLoader.swift
+index a0dacf9..60c38ce 100644
+--- a/node_modules/expo-image/ios/ImageLoader.swift
++++ b/node_modules/expo-image/ios/ImageLoader.swift
+@@ -6,12 +6,18 @@ import ExpoModulesCore
+ internal final class ImageLoader {
+   static let shared = ImageLoader()
+ 
+-  lazy var imageManager = SDWebImageManager(
++  let imageManager = SDWebImageManager(
+     cache: SDImageCache.shared,
+     loader: SDImageLoadersManager.shared
+   )
+ 
+   func load(_ source: ImageSource, maxSize: CGSize? = nil) async throws -> UIImage {
++    // PATCHED: Guard against nil or empty URI to prevent EXC_BAD_ACCESS crash in SDWebImageManager.cacheKeyForURL
++    // When source.uri is nil or empty, SDWebImage crashes when trying to generate a cache key.
++    guard let sourceUri = source.uri, !sourceUri.absoluteString.isEmpty else {
++      throw ImageLoadingFailed()
++    }
++
+     // This loader uses only the disk cache. We may want to give more control on this, but the memory cache
+     // doesn't make much sense for shared refs as they're kept in memory as long as their JS objects.
+     var context = createSDWebImageContext(forSource: source, cachePolicy: .disk)
+@@ -20,14 +26,87 @@ internal final class ImageLoader {
+       context[.imageThumbnailPixelSize] = maxSize
+     }
+ 
+-    return try await withCheckedThrowingContinuation { continuation in
+-      imageManager.loadImage(with: source.uri, context: context, progress: nil) { image, _, error, _, _, _ in
+-        if let image {
+-          continuation.resume(returning: image)
+-        } else {
+-          continuation.resume(throwing: ImageLoadingFailed().causedBy(error))
++    // PATCHED: Fix EXC_BAD_ACCESS crash when ImageLoader is deallocated during async operation.
++    // Use a class to hold the operation and continuation references, ensuring the continuation
++    // is resumed exactly once. SDWebImage's cancel() does NOT invoke the completion handler,
++    // so the onCancel handler must resume the continuation with CancellationError to prevent
++    // the Task from hanging indefinitely and leaking resources.
++    final class OperationHolder: @unchecked Sendable {
++      var operation: SDWebImageCombinedOperation?
++      var continuation: CheckedContinuation<UIImage, Error>?
++      private var didResume = false
++      let lock = NSLock()
++
++      func setOperation(_ op: SDWebImageCombinedOperation?) {
++        lock.lock()
++        if didResume {
++          // cancel() was already called, cancel the operation immediately to avoid resource leak
++          lock.unlock()
++          op?.cancel()
++          return
++        }
++        operation = op
++        lock.unlock()
++      }
++
++      func setContinuation(_ cont: CheckedContinuation<UIImage, Error>) {
++        lock.lock()
++        if didResume {
++          // cancel() was already called before we got the continuation
++          lock.unlock()
++          cont.resume(throwing: CancellationError())
++          return
++        }
++        continuation = cont
++        lock.unlock()
++      }
++
++      func resume(with result: Result<UIImage, Error>) {
++        lock.lock()
++        guard !didResume, let cont = continuation else {
++          lock.unlock()
++          return
++        }
++        didResume = true
++        continuation = nil
++        lock.unlock()
++        cont.resume(with: result)
++      }
++
++      func cancel() {
++        lock.lock()
++        operation?.cancel()
++        operation = nil
++        let shouldResume = !didResume
++        let cont = continuation
++        if shouldResume {
++          didResume = true
++          continuation = nil
++        }
++        lock.unlock()
++        if shouldResume, let cont {
++          cont.resume(throwing: CancellationError())
++        }
++      }
++    }
++
++    let operationHolder = OperationHolder()
++
++    return try await withTaskCancellationHandler {
++      try await withCheckedThrowingContinuation { continuation in
++        operationHolder.setContinuation(continuation)
++        let operation = self.imageManager.loadImage(with: sourceUri, context: context, progress: nil) { image, _, error, _, finished, _ in
++          guard finished else { return }
++          if let image {
++            operationHolder.resume(with: .success(image))
++          } else {
++            operationHolder.resume(with: .failure(ImageLoadingFailed().causedBy(error)))
++          }
+         }
++        operationHolder.setOperation(operation)
+       }
++    } onCancel: {
++      operationHolder.cancel()
+     }
+   }
+ }
+diff --git a/node_modules/expo-image/ios/ImageModule.swift b/node_modules/expo-image/ios/ImageModule.swift
+index b44f431..9a51548 100644
+--- a/node_modules/expo-image/ios/ImageModule.swift
++++ b/node_modules/expo-image/ios/ImageModule.swift
+@@ -2,7 +2,7 @@
+ 
+ import ExpoModulesCore
+ import SDWebImage
+-import SDWebImageAVIFCoder
++// import SDWebImageAVIFCoder
+ import SDWebImageSVGCoder
+ 
+ public final class ImageModule: Module {
+@@ -251,8 +251,9 @@ public final class ImageModule: Module {
+ 
+   static func registerCoders() {
+     SDImageCodersManager.shared.addCoder(WebPCoder.shared)
+-    SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
+-    SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
++    // SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
++    // uncaught exception 'NSInternalInconsistencyException', reason: 'UIGraphicsBeginImageContext() failed to allocate CGBitampContext
++    // SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
+     SDImageCodersManager.shared.addCoder(SDImageHEICCoder.shared)
+   }
+ 
+diff --git a/node_modules/expo-image/ios/ImageView.swift b/node_modules/expo-image/ios/ImageView.swift
+index c33ec33..fbc50ae 100644
+--- a/node_modules/expo-image/ios/ImageView.swift
++++ b/node_modules/expo-image/ios/ImageView.swift
+@@ -177,10 +177,17 @@ public final class ImageView: ExpoView {
+       return
+     }
+ 
++    // PATCHED: Guard against nil or empty URI to prevent EXC_BAD_ACCESS crash in SDWebImageManager.cacheKeyForURL
++    // When source.uri is nil or empty, SDWebImage crashes when trying to generate a cache key.
++    guard let sourceUri = source.uri, !sourceUri.absoluteString.isEmpty else {
++      onError(["error": "Image source URI is nil or empty"])
++      return
++    }
++
+     onLoadStart([:])
+ 
+     pendingOperation = imageManager.loadImage(
+-      with: source.uri,
++      with: sourceUri,
+       options: loadingOptions,
+       context: context,
+       progress: imageLoadProgress(_:_:_:),
+@@ -336,7 +343,12 @@ public final class ImageView: ExpoView {
+ 
+     let isPlaceholderHash = placeholder.isBlurhash || placeholder.isThumbhash
+ 
+-    imageManager.loadImage(with: placeholder.uri, context: context, progress: nil) { [weak self] placeholder, _, _, _, finished, _ in
++    // PATCHED: Guard against nil or empty URI to prevent EXC_BAD_ACCESS crash in SDWebImageManager.cacheKeyForURL
++    guard let placeholderUri = placeholder.uri, !placeholderUri.absoluteString.isEmpty else {
++      return
++    }
++
++    imageManager.loadImage(with: placeholderUri, context: context, progress: nil) { [weak self] placeholder, _, _, _, finished, _ in
+       guard let self, let placeholder, finished else {
+         return
+       }
+diff --git a/node_modules/expo-image/src/index.ts b/node_modules/expo-image/src/index.ts
+index 6fa0066..ea0ad81 100644
+--- a/node_modules/expo-image/src/index.ts
++++ b/node_modules/expo-image/src/index.ts
+@@ -2,3 +2,4 @@ export * from './Image.types';
+ export { Image } from './Image';
+ export { ImageBackground } from './ImageBackground';
+ export { useImage } from './useImage';
++export { resolveSource, resolveSources } from './utils/resolveSources';

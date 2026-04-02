@@ -1,0 +1,48 @@
+diff --git a/node_modules/@sentry/browser/build/npm/cjs/integrations/breadcrumbs.js b/node_modules/@sentry/browser/build/npm/cjs/integrations/breadcrumbs.js
+index 46e0631..f746598 100644
+--- a/node_modules/@sentry/browser/build/npm/cjs/integrations/breadcrumbs.js
++++ b/node_modules/@sentry/browser/build/npm/cjs/integrations/breadcrumbs.js
+@@ -191,7 +191,7 @@ function _getXhrBreadcrumbHandler(client) {
+       return;
+     }
+ 
+-    const { method, url, status_code, body } = sentryXhrData;
++    const { method, url, status_code, body, request_headers = {} } = sentryXhrData;
+ 
+     const data = {
+       method,
+@@ -199,6 +199,10 @@ function _getXhrBreadcrumbHandler(client) {
+       status_code,
+     };
+ 
++    if (request_headers['x-onekey-request-id']) {
++      data.request_id = request_headers['x-onekey-request-id'];
++    }
++
+     const hint = {
+       xhr: handlerData.xhr,
+       input: body,
+diff --git a/node_modules/@sentry/browser/build/npm/esm/integrations/breadcrumbs.js b/node_modules/@sentry/browser/build/npm/esm/integrations/breadcrumbs.js
+index 155b29b..5ffd88c 100644
+--- a/node_modules/@sentry/browser/build/npm/esm/integrations/breadcrumbs.js
++++ b/node_modules/@sentry/browser/build/npm/esm/integrations/breadcrumbs.js
+@@ -189,7 +189,7 @@ function _getXhrBreadcrumbHandler(client) {
+       return;
+     }
+ 
+-    const { method, url, status_code, body } = sentryXhrData;
++    const { method, url, status_code, body, request_headers = {} } = sentryXhrData;
+ 
+     const data = {
+       method,
+@@ -197,6 +197,10 @@ function _getXhrBreadcrumbHandler(client) {
+       status_code,
+     };
+ 
++    if (request_headers['x-onekey-request-id']) {
++      data.request_id = request_headers['x-onekey-request-id'];
++    }
++
+     const hint = {
+       xhr: handlerData.xhr,
+       input: body,

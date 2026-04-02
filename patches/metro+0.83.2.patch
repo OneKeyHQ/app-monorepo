@@ -1,0 +1,54 @@
+diff --git a/node_modules/metro/src/Assets.js b/node_modules/metro/src/Assets.js
+index 0870a4c..606db94 100644
+--- a/node_modules/metro/src/Assets.js
++++ b/node_modules/metro/src/Assets.js
+@@ -199,6 +199,8 @@ async function getAssetFiles(assetPath, platform = null) {
+   const assetData = await getAbsoluteAssetRecord(assetPath, platform);
+   return assetData.files;
+ }
++
++const GET_TOP_DIR_SYMBOL = "relative_dir_symbol";
+ async function getAsset(
+   relativePath,
+   projectRoot,
+@@ -206,17 +208,22 @@ async function getAsset(
+   platform = null,
+   assetExts,
+ ) {
++  if (relativePath.startsWith(GET_TOP_DIR_SYMBOL)) {
++    relativePath = relativePath.replaceAll(GET_TOP_DIR_SYMBOL, '..');
++  }
+   const assetData = AssetPaths.parse(
+     relativePath,
+     new Set(platform != null ? [platform] : []),
+   );
+   const absolutePath = _path.default.resolve(projectRoot, relativePath);
+   if (!assetExts.includes(assetData.type)) {
++    console.error(`'${relativePath}' cannot be loaded as its extension is not registered in assetExts`, absolutePath);
+     throw new Error(
+       `'${relativePath}' cannot be loaded as its extension is not registered in assetExts`,
+     );
+   }
+   if (!pathBelongsToRoots(absolutePath, [projectRoot, ...watchFolders])) {
++    console.error(`'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`, absolutePath);
+     throw new Error(
+       `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
+     );
+diff --git a/node_modules/metro/src/Server.js b/node_modules/metro/src/Server.js
+index 6adc6d1..91b940e 100644
+--- a/node_modules/metro/src/Server.js
++++ b/node_modules/metro/src/Server.js
+@@ -887,6 +887,13 @@ class Server {
+       );
+       bundlePerfLogger.point("serializingBundle_end");
+       const bundleCode = typeof bundle === "string" ? bundle : bundle.code;
++      // Release the dependency graph for modulesOnly bundles (e.g. harness
++      // test files) immediately after serialization.  These one-shot bundles
++      // are never requested again, so keeping their graph in memory only
++      // causes linear memory growth until OOM.
++      if (serializerOptions.modulesOnly) {
++        await this._bundler.endGraph(graphId);
++      }
+       return {
+         numModifiedFiles: delta.reset
+           ? delta.added.size + revision.prepend.length

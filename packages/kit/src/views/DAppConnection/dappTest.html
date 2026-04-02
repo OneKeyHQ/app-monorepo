@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ETH DApp Demo</title>
+  </head>
+  <body>
+    <div>
+        <input type="checkbox" id="autoSign" checked>
+        <label for="autoSign">连接后自动签名</label>
+    </div>
+    <button id="connectBtn">Connect Wallet</button>
+    <button id="signBtn">Sign Message</button>
+    <p id="status"></p>
+
+    <script>
+      let account = null;
+      const connectBtn = document.getElementById('connectBtn');
+      const signBtn = document.getElementById('signBtn');
+      const statusText = document.getElementById('status');
+      const autoSignCheckbox = document.getElementById('autoSign');
+
+      // 页面加载时从 localStorage 读取状态
+      const savedAutoSign = localStorage.getItem('autoSign');
+      if (savedAutoSign !== null) {
+          autoSignCheckbox.checked = savedAutoSign === 'true';
+      }
+
+      // 监听复选框变化，保存到 localStorage
+      autoSignCheckbox.addEventListener('change', (event) => {
+          localStorage.setItem('autoSign', event.target.checked);
+      });
+
+      async function connectWallet() {
+        try {
+          // 检查是否安装了 MetaMask
+          if (typeof window.ethereum === 'undefined') {
+            throw new Error('请安装 MetaMask!');
+          }
+
+          // 请求连接钱包
+          const accounts = await window.ethereum.request({
+            method: 'eth_requestAccounts',
+          });
+
+          account = accounts[0];
+          statusText.textContent = `已连接: ${account}`;
+
+          // 根据勾选状态决定是否自动签名
+          if (autoSignCheckbox.checked) {
+            await requestSign();
+          }
+        } catch (err) {
+          statusText.textContent = `错误: ${err.message}`;
+        }
+      }
+
+      async function requestSign() {
+        try {
+          const message = '请签名以验证您的身份776655';
+          const signature = await window.ethereum.request({
+            method: 'personal_sign',
+            params: [message, account],
+          });
+
+          statusText.textContent += `\n签名成功: ${signature}`;
+        } catch (err) {
+          statusText.textContent += `\n签名失败: ${err.message}`;
+        }
+      }
+
+      connectBtn.addEventListener('click', connectWallet);
+      signBtn.addEventListener('click', requestSign);
+    </script>
+  </body>
+</html>

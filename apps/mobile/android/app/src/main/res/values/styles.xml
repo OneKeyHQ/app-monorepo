@@ -1,0 +1,50 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <style name="Widget.App.TextView" parent="Widget.AppCompat.TextView">
+    <item name="android:elegantTextHeight">false</item>
+    <item name="android:useLocalePreferredLineHeightForMinimum">false</item>
+  </style>
+
+  <style name="Widget.App.EditText" parent="Widget.AppCompat.EditText">
+    <item name="android:elegantTextHeight">false</item>
+    <item name="android:useLocalePreferredLineHeightForMinimum">false</item>
+  </style>
+
+  <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+    <item name="android:navigationBarColor" tools:targetApi="21">@color/navigationBarColor</item>
+    <item name="android:textColor">@android:color/black</item>
+    <item name="android:textColorHighlight">@color/textSelectionHighlight</item>
+    <item name="android:editTextStyle">@style/ResetEditText</item>
+    <item name="android:editTextBackground" tools:targetApi="11">@drawable/rn_edit_text_material</item>
+    <item name="colorPrimary">@color/colorPrimary</item>
+    <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+    <item name="android:windowSplashScreenBackground" tools:targetApi="31">
+      @color/splashscreen_background</item>
+    <!--      <item name="android:windowSplashScreenBrandingImage" tools:targetApi="31">-->
+    <!--        @drawable/splashscreen-->
+    <!--      </item>-->
+    <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">
+      @drawable/splashscreen_icon</item>
+    <item name="android:windowSplashScreenBehavior" tools:targetApi="33">default</item>
+
+    <!-- fix HyperOS 2 Android 15 TextInput (EditText) no content vertical center issue -->
+    <item name="android:textViewStyle">@style/Widget.App.TextView</item>
+    <item name="editTextStyle">@style/Widget.App.EditText</item>
+  </style>
+  <style name="ResetEditText" parent="@android:style/Widget.EditText">
+    <item name="android:padding">0dp</item>
+    <item name="android:textColorHint">#c8c8c8</item>
+    <item name="android:textColor">@android:color/black</item>
+
+    <!-- fix HyperOS 2 Android 15 TextInput (EditText) no content vertical center issue -->
+    <item name="android:elegantTextHeight">false</item>
+    <item name="android:useLocalePreferredLineHeightForMinimum">false</item>
+  </style>
+  <style name="Theme.App.SplashScreen" parent="AppTheme">
+    <item name="android:windowBackground">@drawable/splashscreen</item>
+  </style>
+  <style name="Theme.Recovery" parent="Theme.AppCompat.NoActionBar">
+    <item name="android:windowBackground">#FF0F0F0F</item>
+    <item name="android:statusBarColor" tools:targetApi="21">#FF0F0F0F</item>
+    <item name="android:navigationBarColor" tools:targetApi="21">#FF0F0F0F</item>
+  </style>
+</resources>

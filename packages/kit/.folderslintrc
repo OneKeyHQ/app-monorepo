@@ -1,0 +1,29 @@
+{
+  "root": "src",
+  "rules": [
+    "background/**",
+    "components/**",
+    "hooks/**",
+    "provider/Container/**",
+    "provider/KeyboardProvider/**",
+    "provider/demo/**",
+    "routes/config/**",
+    "routes/Modal/*",
+    "routes/Tab/*",
+    "routes/Onboarding/*",
+    "states/**",
+    "utils/**",
+    "views/*/background",
+    "views/*/pages/**",
+    "views/*/config/*",
+    "views/**/components/**",
+    "views/*/assets/*",
+    "views/*/hooks",
+    "views/*/hooks/usePrivyUniversal",
+    "views/*/hooks/usePrivyUniversalV2",
+    "views/*/purchasesSdk",
+    "views/*/router",
+    "views/*/utils/**",
+    "views/FirmwareUpdate/componentsV2/**"
+  ]
+}

@@ -1,0 +1,140 @@
+diff --git a/node_modules/react-native-aes-crypto/android/src/main/java/com/tectiv3/aes/Aes.java b/node_modules/react-native-aes-crypto/android/src/main/java/com/tectiv3/aes/Aes.java
+index 9fa6716..5b1e043 100755
+--- a/node_modules/react-native-aes-crypto/android/src/main/java/com/tectiv3/aes/Aes.java
++++ b/node_modules/react-native-aes-crypto/android/src/main/java/com/tectiv3/aes/Aes.java
+@@ -168,7 +168,7 @@ public class Aes extends ReactContextBaseJavaModule {
+ 
+     private String shaX(String data, String algorithm) throws Exception {
+         MessageDigest md = MessageDigest.getInstance(algorithm);
+-        md.update(data.getBytes());
++        md.update(Hex.decode(data));
+         byte[] digest = md.digest();
+         return bytesToHex(digest);
+     }
+@@ -197,7 +197,7 @@ public class Aes extends ReactContextBaseJavaModule {
+             algorithmDigest = new SHA512Digest();
+         }
+         PKCS5S2ParametersGenerator gen = new PKCS5S2ParametersGenerator(algorithmDigest);
+-        gen.init(pwd.getBytes("UTF_8"), salt.getBytes("UTF_8"), cost);
++        gen.init(Hex.decode(pwd), Hex.decode(salt), cost);
+         byte[] key = ((KeyParameter) gen.generateDerivedParameters(length)).getKey();
+         return bytesToHex(key);
+     }
+@@ -205,7 +205,7 @@ public class Aes extends ReactContextBaseJavaModule {
+     private static String hmacX(String text, String key, String algorithm)
+     throws NoSuchAlgorithmException, InvalidKeyException, UnsupportedEncodingException
+     {
+-        byte[] contentData = text.getBytes("UTF_8");
++        byte[] contentData = Hex.decode(text);
+         byte[] akHexData = Hex.decode(key);
+         Mac sha_HMAC = Mac.getInstance(algorithm);
+         SecretKey secret_key = new SecretKeySpec(akHexData, algorithm);
+@@ -225,8 +225,8 @@ public class Aes extends ReactContextBaseJavaModule {
+ 
+         Cipher cipher = Cipher.getInstance(algorithm);
+         cipher.init(Cipher.ENCRYPT_MODE, secretKey, hexIv == null ? emptyIvSpec : new IvParameterSpec(Hex.decode(hexIv)));
+-        byte[] encrypted = cipher.doFinal(text.getBytes("UTF-8"));
+-        return Base64.encodeToString(encrypted, Base64.NO_WRAP);
++        byte[] encrypted = cipher.doFinal(Hex.decode(text));
++        return bytesToHex(encrypted);
+     }
+ 
+     private static String decrypt(String ciphertext, String hexKey, String hexIv, String algorithm) throws Exception {
+@@ -239,8 +239,8 @@ public class Aes extends ReactContextBaseJavaModule {
+ 
+         Cipher cipher = Cipher.getInstance(algorithm);
+         cipher.init(Cipher.DECRYPT_MODE, secretKey, hexIv == null ? emptyIvSpec : new IvParameterSpec(Hex.decode(hexIv)));
+-        byte[] decrypted = cipher.doFinal(Base64.decode(ciphertext, Base64.NO_WRAP));
+-        return new String(decrypted, "UTF-8");
++        byte[] decrypted = cipher.doFinal(Hex.decode(ciphertext));
++        return bytesToHex(decrypted);
+     }
+ 
+ }
+diff --git a/node_modules/react-native-aes-crypto/ios/Aes/lib/AesCrypt.m b/node_modules/react-native-aes-crypto/ios/Aes/lib/AesCrypt.m
+index 45375cb..4692e99 100755
+--- a/node_modules/react-native-aes-crypto/ios/Aes/lib/AesCrypt.m
++++ b/node_modules/react-native-aes-crypto/ios/Aes/lib/AesCrypt.m
+@@ -37,8 +37,8 @@ + (NSData *) fromHex: (NSString *)string {
+ 
+ + (NSString *) pbkdf2:(NSString *)password salt: (NSString *)salt cost: (NSInteger)cost length: (NSInteger)length algorithm:(NSString *)algorithm{
+     // Data of String to generate Hash key(hexa decimal string).
+-    NSData *passwordData = [password dataUsingEncoding:NSUTF8StringEncoding];
+-    NSData *saltData = [salt dataUsingEncoding:NSUTF8StringEncoding];
++    NSData *passwordData = [self fromHex:password]; // use hex instead of utf8
++    NSData *saltData = [self fromHex:salt]; // use hex instead of utf8
+ 
+     // Hash key (hexa decimal) string data length.
+     NSMutableData *hashKeyData = [NSMutableData dataWithLength:length/8];
+@@ -189,29 +189,29 @@ + (NSData *) AESCTR: (NSString *)operation data: (NSData *)data key: (NSString *
+ 
+ + (NSString *) encrypt: (NSString *)clearText key: (NSString *)key iv: (NSString *)iv algorithm: (NSString *)algorithm {
+     if ([algorithm containsString:@"ctr"]) {
+-        NSData *result = [self AESCTR:@"encrypt" data:[clearText dataUsingEncoding:NSUTF8StringEncoding] key:key iv:iv algorithm:algorithm];
++        NSData *result = [self AESCTR:@"encrypt" data:[self fromHex:clearText] key:key iv:iv algorithm:algorithm];
+         return [self toHex:result];
+     }
+     else{
+-        NSData *result = [self AESCBC:@"encrypt" data:[clearText dataUsingEncoding:NSUTF8StringEncoding] key:key iv:iv algorithm:algorithm];
+-        return [result base64EncodedStringWithOptions:0];
++        NSData *result = [self AESCBC:@"encrypt" data:[self fromHex:clearText] key:key iv:iv algorithm:algorithm];
++        return [self toHex:result];
+     }
+ }
+ 
+ + (NSString *) decrypt: (NSString *)cipherText key: (NSString *)key iv: (NSString *)iv algorithm: (NSString *)algorithm {
+     if ([algorithm containsString:@"ctr"]) {
+         NSData *result = [self AESCTR:@"decrypt" data:[self fromHex:cipherText] key:key iv:iv algorithm:algorithm];
+-        return [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding];
++        return [self toHex:result];
+     }
+     else{
+-        NSData *result = [self AESCBC:@"decrypt" data:[[NSData alloc] initWithBase64EncodedString:cipherText options:0] key:key iv:iv algorithm:algorithm];
+-        return [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding];
++        NSData *result = [self AESCBC:@"decrypt" data:[self fromHex:cipherText] key:key iv:iv algorithm:algorithm];
++        return [self toHex:result];
+     }
+ }
+ 
+ + (NSString *) hmac256: (NSString *)input key: (NSString *)key {
+     NSData *keyData = [self fromHex:key];
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
+     void* buffer = malloc(CC_SHA256_DIGEST_LENGTH);
+     CCHmac(kCCHmacAlgSHA256, [keyData bytes], [keyData length], [inputData bytes], [inputData length], buffer);
+     NSData *nsdata = [NSData dataWithBytesNoCopy:buffer length:CC_SHA256_DIGEST_LENGTH freeWhenDone:YES];
+@@ -220,7 +220,7 @@ + (NSString *) hmac256: (NSString *)input key: (NSString *)key {
+ 
+ + (NSString *) hmac512: (NSString *)input key: (NSString *)key {
+     NSData *keyData = [self fromHex:key];
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
+     void* buffer = malloc(CC_SHA512_DIGEST_LENGTH);
+     CCHmac(kCCHmacAlgSHA512, [keyData bytes], [keyData length], [inputData bytes], [inputData length], buffer);
+     NSData *nsdata = [NSData dataWithBytesNoCopy:buffer length:CC_SHA512_DIGEST_LENGTH freeWhenDone:YES];
+@@ -228,14 +228,14 @@ + (NSString *) hmac512: (NSString *)input key: (NSString *)key {
+ }
+ 
+ + (NSString *) sha1: (NSString *)input {
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
+     NSMutableData *result = [[NSMutableData alloc] initWithLength:CC_SHA1_DIGEST_LENGTH];
+     CC_SHA1([inputData bytes], (CC_LONG)[inputData length], result.mutableBytes);
+     return [self toHex:result];
+ }
+ 
+ + (NSString *) sha256: (NSString *)input {
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
+     unsigned char* buffer = malloc(CC_SHA256_DIGEST_LENGTH);
+     CC_SHA256([inputData bytes], (CC_LONG)[inputData length], buffer);
+     NSData *result = [NSData dataWithBytesNoCopy:buffer length:CC_SHA256_DIGEST_LENGTH freeWhenDone:YES];
+@@ -243,7 +243,7 @@ + (NSString *) sha256: (NSString *)input {
+ }
+ 
+ + (NSString *) sha512: (NSString *)input {
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
+     unsigned char* buffer = malloc(CC_SHA512_DIGEST_LENGTH);
+     CC_SHA512([inputData bytes], (CC_LONG)[inputData length], buffer);
+     NSData *result = [NSData dataWithBytesNoCopy:buffer length:CC_SHA512_DIGEST_LENGTH freeWhenDone:YES];

@@ -1,0 +1,19 @@
+{
+  "name": "@onekeyhq/performance-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Performance monitoring server for OneKey apps",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "derive:session": "node cli/derive-session.js",
+    "build:css": "tailwindcss -i ./public/input.css -o ./public/style.css --minify"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1"
+  }
+}

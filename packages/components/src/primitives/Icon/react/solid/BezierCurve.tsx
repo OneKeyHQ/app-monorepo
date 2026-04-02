@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgBezierCurve = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15 4v2h4.268A2 2 0 0 1 23 7a2 2 0 0 1-3.732 1h-1.61a8.99 8.99 0 0 1 3.287 6H23v6h-6v-6h1.929A7.01 7.01 0 0 0 15 8.673V10H9V8.673A7.01 7.01 0 0 0 5.071 14H7v6H1v-6h2.055a8.99 8.99 0 0 1 3.288-6h-1.61a2 2 0 1 1 0-2H9V4z" />
+  </Svg>
+);
+export default SvgBezierCurve;

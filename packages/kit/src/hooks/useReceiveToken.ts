@@ -1,0 +1,254 @@
+import { useCallback } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenData,
+} from '@onekeyhq/shared/types/token';
+
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+
+import { useAccountData } from './useAccountData';
+
+function useReceiveToken({
+  accountId,
+  networkId,
+  walletId,
+  tokens,
+  tokenListState,
+  isMultipleDerive,
+  indexedAccountId,
+  exchangeSource,
+}: {
+  accountId: string;
+  networkId: string;
+  walletId: string;
+  indexedAccountId: string;
+  isAllNetworks?: boolean;
+  tokens?: ITokenData;
+  tokenListState?: {
+    isRefreshing: boolean;
+    initialized: boolean;
+  };
+  isMultipleDerive?: boolean;
+  exchangeSource?: EExchangeId;
+}) {
+  const intl = useIntl();
+  const {
+    vaultSettings,
+    account: _account,
+    network,
+  } = useAccountData({
+    networkId,
+    accountId,
+  });
+
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
+  const handleOnReceive = useCallback(
+    async ({
+      token,
+      withAllAggregateTokens,
+      sameModal,
+      useSelector,
+    }: {
+      token?: IToken;
+      withAllAggregateTokens?: boolean;
+      sameModal?: boolean;
+      useSelector?: boolean;
+    }) => {
+      if (useSelector) {
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.ReceiveSelector,
+        });
+        return;
+      }
+
+      if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+        if (sameModal) {
+          navigation.push(EModalReceiveRoutes.CreateInvoice, {
+            networkId,
+            accountId,
+          });
+          return;
+        }
+
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.CreateInvoice,
+          params: {
+            networkId,
+            accountId,
+          },
+        });
+        return;
+      }
+
+      if (vaultSettings?.isSingleToken || token) {
+        if (
+          isMultipleDerive &&
+          !accountUtils.isOthersWallet({ walletId }) &&
+          vaultSettings?.mergeDeriveAssetsEnabled
+        ) {
+          if (sameModal) {
+            navigation.push(EModalReceiveRoutes.ReceiveToken, {
+              networkId,
+              accountId: '',
+              walletId,
+              token: token ?? tokens?.data?.[0],
+              indexedAccountId,
+            });
+            return;
+          }
+          navigation.pushModal(EModalRoutes.ReceiveModal, {
+            screen: EModalReceiveRoutes.ReceiveToken,
+            params: {
+              networkId,
+              accountId: '',
+              walletId,
+              token: token ?? tokens?.data?.[0],
+              indexedAccountId,
+            },
+          });
+          return;
+        }
+
+        if (sameModal) {
+          navigation.push(EModalReceiveRoutes.ReceiveToken, {
+            networkId,
+            accountId,
+            walletId,
+            token,
+            indexedAccountId,
+            disableSelector: true,
+          });
+        } else {
+          navigation.pushModal(EModalRoutes.ReceiveModal, {
+            screen: EModalReceiveRoutes.ReceiveToken,
+            params: {
+              networkId,
+              accountId,
+              walletId,
+              token,
+              indexedAccountId,
+              disableSelector: true,
+            },
+          });
+        }
+      } else {
+        let allAggregateTokenMap:
+          | Record<string, { tokens: IAccountToken[] }>
+          | undefined;
+        let allAggregateTokens: IAccountToken[] | undefined;
+
+        if (withAllAggregateTokens) {
+          const res =
+            await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
+          await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
+          allAggregateTokenMap = res.allAggregateTokenMap;
+          allAggregateTokens = res.allAggregateTokens;
+        }
+
+        const params = {
+          allAggregateTokenMap,
+          allAggregateTokens,
+          aggregateTokenSelectorScreen:
+            EModalReceiveRoutes.ReceiveSelectAggregateToken,
+          title: intl.formatMessage({
+            id: ETranslations.global_select_crypto,
+          }),
+          networkId,
+          accountId,
+          indexedAccountId,
+          tokens,
+          tokenListState,
+          searchAll: true,
+          closeAfterSelect: false,
+          footerTipText: intl.formatMessage({
+            id: ETranslations.receive_token_list_footer_text,
+          }),
+          enableNetworkAfterSelect: true,
+          onSelect: async (t: IToken) => {
+            if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {
+              navigation.pushModal(EModalRoutes.ReceiveModal, {
+                screen: EModalReceiveRoutes.CreateInvoice,
+                params: {
+                  networkId: t.networkId ?? '',
+                  accountId: t.accountId ?? '',
+                },
+              });
+              return;
+            }
+
+            const settings =
+              await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                networkId: t.networkId ?? '',
+              });
+
+            if (
+              settings.mergeDeriveAssetsEnabled &&
+              network?.isAllNetworks &&
+              !accountUtils.isOthersWallet({ walletId })
+            ) {
+              navigation.push(EModalReceiveRoutes.ReceiveToken, {
+                networkId: t.networkId ?? networkId,
+                accountId: '',
+                walletId,
+                token: t,
+                indexedAccountId,
+                exchangeSource,
+              });
+              return;
+            }
+
+            navigation.push(EModalReceiveRoutes.ReceiveToken, {
+              networkId: t.networkId ?? networkId,
+              accountId: t.accountId ?? accountId,
+              walletId,
+              token: t,
+              indexedAccountId,
+              exchangeSource,
+            });
+          },
+        };
+
+        if (sameModal) {
+          navigation.push(EModalReceiveRoutes.ReceiveSelectToken, params);
+        } else {
+          navigation.pushModal(EModalRoutes.ReceiveModal, {
+            screen: EModalReceiveRoutes.ReceiveSelectToken,
+            params,
+          });
+        }
+      }
+    },
+    [
+      accountId,
+      indexedAccountId,
+      intl,
+      isMultipleDerive,
+      navigation,
+      network?.isAllNetworks,
+      networkId,
+      tokenListState,
+      tokens,
+      vaultSettings?.isSingleToken,
+      vaultSettings?.mergeDeriveAssetsEnabled,
+      walletId,
+      exchangeSource,
+    ],
+  );
+
+  return { handleOnReceive };
+}
+
+export { useReceiveToken };

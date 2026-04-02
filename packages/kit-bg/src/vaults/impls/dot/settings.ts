@@ -1,0 +1,123 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import {
+  COINTYPE_DOT,
+  IMPL_DOT,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { EDBAccountType } from '../../../dbs/local/consts';
+
+import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
+
+const accountDeriveInfo: IAccountDeriveInfoMapBase = {
+  default: {
+    namePrefix: 'DOT',
+    labelKey: ETranslations.bip44__standard,
+    template: `m/44'/${COINTYPE_DOT}'/${INDEX_PLACEHOLDER}'/0'/0'`,
+    coinType: COINTYPE_DOT,
+  },
+};
+
+const settings: IVaultSettings = {
+  impl: IMPL_DOT,
+  coinTypeDefault: COINTYPE_DOT,
+  accountType: EDBAccountType.VARIANT,
+
+  importedAccountEnabled: true,
+  hardwareAccountEnabled: true,
+  externalAccountEnabled: false,
+  watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
+  dappInteractionEnabled: true,
+  // dApp not edit fee
+  preCheckDappTxFeeInfoRequired: true,
+
+  isUtxo: false,
+  isSingleToken: false,
+  NFTEnabled: false,
+  nonceRequired: true,
+  feeUTXORequired: false,
+  editFeeEnabled: true,
+  replaceTxEnabled: false,
+  transferZeroNativeTokenEnabled: true,
+  estimatedFeePollingInterval: 120,
+
+  defaultFeePresetIndex: 0,
+
+  customRpcEnabled: true,
+
+  saveConfirmedTxsEnabled: true,
+
+  accountDeriveInfo,
+  networkInfo: {
+    default: {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'DOT',
+    },
+    'dot--astar': {
+      curve: 'ed25519',
+      addressPrefix: '5',
+      nativeTokenAddress: 'ASTR',
+      genesisHash:
+        '0x9eb76c5184c4ab8679d2d5d819fdf90b9c001403e9e17da2e14b6d8aec4029c6',
+    },
+    'dot--manta': {
+      curve: 'ed25519',
+      addressPrefix: '77',
+      nativeTokenAddress: 'MANTA',
+      genesisHash:
+        '0xf3c7ad88f6a80f366c4be216691411ef0622e8b809b1046ea297ef106058d4eb',
+    },
+    'dot--joystream': {
+      curve: 'ed25519',
+      addressPrefix: '126',
+      nativeTokenAddress: 'JOY',
+      genesisHash:
+        '0x6b5e488e0fa8f9821110d5c13f4c468abcd43ce5e297e62b34c53c3346465956',
+    },
+    'dot--hydration': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'HDX',
+      genesisHash:
+        '0xafdc188f45c71dacbaa0b62e16a91f726c7b8699a9748cdf715459de6b7f366d',
+    },
+    'dot--asset-hub': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'DOT',
+      genesisHash:
+        '0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f',
+    },
+    'dot--bifrost-ksm': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'BNC',
+      genesisHash:
+        '0x9f28c6a68e0fc9646eff64935684f6eeeece527e37bbe1f213d22caa1d9d6bed',
+    },
+    'dot--bifrost': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'BNC',
+      genesisHash:
+        '0x262e1b2ad728475fd6fe88e62d34c200abe6fd693931ddad144059b1eb884e5b',
+    },
+    'dot--kusama-assethub': {
+      curve: 'ed25519',
+      addressPrefix: '2',
+      nativeTokenAddress: 'KSM',
+      genesisHash:
+        '0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a',
+    },
+  },
+};
+
+export default Object.freeze(settings);

@@ -1,0 +1,68 @@
+import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import '@onekeyhq/shared/src/storage/appStorage';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+
+import localDb from '../dbs/local/localDb';
+
+import ServiceBase from './ServiceBase';
+
+@backgroundClass()
+class ServiceBootstrap extends ServiceBase {
+  constructor({ backgroundApi }: { backgroundApi: any }) {
+    super({ backgroundApi });
+  }
+
+  public async init() {
+    await localDb.readyDb;
+    try {
+      await this.backgroundApi.serviceSetting.initSystemLocale();
+    } catch (error) {
+      console.error(error);
+    }
+    try {
+      await Promise.all([
+        this.backgroundApi.serviceSetting.refreshLocaleMessages(),
+        this.backgroundApi.walletConnect.initializeOnStart(),
+        this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
+        this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
+        this.backgroundApi.serviceSetting.fetchReviewControl(),
+        this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
+        this.backgroundApi.serviceNotification.init(),
+        this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
+      ]);
+    } catch (error) {
+      console.error(error);
+    }
+
+    // wait for local messages to be loaded
+    void this.backgroundApi.serviceContextMenu.init();
+    if (platformEnv.isExtension) {
+      try {
+        await this.backgroundApi.serviceDevSetting.initAnalytics();
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
+    void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
+    void this.backgroundApi.simpleDb.recentRecipients.migrateFromOldStorage();
+    void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
+    void this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting();
+    void this.backgroundApi.serviceAccount.migrateHardwareLtcXPub();
+    void this.backgroundApi.serviceSetting.migrateBTCFreshAddressSetting();
+    void this.backgroundApi.serviceHardware.removeDeviceHomeScreen();
+    void systemTimeUtils.startServerTimeInterval();
+    void this.backgroundApi.serviceIpTable.init();
+    void this.backgroundApi.serviceCloudBackupV2.init();
+    // Restore persisted whitelist first, then fetch fresh data from server.
+    // Sequencing prevents the stale persisted data from overwriting a newer fetch result.
+    void this.backgroundApi.serviceSetting
+      .restoreFiatPaySiteWhitelistFromPersist()
+      .then(() =>
+        this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
+      );
+  }
+}
+
+export default ServiceBootstrap;

@@ -1,0 +1,43 @@
+import type { IMarketBasicConfigData } from '@onekeyhq/shared/types/marketV2';
+
+/**
+ * Extract default network ID from basic config
+ */
+export function getDefaultNetworkId(
+  basicConfig?: IMarketBasicConfigData,
+): string | undefined {
+  return basicConfig?.networkList?.[0]?.networkId;
+}
+
+/**
+ * Extract minimum liquidity value
+ */
+export function getMinLiquidity(basicConfig?: IMarketBasicConfigData): number {
+  return basicConfig?.minLiquidity || 5000;
+}
+
+/**
+ * Extract refresh interval
+ */
+export function getRefreshInterval(
+  basicConfig?: IMarketBasicConfigData,
+): number {
+  return basicConfig?.refreshInterval || 5;
+}
+
+/**
+ * Format minimum liquidity for display (e.g., 5000 -> "5K")
+ */
+export function formatLiquidityValue(minLiquidity: number): string {
+  if (minLiquidity >= 1000) {
+    return `${minLiquidity / 1000}K`;
+  }
+  return minLiquidity.toString();
+}
+
+/**
+ * Get network list from basic config
+ */
+export function getNetworkList(basicConfig?: IMarketBasicConfigData) {
+  return basicConfig?.networkList || [];
+}

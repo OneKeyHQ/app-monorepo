@@ -1,0 +1,358 @@
+/**
+ * Tests for HyperLiquid perps price precision utilities
+ * Based on: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size
+ */
+
+import BigNumber from 'bignumber.js';
+
+import {
+  analyzeOrderBookPrecision,
+  calculateLiquidationPrice,
+  calculatePriceScale,
+  countDecimalPlaces,
+  formatPriceToSignificantDigits,
+  formatWithPrecision,
+  getDisplayPriceScaleDecimals,
+  getMostFrequentDecimalPlaces,
+  getValidPriceDecimals,
+} from './perpsUtils';
+
+describe('getValidPriceDecimals - HyperLiquid Perp Rules', () => {
+  // Rule: Integer prices are always allowed, regardless of significant figures
+  test('integer prices', () => {
+    expect(getValidPriceDecimals('123456')).toBe(0); // 6 digits still valid as integer
+    expect(getValidPriceDecimals('4368')).toBe(0); // ETH example
+  });
+
+  // Rule: Up to 5 significant figures
+  test('5 significant figures rule', () => {
+    expect(getValidPriceDecimals('1234.5')).toBe(1); // Valid
+    expect(getValidPriceDecimals('1234.56')).toBe(1); // Invalid, truncated to 5 sig figs
+  });
+
+  // Rule: No more than MAX_DECIMALS - szDecimals (6 - 0 = 6 for perps)
+  test('max decimals constraint', () => {
+    expect(getValidPriceDecimals('0.001234')).toBe(6); // Valid
+    expect(getValidPriceDecimals('0.0012345')).toBe(6); // Invalid, truncated to 6 decimals
+  });
+
+  // Note: Current implementation assumes szDecimals = 0, so max decimals = 6
+  test('edge cases', () => {
+    expect(getValidPriceDecimals('0.01234')).toBe(5); // 5 significant figures
+    expect(getValidPriceDecimals('0.012345')).toBe(6); // 6 decimals (within MAX_DECIMALS)
+  });
+});
+
+describe('calculatePriceScale - TradingView Price Scale', () => {
+  test('ETH price scale calculation', () => {
+    expect(calculatePriceScale('4368')).toBe(10); // 4 digits -> 1 decimal -> scale 10
+    expect(calculatePriceScale('1234.0')).toBe(10);
+  });
+
+  test('price scale by digit count', () => {
+    expect(calculatePriceScale('1')).toBe(10_000); // 1 digit -> scale 10000
+    expect(calculatePriceScale('12')).toBe(1000); // 2 digits -> scale 1000
+    expect(calculatePriceScale('123')).toBe(100); // 3 digits -> scale 100
+    expect(calculatePriceScale('1234')).toBe(10); // 4 digits -> scale 10
+    expect(calculatePriceScale('12345')).toBe(1); // 5+ digits -> scale 1
+  });
+});
+
+describe('countDecimalPlaces', () => {
+  test('counts decimal places correctly', () => {
+    expect(countDecimalPlaces('123')).toBe(0);
+    expect(countDecimalPlaces('123.4')).toBe(1);
+    expect(countDecimalPlaces('123.45')).toBe(2);
+    expect(countDecimalPlaces('0.123456')).toBe(6);
+    expect(countDecimalPlaces('0')).toBe(0);
+  });
+});
+
+describe('getDisplayPriceScaleDecimals', () => {
+  test('returns correct display price scale decimals', () => {
+    expect(getDisplayPriceScaleDecimals('123')).toBe(2);
+    expect(getDisplayPriceScaleDecimals('123.4')).toBe(2);
+    expect(getDisplayPriceScaleDecimals('123.45')).toBe(2);
+    expect(getDisplayPriceScaleDecimals('0.123456')).toBe(6);
+    expect(getDisplayPriceScaleDecimals('0.0123456')).toBe(6);
+    expect(getDisplayPriceScaleDecimals('0.0012345')).toBe(6);
+    expect(getDisplayPriceScaleDecimals('0.0001230')).toBe(6);
+    expect(getDisplayPriceScaleDecimals('0.000123456')).toBe(6);
+  });
+});
+
+describe('getMostFrequentDecimalPlaces', () => {
+  test('returns most frequent decimal places', () => {
+    // Most frequent is 2 decimal places (appears 3 times)
+    expect(
+      getMostFrequentDecimalPlaces(['1.23', '4.56', '7.89', '10.1', '11']),
+    ).toBe(2);
+
+    // Most frequent is 0 decimal places (appears 2 times)
+    expect(getMostFrequentDecimalPlaces(['123', '456', '78.9'])).toBe(0);
+
+    // All same decimal places
+    expect(getMostFrequentDecimalPlaces(['1.234', '5.678', '9.012'])).toBe(3);
+  });
+
+  test('handles edge cases', () => {
+    expect(getMostFrequentDecimalPlaces([])).toBe(2); // Default fallback
+    expect(getMostFrequentDecimalPlaces(['123'])).toBe(0); // Single value
+  });
+});
+
+describe('analyzeOrderBookPrecision', () => {
+  test('analyzes precision from order book data', () => {
+    const bids = [
+      { px: '50123.45', sz: '0.1234' },
+      { px: '50122.50', sz: '0.5678' },
+    ];
+    const asks = [
+      { px: '50124.50', sz: '0.2345' },
+      { px: '50125.75', sz: '0.6789' },
+    ];
+
+    const result = analyzeOrderBookPrecision(bids, asks);
+
+    // Price precision: 3 values with 2 decimals, 1 value with 2 decimals -> most frequent is 2
+    expect(result.priceDecimals).toBe(2);
+
+    // Size precision: all values have 4 decimal places
+    expect(result.sizeDecimals).toBe(4);
+  });
+
+  test('handles mixed precision data', () => {
+    const bids = [
+      { px: '123.4', sz: '1.23' },
+      { px: '124.56', sz: '2.3456' },
+    ];
+    const asks = [
+      { px: '125', sz: '3.456' },
+      { px: '126.789', sz: '4.5' },
+    ];
+
+    const result = analyzeOrderBookPrecision(bids, asks);
+
+    // Price values: ['123.4', '124.56', '125', '126.789']
+    // Decimal places: [1, 2, 0, 3] - all have frequency 1, so returns first encountered (1)
+    expect(result.priceDecimals).toBe(1);
+
+    // Size values: ['1.23', '2.3456', '3.456', '4.5']
+    // Decimal places: [2, 4, 3, 1] - all have frequency 1, so returns first encountered (2)
+    expect(result.sizeDecimals).toBe(2);
+  });
+
+  test('handles insufficient data', () => {
+    const result = analyzeOrderBookPrecision([], []);
+    expect(result.priceDecimals).toBe(2); // Default fallback
+    expect(result.sizeDecimals).toBe(4); // Default fallback
+  });
+
+  test('handles less than 4 total samples', () => {
+    const bids = [{ px: '100.50', sz: '1.2345' }];
+    const asks = [{ px: '101.25', sz: '2.3456' }];
+
+    const result = analyzeOrderBookPrecision(bids, asks);
+    expect(result.priceDecimals).toBe(2);
+    expect(result.sizeDecimals).toBe(4);
+  });
+});
+
+describe('formatWithPrecision', () => {
+  test('formats numbers with specified precision', () => {
+    expect(formatWithPrecision('123.456789', 2)).toBe('123.46');
+    expect(formatWithPrecision('123.456789', 4)).toBe('123.4568');
+    expect(formatWithPrecision('123', 2)).toBe('123.00');
+    expect(formatWithPrecision(123.456, 1)).toBe('123.5');
+    expect(formatWithPrecision(new BigNumber(3289), 1)).toBe('3289.0');
+  });
+
+  test('handles BigNumber input', () => {
+    const bn = new BigNumber('123.456789');
+    expect(formatWithPrecision(bn, 2)).toBe('123.46');
+    expect(formatWithPrecision(bn, 4)).toBe('123.4568');
+  });
+
+  test('handles edge cases', () => {
+    expect(formatWithPrecision('0', 3)).toBe('0.000');
+    expect(formatWithPrecision(Infinity, 2)).toBe('0');
+    expect(formatWithPrecision(NaN, 2)).toBe('0');
+    expect(formatWithPrecision(new BigNumber(Infinity), 2)).toBe('0');
+  });
+});
+
+describe('formatPriceToSignificantDigits - HyperLiquid Price Formatting', () => {
+  // Rule: Integer prices are never limited by significant figures
+  test('integer prices (no significant figure limits)', () => {
+    expect(formatPriceToSignificantDigits('123456')).toBe('123456'); // 6 digits still valid
+    expect(formatPriceToSignificantDigits('116741')).toBe('116741'); // Real case from user
+    expect(formatPriceToSignificantDigits('116741.0')).toBe('116741'); // .0 gets removed
+    expect(formatPriceToSignificantDigits('4368')).toBe('4368'); // ETH example
+    expect(formatPriceToSignificantDigits(123_456)).toBe('123456'); // Number input
+  });
+
+  // Rule: Non-integers limited to 5 significant figures
+  test('decimal prices (5 significant figures rule)', () => {
+    expect(formatPriceToSignificantDigits('1.23456789')).toBe('1.2345'); // 1 integer + 4 decimal = 5 sig figs
+    expect(formatPriceToSignificantDigits('12.3456789')).toBe('12.345'); // 2 integer + 3 decimal = 5 sig figs
+    expect(formatPriceToSignificantDigits('123.456789')).toBe('123.45'); // 3 integer + 2 decimal = 5 sig figs
+    expect(formatPriceToSignificantDigits('1234.56789')).toBe('1234.5'); // 4 integer + 1 decimal = 5 sig figs
+    expect(formatPriceToSignificantDigits('12345.6789')).toBe('12345'); // 5 integer + 0 decimal = 5 sig figs
+  });
+
+  // Rule: Leading zeros don't count as significant figures
+  test('prices with leading zeros', () => {
+    expect(formatPriceToSignificantDigits('0.012345')).toBe('0.012345'); // 5 sig figs (leading zeros ignored)
+    expect(formatPriceToSignificantDigits('0.0012345')).toBe('0.001234'); // Limited by MAX_DECIMALS_PERP = 6
+    expect(formatPriceToSignificantDigits('0.00012345')).toBe('0.000123'); // Limited by MAX_DECIMALS_PERP = 6
+    expect(formatPriceToSignificantDigits('0.012345678')).toBe('0.012345'); // Truncated to 5 sig figs
+    expect(formatPriceToSignificantDigits('0.001234567')).toBe('0.001234'); // Limited by MAX_DECIMALS_PERP = 6
+  });
+
+  // Rule: Remove trailing zeros
+  test('trailing zero removal', () => {
+    expect(formatPriceToSignificantDigits('123.000')).toBe('123');
+    expect(formatPriceToSignificantDigits('123.100')).toBe('123.1');
+    expect(formatPriceToSignificantDigits('123.450')).toBe('123.45');
+    expect(formatPriceToSignificantDigits('0.01000')).toBe('0.01');
+  });
+
+  // Rule: Default MAX_DECIMALS_PERP = 6 limit
+  test('default MAX_DECIMALS_PERP limit (no szDecimals)', () => {
+    // Without szDecimals, max decimals = 6
+    expect(formatPriceToSignificantDigits('0.1234567890123')).toBe('0.12345'); // 5 sig figs limit applies first (0 integer + 5 decimal = 5 sig figs)
+    expect(formatPriceToSignificantDigits('1.1234567890123')).toBe('1.1234'); // 5 sig figs limit applies first (1 + 4 decimals)
+    expect(formatPriceToSignificantDigits('0.0000001234567890')).toBe('0'); // Limited to 6 decimals, becomes all zeros, then trailing zeros removed
+  });
+
+  // Rule: szDecimals parameter limits decimals further
+  test('szDecimals parameter (MAX_DECIMALS_PERP = 6)', () => {
+    // szDecimals = 0, maxDecimals = 6 - 0 = 6
+    expect(formatPriceToSignificantDigits('0.1234567', 0)).toBe('0.12345'); // 5 sig figs limit applies first
+    expect(formatPriceToSignificantDigits('1.234567', 0)).toBe('1.2345'); // 5 sig figs limit applies first
+
+    // szDecimals = 2, maxDecimals = 6 - 2 = 4
+    expect(formatPriceToSignificantDigits('0.123456789', 2)).toBe('0.1234'); // Limited to 4 decimals
+    expect(formatPriceToSignificantDigits('1.23456789', 2)).toBe('1.2345'); // Both limits allow 4 decimals
+
+    // szDecimals = 6, maxDecimals = 6 - 6 = 0 (integers only)
+    expect(formatPriceToSignificantDigits('123.456', 6)).toBe('123'); // Forced to integer
+  });
+
+  // Rule: Zeros within decimal digits count as significant figures
+  test('zeros within decimal digits are significant', () => {
+    // 2.05842: 1 integer digit + 5 decimal digits = 6 total, limited to 5 sig figs
+    // Integer part: 1 digit, so decimal part limited to 4 digits: 0584
+    expect(formatPriceToSignificantDigits('2.05842', 0)).toBe('2.0584');
+
+    // Similar cases with zeros in decimal part counting as significant
+    expect(formatPriceToSignificantDigits('3.10456', 0)).toBe('3.1045'); // 1 + 4 = 5 sig figs
+    expect(formatPriceToSignificantDigits('12.0789', 0)).toBe('12.078'); // 2 + 3 = 5 sig figs
+    expect(formatPriceToSignificantDigits('1.20304', 0)).toBe('1.203'); // 1 + 4 = 5 sig figs, trailing zero removed
+  });
+
+  // Edge cases
+  test('edge cases and error handling', () => {
+    expect(formatPriceToSignificantDigits('')).toBe('0'); // Empty string
+    expect(formatPriceToSignificantDigits('0')).toBe('0'); // Zero
+    expect(formatPriceToSignificantDigits('abc')).toBe('0'); // Invalid string
+    expect(formatPriceToSignificantDigits(NaN)).toBe('0'); // NaN
+    expect(formatPriceToSignificantDigits('0.0')).toBe('0'); // Zero with decimal
+    expect(formatPriceToSignificantDigits('0.00000')).toBe('0'); // Zero with multiple decimals
+  });
+
+  // Real trading scenarios
+  test('real trading price examples', () => {
+    // ETH price examples
+    expect(formatPriceToSignificantDigits('4367.82')).toBe('4367.8'); // 5 sig figs
+    expect(formatPriceToSignificantDigits('4368')).toBe('4368'); // Integer, no limit
+
+    // BTC price examples
+    expect(formatPriceToSignificantDigits('95123.456789')).toBe('95123'); // 5 sig figs reached with integer part
+    expect(formatPriceToSignificantDigits('95123')).toBe('95123'); // Integer, no limit
+
+    // Small AltCoin prices
+    expect(formatPriceToSignificantDigits('0.000123456')).toBe('0.000123'); // Limited by MAX_DECIMALS_PERP = 6
+    expect(formatPriceToSignificantDigits('0.12345678')).toBe('0.12345'); // 5 sig figs
+  });
+});
+
+describe('calculateLiquidationPrice', () => {
+  const marginTiers = [{ lowerBound: '0', maxLeverage: 10 }];
+
+  test('keeps mark-price clamp for standard limit orders', () => {
+    const liquidationPrice = calculateLiquidationPrice({
+      totalValue: new BigNumber(110),
+      referencePrice: new BigNumber(110),
+      markPrice: new BigNumber(100),
+      clampToCurrentMark: true,
+      positionSize: new BigNumber(1),
+      side: 'long',
+      leverage: 10,
+      mode: 'isolated',
+      marginTiers,
+      maxLeverage: 10,
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(94.736_842, 6);
+  });
+
+  test('uses execution price directly when clamp is disabled', () => {
+    const liquidationPrice = calculateLiquidationPrice({
+      totalValue: new BigNumber(110),
+      referencePrice: new BigNumber(110),
+      markPrice: new BigNumber(100),
+      clampToCurrentMark: false,
+      positionSize: new BigNumber(1),
+      side: 'long',
+      leverage: 10,
+      mode: 'isolated',
+      marginTiers,
+      maxLeverage: 10,
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(104.210_526, 6);
+  });
+
+  test('handles same-direction adds with an existing cross position', () => {
+    const liquidationPrice = calculateLiquidationPrice({
+      totalValue: new BigNumber(110),
+      referencePrice: new BigNumber(110),
+      clampToCurrentMark: false,
+      positionSize: new BigNumber(1),
+      side: 'long',
+      leverage: 10,
+      mode: 'cross',
+      marginTiers,
+      maxLeverage: 10,
+      crossMarginUsed: new BigNumber(100),
+      crossMaintenanceMarginUsed: new BigNumber(20),
+      existingPositionSize: new BigNumber(2),
+      existingEntryPrice: new BigNumber(100),
+      newOrderSide: 'long',
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(77.192_982, 6);
+  });
+
+  test('handles flip scenarios with an existing cross position', () => {
+    const liquidationPrice = calculateLiquidationPrice({
+      totalValue: new BigNumber(220),
+      referencePrice: new BigNumber(110),
+      clampToCurrentMark: false,
+      positionSize: new BigNumber(2),
+      side: 'long',
+      leverage: 10,
+      mode: 'cross',
+      marginTiers,
+      maxLeverage: 10,
+      crossMarginUsed: new BigNumber(100),
+      crossMaintenanceMarginUsed: new BigNumber(20),
+      existingPositionSize: new BigNumber(-1),
+      existingEntryPrice: new BigNumber(100),
+      newOrderSide: 'long',
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(25.789_474, 6);
+  });
+});

@@ -1,0 +1,243 @@
+import { useCallback, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  Dialog,
+  Toast,
+  rootNavigationRef,
+  useClipboard,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  ECustomCloudSyncError,
+  ECustomOneKeyHardwareError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+interface IErrorActionParams {
+  errorCode?: number;
+  requestId?: string;
+  diagnosticText?: string;
+  i18nKey?: ETranslations;
+}
+
+// Cooldown mechanism: prevent high-frequency log uploads (1 minute)
+const LOG_UPLOAD_COOLDOWN_MS = timerUtils.getTimeDurationMs({ seconds: 60 });
+let lastLogUploadTime = 0;
+
+function ContactSupportButton({ requestId }: { requestId: string }) {
+  const intl = useIntl();
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handlePress = useCallback(async () => {
+    setIsUploading(true);
+
+    // Open Intercom immediately
+    void showIntercom({ requestId });
+
+    // Check cooldown before uploading
+    const now = Date.now();
+    const timeSinceLastUpload = now - lastLogUploadTime;
+    const isInCooldown = timeSinceLastUpload < LOG_UPLOAD_COOLDOWN_MS;
+
+    if (isInCooldown) {
+      const remainingSeconds = Math.ceil(
+        (LOG_UPLOAD_COOLDOWN_MS - timeSinceLastUpload) / 1000,
+      );
+      console.log(
+        `[ContactSupport] Log upload in cooldown, skipping. Retry in ${remainingSeconds}s`,
+      );
+      setIsUploading(false);
+      return;
+    }
+
+    // Update last upload time
+    lastLogUploadTime = now;
+
+    // Silently upload logs in background (fire and forget)
+    void (async () => {
+      try {
+        // Dynamically import to avoid circular dependencies and reduce initial bundle size
+        const { collectLogDigest, uploadLogBundle } =
+          await import('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs');
+
+        // Generate timestamp-based filename
+        const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+        const fileBaseName = `OneKeyLogs-${timestamp}`;
+
+        // Collect logs and upload silently
+        const digest = await collectLogDigest(fileBaseName);
+        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
+          {
+            sizeBytes: digest.sizeBytes,
+            sha256: digest.sha256,
+          },
+        );
+        await uploadLogBundle({
+          uploadToken: token.uploadToken,
+          digest,
+        });
+
+        console.log(
+          '[ContactSupport] Logs uploaded successfully in background',
+        );
+      } catch (error) {
+        // Silent failure - don't show error to user
+        console.warn('[ContactSupport] Failed to upload logs:', error);
+      } finally {
+        setIsUploading(false);
+      }
+    })();
+  }, [requestId]);
+
+  return (
+    <Button
+      icon="HelpSupportOutline"
+      size="small"
+      loading={isUploading}
+      disabled={isUploading}
+      onPress={() => {
+        void handlePress();
+      }}
+    >
+      {intl.formatMessage({ id: ETranslations.global_contact_us })}
+    </Button>
+  );
+}
+
+function CopyDiagnosticButton({ diagnosticText }: { diagnosticText: string }) {
+  const intl = useIntl();
+  const { copyText } = useClipboard();
+
+  return (
+    <Button
+      variant="primary"
+      size="small"
+      onPress={() => {
+        void copyText(diagnosticText);
+      }}
+    >
+      {intl.formatMessage({ id: ETranslations.global_copy })}
+    </Button>
+  );
+}
+
+function NeedFirmwareUpgradeFromWebButton() {
+  const intl = useIntl();
+
+  return (
+    <Button
+      size="small"
+      onPress={() => {
+        openUrlExternal('https://firmware.onekey.so/');
+      }}
+    >
+      {intl.formatMessage({ id: ETranslations.update_update_now })}
+    </Button>
+  );
+}
+
+function NavigateToCloudSyncSwitchButton() {
+  const intl = useIntl();
+
+  return (
+    <Button
+      variant="primary"
+      size="small"
+      onPress={() => {
+        Toast.dismiss(CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID);
+        rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+          screen: EModalRoutes.PrimeModal,
+          params: { screen: EPrimePages.PrimeCloudSync },
+        });
+      }}
+    >
+      {intl.formatMessage({ id: ETranslations.switch_now__action })}
+    </Button>
+  );
+}
+
+function ClearPendingTransactionsButton() {
+  const intl = useIntl();
+
+  return (
+    <Button
+      variant="primary"
+      size="small"
+      onPress={() => {
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.settings_clear_pending_transactions,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.settings_clear_pending_transactions_desc,
+          }),
+          tone: 'destructive',
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_clear,
+          }),
+          onConfirm: async () => {
+            await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+            appEventBus.emit(
+              EAppEventBusNames.ClearLocalHistoryPendingTxs,
+              undefined,
+            );
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.global_success,
+              }),
+            });
+          },
+        });
+      }}
+    >
+      {intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions,
+      })}
+    </Button>
+  );
+}
+
+export function getErrorAction({
+  errorCode,
+  requestId,
+  diagnosticText,
+  i18nKey,
+}: IErrorActionParams) {
+  // Special case: firmware upgrade button
+  if (errorCode === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
+    return <NeedFirmwareUpgradeFromWebButton />;
+  }
+
+  // Cloud sync: navigate to Cloud Sync settings page
+  if (errorCode === ECustomCloudSyncError.OnekeyIdSyncSunsetReminder) {
+    return <NavigateToCloudSyncSwitchButton />;
+  }
+
+  // Pending queue too long: clear pending transactions button
+  if (i18nKey === ETranslations.send_engine_pending_queue_too_long) {
+    return <ClearPendingTransactionsButton />;
+  }
+
+  // Default: show contact support + copy diagnostic info buttons
+  if (diagnosticText && requestId) {
+    return [
+      <ContactSupportButton key="contact" requestId={requestId} />,
+      <CopyDiagnosticButton key="copy" diagnosticText={diagnosticText} />,
+    ];
+  }
+
+  return undefined;
+}

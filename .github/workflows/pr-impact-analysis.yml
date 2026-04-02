@@ -1,0 +1,21 @@
+name: PR Impact Analysis
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [x]
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Analyze PR Impact
+        uses: onekeyhq/actions/pr-impact-analysis@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          worker-url: ${{ secrets.PR_ANALYSIS_WORKER_URL }}
+          worker-secret: ${{ secrets.PR_ANALYSIS_WORKER_SECRET }}

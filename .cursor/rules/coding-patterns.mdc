@@ -1,0 +1,41 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# OneKey Coding Patterns
+
+## Rules
+- Develop functions with a test-driven development mindset, ensuring each low-level function or method intended for reuse performs a single, atomic task, but avoid adding unnecessary abstration layers.
+
+## Promise Handling
+- Always await Promises; use `void` prefix if intentionally not awaiting
+- Avoid floating promises to prevent unhandled rejections
+- Follow the `@typescript-eslint/no-floating-promises` rule
+
+## React Components
+- Avoid default React import; use named imports only
+- Prefer functional components over class components
+- Use pure functions to create components; avoid importing `import type { FC } from 'react'`
+- Follow React hooks rules (dependencies array, call only at top level)
+- Use the `usePromiseResult` and `useAsyncCall` hooks with proper dependency arrays
+- Do not use default export in any component file; always use named (variable) exports instead
+
+## Restricted Patterns
+- Don't use `toLocaleLowerCase()` or `toLocaleUpperCase()`; use `toLowerCase()` and `toUpperCase()` instead
+- Don't directly import from '@onekeyfe/hd-core'; use `const {} = await CoreSDKLoader()` instead
+- Don't import `localDbInstance` directly; use `localDb` instead
+
+## Comments and Documentation
+- All comments must be written in English
+- Use clear and concise English for inline comments, function documentation, and code explanations
+- Avoid using non-English languages in comments to maintain consistency and accessibility for all developers
+
+## Error Handling
+- Use try/catch blocks for async operations that might fail
+- Provide appropriate error messages and fallbacks
+- Consider using the `useAsyncCall` hook for operations that need loading/error states
+
+## Linting and Code Quality
+- ESLint warnings should be fixed before PRs
+- Run `yarn run lint` to check for and fix ESLint issues

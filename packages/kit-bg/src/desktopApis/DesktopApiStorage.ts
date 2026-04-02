@@ -1,0 +1,54 @@
+import * as store from '@onekeyhq/desktop/app/libs/store';
+import type { IDesktopStoreMap } from '@onekeyhq/shared/types/desktop';
+
+import type { IDesktopApi } from './instance/IDesktopApi';
+
+class DesktopApiStorage {
+  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+    this.desktopApi = desktopApi;
+  }
+
+  desktopApi: IDesktopApi;
+
+  async storeSetItemAsync<T extends keyof IDesktopStoreMap>(
+    key: T,
+    value: IDesktopStoreMap[T],
+  ): Promise<void> {
+    store.instance.set(key, value);
+  }
+
+  async storeGetItemAsync<T extends keyof IDesktopStoreMap>(
+    key: T,
+  ): Promise<IDesktopStoreMap[T]> {
+    return store.instance.get(key);
+  }
+
+  async storeDelItemAsync<T extends keyof IDesktopStoreMap>(
+    key: T,
+  ): Promise<void> {
+    store.instance.delete(key);
+  }
+
+  async storeClear(): Promise<void> {
+    store.instance.clear();
+  }
+
+  async secureSetItemAsync(key: string, value: string): Promise<void> {
+    store.setSecureItem(key, value);
+  }
+
+  async secureGetItemAsync(key: string): Promise<string | null> {
+    const value = store.getSecureItem(key);
+    return value || null;
+  }
+
+  async secureDelItemAsync(key: string): Promise<void> {
+    store.deleteSecureItem(key);
+  }
+
+  async isSecureStorageAvailable(): Promise<boolean> {
+    return store.isSecureStorageAvailable();
+  }
+}
+
+export default DesktopApiStorage;

@@ -1,0 +1,14 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgRewind5 = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M13 2.05c5.053.502 9 4.765 9 9.95 0 5.523-4.477 10-10 10S2 17.523 2 12a9.97 9.97 0 0 1 2.929-7.071l1.414 1.414A7.97 7.97 0 0 0 4 12a8 8 0 1 0 9-7.938V6L9 3l4-3z" />
+    <Path d="M14.424 8.413v1.39H11.05l-.15 1.64h.069c.16-.237.672-.628 1.57-.628 1.267 0 2.41.896 2.41 2.41 0 1.65-1.225 2.66-2.938 2.66-1.762 0-2.739-.99-2.766-2.187h1.611c.076.489.538.822 1.182.822.623 0 1.192-.462 1.192-1.208 0-.715-.504-1.204-1.192-1.204-.623 0-.987.365-1.122.65H9.343l.311-4.345z" />
+  </Svg>
+);
+export default SvgRewind5;

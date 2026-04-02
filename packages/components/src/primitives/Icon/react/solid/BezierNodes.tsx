@@ -1,0 +1,17 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgBezierNodes = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="M9 3v2h6V3h6v6h-2v6h2v6h-6v-2H9v2H3v-6h2V9H3V3zm0 4v2H7v6h2v2h6v-2h2V9h-2V7z"
+      clipRule="evenodd"
+    />
+  </Svg>
+);
+export default SvgBezierNodes;

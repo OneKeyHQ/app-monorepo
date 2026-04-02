@@ -1,0 +1,206 @@
+import type { IBadgeProps, IKeyOfIcons } from '@onekeyhq/components';
+import type { IBtcBlockbookDerivedInfo } from '@onekeyhq/core/src/chains/btc/types';
+import type { EAddressEncodings } from '@onekeyhq/core/src/types';
+import type {
+  IAccountDeriveInfo,
+  IUtxoInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
+
+import type { IInvoiceDecodedResponse, ILNURLDetails } from './lightning';
+
+export enum EInputAddressChangeType {
+  Manual = 'manual',
+  Paste = 'paste',
+  Scan = 'scan',
+  Upload = 'upload',
+  AddressBook = 'AddressBook',
+  AccountSelector = 'AccountSelector',
+}
+
+export enum EDeriveAddressActionType {
+  Copy = 'copy',
+  Select = 'select',
+}
+
+export enum EWalletAddressActionType {
+  Copy = 'copy',
+  ViewInExplorer = 'viewInExplorer',
+}
+
+// TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
+export type IAddressValidation = {
+  isValid: boolean;
+  normalizedAddress: string; // lowercase address saved to db in EVM
+  displayAddress: string; // checksum address in EVM
+  encoding?: EAddressEncodings;
+  lnurlDetails?: ILNURLDetails;
+  decodedInvoice?: IInvoiceDecodedResponse;
+  // baseAddress
+  // fetchBalanceAddress
+  // address of sub networkId
+};
+
+export type IFetchAccountDetailsParams = {
+  accountId: string;
+  networkId: string;
+  accountAddress?: string;
+  cardanoPubKey?: string; // only available for cardano utxo query
+  withUTXOList?: boolean;
+  withNetWorth?: boolean;
+  withBalance?: boolean;
+  withValidate?: boolean;
+  withNonce?: boolean;
+  withCheckInscription?: boolean;
+  withFrozenBalance?: boolean;
+  withTronAccountResources?: boolean;
+  withTransactionCount?: boolean;
+  withXpubDerivedTokens?: boolean;
+  withUTXOBlockTime?: boolean;
+};
+
+export type IFetchAccountDetailsResp = {
+  address: string;
+  balance?: string;
+  txCount?: number;
+  labels?: [];
+  balanceParsed?: string;
+  nonce?: number;
+  accountNumber?: number;
+  isContract?: boolean;
+  netWorth?: string;
+  allUtxoList?: IUtxoInfo[];
+  utxoList?: IUtxoInfo[];
+  frozenUtxoList?: IUtxoInfo[];
+  validateInfo?: {
+    isValid: boolean;
+    addressType: string;
+  };
+  frozenBalance?: string;
+  frozenBalanceParsed?: string;
+  totalBalance?: string;
+  totalBalanceParsed?: string;
+  transactionCount?: number;
+  xpubDerivedTokens?: IBtcBlockbookDerivedInfo[];
+};
+
+export type IValidateAddressResp = {
+  isValid: boolean;
+  addressType?: string;
+};
+
+export type IXpubValidation = {
+  isValid: boolean;
+};
+
+export type IXprvtValidation = {
+  isValid: boolean;
+};
+
+export type IPrivateKeyValidation = {
+  isValid: boolean;
+};
+
+export type IGeneralInputValidation = {
+  isValid: boolean;
+  addressResult?: IAddressValidation;
+  xpubResult?: IXpubValidation;
+  xprvtResult?: IXprvtValidation;
+  privateKeyResult?: IPrivateKeyValidation;
+  deriveInfoItems?: IAccountDeriveInfo[];
+};
+
+export type INetworkAccountAddressDetail = {
+  isValid: boolean;
+  networkId: string;
+  address: string; // real address at certain subnetwork, alias for displayAddress
+  baseAddress: string; // base address shared with all subnetworks
+  normalizedAddress: string; // lowercase address saved to db in EVM
+  displayAddress: string; // checksum address in EVM
+  allowEmptyAddress: boolean; // allow empty address, like lightning network
+  masterAddress?: string; // master address of this address, like first address in BTC
+  receiveAddressPath?: string | undefined; // btc fresh address path
+};
+
+export enum EServerInteractedStatus {
+  FALSE = '0',
+  TRUE = '1',
+  UNKNOWN = '2',
+}
+
+export type IServerAccountBadgeResp = {
+  interacted: EServerInteractedStatus;
+  isCex?: boolean;
+  isContract?: boolean;
+  isScam?: boolean;
+  badges?: IAddressBadge[];
+  label?: string;
+  similarAddress?: string;
+};
+
+export enum EAddressInteractionStatus {
+  INTERACTED = 'interacted',
+  NOT_INTERACTED = 'not-interacted',
+  UNKNOWN = 'unknown',
+}
+
+export type IAddressValidateBaseStatus = 'valid' | 'invalid' | 'unknown';
+
+export type IAddressValidateStatus =
+  | IAddressValidateBaseStatus
+  | 'prohibit-send-to-self'
+  | 'address-not-allowlist';
+
+export type IQueryCheckAddressArgs = {
+  networkId: string;
+  address: string;
+  accountId?: string;
+  enableNameResolve?: boolean;
+  enableAddressBook?: boolean;
+  enableWalletName?: boolean;
+  enableAddressInteractionStatus?: boolean;
+  enableAddressContract?: boolean;
+  enableVerifySendFundToSelf?: boolean;
+  enableAllowListValidation?: boolean;
+  enableAddressDeriveInfo?: boolean;
+  skipValidateAddress?: boolean;
+  walletAccountItem?: {
+    walletName: string;
+    accountName: string;
+    accountId: string;
+  };
+  ignoreSimilarAddressInAddressBook?: boolean;
+  enableCheckSimilarAddressInAddressBook?: boolean;
+};
+
+export type IFetchServerAccountDetailsParams = IFetchAccountDetailsParams & {
+  accountAddress: string;
+  xpub?: string;
+  signal?: AbortSignal;
+};
+
+export interface IFetchServerAccountDetailsResponse {
+  data: {
+    data: IFetchAccountDetailsResp;
+  };
+}
+
+export interface IServerGetAccountNetWorthResponse {
+  netWorth?: string;
+  balance?: string;
+  balanceParsed?: string;
+}
+
+export interface IServerFetchNonceResponse {
+  nonce: number | undefined;
+  accountNumber?: number;
+}
+
+export type IAddressBadge = {
+  label: string;
+  type: IBadgeProps['badgeType'];
+  tip?: string;
+  icon?: IKeyOfIcons;
+  logoURI?: string;
+};
+
+export type IAddressInfo = IAddressBadge;

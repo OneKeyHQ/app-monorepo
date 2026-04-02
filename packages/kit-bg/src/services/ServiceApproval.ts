@@ -1,0 +1,413 @@
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
+import type {
+  IContractApproval,
+  IFetchAccountApprovalsParams,
+  IFetchAccountApprovalsResponse,
+} from '@onekeyhq/shared/types/approval';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+
+import ServiceBase from './ServiceBase';
+
+@backgroundClass()
+class ServiceApproval extends ServiceBase {
+  constructor({ backgroundApi }: { backgroundApi: any }) {
+    super({ backgroundApi });
+  }
+
+  _fetchAccountApprovalsControllers: AbortController[] = [];
+
+  @backgroundMethod()
+  public async abortFetchAccountApprovals() {
+    this._fetchAccountApprovalsControllers.forEach((controller) => {
+      controller.abort();
+    });
+    this._fetchAccountApprovalsControllers = [];
+  }
+
+  @backgroundMethod()
+  public async fetchAccountApprovals(params: IFetchAccountApprovalsParams) {
+    const { accountId, networkId, indexedAccountId, networksEnabledOnly } =
+      params;
+
+    let queries: {
+      accountAddress: string;
+      networkId: string;
+      accountId: string;
+    }[] = [];
+
+    if (networkUtils.isAllNetwork({ networkId })) {
+      const networksSupportBulkRevokeApproval =
+        getNetworksSupportBulkRevokeApproval();
+
+      const { allNetworkAccounts } =
+        await this.backgroundApi.serviceAllNetwork.buildAllNetworkAccountsForApiParam(
+          {
+            accountId,
+            networkId,
+            indexedAccountId,
+            excludeIncompatibleWithWalletAccounts: true,
+            withoutAccountId: false,
+            networksEnabledOnly,
+          },
+        );
+      queries = allNetworkAccounts.filter(
+        (i) =>
+          networksSupportBulkRevokeApproval[i.networkId] && i.accountAddress,
+      ) as {
+        accountId: string;
+        networkId: string;
+        accountAddress: string;
+      }[];
+    } else {
+      let accountAddress = params.accountAddress;
+      if (!accountAddress) {
+        accountAddress =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          });
+      }
+
+      queries.push({
+        accountAddress,
+        networkId,
+        accountId,
+      });
+    }
+
+    if (queries.length === 0) {
+      return {
+        contractApprovals: [],
+        tokenMap: {},
+        contractMap: {},
+      };
+    }
+
+    const controller = new AbortController();
+    this._fetchAccountApprovalsControllers.push(controller);
+
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+
+    const resp = await client.post<{
+      data: IFetchAccountApprovalsResponse;
+    }>(
+      `/wallet/v1/account/token-approval/list`,
+      {
+        queries,
+      },
+      {
+        signal: controller.signal,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+      },
+    );
+
+    const contractApprovals = resp.data.data.contractApprovals ?? [];
+
+    const riskApprovals: IContractApproval[] = [];
+    const normalApprovals: IContractApproval[] = [];
+
+    // 90 days
+    const inactiveApprovalTime = timerUtils.getTimeDurationMs({ day: 90 });
+    const now = Date.now();
+
+    for (const item of contractApprovals) {
+      const query = queries.find((q) => q.networkId === item.networkId) as {
+        accountId: string;
+        networkId: string;
+        accountAddress: string;
+      };
+
+      if (item.highestRiskLevel >= TX_RISKY_LEVEL_SPAM) {
+        riskApprovals.push({
+          ...item,
+          accountId: query.accountId,
+          owner: query.accountAddress,
+          isRiskContract: true,
+        });
+      } else {
+        normalApprovals.push({
+          ...item,
+          accountId: query.accountId,
+          owner: query.accountAddress,
+          isInactiveApproval:
+            now - item.latestApprovalTime > inactiveApprovalTime,
+        });
+      }
+    }
+
+    return {
+      ...resp.data.data,
+      contractApprovals: [
+        ...riskApprovals.toSorted(
+          (a, b) => b.latestApprovalTime - a.latestApprovalTime,
+        ),
+        ...normalApprovals.toSorted(
+          (a, b) => b.latestApprovalTime - a.latestApprovalTime,
+        ),
+      ],
+    };
+  }
+
+  @backgroundMethod()
+  async shouldShowRiskApprovalsRevokeSuggestion({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId: string;
+    indexedAccountId?: string;
+  }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
+
+    const config =
+      await this.backgroundApi.simpleDb.approval.getRiskApprovalsRevokeSuggestionConfig(
+        {
+          accountId,
+          indexedAccountId,
+          xfp,
+        },
+      );
+    if (config && config.lastShowTime) {
+      const { approvalResurfaceDays } =
+        await this.getApprovalResurfaceDaysConfig();
+      const interval = Date.now() - config.lastShowTime;
+      if (
+        interval > timerUtils.getTimeDurationMs({ day: approvalResurfaceDays })
+      ) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
+  async shouldShowInactiveApprovalsRevokeSuggestion({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId: string;
+    indexedAccountId?: string;
+  }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
+    const config =
+      await this.backgroundApi.simpleDb.approval.getInactiveApprovalsRevokeSuggestionConfig(
+        {
+          accountId,
+          indexedAccountId,
+          xfp,
+        },
+      );
+    if (config && config.lastShowTime) {
+      const interval = Date.now() - config.lastShowTime;
+      const { approvalResurfaceDays } =
+        await this.getApprovalResurfaceDaysConfig();
+      if (
+        interval > timerUtils.getTimeDurationMs({ day: approvalResurfaceDays })
+      ) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
+  async shouldShowInactiveApprovalsAlert({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const config =
+      await this.backgroundApi.simpleDb.approval.getInactiveApprovalsAlertConfig(
+        {
+          networkId,
+          accountId,
+        },
+      );
+    if (config && config.lastShowTime) {
+      const interval = Date.now() - config.lastShowTime;
+      const { approvalAlertResurfaceDays } =
+        await this.getApprovalResurfaceDaysConfig();
+      if (
+        interval >
+        timerUtils.getTimeDurationMs({ day: approvalAlertResurfaceDays })
+      ) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
+  async shouldShowRiskApprovalsAlert({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const config =
+      await this.backgroundApi.simpleDb.approval.getRiskApprovalsAlertConfig({
+        networkId,
+        accountId,
+      });
+    if (config && config.lastShowTime) {
+      const interval = Date.now() - config.lastShowTime;
+      const { approvalAlertResurfaceDays } =
+        await this.getApprovalResurfaceDaysConfig();
+      if (
+        interval >
+        timerUtils.getTimeDurationMs({ day: approvalAlertResurfaceDays })
+      ) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
+  async updateRiskApprovalsRevokeSuggestionConfig({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId: string;
+    indexedAccountId?: string;
+  }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
+
+    await this.backgroundApi.simpleDb.approval.updateRiskApprovalsRevokeSuggestionConfig(
+      {
+        accountId,
+        indexedAccountId,
+        xfp,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async updateInactiveApprovalsRevokeSuggestionConfig({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId: string;
+    indexedAccountId?: string;
+  }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
+    await this.backgroundApi.simpleDb.approval.updateInactiveApprovalsRevokeSuggestionConfig(
+      {
+        accountId,
+        indexedAccountId,
+        xfp,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async updateInactiveApprovalsAlertConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateInactiveApprovalsAlertConfig(
+      {
+        networkId,
+        accountId,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async updateRiskApprovalsAlertConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateRiskApprovalsAlertConfig({
+      networkId,
+      accountId,
+    });
+  }
+
+  @backgroundMethod()
+  async updateApprovalResurfaceDaysConfig({
+    approvalResurfaceDays,
+    approvalAlertResurfaceDays,
+  }: {
+    approvalResurfaceDays: number;
+    approvalAlertResurfaceDays: number;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateApprovalResurfaceDaysConfig(
+      {
+        approvalResurfaceDays,
+        approvalAlertResurfaceDays,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async getApprovalResurfaceDaysConfig() {
+    return (
+      (await this.backgroundApi.simpleDb.approval.getApprovalResurfaceDaysConfig()) ?? {
+        approvalResurfaceDays: 14,
+        approvalAlertResurfaceDays: 30,
+      }
+    );
+  }
+}
+
+export default ServiceApproval;

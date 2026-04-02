@@ -1,0 +1,104 @@
+diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
+index 47addac..110de63 100644
+--- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
++++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
+@@ -160,11 +160,98 @@ function unlisten() {
+   }), dispose.clear();
+ }
+ var setupVersion = -1;
++
++const ExpoDevice = require('expo-device');
++const ScreenOrientation = require('expo-screen-orientation');
++const { Dimensions } = require('react-native');
++const { ReactNativeDeviceUtils } = require('@onekeyfe/react-native-device-utils');
++
++// Orientation constants from expo-screen-orientation
++const ORIENTATION_LANDSCAPE_LEFT = 3;
++const ORIENTATION_LANDSCAPE_RIGHT = 4;
++
++// Check if device is a DualScreen device
++let isDualScreen;
++function isDualScreenDevice() {
++  if (isDualScreen === undefined) {
++    isDualScreen = ReactNativeDeviceUtils.isDualScreenDevice();
++  }
++  return isDualScreen;
++}
++
++// Check if current orientation is landscape using expo-screen-orientation
++function isLandscapeOrientation(callback) {
++  ScreenOrientation.getOrientationAsync().then((orientation) => {
++    const isLandscape = orientation === ORIENTATION_LANDSCAPE_LEFT ||
++                        orientation === ORIENTATION_LANDSCAPE_RIGHT;
++    callback(isLandscape);
++  });
++}
++
++const MAX_OVERRIDE_WIDTH = 767;
++
++function clampWidth(width) {
++  return Math.min(width, MAX_OVERRIDE_WIDTH);
++}
++
++function getScreenWidth() {
++  return clampWidth(Dimensions.get('window').width);
++}
++
++// Get half screen width for spanning layout
++function getHalfScreenWidth() {
++  return clampWidth(Dimensions.get('window').width / 2);
++}
++
++// Get media query override info
++// callback receives: { shouldOverride: boolean, overrideWidth: number | null }
++function getMediaOverride(callback) {
++  if (isDualScreenDevice() && ReactNativeDeviceUtils.isSpanning()) {
++    // DualScreen device in spanning mode: use half screen width for media queries
++    callback({ shouldOverride: true, overrideWidth: getHalfScreenWidth() });
++  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
++    // Tablet: check if landscape (spanning layout)
++    isLandscapeOrientation((isLandscape) => {
++      if (isLandscape) {
++        // Tablet landscape: use half screen width for media queries
++        callback({ shouldOverride: true, overrideWidth: getHalfScreenWidth() });
++      } else {
++        // Tablet portrait: simulate md-level width (md=true, gtMd=false)
++        callback({ shouldOverride: true, overrideWidth: getScreenWidth() });
++      }
++    });
++  } else if (import_constants.isAndroid) {
++    // Non-spanning layout + Android: simulate md-level width
++    callback({ shouldOverride: true, overrideWidth: getScreenWidth() });
++  } else {
++    // Other cases: no override, use default matchMedia result
++    callback({ shouldOverride: false, overrideWidth: null });
++  }
++}
++
+ function setupMediaListeners() {
+   var _loop = function(key2) {
+     var update = function() {
+       var next = !!getMatch().matches;
+-      next !== mediaState[key2] && (mediaState = _object_spread_props(_object_spread({}, mediaState), _define_property({}, key2, next)), updateCurrentState());
++      getMediaOverride((override) => {
++        if (override.shouldOverride) {
++          var w = override.overrideWidth;
++          // Evaluate each media query independently against the override width
++          if (key2 === 'sm') next = w <= 639;
++          else if (key2 === 'gtSm') next = w >= 640;
++          else if (key2 === 'md') next = w <= 767;
++          else if (key2 === 'gtMd') next = w >= 768;
++          else if (key2 === '2md') next = w <= 895;
++          else if (key2 === 'gt2Md') next = w >= 896;
++          else if (key2 === 'lg') next = w <= 1023;
++          else if (key2 === 'gtLg') next = w >= 1024;
++          else if (key2 === 'xl') next = w <= 1279;
++          else if (key2 === 'gtXl') next = w >= 1280;
++          else if (key2 === '2xl') next = w <= 1535;
++          else if (key2 === 'gt2xl') next = w >= 1536;
++        }
++        next !== mediaState[key2] && (mediaState = _object_spread_props(_object_spread({}, mediaState), _define_property({}, key2, next)), updateCurrentState());
++      });
+     }, str = mediaObjectToString(mediaQueryConfig[key2], key2), getMatch = function() {
+       return (0, import_matchMedia.matchMedia)(str);
+     }, match = getMatch();

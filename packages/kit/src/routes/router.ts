@@ -1,0 +1,106 @@
+import { useMemo } from 'react';
+
+import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+
+import {
+  FullScreenPushNavigator,
+  IOSFullScreenNavigator,
+  ModalNavigator,
+  OnboardingNavigator,
+} from './Modal/Navigator';
+import {
+  fullModalRouter,
+  fullScreenPushRouterConfig,
+  modalRouter,
+  onboardingRouterV2Config,
+} from './Modal/router';
+import { TabNavigator } from './Tab/Navigator';
+import { useTabRouterConfig } from './Tab/router';
+
+const buildPermissionRouter = () => {
+  const PromptWebDeviceAccessPage = LazyLoad(
+    () =>
+      import('@onekeyhq/kit/src/views/Permission/PromptWebDeviceAccessPage'),
+  );
+  return [
+    platformEnv.isExtension
+      ? {
+          name: ERootRoutes.PermissionWebDevice,
+          component: PromptWebDeviceAccessPage,
+          rewrite: '/permission/web-device',
+          exact: true,
+        }
+      : undefined,
+  ].filter(Boolean);
+};
+
+export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
+  {
+    name: ERootRoutes.Main,
+    component: TabNavigator,
+    initialRoute: true,
+  },
+  {
+    name: ERootRoutes.Onboarding,
+    component: OnboardingNavigator,
+    type: 'onboarding',
+  },
+  {
+    name: ERootRoutes.Modal,
+    component: ModalNavigator,
+    type: 'modal',
+  },
+  {
+    name: ERootRoutes.iOSFullScreen,
+    component: IOSFullScreenNavigator,
+    type: 'iOSFullScreen',
+  },
+  {
+    name: ERootRoutes.FullScreenPush,
+    component: FullScreenPushNavigator,
+    type: 'fullScreenPush',
+  },
+  ...buildPermissionRouter(),
+];
+
+if (platformEnv.isDev) {
+  const NotFound = LazyLoad(() => import('../components/NotFound'));
+  rootRouter.push({
+    name: ERootRoutes.NotFound,
+    component: NotFound,
+  });
+}
+
+export const useRootRouter = () => {
+  const tabRouter = useTabRouterConfig();
+  return useMemo(
+    () => [
+      {
+        name: ERootRoutes.Main,
+        children: tabRouter,
+      },
+      {
+        name: ERootRoutes.Onboarding,
+        children: onboardingRouterV2Config,
+      },
+      {
+        name: ERootRoutes.Modal,
+        children: modalRouter,
+      },
+      {
+        name: ERootRoutes.iOSFullScreen,
+        children: fullModalRouter,
+      },
+      {
+        name: ERootRoutes.FullScreenPush,
+        children: fullScreenPushRouterConfig,
+      },
+
+      ...buildPermissionRouter(),
+    ],
+    [tabRouter],
+  );
+};

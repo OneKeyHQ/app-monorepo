@@ -1,0 +1,150 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
+import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { Spinner, Stack, YStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
+
+import type { IDialogContentProps } from './type';
+import type { LayoutChangeEvent, View } from 'react-native';
+
+const exitStyleConst = { opacity: 0 } as const;
+const MAX_ANIMATION_DURATION = 550;
+export function Content({
+  children,
+  estimatedContentHeight,
+  testID,
+  isAsync = false,
+  ...others
+}: IDialogContentProps) {
+  const isOptimization = isAsync || !!estimatedContentHeight;
+  const [showLoading, changeLoadingVisibility] = useState(isOptimization);
+  const [showChildren, changeChildrenVisibility] = useState(!isOptimization);
+  const timeRef = useRef(Date.now());
+  const ref = useRef<TamaguiElement>(null);
+  const pageYRef = useRef(Number.MAX_VALUE);
+  const handleLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const { height } = e.nativeEvent.layout;
+      if (platformEnv.isDev) {
+        console.log(
+          `testID: ${testID || 'unnamed'}, Dialog content Height is ${height}.`,
+        );
+      }
+    },
+    [testID],
+  );
+
+  const checkMeasureY = useCallback(() => {
+    (ref.current as View)?.measure(
+      (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        pageX: number,
+        pageY: number,
+      ) => {
+        setTimeout(() => {
+          if (pageY < pageYRef.current) {
+            pageYRef.current = pageY;
+            checkMeasureY();
+          } else {
+            if (platformEnv.isDev) {
+              const diffTime = Date.now() - timeRef.current;
+              if (diffTime > MAX_ANIMATION_DURATION) {
+                console.error(
+                  `Dialog Animation duration is ${diffTime}ms, please use estimatedContentHeight to reduce animation time.`,
+                );
+              }
+            }
+            setTimeout(() => {
+              changeChildrenVisibility(true);
+            }, 10);
+          }
+        }, 5);
+      },
+    );
+  }, []);
+
+  const handleChildrenLayout = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    if (height) {
+      changeLoadingVisibility(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if ((platformEnv.isDev || isOptimization) && children) {
+      setTimeout(() => {
+        checkMeasureY();
+      }, 10);
+    }
+  }, [checkMeasureY, children, isOptimization]);
+
+  const height = useMemo(() => {
+    if (estimatedContentHeight) {
+      return estimatedContentHeight;
+    }
+    if (isAsync && showLoading) {
+      return '$20';
+    }
+    return undefined;
+  }, [isAsync, estimatedContentHeight, showLoading]);
+
+  if (!children) {
+    return null;
+  }
+  return (
+    <YStack
+      px="$5"
+      pb="$5"
+      ref={ref}
+      height={height}
+      {...others}
+      onLayout={handleLayout}
+    >
+      {isOptimization ? (
+        <>
+          {
+            // When height and width are undefined, the initial width and height of Stack are 0,
+            //  it needs to be propped open by the content, and the height will be rewritten when the content is completed,
+            //   thus ensuring that children are rendered
+          }
+          <Stack
+            height={undefined}
+            width={undefined}
+            onLayout={handleChildrenLayout}
+          >
+            {showChildren ? children : null}
+          </Stack>
+          <AnimatePresence>
+            {showLoading ? (
+              <Stack
+                bg="$bg"
+                animation="medium"
+                animateOnly={ANIMATE_ONLY_OPACITY}
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                opacity={1}
+                alignContent="center"
+                justifyContent="center"
+                flex={1}
+                exitStyle={exitStyleConst}
+              >
+                <Spinner size="large" />
+              </Stack>
+            ) : null}
+          </AnimatePresence>
+        </>
+      ) : (
+        children
+      )}
+    </YStack>
+  );
+}

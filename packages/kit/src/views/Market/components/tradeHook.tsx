@@ -1,0 +1,368 @@
+import { useCallback, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import { Dialog, SizableText } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import {
+  openFiatCryptoUrl,
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  isSupportStaking,
+  normalizeToEarnSymbol,
+} from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
+import type {
+  IMarketDetailPlatformNetwork,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/market';
+import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EarnNavigation } from '../../Earn/earnUtils';
+
+export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
+  const { detailPlatforms, platforms = {} } = token || {};
+  const network = useMemo(() => {
+    if (detailPlatforms) {
+      const values = Object.values(detailPlatforms);
+      const nativePlatform = values.find((i) => i.isNative);
+      if (nativePlatform) {
+        return nativePlatform;
+      }
+
+      const tokenAddress = Object.values(platforms)[0];
+      const tokenAddressPlatform = values.find(
+        (i) => i.tokenAddress === tokenAddress,
+      );
+      return tokenAddressPlatform ?? values[0];
+    }
+  }, [detailPlatforms, platforms]);
+  return network;
+};
+
+export const useMarketTradeNetworkId = (
+  network: IMarketDetailPlatformNetwork | null | undefined,
+  symbol: string,
+) =>
+  useMemo(() => {
+    const { onekeyNetworkId } = network || {};
+    return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
+  }, [network, symbol]);
+
+export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
+  const { symbol = '', name } = token || {};
+  const intl = useIntl();
+  const network = useMarketTradeNetwork(token);
+  const networkId = useMarketTradeNetworkId(network, symbol);
+
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const { isNative = false, tokenAddress: realContractAddress = '' } =
+    network || {};
+
+  const remindUnsupportedToken = useCallback(
+    (action: 'buy' | 'sell' | 'trade', showDialog = true) => {
+      defaultLogger.market.token.unsupportedToken({ name: symbol, action });
+      if (showDialog) {
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.earn_unsupported_token,
+          }),
+          tone: 'warning',
+          icon: 'ErrorOutline',
+          renderContent: (
+            <SizableText size="$bodyLg">
+              {intl.formatMessage({
+                id: ETranslations.earn_unsupported_token_desc,
+              })}
+            </SizableText>
+          ),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.explore_got_it,
+          }),
+        });
+      }
+    },
+    [intl, symbol],
+  );
+
+  const createAccountIfNotExists = useCallback(
+    async (
+      { allowWatchAccount }: { allowWatchAccount: boolean } = {
+        allowWatchAccount: false,
+      },
+    ) => {
+      if (networkId) {
+        return backgroundApiProxy.serviceAccount.createAddressIfNotExists(
+          {
+            walletId: activeAccount?.wallet?.id || '',
+            networkId,
+            accountId: activeAccount?.account?.id,
+            indexedAccountId: activeAccount?.indexedAccount?.id,
+          },
+          {
+            allowWatchAccount,
+          },
+        );
+      }
+      return undefined;
+    },
+    [activeAccount, networkId],
+  );
+
+  const handleBuyOrSell = useCallback(
+    async (type: IFiatCryptoType) => {
+      const networkAccount = await createAccountIfNotExists({
+        allowWatchAccount: type === 'buy',
+      });
+      if (!networkAccount || !networkId) {
+        return;
+      }
+
+      const isSupported =
+        await backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
+          networkId,
+          tokenAddress: realContractAddress,
+          type,
+        });
+
+      if (!isSupported) {
+        remindUnsupportedToken(type);
+        return;
+      }
+
+      const { url, build } =
+        await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+          networkId,
+          tokenAddress: realContractAddress,
+          accountId: networkAccount?.id,
+          type,
+        });
+      if (!url || !build) {
+        remindUnsupportedToken(type);
+        return;
+      }
+      if (platformEnv.isDesktop || platformEnv.isNative) {
+        openFiatCryptoUrl(url);
+      } else {
+        openUrlExternal(url);
+      }
+    },
+    [
+      createAccountIfNotExists,
+      networkId,
+      realContractAddress,
+      remindUnsupportedToken,
+    ],
+  );
+
+  const handleSwap = useCallback(
+    async (mode?: 'modal' | 'button') => {
+      const navigateToSwapPage = (
+        params: IModalSwapParamList[EModalSwapRoutes.SwapMainLand],
+      ) => {
+        params.swapSource = ESwapSource.MARKET;
+
+        if (mode === 'modal') {
+          navigation.replace(EModalSwapRoutes.SwapMainLand, params);
+        } else {
+          navigation.pushModal(EModalRoutes.SwapModal, {
+            screen: EModalSwapRoutes.SwapMainLand,
+            params,
+          });
+        }
+      };
+      if (!networkId) {
+        remindUnsupportedToken('trade', false);
+        navigateToSwapPage({
+          importNetworkId: 'unknown',
+        });
+        return;
+      }
+      const networkAccount = await createAccountIfNotExists();
+      if (!networkAccount) {
+        if (mode === 'modal') {
+          navigation.pop();
+        }
+        return;
+      }
+      if (!networkId) {
+        return;
+      }
+      const { isSupportSwap, isSupportCrossChain } =
+        await backgroundApiProxy.serviceSwap.checkSupportSwap({
+          networkId,
+        });
+
+      if (!isSupportSwap && !isSupportCrossChain) {
+        remindUnsupportedToken('trade', false);
+        navigateToSwapPage({
+          importNetworkId: networkId,
+        });
+        return;
+      }
+      const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId,
+      });
+      navigateToSwapPage({
+        importFromToken: {
+          ...onekeyNetwork,
+          logoURI: isNative ? onekeyNetwork.logoURI : undefined,
+          contractAddress: realContractAddress,
+          networkId,
+          isNative,
+          networkLogoURI: onekeyNetwork.logoURI,
+          symbol: symbol.toUpperCase(),
+          name,
+        },
+        swapTabSwitchType: isSupportSwap
+          ? ESwapTabSwitchType.SWAP
+          : ESwapTabSwitchType.BRIDGE,
+      });
+    },
+    [
+      createAccountIfNotExists,
+      isNative,
+      name,
+      navigation,
+      networkId,
+      realContractAddress,
+      remindUnsupportedToken,
+      symbol,
+    ],
+  );
+
+  const handleStaking = useCallback(async () => {
+    const networkAccount = await createAccountIfNotExists();
+    if (!networkAccount) {
+      return;
+    }
+    const normalizedSymbol = normalizeToEarnSymbol(symbol);
+    if (!normalizedSymbol || !networkId) {
+      return;
+    }
+
+    // Fetch protocol list to check if we should skip the list page
+    const protocolList =
+      await backgroundApiProxy.serviceStaking.getProtocolList({
+        symbol: normalizedSymbol,
+        accountId: networkAccount.id,
+        networkId,
+      });
+
+    // If only one protocol, navigate directly to details page
+    if (protocolList.length === 1) {
+      const protocol = protocolList[0];
+      const vault = earnUtils.isVaultBasedProvider({
+        providerName: protocol.provider.name,
+      })
+        ? protocol.provider.vault
+        : undefined;
+      void EarnNavigation.pushToEarnProtocolDetails(navigation, {
+        networkId: protocol.network.networkId,
+        symbol: normalizedSymbol,
+        provider: protocol.provider.name,
+        vault,
+      });
+    } else {
+      // Navigate to protocols list page if multiple providers
+      void EarnNavigation.pushToEarnProtocols(navigation, {
+        symbol: normalizedSymbol,
+        // filterNetworkId: networkId,
+      });
+    }
+  }, [createAccountIfNotExists, navigation, networkId, symbol]);
+  const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
+
+  return useMemo(
+    () => ({
+      onSwap: handleSwap,
+      onStaking: handleStaking,
+      onBuy: () => {
+        void handleBuyOrSell('buy');
+      },
+      onSell: () => {
+        void handleBuyOrSell('sell');
+      },
+      createAccountIfNotExists,
+      canStaking,
+    }),
+    [
+      canStaking,
+      createAccountIfNotExists,
+      handleBuyOrSell,
+      handleStaking,
+      handleSwap,
+    ],
+  );
+};
+
+type IActionName = 'onSwap' | 'onStaking' | 'onBuy' | 'onSell';
+export const useLazyMarketTradeActions = (coinGeckoId: string) => {
+  const [token, setToken] = useState<null | IMarketTokenDetail>(null);
+  const fetchMarketTokenDetail = useCallback(async () => {
+    const response =
+      await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
+        coinGeckoId,
+      );
+    setToken(response);
+    return response;
+  }, [coinGeckoId]);
+
+  const actions = useMarketTradeActions(token);
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const compose = useCallback(
+    (actionName: IActionName) => {
+      const callback = async () => {
+        await fetchMarketTokenDetail();
+        // wait for token detail loaded and actionsRef updated
+        await timerUtils.wait(80);
+        await actionsRef.current[actionName]('modal');
+      };
+      void callback();
+    },
+    [fetchMarketTokenDetail],
+  );
+
+  const handleSwapLazyModal = useCallback(async () => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapLazyMarketModal,
+      params: {
+        coinGeckoId,
+      },
+    });
+  }, [coinGeckoId, navigation]);
+
+  return useMemo(
+    () => ({
+      onSwap: () => compose('onSwap'),
+      onSwapLazyModal: handleSwapLazyModal,
+      onStaking: () => compose('onStaking'),
+      onBuy: () => compose('onBuy'),
+      onSell: () => compose('onSell'),
+    }),
+    [compose, handleSwapLazyModal],
+  );
+};

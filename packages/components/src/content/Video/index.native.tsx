@@ -1,0 +1,14 @@
+import NativeVideo from 'react-native-video';
+
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+
+import type { IVideoProps } from './type';
+import type { ViewStyle } from 'react-native';
+
+export function Video({ muted, ...rawProps }: IVideoProps) {
+  const [props, style] = usePropsAndStyle(rawProps);
+  return <NativeVideo style={style as ViewStyle} muted={muted} {...props} />;
+}
+
+export type * from './type';
+export * from './enum';

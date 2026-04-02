@@ -1,0 +1,30 @@
+import { Empty } from '@onekeyhq/components';
+
+import { Layout } from './utils/Layout';
+
+const EmptyGallery = () => (
+  <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
+    componentName="Empty"
+    elements={[
+      {
+        title: 'Default',
+        element: (
+          <Empty
+            illustration="QuestionMark"
+            title="No Results"
+            description="Ad cillum pariatur culpa incididunt esse sint fugiat esse veniam"
+            buttonProps={{
+              children: 'Button',
+              onPress: () => {
+                alert('Button pressed');
+              },
+            }}
+          />
+        ),
+      },
+    ]}
+  />
+);
+
+export default EmptyGallery;

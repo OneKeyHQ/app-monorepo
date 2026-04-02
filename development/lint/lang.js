@@ -1,0 +1,43 @@
+const path = require('path');
+const { exit } = require('process');
+
+const fs = require('fs-extra');
+
+const getTimestamp = () => new Date().toLocaleTimeString();
+const startTime = Date.now();
+
+console.log(`[${getTimestamp()}] Language files check started...`);
+
+const langDir = path.join(
+  __dirname,
+  '../../',
+  'packages/shared/src/locale/json',
+);
+
+const readJson = (langFile) => fs.readJsonSync(path.join(langDir, langFile));
+
+const files = fs.readdirSync(langDir);
+
+const defaultLang = files.find((file) => file === 'en_US.json');
+const jsonFileNames = files.filter(
+  (file) => file.endsWith('.json') && file !== defaultLang,
+);
+
+const defaultJsonKey = Object.keys(readJson(defaultLang));
+
+jsonFileNames.forEach((file) => {
+  const json = readJson(file);
+  const jsonKeys = Object.keys(json);
+  const missingKeys = defaultJsonKey.filter((key) => !jsonKeys.includes(key));
+
+  if (missingKeys.length) {
+    console.log(`Missing keys in ${file}:`);
+    console.log(missingKeys);
+    exit(1);
+  }
+});
+
+const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+console.log(
+  `[${getTimestamp()}] Language files check completed. (${duration}s)`,
+);

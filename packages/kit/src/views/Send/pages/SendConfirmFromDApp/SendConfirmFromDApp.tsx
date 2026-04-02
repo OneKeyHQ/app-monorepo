@@ -1,0 +1,207 @@
+import { useCallback, useEffect, useRef } from 'react';
+
+import { StackActions, useNavigation } from '@react-navigation/native';
+import { AppState } from 'react-native';
+
+import { Page, Spinner, Stack } from '@onekeyhq/components';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
+
+import type {
+  NavigationAction,
+  StackActionType,
+} from '@react-navigation/native';
+
+function SendConfirmFromDApp() {
+  const navigation = useNavigation();
+  const pendingAction = useRef<StackActionType>(undefined);
+  const {
+    $sourceInfo,
+    encodedTx,
+    transfersInfo,
+    signOnly = false,
+    accountId,
+    networkId,
+    useFeeInTx = true,
+    _$t = undefined,
+  } = useDappQuery<{
+    encodedTx: IEncodedTx;
+    transfersInfo: ITransferInfo[];
+    accountId: string;
+    networkId: string;
+    signOnly: boolean;
+    useFeeInTx: boolean;
+    _$t: number | undefined;
+  }>();
+
+  console.log('SendConfirmFromDApp Start:', {
+    encodedTx,
+  });
+
+  const dappApprove = useDappApproveAction({
+    id: $sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
+
+  const isNavigateNewPageRef = useRef(false);
+
+  const signatureConfirmRoute = EModalSignatureConfirmRoutes.TxConfirm;
+
+  const dispatchAction = useCallback(
+    (action: NavigationAction | ((state: any) => NavigationAction)) => {
+      isNavigateNewPageRef.current = true;
+      const timerId = setTimeout(() => {
+        dappApprove.reject();
+      }, 5000);
+      appEventBus.once(
+        EAppEventBusNames.SignatureConfirmContainerMounted,
+        () => {
+          clearTimeout(timerId);
+        },
+      );
+      navigation.dispatch(action);
+    },
+    [dappApprove, navigation],
+  );
+
+  const handlePageClose = useCallback(() => {
+    if (!isNavigateNewPageRef.current) {
+      dappApprove.reject();
+    }
+  }, [dappApprove]);
+
+  const sendConfirmCallback = useCallback(
+    async (result: any, error: Error | undefined) => {
+      if (!$sourceInfo) {
+        return;
+      }
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: $sourceInfo.hostname,
+        dappDomain: $sourceInfo.origin,
+        action: 'SendTxn',
+        network: networkId,
+        failReason: error ? (error?.message ?? String(error)) : undefined,
+      });
+    },
+    [$sourceInfo, networkId],
+  );
+
+  useEffect(() => {
+    // OK-16560: navigate when app in background would cause modal render in wrong size
+    const appStateListener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        setTimeout(() => {
+          if (pendingAction.current) {
+            dispatchAction(pendingAction.current);
+          }
+          pendingAction.current = undefined;
+        });
+      }
+    });
+
+    const navigationToSendConfirm = async () => {
+      let action: any;
+      let newEncodedTx = encodedTx;
+      let feeInfoEditable = true;
+      if (newEncodedTx) {
+        const vaultSettings =
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          });
+        if (vaultSettings?.preCheckDappTxFeeInfoRequired) {
+          const encodedTxWithFee =
+            await backgroundApiProxy.serviceGas.preCheckDappTxFeeInfo({
+              accountId,
+              networkId,
+              encodedTx: newEncodedTx,
+            });
+          if (encodedTxWithFee === '') {
+            feeInfoEditable = false;
+          } else {
+            feeInfoEditable = feeInfoEditable && true; // Keep false if Soroban
+            newEncodedTx = encodedTxWithFee;
+          }
+        }
+
+        const unsignedTx =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+            accountId,
+            networkId,
+            encodedTx: newEncodedTx,
+            transfersInfo,
+          });
+        const params: IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxConfirm] =
+          {
+            networkId,
+            accountId,
+            unsignedTxs: [unsignedTx],
+            sourceInfo: $sourceInfo,
+            signOnly,
+            useFeeInTx,
+            feeInfoEditable,
+            onSuccess: (result) => sendConfirmCallback(result, undefined),
+            onFail: (error) => sendConfirmCallback(null, error),
+            // @ts-ignore
+            _disabledAnimationOfNavigate: true,
+            _$t,
+          };
+        // replace router to SendConfirm
+        action = StackActions.replace(signatureConfirmRoute, params);
+      }
+
+      if (action) {
+        if (AppState.currentState === 'active') {
+          setTimeout(() => dispatchAction(action));
+        } else {
+          pendingAction.current = action;
+        }
+      }
+    };
+
+    void navigationToSendConfirm();
+
+    return () => {
+      appStateListener.remove();
+    };
+  }, [
+    encodedTx,
+    navigation,
+    signOnly,
+    networkId,
+    accountId,
+    $sourceInfo,
+    _$t,
+    transfersInfo,
+    useFeeInTx,
+    dispatchAction,
+    sendConfirmCallback,
+    signatureConfirmRoute,
+  ]);
+
+  return (
+    <Page onClose={handlePageClose}>
+      <Page.Body bg="$bgApp">
+        <Stack
+          h="100%"
+          justifyContent="center"
+          alignContent="center"
+          bg="$bgApp"
+        >
+          <Spinner size="large" />
+        </Stack>
+      </Page.Body>
+    </Page>
+  );
+}
+
+export default SendConfirmFromDApp;

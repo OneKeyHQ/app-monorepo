@@ -1,0 +1,93 @@
+import type { ILocaleSymbol } from '../src/locale';
+
+export type IPrefType =
+  | 'default'
+  | 'camera'
+  | 'bluetooth'
+  | 'location'
+  | 'notification'
+  | 'locationService'
+  | 'localNetwork';
+
+export type IMediaType = 'camera' | 'microphone' | 'screen';
+
+export type IDesktopAppState = 'active' | 'background' | 'blur';
+
+export type IDesktopMainProcessDevOnlyApiParams = {
+  module: string;
+  method: string;
+  params: any[];
+};
+
+export const INSTANCE_META_BACKUP_KEY = '$onekey_backup--instance_meta';
+
+export type IInstanceMetaBackup = {
+  instanceId: string;
+  sensitiveEncodeKey: string;
+  instanceIdBackup:
+    | {
+        v4MigratedInstanceId: string | undefined;
+        v5InitializedInstanceId: string | undefined;
+      }
+    | undefined;
+};
+
+export enum EDesktopStoreKeys {
+  WinBounds = 'winBounds',
+  UpdateSettings = 'updateSettings',
+  DevTools = 'devTools',
+  Theme = 'theme',
+  EncryptedData = 'EncryptedData',
+  Language = 'language',
+  DisableKeyboardShortcuts = 'disableKeyboardShortcuts',
+  ASCFile = 'ascFile',
+  UpdateBuildNumber = 'updateBuildNumber',
+  UpdateBundleData = 'updateBundleData',
+  FallbackUpdateBundleData = 'fallbackUpdateBundleData',
+  NativeVersion = 'nativeVersion',
+  NativeBuildNumber = 'nativeBuildNumber',
+  AppInstanceMetaBackup = INSTANCE_META_BACKUP_KEY,
+  // GPU Crash Statistics - for monitoring
+  GPUCrashCount = 'gpuCrashCount',
+  LastGPUCrashTime = 'lastGPUCrashTime',
+  // Boot Recovery
+  ConsecutiveBootFailCount = 'consecutiveBootFailCount',
+  BootFailAppVersion = 'bootFailAppVersion',
+}
+
+export type IDesktopStoreUpdateSettings = {
+  useTestFeedUrl: boolean;
+};
+
+export type IDesktopStoreUpdateBundleData = {
+  appVersion: string;
+  bundleVersion: string;
+  signature: string;
+};
+
+export type IDesktopStoreFallbackUpdateBundleData =
+  IDesktopStoreUpdateBundleData[];
+
+export type IDesktopStoreMap = {
+  [EDesktopStoreKeys.WinBounds]: Electron.Rectangle;
+  [EDesktopStoreKeys.UpdateSettings]: IDesktopStoreUpdateSettings;
+  [EDesktopStoreKeys.DevTools]: boolean;
+  [EDesktopStoreKeys.Theme]: string;
+  [EDesktopStoreKeys.EncryptedData]: Record<string, string>;
+  [EDesktopStoreKeys.Language]: ILocaleSymbol;
+  [EDesktopStoreKeys.DisableKeyboardShortcuts]: {
+    disableAllShortcuts: boolean;
+  };
+  [EDesktopStoreKeys.ASCFile]: string;
+  [EDesktopStoreKeys.UpdateBuildNumber]: string;
+  [EDesktopStoreKeys.NativeBuildNumber]: string;
+  [EDesktopStoreKeys.AppInstanceMetaBackup]: IInstanceMetaBackup;
+  [EDesktopStoreKeys.UpdateBundleData]: IDesktopStoreUpdateBundleData;
+  [EDesktopStoreKeys.FallbackUpdateBundleData]: IDesktopStoreFallbackUpdateBundleData;
+  // GPU Crash Statistics
+  [EDesktopStoreKeys.GPUCrashCount]: number;
+  [EDesktopStoreKeys.LastGPUCrashTime]: number;
+  // Boot Recovery
+  [EDesktopStoreKeys.ConsecutiveBootFailCount]: number;
+  [EDesktopStoreKeys.BootFailAppVersion]: string;
+};

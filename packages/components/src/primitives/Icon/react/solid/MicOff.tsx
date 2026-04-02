@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgMicOff = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M22.414 21 21 22.414l-3.956-3.956A8.6 8.6 0 0 1 13 19.948V22h-2v-2.051c-3.553-.37-5.7-2.673-6.824-4.404l-.545-.84 1.678-1.088.545.839C6.894 16.058 8.8 18 12 18c1.463 0 2.646-.402 3.599-.987l-1.482-1.482A5 5 0 0 1 7 11V8.414L1.586 3 3 1.586zM12 2a5 5 0 0 1 5 5v4a5 5 0 0 1-.236 1.521L8.106 3.863A4.99 4.99 0 0 1 12 2" />
+  </Svg>
+);
+export default SvgMicOff;

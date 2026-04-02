@@ -1,0 +1,15 @@
+diff --git a/node_modules/text-encoding/lib/encoding.js b/node_modules/text-encoding/lib/encoding.js
+index 13aca2c..bf53ccb 100644
+--- a/node_modules/text-encoding/lib/encoding.js
++++ b/node_modules/text-encoding/lib/encoding.js
+@@ -3302,8 +3302,8 @@
+ 
+   if (typeof module !== "undefined" && module.exports) {
+     module.exports = {
+-      TextEncoder: global['TextEncoder'],
+-      TextDecoder: global['TextDecoder'],
++      TextEncoder: TextEncoder,
++      TextDecoder: TextDecoder,
+       EncodingIndexes: global["encoding-indexes"]
+     };
+   }

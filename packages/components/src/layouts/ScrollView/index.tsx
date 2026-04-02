@@ -1,0 +1,109 @@
+import type { ForwardedRef, MutableRefObject } from 'react';
+import {
+  createContext,
+  forwardRef,
+  memo,
+  useCallback,
+  useContext,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
+
+import { ScrollView as ScrollViewNative } from 'react-native';
+
+import {
+  usePropsAndStyle,
+  useStyle,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { StackProps } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type {
+  NativeScrollEvent,
+  NativeScrollPoint,
+  NativeSyntheticEvent,
+  ScrollViewProps as ScrollViewNativeProps,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
+
+export type IScrollViewProps = Omit<
+  ScrollViewNativeProps,
+  'contentContainerStyle'
+> &
+  StackProps & {
+    contentContainerStyle?: StackProps;
+  };
+
+export type IScrollViewRef = ScrollViewNative;
+
+const scrollViewRefContext = createContext<{
+  scrollViewRef: MutableRefObject<IScrollViewRef | null>;
+  pageOffsetRef: MutableRefObject<NativeScrollPoint>;
+}>({
+  scrollViewRef: {
+    current: {} as IScrollViewRef,
+  },
+  pageOffsetRef: {
+    current: {
+      x: 0,
+      y: 0,
+    },
+  },
+});
+export const ScrollViewRefProvider = memo(scrollViewRefContext.Provider);
+ScrollViewRefProvider.displayName = 'ScrollViewRefProvider';
+export const useScrollView = () => useContext(scrollViewRefContext);
+
+function BaseScrollView(
+  {
+    children,
+    onScroll,
+    contentContainerStyle = {},
+    ...props
+  }: IScrollViewProps,
+  forwardedRef: ForwardedRef<IScrollViewRef>,
+) {
+  const [restProps, style] = usePropsAndStyle(props, {
+    resolveValues: 'auto',
+  });
+  const contentStyle = useStyle(
+    contentContainerStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+  const ref = useRef<IScrollViewRef>(null);
+  useImperativeHandle(forwardedRef, () => ref.current as IScrollViewRef);
+  const pageOffsetRef = useRef({ x: 0, y: 0 });
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      pageOffsetRef.current = event.nativeEvent.contentOffset;
+      onScroll?.(event);
+    },
+    [onScroll],
+  );
+  const value = useMemo(
+    () => ({
+      scrollViewRef: ref,
+      pageOffsetRef,
+    }),
+    [ref],
+  );
+  return (
+    <ScrollViewNative
+      ref={ref}
+      style={style as StyleProp<ViewStyle>}
+      contentContainerStyle={contentStyle}
+      scrollEventThrottle={30}
+      onScroll={handleScroll}
+      {...restProps}
+      refreshControl={platformEnv.isNative ? props.refreshControl : undefined}
+    >
+      <ScrollViewRefProvider value={value}>{children}</ScrollViewRefProvider>
+    </ScrollViewNative>
+  );
+}
+
+export const ScrollView = forwardRef(BaseScrollView);

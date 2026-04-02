@@ -1,0 +1,580 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import {
+  Web3RpcError,
+  web3Errors,
+} from '@onekeyfe/cross-inpage-provider-errors';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
+import { get, isEmpty, isNaN } from 'lodash';
+import TonWeb from 'tonweb';
+
+import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
+import {
+  backgroundClass,
+  permissionRequired,
+  providerApiMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EMessageTypesTon } from '@onekeyhq/shared/types/message';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+
+import { vaultFactory } from '../vaults/factory';
+import {
+  getAccountVersion,
+  getWalletContractInstance,
+} from '../vaults/impls/ton/sdkTon/utils';
+
+import ProviderApiBase from './ProviderApiBase';
+
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type VaultTon from '../vaults/impls/ton/Vault';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type {
+  SignDataRequest,
+  SignProofRequest,
+} from '@onekeyfe/onekey-ton-provider';
+
+enum ETonNetwork {
+  Mainnet = '-239',
+  Testnet = '-3',
+}
+
+const TonResponseError = {
+  BadRequest: 1,
+  InvalidManifestUrl: 2,
+  ContentManifest: 3,
+} as const;
+
+export declare interface ITonAddressItem {
+  name: 'ton_addr';
+}
+
+export declare interface ITonProofItem {
+  name: 'ton_proof';
+  payload: string;
+}
+
+export type IConnectItem = ITonAddressItem | ITonProofItem;
+
+export interface IConnectRequest {
+  manifestUrl: string;
+  items: IConnectItem[];
+}
+
+@backgroundClass()
+class ProviderApiTon extends ProviderApiBase {
+  public providerName = IInjectedProviderNames.ton;
+
+  public override notifyDappAccountsChanged(
+    info: IProviderBaseBackgroundNotifyInfo,
+  ) {
+    const data = async () => {
+      const accounts =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo({
+          origin: info.targetOrigin,
+          scope: this.providerName,
+        });
+      let params;
+      try {
+        if (accounts && accounts.length > 0) {
+          params = await this._getAccountResponse(
+            accounts[0].account,
+            accounts[0].accountInfo?.networkId ?? '',
+          );
+        }
+      } catch {
+        // ignore
+      }
+      const result = {
+        method: 'wallet_events_accountChanged',
+        params,
+      };
+      return result;
+    };
+    info.send(data, info.targetOrigin);
+  }
+
+  public override notifyDappChainChanged(
+    info: IProviderBaseBackgroundNotifyInfo,
+  ) {
+    const data = async () => {
+      const accounts =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo({
+          origin: info.targetOrigin,
+          scope: this.providerName,
+        });
+      const result = {
+        method: 'wallet_events_networkChange',
+        params: accounts ? accounts[0].accountInfo?.networkId : undefined,
+      };
+      return result;
+    };
+    info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
+  }
+
+  public rpcCall() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  private async _getAccount(request: IJsBridgeMessagePayload) {
+    const accounts = await this.getAccountsInfo(request);
+    if (!accounts || accounts.length === 0) {
+      throw new OneKeyLocalError('No accounts');
+    }
+
+    return accounts[0];
+  }
+
+  private async getTonVault(
+    request: IJsBridgeMessagePayload,
+  ): Promise<VaultTon> {
+    const { account, accountInfo } = await this._getAccount(request);
+    const vault = (await vaultFactory.getVault({
+      networkId: accountInfo?.networkId ?? '',
+      accountId: account.id,
+    })) as VaultTon;
+
+    return vault;
+  }
+
+  @providerApiMethod()
+  public async connect(request: IJsBridgeMessagePayload, params: string[]) {
+    if (
+      !request?.data ||
+      typeof request?.data !== 'object' ||
+      request.data === null ||
+      !('params' in request.data)
+    ) {
+      throw new Web3RpcError(
+        TonResponseError.InvalidManifestUrl,
+        'App manifest not found',
+      );
+    }
+
+    if (!Array.isArray(request?.data?.params)) {
+      throw new Web3RpcError(
+        TonResponseError.InvalidManifestUrl,
+        'App manifest not found',
+      );
+    }
+
+    const [_, connectRequest] = request?.data?.params as [
+      string,
+      IConnectRequest,
+    ];
+
+    if (!connectRequest.manifestUrl || isEmpty(connectRequest.manifestUrl)) {
+      throw new Web3RpcError(
+        TonResponseError.InvalidManifestUrl,
+        'App manifest not found',
+      );
+    }
+
+    const manifest = await fetch(connectRequest.manifestUrl).then(
+      async (res) => {
+        if (res.status !== 200) {
+          throw new Web3RpcError(
+            TonResponseError.InvalidManifestUrl,
+            'App manifest not found',
+          );
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return res.json();
+      },
+    );
+
+    if (isEmpty(get(manifest, 'name')) || isEmpty(get(manifest, 'url'))) {
+      throw new Web3RpcError(
+        TonResponseError.ContentManifest,
+        'App manifest content error',
+      );
+    }
+    try {
+      const manifestUrl = new URL(get(manifest, 'url'));
+      const originUrl = new URL(request.origin ?? '');
+
+      if (manifestUrl.host !== originUrl.host) {
+        throw new Web3RpcError(
+          TonResponseError.ContentManifest,
+          'App manifest content error',
+        );
+      }
+    } catch {
+      throw new Web3RpcError(
+        TonResponseError.ContentManifest,
+        'App manifest content error',
+      );
+    }
+
+    let accounts =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+    if (!accounts || accounts.length === 0) {
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      accounts = await this.getAccountsInfo(request);
+    }
+    return this._getAccountResponse(
+      accounts[0].account,
+      accounts[0].accountInfo?.networkId ?? '',
+    );
+  }
+
+  @providerApiMethod()
+  public async disconnect(request: IJsBridgeMessagePayload) {
+    const { origin } = request;
+    if (!origin) {
+      return;
+    }
+    await this.backgroundApi.serviceDApp.disconnectWebsite({
+      origin,
+      storageType: 'injectedProvider',
+    });
+  }
+
+  @providerApiMethod()
+  public async getDeviceInfo(request: IJsBridgeMessagePayload) {
+    return {
+      appName: 'OneKey',
+      appVersion: platformEnv.version,
+      maxProtocolVersion: 4,
+      features: [
+        { name: 'SendTransaction', maxMessages: 4 },
+        // { name: 'SignData' }, // experimental feature
+      ],
+    };
+  }
+
+  private async _getAccountResponse(
+    account: INetworkAccount,
+    networkId: string,
+  ) {
+    const version = getAccountVersion(account.id);
+    if (!account.pub) {
+      throw new OneKeyLocalError('Invalid account');
+    }
+    const wallet = getWalletContractInstance({
+      version,
+      publicKey: account.pub,
+      backgroundApi: this.backgroundApi,
+      networkId,
+    });
+    const deploy = await wallet.createStateInit();
+    return {
+      address: account.addressDetail.baseAddress,
+      network: ETonNetwork.Mainnet,
+      publicKey: account.pub,
+      walletStateInit: Buffer.from(
+        await deploy.stateInit.toBoc(false, false),
+      ).toString('base64'),
+    };
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async sendTransaction(
+    request: IJsBridgeMessagePayload,
+    encodedTx: IEncodedTxTon & {
+      valid_until: number;
+    },
+  ): Promise<any> {
+    const validUntil = encodedTx.validUntil || encodedTx.valid_until;
+    if (
+      validUntil !== undefined &&
+      (isNaN(validUntil) ||
+        validUntil === null ||
+        typeof validUntil !== 'number' ||
+        validUntil < Date.now() / 1000)
+    ) {
+      throw new Web3RpcError(
+        TonResponseError.BadRequest,
+        'Incorrect validUntil',
+      );
+    }
+    if (
+      validUntil !== null &&
+      validUntil !== undefined &&
+      validUntil < Date.now() / 1000
+    ) {
+      throw new Web3RpcError(
+        TonResponseError.BadRequest,
+        'Transaction has expired',
+      );
+    }
+
+    if (
+      encodedTx.network !== null &&
+      encodedTx.network !== undefined &&
+      typeof encodedTx.network !== 'string'
+    ) {
+      throw new Web3RpcError(
+        TonResponseError.BadRequest,
+        'Wrong network format',
+      );
+    }
+    if (
+      encodedTx.network !== null &&
+      encodedTx.network !== undefined &&
+      // @ts-expect-error
+      encodedTx.network === ETonNetwork.Testnet
+    ) {
+      throw new Web3RpcError(
+        TonResponseError.BadRequest,
+        'Testnet not supported',
+      );
+    }
+
+    if (
+      encodedTx.network !== null &&
+      encodedTx.network !== undefined &&
+      // @ts-expect-error
+      encodedTx.network !== ETonNetwork.Mainnet
+    ) {
+      throw new Web3RpcError(TonResponseError.BadRequest, 'Wrong network');
+    }
+
+    // check messages
+    if (encodedTx.messages.length === 0) {
+      throw new Web3RpcError(TonResponseError.BadRequest, 'Empty messages');
+    }
+
+    // check address and amount
+    for (const message of encodedTx.messages) {
+      if (!message.address) {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Address is required',
+        );
+      }
+      if (message.amount === null || message.amount === undefined) {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Amount is required',
+        );
+      }
+      if (BigNumber.isBigNumber(message.amount)) {
+        if (message.amount.isNegative()) {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'Wrong amount format',
+          );
+        }
+      }
+      if (typeof message.amount !== 'string') {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Wrong amount format',
+        );
+      }
+      // raw address type throw error
+      if (message.address.startsWith('0:')) {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Wrong address format',
+        );
+      }
+      if (!message.address) {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Address is required',
+        );
+      }
+      try {
+        void new TonWeb.Address(message.address);
+      } catch {
+        throw new Web3RpcError(TonResponseError.BadRequest, 'Invalid address');
+      }
+      // payload
+      if (message.payload) {
+        try {
+          void TonWeb.boc.Cell.oneFromBoc(
+            Buffer.from(message.payload, 'base64').toString('hex'),
+          );
+        } catch {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'Payload is invalid',
+          );
+        }
+      }
+
+      // init
+      if (message.stateInit) {
+        try {
+          void TonWeb.boc.Cell.oneFromBoc(
+            Buffer.from(message.stateInit, 'base64').toString('hex'),
+          );
+        } catch {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'stateInit is invalid',
+          );
+        }
+      }
+    }
+
+    const vault = await this.getTonVault(request);
+    try {
+      await vault.precheckUnsignedTx({
+        unsignedTx: {
+          encodedTx,
+        },
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+      });
+    } catch (e: any) {
+      throw new Web3RpcError(TonResponseError.BadRequest, 'Not enough funds');
+    }
+
+    const accounts = await this.getAccountsInfo(request);
+    const account = accounts[0];
+    if (encodedTx.from) {
+      try {
+        const fromAddr = new TonWeb.Address(encodedTx.from);
+        if (
+          fromAddr.toString(false, false, false) !==
+          account.account.addressDetail.baseAddress
+        ) {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'Wrong from address',
+          );
+        }
+      } catch (error) {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Wrong from address format',
+        );
+      }
+    } else {
+      encodedTx.from = account.account.addressDetail.baseAddress;
+    }
+    if (encodedTx.valid_until) {
+      encodedTx.validUntil = encodedTx.valid_until;
+    }
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx,
+        networkId: account.accountInfo?.networkId ?? '',
+        accountId: account?.account.id ?? '',
+        signOnly: false,
+      });
+
+    return result.rawTx;
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signData(
+    request: IJsBridgeMessagePayload,
+    params: SignDataRequest,
+  ): Promise<any> {
+    const accounts = await this.getAccountsInfo(request);
+    const account = accounts[0];
+    const timestamp = Math.floor(Date.now() / 1000);
+    const appDomain = (request.origin ?? '').replace(/^(https?:\/\/)/, '');
+
+    const isLegacy = !('type' in params);
+
+    if (isLegacy) {
+      const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
+        request,
+        networkId: account?.accountInfo?.networkId ?? '',
+        accountId: account?.account.id ?? '',
+        unsignedMessage: {
+          type: EMessageTypesTon.SIGN_DATA,
+          message: Buffer.from(params.cell, 'base64').toString('hex'),
+          payload: {
+            schemaCrc: params.schema_crc,
+            timestamp,
+          },
+        },
+      });
+
+      return {
+        signature: result,
+        timestamp,
+      };
+    }
+
+    // new SignData
+    let message;
+    switch (params.type) {
+      case 'binary':
+        message = Buffer.from(params.bytes, 'base64').toString('hex');
+        break;
+      case 'cell':
+        message = params.cell;
+        break;
+      case 'text':
+        message = params.text;
+        break;
+      default:
+        throw new OneKeyLocalError('Invalid params');
+    }
+    const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      networkId: account?.accountInfo?.networkId ?? '',
+      accountId: account?.account.id ?? '',
+      unsignedMessage: {
+        type: EMessageTypesTon.SIGN_DATA_V1,
+        message,
+        payload: {
+          payload: params,
+          timestamp,
+          appDomain,
+          address: account.account.address,
+        },
+      },
+    });
+
+    return {
+      signature: Buffer.from(result as string, 'hex').toString('base64'),
+      timestamp,
+      address: account.account.address,
+      domain: appDomain,
+      payload: params,
+    };
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signProof(
+    request: IJsBridgeMessagePayload,
+    params: SignProofRequest,
+  ): Promise<any> {
+    const accounts = await this.getAccountsInfo(request);
+    const account = accounts[0];
+    const timestamp = Math.floor(Date.now() / 1000);
+    const appDomain = (request.origin ?? '').replace(/^(https?:\/\/)/, '');
+    const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      networkId: account?.accountInfo?.networkId ?? '',
+      accountId: account?.account.id ?? '',
+      unsignedMessage: {
+        type: EMessageTypesTon.SIGN_PROOF,
+        message: params.payload,
+        payload: {
+          isProof: true,
+          timestamp,
+          appDomain,
+          address: account.account.address,
+        },
+      },
+    });
+
+    return {
+      signature: Buffer.from(result as string, 'hex').toString('base64'),
+      timestamp,
+      domain: {
+        lengthBytes: Buffer.from(appDomain).length,
+        value: appDomain,
+      },
+    };
+  }
+}
+
+export default ProviderApiTon;

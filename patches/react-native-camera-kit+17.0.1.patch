@@ -1,0 +1,149 @@
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
+index 135a383..d7435c3 100644
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
+@@ -112,34 +112,35 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     // MARK: - Public
+ 
+     func setup(cameraType: CameraType, supportedBarcodeType: [CodeFormat]) {
+-        // cameraPreview.session = ... causes begin/commitConfiguration on the current thread
+-        // so it must be on the same thread as setupCaptureSession to avoid startRunning executing inbetween
+-        // Observe this with a breakpoint on `.session = X` and look in Console.app for
+-        // "AVCaptureSession beginConfiguration" from the com.apple.cameracapture subsystem
+         DispatchQueue.main.async {
+-            self.cameraPreview.session = self.session
+-            self.cameraPreview.previewLayer.videoGravity = .resizeAspect
+-
+             self.initializeMotionManager()
++        }
+ 
+-            // Setup the capture session.
+-            // In general, it is not safe to mutate an AVCaptureSession or any of its inputs, outputs, or connections from multiple threads at the same time.
+-            // Why not do all of this on the main queue?
+-            // Because -[AVCaptureSession startRunning] is a blocking call which can take a long time. We dispatch session setup to the sessionQueue
+-            // so that the main queue isn't blocked, which keeps the UI responsive.
+-            self.sessionQueue.async {
+-                self.setupResult = self.setupCaptureSession(
+-                    cameraType: cameraType, supportedBarcodeType: supportedBarcodeType)
++        // Setup the capture session.
++        // In general, it is not safe to mutate an AVCaptureSession or any of its inputs, outputs, or connections from multiple threads at the same time.
++        // Why not do all of this on the main queue?
++        // Because -[AVCaptureSession startRunning] is a blocking call which can take a long time. We dispatch session setup to the sessionQueue
++        // so that the main queue isn't blocked, which keeps the UI responsive.
++        self.sessionQueue.async {
++            self.setupResult = self.setupCaptureSession(
++                cameraType: cameraType, supportedBarcodeType: supportedBarcodeType)
+ 
+-                self.addObservers()
++            self.addObservers()
+ 
+-                if self.setupResult == .success {
+-                    self.session.startRunning()
+-                }
++            if self.setupResult == .success {
++                self.session.startRunning()
++            }
+ 
+-                DispatchQueue.main.async {
+-                    self.setVideoOrientationToInterfaceOrientation()
+-                }
++            // Defer preview layer session assignment until after startRunning() completes.
++            // Setting previewLayer.session internally triggers beginConfiguration/commitConfiguration
++            // on the AVCaptureSession. If this overlaps with startRunning(), AVFoundation throws
++            // NSGenericException (startRunning called between beginConfiguration and
++            // commitConfiguration). Dispatching to main after startRunning() ensures proper
++            // sequencing of the AVCaptureSession configuration lifecycle. (Fixes REACT-NATIVE-1EZ)
++            DispatchQueue.main.async {
++                self.cameraPreview.session = self.session
++                self.cameraPreview.previewLayer.videoGravity = self.resizeMode == .cover ? .resizeAspectFill : .resizeAspect
++                self.setVideoOrientationToInterfaceOrientation()
+             }
+         }
+     }
+@@ -347,6 +348,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     }
+ 
+     func update(resizeMode: ResizeMode) {
++        self.resizeMode = resizeMode
+         DispatchQueue.main.async {
+             switch resizeMode {
+             case .cover:
+diff --git a/node_modules/react-native-camera-kit/src/Camera.android.tsx b/node_modules/react-native-camera-kit/src/Camera.android.tsx
+index 56cddbc..ae14ea0 100644
+--- a/node_modules/react-native-camera-kit/src/Camera.android.tsx
++++ b/node_modules/react-native-camera-kit/src/Camera.android.tsx
+@@ -8,15 +8,6 @@ import NativeCameraKitModule from './specs/NativeCameraKitModule';
+ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+   const nativeRef = React.useRef(null);
+ 
+-  // RN doesn't support optional view props yet (sigh)
+-  // so we have to use -1 to indicate 'undefined'
+-  // All int/float/double props from src/specs/CameraNativeComponent.ts need be mentioned here
+-  props.zoom = props.zoom ?? -1;
+-  props.maxZoom = props.maxZoom ?? -1;
+-  props.scanThrottleDelay = props.scanThrottleDelay ?? -1;
+-
+-  props.allowedBarcodeTypes = props.allowedBarcodeTypes ?? supportedCodeFormats;
+-
+   React.useImperativeHandle(ref, () => ({
+     capture: async (options = {}) => {
+       return await NativeCameraKitModule.capture(options, findNodeHandle(nativeRef.current) ?? undefined);
+@@ -29,7 +20,17 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+     },
+   }));
+ 
+-  const transformedProps: CameraProps = { ...props };
++  // RN doesn't support optional view props yet (sigh)
++  // so we have to use -1 to indicate 'undefined'
++  // All int/float/double props from src/specs/CameraNativeComponent.ts need be mentioned here
++  // Note: Props are frozen in React 19, so we must create a new object instead of mutating
++  const transformedProps: CameraProps = {
++    ...props,
++    zoom: props.zoom ?? -1,
++    maxZoom: props.maxZoom ?? -1,
++    scanThrottleDelay: props.scanThrottleDelay ?? -1,
++    allowedBarcodeTypes: props.allowedBarcodeTypes ?? supportedCodeFormats,
++  };
+   transformedProps.ratioOverlayColor = processColor(props.ratioOverlayColor) as any;
+   transformedProps.frameColor = processColor(props.frameColor) as any;
+   transformedProps.laserColor = processColor(props.laserColor) as any;
+diff --git a/node_modules/react-native-camera-kit/src/Camera.ios.tsx b/node_modules/react-native-camera-kit/src/Camera.ios.tsx
+index 0845d6d..5a4f841 100644
+--- a/node_modules/react-native-camera-kit/src/Camera.ios.tsx
++++ b/node_modules/react-native-camera-kit/src/Camera.ios.tsx
+@@ -11,15 +11,17 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+   // RN doesn't support optional view props yet (sigh)
+   // so we have to use -1 to indicate 'undefined'
+   // All int/float/double props from src/specs/CameraNativeComponent.ts need be mentioned here
+-  props.zoom = props.zoom ?? -1;
+-  props.maxZoom = props.maxZoom ?? -1;
+-  props.scanThrottleDelay = props.scanThrottleDelay ?? -1;
+-  props.iOsDeferredStart = props.iOsDeferredStart ?? true;
+-
+-  props.allowedBarcodeTypes = props.allowedBarcodeTypes ?? supportedCodeFormats;
+-
+-  props.resetFocusTimeout = props.resetFocusTimeout ?? 0;
+-  props.resetFocusWhenMotionDetected = props.resetFocusWhenMotionDetected ?? true;
++  // Note: Props are frozen in React 19, so we must create a new object instead of mutating
++  const propsWithDefaults = {
++    ...props,
++    zoom: props.zoom ?? -1,
++    maxZoom: props.maxZoom ?? -1,
++    scanThrottleDelay: props.scanThrottleDelay ?? -1,
++    iOsDeferredStart: props.iOsDeferredStart ?? true,
++    allowedBarcodeTypes: props.allowedBarcodeTypes ?? supportedCodeFormats,
++    resetFocusTimeout: props.resetFocusTimeout ?? 0,
++    resetFocusWhenMotionDetected: props.resetFocusWhenMotionDetected ?? true,
++  };
+ 
+   React.useImperativeHandle(ref, () => ({
+     capture: async () => {
+@@ -34,7 +36,7 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+   }));
+ 
+   // @ts-expect-error props for codegen differ a bit from the user-facing ones
+-  return <NativeCamera style={{ minWidth: 100, minHeight: 100 }} ref={nativeRef} {...props} />;
++  return <NativeCamera style={{ minWidth: 100, minHeight: 100 }} ref={nativeRef} {...propsWithDefaults} />;
+ });
+ 
+ export default Camera;

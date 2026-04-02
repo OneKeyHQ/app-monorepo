@@ -1,0 +1,82 @@
+diff --git a/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx b/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
+index 3c58b04..9477c3a 100644
+--- a/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
++++ b/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
+@@ -50,6 +50,7 @@ type Props = {
+   extraInsets?: ExtraInsets;
+   keyboardVisible?: boolean;
+   keyboardHeight: number;
++  containerWidth?: number;
+   defaultStyle?: {
+     pressable?: ViewStyle;
+     view?: ViewStyle;
+@@ -72,9 +73,11 @@ export const Toast: FC<Props> = ({
+   defaultStyle,
+   keyboardVisible,
+   keyboardHeight,
++  containerWidth,
+ }) => {
+   const insets = useSafeAreaInsets();
+-  const { width, height } = useWindowDimensions();
++  const { width: windowWidth, height } = useWindowDimensions();
++  const width = containerWidth || windowWidth;
+   const isSystemDarkMode = useColorScheme() === 'dark';
+ 
+   const [toastHeight, setToastHeight] = useState<number>(
+@@ -343,7 +346,7 @@ export const Toast: FC<Props> = ({
+             borderRadius: 8,
+             position: 'absolute',
+             left: leftPosition,
+-            zIndex: toast.visible ? 9999 : undefined,
++            zIndex: toast.visible ? 1e6 : undefined,
+             alignItems: 'center',
+             justifyContent: 'center',
+           },
+diff --git a/node_modules/@backpackapp-io/react-native-toast/src/components/Toasts.tsx b/node_modules/@backpackapp-io/react-native-toast/src/components/Toasts.tsx
+index d9f4fd2..f1cc55e 100644
+--- a/node_modules/@backpackapp-io/react-native-toast/src/components/Toasts.tsx
++++ b/node_modules/@backpackapp-io/react-native-toast/src/components/Toasts.tsx
+@@ -1,5 +1,6 @@
+-import React, { FunctionComponent } from 'react';
++import React, { FunctionComponent, useCallback, useState } from 'react';
+ import {
++  LayoutChangeEvent,
+   Platform,
+   TextStyle,
+   View,
+@@ -70,12 +71,27 @@ export const Toasts: FunctionComponent<Props> = ({
+       ? insets.bottom
+       : 0;
+ 
++  const [containerWidth, setContainerWidth] = useState<number | undefined>(undefined);
++  const onContainerLayout = useCallback((event: LayoutChangeEvent) => {
++    const layoutWidth = event.nativeEvent.layout.width;
++    if (layoutWidth > 0) {
++      setContainerWidth(layoutWidth);
++    }
++  }, []);
++
+   if (isScreenReaderEnabled && !preventScreenReaderFromHiding) {
+     return null;
+   }
+ 
++  // This is a hack to ensure the toasts are on top of other components
++  // packages/shared/src/utils/overlayUtils.ts
++  if (toasts.length === 0 && Platform.OS === 'ios') {
++    return null;
++  }
++
+   return (
+     <View
++      onLayout={onContainerLayout}
+       style={{
+         position: 'absolute',
+         top: insets.top + (extraInsets?.top ?? 0) + 16,
+@@ -111,6 +127,7 @@ export const Toasts: FunctionComponent<Props> = ({
+           defaultStyle={defaultStyle}
+           keyboardVisible={keyboardVisible}
+           keyboardHeight={keyboardHeight}
++          containerWidth={containerWidth}
+         />
+       ))}
+     </View>

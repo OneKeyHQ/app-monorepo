@@ -1,0 +1,8 @@
+{
+  "_comment": "Thresholds for iOS Simulator Debug perf guard. Metrics: tokensStartMs (Home:refresh:start:tokens timestamp), tokensSpanMs (done-start), functionCallCount (#lines in function_call.log). Values are absolute; trigger when median > threshold (strategy=median).",
+  "_baseline_note": "Computed from sample sessions perf-mkjvlp2p-clhuxh / perf-mkjvm80g-pt3tzb / perf-mkjvmqit-aam5mm with +10% tolerance.",
+  "tokensStartMs": 10858,
+  "tokensSpanMs": 3403,
+  "functionCallCount": 942,
+  "strategy": "median"
+}

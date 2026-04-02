@@ -1,0 +1,42 @@
+export const POLLING_INTERVAL = 15_000;
+export const POLLING_INTERVAL_FOR_TOTAL_VALUE = POLLING_INTERVAL;
+export const POLLING_INTERVAL_FOR_TOKEN = POLLING_INTERVAL;
+export const POLLING_INTERVAL_FOR_NFT = POLLING_INTERVAL;
+export const POLLING_INTERVAL_FOR_HISTORY = POLLING_INTERVAL;
+export const POLLING_INTERVAL_FOR_APPROVAL = POLLING_INTERVAL;
+export const POLLING_INTERVAL_FOR_DEFI = 60_000;
+export const POLLING_INTERVAL_FOR_NATIVE_TOKEN_INFO = 15_000;
+
+export const POLLING_DEBOUNCE_INTERVAL = 1000;
+
+export const SEARCH_DEBOUNCE_INTERVAL = 500;
+export const SEARCH_KEY_MIN_LENGTH = 2;
+
+export const ENABLE_SEARCH_MIN_LENGTH = 10;
+export const ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH = ENABLE_SEARCH_MIN_LENGTH;
+export const ENABLE_SEARCH_NFT_LIST_MIN_LENGTH = ENABLE_SEARCH_MIN_LENGTH;
+export const ENABLE_SEARCH_HISTORY_MIN_LENGTH = ENABLE_SEARCH_MIN_LENGTH;
+
+export const REPLACE_TX_FEE_UP_RATIO = 1.1;
+export const SHOW_NFT_AMOUNT_MAX = 9999;
+
+export const TOKEN_LIST_HIGH_VALUE_MAX = 50;
+
+export const BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE = 2;
+export const BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP = 5;
+export const BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP = 0.3;
+export const BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL = 0.8;
+
+export const HISTORY_PAGE_SIZE = 50;
+
+export const SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD = 2;
+
+export const WALLET_STORE_URLS = {
+  okx: 'https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemcciiolgcge',
+  coinbase:
+    'https://chromewebstore.google.com/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad',
+  phantom:
+    'https://chromewebstore.google.com/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa',
+  zerion:
+    'https://chromewebstore.google.com/detail/zerion-wallet-crypto-defi/klghhnkeealcohjjanjjdaeeggmfmlpl',
+} as const satisfies Record<'okx' | 'coinbase' | 'phantom' | 'zerion', string>;

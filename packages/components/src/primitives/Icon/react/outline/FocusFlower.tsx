@@ -1,0 +1,17 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgFocusFlower = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="M14.67 3.854 18 2.524V8a6 6 0 0 1-5 5.915v1.692a6.12 6.12 0 0 1 4.858-1.566l.235.032.721.112.113.722A6.14 6.14 0 0 1 13 21.996V22h-2v-.004a6.14 6.14 0 0 1-5.927-7.089l.113-.722.721-.112A6.12 6.12 0 0 1 11 15.607v-1.692A6 6 0 0 1 6 8V2.523l3.33 1.331L12 1.72zm-7.666 12.15a4.14 4.14 0 0 0 3.991 3.991 4.14 4.14 0 0 0-3.991-3.991m9.991 0a4.14 4.14 0 0 0-3.991 3.991 4.14 4.14 0 0 0 3.991-3.991M10.125 5.78l-.455.364-.541-.216L8 5.477V8a4 4 0 0 0 8 0V5.477l-1.129.452-.54.216-.456-.364L12 4.281z"
+      clipRule="evenodd"
+    />
+  </Svg>
+);
+export default SvgFocusFlower;

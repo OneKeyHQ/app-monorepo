@@ -1,0 +1,256 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { noop } from 'lodash';
+import { useIntl } from 'react-intl';
+
+import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useOrderFilterByCurrentTokenAtom,
+  usePerpsActiveOpenOrdersAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
+import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
+import { OpenOrdersRow } from '../Components/OpenOrdersRow';
+
+import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
+
+interface IPerpOpenOrdersListProps {
+  isMobile?: boolean;
+  useTabsList?: boolean;
+  disableListScroll?: boolean;
+}
+
+function PerpOpenOrdersList({
+  isMobile,
+  useTabsList,
+  disableListScroll,
+}: IPerpOpenOrdersListProps) {
+  const intl = useIntl();
+  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const actions = useHyperliquidActions();
+  const [currentListPage, setCurrentListPage] = useState(1);
+  useEffect(() => {
+    noop(currentUser?.accountAddress);
+    setCurrentListPage(1);
+  }, [currentUser?.accountAddress]);
+  useEffect(() => {
+    if (isMobile) {
+      setCurrentListPage(1);
+    }
+  }, [filterByCurrentToken, isMobile]);
+  useEffect(() => {
+    if (isMobile && filterByCurrentToken) {
+      setCurrentListPage(1);
+    }
+  }, [activeAsset?.coin, isMobile, filterByCurrentToken]);
+
+  const filteredOrders = useMemo(() => {
+    if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
+      return openOrders;
+    }
+    return openOrders.filter((order) => order.coin === activeAsset.coin);
+  }, [openOrders, isMobile, filterByCurrentToken, activeAsset?.coin]);
+
+  const columnsConfig: IColumnConfig[] = useMemo(
+    () => [
+      {
+        key: 'time',
+        title: intl.formatMessage({ id: ETranslations.perp_open_orders_time }),
+        minWidth: 100,
+        align: 'left',
+      },
+      {
+        key: 'asset',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        width: 80,
+        align: 'left',
+      },
+
+      {
+        key: 'type',
+        title: intl.formatMessage({ id: ETranslations.perp_open_orders_type }),
+        minWidth: 120,
+        align: 'left',
+        flex: 1,
+      },
+      {
+        key: 'size',
+        title: intl.formatMessage({ id: ETranslations.perp_open_orders_size }),
+        minWidth: 100,
+        align: 'left',
+        flex: 1,
+      },
+      {
+        key: 'originalSize',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_original_size,
+        }),
+        minWidth: 100,
+        align: 'left',
+        flex: 1,
+      },
+      {
+        key: 'value',
+        title: intl.formatMessage({ id: ETranslations.perp_open_orders_value }),
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'executePrice',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_execute_price,
+        }),
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'reduceOnly',
+        title: intl.formatMessage({
+          id: ETranslations.perps_reduce_only,
+        }),
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'triggerCondition',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_trigger_condition,
+        }),
+        minWidth: 160,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'TPSL',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_tp_sl,
+        }),
+        minWidth: 140,
+        flex: 1,
+        align: 'center',
+      },
+      {
+        key: 'cancel',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_cancel_all,
+        }),
+        minWidth: 80,
+        align: 'right',
+        flex: 1,
+        fixed: true,
+        ...(openOrders.length > 0 && {
+          onPress: () => showCancelAllOrdersDialog(),
+        }),
+      },
+    ],
+    [intl, openOrders.length],
+  );
+
+  const handleCancelOrder = useCallback(
+    async (order: IPerpsFrontendOrder) => {
+      await actions.current.ensureTradingEnabled();
+      const symbolMeta =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: order.coin,
+        });
+      const tokenInfo = symbolMeta;
+      if (!tokenInfo) {
+        console.warn(`Token info not found for coin: ${order.coin}`);
+        return;
+      }
+      void actions.current.cancelOrder({
+        orders: [
+          {
+            assetId: tokenInfo.assetId,
+            oid: order.oid,
+          },
+        ],
+      });
+    },
+    [actions],
+  );
+
+  const totalMinWidth = useMemo(
+    () =>
+      columnsConfig.reduce(
+        (sum, col) => sum + (col.width || col.minWidth || 0),
+        0,
+      ),
+    [columnsConfig],
+  );
+  const renderOrderRow = (
+    item: IPerpsFrontendOrder,
+    _index: number,
+    renderMode?: 'full' | 'left' | 'right',
+    isHovered?: boolean,
+    onHoverChange?: (index: number | null) => void,
+  ) => (
+    <OpenOrdersRow
+      order={item}
+      isMobile={isMobile}
+      cellMinWidth={totalMinWidth}
+      columnConfigs={columnsConfig}
+      handleCancelOrder={() => handleCancelOrder(item)}
+      index={_index}
+      renderMode={renderMode}
+      isHovered={isHovered}
+      onHoverChange={onHoverChange}
+    />
+  );
+  return (
+    <CommonTableListView
+      onPullToRefresh={async () => {
+        await actions.current.refreshAllPerpsData();
+      }}
+      listViewDebugRenderTrackerProps={useMemo(
+        (): IDebugRenderTrackerProps => ({
+          name: 'PerpOpenOrdersList',
+          position: 'top-left',
+        }),
+        [],
+      )}
+      useTabsList={useTabsList}
+      disableListScroll={disableListScroll}
+      enablePagination
+      pageSize={isMobile ? 20 : 40}
+      paginationToBottom={isMobile}
+      currentListPage={currentListPage}
+      setCurrentListPage={setCurrentListPage}
+      columns={columnsConfig}
+      minTableWidth={totalMinWidth}
+      data={filteredOrders}
+      isMobile={isMobile}
+      renderRow={renderOrderRow}
+      emptyMessage={intl.formatMessage({
+        id: ETranslations.perp_open_order_empty,
+      })}
+      emptySubMessage={intl.formatMessage({
+        id: ETranslations.perp_open_order_empty_desc,
+      })}
+      ListHeaderComponent={
+        isMobile ? (
+          <MobileOpenOrdersListHeader totalOrderCount={openOrders.length} />
+        ) : null
+      }
+    />
+  );
+}
+
+export { PerpOpenOrdersList };

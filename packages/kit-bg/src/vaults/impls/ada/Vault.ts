@@ -1,0 +1,820 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
+
+import {
+  decodePrivateKeyByXprv,
+  validBootstrapAddress,
+  validShelleyAddress,
+} from '@onekeyhq/core/src/chains/ada/sdkAda';
+import type {
+  IAdaAccount,
+  IAdaAmount,
+  IAdaEncodeOutput,
+  IAdaUTXO,
+  IEncodedTxAda,
+} from '@onekeyhq/core/src/chains/ada/types';
+import {
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
+} from '@onekeyhq/core/src/secret';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
+import {
+  InvalidAddress,
+  LowerTransactionAmountError,
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type {
+  IAddressValidation,
+  IGeneralInputValidation,
+  INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
+  IXprvtValidation,
+  IXpubValidation,
+} from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
+import {
+  EEarnLabels,
+  EInternalStakingAction,
+  type IInternalDappTxParams,
+} from '@onekeyhq/shared/types/staking';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+  type IDecodedTx,
+  type IDecodedTxAction,
+} from '@onekeyhq/shared/types/tx';
+
+import { VaultBase } from '../../base/VaultBase';
+
+import { KeyringExternal } from './KeyringExternal';
+import { KeyringHardware } from './KeyringHardware';
+import { KeyringHd } from './KeyringHd';
+import { KeyringImported } from './KeyringImported';
+import { KeyringWatching } from './KeyringWatching';
+import sdk from './sdkAda';
+import { getChangeAddress } from './sdkAda/adaUtils';
+import { ClientAda } from './sdkAda/ClientAda';
+
+import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
+import type { KeyringBase } from '../../base/KeyringBase';
+import type {
+  IBroadcastTransactionByCustomRpcParams,
+  IBuildAccountAddressDetailParams,
+  IBuildDecodedTxParams,
+  IBuildEncodedTxParams,
+  IBuildUnsignedTxParams,
+  IGetPrivateKeyFromImportedParams,
+  IGetPrivateKeyFromImportedResult,
+  ITransferInfo,
+  IUpdateUnsignedTxParams,
+  IValidateGeneralInputParams,
+} from '../../types';
+
+export default class Vault extends VaultBase {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
+    hd: KeyringHd,
+    qr: undefined,
+    hw: KeyringHardware,
+    imported: KeyringImported,
+    watching: KeyringWatching,
+    external: KeyringExternal,
+  };
+
+  override async buildAccountAddressDetail(
+    params: IBuildAccountAddressDetailParams,
+  ): Promise<INetworkAccountAddressDetail> {
+    const { account, networkId } = params;
+    const { address } = account;
+    return Promise.resolve({
+      networkId,
+      normalizedAddress: address,
+      displayAddress: address,
+      address,
+      baseAddress: address,
+      isValid: true,
+      allowEmptyAddress: false,
+    });
+  }
+
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxAda> {
+    const { transfersInfo } = params;
+    if (!transfersInfo || isEmpty(transfersInfo)) {
+      throw new OneKeyInternalError('transfersInfo is required');
+    }
+    if (transfersInfo.length > 1) {
+      throw new OneKeyInternalError('Only one transfer is allowed');
+    }
+    const transferInfo = transfersInfo[0];
+    if (!transferInfo.to) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
+    }
+    const { to, amount, tokenInfo } = transferInfo;
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const { path, addresses, xpub } = dbAccount;
+    const network = await this.getNetwork();
+    const { decimals, feeMeta } = network;
+    const utxos = (
+      await this._collectUTXOsInfoByApi({
+        address: dbAccount.address,
+        path,
+        addresses,
+        xpub,
+      })
+    )
+      // Native transfer filter datumHash is null
+      .filter(
+        (utxo) => utxo.datum_hash === null || utxo.datum_hash === undefined,
+      );
+
+    const amountBN = new BigNumber(amount);
+
+    let output;
+    if (tokenInfo?.address) {
+      output = {
+        address: to,
+        amount: undefined,
+        assets: [
+          {
+            quantity: amountBN.shiftedBy(tokenInfo?.decimals).toFixed(),
+            unit: tokenInfo?.address,
+          },
+        ],
+      };
+    } else {
+      output = {
+        address: to,
+        amount: amountBN.shiftedBy(decimals).toFixed(),
+        assets: [],
+      };
+    }
+
+    const CardanoApi = await sdk.getCardanoApi();
+    let txPlan: Awaited<ReturnType<typeof CardanoApi.composeTxPlan>>;
+    try {
+      txPlan = await CardanoApi.composeTxPlan(
+        transferInfo,
+        dbAccount.xpub,
+        utxos,
+        dbAccount.address,
+        [output as any],
+      );
+    } catch (e: any) {
+      const utxoValueTooSmall = 'UTXO_VALUE_TOO_SMALL';
+      const insufficientBalance = 'UTXO_BALANCE_INSUFFICIENT';
+      if (
+        [utxoValueTooSmall, insufficientBalance].includes(e.code) ||
+        [utxoValueTooSmall, insufficientBalance].includes(e.message)
+      ) {
+        throw new LowerTransactionAmountError();
+      }
+      throw e;
+    }
+
+    const changeAddress = getChangeAddress(dbAccount);
+
+    // @ts-expect-error
+    const { fee, inputs, outputs, totalSpent, tx } = txPlan;
+    const totalFeeInNative = new BigNumber(fee)
+      .shiftedBy(-1 * feeMeta.decimals)
+      .toFixed();
+
+    return {
+      inputs,
+      outputs,
+      fee,
+      totalSpent,
+      totalFeeInNative,
+      tx,
+      changeAddress,
+      signOnly: false,
+    };
+  }
+
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxAda;
+    const { inputs, outputs } = encodedTx;
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+
+    const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+    });
+
+    const utxoFrom = inputs.map((input) => {
+      const { balance, balanceValue } = this._getInputOrOutputBalance(
+        input.amount,
+        network.decimals,
+      );
+      return {
+        address: input.address,
+        balance,
+        balanceValue,
+        symbol: network.symbol,
+        isMine: true,
+      };
+    });
+
+    const utxoTo = outputs
+      .filter((output) => !output.isChange)
+      .map((output) => ({
+        address: output.address,
+        balance: chainValueUtils.convertChainValueToAmount({
+          value: output.amount,
+          network,
+        }),
+        balanceValue: output.amount,
+        symbol: network.symbol,
+        isMine: output.address === account.address,
+      }));
+
+    // For staking transactions, outputs may be empty (e.g., stake delegation)
+    // Only use transferInfo.to as fallback when it's a staking transaction
+    const isStakingTx = encodedTx.staking?.isStakingTx === true;
+    const toAddress =
+      utxoTo[0]?.address ??
+      (isStakingTx ? encodedTx.transferInfo?.to : undefined);
+
+    let actions: IDecodedTxAction[] = [
+      {
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
+          from: account.address,
+          to: toAddress,
+        },
+      },
+    ];
+
+    const nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
+
+    // If stakingInfo is provided (internal staking page),
+    // use buildInternalStakingAction for proper UI rendering
+    if (unsignedTx.stakingInfo) {
+      const accountAddress = await this.getAccountAddress();
+      const isDelegate = unsignedTx.stakingInfo.label === EEarnLabels.Stake;
+
+      // Build stakingInfo with calculated send amount (only for delegate)
+      let stakingInfo = unsignedTx.stakingInfo;
+      let sendAmountAda = '0';
+      let sendAmountLovelace = '0';
+
+      if (isDelegate && nativeToken) {
+        // Calculate deposit: inputs - outputs - fee (fee is shown separately)
+        const inputsTotal = inputs.reduce((sum, input) => {
+          const lovelace = input.amount.find((a) => a.unit === 'lovelace');
+          return sum.plus(lovelace?.quantity ?? 0);
+        }, new BigNumber(0));
+        const outputsTotal = outputs.reduce(
+          (sum, output) => sum.plus(output.amount),
+          new BigNumber(0),
+        );
+        const depositLovelace = inputsTotal
+          .minus(outputsTotal)
+          .minus(encodedTx.fee);
+        const depositAda = depositLovelace.shiftedBy(-network.decimals);
+
+        if (depositLovelace.gt(0)) {
+          sendAmountAda = depositAda.toFixed();
+          sendAmountLovelace = depositLovelace.toFixed();
+          stakingInfo = {
+            ...unsignedTx.stakingInfo,
+            send: {
+              token: nativeToken,
+              amount: sendAmountAda,
+            },
+          };
+        }
+      }
+
+      const action = await this.buildInternalStakingAction({
+        stakingInfo,
+        accountAddress,
+        stakingToAddress: toAddress,
+      });
+
+      return {
+        txid: '',
+        owner: account.address,
+        signer: account.address,
+        nonce: 0,
+        actions: [action],
+        to: toAddress,
+        status: EDecodedTxStatus.Pending,
+        networkId: this.networkId,
+        accountId: this.accountId,
+        xpub: (account as IDBUtxoAccount).xpub,
+        extraInfo: null,
+        encodedTx,
+        totalFeeInNative: encodedTx.totalFeeInNative,
+        nativeAmount: sendAmountAda,
+        nativeAmountValue: sendAmountLovelace,
+      };
+    }
+
+    // Build sends array for normal transfers (non-staking transactions)
+    if (nativeToken) {
+      const sends = [];
+
+      for (const output of outputs.filter((o) => !o.isChange)) {
+        for (const asset of output.assets) {
+          const token = await this.backgroundApi.serviceToken.getToken({
+            accountId: this.accountId,
+            networkId: this.networkId,
+            tokenIdOnNetwork: asset.unit,
+          });
+          if (token) {
+            sends.push({
+              from: account.address,
+              to: output.address,
+              isNative: false,
+              tokenIdOnNetwork: asset.unit,
+              name: token.name,
+              icon: token.logoURI ?? '',
+              amount: chainValueUtils.convertTokenChainValueToAmount({
+                value: asset.quantity,
+                token,
+              }),
+              amountValue: asset.quantity,
+              symbol: token.symbol,
+            });
+          }
+        }
+        sends.push({
+          from: account.address,
+          to: output.address,
+          isNative: true,
+          tokenIdOnNetwork: '',
+          name: nativeToken.name,
+          icon: nativeToken.logoURI ?? '',
+          amount: chainValueUtils.convertChainValueToAmount({
+            value: output.amount,
+            network,
+          }),
+          amountValue: output.amount,
+          symbol: network.symbol,
+        });
+      }
+
+      // Sort: put native token first
+      sends.sort((a, b) => {
+        if (a.isNative && !b.isNative) {
+          return -1;
+        }
+        if (!a.isNative && b.isNative) {
+          return 1;
+        }
+        return 0;
+      });
+
+      actions = [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            from: account.address,
+            to: toAddress,
+            sends,
+            receives: [],
+            utxoFrom,
+            utxoTo,
+          },
+        },
+      ];
+    }
+
+    return {
+      txid: '',
+      owner: account.address,
+      signer: account.address,
+      nonce: 0,
+      actions,
+      to: toAddress,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      xpub: (account as IDBUtxoAccount).xpub,
+      extraInfo: null,
+      encodedTx,
+      totalFeeInNative: encodedTx.totalFeeInNative,
+      nativeAmount: nativeAmountMap.amount,
+      nativeAmountValue: nativeAmountMap.amountValue,
+    };
+  }
+
+  override async buildUnsignedTx(
+    params: IBuildUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    if (params.encodedTx) {
+      const _existEncodedTx = params.encodedTx as IEncodedTxAda;
+      return {
+        encodedTx: params.encodedTx,
+        transfersInfo: params.transfersInfo ?? [
+          _existEncodedTx.transferInfo as ITransferInfo,
+        ],
+        txSize: new BigNumber(_existEncodedTx.totalFeeInNative).toNumber(),
+      };
+    }
+    const encodedTx = await this.buildEncodedTx(params);
+    if (encodedTx) {
+      return {
+        encodedTx,
+        transfersInfo: params.transfersInfo,
+        // feeRate = 1, 1 * txSize = final fee for ui
+        txSize: new BigNumber(encodedTx.totalFeeInNative).toNumber(),
+      };
+    }
+    throw new OneKeyInternalError('Failed to build unsigned tx');
+  }
+
+  override updateUnsignedTx(
+    params: IUpdateUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    return Promise.resolve(params.unsignedTx);
+  }
+
+  override validateAddress(address: string): Promise<IAddressValidation> {
+    if (address.length < 35) {
+      return Promise.reject(new InvalidAddress());
+    }
+    if (validShelleyAddress(address) || validBootstrapAddress(address)) {
+      return Promise.resolve({
+        isValid: true,
+        normalizedAddress: address,
+        displayAddress: address,
+      });
+    }
+    return Promise.reject(new InvalidAddress());
+  }
+
+  override validateXpub(xpub: string): Promise<IXpubValidation> {
+    return Promise.resolve({
+      isValid: false,
+    });
+  }
+
+  override async getPrivateKeyFromImported(
+    params: IGetPrivateKeyFromImportedParams,
+  ): Promise<IGetPrivateKeyFromImportedResult> {
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
+    let privateKey = bufferUtils.bytesToHex(decodePrivateKeyByXprv(input));
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
+    return Promise.resolve({ privateKey });
+  }
+
+  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    const isValid = xprvt.startsWith('xprv') && xprvt.length >= 165;
+    return Promise.resolve({ isValid });
+  }
+
+  override async validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    return Promise.resolve({
+      isValid: false,
+    });
+  }
+
+  override async validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
+  }
+
+  override async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    const dbAccount = networkAccount as IDBUtxoAccount;
+    const stakeAddress = dbAccount.addresses?.['2/0'];
+    return stakeAddress;
+  }
+
+  _collectUTXOsInfoByApi = memoizee(
+    async (params: {
+      address: string;
+      path: string;
+      addresses: Record<string, string>;
+      xpub: string;
+    }): Promise<IAdaUTXO[]> => {
+      const { path, address, xpub } = params;
+      try {
+        const { utxoList } =
+          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+            networkId: this.networkId,
+            accountId: this.accountId,
+            withUTXOList: true,
+            cardanoPubKey: xpub,
+          });
+        if (!utxoList || isEmpty(utxoList)) {
+          return [];
+        }
+
+        const pathIndex = path.split('/')[3];
+
+        return utxoList.map((utxo) => {
+          let { path: utxoPath } = utxo;
+          if (utxoPath && utxoPath.length > 0) {
+            const pathArray = utxoPath.split('/');
+            pathArray.splice(3, 1, pathIndex);
+            utxoPath = pathArray.join('/');
+          }
+          return {
+            address: utxo.address,
+            amount: utxo.amount ?? [],
+            datum_hash: utxo.datumHash,
+            output_index: utxo.txIndex as number,
+            path: utxoPath,
+            reference_script_hash: utxo.referenceScriptHash,
+            tx_hash: utxo.txid,
+            tx_index: utxo.txIndex as number,
+          };
+        });
+      } catch (e) {
+        throw new OneKeyInternalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.feedback_failed_to_get_utxos,
+          }),
+        );
+      }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  private _getInputOrOutputBalance = (
+    amounts: IAdaAmount[],
+    decimals: number,
+    asset = 'lovelace',
+  ): { balance: string; balanceValue: string } => {
+    const item = amounts.filter((amount) => amount.unit === asset);
+    if (!item || item.length <= 0) {
+      return { balance: '0', balanceValue: '0' };
+    }
+    const amount = item[0]?.quantity ?? '0';
+    return {
+      balance: new BigNumber(amount).shiftedBy(-decimals).toFixed(),
+      balanceValue: amount,
+    };
+  };
+
+  private _getOutputAmount = (
+    outputs: IAdaEncodeOutput[],
+    decimals: number,
+    asset = 'lovelace',
+  ) => {
+    const realOutput = outputs.find((output) => !output.isChange);
+    if (!realOutput) {
+      return {
+        amount: new BigNumber(0).shiftedBy(-decimals).toFixed(),
+        amountValue: '0',
+      };
+    }
+    if (asset === 'lovelace') {
+      return {
+        amount: new BigNumber(realOutput.amount).shiftedBy(-decimals).toFixed(),
+        amountValue: realOutput.amount,
+      };
+    }
+    const assetAmount = realOutput.assets.find((token) => token.unit === asset);
+    return {
+      amount: new BigNumber(assetAmount?.quantity ?? 0)
+        .shiftedBy(-decimals)
+        .toFixed(),
+      amountValue: assetAmount?.quantity ?? '0',
+    };
+  };
+
+  private _getStakeAddress = memoizee(
+    async (address?: string) => {
+      if (
+        address &&
+        validShelleyAddress(address) &&
+        address.startsWith('stake')
+      ) {
+        return address;
+      }
+      const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+      return dbAccount.addresses?.['2/0'] ?? '';
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  // Dapp Function
+  async getBalanceForDapp() {
+    const stakeAddress = await this._getStakeAddress();
+    let rawBalance = {
+      controlled_amount: '0',
+    } as IAdaAccount;
+    let assetsBalance: IAdaAmount[] = [];
+    try {
+      const [_rawBalance, _assetsBalance] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
+          IAdaAccount | IAdaAmount[]
+        >({
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'GET',
+                params: [],
+                url: `/accounts/${stakeAddress}`,
+              },
+            },
+            {
+              route: 'rpc',
+              params: {
+                method: 'GET',
+                params: [],
+                url: `/accounts/${stakeAddress}/addresses/assets`,
+              },
+            },
+          ],
+        });
+      rawBalance = _rawBalance as IAdaAccount;
+      assetsBalance = _assetsBalance as IAdaAmount[];
+    } catch (e) {
+      // ignore error
+      console.error(e);
+    }
+    const balance = {
+      unit: 'lovelace',
+      quantity: rawBalance.controlled_amount,
+    };
+    const result = [balance, ...assetsBalance];
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetBalance(result);
+  }
+
+  async getUtxosForDapp(amount?: string) {
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const { address, xpub, path, addresses } = dbAccount;
+    const utxos = await this._collectUTXOsInfoByApi({
+      address,
+      addresses,
+      path,
+      xpub,
+    });
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetUtxos(dbAccount.address, utxos, amount);
+  }
+
+  async getAccountAddressForDapp() {
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    try {
+      const CardanoApi = await sdk.getCardanoApi();
+      return await CardanoApi.dAppGetAddresses([dbAccount.address]);
+    } catch (e) {
+      console.error('getAccountAddressForDapp ERROR:', e);
+      return [];
+    }
+  }
+
+  async getStakeAddressForDapp() {
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    try {
+      const stakeAddress = await this._getStakeAddress(dbAccount.address);
+      const CardanoApi = await sdk.getCardanoApi();
+      return await CardanoApi.dAppGetAddresses([stakeAddress]);
+    } catch (e) {
+      console.error('getStakeAddressForDapp ERROR:', e);
+      return [];
+    }
+  }
+
+  async buildTxCborToEncodeTx({
+    txHex,
+    isSignOnly,
+  }: {
+    txHex: string;
+    isSignOnly: boolean;
+  }): Promise<IEncodedTxAda> {
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const changeAddress = getChangeAddress(dbAccount);
+    const stakeAddress = await this._getStakeAddress(dbAccount.address);
+    const [associatedAddresses] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
+        { address: string }[]
+      >({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: 'GET',
+              params: [],
+              url: `/accounts/${stakeAddress}/addresses`,
+            },
+          },
+        ],
+      });
+    const { address, xpub, path, addresses: accountAddresses } = dbAccount;
+    const utxos = await this._collectUTXOsInfoByApi({
+      address,
+      addresses: accountAddresses,
+      path,
+      xpub,
+    });
+    const CardanoApi = await sdk.getCardanoApi();
+    const addresses = associatedAddresses.map((i) => i.address);
+    const encodeTx = await CardanoApi.dAppConvertCborTxToEncodeTx({
+      txHex,
+      utxos,
+      addresses,
+      changeAddress,
+      isSignOnly,
+    });
+
+    defaultLogger.transaction.coinSelect.adaEncodedTx(
+      encodeTx as unknown as IEncodedTxAda,
+    );
+    return {
+      ...encodeTx,
+      changeAddress,
+    };
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const start = performance.now();
+    const client = new ClientAda({ url: params.rpcUrl });
+    const result = await client.latestBlock();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: result.height,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientAda({ url: rpcUrl });
+    try {
+      await client.submitTx({ data: signedTx.rawTx });
+    } catch (err) {
+      console.error('broadcastTransaction ERROR:', err);
+      throw err;
+    }
+
+    console.log('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+
+    return {
+      ...params.signedTx,
+      txid: signedTx.txid,
+    };
+  }
+
+  override async buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
+  ): Promise<IEncodedTxAda> {
+    const { stakingAction } = params;
+    const encodedTx = await this.buildTxCborToEncodeTx({
+      txHex: params.internalDappTx as string,
+      isSignOnly: params.stakingAction !== EInternalStakingAction.Claim,
+    });
+
+    return encodedTx;
+  }
+}

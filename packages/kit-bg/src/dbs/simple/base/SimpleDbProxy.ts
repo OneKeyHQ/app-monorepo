@@ -1,0 +1,299 @@
+import { BackgroundServiceProxyBase } from '../../../apis/BackgroundServiceProxyBase';
+
+import type { SimpleDb } from './SimpleDb';
+import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBase';
+import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
+import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
+import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import type { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
+import type { SimpleDbEntityAggregateToken } from '../entity/SimpleDbEntityAggregateToken';
+import type { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
+import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
+import type { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
+import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
+import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
+import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
+import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
+import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
+import type { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
+import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import type { SimpleDbEntityBTCFreshAddress } from '../entity/SimpleDbEntityBTCFreshAddress';
+import type { SimpleDbEntityBTCFreshAddressMeta } from '../entity/SimpleDbEntityBTCFreshAddressMeta';
+import type { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainResource';
+import type { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
+import type { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
+import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
+import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
+import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
+import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import type { SimpleDbEntityDeFi } from '../entity/SimpleDbEntityDeFi';
+import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
+import type { SimpleDbEntityEarnExtra } from '../entity/SimpleDbEntityEarnExtra';
+import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
+import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
+import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
+import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
+import type { SimpleDbEntityIpTable } from '../entity/SimpleDbEntityIpTable';
+import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
+import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
+import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
+import type { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
+import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import type { SimpleDbEntityMarketTokenPreference } from '../entity/SimpleDbEntityMarketTokenPreference';
+import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
+import type { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketWatchListV2';
+import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
+import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
+import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
+import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
+import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
+import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
+import type { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
+import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
+import type { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
+import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import type { SimpleDbEntityRookieGuide } from '../entity/SimpleDbEntityRookieGuide';
+import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
+import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
+import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
+import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
+import type { SimpleDbEntitySwapProSelectToken } from '../entity/SimpleDbEntitySwapProSelectToken';
+import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
+import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
+import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
+import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
+
+export class SimpleDbProxy
+  extends BackgroundServiceProxyBase
+  implements SimpleDb
+{
+  override serviceNameSpace = 'simpleDb';
+
+  constructor(backgroundApiProxy: BackgroundApiProxyBase) {
+    super();
+    this.backgroundApiProxy = backgroundApiProxy;
+  }
+
+  backgroundApiProxy: BackgroundApiProxyBase;
+
+  override callBackground(method: string, ...params: any[]) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return this.backgroundApiProxy.callBackground(method, ...params);
+  }
+
+  prime = this._createProxyService('prime') as SimpleDbEntityPrime;
+
+  browserTabs = this._createProxyService(
+    'browserTabs',
+  ) as SimpleDbEntityBrowserTabs;
+
+  appCleanup = this._createProxyService(
+    'appCleanup',
+  ) as SimpleDbEntityAppCleanup;
+
+  browserBookmarks = this._createProxyService(
+    'browserBookmarks',
+  ) as SimpleDbEntityBrowserBookmarks;
+
+  browserClosedTabs = this._createProxyService(
+    'browserClosedTabs',
+  ) as SimpleDbEntityBrowserClosedTabs;
+
+  browserRiskWhiteList = this._createProxyService(
+    'browserRiskWhiteList',
+  ) as SimpleDbEntityBrowserRiskWhiteList;
+
+  browserHistory = this._createProxyService(
+    'browserHistory',
+  ) as SimpleDbEntityBrowserHistory;
+
+  dappConnection = this._createProxyService(
+    'dappConnection',
+  ) as SimpleDbEntityDappConnection;
+
+  accountSelector = this._createProxyService(
+    'accountSelector',
+  ) as SimpleDbEntityAccountSelector;
+
+  swapNetworksSort = this._createProxyService(
+    'swapNetworksSort',
+  ) as SimpleDbEntitySwapNetworksSort;
+
+  swapHistory = this._createProxyService(
+    'swapHistory',
+  ) as SimpleDbEntitySwapHistory;
+
+  swapConfigs = this._createProxyService(
+    'swapConfigs',
+  ) as SimpleDbEntitySwapConfigs;
+
+  swapProSelectToken = this._createProxyService(
+    'swapProSelectToken',
+  ) as SimpleDbEntitySwapProSelectToken;
+
+  localTokens = this._createProxyService(
+    'localTokens',
+  ) as SimpleDbEntityLocalTokens;
+
+  addressBook = this._createProxyService(
+    'addressBook',
+  ) as SimpleDbEntityAddressBook;
+
+  localHistory = this._createProxyService(
+    'localHistory',
+  ) as SimpleDbEntityLocalHistory;
+
+  riskyTokens = this._createProxyService(
+    'riskyTokens',
+  ) as SimpleDbEntityRiskyTokens;
+
+  defaultWalletSettings = this._createProxyService(
+    'defaultWalletSettings',
+  ) as SimpleDbEntityDefaultWalletSettings;
+
+  networkSelector = this._createProxyService(
+    'networkSelector',
+  ) as SimpleDbEntityNetworkSelector;
+
+  notificationSettings = this._createProxyService(
+    'notificationSettings',
+  ) as SimpleDbEntityNotificationSettings;
+
+  lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
+
+  feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
+
+  marketTokenPreference = this._createProxyService(
+    'marketTokenPreference',
+  ) as SimpleDbEntityMarketTokenPreference;
+
+  marketWatchList = this._createProxyService(
+    'marketWatchList',
+  ) as SimpleDbEntityMarketWatchList;
+
+  marketWatchListV2 = this._createProxyService(
+    'marketWatchListV2',
+  ) as SimpleDbEntityMarketWatchListV2;
+
+  floatingIconDomainBlockList = this._createProxyService(
+    'floatingIconDomainBlockList',
+  ) as SimpleDbEntityFloatingIconDomainBlockList;
+
+  floatingIconSettings = this._createProxyService(
+    'floatingIconSettings',
+  ) as SimpleDbEntityFloatingIconSettings;
+
+  universalSearch = this._createProxyService(
+    'universalSearch',
+  ) as SimpleDbEntityUniversalSearch;
+
+  customTokens = this._createProxyService(
+    'customTokens',
+  ) as SimpleDbEntityCustomTokens;
+
+  customRpc = this._createProxyService('customRpc') as SimpleDbEntityCustomRpc;
+
+  customNetwork = this._createProxyService(
+    'customNetwork',
+  ) as SimpleDbEntityCustomNetwork;
+
+  serverNetwork = this._createProxyService(
+    'serverNetwork',
+  ) as SimpleDbEntityServerNetwork;
+
+  v4MigrationResult = this._createProxyService(
+    'v4MigrationResult',
+  ) as SimpleDbEntityV4MigrationResult;
+
+  accountValue = this._createProxyService(
+    'accountValue',
+  ) as SimpleDbEntityAccountValue;
+
+  legacyWalletNames = this._createProxyService(
+    'legacyWalletNames',
+  ) as SimpleDbEntityLegacyWalletNames;
+
+  earn = this._createProxyService('earn') as SimpleDbEntityEarn;
+
+  earnExtra = this._createProxyService('earnExtra') as SimpleDbEntityEarnExtra;
+
+  earnOrders = this._createProxyService(
+    'earnOrders',
+  ) as SimpleDbEntityEarnOrders;
+
+  localNFTs = this._createProxyService('localNFTs') as SimpleDbEntityLocalNFTs;
+
+  babylonSync = this._createProxyService(
+    'babylonSync',
+  ) as SimpleDbEntityBabylonSync;
+
+  appStatus = this._createProxyService('appStatus') as SimpleDbEntityAppStatus;
+
+  allNetworks = this._createProxyService(
+    'allNetworks',
+  ) as SimpleDbEntityAllNetworks;
+
+  changeHistory = this._createProxyService(
+    'changeHistory',
+  ) as SimpleDbEntityChangeHistory;
+
+  referralCode = this._createProxyService(
+    'referralCode',
+  ) as SimpleDbEntityReferralCode;
+
+  recentNetworks = this._createProxyService(
+    'recentNetworks',
+  ) as SimpleDbEntityRecentNetworks;
+
+  addressInfo = this._createProxyService(
+    'addressInfo',
+  ) as SimpleDbEntityAddressInfo;
+
+  recentRecipients = this._createProxyService(
+    'recentRecipients',
+  ) as SimpleDbEntityRecentRecipients;
+
+  riskTokenManagement = this._createProxyService(
+    'riskTokenManagement',
+  ) as SimpleDbEntityRiskTokenManagement;
+
+  walletBanner = this._createProxyService(
+    'walletBanner',
+  ) as SimpleDbEntityWalletBanner;
+
+  perp = this._createProxyService('perp') as SimpleDbEntityPerp;
+
+  primeTransfer = this._createProxyService(
+    'primeTransfer',
+  ) as SimpleDbEntityPrimeTransfer;
+
+  approval = this._createProxyService('approval') as SimpleDbEntityApproval;
+
+  aggregateToken = this._createProxyService(
+    'aggregateToken',
+  ) as SimpleDbEntityAggregateToken;
+
+  chainResource = this._createProxyService(
+    'chainResource',
+  ) as SimpleDbEntityChainResource;
+
+  btcFreshAddress = this._createProxyService(
+    'btcFreshAddress',
+  ) as SimpleDbEntityBTCFreshAddress;
+
+  btcFreshAddressMeta = this._createProxyService(
+    'btcFreshAddressMeta',
+  ) as SimpleDbEntityBTCFreshAddressMeta;
+
+  walletStatus = this._createProxyService(
+    'walletStatus',
+  ) as SimpleDbEntityWalletStatus;
+
+  ipTable = this._createProxyService('ipTable') as SimpleDbEntityIpTable;
+
+  deFi = this._createProxyService('deFi') as SimpleDbEntityDeFi;
+
+  rookieGuide = this._createProxyService(
+    'rookieGuide',
+  ) as SimpleDbEntityRookieGuide;
+}

@@ -1,0 +1,105 @@
+import type { ComponentProps } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+
+import { StyleSheet } from 'react-native';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { MotiView } from 'moti';
+
+const styles = StyleSheet.create({
+  autoBottom: {
+    bottom: 'auto',
+  },
+  hidden: {
+    overflow: 'hidden',
+  },
+});
+
+export type IHeightTransitionProps = {
+  children?: React.ReactNode;
+  /**
+   * If `true`, the height will automatically animate to 0. Default: `false`.
+   */
+  hide?: boolean;
+  initialHeight?: number;
+  onHeightDidAnimate?: (height: number) => void;
+} & ComponentProps<typeof MotiView>;
+
+const transition = {
+  // The animation duration on Android is twice that of iOS, so the duration has been shortened on Android.
+  duration: platformEnv.isNativeAndroid ? 80 : 150,
+} as const;
+
+function HeightTransition({
+  children,
+  hide = !children,
+  style,
+  onHeightDidAnimate,
+  initialHeight = 0,
+}: IHeightTransitionProps) {
+  const measuredHeight = useSharedValue(initialHeight);
+
+  // On Android with Fabric/New Architecture, guard against stale worklet
+  // callbacks that can cause SIGSEGV in Value::~Value during navigation
+  // transitions. This shared value is checked on the UI thread inside
+  // withTiming completion callbacks to skip runOnJS calls after unmount.
+  const isMounted = useSharedValue(1);
+  useEffect(
+    () => () => {
+      isMounted.value = 0;
+    },
+    [isMounted],
+  );
+
+  const childStyle = useAnimatedStyle(
+    () => ({
+      opacity: withTiming(!measuredHeight.value || hide ? 0 : 1, transition),
+    }),
+    [hide, measuredHeight],
+  );
+
+  const containerStyle = useAnimatedStyle(
+    () => ({
+      height: withTiming(hide ? 0 : measuredHeight.value, transition, () => {
+        if (onHeightDidAnimate && isMounted.value) {
+          runOnJS(onHeightDidAnimate)(measuredHeight.value);
+        }
+      }),
+    }),
+    [hide, measuredHeight, isMounted],
+  );
+
+  const handleLayout = useCallback(
+    ({ nativeEvent }: { nativeEvent: { layout: { height: number } } }) => {
+      measuredHeight.value = Math.ceil(nativeEvent.layout.height);
+    },
+    [measuredHeight],
+  );
+
+  const outerStyle = useMemo(
+    () => [styles.hidden, style, containerStyle],
+    [style, containerStyle],
+  );
+
+  const innerStyle = useMemo(
+    () => [StyleSheet.absoluteFill, styles.autoBottom, childStyle],
+    [childStyle],
+  );
+
+  return (
+    <Animated.View style={outerStyle}>
+      <Animated.View style={innerStyle} onLayout={handleLayout}>
+        {children}
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+export { HeightTransition };

@@ -1,0 +1,2 @@
+export const MAX_LENGTH_ACCOUNT_NAME = 80;
+export const MAX_LENGTH_HW_LABEL_NAME = 32;

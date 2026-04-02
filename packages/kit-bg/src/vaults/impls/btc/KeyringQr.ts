@@ -1,0 +1,344 @@
+import { Psbt } from 'bitcoinjs-lib';
+
+import {
+  convertBtcForkXpub,
+  convertBtcScriptTypeForHardware,
+  getBtcForkNetwork,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { buildPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import { verifyBtcSignedPsbtMatched } from '@onekeyhq/core/src/chains/btc/sdkBtc/verify';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import type {
+  ICoreApiGetAddressItem,
+  ISignedMessagePro,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
+import { getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';
+import {
+  NotImplemented,
+  OneKeyErrorAirGapAccountNotFound,
+  OneKeyErrorAirGapInvalidQrCode,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+
+import localDb from '../../../dbs/local/localDb';
+import { KeyringQrBase } from '../../base/KeyringQrBase';
+
+import type VaultBtc from './Vault';
+import type { IDBAccount } from '../../../dbs/local/types';
+import type {
+  IGetChildPathTemplatesParams,
+  IGetChildPathTemplatesResult,
+  INormalizeGetMultiAccountsPathParams,
+  IPrepareHardwareAccountsParams,
+  IPrepareQrAccountsParams,
+  IQrWalletGetVerifyAddressChainParamsQuery,
+  IQrWalletGetVerifyAddressChainParamsResult,
+  ISignMessageParams,
+  ISignTransactionParams,
+} from '../../types';
+
+export class KeyringQr extends KeyringQrBase {
+  override coreApi = coreChainApi.btc.hd;
+
+  override async verifySignedTxMatched({
+    unsignedPsbt,
+    signedPsbt,
+  }: {
+    unsignedPsbt: Psbt | undefined;
+    signedPsbt: Psbt | undefined;
+  }): Promise<void> {
+    return verifyBtcSignedPsbtMatched({
+      unsignedPsbt,
+      signedPsbt,
+    });
+  }
+
+  override async normalizeGetMultiAccountsPath(
+    params: INormalizeGetMultiAccountsPathParams,
+  ): Promise<string> {
+    const sdk = getAirGapSdk();
+    return sdk.btc.normalizeGetMultiAccountsPath(params.path);
+  }
+
+  override getChildPathTemplates(
+    _params: IGetChildPathTemplatesParams,
+  ): IGetChildPathTemplatesResult {
+    return {
+      childPathTemplates: [accountUtils.buildUtxoAddressRelPath()],
+    };
+  }
+
+  override async signTransaction(
+    params: ISignTransactionParams,
+  ): Promise<ISignedTxPro> {
+    const { unsignedTx } = params;
+    const vault = this.vault as VaultBtc;
+
+    const networkInfo = await this.getCoreApiNetworkInfo();
+    const network = getBtcForkNetwork(networkInfo.networkChainCode);
+
+    const { btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
+      unsignedTx,
+    });
+    const dbAccount = await this.vault.getAccount();
+    const wallet = await localDb.getWallet({ walletId: this.walletId });
+
+    const { airGapAccount } = await this.findAirGapAccountByDbAccount({
+      dbAccount,
+      wallet,
+    });
+    const xpub = airGapAccount?.extendedPublicKey;
+    if (!xpub) {
+      throw new OneKeyLocalError('xpub not found');
+    }
+    const deriveType =
+      await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
+        accountId: dbAccount.id,
+        networkId: this.networkId,
+        template: dbAccount.template,
+      });
+    const addressEncoding = deriveType.deriveInfo?.addressEncoding;
+    if (!addressEncoding) {
+      throw new OneKeyLocalError('addressEncoding not found');
+    }
+
+    let unsignedPsbt: Psbt | undefined;
+    const signedTx = await this.baseSignByQrcode(params, {
+      signRequestUrBuilder: async ({
+        path: _path,
+        account: _account,
+        chainId: _chainId,
+        requestId: _requestId,
+        xfp,
+      }) => {
+        unsignedPsbt = await buildPsbt({
+          network: getBtcForkNetwork(networkInfo.networkChainCode),
+          unsignedTx,
+          btcExtraInfo,
+          buildInputMixinInfo: async ({ address }) => {
+            const relPath = btcExtraInfo?.addressToPath?.[address]?.relPath;
+            const fullPath = btcExtraInfo?.addressToPath?.[address]?.fullPath;
+            if (!relPath) {
+              throw new OneKeyLocalError('relPath not found');
+            }
+            const xpubAddressInfo = await this.coreApi.getAddressFromXpub({
+              network,
+              xpub,
+              relativePaths: [relPath],
+              addressEncoding,
+            });
+            const { [relPath]: publicKey } = xpubAddressInfo.publicKeys;
+            if (publicKey) {
+              const pubkeyBuffer = Buffer.from(publicKey, 'hex');
+              return {
+                pubkey: pubkeyBuffer,
+                bip32Derivation: [
+                  {
+                    masterFingerprint: Buffer.from(xfp, 'hex'),
+                    pubkey: pubkeyBuffer,
+                    path: fullPath,
+                  },
+                ],
+              };
+            }
+            return {
+              pubkey: undefined,
+            };
+          },
+          // Promise.resolve(),
+        });
+
+        const sdk = getAirGapSdk();
+        // sdk.btc.generateSignRequest  signMessage
+        return sdk.btc.generatePSBT(Buffer.from(unsignedPsbt.toBuffer()));
+      },
+      signedResultBuilder: async ({ signatureUr }) => {
+        const sdk = getAirGapSdk();
+        let psbtHex = '';
+        try {
+          // **** sign message
+          // const sig = sdk.btc.parseSignature(ur);
+          // **** sign psbt
+          psbtHex = sdk.btc.parsePSBT(checkIsDefined(signatureUr));
+        } catch (_error) {
+          // oxlint-disable-next-line @cspell/spellchecker
+          // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/bitcoin.js
+          //        throw new OneKeyLocalError('type not match');
+          throw new OneKeyErrorAirGapInvalidQrCode();
+        }
+
+        if (!psbtHex) {
+          throw new OneKeyLocalError('BTC QR sign ERROR: psbtHex not found');
+        }
+
+        const signedPsbt = Psbt.fromHex(psbtHex, {
+          network,
+          maximumFeeRate: network.maximumFeeRate,
+        });
+
+        await this.verifySignedTxMatched({
+          unsignedPsbt,
+          signedPsbt,
+        });
+
+        // TODO extension serializes Error?
+        const { rawTx, txid } = await this.coreApi.extractPsbtToSignedTx({
+          psbt: signedPsbt,
+        });
+        return Promise.resolve({
+          txid,
+          rawTx,
+          encodedTx: params.unsignedTx.encodedTx,
+        });
+      },
+    });
+    return signedTx;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+    throw new NotImplemented();
+  }
+
+  override async batchGetAddresses(params: IPrepareQrAccountsParams) {
+    const chainExtraParams = (params as IPrepareHardwareAccountsParams)
+      .chainExtraParams;
+    const receiveAddressPath = chainExtraParams?.receiveAddressPath;
+
+    if (!receiveAddressPath) {
+      return [];
+    }
+
+    const enableBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        enableBTCFreshAddress,
+        networkId: this.networkId,
+        walletId: this.walletId,
+      })
+    ) {
+      return [];
+    }
+
+    const results = await this.verifyQrWalletAddressByTwoWayScan(params, {
+      indexes: params.indexes,
+      customFullPath: receiveAddressPath,
+    });
+
+    return results.map((item) => ({
+      address: item.address,
+      path: item.path ?? '',
+    }));
+  }
+
+  override async getVerifyAddressChainParams(
+    query: IQrWalletGetVerifyAddressChainParamsQuery,
+  ): Promise<IQrWalletGetVerifyAddressChainParamsResult> {
+    const { fullPath } = query;
+    const { getHDPath, getScriptType } = await CoreSDKLoader();
+    const addressN = getHDPath(fullPath);
+    const scriptType = getScriptType(addressN);
+    return {
+      scriptType: String(convertBtcScriptTypeForHardware(scriptType)),
+    };
+  }
+
+  override async prepareAccounts(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: IPrepareQrAccountsParams,
+  ): Promise<IDBAccount[]> {
+    const wallet = await localDb.getWallet({ walletId: this.walletId });
+    const networkInfo = await this.getCoreApiNetworkInfo();
+    const network = getBtcForkNetwork(networkInfo.networkChainCode);
+    const addressEncoding = params.deriveInfo?.addressEncoding;
+
+    return this.basePrepareHdUtxoAccounts(params, {
+      buildAddressesInfo: async ({ usedIndexes }) => {
+        // TODO move to base
+        if (params?.isVerifyAddressAction) {
+          return this.verifyQrWalletAddressByTwoWayScan(params, {
+            indexes: usedIndexes,
+          });
+        }
+
+        const ret: ICoreApiGetAddressItem[] = [];
+
+        for (const index of usedIndexes) {
+          const { fullPath, airGapAccount, childPathTemplate } =
+            await this.findAirGapAccountInPrepareAccounts(params, {
+              index,
+              wallet,
+            });
+
+          if (!airGapAccount) {
+            throw new OneKeyErrorAirGapAccountNotFound();
+          }
+
+          // let xpub = airGapAccount?.publicKey;
+          let xpub = '';
+          let addressRelPath: string | undefined;
+
+          if (childPathTemplate) {
+            const childPath = accountUtils.buildPathFromTemplate({
+              template: childPathTemplate,
+              index,
+            });
+            addressRelPath = childPath;
+            const extendedPublicKey = airGapAccount?.extendedPublicKey;
+            if (!extendedPublicKey) {
+              throw new OneKeyLocalError('xpub not found');
+            }
+            xpub = convertBtcForkXpub({
+              btcForkNetwork: network,
+              addressEncoding,
+              xpub: extendedPublicKey,
+            });
+          }
+
+          if (!xpub) {
+            throw new OneKeyLocalError('publicKey not found');
+          }
+          if (!addressRelPath) {
+            throw new OneKeyLocalError('addressRelPath not found');
+          }
+
+          const xpubAddressInfo = await this.coreApi.getAddressFromXpub({
+            network,
+            xpub,
+            relativePaths: [addressRelPath],
+            addressEncoding,
+          });
+          const { [addressRelPath]: address } = xpubAddressInfo.addresses;
+          const { [addressRelPath]: publicKey } = xpubAddressInfo.publicKeys;
+
+          const addressInfo: ICoreApiGetAddressItem = {
+            address,
+            publicKey,
+            path: airGapAccount.path,
+            relPath: addressRelPath,
+            xpub,
+            xpubSegwit: xpubAddressInfo.xpubSegwit,
+            addresses: {
+              [addressRelPath]: address,
+            },
+            __hwExtraInfo__: undefined,
+          };
+          ret.push(addressInfo);
+          console.log('KeyringQr prepareAccounts', {
+            params,
+            wallet,
+            fullPath,
+            airGapAccount,
+            addressInfo,
+          });
+        }
+        return ret;
+      },
+    });
+  }
+}

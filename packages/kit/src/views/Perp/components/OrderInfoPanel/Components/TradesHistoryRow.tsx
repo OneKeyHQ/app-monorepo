@@ -1,0 +1,497 @@
+import { memo, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import {
+  DashText,
+  Divider,
+  IconButton,
+  Popover,
+  SizableText,
+  Tooltip,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  getValidPriceDecimals,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { calcCellAlign, getColumnStyle } from '../utils';
+
+import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
+
+const formatter: INumberFormatProps = {
+  formatter: 'value',
+  formatterOptions: {
+    currency: '$',
+  },
+};
+export type ITradesHistoryRowProps = {
+  fill: IFill;
+  cellMinWidth: number;
+  columnConfigs: IColumnConfig[];
+  isMobile?: boolean;
+  index: number;
+  onShare?: (fill: IFill) => void;
+  renderMode?: IRenderMode;
+  isHovered?: boolean;
+  onHoverChange?: (index: number | null) => void;
+  builderFeeRate?: number;
+};
+
+const TradesHistoryRow = memo(
+  ({
+    fill,
+    cellMinWidth,
+    columnConfigs,
+    isMobile,
+    index,
+    onShare,
+    renderMode = 'full',
+    isHovered,
+    onHoverChange,
+    builderFeeRate,
+  }: ITradesHistoryRowProps) => {
+    const canShare = useMemo(() => {
+      return (
+        fill.closedPnl &&
+        !new BigNumber(fill.closedPnl).isZero() &&
+        !fill.liquidation &&
+        onShare
+      );
+    }, [fill.closedPnl, fill.liquidation, onShare]);
+    const actions = useHyperliquidActions();
+    const intl = useIntl();
+    const assetSymbol = useMemo(() => {
+      const parsed = parseDexCoin(fill.coin);
+      return parsed.displayName;
+    }, [fill.coin]);
+    const rawCoin = fill.coin;
+    const dateInfo = useMemo(() => {
+      const timeDate = new Date(fill.time);
+      const date = formatTime(timeDate, {
+        formatTemplate: 'yyyy-LL-dd',
+      });
+      const time = formatTime(timeDate, {
+        formatTemplate: 'HH:mm:ss',
+      });
+      return { date, time };
+    }, [fill.time]);
+
+    const directionInfo = useMemo(() => {
+      const side = fill.side;
+      let directionColor = '$green11';
+      if (side === 'A') {
+        directionColor = '$red11';
+      }
+
+      let directionStr = fill.dir;
+      if (fill.liquidation) {
+        // market: common liquidation via market order
+        // backstop: rare fallback when market liquidity is insufficient
+        const liqPrefix =
+          fill.liquidation.method === 'backstop'
+            ? 'Backstop Liq'
+            : 'Market Liq';
+        directionStr = `${liqPrefix}: ${fill.dir}`;
+      }
+
+      return { directionStr, directionColor };
+    }, [fill.dir, fill.side, fill.liquidation]);
+
+    const tradeBaseInfo = useMemo(() => {
+      const price = fill.px;
+      const size = fill.sz;
+      const fee = fill.fee;
+      const decimals = getValidPriceDecimals(price);
+      const priceBN = new BigNumber(price);
+      const sizeBN = new BigNumber(size);
+      const priceFormatted = priceBN.toFixed(decimals);
+      const feeFormatted = numberFormat(fee, formatter);
+
+      const tradeValue = priceBN.times(sizeBN).toFixed();
+      const tradeValueFormatted = numberFormat(tradeValue, formatter);
+      return { priceFormatted, size, feeFormatted, tradeValueFormatted };
+    }, [fill.fee, fill.px, fill.sz]);
+
+    const closePnlInfo = useMemo(() => {
+      const closePnl = fill.closedPnl;
+      const closePnlBN = new BigNumber(closePnl).minus(new BigNumber(fill.fee));
+      let closePnlPlusOrMinus = '';
+      let closePnlColor = '$green11';
+      if (closePnlBN.lt(0)) {
+        closePnlColor = '$red11';
+        closePnlPlusOrMinus = '-';
+      }
+      const closePnlStr = closePnlBN.abs().toFixed();
+      const closePnlFormatted = numberFormat(closePnlStr, {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      });
+      return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
+    }, [fill.closedPnl, fill.fee]);
+
+    const feeTooltipContent = useMemo(() => {
+      const feeRatePercentage =
+        builderFeeRate !== undefined
+          ? `${(builderFeeRate / 1000).toFixed(2)}%`
+          : '-';
+      return (
+        <YStack gap="$3">
+          <YStack gap="$1.5">
+            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+              {intl.formatMessage({ id: ETranslations.perps_fee_title })}
+              {feeRatePercentage}
+            </SizableText>
+            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+              {intl.formatMessage({ id: ETranslations.perps_fee_total })}
+              {tradeBaseInfo.feeFormatted}
+            </SizableText>
+          </YStack>
+          <SizableText
+            size={isMobile ? '$bodyMd' : '$bodySm'}
+            color="$textSubdued"
+          >
+            {intl.formatMessage({ id: ETranslations.perps_fee_desc })}
+          </SizableText>
+        </YStack>
+      );
+    }, [builderFeeRate, tradeBaseInfo.feeFormatted, isMobile, intl]);
+
+    const isOddRow = index % 2 === 1;
+    const baseBgColor = isOddRow ? '$bgSubdued' : '$bgApp';
+    const bgColor = isHovered ? '$bgHover' : baseBgColor;
+
+    const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
+    const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
+
+    if (isMobile) {
+      return (
+        <ListItem
+          mx="$5"
+          my="$2"
+          p="$0"
+          backgroundColor="$bgSubdued"
+          flexDirection="column"
+          alignItems="flex-start"
+          borderRadius="$3"
+        >
+          <XStack
+            px="$3"
+            pt="$3"
+            justifyContent="space-between"
+            alignItems="center"
+            width="100%"
+          >
+            <YStack gap="$1">
+              <XStack
+                gap="$2"
+                alignItems="center"
+                // cursor="pointer"
+                // onPress={() =>
+                //   actions.current.changeActiveAsset({ coin: assetSymbol })
+                // }
+              >
+                <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color={directionInfo.directionColor}
+                >
+                  {directionInfo.directionStr}
+                </SizableText>
+              </XStack>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {dateInfo.date} {dateInfo.time}
+              </SizableText>
+            </YStack>
+            <XStack gap="$2" alignItems="center">
+              <YStack gap="$1" alignItems="flex-end">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trades_close_pnl,
+                  })}
+                </SizableText>
+                <XStack gap="$1" alignItems="center">
+                  <SizableText
+                    size="$bodySm"
+                    color={closePnlInfo.closePnlColor}
+                  >
+                    {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
+                  </SizableText>
+                  {canShare ? (
+                    <IconButton
+                      variant="tertiary"
+                      size="small"
+                      icon="ShareOutline"
+                      iconSize="$4"
+                      onPress={() => onShare?.(fill)}
+                      cursor="default"
+                      hoverStyle={null}
+                      pressStyle={null}
+                    />
+                  ) : null}
+                </XStack>
+              </YStack>
+            </XStack>
+          </XStack>
+          <Divider width="100%" borderColor="$borderSubdued" />
+          <XStack
+            px="$3"
+            pb="$3"
+            width="100%"
+            flex={1}
+            alignItems="center"
+            justifyContent="space-around"
+          >
+            <YStack gap="$1" flex={1} alignItems="flex-start">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_trades_history_price,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm">
+                {tradeBaseInfo.priceFormatted}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="flex-start">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_position_size,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm">{tradeBaseInfo.size}</SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="flex-start">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_trades_history_trade_value,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm">
+                {tradeBaseInfo.tradeValueFormatted}
+              </SizableText>
+            </YStack>
+            <YStack gap="$1" flex={1} alignItems="flex-end">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_trades_history_fee,
+                })}
+              </SizableText>
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_trades_history_fee,
+                })}
+                placement="top"
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                  >
+                    {tradeBaseInfo.feeFormatted}
+                  </DashText>
+                }
+                renderContent={() => (
+                  <YStack px="$5" pb="$4">
+                    {feeTooltipContent}
+                  </YStack>
+                )}
+              />
+            </YStack>
+          </XStack>
+        </ListItem>
+      );
+    }
+
+    return (
+      <XStack
+        flex={1}
+        py="$1.5"
+        pl="$5"
+        pr="$3"
+        alignItems="center"
+        backgroundColor={bgColor}
+        onHoverIn={() => onHoverChange?.(index)}
+        onHoverOut={() => onHoverChange?.(null)}
+        minWidth={renderMode === 'full' ? cellMinWidth : undefined}
+      >
+        {shouldRenderLeft ? (
+          <>
+            {/* Time */}
+            <YStack
+              {...getColumnStyle(columnConfigs[0])}
+              justifyContent="center"
+              alignItems={calcCellAlign(columnConfigs[0].align)}
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {dateInfo.date}
+              </SizableText>
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+                color="$textSubdued"
+              >
+                {dateInfo.time}
+              </SizableText>
+            </YStack>
+            {/* Asset symbol */}
+            <XStack
+              {...getColumnStyle(columnConfigs[1])}
+              justifyContent={calcCellAlign(columnConfigs[1].align)}
+              alignItems="center"
+              onPress={() =>
+                actions.current.changeActiveAsset({ coin: rawCoin })
+              }
+              cursor="default"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySmMedium"
+              >
+                {assetSymbol}
+              </SizableText>
+            </XStack>
+
+            {/* Direction */}
+            <XStack
+              {...getColumnStyle(columnConfigs[2])}
+              justifyContent={calcCellAlign(columnConfigs[2].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+                color={directionInfo.directionColor}
+              >
+                {directionInfo.directionStr}
+              </SizableText>
+            </XStack>
+
+            {/* Price */}
+            <XStack
+              {...getColumnStyle(columnConfigs[3])}
+              justifyContent={calcCellAlign(columnConfigs[3].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {tradeBaseInfo.priceFormatted}
+              </SizableText>
+            </XStack>
+
+            {/* Position size */}
+            <XStack
+              {...getColumnStyle(columnConfigs[4])}
+              justifyContent={calcCellAlign(columnConfigs[4].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >{`${tradeBaseInfo.size} ${assetSymbol}`}</SizableText>
+            </XStack>
+
+            {/* Trade value */}
+            <XStack
+              {...getColumnStyle(columnConfigs[5])}
+              justifyContent={calcCellAlign(columnConfigs[5].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {tradeBaseInfo.tradeValueFormatted}
+              </SizableText>
+            </XStack>
+
+            {/* Fee */}
+            <XStack
+              {...getColumnStyle(columnConfigs[6])}
+              justifyContent={calcCellAlign(columnConfigs[6].align)}
+              alignItems="center"
+            >
+              <Tooltip
+                placement="top"
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                  >
+                    {tradeBaseInfo.feeFormatted}
+                  </DashText>
+                }
+                renderContent={feeTooltipContent}
+              />
+            </XStack>
+          </>
+        ) : null}
+
+        {/* Close PnL */}
+        {shouldRenderRight ? (
+          <XStack
+            {...getColumnStyle(columnConfigs[7])}
+            justifyContent={calcCellAlign(columnConfigs[7].align)}
+            alignItems="center"
+            gap="$1"
+            cursor="default"
+          >
+            <SizableText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+              color={closePnlInfo.closePnlColor}
+            >
+              {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
+            </SizableText>
+            {canShare ? (
+              <IconButton
+                variant="tertiary"
+                size="small"
+                icon="ShareOutline"
+                iconSize="$4"
+                onPress={() => onShare?.(fill)}
+                hoverStyle={null}
+                pressStyle={null}
+              />
+            ) : (
+              <XStack width={16} height={16} />
+            )}
+          </XStack>
+        ) : null}
+      </XStack>
+    );
+  },
+  (_prevProps) => {
+    return false;
+  },
+);
+
+TradesHistoryRow.displayName = 'TradesHistoryRow';
+export { TradesHistoryRow };

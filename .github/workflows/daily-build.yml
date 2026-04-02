@@ -1,0 +1,108 @@
+name: daily-build
+
+on:
+  schedule:
+    - cron: '30 19 * * 0,1,2,3,4,5,6'
+  workflow_dispatch:
+    inputs:
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  # get-commit-id:
+  #   runs-on: ubuntu-24.04
+  #   outputs:
+  #     current_id: ${{ steps.current_id.outputs.current_id }}
+  #     upstream_id:  ${{ steps.upstream_id.outputs.upstream_id }}
+
+  #   steps:
+  #     - name: Clone Build History Branch
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: buildhistory
+      
+  #     - name: Get Current Version
+  #       id: current_id
+  #       run: |
+  #         echo "current_id=$(sed -n 1p ./build_version)" >> $GITHUB_OUTPUT
+  #         echo "current_id: $(sed -n 1p ./build_version)"
+
+  #     - name: Clone Main Branch
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: x
+  #         path: onekey
+      
+  #     - name: Get Upstream Version
+  #       id: upstream_id
+  #       run: |
+  #         cd onekey
+  #         echo "upstream_id=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+  #         echo "upstream_id: $(git rev-parse --short HEAD)"
+
+  daily-build:
+    runs-on: ubuntu-24.04
+    # needs: get-commit-id
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      # - name: Check condition
+      #   run: if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ needs.get-commit-id.outputs.current_id }}" = "${{ needs.get-commit-id.outputs.upstream_id }}" ]; then exit 1; fi
+
+      - name: 'Setup ENV'
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($GITHUB_RUN_NUMBER % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+
+      - name: Warn if GPG verification is skipped
+        if: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
+      - name: 'Save workflow parameters'
+        run: |
+          mkdir -p ./workflow-data
+
+          ### do not set WORKFLOW_GITHUB_SHA and WORKFLOW_GITHUB_REF_NAME, always use the main branch
+          # echo "WORKFLOW_GITHUB_SHA=${{ github.sha }}" >> ./workflow-data/params.env
+          # echo "WORKFLOW_GITHUB_REF_NAME=${{ github.ref_name }}" >> ./workflow-data/params.env
+
+          echo "WORKFLOW_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ./workflow-data/params.env
+          bundle_version=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s) ))
+          echo "WORKFLOW_BUNDLE_VERSION=$bundle_version" >> ./workflow-data/params.env
+          echo "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION=${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}" >> ./workflow-data/params.env
+      
+      - name: Upload workflow parameters
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-params
+          path: workflow-data/params.env
+          retention-days: 1
+
+
+      # - name: Clone Build History Branch
+      #   uses: actions/checkout@v4
+      #   with:
+      #     ref: buildhistory
+
+      # - name: Update Build Version
+      #   run: |
+      #     CURRENT_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+      #     echo '${{ needs.get-commit-id.outputs.upstream_id }}' > ./build_version
+      #     git config --local user.email "action@github.com"
+      #     git config --local user.name "GitHub Action"
+      #     git commit -am "build ${{ needs.get-commit-id.outputs.upstream_id }} in $CURRENT_TIME"
+      #     git push --set-upstream origin buildhistory
+
+
+

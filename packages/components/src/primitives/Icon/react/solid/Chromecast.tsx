@@ -1,0 +1,16 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgChromecast = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M2 17a4 4 0 0 1 4 4H4a2 2 0 0 0-2-2z" />
+    <Path d="M2 13a8 8 0 0 1 8 8H8a6 6 0 0 0-6-6z" />
+    <Path d="M2 9c6.627 0 12 5.373 12 12h-2c0-5.523-4.477-10-10-10z" />
+    <Path d="M22 21h-6C16 13.268 9.732 7 2 7V3h20z" />
+  </Svg>
+);
+export default SvgChromecast;

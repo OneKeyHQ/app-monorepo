@@ -1,0 +1,251 @@
+import { useMemo } from 'react';
+
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
+import { useWindowDimensions } from 'react-native';
+
+import {
+  Divider,
+  InteractiveIcon,
+  SizableText,
+  XStack,
+  YStack,
+  useIsSplitView,
+  useMedia,
+} from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+
+import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
+import { MarketStarV2 } from '../../../components/MarketStarV2';
+import {
+  StockIsOpenBadge,
+  StockSourceLogo,
+  SubtitleBadge,
+} from '../../../components/PerpsBadges';
+import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
+import { TokenSecurityAlert } from '../TokenSecurityAlert';
+import { MarketTokenSelector } from '../TokenSelector/MarketTokenSelector';
+
+import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
+import { ShareButton } from './ShareButton';
+
+interface ITokenDetailHeaderLeftProps {
+  tokenDetail?: IMarketTokenDetail;
+  networkId?: string;
+  networkLogoUri?: string;
+  showMediaAndSecurity?: boolean;
+  isNative?: boolean;
+}
+
+export function TokenDetailHeaderLeft({
+  tokenDetail,
+  networkId,
+  networkLogoUri,
+  showMediaAndSecurity = true,
+  isNative = false,
+}: ITokenDetailHeaderLeftProps) {
+  const isLandscape = useIsSplitView();
+  const { width: windowScreenWidth } = useWindowDimensions();
+  const screenWidth = useMemo(() => {
+    return isLandscape ? windowScreenWidth / 2 : windowScreenWidth;
+  }, [isLandscape, windowScreenWidth]);
+  const { md } = useMedia();
+
+  // Use hook to get network logo with async fallback
+  const effectiveNetworkLogoUri = useNetworkLogoUri({
+    logoUri: networkLogoUri,
+    networkId,
+  });
+
+  const {
+    handleCopyAddress,
+    handleOpenWebsite,
+    handleOpenTwitter,
+    handleOpenXSearch,
+  } = useTokenDetailHeaderLeftActions({
+    tokenDetail,
+  });
+
+  const {
+    symbol = '',
+    address = '',
+    logoUrl = '',
+    logoUrls,
+    extraData,
+    communityRecognized,
+    stock,
+  } = tokenDetail || {};
+
+  const { website, twitter } = extraData || {};
+
+  const marketStar = networkId ? (
+    <MarketStarV2
+      chainId={networkId}
+      contractAddress={address}
+      size="medium"
+      from={EWatchlistFrom.Detail}
+      tokenSymbol={symbol}
+      isNative={isNative}
+    />
+  ) : null;
+
+  const shareButton = networkId ? (
+    <ShareButton
+      networkId={networkId}
+      address={address}
+      isNative={isNative}
+      useIconButton
+    />
+  ) : null;
+
+  return (
+    <XStack
+      ai="center"
+      gap="$3"
+      jc="space-between"
+      {...(md
+        ? {
+            width: screenWidth - 60,
+          }
+        : {})}
+    >
+      <XStack gap="$3" ai="center">
+        {md ? (
+          <Token
+            size="md"
+            tokenImageUri={logoUrl}
+            tokenImageUris={logoUrls}
+            networkImageUri={effectiveNetworkLogoUri}
+            fallbackIcon="CryptoCoinOutline"
+          />
+        ) : (
+          <MarketTokenSelector />
+        )}
+
+        <YStack>
+          <XStack ai="center" gap="$1">
+            {md ? (
+              <SizableText
+                size="$headingLg"
+                color="$text"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxWidth="$48"
+                flexShrink={1}
+              >
+                {symbol}
+              </SizableText>
+            ) : null}
+            {md ? (
+              <TokenTagsPopover
+                communityRecognized={communityRecognized}
+                stock={stock}
+                showAllInTrigger
+              />
+            ) : (
+              <>
+                <StockSourceLogo stock={stock} />
+                {communityRecognized ? <CommunityRecognizedBadge /> : null}
+                {stock?.subtitle ? (
+                  <SubtitleBadge subtitle={stock.subtitle} />
+                ) : null}
+                {stock ? <StockIsOpenBadge stock={stock} /> : null}
+              </>
+            )}
+          </XStack>
+
+          <XStack gap="$2" ai="center">
+            {address ? (
+              <XStack borderRadius="$1" ai="center" gap="$1">
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="pointer"
+                  hoverStyle={{ opacity: 0.8 }}
+                  pressStyle={{ opacity: 0.6 }}
+                  onPress={handleCopyAddress}
+                >
+                  {accountUtils.shortenAddress({
+                    address,
+                    leadingLength: 6,
+                    trailingLength: 4,
+                  })}
+                </SizableText>
+
+                <InteractiveIcon
+                  icon="Copy3Outline"
+                  size="$4"
+                  onPress={handleCopyAddress}
+                />
+              </XStack>
+            ) : null}
+
+            {/* Social Links & Security */}
+            {showMediaAndSecurity ? (
+              <>
+                {address && networkId ? (
+                  <>
+                    <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+
+                    <TokenSecurityAlert />
+                  </>
+                ) : null}
+
+                {website || twitter || address ? (
+                  <>
+                    <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+
+                    <XStack gap="$2" ai="center">
+                      {website ? (
+                        <InteractiveIcon
+                          icon="GlobusOutline"
+                          onPress={handleOpenWebsite}
+                          size="$4"
+                        />
+                      ) : null}
+
+                      {twitter ? (
+                        <InteractiveIcon
+                          icon="Xbrand"
+                          onPress={handleOpenTwitter}
+                          size="$4"
+                        />
+                      ) : null}
+
+                      {address ? (
+                        <InteractiveIcon
+                          icon="SearchOutline"
+                          onPress={handleOpenXSearch}
+                          size="$4"
+                        />
+                      ) : null}
+
+                      {networkId && address && address !== SUI_TYPE_ARG ? (
+                        <ShareButton
+                          networkId={networkId}
+                          address={address}
+                          isNative={isNative}
+                          size="$4"
+                        />
+                      ) : null}
+                    </XStack>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+          </XStack>
+        </YStack>
+      </XStack>
+
+      {md ? (
+        <XStack gap="$3">
+          {marketStar}
+          {shareButton}
+        </XStack>
+      ) : null}
+    </XStack>
+  );
+}

@@ -1,0 +1,1 @@
+export const EARN_RIGHT_PANEL_WIDTH = 288;

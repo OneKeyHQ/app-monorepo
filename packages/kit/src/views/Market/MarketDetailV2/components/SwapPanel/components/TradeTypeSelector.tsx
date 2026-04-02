@@ -1,0 +1,100 @@
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  type IButtonProps,
+  SegmentControl,
+  useMedia,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
+
+const commonButtonStyleProps: IButtonProps = {
+  flex: 1,
+  borderRadius: '$2',
+  borderWidth: 0,
+  hoverStyle: {
+    opacity: 0.9,
+  },
+  pressStyle: {
+    opacity: 0.7,
+  },
+};
+
+export interface ITradeTypeSelectorProps {
+  value: ITradeType;
+  onChange: (value: ITradeType) => void;
+  size?: IButtonProps['size'];
+}
+
+export function TradeTypeSelector({
+  value,
+  onChange,
+  size,
+}: ITradeTypeSelectorProps) {
+  const intl = useIntl();
+  const { gtMd } = useMedia();
+  const isBuyActive = value === 'buy';
+  const isSellActive = value === 'sell';
+
+  const buttonSize = size ?? (gtMd ? 'small' : 'medium');
+
+  const options = [
+    {
+      value: ESwapDirection.BUY,
+      label: (
+        <Button
+          onPress={() => {
+            console.log('onPress');
+            onChange(ESwapDirection.BUY);
+          }}
+          {...commonButtonStyleProps}
+          bg={isBuyActive ? '$bgSuccessStrong' : '$transparent'}
+          color={isBuyActive ? '$textOnColor' : '$textSubdued'}
+          size={buttonSize}
+        >
+          {intl.formatMessage({ id: ETranslations.global_buy })}
+        </Button>
+      ),
+    },
+    {
+      value: ESwapDirection.SELL,
+      label: (
+        <Button
+          onPress={() => {
+            console.log('onPress');
+            onChange(ESwapDirection.SELL);
+          }}
+          bg={isSellActive ? '$bgCriticalStrong' : '$transparent'}
+          color={isSellActive ? '$textOnColor' : '$textSubdued'}
+          size={buttonSize}
+          {...commonButtonStyleProps}
+        >
+          {intl.formatMessage({ id: ETranslations.global_sell })}
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <SegmentControl
+      value={value as string}
+      onChange={(newValue) => {
+        if (newValue === 'buy' || newValue === 'sell') {
+          onChange(newValue as ITradeType);
+        }
+      }}
+      options={options}
+      backgroundColor="$neutral5"
+      borderRadius="$2.5"
+      h="auto"
+      p="$0.5"
+      fullWidth
+      segmentControlItemStyleProps={{
+        bg: '$transparent',
+        p: 0,
+      }}
+    />
+  );
+}

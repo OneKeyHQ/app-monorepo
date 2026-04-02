@@ -1,0 +1,239 @@
+name: Shared Environment Variables Setup
+description: Setup environment variables for the project
+
+inputs:
+  checkout_ref:
+    required: false
+    type: string
+    default: ''
+    description: "Git ref to checkout (commit SHA, branch, or tag). If empty, defaults to the triggering event ref."
+  additional_env:
+    required: false
+    type: string
+    description: "Additional environment variables to inject"
+  env_file_name:
+    required: false
+    type: string
+    default: ".env"
+    description: "Target environment file name"
+  sentry_project:
+    required: false
+    type: string
+    default: ''
+    description: "Sentry project name"
+  covalent_key:
+    required: true
+    type: string
+    description: "Covalent API Key"
+  sentry_token:
+    required: true
+    type: string
+    description: "Sentry Auth Token"
+  sentry_dsn_ext:
+    required: true
+    type: string
+    description: "Sentry External DSN of Chrome Extension"
+  sentry_dsn_desktop:
+    required: true
+    type: string
+    description: "Sentry DSN of Desktop"
+  sentry_dsn_mas:
+    required: true
+    type: string
+    description: "Sentry DSN of Mac App Store"
+  sentry_dsn_snap:
+    required: true
+    type: string
+    description: "Sentry DSN of Snap"
+  sentry_dsn_winms:
+    required: true
+    type: string
+    description: "Sentry DSN of Microsoft Store"
+  sentry_dsn_react_native:
+    required: true
+    type: string
+    description: "Sentry DSN of React Native"
+  sentry_dsn_web:
+    required: true
+    type: string
+    description: "Sentry DSN of Web"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v3
+      with:
+        lfs: true
+        ref: ${{ inputs.checkout_ref || '' }}
+
+    - name: Download workflow parameters
+      if: ${{ github.event.workflow_run }}
+      uses: dawidd6/action-download-artifact@v2
+      continue-on-error: true
+      with:
+        workflow: daily-build-dev
+        name: workflow-params
+        run_id: ${{ github.event.workflow_run.id }}
+        path: ${{ runner.temp }}/workflow-params
+
+    - name: Load workflow parameters
+      if: ${{ github.event.workflow_run }}
+      shell: bash
+      run: |
+        # Load params.env from isolated temp directory to prevent artifact poisoning
+        PARAMS_FILE="${{ runner.temp }}/workflow-params/params.env"
+        if [ -f "$PARAMS_FILE" ]; then
+          cat "$PARAMS_FILE" >> $GITHUB_ENV
+        fi
+
+    - name: Switch to target branch
+      if: ${{ github.event.workflow_run }}
+      shell: bash
+      run: |
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_REF_NAME }}" ]; then
+          echo "Switching to branch: ${{ env.WORKFLOW_GITHUB_REF_NAME }}"
+          git fetch origin ${{ env.WORKFLOW_GITHUB_REF_NAME }}
+          git checkout ${{ env.WORKFLOW_GITHUB_REF_NAME }}
+        fi
+
+    - name: Dotenv Action
+      id: dotenv
+      uses: OneKeyHQ/actions/dotenv-action@main
+      with:
+        path: .env.version
+
+    - name: Setup ENV 
+      shell: bash
+      run: |
+        # Generate app version ------- start
+        app_version=${{ steps.dotenv.outputs.version }}
+        echo '$app_version='$app_version
+        echo "BUILD_APP_VERSION=$app_version" >> $GITHUB_ENV
+        # Generate app version ------- end
+
+        # Generate app bundle version ------- start
+        # Seconds since 2026-01-01T00:00:00Z epoch
+        if [ ! -z "${{ env.WORKFLOW_BUNDLE_VERSION }}" ]; then
+          app_bundle_version="${{ env.WORKFLOW_BUNDLE_VERSION }}"
+        else
+          app_bundle_version=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s) ))
+        fi
+        echo '$app_bundle_version='$app_bundle_version
+        echo "BUILD_BUNDLE_VERSION=$app_bundle_version" >> $GITHUB_ENV
+        # Generate app bundle version ------- end
+
+        # Generate github sha ------- start
+        github_sha=${{ github.sha }}
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_SHA }}" ]; then
+          github_sha=${{ env.WORKFLOW_GITHUB_SHA }}
+        fi
+        echo '$github_sha='$github_sha
+        echo "GITHUB_SHA=$github_sha" >> $GITHUB_ENV
+        # Generate github sha ------- end
+
+        # Generate github tag ------- start
+        github_ref=${{ github.ref }}
+        github_ref="${github_ref////-}"
+        github_ref="${github_ref/refs-heads-/}"
+        github_ref="${github_ref/refs-tags-/}"
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_REF_NAME }}" ]; then
+          github_ref=${{ env.WORKFLOW_GITHUB_REF_NAME }}
+        fi
+        echo '$github_ref='$github_ref
+        echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
+        # echo "::set-env name=GITHUB_TAG::$github_ref"
+        # Generate github tag ------- end
+
+
+    - name: Setup ENV BUILD_NUMBER to 1
+      if: ${{ !github.event.workflow_run }}
+      shell: bash
+      run: |
+        # Generate build number ------- start
+        echo "BUILD_NUMBER=1" >> $GITHUB_ENV
+        # Generate build number ------- end
+
+
+    - name: Setup ENV BUILD_NUMBER by workflow_run
+      if: ${{ github.event.workflow_run }}
+      shell: bash
+      run: |
+        echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+        if [ ! -z "${{ env.WORKFLOW_BUILD_NUMBER }}" ]; then
+          echo "BUILD_NUMBER=${{ env.WORKFLOW_BUILD_NUMBER }}" >> $GITHUB_ENV
+        else
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+        fi
+      env:
+        workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
+    - name: Inject Environment Variables
+      shell: bash
+      env:
+        COVALENT_KEY: ${{ inputs.covalent_key }}
+        SENTRY_TOKEN: ${{ inputs.sentry_token }}
+        SENTRY_PROJECT: ${{ inputs.sentry_project || '' }}
+        TARGET_ENV_FILE: ${{ inputs.env_file_name || '.env' }}
+        SENTRY_DSN_EXT: ${{ inputs.sentry_dsn_ext }}
+        SENTRY_DSN_DESKTOP: ${{ inputs.sentry_dsn_desktop }}
+        SENTRY_DSN_MAS: ${{ inputs.sentry_dsn_mas }}
+        SENTRY_DSN_SNAP: ${{ inputs.sentry_dsn_snap }}
+        SENTRY_DSN_WINMS: ${{ inputs.sentry_dsn_winms }}
+        SENTRY_DSN_REACT_NATIVE: ${{ inputs.sentry_dsn_react_native }}
+        SENTRY_DSN_WEB: ${{ inputs.sentry_dsn_web }}
+
+      run: |
+        echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> ${TARGET_ENV_FILE}
+        echo "GITHUB_TAG=${{ env.GITHUB_TAG }}" >> ${TARGET_ENV_FILE}
+        echo "CI_BUILD_APP_VERSION=${{ env.BUILD_APP_VERSION }}" >> ${TARGET_ENV_FILE}
+        echo "CI_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ${TARGET_ENV_FILE}
+        echo "BUNDLE_VERSION=${{ env.BUILD_BUNDLE_VERSION }}" >> ${TARGET_ENV_FILE}
+        # Disable bundle analyzer in CI environment to improve build performance
+        # echo "ENABLE_ANALYZER=1" >> ${TARGET_ENV_FILE}
+        # echo "ENABLE_ANALYZER_HTML_REPORT=1" >> ${TARGET_ENV_FILE}
+        echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> ${TARGET_ENV_FILE}
+        echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_RELEASE_NAME=${{ env.GITHUB_TAG }}-${{ env.BUILD_NUMBER }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_EXT=${{ env.SENTRY_DSN_EXT }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_DESKTOP=${{ env.SENTRY_DSN_DESKTOP }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_MAS=${{ env.SENTRY_DSN_MAS }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_SNAP=${{ env.SENTRY_DSN_SNAP }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_WINMS=${{ env.SENTRY_DSN_WINMS }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_REACT_NATIVE=${{ env.SENTRY_DSN_REACT_NATIVE }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_DSN_WEB=${{ env.SENTRY_DSN_WEB }}" >> ${TARGET_ENV_FILE}
+        echo "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION=${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}" >> ${TARGET_ENV_FILE}
+        if [[ ! -z "${{ inputs.additional_env }}" ]]; then
+          echo "${{ inputs.additional_env }}" >> ${TARGET_ENV_FILE}
+        fi
+
+    - name: Print ENV file content
+      shell: bash
+      run: |
+        # echo "=== .env ==="
+        # if [ -f .env ]; then
+        #   cat .env
+        # fi
+        # echo "--------------------------------"
+
+        # echo "=== .env.expo ==="
+        # if [ -f .env.expo ]; then
+        #   cat .env.expo
+        # fi
+        # echo "--------------------------------"
+
+        # echo "=== .env.version ==="
+        # if [ -f .env.version ]; then
+        #   cat .env.version
+        # fi
+        # echo "--------------------------------"

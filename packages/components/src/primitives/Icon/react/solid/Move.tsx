@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgMove = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M16.414 6 15 7.414l-2-2V11h5.586l-2-2L18 7.586 22.414 12 18 16.414 16.586 15l2-2H13v5.586l2-2L16.414 18 12 22.414 7.586 18 9 16.586l2 2V13H5.414l2 2L6 16.414 1.586 12 6 7.586 7.414 9l-2 2H11V5.414l-2 2L7.586 6 12 1.586z" />
+  </Svg>
+);
+export default SvgMove;

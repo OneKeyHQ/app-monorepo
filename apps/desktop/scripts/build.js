@@ -1,0 +1,152 @@
+require('../../../development/env');
+
+const childProcess = require('child_process');
+const path = require('path');
+
+const { build } = require('esbuild');
+const glob = require('glob');
+
+const pkg = require('../app/package.json');
+
+const isProduction = process.env.NODE_ENV === 'production';
+console.log('building for', isProduction ? 'production' : 'development');
+const electronSource = path.join(__dirname, '..', 'app');
+
+const gitRevision = childProcess
+  .execSync('git rev-parse HEAD')
+  .toString()
+  .trim();
+
+const hrstart = process.hrtime();
+
+// Get all .js files in service directory
+const serviceFiles = glob
+  .sync(path.join(electronSource, 'service', '*.ts'))
+  .map((name) => name.split('app/').pop());
+
+console.log('process.env.NODE_ENV', process.env.NODE_ENV);
+console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
+console.log('process.env.COMMITHASH', process.env.COMMITHASH);
+console.log('process.env.APPIMAGE', process.env.APPIMAGE);
+console.log('process.env.SNAP', process.env.SNAP);
+console.log('process.env.FLATPAK', process.env.FLATPAK);
+console.log('process.env.BUILD_NUMBER', process.env.BUILD_NUMBER);
+console.log('process.env.BUILD_TIME', process.env.BUILD_TIME);
+console.log('process.env.VERSION', process.env.VERSION);
+console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
+console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
+build({
+  entryPoints: ['app.ts', 'preload.ts', ...serviceFiles].map((f) =>
+    path.join(electronSource, f),
+  ),
+  platform: 'node',
+  bundle: true,
+  target: 'node16',
+  drop: isProduction ? ['console', 'debugger'] : [],
+  // Help esbuild locate missing dependencies.
+  alias: {
+    '@onekeyhq/shared': path.join(__dirname, '../../../packages/shared'),
+    'react-native': path.join(
+      __dirname,
+      '../../desktop/app/libs/react-native-mock',
+    ),
+    '@react-native-async-storage/async-storage': path.join(
+      __dirname,
+      '../../desktop/app/libs/react-native-async-storage-mock',
+    ),
+    'react-native-mmkv': path.join(
+      __dirname,
+      '../../desktop/app/libs/react-native-mmkv-desktop-main',
+    ),
+    '@sentry/react-native': path.join(
+      __dirname,
+      '../../desktop/app/libs/sentry-react-native-mock',
+    ),
+    'react-native-uuid': path.join(
+      __dirname,
+      '../../../node_modules/react-native-uuid/dist',
+    ),
+    'axios': path.join(
+      __dirname,
+      '../../../node_modules/axios/dist/esm/axios.js',
+    ),
+  },
+  external: [
+    'electron',
+    '@stoprocent/noble',
+    '@stoprocent/bluetooth-hci-socket',
+    'bufferutil',
+    'utf-8-validate',
+    ...Object.keys(pkg.dependencies),
+  ],
+  tsconfig: path.join(electronSource, 'tsconfig.json'),
+  outdir: path.join(__dirname, '..', 'app/dist'),
+  define: {
+    'process.env.VERSION': JSON.stringify(process.env.VERSION || '1.0.0'),
+    'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER || '1'),
+    'process.env.BUNDLE_VERSION': JSON.stringify(
+      process.env.BUNDLE_VERSION || '1',
+    ),
+    'process.env.NODE_ENV': JSON.stringify(
+      process.env.NODE_ENV || 'development',
+    ),
+    'process.env.GITHUB_SHA': JSON.stringify(process.env.GITHUB_SHA || ''),
+    'process.env.DESK_CHANNEL': JSON.stringify(process.env.DESK_CHANNEL || ''),
+    'process.env.COMMITHASH': JSON.stringify(gitRevision),
+    'process.env.SENTRY_DSN_EXT': JSON.stringify(
+      process.env.SENTRY_DSN_EXT || '',
+    ),
+    'process.env.SENTRY_DSN_DESKTOP': JSON.stringify(
+      process.env.SENTRY_DSN_DESKTOP || '',
+    ),
+    'process.env.APPIMAGE': JSON.stringify(process.env.APPIMAGE || ''),
+    'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
+    'process.env.FLATPAK': JSON.stringify(process.env.FLATPAK || ''),
+    'process.env.SENTRY_DSN_MAS': JSON.stringify(
+      process.env.SENTRY_DSN_MAS || '',
+    ),
+    'process.env.SENTRY_DSN_SNAP': JSON.stringify(
+      process.env.SENTRY_DSN_SNAP || '',
+    ),
+    'process.env.SENTRY_DSN_WINMS': JSON.stringify(
+      process.env.SENTRY_DSN_WINMS || '',
+    ),
+    'process.env.SENTRY_DSN_REACT_NATIVE': JSON.stringify(
+      process.env.SENTRY_DSN_REACT_NATIVE || '',
+    ),
+    'process.env.ONEKEY_PLATFORM': JSON.stringify('desktop'),
+    'process.env.SENTRY_DSN_WEB': JSON.stringify(
+      process.env.SENTRY_DSN_WEB || '',
+    ),
+    'process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION': JSON.stringify(
+      (
+        process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+          ? process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true'
+          : process.env.NODE_ENV !== 'production'
+      )
+        ? 'true'
+        : 'false',
+    ),
+  },
+})
+  .then(() => {
+    // Copy static assets (recovery.html) to dist
+    const fs = require('fs');
+    const recoveryHtmlSrc = path.join(electronSource, 'recovery.html');
+    const recoveryHtmlDst = path.join(
+      __dirname,
+      '..',
+      'app/dist',
+      'recovery.html',
+    );
+    if (fs.existsSync(recoveryHtmlSrc)) {
+      fs.copyFileSync(recoveryHtmlSrc, recoveryHtmlDst);
+      console.log('[Electron Build] Copied recovery.html to dist');
+    }
+    const hrend = process.hrtime(hrstart);
+    console.log(
+      '[Electron Build] Finished in %dms',
+      (hrend[1] / 1_000_000 + hrend[0] * 1000).toFixed(1),
+    );
+  })
+  .catch(() => process.exit(1));

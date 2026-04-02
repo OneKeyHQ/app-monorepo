@@ -1,0 +1,33 @@
+export interface IMoneroUtilInstance extends Record<
+  string,
+  | WebAssembly.ExportValue
+  | ArrayBuffer
+  | Int8Array
+  | Int16Array
+  | Int32Array
+  | Uint8Array
+  | Uint16Array
+  | Uint32Array
+> {
+  _malloc(size: number): number;
+  ccall(
+    ident: any,
+    returnType: any,
+    argTypes: any,
+    args: any,
+    opts?: any,
+  ): Uint8Array;
+  _free(ptr: number): void;
+  HEAP8: Int8Array;
+  HEAP16: Int16Array;
+  HEAP32: Int32Array;
+  HEAPU8: Uint8Array;
+  HEAPU16: Uint16Array;
+  HEAPU32: Uint32Array;
+}
+
+export enum EMoneroNetTypeEnum {
+  MainNet = 0,
+  TestNet = 1,
+  StageNet = 2,
+}

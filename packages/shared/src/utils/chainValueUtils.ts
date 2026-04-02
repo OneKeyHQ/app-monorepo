@@ -1,0 +1,192 @@
+import BigNumber from 'bignumber.js';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { ELightningUnit } from '../../types/lightning';
+
+import type { IServerNetwork } from '../../types';
+import type { IToken } from '../../types/token';
+
+function nilError(message: string): number {
+  throw new OneKeyLocalError(message);
+}
+
+export interface IChainValueConvertOptions {
+  value: string | BigNumber;
+  network: IServerNetwork;
+}
+
+export interface ITokenChainValueConvertOptions {
+  value: string | BigNumber;
+  token: IToken;
+}
+
+// onChainValue -> GWEI
+function convertChainValueToGwei({
+  value,
+  network,
+}: IChainValueConvertOptions) {
+  return new BigNumber(value)
+    .shiftedBy(
+      // @ts-expect-error
+      -network.feeMeta.decimals ??
+        nilError('convertFeeValueToGwei ERROR: network.feeDecimals missing'),
+    )
+    .toFixed();
+}
+
+// GWEI -> onChainValue
+function convertGweiToChainValue({
+  value,
+  network,
+}: IChainValueConvertOptions) {
+  return new BigNumber(value)
+    .shiftedBy(
+      network.feeMeta.decimals ??
+        nilError('convertFeeGweiToValue ERROR: network.feeDecimals missing'),
+    )
+    .toFixed();
+}
+
+// onChainValue -> nativeAmount
+function convertChainValueToAmount({
+  value,
+  network,
+}: IChainValueConvertOptions) {
+  return new BigNumber(value)
+    .shiftedBy(
+      // @ts-expect-error
+      -network.decimals ??
+        nilError('convertFeeValueToNative ERROR: network.decimals missing'),
+    )
+    .toFixed();
+}
+
+// nativeAmount -> onChainValue
+function convertAmountToChainValue({
+  value,
+  network,
+}: IChainValueConvertOptions) {
+  return new BigNumber(value)
+    .shiftedBy(
+      network.decimals ??
+        nilError('convertFeeNativeToValue ERROR: network.decimals missing'),
+    )
+    .toFixed();
+}
+
+function convertGweiToAmount(options: IChainValueConvertOptions) {
+  const chainValue = convertGweiToChainValue(options);
+  return convertChainValueToAmount({
+    network: options.network,
+    value: chainValue,
+  });
+}
+
+function convertAmountToGwei(options: IChainValueConvertOptions) {
+  const chainValue = convertAmountToChainValue(options);
+  return convertChainValueToGwei({
+    network: options.network,
+    value: chainValue,
+  });
+}
+
+function convertTokenChainValueToAmount({
+  value,
+  token,
+}: ITokenChainValueConvertOptions) {
+  return new BigNumber(value)
+    .shiftedBy(
+      // @ts-expect-error
+      -token.decimals ??
+        nilError(
+          'convertTokenChainValueToAmount ERROR: token.decimals missing',
+        ),
+    )
+    .toFixed();
+}
+
+function convertTokenAmountToChainValue({
+  value,
+  token,
+  decimalPlaces,
+  roundingMode,
+}: ITokenChainValueConvertOptions & {
+  decimalPlaces?: number;
+  roundingMode?: BigNumber.RoundingMode;
+}) {
+  const result = new BigNumber(value).shiftedBy(
+    token.decimals ??
+      nilError('convertTokenChainValueToAmount ERROR: token.decimals missing'),
+  );
+
+  if (decimalPlaces !== undefined) {
+    return result.toFixed(decimalPlaces, roundingMode);
+  }
+
+  return result.toFixed();
+}
+
+function fixNativeTokenMaxSendAmount({
+  amount,
+  network,
+}: {
+  amount: string | BigNumber;
+  network: IServerNetwork;
+}) {
+  const amountBN = new BigNumber(amount);
+  const fixedAmountBN = amountBN.dp(
+    BigNumber.min(
+      (amountBN.decimalPlaces() ?? network.decimals) - 2,
+      network.decimals - 2,
+    ).toNumber(),
+    BigNumber.ROUND_FLOOR,
+  );
+  return fixedAmountBN.toFixed();
+}
+
+const SATS_PER_BTC = 100_000_000; // 1 BTC = 100,000,000 sats
+
+function convertBtcToSats(btc: string | number): string {
+  if (btc === '' || btc === undefined) {
+    return '';
+  }
+  const result = new BigNumber(btc).times(SATS_PER_BTC);
+  return result.isNaN() ? '0' : result.toFixed();
+}
+
+function convertSatsToBtc(sats: string | number): string {
+  if (sats === '' || sats === undefined) {
+    return '';
+  }
+  const result = new BigNumber(sats).dividedBy(SATS_PER_BTC);
+  return result.isNaN() ? '0' : result.toFixed();
+}
+
+function getLightningAmountDecimals({
+  lnUnit,
+  decimals,
+}: {
+  lnUnit: ELightningUnit;
+  decimals: number;
+}): number {
+  if (lnUnit === ELightningUnit.BTC) {
+    return Math.log10(SATS_PER_BTC);
+  }
+  return decimals;
+}
+
+export default {
+  convertAmountToChainValue,
+  convertChainValueToAmount,
+  convertChainValueToGwei,
+  convertGweiToChainValue,
+  convertGweiToAmount,
+  convertAmountToGwei,
+  convertTokenChainValueToAmount,
+  convertTokenAmountToChainValue,
+  fixNativeTokenMaxSendAmount,
+  convertBtcToSats,
+  convertSatsToBtc,
+  getLightningAmountDecimals,
+};

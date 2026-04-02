@@ -1,0 +1,244 @@
+import { useCallback, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import type { useInPageDialog } from '@onekeyhq/components';
+import { Dialog, Stack, Toast, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+
+import { DEFAULT_PNL_DISPLAY_MODE, getDefaultShareText } from './constants';
+import { ControlPanel } from './ControlPanel';
+import { ShareImageGenerator } from './ShareImageGenerator';
+import { ShareView } from './ShareView';
+import { useReferralUrl } from './useReferralUrl';
+import { useShareActions } from './useShareActions';
+
+import type {
+  IShareConfig,
+  IShareData,
+  IShareImageGeneratorRef,
+} from './types';
+
+interface IShareContentProps {
+  data: IShareData;
+  onClose?: () => void;
+  isMobile?: boolean;
+}
+
+function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
+  const generatorRef = useRef<IShareImageGeneratorRef | null>(null);
+  const intl = useIntl();
+  const { side, token, tokenDisplayName } = data;
+
+  const [config, setConfig] = useState<IShareConfig>({
+    customText: getDefaultShareText({
+      side,
+      coin: token,
+      displayName: tokenDisplayName,
+    }),
+    stickerIndex: null,
+    backgroundIndex: 0,
+    pnlDisplayMode: DEFAULT_PNL_DISPLAY_MODE,
+  });
+
+  const {
+    referralQrCodeUrl,
+    referralDisplayText,
+    isReady: isReferralReady,
+  } = useReferralUrl();
+  const { saveImage, shareImage, copyLink, shareToX } =
+    useShareActions(referralQrCodeUrl);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  const handleSaveImage = useCallback(async () => {
+    setIsActionLoading(true);
+    try {
+      const generator: IShareImageGeneratorRef | null = generatorRef.current;
+      if (!generator) {
+        Toast.error({ title: 'Failed to generate image' });
+        return;
+      }
+      const base64: string = await generator.generate();
+      if (!base64) {
+        Toast.error({ title: 'Failed to generate image' });
+        return;
+      }
+
+      const result = await saveImage(base64);
+
+      if (result?.permissionPermanentlyDenied) {
+        // TODO: Add proper i18n keys for photo library permission
+        Dialog.show({
+          tone: 'warning',
+          icon: 'ErrorOutline',
+          title: 'Photo Library Access Denied',
+          description:
+            'OneKey requires photo library access to save images. Please go to Settings and enable photo library permissions.',
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_go_settings,
+          }),
+          showCancelButton: true,
+          showConfirmButton: true,
+          onConfirm: () => {
+            openSettings('camera');
+          },
+        });
+      }
+      // permissionDenied: user can try again by clicking save button
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [saveImage, intl]);
+
+  const handleShareImage = useCallback(async () => {
+    setIsActionLoading(true);
+    try {
+      const generator: IShareImageGeneratorRef | null = generatorRef.current;
+      if (!generator) {
+        Toast.error({ title: 'Failed to generate image' });
+        return;
+      }
+      const base64: string = await generator.generate();
+      if (!base64) {
+        Toast.error({ title: 'Failed to generate image' });
+        return;
+      }
+
+      await shareImage(base64);
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [shareImage]);
+
+  const handleShareToX = useCallback(async () => {
+    setIsActionLoading(true);
+    try {
+      const generator: IShareImageGeneratorRef | null = generatorRef.current;
+      if (!generator) {
+        Toast.error({ title: 'Failed to generate image' });
+        return;
+      }
+      const base64: string = await generator.generate();
+      if (!base64) {
+        Toast.error({ title: 'Failed to generate image' });
+        return;
+      }
+
+      if (platformEnv.isNative && onClose) {
+        onClose();
+      }
+
+      await shareToX(base64, config.customText);
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [shareToX, config.customText, onClose]);
+
+  const desktopLayout = (
+    <YStack gap="$5">
+      <ShareImageGenerator
+        ref={generatorRef}
+        data={data}
+        config={config}
+        referralQrCodeUrl={referralQrCodeUrl}
+        referralDisplayText={referralDisplayText}
+        isReferralReady={isReferralReady}
+      />
+      <Stack justifyContent="center" alignItems="center">
+        <ShareView
+          data={data}
+          config={config}
+          referralQrCodeUrl={referralQrCodeUrl}
+          referralDisplayText={referralDisplayText}
+          isReferralReady={isReferralReady}
+          scale={0.5}
+          generatorRef={generatorRef}
+        />
+      </Stack>
+      <Stack maxWidth={380}>
+        <ControlPanel
+          config={config}
+          onChange={setConfig}
+          onSaveImage={handleSaveImage}
+          onShareImage={handleShareImage}
+          onCopyLink={copyLink}
+          onShareToX={handleShareToX}
+          isLoading={isActionLoading}
+        />
+      </Stack>
+    </YStack>
+  );
+
+  const mobileLayout = (
+    <YStack flex={1}>
+      <ShareImageGenerator
+        ref={generatorRef}
+        data={data}
+        config={config}
+        referralQrCodeUrl={referralQrCodeUrl}
+        referralDisplayText={referralDisplayText}
+        isReferralReady={isReferralReady}
+      />
+      <Stack justifyContent="center" alignItems="center" mb="$6">
+        <ShareView
+          data={data}
+          config={config}
+          referralQrCodeUrl={referralQrCodeUrl}
+          referralDisplayText={referralDisplayText}
+          isReferralReady={isReferralReady}
+          generatorRef={generatorRef}
+        />
+      </Stack>
+      <ControlPanel
+        config={config}
+        onChange={setConfig}
+        onSaveImage={handleSaveImage}
+        onShareImage={handleShareImage}
+        onCopyLink={copyLink}
+        onShareToX={handleShareToX}
+        isLoading={isActionLoading}
+        isMobile
+      />
+    </YStack>
+  );
+
+  return isMobile ? mobileLayout : desktopLayout;
+}
+
+export function showPositionShareDialog(
+  data: IShareData,
+  dialog?: ReturnType<typeof useInPageDialog>,
+) {
+  const DialogInstance = dialog ?? Dialog;
+
+  const dialogInstance = DialogInstance.show({
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perps_share_position_title,
+    }),
+    floatingPanelProps: platformEnv.isNative
+      ? undefined
+      : {
+          width: 'autoWidth',
+        },
+
+    renderContent: (
+      <PerpsProviderMirror>
+        <ShareContent
+          data={data}
+          onClose={() => {
+            void dialogInstance.close();
+          }}
+          isMobile={platformEnv.isNative}
+        />
+      </PerpsProviderMirror>
+    ),
+    showFooter: false,
+  });
+
+  return dialogInstance;
+}

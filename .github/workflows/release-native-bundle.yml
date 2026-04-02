@@ -1,0 +1,250 @@
+name: release-native-bundle
+
+on:
+  workflow_run:
+    workflows:
+      - daily-build
+    types:
+      - completed
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      build_number:
+        type: string
+        required: true
+      build_bundle_version:
+        type: string
+        required: true
+      build_source:
+        type: string
+        required: false
+        default: 'daily-build'
+      branch:
+        type: string
+        required: false
+      commit:
+        type: string
+        required: false
+      checkout_ref:
+        type: string
+        required: false
+    secrets:
+      COVALENT_KEY:
+        required: false
+      SENTRY_TOKEN:
+        required: false
+      SENTRY_DSN_REACT_NATIVE:
+        required: false
+      SENTRY_DSN_WEB:
+        required: false
+      SENTRY_DSN_DESKTOP:
+        required: false
+      SENTRY_DSN_MAS:
+        required: false
+      SENTRY_DSN_SNAP:
+        required: false
+      SENTRY_DSN_WINMS:
+        required: false
+      SENTRY_DSN_EXT:
+        required: false
+      APPLEID:
+        required: false
+      APPLEIDPASS:
+        required: false
+      ASC_PROVIDER:
+        required: false
+      QA_JS_BUNDLE_SERVER_URL:
+        required: false
+      QA_JS_BUNDLE_UPLOAD_SECRET:
+        required: false
+      SLACK_NOTIFICATION_WEBHOOK:
+        required: false
+      ACTION_SIGN_SECERT_KEY:
+        required: false
+
+env:
+  NODE_ENV: production
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  release-native-bundle:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
+      - name: Validate workflow_run source
+        if: github.event_name == 'workflow_run'
+        run: |
+          if [ "${{ github.event.workflow_run.head_repository.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::error::Rejecting workflow_run from fork repository"
+            exit 1
+          fi
+
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          ref: ${{ inputs.checkout_ref || '' }}
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          checkout_ref: ${{ inputs.checkout_ref || '' }}
+          env_file_name: '.env'
+          sentry_project: 'react-native'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: 'Setup ENV'
+        run: |
+          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
+          echo '$pkg_version='$pkg_version
+          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+          if [ -z "${{ env.BUILD_BUNDLE_VERSION }}" ]; then
+            echo "BUILD_BUNDLE_VERSION=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s) ))" >> $GITHUB_ENV
+          fi
+
+      - name: Override params from caller
+        if: ${{ inputs.build_number }}
+        run: |
+          echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
+          # Also update .env file since shared-env already wrote the old values
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
+
+      - name: Resolve branch and commit
+        env:
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WR_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -n "$INPUT_BRANCH" ]; then
+            BRANCH="$INPUT_BRANCH"
+            COMMIT="$INPUT_COMMIT"
+          elif [ -n "$WR_COMMIT" ]; then
+            BRANCH="$WR_BRANCH"
+            COMMIT="$WR_COMMIT"
+          else
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          fi
+          # Validate commit SHA format to prevent env injection
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::Invalid commit SHA format: $COMMIT"
+            exit 1
+          fi
+          DELIMITER=$(uuidgen)
+          {
+            echo "BRANCH<<${DELIMITER}"
+            echo "$BRANCH"
+            echo "${DELIMITER}"
+          } >> "$GITHUB_ENV"
+          {
+            echo "COMMIT<<${DELIMITER}"
+            echo "$COMMIT"
+            echo "${DELIMITER}"
+          } >> "$GITHUB_ENV"
+          COMMIT_MESSAGE=$(git log -1 --pretty=%s "$COMMIT" 2>/dev/null || echo "")
+          {
+            echo "COMMIT_MESSAGE<<${DELIMITER}"
+            echo "$COMMIT_MESSAGE"
+            echo "${DELIMITER}"
+          } >> "$GITHUB_ENV"
+          # Override commit SHA for the build. GITHUB_SHA is a built-in GitHub Actions
+          # env var that cannot be reliably overridden via $GITHUB_ENV. Instead, set
+          # WORKFLOW_GITHUB_SHA which takes priority in platformEnv.githubSHA.
+          sed -i "s/^GITHUB_SHA=.*/GITHUB_SHA=$COMMIT/" .env
+          echo "GITHUB_SHA=$COMMIT" >> $GITHUB_ENV
+          echo "WORKFLOW_GITHUB_SHA=$COMMIT" >> $GITHUB_ENV
+          echo "WORKFLOW_GITHUB_SHA=$COMMIT" >> .env
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn install --immutable
+
+      - name: Build Bundle
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: 'yarn app:build-bundle'
+      
+      - name: upload zips
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: release-native-bundle-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/mobile/out-dir-bundle-zip
+            !**/.DS_Store
+      
+      - name: upload bundles
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: release-native-bundle-sources-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/mobile/out-dir-bundle
+            !**/.DS_Store
+
+      - name: Upload QA Bundles
+        uses: onekeyhq/actions/qa-bundle-upload@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+          upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+          bundle-dir: ./apps/mobile/out-dir-bundle-zip
+          commit-hash: ${{ env.COMMIT }}
+          branch: ${{ env.BRANCH }}
+          pr-title: ${{ env.COMMIT_MESSAGE }}
+
+      - name: 'Notify to Slack'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        continue-on-error: true
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: React-Native-Bundle
+          artifact-name: OneKey-Native-Bundle
+          artifact-bundle-id: 'so.onekey.wallet'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
+          artifact-branch: '${{ env.BRANCH }}'
+          artifact-commit: '${{ env.COMMIT }}'

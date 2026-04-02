@@ -1,0 +1,66 @@
+import { Icon, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+
+import { useWebTabDataById } from '../../hooks/useWebTabs';
+
+import type { IWebTab } from '../../types';
+
+function MobileTabListPinnedItem({
+  id,
+  activeTabId,
+  onSelectedItem,
+  onLongPress,
+}: {
+  activeTabId: string | null;
+  onSelectedItem: (id: string) => void;
+  onCloseItem: (id: string) => void;
+  onLongPress: (id: string) => void;
+} & IWebTab) {
+  const { tab } = useWebTabDataById(id);
+  const isActive = activeTabId === id;
+  return (
+    <Stack
+      p="$0.5"
+      width={125}
+      borderRadius="$4"
+      borderWidth={4}
+      borderColor={isActive ? '$brand6' : '$transparent'}
+      marginHorizontal={2}
+      onPress={() => {
+        onSelectedItem(id);
+      }}
+      onLongPress={() => {
+        onLongPress(id);
+      }}
+      animation="quick"
+      animateOnly={ANIMATE_ONLY_TRANSFORM}
+      pressStyle={{
+        scale: 0.95,
+      }}
+    >
+      <XStack
+        bg="$bgStrong"
+        p="$2"
+        alignItems="center"
+        borderRadius="$2.5"
+        testID={`tab-list-stack-pinned-${id}`}
+      >
+        <Image
+          size="$4"
+          borderRadius="$1"
+          source={{ uri: tab?.favicon }}
+          fallback={
+            <Image.Fallback>
+              <Icon name="GlobusOutline" size="$4" />
+            </Image.Fallback>
+          }
+        />
+        <SizableText flex={1} size="$bodySm" numberOfLines={1} ml="$2">
+          {(tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title}
+        </SizableText>
+      </XStack>
+    </Stack>
+  );
+}
+
+export default MobileTabListPinnedItem;

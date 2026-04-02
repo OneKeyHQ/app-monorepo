@@ -1,0 +1,97 @@
+// Inter fonts are not used — Tamagui uses Roobert. The JS keys (e.g. "Inter_400Regular")
+// also don't match the font's internal PostScript names (e.g. "Inter-Regular"), so the
+// useFonts registration was ineffective anyway.
+// import {
+//   Inter_400Regular,
+//   Inter_500Medium,
+//   Inter_600SemiBold,
+// } from '@expo-google-fonts/inter';
+// import { useFonts } from 'expo-font';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { Toast } from '@onekeyhq/components';
+import { SyncHomeAccountToDappAccountProvider } from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+
+import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
+import SupabaseAuthProvider from '../components/OneKeyAuth/supabase/SupabaseAuthProvider';
+import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
+import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
+
+import { Container } from './Container';
+import { ColdStartByNotification } from './Container/ColdStartByNotification';
+import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
+import { StateActiveContainer } from './Container/StateActiveContainer';
+import { HardwareServiceProvider } from './HardwareServiceProvider';
+import { KeyboardProvider } from './KeyboardProvider';
+import { SplashProvider } from './SplashProvider';
+import { ThemeProvider } from './ThemeProvider';
+import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
+
+if (platformEnv.isRuntimeBrowser) {
+  // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
+  // @ts-ignore
+  globalThis._frameTimestamp = null;
+}
+
+appGlobals.$Toast = Toast;
+
+const LastActivityTracker = LazyLoad(
+  () => import('../components/LastActivityTracker'),
+  3000,
+);
+
+const flexStyle = { flex: 1 };
+
+export function KitProvider(props: any = {}) {
+  const {
+    UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
+  } = props;
+
+  ColdStartByNotification.launchNotification = launchNotification;
+
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('KitProvider render');
+  }
+
+  useDebugComponentRemountLog({ name: 'KitProvider' });
+
+  // useFonts({
+  //   Inter_400Regular,
+  //   Inter_500Medium,
+  //   Inter_600SemiBold,
+  // });
+
+  const content = (
+    <SafeAreaProvider>
+      <GlobalJotaiReady>
+        <SupabaseAuthProvider>
+          <KeyboardProvider>
+            <GestureHandlerRootView style={flexStyle}>
+              <ThemeProvider>
+                <NetworkReachabilityTracker />
+                <SplashProvider>
+                  <Container />
+                </SplashProvider>
+                <PasswordVerifyPromptMount />
+                <WebViewWebEmbedProvider />
+                <LastActivityTracker />
+                <SystemLocaleTracker />
+                <StateActiveContainer />
+                <SyncHomeAccountToDappAccountProvider />
+                <HardwareServiceProvider />
+              </ThemeProvider>
+            </GestureHandlerRootView>
+          </KeyboardProvider>
+        </SupabaseAuthProvider>
+      </GlobalJotaiReady>
+    </SafeAreaProvider>
+  );
+
+  return content;
+}

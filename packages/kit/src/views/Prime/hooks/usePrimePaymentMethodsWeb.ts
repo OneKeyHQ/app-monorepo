@@ -1,0 +1,250 @@
+import { useCallback } from 'react';
+
+import { LogLevel, Purchases } from '@revenuecat/purchases-js';
+import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+
+import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
+
+import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
+import primePaymentUtils from './primePaymentUtils';
+
+import type {
+  IPackage,
+  ISubscriptionPeriod,
+  IUsePrimePayment,
+} from './usePrimePaymentTypes';
+import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
+
+if (process.env.NODE_ENV !== 'production') {
+  console.log('Purchases.setLogLevel Verbose');
+  Purchases.setLogLevel(LogLevel.Verbose);
+}
+
+export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
+  const { user, isReady: isAuthReady } = useOneKeyAuth();
+  const [, setPrimePersistAtom] = usePrimePersistAtom();
+  const isReady = isAuthReady;
+
+  const initSdk = useCallback(
+    async ({ loginRequired }: { loginRequired?: boolean } = {}) => {
+      console.log('initSdk');
+      const { apiKey } = await getPrimePaymentApiKey({
+        apiKeyType: 'web',
+      });
+      if (!isReady) {
+        throw new OneKeyLocalError('PrimeAuth Not ready');
+      }
+      if (!apiKey) {
+        throw new OneKeyLocalError('No REVENUECAT api key found');
+      }
+      if (!user?.onekeyUserId && loginRequired) {
+        throw new OneKeyLocalError('User not logged in');
+      }
+
+      // TODO VPN required
+      // await Purchases.setProxyURL('https://api.rc-backup.com/');
+
+      // TODO how to configure another userId when user login with another account
+      // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
+
+      Purchases.configure(
+        apiKey,
+        user?.onekeyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
+      );
+    },
+    [isReady, user?.onekeyUserId],
+  );
+
+  const getCustomerInfo = useCallback(async () => {
+    await initSdk({ loginRequired: true });
+
+    const customerInfo: CustomerInfo =
+      await Purchases.getSharedInstance().getCustomerInfo();
+
+    console.log('revenuecat customerInfo', customerInfo);
+
+    const appUserId = Purchases.getSharedInstance().getAppUserId();
+    if (appUserId !== user?.onekeyUserId) {
+      throw new OneKeyLocalError('AppUserId not match');
+    }
+
+    setPrimePersistAtom((prev): IPrimeUserInfo => {
+      const newData: IPrimeUserInfo = {
+        ...prev,
+        subscriptionManageUrl: customerInfo.managementURL || '',
+      };
+      return perfUtils.buildNewValueIfChanged(prev, newData);
+    });
+
+    if ('gold_entitlement' in customerInfo.entitlements.active) {
+      // Grant user access to the entitlement "gold_entitlement"
+      // grantEntitlementAccess();
+    }
+
+    return customerInfo;
+  }, [initSdk, setPrimePersistAtom, user?.onekeyUserId]);
+
+  const getPackagesWeb = useCallback(async () => {
+    await initSdk();
+
+    if (!isReady) {
+      throw new OneKeyLocalError('PrimeAuth Not ready');
+    }
+
+    const offerings = await Purchases.getSharedInstance().getOfferings();
+
+    const packages: IPackage[] =
+      offerings?.current?.availablePackages?.map((p) => {
+        const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
+
+        const currencyCode = currentPrice.currency || '';
+
+        const pricePerMonthBN =
+          normalPeriodDuration === 'P1M'
+            ? new BigNumber(currentPrice.amountMicros).div(1_000_000)
+            : new BigNumber(currentPrice.amountMicros).div(12).div(1_000_000);
+
+        const pricePerMonth = pricePerMonthBN.toNumber();
+        const pricePerYear = pricePerMonthBN.times(12).toNumber();
+
+        return {
+          subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
+          currencyCode,
+          pricePerYear,
+          pricePerYearString: primePaymentUtils.formatPriceString(
+            pricePerYear,
+            currencyCode,
+          ),
+          pricePerMonth,
+          pricePerMonthString: primePaymentUtils.formatPriceString(
+            pricePerMonth,
+            currencyCode,
+          ),
+          priceTotalPerYearString: primePaymentUtils.formatPriceString(
+            pricePerYear,
+            currencyCode,
+          ),
+        };
+      }) || [];
+
+    console.log('userPrimePaymentMethods >>>>>> WebPackages', {
+      packages,
+      offerings,
+    });
+
+    return packages;
+  }, [initSdk, isReady]);
+
+  const purchasePackageWeb = useCallback(
+    async ({
+      subscriptionPeriod,
+      email,
+      locale,
+      currency,
+      featureName,
+    }: {
+      subscriptionPeriod: string;
+      email: string;
+      locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
+      currency?: string;
+      featureName?: EPrimeFeatures;
+    }) => {
+      await initSdk({ loginRequired: true });
+      try {
+        if (!isReady) {
+          throw new OneKeyLocalError('PrimeAuth Not ready');
+        }
+
+        // will block stripe modal
+        // await backgroundApiProxy.serviceApp.showDialogLoading({
+        //   title: intl.formatMessage({
+        //     id: ETranslations.global_processing,
+        //   }),
+        // });
+
+        const offerings = await Purchases.getSharedInstance().getOfferings(
+          currency ? { currency } : undefined,
+        );
+
+        if (!offerings.current) {
+          throw new OneKeyLocalError(
+            'purchasePaywallPackage ERROR: No offerings',
+          );
+        }
+
+        const paywallPackage = offerings.current.availablePackages.find(
+          (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
+        );
+
+        if (!paywallPackage) {
+          throw new OneKeyLocalError(
+            'purchasePaywallPackage ERROR: No paywall package',
+          );
+        }
+
+        const purchaseParams: PurchaseParams = {
+          rcPackage: paywallPackage,
+          customerEmail: email,
+          selectedLocale: purchaseSdkUtils.convertToRevenuecatLocale({
+            locale: locale as ILocaleJSONSymbol,
+          }),
+        };
+        // TODO check package user is Matched to id
+        // TODO check if user has already purchased
+        const purchase =
+          await Purchases.getSharedInstance().purchase(purchaseParams);
+
+        primePaymentUtils.trackPrimeSubscriptionSuccess({
+          paywallPackage,
+          subscriptionPeriod,
+          featureName,
+        });
+
+        // test credit card
+        // https://docs.stripe.com/testing#testing-interactively
+        // Mastercard: 5555555555554444
+        // visa: 4242424242424242
+        return purchase;
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        throw error;
+      } finally {
+        // will block stripe modal
+        // void backgroundApiProxy.serviceApp.hideDialogLoading();
+      }
+    },
+    [initSdk, isReady],
+  );
+
+  const intl = useIntl();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const testToast = useCallback(() => {
+    Toast.success({
+      title: intl.formatMessage({
+        id: ETranslations.prime_restore_successful,
+      }),
+    });
+  }, [intl]);
+
+  return {
+    isReady,
+    purchasePackageNative: undefined,
+    getPackagesNative: undefined,
+    restorePurchases: undefined,
+    getPackagesWeb,
+    purchasePackageWeb,
+    getCustomerInfo,
+  };
+}

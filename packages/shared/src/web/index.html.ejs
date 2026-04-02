@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html
+  font-size="16px"
+   <% if ( platform === 'ext' && filename === 'ui-popup.html' ) { %>
+      style="min-height: 600px; min-width: 400px; margin: 0; overflow: auto;"
+   <% } %>
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <!--
+        This viewport works for phones with notches.
+        It's optimized for gestures by disabling global zoom.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover"
+    />
+    <title>OneKey</title>
+    <meta name="theme-color" content="#ffffff" />
+      <% if ( isDev ) { %>
+        <script
+        <% if ( platform === 'ext'  ) { %>
+          src="http://localhost:3180/react-render-tracker@0.7.3/dist/react-render-tracker.js"
+        <% } else { %>
+          src="/react-render-tracker@0.7.3/dist/react-render-tracker.js"
+        <% } %>
+          data-config="inpage:false"
+        /></script>
+        <meta name="rempl:server" content="localhost:8177" />
+    <% } %>
+    <style>
+      /* add global styles to packages/shared/src/web/index.css */
+    </style>
+
+
+      <% if ( platform === 'ext' ) { %>
+      <!--    <script>-->
+      <!--      // ** inline script not allowed in Ext, use themePreload.js instead-->
+      <!--    </script>-->
+          <script src="/preload-html-head.js?<%= currentVersion %>"></script>
+      <% } %>
+
+      <% if ( platform === 'desktop' || platform === 'web' ) { %>
+          <script>
+// >>>>>>> automatic copy code from preload-html-head.js <<<<<<<<<
+            <%= htmlHeadPreloadCode %>
+          </script>
+      <% } %>
+      <% if ( platform == 'web-embed' ) { %> 
+        <script>
+          if (typeof globalThis === 'undefined') {
+              var globalThis = window;
+          }
+        </script>
+      <% } %>
+      <% if ( platform !== 'ext' ) { %>
+        <script>
+          if (typeof window.$$onekeyStartupTimeAt === 'undefined') {
+            window.$$onekeyStartupTimeAt = Date.now();
+          }
+        </script>
+      <% } %>
+  </head>
+
+  <!-- html template copy from node_modules/@expo/webpack-config/web-default/index.html -->
+  <body class="onekey-body"
+
+        data-platform="<%= platform %>"
+        data-browser="<%= browser %>"
+        data-filename="<%= filename %>-not-correct-in-ext"
+    <% if ( platform === 'ext' && browser === 'firefox' && filename === 'ui-popup.html' ) { %>
+        style="min-height: 600px; min-width: 400px; margin: 0;"
+    <% } %>
+  >
+
+    <!--
+      A generic no script element with a reload button and a message.
+      Feel free to customize this however you'd like.
+    -->
+    <noscript>
+      <form
+        action=""
+        style="
+          background-color: #fff;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 9999;
+        "
+      >
+        <div
+          style="
+            font-size: 18px;
+            font-family: Helvetica, sans-serif;
+            line-height: 24px;
+            margin: 10%;
+            width: 80%;
+          "
+        >
+          <p>Oh no! It looks like JavaScript is not enabled in your browser.</p>
+          <p style="margin: 20px 0">
+            <button
+              type="submit"
+              style="
+                background-color: #4630eb;
+                border-radius: 100px;
+                border: none;
+                box-shadow: none;
+                color: #fff;
+                cursor: pointer;
+                font-weight: bold;
+                line-height: 20px;
+                padding: 6px 16px;
+              "
+            >
+              Reload
+            </button>
+          </p>
+        </div>
+      </form>
+    </noscript>
+
+    <!-- The root element for your Expo app.  -->
+    <div id="root">
+      <% if ( platform == 'web-embed' ) { %> 
+        <!-- webEmbed index.html -->
+      <% } %>
+    </div>
+
+    <% if ( platform !== 'ext' ) { %>
+      <script>
+        (()=>{
+          const rootElement = document.getElementById('root');
+          if (rootElement) {
+            rootElement.setAttribute('data-html-render-time', Date.now().toString());
+          }
+        })();
+      </script>
+    <% } %>
+
+    <% if ( platform !== 'web-embed' && platform !== 'web' ) { %>
+      <img
+        width='80'
+        class="onekey-index-html-preload-image"
+        style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%)"
+        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAA3lBMVEUAAABF1i1E1yxQ3zBE1SxI1zBE1ixE1ixE1i1E1yxF1i1D1StF1ixF1y1E1SxAzzBF1S1F1ixF1S1G1i1D1CxF1y1E1itF2itE1i5F1TBD1ytD1i1F1StG1i1A1yhE1i1E1ixD2StE1StE1S1D1ytF2CxG2S1C1StE1iwAAAARNgsiaxY8uycJGwYzoCEneRlAySkVQw4aURErhhweXhQrhRwFDgMIGwUEDQMWQw4eXhMqhRtAySoNKQgNKAkaUBEvkx4meBk4riQneBkZUBAvkh8ZURAWRA43rSQqhhtHwN7UAAAAKHRSTlMA30AQgCDvv+9/oJ+QYM8QYM+fj5CfcDBwMJ9QMFAgj69fsK9fb1BgeiEMiQAABBhJREFUeF7Fm9d24zgMQEF1F7nEEyeZlJntoIp7SZ269f9/aF8mgz1eSTYgibyPfsE1CIISYQMX9+I29nq9cKyUwm9ESoXh+4kXOxcutIfrXPbGER4hCieXTvMad3FPIYPx2ciHxnAmFJwl4TQTPUIxqq6D2xlgTdTIrxE+wiY4kym475CorWDp2xMd4OEobBh1ayn7xMSFE7lS2ArqxEr4OcKWCKZwAh1skQ4jviWDc2yZM0v5JzqM+MYNfkEj/AAl+BEaIbiAQlyFhlAuFPEOjTGBAq7RIE6BgELCxiJ00CgeHOCjWYLDFJyhYSY1EpDtD/mIfFx5Aub6kAT5ePIKeCkTkFfBCBlkuhEB9KQ9YN6QwJgEHMEK1BdAR1aCmW5KoC9bgXVjAoFsBZLGBNARdcHVK0lNAVqDAYqY1RZQ1IXsCOAddSE7AiMqATsCb6kEjAtQEQzRigCdyY4dAeoEU5sCUwB4Y0eAqjC0I0BHcmBTIKBNYEcAXbiyK3ABjl2BX2FkV2AEnl0BD97YFXgLP9kWCO0KhDUEsvQ7W5QyBoVWUfYFAtsCKOZ5Nl8tkyTZzGcoRywwS3aaWK4NC6xzfUC+Nijw5YMuIM9MCcx1CakZgUddysaEwO+6glX7AqkmmlgFbidc6yMwN0PAFMhyTehdsknTTaL/y/2i1bNgpYld+vzNapuLy0DBQHpD9vhMXotHTcxafB5YlVZbKkxBCF1BAig+kcqq4EfoirbAx6rru8+sizKPIfCXfiWrSg9neuCxXkzyqhCUgpwhMOJM6xb6lT+wgH/0K4wicOBK8hyeVZfo35yX06FEAAvZCTqBCxAwBKoXec8XCABgwBe4bywDIQCjEXyprrKFoBn3Wdd0WfUu+CTYBVPWuIJyvKw8KO55I4uhoBPeL6rys2SOT5VgYLeqOim3zMldV9AK9bpcTmd4KufcgUVSarDWkrMo5o5sZmXPv3PZE5HPHhsmhW+Ds0RzE0AlwLsvz3aa0Ply/vQ0X9FnvArAc8Hg8qs+wmfJ8DhgGPypK3nkjw25M4tEV/ABGZzLxveLB13KwzN3YCQa3qZ18k8oIDxksc11AfkMWcRADANksUhJgd4UkYcP/BQQ2fZFEzr5SuHZJSgdn2afNkmy3788bJ4oOjsBtBPNQgmgKjCLDwd4ln/OB0OFBlHwfxw0yC0QNuqwD0UMbf+sF24CNELkQwkxGmEKpXiGdqBVAw8q6WLLdOEInqX8E56l+MRlgC0R/QYn4StsBXUFJzJspSv3XTid68aToBw4wGgtRp4LXPyugewbUKBvL8GPFdZkTOFlON0aDlGfSq+WwwAFqCai01rwJFQvvmvjz+/9MDqa9UGP/vzeBu6NE3v992Go1HcZpdQg7PW8+PqGHfpfvMttNhJbFlgAAAAASUVORK5CYII="
+      />
+    <% } %>
+  </body>
+</html>

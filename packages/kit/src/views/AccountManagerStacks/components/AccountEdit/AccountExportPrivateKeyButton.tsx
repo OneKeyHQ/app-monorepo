@@ -1,0 +1,87 @@
+import type { IKeyOfIcons } from '@onekeyhq/components';
+import { ActionList } from '@onekeyhq/components';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret/encryptors/aes256';
+import type { IExportKeyType } from '@onekeyhq/core/src/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import {
+  EAccountManagerStacksRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
+
+export function AccountExportPrivateKeyButton({
+  testID,
+  accountName,
+  indexedAccount,
+  account,
+  onClose,
+  icon,
+  label,
+  exportType,
+  wallet,
+}: {
+  testID?: string;
+  accountName?: string;
+  indexedAccount?: IDBIndexedAccount;
+  account?: IDBAccount;
+  onClose: () => void;
+  icon: IKeyOfIcons;
+  label: string;
+  exportType: IExportKeyType;
+  wallet?: IDBWallet;
+}) {
+  const navigation = useAppNavigation();
+
+  return (
+    <ActionList.Item
+      testID={testID}
+      icon={icon}
+      label={label}
+      onClose={onClose}
+      onPress={async () => {
+        if (
+          await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+            walletId: wallet?.id ?? '',
+          })
+        ) {
+          onClose?.();
+          return;
+        }
+
+        if (exportType === 'mnemonic') {
+          onClose?.();
+          const { mnemonic } =
+            await backgroundApiProxy.serviceAccount.getTonImportedAccountMnemonic(
+              {
+                accountId: account?.id ?? '',
+              },
+            );
+          if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
+          navigateToBackupWalletReminderPage({
+            walletId: wallet?.id ?? '',
+            accountName: accountName ?? '',
+            isWalletBackedUp: wallet?.backuped ?? false,
+            mnemonic,
+          });
+          return;
+        }
+        navigation.pushModal(EModalRoutes.AccountManagerStacks, {
+          screen: EAccountManagerStacksRoutes.ExportPrivateKeysPage,
+          params: {
+            indexedAccount,
+            account,
+            accountName,
+            title: label,
+            exportType,
+          },
+        });
+      }}
+    />
+  );
+}

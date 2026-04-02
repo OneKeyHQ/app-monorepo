@@ -1,0 +1,1693 @@
+import { useRef } from 'react';
+
+import { BigNumber } from 'bignumber.js';
+import { isNil } from 'lodash';
+
+import { Toast } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
+import {
+  perpsActiveAccountAtom,
+  perpsActiveAccountIsAgentReadyAtom,
+  perpsActiveAccountStatusInfoAtom,
+  perpsActiveAccountSummaryAtom,
+  perpsActiveAssetAtom,
+  perpsActiveAssetCtxAtom,
+  perpsActiveAssetDataAtom,
+  perpsDepositOrderAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  findTokensByAlias,
+  formatPriceToSignificantDigits,
+  getTriggerEffectivePrice,
+  inferTpsl,
+  resolveTradingSize,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
+import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
+import {
+  EPerpsSizeInputMode,
+  ETriggerOrderType,
+  type IL2BookOptions,
+  type IPerpOrderBookTickOptionPersist,
+} from '@onekeyhq/shared/types/hyperliquid/types';
+
+import {
+  bboAtom,
+  connectionStateAtom,
+  contextAtomMethod,
+  l2BookAtom,
+  orderBookTickOptionsAtom,
+  perpsActiveOpenOrdersAtom,
+  perpsActivePositionAtom,
+  perpsAllAssetCtxsAtom,
+  perpsAllAssetsFilteredAtom,
+  perpsAllMidsAtom,
+  perpsLedgerUpdatesAtom,
+  perpsOpenOrdersByCoinAtomCache,
+  perpsTokenSearchAliasesAtom,
+  subscriptionActiveAtom,
+  tradingFormAtom,
+  tradingLoadingAtom,
+} from './atoms';
+import { EActionType, withToast } from './utils';
+
+import type { ITradingFormData } from './atoms';
+
+type IChStateLite = {
+  assetPositions?: HL.IPerpsAssetPosition[];
+};
+
+type IChPositionLite = HL.IPerpsAssetPosition;
+
+class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
+  private orderBookTickOptionsLoaded = false;
+
+  private canceledOrderIds = new Set<number>();
+
+  private buildOpenOrdersByCoinMap(
+    openOrders: HL.IPerpsFrontendOrder[],
+    prevMap?: Record<string, HL.IPerpsFrontendOrder[]>,
+  ) {
+    const grouped = openOrders.reduce<Record<string, HL.IPerpsFrontendOrder[]>>(
+      (acc, order) => {
+        if (!acc[order.coin]) {
+          acc[order.coin] = [];
+        }
+        acc[order.coin].push(order);
+        return acc;
+      },
+      {},
+    );
+
+    if (!prevMap) {
+      return grouped;
+    }
+
+    Object.keys(grouped).forEach((coin) => {
+      const prevList = prevMap[coin];
+      const nextList = grouped[coin];
+
+      if (!prevList || prevList.length !== nextList.length) {
+        return;
+      }
+
+      let isSame = true;
+      for (let i = 0; i < nextList.length; i += 1) {
+        const prev = prevList[i];
+        const next = nextList[i];
+
+        if (
+          prev.oid !== next.oid ||
+          prev.sz !== next.sz ||
+          prev.limitPx !== next.limitPx ||
+          prev.triggerPx !== next.triggerPx
+        ) {
+          isSame = false;
+          break;
+        }
+      }
+
+      if (isSame) {
+        grouped[coin] = prevList;
+      }
+    });
+
+    return grouped;
+  }
+
+  updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
+    set(perpsAllMidsAtom(), data);
+  });
+
+  allAssetCtxsRequiredNumber = 0;
+
+  markAllAssetCtxsRequired = contextAtomMethod((_, _set) => {
+    this.allAssetCtxsRequiredNumber += 1;
+  });
+
+  markAllAssetCtxsNotRequired = contextAtomMethod((_, _set) => {
+    this.allAssetCtxsRequiredNumber -= 1;
+    if (this.allAssetCtxsRequiredNumber <= 0) {
+      this.allAssetCtxsRequiredNumber = 0;
+    }
+  });
+
+  updateAllAssetCtxs = contextAtomMethod((_, set, data: HL.IWsWebData2) => {
+    if (this.allAssetCtxsRequiredNumber <= 0) {
+      // skip update if not required for better performance
+      return;
+    }
+    // just save raw ctxs here
+    // use usePerpsAssetCtx() for single asset ctx with ctx formatted
+    set(perpsAllAssetCtxsAtom(), {
+      assetCtxsByDex: [data.assetCtxs || []],
+    });
+  });
+
+  updateAllAssetsFiltered = contextAtomMethod(
+    (
+      get,
+      set,
+      data: {
+        allAssetsByDex: HL.IPerpsUniverse[][];
+        query: string;
+        tokenSearchAliases?: ITokenSearchAliases;
+      },
+    ) => {
+      const { allAssetsByDex, query, tokenSearchAliases } = data;
+      const searchQuery = query?.trim()?.toLowerCase();
+
+      // Update tokenSearchAliases atom if provided
+      if (tokenSearchAliases !== undefined) {
+        set(perpsTokenSearchAliasesAtom(), tokenSearchAliases);
+      }
+
+      // Pre-compute alias matched symbols using server aliases
+      const currentAliases =
+        tokenSearchAliases ?? get(perpsTokenSearchAliasesAtom());
+      const aliasMatchedSymbols = searchQuery
+        ? new Set(findTokensByAlias(searchQuery, currentAliases))
+        : new Set<string>();
+
+      const assetsByDex = allAssetsByDex.map((assets) => {
+        if (!searchQuery) {
+          return assets.filter((token) => !token.isDelisted);
+        }
+        return assets.filter((token) => {
+          if (token.isDelisted) return false;
+
+          // 1. Match token.name (original logic)
+          if (token.name?.toLowerCase().includes(searchQuery)) {
+            return true;
+          }
+
+          // 2. Match alias
+          if (aliasMatchedSymbols.has(token.name)) {
+            return true;
+          }
+
+          return false;
+        });
+      });
+
+      set(perpsAllAssetsFilteredAtom(), {
+        assetsByDex,
+        query,
+      });
+    },
+  );
+
+  updateWebData2 = contextAtomMethod(async (get, set, data: HL.IWsWebData2) => {
+    this.updateAllAssetCtxs.call(set, data);
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const dataUser = data?.user?.toLowerCase();
+    const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+
+    if (activeAccountAddress === dataUser) {
+      // Update active positions from webData2
+      const positions = data?.clearinghouseState?.assetPositions || [];
+      const activePositions = positions
+        .filter((pos) => {
+          const size = parseFloat(pos.position?.szi || '0');
+          return Math.abs(size) > 0;
+        })
+        .toSorted(
+          (a, b) =>
+            parseFloat(b.position.positionValue || '0') -
+            parseFloat(a.position.positionValue || '0'),
+        );
+
+      set(perpsActivePositionAtom(), {
+        accountAddress: activeAccountAddress,
+        activePositions,
+      });
+
+      const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+      const allOrders = data?.openOrders || [];
+      const openOrders = allOrders.filter(
+        (order) =>
+          !order.coin.startsWith('@') && !this.canceledOrderIds.has(order.oid),
+      );
+      const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+        openOrders,
+        prevOpenOrdersState?.openOrdersByCoin,
+      );
+      set(perpsActiveOpenOrdersAtom(), {
+        accountAddress: activeAccountAddress,
+        openOrders,
+        openOrdersByCoin,
+      });
+    } else {
+      const activePosition = get(perpsActivePositionAtom());
+      if (
+        activePosition?.accountAddress?.toLowerCase() !== activeAccountAddress
+      ) {
+        set(perpsActivePositionAtom(), {
+          accountAddress: activeAccountAddress,
+          activePositions: [],
+        });
+      }
+      const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
+      if (
+        activeOpenOrders?.accountAddress?.toLowerCase() !== activeAccountAddress
+      ) {
+        set(perpsActiveOpenOrdersAtom(), {
+          accountAddress: activeAccountAddress,
+          openOrders: [],
+          openOrdersByCoin: {},
+        });
+      }
+    }
+  });
+
+  updateAllDexsClearinghouseState = contextAtomMethod(
+    async (get, set, data: HL.IWsAllDexsClearinghouseState) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+        // cleanup if account switched
+        const activePosition = get(perpsActivePositionAtom());
+        if (
+          activePosition?.accountAddress?.toLowerCase() !== activeAccountAddress
+        ) {
+          set(perpsActivePositionAtom(), {
+            accountAddress: activeAccountAddress,
+            activePositions: [],
+          });
+        }
+        return;
+      }
+
+      const statesRaw =
+        (data?.clearinghouseStates as Array<
+          [string, HL.IPerpsClearinghouseState | undefined]
+        >) || [];
+      const states: Array<[string, IChStateLite]> = statesRaw.map(
+        ([dexName, state]) => [dexName, (state as IChStateLite) || {}],
+      );
+
+      const stateMap = new Map<string, IChStateLite>();
+      states.forEach(([dexName, state]) => {
+        stateMap.set(dexName, state);
+      });
+
+      const primaryState =
+        stateMap.get('') ?? stateMap.get('perps') ?? states[0]?.[1];
+      const xyzState = stateMap.get('xyz');
+
+      const getPositions = (state?: IChStateLite): IChPositionLite[] =>
+        state?.assetPositions || [];
+
+      const combinedPositions: IChPositionLite[] = [
+        ...getPositions(primaryState),
+        ...getPositions(xyzState),
+      ];
+
+      const activePositions = combinedPositions
+        .filter((pos) => {
+          const size = parseFloat(pos.position?.szi ?? '0');
+          return Math.abs(size) > 0;
+        })
+        .toSorted((a, b) => {
+          const af = parseFloat(a.position?.cumFunding?.allTime ?? '0');
+          const bf = parseFloat(b.position?.cumFunding?.allTime ?? '0');
+          if (bf !== af) return bf - af;
+          return (
+            parseFloat(b.position?.positionValue ?? '0') -
+            parseFloat(a.position?.positionValue ?? '0')
+          );
+        });
+
+      set(perpsActivePositionAtom(), {
+        accountAddress: activeAccountAddress,
+        activePositions,
+      });
+    },
+  );
+
+  updateOpenOrders = contextAtomMethod(
+    async (get, set, data: HL.IWsOpenOrders) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+        const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
+        if (
+          activeOpenOrders?.accountAddress?.toLowerCase() !==
+          activeAccountAddress
+        ) {
+          set(perpsActiveOpenOrdersAtom(), {
+            accountAddress: activeAccountAddress,
+            openOrders: [],
+            openOrdersByCoin: {},
+          });
+        }
+        return;
+      }
+
+      const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+      const allOrders = data?.orders || [];
+      const openOrders = allOrders.filter(
+        (order) =>
+          !order.coin.startsWith('@') && !this.canceledOrderIds.has(order.oid),
+      );
+      const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+        openOrders,
+        prevOpenOrdersState?.openOrdersByCoin,
+      );
+      set(perpsActiveOpenOrdersAtom(), {
+        accountAddress: activeAccountAddress,
+        openOrders,
+        openOrdersByCoin,
+      });
+    },
+  );
+
+  updateAllDexsAssetCtxs = contextAtomMethod(
+    (_, set, data: HL.IWsAllDexsAssetCtxs) => {
+      const incoming = data?.ctxs || [];
+      const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
+      incoming.forEach(([dexName, ctxList]) => {
+        ctxMap.set(dexName, ctxList || []);
+      });
+
+      const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
+      const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
+      const xyzCtx = ctxMap.get('xyz') ?? [];
+      ctxsByDex[0] = perpsCtx;
+      ctxsByDex[1] = xyzCtx;
+      set(perpsAllAssetCtxsAtom(), {
+        assetCtxsByDex: ctxsByDex,
+      });
+    },
+  );
+
+  updateLedgerUpdates = contextAtomMethod(
+    async (get, set, data: HL.IWsUserNonFundingLedgerUpdates) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const dataUser = data?.user?.toLowerCase();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+
+      if (!activeAccountAddress || !dataUser) {
+        return;
+      }
+
+      if (activeAccountAddress === dataUser) {
+        const isSnapshot = data?.isSnapshot === true;
+        const incomingUpdates = (data?.nonFundingLedgerUpdates || []).filter(
+          (update) =>
+            !PERPS_FILTERED_LEDGER_TYPES.has(update.delta.type as string),
+        );
+
+        if (isSnapshot) {
+          const sortedUpdates = [...incomingUpdates]
+            .toSorted((a, b) => b.time - a.time)
+            .slice(0, 200);
+          set(perpsLedgerUpdatesAtom(), {
+            accountAddress: activeAccountAddress,
+            updates: sortedUpdates,
+            isSubscribed: true,
+          });
+        } else {
+          const current = get(perpsLedgerUpdatesAtom());
+          const existingUpdates = current.updates || [];
+          const existingHashes = new Set(
+            existingUpdates.map((update) => update.hash),
+          );
+          const newUpdates = incomingUpdates.filter(
+            (update) => !existingHashes.has(update.hash),
+          );
+          const mergedUpdates = [...newUpdates, ...existingUpdates];
+          const sortedUpdates = mergedUpdates
+            .toSorted((a, b) => b.time - a.time)
+            .slice(0, 200);
+
+          set(perpsLedgerUpdatesAtom(), {
+            accountAddress: activeAccountAddress,
+            updates: sortedUpdates,
+            isSubscribed: true,
+          });
+
+          // Check for deposit/send updates and match with pending orders
+          // Hyperliquid use 'send' type for deposit confirmations
+          const depositUpdates = newUpdates.filter(
+            (update) =>
+              update.delta.type === 'deposit' ||
+              (update.delta.type as string) === 'send',
+          );
+          if (depositUpdates.length > 0) {
+            const perpDepositOrder = await perpsDepositOrderAtom.get();
+            const pendingOrders = perpDepositOrder.orders.filter(
+              (order) => order.toTxId,
+            );
+
+            if (pendingOrders.length > 0) {
+              const matchedOrderIds = new Set<string>();
+
+              for (const depositUpdate of depositUpdates) {
+                const matchedOrder = pendingOrders.find(
+                  (order) => order.toTxId === depositUpdate.hash,
+                );
+
+                if (matchedOrder) {
+                  matchedOrderIds.add(matchedOrder.fromTxId);
+                }
+              }
+
+              // Remove matched orders from the atom
+              if (matchedOrderIds.size > 0) {
+                await perpsDepositOrderAtom.set((prev) => ({
+                  ...prev,
+                  orders: prev.orders.filter(
+                    (order) => !matchedOrderIds.has(order.fromTxId),
+                  ),
+                }));
+              }
+            }
+          }
+        }
+      } else {
+        set(perpsLedgerUpdatesAtom(), {
+          accountAddress: undefined,
+          updates: [],
+          isSubscribed: true,
+        });
+      }
+    },
+  );
+
+  updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
+    const activeAsset = await perpsActiveAssetAtom.get();
+    if (!data) {
+      return;
+    }
+    if (activeAsset?.coin === data.coin) {
+      set(l2BookAtom(), data);
+    } else {
+      const currentBook = get(l2BookAtom());
+      if (currentBook?.coin && currentBook?.coin !== activeAsset?.coin) {
+        set(l2BookAtom(), null);
+      }
+    }
+  });
+
+  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo) => {
+    const activeAsset = await perpsActiveAssetAtom.get();
+    if (!data) {
+      return;
+    }
+    if (activeAsset?.coin !== data.coin) {
+      const currentBbo = get(bboAtom());
+      if (currentBbo?.coin && currentBbo?.coin !== activeAsset?.coin) {
+        set(bboAtom(), null);
+      }
+      return;
+    }
+
+    // Only update if price changes (ignore size and count changes)
+    const currentBbo = get(bboAtom());
+    if (currentBbo) {
+      const currentBidPx = currentBbo.bbo[0]?.px;
+      const currentAskPx = currentBbo.bbo[1]?.px;
+      const newBidPx = data.bbo[0]?.px;
+      const newAskPx = data.bbo[1]?.px;
+
+      if (
+        currentBidPx !== null &&
+        currentBidPx !== undefined &&
+        currentAskPx !== null &&
+        currentAskPx !== undefined &&
+        newBidPx !== null &&
+        newBidPx !== undefined &&
+        newAskPx !== null &&
+        newAskPx !== undefined &&
+        currentBidPx === newBidPx &&
+        currentAskPx === newAskPx
+      ) {
+        return;
+      }
+    }
+
+    set(bboAtom(), data);
+  });
+
+  ensureOrderBookTickOptionsLoaded = contextAtomMethod(async (_get, set) => {
+    if (this.orderBookTickOptionsLoaded) return;
+    try {
+      const stored =
+        await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
+      console.log(
+        'orderBookTickOptionsAtom__ensureOrderBookTickOptionsLoaded',
+        stored,
+      );
+      set(orderBookTickOptionsAtom(), stored);
+    } catch (error) {
+      console.error('Failed to load order book tick options:', error);
+    } finally {
+      this.orderBookTickOptionsLoaded = true;
+    }
+  });
+
+  getPersistedL2BookOptions = contextAtomMethod(
+    async (get, set, coin: string): Promise<IL2BookOptions | null> => {
+      await this.ensureOrderBookTickOptionsLoaded.call(set);
+      const persistedOptions = get(orderBookTickOptionsAtom());
+      const persistedForSymbol = persistedOptions?.[coin];
+      if (!persistedForSymbol) {
+        return null;
+      }
+      return {
+        nSigFigs: persistedForSymbol.nSigFigs ?? null,
+        ...(persistedForSymbol.mantissa !== null &&
+        persistedForSymbol.mantissa !== undefined
+          ? { mantissa: persistedForSymbol.mantissa }
+          : {}),
+      };
+    },
+  );
+
+  setOrderBookTickOption = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: null | {
+        symbol: string;
+        option: IPerpOrderBookTickOptionPersist | null;
+      },
+    ) => {
+      if (!payload?.symbol) return;
+      const { symbol, option } = payload;
+      const prev = get(orderBookTickOptionsAtom());
+      const next: Record<string, IPerpOrderBookTickOptionPersist> = {
+        ...prev,
+      };
+
+      if (!option) {
+        delete next[symbol];
+      } else {
+        next[symbol] = option;
+      }
+
+      console.log('orderBookTickOptionsAtom__setOrderBookTickOption', next);
+      set(orderBookTickOptionsAtom(), next);
+
+      try {
+        await backgroundApiProxy.simpleDb.perp.setOrderBookTickOption({
+          symbol,
+          option,
+        });
+      } catch (error) {
+        console.error('Failed to persist order book tick option:', error);
+      }
+    },
+  );
+
+  updateConnectionState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: Partial<{ isConnected: boolean; reconnectCount: number }>,
+    ) => {
+      const current = get(connectionStateAtom());
+      set(connectionStateAtom(), {
+        ...current,
+        ...payload,
+        lastConnected: payload.isConnected ? Date.now() : current.lastConnected,
+      });
+    },
+  );
+
+  changeActiveAsset = contextAtomMethod(
+    async (get, set, { coin, force }: { coin: string; force?: boolean }) => {
+      const activeAsset = await perpsActiveAssetAtom.get();
+      if (activeAsset?.coin === coin && !force) {
+        return;
+      }
+
+      const form = get(tradingFormAtom());
+      const shouldUpdateLimitPrice = form.type === 'limit';
+
+      await this.clearActiveAssetData.call(set);
+      await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+        coin,
+      });
+
+      const nextFormUpdates: Partial<ITradingFormData> = {
+        triggerPrice: '',
+        executionPrice: '',
+        triggerReduceOnly: true,
+      };
+
+      // update limit price once using current atom snapshot.
+      if (shouldUpdateLimitPrice) {
+        const allMids = get(perpsAllMidsAtom());
+        const mid = allMids?.mids?.[coin];
+        const midValue = new BigNumber(mid || '');
+        nextFormUpdates.price =
+          mid && midValue.isFinite() && midValue.gt(0)
+            ? formatPriceToSignificantDigits(mid)
+            : '';
+      }
+
+      this.updateTradingForm.call(set, nextFormUpdates);
+    },
+  );
+
+  changeActivePerpsAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        accountId: string | null;
+        walletId: string | null;
+        indexedAccountId: string | null;
+        deriveType: IAccountDeriveTypes;
+      },
+    ) => {
+      await this.clearActiveAccountData.call(set);
+      const account =
+        await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount(
+          params,
+        );
+      return account;
+    },
+  );
+
+  updateSubscriptions = contextAtomMethod(async (get, _set) => {
+    const isActive = get(subscriptionActiveAtom());
+    if (!isActive) {
+      await backgroundApiProxy.serviceHyperliquidSubscription.connect();
+    }
+    try {
+      console.log('updateSubscriptions__by__atomActions');
+      await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
+        error,
+      );
+    }
+  });
+
+  startSubscriptions = contextAtomMethod(async (get, set) => {
+    set(subscriptionActiveAtom(), true);
+
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.connect();
+
+      this.updateConnectionState.call(set, {
+        isConnected: true,
+        reconnectCount: 0,
+      });
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.startSubscriptions] Failed to start subscriptions:',
+        error,
+      );
+      this.updateConnectionState.call(set, {
+        isConnected: false,
+      });
+    }
+  });
+
+  stopSubscriptions = contextAtomMethod(async (get, set) => {
+    set(subscriptionActiveAtom(), false);
+
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.disconnect();
+
+      this.updateConnectionState.call(set, {
+        isConnected: false,
+      });
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.stopSubscriptions] Failed to stop subscriptions:',
+        error,
+      );
+    }
+  });
+
+  reconnectSubscriptions = contextAtomMethod(async (get, set) => {
+    const current = get(connectionStateAtom());
+
+    this.updateConnectionState.call(set, {
+      reconnectCount: current.reconnectCount + 1,
+    });
+
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.reconnect();
+      await this.updateSubscriptions.call(set);
+
+      this.updateConnectionState.call(set, {
+        isConnected: true,
+      });
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.reconnectSubscriptions] Failed to reconnect subscriptions:',
+        error,
+      );
+      this.updateConnectionState.call(set, {
+        isConnected: false,
+      });
+    }
+  });
+
+  enableTrading = contextAtomMethod(async (_get, _set) => {
+    try {
+      return await backgroundApiProxy.serviceHyperliquid.enableTrading();
+    } catch (error) {
+      console.error('Failed to enable trading:', error);
+      return { success: false };
+    }
+  });
+
+  clearActiveAssetData = contextAtomMethod(async (get, set) => {
+    set(l2BookAtom(), null);
+    await perpsActiveAssetCtxAtom.set(undefined);
+    await perpsActiveAssetDataAtom.set(undefined);
+
+    set(
+      tradingFormAtom(),
+      (prev): ITradingFormData => ({
+        ...prev,
+        size: '',
+        tpTriggerPx: '',
+        tpGainPercent: '',
+        slTriggerPx: '',
+        slLossPercent: '',
+      }),
+    );
+  });
+
+  clearActiveAccountData = contextAtomMethod(async (get, set) => {
+    set(perpsActivePositionAtom(), {
+      accountAddress: undefined,
+      activePositions: [],
+    });
+    set(perpsActiveOpenOrdersAtom(), {
+      accountAddress: undefined,
+      openOrders: [],
+      openOrdersByCoin: {},
+    });
+    perpsOpenOrdersByCoinAtomCache.clear();
+    this.canceledOrderIds.clear();
+    const current = get(perpsLedgerUpdatesAtom());
+    set(perpsLedgerUpdatesAtom(), {
+      accountAddress: undefined,
+      updates: [],
+      isSubscribed: current.isSubscribed,
+    });
+    await perpsActiveAccountSummaryAtom.set(undefined);
+    await perpsActiveAccountStatusInfoAtom.set(undefined);
+    await perpsActiveAssetDataAtom.set(undefined);
+  });
+
+  // reset all data
+  clearAllData = contextAtomMethod(async (get, set) => {
+    set(perpsAllMidsAtom(), null);
+    set(perpsAllAssetCtxsAtom(), {
+      assetCtxsByDex: [],
+    });
+    set(l2BookAtom(), null);
+    set(subscriptionActiveAtom(), false);
+    set(connectionStateAtom(), {
+      isConnected: false,
+      lastConnected: null,
+      reconnectCount: 0,
+    });
+    set(perpsLedgerUpdatesAtom(), {
+      accountAddress: undefined,
+      updates: [],
+      isSubscribed: false,
+    });
+    this.canceledOrderIds.clear();
+    await this.changeActiveAsset.call(set, { coin: 'ETH', force: true });
+  });
+
+  updateTradingForm = contextAtomMethod(
+    (get, set, updates: Partial<ITradingFormData>) => {
+      const current = get(tradingFormAtom());
+      set(tradingFormAtom(), { ...current, ...updates });
+    },
+  );
+
+  resetTradingForm = contextAtomMethod((get, set) => {
+    const current = get(tradingFormAtom());
+    set(tradingFormAtom(), {
+      ...current,
+      size: '',
+      sizeInputMode: EPerpsSizeInputMode.MANUAL,
+      sizePercent: 0,
+      hasTpsl: false,
+      tpTriggerPx: '',
+      tpGainPercent: '',
+      slTriggerPx: '',
+      slLossPercent: '',
+      tpType: 'price',
+      tpValue: '',
+      slType: 'price',
+      slValue: '',
+      triggerPrice: '',
+      executionPrice: '',
+    });
+  });
+
+  setTradingLoading = contextAtomMethod((get, set, loading: boolean) => {
+    set(tradingLoadingAtom(), loading);
+  });
+
+  placeOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+      const slippage = params.slippage;
+
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const [
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+            ] = await Promise.all([
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+            ]);
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: formData.type === 'limit' ? formData.price : '',
+              markPrice: activeAssetCtxValue?.ctx?.markPrice,
+              maxTradeSzs: activeAssetDataValue?.maxTradeSzs,
+              leverageValue: activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
+              szDecimals: activeAssetValue?.universe?.szDecimals,
+            });
+
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
+                assetId: params.assetId,
+                isBuy: formData.side === 'long',
+                sz: resolvedSize,
+                limitPx: formData.price,
+                orderType:
+                  formData.type === 'limit'
+                    ? { limit: { tif: 'Gtc' } }
+                    : { market: {} },
+                slippage,
+              });
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.PLACE_ORDER,
+      });
+    },
+  );
+
+  orderOpen = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+        price: string;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+      const slippage = params.slippage;
+
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const [
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+            ] = await Promise.all([
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+            ]);
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: params.price,
+              markPrice: activeAssetCtxValue?.ctx?.markPrice,
+              maxTradeSzs: activeAssetDataValue?.maxTradeSzs,
+              leverageValue: activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
+              szDecimals: activeAssetValue?.universe?.szDecimals,
+            });
+
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
+                assetId: params.assetId,
+                isBuy: formData.side === 'long',
+                size: resolvedSize,
+                price: params.price,
+                type: formData.type,
+                tpTriggerPx: formData.hasTpsl
+                  ? formData.tpTriggerPx
+                  : undefined,
+                slTriggerPx: formData.hasTpsl
+                  ? formData.slTriggerPx
+                  : undefined,
+                slippage,
+              });
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.ORDER_OPEN,
+      });
+    },
+  );
+
+  triggerOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+      const slippage = params.slippage;
+      const triggerOrderType =
+        formData.triggerOrderType ?? ETriggerOrderType.TRIGGER_MARKET;
+
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const [
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+            ] = await Promise.all([
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+            ]);
+
+            // Use trigger effective price for size resolution
+            const effectivePrice = getTriggerEffectivePrice({
+              triggerOrderType,
+              triggerPrice: formData.triggerPrice,
+              executionPrice: formData.executionPrice,
+              midPrice: activeAssetCtxValue?.ctx?.markPrice,
+            });
+
+            // Trigger orders don't lock margin, slider max = balance × leverage / price
+            const leverageValue = activeAssetDataValue?.leverage?.value;
+            const fallbackLeverage = activeAssetValue?.universe?.maxLeverage;
+            const effPriceBN =
+              effectivePrice.isFinite() && effectivePrice.gt(0)
+                ? effectivePrice
+                : new BigNumber(activeAssetCtxValue?.ctx?.markPrice ?? 0);
+            let triggerMaxTradeSzs = activeAssetDataValue?.maxTradeSzs;
+            if (effPriceBN.gt(0)) {
+              const effLeverage = new BigNumber(
+                leverageValue ?? fallbackLeverage ?? 1,
+              );
+              const availableIdx = formData.side === 'long' ? 0 : 1;
+              const balanceBN = new BigNumber(
+                activeAssetDataValue?.availableToTrade?.[availableIdx] ?? 0,
+              );
+              const markPxBN = new BigNumber(
+                activeAssetCtxValue?.ctx?.markPrice ?? 0,
+              );
+              if (effLeverage.gt(0) && balanceBN.gt(0) && markPxBN.gt(0)) {
+                // Produce tokens-at-markPrice so resolveTradingSize converts correctly
+                const triggerMax = balanceBN
+                  .multipliedBy(effLeverage)
+                  .dividedBy(markPxBN);
+                triggerMaxTradeSzs = [
+                  formData.side === 'long' ? triggerMax.toFixed() : '0',
+                  formData.side === 'short' ? triggerMax.toFixed() : '0',
+                ];
+              }
+            }
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: effectivePrice.isFinite() ? effectivePrice.toFixed() : '',
+              markPrice: activeAssetCtxValue?.ctx?.markPrice,
+              maxTradeSzs: triggerMaxTradeSzs,
+              leverageValue,
+              fallbackLeverage,
+              szDecimals: activeAssetValue?.universe?.szDecimals,
+            });
+
+            const isLimitTrigger =
+              triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+
+            // Infer TP/SL from side + triggerPrice vs midPrice
+            const midPriceBN = new BigNumber(
+              activeAssetCtxValue?.ctx?.midPrice ?? 0,
+            );
+            const triggerPriceBN = new BigNumber(formData.triggerPrice ?? 0);
+            if (
+              triggerPriceBN.isFinite() &&
+              triggerPriceBN.gt(0) &&
+              midPriceBN.isFinite() &&
+              midPriceBN.gt(0) &&
+              triggerPriceBN.eq(midPriceBN)
+            ) {
+              throw new OneKeyLocalError(
+                'Trigger price must differ from current price',
+              );
+            }
+            const tpsl = inferTpsl({
+              side: formData.side,
+              triggerPrice: triggerPriceBN,
+              currentPrice: midPriceBN,
+            });
+
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.orderTrigger({
+                assetId: params.assetId,
+                isBuy: formData.side === 'long',
+                size: resolvedSize,
+                triggerPx: formData.triggerPrice ?? '',
+                triggerOrderType,
+                tpsl,
+                executionPx: isLimitTrigger
+                  ? formData.executionPrice
+                  : undefined,
+                reduceOnly: formData.triggerReduceOnly ?? true,
+                slippage,
+              });
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.PLACE_ORDER,
+      });
+    },
+  );
+
+  submitOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+        price: string;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+
+      if (formData.orderMode === 'trigger') {
+        return this.triggerOrder.call(set, {
+          assetId: params.assetId,
+          formData,
+          slippage: params.slippage,
+        });
+      }
+
+      return this.orderOpen.call(set, {
+        assetId: params.assetId,
+        formData,
+        slippage: params.slippage,
+        price: params.price,
+      });
+    },
+  );
+
+  updateLeverage = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        asset: number;
+        leverage: number;
+        isCross: boolean;
+      },
+    ): Promise<{ leverage: number; isCross: boolean }> => {
+      return withToast({
+        asyncFn: async () => {
+          await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage({
+            asset: params.asset,
+            leverage: params.leverage,
+            isCross: params.isCross,
+          });
+
+          const formData = get(tradingFormAtom());
+          set(tradingFormAtom(), { ...formData, leverage: params.leverage });
+
+          return { leverage: params.leverage, isCross: params.isCross };
+        },
+        actionType: EActionType.UPDATE_LEVERAGE,
+        args: [params.isCross ? 'Cross' : 'Isolated', params.leverage],
+      });
+    },
+  );
+
+  updateIsolatedMargin = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        asset: number;
+        isBuy: boolean;
+        ntli: number;
+      },
+    ): Promise<void> => {
+      return withToast({
+        asyncFn: async () => {
+          await backgroundApiProxy.serviceHyperliquidExchange.updateIsolatedMargin(
+            {
+              asset: params.asset,
+              isBuy: params.isBuy,
+              ntli: params.ntli,
+            },
+          );
+        },
+        actionType: EActionType.UPDATE_ISOLATED_MARGIN,
+      });
+    },
+  );
+
+  ordersClose = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        isBuy: boolean;
+        size: string;
+        midPx?: string;
+        limitPx?: string;
+        slippage?: number;
+      }[],
+    ) => {
+      return withToast({
+        asyncFn: async () => {
+          const result =
+            await backgroundApiProxy.serviceHyperliquidExchange.ordersClose(
+              params,
+            );
+          return result;
+        },
+        actionType: params[0]?.limitPx
+          ? EActionType.LIMIT_ORDER_CLOSE
+          : EActionType.ORDERS_CLOSE,
+      });
+    },
+  );
+
+  cancelOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        orders: Array<{
+          assetId: number;
+          oid: number;
+        }>;
+        showToast?: boolean;
+      },
+    ) => {
+      return withToast({
+        asyncFn: async () => {
+          const result =
+            await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+              params.orders.map((order) => ({
+                assetId: order.assetId,
+                oid: order.oid,
+              })),
+            );
+
+          // Track canceled order ids so UI can remove them immediately
+          for (const o of params.orders) {
+            this.canceledOrderIds.add(o.oid);
+          }
+
+          // Optimistically remove canceled orders from atom
+          const prev = get(perpsActiveOpenOrdersAtom());
+          const openOrders = prev.openOrders.filter(
+            (o) => !this.canceledOrderIds.has(o.oid),
+          );
+          const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+            openOrders,
+            prev.openOrdersByCoin,
+          );
+          set(perpsActiveOpenOrdersAtom(), {
+            ...prev,
+            openOrders,
+            openOrdersByCoin,
+          });
+
+          return result;
+        },
+        actionType: EActionType.CANCEL_ORDER,
+        args: [params.orders.length],
+      });
+    },
+  );
+
+  setPositionTpsl = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        positionSize: string;
+        isBuy: boolean;
+        tpTriggerPx?: string;
+        slTriggerPx?: string;
+        slippage?: number;
+        showToast?: boolean;
+      },
+    ) => {
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.setPositionTpsl(
+                {
+                  assetId: params.assetId,
+                  positionSize: params.positionSize,
+                  isBuy: params.isBuy,
+                  tpTriggerPx: params.tpTriggerPx,
+                  slTriggerPx: params.slTriggerPx,
+                  slippage: params.slippage,
+                },
+              );
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.SET_POSITION_TPSL,
+      });
+    },
+  );
+
+  withdraw = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        userAccountId: string;
+        amount: string;
+        destination: `0x${string}`;
+      },
+    ) => {
+      return withToast({
+        asyncFn: async () => {
+          await backgroundApiProxy.serviceHyperliquidExchange.withdraw({
+            userAccountId: params.userAccountId,
+            amount: params.amount,
+            destination: params.destination,
+          });
+        },
+        actionType: EActionType.WITHDRAW,
+        args: [params.amount],
+      });
+    },
+  );
+
+  ensureTradingEnabled = contextAtomMethod(async (_get, _set) => {
+    const info = await perpsActiveAccountIsAgentReadyAtom.get();
+    if (info.isAgentReady === false) {
+      showEnableTradingDialog();
+      throw new OneKeyLocalError('Trading not enabled');
+    }
+  });
+
+  tokenSzDecimalsCache: {
+    [coin: string]: number | null | undefined;
+  } = {};
+
+  getTokenSzDecimals = contextAtomMethod(
+    async (get, _set, params: { coin: string }) => {
+      const { coin } = params;
+      const cached = this.tokenSzDecimalsCache[coin];
+      if (cached !== undefined) {
+        return cached;
+      }
+
+      let szDecimals: number | null = null;
+      try {
+        const tokenInfo =
+          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+            coin,
+          });
+        szDecimals = tokenInfo?.universe?.szDecimals ?? null;
+      } finally {
+        this.tokenSzDecimalsCache[coin] = szDecimals;
+      }
+      return szDecimals;
+    },
+  );
+
+  getMidPrice = contextAtomMethod(
+    async (get, set, params: { coin: string }) => {
+      const { coin } = params;
+      const allMids = get(perpsAllMidsAtom());
+      const szDecimals = await this.getTokenSzDecimals.call(set, { coin });
+      const mid = allMids?.mids?.[coin];
+      const midValue = new BigNumber(mid || '');
+
+      let midFormattedByDecimals = mid;
+      if (isNil(szDecimals) || Number.isNaN(szDecimals)) {
+        midFormattedByDecimals = mid;
+      } else {
+        midFormattedByDecimals = formatPriceToSignificantDigits(
+          mid,
+          szDecimals,
+        );
+      }
+
+      if (midValue.isNaN() || midValue.isLessThanOrEqualTo(0)) {
+        return { mid: undefined, midFormattedByDecimals: undefined };
+      }
+
+      return {
+        mid,
+        midFormattedByDecimals,
+      };
+    },
+  );
+
+  closeAllPositions = contextAtomMethod(
+    async (
+      get,
+      set,
+      type: 'market' | 'limit' = 'market',
+      filterByCoin?: string,
+    ) => {
+      return withToast({
+        asyncFn: async () => {
+          await this.ensureTradingEnabled.call(set);
+          const { activePositions: positions } = get(perpsActivePositionAtom());
+
+          // Apply filter if specified
+          const filteredPositions = filterByCoin
+            ? positions.filter((p) => p.position.coin === filterByCoin)
+            : positions;
+
+          if (filteredPositions.length === 0) {
+            console.warn('No positions to close');
+            return;
+          }
+
+          // Get symbol metadata for all positions
+          const symbolsMetaMap =
+            await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
+              coins: filteredPositions.map((p) => p.position.coin),
+            });
+
+          // Get current mid prices for all positions
+          const midPrices = await Promise.all(
+            filteredPositions.map(async (p) => {
+              try {
+                const midPriceInfo = await this.getMidPrice.call(set, {
+                  coin: p.position.coin,
+                });
+                return { coin: p.position.coin, midPrice: midPriceInfo.mid };
+              } catch (error) {
+                console.warn(
+                  `Failed to get mid price for ${p.position.coin}:`,
+                  error,
+                );
+                return { coin: p.position.coin, midPrice: null };
+              }
+            }),
+          );
+
+          const midPriceMap = Object.fromEntries(
+            midPrices.map((item) => [item.coin, item.midPrice]),
+          );
+
+          // Prepare close orders for all positions
+          const positionsToClose = filteredPositions
+            .map((positionItem) => {
+              const position = positionItem.position;
+              const tokenInfo = symbolsMetaMap[position.coin];
+              const midPrice = midPriceMap[position.coin];
+
+              if (!tokenInfo || !midPrice) {
+                console.warn(`Missing data for position ${position.coin}`);
+                return null;
+              }
+
+              const positionSize = new BigNumber(position.szi || '0')
+                .abs()
+                .toFixed();
+              const isLongPosition = new BigNumber(position.szi || '0').gte(0);
+
+              if (type === 'limit') {
+                return {
+                  assetId: tokenInfo.assetId,
+                  isBuy: isLongPosition,
+                  size: positionSize,
+                  limitPx: formatPriceToSignificantDigits(
+                    midPrice,
+                    tokenInfo.universe?.szDecimals,
+                  ),
+                };
+              }
+
+              return {
+                assetId: tokenInfo.assetId,
+                isBuy: isLongPosition,
+                size: positionSize,
+                midPx: midPrice,
+              };
+            })
+            .filter(Boolean);
+
+          if (positionsToClose.length === 0) {
+            console.warn('No valid positions to close or data unavailable');
+            return;
+          }
+
+          await this.ordersClose.call(set, positionsToClose);
+        },
+      });
+    },
+  );
+
+  showSetPositionTpslUI = contextAtomMethod(
+    async (
+      _get,
+      _set,
+      params: {
+        position: IPerpsAssetPosition['position'];
+        isMobile: boolean;
+        onShowDialog: (params: {
+          coin: string;
+          szDecimals: number;
+          assetId: number;
+        }) => void;
+        navigation: IAppNavigation;
+      },
+    ) => {
+      const { position, isMobile, onShowDialog } = params;
+
+      const tokenInfo =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: position.coin,
+        });
+
+      if (!tokenInfo) {
+        console.error(
+          '[HyperliquidActions.showSetPositionTpslUI] Token info not found for',
+          position.coin,
+        );
+        return;
+      }
+
+      const tpslParams = {
+        coin: position.coin,
+        szDecimals: tokenInfo.universe?.szDecimals ?? 2,
+        assetId: tokenInfo.assetId,
+      };
+
+      if (isMobile) {
+        params.navigation.pushModal(EModalRoutes.PerpModal, {
+          screen: EModalPerpRoutes.MobileSetTpsl,
+          params: tpslParams,
+        });
+      } else {
+        onShowDialog(tpslParams);
+      }
+    },
+  );
+
+  lastRefreshAllPerpsDataTime = 0;
+
+  refreshAllPerpsData = contextAtomMethod(async (_get, _set) => {
+    const now = Date.now();
+    if (
+      now - this.lastRefreshAllPerpsDataTime <
+      timerUtils.getTimeDurationMs({ seconds: 15 })
+    ) {
+      if (!platformEnv.isNative) {
+        Toast.message({
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.global_request_limit,
+          }),
+        });
+      }
+      return;
+    }
+    const didRefresh =
+      await backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData();
+    if (didRefresh) {
+      this.lastRefreshAllPerpsDataTime = now;
+    }
+  });
+}
+
+const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
+
+export function useHyperliquidActions() {
+  const actions = createActions();
+
+  const updateAllMids = actions.updateAllMids.use();
+  const updateWebData2 = actions.updateWebData2.use();
+  const updateLedgerUpdates = actions.updateLedgerUpdates.use();
+  const markAllAssetCtxsRequired = actions.markAllAssetCtxsRequired.use();
+  const markAllAssetCtxsNotRequired = actions.markAllAssetCtxsNotRequired.use();
+  const updateL2Book = actions.updateL2Book.use();
+  const updateBbo = actions.updateBbo.use();
+  const updateConnectionState = actions.updateConnectionState.use();
+
+  const updateSubscriptions = actions.updateSubscriptions.use();
+  const startSubscriptions = actions.startSubscriptions.use();
+  const stopSubscriptions = actions.stopSubscriptions.use();
+  const reconnectSubscriptions = actions.reconnectSubscriptions.use();
+
+  const enableTrading = actions.enableTrading.use();
+
+  const clearAllData = actions.clearAllData.use();
+
+  const updateTradingForm = actions.updateTradingForm.use();
+  const resetTradingForm = actions.resetTradingForm.use();
+  const setTradingLoading = actions.setTradingLoading.use();
+
+  const placeOrder = actions.placeOrder.use();
+  const orderOpen = actions.orderOpen.use();
+  const triggerOrder = actions.triggerOrder.use();
+  const submitOrder = actions.submitOrder.use();
+  const updateLeverage = actions.updateLeverage.use();
+  const updateIsolatedMargin = actions.updateIsolatedMargin.use();
+  const ordersClose = actions.ordersClose.use();
+  const cancelOrder = actions.cancelOrder.use();
+  const setPositionTpsl = actions.setPositionTpsl.use();
+  const withdraw = actions.withdraw.use();
+  const closeAllPositions = actions.closeAllPositions.use();
+  const showSetPositionTpslUI = actions.showSetPositionTpslUI.use();
+
+  const ensureOrderBookTickOptionsLoaded =
+    actions.ensureOrderBookTickOptionsLoaded.use();
+  const setOrderBookTickOption = actions.setOrderBookTickOption.use();
+  const changeActiveAsset = actions.changeActiveAsset.use();
+  const changeActivePerpsAccount = actions.changeActivePerpsAccount.use();
+  const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
+  const ensureTradingEnabled = actions.ensureTradingEnabled.use();
+  const refreshAllPerpsData = actions.refreshAllPerpsData.use();
+  const getTokenSzDecimals = actions.getTokenSzDecimals.use();
+  const getMidPrice = actions.getMidPrice.use();
+  const updateAllDexsClearinghouseState =
+    actions.updateAllDexsClearinghouseState.use();
+  const updateOpenOrders = actions.updateOpenOrders.use();
+  const updateAllDexsAssetCtxs = actions.updateAllDexsAssetCtxs.use();
+
+  return useRef({
+    updateAllAssetsFiltered,
+    updateAllMids,
+    markAllAssetCtxsRequired,
+    markAllAssetCtxsNotRequired,
+    updateWebData2,
+    updateLedgerUpdates,
+    updateL2Book,
+    updateBbo,
+    updateConnectionState,
+    changeActiveAsset,
+    changeActivePerpsAccount,
+    updateAllDexsClearinghouseState,
+    updateOpenOrders,
+    updateAllDexsAssetCtxs,
+
+    updateSubscriptions,
+    startSubscriptions,
+    stopSubscriptions,
+    reconnectSubscriptions,
+    enableTrading,
+    clearAllData,
+
+    updateTradingForm,
+    resetTradingForm,
+    setTradingLoading,
+
+    placeOrder,
+    orderOpen,
+    triggerOrder,
+    submitOrder,
+    updateLeverage,
+    updateIsolatedMargin,
+    ordersClose,
+    cancelOrder,
+    setPositionTpsl,
+    withdraw,
+    closeAllPositions,
+    showSetPositionTpslUI,
+    ensureTradingEnabled,
+    ensureOrderBookTickOptionsLoaded,
+    setOrderBookTickOption,
+    refreshAllPerpsData,
+    getTokenSzDecimals,
+    getMidPrice,
+  });
+}

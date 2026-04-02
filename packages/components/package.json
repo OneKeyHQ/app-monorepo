@@ -1,0 +1,38 @@
+{
+  "name": "@onekeyhq/components",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.tsx",
+  "dependencies": {
+    "@onekeyfe/react-native-scroll-guard": "1.1.46",
+    "@onekeyfe/react-native-tab-view": "1.1.46",
+    "@react-navigation/bottom-tabs": "7.10.1",
+    "@react-navigation/elements": "2.9.5",
+    "@react-navigation/native": "7.1.28",
+    "@react-navigation/native-stack": "7.11.0",
+    "@react-navigation/stack": "7.6.16",
+    "ethereum-blockies-base64": "^1.0.2",
+    "iso-639-1": "^2.1.13",
+    "lodash": "^4.17.23",
+    "moti": "^0.25.3",
+    "qrcode": "^1.5.0",
+    "react-hook-form": "^7.22.1",
+    "react-native-keyboard-aware-scroll-view": "^0.9.5",
+    "react-native-markdown-display": "7.0.2",
+    "react-native-root-siblings": "^5.0.1",
+    "react-native-svg": "15.15.1",
+    "react-native-tab-view": "^3.5.1"
+  },
+  "devDependencies": {
+    "@svgr/cli": "8.1.0",
+    "@types/qrcode": "^1.4.2",
+    "folderslint": "1.2.0",
+    "rimraf": "3.0.2"
+  },
+  "scripts": {
+    "icon:build": "rimraf src/primitives/Icon/react && svgr --config-file .svgrrc.json -d src/primitives/Icon/react svg && node src/primitives/Icon/script.js",
+    "_folderslint": "yarn folderslint",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
+  }
+}

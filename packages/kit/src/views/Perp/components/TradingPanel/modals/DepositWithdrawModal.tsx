@@ -1,0 +1,2018 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
+
+import type { IPageNavigationProp, useInTabDialog } from '@onekeyhq/components';
+import {
+  Alert,
+  Button,
+  DashText,
+  Divider,
+  Icon,
+  Image,
+  Input,
+  ListView,
+  Page,
+  Popover,
+  SegmentControl,
+  SizableText,
+  Skeleton,
+  Toast,
+  Tooltip,
+  XStack,
+  YStack,
+  getFontSize,
+  useMedia,
+  usePopoverContext,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IPerpsActiveAccountAtom,
+  IPerpsDepositToken,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  perpsActiveAccountAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountSummaryAtom,
+  usePerpsComputedAccountValueAtom,
+  usePerpsDepositTokensAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalPerpRoutes,
+  IModalPerpParamList,
+} from '@onekeyhq/shared/src/routes/perp';
+import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes/receive';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import {
+  HYPERLIQUID_DEPOSIT_ADDRESS,
+  MIN_DEPOSIT_AMOUNT,
+  MIN_WITHDRAW_AMOUNT,
+  USDC_TOKEN_INFO,
+  WITHDRAW_FEE,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type {
+  ISwapNativeTokenConfig,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+
+import usePerpDeposit from '../../../hooks/usePerpDeposit';
+import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
+import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
+
+import type { RouteProp } from '@react-navigation/native';
+import type { ListRenderItem } from 'react-native';
+
+export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
+
+const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
+  'perp-deposit-withdraw-accessory-view';
+
+interface IDepositWithdrawParams {
+  actionType: IPerpsDepositWithdrawActionType;
+}
+
+interface IDepositWithdrawContentProps {
+  params: IDepositWithdrawParams;
+  selectedAccount: IPerpsActiveAccountAtom;
+  onClose?: () => void;
+  isMobile?: boolean;
+}
+
+// Perps is USD-denominated; always show dollar sign regardless of system fiat setting
+const PERPS_CURRENCY_SYMBOL = '$';
+
+function usePerpsAccountResult(selectedAccount: IPerpsActiveAccountAtom) {
+  const { serviceAccount } = backgroundApiProxy;
+
+  const { result: accountResult } = usePromiseResult(async () => {
+    const isOtherAccount = accountUtils.isOthersAccount({
+      accountId: selectedAccount.accountId ?? '',
+    });
+    let indexedAccount: IDBIndexedAccount | undefined;
+    let account: INetworkAccount | undefined;
+    const wallet = await serviceAccount.getWalletSafe({
+      walletId: accountUtils.getWalletIdFromAccountId({
+        accountId: selectedAccount.accountId ?? '',
+      }),
+    });
+    if (isOtherAccount && selectedAccount.accountId) {
+      account = await serviceAccount.getAccount({
+        accountId: selectedAccount.accountId,
+        networkId: PERPS_NETWORK_ID,
+      });
+    } else if (selectedAccount.indexedAccountId) {
+      indexedAccount = await serviceAccount.getIndexedAccount({
+        id: selectedAccount.indexedAccountId,
+      });
+    }
+
+    return { wallet, account, indexedAccount, isOtherAccount };
+  }, [
+    selectedAccount.indexedAccountId,
+    selectedAccount.accountId,
+    serviceAccount,
+  ]);
+
+  return accountResult;
+}
+function PerpsAccountAvatar({
+  selectedAccount,
+}: {
+  selectedAccount: IPerpsActiveAccountAtom;
+}) {
+  const accountResult = usePerpsAccountResult(selectedAccount);
+
+  if (!accountResult) return null;
+
+  return (
+    <XStack alignItems="center" gap="$2" pb="$3">
+      <AccountAvatar
+        size="small"
+        account={
+          accountResult.isOtherAccount ? accountResult.account : undefined
+        }
+        indexedAccount={
+          accountResult.isOtherAccount
+            ? undefined
+            : accountResult.indexedAccount
+        }
+        wallet={accountResult.wallet}
+      />
+      <XStack flex={1} minWidth={0} maxWidth="70%" overflow="hidden">
+        <SizableText
+          flex={1}
+          size="$bodyMdMedium"
+          color="$text"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {accountResult?.isOtherAccount
+            ? accountResult?.account?.name
+            : accountResult?.indexedAccount?.name}
+        </SizableText>
+      </XStack>
+    </XStack>
+  );
+}
+PerpsAccountAvatar.displayName = 'PerpsAccountAvatar';
+
+function SelectTokenPopoverContent({
+  symbol,
+  depositTokensWithPrice,
+  handleSwitchToTradePress,
+  handleMaxPress,
+  allBalancesZero,
+  onReceivePress,
+}: {
+  depositTokensWithPrice: IPerpsDepositToken[];
+  symbol: string;
+  handleSwitchToTradePress: () => void;
+  allBalancesZero?: boolean;
+  onReceivePress?: () => void;
+  handleMaxPress: (params?: {
+    networkId: string;
+    isNative: boolean;
+    amount: string;
+    symbol: string;
+    decimals: number;
+    price?: string;
+  }) => void;
+}) {
+  const intl = useIntl();
+  const { closePopover } = usePopoverContext();
+  const [, setPerpsDepositTokensAtom] = usePerpsDepositTokensAtom();
+  const renderTokenItem = useCallback<ListRenderItem<IPerpsDepositToken>>(
+    ({ item }) => {
+      const balanceFormatted = numberFormat(item.balanceParsed ?? '0', {
+        formatter: 'balance',
+      });
+      const fiatValueFormatted = numberFormat(item.fiatValue ?? '0', {
+        formatter: 'value',
+        formatterOptions: { currency: symbol },
+      });
+      const networkInfo = networkUtils.getLocalNetworkInfo(item.networkId);
+      const networkName = networkInfo?.name;
+      return (
+        <ListItem
+          justifyContent="space-between"
+          py="$2"
+          onPress={() => {
+            setPerpsDepositTokensAtom((prev) => ({
+              ...prev,
+              currentPerpsDepositSelectedToken: item,
+            }));
+            handleMaxPress?.({
+              networkId: item.networkId,
+              isNative: !!item.isNative,
+              amount: item.balanceParsed || '0',
+              symbol: item.symbol ?? '',
+              decimals: item.decimals,
+              price: item.price,
+            });
+            void closePopover?.();
+          }}
+        >
+          <XStack gap="$2" alignItems="center">
+            <Token
+              tokenImageUri={item.logoURI}
+              networkImageUri={item.networkLogoURI}
+              showNetworkIcon
+              size="md"
+            />
+            <YStack>
+              <SizableText size="$bodySmMedium">{item.symbol}</SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {networkName}
+              </SizableText>
+            </YStack>
+          </XStack>
+          <YStack alignItems="flex-end">
+            <SizableText size="$bodySmMedium">{balanceFormatted}</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {fiatValueFormatted}
+            </SizableText>
+          </YStack>
+        </ListItem>
+      );
+    },
+    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress],
+  );
+  return (
+    <YStack>
+      {allBalancesZero ? (
+        <Alert
+          type="info"
+          title={intl.formatMessage({
+            id: ETranslations.perps_recevied_zero_token,
+          })}
+          icon="InfoCircleOutline"
+          borderRadius={0}
+          borderWidth={0}
+          $gtMd={{
+            borderTopLeftRadius: '$3',
+            borderTopRightRadius: '$3',
+          }}
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.global_receive,
+            }),
+            onPrimaryPress: () => {
+              void closePopover?.();
+              if (platformEnv.isNativeIOS) {
+                setTimeout(() => {
+                  onReceivePress?.();
+                }, 100);
+                return;
+              }
+              onReceivePress?.();
+            },
+          }}
+        />
+      ) : null}
+      <ListView
+        contentContainerStyle={{
+          borderRadius: 12,
+          py: '$3',
+        }}
+        data={depositTokensWithPrice}
+        renderItem={renderTokenItem}
+      />
+      <XStack
+        bg="$bgSubdued"
+        borderBottomLeftRadius={12}
+        borderBottomRightRadius={12}
+        justifyContent="center"
+        borderTopWidth={1}
+        borderTopColor="$borderSubdued"
+        p="$2"
+        cursor="default"
+        onPress={() => {
+          void closePopover?.();
+          if (platformEnv.isNativeIOS) {
+            setTimeout(() => {
+              handleSwitchToTradePress?.();
+            }, 100);
+            return;
+          }
+          handleSwitchToTradePress?.();
+        }}
+      >
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {intl.formatMessage({ id: ETranslations.dexmarket_switch_to_trade })}
+          <SizableText fontWeight="bold" color="$textSuccess">
+            {intl.formatMessage({ id: ETranslations.global_trade })}
+          </SizableText>
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+}
+
+function DepositWithdrawContent({
+  params,
+  selectedAccount,
+  onClose,
+  isMobile,
+}: IDepositWithdrawContentProps) {
+  const intl = useIntl();
+  const { gtMd } = useMedia();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [computedValue] = usePerpsComputedAccountValueAtom();
+  const accountValue = computedValue?.accountValue ?? '';
+  const withdrawable = computedValue?.withdrawable ?? '';
+  const [selectedAction, setSelectedAction] =
+    useState<IPerpsDepositWithdrawActionType>(params.actionType);
+  const [amount, setAmount] = useState('');
+  const [depositInputUnit, setDepositInputUnit] = useState<'token' | 'usd'>(
+    'token',
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showMinAmountError, setShowMinAmountError] = useState(false);
+  const unrealizedPnl = accountSummary?.totalUnrealizedPnl ?? '0';
+  const unrealizedPnlInfo = useMemo(() => {
+    const pnlBn = new BigNumber(unrealizedPnl || '0');
+    const pnlAbs = pnlBn.abs().toFixed();
+    const pnlFormatted = numberFormat(pnlAbs, {
+      formatter: 'value',
+      formatterOptions: {
+        currency: '$',
+      },
+    });
+    let pnlColor = '$text';
+    if (!pnlBn.isZero()) {
+      pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
+    }
+    let pnlPlusOrMinus = '';
+    if (!pnlBn.isZero()) {
+      pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    }
+    return { pnlFormatted, pnlColor, pnlPlusOrMinus };
+  }, [unrealizedPnl]);
+  const [
+    { tokens, currentPerpsDepositSelectedToken },
+    setPerpsDepositTokensAtom,
+  ] = usePerpsDepositTokensAtom();
+
+  const tokensRef = useRef<Record<string, IPerpsDepositToken[]>>(tokens);
+  if (tokensRef.current !== tokens) {
+    tokensRef.current = tokens;
+  }
+  const currentPerpsDepositSelectedTokenRef = useRef<
+    IPerpsDepositToken | undefined
+  >(currentPerpsDepositSelectedToken);
+  if (
+    currentPerpsDepositSelectedTokenRef.current?.contractAddress !==
+    currentPerpsDepositSelectedToken?.contractAddress
+  ) {
+    currentPerpsDepositSelectedTokenRef.current =
+      currentPerpsDepositSelectedToken;
+  }
+
+  const [depositTokensWithPrice, setDepositTokensWithPrice] = useState<
+    IPerpsDepositToken[]
+  >([]);
+  const [nativeTokenConfigs, setNativeTokenConfigs] = useState<
+    ISwapNativeTokenConfig[]
+  >([]);
+  const hyperliquidActions = useHyperliquidActions();
+  const { withdraw } = hyperliquidActions.current;
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const handleSwitchToTradePress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        swapSource: ESwapSource.PERP,
+      },
+    });
+  }, [navigation]);
+
+  const accountResult = usePerpsAccountResult(selectedAccount);
+
+  const handleBuyPress = useCallback(async () => {
+    if (!currentPerpsDepositSelectedToken || !accountResult) {
+      return;
+    }
+
+    await dismissKeyboardWithDelay();
+
+    defaultLogger.wallet.walletActions.buyOnLowBalance({
+      source: 'perp',
+      networkId: currentPerpsDepositSelectedToken.networkId ?? '',
+      tokenSymbol: currentPerpsDepositSelectedToken.symbol ?? '',
+      tokenAddress: currentPerpsDepositSelectedToken.contractAddress ?? '',
+      walletType: accountResult.wallet?.type ?? '',
+    });
+
+    const navParams = {
+      accountId: selectedAccount.accountId ?? '',
+      networkId: currentPerpsDepositSelectedToken.networkId ?? '',
+      walletId: accountResult.wallet?.id ?? '',
+      indexedAccountId: selectedAccount.indexedAccountId,
+      token: {
+        networkId: currentPerpsDepositSelectedToken.networkId ?? '',
+        address: currentPerpsDepositSelectedToken.contractAddress ?? '',
+        name: currentPerpsDepositSelectedToken.name ?? '',
+        symbol: currentPerpsDepositSelectedToken.symbol ?? '',
+        decimals: currentPerpsDepositSelectedToken.decimals,
+        logoURI: currentPerpsDepositSelectedToken.logoURI,
+        isNative: currentPerpsDepositSelectedToken.isNative,
+      },
+    };
+
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveSelector,
+      params: navParams,
+    });
+  }, [
+    navigation,
+    currentPerpsDepositSelectedToken,
+    selectedAccount,
+    accountResult,
+  ]);
+
+  const checkAccountSupport = useMemo(() => {
+    const isWatchingAccount = accountUtils.isWatchingAccount({
+      accountId: selectedAccount.accountId || '',
+    });
+    return !isWatchingAccount;
+  }, [selectedAccount.accountId]);
+
+  const { result, isLoading: balanceLoading } = usePromiseResult(
+    async () => {
+      if (
+        !selectedAccount.accountId ||
+        !selectedAccount.accountAddress ||
+        !checkAccountSupport
+      ) {
+        return [];
+      }
+      try {
+        const tokensList = Object.values(tokensRef.current).flat() || [];
+        const networkIds = Object.keys(tokensRef.current) || [];
+        const tokenDetailsAndNativeTokenConfigs = await Promise.all(
+          networkIds.map(async (networkId) => {
+            const defaultDeriveType =
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                {
+                  networkId,
+                },
+              );
+            let tokenDetails: ISwapToken[] | undefined;
+            let nativeTokenConfig: ISwapNativeTokenConfig | undefined;
+            try {
+              const accountAddressInfo =
+                await backgroundApiProxy.serviceAccount.getNetworkAccount({
+                  indexedAccountId: selectedAccount.indexedAccountId ?? '',
+                  networkId,
+                  deriveType: defaultDeriveType ?? 'default',
+                  accountId: selectedAccount.indexedAccountId
+                    ? undefined
+                    : (selectedAccount.accountId ?? ''),
+                });
+              const [tokenDetailsRes, nativeTokenConfigRes] = await Promise.all(
+                [
+                  backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+                    networkId,
+                    contractAddress:
+                      tokensRef.current?.[networkId]
+                        ?.map((token) => token.contractAddress)
+                        .join(',') || '',
+                    accountAddress: accountAddressInfo.addressDetail.address,
+                    accountId: accountAddressInfo.id ?? '',
+                    currency: 'usd',
+                  }),
+                  backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+                    networkId,
+                  }),
+                ],
+              );
+              tokenDetails = tokenDetailsRes;
+              nativeTokenConfig = nativeTokenConfigRes;
+            } catch (e) {
+              console.error(
+                '[DepositWithdrawModal] Failed to fetch tokens balance:',
+                e,
+              );
+            }
+            return {
+              tokenDetails,
+              nativeTokenConfig,
+            };
+          }),
+        );
+        const tokenDetails =
+          tokenDetailsAndNativeTokenConfigs
+            ?.flatMap((t) => t.tokenDetails)
+            .filter(Boolean) ?? [];
+        const nativeTokenConfigsRes =
+          tokenDetailsAndNativeTokenConfigs
+            ?.flatMap((t) => t.nativeTokenConfig)
+            .filter(Boolean) ?? [];
+        setNativeTokenConfigs(nativeTokenConfigsRes);
+        if (tokenDetails) {
+          const depositTokensWithPriceRes = tokensList
+            .filter((originToken) =>
+              tokenDetails.find((t) =>
+                equalTokenNoCaseSensitive({ token1: t, token2: originToken }),
+              ),
+            )
+            .map((token) => ({
+              ...token,
+              balanceParsed: tokenDetails.find((t) =>
+                equalTokenNoCaseSensitive({ token1: t, token2: token }),
+              )?.balanceParsed,
+              price: tokenDetails.find((t) =>
+                equalTokenNoCaseSensitive({ token1: t, token2: token }),
+              )?.price,
+              fiatValue: tokenDetails.find((t) =>
+                equalTokenNoCaseSensitive({ token1: t, token2: token }),
+              )?.fiatValue,
+            }))
+            .toSorted((a, b) =>
+              new BigNumber(b.fiatValue ?? 0).comparedTo(
+                new BigNumber(a.fiatValue ?? 0),
+              ),
+            );
+          setDepositTokensWithPrice(depositTokensWithPriceRes);
+          return depositTokensWithPriceRes;
+        }
+      } catch (error) {
+        console.error(
+          '[DepositWithdrawModal] Failed to fetch tokens balance:',
+          error,
+        );
+        setDepositTokensWithPrice([]);
+        setPerpsDepositTokensAtom((prev) => ({
+          ...prev,
+          currentPerpsDepositSelectedToken: undefined,
+        }));
+        return [];
+      }
+    },
+    [
+      selectedAccount.accountId,
+      selectedAccount.accountAddress,
+      selectedAccount.indexedAccountId,
+      checkAccountSupport,
+      setPerpsDepositTokensAtom,
+    ],
+    {
+      watchLoading: true,
+      checkIsMounted: true,
+      revalidateOnFocus: true,
+      debounced: 1000,
+    },
+  );
+
+  const { normalizeTxConfirm } = useSignatureConfirm({
+    accountId: selectedAccount.accountId || '',
+    networkId: currentPerpsDepositSelectedToken?.networkId || '',
+  });
+
+  useEffect(() => {
+    if (result) {
+      const findToken = result.find((t) =>
+        equalTokenNoCaseSensitive({
+          token1: t,
+          token2: currentPerpsDepositSelectedTokenRef.current,
+        }),
+      );
+      if (currentPerpsDepositSelectedTokenRef.current && findToken) {
+        setPerpsDepositTokensAtom((prev) => ({
+          ...prev,
+          currentPerpsDepositSelectedToken: {
+            ...currentPerpsDepositSelectedTokenRef.current,
+            networkId: findToken?.networkId,
+            contractAddress: findToken?.contractAddress,
+            name: findToken?.name,
+            symbol: findToken?.symbol,
+            decimals: findToken?.decimals,
+            networkLogoURI: findToken?.networkLogoURI,
+            logoURI: findToken?.logoURI,
+            isNative: findToken?.isNative,
+            balanceParsed: findToken?.balanceParsed,
+            fiatValue: findToken?.fiatValue,
+            price: findToken?.price,
+          },
+        }));
+      }
+    }
+  }, [result, setPerpsDepositTokensAtom]);
+
+  const availableBalance = useMemo(() => {
+    const rawBalance =
+      selectedAction === 'withdraw'
+        ? withdrawable || '0'
+        : (currentPerpsDepositSelectedToken?.balanceParsed ?? '0');
+    const balanceFormatted = numberFormat(rawBalance, { formatter: 'balance' });
+    const displayBalance =
+      selectedAction === 'withdraw'
+        ? `${balanceFormatted} ${USDC_TOKEN_INFO.symbol}`
+        : `${balanceFormatted} ${
+            currentPerpsDepositSelectedToken?.symbol ?? ''
+          }`;
+    return {
+      balance: rawBalance,
+      displayBalance,
+    };
+  }, [
+    selectedAction,
+    withdrawable,
+    currentPerpsDepositSelectedToken?.balanceParsed,
+    currentPerpsDepositSelectedToken?.symbol,
+  ]);
+
+  const amountBN = useMemo(() => new BigNumber(amount || '0'), [amount]);
+
+  const tokenPriceBN = useMemo(
+    () => new BigNumber(currentPerpsDepositSelectedToken?.price || '0'),
+    [currentPerpsDepositSelectedToken?.price],
+  );
+
+  const isUsdInput = selectedAction === 'deposit' && depositInputUnit === 'usd';
+
+  const tokenAmountBN = useMemo(() => {
+    if (isUsdInput && tokenPriceBN.gt(0)) {
+      return amountBN.dividedBy(tokenPriceBN);
+    }
+    return amountBN;
+  }, [amountBN, isUsdInput, tokenPriceBN]);
+
+  const tokenAmount = useMemo(
+    () =>
+      tokenAmountBN.isNaN() || tokenAmountBN.lte(0)
+        ? ''
+        : tokenAmountBN
+            .decimalPlaces(
+              currentPerpsDepositSelectedToken?.decimals ?? 6,
+              BigNumber.ROUND_DOWN,
+            )
+            .toFixed(),
+    [tokenAmountBN, currentPerpsDepositSelectedToken?.decimals],
+  );
+
+  const convertedDisplayValue = useMemo(() => {
+    if (selectedAction !== 'deposit' || amountBN.isNaN() || amountBN.lte(0)) {
+      return '';
+    }
+    if (isUsdInput && tokenPriceBN.gt(0)) {
+      const displayDecimals = Math.min(
+        currentPerpsDepositSelectedToken?.decimals ?? 6,
+        8,
+      );
+      const tokenVal = amountBN
+        .dividedBy(tokenPriceBN)
+        .decimalPlaces(displayDecimals, BigNumber.ROUND_DOWN);
+      return `≈ ${tokenVal.toFixed()} ${currentPerpsDepositSelectedToken?.symbol ?? ''}`;
+    }
+    if (!isUsdInput && tokenPriceBN.gt(0)) {
+      const usdVal = amountBN
+        .multipliedBy(tokenPriceBN)
+        .decimalPlaces(2, BigNumber.ROUND_DOWN);
+      return `≈ $${usdVal.toFixed(2)}`;
+    }
+    return '';
+  }, [
+    selectedAction,
+    amountBN,
+    isUsdInput,
+    tokenPriceBN,
+    currentPerpsDepositSelectedToken?.decimals,
+    currentPerpsDepositSelectedToken?.symbol,
+  ]);
+
+  const availableBalanceBN = useMemo(
+    () => new BigNumber(availableBalance.balance || '0'),
+    [availableBalance.balance],
+  );
+
+  const checkFromTokenFiatValue = useMemo(() => {
+    const fromTokenPrice = currentPerpsDepositSelectedToken?.price;
+    const fromTokenPriceBN = new BigNumber(fromTokenPrice || '0');
+    if (fromTokenPriceBN.isZero() || fromTokenPriceBN.isNaN()) {
+      return {
+        value: false,
+        minFromTokenAmount: '-',
+      };
+    }
+    const arbUSDCToken = depositTokensWithPrice.find((token) =>
+      equalTokenNoCaseSensitive({
+        token1: token,
+        token2: {
+          networkId: PERPS_NETWORK_ID,
+          contractAddress: USDC_TOKEN_INFO.address,
+        },
+      }),
+    );
+    const arbUSDCTokenMinAmount = new BigNumber(
+      arbUSDCToken?.price ?? '0',
+    ).multipliedBy(MIN_DEPOSIT_AMOUNT);
+    const minFromTokenAmount =
+      arbUSDCTokenMinAmount.dividedBy(fromTokenPriceBN);
+    if (
+      minFromTokenAmount.isPositive() &&
+      !minFromTokenAmount?.isNaN() &&
+      minFromTokenAmount.lte(tokenAmountBN)
+    ) {
+      return {
+        value: true,
+      };
+    }
+    const minFromTokenAmountFormatted = minFromTokenAmount
+      .decimalPlaces(
+        Math.min(Number(currentPerpsDepositSelectedToken?.decimals ?? 0), 8),
+        BigNumber.ROUND_UP,
+      )
+      .toFixed();
+    return {
+      value: false,
+      minFromTokenAmount: minFromTokenAmountFormatted,
+    };
+  }, [
+    tokenAmountBN,
+    currentPerpsDepositSelectedToken?.decimals,
+    currentPerpsDepositSelectedToken?.price,
+    depositTokensWithPrice,
+  ]);
+
+  const isValidAmount = useMemo(() => {
+    if (amountBN.isNaN() || amountBN.lte(0)) return false;
+
+    if (selectedAction === 'deposit') {
+      return (
+        tokenAmountBN.lte(availableBalanceBN) &&
+        (!showMinAmountError || checkFromTokenFiatValue.value)
+      );
+    }
+
+    if (selectedAction === 'withdraw') {
+      return (
+        amountBN.lte(availableBalanceBN) &&
+        (!showMinAmountError || amountBN.gte(MIN_WITHDRAW_AMOUNT))
+      );
+    }
+
+    return true;
+  }, [
+    amountBN,
+    tokenAmountBN,
+    availableBalanceBN,
+    selectedAction,
+    showMinAmountError,
+    checkFromTokenFiatValue.value,
+  ]);
+
+  const errorMessage = useMemo(() => {
+    if (!amount) return '';
+
+    if (amountBN.isNaN() || amountBN.lte(0)) {
+      return '';
+    }
+
+    if (selectedAction === 'deposit') {
+      if (showMinAmountError && !checkFromTokenFiatValue.value) {
+        return intl.formatMessage(
+          { id: ETranslations.perp_mini_deposit },
+          {
+            num: checkFromTokenFiatValue.minFromTokenAmount,
+            token: currentPerpsDepositSelectedToken?.symbol ?? '-',
+          },
+        );
+      }
+    }
+
+    if (selectedAction === 'withdraw') {
+      if (showMinAmountError && amountBN.lt(MIN_WITHDRAW_AMOUNT)) {
+        return intl.formatMessage(
+          { id: ETranslations.perp_mini_withdraw },
+          { num: MIN_WITHDRAW_AMOUNT, token: 'USDC' },
+        );
+      }
+    }
+
+    return '';
+  }, [
+    amount,
+    amountBN,
+    selectedAction,
+    showMinAmountError,
+    checkFromTokenFiatValue.value,
+    checkFromTokenFiatValue.minFromTokenAmount,
+    intl,
+    currentPerpsDepositSelectedToken?.symbol,
+  ]);
+
+  const {
+    perpDepositQuote,
+    perpDepositQuoteLoading,
+    buildPerpDepositTx,
+    multipleStepText,
+    isArbitrumUsdcToken,
+    shouldApprove,
+    shouldResetApprove,
+    checkRefreshQuote,
+    perpDepositQuoteAction,
+    handlePerpDepositTxSuccess,
+  } = usePerpDeposit(
+    selectedAction === 'deposit' ? tokenAmount || '0' : amount,
+    selectedAction,
+    selectedAccount.indexedAccountId ?? '',
+    selectedAccount.accountId ?? '',
+    currentPerpsDepositSelectedToken,
+    checkFromTokenFiatValue.value,
+  );
+
+  const handleAmountChange = useCallback(
+    (value: string) => {
+      const decimals =
+        selectedAction === 'deposit' && depositInputUnit === 'usd'
+          ? 2
+          : currentPerpsDepositSelectedToken?.decimals;
+      if (validateAmountInput(value, decimals)) {
+        setAmount(value);
+      }
+    },
+    [
+      currentPerpsDepositSelectedToken?.decimals,
+      selectedAction,
+      depositInputUnit,
+    ],
+  );
+  const calculateFinalAmount = (withdrawFee: number): string => {
+    const finalResult = new BigNumber(amount || '0').minus(
+      selectedAction === 'withdraw' ? withdrawFee : 0,
+    );
+
+    return finalResult.isPositive() && !finalResult?.isNaN()
+      ? finalResult.toFixed()
+      : '0';
+  };
+  const handleAmountBlur = useCallback(() => {
+    if (amount && !amountBN.isNaN() && amountBN.gt(0)) {
+      if (selectedAction === 'deposit' && !checkFromTokenFiatValue.value) {
+        setShowMinAmountError(true);
+      } else if (
+        selectedAction === 'withdraw' &&
+        amountBN.lt(MIN_WITHDRAW_AMOUNT)
+      ) {
+        setShowMinAmountError(true);
+      }
+    }
+  }, [amount, amountBN, selectedAction, checkFromTokenFiatValue.value]);
+
+  const checkNativeTokenGasToast = useCallback(
+    (
+      isNative?: boolean,
+      tokenNetworkId?: string,
+      tokenBalance?: string,
+      tokenSymbol?: string,
+      tokenDecimals?: number,
+    ) => {
+      let maxAmount = new BigNumber(tokenBalance || 0);
+      if (isNative) {
+        const reserveGas = nativeTokenConfigs.find(
+          (item) => item.networkId === tokenNetworkId,
+        )?.reserveGas;
+        if (reserveGas) {
+          maxAmount = BigNumber.max(
+            0,
+            maxAmount.minus(new BigNumber(reserveGas)),
+          ).decimalPlaces(tokenDecimals ?? 6, BigNumber.ROUND_DOWN);
+        }
+        let reserveGasFormatted: string | undefined | number = reserveGas;
+        if (reserveGas) {
+          reserveGasFormatted = numberFormat(reserveGas.toString(), {
+            formatter: 'balance',
+            formatterOptions: {
+              tokenSymbol,
+            },
+          });
+        }
+        const message = intl.formatMessage(
+          {
+            id: reserveGasFormatted
+              ? ETranslations.swap_native_token_max_tip_already
+              : ETranslations.swap_native_token_max_tip,
+          },
+          {
+            num_token: reserveGasFormatted,
+          },
+        );
+        Toast.message({
+          title: message,
+        });
+      }
+      return maxAmount;
+    },
+    [nativeTokenConfigs, intl],
+  );
+
+  const handleToggleInputUnit = useCallback(() => {
+    if (selectedAction !== 'deposit') return;
+    const newUnit = depositInputUnit === 'token' ? 'usd' : 'token';
+    if (amount && !amountBN.isNaN() && amountBN.gt(0) && tokenPriceBN.gt(0)) {
+      if (newUnit === 'usd') {
+        const usdVal = amountBN
+          .multipliedBy(tokenPriceBN)
+          .decimalPlaces(2, BigNumber.ROUND_DOWN);
+        setAmount(usdVal.toFixed());
+      } else {
+        const tokenVal = amountBN
+          .dividedBy(tokenPriceBN)
+          .decimalPlaces(
+            currentPerpsDepositSelectedToken?.decimals ?? 6,
+            BigNumber.ROUND_DOWN,
+          );
+        setAmount(tokenVal.toFixed());
+      }
+    }
+    setDepositInputUnit(newUnit);
+  }, [
+    selectedAction,
+    depositInputUnit,
+    amount,
+    amountBN,
+    tokenPriceBN,
+    currentPerpsDepositSelectedToken?.decimals,
+  ]);
+
+  const handleMaxPress = useCallback(
+    (tokenParams?: {
+      networkId: string;
+      isNative: boolean;
+      amount: string;
+      symbol: string;
+      decimals: number;
+      price?: string;
+    }) => {
+      if (tokenParams && selectedAction === 'deposit') {
+        const maxAmount = checkNativeTokenGasToast(
+          tokenParams.isNative,
+          tokenParams.networkId,
+          tokenParams.amount,
+          tokenParams.symbol,
+          tokenParams.decimals,
+        );
+        const priceBN = tokenParams.price
+          ? new BigNumber(tokenParams.price)
+          : tokenPriceBN;
+        if (depositInputUnit === 'usd' && priceBN.gt(0)) {
+          const usdVal = maxAmount
+            .multipliedBy(priceBN)
+            .decimalPlaces(2, BigNumber.ROUND_DOWN);
+          setAmount(usdVal.toFixed());
+        } else {
+          setAmount(maxAmount.toFixed());
+        }
+        return;
+      }
+      if (availableBalance) {
+        setAmount(availableBalance.balance || '0');
+      }
+    },
+    [
+      availableBalance,
+      checkNativeTokenGasToast,
+      selectedAction,
+      depositInputUnit,
+      tokenPriceBN,
+    ],
+  );
+
+  useEffect(() => {
+    if (selectedAction === 'deposit' && !checkFromTokenFiatValue.value) {
+      setShowMinAmountError(true);
+    }
+  }, [selectedAction, checkFromTokenFiatValue.value, amount]);
+
+  const validateAmountBeforeSubmit = useCallback(() => {
+    if (amountBN.isNaN() || amountBN.lte(0)) {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.dexmarket_enter_amount }),
+      });
+      return false;
+    }
+
+    const balanceCheckBN =
+      selectedAction === 'deposit' ? tokenAmountBN : amountBN;
+    if (balanceCheckBN.gt(availableBalanceBN)) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.earn_insufficient_balance,
+        }),
+      });
+      return false;
+    }
+
+    if (selectedAction === 'deposit' && !checkFromTokenFiatValue.value) {
+      setShowMinAmountError(true);
+      const message = intl.formatMessage(
+        { id: ETranslations.perp_mini_deposit },
+        {
+          num: checkFromTokenFiatValue.minFromTokenAmount,
+          token: currentPerpsDepositSelectedToken?.symbol ?? '-',
+        },
+      );
+      Toast.error({ title: message });
+      return false;
+    }
+
+    if (selectedAction === 'withdraw' && amountBN.lt(MIN_WITHDRAW_AMOUNT)) {
+      setShowMinAmountError(true);
+      const message = intl.formatMessage(
+        { id: ETranslations.perp_mini_withdraw },
+        { num: MIN_WITHDRAW_AMOUNT, token: 'USDC' },
+      );
+      Toast.error({ title: message });
+      return false;
+    }
+
+    if (showMinAmountError) {
+      setShowMinAmountError(false);
+    }
+
+    return true;
+  }, [
+    amountBN,
+    tokenAmountBN,
+    availableBalanceBN,
+    checkFromTokenFiatValue.minFromTokenAmount,
+    checkFromTokenFiatValue.value,
+    currentPerpsDepositSelectedToken?.symbol,
+    intl,
+    selectedAction,
+    showMinAmountError,
+  ]);
+
+  const leftContent = useMemo(() => {
+    return selectedAction === 'deposit' ? (
+      <SizableText size="$bodyLgMedium" color="$textSubdued">
+        {intl.formatMessage(
+          { id: ETranslations.perp_size_least },
+          { amount: `$${MIN_DEPOSIT_AMOUNT}` },
+        )}
+      </SizableText>
+    ) : (
+      <SizableText size="$bodyLgMedium" color="$textSubdued">
+        {intl.formatMessage(
+          { id: ETranslations.perp_size_least },
+          { amount: `${MIN_WITHDRAW_AMOUNT} USDC` },
+        )}
+      </SizableText>
+    );
+  }, [intl, selectedAction]);
+
+  const handleConfirm = useCallback(async () => {
+    if (!isValidAmount || !selectedAccount.accountAddress) return;
+
+    const canSubmit = validateAmountBeforeSubmit();
+    if (!canSubmit) return;
+
+    try {
+      if (checkRefreshQuote) {
+        void perpDepositQuoteAction();
+        return;
+      }
+      setIsSubmitting(true);
+      if (selectedAction === 'deposit') {
+        if (isArbitrumUsdcToken) {
+          await normalizeTxConfirm({
+            onSuccess: async (data: ISendTxOnSuccessData[]) => {
+              await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+              if (data?.[0]) {
+                const fromTxId = data[0].signedTx.txid;
+                const usdcToken = {
+                  networkId: PERPS_NETWORK_ID,
+                  contractAddress: USDC_TOKEN_INFO.address,
+                  name: USDC_TOKEN_INFO.name,
+                  symbol: USDC_TOKEN_INFO.symbol,
+                  decimals: USDC_TOKEN_INFO.decimals,
+                  networkLogoURI:
+                    swapDefaultSetTokens[PERPS_NETWORK_ID].toToken
+                      ?.networkLogoURI ?? '',
+                };
+                const depositAmount = tokenAmount || amount;
+                void handlePerpDepositTxSuccess({
+                  fromToken:
+                    currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                  fromTxId,
+                  toAmount: depositAmount,
+                  fromAmount: depositAmount,
+                  isArbUSDCOrder: true,
+                  skipToast: true,
+                });
+              }
+              void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
+              onClose?.();
+            },
+            transfersInfo: [
+              {
+                from: selectedAccount.accountAddress,
+                to: HYPERLIQUID_DEPOSIT_ADDRESS,
+                amount: tokenAmount || amount,
+                tokenInfo: USDC_TOKEN_INFO,
+              },
+            ],
+          });
+        } else {
+          await buildPerpDepositTx();
+          void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
+          onClose?.();
+        }
+      } else {
+        await withdraw({
+          userAccountId: selectedAccount.accountId || '',
+          amount,
+          destination: selectedAccount.accountAddress,
+        });
+        void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
+        onClose?.();
+      }
+    } catch (error) {
+      console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
+      throw error;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [
+    isValidAmount,
+    selectedAccount.accountAddress,
+    selectedAccount.accountId,
+    validateAmountBeforeSubmit,
+    checkRefreshQuote,
+    selectedAction,
+    perpDepositQuoteAction,
+    isArbitrumUsdcToken,
+    normalizeTxConfirm,
+    amount,
+    tokenAmount,
+    handlePerpDepositTxSuccess,
+    onClose,
+    buildPerpDepositTx,
+    withdraw,
+  ]);
+
+  const nativeInputProps = platformEnv.isNativeIOS
+    ? { inputAccessoryViewID: DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID }
+    : {};
+
+  const isInsufficientBalance = useMemo(() => {
+    const checkBN = selectedAction === 'deposit' ? tokenAmountBN : amountBN;
+    return checkBN.gt(availableBalanceBN) && checkBN.gt(0);
+  }, [amountBN, tokenAmountBN, availableBalanceBN, selectedAction]);
+
+  const accountTypeInfo = useMemo(() => {
+    const isHwWallet = accountUtils.isHwAccount({
+      accountId: selectedAccount.accountId ?? '',
+    });
+    const isExternalAccount = accountUtils.isExternalAccount({
+      accountId: selectedAccount.accountId ?? '',
+    });
+    return {
+      isHwWallet,
+      isExternalAccount,
+    };
+  }, [selectedAccount.accountId]);
+
+  const buttonText = useMemo(() => {
+    if (isInsufficientBalance)
+      return intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+    let depositActionText = intl.formatMessage({
+      id: ETranslations.perp_trade_deposit,
+    });
+    if (multipleStepText) {
+      depositActionText = multipleStepText;
+    }
+    if (shouldApprove) {
+      depositActionText = intl.formatMessage({
+        id: ETranslations.perp_lifi_deposit_approve,
+      });
+      if (accountTypeInfo.isHwWallet) {
+        depositActionText = intl.formatMessage({
+          id: shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_device
+            : ETranslations.swap_review_confirm_2_on_device,
+        });
+      }
+      if (accountTypeInfo.isExternalAccount) {
+        depositActionText = intl.formatMessage({
+          id: shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_wallet
+            : ETranslations.swap_review_confirm_2_on_wallet,
+        });
+      }
+    }
+    if (checkRefreshQuote) {
+      depositActionText = intl.formatMessage({
+        id: ETranslations.swap_page_button_refresh_quotes,
+      });
+    }
+    if (perpDepositQuoteLoading) {
+      depositActionText = intl.formatMessage({
+        id: ETranslations.swap_page_button_fetching_quotes,
+      });
+    }
+    return selectedAction === 'deposit'
+      ? depositActionText
+      : intl.formatMessage({ id: ETranslations.perp_trade_withdraw });
+  }, [
+    isInsufficientBalance,
+    intl,
+    multipleStepText,
+    shouldApprove,
+    checkRefreshQuote,
+    perpDepositQuoteLoading,
+    selectedAction,
+    accountTypeInfo.isHwWallet,
+    accountTypeInfo.isExternalAccount,
+    shouldResetApprove,
+  ]);
+
+  const shouldShowBuyButton = useMemo(
+    () =>
+      !errorMessage &&
+      isInsufficientBalance &&
+      selectedAction === 'deposit' &&
+      checkAccountSupport &&
+      !balanceLoading,
+    [
+      errorMessage,
+      isInsufficientBalance,
+      selectedAction,
+      checkAccountSupport,
+      balanceLoading,
+    ],
+  );
+
+  const allBalancesZero = useMemo(
+    () =>
+      selectedAction === 'deposit' &&
+      !balanceLoading &&
+      checkAccountSupport &&
+      depositTokensWithPrice.length > 0 &&
+      depositTokensWithPrice.every(
+        (token) =>
+          !token.balanceParsed || new BigNumber(token.balanceParsed).isZero(),
+      ),
+    [
+      selectedAction,
+      balanceLoading,
+      checkAccountSupport,
+      depositTokensWithPrice,
+    ],
+  );
+
+  useEffect(() => {
+    if (!currentPerpsDepositSelectedToken) {
+      const arbUSDCToken = depositTokensWithPrice.find((token) =>
+        equalTokenNoCaseSensitive({
+          token1: token,
+          token2: {
+            networkId: PERPS_NETWORK_ID,
+            contractAddress: USDC_TOKEN_INFO.address,
+          },
+        }),
+      );
+      setPerpsDepositTokensAtom((prev) => ({
+        ...prev,
+        currentPerpsDepositSelectedToken:
+          arbUSDCToken ?? depositTokensWithPrice?.[0],
+      }));
+    } else if (!checkAccountSupport) {
+      setPerpsDepositTokensAtom((prev) => ({
+        ...prev,
+        currentPerpsDepositSelectedToken: undefined,
+      }));
+    }
+  }, [
+    depositTokensWithPrice,
+    currentPerpsDepositSelectedToken,
+    setPerpsDepositTokensAtom,
+    checkAccountSupport,
+  ]);
+
+  const depositTokenSelectComponent = useMemo(() => {
+    if (balanceLoading && checkAccountSupport)
+      return (
+        <XStack w={40} h={14}>
+          <Skeleton w="100%" h="100%" radius="round" />
+        </XStack>
+      );
+    if (depositTokensWithPrice.length === 0)
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          -
+        </SizableText>
+      );
+    return (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_button_select_token,
+        })}
+        sheetProps={{
+          snapPoints: [80],
+          snapPointsMode: 'percent',
+        }}
+        floatingPanelProps={{
+          maxHeight: 400,
+          width: 352,
+        }}
+        placement="bottom-end"
+        offset={{ mainAxis: 10, crossAxis: 12 }}
+        renderTrigger={
+          <XStack alignItems="center" gap="$1.5" cursor="pointer">
+            <Token
+              size="sm"
+              tokenImageUri={currentPerpsDepositSelectedToken?.logoURI}
+              networkImageUri={currentPerpsDepositSelectedToken?.networkLogoURI}
+            />
+            <SizableText size="$bodyMdMedium" color="$text">
+              {currentPerpsDepositSelectedToken?.symbol ?? '-'}
+            </SizableText>
+            <Icon
+              name="ChevronDownSmallOutline"
+              color="$iconSubdued"
+              size="$4.5"
+            />
+          </XStack>
+        }
+        renderContent={
+          <SelectTokenPopoverContent
+            symbol={PERPS_CURRENCY_SYMBOL}
+            depositTokensWithPrice={depositTokensWithPrice}
+            handleSwitchToTradePress={handleSwitchToTradePress}
+            handleMaxPress={handleMaxPress}
+            allBalancesZero={allBalancesZero}
+            onReceivePress={handleBuyPress}
+          />
+        }
+      />
+    );
+  }, [
+    handleMaxPress,
+    handleSwitchToTradePress,
+    handleBuyPress,
+    balanceLoading,
+    intl,
+    currentPerpsDepositSelectedToken?.symbol,
+    currentPerpsDepositSelectedToken?.logoURI,
+    currentPerpsDepositSelectedToken?.networkLogoURI,
+    depositTokensWithPrice,
+    checkAccountSupport,
+    allBalancesZero,
+  ]);
+
+  const depositToAmount = useMemo(() => {
+    let depositToAmountRes = '0';
+    if (isArbitrumUsdcToken) {
+      depositToAmountRes = amountBN.toFixed();
+    } else {
+      depositToAmountRes = perpDepositQuote?.result?.toAmount ?? '0';
+    }
+    const depositToAmountBN = new BigNumber(depositToAmountRes);
+    return {
+      value: depositToAmountRes,
+      canDeposit: depositToAmountBN.gt(0) && !depositToAmountBN.isNaN(),
+    };
+  }, [isArbitrumUsdcToken, amountBN, perpDepositQuote?.result?.toAmount]);
+
+  const showDepositNoConfirmHint = useMemo(
+    () =>
+      selectedAction === 'deposit' &&
+      !accountTypeInfo.isHwWallet &&
+      !accountTypeInfo.isExternalAccount &&
+      isValidAmount &&
+      !isSubmitting &&
+      !balanceLoading &&
+      !perpDepositQuoteLoading &&
+      depositToAmount.canDeposit,
+    [
+      selectedAction,
+      accountTypeInfo.isHwWallet,
+      accountTypeInfo.isExternalAccount,
+      isValidAmount,
+      isSubmitting,
+      balanceLoading,
+      perpDepositQuoteLoading,
+      depositToAmount.canDeposit,
+    ],
+  );
+
+  const currentNetworkInfo = useMemo(() => {
+    if (!currentPerpsDepositSelectedToken?.networkId) return null;
+    return networkUtils.getLocalNetworkInfo(
+      currentPerpsDepositSelectedToken?.networkId ?? '',
+    );
+  }, [currentPerpsDepositSelectedToken?.networkId]);
+
+  const onChangeSegmentControl = useCallback(
+    (value: string | number) => {
+      setAmount('');
+      setDepositInputUnit('token');
+      if (showMinAmountError) {
+        setShowMinAmountError(false);
+      }
+      setSelectedAction(value as IPerpsDepositWithdrawActionType);
+    },
+    [showMinAmountError],
+  );
+
+  const content = (
+    <YStack
+      gap="$4"
+      px="$1"
+      pt="$1"
+      style={{
+        marginTop: isMobile ? 0 : -22,
+      }}
+    >
+      <YStack gap="$2.5">
+        {isMobile ? null : (
+          <PerpsAccountAvatar selectedAccount={selectedAccount} />
+        )}
+        <YStack bg="$bgSubdued" borderRadius="$3">
+          <XStack
+            alignItems="center"
+            gap="$2"
+            justifyContent="space-between"
+            py="$3"
+            px="$4"
+          >
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_account_panel_account_value,
+              })}
+            </SizableText>
+            <PerpsAccountNumberValue
+              value={accountValue}
+              skeletonWidth={120}
+              textSize="$bodyMdMedium"
+            />
+          </XStack>
+          <Divider borderWidth="$0.3" borderColor="$bgApp" />
+          <XStack
+            alignItems="center"
+            gap="$2"
+            justifyContent="space-between"
+            py="$3"
+            px="$4"
+          >
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_account_unrealized_pnl,
+              })}
+            </SizableText>
+            <SizableText
+              size="$bodyMdMedium"
+              color={unrealizedPnlInfo.pnlColor}
+            >
+              {`${unrealizedPnlInfo.pnlPlusOrMinus}${unrealizedPnlInfo.pnlFormatted}`}
+            </SizableText>
+          </XStack>
+        </YStack>
+      </YStack>
+      <SegmentControl
+        height={38}
+        segmentControlItemStyleProps={{
+          height: '100%',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+        value={selectedAction}
+        onChange={onChangeSegmentControl}
+        options={[
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_trade_deposit,
+            }),
+            value: 'deposit',
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_trade_withdraw,
+            }),
+            value: 'withdraw',
+          },
+        ]}
+      />
+
+      <YStack gap="$2">
+        {selectedAction === 'deposit' ? (
+          <XStack
+            borderWidth="$px"
+            borderColor="$borderSubdued"
+            borderRadius="$3"
+            px="$3"
+            bg="$bgSubdued"
+            alignItems="center"
+            justifyContent="space-between"
+            h={42}
+          >
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.earn_pay_with })}
+            </SizableText>
+            {depositTokenSelectComponent}
+          </XStack>
+        ) : null}
+
+        <XStack
+          mt={selectedAction === 'deposit' ? '$1' : undefined}
+          borderWidth="$px"
+          borderColor={
+            errorMessage || isInsufficientBalance ? '$red7' : '$borderSubdued'
+          }
+          borderRadius="$3"
+          px="$3"
+          bg="$bgSubdued"
+          alignItems="center"
+          gap="$3"
+          h={42}
+        >
+          <XStack alignItems="center" gap="$1.5" flexShrink={0}>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: isUsdInput
+                  ? ETranslations.content__amount
+                  : ETranslations.send_nft_amount,
+              })}
+            </SizableText>
+            {selectedAction === 'deposit' ? (
+              <XStack
+                cursor="pointer"
+                onPress={handleToggleInputUnit}
+                hoverStyle={{ opacity: 0.6 }}
+              >
+                <Icon name="SwitchVerOutline" size="$3" color="$iconSubdued" />
+              </XStack>
+            ) : null}
+          </XStack>
+          <Input
+            alignItems="center"
+            flex={1}
+            placeholder={intl.formatMessage({
+              id: ETranslations.form_amount_placeholder,
+            })}
+            value={isUsdInput && amount ? `$${amount}` : amount}
+            onChangeText={(value: string) => {
+              const raw = isUsdInput ? value.replace(/^\$/, '') : value;
+              handleAmountChange(raw);
+            }}
+            onBlur={handleAmountBlur}
+            keyboardType="decimal-pad"
+            disabled={isSubmitting}
+            readonly={!checkAccountSupport}
+            borderWidth={0}
+            size="medium"
+            fontSize={getFontSize('$bodyMd')}
+            {...nativeInputProps}
+            containerProps={{
+              flex: 1,
+              borderWidth: 0,
+              bg: 'transparent',
+              p: 0,
+            }}
+            InputComponentStyle={{
+              p: 0,
+              bg: 'transparent',
+              justifyContent: 'flex-end',
+            }}
+            textAlign="right"
+          />
+        </XStack>
+
+        <XStack alignItems="center" justifyContent="space-between">
+          <XStack gap="$1" alignItems="center" flexShrink={1} minWidth={0}>
+            {errorMessage ? (
+              <SizableText size="$bodySm" color="$red10" numberOfLines={1}>
+                {errorMessage}
+              </SizableText>
+            ) : null}
+            {shouldShowBuyButton ? (
+              <>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {intl.formatMessage(
+                    { id: ETranslations.perps_buy_tip },
+                    { token: currentPerpsDepositSelectedToken?.symbol ?? '' },
+                  )}
+                </SizableText>
+                <DashText
+                  onPress={handleBuyPress}
+                  color="$textSuccess"
+                  size="$bodySmMedium"
+                  dashColor="$textSuccess"
+                  flexShrink={0}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_top_up })}
+                </DashText>
+              </>
+            ) : null}
+          </XStack>
+          {convertedDisplayValue ? (
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              flexShrink={1}
+              numberOfLines={1}
+              minWidth={0}
+            >
+              {convertedDisplayValue}
+            </SizableText>
+          ) : null}
+        </XStack>
+      </YStack>
+      {/* Available Balance & You Will Get */}
+      <YStack gap="$3">
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {selectedAction === 'withdraw'
+              ? intl.formatMessage({
+                  id: ETranslations.perp_account_panel_withrawable_value,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.perp_available_balance,
+                })}
+          </SizableText>
+          <XStack alignItems="center" gap="$2">
+            {balanceLoading && checkAccountSupport ? (
+              <XStack w={80} h={14}>
+                <Skeleton w="100%" h="100%" />
+              </XStack>
+            ) : (
+              <>
+                <SizableText size="$bodyMd" color="$text">
+                  {availableBalance.displayBalance || '0.00'}
+                </SizableText>
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSuccess"
+                  onPress={() => {
+                    handleMaxPress({
+                      networkId:
+                        currentPerpsDepositSelectedToken?.networkId ?? '',
+                      isNative: !!currentPerpsDepositSelectedToken?.isNative,
+                      amount:
+                        currentPerpsDepositSelectedToken?.balanceParsed || '0',
+                      symbol: currentPerpsDepositSelectedToken?.symbol ?? '',
+                      decimals: currentPerpsDepositSelectedToken?.decimals ?? 6,
+                    });
+                  }}
+                >
+                  Max
+                </SizableText>
+              </>
+            )}
+          </XStack>
+        </XStack>
+        {selectedAction === 'deposit' ? (
+          <>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_deposit_chain,
+                })}
+              </SizableText>
+              <XStack alignItems="center" gap="$2">
+                <SizableText size="$bodyMd" color="$text">
+                  {currentNetworkInfo?.name}
+                </SizableText>
+              </XStack>
+            </XStack>
+            {!isArbitrumUsdcToken && perpDepositQuote?.result ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_route,
+                  })}
+                </SizableText>
+                <XStack alignItems="center" gap="$1">
+                  {perpDepositQuote.result.fromTokenInfo?.symbol !==
+                  (perpDepositQuote.result.toTokenInfo?.symbol ?? 'USDC') ? (
+                    <>
+                      <SizableText size="$bodyMd" color="$text">
+                        {perpDepositQuote.result.fromTokenInfo?.symbol ?? ''}
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        →
+                      </SizableText>
+                    </>
+                  ) : null}
+                  {perpDepositQuote.result.info?.providerLogo ? (
+                    <Image
+                      src={perpDepositQuote.result.info.providerLogo}
+                      size="$4"
+                      borderRadius="$1"
+                    />
+                  ) : null}
+                  <SizableText size="$bodyMd" color="$text">
+                    {perpDepositQuote.result.info?.providerName ?? ''}
+                  </SizableText>
+                  {perpDepositQuote.result.fromTokenInfo?.symbol !==
+                  (perpDepositQuote.result.toTokenInfo?.symbol ?? 'USDC') ? (
+                    <>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        →
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$text">
+                        {perpDepositQuote.result.toTokenInfo?.symbol ?? 'USDC'}
+                      </SizableText>
+                    </>
+                  ) : null}
+                </XStack>
+              </XStack>
+            ) : null}
+          </>
+        ) : null}
+        {selectedAction === 'withdraw' ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            {gtMd ? (
+              <Tooltip
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                    cursor="help"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_withdraw_fee,
+                    })}
+                  </DashText>
+                }
+                renderContent={
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_withdraw_fee_mgs,
+                    })}
+                  </SizableText>
+                }
+              />
+            ) : (
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_withdraw_fee,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_withdraw_fee,
+                    })}
+                  </DashText>
+                }
+                renderContent={() => (
+                  <YStack px="$5" pb="$4">
+                    <SizableText size="$bodyMd" color="$text">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_withdraw_fee_mgs,
+                      })}
+                    </SizableText>
+                  </YStack>
+                )}
+              />
+            )}
+            <SizableText color="$text" size="$bodyMd">
+              ${WITHDRAW_FEE}
+            </SizableText>
+          </XStack>
+        ) : null}
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.perp_you_will_get })}
+          </SizableText>
+          {selectedAction === 'withdraw' ? (
+            <SizableText color="$text" size="$bodyMd">
+              ${calculateFinalAmount(WITHDRAW_FEE)}{' '}
+              {intl.formatMessage(
+                {
+                  id: ETranslations.perp_deposit_on,
+                },
+                {
+                  chain: 'Arbitrum One',
+                },
+              )}
+            </SizableText>
+          ) : (
+            <XStack gap="$1" alignItems="center" justifyContent="center">
+              {perpDepositQuoteLoading ? (
+                <XStack w={60} h={14}>
+                  <Skeleton w="100%" h="100%" />
+                </XStack>
+              ) : (
+                <XStack gap="$1">
+                  <SizableText color="$text" size="$bodyMd">
+                    $
+                    {numberFormat(depositToAmount.value, {
+                      formatter: 'balance',
+                    })}{' '}
+                  </SizableText>
+                  <SizableText color="$text" size="$bodyMd">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.perp_deposit_on,
+                      },
+                      {
+                        chain: 'Hyperliquid',
+                      },
+                    )}
+                  </SizableText>
+                </XStack>
+              )}
+            </XStack>
+          )}
+        </XStack>
+      </YStack>
+
+      <Button
+        variant="primary"
+        size="medium"
+        disabled={
+          !isValidAmount ||
+          isSubmitting ||
+          balanceLoading ||
+          (selectedAction === 'deposit' && perpDepositQuoteLoading) ||
+          (selectedAction === 'deposit' &&
+            !depositToAmount.canDeposit &&
+            !checkRefreshQuote)
+        }
+        loading={isSubmitting}
+        onPress={handleConfirm}
+      >
+        {buttonText}
+      </Button>
+      {showDepositNoConfirmHint ? (
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          mt="$-1"
+          mb={isMobile ? '$4' : undefined}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp__deposit_no_second_confirmation__desc,
+          })}
+        </SizableText>
+      ) : null}
+      {isMobile && !showDepositNoConfirmHint ? <YStack mb="$4" /> : null}
+    </YStack>
+  );
+
+  return (
+    <>
+      {content}
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID}>
+          <InputAccessoryDoneButton leftContent={leftContent} />
+        </InputAccessoryView>
+      ) : null}
+    </>
+  );
+}
+
+function MobileDepositWithdrawModal() {
+  const navigation = useNavigation();
+  const route =
+    useRoute<
+      RouteProp<
+        IModalPerpParamList,
+        EModalPerpRoutes.MobileDepositWithdrawModal
+      >
+    >();
+  const actionType = route.params?.actionType ?? 'deposit';
+  const [selectedAccount] = usePerpsActiveAccountAtom();
+
+  const handleClose = useCallback(() => {
+    setTimeout(
+      () => {
+        navigation.goBack();
+      },
+      platformEnv.isNative ? 350 : 0,
+    );
+  }, [navigation]);
+  if (!selectedAccount) {
+    return (
+      <Page>
+        <Page.Body>
+          <YStack px="$4" flex={1} justifyContent="center" gap="$4">
+            <Skeleton width="100%" height={40} />
+            <Skeleton width="100%" height={200} />
+            <Skeleton width="100%" height={60} />
+          </YStack>
+        </Page.Body>
+      </Page>
+    );
+  }
+
+  if (!selectedAccount?.accountId || !selectedAccount?.accountAddress) {
+    return (
+      <Page>
+        <Page.Body>
+          <YStack px="$4" flex={1} justifyContent="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              You should select a valid account or create address first
+            </SizableText>
+          </YStack>
+        </Page.Body>
+      </Page>
+    );
+  }
+
+  return (
+    <Page>
+      <Page.Header
+        title={appLocale.intl.formatMessage({
+          id: ETranslations.perp_trade_account_overview,
+        })}
+      />
+      <Page.Body>
+        <PerpsProviderMirror>
+          <YStack px="$4" flex={1}>
+            <DepositWithdrawContent
+              params={{ actionType }}
+              selectedAccount={selectedAccount}
+              onClose={handleClose}
+              isMobile
+            />
+          </YStack>
+        </PerpsProviderMirror>
+      </Page.Body>
+    </Page>
+  );
+}
+
+export default MobileDepositWithdrawModal;
+
+export async function showDepositWithdrawDialog(
+  params: IDepositWithdrawParams,
+  dialogInTab: ReturnType<typeof useInTabDialog>,
+) {
+  const selectedAccount = await perpsActiveAccountAtom.get();
+  if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
+    console.error('[DepositWithdrawModal] Missing required parameters');
+    Toast.error({
+      title: 'You should select a valid account or create address first',
+    });
+    return;
+  }
+
+  const dialogInTabRef = dialogInTab.show({
+    renderContent: (
+      <PerpsProviderMirror>
+        <DepositWithdrawContent
+          params={params}
+          selectedAccount={selectedAccount}
+          onClose={() => {
+            void dialogInTabRef.close();
+          }}
+        />
+      </PerpsProviderMirror>
+    ),
+    showFooter: false,
+    onClose: () => {
+      void dialogInTabRef.close();
+    },
+  });
+
+  return dialogInTabRef;
+}

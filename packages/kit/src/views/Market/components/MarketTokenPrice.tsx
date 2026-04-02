@@ -1,0 +1,195 @@
+import { useLayoutEffect, useMemo, useState } from 'react';
+
+import { throttle } from 'lodash';
+
+import type { ISizableTextProps } from '@onekeyhq/components';
+import { NumberSizeableText } from '@onekeyhq/components';
+
+class MarketTokenPriceEvent {
+  private tokenPriceMap = new Map<
+    string,
+    {
+      price: string;
+      lastUpdated: number;
+    }
+  >();
+
+  private priceChangedListenerMap = new Map<string, (() => void)[]>();
+
+  private buildKey(name: string, symbol: string) {
+    return `${name}-${symbol}`;
+  }
+
+  public updateTokenPrice({
+    name: tokenName,
+    symbol: tokenSymbol,
+    price: tokenPrice,
+    lastUpdated: tokenLastUpdated,
+  }: {
+    name: string;
+    symbol: string;
+    price: string;
+    lastUpdated: number;
+  }) {
+    const cacheKey = this.buildKey(tokenName, tokenSymbol);
+    const cachedData = this.tokenPriceMap.get(cacheKey);
+    const { lastUpdated = 0 } = cachedData || {};
+
+    if (tokenLastUpdated > lastUpdated) {
+      this.tokenPriceMap.set(cacheKey, {
+        price: tokenPrice,
+        lastUpdated: tokenLastUpdated,
+      });
+
+      const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
+      listeners.forEach((i) => i());
+    }
+  }
+
+  public getTokenPrice(tokenName: string, tokenSymbol: string) {
+    const cacheKey = this.buildKey(tokenName, tokenSymbol);
+    const cachedData = this.tokenPriceMap.get(cacheKey);
+    const price = cachedData?.price || '-';
+
+    return price;
+  }
+
+  public onPriceChange(
+    tokenName: string,
+    tokenSymbol: string,
+    callback: () => void,
+  ) {
+    const cacheKey = this.buildKey(tokenName, tokenSymbol);
+    const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
+    const throttleCallback = throttle(callback, 450);
+    listeners.push(throttleCallback);
+    this.priceChangedListenerMap.set(cacheKey, listeners);
+    return () => {
+      const callbacks = this.priceChangedListenerMap.get(cacheKey) || [];
+      this.priceChangedListenerMap.set(
+        cacheKey,
+        callbacks.filter((i) => i !== throttleCallback),
+      );
+    };
+  }
+}
+
+const marketTokenPriceEvent = new MarketTokenPriceEvent();
+
+export const useTokenPrice = ({
+  name: tokenName,
+  symbol: tokenSymbol,
+  price: tokenPrice,
+  lastUpdated: tokenLastUpdated,
+}: {
+  name: string;
+  symbol: string;
+  price: string;
+  lastUpdated: number;
+}) => {
+  const [count, setCount] = useState(0);
+
+  useMemo(() => {
+    marketTokenPriceEvent.updateTokenPrice({
+      name: tokenName,
+      symbol: tokenSymbol,
+      price: tokenPrice,
+      lastUpdated: tokenLastUpdated,
+    });
+  }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
+
+  useLayoutEffect(() => {
+    const removeListener = marketTokenPriceEvent.onPriceChange(
+      tokenName,
+      tokenSymbol,
+      () => {
+        setCount((i) => i + 1);
+      },
+    );
+
+    return () => {
+      removeListener();
+    };
+  }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
+
+  return useMemo(
+    () => {
+      const price = marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol);
+      return price;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tokenName, tokenSymbol, count],
+  );
+};
+
+export function MarketTokenPrice({
+  price,
+  tokenName,
+  tokenSymbol,
+  lastUpdated,
+  size,
+  ...props
+}: {
+  price: string;
+  tokenSymbol: string;
+  tokenName: string;
+  lastUpdated?: string;
+} & ISizableTextProps) {
+  const lastUpdateDate = useMemo(() => {
+    if (
+      typeof lastUpdated === 'string' &&
+      lastUpdated.length === '1757498100000'.length
+    ) {
+      return Number(lastUpdated);
+    }
+
+    return lastUpdated ? new Date(lastUpdated).getTime() : Date.now();
+  }, [lastUpdated]);
+
+  const tokenPrice = useTokenPrice({
+    name: tokenName,
+    price,
+    symbol: tokenSymbol,
+    lastUpdated: lastUpdateDate,
+  });
+
+  return (
+    <NumberSizeableText
+      userSelect="none"
+      formatter="price"
+      size={size}
+      formatterOptions={{ currency: '$' }}
+      {...props}
+    >
+      {tokenPrice}
+    </NumberSizeableText>
+  );
+}
+
+export function BaseMarketTokenPrice({
+  price,
+  tokenName,
+  tokenSymbol,
+  lastUpdated,
+  size,
+  currency = '$',
+  ...props
+}: {
+  price: string;
+  tokenSymbol: string;
+  tokenName: string;
+  lastUpdated?: string;
+  currency?: string;
+} & ISizableTextProps) {
+  return (
+    <NumberSizeableText
+      userSelect="none"
+      formatter="price"
+      size={size}
+      formatterOptions={{ currency }}
+      {...props}
+    >
+      {price}
+    </NumberSizeableText>
+  );
+}

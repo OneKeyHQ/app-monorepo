@@ -1,0 +1,65 @@
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+
+import { KeyringImportedBase } from '../../base/KeyringImportedBase';
+
+import { SecretNetworkEncryption } from './sdkCosmos/SecretNetworkEncryption';
+
+import type { IDBAccount } from '../../../dbs/local/types';
+import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
+  IPrepareImportedAccountsParams,
+  ISignMessageParams,
+  ISignTransactionParams,
+} from '../../types';
+
+export class KeyringImported extends KeyringImportedBase {
+  override coreApi = coreChainApi.cosmos.imported;
+
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
+  }
+
+  override async prepareAccounts(
+    params: IPrepareImportedAccountsParams,
+  ): Promise<IDBAccount[]> {
+    return this.basePrepareAccountsImported(params, {
+      onlyAvailableOnCertainNetworks: true,
+    });
+  }
+
+  override async signTransaction(
+    params: ISignTransactionParams,
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(params);
+  }
+
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    return this.baseSignMessage(params);
+  }
+
+  async getEnigmaSeed(params: { password: string }): Promise<Uint8Array> {
+    const { password } = params;
+    const privateKeys = await this.baseGetPrivateKeys({ password });
+    const account = await this.vault.getAccount();
+    const encryptedPrivateKeyHex =
+      privateKeys[account.path] || Object.values(privateKeys)[0];
+    return SecretNetworkEncryption.deriveEnigmaSeed({
+      encryptedPrivateKeyHex,
+      password,
+    });
+  }
+}

@@ -1,0 +1,58 @@
+// @ts-expect-error ts-migrate(7016) FIXME: Could not find a declaration file for module 'eth-... Remove this comment to see the full error message
+import { parse as ethParser } from 'eth-url-parser';
+
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+
+import type { IEthereumValue, IQRCodeHandler } from '../type';
+
+// oxlint-disable-next-line @cspell/spellchecker
+// ethereum:0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40@1?value=1e8
+
+// oxlint-disable-next-line @cspell/spellchecker
+// ethereum:0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40@1/transfer?address=0x178e3e6c9f547A00E33150F7104427ea02cfc747&uint256=1e8
+
+// https://github.com/ethereum/ercs/blob/master/ERCS/erc-681.md
+const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
+  if (!/^ethereum:/i.test(value)) {
+    return null;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  const parseValue = ethParser(value);
+  const {
+    target_address: tokenAddress,
+    function_name: functionName,
+    chain_id: chainId = '1',
+    parameters: { address, uint256, value: amountValue, amount } = {
+      address: undefined,
+      uint256: undefined,
+      amount: undefined,
+      value: undefined,
+    },
+  } = parseValue;
+
+  const sendAddress: string | undefined =
+    functionName === 'transfer' && address
+      ? address
+      : tokenAddress || undefined;
+  if (sendAddress) {
+    const networkList =
+      await options?.backgroundApi?.serviceNetwork?.getNetworksByImpls?.({
+        impls: [IMPL_EVM],
+      });
+    const network = networkList?.networks?.find?.((n) => n.chainId === chainId);
+    const ethereumValue: IEthereumValue = {
+      address: sendAddress,
+      id: chainId,
+      network,
+      uint256,
+      amount,
+      value: amountValue,
+      tokenAddress,
+    };
+    return { type: EQRCodeHandlerType.ETHEREUM, data: ethereumValue };
+  }
+  return null;
+};
+
+export default ethereum;

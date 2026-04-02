@@ -1,0 +1,22 @@
+{
+  "root": "src",
+  "rules": [
+    "apis/*",
+    "dbs/**",
+    "endpoints/*",
+    "mock/*",
+    "providers/*",
+    "offscreens/**",
+    "desktopApis/**",
+    "webembeds/**",
+    "services/*",
+    "services/**",
+    "connectors/**",
+    "migrations/**",
+    "services/*/utils/**",
+    "states/**",
+    "init/**",
+    "vaults/base/*",
+    "vaults/impls/**"
+   ]
+}

@@ -1,0 +1,147 @@
+import { forwardRef, useCallback, useMemo } from 'react';
+import type { ForwardedRef } from 'react';
+
+import DraggableFlatList, {
+  OpacityDecorator,
+  ScaleDecorator,
+  ShadowDecorator,
+} from 'react-native-draggable-flatlist';
+
+import {
+  usePropsAndStyle,
+  useStyle,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { TabsDraggableFlatList } from '../../composite/Tabs/TabsDraggableFlatList';
+
+import sortableListViewUtils from './sortableListViewUtils';
+
+import type { ISortableListViewProps, ISortableListViewRef } from './types';
+import type { StyleProp, ViewStyle } from 'react-native';
+import type {
+  DragEndParams,
+  RenderItem,
+} from 'react-native-draggable-flatlist';
+
+const ANIMATION_CONFIG = { damping: 25, stiffness: 400, mass: 0.4 };
+
+function BaseSortableListView<T>(
+  {
+    data,
+    keyExtractor,
+    renderItem,
+    enabled = true,
+    tabIntegrated,
+    containerStyle = {},
+    contentContainerStyle = {},
+    columnWrapperStyle,
+    ListHeaderComponentStyle = {},
+    ListFooterComponentStyle = {},
+    onDragBegin,
+    onDragEnd,
+    ...props
+  }: ISortableListViewProps<T>,
+  ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
+) {
+  const [restProps, style] = usePropsAndStyle(props, {
+    resolveValues: 'auto',
+  });
+  const rawContainerStyle = useStyle(
+    containerStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+  const rawContentContainerStyle = useStyle(
+    contentContainerStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const columnStyle = useStyle(
+    (columnWrapperStyle || {}) as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const listHeaderStyle = useStyle(
+    ListHeaderComponentStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const listFooterStyle = useStyle(
+    ListFooterComponentStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+  const activeDistance = platformEnv.isNative ? 10 : 1;
+
+  const reloadOnDragBegin = useCallback(
+    (index: number) => {
+      appEventBus.emit(EAppEventBusNames.onDragBeginInListView, undefined);
+      onDragBegin?.(index);
+    },
+    [onDragBegin],
+  );
+  const reloadOnDragEnd = useCallback(
+    (params: DragEndParams<any>) => {
+      const p = sortableListViewUtils.convertToDragEndParamsWithItem(params);
+      onDragEnd?.(p);
+      appEventBus.emit(EAppEventBusNames.onDragEndInListView, undefined);
+    },
+    [onDragEnd],
+  );
+
+  const resolvedContainerStyle = useMemo(
+    () => [{ flex: 1 }, rawContainerStyle],
+    [rawContainerStyle],
+  );
+
+  const ListComponent = tabIntegrated
+    ? TabsDraggableFlatList
+    : DraggableFlatList;
+
+  return (
+    <ListComponent<T>
+      ref={ref}
+      style={style as StyleProp<ViewStyle>}
+      onDragBegin={reloadOnDragBegin}
+      onDragEnd={reloadOnDragEnd}
+      activationDistance={enabled ? activeDistance : 100_000}
+      containerStyle={resolvedContainerStyle}
+      columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
+      ListHeaderComponentStyle={listHeaderStyle}
+      ListFooterComponentStyle={listFooterStyle}
+      contentContainerStyle={rawContentContainerStyle}
+      data={data}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem as RenderItem<T>}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      animationConfig={ANIMATION_CONFIG}
+      {...restProps}
+    />
+  );
+}
+
+export const SortableListView = withStaticProperties(
+  forwardRef(BaseSortableListView) as typeof BaseSortableListView,
+  {
+    OpacityDecorator,
+    ScaleDecorator,
+    ShadowDecorator,
+  },
+);
+
+export * from './types';

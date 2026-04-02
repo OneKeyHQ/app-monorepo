@@ -1,0 +1,17 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgCameraCrossOff = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="m15.035 3 2 3H22v15H2V6h4.965l2-3zM12 12.088l-2.002-2.002L8.584 11.5l2.002 2.002-2 2L10 16.916l2-2 2 2 1.414-1.414-2-2 2.002-2.002-1.414-1.414z"
+      clipRule="evenodd"
+    />
+  </Svg>
+);
+export default SvgCameraCrossOff;

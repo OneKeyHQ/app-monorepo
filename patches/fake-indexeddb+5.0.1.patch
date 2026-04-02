@@ -1,0 +1,180 @@
+diff --git a/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js b/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
+index 62a5ecc706..8ed9c5e880 100644
+--- a/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
++++ b/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
+@@ -193,18 +193,64 @@ class FDBTransaction extends _FakeEventTarget.default {
+         }
+       }
+ 
+-      // Give it another chance for new handlers to be set before finishing
+-      (0, _scheduling.queueTask)(this._start.bind(this));
++      // Give it another chance for new handlers to be set before finishing.
++      // On Hermes, use microtask scheduling so that promise continuations
++      // from `await store.get()` / `await store.add()` chains run before
++      // the next _start() check. Hermes macrotask (setImmediate) fires
++      // before microtasks, causing premature transaction auto-commit.
++      // On other engines, keep original queueTask (macrotask) scheduling.
++      if (typeof global !== "undefined" && global.HermesInternal) {
++        Promise.resolve().then(this._start.bind(this));
++      } else {
++        (0, _scheduling.queueTask)(this._start.bind(this));
++      }
+       return;
+     }
+ 
+-    // Check if transaction complete event needs to be fired
++    // Check if transaction complete event needs to be fired.
+     if (this._state !== "finished") {
+-      // Either aborted or committed already
+-      this._state = "finished";
+-      if (!this.error) {
+-        const event = new _FakeEvent.default("complete");
+-        this.dispatchEvent(event);
++      if (typeof global !== "undefined" && global.HermesInternal) {
++        // On Hermes, defer via multiple microtask rounds so that pending
++        // promise continuations (from multi-level await chains) get enough
++        // ticks to queue new requests before we auto-commit.
++        const self = this;
++        let rounds = 0;
++        const maxRounds = 20;
++        function checkComplete() {
++          if (self._requests.length > 0) {
++            Promise.resolve().then(self._start.bind(self));
++          } else if (self._state === "finished") {
++            return;
++          } else if (rounds < maxRounds) {
++            rounds++;
++            Promise.resolve().then(checkComplete);
++          } else {
++            if (typeof console !== "undefined" && console.warn) {
++              console.warn("[fake-indexeddb] Hermes microtask rounds exhausted (" + maxRounds + "). " +
++                "Transaction may auto-commit before all async operations complete. " +
++                "Consider breaking deep await chains into separate transactions.");
++            }
++            setTimeout(function () {
++              if (self._requests.length > 0) {
++                Promise.resolve().then(self._start.bind(self));
++              } else if (self._state !== "finished") {
++                self._state = "finished";
++                if (!self.error) {
++                  const event = new _FakeEvent.default("complete");
++                  self.dispatchEvent(event);
++                }
++              }
++            }, 0);
++          }
++        }
++        Promise.resolve().then(checkComplete);
++      } else {
++        // Original behavior for non-Hermes engines
++        this._state = "finished";
++        if (!this.error) {
++          const event = new _FakeEvent.default("complete");
++          this.dispatchEvent(event);
++        }
+       }
+     }
+   }
+diff --git a/node_modules/fake-indexeddb/build/cjs/lib/scheduling.js b/node_modules/fake-indexeddb/build/cjs/lib/scheduling.js
+index 2814f51294..4a07b9909f 100644
+--- a/node_modules/fake-indexeddb/build/cjs/lib/scheduling.js
++++ b/node_modules/fake-indexeddb/build/cjs/lib/scheduling.js
+@@ -29,4 +29,6 @@ function getSetImmediateFromJsdom() {
+ // transactions are marked as not active when the event loop runs. The next
+ // tick queue and microtask queue run within the current event loop macrotask,
+ // so they'd process database operations too quickly.
+-const queueTask = exports.queueTask = globalThis.setImmediate || getSetImmediateFromJsdom() || (fn => setTimeout(fn, 0));
+\ No newline at end of file
++// Also check `global` for React Native / Hermes where setImmediate may
++// not be on globalThis but is provided by RN's timer polyfills on `global`.
++const queueTask = exports.queueTask = globalThis.setImmediate || (typeof global !== "undefined" && global.setImmediate) || getSetImmediateFromJsdom() || (fn => setTimeout(fn, 0));
+diff --git a/node_modules/fake-indexeddb/build/esm/FDBTransaction.js b/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
+index e8ff177bca..825fdd6fc6 100644
+--- a/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
++++ b/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
+@@ -186,18 +186,64 @@ class FDBTransaction extends FakeEventTarget {
+         }
+       }
+ 
+-      // Give it another chance for new handlers to be set before finishing
+-      queueTask(this._start.bind(this));
++      // Give it another chance for new handlers to be set before finishing.
++      // On Hermes, use microtask scheduling so that promise continuations
++      // from `await store.get()` / `await store.add()` chains run before
++      // the next _start() check. Hermes macrotask (setImmediate) fires
++      // before microtasks, causing premature transaction auto-commit.
++      // On other engines, keep original queueTask (macrotask) scheduling.
++      if (typeof global !== "undefined" && global.HermesInternal) {
++        Promise.resolve().then(this._start.bind(this));
++      } else {
++        queueTask(this._start.bind(this));
++      }
+       return;
+     }
+ 
+-    // Check if transaction complete event needs to be fired
++    // Check if transaction complete event needs to be fired.
+     if (this._state !== "finished") {
+-      // Either aborted or committed already
+-      this._state = "finished";
+-      if (!this.error) {
+-        const event = new FakeEvent("complete");
+-        this.dispatchEvent(event);
++      if (typeof global !== "undefined" && global.HermesInternal) {
++        // On Hermes, defer via multiple microtask rounds so that pending
++        // promise continuations (from multi-level await chains) get enough
++        // ticks to queue new requests before we auto-commit.
++        const self = this;
++        let rounds = 0;
++        const maxRounds = 20;
++        function checkComplete() {
++          if (self._requests.length > 0) {
++            Promise.resolve().then(self._start.bind(self));
++          } else if (self._state === "finished") {
++            return;
++          } else if (rounds < maxRounds) {
++            rounds++;
++            Promise.resolve().then(checkComplete);
++          } else {
++            if (typeof console !== "undefined" && console.warn) {
++              console.warn("[fake-indexeddb] Hermes microtask rounds exhausted (" + maxRounds + "). " +
++                "Transaction may auto-commit before all async operations complete. " +
++                "Consider breaking deep await chains into separate transactions.");
++            }
++            setTimeout(function () {
++              if (self._requests.length > 0) {
++                Promise.resolve().then(self._start.bind(self));
++              } else if (self._state !== "finished") {
++                self._state = "finished";
++                if (!self.error) {
++                  const event = new FakeEvent("complete");
++                  self.dispatchEvent(event);
++                }
++              }
++            }, 0);
++          }
++        }
++        Promise.resolve().then(checkComplete);
++      } else {
++        // Original behavior for non-Hermes engines
++        this._state = "finished";
++        if (!this.error) {
++          const event = new FakeEvent("complete");
++          this.dispatchEvent(event);
++        }
+       }
+     }
+   }
+diff --git a/node_modules/fake-indexeddb/build/esm/lib/scheduling.js b/node_modules/fake-indexeddb/build/esm/lib/scheduling.js
+index c85f294f1d..da6e3c7542 100644
+--- a/node_modules/fake-indexeddb/build/esm/lib/scheduling.js
++++ b/node_modules/fake-indexeddb/build/esm/lib/scheduling.js
+@@ -23,4 +23,6 @@ function getSetImmediateFromJsdom() {
+ // transactions are marked as not active when the event loop runs. The next
+ // tick queue and microtask queue run within the current event loop macrotask,
+ // so they'd process database operations too quickly.
+-export const queueTask = globalThis.setImmediate || getSetImmediateFromJsdom() || (fn => setTimeout(fn, 0));
+\ No newline at end of file
++// Also check `global` for React Native / Hermes where setImmediate may
++// not be on globalThis but is provided by RN's timer polyfills on `global`.
++export const queueTask = globalThis.setImmediate || (typeof global !== "undefined" && global.setImmediate) || getSetImmediateFromJsdom() || (fn => setTimeout(fn, 0));

@@ -1,0 +1,134 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import type { ISegmentControlProps } from '@onekeyhq/components';
+import {
+  Divider,
+  Page,
+  SegmentControl,
+  SizableText,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+
+import { PrimeTransferHomeEnterLink } from './PrimeTransferHomeEnterLink';
+import { PrimeTransferHomeQrCode } from './PrimeTransferHomeQrCode';
+import { PrimeTransferHomeSteps } from './PrimeTransferHomeSteps';
+import { PrimeTransferServerStatusBar } from './PrimeTransferServerStatusBar';
+
+export const TRANSFER_METHOD = {
+  QR_CODE: 'qr-code',
+  ENTER_LINK: 'enter-link',
+} as const;
+
+const { QR_CODE, ENTER_LINK } = TRANSFER_METHOD;
+
+type ITransferMethod = (typeof TRANSFER_METHOD)[keyof typeof TRANSFER_METHOD];
+
+export function PrimeTransferHome({
+  remotePairingCode,
+  setRemotePairingCode,
+  autoConnect,
+  autoConnectCustomServer,
+  defaultTab,
+  transferType,
+}: {
+  remotePairingCode: string;
+  setRemotePairingCode: (code: string) => void;
+  autoConnect?: boolean;
+  autoConnectCustomServer?: string;
+  defaultTab?: 'qr-code' | 'enter-link';
+  transferType?: EPrimeTransferDataType;
+}) {
+  const intl = useIntl();
+  const TRANSFER_OPTIONS = useMemo(
+    () =>
+      [
+        {
+          label: intl.formatMessage({ id: ETranslations.global_qr_code }),
+          value: QR_CODE,
+          testID: QR_CODE,
+        },
+        {
+          label: intl.formatMessage({ id: ETranslations.global_links }),
+          value: ENTER_LINK,
+          testID: ENTER_LINK,
+        },
+      ] as ISegmentControlProps['options'],
+    [intl],
+  );
+
+  const [value, setValue] = useState<ITransferMethod>(
+    defaultTab || (autoConnect ? ENTER_LINK : QR_CODE),
+  );
+
+  const qrcodeViewRef = useRef<React.ReactNode | null>(null);
+  const [refreshQrcodeView, setRefreshQrcodeView] = useState(0);
+  useEffect(() => {
+    if (value === QR_CODE && !qrcodeViewRef.current) {
+      qrcodeViewRef.current = <PrimeTransferHomeQrCode />;
+      setRefreshQrcodeView(refreshQrcodeView + 1);
+    }
+  }, [refreshQrcodeView, value]);
+
+  return (
+    <>
+      <Page.Header
+        title={
+          transferType === EPrimeTransferDataType.keylessWallet
+            ? 'Transfer Keyless Wallet'
+            : intl.formatMessage({
+                id: ETranslations.transfer_establish_connection,
+              })
+        }
+      />
+
+      <PrimeTransferServerStatusBar />
+
+      <Stack px="$4" gap="$5" mt="$2">
+        {transferType === EPrimeTransferDataType.keylessWallet ? null : (
+          <SegmentControl
+            fullWidth
+            value={value}
+            onChange={(v) => {
+              setValue(v as ITransferMethod);
+            }}
+            options={TRANSFER_OPTIONS}
+          />
+        )}
+
+        <Stack display={value === QR_CODE ? 'flex' : 'none'}>
+          {qrcodeViewRef.current}
+        </Stack>
+        <Stack display={value === ENTER_LINK ? 'flex' : 'none'}>
+          <PrimeTransferHomeEnterLink
+            remotePairingCode={remotePairingCode}
+            setRemotePairingCode={setRemotePairingCode}
+            autoConnect={autoConnect}
+            autoConnectCustomServer={autoConnectCustomServer}
+          />
+        </Stack>
+
+        <PrimeTransferHomeSteps />
+
+        <Divider />
+
+        <YStack gap="$1.5">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc })}
+          </SizableText>
+          <HyperlinkText
+            size="$bodySm"
+            color="$textSubdued"
+            translationId={ETranslations.transfer_qr_stepall_desc2}
+          />
+        </YStack>
+        <Stack h="$4" />
+      </Stack>
+    </>
+  );
+}

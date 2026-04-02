@@ -1,0 +1,174 @@
+name: release-ios
+
+on:
+  workflow_run:
+    workflows:
+      - daily-build
+      - daily-build-dev
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_ENV: production
+  YARN_ENABLE_GLOBAL_CACHE: true
+  ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
+
+jobs:
+  release-ios:
+    runs-on: ubuntu-24.04
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          additional_env: |
+            NO_FLIPPER=1
+            SENTRY_DISABLE_AUTO_UPLOAD=false
+          env_file_name: '.env.expo'
+          sentry_project: ''
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Setup keys secret
+        run: |
+          echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > apps/mobile/ios/OneKeyWallet/GoogleService-Info.plist
+          echo ${{ secrets.ASC_API_KEY }} | base64 -d > apps/mobile/AscApiKey.p8
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Setup Credentials
+        run: |
+          mkdir apps/mobile/ios/certs
+          echo ${{ secrets.CREDENTIALS_JSON }} | base64 -d > apps/mobile/credentials.json
+          echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > apps/mobile/ios/certs/dist.p12
+          echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > apps/mobile/ios/certs/profile.mobileprovision
+          echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > apps/mobile/ios/certs/serviceextension-profile.mobileprovision
+
+      - name: Modify OneKeyWallet info.plist
+        uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ env.BUILD_APP_VERSION }}
+          projectName: OneKeyWallet
+          dir: ./apps/mobile
+
+      - name: Modify ServiceExtension info.plist
+        uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ env.BUILD_APP_VERSION }}
+          projectName: ServiceExtension
+          dir: ./apps/mobile
+
+      - name: Set BUNDLE_VERSION in Info.plist
+        run: |
+          python3 << 'PYEOF'
+          import plistlib
+          path = './apps/mobile/ios/OneKeyWallet/Info.plist'
+          with open(path, 'rb') as f:
+              plist = plistlib.load(f)
+          plist['BUNDLE_VERSION'] = '${{ env.BUILD_BUNDLE_VERSION }}'
+          with open(path, 'wb') as f:
+              plistlib.dump(plist, f)
+          PYEOF
+
+      - name: Write .env.version
+        run: |
+          # pass BUILD_NUMBER as env variable to expo server
+          echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
+
+      - name: Write .sentry.properties
+        run: |
+          echo "auth.token=${{ secrets.SENTRY_TOKEN }}" >> apps/mobile/ios/sentry.properties
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn install --immutable
+
+      - name: Build on EAS And Auto Submit
+        if: ${{ github.event.workflow_run }}
+        run: |
+          cd apps/mobile
+
+          if [[ "${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" == "true" ]]; then
+            INTERNAL_PROFILE="qa-internal"
+            STORE_PROFILE="qa-internal-store"
+          else
+            INTERNAL_PROFILE="production"
+            STORE_PROFILE="production-store"
+          fi
+
+          # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
+          if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
+            eas build --profile="${INTERNAL_PROFILE}" --platform ios --non-interactive --no-wait
+          else
+            # eas build --profile=production --platform ios --non-interactive --no-wait
+            # replace APP STORE provision
+            echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
+            echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
+
+            eas build --profile="${STORE_PROFILE}" --platform ios --non-interactive --no-wait --auto-submit
+          fi
+
+      - name: Build on EAS
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          cd apps/mobile
+          if [[ "${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" == "true" ]]; then
+            PROFILE="qa-internal"
+          else
+            PROFILE="production"
+          fi
+          eas build --profile="${PROFILE}" --platform ios --non-interactive --no-wait
+
+      - name: Build Simulator on EAS
+        run: |
+          cd apps/mobile
+          eas build --profile=simulator --platform ios --non-interactive --no-wait

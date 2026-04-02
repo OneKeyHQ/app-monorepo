@@ -1,0 +1,191 @@
+import { memo, useCallback, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import type {
+  IIconButtonProps,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
+import { IconButton } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+
+import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
+
+import { useWatchListV2Action } from './watchListHooksV2';
+
+export const useStarV2Checked = ({
+  chainId,
+  contractAddress,
+  from,
+  tokenSymbol,
+  isNative = false,
+}: {
+  chainId: string;
+  contractAddress: string;
+  from: EWatchlistFrom;
+  tokenSymbol?: string;
+  isNative?: boolean;
+}) => {
+  const actions = useWatchListV2Action();
+  const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
+
+  // Calculate checked state based on atom data
+  const checked = useMemo(() => {
+    if (!isMounted || watchListData.length === 0) {
+      return false;
+    }
+    return !!watchListData?.find((item) =>
+      equalTokenNoCaseSensitive({
+        token1: { networkId: chainId, contractAddress },
+        token2: {
+          networkId: item.chainId,
+          contractAddress: item.contractAddress,
+        },
+      }),
+    );
+  }, [watchListData, isMounted, chainId, contractAddress]);
+
+  const handlePress = useCallback(async () => {
+    if (checked) {
+      actions.removeFromWatchListV2(chainId, contractAddress);
+      // Dex analytics
+      defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
+        network: chainId,
+        tokenSymbol: tokenSymbol || '',
+        tokenContract: contractAddress,
+        removeFrom: from,
+      });
+    } else {
+      actions.addIntoWatchListV2([{ chainId, contractAddress, isNative }]);
+      // Dex analytics
+      defaultLogger.dex.watchlist.dexAddToWatchlist({
+        network: chainId,
+        tokenSymbol: tokenSymbol || '',
+        tokenContract: contractAddress,
+        addFrom: from,
+      });
+    }
+  }, [checked, actions, chainId, contractAddress, from, tokenSymbol, isNative]);
+
+  return useMemo(
+    () => ({
+      checked,
+      onPress: handlePress,
+    }),
+    [checked, handlePress],
+  );
+};
+
+function BasicMarketStarV2({
+  chainId,
+  contractAddress,
+  size,
+  from,
+  tokenSymbol,
+  isNative = false,
+  ...props
+}: {
+  size?: IIconButtonProps['size'];
+  chainId: string;
+  contractAddress: string;
+  from: EWatchlistFrom;
+  tokenSymbol?: string;
+  isNative?: boolean;
+} & IStackProps) {
+  const intl = useIntl();
+  const { onPress, checked } = useStarV2Checked({
+    chainId,
+    contractAddress,
+    from,
+    tokenSymbol,
+    isNative,
+  });
+
+  return (
+    <IconButton
+      title={intl.formatMessage({
+        id: checked
+          ? ETranslations.market_remove_from_favorites
+          : ETranslations.market_add_to_favorites,
+      })}
+      icon={checked ? 'StarSolid' : 'StarOutline'}
+      variant="tertiary"
+      size={size}
+      iconSize={size ? undefined : '$5'}
+      iconProps={{
+        color: checked ? '$iconActive' : '$iconSubdued',
+      }}
+      onPress={onPress}
+      {...(props as IXStackProps)}
+    />
+  );
+}
+
+export const MarketStarV2 = memo(BasicMarketStarV2);
+
+// Perps star hook — checks watchlist by perpsCoin
+export const usePerpsStarV2Checked = ({ perpsCoin }: { perpsCoin: string }) => {
+  const actions = useWatchListV2Action();
+  const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
+
+  const checked = useMemo(() => {
+    if (!isMounted || watchListData.length === 0) {
+      return false;
+    }
+    return !!watchListData.find((item) => item.perpsCoin === perpsCoin);
+  }, [watchListData, isMounted, perpsCoin]);
+
+  const handlePress = useCallback(() => {
+    if (checked) {
+      actions.removePerpsFromWatchListV2(perpsCoin);
+    } else {
+      actions.addPerpsIntoWatchListV2(perpsCoin);
+    }
+  }, [checked, actions, perpsCoin]);
+
+  return useMemo(
+    () => ({
+      checked,
+      onPress: handlePress,
+    }),
+    [checked, handlePress],
+  );
+};
+
+// Perps star button component
+function BasicMarketPerpsStarV2({
+  perpsCoin,
+  size,
+  ...props
+}: {
+  perpsCoin: string;
+  size?: IIconButtonProps['size'];
+} & IStackProps) {
+  const intl = useIntl();
+  const { onPress, checked } = usePerpsStarV2Checked({ perpsCoin });
+
+  return (
+    <IconButton
+      title={intl.formatMessage({
+        id: checked
+          ? ETranslations.market_remove_from_favorites
+          : ETranslations.market_add_to_favorites,
+      })}
+      icon={checked ? 'StarSolid' : 'StarOutline'}
+      variant="tertiary"
+      size={size}
+      iconSize={size ? undefined : '$5'}
+      iconProps={{
+        color: checked ? '$iconActive' : '$iconSubdued',
+      }}
+      onPress={onPress}
+      {...(props as IXStackProps)}
+    />
+  );
+}
+
+export const MarketPerpsStarV2 = memo(BasicMarketPerpsStarV2);

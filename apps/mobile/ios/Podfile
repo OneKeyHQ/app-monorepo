@@ -1,0 +1,243 @@
+# Pod sources
+source 'https://github.com/CocoaPods/Specs.git'
+source 'https://github.com/aliyun/aliyun-specs.git'
+
+require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
+require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
+
+# react-native-permissions
+require File.join(File.dirname(`node --print "require.resolve('react-native-permissions/package.json')"`), "scripts/setup")
+
+
+require 'json'
+podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
+
+ENV['RCT_NEW_ARCH_ENABLED'] = '1'
+ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
+
+platform :ios, podfile_properties['ios.deploymentTarget'] || '15.5'
+install! 'cocoapods',
+  :deterministic_uuids => false
+
+prepare_react_native_project!
+
+def installGo()
+  go_version = `which go 2>/dev/null && go version 2>/dev/null`.strip
+  if go_version.empty?
+    puts "Go is not installed. Installing Go..."
+    
+    # Detect system architecture
+    arch = `uname -m`.strip
+    os = `uname -s`.strip.downcase
+
+    go_version = "1.24.0"
+    
+    if os == "darwin"
+      if arch == "arm64"
+        go_url = "https://go.dev/dl/go#{go_version}.darwin-arm64.tar.gz"
+      else
+        go_url = "https://go.dev/dl/go#{go_version}.darwin-amd64.tar.gz"
+      end
+    else
+      puts "Unsupported operating system: #{os}"
+      return
+    end
+    
+    # Download and install Go
+    go_tmp_dir = File.join(__dir__, "go-install")
+    puts "go_tmp_dir: #{go_tmp_dir}"
+    FileUtils.mkdir_p(go_tmp_dir) unless Dir.exist?(go_tmp_dir)
+    
+    go_tar_path = File.join(go_tmp_dir, "go.tar.gz")
+    puts "Downloading Go from #{go_url}..."
+    system("curl -L -o '#{go_tar_path}' '#{go_url}'")
+    
+    # Extract Go to /usr/local (requires sudo) or to local directory
+    go_install_dir = File.join(go_tmp_dir, "go")
+    system("cd '#{go_tmp_dir}' && tar -xzf go.tar.gz")
+    
+    # Set Go environment variables for this session
+    ENV['GOROOT'] = go_install_dir
+    ENV['PATH'] = "#{go_install_dir}/bin:#{ENV['PATH']}"
+    
+    puts "Go installed successfully to #{go_install_dir}"
+    puts "Note: You may need to add #{go_install_dir}/bin to your PATH permanently"
+  else
+    puts "Go is already installed: #{go_version}"
+  end
+end
+
+# react-native-permissions
+setup_permissions([
+  # 'AppTrackingTransparency',
+  'Bluetooth',
+  # 'Calendars',
+  # 'CalendarsWriteOnly',
+  # 'Camera',
+  # 'Contacts',
+  # 'FaceID',
+  # 'LocationAccuracy',
+  # 'LocationAlways',
+  # 'LocationWhenInUse',
+  # 'MediaLibrary',
+  # 'Microphone',
+  # 'Motion',
+  # 'Notifications',
+  # 'PhotoLibrary',
+  # 'PhotoLibraryAddOnly',
+  # 'Reminders',
+  # 'Siri',
+  # 'SpeechRecognition',
+  # 'StoreKit',
+])
+
+target 'OneKeyWallet' do
+  use_expo_modules!
+  config = use_native_modules!
+
+  # use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
+  # use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
+  # use_frameworks! :linkage => :static
+
+  # Flags change depending on the env values.
+  flags = get_default_flags()
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    :hermes_enabled => podfile_properties['expo.jsEngine'] == nil || podfile_properties['expo.jsEngine'] == 'hermes',
+    :fabric_enabled => flags[:fabric_enabled],
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/..",
+  )
+
+  # Enable modular headers for EMASCurl to fix SniConnect dependency
+  pod 'EMASCurl', :modular_headers => true
+
+  # Use patched TOCropViewController with rotation crop-box shrink fix (OK-51551)
+  pod 'TOCropViewController', :podspec => 'https://raw.githubusercontent.com/OneKeyHQ/app-modules/main/native-views/TOCropViewController/TOCropViewController.podspec'
+
+  # Manually add RNGoogleSignin pod (expo-module.config.json only includes the Expo adapter, not the TurboModule)
+  # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
+
+  post_install do |installer|
+    # Copy custom fonts from components package and add to Xcode Resources.
+    # Fonts are registered via Info.plist UIAppFonts so iOS manages them natively,
+    # making them resilient to background memory purge.
+    fonts_src = File.join(__dir__, '..', '..', '..', 'packages', 'components', 'src', 'hocs', 'Provider', 'fonts')
+    fonts_dst = File.join(__dir__, 'OneKeyWallet', 'Fonts')
+    font_files = %w[Roobert-Regular.ttf Roobert-Medium.ttf Roobert-SemiBold.ttf Roobert-Bold.ttf GeistMono-Regular.ttf GeistMono-Medium.ttf]
+
+    FileUtils.mkdir_p(fonts_dst)
+    font_files.each { |f| FileUtils.cp(File.join(fonts_src, f), File.join(fonts_dst, f)) }
+    puts "[Fonts] Copied #{font_files.length} fonts to ios/OneKeyWallet/Fonts/"
+
+    # Add font files to the Xcode project Resources build phase
+    user_project = installer.aggregate_targets.first.user_project
+    main_target = user_project.native_targets.find { |t| t.name == 'OneKeyWallet' }
+    main_group = user_project.main_group.find_subpath('OneKeyWallet', false)
+    fonts_group = main_group.find_subpath('Fonts', false) || main_group.new_group('Fonts', 'OneKeyWallet/Fonts')
+
+    font_files.each do |f|
+      next if fonts_group.files.any? { |ref| ref.path == f }
+      file_ref = fonts_group.new_file(f)
+      main_target.resources_build_phase.add_file_reference(file_ref)
+    end
+    user_project.save
+    puts "[Fonts] Added fonts to Xcode project Resources"
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false
+    )
+
+    # This is necessary for Xcode 14, because it signs resource bundles by default
+    # when building for devices.
+    installer.target_installation_results.pod_target_installation_results
+      .each do |pod_name, target_installation_result|
+      target_installation_result.resource_bundle_targets.each do |resource_bundle_target|
+        resource_bundle_target.build_configurations.each do |config|
+          config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+        end
+      end
+    end
+    installer.pods_project.targets.each do |target|
+      # https://github.com/mockingbot/react-native-zip-archive/issues/307
+      # error: /node_modules/react-native-zip-archive/ios/RNZipArchive.m unsupported option '-G' for target 'arm64-apple-ios14.0-simulator'
+      if target.name == 'RNZipArchive'
+        target.source_build_phase.files.each do |file|
+          if file.settings && file.settings['COMPILER_FLAGS']
+            file.settings['COMPILER_FLAGS'] = ''
+          end
+        end
+      end
+
+      # Fix JuiceboxSdkFfi module not found error for RNJuiceboxSdk
+      if target.name == 'RNJuiceboxSdk'
+        target.build_configurations.each do |config|
+          juicebox_ffi_path = '${PODS_ROOT}/JuiceboxSdk/swift/Sources/JuiceboxSdkFfi'
+          config.build_settings['SWIFT_INCLUDE_PATHS'] = "$(inherited) #{juicebox_ffi_path}"
+        end
+      end
+    end
+
+    # Fix: ServiceExtension build fails with "unable to spawn process ccache-clang.sh"
+    #
+    # react_native_post_install sets CC at the PROJECT level:
+    #   REACT_NATIVE_PATH = ${PODS_ROOT}/../../../../node_modules/react-native
+    #   CC = $(REACT_NATIVE_PATH)/scripts/xcode/ccache-clang.sh
+    #
+    # OneKeyWallet target has Pods xcconfig, so PODS_ROOT is defined and CC resolves correctly.
+    # ServiceExtension target has NO Pods xcconfig, so PODS_ROOT is empty, causing:
+    #   REACT_NATIVE_PATH = ../../../../node_modules/react-native
+    #   CC = /node_modules/react-native/scripts/xcode/ccache-clang.sh  (not found!)
+    #
+    # Fix: set CC at the TARGET level for ServiceExtension to override the project-level
+    # ccache setting. ServiceExtension only compiles NotificationService.m and doesn't
+    # need ccache acceleration.
+    installer.aggregate_targets.each do |aggregate_target|
+      aggregate_target.user_project.native_targets.each do |target|
+        next unless target.name == 'ServiceExtension'
+        target.build_configurations.each do |build_config|
+          build_config.build_settings["CC"] = "clang"
+          build_config.build_settings["CXX"] = "clang++"
+          build_config.build_settings["LD"] = "clang"
+          build_config.build_settings["LDPLUSPLUS"] = "clang++"
+        end
+      end
+      aggregate_target.user_project.save()
+    end
+  end
+
+  post_integrate do |installer|
+    begin
+      expo_patch_react_imports!(installer)
+    rescue => e
+      Pod::UI.warn e
+    end
+
+    # Fix JuiceboxSdkFfi linking - directly modify xcconfig files after integration
+    pods_dir = File.join(__dir__, 'Pods')
+    ['debug', 'release'].each do |config|
+      xcconfig_path = File.join(pods_dir, 'Target Support Files', 'Pods-OneKeyWallet', "Pods-OneKeyWallet.#{config}.xcconfig")
+      if File.exist?(xcconfig_path)
+        content = File.read(xcconfig_path)
+
+        # Add CARGO_BUILD_TARGET if not present
+        unless content.include?('CARGO_BUILD_TARGET')
+          content += "\nCARGO_BUILD_TARGET[sdk=iphoneos*] = aarch64-apple-ios"
+          content += "\nCARGO_BUILD_TARGET[sdk=iphonesimulator*][arch=*] = x86_64-apple-ios"
+          content += "\nCARGO_BUILD_TARGET[sdk=iphonesimulator*][arch=arm64] = aarch64-apple-ios-sim"
+        end
+
+        # Add FFI library to OTHER_LDFLAGS if not present
+        juicebox_ffi_lib = '${PODS_ROOT}/JuiceboxSdk/artifacts/ffi/$(CARGO_BUILD_TARGET)/libjuicebox_sdk_ffi.a'
+        unless content.include?('libjuicebox_sdk_ffi.a')
+          content = content.gsub(/^(OTHER_LDFLAGS = .*)$/, "\\1 #{juicebox_ffi_lib}")
+        end
+
+        File.write(xcconfig_path, content)
+        puts "Modified #{xcconfig_path} for JuiceboxSdkFfi"
+      end
+    end
+  end
+end

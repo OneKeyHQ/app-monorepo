@@ -1,0 +1,191 @@
+import * as React from 'react';
+import { forwardRef, useImperativeHandle, useMemo } from 'react';
+
+import { Platform, Pressable, Text, View } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { useOnWebPaste } from '../../../Input';
+import TextInput from '../../../Input/TextInput';
+
+import { styles } from './OtpInput.styles';
+import { useOtpInput } from './useOtpInput';
+import { VerticalStick } from './VerticalStick';
+
+import type { IOtpInputProps, IOtpInputRef } from './OtpInput.types';
+
+// eslint-disable-next-line react/display-name
+export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
+  (props, ref) => {
+    const {
+      models: { text, inputRef, focusedInputIndex, isFocused, placeholder },
+      actions: {
+        clear,
+        handlePress,
+        handleTextChange,
+        focus,
+        handleFocus,
+        handleBlur,
+      },
+      forms: { setTextWithRef },
+    } = useOtpInput(props);
+
+    const {
+      disabled,
+      numberOfDigits = 6,
+      autoFocus = true,
+      hideStick,
+      focusColor = '#A4D0A4',
+      focusStickBlinkingDuration,
+      secureTextEntry = false,
+      theme = {},
+      textInputProps,
+      type = 'numeric',
+    } = props;
+    const {
+      containerStyle,
+      inputsContainerStyle,
+      pinCodeContainerStyle,
+      pinCodeTextStyle,
+      focusStickStyle,
+      focusedPinCodeContainerStyle,
+      filledPinCodeContainerStyle,
+      disabledPinCodeContainerStyle,
+      placeholderTextStyle,
+    } = theme;
+
+    useImperativeHandle(ref, () => ({
+      clear,
+      focus,
+      setValue: setTextWithRef,
+    }));
+
+    useOnWebPaste(inputRef, textInputProps?.onPaste);
+
+    const autoComplete = useMemo(() => {
+      if (platformEnv.isDesktop) return 'off' as const;
+      if (Platform.OS === 'android') return 'sms-otp' as const;
+      return 'one-time-code' as const;
+    }, []);
+
+    const generatePinCodeContainerStyle = (
+      isFocusedContainer: boolean,
+      char: string,
+    ) => {
+      const stylesArray = [styles.codeContainer, pinCodeContainerStyle];
+      if (focusColor && isFocusedContainer) {
+        stylesArray.push({ borderColor: focusColor });
+      }
+
+      if (focusedPinCodeContainerStyle && isFocusedContainer) {
+        stylesArray.push(focusedPinCodeContainerStyle);
+      }
+
+      if (filledPinCodeContainerStyle && Boolean(char)) {
+        stylesArray.push(filledPinCodeContainerStyle);
+      }
+
+      if (disabledPinCodeContainerStyle && disabled) {
+        stylesArray.push(disabledPinCodeContainerStyle);
+      }
+
+      return stylesArray;
+    };
+
+    const placeholderStyle = useMemo(
+      () => ({
+        opacity: placeholder ? 0.5 : pinCodeTextStyle?.opacity || 1,
+        ...(placeholder ? placeholderTextStyle : {}),
+      }),
+      [placeholder, pinCodeTextStyle?.opacity, placeholderTextStyle],
+    );
+
+    const containerViewStyle = useMemo(
+      () => [styles.container, containerStyle, inputsContainerStyle],
+      [containerStyle, inputsContainerStyle],
+    );
+
+    const hiddenInputStyle = useMemo(
+      () => [styles.hiddenInput, textInputProps?.style],
+      [textInputProps?.style],
+    );
+
+    const codeTextPlaceholderStyle = useMemo(
+      () => [styles.codeText, pinCodeTextStyle, placeholderStyle],
+      [pinCodeTextStyle, placeholderStyle],
+    );
+
+    const codeTextNormalStyle = useMemo(
+      () => [styles.codeText, pinCodeTextStyle],
+      [pinCodeTextStyle],
+    );
+
+    return (
+      <View style={containerViewStyle}>
+        {Array(numberOfDigits)
+          .fill(0)
+          .map((_, index) => {
+            const isPlaceholderCell = !!placeholder && !text?.[index];
+            const char = isPlaceholderCell
+              ? placeholder?.[index] || ' '
+              : text[index];
+            const isFocusedInput =
+              index === focusedInputIndex && !disabled && Boolean(isFocused);
+            const isFilledLastInput =
+              text.length === numberOfDigits && index === text.length - 1;
+            const isFocusedContainer =
+              isFocusedInput || (isFilledLastInput && Boolean(isFocused));
+
+            return (
+              <Pressable
+                key={index}
+                disabled={disabled}
+                onPress={handlePress}
+                style={generatePinCodeContainerStyle(isFocusedContainer, char)}
+                testID="otp-input"
+              >
+                {isFocusedInput && !hideStick ? (
+                  <VerticalStick
+                    focusColor={focusColor}
+                    style={focusStickStyle}
+                    focusStickBlinkingDuration={focusStickBlinkingDuration}
+                  />
+                ) : (
+                  <Text
+                    style={
+                      isPlaceholderCell
+                        ? codeTextPlaceholderStyle
+                        : codeTextNormalStyle
+                    }
+                  >
+                    {char && secureTextEntry ? '•' : char}
+                  </Text>
+                )}
+              </Pressable>
+            );
+          })}
+        <TextInput
+          accessible
+          value={text}
+          onChangeText={handleTextChange}
+          maxLength={numberOfDigits}
+          inputMode={type === 'numeric' ? type : 'text'}
+          textContentType={platformEnv.isDesktop ? undefined : 'oneTimeCode'}
+          ref={inputRef}
+          autoFocus={autoFocus}
+          secureTextEntry={secureTextEntry}
+          autoComplete={autoComplete}
+          aria-disabled={disabled}
+          editable={!disabled}
+          testID="otp-input-hidden"
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          caretHidden={Platform.OS === 'ios'}
+          accessibilityLabel="OTP input field"
+          {...textInputProps}
+          style={hiddenInputStyle}
+        />
+      </View>
+    );
+  },
+);

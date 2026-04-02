@@ -1,0 +1,119 @@
+import type {
+  IModalFlowNavigatorConfig,
+  ITabSubNavigatorConfig,
+} from '@onekeyhq/components';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+
+import {
+  LazyLoadPage,
+  LazyLoadRootTabPage,
+} from '../../../components/LazyLoadPage';
+import PerpTradersHistoryList from '../components/OrderInfoPanel/PerpTradersHistoryListModal';
+
+const PagePerp = LazyLoadRootTabPage(
+  () => import(/* webpackPrefetch: true */ '../pages/Perp'),
+);
+const MobilePerpMarketPage = LazyLoadPage(
+  () => import('../pages/MobilePerpMarket'),
+);
+
+const MobileTokenSelectorPage = LazyLoadPage(
+  () => import('../components/TokenSelector/MoblieTokenSelector'),
+);
+
+const MobileSetTpslModal = LazyLoadPage(
+  () => import('../components/OrderInfoPanel/SetTpslModal'),
+);
+
+const MobileDepositWithdrawModal = LazyLoadPage(
+  () => import('../components/TradingPanel/modals/DepositWithdrawModal'),
+);
+
+const PerpsInviteeRewardModal = LazyLoadPage(
+  () => import('../components/InviteeReward/InviteeRewardModal'),
+);
+
+const MobilePortfolioPage = LazyLoadPage(
+  () => import('../components/Portfolio/PerpPortfolioModal'),
+);
+
+const PerpGuidePage = LazyLoadPage(
+  () => import('../components/Guide/PerpGuidePage'),
+);
+
+export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
+  {
+    rewrite: '/',
+    name: ETabRoutes.Perp,
+    component: PagePerp,
+  },
+  {
+    name: EModalPerpRoutes.MobilePerpMarket,
+    component: MobilePerpMarketPage,
+  },
+  {
+    name: EModalPerpRoutes.MobileTokenSelector,
+    component: MobileTokenSelectorPage,
+  },
+  {
+    name: EModalPerpRoutes.MobileSetTpsl,
+    component: MobileSetTpslModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositWithdrawModal,
+    component: MobileDepositWithdrawModal,
+  },
+  {
+    name: EModalPerpRoutes.PerpsInviteeRewardModal,
+    component: PerpsInviteeRewardModal,
+  },
+  {
+    name: EModalPerpRoutes.MobilePortfolioPage,
+    component: MobilePortfolioPage,
+  },
+  {
+    name: EModalPerpRoutes.PerpGuidePage,
+    component: PerpGuidePage,
+  },
+];
+
+export const ModalPerpStack: IModalFlowNavigatorConfig<
+  EModalPerpRoutes,
+  IModalPerpParamList
+>[] = [
+  {
+    name: EModalPerpRoutes.PerpTradersHistoryList,
+    component: PerpTradersHistoryList,
+  },
+  {
+    name: EModalPerpRoutes.MobilePerpMarket,
+    component: MobilePerpMarketPage,
+  },
+  {
+    name: EModalPerpRoutes.MobileTokenSelector,
+    component: MobileTokenSelectorPage,
+    options: {},
+  },
+  {
+    name: EModalPerpRoutes.MobileSetTpsl,
+    component: MobileSetTpslModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositWithdrawModal,
+    component: MobileDepositWithdrawModal,
+  },
+  {
+    name: EModalPerpRoutes.PerpsInviteeRewardModal,
+    component: PerpsInviteeRewardModal,
+  },
+  {
+    name: EModalPerpRoutes.MobilePortfolioPage,
+    component: MobilePortfolioPage,
+  },
+  {
+    name: EModalPerpRoutes.PerpGuidePage,
+    component: PerpGuidePage,
+  },
+];

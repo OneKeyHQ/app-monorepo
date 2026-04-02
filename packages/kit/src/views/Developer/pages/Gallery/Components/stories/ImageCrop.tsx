@@ -1,0 +1,30 @@
+import { Button, ImageCrop } from '@onekeyhq/components';
+
+import { Layout } from './utils/Layout';
+
+const ImageCropGallery = () => (
+  <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
+    componentName="ImageCrop"
+    elements={[
+      {
+        title: 'Default',
+        element: (
+          <Button
+            onPress={async () => {
+              const data = await ImageCrop.openPicker({
+                width: 500,
+                height: 500,
+              });
+              console.log('cropImage:', data);
+            }}
+          >
+            open image crop picker
+          </Button>
+        ),
+      },
+    ]}
+  />
+);
+
+export default ImageCropGallery;

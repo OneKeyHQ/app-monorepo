@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgRotateClockwise = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M2.972 12a9 9 0 0 1 9-9c2.545 0 4.4.92 6.028 2.427V3h2v6h-6V7h2.756c-1.378-1.314-2.803-2-4.784-2a7 7 0 1 0 6.601 9.333l.334-.942 1.886.666-.334.943a9 9 0 0 1-17.487-3" />
+  </Svg>
+);
+export default SvgRotateClockwise;

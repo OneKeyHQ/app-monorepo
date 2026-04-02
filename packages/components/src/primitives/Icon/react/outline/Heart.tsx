@@ -1,0 +1,17 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgHeart = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="M12 4.427c1.617-1.284 3.471-1.667 5.169-1.288 1.928.43 3.563 1.821 4.342 3.763 1.604 4-.494 9.69-9.022 14.47l-.489.274-.49-.274C2.984 16.592.886 10.902 2.49 6.902 3.267 4.96 4.902 3.568 6.83 3.14c1.698-.379 3.552.004 5.169 1.288Zm4.734.664c-1.238-.276-2.708.047-4.022 1.38L12 7.192l-.712-.721C9.974 5.138 8.504 4.815 7.266 5.09c-1.263.281-2.379 1.206-2.92 2.556C3.33 10.18 4.254 14.837 12 19.345c7.746-4.509 8.67-9.165 7.654-11.698-.541-1.35-1.657-2.275-2.92-2.556"
+      clipRule="evenodd"
+    />
+  </Svg>
+);
+export default SvgHeart;

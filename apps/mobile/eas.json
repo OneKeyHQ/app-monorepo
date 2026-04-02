@@ -1,0 +1,159 @@
+{
+  "cli": {
+    "version": ">= 5.4.0"
+  },
+  "build": {
+    "base": {
+      "node": "24.13.0",
+      "env": {
+        "EAS_USE_CACHE": "1"
+      },
+      "android": {
+        "image": "ubuntu-24.04-jdk-17-ndk-r27b",
+        "ndk": "27.1.12297006",
+        "env": {
+          "PLATFORM": "android"
+        }
+      },
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-26.0",
+        "resourceClass": "medium",
+        "env": {
+          "PLATFORM": "ios"
+        }
+      }
+    },
+    "production-store": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleGoogleRelease",
+        "env": {
+          "ANDROID_CHANNEL": "google"
+        }
+      },
+      "ios": {
+        "enterpriseProvisioning": "universal",
+        "buildConfiguration": "Release",
+        "credentialsSource": "local"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleProdRelease",
+        "env": {
+          "ANDROID_CHANNEL": "direct"
+        }
+      },
+      "ios": {
+        "enterpriseProvisioning": "adhoc",
+        "buildConfiguration": "Release",
+        "distribution": "internal",
+        "credentialsSource": "local"
+      }
+    },
+    "qa-internal": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production",
+        "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION": "true"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleProdRelease",
+        "env": {
+          "ANDROID_CHANNEL": "direct"
+        }
+      },
+      "ios": {
+        "enterpriseProvisioning": "adhoc",
+        "buildConfiguration": "Release",
+        "distribution": "internal",
+        "credentialsSource": "local"
+      }
+    },
+    "qa-internal-store": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production",
+        "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION": "true"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleGoogleRelease",
+        "env": {
+          "ANDROID_CHANNEL": "google"
+        }
+      },
+      "ios": {
+        "enterpriseProvisioning": "universal",
+        "buildConfiguration": "Release",
+        "credentialsSource": "local"
+      }
+    },
+    "production-huawei": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleProdRelease",
+        "env": {
+          "ANDROID_CHANNEL": "huawei"
+        }
+      }
+    },
+    "simulator": {
+      "extends": "base",
+      "distribution": "internal",
+      "env": {
+        "ENVIRONMENT": "production",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Release"
+      }
+    }
+  },
+  "submit": {
+    "production-store": {
+      "ios": {
+        "ascAppId": "1609559473",
+        "appleTeamId": "BVJ3FU5H2K",
+        "ascApiKeyIssuerId": "bbc48cd1-0ffa-4bb7-994d-fab6a5eff73e",
+        "ascApiKeyId": "KAV3B73J8L",
+        "ascApiKeyPath": "./AscApiKey.p8"
+      },
+      "android": {
+        "track": "internal"
+      }
+    },
+    "qa-internal-store": {
+      "ios": {
+        "ascAppId": "1609559473",
+        "appleTeamId": "BVJ3FU5H2K",
+        "ascApiKeyIssuerId": "bbc48cd1-0ffa-4bb7-994d-fab6a5eff73e",
+        "ascApiKeyId": "KAV3B73J8L",
+        "ascApiKeyPath": "./AscApiKey.p8"
+      },
+      "android": {
+        "track": "internal"
+      }
+    }
+  }
+}

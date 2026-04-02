@@ -1,0 +1,14 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M57 33H147V123H57V33Z" fill="#D9D9D9"/>
+<path d="M57 33H147V123H57V33Z" fill="black"/>
+<path d="M57 33H147V123H57V33Z" stroke="white" stroke-linejoin="round"/>
+<rect x="33" y="57" width="90" height="90" fill="black" stroke="white" stroke-linejoin="round"/>
+<path d="M123 57L123 147L147 123C147 88.0207 147 67.9793 147 33L123 57Z" fill="black" stroke="white" stroke-linejoin="round"/>
+<path d="M57 33H147L123 57H33L57 33Z" stroke="white" stroke-linejoin="round"/>
+<circle cx="101.5" cy="108.501" r="3.5" stroke="white"/>
+<circle cx="89.5" cy="96.501" r="3.5" stroke="white"/>
+<path d="M104 94.001L87 111.001" stroke="white"/>
+<path d="M69 104H81" stroke="white"/>
+<path d="M51 104H63" stroke="white"/>
+<path d="M57 31.5L57 58L31.5 58L57 31.5Z" fill="#4FE737" stroke="black"/>
+</svg>

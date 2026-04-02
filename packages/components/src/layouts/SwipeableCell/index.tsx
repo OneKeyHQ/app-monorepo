@@ -1,0 +1,218 @@
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
+import type { ComponentType, ForwardedRef } from 'react';
+
+import { Animated } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
+
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  ColorTokens,
+  StackStyle,
+} from '@onekeyhq/components/src/shared/tamagui';
+
+import { SizableText } from '../../primitives/SizeableText';
+import { Stack, XStack } from '../../primitives/Stack';
+
+import type { SwipeableProps } from 'react-native-gesture-handler/Swipeable';
+
+type ISwipeableCellItemProps = {
+  title: string;
+  width: number;
+  backgroundColor: ColorTokens;
+  onPress: ({ close }: { close?: () => void }) => void;
+};
+
+type ISwipeableSwipeDirection = 'left' | 'right';
+
+type ISwipeableSwipeProgress = Animated.AnimatedInterpolation<string | number>;
+
+function SwipeableCellItem({
+  item,
+  index,
+  itemList,
+  isRightDirection,
+  progress,
+  close,
+}: {
+  item: ISwipeableCellItemProps;
+  index: number;
+  itemList: Array<ISwipeableCellItemProps>;
+  isRightDirection: boolean;
+  progress: ISwipeableSwipeProgress;
+  close?: () => void;
+}) {
+  const x = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      itemList
+        .slice(
+          isRightDirection ? index : 0,
+          isRightDirection ? itemList.length : index + 1,
+        )
+        .map((_item) => _item.width)
+        .reduce((previous, current) => previous + current, 0) *
+        (isRightDirection ? 1 : -1),
+      0,
+    ],
+  });
+  const animatedStyle = useMemo(
+    () => ({
+      zIndex: isRightDirection ? index : itemList.length - index,
+      transform: [
+        {
+          translateX: x,
+        },
+      ],
+    }),
+    [isRightDirection, index, itemList.length, x],
+  );
+  const handlePress = useCallback(() => {
+    item.onPress({ close });
+  }, [item, close]);
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Stack
+        bg={item.backgroundColor}
+        w={item.width}
+        h="100%"
+        justifyContent="center"
+        alignItems="center"
+        onPress={handlePress}
+      >
+        <SizableText color="white">{item.title}</SizableText>
+      </Stack>
+    </Animated.View>
+  );
+}
+
+function SwipeableCellContainer({
+  close,
+  progress,
+  isRightDirection,
+  itemList,
+}: {
+  close?: () => void;
+  progress: ISwipeableSwipeProgress;
+  isRightDirection: boolean;
+  itemList: Array<ISwipeableCellItemProps>;
+}) {
+  return (
+    <XStack>
+      {itemList.map((item, index) => (
+        <SwipeableCellItem
+          key={index}
+          item={item}
+          index={index}
+          itemList={itemList}
+          isRightDirection={isRightDirection}
+          progress={progress}
+          close={close}
+        />
+      ))}
+    </XStack>
+  );
+}
+
+export type ISwipeableCellRef = {
+  close: () => void;
+};
+
+export type ISwipeableCellProps = SwipeableProps &
+  StackStyle & {
+    swipeEnabled?: boolean;
+    rightItemList?: Array<ISwipeableCellItemProps>;
+    leftItemList?: Array<ISwipeableCellItemProps>;
+  };
+
+let LAST_SWIPED_CELL_CLOSE: (() => void) | undefined;
+
+function BaseSwipeableCell(
+  {
+    swipeEnabled = true,
+    rightItemList = [],
+    leftItemList = [],
+    ...props
+  }: ISwipeableCellProps,
+  ref: ForwardedRef<ISwipeableCellRef>,
+) {
+  const [restProps, style] = usePropsAndStyle(props, {
+    resolveValues: 'auto',
+  });
+
+  const innerRef = useRef<Swipeable>(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      close: () => {
+        innerRef?.current?.close();
+      },
+    }),
+    [],
+  );
+  if (!swipeEnabled) {
+    innerRef?.current?.close();
+  }
+  const onSwipeableOpen = useCallback(
+    (direction: ISwipeableSwipeDirection, swipeable: Swipeable) => {
+      (restProps as SwipeableProps)?.onSwipeableOpen?.(direction, swipeable);
+      LAST_SWIPED_CELL_CLOSE = innerRef?.current?.close;
+    },
+    [restProps],
+  );
+  const onSwipeableWillOpen = useCallback(
+    (direction: ISwipeableSwipeDirection) => {
+      (restProps as SwipeableProps)?.onSwipeableWillOpen?.(direction);
+      if (LAST_SWIPED_CELL_CLOSE !== innerRef?.current?.close) {
+        LAST_SWIPED_CELL_CLOSE?.();
+      }
+    },
+    [restProps],
+  );
+  const renderActionList = useCallback(
+    (progress: ISwipeableSwipeProgress, isRightDirection: boolean) => (
+      <SwipeableCellContainer
+        progress={progress}
+        itemList={!isRightDirection ? leftItemList : rightItemList}
+        isRightDirection={isRightDirection}
+        close={innerRef?.current?.close}
+      />
+    ),
+    [leftItemList, rightItemList],
+  );
+  const renderLeftActionList = useCallback(
+    (progress: ISwipeableSwipeProgress) => renderActionList(progress, false),
+    [renderActionList],
+  );
+  const renderRightActionList = useCallback(
+    (progress: ISwipeableSwipeProgress) => renderActionList(progress, true),
+    [renderActionList],
+  );
+  return (
+    <Swipeable
+      ref={innerRef}
+      friction={1}
+      dragOffsetFromLeftEdge={20}
+      enableTrackpadTwoFingerGesture
+      overshootLeft={false}
+      overshootRight={false}
+      enabled={swipeEnabled}
+      renderLeftActions={renderLeftActionList}
+      renderRightActions={renderRightActionList}
+      containerStyle={style as any}
+      {...restProps}
+      onSwipeableOpen={onSwipeableOpen}
+      onSwipeableWillOpen={onSwipeableWillOpen}
+    />
+  );
+}
+
+export const SwipeableCell = forwardRef(
+  BaseSwipeableCell,
+) as ComponentType<ISwipeableCellProps>;
