@@ -238,32 +238,36 @@ Hash: SHA256
 
 {
   "fileName": "metadata.json",
-  "sha256": "2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba",
-  "size": 158590,
-  "generatedAt": "2025-09-19T07:49:13.000Z"
+  "sha256": "bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b",
+  "size": 167265,
+  "generatedAt": "2026-03-31T03:25:05.000Z",
+  "appVersion": "6.1.0",
+  "buildNumber": "2026032032",
+  "bundleVersion": "7701116",
+  "appType": "electron"
 }
 -----BEGIN PGP SIGNATURE-----
 
-iQJCBAEBCAAsFiEE62iuVE8f3YzSZGJPs2mmepC/OHsFAmjNJ1IOHGRldkBvbmVr
-ZXkuc28ACgkQs2mmepC/OHs6Rw/9FKHl5aNsE7V0IsFf/l+h16BYKFwVsL69alMk
-CFLna8oUn0+tyECF6wKBKw5pHo5YR27o2pJfYbAER6dygDF6WTZ1lZdf5QcBMjGA
-LCeXC0hzUBzSSOH4bKBTa3fHp//HdSV1F2OnkymbXqYN7WXvuQPLZ0nV6aU88hCk
-HgFifcvkXAnWKoosUtj0Bban/YBRyvmQ5C2akxUPEkr4Yck1QXwzJeNRd7wMXHjH
-JFK6lJcuABiB8wpJDXJkFzKs29pvHIK2B2vdOjU2rQzKOUwaKHofDi5C4+JitT2b
-2pSeYP3PAxXYw6XDOmKTOiC7fPnfLjtcPjNYNFCezVKZT6LKvZW9obnW8Q9LNJ4W
-okMPgHObkabv3OqUaTA9QNVfI/X9nvggzlPnaKDUrDWTf7n3vlrdexugkLtV/tJA
-uguPlI5hY7Ue5OW7ckWP46hfmq1+UaIdeUY7dEO+rPZDz6KcArpaRwBiLPBhneIr
-/X3KuMzS272YbPbavgCZGN9xJR5kZsEQE5HhPCbr6Nf0qDnh+X8mg0tAB/U6F+ZE
-o90sJL1ssIaYvST+VWVaGRr4V5nMDcgHzWSF9Q/wm22zxe4alDaBdvOlUseW0iaM
-n2DMz6gqk326W6SFynYtvuiXo7wG4Cmn3SuIU8xfv9rJqunpZGYchMd7nZektmEJ
-91Js0rQ=
-=A/Ii
+iQJCBAEBCAAsFiEE62iuVE8f3YzSZGJPs2mmepC/OHsFAmnLXs0OHGRldkBvbmVr
+ZXkuc28ACgkQs2mmepC/OHtUkhAAoMZQc/Z1slPudePNjgO33XZwhWJNQkLeyPRL
+Evz6JowioGdQjk1yJ+2jleSDDHRCceh6BzeqZqCFP58oRqug3MS4x1/7Egvza3l8
+5vW+NeX9Ai8l4PniUDcC9IwBITsVz/wzjQdhOuVbtYcP4y/48JvctBNBj5cG7cG7
+pMvOiXffUWjrBHToAKJec6V1N5L2b/2K3dutp10o3+tkfOznsHaD1vCpwxaeWcMx
+W2I2SsH3uBDRYisY5W5mb5mDPbEuyqL+M+TLxHAGPwRe3+ExeipakPIJFfYsf5zi
+6AnlllUv/QBH+1VZ7KauadPLD1HfMCPSbqQuTsgay56H7fvUe9khp2ysftgQ2tpc
+NzTtQyZqIUeiUwBSTGqUvuLMCRChfGo7OBJE7Ec/VRzUIwGmN4Je+nY1JTYW+iR5
+cRQ9j+aNAhLYLPkdUr9hMXaDjpSdGCBM0YpEoqSOzbuZEVCD92tzdfMUI+bdC6a/
+I5cI5w1KTRKJ8irMfzm/TDcIenoUTvhzwqm+v69vFSR1LqWQMXnRvhONNTa9haov
++s+6KSUKPMH4Pa5AgRu5dkoj3UrbZUwt3tOIao97PXVXaFuSBLNhFEjS5yV+uOgK
+Wfi3u5D2NWfhq0ZaV25yC16xDIe7SOXgHjNnR1vtt5L9ThZ2deidyiBJA6BFHZK6
+RNAOJKE=
+=JKzr
 -----END PGP SIGNATURE-----`;
 export const testExtractedSha256FromVerifyAscFile = async () => {
   const result = await readMetadataFileSha256(TEST_SIGNATURE);
   return (
     result ===
-    '2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba'
+    'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b'
   );
 };
 
