@@ -135,6 +135,7 @@ const QuickSelectListItem = memo(
   (prevProps, nextProps) =>
     prevProps.item.id === nextProps.item.id &&
     prevProps.item.address === nextProps.item.address &&
+    prevProps.item.displayAddress === nextProps.item.displayAddress &&
     prevProps.item.name === nextProps.item.name &&
     prevProps.item.deriveLabel === nextProps.item.deriveLabel &&
     prevProps.item.memo === nextProps.item.memo &&

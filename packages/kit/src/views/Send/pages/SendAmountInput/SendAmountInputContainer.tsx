@@ -447,6 +447,12 @@ function SendAmountInputContainer() {
           '0')
         : (vaultSettings?.minTransferAmount ?? '0');
 
+      // Display min amount in the current unit (BTC or sats for Lightning)
+      const displayMinAmount =
+        isLightningNetwork && lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertSatsToBtc(minTransferAmount)
+          : minTransferAmount;
+
       if (
         !isUseFiat &&
         !new BigNumber(minTransferAmount).isZero() &&
@@ -455,7 +461,7 @@ function SendAmountInputContainer() {
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
-          { amount: minTransferAmount, token: tokenSymbol },
+          { amount: displayMinAmount, token: tokenSymbol },
         );
       }
 
@@ -468,7 +474,7 @@ function SendAmountInputContainer() {
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
-          { amount: minTransferAmount, token: tokenSymbol },
+          { amount: displayMinAmount, token: tokenSymbol },
         );
       }
 
