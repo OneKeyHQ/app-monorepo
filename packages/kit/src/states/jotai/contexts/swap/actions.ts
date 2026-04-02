@@ -3,10 +3,10 @@ import { useRef } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
