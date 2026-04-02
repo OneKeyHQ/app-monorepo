@@ -161,7 +161,12 @@ function SendDataInputContainer() {
     [amountInputRouteName, navigation],
   );
 
-  const { account, network, vaultSettings } = useAccountData({
+  const {
+    account,
+    network,
+    vaultSettings,
+    deriveType: senderDeriveType,
+  } = useAccountData({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
@@ -1093,6 +1098,7 @@ function SendDataInputContainer() {
               <RecipientQuickSelect
                 accountId={currentAccount.accountId}
                 networkId={currentAccount.networkId}
+                senderDeriveType={senderDeriveType}
                 searchKey={toAddressRaw}
                 isSearchMode={!!toAddressRaw?.trim()}
                 activeTab={quickSelectActiveTab}

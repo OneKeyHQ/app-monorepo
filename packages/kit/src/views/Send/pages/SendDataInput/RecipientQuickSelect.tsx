@@ -51,6 +51,7 @@ import {
 type IRecipientQuickSelectProps = {
   accountId?: string;
   networkId: string;
+  senderDeriveType?: string;
   searchKey?: string;
   isSearchMode?: boolean;
   activeTab?: IRecipientQuickSelectTab;
@@ -67,6 +68,7 @@ type IRecipientQuickSelectProps = {
 
 type IAccountRecipientsProps = {
   networkId: string;
+  senderDeriveType?: string;
   searchKey?: string;
   isSearchMode?: boolean;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
@@ -217,6 +219,7 @@ async function getWalletNetworkAccounts(
 
 function AccountRecipients({
   networkId,
+  senderDeriveType,
   searchKey,
   isSearchMode,
   onInputTypeChange,
@@ -248,7 +251,17 @@ function AccountRecipients({
         const createWalletGroupTaskFactory =
           (wallet: IDBWallet, walletName: string) =>
           async (): Promise<IWalletGroup | null> => {
-            const accounts = await getWalletNetworkAccounts(wallet, networkId);
+            let accounts = await getWalletNetworkAccounts(wallet, networkId);
+            // Filter by sender's derive type to avoid showing duplicate accounts
+            // (e.g. bip44 + ledger-live for same indexed account on EVM)
+            if (senderDeriveType) {
+              const filtered = accounts.filter(
+                (a) => !a.deriveInfo || a.deriveInfo.type === senderDeriveType,
+              );
+              if (filtered.length > 0) {
+                accounts = filtered;
+              }
+            }
             if (accounts.length === 0) {
               return null;
             }
@@ -303,7 +316,7 @@ function AccountRecipients({
         );
         return groups.filter((group): group is IWalletGroup => !!group);
       },
-      [networkId],
+      [networkId, senderDeriveType],
       { initResult: [], watchLoading: true, undefinedResultIfError: true },
     );
 
@@ -550,15 +563,17 @@ function AccountRecipients({
         const {
           account,
           deriveInfo,
-          hasMultipleDeriveTypes: _hasMultipleDeriveTypes,
+          hasMultipleDeriveTypes,
           walletId,
           wallet,
         } = item;
         const itemAddress =
           account.address ?? account.addressDetail?.address ?? '';
-        // Always show derive label when deriveInfo exists (e.g. LTC Native SegWit / Legacy).
-        // Even with only one created path, the user needs to know which path it is.
-        const deriveLabel = deriveInfo ? getDeriveLabel(deriveInfo) : undefined;
+        // Show derive label only when multiple derive types exist in this group
+        // (after filtering by senderDeriveType, usually only one type remains)
+        const deriveLabel = hasMultipleDeriveTypes
+          ? getDeriveLabel(deriveInfo)
+          : undefined;
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
         // Wallet name is already shown in the section header, only show account name
@@ -745,6 +760,7 @@ export default function RecipientQuickSelect({
   onInputTypeChange,
   onMatchStatusChange,
   hideTabs,
+  senderDeriveType,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
   // Use controlled state from parent if provided, otherwise use local state
@@ -946,6 +962,7 @@ export default function RecipientQuickSelect({
             <Stack display={activeTab === 'account' ? 'flex' : 'none'}>
               <AccountRecipients
                 networkId={networkId}
+                senderDeriveType={senderDeriveType}
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
