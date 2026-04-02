@@ -35,11 +35,11 @@ import type {
   IWsWebData2,
   IWsWebData3,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type {
+import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
   EHyperLiquidAbstractionMode,
-  IL2BookOptions,
+  ESubscriptionType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
-import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
@@ -1029,8 +1029,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         const userAddress = userState?.user;
 
         if (userAddress) {
-          // SDK 0.32.2 added userState.abstraction field
-          const wsAbstraction = userState.abstraction;
+          // SDK renamed: userState.abstraction → userState.dexAbstractionEnabled (boolean | undefined)
+          const dexAbstractionEnabled = userState.dexAbstractionEnabled;
+          const wsAbstraction = dexAbstractionEnabled
+            ? EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT
+            : EHyperLiquidAbstractionMode.DISABLED;
 
           // Account alignment check
           const activeAccount = await perpsActiveAccountAtom.get();
@@ -1041,11 +1044,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             return;
           }
 
-          if (wsAbstraction) {
+          if (dexAbstractionEnabled != null) {
             // Update atom for display (all accounts including watch-only)
             await perpsAbstractionModeAtom.set({
               accountAddress: userAddress.toLowerCase() as IHex,
-              mode: wsAbstraction as EHyperLiquidAbstractionMode,
+              mode: wsAbstraction,
             });
             // Persist to SimpleDb only for non-watch-only accounts
             const isWatcher = activeAccount?.accountId

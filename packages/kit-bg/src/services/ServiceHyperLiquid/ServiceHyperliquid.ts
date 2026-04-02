@@ -1048,7 +1048,13 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     const { infoClient } = hyperLiquidApiClients;
     try {
-      const mode = await infoClient.userAbstraction({ user: userAddress });
+      const dexAbstractionEnabled = await infoClient.userDexAbstraction({
+        user: userAddress,
+      });
+      // Convert boolean | null → EHyperLiquidAbstractionMode string
+      const mode = dexAbstractionEnabled
+        ? EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT
+        : EHyperLiquidAbstractionMode.DISABLED;
 
       // Re-check alignment after async call
       const currentAccount = await perpsActiveAccountAtom.get();

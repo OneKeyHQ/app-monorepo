@@ -21,7 +21,7 @@ export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
 export type IEventSpotStateParameters = HL.SpotStateWsParameters;
 
 // Abstraction query types
-export type IUserAbstractionResponse = HL.UserAbstractionResponse;
+export type IUserAbstractionResponse = HL.UserDexAbstractionInfoResponse;
 
 export type IHyperliquidEventTarget = EventTarget;
 
@@ -75,7 +75,7 @@ export type IPerpsClearinghouseState = HL.ClearinghouseStateResponse;
 export type IInfoClient = HL.InfoClient;
 export type IExchangeClient = HL.ExchangeClient;
 export type ISubscriptionClient = HL.SubscriptionClient;
-export type IPerpsSubscription = HL.ISubscription;
+export type IPerpsSubscription = HL.WebSocketSubscription;
 export type IHttpTransport = HL.HttpTransport;
 export type IWebSocketTransport = HL.WebSocketTransport;
 
