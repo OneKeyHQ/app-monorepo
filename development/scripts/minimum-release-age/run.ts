@@ -83,7 +83,7 @@ async function processBatches(
 function printResults(
   results: Map<string, CheckResult>,
   config: MinimumReleaseAgeConfig,
-): boolean {
+): { hasTooYoung: boolean; hasErrors: boolean } {
   let okCount = 0;
   let tooYoungCount = 0;
   let skippedCount = 0;
