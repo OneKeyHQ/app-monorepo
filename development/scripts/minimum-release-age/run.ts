@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import https from 'node:https';
@@ -154,7 +154,7 @@ async function main() {
     console.log(`Running diff check against ${baseBranch}...`);
     let diff: string;
     try {
-      diff = execSync(`git diff ${baseBranch} -- yarn.lock`, {
+      diff = execFileSync('git', ['diff', baseBranch, '--', 'yarn.lock'], {
         cwd: rootDir,
         encoding: 'utf-8',
         maxBuffer: 50 * 1024 * 1024,

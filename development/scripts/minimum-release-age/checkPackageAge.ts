@@ -1,5 +1,3 @@
-import picomatch from 'picomatch';
-
 // --- Types ---
 
 export interface MinimumReleaseAgeConfig {
@@ -63,14 +61,23 @@ export function parseConfig(pkg: Record<string, unknown>): MinimumReleaseAgeConf
 }
 
 /**
+ * Convert a simple glob pattern (supporting * wildcard) to a RegExp.
+ * Handles patterns like "@onekeyhq/*" or "lodash".
+ */
+function globToRegExp(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(`^${escaped}$`);
+}
+
+/**
  * Check whether a package name matches any pattern in the allowlist.
- * Supports exact match and glob patterns (via picomatch).
+ * Supports exact match and simple glob patterns (e.g. "@scope/*").
  */
 export function matchesAllowlist(name: string, allowlist: string[]): boolean {
   if (allowlist.length === 0) {
     return false;
   }
-  return picomatch.isMatch(name, allowlist);
+  return allowlist.some((pattern) => globToRegExp(pattern).test(name));
 }
 
 /**
