@@ -99,7 +99,10 @@ import type {
   IVerifyRegisterSignMessageParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
-import { EApproveType } from '@onekeyhq/shared/types/staking';
+import {
+  EApproveType,
+  EStakeProtocolGroupEnum,
+} from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -865,7 +868,9 @@ class ServiceStaking extends ServiceBase {
         type,
         accountAddress,
       });
-      const protocols = protocolListResp.data.data.protocols;
+      const protocols = protocolListResp.data.data.protocols.filter((item) => {
+        return item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly;
+      });
       return protocols;
     },
     {
