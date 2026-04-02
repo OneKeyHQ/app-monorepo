@@ -55,6 +55,7 @@ import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBu
 import {
   calculateIsAmountValid,
   calculateTotalAmounts,
+  checkSenderInsufficientBalance,
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
   validateRangeInput,
@@ -930,16 +931,9 @@ function BulkSendAmountsInputContent({
       const modeIsInsufficient = isOneToMany
         ? new BigNumber(modeTotalToken).gt(tokenDetails.balanceParsed)
         : !isMaxMode &&
-          modeData.transfersInfo.some((transfer) => {
-            const balance = senderBalances[transfer.from];
-            if (
-              balance === undefined ||
-              !transfer.amount ||
-              transfer.amount === ''
-            ) {
-              return false;
-            }
-            return new BigNumber(transfer.amount).gt(balance);
+          checkSenderInsufficientBalance({
+            transfersInfo: modeData.transfersInfo,
+            senderBalances,
           });
 
       if (
@@ -1307,6 +1301,7 @@ function BulkSendAmountsInputContent({
   );
 
   // Per-sender balance validation for ManyToOne/ManyToMany
+  // Aggregates amounts for duplicate senders before comparing to balance
   useEffect(() => {
     if (bulkSendMode === EBulkSendMode.OneToMany) return;
     if (isMaxMode) {
@@ -1315,19 +1310,9 @@ function BulkSendAmountsInputContent({
     }
     if (Object.keys(senderBalances).length === 0) return;
 
-    let anyInsufficient = false;
-
-    for (const transfer of transfersInfo) {
-      const balance = senderBalances[transfer.from];
-      if (balance !== undefined && transfer.amount && transfer.amount !== '') {
-        if (new BigNumber(transfer.amount).gt(balance)) {
-          anyInsufficient = true;
-          break;
-        }
-      }
-    }
-
-    setIsInsufficientBalance(anyInsufficient);
+    setIsInsufficientBalance(
+      checkSenderInsufficientBalance({ transfersInfo, senderBalances }),
+    );
   }, [bulkSendMode, isMaxMode, senderBalances, transfersInfo]);
 
   useEffect(() => {

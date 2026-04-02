@@ -836,6 +836,23 @@ function TransferInfoListSection() {
 
   const isCustomMode = amountInputMode === EAmountInputMode.Custom;
 
+  // Pre-compute aggregated amount per sender for balance color check
+  const aggregatedSenderAmounts = useMemo(() => {
+    if (isOneToMany) return new Map<string, BigNumber>();
+    const map = new Map<string, BigNumber>();
+    for (const transfer of transfersInfo) {
+      const amount = isMaxMode
+        ? senderBalances[transfer.from]
+        : transfer.amount;
+      if (!amount || amount === '') continue;
+      const bn = new BigNumber(amount);
+      if (bn.isNaN()) continue;
+      const existing = map.get(transfer.from);
+      map.set(transfer.from, existing ? existing.plus(bn) : bn);
+    }
+    return map;
+  }, [isOneToMany, isMaxMode, transfersInfo, senderBalances]);
+
   if (transfersInfo.length === 0) {
     return null;
   }
@@ -974,15 +991,18 @@ function TransferInfoListSection() {
                         </XStack>
                       );
                     }
+                    const senderBalance = senderBalances[transfer.from];
+                    const aggregatedAmount =
+                      aggregatedSenderAmounts.get(transfer.from);
+                    const isBalanceInsufficient =
+                      senderBalance !== undefined &&
+                      aggregatedAmount !== undefined &&
+                      aggregatedAmount.gt(senderBalance);
                     return (
                       <NumberSizeableText
                         size="$bodySm"
                         color={
-                          senderBalances[transfer.from] &&
-                          displayAmount &&
-                          new BigNumber(displayAmount).gt(
-                            senderBalances[transfer.from],
-                          )
+                          isBalanceInsufficient
                             ? '$textCritical'
                             : '$textSubdued'
                         }
@@ -991,7 +1011,7 @@ function TransferInfoListSection() {
                           tokenSymbol: tokenInfo?.symbol,
                         }}
                       >
-                        {senderBalances[transfer.from] ?? '-'}
+                        {senderBalance ?? '-'}
                       </NumberSizeableText>
                     );
                   })()}
