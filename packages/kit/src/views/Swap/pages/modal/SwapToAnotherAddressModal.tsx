@@ -69,13 +69,12 @@ const SwapToAnotherAddressPage = () => {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
-  // Only prefill when explicitly passed via route params (e.g. editing existing custom address)
-  // Don't prefill with user's own address — empty field means "send to self"
+  // Only prefill when editing an existing custom address (not user's own address)
   useEffect(() => {
-    if (paramAddress) {
+    if (paramAddress && paramAddress !== accountInfo?.account?.address) {
       form.setValue('address', { raw: paramAddress });
     }
-  }, [paramAddress, form]);
+  }, [paramAddress, accountInfo?.account?.address, form]);
 
   const toAddressRaw = form.watch('address')?.raw ?? '';
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
