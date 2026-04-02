@@ -23,6 +23,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -40,7 +41,6 @@ import {
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { SWAP_INCOGNITO_HELP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -110,15 +110,18 @@ function SwapIncognitoDialogContent({
 }) {
   const intl = useIntl();
   const [checked, setChecked] = useState<ICheckedState>(false);
+  const incognitoHelpLink = useHelpLink({
+    path: 'articles/14430164',
+  });
 
   const description = useMemo(
     () =>
       `${intl.formatMessage({
         id: ETranslations.trade_incognito_description,
-      })} <url>${SWAP_INCOGNITO_HELP_URL}<underline>${intl.formatMessage({
+      })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
         id: ETranslations.trade_incognito_read_more,
       })}</underline></url>`,
-    [intl],
+    [incognitoHelpLink, intl],
   );
 
   return (
