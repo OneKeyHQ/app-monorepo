@@ -173,6 +173,10 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
       // V1 consumers iterate flat string→string entries and skip non-string
       // values, so nested objects don't interfere with v1 file-hash lookups.
       metadata.runtimeGraphVersion = 2;
+      metadata.commonEntry = {
+        file: 'common.jsbundle.hbc',
+        sha256: metadata['common.jsbundle.hbc'] || '',
+      };
       metadata.mainEntry = {
         file: 'main.jsbundle.hbc',
         sha256: metadata['main.jsbundle.hbc'] || '',
@@ -540,6 +544,8 @@ const runUnionBuild = ({
   platform,
   mainBundleOutput,
   mainSourceMapOutput,
+  commonBundleOutput,
+  commonSourceMapOutput,
   backgroundBundleOutput,
   backgroundSourceMapOutput,
   assetsDest,
@@ -549,7 +555,7 @@ const runUnionBuild = ({
     `${nodeExecutablePath} ${path.join(
       mobileDirPath,
       'scripts/unionBuild.js',
-    )} --platform ${platform} --main-bundle-output ${mainBundleOutput} --main-sourcemap-output ${mainSourceMapOutput} --background-bundle-output ${backgroundBundleOutput} --background-sourcemap-output ${backgroundSourceMapOutput} --assets-dest ${assetsDest}`,
+    )} --platform ${platform} --main-bundle-output ${mainBundleOutput} --main-sourcemap-output ${mainSourceMapOutput} --common-bundle-output ${commonBundleOutput} --common-sourcemap-output ${commonSourceMapOutput} --background-bundle-output ${backgroundBundleOutput} --background-sourcemap-output ${backgroundSourceMapOutput} --assets-dest ${assetsDest}`,
     {
       stdio: 'inherit',
       env: {
@@ -574,6 +580,8 @@ const buildIOSBundle = async () => {
       platform: 'ios',
       mainBundleOutput: buildIOSOutputAssetPath('main.jsbundle'),
       mainSourceMapOutput: buildIOSOutputAssetPath('main.jsbundle.map'),
+      commonBundleOutput: buildIOSOutputAssetPath('common.jsbundle'),
+      commonSourceMapOutput: buildIOSOutputAssetPath('common.jsbundle.map'),
       backgroundBundleOutput: buildIOSOutputAssetPath('background.bundle.js'),
       backgroundSourceMapOutput: buildIOSOutputAssetPath(
         'background.bundle.packager.map',
@@ -672,6 +680,49 @@ const buildIOSBundle = async () => {
     log('build ios bundle upload source maps done');
   }
 
+  // --- Common bundle hermesc compilation (union build only) ---
+  if (useUnionBuild) {
+    const commonBundleJsPath = buildIOSOutputAssetPath('common.jsbundle');
+    const commonBundleHbcPath = buildIOSOutputAssetPath('common.jsbundle.hbc');
+    const commonBundlePackagerMapPath = buildIOSOutputAssetPath(
+      'common.jsbundle.packager.map',
+    );
+    const commonBundleMapPath = buildIOSOutputAssetPath('common.jsbundle.map');
+
+    log('build ios common bundle compress to hbc');
+    execSync(
+      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${commonBundleHbcPath} ${commonBundleJsPath}`,
+      { stdio: 'inherit' },
+    );
+    log('build ios common bundle compress to hbc done');
+
+    // The union build writes the source map directly to common.jsbundle.map;
+    // rename it to .packager.map so we can compose with the hermesc map.
+    fs.moveSync(commonBundleMapPath, commonBundlePackagerMapPath);
+
+    composeSourceMaps({
+      packagerMapPath: commonBundlePackagerMapPath,
+      hermesMapPath: `${commonBundleHbcPath}.map`,
+      outputPath: commonBundleMapPath,
+      label: 'build ios common bundle',
+    });
+    copyDebugIdToSourceMap({
+      packagerMapPath: commonBundlePackagerMapPath,
+      sourceMapPath: commonBundleMapPath,
+      label: 'build ios common bundle',
+    });
+
+    uploadSourceMapsToSentry({
+      bundlePath: commonBundleHbcPath,
+      sourceMapPath: commonBundleMapPath,
+      label: 'build ios common bundle',
+    });
+
+    fs.rmSync(commonBundleJsPath, { force: true });
+    fs.rmSync(commonBundlePackagerMapPath, { force: true });
+    fs.rmSync(`${commonBundleHbcPath}.map`, { force: true });
+  }
+
   if (!useUnionBuild) {
     await buildBackgroundBundle({
       platform: 'ios',
@@ -756,6 +807,11 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('main.jsbundle.hbc'),
     buildIOSOutputAssetPath('dist/main.jsbundle.hbc'),
   );
+  // Move common bundle into dist if it exists (union build)
+  const iosCommonBundleHbc = buildIOSOutputAssetPath('common.jsbundle.hbc');
+  if (fs.existsSync(iosCommonBundleHbc)) {
+    fs.moveSync(iosCommonBundleHbc, buildIOSOutputAssetPath('dist/common.jsbundle.hbc'));
+  }
   fs.moveSync(
     buildIOSOutputAssetPath('background.bundle'),
     buildIOSOutputAssetPath('dist/background.bundle'),
@@ -812,6 +868,8 @@ const buildAndroidBundle = async () => {
       platform: 'android',
       mainBundleOutput: buildAndroidOutputAssetPath('main.jsbundle'),
       mainSourceMapOutput: buildAndroidOutputAssetPath('main.jsbundle.map'),
+      commonBundleOutput: buildAndroidOutputAssetPath('common.jsbundle'),
+      commonSourceMapOutput: buildAndroidOutputAssetPath('common.jsbundle.map'),
       backgroundBundleOutput: buildAndroidOutputAssetPath(
         'background.bundle.js',
       ),
@@ -901,6 +959,53 @@ const buildAndroidBundle = async () => {
     log('build android bundle upload source maps done');
   }
 
+  // --- Common bundle hermesc compilation (union build only) ---
+  if (useUnionBuild) {
+    const commonBundleJsPath = buildAndroidOutputAssetPath('common.jsbundle');
+    const commonBundleHbcPath = buildAndroidOutputAssetPath(
+      'common.jsbundle.hbc',
+    );
+    const commonBundlePackagerMapPath = buildAndroidOutputAssetPath(
+      'common.jsbundle.packager.map',
+    );
+    const commonBundleMapPath = buildAndroidOutputAssetPath(
+      'common.jsbundle.map',
+    );
+
+    log('build android common bundle compress to hbc');
+    execSync(
+      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${commonBundleHbcPath} ${commonBundleJsPath}`,
+      { stdio: 'inherit' },
+    );
+    log('build android common bundle compress to hbc done');
+
+    // The union build writes the source map directly to common.jsbundle.map;
+    // rename it to .packager.map so we can compose with the hermesc map.
+    fs.moveSync(commonBundleMapPath, commonBundlePackagerMapPath);
+
+    composeSourceMaps({
+      packagerMapPath: commonBundlePackagerMapPath,
+      hermesMapPath: `${commonBundleHbcPath}.map`,
+      outputPath: commonBundleMapPath,
+      label: 'build android common bundle',
+    });
+    copyDebugIdToSourceMap({
+      packagerMapPath: commonBundlePackagerMapPath,
+      sourceMapPath: commonBundleMapPath,
+      label: 'build android common bundle',
+    });
+
+    uploadSourceMapsToSentry({
+      bundlePath: commonBundleHbcPath,
+      sourceMapPath: commonBundleMapPath,
+      label: 'build android common bundle',
+    });
+
+    fs.rmSync(commonBundleJsPath, { force: true });
+    fs.rmSync(commonBundlePackagerMapPath, { force: true });
+    fs.rmSync(`${commonBundleHbcPath}.map`, { force: true });
+  }
+
   if (!useUnionBuild) {
     await buildBackgroundBundle({
       platform: 'android',
@@ -986,6 +1091,16 @@ const buildAndroidBundle = async () => {
     buildAndroidOutputAssetPath('main.jsbundle.hbc'),
     buildAndroidOutputAssetPath('dist/main.jsbundle.hbc'),
   );
+  // Move common bundle into dist if it exists (union build)
+  const androidCommonBundleHbc = buildAndroidOutputAssetPath(
+    'common.jsbundle.hbc',
+  );
+  if (fs.existsSync(androidCommonBundleHbc)) {
+    fs.moveSync(
+      androidCommonBundleHbc,
+      buildAndroidOutputAssetPath('dist/common.jsbundle.hbc'),
+    );
+  }
   fs.moveSync(
     buildAndroidOutputAssetPath('background.bundle'),
     buildAndroidOutputAssetPath('dist/background.bundle'),
