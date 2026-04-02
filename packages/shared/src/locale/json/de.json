@@ -1156,7 +1156,7 @@
   "explore.see_all": "Alle anzeigen",
   "explore.set_default": "OneKey als Standard-Wallet festlegen",
   "explore.set_default_wallet": "Setzen Sie OneKey als Standard-Wallet",
-  "explore.set_default_wallet_description": "Verwenden Sie OneKey als Standard-Wallet, um sich mit dApps zu verbinden.",
+  "explore.set_default_wallet_description": "Verwenden Sie OneKey als die Standard-Wallet für dApp-Verbindungen. <strong>Nachdem Sie diese Einstellung geändert haben, aktualisieren Sie die dApp-Seite, damit sie wirksam wird</strong>.",
   "explore.share": "Teilen",
   "explore.suggested": "Vorgeschlagen",
   "explore.tab_prompt": "Sie können diese Registerkarte berühren und halten, um sie für den schnellen Zugriff anzupinnen.",
