@@ -31,6 +31,12 @@ export function getSegmentManifest(): SegmentManifest {
     return cachedManifest;
   }
   cachedManifest = manifest;
+
+  // Log manifest summary on first access for split-bundle diagnostics
+  const segCount = Object.keys(manifest.segments).length;
+  // eslint-disable-next-line no-console
+  console.log(`[SplitBundle] manifest loaded: ${segCount} segments`);
+
   return cachedManifest;
 }
 

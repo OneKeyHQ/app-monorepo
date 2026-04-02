@@ -1,5 +1,8 @@
 /* eslint-disable import-js/order, @typescript-eslint/no-require-imports */
 
+// Track JS entry execution start time
+(globalThis as any).__ONEKEY_MAIN_ENTRY_START__ = Date.now();
+
 type IExpoModule = typeof import('expo');
 type IReactNativeDeviceUtilsModule =
   typeof import('@onekeyfe/react-native-device-utils');
@@ -63,3 +66,8 @@ if (typeof globalThis.nativePerformanceNow === 'function') {
   }
 }
 registerRootComponent(App);
+
+const entryElapsed =
+  Date.now() - ((globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now());
+// eslint-disable-next-line no-console
+console.log(`[SplitBundle] main entry JS executed in ${entryElapsed}ms`);

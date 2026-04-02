@@ -38,6 +38,17 @@ const globalLoading = new Set<string>();
 let nativeLoader: ISplitBundleNativeLoader | null = null;
 
 // ---------------------------------------------------------------------------
+// Segment load stats (timing aggregation)
+// ---------------------------------------------------------------------------
+
+const segmentStats = {
+  totalLoaded: 0,
+  totalBytes: 0,
+  totalTimeMs: 0,
+  failures: 0,
+};
+
+// ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
 
@@ -132,6 +143,11 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       });
       const durationMs = Date.now() - startMs;
 
+      segmentStats.totalLoaded += 1;
+      segmentStats.totalTimeMs += durationMs;
+      // eslint-disable-next-line no-console
+      console.log(`[SplitBundle] segment ${segmentKey} loaded in ${durationMs}ms`);
+
       defaultLogger.app.bootstrap.initDeferredStep(
         `segment:${segmentKey}`,
         durationMs,
@@ -156,6 +172,7 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
             segmentKey,
             error instanceof Error ? error.message : String(error),
           );
+    segmentStats.failures += 1;
     segmentStates.set(segmentKey, 'failed');
     failedSegments.set(segmentKey, segError);
     throw segError;
@@ -204,6 +221,13 @@ export function getSegmentState(segmentKey: string): SegmentLoadState {
  */
 export function isSegmentLoaded(segmentKey: string): boolean {
   return loadedSegments.has(segmentKey);
+}
+
+/**
+ * Returns aggregated segment load statistics for diagnostics.
+ */
+export function getSegmentLoadStats() {
+  return { ...segmentStats };
 }
 
 // ---------------------------------------------------------------------------

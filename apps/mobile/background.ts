@@ -1,5 +1,8 @@
 /* eslint-disable import-js/order, @typescript-eslint/no-require-imports */
 
+// Track JS background entry execution start time
+(globalThis as any).__ONEKEY_BG_ENTRY_START__ = Date.now();
+
 (
   globalThis as typeof globalThis & {
     __ONEKEY_RUNTIME_KIND__?: 'main' | 'background';
@@ -50,3 +53,8 @@ setBackgroundThreadRequestExecutor(async (request) => {
 const BackgroundThreadRoot = () => null;
 
 AppRegistry.registerComponent('background', () => BackgroundThreadRoot);
+
+const entryElapsed =
+  Date.now() - ((globalThis as any).__ONEKEY_BG_ENTRY_START__ || Date.now());
+// eslint-disable-next-line no-console
+console.log(`[SplitBundle] background entry JS executed in ${entryElapsed}ms`);

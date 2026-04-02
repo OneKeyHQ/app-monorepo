@@ -324,6 +324,13 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
     let fallbackURL = Bundle.main.url(forResource: "common", withExtension: "jsbundle")
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback common.jsbundle=\(fallbackURL?.absoluteString ?? "nil")")
+
+    // Log resolved bundle file size for split-bundle diagnostics
+    if let resolvedURL = fallbackURL {
+      let fileSize = (try? FileManager.default.attributesOfItem(atPath: resolvedURL.path)[.size] as? Int) ?? 0
+      NitroModuleBridge.logInfo("SplitBundle", "bundleURL: \(resolvedURL.lastPathComponent) (\(fileSize / 1024)KB)")
+    }
+
     return fallbackURL
 #endif
   }
@@ -360,11 +367,14 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #if !DEBUG
     // In release mode, the initial bundle is common.jsbundle (shared modules only).
     // Load the main entry bundle now so the app's entry point is executed.
+    let entryLoadStart = CFAbsoluteTimeGetCurrent()
     if let entryPath = resolveMainEntryBundlePath() {
-      NitroModuleBridge.logInfo("BundleUpdate", "hostDidStart: loading main entry bundle at \(entryPath)")
+      NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: loading main entry bundle at \(entryPath)")
       SplitBundleLoader.loadEntryBundle(entryPath, inHost: host)
+      let elapsed = (CFAbsoluteTimeGetCurrent() - entryLoadStart) * 1000
+      NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: main entry loaded in \(String(format: "%.1f", elapsed))ms")
     } else {
-      NitroModuleBridge.logInfo("BundleUpdate", "hostDidStart: no main entry bundle to load (split-bundle disabled or missing)")
+      NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: no main entry bundle found")
     }
 #endif
 
