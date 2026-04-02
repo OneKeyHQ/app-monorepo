@@ -51,11 +51,11 @@ const SwapToAnotherAddressPage = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
     >();
   const paramAddress = route.params?.address;
-  const { accountInfo, address, activeAccount, networkId } = useSwapAddressInfo(
+  const { accountInfo, address: _address, activeAccount, networkId } = useSwapAddressInfo(
     ESwapDirectionType.TO,
   );
 
-  const [, setSettings] = useSettingsAtom();
+  const [{ swapToAnotherAccountSwitchOn }, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const [selectedQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapManualSelectQuote] = useSwapManualSelectQuoteProvidersAtom();
@@ -69,12 +69,14 @@ const SwapToAnotherAddressPage = () => {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
-  // Only prefill when editing an existing custom address (not user's own address)
+  // Only prefill when editing an existing custom address.
+  // When swapToAnotherAccountSwitchOn is true and paramAddress differs from
+  // the user's own address, the user previously set a custom address — prefill it.
   useEffect(() => {
-    if (paramAddress && paramAddress !== accountInfo?.account?.address) {
+    if (paramAddress && swapToAnotherAccountSwitchOn) {
       form.setValue('address', { raw: paramAddress });
     }
-  }, [paramAddress, accountInfo?.account?.address, form]);
+  }, [paramAddress, swapToAnotherAccountSwitchOn, form]);
 
   const toAddressRaw = form.watch('address')?.raw ?? '';
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
