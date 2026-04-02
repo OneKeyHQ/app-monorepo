@@ -1156,7 +1156,7 @@
   "explore.see_all": "모두 보기",
   "explore.set_default": "OneKey을 기본 지갑으로 설정",
   "explore.set_default_wallet": "OneKey을 기본 지갑으로 설정하십시오",
-  "explore.set_default_wallet_description": "OneKey을 기본 지갑으로 사용하여 dApps에 연결하세요.",
+  "explore.set_default_wallet_description": "OneKey를 dApp 연결을 위한 기본 지갑으로 사용하세요. <strong>이 설정을 변경한 후, dApp 페이지를 새로 고쳐야 적용됩니다</strong>.",
   "explore.share": "공유",
   "explore.suggested": "추천",
   "explore.tab_prompt": "이 탭을 빠르게 접근하기 위해 터치하고 누르고 있으면 고정할 수 있습니다.",
