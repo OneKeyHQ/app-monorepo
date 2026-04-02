@@ -135,7 +135,7 @@ const SwapToAnotherAddressPage = () => {
         })}
         headerRight={renderAddressSecurityHeaderRightButton}
       />
-      <Page.Body px="$5" gap="$2">
+      <Page.Body px="$5" gap="$1">
         <Form form={form}>
           <AddressInputField
             name="address"
