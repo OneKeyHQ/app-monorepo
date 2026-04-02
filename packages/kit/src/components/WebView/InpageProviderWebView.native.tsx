@@ -74,6 +74,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       allowsBackForwardNavigationGestures,
       allowFileAccessFromFileURLs,
       allowFileAccess,
+      mediaCapturePermissionGrantType,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -223,6 +224,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           // *** Note that static HTML will require setting originWhitelist to ["*"].
           originWhitelist={['*']}
           mediaPermissionWhitelist={mediaPermissionWhitelist}
+          mediaCapturePermissionGrantType={mediaCapturePermissionGrantType}
           userAgent={isDesktopMode ? desktopUserAgent : undefined}
           // https://github.com/react-native-webview/react-native-webview/issues/1779
           onMessage={onMessage || defaultOnMessage}

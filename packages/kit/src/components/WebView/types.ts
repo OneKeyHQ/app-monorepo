@@ -88,6 +88,15 @@ export interface IInpageProviderWebViewProps
    * @description Whitelisted origins that may request camera or microphone access.
    */
   mediaPermissionWhitelist?: string[];
+  /** @platform ios
+   * @description Controls how the WebView handles media capture permission requests.
+   */
+  mediaCapturePermissionGrantType?:
+    | 'prompt'
+    | 'grant'
+    | 'deny'
+    | 'grantIfSameHostElsePrompt'
+    | 'grantIfSameHostElseDeny';
 }
 
 export type IWebViewRef = {
