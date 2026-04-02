@@ -1156,7 +1156,7 @@
   "explore.see_all": "すべて見る",
   "explore.set_default": "OneKeyをデフォルトのウォレットに設定",
   "explore.set_default_wallet": "OneKeyをデフォルトのウォレットに設定",
-  "explore.set_default_wallet_description": "OneKeyをデフォルトのウォレットとしてdAppsに接続します。",
+  "explore.set_default_wallet_description": "DApp接続のデフォルトウォレットとしてOneKeyを使用してください。<strong>この設定を変更した後、dAppページを更新して効果を発揮させてください</strong>。",
   "explore.share": "共有",
   "explore.suggested": "提案された",
   "explore.tab_prompt": "このタブをタッチして長押しすると、素早くアクセスするためにピン留めできます。",
