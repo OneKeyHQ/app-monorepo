@@ -10,8 +10,8 @@ import {
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountStatusAtom,
-  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -25,7 +25,7 @@ import { TradingButtonGroup } from './TradingButtonGroup';
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
@@ -84,7 +84,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
         leverageBN.isFinite() && leverageBN.gt(0)
           ? leverageBN
           : new BigNumber(1);
-      const withdrawableBN = new BigNumber(accountSummary?.withdrawable || 0);
+      const withdrawableBN = new BigNumber(computedValue?.withdrawable || 0);
       const requiredMargin = tradingComputed.computedSizeBN
         .multipliedBy(effectivePriceBN)
         .dividedBy(safeLeverage);
@@ -93,7 +93,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     }
     return tradingComputed.computedSizeBN.gt(maxTradeSz);
   }, [
-    accountSummary?.withdrawable,
+    computedValue?.withdrawable,
     tradingComputed.computedSizeBN,
     maxTradeSz,
     formData.type,
