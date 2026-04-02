@@ -145,6 +145,7 @@ function SegmentControlFrame({
           {...(fullWidth && {
             flexGrow: 1,
             flexShrink: 1,
+            flexBasis: 0,
           })}
           {...segmentControlItemStyleProps}
         />
