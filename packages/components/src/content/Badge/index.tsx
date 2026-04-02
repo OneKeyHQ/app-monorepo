@@ -63,9 +63,7 @@ const BadgeFrame = styled(XStack, {
 const BadgeText = styled(SizableText, {
   name: 'BadgeText',
   allowFontScaling: false,
-  style: {
-    wordBreak: 'break-all',
-  },
+  numberOfLines: 1,
   context: BadgeContext,
   variants: {
     badgeSize: {
