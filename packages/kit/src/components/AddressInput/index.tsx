@@ -805,9 +805,8 @@ export function AddressInput(props: IAddressInputProps) {
         }
         placeholder={placeholder ?? getAddressInputPlaceholder}
         extension={AddressInputExtension}
-        // Use minHeight for initial size, omit numberOfLines so TextArea
-        // auto-expands with content (e.g. long Lightning addresses/LNURL)
-        minHeight={screenWidth <= 768 ? 64 : 48}
+        numberOfLines={screenWidth <= 768 ? 3 : 2}
+        {...(screenWidth <= 768 && { minHeight: 64 })}
         {...rest}
       />
       <AddressInputWarnings queryResult={queryResult} networkId={networkId} />

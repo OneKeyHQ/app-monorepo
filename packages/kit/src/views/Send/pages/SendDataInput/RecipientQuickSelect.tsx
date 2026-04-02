@@ -98,16 +98,18 @@ const QuickSelectListItem = memo(
         onPress={onPress}
         testID={`recipient-item-${item.address}`}
         primary={
-          <XStack gap="$2" alignItems="center">
+          <XStack gap="$2" alignItems="center" flexWrap="nowrap">
             <MatchSizeableText
               size="$bodyLgMedium"
               numberOfLines={1}
               flexShrink={1}
+              flexGrow={1}
+              flexBasis={0}
             >
               {displayName}
             </MatchSizeableText>
             {item.deriveLabel ? (
-              <Badge badgeSize="sm" badgeType="default">
+              <Badge badgeSize="sm" badgeType="default" flexShrink={0}>
                 {item.deriveLabel}
               </Badge>
             ) : null}

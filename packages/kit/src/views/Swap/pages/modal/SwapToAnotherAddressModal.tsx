@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -82,13 +81,6 @@ const SwapToAnotherAddressPage = () => {
     }
   }, [paramAddress, form]);
 
-  const handleOnOpenAccountSelector = useCallback(() => {
-    setSettings((v) => ({
-      ...v,
-      swapToAnotherAccountSwitchOn: true,
-    }));
-  }, [setSettings]);
-
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
     (data) => {
       const finallyAddress = data.address.resolved;
@@ -125,14 +117,6 @@ const SwapToAnotherAddressPage = () => {
     setSwapToAddress((v) => ({ ...v, address: undefined }));
   }, [setSwapToAddress, setSettings]);
 
-  const accountSelector = useMemo(
-    () => ({
-      num: 1,
-      onBeforeAccountSelectorOpen: handleOnOpenAccountSelector,
-    }),
-    [handleOnOpenAccountSelector],
-  );
-
   return accountInfo && networkId ? (
     <Page scrollEnabled>
       <Page.Header
@@ -146,14 +130,13 @@ const SwapToAnotherAddressPage = () => {
           <AddressInputField
             name="address"
             networkId={networkId}
+            actionsLayout="recipient"
             enableAddressBook
             enableWalletName
-            // enableVerifySendFundToSelf
             enableAddressInteractionStatus
             enableAddressContract
             enableAllowListValidation
             accountId={accountInfo?.account?.id}
-            {...(!platformEnv.isWeb ? { contacts: true, accountSelector } : {})}
           />
         </Form>
         <Stack gap="$4">
