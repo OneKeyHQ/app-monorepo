@@ -297,6 +297,7 @@ const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 
 module.exports = {
+  root: true,
   plugins: [
     'import-path',
     'use-effect-no-deps',

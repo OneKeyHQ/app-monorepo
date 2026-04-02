@@ -2126,12 +2126,14 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async prepareCloudSync(): Promise<{
-    success: boolean;
-    isServerMasterPasswordSet?: boolean;
-    encryptedSecurityPasswordR1ForServer?: string;
-    serverDiffItems?: ICloudSyncServerDiffItem[];
-  }> {
+  async ensureOneKeyIdCloudSyncAvailableForManualSync() {
+    await this.ensureOneKeyIdCloudSyncPreparePrerequisites();
+    await this.ensureCloudSyncIsAvailable({
+      callerName: 'Manual Cloud Sync OneKey ID',
+    });
+  }
+
+  async ensureOneKeyIdCloudSyncPreparePrerequisites() {
     if (systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
       throw new OneKeyError(
         appLocale.intl.formatMessage({
@@ -2144,11 +2146,24 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!isPrimeLoggedIn) {
       throw new OneKeyError('Prime is not logged in');
     }
+
     const isPrimeSubscriptionActive =
       await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
     if (!isPrimeSubscriptionActive) {
       throw new OneKeyErrorPrimePaidMembershipRequired();
     }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async prepareCloudSync(): Promise<{
+    success: boolean;
+    isServerMasterPasswordSet?: boolean;
+    encryptedSecurityPasswordR1ForServer?: string;
+    serverDiffItems?: ICloudSyncServerDiffItem[];
+  }> {
+    await this.ensureOneKeyIdCloudSyncPreparePrerequisites();
+
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify({
         reason: ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD

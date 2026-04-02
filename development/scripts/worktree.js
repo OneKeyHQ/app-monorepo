@@ -149,9 +149,13 @@ function validateBranchName(branchName) {
 
 function branchExists(branchName) {
   try {
-    execFileSync('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], {
-      stdio: 'pipe',
-    });
+    execFileSync(
+      'git',
+      ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`],
+      {
+        stdio: 'pipe',
+      },
+    );
     return true;
   } catch (_error) {
     return false;
@@ -198,7 +202,9 @@ function getAvailableRandomWorktreeTarget(worktreeDir) {
     };
   }
 
-  console.error(`\n❌ Failed to generate a unique random worktree name after ${maxAttempts} attempts`);
+  console.error(
+    `\n❌ Failed to generate a unique random worktree name after ${maxAttempts} attempts`,
+  );
   process.exit(1);
 }
 
@@ -329,13 +335,21 @@ exec ${quoteForShell(shellPath)} -i
 `;
 
   const scriptRunnerShell = getScriptRunnerShell();
-  execFileSync(scriptRunnerShell, getScriptRunnerArgs(scriptRunnerShell, shellScript), {
-    cwd: worktreePath,
-    stdio: 'inherit',
-  });
+  execFileSync(
+    scriptRunnerShell,
+    getScriptRunnerArgs(scriptRunnerShell, shellScript),
+    {
+      cwd: worktreePath,
+      stdio: 'inherit',
+    },
+  );
 }
 
-function createWorktreeAndRunCommand({ commandArgs, commandToRun, customName }) {
+function createWorktreeAndRunCommand({
+  commandArgs,
+  commandToRun,
+  customName,
+}) {
   const repoRoot = getRepoRoot();
   const currentTopLevelPath = getCurrentTopLevelPath();
   const currentBranch = getCurrentBranch();
@@ -343,17 +357,19 @@ function createWorktreeAndRunCommand({ commandArgs, commandToRun, customName }) 
   const currentWorktreeName = customName
     ? null
     : getCurrentWorktreeName(repoRoot, currentTopLevelPath);
-  const derivedTarget = customName || !currentWorktreeName
-    ? null
-    : getDerivedWorktreeTarget(worktreeDir, currentWorktreeName);
-  const randomTarget = customName
-    || currentWorktreeName
-    ? null
-    : getAvailableRandomWorktreeTarget(worktreeDir);
+  const derivedTarget =
+    customName || !currentWorktreeName
+      ? null
+      : getDerivedWorktreeTarget(worktreeDir, currentWorktreeName);
+  const randomTarget =
+    customName || currentWorktreeName
+      ? null
+      : getAvailableRandomWorktreeTarget(worktreeDir);
   const city = customName || currentWorktreeName ? null : randomTarget.city;
   const date = customName || currentWorktreeName ? null : randomTarget.date;
   const time = customName || !currentWorktreeName ? null : derivedTarget.time;
-  const branchName = customName || derivedTarget?.branchName || randomTarget.branchName;
+  const branchName =
+    customName || derivedTarget?.branchName || randomTarget.branchName;
   const worktreePath = customName
     ? resolveWorktreePath(worktreeDir, branchName)
     : derivedTarget?.worktreePath || randomTarget.worktreePath;
@@ -374,7 +390,9 @@ function createWorktreeAndRunCommand({ commandArgs, commandToRun, customName }) 
   console.log(`📂 Worktree path: ${worktreePath}`);
   console.log(`📝 Command: ${commandToRun}\n`);
   if (stayInWorktreeShell) {
-    console.log('🐚 This command keeps you in the new worktree shell after it exits\n');
+    console.log(
+      '🐚 This command keeps you in the new worktree shell after it exits\n',
+    );
   }
 
   try {

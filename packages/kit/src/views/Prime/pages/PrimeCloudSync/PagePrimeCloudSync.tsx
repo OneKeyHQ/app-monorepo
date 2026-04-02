@@ -14,7 +14,7 @@ import {
   SizableText,
   Stack,
   Switch,
-  popModalPages,
+  resetToRoute,
   startViewTransition,
   useMedia,
 } from '@onekeyhq/components';
@@ -27,7 +27,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
-import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -297,7 +296,7 @@ function AppDataSection() {
   // --- Handlers ---
 
   // Navigate to KW creation flow (Scenario 1)
-  const handleCreateKeylessWallet = useCallback(async () => {
+  const handleCreateKeylessWallet = useCallback(() => {
     const onboardingParams = {
       screen: EOnboardingV2Routes.OnboardingV2,
       params: {
@@ -309,11 +308,14 @@ function AppDataSection() {
     } as const;
 
     if (platformEnv.isNative) {
-      await popModalPages();
-      appGlobals.$rootAppNavigation?.push(
-        ERootRoutes.Onboarding,
-        onboardingParams,
-      );
+      // Previous logic:
+      // await popModalPages();
+      // appGlobals.$rootAppNavigation?.push(
+      //   ERootRoutes.Onboarding,
+      //   onboardingParams,
+      // );
+      //
+      resetToRoute(ERootRoutes.Onboarding, onboardingParams);
       return;
     }
 
@@ -446,31 +448,35 @@ function AppDataSection() {
     if (manualSyncingRef.current) return;
     manualSyncingRef.current = true;
     try {
+      await backgroundApiProxy.servicePrimeCloudSync.ensureOneKeyIdCloudSyncAvailableForManualSync();
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
       await backgroundApiProxy.serviceApp.showDialogLoading({
         title: intl.formatMessage({
           id: ETranslations.global_syncing,
         }),
       });
-      await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
-        callerName: 'Manual Cloud Sync OneKey ID',
-        noDebounceUpload: true,
-        forceSync: true,
-      });
-      await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
-        syncMode: ECloudSyncMode.OnekeyId,
+      try {
+        await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
+          callerName: 'Manual Cloud Sync OneKey ID',
+          noDebounceUpload: true,
+          forceSync: true,
+        });
+        await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
+          syncMode: ECloudSyncMode.OnekeyId,
+        });
+      } finally {
+        await timerUtils.wait(1000);
+        await backgroundApiProxy.serviceApp.hideDialogLoading();
+      }
+      void backgroundApiProxy.serviceApp.showToast({
+        method: 'success',
+        title: intl.formatMessage({
+          id: ETranslations.global_sync_successfully,
+        }),
       });
     } finally {
       manualSyncingRef.current = false;
-      await timerUtils.wait(1000);
-      await backgroundApiProxy.serviceApp.hideDialogLoading();
     }
-    void backgroundApiProxy.serviceApp.showToast({
-      method: 'success',
-      title: intl.formatMessage({
-        id: ETranslations.global_sync_successfully,
-      }),
-    });
   }, [config.isCloudSyncEnabled, intl]);
 
   // "Sync now" when KW removed (Scenario 5) — show toast instead of syncing
