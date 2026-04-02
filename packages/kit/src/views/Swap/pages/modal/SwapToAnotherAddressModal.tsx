@@ -154,6 +154,34 @@ const SwapToAnotherAddressPage = () => {
             accountId={accountInfo?.account?.id}
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
+          <Stack gap="$3" mt="$2">
+            <XStack gap="$2" alignItems="flex-start">
+              <Icon
+                name="CheckRadioOutline"
+                size="$4"
+                color="$iconSuccess"
+                mt="$0.5"
+              />
+              <SizableText flex={1} size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_page_recipient_modal_verify,
+                })}
+              </SizableText>
+            </XStack>
+            <XStack gap="$2" alignItems="flex-start">
+              <Icon
+                name="BlockOutline"
+                size="$4"
+                color="$iconCritical"
+                mt="$0.5"
+              />
+              <SizableText flex={1} size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_page_recipient_modal_do_not,
+                })}
+              </SizableText>
+            </XStack>
+          </Stack>
           <RecipientQuickSelect
             accountId={accountInfo?.account?.id ?? ''}
             networkId={networkId}
@@ -164,52 +192,6 @@ const SwapToAnotherAddressPage = () => {
             onSelect={handleQuickSelectRecipient}
           />
         </Form>
-        <Stack gap="$4">
-          <XStack>
-            <Stack
-              $md={{
-                pt: '$0.5',
-              }}
-            >
-              <Icon name="CheckRadioOutline" size="$5" color="$iconSuccess" />
-            </Stack>
-            <SizableText
-              flex={1}
-              pl="$2"
-              size="$bodyLg"
-              color="$textSubdued"
-              $gtMd={{
-                size: '$bodyMd',
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.swap_page_recipient_modal_verify,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack>
-            <Stack
-              $md={{
-                pt: '$0.5',
-              }}
-            >
-              <Icon name="BlockOutline" size="$5" color="$iconCritical" />
-            </Stack>
-            <SizableText
-              flex={1}
-              pl="$2"
-              size="$bodyLg"
-              color="$textSubdued"
-              $gtMd={{
-                size: '$bodyMd',
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.swap_page_recipient_modal_do_not,
-              })}
-            </SizableText>
-          </XStack>
-        </Stack>
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
