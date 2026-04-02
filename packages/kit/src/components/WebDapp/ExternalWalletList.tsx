@@ -52,15 +52,38 @@ type IOneKeyPrivateProvider = {
   }) => Promise<T>;
 };
 
+type IOneKeyEthereumProvider = {
+  request?: <T = unknown>(args: {
+    method: string;
+    params?: readonly unknown[] | Record<string, unknown>;
+  }) => Promise<T>;
+};
+
+type IOneKeyInjectedProvider = {
+  ethereum?: IOneKeyEthereumProvider;
+  $private?: IOneKeyPrivateProvider;
+};
+
+function getOneKeyInjectedProvider() {
+  return (globalThis as { $onekey?: IOneKeyInjectedProvider }).$onekey;
+}
+
+function getOneKeyEthereumProvider() {
+  return getOneKeyInjectedProvider()?.ethereum;
+}
+
 function getOneKeyPrivateProvider() {
-  const provider = (
-    globalThis as {
-      $onekey?: {
-        $private?: IOneKeyPrivateProvider;
-      };
-    }
-  ).$onekey?.$private;
-  return provider;
+  return getOneKeyInjectedProvider()?.$private;
+}
+
+async function hasAuthorizedOneKeyAccounts() {
+  const accounts = await getOneKeyEthereumProvider()
+    ?.request?.<readonly string[]>({
+      method: 'eth_accounts',
+    })
+    .catch(() => undefined);
+
+  return Boolean(accounts?.length);
 }
 
 function notifyOpenKeylessSidePanelInContentScript(
@@ -398,9 +421,13 @@ function KeylessProviderButtons() {
         // Wallet already exists — connect silently without writing hash params.
         const connectionInfo = getOneKeyConnectionInfo();
         if (connectionInfo) {
-          await connectToWalletForKeylessSilently(connectionInfo, {
-            provider,
-          });
+          const hasAuthorizedAccounts = await hasAuthorizedOneKeyAccounts();
+          await connectToWalletForKeylessSilently(
+            connectionInfo,
+            hasAuthorizedAccounts && keylessStatus?.walletExists
+              ? undefined
+              : { provider },
+          );
         } else {
           showInstallOneKeyDialog(provider);
         }
