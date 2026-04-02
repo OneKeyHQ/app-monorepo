@@ -249,9 +249,8 @@ export function selectBestQuote(
     // Manual set but no match — check unSupportReceiveAddressDifferent
     if (!manual.unSupportReceiveAddressDifferent) {
       return (
-        sortedQuotes.find(
-          (item) => !item.unSupportReceiveAddressDifferent,
-        ) ?? sortedQuotes[0]
+        sortedQuotes.find((item) => !item.unSupportReceiveAddressDifferent) ??
+        sortedQuotes[0]
       );
     }
   }
