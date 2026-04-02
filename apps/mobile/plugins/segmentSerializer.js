@@ -111,42 +111,106 @@ module.exports = async function segmentSerializer(
   const { entryReachability } = options;
   const asyncFlag = 'async';
 
-  // Step 1: Categorize modules into main vs async chunks
+  // Step 1: Categorize modules into main vs async chunks.
+  // This runs in a loop because barrel files (index.ts re-exports) create
+  // multi-level indirection: async root → index.ts → RealModule.ts.
+  // A single pass can't resolve grandchildren because the intermediate
+  // barrel hasn't been classified yet when the grandchild is visited.
   const mainModuleIds = new Set();
   const asyncRoots = new Map(); // moduleId → absolutePath
+  // Track sync children/grandchildren of async roots so findAsyncParent
+  // can resolve multi-level barrel re-exports transitively.
+  const asyncDescendants = new Map(); // moduleId → rootModuleId
 
   const findAsyncParent = (fatherId) => {
-    for (const [rootId] of asyncRoots) {
-      if (rootId === fatherId) return rootId;
-    }
+    if (asyncRoots.has(fatherId)) return fatherId;
+    if (asyncDescendants.has(fatherId)) return asyncDescendants.get(fatherId);
     return null;
   };
 
-  for (const [key, value] of graph.dependencies) {
-    const moduleId = fileToIdMap.get(key);
-    const asyncTypes = [...value.inverseDependencies].map((absolutePath) => {
-      const parentId = fileToIdMap.get(absolutePath);
-      const parentModule = graph.dependencies.get(absolutePath);
-      for (const [, dep] of parentModule.dependencies) {
-        if (dep.absolutePath === key) {
-          const existingChunk = findAsyncParent(parentId);
-          if (existingChunk && dep.data.data.asyncType === null) {
-            return existingChunk;
+  let step1Changed = true;
+  while (step1Changed) {
+    step1Changed = false;
+    for (const [key, value] of graph.dependencies) {
+      const moduleId = fileToIdMap.get(key);
+      if (
+        mainModuleIds.has(moduleId) ||
+        asyncRoots.has(moduleId) ||
+        asyncDescendants.has(moduleId)
+      ) {
+        continue;
+      }
+
+      const asyncTypes = [...value.inverseDependencies].map((absolutePath) => {
+        const parentId = fileToIdMap.get(absolutePath);
+        const parentModule = graph.dependencies.get(absolutePath);
+        if (!parentModule) return undefined;
+        for (const [, dep] of parentModule.dependencies) {
+          if (dep.absolutePath === key) {
+            const existingChunk = findAsyncParent(parentId);
+            if (existingChunk && dep.data.data.asyncType === null) {
+              return existingChunk;
+            }
+            return dep.data.data.asyncType;
           }
-          return dep.data.data.asyncType;
+        }
+        return undefined;
+      });
+
+      // Check if any parent that returned null is actually unclassified
+      // (not yet in asyncRoots, asyncDescendants, or mainModuleIds).
+      // If so, the null might turn into a rootId in a later iteration — defer.
+      let hasUnclassifiedParentReturningNull = false;
+      const parentPaths = [...value.inverseDependencies];
+      for (let i = 0; i < parentPaths.length; i++) {
+        const parentPath = parentPaths[i];
+        const parentId = fileToIdMap.get(parentPath);
+        if (
+          asyncTypes[i] === null &&
+          !asyncRoots.has(parentId) &&
+          !asyncDescendants.has(parentId) &&
+          !mainModuleIds.has(parentId)
+        ) {
+          hasUnclassifiedParentReturningNull = true;
+          break;
         }
       }
-      return undefined;
-    });
 
-    if (asyncTypes.length === 0 || asyncTypes.some((v) => v === null)) {
-      mainModuleIds.add(moduleId);
-    } else if (asyncTypes.every((v) => v === asyncFlag)) {
-      asyncRoots.set(moduleId, key);
-    } else if (asyncTypes.length === 1 && asyncRoots.has(asyncTypes[0])) {
-      // Child of an async root — stays out of main (handled in Step 2 re-scan)
-    } else {
-      mainModuleIds.add(moduleId);
+      const hasUnresolved =
+        asyncTypes.some((v) => v === undefined) ||
+        hasUnclassifiedParentReturningNull;
+
+      if (asyncTypes.length === 0) {
+        mainModuleIds.add(moduleId);
+        step1Changed = true;
+      } else if (
+        asyncTypes.some((v) => v === null) &&
+        !hasUnclassifiedParentReturningNull
+      ) {
+        // At least one parent is genuinely eager (classified as eager) → eager.
+        mainModuleIds.add(moduleId);
+        step1Changed = true;
+      } else if (asyncTypes.every((v) => v === asyncFlag)) {
+        asyncRoots.set(moduleId, key);
+        step1Changed = true;
+      } else if (
+        !hasUnresolved &&
+        asyncTypes.length >= 1 &&
+        asyncTypes.every(
+          (v) => v === asyncFlag || asyncRoots.has(v),
+        )
+      ) {
+        // All parents are async roots (or use import()) — this is a sync
+        // child/grandchild of an async root. Track it as a descendant.
+        const rootId = asyncTypes.find((v) => asyncRoots.has(v));
+        asyncDescendants.set(moduleId, rootId);
+        step1Changed = true;
+      } else if (hasUnresolved) {
+        // Skip — retry next iteration when parents may be resolved.
+      } else {
+        mainModuleIds.add(moduleId);
+        step1Changed = true;
+      }
     }
   }
 
@@ -163,26 +227,48 @@ module.exports = async function segmentSerializer(
     moduleToSegment.set(moduleId, segmentKey);
   }
 
-  // Re-scan children: modules only reachable from async roots go into their segment
-  for (const [key, value] of graph.dependencies) {
-    const moduleId = fileToIdMap.get(key);
-    if (mainModuleIds.has(moduleId) || moduleToSegment.has(moduleId)) continue;
+  // Re-scan children: modules only reachable from async roots go into their segment.
+  // Iterate until stable because barrel files (index.ts re-exports) create multi-level
+  // indirection: async root → index.ts (assigned round 1) → RealModule.ts (round 2).
+  // A single pass only resolves one level, leaving grandchildren in eager by mistake.
+  let rescanChanged = true;
+  while (rescanChanged) {
+    rescanChanged = false;
+    for (const [key, value] of graph.dependencies) {
+      const moduleId = fileToIdMap.get(key);
+      if (mainModuleIds.has(moduleId) || moduleToSegment.has(moduleId)) continue;
 
-    // Check if all parents are in the same segment
-    const parentSegments = new Set();
-    for (const parentPath of value.inverseDependencies) {
-      const parentId = fileToIdMap.get(parentPath);
-      const parentSeg = moduleToSegment.get(parentId);
-      if (parentSeg) parentSegments.add(parentSeg);
-      else parentSegments.add('main');
-    }
+      // Check if all parents are in the same segment
+      const parentSegments = new Set();
+      let hasUnresolvedParent = false;
+      for (const parentPath of value.inverseDependencies) {
+        const parentId = fileToIdMap.get(parentPath);
+        const parentSeg = moduleToSegment.get(parentId);
+        if (parentSeg) {
+          parentSegments.add(parentSeg);
+        } else if (mainModuleIds.has(parentId)) {
+          parentSegments.add('main');
+        } else {
+          // Parent is not yet classified — defer to next round
+          hasUnresolvedParent = true;
+        }
+      }
 
-    if (parentSegments.size === 1 && !parentSegments.has('main')) {
-      const seg = [...parentSegments][0];
-      segmentModules.get(seg).add(moduleId);
-      moduleToSegment.set(moduleId, seg);
-    } else {
-      mainModuleIds.add(moduleId);
+      // If any parent is still unresolved, skip this module for now —
+      // it may be resolved in the next iteration.
+      if (hasUnresolvedParent) continue;
+
+      if (!parentSegments.has('main') && parentSegments.size >= 1) {
+        // All parents are in segments (no eager parent).
+        // Assign to the first segment; the segment dependency graph
+        // will ensure correct loading order for the others.
+        const seg = [...parentSegments][0];
+        segmentModules.get(seg).add(moduleId);
+        moduleToSegment.set(moduleId, seg);
+        rescanChanged = true;
+      } else {
+        mainModuleIds.add(moduleId);
+      }
     }
   }
 
