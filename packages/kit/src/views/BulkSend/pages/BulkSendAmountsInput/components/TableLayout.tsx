@@ -844,11 +844,13 @@ function TransferInfoListSection() {
       const amount = isMaxMode
         ? senderBalances[transfer.from]
         : transfer.amount;
-      if (!amount || amount === '') continue;
-      const bn = new BigNumber(amount);
-      if (bn.isNaN()) continue;
-      const existing = map.get(transfer.from);
-      map.set(transfer.from, existing ? existing.plus(bn) : bn);
+      if (amount && amount !== '') {
+        const bn = new BigNumber(amount);
+        if (!bn.isNaN()) {
+          const existing = map.get(transfer.from);
+          map.set(transfer.from, existing ? existing.plus(bn) : bn);
+        }
+      }
     }
     return map;
   }, [isOneToMany, isMaxMode, transfersInfo, senderBalances]);
@@ -992,8 +994,9 @@ function TransferInfoListSection() {
                       );
                     }
                     const senderBalance = senderBalances[transfer.from];
-                    const aggregatedAmount =
-                      aggregatedSenderAmounts.get(transfer.from);
+                    const aggregatedAmount = aggregatedSenderAmounts.get(
+                      transfer.from,
+                    );
                     const isBalanceInsufficient =
                       senderBalance !== undefined &&
                       aggregatedAmount !== undefined &&

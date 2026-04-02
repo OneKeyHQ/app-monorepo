@@ -123,7 +123,13 @@ function SingleLineReceiverInput() {
 
       return true;
     },
-    [intl, selectedNetworkId, network?.name, network?.id, isEnableTransferAllowList],
+    [
+      intl,
+      selectedNetworkId,
+      network?.name,
+      network?.id,
+      isEnableTransferAllowList,
+    ],
   );
 
   const debouncedValidate = useDebouncedValidation(handleValidateAddresses);

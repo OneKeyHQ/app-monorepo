@@ -158,6 +158,7 @@ function BaseBulkSendAddressesInput() {
     const { fixedNetworkId, isSupported } =
       bulkSendUtils.fixBulkSendSupportedNetworkId({
         networkId: _selectedNetworkId ?? '',
+        bulkSendMode,
       });
 
     _selectedNetworkId = fixedNetworkId;
@@ -220,6 +221,7 @@ function BaseBulkSendAddressesInput() {
     networkId,
     indexedAccountId,
     tokenInfo,
+    bulkSendMode,
     setSelectedAccountId,
     setSelectedNetworkId,
     setSelectedToken,
