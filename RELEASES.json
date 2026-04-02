@@ -57,5 +57,21 @@
       "#10953"
     ],
     "notes": "Update referral copy and condition badges, fix perps footer spacing and available balance display, navigate to perp detail from universal search, add contract approvals entry to More dropdown, inject x-onekey-* headers for dev bundle switcher, harden CI release workflow security and fix PR checkout"
+  },
+  {
+    "seq": 4,
+    "commit": "0147dbc1408944435e39ea56adedfabb5a23b0da",
+    "date": "2026-04-02T08:38:17Z",
+    "prs": [
+      "#10951",
+      "#10958",
+      "#10964",
+      "#10968",
+      "#10978",
+      "#10980",
+      "#10995",
+      "#10997"
+    ],
+    "notes": "Fix web-embed not working on iOS OTA bundle, add unified search result exposure and click tracking, add Perps referral link to referral popover, improve banner detail layout and add perps badge, enhance dev settings search with item-level filtering and bundle search, improve hwDeviceConnected tracking for ClassicPure and firmware changes, add duplicate address warning for bulk send, fix i18n overflow on DeFi Earn/Borrow segment control"
   }
 ]
