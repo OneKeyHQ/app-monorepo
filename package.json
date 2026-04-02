@@ -102,7 +102,18 @@
     "keyless:mock-server:build": "yarn workspace @onekeyhq/kit-bg keyless:mock-server:build",
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
     "wt": "node development/scripts/worktree.js",
-    "worktree": "node development/scripts/worktree.js"
+    "worktree": "node development/scripts/worktree.js",
+    "check:release-age": "npx tsx development/scripts/minimum-release-age/run.ts diff",
+    "check:release-age:full": "npx tsx development/scripts/minimum-release-age/run.ts full"
+  },
+  "minimumReleaseAge": {
+    "days": 7,
+    "allowlist": [
+      "@onekeyhq/*",
+      "@onekeyfe/*"
+    ],
+    "blockOnFailure": true,
+    "registryUrl": "https://registry.npmjs.org"
   },
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
