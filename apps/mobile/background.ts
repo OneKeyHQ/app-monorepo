@@ -18,7 +18,9 @@ const bgEntryLog = (msg: string) => {
     const { NativeLogger, LogLevel } =
       require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
     NativeLogger.write(LogLevel.Info, `[BackgroundEntry] ${msg}`);
-  } catch { /* NativeLogger unavailable before TurboModule init */ }
+  } catch {
+    /* NativeLogger unavailable before TurboModule init */
+  }
 };
 bgEntryLog('polyfills loaded');
 
@@ -38,29 +40,10 @@ if (!__DEV__) {
   }
 }
 
-// In three-bundle mode, common.jsbundle has a stub for backgroundApiInit
-// (Metro resolver replaces it with native-ui stub to tree-shake BackgroundApi
-// out of common/main bundles). The background runtime needs the real BackgroundApi,
-// so we create it here and inject it into the proxy BEFORE it's used.
-bgEntryLog('creating real BackgroundApi');
-const platformEnv = (require('@onekeyhq/shared/src/platformEnv') as typeof import('@onekeyhq/shared/src/platformEnv')).default;
-globalThis.$onekeyIsInBackground =
-  platformEnv.isExtensionBackground || platformEnv.isNativeBackgroundThread;
-const { default: BackgroundApi } =
-  require('@onekeyhq/kit-bg/src/apis/BackgroundApi') as typeof import('@onekeyhq/kit-bg/src/apis/BackgroundApi');
-const realBackgroundApi = new BackgroundApi();
-bgEntryLog('BackgroundApi created');
-
 bgEntryLog('importing backgroundApiProxy');
-const backgroundApiProxy = (
-  require('@onekeyhq/kit/src/background/instance/backgroundApiProxy') as typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy')
-).default;
-
-// Inject the real BackgroundApi into the proxy (replacing the stub's null).
-// This must happen before any RPC request is handled.
-(backgroundApiProxy as any).backgroundApi = realBackgroundApi;
-(backgroundApiProxy as any).backgroundApiFactory = () => realBackgroundApi;
-bgEntryLog('backgroundApiProxy injected with real BackgroundApi');
+const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
+  require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+bgEntryLog('backgroundApiProxy ready');
 
 bgEntryLog('importing RPC handler');
 const { setBackgroundThreadRequestExecutor } =

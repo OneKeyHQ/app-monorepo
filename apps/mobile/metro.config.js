@@ -217,31 +217,43 @@ if (process.env.RN_HARNESS === 'true') {
   };
 }
 
-// --- Native background thread: redirect backgroundApiInit for main bundle ---
-// When ENABLE_NATIVE_BACKGROUND_THREAD is true and we're building the main bundle
-// (not the background bundle), redirect backgroundApiInit to a stub that returns null.
-// This prevents the entire BackgroundApi implementation graph from being statically
-// pulled into the main bundle. The real implementation is loaded asynchronously
-// only if the native background thread transport fails (async lazy fallback).
 const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
-if (
-  buildTimeEnv.enableNativeBackgroundThread &&
-  process.env.METRO_RUNTIME_TARGET !== 'background'
-) {
+const getMetroRuntimeTarget = (context) =>
+  context.customResolverOptions?.runtimeTarget ||
+  process.env.METRO_RUNTIME_TARGET ||
+  'main';
+
+// --- Native background thread: prefer `.native-ui` in the main runtime ---
+// In native background-thread mode, main-thread JS should prefer the
+// `backgroundApiInit.native-ui.*` variant, then fall back to Metro's normal
+// resolution for `backgroundApiInit` (`.native.*` -> plain source files).
+//
+// Runtime target is resolved per Metro request first, then from the build-time
+// env for release bundle builds.
+if (buildTimeEnv.enableNativeBackgroundThread) {
   const prevResolveRequestForNativeUi = config.resolver.resolveRequest;
   config.resolver.resolveRequest = (context, moduleName, platform) => {
+    const runtimeTarget = getMetroRuntimeTarget(context);
+    const isMainRuntime = runtimeTarget === 'main';
+
     if (
+      isMainRuntime &&
       moduleName === './backgroundApiInit' &&
       context.originModulePath &&
       context.originModulePath.includes(
         'background/instance/backgroundApiProxy',
       )
     ) {
-      return prevResolveRequestForNativeUi(
-        context,
-        './backgroundApiInit.native-ui',
-        platform,
-      );
+      try {
+        return prevResolveRequestForNativeUi(
+          context,
+          './backgroundApiInit.native-ui',
+          platform,
+        );
+      } catch {
+        // Fall through to Metro's default priority:
+        // `.native.*` -> plain source file.
+      }
     }
     return prevResolveRequestForNativeUi(context, moduleName, platform);
   };
@@ -295,6 +307,20 @@ config.server.rewriteRequestUrl = (url) => {
       '/background.bundle',
       '/apps/mobile/background.bundle',
     );
+  }
+
+  if (
+    buildTimeEnv.enableNativeBackgroundThread &&
+    !rewrittenUrl.includes('resolver.runtimeTarget=')
+  ) {
+    const runtimeTarget = rewrittenUrl.startsWith(
+      '/apps/mobile/background.bundle',
+    )
+      ? 'background'
+      : 'main';
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }resolver.runtimeTarget=${runtimeTarget}`;
   }
 
   return rewrittenUrl;
