@@ -276,32 +276,72 @@ function BulkExportHistoryContent({
         );
       }
 
-      // 2. Build account array
-      const networkAccounts =
-        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-          {
-            indexedAccountId: indexedAccount.id,
-            networkIds: selectedNetworkIds,
-          },
-        );
-      const accountArray = await Promise.all(
-        networkAccounts
-          .filter((item) => item.account)
-          .map(async (item) => {
-            const { account, network } = item;
-            const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub(
+      // 2. Build account array (handles mergeDeriveAssetsEnabled networks like BTC)
+      const accountArrayNested = await Promise.all(
+        selectedNetworkIds.map(async (networkId) => {
+          const vaultSettings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId,
+            });
+
+          if (vaultSettings.mergeDeriveAssetsEnabled) {
+            // Get accounts for ALL derive types (e.g. BTC Taproot, SegWit, Legacy)
+            const { networkAccounts } =
+              await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+                {
+                  networkId,
+                  indexedAccountId: indexedAccount.id,
+                  excludeEmptyAccount: true,
+                },
+              );
+            return Promise.all(
+              networkAccounts
+                .filter((item) => item.account)
+                .map(async (item) => {
+                  const xpub =
+                    await backgroundApiProxy.serviceAccount.getAccountXpub({
+                      accountId: item.account!.id,
+                      networkId,
+                    });
+                  return {
+                    accountAddress: item.account!.address,
+                    networkId,
+                    xpub: xpub || undefined,
+                  };
+                }),
+            );
+          }
+
+          // Single derive type — use global derive type
+          const deriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              { networkId },
+            );
+          const { accounts } =
+            await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
               {
-                accountId: account!.id,
-                networkId: network.id,
+                indexedAccountIds: [indexedAccount.id],
+                networkId,
+                deriveType,
               },
             );
-            return {
-              accountAddress: account!.address,
-              networkId: network.id,
+          const account = accounts[0];
+          if (!account) return [];
+          const xpub =
+            await backgroundApiProxy.serviceAccount.getAccountXpub({
+              accountId: account.id,
+              networkId,
+            });
+          return [
+            {
+              accountAddress: account.address,
+              networkId,
               xpub: xpub || undefined,
-            };
-          }),
+            },
+          ];
+        }),
       );
+      const accountArray = accountArrayNested.flat();
 
       if (controller.signal.aborted) return;
 
