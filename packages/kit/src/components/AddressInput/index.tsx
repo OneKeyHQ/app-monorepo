@@ -57,7 +57,6 @@ import { SelectorPlugin } from './plugins/selector';
 import type { IScanPluginProps } from './plugins/scan';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
 
-
 type IResolvedAddressProps = {
   value: string;
   options: string[];
@@ -826,10 +825,7 @@ export function AddressInput(props: IAddressInputProps) {
         {...(screenWidth <= 768 && { minHeight: 64 })}
         {...rest}
       />
-      <AddressInputWarnings
-        queryResult={queryResult}
-        networkId={networkId}
-      />
+      <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
     </>
   );
 }

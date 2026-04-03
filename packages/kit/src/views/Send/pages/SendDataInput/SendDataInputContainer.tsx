@@ -574,7 +574,6 @@ function SendDataInputContainer() {
             keyboardType={
               isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
             }
-
             extension={clearMemoExtension}
           />
         </Form.Field>
@@ -636,7 +635,6 @@ function SendDataInputContainer() {
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder="Payment ID"
-
           />
         </Form.Field>
       </>
@@ -765,10 +763,7 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      form.setValue(
-        'memo',
-        normalizeOptionalRecipientText(selectedMemo),
-      );
+      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo));
       form.setValue('note', normalizeOptionalRecipientText(selectedNote));
 
       const currentTo = form.getValues('to') as IAddressInputValue | undefined;
