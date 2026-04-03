@@ -19,7 +19,7 @@ export interface IMarketFilterBarSmallProps {
 
 function MarketFilterBarSmall({
   selectedNetworkId,
-  timeRange = '24h',
+  timeRange = '1h',
   onNetworkIdChange,
   onTimeRangeChange,
   selectedCategory,

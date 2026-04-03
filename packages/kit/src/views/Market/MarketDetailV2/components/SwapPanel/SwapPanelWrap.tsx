@@ -1,15 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { IDialogInstance } from '@onekeyhq/components';
+import {
+  EInPageDialogType,
+  Toast,
+  useInPageDialog,
+  useIsOverlayPage,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapNetworkFeeLevel,
+  type ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -17,6 +29,7 @@ import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection } from './hooks/useTradeType';
+import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
 import { SwapPanelContent } from './SwapPanelContent';
 
 import type { IToken } from './types';
@@ -28,10 +41,17 @@ interface ISwapPanelWrapProps {
 export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const { networkId, tokenDetail, isReady } = useTokenDetail();
   const intl = useIntl();
+  const isModalPage = useIsOverlayPage();
+  const inPageDialog = useInPageDialog(
+    isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
+  );
   const swapPanel = useSwapPanel({
     networkId: networkId || 'evm--1',
   });
   const [hasInitialReady, setHasInitialReady] = useState(false);
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const reviewDialogRef = useRef<IDialogInstance | null>(null);
+  const reviewDialogRequestIdRef = useRef(0);
 
   const {
     setPaymentToken,
@@ -42,6 +62,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     setSlippage,
     slippage,
   } = swapPanel;
+  const { isCustomRpcUnavailable } = useCustomRpcAvailability(
+    swapPanel.networkId,
+  );
 
   const {
     isLoading: speedSwapInitLoading,
@@ -178,20 +201,17 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         ? paymentAmount.toFixed()
         : sellAmount.toFixed(),
     antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
+    isCustomRpcUnavailable,
+    isReviewDialogOpen,
     onCloseDialog,
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
 
   const {
-    speedSwapBuildTx,
-    speedSwapWrappedTx,
     speedSwapBuildTxLoading,
+    swapApprovingMatchLoading,
     checkTokenAllowanceLoading,
-    speedSwapApproveHandler,
-    speedSwapApproveActionLoading,
-    speedSwapApproveTransactionLoading,
-    shouldApprove,
     balance,
     balanceToken,
     fetchBalanceLoading,
@@ -200,6 +220,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     isWrapped,
     speedCheckError,
     speedCheckLoading,
+    prepareMarketSwapReview,
+    sendMarketApproveTx,
+    sendMarketSwapTx,
+    sendMarketWrappedTx,
+    sendMarketSignMessage,
+    buildMarketApproveInfos,
   } = speedSwapActions;
 
   const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
@@ -323,39 +349,127 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     }
   }, [speedConfig?.slippage, setSlippage]);
 
-  const handleApprove = useCallback(() => {
-    void speedSwapApproveHandler();
-  }, [speedSwapApproveHandler]);
+  const reviewAdapter = useMemo<ISwapReviewAdapter>(
+    () => ({
+      prepareReview: prepareMarketSwapReview,
+      sendApproveTx: sendMarketApproveTx,
+      sendSwapTx: sendMarketSwapTx,
+      sendWrappedTx: sendMarketWrappedTx,
+      sendSignMessage: sendMarketSignMessage,
+      buildApproveInfos: buildMarketApproveInfos,
+    }),
+    [
+      buildMarketApproveInfos,
+      prepareMarketSwapReview,
+      sendMarketApproveTx,
+      sendMarketSwapTx,
+      sendMarketWrappedTx,
+      sendMarketSignMessage,
+    ],
+  );
+
+  const isActionLoading = useMemo(() => {
+    return (
+      speedSwapBuildTxLoading ||
+      swapApprovingMatchLoading ||
+      checkTokenAllowanceLoading ||
+      speedCheckLoading
+    );
+  }, [
+    checkTokenAllowanceLoading,
+    speedCheckLoading,
+    speedSwapBuildTxLoading,
+    swapApprovingMatchLoading,
+  ]);
+
+  const openReviewDialog = useCallback(
+    async (isWrap?: boolean) => {
+      if (isActionLoading) {
+        return;
+      }
+
+      const requestId = reviewDialogRequestIdRef.current + 1;
+      reviewDialogRequestIdRef.current = requestId;
+
+      try {
+        const nextReviewState = await prepareMarketSwapReview({
+          isWrap,
+          networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+        });
+        if (reviewDialogRequestIdRef.current !== requestId) {
+          return;
+        }
+        const previousDialog = reviewDialogRef.current;
+        if (previousDialog) {
+          reviewDialogRef.current = null;
+          void previousDialog.close();
+        }
+        setIsReviewDialogOpen(true);
+        let dialog: IDialogInstance | null = null;
+        dialog = inPageDialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.global_review_order,
+          }),
+          showFooter: false,
+          showCancelButton: false,
+          showConfirmButton: false,
+          onClose: () => {
+            if (reviewDialogRef.current !== dialog) {
+              return;
+            }
+            reviewDialogRef.current = null;
+            setIsReviewDialogOpen(false);
+          },
+          renderContent: (
+            <MarketSwapReviewDialog
+              adapter={reviewAdapter}
+              reviewState={nextReviewState}
+              onDone={() => void dialog?.close()}
+            />
+          ),
+        });
+        if (reviewDialogRequestIdRef.current !== requestId) {
+          setIsReviewDialogOpen(false);
+          void dialog.close();
+          return;
+        }
+        reviewDialogRef.current = dialog;
+      } catch (error) {
+        if (reviewDialogRequestIdRef.current !== requestId) {
+          return;
+        }
+        Toast.error({
+          title:
+            error instanceof Error
+              ? error.message
+              : intl.formatMessage({
+                  id: ETranslations.global_unknown_error,
+                }),
+        });
+      }
+    },
+    [
+      inPageDialog,
+      intl,
+      isActionLoading,
+      prepareMarketSwapReview,
+      reviewAdapter,
+    ],
+  );
 
   const handleSwap = useCallback(() => {
-    void speedSwapBuildTx();
-  }, [speedSwapBuildTx]);
+    void openReviewDialog(false);
+  }, [openReviewDialog]);
 
   const handleWrappedSwap = useCallback(() => {
-    void speedSwapWrappedTx();
-  }, [speedSwapWrappedTx]);
+    void openReviewDialog(true);
+  }, [openReviewDialog]);
 
   useEffect(() => {
     return () => {
       dismissKeyboard();
     };
   }, []);
-
-  const isActionLoading = useMemo(() => {
-    return (
-      speedSwapApproveActionLoading ||
-      speedSwapApproveTransactionLoading ||
-      speedSwapBuildTxLoading ||
-      checkTokenAllowanceLoading ||
-      speedCheckLoading
-    );
-  }, [
-    speedSwapApproveActionLoading,
-    speedSwapApproveTransactionLoading,
-    speedSwapBuildTxLoading,
-    checkTokenAllowanceLoading,
-    speedCheckLoading,
-  ]);
 
   useEffect(() => {
     if (
@@ -405,11 +519,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       isLoading={isActionLoading}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
-      isApproved={!shouldApprove}
       slippageAutoValue={speedConfig?.slippage}
       supportSpeedSwap={supportSpeedSwap}
       defaultTokens={filterDefaultTokens}
-      onApprove={handleApprove}
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
       speedCheckError={speedCheckError}

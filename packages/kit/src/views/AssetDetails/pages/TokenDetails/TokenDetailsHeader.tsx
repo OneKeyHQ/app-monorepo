@@ -6,6 +6,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   DebugRenderTracker,
   Divider,
   Icon,
@@ -241,7 +242,7 @@ function TokenDetailsHeader(props: IProps) {
     walletId,
   ]);
 
-  const isReceiveDisabled = useMemo(
+  const isWatchOnly = useMemo(
     () => wallet?.type === WALLET_TYPE_WATCHING,
     [wallet?.type],
   );
@@ -260,6 +261,17 @@ function TokenDetailsHeader(props: IProps) {
   return (
     <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
       <>
+        {isWatchOnly ? (
+          <Stack pt="$2" px="$5">
+            <Alert
+              type="warning"
+              icon="ErrorOutline"
+              title={intl.formatMessage({
+                id: ETranslations.watch_only_alert_do_not_send,
+              })}
+            />
+          </Stack>
+        ) : null}
         {/* Overview */}
         <Stack px="$5" py="$5">
           {/* Balance */}
@@ -302,7 +314,7 @@ function TokenDetailsHeader(props: IProps) {
               trackID="wallet-token-details-send"
             />
             <RawActions.Receive
-              disabled={isReceiveDisabled}
+              disabled={isWatchOnly}
               onPress={async () => {
                 if (
                   await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(

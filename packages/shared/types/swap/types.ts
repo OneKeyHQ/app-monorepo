@@ -301,6 +301,7 @@ export interface ISwapApproveTransaction {
 export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
+  incognito?: boolean;
   slippagePercentage: number;
   autoSlippage?: boolean;
   blockNumber?: number;
@@ -517,6 +518,7 @@ export interface IFetchSwapQuoteParams {
   toToken: ISwapToken;
   fromTokenAmount?: string;
   receivingAddress?: string;
+  incognito?: boolean;
   userAddress?: string;
   slippagePercentage: number;
   autoSlippage?: boolean;
