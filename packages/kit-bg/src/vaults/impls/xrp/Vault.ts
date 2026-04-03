@@ -44,12 +44,12 @@ import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
+import { parseXrpDestinationTag } from './destinationTagUtils';
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { parseXrpDestinationTag } from './destinationTagUtils';
 import { ClientRipple } from './sdkRipple/ClientRipple';
 
 import type { IDBWalletType } from '../../../dbs/local/types';

@@ -146,7 +146,6 @@ function SendAmountInputContainer() {
   );
 
 
-
   const signatureConfirm = useSignatureConfirm({
     accountId: currentAccountId,
     networkId,
