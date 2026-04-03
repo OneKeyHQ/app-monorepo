@@ -32,7 +32,6 @@ import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
   IChangedPendingTxInfo,
-  IExportTransactionHistoryAccount,
   IExportTransactionHistoryParams,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
@@ -783,42 +782,13 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async buildExportAccountArray({
-    accountId,
-    networkIds,
-  }: {
-    accountId: string;
-    networkIds: string[];
-  }): Promise<IExportTransactionHistoryAccount[]> {
-    return Promise.all(
-      networkIds.map(async (networkId) => {
-        const [accountAddress, xpub] = await Promise.all([
-          this.backgroundApi.serviceAccount.getAccountAddressForApi({
-            accountId,
-            networkId,
-          }),
-          this.backgroundApi.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          }),
-        ]);
-        return {
-          accountAddress,
-          networkId,
-          xpub: xpub || undefined,
-        };
-      }),
-    );
-  }
-
-  @backgroundMethod()
   public async exportTransactionHistory(
     params: IExportTransactionHistoryParams,
   ) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: string;
-    }>('/all/v1/account/transaction/export-csv', params);
+    }>('/wallet/v1/account/transaction/export-csv', params);
 
     return resp.data.data;
   }

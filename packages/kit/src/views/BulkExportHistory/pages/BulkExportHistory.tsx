@@ -109,7 +109,7 @@ function BulkExportHistoryContent({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const {
-    activeAccount: { account: activeAccount },
+    activeAccount: { indexedAccount },
   } = useActiveAccount({ num: 0 });
   const {
     supportedNetworkIds,
@@ -239,7 +239,7 @@ function BulkExportHistoryContent({
   ]);
 
   const handleExport = useCallback(async () => {
-    if (!activeAccount?.id || !selectedNetworkIds.length) return;
+    if (!indexedAccount?.id || !selectedNetworkIds.length) return;
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -264,12 +264,43 @@ function BulkExportHistoryContent({
         maxTimestampMs = now.getTime();
       }
 
+      // Clamp to the intersection of selected networks' supported ranges
+      if (customDateConstraints) {
+        minTimestampMs = Math.max(
+          minTimestampMs,
+          customDateConstraints.minDate.getTime(),
+        );
+        maxTimestampMs = Math.min(
+          maxTimestampMs,
+          customDateConstraints.maxDate.getTime(),
+        );
+      }
+
       // 2. Build account array
-      const accountArray =
-        await backgroundApiProxy.serviceHistory.buildExportAccountArray({
-          accountId: activeAccount.id,
-          networkIds: selectedNetworkIds,
-        });
+      const networkAccounts =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+          {
+            indexedAccountId: indexedAccount.id,
+            networkIds: selectedNetworkIds,
+          },
+        );
+      const accountArray = await Promise.all(
+        networkAccounts
+          .filter((item) => item.account)
+          .map(async (item) => {
+            const { account, network } = item;
+            const xpub =
+              await backgroundApiProxy.serviceAccount.getAccountXpub({
+                accountId: account!.id,
+                networkId: network.id,
+              });
+            return {
+              accountAddress: account!.address,
+              networkId: network.id,
+              xpub: xpub || undefined,
+            };
+          }),
+      );
 
       if (controller.signal.aborted) return;
 
@@ -308,7 +339,8 @@ function BulkExportHistoryContent({
       if (!controller.signal.aborted) {
         navigation.pop();
       }
-    } catch {
+    } catch (error) {
+      console.error(error);
       if (!controller.signal.aborted) {
         Toast.error({
           title: intl.formatMessage({
@@ -321,10 +353,11 @@ function BulkExportHistoryContent({
       abortControllerRef.current = null;
     }
   }, [
-    activeAccount?.id,
+    indexedAccount?.id,
     selectedNetworkIds,
     dateRange,
     customDateRange,
+    customDateConstraints,
     hideRiskyTransactions,
     hideDustTransactions,
     isSingleNetwork,
