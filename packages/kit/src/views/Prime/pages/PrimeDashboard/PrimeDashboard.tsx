@@ -51,7 +51,7 @@ import { PrimeUserInfo } from './PrimeUserInfo';
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 import type { RouteProp } from '@react-navigation/core';
 
-const FooterGradient = memo(function FooterGradient() {
+const FooterGradient = memo(() => {
   const theme = useTheme();
   return (
     <LinearGradient
@@ -67,6 +67,8 @@ const FooterGradient = memo(function FooterGradient() {
     />
   );
 });
+
+FooterGradient.displayName = 'FooterGradient';
 
 function PrimeBenefitsScrollContainer({
   fromFeature,
