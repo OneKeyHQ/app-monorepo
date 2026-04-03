@@ -1,37 +1,37 @@
 // --- Types ---
 
-export interface MinimumReleaseAgeConfig {
+export interface IMinimumReleaseAgeConfig {
   days: number;
   allowlist: string[];
   blockOnFailure: boolean;
   registryUrl: string;
 }
 
-export interface PackageRef {
+export interface IPackageRef {
   name: string;
   version: string;
 }
 
-export type CheckStatus = 'ok' | 'too_young' | 'skipped' | 'error';
+export type ICheckStatus = 'ok' | 'too_young' | 'skipped' | 'error';
 
-export interface CheckResult {
-  status: CheckStatus;
+export interface ICheckResult {
+  status: ICheckStatus;
   ageDays?: number;
   error?: string;
 }
 
-export interface NpmPackageMeta {
+export interface INpmPackageMeta {
   time?: Record<string, string>;
 }
 
-export interface CheckDeps {
+export interface ICheckDeps {
   now: Date;
-  fetchMeta: (name: string, registryUrl: string) => Promise<NpmPackageMeta>;
+  fetchMeta: (name: string, registryUrl: string) => Promise<INpmPackageMeta>;
 }
 
 // --- Default config ---
 
-const DEFAULT_CONFIG: MinimumReleaseAgeConfig = {
+const DEFAULT_CONFIG: IMinimumReleaseAgeConfig = {
   days: 7,
   allowlist: [],
   blockOnFailure: true,
@@ -42,7 +42,7 @@ const DEFAULT_CONFIG: MinimumReleaseAgeConfig = {
 
 export function parseConfig(
   pkg: Record<string, unknown>,
-): MinimumReleaseAgeConfig {
+): IMinimumReleaseAgeConfig {
   const raw = pkg.minimumReleaseAge;
   if (!raw || typeof raw !== 'object') {
     return { ...DEFAULT_CONFIG };
@@ -79,10 +79,10 @@ export function matchesAllowlist(name: string, allowlist: string[]): boolean {
 }
 
 export async function checkPackageAge(
-  ref: PackageRef,
-  config: MinimumReleaseAgeConfig,
-  deps: CheckDeps,
-): Promise<CheckResult> {
+  ref: IPackageRef,
+  config: IMinimumReleaseAgeConfig,
+  deps: ICheckDeps,
+): Promise<ICheckResult> {
   if (matchesAllowlist(ref.name, config.allowlist)) {
     return { status: 'skipped' };
   }
