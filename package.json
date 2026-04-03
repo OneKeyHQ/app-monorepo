@@ -11,7 +11,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env'))fs.copyFileSync('.env.example','.env');\"",
+    "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env')){if(fs.existsSync('.env.example')){fs.copyFileSync('.env.example','.env')}else{fs.writeFileSync('.env','')}}\"",
     "skills:sync": "node development/scripts/skillshare/install.js",
     "postinstall": "node development/scripts/postinstall.js",
     "copy:inject": "node development/scripts/copy-injected.js",
