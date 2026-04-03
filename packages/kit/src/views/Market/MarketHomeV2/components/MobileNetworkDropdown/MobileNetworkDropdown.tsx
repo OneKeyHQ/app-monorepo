@@ -10,8 +10,8 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import { ChainSelectorListView } from '@onekeyhq/kit/src/views/ChainSelector/components/PureChainSelector/ChainSelectorListView';
-import type { IServerNetworkMatch } from '@onekeyhq/kit/src/views/ChainSelector/types';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -34,23 +34,46 @@ function NetworkDropdownContent({
   onSelect: (network: IServerNetwork) => void;
   closePopover: () => void;
 }) {
-  const networksForListView = networks as IServerNetworkMatch[];
-
-  const handleNetworkPress = useCallback(
-    (network: IServerNetworkMatch) => {
-      onSelect(network as IServerNetwork);
-      closePopover();
-    },
-    [onSelect, closePopover],
-  );
+  const intl = useIntl();
 
   return (
     <Stack pt="$4">
-      <ChainSelectorListView
-        networkId={selectedNetworkId}
-        networks={networksForListView}
-        onPressItem={handleNetworkPress}
-      />
+      {networks.map((item) => {
+        const { isAllNetworks } = item;
+        return (
+          <ListItem
+            key={item.id}
+            h={48}
+            renderAvatar={
+              <NetworkAvatarBase
+                logoURI={item.logoURI}
+                isCustomNetwork={item.isCustomNetwork}
+                networkName={item.name}
+                isAllNetworks={isAllNetworks}
+                allNetworksIconProps={{
+                  color: '$iconActive',
+                }}
+                size="$8"
+              />
+            }
+            title={
+              isAllNetworks
+                ? intl.formatMessage({
+                    id: ETranslations.global_all_networks,
+                  })
+                : item.name
+            }
+            onPress={() => {
+              onSelect(item);
+              closePopover();
+            }}
+          >
+            {selectedNetworkId === item.id ? (
+              <ListItem.CheckMark key="checkmark" />
+            ) : null}
+          </ListItem>
+        );
+      })}
     </Stack>
   );
 }
@@ -86,7 +109,7 @@ function MobileNetworkDropdownImpl({
     () => (
       <XStack gap="$1" alignItems="center" cursor="pointer" userSelect="none">
         {isAllNetworks || !selectedNetwork?.logoURI ? (
-          <Icon name="AllNetworksSolid" size="$4.5" color="$icon" />
+          <Icon name="AllNetworksSolid" size="$4.5" color="$iconStrong" />
         ) : (
           <Image
             width={18}
@@ -120,6 +143,10 @@ function MobileNetworkDropdownImpl({
       placement="bottom-start"
       floatingPanelProps={{
         maxWidth: 384,
+      }}
+      sheetProps={{
+        snapPoints: [60],
+        snapPointsMode: 'percent',
       }}
       renderTrigger={renderTrigger}
       renderContent={RenderContent}

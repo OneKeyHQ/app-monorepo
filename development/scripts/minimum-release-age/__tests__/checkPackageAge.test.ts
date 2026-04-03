@@ -1,8 +1,8 @@
 import {
-  type CheckDeps,
-  type MinimumReleaseAgeConfig,
-  type NpmPackageMeta,
-  type PackageRef,
+  type ICheckDeps,
+  type IMinimumReleaseAgeConfig,
+  type INpmPackageMeta,
+  type IPackageRef,
   checkPackageAge,
   matchesAllowlist,
   parseConfig,
@@ -111,18 +111,18 @@ describe('matchesAllowlist', () => {
 // --- checkPackageAge ---
 
 describe('checkPackageAge', () => {
-  const baseConfig: MinimumReleaseAgeConfig = {
+  const baseConfig: IMinimumReleaseAgeConfig = {
     days: 7,
     allowlist: [],
     blockOnFailure: true,
     registryUrl: 'https://registry.npmjs.org',
   };
 
-  function makeDeps(overrides?: Partial<CheckDeps>): CheckDeps {
+  function makeDeps(overrides?: Partial<ICheckDeps>): ICheckDeps {
     return {
       now: new Date('2025-06-15T00:00:00Z'),
       fetchMeta: jest
-        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .fn<Promise<INpmPackageMeta>, [string, string]>()
         .mockResolvedValue({
           time: {
             '1.0.0': '2025-06-01T00:00:00Z',
@@ -133,11 +133,11 @@ describe('checkPackageAge', () => {
   }
 
   test('returns ok when package is old enough', async () => {
-    const ref: PackageRef = { name: 'lodash', version: '1.0.0' };
+    const ref: IPackageRef = { name: 'lodash', version: '1.0.0' };
     const deps = makeDeps({
       now: new Date('2025-06-15T00:00:00Z'),
       fetchMeta: jest
-        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .fn<Promise<INpmPackageMeta>, [string, string]>()
         .mockResolvedValue({
           time: { '1.0.0': '2025-06-01T00:00:00Z' },
         }),
@@ -149,11 +149,11 @@ describe('checkPackageAge', () => {
   });
 
   test('returns too_young when package is newer than threshold', async () => {
-    const ref: PackageRef = { name: 'new-pkg', version: '0.1.0' };
+    const ref: IPackageRef = { name: 'new-pkg', version: '0.1.0' };
     const deps = makeDeps({
       now: new Date('2025-06-15T00:00:00Z'),
       fetchMeta: jest
-        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .fn<Promise<INpmPackageMeta>, [string, string]>()
         .mockResolvedValue({
           time: { '0.1.0': '2025-06-12T00:00:00Z' },
         }),
@@ -165,12 +165,12 @@ describe('checkPackageAge', () => {
   });
 
   test('returns skipped for allowlisted packages', async () => {
-    const ref: PackageRef = {
+    const ref: IPackageRef = {
       name: '@onekeyhq/components',
       version: '1.0.0',
     };
     const config = { ...baseConfig, allowlist: ['@onekeyhq/*'] };
-    const fetchMeta = jest.fn<Promise<NpmPackageMeta>, [string, string]>();
+    const fetchMeta = jest.fn<Promise<INpmPackageMeta>, [string, string]>();
     const deps = makeDeps({ fetchMeta });
 
     const result = await checkPackageAge(ref, config, deps);
@@ -179,10 +179,10 @@ describe('checkPackageAge', () => {
   });
 
   test('returns error when no time metadata exists', async () => {
-    const ref: PackageRef = { name: 'no-time-pkg', version: '1.0.0' };
+    const ref: IPackageRef = { name: 'no-time-pkg', version: '1.0.0' };
     const deps = makeDeps({
       fetchMeta: jest
-        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .fn<Promise<INpmPackageMeta>, [string, string]>()
         .mockResolvedValue({}),
     });
 
@@ -192,10 +192,10 @@ describe('checkPackageAge', () => {
   });
 
   test('returns error when version not found in time metadata', async () => {
-    const ref: PackageRef = { name: 'some-pkg', version: '2.0.0' };
+    const ref: IPackageRef = { name: 'some-pkg', version: '2.0.0' };
     const deps = makeDeps({
       fetchMeta: jest
-        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .fn<Promise<INpmPackageMeta>, [string, string]>()
         .mockResolvedValue({
           time: { '1.0.0': '2025-01-01T00:00:00Z' },
         }),
@@ -207,10 +207,10 @@ describe('checkPackageAge', () => {
   });
 
   test('returns error when fetch throws', async () => {
-    const ref: PackageRef = { name: 'fail-pkg', version: '1.0.0' };
+    const ref: IPackageRef = { name: 'fail-pkg', version: '1.0.0' };
     const deps = makeDeps({
       fetchMeta: jest
-        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .fn<Promise<INpmPackageMeta>, [string, string]>()
         .mockRejectedValue(new Error('Network timeout')),
     });
 
@@ -220,11 +220,11 @@ describe('checkPackageAge', () => {
   });
 
   test('handles exact threshold boundary (exactly N days old)', async () => {
-    const ref: PackageRef = { name: 'boundary-pkg', version: '1.0.0' };
+    const ref: IPackageRef = { name: 'boundary-pkg', version: '1.0.0' };
     const deps = makeDeps({
       now: new Date('2025-06-08T00:00:00Z'),
       fetchMeta: jest
-        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .fn<Promise<INpmPackageMeta>, [string, string]>()
         .mockResolvedValue({
           time: { '1.0.0': '2025-06-01T00:00:00Z' },
         }),
@@ -236,11 +236,11 @@ describe('checkPackageAge', () => {
   });
 
   test('returns too_young at threshold minus one day', async () => {
-    const ref: PackageRef = { name: 'young-pkg', version: '1.0.0' };
+    const ref: IPackageRef = { name: 'young-pkg', version: '1.0.0' };
     const deps = makeDeps({
       now: new Date('2025-06-07T00:00:00Z'),
       fetchMeta: jest
-        .fn<Promise<NpmPackageMeta>, [string, string]>()
+        .fn<Promise<INpmPackageMeta>, [string, string]>()
         .mockResolvedValue({
           time: { '1.0.0': '2025-06-01T00:00:00Z' },
         }),
@@ -252,13 +252,13 @@ describe('checkPackageAge', () => {
   });
 
   test('calls fetchMeta with correct registry URL', async () => {
-    const ref: PackageRef = { name: 'test-pkg', version: '1.0.0' };
+    const ref: IPackageRef = { name: 'test-pkg', version: '1.0.0' };
     const customConfig = {
       ...baseConfig,
       registryUrl: 'https://custom.registry.example.com',
     };
     const fetchMeta = jest
-      .fn<Promise<NpmPackageMeta>, [string, string]>()
+      .fn<Promise<INpmPackageMeta>, [string, string]>()
       .mockResolvedValue({
         time: { '1.0.0': '2025-01-01T00:00:00Z' },
       });
