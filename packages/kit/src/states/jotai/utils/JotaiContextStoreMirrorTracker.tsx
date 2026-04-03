@@ -157,6 +157,10 @@ function JotaiContextRootProvidersAutoMountCmp() {
           case EJotaiContextStoreNames.swapModal: {
             return <SwapModalRootProvider key={key} />;
           }
+          case EJotaiContextStoreNames.marketSwapReview: {
+            // Market review owns its local store lifecycle inside the dialog.
+            return null;
+          }
           case EJotaiContextStoreNames.earn: {
             return <EarnProvider key={key} />;
           }

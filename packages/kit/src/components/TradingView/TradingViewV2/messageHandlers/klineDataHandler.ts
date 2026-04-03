@@ -19,7 +19,7 @@ function formatAmount(amount: string) {
   return typeof result === 'string' ? result : amount;
 }
 
-function buildTransactionMarks({
+export function buildTransactionMarks({
   transactions,
 }: {
   transactions: IMarketAccountTokenTransaction[];
@@ -57,6 +57,39 @@ function buildTransactionMarks({
   });
 }
 
+export async function fetchAccountTransactionMarks({
+  accountAddress,
+  tokenAddress,
+  networkId,
+  from,
+  to,
+}: {
+  accountAddress?: string;
+  tokenAddress: string;
+  networkId: string;
+  from: number;
+  to: number;
+}) {
+  if (!accountAddress) {
+    return [];
+  }
+
+  const accountTransactions =
+    await backgroundApiProxy.serviceMarketV2.fetchMarketAccountTokenTransactions(
+      {
+        accountAddress,
+        tokenAddress,
+        networkId,
+        timeFrom: from,
+        timeTo: to,
+      },
+    );
+
+  return buildTransactionMarks({
+    transactions: accountTransactions.list ?? [],
+  });
+}
+
 export async function fetchAndSendAccountMarks({
   accountAddress,
   tokenAddress,
@@ -78,19 +111,12 @@ export async function fetchAndSendAccountMarks({
     return;
   }
   try {
-    const accountTransactions =
-      await backgroundApiProxy.serviceMarketV2.fetchMarketAccountTokenTransactions(
-        {
-          accountAddress,
-          tokenAddress,
-          networkId,
-          timeFrom: from,
-          timeTo: to,
-        },
-      );
-
-    const marks = buildTransactionMarks({
-      transactions: accountTransactions.list ?? [],
+    const marks = await fetchAccountTransactionMarks({
+      accountAddress,
+      tokenAddress,
+      networkId,
+      from,
+      to,
     });
 
     if (webRef.current && marks.length > 0) {
