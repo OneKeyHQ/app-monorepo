@@ -1,4 +1,7 @@
-const { allocationRules, forbiddenInStartup } = require('../bundle-groups.config');
+const {
+  allocationRules,
+  forbiddenInStartup,
+} = require('../bundle-groups.config');
 
 function getAllocationLayer(relPath) {
   for (const rule of allocationRules) {
@@ -20,9 +23,9 @@ describe('bundle-groups.config', () => {
       );
     });
     it('maps polyfills to kernel.shared', () => {
-      expect(
-        getAllocationLayer('packages/shared/src/polyfills/index.ts'),
-      ).toBe('kernel.shared');
+      expect(getAllocationLayer('packages/shared/src/polyfills/index.ts')).toBe(
+        'kernel.shared',
+      );
     });
     it('maps splitBundle to kernel.shared', () => {
       expect(
@@ -38,9 +41,7 @@ describe('bundle-groups.config', () => {
     });
     it('maps kit-bg/src/vaults/ to feature.shared', () => {
       expect(
-        getAllocationLayer(
-          'packages/kit-bg/src/vaults/impls/evm/Vault.ts',
-        ),
+        getAllocationLayer('packages/kit-bg/src/vaults/impls/evm/Vault.ts'),
       ).toBe('feature.shared');
     });
     it('maps ServiceNotification to feature.background', () => {

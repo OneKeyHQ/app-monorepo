@@ -19,6 +19,7 @@
  */
 
 const path = require('path');
+
 const fs = require('fs-extra');
 
 const mobileDirPath = path.resolve(__dirname, '..');
@@ -92,9 +93,7 @@ function main() {
   const intersection = new Set(
     [...mainSources].filter((s) => bgSources.has(s)),
   );
-  const mainOnly = new Set(
-    [...mainSources].filter((s) => !bgSources.has(s)),
-  );
+  const mainOnly = new Set([...mainSources].filter((s) => !bgSources.has(s)));
   const bgOnly = new Set([...bgSources].filter((s) => !mainSources.has(s)));
 
   console.log('--- Source Counts ---');
@@ -134,15 +133,15 @@ function main() {
 
   fs.writeFileSync(
     path.join(outDir, 'intersection.txt'),
-    [...intersection].sort().join('\n'),
+    [...intersection].toSorted().join('\n'),
   );
   fs.writeFileSync(
     path.join(outDir, 'main-only.txt'),
-    [...mainOnly].sort().join('\n'),
+    [...mainOnly].toSorted().join('\n'),
   );
   fs.writeFileSync(
     path.join(outDir, 'bg-only.txt'),
-    [...bgOnly].sort().join('\n'),
+    [...bgOnly].toSorted().join('\n'),
   );
   console.log(`\nDetailed lists written to: ${outDir}`);
 

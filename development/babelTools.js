@@ -120,7 +120,8 @@ function normalizeConfig({ platform, config }) {
         'platformEnv.isNative': isNative,
         'platformEnv.isExtChrome': isExtChrome,
         'platformEnv.isExtFirefox': isExtFirefox,
-        'platformEnv.enableNativeBackgroundThread': enableNativeBackgroundThread,
+        'platformEnv.enableNativeBackgroundThread':
+          enableNativeBackgroundThread,
       },
     ],
     /*

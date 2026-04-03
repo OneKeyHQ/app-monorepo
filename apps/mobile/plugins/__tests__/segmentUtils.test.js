@@ -1,6 +1,10 @@
 const path = require('path');
 
-const { deriveSegmentKey, allocateSegmentIds, monorepoRoot } = require('../segmentUtils');
+const {
+  deriveSegmentKey,
+  allocateSegmentIds,
+  monorepoRoot,
+} = require('../segmentUtils');
 
 describe('deriveSegmentKey', () => {
   it('packages path → seg:pkg.path', () => {
@@ -21,9 +25,7 @@ describe('deriveSegmentKey', () => {
 
   it('default path → seg:dotted.path', () => {
     expect(
-      deriveSegmentKey(
-        path.join(monorepoRoot, 'apps/mobile/src/App.tsx'),
-      ),
+      deriveSegmentKey(path.join(monorepoRoot, 'apps/mobile/src/App.tsx')),
     ).toBe('seg:apps.mobile.src.App');
   });
 

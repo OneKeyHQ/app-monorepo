@@ -15,6 +15,7 @@
  */
 
 const path = require('path');
+
 const fs = require('fs-extra');
 
 const mobileDirPath = path.resolve(__dirname, '..');
@@ -160,7 +161,7 @@ async function main() {
     `Code size:     ${(totalSize / 1024 / 1024).toFixed(2)} MB (budget: ${(SIZE_BUDGET_BYTES / 1024 / 1024).toFixed(0)} MB)`,
   );
   console.log('\nCategories:');
-  const sortedCats = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+  const sortedCats = Object.entries(categories).toSorted((a, b) => b[1] - a[1]);
   for (const [cat, count] of sortedCats) {
     console.log(`  ${cat.padEnd(20)} ${count}`);
   }

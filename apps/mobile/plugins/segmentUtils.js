@@ -46,7 +46,7 @@ function deriveSegmentKey(absolutePath) {
  * Keys are sorted alphabetically so IDs are deterministic across builds.
  */
 function allocateSegmentIds(segmentKeys) {
-  const sorted = [...segmentKeys].sort();
+  const sorted = [...segmentKeys].toSorted();
   const idMap = new Map();
   sorted.forEach((key, index) => {
     idMap.set(key, SEGMENT_ID_BASE + index);

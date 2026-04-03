@@ -22,6 +22,7 @@
  */
 
 const path = require('path');
+
 const fs = require('fs-extra');
 
 const mobileDirPath = path.resolve(__dirname, '..');
@@ -100,7 +101,7 @@ function buildReportFromModuleList({ label, modules, estimatedCodeSizeBytes }) {
   console.log(`Vault/chain SDK:        ${vaultModules.length}`);
 
   console.log('\n--- Module Count by Category ---');
-  const sortedCats = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+  const sortedCats = Object.entries(categories).toSorted((a, b) => b[1] - a[1]);
   for (const [cat, count] of sortedCats) {
     const sizeStr = categorySizes[cat]
       ? ` (${(categorySizes[cat] / 1024).toFixed(0)} KB)`
@@ -118,7 +119,7 @@ function buildReportFromModuleList({ label, modules, estimatedCodeSizeBytes }) {
     outDir,
     `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-modules.txt`,
   );
-  fs.writeFileSync(moduleListPath, modules.sort().join('\n'));
+  fs.writeFileSync(moduleListPath, modules.toSorted().join('\n'));
 
   const report = {
     label,
@@ -245,7 +246,7 @@ function analyzeGraph(graph, label) {
   console.log(`Vault/chain SDK:        ${vaultModules.length}`);
 
   console.log('\n--- Module Count by Category ---');
-  const sortedCats = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+  const sortedCats = Object.entries(categories).toSorted((a, b) => b[1] - a[1]);
   for (const [cat, count] of sortedCats) {
     const sizeStr = categorySizes[cat]
       ? ` (${(categorySizes[cat] / 1024).toFixed(0)} KB)`
@@ -268,7 +269,7 @@ function analyzeGraph(graph, label) {
     moduleListPath,
     allModules
       .map(([m]) => relativePath(m))
-      .sort()
+      .toSorted()
       .join('\n'),
   );
 

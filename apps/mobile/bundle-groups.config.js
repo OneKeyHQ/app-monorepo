@@ -87,10 +87,7 @@ const allocationRules = [
   // ── feature.main: UI pages, heavy components ─────────────────────────
   {
     layer: 'feature.main',
-    paths: [
-      'packages/kit/src/views/',
-      'packages/kit/src/components/',
-    ],
+    paths: ['packages/kit/src/views/', 'packages/kit/src/components/'],
   },
 
   // ── feature.background: non-critical background services ─────────────

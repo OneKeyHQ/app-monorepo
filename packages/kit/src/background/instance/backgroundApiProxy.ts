@@ -5,7 +5,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiInit from './backgroundApiInit';
 
-
 let backgroundApi = null;
 
 const shouldDeferLocalBackgroundApi =

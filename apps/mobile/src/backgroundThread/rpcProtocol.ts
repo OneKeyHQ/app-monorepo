@@ -279,7 +279,9 @@ export function parseBackgroundThreadBridgeSendPayload(
   }
 
   try {
-    const payload = JSON.parse(value) as Partial<IBackgroundThreadBridgeSendPayload>;
+    const payload = JSON.parse(
+      value,
+    ) as Partial<IBackgroundThreadBridgeSendPayload>;
     if (
       (payload.channel !== 'dapp' && payload.channel !== 'webEmbed') ||
       typeof payload.scope !== 'string'

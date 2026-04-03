@@ -54,8 +54,8 @@ import {
   webTabsMapAtom,
 } from './atoms';
 
-import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebView } from 'react-native-webview';
 
 function loggerForEmptyData(tabs: IWebTab[], fnName: string) {
