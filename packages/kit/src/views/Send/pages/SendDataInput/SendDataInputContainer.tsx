@@ -57,7 +57,6 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -104,8 +103,6 @@ type ISendDataInputRouteName =
   | EModalSignatureConfirmRoutes.TxDataInput;
 type ISendAmountInputParams =
   IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxAmountInput];
-
-const { stripLineBreaks } = stringUtils;
 
 function SendDataInputContainer() {
   const intl = useIntl();
@@ -577,7 +574,7 @@ function SendDataInputContainer() {
             keyboardType={
               isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
             }
-            onChangeText={(text) => stripLineBreaks(text)}
+
             extension={clearMemoExtension}
           />
         </Form.Field>
@@ -639,7 +636,7 @@ function SendDataInputContainer() {
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder="Payment ID"
-            onChangeText={(text) => stripLineBreaks(text)}
+
           />
         </Form.Field>
       </>
@@ -770,7 +767,7 @@ function SendDataInputContainer() {
     }) => {
       form.setValue(
         'memo',
-        stripLineBreaks(normalizeOptionalRecipientText(selectedMemo)),
+        normalizeOptionalRecipientText(selectedMemo),
       );
       form.setValue('note', normalizeOptionalRecipientText(selectedNote));
 
