@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+// Suppress deprecation warnings from dependencies (Buffer(), url.parse())
+process.noDeprecation = true;
+require('../dist/cli.js');

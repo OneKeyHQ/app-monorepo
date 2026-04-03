@@ -1,0 +1,21 @@
+{
+  "name": "onekey-plugins",
+  "owner": {
+    "name": "OneKey",
+    "email": "dev@onekey.so"
+  },
+  "metadata": {
+    "description": "Official OneKey plugins for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "onekey",
+      "source": {
+        "source": "git-subdir",
+        "url": "OneKeyHQ/app-monorepo",
+        "path": "apps/cli"
+      },
+      "description": "OneKey crypto wallet CLI skills — wallet, swap, market, security"
+    }
+  ]
+}
