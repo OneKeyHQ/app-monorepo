@@ -695,6 +695,59 @@ class ServiceKeylessCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
+  async enableKeylessCloudSyncWithMigrationIfNeeded({
+    showLoading = false,
+    ignorePreMigrationSyncError = false,
+  }: {
+    showLoading?: boolean;
+    ignorePreMigrationSyncError?: boolean;
+  } = {}) {
+    const runMigration = async () => {
+      const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
+      if (isCloudSyncEnabled) {
+        try {
+          await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
+            callerName: showLoading
+              ? 'Migration: ID sync before switch'
+              : 'Auto-migration: ID sync before switch',
+            noDebounceUpload: true,
+          });
+        } catch (error) {
+          if (!ignorePreMigrationSyncError) {
+            throw error;
+          }
+        }
+      }
+
+      await this.toggleCloudSyncKeyless({
+        enabled: true,
+        silentEnable: true,
+        forceEnable: true,
+      });
+      await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
+        syncMode: ECloudSyncMode.Keyless,
+      });
+    };
+
+    if (!showLoading) {
+      await runMigration();
+      return;
+    }
+
+    await this.showDialogLoading({
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.global_syncing,
+      }),
+    });
+    try {
+      await runMigration();
+    } finally {
+      await timerUtils.wait(1000);
+      await this.hideDialogLoading();
+    }
+  }
+
+  @backgroundMethod()
   async autoEnableCloudSyncKeyless() {
     const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
     await this.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(wallets);
@@ -708,21 +761,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (isCloudSyncEnabled && !shouldMigrateFromId) {
       return;
     }
-    if (shouldMigrateFromId && isCloudSyncEnabled) {
-      try {
-        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
-          callerName: 'Auto-migration: ID sync before switch',
-          noDebounceUpload: true,
-        });
-      } catch {
-        // ID sync failure shouldn't block auto-enable
-      }
-    }
     try {
-      await this.toggleCloudSyncKeyless({
-        enabled: true,
-        silentEnable: true,
-        forceEnable: true,
+      await this.enableKeylessCloudSyncWithMigrationIfNeeded({
+        showLoading: false,
+        ignorePreMigrationSyncError: true,
       });
       this.pendingAutoEnableCloudSyncKeyless = false;
     } catch (error) {

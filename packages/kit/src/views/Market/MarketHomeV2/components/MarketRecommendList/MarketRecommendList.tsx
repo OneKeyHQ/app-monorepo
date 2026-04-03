@@ -132,18 +132,7 @@ export function MarketRecommendList({
   }
 
   return (
-    <YStack
-      $platform-android={{
-        paddingTop: '$-5',
-      }}
-      $platform-ios={{
-        paddingTop: '$-4',
-      }}
-      p="$5"
-      jc="center"
-      ai="center"
-      width="100%"
-    >
+    <YStack px="$5" jc="center" ai="center" width="100%">
       {actualShowTitle ? (
         <>
           <SizableText
@@ -166,7 +155,7 @@ export function MarketRecommendList({
         </>
       ) : null}
       <YStack
-        pt={actualShowTitle ? '$8' : '$0'}
+        pt={actualShowTitle ? '$6' : '$0'}
         gap="$2.5"
         width="100%"
         $gtMd={{ maxWidth: 480 }}
@@ -204,7 +193,7 @@ export function MarketRecommendList({
             })}
           </XStack>
         ))}
-        <YStack pt="$8">{confirmButton}</YStack>
+        <YStack pt="$6">{confirmButton}</YStack>
       </YStack>
     </YStack>
   );

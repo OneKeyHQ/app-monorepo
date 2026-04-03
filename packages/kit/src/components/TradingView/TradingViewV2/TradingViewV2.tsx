@@ -76,25 +76,20 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
     useHyperLiquidKlineSource(networkId, tokenAddress);
+  const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
+  const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
 
   const additionalParams = useMemo(() => {
-    const useHyperLiquid = isHyperLiquidSource && hyperLiquidSymbol;
     return {
       decimal: decimal?.toString(),
       networkId,
       address: tokenAddress,
-      symbol: useHyperLiquid ? hyperLiquidSymbol : symbol,
-      type: useHyperLiquid ? 'perps' : 'market',
-      storageNamespace: 'market',
+      symbol: chartSymbol,
+      type: 'market',
+      storageNamespace: useHyperLiquid ? 'market-hyperliquid' : 'market',
+      ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
     };
-  }, [
-    decimal,
-    networkId,
-    tokenAddress,
-    isHyperLiquidSource,
-    hyperLiquidSymbol,
-    symbol,
-  ]);
+  }, [chartSymbol, decimal, networkId, tokenAddress, useHyperLiquid]);
 
   const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
     additionalParams,
@@ -112,7 +107,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && !isHyperLiquidSource,
+    enabled: isVisible,
   });
 
   useTradingViewV2WebSocket({
@@ -142,6 +137,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         networkId,
         from: timeRange.min,
         to: timeRange.max,
+        symbol: chartSymbol,
         webRef,
       });
     };
@@ -195,7 +191,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         handleSwapSuccess,
       );
     };
-  }, [isVisible, accountAddress, tokenAddress, networkId, webRef]);
+  }, [isVisible, accountAddress, tokenAddress, networkId, chartSymbol, webRef]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
