@@ -464,9 +464,10 @@ async function detectNetworkByPrivateKeyFn({
     ];
   }
 
-  // 64 hex chars without 0x (could be: Ton, Tron, Kaspa, Nexa, etc.)
+  // 64 hex chars without 0x (could be: Ton, Tron, Kaspa, Nexa, etc.; can also be valid EVM private key)
   if (/^[0-9a-fA-F]{64}$/.test(pk)) {
     return [
+      ...buildSameImplResults(presetNetworksMap.eth),
       buildDetectedNetwork(presetNetworksMap.ton),
       buildDetectedNetwork(presetNetworksMap.tron),
       buildDetectedNetwork(presetNetworksMap.kaspa),
