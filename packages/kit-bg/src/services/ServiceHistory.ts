@@ -788,7 +788,9 @@ class ServiceHistory extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: string;
-    }>('/wallet/v1/account/transaction/export-csv', params);
+    }>('/wallet/v1/account/transaction/export-csv', params, {
+      timeout: 15_000,
+    });
 
     return resp.data.data;
   }
