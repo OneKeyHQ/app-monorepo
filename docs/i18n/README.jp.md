@@ -1,8 +1,8 @@
 
 ## 🌍 環境設定
 
-1. [node.js LTS バージョン (>= 16)] をインストールする(https://nodejs.org/en/)
-2. [yarnパッケージ管理ツール]（https://yarnpkg.com/）バージョン1.18.0をインストールします。 （最新バージョンのyarnをインストールした後、ルートディレクトリで `yarn policy set-version 1.18.0`を実行します）
+1. [node.js LTS バージョン (>= 22)] をインストールする(https://nodejs.org/en/)
+2. [Yarn](https://yarnpkg.com/) 4.x を Corepack 経由でインストールします。
 3. インストール [git lfs](https://git-lfs.github.com/) (いくつかのバイナリのプルおよびアップデートに必要)
 4. iOSプロジェクトを開始するには、ローカルXCodeバージョンが13.3以上であることを確認してください
 5. Androidプロジェクトを開始するには、ローカルJDKバージョンが11以上であることを確認してください
@@ -20,7 +20,8 @@ yarn
 ルートディレクトリで以下のコマンドを実行し、異なるビジネスコードを開発します。
 
 - `yarn app:web`: ウェブモードを開発し、ポート 3000 の静的サーバをローカルに起動します。
-- `yarn app:ios`: USB接続でiphoneデバイスの開発をデバッグする。
+- `yarn app:ios`: デフォルトの iOS シミュレータでアプリを実行します。
+- `yarn app:ios:device`: USB 接続された iPhone デバイスでアプリを実行します。
 - `yarn app:android`: Androidのデバッグ
 - `yarn app:desktop`: デスクトップモードでの開発
 - `yarn app:ext`: ブラウザプラグインを開発します
@@ -63,4 +64,4 @@ packages/` ディレクトリの下のサブディレクトリはそれぞれ別
 
 2.依存関係のインストール中、または新しい依存関係を追加するときに、yarnは**エラーをプロンプトします予期しないエラーが発生しました："予期されたワークスペースパッケージが存在します**
 
-https://github.com/yarnpkg/yarn/issues/7807、コマンド「yarnpolicyset-version1.18.0」を使用して現在の環境のyarnバージョンを1.18.0に設定します。
+まず Corepack が有効になっていることと、環境がリポジトリで宣言されている Yarn 4 を使用していることを確認してください。
