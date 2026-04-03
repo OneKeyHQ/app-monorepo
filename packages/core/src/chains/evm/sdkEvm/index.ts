@@ -116,8 +116,7 @@ export function validateEvmAddress(
         : rawAddress;
     const isHexAddressLike = /^[0-9a-fA-F]{40}$/.test(addressWithoutPrefix);
     const hasMixedCase =
-      /[a-f]/.test(addressWithoutPrefix) &&
-      /[A-F]/.test(addressWithoutPrefix);
+      /[a-f]/.test(addressWithoutPrefix) && /[A-F]/.test(addressWithoutPrefix);
 
     // Some historical recipients store a mixed-case EVM address that fails
     // EIP-55 checksum casing. For that specific case (OK-52590), retry with

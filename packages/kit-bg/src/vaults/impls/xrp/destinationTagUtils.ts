@@ -3,15 +3,17 @@ export const XRP_DESTINATION_TAG_MAX = 4_294_967_295;
 const XRP_DESTINATION_TAG_REGEXP = /^\d+$/;
 
 export function parseXrpDestinationTag(value?: string): number | undefined {
-  const trimmed = (value ?? '').trim();
-  if (!trimmed) {
+  const rawValue = value ?? '';
+  if (!rawValue) {
     return undefined;
   }
-  if (!XRP_DESTINATION_TAG_REGEXP.test(trimmed)) {
+  // Keep the format strict: destination tag must be digits only,
+  // with no spaces or line breaks.
+  if (!XRP_DESTINATION_TAG_REGEXP.test(rawValue)) {
     return undefined;
   }
 
-  const destinationTag = Number(trimmed);
+  const destinationTag = Number(rawValue);
   if (
     !Number.isSafeInteger(destinationTag) ||
     destinationTag < 0 ||

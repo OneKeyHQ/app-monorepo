@@ -105,6 +105,11 @@ type ISendAmountInputParams =
   IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxAmountInput];
 
 const XRP_DESTINATION_TAG_MAX = 4_294_967_295;
+const LINE_BREAK_REGEXP = /[\r\n]+/g;
+
+function stripLineBreaks(value: string) {
+  return value.replace(LINE_BREAK_REGEXP, '');
+}
 
 function SendDataInputContainer() {
   const intl = useIntl();
@@ -366,7 +371,7 @@ function SendDataInputContainer() {
         addressInputMethod: addressInputChangeType.current,
       });
 
-      const nextMemoValue = form.getValues('memo');
+      const nextMemoValue = form.getValues('memo')?.trim();
       const nextPaymentIdValue = form.getValues('paymentId');
       const nextNoteValue = form.getValues('note');
 
@@ -494,6 +499,9 @@ function SendDataInputContainer() {
           return undefined;
         } catch (error) {
           console.error('Vault memo validation failed:', error);
+          return intl.formatMessage({
+            id: ETranslations.send_check_request_error,
+          });
         }
       }
 
@@ -505,10 +513,9 @@ function SendDataInputContainer() {
       const memoRegExp = numericOnlyMemo ? /^\d+$/ : undefined;
 
       if (!value || !memoRegExp) return undefined;
-      const trimmed = value.trim();
-      const numericValue = Number(trimmed);
+      const numericValue = Number(value);
       const result =
-        !memoRegExp.test(trimmed) ||
+        !memoRegExp.test(value) ||
         !Number.isSafeInteger(numericValue) ||
         numericValue > XRP_DESTINATION_TAG_MAX;
       return result ? validateErrMsg : undefined;
@@ -525,6 +532,29 @@ function SendDataInputContainer() {
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
     const maxLength = memoMaxLength || 256;
+    const isNumericMemo = Boolean(numericOnlyMemo);
+    let memoInputLines = 2;
+    if (isNumericMemo) {
+      memoInputLines = memoValue?.length ? 2 : 1;
+    }
+    const clearMemoExtension = memoValue ? (
+      <XStack justifyContent="flex-end">
+        <Button
+          size="small"
+          variant="secondary"
+          icon="BroomOutline"
+          onPress={() =>
+            form.setValue('memo', '', {
+              shouldValidate: true,
+            })
+          }
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_clear,
+          })}
+        </Button>
+      </XStack>
+    ) : undefined;
 
     return (
       <>
@@ -550,31 +580,16 @@ function SendDataInputContainer() {
           }}
         >
           <BaseInput
-            numberOfLines={2}
+            numberOfLines={memoInputLines}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
               id: ETranslations.send_tag_placeholder,
             })}
-            extension={
-              memoValue ? (
-                <XStack justifyContent="flex-end">
-                  <Button
-                    size="small"
-                    variant="secondary"
-                    icon="BroomOutline"
-                    onPress={() =>
-                      form.setValue('memo', '', {
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_clear,
-                    })}
-                  </Button>
-                </XStack>
-              ) : undefined
+            keyboardType={
+              isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
             }
+            onChangeText={(text) => stripLineBreaks(text)}
+            extension={clearMemoExtension}
           />
         </Form.Field>
       </>
@@ -586,6 +601,7 @@ function SendDataInputContainer() {
     media.gtMd,
     memoMaxLength,
     memoValue,
+    numericOnlyMemo,
     supportsMemoValidation,
     validateMemoField,
   ]);
@@ -634,6 +650,7 @@ function SendDataInputContainer() {
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder="Payment ID"
+            onChangeText={(text) => stripLineBreaks(text)}
           />
         </Form.Field>
       </>
@@ -762,7 +779,10 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo));
+      form.setValue(
+        'memo',
+        stripLineBreaks(normalizeOptionalRecipientText(selectedMemo)),
+      );
       form.setValue('note', normalizeOptionalRecipientText(selectedNote));
 
       const currentTo = form.getValues('to') as IAddressInputValue | undefined;
@@ -807,11 +827,12 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      const needsMemo = vaultSettings?.withMemo && !selectedMemo;
+      const hasSelectedMemo = Boolean(selectedMemo?.trim());
+      const needsMemoInput = vaultSettings?.withMemo && !hasSelectedMemo;
       const needsPaymentId =
         vaultSettings?.withPaymentId && !form.getValues('paymentId');
       const needsNote = vaultSettings?.withNote && !selectedNote;
-      return needsMemo || needsPaymentId || needsNote;
+      return needsMemoInput || needsPaymentId || needsNote;
     },
     [
       form,
@@ -875,7 +896,7 @@ function SendDataInputContainer() {
           nfts,
           recipientAddress: resolvedAddress,
           recipientIsContract: queryResult.isContract ?? false,
-          recipientMemo: selectedMemo || undefined,
+          recipientMemo: selectedMemo?.trim() || undefined,
           recipientPaymentId: form.getValues('paymentId') || undefined,
           recipientNote: selectedNote || undefined,
           amount: scannedAmount || sendAmount || undefined,

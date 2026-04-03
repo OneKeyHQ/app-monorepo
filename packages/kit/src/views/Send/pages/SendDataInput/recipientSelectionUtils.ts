@@ -24,7 +24,9 @@ export function shouldSkipResolvedRecipientUpdate({
   }
   const selected = normalizeComparableRecipientAddress(selectedAddress);
   const currentRaw = normalizeComparableRecipientAddress(currentTo.raw);
-  const currentResolved = normalizeComparableRecipientAddress(currentTo.resolved);
+  const currentResolved = normalizeComparableRecipientAddress(
+    currentTo.resolved,
+  );
 
   return (
     selected.length > 0 &&

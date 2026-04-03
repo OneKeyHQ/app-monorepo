@@ -88,7 +88,9 @@ export default class Vault extends VaultBase {
       return undefined;
     }
     if (destinationTag === undefined) {
-      throw new OneKeyLocalError(this.getDestinationTagValidationErrorMessage());
+      throw new OneKeyLocalError(
+        this.getDestinationTagValidationErrorMessage(),
+      );
     }
     return destinationTag;
   }

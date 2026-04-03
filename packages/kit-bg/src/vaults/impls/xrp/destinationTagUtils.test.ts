@@ -1,6 +1,6 @@
 import {
-  parseXrpDestinationTag,
   XRP_DESTINATION_TAG_MAX,
+  parseXrpDestinationTag,
 } from './destinationTagUtils';
 
 describe('parseXrpDestinationTag', () => {
@@ -25,13 +25,17 @@ describe('parseXrpDestinationTag', () => {
     expect(parseXrpDestinationTag('1.2')).toBeUndefined();
     expect(parseXrpDestinationTag('1e2')).toBeUndefined();
     expect(parseXrpDestinationTag('abc')).toBeUndefined();
+    expect(parseXrpDestinationTag(' 123')).toBeUndefined();
+    expect(parseXrpDestinationTag('123 ')).toBeUndefined();
+    expect(parseXrpDestinationTag('123\n')).toBeUndefined();
+    expect(parseXrpDestinationTag('12\r3')).toBeUndefined();
   });
 
   it('returns undefined for values above XRP destination tag max', () => {
     expect(parseXrpDestinationTag('4294967296')).toBeUndefined();
   });
 
-  it('supports surrounding whitespace by trimming', () => {
-    expect(parseXrpDestinationTag('  123  ')).toBe(123);
+  it('returns undefined when input includes surrounding whitespace', () => {
+    expect(parseXrpDestinationTag('  123  ')).toBeUndefined();
   });
 });

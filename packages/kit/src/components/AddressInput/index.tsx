@@ -56,6 +56,8 @@ import { SelectorPlugin } from './plugins/selector';
 import type { IScanPluginProps } from './plugins/scan';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
 
+const ADDRESS_LINE_BREAK_REGEXP = /[\r\n]+/g;
+
 type IResolvedAddressProps = {
   value: string;
   options: string[];
@@ -384,7 +386,9 @@ function AddressInputWarnings({
     queryResult?.validStatus,
   ]);
 
-  const showChecksumHint = Boolean(checksumSuggestion && onApplyChecksumAddress);
+  const showChecksumHint = Boolean(
+    checksumSuggestion && onApplyChecksumAddress,
+  );
 
   if (
     interactionBadges.length === 0 &&
@@ -408,7 +412,11 @@ function AddressInputWarnings({
             />
           ))}
           {showAddToAddressBook ? (
-            <Button variant="tertiary" size="small" onPress={onAddToAddressBook}>
+            <Button
+              variant="tertiary"
+              size="small"
+              onPress={onAddToAddressBook}
+            >
               {intl.formatMessage({
                 id: ETranslations.add_to_address_book__action,
               })}
@@ -420,8 +428,7 @@ function AddressInputWarnings({
         <XStack gap="$2" alignItems="center" justifyContent="space-between">
           <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
             {intl.formatMessage({
-              id: ETranslations
-                .send_address_not_transferred_not_checksummed__desc,
+              id: ETranslations.send_address_not_transferred_not_checksummed__desc,
             })}
           </SizableText>
           <Button
@@ -519,12 +526,16 @@ export function AddressInput(props: IAddressInputProps) {
       text: string;
       inputType: EInputAddressChangeType;
     }) => {
+      const normalizedText = text.replace(ADDRESS_LINE_BREAK_REGEXP, '');
       inputTypeRef.current = inputType;
-      if (textRef.current !== text) {
-        textRef.current = text;
-        setInputText(text);
+      if (textRef.current !== normalizedText) {
+        textRef.current = normalizedText;
+        setInputText(normalizedText);
         onInputTypeChange?.(inputType);
-        onChange?.({ raw: text, pending: text?.length > 0 });
+        onChange?.({
+          raw: normalizedText,
+          pending: normalizedText.length > 0,
+        });
       }
     },
     [onChange, onInputTypeChange],
