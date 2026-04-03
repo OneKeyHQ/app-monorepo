@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { createStore } from 'mipd';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 export function useOneKeyWalletDetection() {
@@ -9,8 +10,10 @@ export function useOneKeyWalletDetection() {
   const isOneKeyExtWalletInstalled = !!globalThis.$onekey?.$private?.isOneKey;
 
   // get EIP6963 providers
+  // createStore() depends on browser APIs (window.dispatchEvent + EIP-6963),
+  // only call it in extension/web environments to avoid crashes in RN/Hermes.
   const getEIP6963Providers = useCallback(() => {
-    if (typeof globalThis === 'undefined') return [];
+    if (!platformEnv.isExtension && !platformEnv.isWeb) return [];
 
     const mipd = createStore();
     return mipd.getProviders();
