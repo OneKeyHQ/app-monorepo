@@ -51,7 +51,8 @@ function fixBulkSendSupportedNetworkId({
   if (
     bulkSendMode &&
     bulkSendMode !== EBulkSendMode.OneToMany &&
-    !networkUtils.isLightningNetworkByNetworkId(networkId)
+    !networkUtils.isLightningNetworkByNetworkId(networkId) &&
+    !networkUtils.isAllNetwork({ networkId })
   ) {
     return {
       fixedNetworkId: networkId,
