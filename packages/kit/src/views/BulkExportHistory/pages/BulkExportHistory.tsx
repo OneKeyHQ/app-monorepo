@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { differenceInMonths } from 'date-fns';
+import {
+  differenceInMonths,
+  format as formatDateFns,
+  subMonths,
+} from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import type { IDateRange, IPageScreenProps } from '@onekeyhq/components';
@@ -13,6 +17,7 @@ import {
   Spinner,
   Stack,
   Switch,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -20,7 +25,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { AccountSelectorTriggerBulkExportHistory } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerBulkExportHistory';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EChainSelectorPages,
@@ -28,6 +36,7 @@ import {
   EModalRoutes,
   type IModalBulkExportHistoryParamList,
 } from '@onekeyhq/shared/src/routes';
+import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountTransactionRange } from '@onekeyhq/shared/types/history';
 
@@ -45,6 +54,14 @@ const DATE_RANGE_OPTIONS = [
   { label: 'Last 3 months', value: EDateRange.Last3Months },
   { label: 'Custom', value: EDateRange.Custom },
 ];
+
+function getLocalTimeZoneOffset() {
+  const offset = new Date().getTimezoneOffset();
+  const sign = offset <= 0 ? '+' : '-';
+  const hours = String(Math.abs(Math.floor(offset / 60))).padStart(2, '0');
+  const minutes = String(Math.abs(offset % 60)).padStart(2, '0');
+  return `${sign}${hours}:${minutes}`;
+}
 
 function getExportHistoryRangeMonthsText(range: IAccountTransactionRange) {
   const endTimestampMs = Math.min(range.maxTimestampMs, Date.now());
@@ -88,6 +105,12 @@ function BulkExportHistoryContent({
   });
   const [hideRiskyTransactions, setHideRiskyTransactions] = useState(true);
   const [hideDustTransactions, setHideDustTransactions] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const {
+    activeAccount: { account: activeAccount },
+  } = useActiveAccount({ num: 0 });
   const {
     supportedNetworkIds,
     selectedNetworkIds,
@@ -185,6 +208,7 @@ function BulkExportHistoryContent({
   }, [dateRange, customDateRange]);
 
   const handleCancel = useCallback(() => {
+    abortControllerRef.current?.abort();
     navigation.pop();
   }, [navigation]);
 
@@ -214,9 +238,100 @@ function BulkExportHistoryContent({
     supportedNetworkIds,
   ]);
 
-  const handleExport = useCallback(() => {
-    // TODO: implement export
-  }, []);
+  const handleExport = useCallback(async () => {
+    if (!activeAccount?.id || !selectedNetworkIds.length) return;
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setIsExporting(true);
+
+    try {
+      // 1. Compute date range
+      const now = new Date();
+      let minTimestampMs: number;
+      let maxTimestampMs: number;
+
+      if (dateRange === EDateRange.Custom) {
+        if (!customDateRange.start || !customDateRange.end) return;
+        minTimestampMs = customDateRange.start.getTime();
+        maxTimestampMs = customDateRange.end.getTime();
+      } else if (dateRange === EDateRange.Last3Months) {
+        minTimestampMs = subMonths(now, 3).getTime();
+        maxTimestampMs = now.getTime();
+      } else {
+        // LastMonth
+        minTimestampMs = subMonths(now, 1).getTime();
+        maxTimestampMs = now.getTime();
+      }
+
+      // 2. Build account array
+      const accountArray =
+        await backgroundApiProxy.serviceHistory.buildExportAccountArray({
+          accountId: activeAccount.id,
+          networkIds: selectedNetworkIds,
+        });
+
+      if (controller.signal.aborted) return;
+
+      // 3. Call export API
+      const csvData =
+        await backgroundApiProxy.serviceHistory.exportTransactionHistory({
+          accountArray,
+          limit: 1000,
+          minTimestampMs,
+          maxTimestampMs,
+          onlySafe: hideRiskyTransactions,
+          withoutDust: hideDustTransactions,
+          timeZone: getLocalTimeZoneOffset(),
+        });
+
+      if (controller.signal.aborted) return;
+
+      // 4. Generate filename
+      const networkPart =
+        isSingleNetwork && singleNetworkName
+          ? singleNetworkName.toLowerCase().replace(/\s+/g, '_')
+          : 'all_networks';
+
+      let datePart: string;
+      if (dateRange === EDateRange.Custom) {
+        datePart = `${formatDateFns(new Date(minTimestampMs), 'ddMMyy')}_${formatDateFns(new Date(maxTimestampMs), 'ddMMyy')}`;
+      } else {
+        datePart = formatDateFns(now, 'ddMMyy');
+      }
+
+      const filename = `transaction_history_${networkPart}_${datePart}.csv`;
+
+      // 5. Save file
+      await csvExporterUtils.exportCSV(csvData, filename, true);
+
+      if (!controller.signal.aborted) {
+        navigation.pop();
+      }
+    } catch {
+      if (!controller.signal.aborted) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+      }
+    } finally {
+      setIsExporting(false);
+      abortControllerRef.current = null;
+    }
+  }, [
+    activeAccount?.id,
+    selectedNetworkIds,
+    dateRange,
+    customDateRange,
+    hideRiskyTransactions,
+    hideDustTransactions,
+    isSingleNetwork,
+    singleNetworkName,
+    navigation,
+    intl,
+  ]);
 
   if (isLoading) {
     return (
@@ -336,6 +451,7 @@ function BulkExportHistoryContent({
           confirmButtonProps={{
             onPress: handleExport,
             disabled: !hasRangeData || !isCustomDateRangeValid,
+            loading: isExporting,
           }}
         />
       </Page.Footer>

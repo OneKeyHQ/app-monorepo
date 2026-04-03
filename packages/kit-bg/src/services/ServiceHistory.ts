@@ -32,6 +32,7 @@ import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
   IChangedPendingTxInfo,
+  IExportTransactionHistoryAccount,
   IExportTransactionHistoryParams,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
@@ -779,6 +780,35 @@ class ServiceHistory extends ServiceBase {
     }>('/wallet/v1/account/transaction/range');
 
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async buildExportAccountArray({
+    accountId,
+    networkIds,
+  }: {
+    accountId: string;
+    networkIds: string[];
+  }): Promise<IExportTransactionHistoryAccount[]> {
+    return Promise.all(
+      networkIds.map(async (networkId) => {
+        const [accountAddress, xpub] = await Promise.all([
+          this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          }),
+          this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
+        ]);
+        return {
+          accountAddress,
+          networkId,
+          xpub: xpub || undefined,
+        };
+      }),
+    );
   }
 
   @backgroundMethod()
