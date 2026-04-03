@@ -1,4 +1,4 @@
-import type { PackageRef } from './checkPackageAge';
+import type { IPackageRef } from './checkPackageAge';
 
 /**
  * Parse a `git diff` of yarn.lock to extract newly added packages.
@@ -11,10 +11,10 @@ import type { PackageRef } from './checkPackageAge';
  * match the header for the package name, then read the resolved version
  * from the +  version: line that follows (same approach as parseFullLockfile).
  */
-export function parseLockfileDiff(diff: string): PackageRef[] {
+export function parseLockfileDiff(diff: string): IPackageRef[] {
   const lines = diff.split('\n');
   const seen = new Set<string>();
-  const results: PackageRef[] = [];
+  const results: IPackageRef[] = [];
 
   // Match added entry header lines like: +"lodash@npm:^4.0.0":
   const entryPattern = /^\+"(?:(@[^@]+\/[^@]+)|([^@"][^@]*))@npm:/;
@@ -53,10 +53,10 @@ export function parseLockfileDiff(diff: string): PackageRef[] {
  * We look for lines that define a package entry and then read the
  * resolved version from the `version:` field that follows.
  */
-export function parseFullLockfile(content: string): PackageRef[] {
+export function parseFullLockfile(content: string): IPackageRef[] {
   const lines = content.split('\n');
   const seen = new Set<string>();
-  const results: PackageRef[] = [];
+  const results: IPackageRef[] = [];
 
   // Match entry header lines like: "lodash@npm:^4.0.0, lodash@npm:^4.17.0":
   const entryPattern = /^"(?:(@[^@]+\/[^@]+)|([^@"][^@]*))@npm:/;
