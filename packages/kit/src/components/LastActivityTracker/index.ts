@@ -10,6 +10,7 @@ import {
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
+import { initPosthog } from '@onekeyhq/shared/src/modules3rdParty/posthog';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import { setUser as setSentryUser } from '@onekeyhq/shared/src/modules3rdParty/sentry';
@@ -36,6 +37,10 @@ const LastActivityTracker = () => {
         ).endpoint,
         enableAnalyticsInDev:
           devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
+      });
+      initPosthog({
+        enableTestEndpoint:
+          devSettings.enabled && devSettings.settings?.enableTestEndpoint,
       });
       setSentryUser({
         id: instanceId,
