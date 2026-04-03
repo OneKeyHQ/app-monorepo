@@ -61,6 +61,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
+import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
@@ -353,18 +354,9 @@ const SwapSettingsDialogContent = () => {
           })}
           value={swapEnableRecipientAddress}
           onChange={(v) => {
-            if (v) {
-              setNoPersistSettings((s) => ({
-                ...s,
-                swapEnableRecipientAddress: v,
-              }));
-            } else {
-              setNoPersistSettings((s) => ({
-                ...s,
-                swapEnableRecipientAddress: v,
-                swapToAnotherAccountSwitchOn: v,
-              }));
-            }
+            setNoPersistSettings((s) =>
+              buildSwapRecipientAddressSettingsUpdate(s, v),
+            );
           }}
         />
       )}

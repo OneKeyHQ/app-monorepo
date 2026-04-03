@@ -2,6 +2,7 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import { createStore } from 'mipd';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import type { EIP6963ProviderDetail } from 'mipd';
@@ -11,8 +12,7 @@ const ONE_KEY_RDNS_PATTERNS = ['so.onekey.app.wallet'];
 // ---------------------------------------------------------------------------
 // Module-level singleton MIPD store + useSyncExternalStore glue
 // ---------------------------------------------------------------------------
-const sharedMipdStore =
-  typeof globalThis !== 'undefined' ? createStore() : undefined;
+const sharedMipdStore = platformEnv.isWeb ? createStore() : undefined;
 
 let cachedProviders: readonly EIP6963ProviderDetail[] =
   sharedMipdStore?.getProviders() ?? [];

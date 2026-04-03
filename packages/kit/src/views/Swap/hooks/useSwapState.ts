@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   swapQuoteIntervalMaxCount,
@@ -30,7 +29,6 @@ import {
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
-  SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -56,6 +54,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -144,12 +143,6 @@ export function useSwapQuoteEventFetching() {
   return false;
 }
 
-export enum ESwapBatchTransferType {
-  CONTINUOUS_APPROVE_AND_SWAP = 'continuous_approve_and_swap',
-  BATCH_APPROVE_AND_SWAP = 'batch_approve_and_swap',
-  NORMAL = 'normal',
-}
-
 export function useSwapBatchTransferType(
   networkId?: string,
   accountId?: string,
@@ -157,31 +150,16 @@ export function useSwapBatchTransferType(
   swapShouldSignedData?: boolean,
   needApprove?: boolean,
 ) {
-  let type = ESwapBatchTransferType.NORMAL;
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  if (settingsPersistAtom.swapBatchApproveAndSwap && needApprove) {
-    type = ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
-  }
-  const isExternalAccount = accountUtils.isExternalAccount({
-    accountId: accountId ?? '',
+
+  return buildSwapBatchTransferType({
+    networkId,
+    accountId,
+    providerDisableBatchTransfer,
+    swapShouldSignedData,
+    needApprove,
+    batchApproveAndSwapEnabled: settingsPersistAtom.swapBatchApproveAndSwap,
   });
-  const isHDAccount = accountUtils.isHwOrQrAccount({
-    accountId: accountId ?? '',
-  });
-  if ((isExternalAccount || isHDAccount) && needApprove) {
-    type = ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP;
-  }
-  const isUnSupportBatchTransferNet =
-    SwapBuildUseMultiplePopoversNetworkIds.includes(networkId ?? '');
-  if (
-    providerDisableBatchTransfer ||
-    isUnSupportBatchTransferNet ||
-    !settingsPersistAtom.swapBatchApproveAndSwap ||
-    swapShouldSignedData
-  ) {
-    type = ESwapBatchTransferType.NORMAL;
-  }
-  return type;
 }
 
 export function useSwapActionState() {
