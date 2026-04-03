@@ -348,9 +348,7 @@ function BulkExportHistoryContent({
       console.error(error);
       if (!controller.signal.aborted) {
         Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          }),
+          title: 'Exporting history failed, please try again.',
         });
       }
     } finally {
