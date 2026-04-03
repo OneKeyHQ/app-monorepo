@@ -4,13 +4,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const POSTHOG_API_KEY = 'phc_HxZGSxQodUZfWnQQWiGX0AjrMIOOIpp7oEwmKlkzhVg';
 
+let initialized = false;
+
 export function initPosthog({
   enableTestEndpoint,
 }: {
   enableTestEndpoint?: boolean;
 } = {}) {
-  if (platformEnv.isDev || platformEnv.isE2E || enableTestEndpoint) return;
+  if (initialized) return;
+  if ((platformEnv.isDev || platformEnv.isE2E) && !enableTestEndpoint) return;
 
+  initialized = true;
   posthog.init(POSTHOG_API_KEY, {
     api_host: 'https://onekey.so/ph',
     capture_pageview: 'history_change',
