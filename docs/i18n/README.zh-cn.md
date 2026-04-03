@@ -1,8 +1,8 @@
 
 ## 🌍 环境配置
 
-1. 安装 [node.js LTS 版本（>= 16）](https://nodejs.org/en/)
-2. 安装 [yarn 包管理工具](https://yarnpkg.com/) 1.18.0 版本。（安装完成最新版本的 yarn 之后，根目录执行 `yarn policies set-version 1.18.0`）
+1. 安装 [node.js LTS 版本（>= 22）](https://nodejs.org/en/)
+2. 安装 [yarn 包管理工具](https://yarnpkg.com/) 4.x 版本（通过 Corepack 管理）。
 3. 安装 [git lfs](https://git-lfs.github.com/)（部分二进制文件在拉取和更新时需要）
 4. 启动 iOS 项目需确保本地 XCode 版本大于等于 13.3
 5. 启动 Android 项目需确保本地 JDK 版本大于等于 11
@@ -20,7 +20,8 @@ yarn
 在根目录执行以下命令，从而开发不同的业务代码
 
 - `yarn app:web`: 开发网页模式，会启动静态服务器在本地 3000 端口
-- `yarn app:ios`: 通过 USB 连接 iphone 设备进行开发调试
+- `yarn app:ios`: 在默认 iOS 模拟器中运行
+- `yarn app:ios:device`: 通过 USB 连接 iPhone 设备进行开发调试
 - `yarn app:android`: 调试安卓
 - `yarn app:desktop`: 开发桌面端模式
 - `yarn app:ext`: 开发浏览器插件
@@ -63,4 +64,4 @@ yarn
 
 2. yarn 安装依赖过程中或新增依赖时，提示 **error An unexpected error occurred: "expected workspace package to exist for**
 
-参考 https://github.com/yarnpkg/yarn/issues/7807，通过命令 `yarn policies set-version 1.18.0` 设置当前环境 yarn 版本为 1.18.0
+请先确认当前环境已启用 Corepack，并使用仓库声明的 Yarn 4 版本。
