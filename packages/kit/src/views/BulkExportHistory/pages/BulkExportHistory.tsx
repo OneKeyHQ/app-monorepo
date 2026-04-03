@@ -3,8 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { differenceInMonths } from 'date-fns';
 import { useIntl } from 'react-intl';
 
-import type { IPageScreenProps } from '@onekeyhq/components';
+import type { IDateRange, IPageScreenProps } from '@onekeyhq/components';
 import {
+  DatePicker,
   ESwitchSize,
   Page,
   SegmentControl,
@@ -14,9 +15,11 @@ import {
   Switch,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerBulkExportHistory } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerBulkExportHistory';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -79,12 +82,17 @@ function BulkExportHistoryContent({
   const [dateRange, setDateRange] = useState<string | number>(
     EDateRange.LastMonth,
   );
+  const [customDateRange, setCustomDateRange] = useState<IDateRange>({
+    start: null,
+    end: null,
+  });
   const [hideRiskyTransactions, setHideRiskyTransactions] = useState(true);
   const {
     supportedNetworkIds,
     selectedNetworkIds,
     setSelectedNetworkIds,
     networkRangeMap,
+    selectedRangeMap,
     hasRangeData,
     isLoading,
     isRangeLoading,
@@ -109,6 +117,71 @@ function BulkExportHistoryContent({
       ]),
     );
   }, [networkRangeMap]);
+
+  const isSingleNetwork = selectedNetworkIds.length === 1;
+  const singleNetworkId = isSingleNetwork ? selectedNetworkIds[0] : '';
+
+  const { result: singleNetworkName } = usePromiseResult(
+    async () => {
+      if (!singleNetworkId) return undefined;
+      const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId: singleNetworkId,
+      });
+      return network.name;
+    },
+    [singleNetworkId],
+    { checkIsFocused: false },
+  );
+
+  // Compute the intersection range across selected networks (narrowest common window)
+  const customDateConstraints = useMemo(() => {
+    if (!selectedRangeMap) return undefined;
+    const ranges = Object.values(selectedRangeMap);
+    if (!ranges.length) return undefined;
+
+    // Intersection: latest start, earliest end
+    const minTimestampMs = Math.max(
+      ...ranges.map((range) => range.minTimestampMs),
+    );
+    const maxTimestampMs = Math.min(
+      ...ranges.map((range) => range.maxTimestampMs),
+      Date.now(),
+    );
+
+    if (minTimestampMs >= maxTimestampMs) return undefined;
+
+    return {
+      minDate: new Date(minTimestampMs),
+      maxDate: new Date(maxTimestampMs),
+    };
+  }, [selectedRangeMap]);
+
+  const customDateRangeMaxMonths = useMemo(() => {
+    if (!customDateConstraints) return undefined;
+    return Math.max(
+      1,
+      differenceInMonths(
+        customDateConstraints.maxDate,
+        customDateConstraints.minDate,
+      ),
+    );
+  }, [customDateConstraints]);
+
+  const customDateRangeDescription = useMemo(() => {
+    if (
+      isSingleNetwork &&
+      singleNetworkName &&
+      customDateRangeMaxMonths !== undefined
+    ) {
+      return `${singleNetworkName} supports exporting up to ${customDateRangeMaxMonths} ${customDateRangeMaxMonths === 1 ? 'month' : 'months'} of data.`;
+    }
+    return 'Selected networks export is limited to the last 6 months. For longer periods, try single-network export.';
+  }, [isSingleNetwork, singleNetworkName, customDateRangeMaxMonths]);
+
+  const isCustomDateRangeValid = useMemo(() => {
+    if (dateRange !== EDateRange.Custom) return true;
+    return Boolean(customDateRange.start && customDateRange.end);
+  }, [dateRange, customDateRange]);
 
   const handleCancel = useCallback(() => {
     navigation.pop();
@@ -196,6 +269,7 @@ function BulkExportHistoryContent({
           <Stack
             opacity={isDateRangeDisabled ? 0.5 : 1}
             pointerEvents={isDateRangeDisabled ? 'none' : 'auto'}
+            gap="$3"
           >
             <SegmentControl
               fullWidth
@@ -203,6 +277,19 @@ function BulkExportHistoryContent({
               options={DATE_RANGE_OPTIONS}
               onChange={setDateRange}
             />
+            {dateRange === EDateRange.Custom ? (
+              <>
+                <DatePicker.Range
+                  value={customDateRange}
+                  onChange={setCustomDateRange}
+                  minDate={customDateConstraints?.minDate}
+                  maxDate={customDateConstraints?.maxDate}
+                />
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {customDateRangeDescription}
+                </SizableText>
+              </>
+            ) : null}
           </Stack>
         </Stack>
 
@@ -233,7 +320,7 @@ function BulkExportHistoryContent({
           })}
           confirmButtonProps={{
             onPress: handleExport,
-            disabled: !hasRangeData,
+            disabled: !hasRangeData || !isCustomDateRangeValid,
           }}
         />
       </Page.Footer>
