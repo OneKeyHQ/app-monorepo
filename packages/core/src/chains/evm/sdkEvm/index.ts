@@ -96,11 +96,6 @@ export function packUnsignedTxForSignEvm(unsignedTx: IUnsignedTxPro) {
 export function validateEvmAddress(
   address: string,
 ): Promise<IAddressValidation> {
-  const invalidResult: IAddressValidation = {
-    isValid: false,
-    normalizedAddress: '',
-    displayAddress: '',
-  };
   let isValid = false;
   let checksumAddress = '';
 
@@ -108,29 +103,11 @@ export function validateEvmAddress(
     checksumAddress = getAddress(address);
     isValid = checksumAddress.length === 42;
   } catch {
-    const rawAddress = typeof address === 'string' ? address : '';
-    const hasInputWhitespace = rawAddress.trim() !== rawAddress;
-    const addressWithoutPrefix =
-      rawAddress.startsWith('0x') || rawAddress.startsWith('0X')
-        ? rawAddress.slice(2)
-        : rawAddress;
-    const isHexAddressLike = /^[0-9a-fA-F]{40}$/.test(addressWithoutPrefix);
-    const hasMixedCase =
-      /[a-f]/.test(addressWithoutPrefix) && /[A-F]/.test(addressWithoutPrefix);
-
-    // Some historical recipients store a mixed-case EVM address that fails
-    // EIP-55 checksum casing. For that specific case (OK-52590), retry with
-    // lowercase so valid hex addresses are still accepted.
-    if (hasInputWhitespace || !isHexAddressLike || !hasMixedCase) {
-      return Promise.resolve(invalidResult);
-    }
-
-    try {
-      checksumAddress = getAddress(rawAddress.toLowerCase());
-      isValid = checksumAddress.length === 42;
-    } catch {
-      return Promise.resolve(invalidResult);
-    }
+    return Promise.resolve({
+      isValid: false,
+      normalizedAddress: '',
+      displayAddress: '',
+    });
   }
 
   return Promise.resolve({
