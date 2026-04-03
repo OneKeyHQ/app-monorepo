@@ -1,8 +1,8 @@
 
 ## 🌍 Konfiguration der Umgebung
 
-1. installieren Sie [node.js LTS Version (>= 16)](https://nodejs.org/en/)
-2. Installieren Sie das [yarn package management tool](https://yarnpkg.com/)
+1. installieren Sie [node.js LTS Version (>= 22)](https://nodejs.org/en/)
+2. Installieren Sie [Yarn](https://yarnpkg.com/) 4.x über Corepack.
 3. installieren Sie [git lfs](https://git-lfs.github.com/) (erforderlich für das Ziehen und Aktualisieren einiger Binärdateien)
 4. Stellen Sie zum Starten des iOS-Projekts sicher, dass die lokale XCode-Version größer oder gleich 13.3 ist
 5. Um das Android-Projekt zu starten, stellen Sie sicher, dass die lokale JDK-Version größer oder gleich 11 ist
@@ -20,7 +20,8 @@ yarn
 Entwickeln Sie verschiedene Geschäftscodes, indem Sie die folgenden Befehle im Stammverzeichnis ausführen
 
 - `yarn app:web`: Web-Modus entwickeln, der einen statischen Server auf Port 3000 lokal startet
-- `yarn app:ios`: Debugging-Entwicklung auf iphone-Geräten über USB-Verbindung
+- `yarn app:ios`: führt die iOS-App im Standard-Simulator aus
+- `yarn app:ios:device`: führt die iOS-App auf einem per USB verbundenen Gerät aus
 - `yarn app:android`: Fehlersuche für Android
 - `yarn app:desktop`: Entwicklung im Desktop-Modus
 - `yarn app:ext`: Entwicklung von Browser-Plugins
@@ -61,6 +62,6 @@ Einige der Abhängigkeiten haben native Teile, daher müssen Sie in das Verzeich
 
 Bei allen Umgebungs-, Modul- und Abhängigkeitsproblemen in der Startphase wird empfohlen, zuerst den Befehl "yarn clean" im Stammverzeichnis zu verwenden. Der Befehl löscht alle untergeordneten Abhängigkeiten sowie den Modul-Cache von Garn, den Cache von Tools wie Metro / Babel und startet dann das Projekt neu, um es zu versuchen.
 
-2. Während der Installation von Abhängigkeiten oder beim Hinzufügen neuer Abhängigkeiten zeigt Garn **Fehler an. Ein unerwarteter Fehler ist aufgetreten: "expected workspace package to exist for**
+2. Während der Installation von Abhängigkeiten oder beim Hinzufügen neuer Abhängigkeiten zeigt Yarn **Fehler an. Ein unerwarteter Fehler ist aufgetreten: "expected workspace package to exist for**
 
-Siehe https://github.com/yarnpkg/yarn/issues/7807, setzen Sie die aktuelle Garnversion der Umgebung auf 1.18.0 durch den Befehl „yarn policies set-version 1.18.0“.
+Prüfen Sie zuerst, ob Corepack aktiviert ist und ob die Umgebung die vom Repository deklarierte Yarn-4-Version verwendet.
