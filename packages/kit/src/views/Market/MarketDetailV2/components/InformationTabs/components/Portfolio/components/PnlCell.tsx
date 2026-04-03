@@ -2,7 +2,7 @@ import { memo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 
 function PnlCellBase({
   usdValue,
@@ -32,9 +32,23 @@ function PnlCellBase({
 
   return (
     <YStack w={columnWidth} flex={flexValue} alignItems="flex-end">
-      <SizableText size="$bodySmMedium" color={displayColor}>
-        {isValid ? `${prefix}$${valueBN.abs().toFixed(2)}` : '--'}
-      </SizableText>
+      {isValid ? (
+        <NumberSizeableText
+          size="$bodySmMedium"
+          color={displayColor}
+          autoFormatter="price-marketCap"
+          autoFormatterThreshold={1000}
+          formatterOptions={{
+            currency: `${prefix}$`,
+          }}
+        >
+          {valueBN.abs().toFixed()}
+        </NumberSizeableText>
+      ) : (
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          --
+        </SizableText>
+      )}
       <SizableText size="$bodySm" color={displayColor}>
         {isValid ? `${percent}%` : '--'}
       </SizableText>
