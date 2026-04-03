@@ -1,8 +1,8 @@
 
 ## 🌍 Configuration de l'environnement
 
-1. installer [node.js LTS version (>= 16)](https://nodejs.org/en/)
-2. Installez [l'outil de gestion des packages de fils](https://yarnpkg.com/) version 1.18.0. (Après avoir installé la dernière version de yarn, exécutez `yarn Policies set-version 1.18.0` dans le répertoire racine)
+1. installer [node.js LTS version (>= 22)](https://nodejs.org/en/)
+2. Installez [Yarn](https://yarnpkg.com/) 4.x via Corepack.
 3. installer [git lfs](https://git-lfs.github.com/) (nécessaire pour tirer et mettre à jour certains binaires)
 4. Pour démarrer le projet iOS, assurez-vous que la version locale de XCode est supérieure ou égale à 13.3
 5. Pour démarrer le projet Android, assurez-vous que la version locale du JDK est supérieure ou égale à 11
@@ -20,7 +20,8 @@ yarn
 Développez un code commercial différent en exécutant les commandes suivantes dans le répertoire racine
 
 - `yarn app:web`: développer le mode web, qui démarrera localement un serveur statique sur le port 3000
-- `yarn app:ios`: déboguer le développement sur les appareils iphone via une connexion USB
+- `yarn app:ios`: exécute l’application iOS dans le simulateur par défaut
+- `yarn app:ios:device`: exécute l’application iOS sur un appareil connecté via USB
 - `yarn app:android`: déboguer Android
 - `yarn app:desktop`: développement en mode desktop
 - `yarn app:ext`: développer des plugins de navigateur
@@ -63,4 +64,4 @@ Pour tout problème d'environnement, de module et de dépendance dans la phase d
 
 2. Lors de l'installation de dépendances ou lors de l'ajout de nouvelles dépendances, yarn affichera **error Une erreur inattendue s'est produite : "le package d'espace de travail attendu existe pour**
 
-Reportez-vous à https://github.com/yarnpkg/yarn/issues/7807, définissez la version actuelle du fil de l'environnement sur 1.18.0 via la commande `yarn Policies set-version 1.18.0`
+Vérifiez d’abord que Corepack est activé et que l’environnement utilise bien la version Yarn 4 déclarée par le dépôt.
