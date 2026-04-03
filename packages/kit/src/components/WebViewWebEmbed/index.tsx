@@ -29,6 +29,7 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
+import type { WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
 // /onboarding/auto_typing
@@ -125,9 +126,7 @@ export function WebViewWebEmbed({
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
     if (webEmbedPath) {
       return {
-        uri: platformEnv.isNativeAndroid
-          ? `file://${webEmbedPath}/index.html`
-          : webEmbedPath,
+        uri: `file://${webEmbedPath}/index.html`,
       };
     }
     // Android
@@ -198,10 +197,26 @@ export function WebViewWebEmbed({
     }
   }, []);
 
+  const handleError = useCallback((event: WebViewErrorEvent) => {
+    const { code, description, url } = event?.nativeEvent || {};
+    defaultLogger.app.webembed.webViewOnError({
+      code: code || 0,
+      description: description || 'unknown',
+      url: url || 'unknown',
+    });
+  }, []);
+
   const allowFileAccessByUrl = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
+    const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    return !!webEmbedPath || undefined;
+  }, []);
+
+  const iosAllowingReadAccessToURL = useMemo(() => {
+    if (platformEnv.isNativeIOS) {
       const webEmbedPath = BundleUpdate.getWebEmbedPath();
-      return !!webEmbedPath;
+      if (webEmbedPath) {
+        return `file://${webEmbedPath}/`;
+      }
     }
     return undefined;
   }, []);
@@ -233,6 +248,7 @@ export function WebViewWebEmbed({
       <WebView
         allowFileAccess={allowFileAccessByUrl}
         allowFileAccessFromFileURLs={allowFileAccessByUrl}
+        allowingReadAccessToURL={iosAllowingReadAccessToURL}
         pullToRefreshEnabled={false}
         useGeckoView={false}
         // *** use remote url
@@ -242,6 +258,7 @@ export function WebViewWebEmbed({
         onWebViewRef={onWebViewRef}
         customReceiveHandler={customReceiveHandler}
         onMessage={handleMessage}
+        onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
@@ -271,11 +288,13 @@ export function WebViewWebEmbed({
     devSettingsPersistAtom.enabled,
     devSettingsPersistAtom.settings?.disableWebEmbedApi,
     allowFileAccessByUrl,
+    iosAllowingReadAccessToURL,
     remoteUrl,
     nativeWebviewSource,
     onWebViewRef,
     customReceiveHandler,
     handleMessage,
+    handleError,
   ]);
 
   useEffect(() => {
