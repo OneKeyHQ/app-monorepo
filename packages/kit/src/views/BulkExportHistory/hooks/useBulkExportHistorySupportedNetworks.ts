@@ -13,14 +13,36 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 function resolveDefaultSelectedNetworkIds({
   homeNetworkId,
   supportedNetworkIds,
+  allNetworkEnabledNetworkIds,
 }: {
   homeNetworkId?: string;
   supportedNetworkIds: string[];
+  allNetworkEnabledNetworkIds?: string[];
 }) {
   const networkIdsMap = getNetworkIdsMap();
 
   if (!supportedNetworkIds.length) {
     return [];
+  }
+
+  // When coming from all-networks mode, select the intersection of
+  // enabled networks and supported export networks
+  if (
+    networkUtils.isAllNetwork({ networkId: homeNetworkId }) &&
+    allNetworkEnabledNetworkIds
+  ) {
+    const supportedSet = new Set(supportedNetworkIds);
+    const matched = allNetworkEnabledNetworkIds.filter((id) =>
+      supportedSet.has(id),
+    );
+    if (matched.length > 0) {
+      return matched;
+    }
+    // Fallback to eth if no overlap
+    if (supportedNetworkIds.includes(networkIdsMap.eth)) {
+      return [networkIdsMap.eth];
+    }
+    return [supportedNetworkIds[0]];
   }
 
   if (homeNetworkId && supportedNetworkIds.includes(homeNetworkId)) {
@@ -51,6 +73,33 @@ export function useBulkExportHistorySupportedNetworks({
 
   const selectionInitializedRef = useRef(false);
   const selectionDirtyRef = useRef(false);
+
+  const isAllNetworkHome = networkUtils.isAllNetwork({
+    networkId: homeNetworkId,
+  });
+  const [allNetworkEnabledNetworkIds, setAllNetworkEnabledNetworkIds] =
+    useState<string[] | undefined>(undefined);
+
+  useEffect(() => {
+    if (!isAllNetworkHome) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const state =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        if (!cancelled) {
+          setAllNetworkEnabledNetworkIds(
+            Object.keys(state.enabledNetworks ?? {}),
+          );
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAllNetworkHome]);
 
   const fallbackSupportedNetworkIds = useMemo(
     () => networkUtils.getEnabledExportHistoryNetworkIds(),
@@ -133,6 +182,7 @@ export function useBulkExportHistorySupportedNetworks({
             : resolveDefaultSelectedNetworkIds({
                 homeNetworkId,
                 supportedNetworkIds,
+                allNetworkEnabledNetworkIds,
               });
 
         const isChanged =
@@ -146,7 +196,7 @@ export function useBulkExportHistorySupportedNetworks({
         return nextValue;
       });
     },
-    [homeNetworkId, supportedNetworkIds],
+    [homeNetworkId, supportedNetworkIds, allNetworkEnabledNetworkIds],
   );
 
   useEffect(() => {
@@ -158,6 +208,7 @@ export function useBulkExportHistorySupportedNetworks({
     const nextDefaultSelectedNetworkIds = resolveDefaultSelectedNetworkIds({
       homeNetworkId,
       supportedNetworkIds,
+      allNetworkEnabledNetworkIds,
     });
 
     setSelectedNetworkIdsState((prev) => {
@@ -180,7 +231,7 @@ export function useBulkExportHistorySupportedNetworks({
 
       return nextDefaultSelectedNetworkIds;
     });
-  }, [homeNetworkId, supportedNetworkIds]);
+  }, [homeNetworkId, supportedNetworkIds, allNetworkEnabledNetworkIds]);
 
   const selectedRangeMap = useMemo(() => {
     const networkMap = rangeResp?.networkMap;
