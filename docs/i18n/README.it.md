@@ -1,8 +1,8 @@
 
 ## 🌍 Configurazione dell'ambiente
 
-1. installare [node.js versione LTS (>= 16)](https://nodejs.org/en/)
-2. Installare lo [strumento di gestione dei pacchetti di filati](https://yarnpkg.com/) versione 1.18.0. (Dopo aver installato l'ultima versione di yarn, esegui `yarn policies set-version 1.18.0` nella directory principale)
+1. installare [node.js versione LTS (>= 22)](https://nodejs.org/en/)
+2. Installare [Yarn](https://yarnpkg.com/) 4.x tramite Corepack.
 3. installare [git lfs](https://git-lfs.github.com/) (necessario per tirare e aggiornare alcuni binari)
 4. Per avviare il progetto iOS, assicurati che la versione locale di XCode sia maggiore o uguale a 13.3
 5. Per avviare il progetto Android, assicurati che la versione JDK locale sia maggiore o uguale a 11
@@ -20,7 +20,8 @@ yarn
 Sviluppare codice commerciale diverso eseguendo i seguenti comandi nella directory principale
 
 - `yarn app:web`: sviluppa la modalità web, che avvierà localmente un server statico sulla porta 3000
-- `yarn app:ios`: debug dello sviluppo su dispositivi iphone tramite connessione USB
+- `yarn app:ios`: esegue l'app iOS nel simulatore predefinito
+- `yarn app:ios:device`: esegue l'app iOS su un dispositivo collegato via USB
 - `yarn app:android`: debug di Android
 - `yarn app:desktop`: sviluppo in modalità desktop
 - `yarn app:ext`: sviluppa plugin per browser
@@ -63,4 +64,4 @@ Per qualsiasi problema relativo all'ambiente, ai moduli e alle dipendenze nella 
 
 2. Durante l'installazione delle dipendenze o quando si aggiungono nuove dipendenze, il filato visualizzerà **errore Si è verificato un errore imprevisto: "prevista l'esistenza del pacchetto dell'area di lavoro per**
 
-Fare riferimento a https://github.com/yarnpkg/yarn/issues/7807, impostare la versione corrente del filato dell'ambiente su 1.18.0 tramite il comando `yarn policies set-version 1.18.0`
+Verifica prima che Corepack sia abilitato e che l'ambiente stia usando la versione Yarn 4 dichiarata dal repository.
