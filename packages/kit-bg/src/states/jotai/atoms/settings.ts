@@ -128,11 +128,14 @@ export const {
   },
 });
 
-type ISettingsAtom = {
+export type ISettingsAtom = {
   swapToAnotherAccountSwitchOn: boolean;
   swapSlippagePercentageMode: ESwapSlippageSegmentKey;
   swapSlippagePercentageCustomValue: number;
   swapEnableRecipientAddress: boolean;
+  // Swap page UI state should reset with the page/session instead of persisting silently.
+  swapIncognitoMode: boolean;
+  swapEnableRecipientAddressBeforeIncognito?: boolean;
 };
 
 export const { target: settingsAtom, use: useSettingsAtom } =
@@ -143,6 +146,8 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
       swapSlippagePercentageCustomValue: swapSlippageAutoValue,
       swapEnableRecipientAddress: false,
+      swapIncognitoMode: false,
+      swapEnableRecipientAddressBeforeIncognito: undefined,
     },
   });
 

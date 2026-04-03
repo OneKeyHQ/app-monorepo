@@ -570,6 +570,7 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage,
     blockNumber,
     receivingAddress,
+    incognito,
     accountId,
     protocol,
     expirationTime,
@@ -585,6 +586,7 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage: number;
     autoSlippage?: boolean;
     receivingAddress?: string;
+    incognito?: boolean;
     blockNumber?: number;
     accountId?: string;
     expirationTime?: number;
@@ -630,6 +632,7 @@ export default class ServiceSwap extends ServiceBase {
       denyCrossChainProvider,
       denySingleSwapProvider,
       walletDeviceType: walletDevice?.deviceType,
+      ...(incognito ? { incognito } : {}),
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -684,6 +687,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     expirationTime,
     receivingAddress,
+    incognito,
     limitPartiallyFillable,
     kind,
     toTokenAmount,
@@ -725,6 +729,7 @@ export default class ServiceSwap extends ServiceBase {
       denyCrossChainProvider,
       denySingleSwapProvider,
       walletDeviceType: walletDevice?.deviceType,
+      ...(incognito ? { incognito } : {}),
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)
