@@ -87,6 +87,7 @@ function BulkExportHistoryContent({
     end: null,
   });
   const [hideRiskyTransactions, setHideRiskyTransactions] = useState(true);
+  const [hideDustTransactions, setHideDustTransactions] = useState(false);
   const {
     supportedNetworkIds,
     selectedNetworkIds,
@@ -304,6 +305,20 @@ function BulkExportHistoryContent({
             size={ESwitchSize.small}
             value={hideRiskyTransactions}
             onChange={setHideRiskyTransactions}
+          />
+        </XStack>
+
+        {/* Hide Dust Transactions */}
+        <XStack alignItems="center" py="$2" gap="$3">
+          <SizableText size="$bodyLgMedium" flex={1}>
+            {intl.formatMessage({
+              id: ETranslations.wallet_history_settings_hide_small_transaction_title,
+            })}
+          </SizableText>
+          <Switch
+            size={ESwitchSize.small}
+            value={hideDustTransactions}
+            onChange={setHideDustTransactions}
           />
         </XStack>
       </Page.Body>

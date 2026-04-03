@@ -213,6 +213,22 @@ export type IFetchAccountTransactionRangeResp = IAccountTransactionRange & {
   networkMap?: Record<string, IAccountTransactionRange>;
 };
 
+export type IExportTransactionHistoryAccount = {
+  accountAddress?: string;
+  networkId?: string;
+  xpub?: string;
+};
+
+export type IExportTransactionHistoryParams = {
+  accountArray: IExportTransactionHistoryAccount[];
+  limit: number;
+  maxTimestampMs: number;
+  minTimestampMs: number;
+  onlySafe?: boolean;
+  timeZone?: string;
+  withoutDust?: boolean;
+};
+
 export type IFetchHistoryTxDetailsParams = {
   accountId: string;
   networkId: string;
