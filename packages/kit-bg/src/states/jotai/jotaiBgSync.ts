@@ -53,12 +53,26 @@ export class JotaiBgSync {
   //   [key: string]: CrossAtom<any>;
   // }>;
 
+  private syncLog(msg: string) {
+    if (platformEnv.isNative) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { NativeLogger, LogLevel } = require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+        NativeLogger.write(LogLevel.Info, `[JotaiBgSync] ${msg}`);
+      } catch { /* noop */ }
+    }
+  }
+
   async jotaiInitFromUi() {
+    this.syncLog(`shouldSync=${this.shouldSyncFromUiToBg}, isMainThread=${platformEnv.isNativeMainThread}, enableBg=${platformEnv.enableNativeBackgroundThread}`);
     if (!this.shouldSyncFromUiToBg) {
       return;
     }
+    this.syncLog('getAtomStates start');
     const { states } = await this.backgroundApi.getAtomStates();
+    this.syncLog(`getAtomStates done, ${Object.keys(states).length} keys`);
     await jotaiInitFromUi({ states });
+    this.syncLog('jotaiInitFromUi done, GlobalJotaiReady should resolve');
   }
 
   async broadcastStateUpdateFromBgToUi({

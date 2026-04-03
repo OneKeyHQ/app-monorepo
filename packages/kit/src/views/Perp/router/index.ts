@@ -10,6 +10,7 @@ import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
+
 const PerpTradersHistoryList = LazyLoadPage(
   () => import('../components/OrderInfoPanel/PerpTradersHistoryListModal'),
 );
