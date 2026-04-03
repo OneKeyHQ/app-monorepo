@@ -389,9 +389,18 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
     BackgroundThreadBridge.installSharedBridgeInMainRuntime(host)
 
+#if DEBUG
+    // Dev: pass the Metro URL directly (single bundle served by the dev server).
     let entryURL = backgroundBundleEntryURL()
-    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner with entryURL=\(entryURL)")
+    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (debug) entryURL=\(entryURL)")
     BackgroundThreadBridge.startBackgroundRunner(entryURL: entryURL)
+#else
+    // Release split-bundle: pass empty string so BackgroundRunnerReactNativeDelegate
+    // uses the default two-step strategy (common.jsbundle first, then background.bundle).
+    // Passing any non-empty path would bypass common.jsbundle loading.
+    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (release split-bundle)")
+    BackgroundThreadBridge.startBackgroundRunner(entryURL: "")
+#endif
   }
 }
 
