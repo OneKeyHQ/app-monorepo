@@ -1,34 +1,46 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { ICheckedState } from '@onekeyhq/components';
 import {
   Badge,
   Button,
+  Checkbox,
+  Dialog,
+  ESwitchSize,
   Icon,
   LottieView,
   Page,
   SizableText,
   Stack,
+  Switch,
   XStack,
+  YStack,
   resetToRoute,
   useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
+  useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapToAnotherAccountAddressAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { SWAP_INCOGNITO_HELP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -39,6 +51,7 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
@@ -54,6 +67,7 @@ import {
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
+import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
 
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
@@ -89,6 +103,67 @@ function PageFooter({
   );
 }
 
+function SwapIncognitoDialogContent({
+  onConfirm,
+}: {
+  onConfirm: () => Promise<void>;
+}) {
+  const intl = useIntl();
+  const [checked, setChecked] = useState<ICheckedState>(false);
+
+  const description = useMemo(
+    () =>
+      `${intl.formatMessage({
+        id: ETranslations.trade_incognito_description,
+      })} <url>${SWAP_INCOGNITO_HELP_URL}<underline>${intl.formatMessage({
+        id: ETranslations.trade_incognito_read_more,
+      })}</underline></url>`,
+    [intl],
+  );
+
+  return (
+    <YStack gap="$4">
+      <FormatHyperlinkText
+        autoExecuteParsedAction={false}
+        onAction={openUrlExternal}
+        size="$bodyLg"
+        color="$text"
+        urlTextProps={{
+          color: '$textInfo',
+        }}
+      >
+        {description}
+      </FormatHyperlinkText>
+      <XStack alignItems="flex-start" gap="$2">
+        <Checkbox
+          labelContainerProps={{
+            flex: 1,
+          }}
+          label={intl.formatMessage({
+            id: ETranslations.trade_incognito_kyc_warning,
+          })}
+          value={checked}
+          onChange={setChecked}
+          labelProps={{
+            variant: '$bodyMd',
+            color: '$textSubdued',
+          }}
+        />
+      </XStack>
+      <Dialog.Footer
+        showCancelButton={false}
+        confirmButtonProps={{
+          disabled: !checked,
+        }}
+        onConfirm={onConfirm}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_confirm,
+        })}
+      />
+    </YStack>
+  );
+}
+
 const SwapActionsState = ({
   onPreSwap,
   onOpenRecipientAddress,
@@ -99,16 +174,30 @@ const SwapActionsState = ({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [, setSwapManualSelectQuoteProvider] =
+    useSwapManualSelectQuoteProvidersAtom();
+  const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [, setSwapQuoteList] = useSwapQuoteListAtom();
+  const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { quoteAction } = useSwapActions().current;
+  const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
+    useSwapActions().current;
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
   const hasEverShownCostSavingsRef = useRef(false);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
-  const [{ swapEnableRecipientAddress }] = useSettingsAtom();
+  const [
+    {
+      swapEnableRecipientAddress,
+      swapEnableRecipientAddressBeforeIncognito,
+      swapIncognitoMode,
+      swapToAnotherAccountSwitchOn,
+    },
+    setSettings,
+  ] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const quoteLoading = useSwapQuoteLoading();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
@@ -149,6 +238,7 @@ const SwapActionsState = ({
         currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
         true,
         swapToAddressInfo?.address,
+        swapIncognitoMode,
       );
       return;
     }
@@ -160,6 +250,7 @@ const SwapActionsState = ({
     quoteAction,
     swapActionState.isRefreshQuote,
     swapActionState.noConnectWallet,
+    swapIncognitoMode,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,
     swapToAddressInfo?.address,
@@ -179,6 +270,115 @@ const SwapActionsState = ({
       fromToken,
       toToken,
     ],
+  );
+
+  const applyIncognitoModeChange = useCallback(
+    (value: boolean) => {
+      const nextSettings = buildSwapIncognitoSettingsUpdate(
+        {
+          swapEnableRecipientAddress,
+          swapEnableRecipientAddressBeforeIncognito,
+          swapIncognitoMode,
+          swapToAnotherAccountSwitchOn,
+        },
+        value,
+      );
+
+      setSettings((settings) =>
+        buildSwapIncognitoSettingsUpdate(settings, value),
+      );
+
+      cleanQuoteInterval();
+      closeQuoteEvent();
+      setSwapManualSelectQuoteProvider(undefined);
+      setSwapQuoteEventTotalCount({ count: 0 });
+      setSwapQuoteList([]);
+
+      if (
+        swapToAnotherAccountSwitchOn &&
+        !nextSettings.swapToAnotherAccountSwitchOn
+      ) {
+        return;
+      }
+
+      void quoteAction(
+        swapSlippageRef.current,
+        swapFromAddressInfo?.address,
+        swapFromAddressInfo?.accountInfo?.account?.id,
+        undefined,
+        undefined,
+        currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
+        true,
+        nextSettings.swapToAnotherAccountSwitchOn
+          ? (swapToAnotherAccountAddress.address ?? swapToAddressInfo?.address)
+          : swapToAddressInfo?.address,
+        value,
+      );
+    },
+    [
+      cleanQuoteInterval,
+      closeQuoteEvent,
+      currentQuoteRes?.kind,
+      quoteAction,
+      setSettings,
+      setSwapManualSelectQuoteProvider,
+      setSwapQuoteEventTotalCount,
+      setSwapQuoteList,
+      swapEnableRecipientAddress,
+      swapEnableRecipientAddressBeforeIncognito,
+      swapFromAddressInfo?.accountInfo?.account?.id,
+      swapFromAddressInfo?.address,
+      swapIncognitoMode,
+      swapToAnotherAccountSwitchOn,
+      swapToAnotherAccountAddress.address,
+      swapToAddressInfo.address,
+    ],
+  );
+
+  const onIncognitoModeChange = useCallback(
+    (value: boolean) => {
+      if (!value) {
+        applyIncognitoModeChange(false);
+        return;
+      }
+
+      void Dialog.show({
+        icon: 'AnonymousHiddenOutline',
+        title: intl.formatMessage({
+          id: ETranslations.trade_incognito_title,
+        }),
+        showFooter: false,
+        renderContent: (
+          <SwapIncognitoDialogContent
+            onConfirm={async () => {
+              applyIncognitoModeChange(true);
+            }}
+          />
+        ),
+      });
+    },
+    [applyIncognitoModeChange, intl],
+  );
+
+  const incognitoComponent = useMemo(
+    () => (
+      <XStack alignItems="center" gap="$1">
+        <XStack alignItems="center" gap="$1">
+          <Icon name="AnonymousHiddenOutline" size="$5" color="$iconSubdued" />
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.trade_incognito_incognito_mode,
+            })}
+          </SizableText>
+        </XStack>
+        <Switch
+          size={ESwitchSize.small}
+          value={swapIncognitoMode}
+          onChange={onIncognitoModeChange}
+        />
+      </XStack>
+    ),
+    [intl, onIncognitoModeChange, swapIncognitoMode],
   );
 
   const recipientComponent = useMemo(() => {
@@ -296,7 +496,7 @@ const SwapActionsState = ({
     intl,
   ]);
 
-  const actionComponent = useMemo(
+  const actionRowComponent = useMemo(
     () => (
       <Stack
         flex={1}
@@ -358,6 +558,16 @@ const SwapActionsState = ({
       themeVariant,
       costSavingsComponent,
     ],
+  );
+
+  const actionComponent = useMemo(
+    () => (
+      <Stack gap="$4">
+        {incognitoComponent}
+        {actionRowComponent}
+      </Stack>
+    ),
+    [actionRowComponent, incognitoComponent],
   );
 
   const actionComponentCoverFooter = useMemo(

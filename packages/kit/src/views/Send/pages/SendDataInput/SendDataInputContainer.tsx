@@ -1120,7 +1120,11 @@ function SendDataInputContainer() {
             })}
             confirmButtonProps={{
               loading: false,
-              disabled: !form.formState.isValid,
+              // Don't use form.formState.isValid here — the async address
+              // validation (AddressInput queryAddress) can leave isValid stale.
+              // toResolved && !toPending already gates address validity.
+              // handleNavigateToAmountInput calls form.trigger() as a final
+              // guard for memo/note/paymentId validation before navigating.
             }}
           />
         </Page.Footer>
