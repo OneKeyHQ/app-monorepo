@@ -5,11 +5,12 @@ import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
 
 import type { IMarketTokenListLiveOverride } from './MarketTokenListBase';
+import type { IMarketTimeRangeValue } from '../../types';
 
 type IMarketNormalTokenListProps = {
   networkId?: string;
   selectedCategory?: string;
-  timeRange?: string;
+  timeRange?: IMarketTimeRangeValue;
   sortBy?: string;
   sortType?: 'asc' | 'desc';
   onItemPress?: (item: IMarketToken) => void;
