@@ -49,6 +49,15 @@ const {
   monorepoRoot,
 } = require('../plugins/segmentUtils');
 
+const {
+  buildGraphModuleIndex,
+  buildRuntimeOwnership,
+  createAbsolutePathToSegmentMap,
+  createSerializedModuleToSegmentMap,
+  rewriteAsyncRequirePaths,
+  setEquals,
+} = require('./unionBuildHelpers');
+
 const baseJSBundle = require(
   path.resolve(
     __dirname,
@@ -381,131 +390,11 @@ function buildSegmentAllocation(graph) {
   };
 }
 
-function buildModuleIndexesForGraphs(graphs, createModuleId) {
-  const moduleIdToAbsPath = new Map();
-  const getModuleId = createModuleId || ((absPath) => fileToIdMap.get(absPath));
-  for (const graph of graphs) {
-    for (const [absolutePath] of graph.dependencies) {
-      moduleIdToAbsPath.set(getModuleId(absolutePath), absolutePath);
-    }
-  }
-  return { moduleIdToAbsPath };
-}
-
 function createResolverOptions(runtimeTarget) {
   const customResolverOptions = Object.create(null);
   customResolverOptions.runtimeTarget = runtimeTarget;
   return {
     customResolverOptions,
-  };
-}
-
-function setEquals(left, right) {
-  if (left.size !== right.size) {
-    return false;
-  }
-  for (const value of left) {
-    if (!right.has(value)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function buildModuleSignature(moduleData) {
-  if (!moduleData) {
-    return '';
-  }
-  const outputs = (moduleData.output || []).map((output) => ({
-    type: output.type,
-    code: output.data?.code || '',
-  }));
-  const dependencies = [...moduleData.dependencies.entries()]
-    .map(([key, dep]) => ({
-      key,
-      absolutePath: dep.absolutePath,
-      asyncType:
-        dep.data && dep.data.data ? (dep.data.data.asyncType ?? null) : null,
-      isOptional:
-        dep.data && 'isOptional' in dep.data ? dep.data.isOptional : false,
-    }))
-    .toSorted((left, right) =>
-      `${left.key}:${left.absolutePath}`.localeCompare(
-        `${right.key}:${right.absolutePath}`,
-      ),
-    );
-  return sha256(JSON.stringify({ outputs, dependencies }));
-}
-
-function buildRuntimeOwnership({
-  mainGraph,
-  bgGraph,
-  mainReachable,
-  bgReachable,
-}) {
-  const mainSignatures = new Map();
-  const bgSignatures = new Map();
-
-  for (const [absolutePath, moduleData] of mainGraph.dependencies) {
-    mainSignatures.set(absolutePath, buildModuleSignature(moduleData));
-  }
-  for (const [absolutePath, moduleData] of bgGraph.dependencies) {
-    bgSignatures.set(absolutePath, buildModuleSignature(moduleData));
-  }
-
-  const allAbsPaths = new Set([
-    ...mainGraph.dependencies.keys(),
-    ...bgGraph.dependencies.keys(),
-  ]);
-  const sharedEquivalentAbsPaths = new Set();
-  const mainOnlyAbsPaths = new Set();
-  const bgOnlyAbsPaths = new Set();
-
-  for (const absolutePath of allAbsPaths) {
-    const inMain = mainSignatures.has(absolutePath);
-    const inBg = bgSignatures.has(absolutePath);
-    const isSharedEquivalent =
-      inMain &&
-      inBg &&
-      mainSignatures.get(absolutePath) === bgSignatures.get(absolutePath);
-
-    if (isSharedEquivalent) {
-      sharedEquivalentAbsPaths.add(absolutePath);
-      continue;
-    }
-    if (inMain) {
-      mainOnlyAbsPaths.add(absolutePath);
-    }
-    if (inBg) {
-      bgOnlyAbsPaths.add(absolutePath);
-    }
-  }
-
-  const sharedStartupAbsPaths = new Set(
-    [...sharedEquivalentAbsPaths].filter(
-      (absolutePath) =>
-        mainReachable.has(absolutePath) && bgReachable.has(absolutePath),
-    ),
-  );
-  const mainStartupAbsPaths = new Set(
-    [...mainReachable].filter(
-      (absolutePath) => !sharedStartupAbsPaths.has(absolutePath),
-    ),
-  );
-  const bgStartupAbsPaths = new Set(
-    [...bgReachable].filter(
-      (absolutePath) => !sharedStartupAbsPaths.has(absolutePath),
-    ),
-  );
-
-  return {
-    allAbsPaths,
-    sharedEquivalentAbsPaths,
-    sharedStartupAbsPaths,
-    mainStartupAbsPaths,
-    bgStartupAbsPaths,
-    mainOnlyAbsPaths,
-    bgOnlyAbsPaths,
   };
 }
 
@@ -824,6 +713,7 @@ async function writeBundle({
   prepend,
   bundleOptions,
   moduleIdToAbsPath,
+  moduleToSegment,
 }) {
   const { modules, pre, post } = getSerializedBundleParts({
     cacheKey,
@@ -857,6 +747,8 @@ async function writeBundle({
       ? `${preSection}\n${manifestCode}\n`
       : `${manifestCode}\n`;
   }
+
+  rewriteAsyncRequirePaths(selectedWrappedModules, moduleToSegment);
 
   // Metro's post section has the form:
   //   __r(initializeCoreId);   ← from getModulesRunBeforeMainModule (e.g. InitializeCore)
@@ -927,7 +819,6 @@ async function writeSegments({
   backgroundRuntime,
   segmentIdMap,
   sharedEquivalentAbsPaths,
-  moduleIdToAbsPath,
 }) {
   const promotedSet = new Set(promotedSegments);
 
@@ -952,6 +843,7 @@ async function writeSegments({
     segModules,
     graph,
     segmentDeps,
+    moduleIdToAbsPath,
     outputDir,
     relativeDir,
   }) => {
@@ -1038,11 +930,11 @@ async function writeSegments({
     if (inMain && inBackground) {
       const mainAbsPaths = getSegmentModuleAbsPaths(
         mainRuntime.segmentModules.get(segmentKey),
-        moduleIdToAbsPath,
+        mainRuntime.moduleIdToAbsPath,
       );
       const backgroundAbsPaths = getSegmentModuleAbsPaths(
         backgroundRuntime.segmentModules.get(segmentKey),
-        moduleIdToAbsPath,
+        backgroundRuntime.moduleIdToAbsPath,
       );
       const mainDeps = new Set(mainRuntime.segmentDeps.get(segmentKey) || []);
       const backgroundDeps = new Set(
@@ -1062,6 +954,7 @@ async function writeSegments({
           segModules: mainSegmentOutputs.get(segmentKey),
           graph: mainRuntime.graph,
           segmentDeps: mainRuntime.segmentDeps,
+          moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
           outputDir: getSegmentsDir('main'),
           relativeDir: 'segments',
         });
@@ -1101,6 +994,7 @@ async function writeSegments({
         segModules: mainSegmentOutputs.get(segmentKey),
         graph: mainRuntime.graph,
         segmentDeps: mainRuntime.segmentDeps,
+        moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
         outputDir: getSegmentsDir('main'),
         relativeDir: 'segments',
       });
@@ -1110,6 +1004,7 @@ async function writeSegments({
         segModules: backgroundSegmentOutputs.get(segmentKey),
         graph: backgroundRuntime.graph,
         segmentDeps: backgroundRuntime.segmentDeps,
+        moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
         outputDir: getSegmentsDir('background'),
         relativeDir: 'segments-background',
       });
@@ -1143,6 +1038,7 @@ async function writeSegments({
         segModules: mainSegmentOutputs.get(segmentKey),
         graph: mainRuntime.graph,
         segmentDeps: mainRuntime.segmentDeps,
+        moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
         outputDir: getSegmentsDir('main'),
         relativeDir: 'segments',
       });
@@ -1165,6 +1061,7 @@ async function writeSegments({
       segModules: backgroundSegmentOutputs.get(segmentKey),
       graph: backgroundRuntime.graph,
       segmentDeps: backgroundRuntime.segmentDeps,
+      moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
       outputDir: getSegmentsDir('background'),
       relativeDir: 'segments-background',
     });
@@ -1326,21 +1223,42 @@ async function main() {
     );
 
     const createModuleId = metroServer.getCreateModuleId();
-    const { moduleIdToAbsPath } = buildModuleIndexesForGraphs(
-      [mainGraph, backgroundGraph],
+    const getGraphModuleId = (absolutePath) => fileToIdMap.get(absolutePath);
+    const mainModuleIndex = buildGraphModuleIndex(mainGraph, createModuleId);
+    const backgroundModuleIndex = buildGraphModuleIndex(
+      backgroundGraph,
       createModuleId,
     );
+    const mainAbsPathToSegment = createAbsolutePathToSegmentMap({
+      graph: mainGraph,
+      moduleToSegment: mainAllocation.moduleToSegment,
+      getGraphModuleId,
+    });
+    const backgroundAbsPathToSegment = createAbsolutePathToSegmentMap({
+      graph: backgroundGraph,
+      moduleToSegment: backgroundAllocation.moduleToSegment,
+      getGraphModuleId,
+    });
+    const mainSerializedModuleToSegment = createSerializedModuleToSegmentMap({
+      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
+      absPathToSegment: mainAbsPathToSegment,
+    });
+    const backgroundSerializedModuleToSegment =
+      createSerializedModuleToSegmentMap({
+        moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
+        absPathToSegment: backgroundAbsPathToSegment,
+      });
     const mainSegmentDeps = buildSegmentDeps(
       mainGraph,
       mainAllocation.segmentModules,
       mainAllocation.moduleToSegment,
-      moduleIdToAbsPath,
+      mainModuleIndex.moduleIdToAbsPath,
     );
     const backgroundSegmentDeps = buildSegmentDeps(
       backgroundGraph,
       backgroundAllocation.segmentModules,
       backgroundAllocation.moduleToSegment,
-      moduleIdToAbsPath,
+      backgroundModuleIndex.moduleIdToAbsPath,
     );
     const allSegmentAbsPaths = new Set([
       ...mainAllocation.segmentAbsPaths,
@@ -1393,6 +1311,7 @@ async function main() {
         segmentModules: mainAllocation.segmentModules,
         moduleToSegment: mainAllocation.moduleToSegment,
         segmentDeps: mainSegmentDeps,
+        moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
       },
       backgroundRuntime: {
         graph: backgroundGraph,
@@ -1400,10 +1319,10 @@ async function main() {
         segmentModules: backgroundAllocation.segmentModules,
         moduleToSegment: backgroundAllocation.moduleToSegment,
         segmentDeps: backgroundSegmentDeps,
+        moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
       },
       segmentIdMap,
       sharedEquivalentAbsPaths: runtimeOwnership.sharedEquivalentAbsPaths,
-      moduleIdToAbsPath,
     });
 
     // Common bundle: shared eager modules + polyfills/runtime + manifest
@@ -1422,7 +1341,8 @@ async function main() {
       graph: mainGraph,
       prepend: mainPrepend,
       bundleOptions: commonBundleOptions,
-      moduleIdToAbsPath,
+      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
+      moduleToSegment: mainSerializedModuleToSegment,
     });
 
     // Main bundle: main-only eager modules + entry require
@@ -1441,7 +1361,8 @@ async function main() {
       graph: mainGraph,
       prepend: mainPrepend,
       bundleOptions: mainBundleOptions,
-      moduleIdToAbsPath,
+      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
+      moduleToSegment: mainSerializedModuleToSegment,
     });
 
     // Background bundle: bg-only eager modules + entry require
@@ -1460,20 +1381,21 @@ async function main() {
       graph: backgroundGraph,
       prepend: backgroundPrepend,
       bundleOptions: backgroundBundleOptions,
-      moduleIdToAbsPath,
+      moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
+      moduleToSegment: backgroundSerializedModuleToSegment,
     });
 
     const commonViolations = detectStartupViolations(
       commonBundleResult.startupModuleIds,
-      moduleIdToAbsPath,
+      mainModuleIndex.moduleIdToAbsPath,
     );
     const mainViolations = detectStartupViolations(
       mainBundleResult.startupModuleIds,
-      moduleIdToAbsPath,
+      mainModuleIndex.moduleIdToAbsPath,
     );
     const backgroundViolations = detectStartupViolations(
       backgroundBundleResult.startupModuleIds,
-      moduleIdToAbsPath,
+      backgroundModuleIndex.moduleIdToAbsPath,
     );
 
     await fs.writeFile(
@@ -1484,7 +1406,7 @@ async function main() {
           startupModuleIds: commonBundleResult.startupModuleIds,
           manifest: mergedManifest,
           graph: mainGraph,
-          moduleIdToAbsPath,
+          moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.common,
           violations: commonViolations,
         }),
@@ -1501,7 +1423,7 @@ async function main() {
           startupModuleIds: mainBundleResult.startupModuleIds,
           manifest: mainManifest,
           graph: mainGraph,
-          moduleIdToAbsPath,
+          moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.main,
           violations: mainViolations,
         }),
@@ -1518,7 +1440,7 @@ async function main() {
           startupModuleIds: backgroundBundleResult.startupModuleIds,
           manifest: backgroundManifest,
           graph: backgroundGraph,
-          moduleIdToAbsPath,
+          moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.background,
           violations: backgroundViolations,
         }),
