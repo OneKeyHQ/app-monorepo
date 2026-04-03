@@ -23,8 +23,8 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
