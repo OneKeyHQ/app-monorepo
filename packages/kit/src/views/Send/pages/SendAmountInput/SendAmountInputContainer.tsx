@@ -406,7 +406,7 @@ function SendAmountInputContainer() {
   const tokenMinAmount = useMemo(() => {
     const decimals = tokenDetails?.info.decimals;
     if (decimals === undefined || Number.isNaN(decimals)) {
-      return '0';
+      return undefined;
     }
     return new BigNumber(1).shiftedBy(-decimals).toFixed();
   }, [tokenDetails?.info.decimals]);
@@ -445,6 +445,13 @@ function SendAmountInputContainer() {
                 chainValueUtils.convertBtcToSats(tokenAmountBN.toFixed()),
               )
             : tokenAmountBN; // already in sats
+      }
+
+      // Block flow if token decimals is missing — server must return explicit decimals
+      if (tokenMinAmount === undefined) {
+        return intl.formatMessage({
+          id: ETranslations.send_amount_invalid,
+        });
       }
 
       // Minimum transfer amount check
