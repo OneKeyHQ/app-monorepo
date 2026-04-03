@@ -40,7 +40,7 @@ All vulnerability reports must be submitted through one of the following channel
 1. **Public disclosure**: Create an issue in the [OneKey GitHub repository](https://github.com/OneKeyHQ/app-monorepo) tagged with the `bug` label.
 2. **Private disclosure**: Send an email to **dev@onekey.so** — recommended for high-severity vulnerabilities (P0/P1). Private submissions remain fully eligible for bounties.
 
-All submissions must follow the format defined in the [issue template](https://github.com/OneKeyHQ/app-monorepo/blob/onekey/docs/ISSUE_TEMPLATE.md). Reports must include:
+All submissions must follow the format defined in the [issue template](./ISSUE_TEMPLATE.md). Reports must include:
 
 * A clear description of the vulnerability
 * Step-by-step reproduction instructions
