@@ -136,9 +136,19 @@ Unresolved threads: 3
 
 ### 1c. Decide next action
 
+Before choosing an action, classify the `gh pr checks` output into three buckets:
+
+- **Normal failed checks**: any failed check except `release-ready-merge-gate`
+- **Gate failure**: failed check named exactly `release-ready-merge-gate`
+- **Pending checks**: any check still pending or in progress
+
+If `release-ready-merge-gate` is failing, treat it as an expected merge blocker rather than a CI failure to auto-fix.
+
 | CI Status | Unresolved Threads | Action |
 |-----------|-------------------|--------|
-| Any fail | - | **Auto-fix** CI failure (Step 2) |
+| Normal failed checks | - | **Auto-fix** CI failure (Step 2) |
+| Gate failure | Has threads | **Address threads** (Step 3), then report blocked by missing `release-ready` |
+| Gate failure | No threads | **Stop waiting** and report blocked by missing `release-ready` |
 | Any pending | Has threads | **Address threads** (Step 3), keep waiting for CI |
 | Any pending | No threads | Wait, re-check |
 | All pass | Has threads | **Address threads** (Step 3) |
@@ -255,12 +265,31 @@ After pushing fixes, request re-review from the reviewers who left comments:
 
 3. Return to Step 1 (wait for CI to re-run)
 
+## Step 3g: Report release-ready gate blocker
+
+If the only remaining failed check is `release-ready-merge-gate`, stop the polling loop and report:
+
+```text
+CI is complete, but merge is blocked by the release-ready gate.
+
+Blocking check:
+- release-ready-merge-gate: expected failure until the PR gets the `release-ready` label
+
+Action:
+- Add the `release-ready` label to the PR, then run the monitor again if needed
+```
+
+Do not:
+- attempt to auto-fix this check
+- treat it as flaky infra
+- continue waiting for it to pass on its own
+
 ## Step 4: Final Report
 
-When all CI checks pass and no unresolved threads remain:
+When all normal CI checks pass and no unresolved threads remain:
 
 ```
-All CI checks passed! All review threads resolved.
+All normal CI checks passed. All review threads resolved.
 
 CI:
 | Check            | Status | Duration |
@@ -272,6 +301,8 @@ Review threads: 5 resolved, 0 remaining
 PR: <URL>
 Status: Ready for re-review / Ready to merge
 ```
+
+If `release-ready-merge-gate` is still failing, do not use this final report. Use the blocked-state report from Step 3g instead.
 
 ## Polling Rules
 
