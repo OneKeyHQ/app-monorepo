@@ -1,3 +1,5 @@
+/* eslint-disable onekey/no-raw-error */
+/* cspell:ignore debugid */
 require('../../development/env');
 
 const { execSync } = require('child_process');
@@ -830,7 +832,10 @@ const buildIOSBundle = async () => {
   // Move common bundle into dist if it exists (union build)
   const iosCommonBundleHbc = buildIOSOutputAssetPath('common.jsbundle.hbc');
   if (fs.existsSync(iosCommonBundleHbc)) {
-    fs.moveSync(iosCommonBundleHbc, buildIOSOutputAssetPath('dist/common.jsbundle.hbc'));
+    fs.moveSync(
+      iosCommonBundleHbc,
+      buildIOSOutputAssetPath('dist/common.jsbundle.hbc'),
+    );
   }
   fs.moveSync(
     buildIOSOutputAssetPath('background.bundle'),

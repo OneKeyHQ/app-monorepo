@@ -1,3 +1,4 @@
+/* eslint-disable no-continue */
 /**
  * Entry Reachability (Union Graph)
  *
@@ -23,7 +24,9 @@ function computeReachable(graph, entryPoint, { skipAsyncEdges = false } = {}) {
       // are aliased to stubs and never actually loaded in the main runtime.
       if (
         skipAsyncEdges &&
-        dep.data && dep.data.data && dep.data.data.asyncType === 'async'
+        dep.data &&
+        dep.data.data &&
+        dep.data.data.asyncType === 'async'
       ) {
         continue;
       }
@@ -38,7 +41,9 @@ function computeReachable(graph, entryPoint, { skipAsyncEdges = false } = {}) {
 function computeEntryReachability(graph, mainEntry, bgEntry) {
   // Main: skip async edges — main runtime never loads BackgroundApi
   // (backgroundApiInit is aliased to a stub, async fallback never triggers).
-  const mainReachable = computeReachable(graph, mainEntry, { skipAsyncEdges: true });
+  const mainReachable = computeReachable(graph, mainEntry, {
+    skipAsyncEdges: true,
+  });
   // Background: follow all edges — bg runtime actually loads BackgroundApi via async import.
   const bgReachable = computeReachable(graph, bgEntry);
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable onekey/no-raw-error, no-continue */
 
 const { execFileSync } = require('child_process');
 const path = require('path');
@@ -75,7 +76,9 @@ if (!platform || !['ios', 'android'].includes(platform)) {
 const bundleOutputPathArg = args['bundle-output'];
 const assetsDestPathArg = args['assets-dest'];
 if (!bundleOutputPathArg || !assetsDestPathArg) {
-  throw new Error('Missing required arguments: --bundle-output and --assets-dest.');
+  throw new Error(
+    'Missing required arguments: --bundle-output and --assets-dest.',
+  );
 }
 
 const entryFilePath = ensureAbsolutePath(args['entry-file'] || 'background.ts');

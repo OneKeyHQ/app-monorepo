@@ -1,3 +1,5 @@
+/* eslint-disable onekey/no-raw-error, no-continue, no-plusplus */
+/* cspell:ignore rescan */
 /**
  * Union Graph Build Script
  *
@@ -34,6 +36,10 @@ const saveAssets = require(
   ),
 ).default;
 
+const {
+  forbiddenInStartup,
+  promotedSegments,
+} = require('../bundle-groups.config');
 const { computeEntryReachability } = require('../plugins/entryReachability');
 const { fileToIdMap } = require('../plugins/map');
 const { getSegmentsDir, getManifestPath } = require('../plugins/segmentPaths');
@@ -42,10 +48,6 @@ const {
   allocateSegmentIds,
   monorepoRoot,
 } = require('../plugins/segmentUtils');
-const {
-  forbiddenInStartup,
-  promotedSegments,
-} = require('../bundle-groups.config');
 
 const baseJSBundle = require(
   path.resolve(
@@ -145,7 +147,7 @@ function estimateModuleSize(moduleData) {
 }
 
 async function generateSegmentSourceMap(segModules, graph, moduleIdToAbsPath) {
-  const sorted = segModules.slice().sort((a, b) => a[0] - b[0]);
+  const sorted = segModules.slice().toSorted((a, b) => a[0] - b[0]);
   const segmentGraphModules = [];
 
   for (const [moduleId] of sorted) {
@@ -242,9 +244,7 @@ function buildSegmentAllocation(graph) {
             if (dep.absolutePath === absolutePath) {
               const existingChunk = findAsyncParent(parentId);
               const asyncType =
-                dep.data && dep.data.data
-                  ? dep.data.data.asyncType
-                  : undefined;
+                dep.data && dep.data.data ? dep.data.data.asyncType : undefined;
               if (existingChunk && asyncType === null) {
                 return existingChunk;
               }
@@ -294,9 +294,7 @@ function buildSegmentAllocation(graph) {
       } else if (
         !hasUnresolved &&
         asyncTypes.length >= 1 &&
-        asyncTypes.every(
-          (v) => v === asyncFlag || asyncRoots.has(v),
-        )
+        asyncTypes.every((v) => v === asyncFlag || asyncRoots.has(v))
       ) {
         const rootId = asyncTypes.find((v) => asyncRoots.has(v));
         asyncDescendants.set(moduleId, rootId);
@@ -474,7 +472,7 @@ function detectStartupViolations(moduleIds, moduleIdToAbsPath) {
         relPath.startsWith(forbiddenPath),
       ),
     )
-    .sort();
+    .toSorted();
 }
 
 function buildAllocationReport({
@@ -490,7 +488,7 @@ function buildAllocationReport({
     .map((moduleId) => moduleIdToAbsPath.get(moduleId))
     .filter(Boolean)
     .map(relativePath)
-    .sort();
+    .toSorted();
   const estimatedSizeBytes = [...startupModuleIds].reduce((sum, moduleId) => {
     const absolutePath = moduleIdToAbsPath.get(moduleId);
     if (!absolutePath) {
@@ -543,12 +541,7 @@ async function writeBundle({
   bundleOptions,
   moduleIdToAbsPath,
 }) {
-  const result = baseJSBundle(
-    entryPoint,
-    prepend,
-    graph,
-    bundleOptions,
-  );
+  const result = baseJSBundle(entryPoint, prepend, graph, bundleOptions);
 
   // Cache modules and pre from the first call (stable across entries).
   // Each entry's `post` is entry-specific — always use the fresh one.
@@ -604,7 +597,10 @@ async function writeBundle({
       // These initialize React Native globals (fetch, timers, etc.) in every runtime
       // that loads common.jsbundle.
       if (rCalls.length > 1) {
-        postSection = rCalls.slice(0, -1).map((r) => `${r};`).join('\n') + '\n';
+        postSection = `${rCalls
+          .slice(0, -1)
+          .map((r) => `${r};`)
+          .join('\n')}\n`;
       }
       // If there is only one __r() it IS the entry — nothing to emit here.
     } else {
@@ -724,7 +720,7 @@ async function writeSegments({
       relativePath: relativeOutputPath,
       sha256: sha256(Buffer.from(code)),
       dependsOn: segmentDeps.has(segmentKey)
-        ? [...segmentDeps.get(segmentKey)].sort()
+        ? [...segmentDeps.get(segmentKey)].toSorted()
         : [],
       size: Buffer.byteLength(code),
     };
@@ -851,17 +847,16 @@ async function main() {
       commonBundleOptions,
     ).modules;
 
-    const { mainManifest, backgroundManifest, promotedSet } =
-      await writeSegments({
-        graph,
-        modules: allWrappedModules,
-        segmentModules,
-        moduleToSegment,
-        segmentIdMap,
-        segmentDeps,
-        reachability,
-        moduleIdToAbsPath,
-      });
+    const { mainManifest, backgroundManifest } = await writeSegments({
+      graph,
+      modules: allWrappedModules,
+      segmentModules,
+      moduleToSegment,
+      segmentIdMap,
+      segmentDeps,
+      reachability,
+      moduleIdToAbsPath,
+    });
 
     // Merge both manifests for the common bundle
     const mergedManifest = {
@@ -876,7 +871,7 @@ async function main() {
       bundleOutput: args.commonBundleOutput,
       sourceMapOutput: args.commonSourceMapOutput,
       entryPoint: mainEntry,
-      moduleFilter: (absolutePath, moduleId) =>
+      moduleFilter: (absolutePath) =>
         reachability.shared.has(absolutePath) &&
         !segmentAbsPaths.has(absolutePath),
       manifest: mergedManifest,
@@ -894,7 +889,7 @@ async function main() {
       bundleOutput: args.mainBundleOutput,
       sourceMapOutput: args.mainSourceMapOutput,
       entryPoint: mainEntry,
-      moduleFilter: (absolutePath, moduleId) =>
+      moduleFilter: (absolutePath) =>
         reachability.mainOnly.has(absolutePath) &&
         !segmentAbsPaths.has(absolutePath),
       manifest: null,
@@ -912,7 +907,7 @@ async function main() {
       bundleOutput: args.backgroundBundleOutput,
       sourceMapOutput: args.backgroundSourceMapOutput,
       entryPoint: bgEntry,
-      moduleFilter: (absolutePath, moduleId) =>
+      moduleFilter: (absolutePath) =>
         reachability.bgOnly.has(absolutePath) &&
         !segmentAbsPaths.has(absolutePath),
       manifest: null,
@@ -1050,7 +1045,7 @@ async function main() {
       );
     }
   } finally {
-    await metroServer.end();
+    metroServer.end();
   }
 }
 

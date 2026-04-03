@@ -42,7 +42,7 @@ class ServiceBootstrap extends ServiceBase {
       await this.timed('initSystemLocale', () =>
         this.backgroundApi.serviceSetting.initSystemLocale(),
       );
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.app.bootstrap.initCriticalStep(
         'initSystemLocale (FAILED)',
         0,
@@ -52,7 +52,7 @@ class ServiceBootstrap extends ServiceBase {
       await this.timed('refreshLocaleMessages', () =>
         this.backgroundApi.serviceSetting.refreshLocaleMessages(),
       );
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.app.bootstrap.initCriticalStep(
         'refreshLocaleMessages (FAILED)',
         0,
@@ -74,7 +74,7 @@ class ServiceBootstrap extends ServiceBase {
       try {
         await fn();
         defaultLogger.app.bootstrap.initDeferredStep(label, Date.now() - start);
-      } catch (e: unknown) {
+      } catch (_e: unknown) {
         defaultLogger.app.bootstrap.initDeferredStepFailed(
           label,
           Date.now() - start,
@@ -108,7 +108,7 @@ class ServiceBootstrap extends ServiceBase {
           this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
         ),
       ]);
-    } catch (error) {
+    } catch (_error) {
       // individual errors already handled by timedDeferred
     }
     defaultLogger.app.bootstrap.initDeferredBatchDone(

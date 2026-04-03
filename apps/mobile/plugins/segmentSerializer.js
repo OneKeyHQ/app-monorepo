@@ -1,3 +1,5 @@
+/* eslint-disable onekey/no-raw-error, no-continue, no-plusplus */
+/* cspell:ignore rescan symbolication */
 /**
  * Segment serializer (Phase 2)
  *
@@ -16,19 +18,19 @@ const path = require('path');
 
 const fs = require('fs-extra');
 
+const {
+  allocationRules,
+  forbiddenInStartup,
+  promotedSegments,
+} = require('../bundle-groups.config');
+
 const { fileToIdMap } = require('./map');
 const { getSegmentsDir, getManifestPath } = require('./segmentPaths');
 const {
   deriveSegmentKey,
   allocateSegmentIds,
   monorepoRoot,
-  SEGMENT_ID_BASE,
 } = require('./segmentUtils');
-const {
-  allocationRules,
-  forbiddenInStartup,
-  promotedSegments,
-} = require('../bundle-groups.config');
 
 const baseJSBundle = require(
   path.resolve(
@@ -70,7 +72,7 @@ async function generateSegmentSourceMap(
   _fileToIdMap,
   moduleIdToAbsPath,
 ) {
-  const sorted = segModules.slice().sort((a, b) => a[0] - b[0]);
+  const sorted = segModules.slice().toSorted((a, b) => a[0] - b[0]);
   const segmentGraphModules = [];
 
   for (const [moduleId] of sorted) {
@@ -196,9 +198,7 @@ module.exports = async function segmentSerializer(
       } else if (
         !hasUnresolved &&
         asyncTypes.length >= 1 &&
-        asyncTypes.every(
-          (v) => v === asyncFlag || asyncRoots.has(v),
-        )
+        asyncTypes.every((v) => v === asyncFlag || asyncRoots.has(v))
       ) {
         // All parents are async roots (or use import()) — this is a sync
         // child/grandchild of an async root. Track it as a descendant.
@@ -236,7 +236,8 @@ module.exports = async function segmentSerializer(
     rescanChanged = false;
     for (const [key, value] of graph.dependencies) {
       const moduleId = fileToIdMap.get(key);
-      if (mainModuleIds.has(moduleId) || moduleToSegment.has(moduleId)) continue;
+      if (mainModuleIds.has(moduleId) || moduleToSegment.has(moduleId))
+        continue;
 
       // Check if all parents are in the same segment
       const parentSegments = new Set();
@@ -349,7 +350,7 @@ module.exports = async function segmentSerializer(
     const cyclePath = [];
     let hasCycle = false;
 
-    function dfs(node) {
+    const dfs = (node) => {
       if (hasCycle) return;
       if (inStack.has(node)) {
         hasCycle = true;
@@ -370,7 +371,7 @@ module.exports = async function segmentSerializer(
       }
       inStack.delete(node);
       visited.add(node);
-    }
+    };
 
     for (const segKey of segmentDeps.keys()) {
       dfs(segKey);
@@ -378,7 +379,7 @@ module.exports = async function segmentSerializer(
     }
 
     if (hasCycle) {
-      const cycle = cyclePath.reverse().join(' → ');
+      const cycle = cyclePath.toReversed().join(' → ');
       throw new Error(
         `[segmentSerializer] Circular segment dependency detected: ${cycle}\n` +
           'Segment dependsOn graph must be a DAG. Fix the import structure to break the cycle.',
@@ -462,9 +463,7 @@ module.exports = async function segmentSerializer(
     }
   }
   if (startupViolations.length > 0) {
-    const msg =
-      `[segmentSerializer] ${startupViolations.length} forbidden module(s) in startup graph:\n` +
-      startupViolations.map((v) => `  - ${v}`).join('\n');
+    const msg = `[segmentSerializer] ${startupViolations.length} forbidden module(s) in startup graph:\n${startupViolations.map((v) => `  - ${v}`).join('\n')}`;
     if (strictAllocation) {
       throw new Error(msg);
     }
@@ -523,7 +522,7 @@ module.exports = async function segmentSerializer(
       runtime: deriveRuntime(segmentKey),
       relativePath,
       sha256: segHash,
-      dependsOn: deps ? [...deps].sort() : [],
+      dependsOn: deps ? [...deps].toSorted() : [],
       size: Buffer.byteLength(code),
     };
   }

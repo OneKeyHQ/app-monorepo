@@ -17,6 +17,7 @@
  */
 
 const path = require('path');
+
 const fs = require('fs-extra');
 
 const distDir = path.resolve(__dirname, '..', 'dist');
@@ -66,7 +67,10 @@ const SUSPICIOUS_NM_IN_COMMON = [
   { pattern: 'tronweb/', reason: 'Chain SDK — should be in segments' },
   { pattern: 'algosdk/', reason: 'Chain SDK — should be in segments' },
   { pattern: 'xrpl/', reason: 'Chain SDK — should be in segments' },
-  { pattern: '@metaplex-foundation/', reason: 'Chain SDK — should be in segments' },
+  {
+    pattern: '@metaplex-foundation/',
+    reason: 'Chain SDK — should be in segments',
+  },
 ];
 
 // Budget thresholds
@@ -101,7 +105,9 @@ function checkForbiddenModules(report, bundleName, forbiddenPatterns) {
   for (const mod of modules) {
     for (const pattern of forbiddenPatterns) {
       if (matchesPattern(mod, pattern)) {
-        errors.push(`[${bundleName}] Forbidden module in eager: ${mod} (matches ${pattern})`);
+        errors.push(
+          `[${bundleName}] Forbidden module in eager: ${mod} (matches ${pattern})`,
+        );
       }
     }
   }
@@ -127,7 +133,9 @@ function checkSuspiciousInCommon(report) {
     if (mod.startsWith('node_modules/')) {
       for (const rule of SUSPICIOUS_NM_IN_COMMON) {
         if (mod.includes(rule.pattern)) {
-          warnings.push(`[common] Suspicious npm: ${mod.split('/').slice(1, 3).join('/')} — ${rule.reason}`);
+          warnings.push(
+            `[common] Suspicious npm: ${mod.split('/').slice(1, 3).join('/')} — ${rule.reason}`,
+          );
         }
       }
     }
@@ -142,7 +150,7 @@ function checkSuspiciousInCommon(report) {
   });
 }
 
-function checkBudgets(common, main, bg) {
+function checkBudgets(common, mainReport, bg) {
   const errors = [];
 
   if (common) {
@@ -160,8 +168,8 @@ function checkBudgets(common, main, bg) {
     }
   }
 
-  if (main) {
-    const { moduleCount } = main.startup;
+  if (mainReport) {
+    const { moduleCount } = mainReport.startup;
     if (moduleCount > BUDGETS.mainMaxModules) {
       errors.push(
         `[budget] Main-only modules ${moduleCount} > ${BUDGETS.mainMaxModules}`,
@@ -213,7 +221,9 @@ function main() {
 
   // 1. Check forbidden modules in main
   if (mainReport) {
-    errors.push(...checkForbiddenModules(mainReport, 'main', FORBIDDEN_IN_MAIN));
+    errors.push(
+      ...checkForbiddenModules(mainReport, 'main', FORBIDDEN_IN_MAIN),
+    );
     errors.push(...checkViolations(mainReport, 'main'));
   }
 

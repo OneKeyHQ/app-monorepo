@@ -1,3 +1,4 @@
+/* cspell:ignore dedup */
 /**
  * Production bundle loader (Phase 2)
  *
@@ -146,7 +147,9 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       segmentStats.totalLoaded += 1;
       segmentStats.totalTimeMs += durationMs;
       // eslint-disable-next-line no-console
-      console.log(`[SplitBundle] segment ${segmentKey} loaded in ${durationMs}ms`);
+      console.log(
+        `[SplitBundle] segment ${segmentKey} loaded in ${durationMs}ms`,
+      );
 
       defaultLogger.app.bootstrap.initDeferredStep(
         `segment:${segmentKey}`,
