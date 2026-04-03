@@ -12,7 +12,7 @@ export function initPosthog({
   enableTestEndpoint?: boolean;
 } = {}) {
   if (initialized) return;
-  if ((platformEnv.isDev || platformEnv.isE2E) && !enableTestEndpoint) return;
+  if (platformEnv.isDev || platformEnv.isE2E || enableTestEndpoint) return;
 
   initialized = true;
   posthog.init(POSTHOG_API_KEY, {
