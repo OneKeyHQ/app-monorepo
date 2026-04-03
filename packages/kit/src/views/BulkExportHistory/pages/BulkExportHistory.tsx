@@ -289,11 +289,12 @@ function BulkExportHistoryContent({
           .filter((item) => item.account)
           .map(async (item) => {
             const { account, network } = item;
-            const xpub =
-              await backgroundApiProxy.serviceAccount.getAccountXpub({
+            const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub(
+              {
                 accountId: account!.id,
                 networkId: network.id,
-              });
+              },
+            );
             return {
               accountAddress: account!.address,
               networkId: network.id,
