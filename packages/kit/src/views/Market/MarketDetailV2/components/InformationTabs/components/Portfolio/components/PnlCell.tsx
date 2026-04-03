@@ -42,7 +42,7 @@ function PnlCellBase({
             currency: `${prefix}$`,
           }}
         >
-          {valueBN.abs().toString()}
+          {valueBN.abs().toFixed()}
         </NumberSizeableText>
       ) : (
         <SizableText size="$bodySmMedium" color="$textSubdued">
