@@ -102,7 +102,18 @@
     "keyless:mock-server:build": "yarn workspace @onekeyhq/kit-bg keyless:mock-server:build",
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
     "wt": "node development/scripts/worktree.js",
-    "worktree": "node development/scripts/worktree.js"
+    "worktree": "node development/scripts/worktree.js",
+    "check:release-age": "npx tsx development/scripts/minimum-release-age/run.ts diff",
+    "check:release-age:full": "npx tsx development/scripts/minimum-release-age/run.ts full"
+  },
+  "minimumReleaseAge": {
+    "days": 7,
+    "allowlist": [
+      "@onekeyhq/*",
+      "@onekeyfe/*"
+    ],
+    "blockOnFailure": true,
+    "registryUrl": "https://registry.npmjs.org"
   },
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
@@ -116,7 +127,7 @@
     "@metamask/eth-sig-util": "5.1.0",
     "@mysten/sui": "1.28.0",
     "@ngraveio/bc-ur": "^1.1.13",
-    "@nktkas/hyperliquid": "0.29.1",
+    "@nktkas/hyperliquid": "0.32.2",
     "@onekeyfe/cross-inpage-provider-core": "2.2.63",
     "@onekeyfe/cross-inpage-provider-errors": "2.2.63",
     "@onekeyfe/cross-inpage-provider-injected": "2.2.63",

@@ -280,7 +280,6 @@ export function usePerpsTradingViewMessageHandler({
       let midValue = await getValidMidValue();
       let calculatedPriceScale = 100; // default 2 decimal places
       let persistedPriceScale: number | undefined;
-      let priceScaleSource: 'calculated' | 'persisted' | 'default' = 'default';
 
       if (!midValue) {
         try {
@@ -309,7 +308,6 @@ export function usePerpsTradingViewMessageHandler({
 
       if (midValue) {
         calculatedPriceScale = calculateDisplayPriceScale(midValue);
-        priceScaleSource = 'calculated';
         try {
           await backgroundApiProxy.serviceHyperliquid.setTradingviewDisplayPriceScale(
             {
@@ -325,7 +323,6 @@ export function usePerpsTradingViewMessageHandler({
         }
       } else if (persistedPriceScale !== undefined) {
         calculatedPriceScale = persistedPriceScale;
-        priceScaleSource = 'persisted';
       }
 
       const response = {
@@ -333,13 +330,6 @@ export function usePerpsTradingViewMessageHandler({
         minmov: 1,
         requestId,
       };
-
-      console.log('[MessageHandler] Price scale response:', {
-        symbol: requestSymbol,
-        midValue,
-        priceScale: calculatedPriceScale,
-        priceScaleSource,
-      });
 
       webRef.current?.sendMessageViaInjectedScript({
         type: 'HYPERLIQUID_PRICESCALE_RESPONSE',
