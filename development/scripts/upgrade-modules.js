@@ -58,6 +58,7 @@ for (const file of files) {
     fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
     console.log(`✓ ${relPath} (${fileUpdated} packages updated)`);
     totalUpdated += fileUpdated;
+  } else {
     console.log(`- ${relPath} (no changes)`);
   }
 }
