@@ -12,13 +12,13 @@ class HyperLiquidCache {
     return this._allMids;
   }
 
-  get allMidsUpdatedAt() {
-    return this._allMidsUpdatedAt;
-  }
-
   set allMids(allMids: IWsAllMids | undefined) {
     this._allMids = allMids;
     this._allMidsUpdatedAt = allMids ? Date.now() : 0;
+  }
+
+  get allMidsUpdatedAt() {
+    return this._allMidsUpdatedAt;
   }
 
   public activatedUser: {
