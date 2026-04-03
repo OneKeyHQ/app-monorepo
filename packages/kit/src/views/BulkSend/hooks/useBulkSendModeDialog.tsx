@@ -2,22 +2,22 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Dialog, Icon, Stack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
-function BulkSendModeIcon() {
+function BulkSendModeIcon({ name }: { name: IKeyOfIcons }) {
   return (
     <Stack
       w="$9"
       h="$9"
-      alignSelf="flex-start"
       alignItems="center"
       justifyContent="center"
       flexShrink={0}
     >
-      <Icon name="PlaceholderOutline" size="$5" color="$iconSubdued" />
+      <Icon name={name} size="$6" color="$iconSubdued" />
     </Stack>
   );
 }
@@ -29,6 +29,7 @@ export function useBulkSendModeDialog() {
     () => [
       {
         mode: EBulkSendMode.OneToMany,
+        icon: 'BulkSendOneToManyOutline' as IKeyOfIcons,
         title: intl.formatMessage({
           id: ETranslations.wallet_bulk_send_mode_one_to_many,
         }),
@@ -38,6 +39,7 @@ export function useBulkSendModeDialog() {
       },
       {
         mode: EBulkSendMode.ManyToOne,
+        icon: 'BulkSendManyToOneOutline' as IKeyOfIcons,
         title: intl.formatMessage({
           id: ETranslations.wallet_bulk_send_mode_many_to_one,
         }),
@@ -47,6 +49,7 @@ export function useBulkSendModeDialog() {
       },
       {
         mode: EBulkSendMode.ManyToMany,
+        icon: 'BulkSendManyToManyOutline' as IKeyOfIcons,
         title: intl.formatMessage({
           id: ETranslations.wallet_bulk_send_mode_many_to_many,
         }),
@@ -74,7 +77,7 @@ export function useBulkSendModeDialog() {
                 drillIn
                 title={option.title}
                 subtitle={option.subtitle}
-                renderIcon={<BulkSendModeIcon />}
+                renderIcon={<BulkSendModeIcon name={option.icon} />}
                 onPress={() => {
                   void dialog.close();
                   onSelect(option.mode);

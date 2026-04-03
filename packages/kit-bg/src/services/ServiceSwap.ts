@@ -107,6 +107,7 @@ import {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 
@@ -569,6 +570,7 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage,
     blockNumber,
     receivingAddress,
+    incognito,
     accountId,
     protocol,
     expirationTime,
@@ -584,6 +586,7 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage: number;
     autoSlippage?: boolean;
     receivingAddress?: string;
+    incognito?: boolean;
     blockNumber?: number;
     accountId?: string;
     expirationTime?: number;
@@ -629,6 +632,7 @@ export default class ServiceSwap extends ServiceBase {
       denyCrossChainProvider,
       denySingleSwapProvider,
       walletDeviceType: walletDevice?.deviceType,
+      ...(incognito ? { incognito } : {}),
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -683,6 +687,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     expirationTime,
     receivingAddress,
+    incognito,
     limitPartiallyFillable,
     kind,
     toTokenAmount,
@@ -724,6 +729,7 @@ export default class ServiceSwap extends ServiceBase {
       denyCrossChainProvider,
       denySingleSwapProvider,
       walletDeviceType: walletDevice?.deviceType,
+      ...(incognito ? { incognito } : {}),
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)
@@ -2494,12 +2500,10 @@ export default class ServiceSwap extends ServiceBase {
           }
         : {}),
     };
-    const params: IFetchBuildTxParams = {
-      fromTokenAddress: fromToken.contractAddress,
-      toTokenAddress: toToken.contractAddress,
+    const params: IFetchBuildTxParams = buildSpeedSwapTxParams({
+      fromToken,
+      toToken,
       fromTokenAmount,
-      fromNetworkId: fromToken.networkId,
-      toNetworkId: toToken.networkId,
       protocol,
       provider,
       userAddress,
@@ -2508,7 +2512,7 @@ export default class ServiceSwap extends ServiceBase {
       kind,
       walletType,
       quoteResultCtx,
-    };
+    });
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
@@ -2520,10 +2524,18 @@ export default class ServiceSwap extends ServiceBase {
       );
       return data?.data;
     } catch (e) {
-      const error = e as { code: number; message: string; requestId: string };
+      const error = e as {
+        code?: number;
+        message?: string;
+        requestId?: string;
+        response?: {
+          status?: number;
+          data?: unknown;
+        };
+      };
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
-        title: error?.message,
+        title: error?.message ?? 'Request failed',
         message: error?.requestId,
       });
       return undefined;

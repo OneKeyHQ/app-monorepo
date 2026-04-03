@@ -89,6 +89,7 @@ const LINE_NUMBER_WIDTH = 40;
 const NATIVE_LINE_NUMBER_TOP_OFFSET = platformEnv.isNativeIOS ? 3 : 0;
 // Allow 2 lines of text in singleLine mode for wrapped long addresses
 const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
+const WEB_WORD_BREAK_STYLE = { wordBreak: 'break-all' } as const;
 
 function LineNumberedTextArea({
   value = '',
@@ -493,6 +494,10 @@ function LineNumberedTextArea({
                           fontSize={FONT_SIZE}
                           lineHeight={LINE_HEIGHT}
                           color={lineColor}
+                          textBreakStrategy="simple"
+                          style={
+                            platformEnv.isWeb ? WEB_WORD_BREAK_STYLE : undefined
+                          }
                         >
                           {line || ' '}
                         </SizableText>
@@ -532,6 +537,7 @@ function LineNumberedTextArea({
                 }
                 editable={!disabled}
                 multiline
+                textBreakStrategy="simple"
                 style={styles.textInput}
                 selectionColor={selectionColor}
                 cursorColor={textColor}

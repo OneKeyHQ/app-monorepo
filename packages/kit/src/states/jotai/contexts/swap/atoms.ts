@@ -5,6 +5,10 @@ import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/compo
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
+  selectBestQuote,
+  sortSwapQuotes,
+} from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -17,7 +21,6 @@ import {
   ESwapProviderSort,
   mevSwapNetworks,
   swapProTimeRangeItems,
-  swapProviderRecommendApprovedWeights,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapDirectionType,
@@ -230,179 +233,10 @@ export const {
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
   const list = get(swapQuoteListAtom());
   const fromTokenAmount = get(swapFromTokenAmountAtom());
-  const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
   const sortType = get(swapProviderSortAtom());
-  const resetList: IFetchQuoteResult[] = list.map(
-    (item: IFetchQuoteResult) => ({
-      ...item,
-      receivedBest: false,
-      isBest: false,
-      minGasCost: false,
-    }),
-  );
-  let sortedList = [...resetList];
-  const gasFeeSorted = resetList.toSorted((a, b) => {
-    const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
-    const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
-    return aBig.comparedTo(bBig);
-  });
-  if (sortType === ESwapProviderSort.GAS_FEE) {
-    sortedList = [...gasFeeSorted];
-  }
-  if (sortType === ESwapProviderSort.SWAP_DURATION) {
-    sortedList = resetList.toSorted((a, b) => {
-      const aVal = new BigNumber(a.estimatedTime || Infinity);
-      const bVal = new BigNumber(b.estimatedTime || Infinity);
-      return aVal.comparedTo(bVal);
-    });
-  }
-  const receivedSorted = resetList.toSorted((a, b) => {
-    // check toAmountSlippage
-    const aToAmountSlippage = new BigNumber(a.toAmountSlippage || 0).plus(1);
-    const bToAmountSlippage = new BigNumber(b.toAmountSlippage || 0).plus(1);
-    const aVal = new BigNumber(a.toAmount || 0).multipliedBy(aToAmountSlippage);
-    const bVal = new BigNumber(b.toAmount || 0).multipliedBy(bToAmountSlippage);
-    // Check if limit exists for a and b
-    const aHasLimit = !!a.limit;
-    const bHasLimit = !!b.limit;
-
-    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
-      return -1;
-    }
-
-    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
-      return 1;
-    }
-
-    if (
-      aVal.isZero() ||
-      aVal.isNaN() ||
-      fromTokenAmountBN.lt(new BigNumber(a.limit?.min || 0)) ||
-      fromTokenAmountBN.gt(new BigNumber(a.limit?.max || Infinity))
-    ) {
-      return 1;
-    }
-    if (
-      bVal.isZero() ||
-      bVal.isNaN() ||
-      fromTokenAmountBN.lt(new BigNumber(b.limit?.min || 0)) ||
-      fromTokenAmountBN.gt(new BigNumber(b.limit?.max || Infinity))
-    ) {
-      return -1;
-    }
-    return bVal.comparedTo(aVal);
-  });
-  const receivedOriginalSorted = resetList.toSorted((a, b) => {
-    const aVal = new BigNumber(a.toAmount || 0);
-    const bVal = new BigNumber(b.toAmount || 0);
-    // Check if limit exists for a and b
-    const aHasLimit = !!a.limit;
-    const bHasLimit = !!b.limit;
-
-    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
-      return -1;
-    }
-
-    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
-      return 1;
-    }
-
-    if (
-      aVal.isZero() ||
-      aVal.isNaN() ||
-      fromTokenAmountBN.lt(new BigNumber(a.limit?.min || 0)) ||
-      fromTokenAmountBN.gt(new BigNumber(a.limit?.max || Infinity))
-    ) {
-      return 1;
-    }
-    if (
-      bVal.isZero() ||
-      bVal.isNaN() ||
-      fromTokenAmountBN.lt(new BigNumber(b.limit?.min || 0)) ||
-      fromTokenAmountBN.gt(new BigNumber(b.limit?.max || Infinity))
-    ) {
-      return -1;
-    }
-    return bVal.comparedTo(aVal);
-  });
-  let recommendedSorted = receivedSorted.slice();
-  const recommendedSortedApproved = recommendedSorted.filter(
-    (item) =>
-      !item.allowanceResult && item.toAmount && item.approvedInfo?.isApproved,
-  );
-  // check allowance result
-  if (
-    receivedSorted.length > 0 &&
-    recommendedSortedApproved.length > 0 &&
-    receivedSorted[0].allowanceResult
-  ) {
-    const recommendedSortedApprovedSorted = recommendedSortedApproved.toSorted(
-      (a, b) => {
-        const aVal = new BigNumber(a.toAmount || 0);
-        const bVal = new BigNumber(b.toAmount || 0);
-        return bVal.comparedTo(aVal);
-      },
-    );
-    const recommendedSortedAllowanceSortedBestAmountBN = new BigNumber(
-      recommendedSortedApprovedSorted[0].toAmount || 0,
-    );
-    const receivedSortedBestAmountBN = new BigNumber(
-      receivedSorted[0].toAmount || 0,
-    );
-    if (
-      recommendedSortedAllowanceSortedBestAmountBN
-        .multipliedBy(swapProviderRecommendApprovedWeights)
-        .gt(receivedSortedBestAmountBN)
-    ) {
-      recommendedSorted = recommendedSorted.filter(
-        (item) => item.quoteId !== recommendedSortedApprovedSorted[0].quoteId,
-      );
-      recommendedSorted = [
-        recommendedSortedApprovedSorted[0],
-        ...recommendedSorted,
-      ];
-    }
-  }
-
-  if (sortType === ESwapProviderSort.RECEIVED) {
-    sortedList = [...receivedSorted];
-  }
-  if (sortType === ESwapProviderSort.RECOMMENDED) {
-    sortedList = [...recommendedSorted];
-  }
-  sortedList = sortedList.toSorted((a, b) => {
-    if (a.limit && b.limit) {
-      const aMin = new BigNumber(a.limit?.min || 0);
-      const aMax = new BigNumber(a.limit?.max || 0);
-      const bMin = new BigNumber(b.limit?.min || 0);
-      const bMax = new BigNumber(b.limit?.max || 0);
-      if (aMin.lt(bMin)) {
-        return -1;
-      }
-      if (aMin.gt(bMin)) {
-        return 1;
-      }
-
-      if (aMax.lt(bMax)) {
-        return -1;
-      }
-      if (aMax.gt(bMax)) {
-        return 1;
-      }
-    }
-    return 0;
-  });
-  return sortedList.map((p) => {
-    if (p?.quoteId === recommendedSorted?.[0]?.quoteId && p.toAmount) {
-      p.isBest = true;
-    }
-    if (p?.quoteId === receivedOriginalSorted?.[0]?.quoteId && p.toAmount) {
-      p.receivedBest = true;
-    }
-    if (p.quoteId === gasFeeSorted?.[0]?.quoteId && p.toAmount) {
-      p.minGasCost = true;
-    }
-    return p;
+  return sortSwapQuotes(list, {
+    sort: sortType,
+    fromTokenAmount: fromTokenAmount.value,
   });
 });
 
@@ -412,24 +246,9 @@ export const {
 } = contextAtomComputed((get) => {
   const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
-  const manualSelectQuoteResult = list.find(
-    (item) =>
-      item.info.provider === manualSelectQuoteProviders?.info.provider &&
-      item.info.providerName === manualSelectQuoteProviders?.info.providerName,
-  );
-  if (manualSelectQuoteProviders && manualSelectQuoteResult?.toAmount) {
-    return manualSelectQuoteResult;
-  }
-  if (list?.length > 0) {
-    if (
-      manualSelectQuoteProviders &&
-      !manualSelectQuoteProviders?.unSupportReceiveAddressDifferent
-    ) {
-      return list.find((item) => !item.unSupportReceiveAddressDifferent);
-    }
-    return list[0];
-  }
-  return undefined;
+  return selectBestQuote(list, {
+    manualSelect: manualSelectQuoteProviders ?? undefined,
+  });
 });
 
 export const { atom: swapTokenMetadataAtom, use: useSwapTokenMetadataAtom } =

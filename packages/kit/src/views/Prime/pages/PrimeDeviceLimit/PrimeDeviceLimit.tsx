@@ -84,7 +84,13 @@ export default function PrimeDeviceLimit() {
           accessToken: token || '',
         });
         if (params?.isExceedDeviceLimit) {
-          navigation.popStack();
+          const userInfo =
+            await backgroundApiProxy.servicePrime.getLocalUserInfo();
+          if (userInfo?.isPrimeDeviceLimitExceeded) {
+            await reloadDevices();
+          } else {
+            navigation.popStack();
+          }
         } else {
           await reloadDevices();
         }

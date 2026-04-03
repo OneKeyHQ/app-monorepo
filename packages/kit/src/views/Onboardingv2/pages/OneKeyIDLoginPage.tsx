@@ -15,6 +15,7 @@ import {
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -109,7 +110,7 @@ function OptionItem({
             <YStack
               key="loading-spinner"
               animation="quick"
-              animateOnly={['transform', 'opacity']}
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{ scale: 0.7, opacity: 0 }}
               exitStyle={{ scale: 0.7, opacity: 0 }}
             >
@@ -119,6 +120,7 @@ function OptionItem({
             <YStack
               key="chevron-right"
               animation="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{ scale: 0.7, opacity: 0 }}
               exitStyle={{ scale: 0.7, opacity: 0 }}
             >
@@ -157,6 +159,8 @@ function OneKeyIDLoginPage() {
       if (loggingInProviderRef.current) {
         return;
       }
+      // Close the same-tick re-entry window before React state updates commit.
+      loggingInProviderRef.current = provider;
       try {
         setLoggingInProvider(provider);
         const result = await signInWithSocialLogin(provider);
@@ -193,6 +197,7 @@ function OneKeyIDLoginPage() {
           }
         }
       } finally {
+        loggingInProviderRef.current = null;
         setLoggingInProvider(null);
       }
     },
@@ -252,7 +257,7 @@ function OneKeyIDLoginPage() {
                 <OptionItem
                   icon="GoogleIllus"
                   title="Google"
-                  onPress={handleGoogleLogin}
+                  onPress={loggingInProvider ? undefined : handleGoogleLogin}
                   isLoading={
                     loggingInProvider === EOAuthSocialLoginProvider.Google
                   }
@@ -268,7 +273,7 @@ function OneKeyIDLoginPage() {
                     color: '$iconActive',
                     y: -1,
                   }}
-                  onPress={handleAppleLogin}
+                  onPress={loggingInProvider ? undefined : handleAppleLogin}
                   isLoading={
                     loggingInProvider === EOAuthSocialLoginProvider.Apple
                   }

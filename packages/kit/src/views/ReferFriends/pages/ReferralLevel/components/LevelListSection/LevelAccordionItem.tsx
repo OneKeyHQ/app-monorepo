@@ -15,6 +15,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -117,7 +118,11 @@ export function LevelAccordionItem({
                 ) : null}
               </XStack>
             </XStack>
-            <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+            <Stack
+              animation="quick"
+              animateOnly={ANIMATE_ONLY_TRANSFORM}
+              rotate={open ? '180deg' : '0deg'}
+            >
               <Icon
                 name="ChevronDownSmallOutline"
                 color={open ? '$iconActive' : '$iconSubdued'}
