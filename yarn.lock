@@ -9753,7 +9753,7 @@ __metadata:
     jsonschema: "npm:^1.4.1"
     localforage: "npm:^1.10.0"
     ms: "npm:^2.1.3"
-    posthog-js: "npm:^1.364.6"
+    posthog-js: "npm:1.364.6"
     react-native-url-polyfill: "npm:^1.3.0"
     react-native-uuid: "npm:^2.0.1"
     redux-persist: "npm:^6.0.0"
@@ -39603,7 +39603,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"posthog-js@npm:^1.364.6":
+"posthog-js@npm:1.364.6":
   version: 1.364.6
   resolution: "posthog-js@npm:1.364.6"
   dependencies:
