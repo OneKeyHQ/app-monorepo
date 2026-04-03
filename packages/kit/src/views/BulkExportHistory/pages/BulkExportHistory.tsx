@@ -338,7 +338,11 @@ function BulkExportHistoryContent({
       await csvExporterUtils.exportCSV(csvData, filename, true);
 
       if (!controller.signal.aborted) {
-        navigation.pop();
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.global_success,
+          }),
+        });
       }
     } catch (error) {
       console.error(error);
@@ -363,7 +367,6 @@ function BulkExportHistoryContent({
     hideDustTransactions,
     isSingleNetwork,
     singleNetworkName,
-    navigation,
     intl,
   ]);
 
