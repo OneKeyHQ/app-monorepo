@@ -15,12 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // Types
 // ---------------------------------------------------------------------------
 
-type ITransportState =
-  | 'idle'
-  | 'starting'
-  | 'ready'
-  | 'remote-broken'
-  | 'fallback-local';
+type ITransportState = 'idle' | 'starting' | 'ready' | 'remote-broken';
 
 type ITransportGlobal = typeof globalThis & {
   __onekeyNativeBackgroundThreadTransport?: {
@@ -172,10 +167,7 @@ function TransportStateSection() {
   let stateOk: boolean | null;
   if (info.state === 'ready') {
     stateOk = true;
-  } else if (
-    info.state === 'fallback-local' ||
-    info.state === 'remote-broken'
-  ) {
+  } else if (info.state === 'remote-broken') {
     stateOk = false;
   } else {
     stateOk = null;
@@ -185,8 +177,6 @@ function TransportStateSection() {
     switch (info.state) {
       case 'ready':
         return 'RPC channel active';
-      case 'fallback-local':
-        return 'Fell back to local execution';
       case 'remote-broken':
         return 'Remote channel broken';
       case 'starting':

@@ -52,10 +52,6 @@ export class BackgroundApiProxyBase
 
   private readonly backgroundApiFactory?: () => IBackgroundApi;
 
-  private readonly backgroundApiAsyncFactory?: () => Promise<IBackgroundApi>;
-
-  private backgroundApiAsyncFactoryPromise?: Promise<IBackgroundApi | null>;
-
   private getNativeBackgroundThreadTransport() {
     type INativeBackgroundThreadTransport = {
       callServiceRequest: (
@@ -107,45 +103,11 @@ export class BackgroundApiProxyBase
     return this.backgroundApi;
   }
 
-  private async ensureLocalBackgroundApiAsync(): Promise<IBackgroundApi | null> {
-    // Return cached instance if already available
-    if (this.backgroundApi) {
-      return this.backgroundApi;
-    }
-    // Try sync factory first
-    if (this.backgroundApiFactory) {
-      this.backgroundApi = this.backgroundApiFactory();
-      if (this.backgroundApi) {
-        return this.backgroundApi;
-      }
-    }
-    // Fall back to async factory (dynamic import of real BackgroundApi)
-    if (this.backgroundApiAsyncFactory) {
-      if (!this.backgroundApiAsyncFactoryPromise) {
-        this.backgroundApiAsyncFactoryPromise = this.backgroundApiAsyncFactory()
-          .then((api) => {
-            this.backgroundApi = api;
-            return api;
-          })
-          .catch((error) => {
-            console.error('backgroundApiAsyncFactory failed', error);
-            this.backgroundApiAsyncFactoryPromise = undefined;
-            return null;
-          });
-      }
-      return this.backgroundApiAsyncFactoryPromise;
-    }
-    return null;
-  }
-
   private async connectLocalBackgroundBridge(
     channel: 'dapp' | 'webEmbed',
     bridge: JsBridgeBase | null,
   ) {
-    let backgroundApi = this.ensureLocalBackgroundApi();
-    if (!backgroundApi) {
-      backgroundApi = await this.ensureLocalBackgroundApiAsync();
-    }
+    const backgroundApi = this.ensureLocalBackgroundApi();
     if (!backgroundApi) {
       throw new OneKeyLocalError('backgroundApi not found in non-ext env');
     }
@@ -162,11 +124,7 @@ export class BackgroundApiProxyBase
   private async callLocalBridgeReceiveHandler(
     payload: IJsBridgeMessagePayload,
   ) {
-    let backgroundApi = this.ensureLocalBackgroundApi();
-    if (!backgroundApi) {
-      // Sync factory unavailable (e.g. native-ui stub) — try async factory
-      backgroundApi = await this.ensureLocalBackgroundApiAsync();
-    }
+    const backgroundApi = this.ensureLocalBackgroundApi();
     if (!backgroundApi) {
       throw new OneKeyLocalError('backgroundApi not found in non-ext env');
     }
@@ -214,10 +172,7 @@ export class BackgroundApiProxyBase
       if (platformEnv.isNative && IGNORE_METHODS.has(methodName)) {
         backgroundMethodNameLocal = methodName;
       }
-      let backgroundApi = this.ensureLocalBackgroundApi();
-      if (!backgroundApi) {
-        backgroundApi = await this.ensureLocalBackgroundApiAsync();
-      }
+      const backgroundApi = this.ensureLocalBackgroundApi();
       if (!backgroundApi) {
         throw new OneKeyLocalError('backgroundApi not found in non-ext env');
       }
@@ -295,18 +250,15 @@ export class BackgroundApiProxyBase
   constructor({
     backgroundApi,
     getBackgroundApi,
-    getBackgroundApiAsync,
   }: {
     backgroundApi?: any;
     getBackgroundApi?: () => IBackgroundApi;
-    getBackgroundApiAsync?: () => Promise<IBackgroundApi>;
   } = {}) {
     super();
     if (backgroundApi) {
       this.backgroundApi = backgroundApi as IBackgroundApi;
     }
     this.backgroundApiFactory = getBackgroundApi;
-    this.backgroundApiAsyncFactory = getBackgroundApiAsync;
     jotaiBgSync.setBackgroundApi(this as any);
     void jotaiBgSync.jotaiInitFromUi().catch((err: unknown) => {
       console.error('[JOTAI_INIT_ERROR] jotaiInitFromUi failed', err);

@@ -7,8 +7,7 @@ export type IBackgroundThreadTransportState =
   | 'idle'
   | 'starting'
   | 'ready'
-  | 'remote-broken'
-  | 'fallback-local';
+  | 'remote-broken';
 
 export type IBackgroundThreadBridgeChannel = 'dapp' | 'webEmbed';
 

@@ -144,7 +144,7 @@ function ensureReadyTimeout() {
 
   readyTimeoutTimer = setTimeout(() => {
     readyTimeoutTimer = undefined;
-    switchToFallbackLocal('Background runtime ready timeout');
+    switchToRemoteBroken('Background runtime ready timeout');
   }, READY_TIMEOUT_MS);
 }
 
@@ -186,13 +186,6 @@ function getRequestDebugLabel(request: IBackgroundThreadRequest) {
   }
 }
 
-function flushQueuedCallsToLocal() {
-  const queuedCallsSnapshot = queuedCalls.splice(0);
-  queuedCallsSnapshot.forEach(({ localFallback, resolve, reject }) => {
-    void localFallback().then(resolve).catch(reject);
-  });
-}
-
 function rejectQueuedCalls(reason: string) {
   const queuedCallsSnapshot = queuedCalls.splice(0);
   const error = createTransportError(reason);
@@ -229,39 +222,6 @@ function dispatchQueuedCallsToRemote() {
     });
 }
 
-function switchToFallbackLocal(reason: string) {
-  transportLog(
-    `switchToFallbackLocal: reason=${reason}, transportState=${transportState}, queuedCalls=${queuedCalls.length}`,
-  );
-  if (!isNativeBackgroundThreadTransportEnabled()) {
-    return false;
-  }
-  if (
-    transportState === 'ready' ||
-    transportState === 'remote-broken' ||
-    transportState === 'fallback-local'
-  ) {
-    return false;
-  }
-
-  console.warn(
-    `[BG_TRANSPORT] switchToFallbackLocal: reason=${reason} queuedCalls=${queuedCalls.length}`,
-  );
-  transportState = 'fallback-local';
-  clearReadyTimeoutTimer();
-  flushQueuedCallsToLocal();
-
-  const pendingRemoteCallsSnapshot = Array.from(pendingRemoteCalls.values());
-  pendingRemoteCalls.clear();
-  pendingRemoteCallsSnapshot.forEach(
-    ({ localFallback, resolve, reject, timer }) => {
-      clearTimeout(timer);
-      void localFallback().then(resolve).catch(reject);
-    },
-  );
-  return true;
-}
-
 function getRemoteBrokenReason(reason?: string) {
   return (
     remoteBrokenReason || reason || 'Background runtime unavailable after ready'
@@ -272,10 +232,7 @@ function switchToRemoteBroken(reason: string) {
   if (!isNativeBackgroundThreadTransportEnabled()) {
     return false;
   }
-  if (
-    transportState === 'fallback-local' ||
-    transportState === 'remote-broken'
-  ) {
+  if (transportState === 'remote-broken') {
     return false;
   }
 
@@ -307,15 +264,11 @@ function handleRuntimeSignal(sharedRPC: ISharedRPC) {
   if (runtimePayload.status === 'failed') {
     const reason =
       runtimePayload.errorMessage || 'Background runtime init failed';
-    if (transportState === 'ready' || transportState === 'remote-broken') {
-      switchToRemoteBroken(reason);
-    } else {
-      switchToFallbackLocal(reason);
-    }
+    switchToRemoteBroken(reason);
     return;
   }
 
-  if (transportState === 'fallback-local' || transportState === 'ready') {
+  if (transportState === 'ready') {
     return;
   }
 
@@ -493,7 +446,7 @@ function ensureBackgroundRuntimeObserver() {
 
   if (observerRetryTimer || observerRetryCount >= MAX_OBSERVER_RETRY_COUNT) {
     if (observerRetryCount >= MAX_OBSERVER_RETRY_COUNT) {
-      switchToFallbackLocal('SharedRPC unavailable in main runtime');
+      switchToRemoteBroken('SharedRPC unavailable in main runtime');
     }
     return;
   }
@@ -517,19 +470,16 @@ function dispatchRemoteRequest(
   if (!isNativeBackgroundThreadTransportEnabled()) {
     return localFallback();
   }
-  if (transportState === 'fallback-local') {
-    return localFallback();
-  }
   if (transportState === 'remote-broken') {
     throw createTransportError(getRemoteBrokenReason());
   }
 
   const sharedRPC = getSharedRPC();
   if (!sharedRPC) {
-    if (transportState !== 'ready') {
-      return localFallback();
-    }
-    const reason = 'SharedRPC unavailable after background runtime ready';
+    const reason =
+      transportState === 'ready'
+        ? 'SharedRPC unavailable after background runtime ready'
+        : 'SharedRPC unavailable in main runtime';
     switchToRemoteBroken(reason);
     throw createTransportError(getRemoteBrokenReason(reason));
   }
@@ -569,9 +519,6 @@ function callRemoteRequest(
     return localFallback();
   }
 
-  if (transportState === 'fallback-local') {
-    return localFallback();
-  }
   if (transportState === 'remote-broken') {
     return Promise.reject(createTransportError(getRemoteBrokenReason()));
   }
