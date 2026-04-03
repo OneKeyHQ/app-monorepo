@@ -327,11 +327,10 @@ function BulkExportHistoryContent({
             );
           const account = accounts[0];
           if (!account) return [];
-          const xpub =
-            await backgroundApiProxy.serviceAccount.getAccountXpub({
-              accountId: account.id,
-              networkId,
-            });
+          const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId: account.id,
+            networkId,
+          });
           return [
             {
               accountAddress: account.address,
