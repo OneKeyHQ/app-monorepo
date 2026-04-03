@@ -41,6 +41,7 @@ import type {
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { XRP_DESTINATION_TAG_MAX } from '@onekeyhq/kit-bg/src/vaults/impls/xrp/destinationTagUtils';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -57,6 +58,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -104,12 +106,7 @@ type ISendDataInputRouteName =
 type ISendAmountInputParams =
   IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxAmountInput];
 
-const XRP_DESTINATION_TAG_MAX = 4_294_967_295;
-const LINE_BREAK_REGEXP = /[\r\n]+/g;
-
-function stripLineBreaks(value: string) {
-  return value.replace(LINE_BREAK_REGEXP, '');
-}
+const { stripLineBreaks } = stringUtils;
 
 function SendDataInputContainer() {
   const intl = useIntl();

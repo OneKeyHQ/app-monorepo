@@ -31,6 +31,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IAddressBadge,
@@ -56,7 +57,6 @@ import { SelectorPlugin } from './plugins/selector';
 import type { IScanPluginProps } from './plugins/scan';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
 
-const ADDRESS_LINE_BREAK_REGEXP = /[\r\n]+/g;
 
 type IResolvedAddressProps = {
   value: string;
@@ -526,7 +526,7 @@ export function AddressInput(props: IAddressInputProps) {
       text: string;
       inputType: EInputAddressChangeType;
     }) => {
-      const normalizedText = text.replace(ADDRESS_LINE_BREAK_REGEXP, '');
+      const normalizedText = stringUtils.stripLineBreaks(text);
       inputTypeRef.current = inputType;
       if (textRef.current !== normalizedText) {
         textRef.current = normalizedText;

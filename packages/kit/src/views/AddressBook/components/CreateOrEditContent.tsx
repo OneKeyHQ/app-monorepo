@@ -20,6 +20,7 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
+import { XRP_DESTINATION_TAG_MAX } from '@onekeyhq/kit-bg/src/vaults/impls/xrp/destinationTagUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AddressInput,
@@ -33,6 +34,7 @@ import type {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { buildChangeHistoryInputAddon } from '../../../components/ChangeHistoryDialog/ChangeHistoryDialog';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -58,12 +60,7 @@ type IFormValues = Omit<IAddressItem, 'address'> & {
   address: IAddressInputValue;
 };
 
-const XRP_DESTINATION_TAG_MAX = 4_294_967_295;
-const LINE_BREAK_REGEXP = /[\r\n]+/g;
-
-function stripLineBreaks(value: string) {
-  return value.replace(LINE_BREAK_REGEXP, '');
-}
+const { stripLineBreaks } = stringUtils;
 
 function TimeRow({ title, time }: { title: string; time?: number }) {
   if (!time) {
