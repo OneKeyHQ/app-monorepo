@@ -59,7 +59,7 @@ const useMarketHomeLayoutProps = () => {
       setLiquidityFilter({ min: formattedMinLiquidity });
     }
   }, [formattedMinLiquidity, liquidityFilter.min]);
-  const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('24h');
+  const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('1h');
 
   const [selectedCategory, setSelectedCategory] = useState('trending');
 
