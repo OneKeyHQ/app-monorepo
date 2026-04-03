@@ -12,6 +12,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
@@ -29,10 +30,12 @@ const shouldShowFavoriteButton =
 
 interface IUniversalSearchPerpItemProps {
   item: IUniversalSearchPerp;
+  getSearchInput: () => string;
 }
 
 export function UniversalSearchPerpItem({
   item,
+  getSearchInput,
 }: IUniversalSearchPerpItemProps) {
   const [{ isMounted }] = useMarketWatchListV2Atom();
   const navigation = useAppNavigation();
@@ -49,6 +52,13 @@ export function UniversalSearchPerpItem({
   const tag = isPerpsType ? `${maxLeverage}X` : 'xyz';
 
   const handlePress = useCallback(() => {
+    defaultLogger.universalSearch.search.universalSearchClick({
+      searchText: getSearchInput(),
+      type: item.type,
+      itemId: coin,
+      itemTitle: name,
+    });
+
     setPerpPageEnterSource(EPerpPageEnterSource.UniversalSearch);
     setTimeout(async () => {
       navigation.switchTab(ETabRoutes.Perp);
@@ -81,7 +91,15 @@ export function UniversalSearchPerpItem({
         });
       }, 10);
     }, 80);
-  }, [coin, name, assetType, item.type, navigation, universalSearchActions]);
+  }, [
+    coin,
+    getSearchInput,
+    item.type,
+    name,
+    assetType,
+    navigation,
+    universalSearchActions,
+  ]);
 
   return (
     <ListItem
