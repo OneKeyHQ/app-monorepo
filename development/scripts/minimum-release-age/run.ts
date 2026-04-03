@@ -5,10 +5,10 @@ import https from 'node:https';
 import * as path from 'node:path';
 
 import {
-  type CheckResult,
-  type MinimumReleaseAgeConfig,
-  type NpmPackageMeta,
-  type PackageRef,
+  type ICheckResult,
+  type IMinimumReleaseAgeConfig,
+  type INpmPackageMeta,
+  type IPackageRef,
   checkPackageAge,
   parseConfig,
 } from './checkPackageAge';
@@ -24,7 +24,7 @@ const DEFAULT_BASE_BRANCH = 'x';
 function fetchRegistryMeta(
   name: string,
   registryUrl: string,
-): Promise<NpmPackageMeta> {
+): Promise<INpmPackageMeta> {
   const url = `${registryUrl}/${encodeURIComponent(name).replaceAll('%40', '@')}`;
 
   return new Promise((resolve, reject) => {
@@ -42,7 +42,7 @@ function fetchRegistryMeta(
         });
         res.on('end', () => {
           try {
-            resolve(JSON.parse(data) as NpmPackageMeta);
+            resolve(JSON.parse(data) as INpmPackageMeta);
           } catch (_e) {
             reject(new Error(`Invalid JSON from ${url}`));
           }
@@ -55,10 +55,10 @@ function fetchRegistryMeta(
 // --- Batch helper ---
 
 async function processBatches(
-  packages: PackageRef[],
-  config: MinimumReleaseAgeConfig,
-): Promise<Map<string, CheckResult>> {
-  const results = new Map<string, CheckResult>();
+  packages: IPackageRef[],
+  config: IMinimumReleaseAgeConfig,
+): Promise<Map<string, ICheckResult>> {
+  const results = new Map<string, ICheckResult>();
   const now = new Date();
   const deps = { now, fetchMeta: fetchRegistryMeta };
 
@@ -81,8 +81,8 @@ async function processBatches(
 // --- Output formatting ---
 
 function printResults(
-  results: Map<string, CheckResult>,
-  config: MinimumReleaseAgeConfig,
+  results: Map<string, ICheckResult>,
+  config: IMinimumReleaseAgeConfig,
 ): { hasTooYoung: boolean; hasErrors: boolean } {
   let okCount = 0;
   let tooYoungCount = 0;
@@ -107,6 +107,8 @@ function printResults(
       case 'error':
         errorCount += 1;
         errorEntries.push({ key, error: result.error ?? 'unknown error' });
+        break;
+      default:
         break;
     }
   }
@@ -154,7 +156,7 @@ async function main() {
   >;
   const config = parseConfig(pkgJson);
 
-  let packages: PackageRef[];
+  let packages: IPackageRef[];
 
   if (mode === 'full') {
     console.log('Running full lockfile audit...');
