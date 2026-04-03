@@ -20,7 +20,6 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
-import { XRP_DESTINATION_TAG_MAX } from '@onekeyhq/kit-bg/src/vaults/impls/xrp/destinationTagUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AddressInput,
@@ -34,7 +33,6 @@ import type {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { buildChangeHistoryInputAddon } from '../../../components/ChangeHistoryDialog/ChangeHistoryDialog';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -59,8 +57,6 @@ type ICreateOrEditContentProps = {
 type IFormValues = Omit<IAddressItem, 'address'> & {
   address: IAddressInputValue;
 };
-
-const { stripLineBreaks } = stringUtils;
 
 function TimeRow({ title, time }: { title: string; time?: number }) {
   if (!time) {
@@ -194,28 +190,19 @@ export function CreateOrEditContent({
     async (value: string): Promise<string | undefined> => {
       if (!value) return undefined;
 
-      if (vaultSettings?.supportMemoValidation) {
-        try {
-          const validationResult =
-            await backgroundApiProxy.serviceSend.validateMemo({
-              networkId,
-              memo: value,
-            });
-          if (!validationResult.isValid) {
-            return validationResult.errorMessage;
-          }
-          return undefined;
-        } catch (error) {
-          // When chain-level memo validation fails unexpectedly, block submit
-          // instead of silently bypassing strict format checks.
-          console.warn(
-            'Vault validateMemo failed, using strict fallback:',
-            error,
-          );
-          return intl.formatMessage({
-            id: ETranslations.send_check_request_error,
+      try {
+        const validationResult =
+          await backgroundApiProxy.serviceSend.validateMemo({
+            networkId,
+            memo: value,
           });
+        if (!validationResult.isValid) {
+          return validationResult.errorMessage;
         }
+        return undefined;
+      } catch (error) {
+        // Fallback to client-side validation if Vault validation fails
+        console.warn('Vault validateMemo failed, using fallback:', error);
       }
 
       // Fallback: use original logic
@@ -224,22 +211,15 @@ export function CreateOrEditContent({
             id: ETranslations.send_field_only_integer,
           })
         : undefined;
-      const memoRegExp = vaultSettings?.numericOnlyMemo ? /^\d+$/ : undefined;
+      const memoRegExp = vaultSettings?.numericOnlyMemo
+        ? /^[0-9]+$/
+        : undefined;
 
       if (!value || !memoRegExp) return undefined;
-      const numericValue = Number(value);
-      const result =
-        !memoRegExp.test(value) ||
-        !Number.isSafeInteger(numericValue) ||
-        numericValue > XRP_DESTINATION_TAG_MAX;
+      const result = !memoRegExp.test(value);
       return result ? validateErrMsg : undefined;
     },
-    [
-      intl,
-      networkId,
-      vaultSettings?.numericOnlyMemo,
-      vaultSettings?.supportMemoValidation,
-    ],
+    [intl, networkId, vaultSettings?.numericOnlyMemo],
   );
 
   const renderMemoForm = useCallback(() => {
@@ -247,7 +227,6 @@ export function CreateOrEditContent({
 
     const maxLength = vaultSettings?.memoMaxLength || 256;
     const customValidate = vaultSettings?.supportMemoValidation;
-    const isNumericMemo = Boolean(vaultSettings?.numericOnlyMemo);
 
     return (
       <Form.Field
@@ -271,25 +250,13 @@ export function CreateOrEditContent({
           validate: validateMemoField,
         }}
       >
-        {isNumericMemo ? (
-          <Input
-            size={media.gtMd ? 'medium' : 'large'}
-            placeholder={intl.formatMessage({
-              id: ETranslations.send_tag_placeholder,
-            })}
-            keyboardType={platformEnv.isNative ? 'number-pad' : 'numeric'}
-            onChangeText={(text) => stripLineBreaks(text)}
-          />
-        ) : (
-          <TextAreaInput
-            numberOfLines={2}
-            size={media.gtMd ? 'medium' : 'large'}
-            placeholder={intl.formatMessage({
-              id: ETranslations.send_tag_placeholder,
-            })}
-            onChangeText={(text) => stripLineBreaks(text)}
-          />
-        )}
+        <TextAreaInput
+          numberOfLines={2}
+          size={media.gtMd ? 'medium' : 'large'}
+          placeholder={intl.formatMessage({
+            id: ETranslations.send_tag_placeholder,
+          })}
+        />
       </Form.Field>
     );
   }, [
@@ -297,7 +264,6 @@ export function CreateOrEditContent({
     media.gtMd,
     validateMemoField,
     vaultSettings?.memoMaxLength,
-    vaultSettings?.numericOnlyMemo,
     vaultSettings?.withMemo,
     vaultSettings?.supportMemoValidation,
   ]);
@@ -370,7 +336,6 @@ export function CreateOrEditContent({
               placeholder={intl.formatMessage({
                 id: ETranslations.address_book_add_address_name_required,
               })}
-              onChangeText={(text) => stripLineBreaks(text)}
               testID="address-form-name"
               flex={1}
               addOns={

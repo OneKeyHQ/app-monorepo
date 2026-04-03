@@ -293,11 +293,9 @@ export const createValidateAddressRule =
 function AddressInputWarnings({
   queryResult,
   networkId,
-  onApplyChecksumAddress,
 }: {
   queryResult: IAddressQueryResult;
   networkId: string;
-  onApplyChecksumAddress?: () => void;
 }) {
   const intl = useIntl();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
@@ -350,51 +348,7 @@ function AddressInputWarnings({
     });
   }, [isEnableTransferAllowList, navigation, networkId, queryResult?.input]);
 
-  const checksumSuggestion = useMemo(() => {
-    if (!networkUtils.isEvmNetwork({ networkId })) {
-      return undefined;
-    }
-    if (queryResult?.validStatus !== 'valid') {
-      return undefined;
-    }
-    if (
-      queryResult?.addressInteractionStatus !==
-      EAddressInteractionStatus.NOT_INTERACTED
-    ) {
-      return undefined;
-    }
-    const inputAddress = queryResult?.input?.trim();
-    const checksumAddress = queryResult?.validAddress?.trim();
-    if (!inputAddress || !checksumAddress) {
-      return undefined;
-    }
-    if (!/^0x[0-9a-fA-F]{40}$/.test(inputAddress)) {
-      return undefined;
-    }
-    if (inputAddress.toLowerCase() !== checksumAddress.toLowerCase()) {
-      return undefined;
-    }
-    if (inputAddress === checksumAddress) {
-      return undefined;
-    }
-    return checksumAddress;
-  }, [
-    networkId,
-    queryResult?.addressInteractionStatus,
-    queryResult?.input,
-    queryResult?.validAddress,
-    queryResult?.validStatus,
-  ]);
-
-  const showChecksumHint = Boolean(
-    checksumSuggestion && onApplyChecksumAddress,
-  );
-
-  if (
-    interactionBadges.length === 0 &&
-    !showAddToAddressBook &&
-    !showChecksumHint
-  ) {
+  if (interactionBadges.length === 0 && !showAddToAddressBook) {
     return null;
   }
 
@@ -422,24 +376,6 @@ function AddressInputWarnings({
               })}
             </Button>
           ) : null}
-        </XStack>
-      ) : null}
-      {showChecksumHint ? (
-        <XStack gap="$2" alignItems="center" justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-            {intl.formatMessage({
-              id: ETranslations.send_address_not_transferred_not_checksummed__desc,
-            })}
-          </SizableText>
-          <Button
-            variant="tertiary"
-            size="small"
-            onPress={onApplyChecksumAddress}
-          >
-            {intl.formatMessage({
-              id: ETranslations.convert__action,
-            })}
-          </Button>
         </XStack>
       ) : null}
     </Stack>
@@ -722,17 +658,6 @@ export function AddressInput(props: IAddressInputProps) {
     onChangeText({ text: '', inputType: EInputAddressChangeType.Manual });
   }, [onChangeText]);
 
-  const handleApplyChecksumAddress = useCallback(() => {
-    const checksumAddress = queryResult.validAddress;
-    if (!checksumAddress || checksumAddress === textRef.current) {
-      return;
-    }
-    onChangeText({
-      text: checksumAddress,
-      inputType: EInputAddressChangeType.Manual,
-    });
-  }, [onChangeText, queryResult.validAddress]);
-
   const AddressInputExtension = useMemo(() => {
     const isRecipientLayout = actionsLayout === 'recipient';
     const hasContent = inputText.trim().length > 0;
@@ -904,7 +829,6 @@ export function AddressInput(props: IAddressInputProps) {
       <AddressInputWarnings
         queryResult={queryResult}
         networkId={networkId}
-        onApplyChecksumAddress={handleApplyChecksumAddress}
       />
     </>
   );

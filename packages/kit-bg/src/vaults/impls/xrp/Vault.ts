@@ -20,7 +20,6 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
@@ -44,7 +43,6 @@ import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
-import { parseXrpDestinationTag } from './destinationTagUtils';
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -75,25 +73,6 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringExternal,
   };
-
-  private getDestinationTagValidationErrorMessage() {
-    return appLocale.intl.formatMessage({
-      id: ETranslations.send_field_only_integer,
-    });
-  }
-
-  private ensureDestinationTag(value?: string): number | undefined {
-    const destinationTag = parseXrpDestinationTag(value);
-    if (!value?.trim()) {
-      return undefined;
-    }
-    if (destinationTag === undefined) {
-      throw new OneKeyLocalError(
-        this.getDestinationTagValidationErrorMessage(),
-      );
-    }
-    return destinationTag;
-  }
 
   override buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
@@ -130,13 +109,15 @@ export default class Vault extends VaultBase {
     const { to, amount } = transferInfo;
     const dbAccount = await this.getAccount();
     let destination = to;
-    let destinationTag = this.ensureDestinationTag(transferInfo.memo);
+    let destinationTag: number | undefined = transferInfo.memo
+      ? Number(transferInfo.memo)
+      : undefined;
     const memoFields: IXrpMemoField[] | undefined = transferInfo.xrpMemoFields;
     // Slice destination tag from swap address
     if (!XRPL.isValidAddress(to) && to.indexOf('#') > -1) {
       const [address, tag] = to.split('#');
       destination = address;
-      destinationTag = this.ensureDestinationTag(tag);
+      destinationTag = tag ? Number(tag) : undefined;
 
       if (!XRPL.isValidAddress(address)) {
         throw new InvalidAddress();
@@ -254,7 +235,9 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: {
-        destinationTag: parseXrpDestinationTag(transferPayload?.memo),
+        destinationTag: transferPayload?.memo
+          ? Number(transferPayload.memo)
+          : undefined,
       },
       encodedTx,
     };
@@ -353,22 +336,6 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
-  }
-
-  override async validateMemo(memo: string): Promise<{
-    isValid: boolean;
-    errorMessage?: string;
-  }> {
-    if (!memo || !memo.trim()) {
-      return { isValid: true };
-    }
-    if (parseXrpDestinationTag(memo) === undefined) {
-      return {
-        isValid: false,
-        errorMessage: this.getDestinationTagValidationErrorMessage(),
-      };
-    }
-    return { isValid: true };
   }
 
   private _getAccountInfo = memoizee(

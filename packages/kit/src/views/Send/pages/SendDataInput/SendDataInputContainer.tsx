@@ -41,7 +41,6 @@ import type {
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { XRP_DESTINATION_TAG_MAX } from '@onekeyhq/kit-bg/src/vaults/impls/xrp/destinationTagUtils';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -496,9 +495,6 @@ function SendDataInputContainer() {
           return undefined;
         } catch (error) {
           console.error('Vault memo validation failed:', error);
-          return intl.formatMessage({
-            id: ETranslations.send_check_request_error,
-          });
         }
       }
 
@@ -507,14 +503,10 @@ function SendDataInputContainer() {
             id: ETranslations.send_field_only_integer,
           })
         : undefined;
-      const memoRegExp = numericOnlyMemo ? /^\d+$/ : undefined;
+      const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
 
       if (!value || !memoRegExp) return undefined;
-      const numericValue = Number(value);
-      const result =
-        !memoRegExp.test(value) ||
-        !Number.isSafeInteger(numericValue) ||
-        numericValue > XRP_DESTINATION_TAG_MAX;
+      const result = !memoRegExp.test(value);
       return result ? validateErrMsg : undefined;
     },
     [
