@@ -8,9 +8,14 @@
  * At runtime, calling `getSegmentManifest()` reads and caches this global.
  */
 
+import { getRuntimeKind } from './runtimeInfo';
+
 import type {
+  RuntimeKind,
   SegmentManifest,
   SegmentManifestEntry,
+  SegmentManifestRecord,
+  SegmentManifestVariantRecord,
   SegmentRuntime,
 } from './types';
 
@@ -40,10 +45,25 @@ export function getSegmentManifest(): SegmentManifest {
   return cachedManifest;
 }
 
+function isSegmentManifestVariantRecord(
+  record: SegmentManifestRecord,
+): record is SegmentManifestVariantRecord {
+  return typeof record === 'object' && record !== null && 'variants' in record;
+}
+
 export function getSegmentEntry(
   segmentKey: string,
+  runtimeKind: RuntimeKind = getRuntimeKind(),
 ): SegmentManifestEntry | undefined {
-  return getSegmentManifest().segments[segmentKey];
+  const record = getSegmentManifest().segments[segmentKey];
+  if (!record) {
+    return undefined;
+  }
+  if (!isSegmentManifestVariantRecord(record)) {
+    return record;
+  }
+
+  return record.variants[runtimeKind] || record.variants.shared;
 }
 
 export function getSegmentCount(): number {

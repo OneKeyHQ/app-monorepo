@@ -69,9 +69,24 @@ export type SegmentManifestEntry = {
   size?: number;
 };
 
+export type SegmentManifestVariants = Partial<
+  Record<SegmentRuntime, SegmentManifestEntry>
+>;
+
+export type SegmentManifestVariantRecord = {
+  /** Logical segment key, e.g. "seg:feature.shared.wallet" */
+  key: string;
+  /** Runtime-specific variants for the same logical segment key */
+  variants: SegmentManifestVariants;
+};
+
+export type SegmentManifestRecord =
+  | SegmentManifestEntry
+  | SegmentManifestVariantRecord;
+
 export type SegmentManifest = {
-  /** Map from segment key to manifest entry */
-  segments: Record<string, SegmentManifestEntry>;
+  /** Map from segment key to a concrete entry or runtime-specific variants */
+  segments: Record<string, SegmentManifestRecord>;
 };
 
 // ---------------------------------------------------------------------------
@@ -89,20 +104,7 @@ export type MetadataV2 = {
     file: string;
     sha256: string;
   };
-  segments: Record<
-    string,
-    {
-      id: number;
-      runtime: SegmentRuntime;
-      relativePath: string;
-      sha256: string;
-      dependsOn: string[];
-      critical?: boolean;
-      size?: number;
-      sourceMap?: string;
-      debugId?: string;
-    }
-  >;
+  segments: Record<string, SegmentManifestRecord>;
   /** Existing metadata fields preserved for backward compat */
   [key: string]: unknown;
 };

@@ -92,6 +92,50 @@ describe('installProdBundleLoader', () => {
     await expect(loadSegment('seg:test.bg')).rejects.toThrow('not allowed');
   });
 
+  it('loads the runtime-specific variant for the current runtime', async () => {
+    (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'background';
+    (globalThis as any).__SEGMENT_MANIFEST__ = {
+      segments: {
+        'seg:test.dual': {
+          key: 'seg:test.dual',
+          variants: {
+            main: {
+              id: 4,
+              key: 'seg:test.dual',
+              runtime: 'main',
+              relativePath: 'segments/dual.seg.hbc',
+              sha256: 'main',
+              dependsOn: [],
+            },
+            background: {
+              id: 4,
+              key: 'seg:test.dual',
+              runtime: 'background',
+              relativePath: 'segments-background/dual.seg.hbc',
+              sha256: 'background',
+              dependsOn: [],
+            },
+          },
+        },
+      },
+    };
+
+    const mock = createMockNativeLoader();
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+
+    await loadSegment('seg:test.dual');
+
+    expect(mock.loadSegment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        segmentId: 4,
+        segmentKey: 'seg:test.dual',
+        relativePath: 'segments-background/dual.seg.hbc',
+        sha256: 'background',
+      }),
+    );
+  });
+
   it('loads dependencies before the segment', async () => {
     const mock = createMockNativeLoader();
     const { installProdBundleLoader, loadSegment, isSegmentLoaded } =

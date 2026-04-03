@@ -3,7 +3,7 @@
 /**
  * Union Graph Build Script
  *
- * Builds a single Metro graph for both main/background entries, then emits:
+ * Builds separate Metro graphs for main/background entries, then emits:
  * - common eager bundle (polyfills + shared modules + segment manifest)
  * - main eager bundle (main-only modules + entry require)
  * - background eager bundle (bg-only modules + entry require)
@@ -40,7 +40,7 @@ const {
   forbiddenInStartup,
   promotedSegments,
 } = require('../bundle-groups.config');
-const { computeEntryReachability } = require('../plugins/entryReachability');
+const { computeReachable } = require('../plugins/entryReachability');
 const { fileToIdMap } = require('../plugins/map');
 const { getSegmentsDir, getManifestPath } = require('../plugins/segmentPaths');
 const {
@@ -381,15 +381,152 @@ function buildSegmentAllocation(graph) {
   };
 }
 
-function buildModuleIndexes(graph, createModuleId) {
+function buildModuleIndexesForGraphs(graphs, createModuleId) {
   const moduleIdToAbsPath = new Map();
-  // Use the same createModuleId function as baseJSBundle to ensure
-  // moduleId → absolutePath mapping is consistent with the serialized output.
   const getModuleId = createModuleId || ((absPath) => fileToIdMap.get(absPath));
-  for (const [absolutePath] of graph.dependencies) {
-    moduleIdToAbsPath.set(getModuleId(absolutePath), absolutePath);
+  for (const graph of graphs) {
+    for (const [absolutePath] of graph.dependencies) {
+      moduleIdToAbsPath.set(getModuleId(absolutePath), absolutePath);
+    }
   }
   return { moduleIdToAbsPath };
+}
+
+function createResolverOptions(runtimeTarget) {
+  const customResolverOptions = Object.create(null);
+  customResolverOptions.runtimeTarget = runtimeTarget;
+  return {
+    customResolverOptions,
+  };
+}
+
+function setEquals(left, right) {
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const value of left) {
+    if (!right.has(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function buildModuleSignature(moduleData) {
+  if (!moduleData) {
+    return '';
+  }
+  const outputs = (moduleData.output || []).map((output) => ({
+    type: output.type,
+    code: output.data?.code || '',
+  }));
+  const dependencies = [...moduleData.dependencies.entries()]
+    .map(([key, dep]) => ({
+      key,
+      absolutePath: dep.absolutePath,
+      asyncType:
+        dep.data && dep.data.data ? (dep.data.data.asyncType ?? null) : null,
+      isOptional:
+        dep.data && 'isOptional' in dep.data ? dep.data.isOptional : false,
+    }))
+    .toSorted((left, right) =>
+      `${left.key}:${left.absolutePath}`.localeCompare(
+        `${right.key}:${right.absolutePath}`,
+      ),
+    );
+  return sha256(JSON.stringify({ outputs, dependencies }));
+}
+
+function buildRuntimeOwnership({
+  mainGraph,
+  bgGraph,
+  mainReachable,
+  bgReachable,
+}) {
+  const mainSignatures = new Map();
+  const bgSignatures = new Map();
+
+  for (const [absolutePath, moduleData] of mainGraph.dependencies) {
+    mainSignatures.set(absolutePath, buildModuleSignature(moduleData));
+  }
+  for (const [absolutePath, moduleData] of bgGraph.dependencies) {
+    bgSignatures.set(absolutePath, buildModuleSignature(moduleData));
+  }
+
+  const allAbsPaths = new Set([
+    ...mainGraph.dependencies.keys(),
+    ...bgGraph.dependencies.keys(),
+  ]);
+  const sharedEquivalentAbsPaths = new Set();
+  const mainOnlyAbsPaths = new Set();
+  const bgOnlyAbsPaths = new Set();
+
+  for (const absolutePath of allAbsPaths) {
+    const inMain = mainSignatures.has(absolutePath);
+    const inBg = bgSignatures.has(absolutePath);
+    const isSharedEquivalent =
+      inMain &&
+      inBg &&
+      mainSignatures.get(absolutePath) === bgSignatures.get(absolutePath);
+
+    if (isSharedEquivalent) {
+      sharedEquivalentAbsPaths.add(absolutePath);
+      continue;
+    }
+    if (inMain) {
+      mainOnlyAbsPaths.add(absolutePath);
+    }
+    if (inBg) {
+      bgOnlyAbsPaths.add(absolutePath);
+    }
+  }
+
+  const sharedStartupAbsPaths = new Set(
+    [...sharedEquivalentAbsPaths].filter(
+      (absolutePath) =>
+        mainReachable.has(absolutePath) && bgReachable.has(absolutePath),
+    ),
+  );
+  const mainStartupAbsPaths = new Set(
+    [...mainReachable].filter(
+      (absolutePath) => !sharedStartupAbsPaths.has(absolutePath),
+    ),
+  );
+  const bgStartupAbsPaths = new Set(
+    [...bgReachable].filter(
+      (absolutePath) => !sharedStartupAbsPaths.has(absolutePath),
+    ),
+  );
+
+  return {
+    allAbsPaths,
+    sharedEquivalentAbsPaths,
+    sharedStartupAbsPaths,
+    mainStartupAbsPaths,
+    bgStartupAbsPaths,
+    mainOnlyAbsPaths,
+    bgOnlyAbsPaths,
+  };
+}
+
+function mergeDependencyMaps(...maps) {
+  const merged = new Map();
+  for (const map of maps) {
+    for (const [absolutePath, moduleData] of map) {
+      if (!merged.has(absolutePath)) {
+        merged.set(absolutePath, moduleData);
+      }
+    }
+  }
+  return merged;
+}
+
+function getSegmentModuleAbsPaths(moduleIds, moduleIdToAbsPath) {
+  return new Set(
+    [...moduleIds]
+      .map((moduleId) => moduleIdToAbsPath.get(moduleId))
+      .filter(Boolean),
+  );
 }
 
 function buildSegmentDeps(
@@ -424,42 +561,163 @@ function buildSegmentDeps(
   return segmentDeps;
 }
 
-function deriveSegmentRuntime(
-  segmentKey,
-  segmentModules,
-  reachability,
-  moduleIdToAbsPath,
-) {
-  const moduleIds = segmentModules.get(segmentKey);
-  if (!moduleIds) {
-    return 'shared';
+function isManifestVariantRecord(record) {
+  return typeof record === 'object' && record !== null && 'variants' in record;
+}
+
+function buildManifestEntrySignature(entry) {
+  return JSON.stringify({
+    id: entry.id,
+    key: entry.key,
+    runtime: entry.runtime,
+    relativePath: entry.relativePath,
+    sha256: entry.sha256,
+    dependsOn: entry.dependsOn || [],
+    critical: entry.critical || false,
+    size: entry.size ?? null,
+  });
+}
+
+function buildManifestRecordSignature(record) {
+  if (!record) {
+    return '';
+  }
+  if (!isManifestVariantRecord(record)) {
+    return buildManifestEntrySignature(record);
+  }
+  return JSON.stringify({
+    key: record.key,
+    variants: Object.entries(record.variants)
+      .filter(([, entry]) => Boolean(entry))
+      .map(([runtime, entry]) => [runtime, buildManifestEntrySignature(entry)])
+      .toSorted(([left], [right]) => left.localeCompare(right)),
+  });
+}
+
+function toManifestVariantRecord(segmentKey, record) {
+  if (isManifestVariantRecord(record)) {
+    return {
+      key: record.key || segmentKey,
+      variants: { ...record.variants },
+    };
+  }
+  return {
+    key: segmentKey,
+    variants: {
+      [record.runtime]: record,
+    },
+  };
+}
+
+function mergeSegmentManifestRecord(segmentKey, existingRecord, nextRecord) {
+  if (!existingRecord) {
+    return nextRecord;
+  }
+  if (
+    buildManifestRecordSignature(existingRecord) ===
+    buildManifestRecordSignature(nextRecord)
+  ) {
+    return existingRecord;
   }
 
-  let fromMain = false;
-  let fromBg = false;
-  for (const moduleId of moduleIds) {
-    const absolutePath = moduleIdToAbsPath.get(moduleId);
-    if (!absolutePath) {
+  const mergedRecord = toManifestVariantRecord(segmentKey, existingRecord);
+  const nextVariantRecord = toManifestVariantRecord(segmentKey, nextRecord);
+
+  for (const [runtime, entry] of Object.entries(nextVariantRecord.variants)) {
+    if (!entry) {
       continue;
     }
-    if (reachability.mainReachable.has(absolutePath)) {
-      fromMain = true;
+    const existingEntry = mergedRecord.variants[runtime];
+    if (existingEntry) {
+      if (
+        buildManifestEntrySignature(existingEntry) !==
+        buildManifestEntrySignature(entry)
+      ) {
+        throw new Error(
+          `[unionBuild] Conflicting manifest entry for ${segmentKey} (${runtime})`,
+        );
+      }
+      continue;
     }
-    if (reachability.bgReachable.has(absolutePath)) {
-      fromBg = true;
-    }
+    mergedRecord.variants[runtime] = entry;
   }
 
-  if (fromMain && fromBg) {
-    return 'shared';
+  const runtimes = Object.keys(mergedRecord.variants);
+  if (runtimes.length === 1) {
+    return mergedRecord.variants[runtimes[0]];
   }
-  if (fromMain) {
-    return 'main';
+
+  return mergedRecord;
+}
+
+function mergeSegmentManifests(...manifests) {
+  const mergedManifest = { segments: {} };
+  for (const manifest of manifests) {
+    for (const [segmentKey, record] of Object.entries(manifest.segments)) {
+      mergedManifest.segments[segmentKey] = mergeSegmentManifestRecord(
+        segmentKey,
+        mergedManifest.segments[segmentKey],
+        record,
+      );
+    }
   }
-  if (fromBg) {
-    return 'background';
+  return mergedManifest;
+}
+
+function getManifestRecordEntries(record) {
+  if (!record) {
+    return [];
   }
-  return 'shared';
+  if (!isManifestVariantRecord(record)) {
+    return [record];
+  }
+  return Object.values(record.variants).filter(Boolean);
+}
+
+function getManifestRecordRuntimes(record) {
+  return getManifestRecordEntries(record)
+    .map((entry) => entry.runtime)
+    .toSorted();
+}
+
+function resolveManifestRecordForRuntime(record, runtimeTarget) {
+  if (!record) {
+    return undefined;
+  }
+  if (!isManifestVariantRecord(record)) {
+    return record;
+  }
+  return record.variants[runtimeTarget] || record.variants.shared;
+}
+
+function getManifestRecordSize(record, runtimeTarget) {
+  if (runtimeTarget === 'main' || runtimeTarget === 'background') {
+    return resolveManifestRecordForRuntime(record, runtimeTarget)?.size;
+  }
+  return getManifestRecordEntries(record).reduce(
+    (sum, entry) => sum + (entry.size || 0),
+    0,
+  );
+}
+
+function getReportSegmentModuleIds(reportSegmentModules) {
+  if (!reportSegmentModules) {
+    return new Set();
+  }
+  if (reportSegmentModules instanceof Set) {
+    return new Set(reportSegmentModules);
+  }
+
+  const moduleIds = new Set();
+  for (const modules of Object.values(reportSegmentModules)) {
+    if (!modules) {
+      continue;
+    }
+    for (const moduleId of modules) {
+      moduleIds.add(moduleId);
+    }
+  }
+  return moduleIds;
 }
 
 function detectStartupViolations(moduleIds, moduleIdToAbsPath) {
@@ -498,12 +756,14 @@ function buildAllocationReport({
   }, 0);
 
   const segments = {};
-  for (const [segmentKey, entry] of Object.entries(manifest.segments)) {
-    const modIds = segmentModules.get(segmentKey);
+  for (const [segmentKey, record] of Object.entries(manifest.segments)) {
+    const modIds = getReportSegmentModuleIds(segmentModules.get(segmentKey));
+    const runtimes = getManifestRecordRuntimes(record);
     segments[segmentKey] = {
-      runtime: entry.runtime,
-      moduleCount: modIds ? modIds.size : 0,
-      size: entry.size,
+      runtime: runtimes.length === 1 ? runtimes[0] : 'variant',
+      runtimes,
+      moduleCount: modIds.size,
+      size: getManifestRecordSize(record, runtimeTarget),
     };
   }
 
@@ -519,15 +779,39 @@ function buildAllocationReport({
   };
 }
 
-// Cache the modules array from the first baseJSBundle call.
+// Cache the modules array per runtime.
 // baseJSBundle serializes module code via graph.dependencies[].output, which is
 // stable across calls. But the `post` section (runBeforeMainModule + entry require)
 // differs per entry point, so each call must produce its own `post`.
-// We cache `modules` from the first call to guarantee consistent module code.
-let _cachedModules = null;
-let _cachedPre = null;
+// We cache `modules` per runtime graph to guarantee consistent module code.
+const bundleSerializationCache = new Map();
+
+function getSerializedBundleParts({
+  cacheKey,
+  entryPoint,
+  prepend,
+  graph,
+  bundleOptions,
+}) {
+  const result = baseJSBundle(entryPoint, prepend, graph, bundleOptions);
+
+  if (!bundleSerializationCache.has(cacheKey)) {
+    bundleSerializationCache.set(cacheKey, {
+      modules: result.modules,
+      pre: result.pre,
+    });
+  }
+
+  const cached = bundleSerializationCache.get(cacheKey);
+  return {
+    modules: cached.modules,
+    pre: cached.pre,
+    post: result.post,
+  };
+}
 
 async function writeBundle({
+  cacheKey,
   bundleOutput,
   sourceMapOutput,
   entryPoint,
@@ -541,17 +825,13 @@ async function writeBundle({
   bundleOptions,
   moduleIdToAbsPath,
 }) {
-  const result = baseJSBundle(entryPoint, prepend, graph, bundleOptions);
-
-  // Cache modules and pre from the first call (stable across entries).
-  // Each entry's `post` is entry-specific — always use the fresh one.
-  if (!_cachedModules) {
-    _cachedModules = result.modules;
-    _cachedPre = result.pre;
-  }
-  const modules = _cachedModules;
-  const pre = _cachedPre;
-  const post = result.post;
+  const { modules, pre, post } = getSerializedBundleParts({
+    cacheKey,
+    entryPoint,
+    prepend,
+    graph,
+    bundleOptions,
+  });
 
   const selectedWrappedModules = [];
   const selectedGraphModules = [];
@@ -643,44 +923,38 @@ async function writeBundle({
 }
 
 async function writeSegments({
-  graph,
-  modules,
-  segmentModules,
-  moduleToSegment,
+  mainRuntime,
+  backgroundRuntime,
   segmentIdMap,
-  segmentDeps,
-  reachability,
+  sharedEquivalentAbsPaths,
   moduleIdToAbsPath,
 }) {
   const promotedSet = new Set(promotedSegments);
 
-  const segmentOutputs = new Map();
-  for (const [moduleId, moduleCode] of modules) {
-    const segmentKey = moduleToSegment.get(moduleId);
-    if (!segmentKey || promotedSet.has(segmentKey)) {
-      continue;
+  const collectSegmentOutputs = ({ modules, moduleToSegment }) => {
+    const segmentOutputs = new Map();
+    for (const [moduleId, moduleCode] of modules) {
+      const segmentKey = moduleToSegment.get(moduleId);
+      if (!segmentKey || promotedSet.has(segmentKey)) {
+        continue;
+      }
+      if (!segmentOutputs.has(segmentKey)) {
+        segmentOutputs.set(segmentKey, []);
+      }
+      segmentOutputs.get(segmentKey).push([moduleId, moduleCode]);
     }
-    if (!segmentOutputs.has(segmentKey)) {
-      segmentOutputs.set(segmentKey, []);
-    }
-    segmentOutputs.get(segmentKey).push([moduleId, moduleCode]);
-  }
+    return segmentOutputs;
+  };
 
-  await fs.remove(getSegmentsDir('main'));
-  await fs.remove(getSegmentsDir('background'));
-  await fs.ensureDir(getSegmentsDir('main'));
-  await fs.ensureDir(getSegmentsDir('background'));
-
-  const mainManifest = { segments: {} };
-  const backgroundManifest = { segments: {} };
-
-  for (const [segmentKey, segModules] of segmentOutputs) {
-    const runtime = deriveSegmentRuntime(
-      segmentKey,
-      segmentModules,
-      reachability,
-      moduleIdToAbsPath,
-    );
+  const emitSegment = async ({
+    segmentKey,
+    runtime,
+    segModules,
+    graph,
+    segmentDeps,
+    outputDir,
+    relativeDir,
+  }) => {
     const segmentId = segmentIdMap.get(segmentKey);
     const { code } = bundleToString({
       pre: '',
@@ -691,12 +965,6 @@ async function writeSegments({
     const safeName = segmentKey
       .replace(/^seg:/, '')
       .replace(/[^a-zA-Z0-9._-]/g, '_');
-    const outputDir =
-      runtime === 'background'
-        ? getSegmentsDir('background')
-        : getSegmentsDir('main');
-    const relativeDir =
-      runtime === 'background' ? 'segments-background' : 'segments';
     const outputPath = path.resolve(outputDir, `${safeName}.seg.js`);
     const packagerMapPath = path.resolve(
       outputDir,
@@ -725,15 +993,197 @@ async function writeSegments({
       size: Buffer.byteLength(code),
     };
 
-    if (runtime !== 'background') {
-      mainManifest.segments[segmentKey] = entry;
-    }
-    if (runtime !== 'main') {
-      backgroundManifest.segments[segmentKey] = entry;
+    console.log(`Segment emitted: ${segmentKey} (${runtime}) -> ${outputPath}`);
+
+    return entry;
+  };
+
+  const mainSegmentOutputs = collectSegmentOutputs(mainRuntime);
+  const backgroundSegmentOutputs = collectSegmentOutputs(backgroundRuntime);
+
+  await fs.remove(getSegmentsDir('main'));
+  await fs.remove(getSegmentsDir('background'));
+  await fs.ensureDir(getSegmentsDir('main'));
+  await fs.ensureDir(getSegmentsDir('background'));
+
+  const mainManifest = { segments: {} };
+  const backgroundManifest = { segments: {} };
+  const mergedReportSegments = new Map();
+  const mainReportSegments = new Map();
+  const backgroundReportSegments = new Map();
+
+  const setMergedReportSegmentModules = (segmentKey, runtime, moduleIds) => {
+    if (runtime === 'shared') {
+      mergedReportSegments.set(segmentKey, moduleIds);
+      return;
     }
 
-    console.log(`Segment emitted: ${segmentKey} (${runtime}) -> ${outputPath}`);
+    const existing = mergedReportSegments.get(segmentKey);
+    if (!existing || existing instanceof Set) {
+      mergedReportSegments.set(segmentKey, { [runtime]: moduleIds });
+      return;
+    }
+    existing[runtime] = moduleIds;
+  };
+
+  const allSegmentKeys = new Set([
+    ...mainSegmentOutputs.keys(),
+    ...backgroundSegmentOutputs.keys(),
+  ]);
+
+  for (const segmentKey of [...allSegmentKeys].toSorted()) {
+    const inMain = mainSegmentOutputs.has(segmentKey);
+    const inBackground = backgroundSegmentOutputs.has(segmentKey);
+
+    if (inMain && inBackground) {
+      const mainAbsPaths = getSegmentModuleAbsPaths(
+        mainRuntime.segmentModules.get(segmentKey),
+        moduleIdToAbsPath,
+      );
+      const backgroundAbsPaths = getSegmentModuleAbsPaths(
+        backgroundRuntime.segmentModules.get(segmentKey),
+        moduleIdToAbsPath,
+      );
+      const mainDeps = new Set(mainRuntime.segmentDeps.get(segmentKey) || []);
+      const backgroundDeps = new Set(
+        backgroundRuntime.segmentDeps.get(segmentKey) || [],
+      );
+      const canShare =
+        setEquals(mainAbsPaths, backgroundAbsPaths) &&
+        setEquals(mainDeps, backgroundDeps) &&
+        [...mainAbsPaths].every((absolutePath) =>
+          sharedEquivalentAbsPaths.has(absolutePath),
+        );
+
+      if (canShare) {
+        const sharedEntry = await emitSegment({
+          segmentKey,
+          runtime: 'shared',
+          segModules: mainSegmentOutputs.get(segmentKey),
+          graph: mainRuntime.graph,
+          segmentDeps: mainRuntime.segmentDeps,
+          outputDir: getSegmentsDir('main'),
+          relativeDir: 'segments',
+        });
+        mainManifest.segments[segmentKey] = sharedEntry;
+        backgroundManifest.segments[segmentKey] = sharedEntry;
+        mainReportSegments.set(
+          segmentKey,
+          mainRuntime.segmentModules.get(segmentKey),
+        );
+        backgroundReportSegments.set(
+          segmentKey,
+          backgroundRuntime.segmentModules.get(segmentKey),
+        );
+        setMergedReportSegmentModules(
+          segmentKey,
+          'shared',
+          mainRuntime.segmentModules.get(segmentKey),
+        );
+        continue;
+      }
+
+      console.log(
+        `[unionBuild] Segment runtime variants: ${segmentKey}\n` +
+          `  main modules: ${[...mainAbsPaths]
+            .map(relativePath)
+            .toSorted()
+            .join(', ')}\n` +
+          `  background modules: ${[...backgroundAbsPaths]
+            .map(relativePath)
+            .toSorted()
+            .join(', ')}`,
+      );
+
+      const mainSegmentEntry = await emitSegment({
+        segmentKey,
+        runtime: 'main',
+        segModules: mainSegmentOutputs.get(segmentKey),
+        graph: mainRuntime.graph,
+        segmentDeps: mainRuntime.segmentDeps,
+        outputDir: getSegmentsDir('main'),
+        relativeDir: 'segments',
+      });
+      const backgroundSegmentEntry = await emitSegment({
+        segmentKey,
+        runtime: 'background',
+        segModules: backgroundSegmentOutputs.get(segmentKey),
+        graph: backgroundRuntime.graph,
+        segmentDeps: backgroundRuntime.segmentDeps,
+        outputDir: getSegmentsDir('background'),
+        relativeDir: 'segments-background',
+      });
+      mainManifest.segments[segmentKey] = mainSegmentEntry;
+      backgroundManifest.segments[segmentKey] = backgroundSegmentEntry;
+      mainReportSegments.set(
+        segmentKey,
+        mainRuntime.segmentModules.get(segmentKey),
+      );
+      backgroundReportSegments.set(
+        segmentKey,
+        backgroundRuntime.segmentModules.get(segmentKey),
+      );
+      setMergedReportSegmentModules(
+        segmentKey,
+        'main',
+        mainRuntime.segmentModules.get(segmentKey),
+      );
+      setMergedReportSegmentModules(
+        segmentKey,
+        'background',
+        backgroundRuntime.segmentModules.get(segmentKey),
+      );
+      continue;
+    }
+
+    if (inMain) {
+      const mainSegmentEntry = await emitSegment({
+        segmentKey,
+        runtime: 'main',
+        segModules: mainSegmentOutputs.get(segmentKey),
+        graph: mainRuntime.graph,
+        segmentDeps: mainRuntime.segmentDeps,
+        outputDir: getSegmentsDir('main'),
+        relativeDir: 'segments',
+      });
+      mainManifest.segments[segmentKey] = mainSegmentEntry;
+      mainReportSegments.set(
+        segmentKey,
+        mainRuntime.segmentModules.get(segmentKey),
+      );
+      setMergedReportSegmentModules(
+        segmentKey,
+        'main',
+        mainRuntime.segmentModules.get(segmentKey),
+      );
+      continue;
+    }
+
+    const backgroundEntry = await emitSegment({
+      segmentKey,
+      runtime: 'background',
+      segModules: backgroundSegmentOutputs.get(segmentKey),
+      graph: backgroundRuntime.graph,
+      segmentDeps: backgroundRuntime.segmentDeps,
+      outputDir: getSegmentsDir('background'),
+      relativeDir: 'segments-background',
+    });
+    backgroundManifest.segments[segmentKey] = backgroundEntry;
+    backgroundReportSegments.set(
+      segmentKey,
+      backgroundRuntime.segmentModules.get(segmentKey),
+    );
+    setMergedReportSegmentModules(
+      segmentKey,
+      'background',
+      backgroundRuntime.segmentModules.get(segmentKey),
+    );
   }
+
+  const mergedManifest = mergeSegmentManifests(
+    mainManifest,
+    backgroundManifest,
+  );
 
   await fs.ensureDir(path.dirname(getManifestPath('main')));
   await fs.writeFile(
@@ -748,7 +1198,13 @@ async function writeSegments({
   return {
     mainManifest,
     backgroundManifest,
+    mergedManifest,
     promotedSet,
+    reportSegmentModules: {
+      common: mergedReportSegments,
+      main: mainReportSegments,
+      background: backgroundReportSegments,
+    },
   };
 }
 
@@ -763,9 +1219,8 @@ async function main() {
 
   try {
     const bundler = metroServer.getBundler();
-    const resolverOptions = {
-      customResolverOptions: Object.create(null),
-    };
+    const mainResolverOptions = createResolverOptions('main');
+    const backgroundResolverOptions = createResolverOptions('background');
     const transformOptions = {
       customTransformOptions: Object.create(null),
       dev: false,
@@ -774,12 +1229,12 @@ async function main() {
       unstable_transformProfile: 'default',
     };
 
-    console.log('Building unified graph...');
-    const startedAt = Date.now();
-    const graph = await bundler.buildGraphForEntries(
-      [mainEntry, bgEntry],
+    console.log('Building main graph...');
+    const mainGraphStartedAt = Date.now();
+    const mainGraph = await bundler.buildGraphForEntries(
+      [mainEntry],
       transformOptions,
-      resolverOptions,
+      mainResolverOptions,
       {
         onProgress: null,
         shallow: false,
@@ -787,11 +1242,30 @@ async function main() {
       },
     );
     console.log(
-      `Graph built in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`,
+      `Main graph built in ${((Date.now() - mainGraphStartedAt) / 1000).toFixed(1)}s`,
     );
-    console.log(`Total modules: ${graph.dependencies.size}`);
+    console.log(`Main graph modules: ${mainGraph.dependencies.size}`);
 
-    const prepend = await getPrependedScripts(
+    console.log('Building background graph...');
+    const backgroundGraphStartedAt = Date.now();
+    const backgroundGraph = await bundler.buildGraphForEntries(
+      [bgEntry],
+      transformOptions,
+      backgroundResolverOptions,
+      {
+        onProgress: null,
+        shallow: false,
+        lazy: false,
+      },
+    );
+    console.log(
+      `Background graph built in ${((Date.now() - backgroundGraphStartedAt) / 1000).toFixed(1)}s`,
+    );
+    console.log(
+      `Background graph modules: ${backgroundGraph.dependencies.size}`,
+    );
+
+    const mainPrepend = await getPrependedScripts(
       config,
       {
         dev: false,
@@ -799,27 +1273,79 @@ async function main() {
         platform: args.platform,
         unstable_transformProfile: 'default',
       },
-      resolverOptions,
+      mainResolverOptions,
+      bundler.getBundler(),
+      bundler.getDeltaBundler(),
+    );
+    const backgroundPrepend = await getPrependedScripts(
+      config,
+      {
+        dev: false,
+        minify: false,
+        platform: args.platform,
+        unstable_transformProfile: 'default',
+      },
+      backgroundResolverOptions,
       bundler.getBundler(),
       bundler.getDeltaBundler(),
     );
 
-    const reachability = computeEntryReachability(graph, mainEntry, bgEntry);
-    console.log(`Main-only modules: ${reachability.mainOnly.size}`);
-    console.log(`BG-only modules:   ${reachability.bgOnly.size}`);
-    console.log(`Shared modules:    ${reachability.shared.size}`);
+    const mainReachable = computeReachable(mainGraph, mainEntry, {
+      skipAsyncEdges: true,
+    });
+    const bgReachable = computeReachable(backgroundGraph, bgEntry);
+    const runtimeOwnership = buildRuntimeOwnership({
+      mainGraph,
+      bgGraph: backgroundGraph,
+      mainReachable,
+      bgReachable,
+    });
 
-    const { segmentModules, moduleToSegment, segmentAbsPaths, segmentIdMap } =
-      buildSegmentAllocation(graph);
-    // Use metroServer's createModuleId so moduleIdToAbsPath matches baseJSBundle's IDs
+    console.log(
+      `Shared equivalent modules: ${runtimeOwnership.sharedEquivalentAbsPaths.size}`,
+    );
+    console.log(
+      `Shared startup modules:    ${runtimeOwnership.sharedStartupAbsPaths.size}`,
+    );
+    console.log(
+      `Main startup-only modules: ${runtimeOwnership.mainStartupAbsPaths.size}`,
+    );
+    console.log(
+      `BG startup-only modules:   ${runtimeOwnership.bgStartupAbsPaths.size}`,
+    );
+
+    const mainAllocation = buildSegmentAllocation(mainGraph);
+    const backgroundAllocation = buildSegmentAllocation(backgroundGraph);
+    const segmentIdMap = allocateSegmentIds(
+      [
+        ...new Set([
+          ...mainAllocation.segmentModules.keys(),
+          ...backgroundAllocation.segmentModules.keys(),
+        ]),
+      ].toSorted(),
+    );
+
     const createModuleId = metroServer.getCreateModuleId();
-    const { moduleIdToAbsPath } = buildModuleIndexes(graph, createModuleId);
-    const segmentDeps = buildSegmentDeps(
-      graph,
-      segmentModules,
-      moduleToSegment,
+    const { moduleIdToAbsPath } = buildModuleIndexesForGraphs(
+      [mainGraph, backgroundGraph],
+      createModuleId,
+    );
+    const mainSegmentDeps = buildSegmentDeps(
+      mainGraph,
+      mainAllocation.segmentModules,
+      mainAllocation.moduleToSegment,
       moduleIdToAbsPath,
     );
+    const backgroundSegmentDeps = buildSegmentDeps(
+      backgroundGraph,
+      backgroundAllocation.segmentModules,
+      backgroundAllocation.moduleToSegment,
+      moduleIdToAbsPath,
+    );
+    const allSegmentAbsPaths = new Set([
+      ...mainAllocation.segmentAbsPaths,
+      ...backgroundAllocation.segmentAbsPaths,
+    ]);
 
     const commonBundleOptions = createBundleOptions({
       metroServer,
@@ -840,82 +1366,99 @@ async function main() {
       sourceMapUrl: path.basename(args.backgroundSourceMapOutput),
     });
 
-    const allWrappedModules = baseJSBundle(
-      mainEntry,
-      prepend,
-      graph,
-      commonBundleOptions,
-    ).modules;
+    const mainSerializedModules = getSerializedBundleParts({
+      cacheKey: 'main-segments',
+      entryPoint: mainEntry,
+      prepend: mainPrepend,
+      graph: mainGraph,
+      bundleOptions: commonBundleOptions,
+    }).modules;
+    const backgroundSerializedModules = getSerializedBundleParts({
+      cacheKey: 'background-segments',
+      entryPoint: bgEntry,
+      prepend: backgroundPrepend,
+      graph: backgroundGraph,
+      bundleOptions: backgroundBundleOptions,
+    }).modules;
 
-    const { mainManifest, backgroundManifest } = await writeSegments({
-      graph,
-      modules: allWrappedModules,
-      segmentModules,
-      moduleToSegment,
+    const {
+      mainManifest,
+      backgroundManifest,
+      mergedManifest,
+      reportSegmentModules,
+    } = await writeSegments({
+      mainRuntime: {
+        graph: mainGraph,
+        modules: mainSerializedModules,
+        segmentModules: mainAllocation.segmentModules,
+        moduleToSegment: mainAllocation.moduleToSegment,
+        segmentDeps: mainSegmentDeps,
+      },
+      backgroundRuntime: {
+        graph: backgroundGraph,
+        modules: backgroundSerializedModules,
+        segmentModules: backgroundAllocation.segmentModules,
+        moduleToSegment: backgroundAllocation.moduleToSegment,
+        segmentDeps: backgroundSegmentDeps,
+      },
       segmentIdMap,
-      segmentDeps,
-      reachability,
+      sharedEquivalentAbsPaths: runtimeOwnership.sharedEquivalentAbsPaths,
       moduleIdToAbsPath,
     });
 
-    // Merge both manifests for the common bundle
-    const mergedManifest = {
-      segments: {
-        ...mainManifest.segments,
-        ...backgroundManifest.segments,
-      },
-    };
-
     // Common bundle: shared eager modules + polyfills/runtime + manifest
     const commonBundleResult = await writeBundle({
+      cacheKey: 'main',
       bundleOutput: args.commonBundleOutput,
       sourceMapOutput: args.commonSourceMapOutput,
       entryPoint: mainEntry,
       moduleFilter: (absolutePath) =>
-        reachability.shared.has(absolutePath) &&
-        !segmentAbsPaths.has(absolutePath),
+        runtimeOwnership.sharedStartupAbsPaths.has(absolutePath) &&
+        !allSegmentAbsPaths.has(absolutePath),
       manifest: mergedManifest,
       includePre: true,
       includePost: true,
       includeManifest: true,
-      graph,
-      prepend,
+      graph: mainGraph,
+      prepend: mainPrepend,
       bundleOptions: commonBundleOptions,
       moduleIdToAbsPath,
     });
 
     // Main bundle: main-only eager modules + entry require
     const mainBundleResult = await writeBundle({
+      cacheKey: 'main',
       bundleOutput: args.mainBundleOutput,
       sourceMapOutput: args.mainSourceMapOutput,
       entryPoint: mainEntry,
       moduleFilter: (absolutePath) =>
-        reachability.mainOnly.has(absolutePath) &&
-        !segmentAbsPaths.has(absolutePath),
+        runtimeOwnership.mainStartupAbsPaths.has(absolutePath) &&
+        !allSegmentAbsPaths.has(absolutePath),
       manifest: null,
       includePre: false,
       includePost: true,
       includeManifest: false,
-      graph,
-      prepend,
+      graph: mainGraph,
+      prepend: mainPrepend,
       bundleOptions: mainBundleOptions,
       moduleIdToAbsPath,
     });
 
     // Background bundle: bg-only eager modules + entry require
     const backgroundBundleResult = await writeBundle({
+      cacheKey: 'background',
       bundleOutput: args.backgroundBundleOutput,
       sourceMapOutput: args.backgroundSourceMapOutput,
       entryPoint: bgEntry,
       moduleFilter: (absolutePath) =>
-        reachability.bgOnly.has(absolutePath) &&
-        !segmentAbsPaths.has(absolutePath),
+        runtimeOwnership.bgStartupAbsPaths.has(absolutePath) &&
+        !allSegmentAbsPaths.has(absolutePath),
       manifest: null,
       includePre: false,
       includePost: true,
       includeManifest: false,
-      graph,
-      prepend,
+      graph: backgroundGraph,
+      prepend: backgroundPrepend,
       bundleOptions: backgroundBundleOptions,
       moduleIdToAbsPath,
     });
@@ -940,9 +1483,9 @@ async function main() {
           runtimeTarget: 'common',
           startupModuleIds: commonBundleResult.startupModuleIds,
           manifest: mergedManifest,
-          graph,
+          graph: mainGraph,
           moduleIdToAbsPath,
-          segmentModules,
+          segmentModules: reportSegmentModules.common,
           violations: commonViolations,
         }),
         null,
@@ -957,9 +1500,9 @@ async function main() {
           runtimeTarget: 'main',
           startupModuleIds: mainBundleResult.startupModuleIds,
           manifest: mainManifest,
-          graph,
+          graph: mainGraph,
           moduleIdToAbsPath,
-          segmentModules,
+          segmentModules: reportSegmentModules.main,
           violations: mainViolations,
         }),
         null,
@@ -974,9 +1517,9 @@ async function main() {
           runtimeTarget: 'background',
           startupModuleIds: backgroundBundleResult.startupModuleIds,
           manifest: backgroundManifest,
-          graph,
+          graph: backgroundGraph,
           moduleIdToAbsPath,
-          segmentModules,
+          segmentModules: reportSegmentModules.background,
           violations: backgroundViolations,
         }),
         null,
@@ -990,11 +1533,13 @@ async function main() {
       path.join(reportDir, 'union-graph-report.json'),
       JSON.stringify(
         {
-          totalModules: graph.dependencies.size,
-          mainOnly: reachability.mainOnly.size,
-          bgOnly: reachability.bgOnly.size,
-          shared: reachability.shared.size,
-          estimatedDuplicateModules: reachability.shared.size,
+          totalModules: runtimeOwnership.allAbsPaths.size,
+          mainOnly: runtimeOwnership.mainOnlyAbsPaths.size,
+          bgOnly: runtimeOwnership.bgOnlyAbsPaths.size,
+          shared: runtimeOwnership.sharedEquivalentAbsPaths.size,
+          sharedStartup: runtimeOwnership.sharedStartupAbsPaths.size,
+          estimatedDuplicateModules:
+            runtimeOwnership.sharedEquivalentAbsPaths.size,
           eagerModules: {
             common: commonBundleResult.startupModuleIds.size,
             main: mainBundleResult.startupModuleIds.size,
@@ -1018,7 +1563,7 @@ async function main() {
     );
 
     const assets = await metroServer._getAssetsFromDependencies(
-      graph.dependencies,
+      mergeDependencyMaps(mainGraph.dependencies, backgroundGraph.dependencies),
       args.platform,
     );
     await saveAssets(assets, args.platform, args.assetsDest);

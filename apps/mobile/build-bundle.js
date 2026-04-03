@@ -108,6 +108,93 @@ const shouldIgnoreFile = (fileName) => {
   });
 };
 
+const isManifestVariantRecord = (record) => {
+  return typeof record === 'object' && record !== null && 'variants' in record;
+};
+
+const buildManifestEntrySignature = (entry) => {
+  return JSON.stringify({
+    id: entry.id,
+    key: entry.key,
+    runtime: entry.runtime,
+    relativePath: entry.relativePath,
+    sha256: entry.sha256,
+    dependsOn: entry.dependsOn || [],
+    critical: entry.critical || false,
+    size: entry.size ?? null,
+  });
+};
+
+const buildManifestRecordSignature = (record) => {
+  if (!record) {
+    return '';
+  }
+  if (!isManifestVariantRecord(record)) {
+    return buildManifestEntrySignature(record);
+  }
+  return JSON.stringify({
+    key: record.key,
+    variants: Object.entries(record.variants)
+      .filter(([, entry]) => Boolean(entry))
+      .toSorted(([left], [right]) => left.localeCompare(right))
+      .map(([runtime, entry]) => [runtime, buildManifestEntrySignature(entry)]),
+  });
+};
+
+const toManifestVariantRecord = (segmentKey, record) => {
+  if (isManifestVariantRecord(record)) {
+    return {
+      key: record.key || segmentKey,
+      variants: { ...record.variants },
+    };
+  }
+  return {
+    key: segmentKey,
+    variants: {
+      [record.runtime]: record,
+    },
+  };
+};
+
+const mergeSegmentManifestRecord = (segmentKey, existingRecord, nextRecord) => {
+  if (!existingRecord) {
+    return nextRecord;
+  }
+  if (
+    buildManifestRecordSignature(existingRecord) ===
+    buildManifestRecordSignature(nextRecord)
+  ) {
+    return existingRecord;
+  }
+
+  const mergedRecord = toManifestVariantRecord(segmentKey, existingRecord);
+  const nextVariantRecord = toManifestVariantRecord(segmentKey, nextRecord);
+
+  Object.entries(nextVariantRecord.variants).forEach(([runtime, entry]) => {
+    if (!entry) {
+      return;
+    }
+    const existingEntry = mergedRecord.variants[runtime];
+    if (
+      existingEntry &&
+      buildManifestEntrySignature(existingEntry) !==
+        buildManifestEntrySignature(entry)
+    ) {
+      throw new Error(
+        `Conflicting segment manifest entry for ${segmentKey} (${runtime})`,
+      );
+    }
+    mergedRecord.variants[runtime] = entry;
+  });
+
+  const runtimes = Object.keys(mergedRecord.variants);
+  if (runtimes.length === 1) {
+    return mergedRecord.variants[runtimes[0]];
+  }
+
+  return mergedRecord;
+};
+
 const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
   const metadata = {};
 
@@ -158,15 +245,15 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
 
     [mainManifestPath, bgManifestPath].forEach((manifestPath) => {
       if (fs.existsSync(manifestPath)) {
-        try {
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-          if (manifest.segments) {
-            Object.assign(allSegments, manifest.segments);
-          }
-        } catch (e) {
-          log(
-            `Warning: Could not read segment manifest ${manifestPath}: ${e.message}`,
-          );
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+        if (manifest.segments) {
+          Object.entries(manifest.segments).forEach(([segmentKey, record]) => {
+            allSegments[segmentKey] = mergeSegmentManifestRecord(
+              segmentKey,
+              allSegments[segmentKey],
+              record,
+            );
+          });
         }
       }
     });

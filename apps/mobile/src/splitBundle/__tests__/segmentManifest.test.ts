@@ -6,6 +6,7 @@ type ManifestGlobal = typeof globalThis & {
 beforeEach(() => {
   jest.resetModules();
   delete (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__;
+  delete (globalThis as any).__ONEKEY_RUNTIME_KIND__;
 });
 
 describe('segmentManifest', () => {
@@ -54,6 +55,81 @@ describe('segmentManifest', () => {
     const { getSegmentEntry } = require('../segmentManifest');
     expect(getSegmentEntry('seg:test')).toBe(entry);
     expect(getSegmentEntry('seg:nonexistent')).toBeUndefined();
+  });
+
+  it('getSegmentEntry resolves runtime-specific variants', () => {
+    const mainEntry = {
+      id: 1,
+      key: 'seg:test',
+      runtime: 'main' as const,
+      relativePath: 'segments/test.seg.hbc',
+      sha256: 'main',
+      dependsOn: [],
+    };
+    const backgroundEntry = {
+      id: 1,
+      key: 'seg:test',
+      runtime: 'background' as const,
+      relativePath: 'segments-background/test.seg.hbc',
+      sha256: 'background',
+      dependsOn: [],
+    };
+    (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__ = {
+      segments: {
+        'seg:test': {
+          key: 'seg:test',
+          variants: {
+            main: mainEntry,
+            background: backgroundEntry,
+          },
+        },
+      },
+    };
+
+    (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
+    const { getSegmentEntry } = require('../segmentManifest');
+    expect(getSegmentEntry('seg:test')).toBe(mainEntry);
+
+    (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'background';
+    expect(getSegmentEntry('seg:test')).toBe(backgroundEntry);
+  });
+
+  it('prefers runtime-specific variant before shared fallback', () => {
+    const sharedEntry = {
+      id: 2,
+      key: 'seg:test',
+      runtime: 'shared' as const,
+      relativePath: 'segments/test.seg.hbc',
+      sha256: 'shared',
+      dependsOn: [],
+    };
+    const backgroundEntry = {
+      id: 2,
+      key: 'seg:test',
+      runtime: 'background' as const,
+      relativePath: 'segments-background/test.seg.hbc',
+      sha256: 'background',
+      dependsOn: [],
+    };
+    (globalThis as ManifestGlobal).__SEGMENT_MANIFEST__ = {
+      segments: {
+        'seg:test': {
+          key: 'seg:test',
+          variants: {
+            shared: sharedEntry,
+            background: backgroundEntry,
+          },
+        },
+      },
+    };
+
+    const { getSegmentEntry } = require('../segmentManifest');
+
+    (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'background';
+    expect(getSegmentEntry('seg:test')).toBe(backgroundEntry);
+
+    (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
+    expect(getSegmentEntry('seg:test')).toBe(sharedEntry);
   });
 
   it('getSegmentCount returns correct count', () => {
