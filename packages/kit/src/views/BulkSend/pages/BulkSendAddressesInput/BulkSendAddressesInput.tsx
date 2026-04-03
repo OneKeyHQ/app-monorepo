@@ -82,10 +82,12 @@ function BaseBulkSendAddressesInput() {
     bulkSendMode,
     setBulkSendMode,
     duplicateAddressCount,
+    setDuplicateAddressCount,
     setSelectedDeriveType,
     resolvedSenderAccountIds,
     setResolvedSenderAccountIds,
     duplicateSenderAddressCount,
+    setDuplicateSenderAddressCount,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
