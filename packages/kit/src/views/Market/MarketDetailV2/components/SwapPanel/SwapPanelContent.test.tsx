@@ -63,13 +63,19 @@ jest.mock('./components/SlippageSetting', () => ({
 }));
 
 jest.mock('./components/ActionButton', () => ({
-  ActionButton: (props: { onPress: () => void; disabled?: boolean }) => {
-    actionButtonMock(props);
+  ActionButton: ({
+    disabled,
+    onPress,
+  }: {
+    onPress: () => void;
+    disabled?: boolean;
+  }) => {
+    actionButtonMock({ disabled, onPress });
     return (
       <button
         data-testid="action-button"
-        disabled={props.disabled}
-        onClick={props.onPress}
+        disabled={disabled}
+        onClick={onPress}
         type="button"
       >
         action
