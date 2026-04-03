@@ -1,3 +1,5 @@
+// XRP destination tag is a uint32 field (0 – 4 294 967 295).
+// https://xrpl.org/docs/references/protocol/transactions/types/payment#payment-fields
 export const XRP_DESTINATION_TAG_MAX = 4_294_967_295;
 
 const XRP_DESTINATION_TAG_REGEXP = /^\d+$/;
