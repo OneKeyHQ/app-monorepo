@@ -21,14 +21,11 @@ import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ELineAnnotationType, type ILineError } from './LineNumberedTextArea';
-
-export type IBulkSendSenderSelectorAccountItem = {
-  address: string;
-  walletName: string;
-  accountName: string;
-  accountId: string;
-  indexedAccountId?: string;
-};
+import {
+  type IBulkSendSenderSelectorAccountItem,
+  buildSenderSelectorAddressKey,
+  resolveSenderSelectorFallbackAccount,
+} from './senderSelectorAccountUtils';
 
 type IUseMultiLineAddressValidationParams = {
   selectedNetworkId: string | undefined;
@@ -48,8 +45,6 @@ type IUseMultiLineAddressValidationParams = {
     IBulkSendSenderSelectorAccountItem
   >;
 };
-
-const buildSenderSelectorAddressKey = (address: string) => address.trim();
 
 function useMultiLineAddressValidation(
   params: IUseMultiLineAddressValidationParams,
@@ -224,44 +219,21 @@ function useMultiLineAddressValidation(
           });
 
         if (walletAccountItems.length === 0) {
-          if (fallbackAccountItem) {
-            if (
-              accountUtils.isWatchingAccount({
-                accountId: fallbackAccountItem.accountId,
-              })
-            ) {
+          const fallbackResult = await resolveSenderSelectorFallbackAccount({
+            fallbackAccountItem,
+            networkId,
+          });
+          if (fallbackResult) {
+            if (fallbackResult.type === 'error') {
               return {
                 error: intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_error_watching_account,
+                  id: fallbackResult.errorMessageId,
                 }),
               };
             }
 
-            // For HD/HW accounts, use indexedAccountId to resolve the correct
-            // account on the current network instead of returning the old accountId
-            if (
-              fallbackAccountItem.indexedAccountId &&
-              (accountUtils.isHdAccount({
-                accountId: fallbackAccountItem.accountId,
-              }) ||
-                accountUtils.isHwAccount({
-                  accountId: fallbackAccountItem.accountId,
-                }))
-            ) {
-              const networkAccounts =
-                await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-                  {
-                    indexedAccountId: fallbackAccountItem.indexedAccountId,
-                    networkIds: [networkId],
-                  },
-                );
-              if (networkAccounts[0]?.account) {
-                return { accountId: networkAccounts[0].account.id };
-              }
-            }
-
             return {
-              accountId: fallbackAccountItem.accountId,
+              accountId: fallbackResult.accountId,
             };
           }
 
@@ -306,48 +278,21 @@ function useMultiLineAddressValidation(
           }),
         };
       } catch (_) {
-        if (fallbackAccountItem) {
-          if (
-            accountUtils.isWatchingAccount({
-              accountId: fallbackAccountItem.accountId,
-            })
-          ) {
+        const fallbackResult = await resolveSenderSelectorFallbackAccount({
+          fallbackAccountItem,
+          networkId,
+        });
+        if (fallbackResult) {
+          if (fallbackResult.type === 'error') {
             return {
               error: intl.formatMessage({
-                id: ETranslations.wallet_bulk_send_error_watching_account,
+                id: fallbackResult.errorMessageId,
               }),
             };
           }
 
-          // For HD/HW accounts, use indexedAccountId to resolve the correct
-          // account on the current network instead of returning the old accountId
-          if (
-            fallbackAccountItem.indexedAccountId &&
-            (accountUtils.isHdAccount({
-              accountId: fallbackAccountItem.accountId,
-            }) ||
-              accountUtils.isHwAccount({
-                accountId: fallbackAccountItem.accountId,
-              }))
-          ) {
-            try {
-              const networkAccounts =
-                await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-                  {
-                    indexedAccountId: fallbackAccountItem.indexedAccountId,
-                    networkIds: [networkId],
-                  },
-                );
-              if (networkAccounts[0]?.account) {
-                return { accountId: networkAccounts[0].account.id };
-              }
-            } catch {
-              // fall through to raw accountId
-            }
-          }
-
           return {
-            accountId: fallbackAccountItem.accountId,
+            accountId: fallbackResult.accountId,
           };
         }
 

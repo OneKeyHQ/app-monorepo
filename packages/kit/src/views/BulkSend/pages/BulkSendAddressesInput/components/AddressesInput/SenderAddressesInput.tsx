@@ -31,10 +31,10 @@ import { useBulkSendAddressesInputContext } from '../Context';
 import LineNumberedTextArea from './LineNumberedTextArea';
 import {
   type IBulkSendSenderSelectorAccountItem,
-  useMultiLineAddressValidation,
-} from './useMultiLineAddressValidation';
-
-const buildSenderSelectorAddressKey = (address: string) => address.trim();
+  buildSenderSelectorAddressKey,
+  resolveSenderSelectorFallbackAccount,
+} from './senderSelectorAccountUtils';
+import { useMultiLineAddressValidation } from './useMultiLineAddressValidation';
 
 function buildSenderSelectorAccountItem(
   activeAccount: IAccountSelectorActiveAccountInfo,
@@ -126,18 +126,19 @@ function SingleLineSenderInput() {
           buildSenderSelectorAddressKey(trimmedAddress)
         ];
 
-      const applySelectorFallback = () => {
-        if (!fallbackAccountItem) {
+      const applySelectorFallback = async () => {
+        const fallbackResult = await resolveSenderSelectorFallbackAccount({
+          fallbackAccountItem,
+          networkId: selectedNetworkId ?? '',
+        });
+        if (!fallbackResult) {
           return undefined;
         }
 
-        if (
-          accountUtils.isWatchingAccount({
-            accountId: fallbackAccountItem.accountId,
-          })
-        ) {
+        if (fallbackResult.type === 'error') {
+          setAddressBadges([]);
           return intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_watching_account,
+            id: fallbackResult.errorMessageId,
           });
         }
 
@@ -147,11 +148,10 @@ function SingleLineSenderInput() {
             type: 'success',
           },
         ]);
-        selectedAccountIdRef.current = fallbackAccountItem.accountId;
-        selectedIndexedAccountIdRef.current =
-          fallbackAccountItem.indexedAccountId;
-        setSelectedAccountId(fallbackAccountItem.accountId);
-        setSelectedIndexedAccountId(fallbackAccountItem.indexedAccountId);
+        selectedAccountIdRef.current = fallbackResult.accountId;
+        selectedIndexedAccountIdRef.current = fallbackResult.indexedAccountId;
+        setSelectedAccountId(fallbackResult.accountId);
+        setSelectedIndexedAccountId(fallbackResult.indexedAccountId);
         return true;
       };
 
@@ -171,7 +171,7 @@ function SingleLineSenderInput() {
             });
 
           if (isEmpty(walletAccountItems)) {
-            const fallbackResult = applySelectorFallback();
+            const fallbackResult = await applySelectorFallback();
             if (fallbackResult !== undefined) {
               return fallbackResult;
             }
@@ -265,7 +265,7 @@ function SingleLineSenderInput() {
 
           return true;
         } catch (_) {
-          const fallbackResult = applySelectorFallback();
+          const fallbackResult = await applySelectorFallback();
           if (fallbackResult !== undefined) {
             return fallbackResult;
           }
