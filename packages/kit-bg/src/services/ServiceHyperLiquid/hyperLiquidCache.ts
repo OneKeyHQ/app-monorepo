@@ -4,16 +4,21 @@ import type { IWsAllMids } from '@onekeyhq/shared/types/hyperliquid/sdk';
 ensureRunOnBackground();
 
 class HyperLiquidCache {
-  private _allMids: IWsAllMids = {
-    mids: {},
-  };
+  private _allMids?: IWsAllMids;
+
+  private _allMidsUpdatedAt = 0;
 
   get allMids() {
     return this._allMids;
   }
 
-  set allMids(allMids: IWsAllMids) {
+  get allMidsUpdatedAt() {
+    return this._allMidsUpdatedAt;
+  }
+
+  set allMids(allMids: IWsAllMids | undefined) {
     this._allMids = allMids;
+    this._allMidsUpdatedAt = allMids ? Date.now() : 0;
   }
 
   public activatedUser: {

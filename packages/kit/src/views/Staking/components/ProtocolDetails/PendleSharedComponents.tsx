@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type {
   IEarnText,
   IEarnTooltip,
@@ -191,7 +192,11 @@ export const PendleAccordionTriggerContent: FC<
     >
       {triggerText}
     </SizableText>
-    <YStack animation="quick" rotate={open && !isDisabled ? '180deg' : '0deg'}>
+    <YStack
+      animation="quick"
+      animateOnly={ANIMATE_ONLY_TRANSFORM}
+      rotate={open && !isDisabled ? '180deg' : '0deg'}
+    >
       <Icon
         name="ChevronDownSmallSolid"
         color={isDisabled ? '$iconDisabled' : '$iconSubdued'}

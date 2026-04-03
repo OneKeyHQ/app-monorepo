@@ -10,6 +10,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -34,6 +35,7 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
             flexBasis="25%"
             py="$2"
             animation="quick"
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
             hoverStyle={{
               scale: 1.1,
             }}

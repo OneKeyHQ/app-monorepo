@@ -101,7 +101,7 @@ function renderHook<Result, Props = undefined>(
   let renderer: TestRenderer.ReactTestRenderer;
   syncAct(() => {
     const element = createElement(HookContainer, {
-      hookProps: initialProps as Props,
+      hookProps: initialProps as unknown as Props,
     }) as any;
     const wrappedElement = Wrapper
       ? (createElement(Wrapper, null, element) as any)
@@ -119,12 +119,12 @@ function renderHook<Result, Props = undefined>(
         ? (createElement(Wrapper, null, element) as any)
         : element;
       syncAct(() => {
-        renderer!.update(wrappedElement);
+        renderer.update(wrappedElement);
       });
     },
     unmount: () => {
       syncAct(() => {
-        renderer!.unmount();
+        renderer.unmount();
       });
     },
   };
