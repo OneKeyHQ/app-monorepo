@@ -6,6 +6,10 @@ import {
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -33,6 +37,16 @@ import {
 import { setBackgroundThreadReadyPayload } from './runtimeState';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+
+/** Diagnostic logger for the main→background transport layer.
+ *  Output goes to app-latest.log via NativeLogger. */
+const transportLog = (msg: string) => {
+  try {
+    NativeLogger.write(LogLevel.Info, `[BgTransport] ${msg}`);
+  } catch {
+    /* noop */
+  }
+};
 
 const OBSERVER_RETRY_MS = 50;
 const MAX_OBSERVER_RETRY_COUNT = 600;
@@ -189,6 +203,9 @@ function rejectQueuedCalls(reason: string) {
 
 function dispatchQueuedCallsToRemote() {
   const queuedCallsSnapshot = queuedCalls.splice(0);
+  transportLog(
+    `dispatchQueuedCallsToRemote: ${queuedCallsSnapshot.length} calls`,
+  );
   if (!queuedCallsSnapshot.length) {
     return;
   }
@@ -213,6 +230,9 @@ function dispatchQueuedCallsToRemote() {
 }
 
 function switchToFallbackLocal(reason: string) {
+  transportLog(
+    `switchToFallbackLocal: reason=${reason}, transportState=${transportState}, queuedCalls=${queuedCalls.length}`,
+  );
   if (!isNativeBackgroundThreadTransportEnabled()) {
     return false;
   }
@@ -275,6 +295,7 @@ function switchToRemoteBroken(reason: string) {
 }
 
 function handleRuntimeSignal(sharedRPC: ISharedRPC) {
+  transportLog(`handleRuntimeSignal called, transportState=${transportState}`);
   const runtimePayload = parseBackgroundThreadRuntimePayload(
     sharedRPC.read(BACKGROUND_THREAD_READY_KEY),
   );
@@ -319,10 +340,14 @@ function handleBackgroundThreadResponse(sharedRPC: ISharedRPC, key: string) {
 
   const pendingCall = pendingRemoteCalls.get(callId);
   if (!pendingCall) {
+    transportLog(`handleResponse: callId=${callId} no pending call`);
     return;
   }
 
   const response = parseBackgroundThreadResponse(sharedRPC.read(key));
+  transportLog(
+    `handleResponse: callId=${callId}, ok=${response?.ok}, error=${response?.error ? JSON.stringify(response.error).slice(0, 300) : 'none'}`,
+  );
   if (!response) {
     switchToRemoteBroken(
       `Invalid background response payload. callId=${callId}`,
@@ -453,6 +478,9 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
 }
 
 function ensureBackgroundRuntimeObserver() {
+  transportLog(
+    `ensureObserver: enabled=${isNativeBackgroundThreadTransportEnabled()}, transportState=${transportState}, retryCount=${observerRetryCount}`,
+  );
   if (!isNativeBackgroundThreadTransportEnabled()) {
     return;
   }
@@ -508,11 +536,15 @@ function dispatchRemoteRequest(
 
   const callId = createRemoteCallId();
   const requestKey = buildBackgroundThreadRequestKey(callId);
+  transportLog(
+    `dispatchRemoteRequest: callId=${callId}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
+  );
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       if (!pendingRemoteCalls.has(callId)) {
         return;
       }
+      transportLog(`dispatchRemoteRequest TIMEOUT: callId=${callId}`);
       switchToRemoteBroken(
         `Background request timeout. request=${getRequestDebugLabel(request)}`,
       );
@@ -545,6 +577,9 @@ function callRemoteRequest(
   }
 
   if (transportState === 'ready') {
+    transportLog(
+      `callRemoteRequest: ready, queuedFlushPromise=${!!queuedFlushPromise}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
+    );
     if (queuedFlushPromise) {
       return queuedFlushPromise.then(() =>
         dispatchRemoteRequest(request, localFallback),
@@ -553,9 +588,14 @@ function callRemoteRequest(
     return dispatchRemoteRequest(request, localFallback);
   }
 
-  ensureBackgroundRuntimeObserver();
+  transportLog(
+    `callRemoteRequest: queuing, transportState=${transportState}, type=${request.type}`,
+  );
 
-  return new Promise((resolve, reject) => {
+  // Push to queue BEFORE installing observer. ensureBackgroundRuntimeObserver may
+  // synchronously trigger handleRuntimeSignal → dispatchQueuedCallsToRemote,
+  // so the call must already be in the queue when that happens.
+  const promise = new Promise((resolve, reject) => {
     queuedCalls.push({
       request,
       localFallback,
@@ -563,6 +603,10 @@ function callRemoteRequest(
       reject,
     });
   });
+
+  ensureBackgroundRuntimeObserver();
+
+  return promise;
 }
 
 function callServiceRequest(

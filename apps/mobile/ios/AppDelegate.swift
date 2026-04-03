@@ -369,16 +369,27 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   @objc(hostDidStart:)
   func handleHostDidStart(_ host: AnyObject) {
 #if !DEBUG
-    // In release mode, the initial bundle is common.jsbundle (shared modules only).
-    // Load the main entry bundle now so the app's entry point is executed.
-    let entryLoadStart = CFAbsoluteTimeGetCurrent()
-    if let entryPath = resolveMainEntryBundlePath() {
-      NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: loading main entry bundle at \(entryPath)")
-      SplitBundleLoader.loadEntryBundle(entryPath, inHost: host)
-      let elapsed = (CFAbsoluteTimeGetCurrent() - entryLoadStart) * 1000
-      NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: main entry loaded in \(String(format: "%.1f", elapsed))ms")
-    } else {
-      NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: no main entry bundle found")
+    // Defer entry bundle loading to the next run-loop tick.
+    //
+    // Why: hostDidStart: fires synchronously on the main thread while Expo modules
+    // are still being registered (EXNativeModulesProxy registerExpoModulesInBridge:).
+    // If we evaluate main.jsbundle immediately, the JS thread may call a legacy
+    // TurboModule's getConstants() which dispatch_sync's back to the main thread —
+    // but the main thread is blocked on Expo registration → deadlock → SIGABRT.
+    //
+    // By deferring to DispatchQueue.main.async, the main thread finishes Expo
+    // registration first, so any dispatch_sync from JS → main succeeds.
+    DispatchQueue.main.async { [weak host] in
+      guard let host = host else { return }
+      let entryLoadStart = CFAbsoluteTimeGetCurrent()
+      if let entryPath = self.resolveMainEntryBundlePath() {
+        NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: loading main entry bundle at \(entryPath)")
+        SplitBundleLoader.loadEntryBundle(entryPath, inHost: host)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - entryLoadStart) * 1000
+        NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: main entry loaded in \(String(format: "%.1f", elapsed))ms")
+      } else {
+        NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: no main entry bundle found")
+      }
     }
 #endif
 
