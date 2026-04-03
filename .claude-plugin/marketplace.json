@@ -1,21 +1,32 @@
 {
-  "name": "onekey-plugins",
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "onekey-agent-skills",
+  "description": "OneKey wallet skills for AI coding assistants — wallet management, token swap, market data, and security audit",
   "owner": {
     "name": "OneKey",
     "email": "dev@onekey.so"
   },
   "metadata": {
-    "description": "Official OneKey plugins for Claude Code"
+    "description": "OneKey wallet skills for balance queries, token transfers, swap execution, market analysis, and token security auditing"
   },
   "plugins": [
     {
-      "name": "onekey",
+      "name": "onekey-skills",
       "source": {
         "source": "git-subdir",
         "url": "OneKeyHQ/app-monorepo",
         "path": "apps/cli"
       },
-      "description": "OneKey crypto wallet CLI skills — wallet, swap, market, security"
+      "description": "4 OneKey wallet skills — wallet (balance, transfer, history), swap (quote, execute, status), market (search, price, trending, kline), and security (token audit, risk classification)",
+      "version": "0.1.0",
+      "author": { "name": "OneKey" },
+      "homepage": "https://onekey.so",
+      "repository": "https://github.com/OneKeyHQ/app-monorepo",
+      "license": "Apache-2.0",
+      "keywords": ["skills", "onekey", "wallet", "crypto", "defi", "swap", "market", "security", "web3", "blockchain"],
+      "category": "web3",
+      "tags": ["skills", "wallet", "swap", "market", "security", "defi", "token", "blockchain"],
+      "strict": false
     }
   ]
 }
