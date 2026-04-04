@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SectionList } from '@onekeyhq/components';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
@@ -24,10 +24,18 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import type { IProps } from '.';
+
+const tokenHistoryCache = new cacheUtils.LRUCache<string, IAccountHistoryTx[]>({
+  max: 20,
+  ttl: timerUtils.getTimeDurationMs({ minute: 5 }),
+  ttlAutopurge: true,
+});
 
 function TokenDetailsHistory(props: IProps) {
   const navigation = useAppNavigation();
@@ -52,18 +60,57 @@ function TokenDetailsHistory(props: IProps) {
     }
   }, []);
 
-  const [historyInit, setHistoryInit] = useState(false);
   const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const { updateAddressesInfo, setHasMoreOnChainHistory } =
     useHistoryListActions().current;
+  const historyCacheKey = useMemo(
+    () =>
+      [
+        accountId,
+        networkId,
+        tokenInfo.address ?? '',
+        settings.isFilterScamHistoryEnabled ? '1' : '0',
+        settings.isFilterLowValueHistoryEnabled ? '1' : '0',
+        settings.currencyInfo.id,
+      ].join('_'),
+    [
+      accountId,
+      networkId,
+      tokenInfo.address,
+      settings.isFilterScamHistoryEnabled,
+      settings.isFilterLowValueHistoryEnabled,
+      settings.currencyInfo.id,
+    ],
+  );
+  const cachedHistory = useMemo(
+    () => tokenHistoryCache.get(historyCacheKey),
+    [historyCacheKey],
+  );
+
+  const [historyInit, setHistoryInit] = useState(cachedHistory !== undefined);
+
+  useEffect(() => {
+    setHistoryInit(cachedHistory !== undefined);
+  }, [cachedHistory]);
 
   /**
    * since some tokens are slow to load history,
    * they are loaded separately from the token details
    * so as not to block the display of the top details.
    */
+  const historyPromiseOptions = useMemo(
+    () => ({
+      pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      debounced: POLLING_DEBOUNCE_INTERVAL,
+      overrideIsFocused: (isPageFocused: boolean) =>
+        isPageFocused && (isTabView ? isFocused : true),
+      watchLoading: true,
+      ...(cachedHistory !== undefined ? { initResult: cachedHistory } : {}),
+    }),
+    [cachedHistory, isFocused, isTabView],
+  );
   const {
     result: tokenHistory,
     run,
@@ -84,10 +131,11 @@ function TokenDetailsHistory(props: IProps) {
           data: r.addressMap ?? {},
         });
         setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
+        tokenHistoryCache.set(historyCacheKey, r.txs ?? []);
         setTimeout(() => {
           recomputeLayout();
         }, 300);
-        return r.txs;
+        return r.txs ?? [];
       } finally {
         setHistoryInit(true);
       }
@@ -103,15 +151,16 @@ function TokenDetailsHistory(props: IProps) {
       updateAddressesInfo,
       setHasMoreOnChainHistory,
       recomputeLayout,
+      historyCacheKey,
     ],
-    {
-      pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
-      debounced: POLLING_DEBOUNCE_INTERVAL,
-      overrideIsFocused: (isPageFocused) =>
-        isPageFocused && (isTabView ? isFocused : true),
-      watchLoading: true,
-    },
+    historyPromiseOptions,
   );
+
+  const resolvedHistory = tokenHistory ?? cachedHistory ?? [];
+  const resolvedIsLoading =
+    !historyInit && cachedHistory === undefined
+      ? (isLoading ?? true)
+      : isLoading;
 
   const handleHistoryItemPress = useCallback(
     async (tx: IAccountHistoryTx) => {
@@ -169,8 +218,8 @@ function TokenDetailsHistory(props: IProps) {
       indexedAccountId={indexedAccountId}
       inTabList={inTabList}
       initialized={historyInit}
-      isLoading={isLoading}
-      data={tokenHistory ?? []}
+      isLoading={resolvedIsLoading}
+      data={resolvedHistory}
       onPressHistory={handleHistoryItemPress}
       ListHeaderComponent={ListHeaderComponent as React.ReactElement}
       isSingleAccount
