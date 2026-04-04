@@ -18,6 +18,8 @@ import { EarnNavigation } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface ITokenDetailsDeFiBlockProps {
   networkId: string;
@@ -28,7 +30,11 @@ interface ITokenDetailsDeFiBlockProps {
 
 // Module-level cache: prevents skeleton flash on remount when scrolling
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const earnResultCache = new Map<string, any>();
+const earnResultCache = new cacheUtils.LRUCache<string, any>({
+  max: 50,
+  ttl: timerUtils.getTimeDurationMs({ minute: 10 }),
+  ttlAutopurge: true,
+});
 
 export function TokenDetailsDeFiBlock({
   networkId,
