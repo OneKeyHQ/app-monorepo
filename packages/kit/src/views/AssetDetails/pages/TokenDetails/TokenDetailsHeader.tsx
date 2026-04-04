@@ -208,7 +208,7 @@ function TokenDetailsHeader(props: IProps) {
   const tokenDetails = tokenDetailsResult ?? cachedTokenDetails;
 
   useEffect(() => {
-    if (!cachedTokenDetails) {
+    if (!cachedTokenDetails || tokenDetailsResult) {
       return;
     }
 
@@ -218,7 +218,12 @@ function TokenDetailsHeader(props: IProps) {
       coingeckoId:
         cachedTokenDetails.info?.coingeckoId ?? tokenInfo.coingeckoId ?? '',
     });
-  }, [cachedTokenDetails, tokenInfo.coingeckoId, updateTokenMetadata]);
+  }, [
+    cachedTokenDetails,
+    tokenDetailsResult,
+    tokenInfo.coingeckoId,
+    updateTokenMetadata,
+  ]);
 
   const showLoadingState = useMemo(() => {
     if (tokenDetails) {
