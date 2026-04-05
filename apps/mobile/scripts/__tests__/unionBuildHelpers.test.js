@@ -664,4 +664,60 @@ describe('unionBuildHelpers', () => {
 
     expect(result.valid).toBe(true);
   });
+
+  it('detects modules missing from one runtime but present in another', () => {
+    const sharedGraph = new Map([
+      ['/entry.js', createModuleData({
+        dependencies: [{ key: 'shared', absolutePath: '/shared.js' }],
+      })],
+      ['/shared.js', createModuleData({
+        dependencies: [{ key: 'c', absolutePath: '/c.js' }],
+      })],
+      ['/c.js', createModuleData({ code: 'module C' })],
+    ]);
+
+    const mainEager = new Set(['/entry.js', '/shared.js', '/c.js']);
+    const bgEager = new Set(['/entry.js', '/shared.js']); // C missing!
+
+    const mainResult = validateBundleCompleteness({
+      graph: sharedGraph,
+      eagerAbsPaths: mainEager,
+      segmentAbsPaths: new Set(),
+      allGraphAbsPaths: new Set(sharedGraph.keys()),
+    });
+
+    const bgResult = validateBundleCompleteness({
+      graph: sharedGraph,
+      eagerAbsPaths: bgEager,
+      segmentAbsPaths: new Set(),
+      allGraphAbsPaths: new Set(sharedGraph.keys()),
+    });
+
+    expect(mainResult.valid).toBe(true);
+    expect(bgResult.valid).toBe(false);
+    expect(bgResult.missingAbsPaths).toContain('/c.js');
+  });
+
+  it('catches sync dependency of eager module that was incorrectly segmented', () => {
+    const graph = new Map([
+      ['/a.js', createModuleData({
+        code: 'module A',
+        dependencies: [{ key: 'b', absolutePath: '/b.js' }],
+      })],
+      ['/b.js', createModuleData({ code: 'module B' })],
+    ]);
+
+    const serializedEntries = [
+      { absolutePath: '/a.js', moduleData: graph.get('/a.js'), moduleId: 1, moduleCode: '' },
+      { absolutePath: '/b.js', moduleData: graph.get('/b.js'), moduleId: 2, moduleCode: '' },
+    ];
+
+    const expanded = expandSyncDependencyClosure({
+      serializedEntries,
+      initialIncludedAbsPaths: new Set(['/a.js']),
+      externalAbsPaths: new Set(),
+    });
+
+    expect(expanded.has('/b.js')).toBe(true);
+  });
 });
