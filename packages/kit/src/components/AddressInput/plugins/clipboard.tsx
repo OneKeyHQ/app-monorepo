@@ -58,7 +58,7 @@ export const ClipboardPlugin: FC<IClipboardPluginProps> = ({
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_paste_tooltip })}
-      variant="secondary"
+      variant="tertiary"
       icon="ClipboardOutline"
       disabled={disabled}
       onPress={disabled ? undefined : onPress}

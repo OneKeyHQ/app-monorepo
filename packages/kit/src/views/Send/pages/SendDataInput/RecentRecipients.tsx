@@ -1,10 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
 
 import {
   ActionList,
@@ -83,12 +79,6 @@ function QuickSelectListItemBase({
   networkId: string;
 }) {
   const navigation = useAppNavigation();
-  const [isHovered, setIsHovered] = useState(false);
-
-  // Animated style for hover menu opacity
-  const menuAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(isHovered ? 1 : 0, { duration: 150 }),
-  }));
 
   // Determine display mode based on available info
   const hasName = !!item.name;
@@ -129,7 +119,7 @@ function QuickSelectListItemBase({
   const handleLongPress = useCallback(() => {
     if (!showAddToAddressBook) return;
     ActionList.show({
-      title: item.address,
+      title: primaryText,
       sections: [
         {
           items: [
@@ -144,7 +134,7 @@ function QuickSelectListItemBase({
     });
   }, [
     showAddToAddressBook,
-    item.address,
+    primaryText,
     addToAddressBookLabel,
     handleAddToAddressBook,
   ]);
@@ -156,8 +146,6 @@ function QuickSelectListItemBase({
       wallet={item.wallet}
       onPress={onPress}
       onLongPress={platformEnv.isNative ? handleLongPress : undefined}
-      onHoverIn={() => setIsHovered(true)}
-      onHoverOut={() => setIsHovered(false)}
       testID={`recent-item-${item.address}`}
       primary={
         <XStack gap="$2" alignItems="center">
@@ -200,7 +188,7 @@ function QuickSelectListItemBase({
             <SizableText
               size="$bodySm"
               color="$textDisabled"
-              flexShrink={2}
+              flexShrink={0}
               numberOfLines={1}
             >
               {formatRelativeTime(item.lastTransferTime)}
@@ -214,29 +202,29 @@ function QuickSelectListItemBase({
           color="$textSubdued"
           wordWrap="break-word"
         >
-          {item.memo ? `${item.address} · ${item.memo}` : item.address}
+          {item.memo || item.note
+            ? `${item.address} · ${item.memo || item.note}`
+            : item.address}
         </MatchSizeableText>
       }
       trailing={
-        showAddToAddressBook && !platformEnv.isNative ? (
-          <Animated.View style={[{ marginLeft: 8 }, menuAnimatedStyle]}>
-            <ActionList
-              title={item.address}
-              items={[
-                {
-                  label: addToAddressBookLabel,
-                  icon: 'BookOpenOutline',
-                  onPress: handleAddToAddressBook,
-                },
-              ]}
-              renderTrigger={
-                <ListItem.IconButton
-                  icon="DotVerSolid"
-                  testID={`recent-menu-${item.address}`}
-                />
-              }
-            />
-          </Animated.View>
+        showAddToAddressBook ? (
+          <ActionList
+            title={primaryText}
+            items={[
+              {
+                label: addToAddressBookLabel,
+                icon: 'BookOpenOutline',
+                onPress: handleAddToAddressBook,
+              },
+            ]}
+            renderTrigger={
+              <ListItem.IconButton
+                icon="DotVerSolid"
+                testID={`recent-menu-${item.address}`}
+              />
+            }
+          />
         ) : null
       }
     />

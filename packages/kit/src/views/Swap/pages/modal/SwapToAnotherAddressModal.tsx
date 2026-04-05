@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -158,23 +159,25 @@ const SwapToAnotherAddressPage = () => {
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
           <XStack gap="$1.5" alignItems="center">
-            <Icon name="BlockOutline" size="$4" color="$iconSubdued" />
+            <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.swap_page_recipient_modal_do_not,
               })}
             </SizableText>
           </XStack>
-          <RecipientQuickSelect
-            accountId={accountInfo?.account?.id ?? ''}
-            networkId={networkId}
-            senderDeriveType={activeAccount?.deriveType}
-            searchKey={toAddressRaw}
-            isSearchMode={!!toAddressRaw?.trim()}
-            hideTabs={['recent']}
-            onMatchStatusChange={setHasQuickSelectMatches}
-            onSelect={handleQuickSelectRecipient}
-          />
+          {platformEnv.isWeb ? null : (
+            <RecipientQuickSelect
+              accountId={accountInfo?.account?.id ?? ''}
+              networkId={networkId}
+              senderDeriveType={activeAccount?.deriveType}
+              searchKey={toAddressRaw}
+              isSearchMode={!!toAddressRaw?.trim()}
+              hideTabs={['recent']}
+              onMatchStatusChange={setHasQuickSelectMatches}
+              onSelect={handleQuickSelectRecipient}
+            />
+          )}
         </Form>
       </Page.Body>
       <Page.Footer

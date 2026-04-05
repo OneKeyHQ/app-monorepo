@@ -83,7 +83,9 @@ function QuickSelectListItemFrame({
 
   return (
     <ListItem
-      px="$5"
+      mx="$2.5"
+      pl="$2"
+      pr="$4"
       py="$3"
       renderAvatar={renderAvatar}
       onPress={onPress}

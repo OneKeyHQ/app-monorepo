@@ -114,7 +114,9 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
             color="$textSubdued"
             match={item.addressMatch}
           >
-            {item.memo ? `${item.address} · ${item.memo}` : item.address}
+            {item.memo || item.note
+              ? `${item.address} · ${item.memo || item.note}`
+              : item.address}
           </MatchSizeableText>
         }
       />
