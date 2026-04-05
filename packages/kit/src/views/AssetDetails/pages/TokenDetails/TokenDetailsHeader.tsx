@@ -101,7 +101,7 @@ function TokenDetailsHeader(props: IProps) {
   const tokenDetailsKey = `${accountId}_${networkId}`;
   const tokenDetailsCacheKey = `${accountId}_${networkId}_${
     tokenInfo.address ?? ''
-  }`;
+  }_${settings.currencyInfo.id}`;
   const tokenMapKey = (tokenInfo as IAccountToken).$key;
 
   const cachedTokenDetails = useMemo(() => {
