@@ -1,3 +1,4 @@
+/* eslint-disable onekey/no-raw-error */
 const crypto = require('crypto');
 
 function sha256(content) {
@@ -46,6 +47,8 @@ function buildRuntimeOwnership({
   bgGraph,
   mainReachable,
   bgReachable,
+  mainStartupAbsPaths,
+  bgStartupAbsPaths,
 }) {
   const mainSignatures = new Map();
   const bgSignatures = new Map();
@@ -85,19 +88,24 @@ function buildRuntimeOwnership({
     }
   }
 
+  const mainStartupCandidates =
+    mainStartupAbsPaths || mainReachable || new Set();
+  const bgStartupCandidates = bgStartupAbsPaths || bgReachable || new Set();
+
   const sharedStartupAbsPaths = new Set(
     [...sharedEquivalentAbsPaths].filter(
       (absolutePath) =>
-        mainReachable.has(absolutePath) && bgReachable.has(absolutePath),
+        mainStartupCandidates.has(absolutePath) &&
+        bgStartupCandidates.has(absolutePath),
     ),
   );
-  const mainStartupAbsPaths = new Set(
-    [...mainReachable].filter(
+  const mainStartupOnlyAbsPaths = new Set(
+    [...mainStartupCandidates].filter(
       (absolutePath) => !sharedStartupAbsPaths.has(absolutePath),
     ),
   );
-  const bgStartupAbsPaths = new Set(
-    [...bgReachable].filter(
+  const bgStartupOnlyAbsPaths = new Set(
+    [...bgStartupCandidates].filter(
       (absolutePath) => !sharedStartupAbsPaths.has(absolutePath),
     ),
   );
@@ -106,8 +114,8 @@ function buildRuntimeOwnership({
     allAbsPaths,
     sharedEquivalentAbsPaths,
     sharedStartupAbsPaths,
-    mainStartupAbsPaths,
-    bgStartupAbsPaths,
+    mainStartupAbsPaths: mainStartupOnlyAbsPaths,
+    bgStartupAbsPaths: bgStartupOnlyAbsPaths,
     mainOnlyAbsPaths,
     bgOnlyAbsPaths,
   };
@@ -162,43 +170,306 @@ function createSerializedModuleToSegmentMap({
   return serializedModuleToSegment;
 }
 
-function rewriteAsyncRequirePaths(wrappedModules, moduleToSegment) {
-  if (!moduleToSegment || moduleToSegment.size === 0) {
+function groupSerializedEntriesBySegment({
+  serializedEntries,
+  absPathToSegment,
+  promotedSegmentKeys,
+}) {
+  const segmentOutputs = new Map();
+  const promoted = promotedSegmentKeys || new Set();
+
+  for (const { absolutePath, moduleCode, moduleId } of serializedEntries) {
+    const segmentKey = absPathToSegment.get(absolutePath);
+    if (segmentKey && !promoted.has(segmentKey)) {
+      if (!segmentOutputs.has(segmentKey)) {
+        segmentOutputs.set(segmentKey, []);
+      }
+      segmentOutputs.get(segmentKey).push([moduleId, moduleCode]);
+    }
+  }
+
+  return segmentOutputs;
+}
+
+function seedSegmentAssignments({
+  asyncRoots,
+  asyncDescendants,
+  deriveSegmentKey,
+}) {
+  const segmentModules = new Map();
+  const moduleToSegment = new Map();
+  const assignModuleToSegment = (moduleId, segmentKey) => {
+    if (!segmentModules.has(segmentKey)) {
+      segmentModules.set(segmentKey, new Set());
+    }
+    segmentModules.get(segmentKey).add(moduleId);
+    moduleToSegment.set(moduleId, segmentKey);
+  };
+
+  for (const [moduleId, absolutePath] of asyncRoots) {
+    assignModuleToSegment(moduleId, deriveSegmentKey(absolutePath));
+  }
+
+  for (const [moduleId, rootId] of asyncDescendants) {
+    const rootAbsolutePath = asyncRoots.get(rootId);
+    if (rootAbsolutePath) {
+      assignModuleToSegment(moduleId, deriveSegmentKey(rootAbsolutePath));
+    }
+  }
+
+  return {
+    segmentModules,
+    moduleToSegment,
+  };
+}
+
+function isJsModule(moduleData) {
+  return (
+    moduleData?.output?.some(
+      ({ type }) => typeof type === 'string' && type.startsWith('js/'),
+    ) || false
+  );
+}
+
+function buildSerializedModuleEntries({
+  graph,
+  serializedModules,
+  moduleIdToAbsPath,
+}) {
+  return serializedModules.map(([moduleId, moduleCode]) => {
+    const absolutePath = moduleIdToAbsPath.get(moduleId);
+    if (!absolutePath) {
+      throw new Error(
+        `[unionBuild] Missing graph module for serialized id ${moduleId}`,
+      );
+    }
+
+    const moduleData = graph.dependencies.get(absolutePath);
+    if (!isJsModule(moduleData)) {
+      throw new Error(
+        `[unionBuild] Serialized id ${moduleId} resolved to non-JS module ${absolutePath}`,
+      );
+    }
+
+    return {
+      absolutePath,
+      moduleCode,
+      moduleData,
+      moduleId,
+    };
+  });
+}
+
+function ensureStatementTerminator(code) {
+  return code.endsWith(';') ? code : `${code};`;
+}
+
+function buildPostSection({
+  bundleOptions,
+  entryPoint,
+  includePre,
+  includedModulePaths,
+}) {
+  if (!bundleOptions?.runModule) {
+    return '';
+  }
+
+  const pathsToRequire = includePre
+    ? bundleOptions.runBeforeMainModule || []
+    : [entryPoint];
+
+  const statements = pathsToRequire
+    .filter((modulePath) => includedModulePaths.has(modulePath))
+    .map((modulePath) =>
+      ensureStatementTerminator(
+        bundleOptions.getRunModuleStatement(
+          bundleOptions.createModuleId(modulePath),
+          bundleOptions.globalPrefix,
+        ),
+      ),
+    );
+
+  return statements.length > 0 ? `${statements.join('\n')}\n` : '';
+}
+
+function expandSyncDependencyClosure({
+  serializedEntries,
+  initialIncludedAbsPaths,
+  externalAbsPaths,
+}) {
+  const external = externalAbsPaths || new Set();
+  const includedAbsPaths = new Set(
+    [...initialIncludedAbsPaths].filter(
+      (absolutePath) => !external.has(absolutePath),
+    ),
+  );
+  const serializedEntryByAbsPath = new Map(
+    serializedEntries.map((entry) => [entry.absolutePath, entry]),
+  );
+  const pending = [...includedAbsPaths];
+
+  while (pending.length > 0) {
+    const absolutePath = pending.pop();
+    const entry = serializedEntryByAbsPath.get(absolutePath);
+    if (entry?.moduleData) {
+      for (const [, dep] of entry.moduleData.dependencies) {
+        const depAbsolutePath = dep.absolutePath;
+        const asyncType = dep.data?.data?.asyncType;
+        const shouldIncludeDependency =
+          asyncType !== 'async' &&
+          !external.has(depAbsolutePath) &&
+          !includedAbsPaths.has(depAbsolutePath) &&
+          serializedEntryByAbsPath.has(depAbsolutePath);
+
+        if (shouldIncludeDependency) {
+          includedAbsPaths.add(depAbsolutePath);
+          pending.push(depAbsolutePath);
+        }
+      }
+    }
+  }
+
+  return includedAbsPaths;
+}
+
+function rewriteAsyncRequirePaths(
+  wrappedModules,
+  { moduleToSegment, moduleIdToAbsPath, eagerAbsPaths, runtimeVariants } = {},
+) {
+  const replacementLiterals = new Map();
+
+  if (moduleToSegment) {
+    for (const [moduleId, segmentKey] of moduleToSegment) {
+      replacementLiterals.set(moduleId, JSON.stringify(segmentKey));
+    }
+  }
+
+  if (moduleIdToAbsPath && eagerAbsPaths) {
+    for (const [moduleId, absolutePath] of moduleIdToAbsPath) {
+      if (
+        eagerAbsPaths.has(absolutePath) &&
+        !replacementLiterals.has(moduleId)
+      ) {
+        replacementLiterals.set(moduleId, 'null');
+      }
+    }
+  }
+
+  if (runtimeVariants && moduleIdToAbsPath) {
+    for (const [moduleId, absolutePath] of moduleIdToAbsPath) {
+      const variantValues = Object.fromEntries(
+        Object.entries(runtimeVariants)
+          .map(([runtime, config]) => {
+            if (!config || !absolutePath) {
+              return [runtime, undefined];
+            }
+            if (config.absPathToSegment?.has(absolutePath)) {
+              return [runtime, config.absPathToSegment.get(absolutePath)];
+            }
+            if (config.eagerAbsPaths?.has(absolutePath)) {
+              return [runtime, null];
+            }
+            return [runtime, undefined];
+          })
+          .filter(([, value]) => value !== undefined),
+      );
+
+      const runtimeEntries = Object.entries(variantValues);
+      if (runtimeEntries.length > 0) {
+        const [, firstValue] = runtimeEntries[0];
+        const allSame = runtimeEntries.every(
+          ([, value]) => value === firstValue,
+        );
+
+        if (allSame) {
+          replacementLiterals.set(
+            moduleId,
+            firstValue === null ? 'null' : JSON.stringify(firstValue),
+          );
+        } else {
+          const literal = `{${runtimeEntries
+            .map(
+              ([runtime, value]) =>
+                `${JSON.stringify(runtime)}:${
+                  value === null ? 'null' : JSON.stringify(value)
+                }`,
+            )
+            .join(',')}}`;
+          replacementLiterals.set(moduleId, literal);
+        }
+      }
+    }
+  }
+
+  if (replacementLiterals.size === 0) {
     return;
   }
 
-  const asyncModuleIds = [...moduleToSegment.keys()];
-  if (asyncModuleIds.length === 0) {
-    return;
-  }
-
-  const idAlternation = asyncModuleIds.map(String).join('|');
-  const pattern = new RegExp(
-    `([{,]\\s*)"(${idAlternation})"(\\s*:\\s*)"[^"]*"`,
+  const idAlternation = [...replacementLiterals.keys()].map(String).join('|');
+  const pathsBlockPattern = /("paths"\s*:\s*\{)([^}]*)(\})/g;
+  const pathEntryPattern = new RegExp(
+    `(^|,)(\\s*)"(${idAlternation})"(\\s*:\\s*)(null|"[^"]*"|\\{[^}]*\\})`,
     'g',
   );
 
   for (const wrappedModule of wrappedModules) {
     if (typeof wrappedModule[1] === 'string') {
       wrappedModule[1] = wrappedModule[1].replace(
-        pattern,
-        (_, prefix, moduleId, colon) => {
-          const segmentKey = moduleToSegment.get(Number(moduleId));
-          return segmentKey
-            ? `${prefix}"${moduleId}"${colon}"${segmentKey}"`
-            : _;
+        pathsBlockPattern,
+        (_, prefix, body, suffix) => {
+          const rewrittenBody = body.replace(
+            pathEntryPattern,
+            (match, leading, whitespace, moduleId, colon) => {
+              const literal = replacementLiterals.get(Number(moduleId));
+              if (literal !== undefined) {
+                return `${leading}${whitespace}"${moduleId}"${colon}${literal}`;
+              }
+              return match;
+            },
+          );
+          return `${prefix}${rewrittenBody}${suffix}`;
         },
       );
     }
   }
 }
 
+function validateBundleCompleteness({
+  graph,
+  eagerAbsPaths,
+  segmentAbsPaths,
+  allGraphAbsPaths,
+}) {
+  const coveredAbsPaths = new Set([...eagerAbsPaths, ...segmentAbsPaths]);
+  const missingAbsPaths = [];
+
+  for (const absolutePath of allGraphAbsPaths) {
+    if (!coveredAbsPaths.has(absolutePath)) {
+      const moduleData = graph.get(absolutePath);
+      if (moduleData) {
+        missingAbsPaths.push(absolutePath);
+      }
+    }
+  }
+
+  return {
+    valid: missingAbsPaths.length === 0,
+    missingAbsPaths,
+  };
+}
+
 module.exports = {
+  buildPostSection,
+  buildSerializedModuleEntries,
   buildGraphModuleIndex,
   buildModuleSignature,
   buildRuntimeOwnership,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
+  expandSyncDependencyClosure,
+  groupSerializedEntriesBySegment,
   rewriteAsyncRequirePaths,
+  seedSegmentAssignments,
   setEquals,
+  validateBundleCompleteness,
 };
