@@ -86,6 +86,7 @@ type IPendingModalTarget = {
   modalType: ERootRoutes.Modal | ERootRoutes.iOSFullScreen;
   route: string;
   screen?: string;
+  paramsKey?: string;
 };
 
 type INavigationRouteWithNestedState = {
@@ -114,7 +115,9 @@ const buildPendingModalTargetKey = ({
   modalType,
   route,
   screen,
-}: IPendingModalTarget) => `${modalType}::${route}::${screen ?? ''}`;
+  paramsKey,
+}: IPendingModalTarget) =>
+  `${modalType}::${route}::${screen ?? ''}::${paramsKey ?? ''}`;
 
 const getNestedRouteScreenName = (route?: INavigationRouteWithNestedState) => {
   const params = route?.params as { screen?: string } | undefined;
@@ -255,6 +258,9 @@ function useAppNavigation<
         modalType,
         route,
         screen: typeof params?.screen === 'string' ? params.screen : undefined,
+        paramsKey: params?.params
+          ? JSON.stringify(params.params)
+          : undefined,
       };
 
       let rootNavigation = navigationInstance;
