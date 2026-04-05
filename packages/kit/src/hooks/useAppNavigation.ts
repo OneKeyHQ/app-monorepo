@@ -258,9 +258,7 @@ function useAppNavigation<
         modalType,
         route,
         screen: typeof params?.screen === 'string' ? params.screen : undefined,
-        paramsKey: params?.params
-          ? JSON.stringify(params.params)
-          : undefined,
+        paramsKey: params?.params ? JSON.stringify(params.params) : undefined,
       };
 
       let rootNavigation = navigationInstance;
