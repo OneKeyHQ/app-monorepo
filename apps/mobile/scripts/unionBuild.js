@@ -50,11 +50,16 @@ const {
 } = require('../plugins/segmentUtils');
 
 const {
+  buildPostSection,
+  buildSerializedModuleEntries,
   buildGraphModuleIndex,
   buildRuntimeOwnership,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
+  expandSyncDependencyClosure,
+  groupSerializedEntriesBySegment,
   rewriteAsyncRequirePaths,
+  seedSegmentAssignments,
   setEquals,
 } = require('./unionBuildHelpers');
 
@@ -97,6 +102,12 @@ const { sourceMapStringNonBlocking } = require(
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const bgEntry = path.resolve(mobileDirPath, 'background.ts');
+
+function ensureProductionBuildEnv() {
+  process.env.NODE_ENV = 'production';
+  process.env.BABEL_ENV = 'production';
+  process.env.ONEKEY_PLATFORM = process.env.ONEKEY_PLATFORM || 'app';
+}
 
 function parseArgs() {
   const readArg = (name) => {
@@ -194,6 +205,10 @@ function createBundleOptions({
         ],
       });
 
+  const asyncPathsSourceUrl = `https://split-bundle.invalid/${path.basename(
+    entryPoint,
+  )}`;
+
   return {
     asyncRequireModulePath: resolvedAsyncRequireModulePath,
     processModuleFilter: config.serializer.processModuleFilter,
@@ -201,7 +216,7 @@ function createBundleOptions({
     getRunModuleStatement: config.serializer.getRunModuleStatement,
     globalPrefix: config.transformer.globalPrefix,
     dev: false,
-    includeAsyncPaths: false,
+    includeAsyncPaths: true,
     projectRoot: config.projectRoot,
     modulesOnly: false,
     runBeforeMainModule: config.serializer.getModulesRunBeforeMainModule(
@@ -209,7 +224,7 @@ function createBundleOptions({
     ),
     runModule: true,
     sourceMapUrl,
-    sourceUrl: null,
+    sourceUrl: asyncPathsSourceUrl,
     inlineSourceMap: false,
     serverRoot: config.server.unstable_serverRoot || config.projectRoot,
     shouldAddToIgnoreList: (module) =>
@@ -317,17 +332,11 @@ function buildSegmentAllocation(graph) {
     }
   }
 
-  const segmentModules = new Map();
-  const moduleToSegment = new Map();
-
-  for (const [moduleId, absolutePath] of asyncRoots) {
-    const segmentKey = deriveSegmentKey(absolutePath);
-    if (!segmentModules.has(segmentKey)) {
-      segmentModules.set(segmentKey, new Set());
-    }
-    segmentModules.get(segmentKey).add(moduleId);
-    moduleToSegment.set(moduleId, segmentKey);
-  }
+  const { segmentModules, moduleToSegment } = seedSegmentAssignments({
+    asyncRoots,
+    asyncDescendants,
+    deriveSegmentKey,
+  });
 
   // Iterate until stable — barrel files (index.ts re-exports) create multi-level
   // indirection that a single pass cannot resolve.
@@ -371,14 +380,17 @@ function buildSegmentAllocation(graph) {
   // moduleToSegment uses fileToIdMap IDs which may differ from Metro server IDs,
   // so path-based lookup is the reliable way to check in writeBundle.
   const segmentAbsPaths = new Set();
-  for (const [moduleId] of moduleToSegment) {
-    // moduleId here is a fileToIdMap ID — find the matching absolutePath
-    for (const [absPath] of graph.dependencies) {
-      if (fileToIdMap.get(absPath) === moduleId) {
-        segmentAbsPaths.add(absPath);
-        break;
-      }
+  const segmentAbsPathsByKey = new Map();
+  for (const [absolutePath] of graph.dependencies) {
+    const segmentKey = moduleToSegment.get(fileToIdMap.get(absolutePath));
+    if (!segmentKey) {
+      continue;
     }
+    segmentAbsPaths.add(absolutePath);
+    if (!segmentAbsPathsByKey.has(segmentKey)) {
+      segmentAbsPathsByKey.set(segmentKey, new Set());
+    }
+    segmentAbsPathsByKey.get(segmentKey).add(absolutePath);
   }
 
   return {
@@ -386,8 +398,19 @@ function buildSegmentAllocation(graph) {
     segmentModules,
     moduleToSegment,
     segmentAbsPaths,
+    segmentAbsPathsByKey,
     segmentIdMap: allocateSegmentIds([...segmentModules.keys()]),
   };
+}
+
+function collectStartupAbsPaths(graph, eagerModuleIds) {
+  const startupAbsPaths = new Set();
+  for (const [absolutePath] of graph.dependencies) {
+    if (eagerModuleIds.has(fileToIdMap.get(absolutePath))) {
+      startupAbsPaths.add(absolutePath);
+    }
+  }
+  return startupAbsPaths;
 }
 
 function createResolverOptions(runtimeTarget) {
@@ -410,36 +433,17 @@ function mergeDependencyMaps(...maps) {
   return merged;
 }
 
-function getSegmentModuleAbsPaths(moduleIds, moduleIdToAbsPath) {
-  return new Set(
-    [...moduleIds]
-      .map((moduleId) => moduleIdToAbsPath.get(moduleId))
-      .filter(Boolean),
-  );
-}
-
-function buildSegmentDeps(
-  graph,
-  segmentModules,
-  moduleToSegment,
-  moduleIdToAbsPath,
-) {
+function buildSegmentDeps(graph, segmentAbsPathsByKey, absPathToSegment) {
   const segmentDeps = new Map();
-  for (const [segmentKey, moduleIds] of segmentModules) {
+  for (const [segmentKey, absolutePaths] of segmentAbsPathsByKey) {
     const deps = new Set();
-    for (const moduleId of moduleIds) {
-      const absolutePath = moduleIdToAbsPath.get(moduleId);
-      if (!absolutePath) {
-        continue;
-      }
+    for (const absolutePath of absolutePaths) {
       const moduleData = graph.dependencies.get(absolutePath);
       if (!moduleData) {
         continue;
       }
       for (const [, dep] of moduleData.dependencies) {
-        const depSegment = moduleToSegment.get(
-          fileToIdMap.get(dep.absolutePath),
-        );
+        const depSegment = absPathToSegment.get(dep.absolutePath);
         if (depSegment && depSegment !== segmentKey) {
           deps.add(depSegment);
         }
@@ -681,21 +685,27 @@ function getSerializedBundleParts({
   prepend,
   graph,
   bundleOptions,
+  moduleIdToAbsPath,
 }) {
   const result = baseJSBundle(entryPoint, prepend, graph, bundleOptions);
+  const serializedEntries = buildSerializedModuleEntries({
+    graph,
+    moduleIdToAbsPath,
+    serializedModules: result.modules,
+  });
 
   if (!bundleSerializationCache.has(cacheKey)) {
     bundleSerializationCache.set(cacheKey, {
-      modules: result.modules,
       pre: result.pre,
+      serializedEntries,
     });
   }
 
   const cached = bundleSerializationCache.get(cacheKey);
   return {
-    modules: cached.modules,
     pre: cached.pre,
     post: result.post,
+    serializedEntries: cached.serializedEntries,
   };
 }
 
@@ -712,29 +722,57 @@ async function writeBundle({
   graph,
   prepend,
   bundleOptions,
-  moduleIdToAbsPath,
   moduleToSegment,
+  moduleIdToAbsPath,
+  externalModulePaths,
+  runtimeVariants,
 }) {
-  const { modules, pre, post } = getSerializedBundleParts({
+  const { serializedEntries, pre } = getSerializedBundleParts({
     cacheKey,
     entryPoint,
     prepend,
     graph,
     bundleOptions,
+    moduleIdToAbsPath,
+  });
+
+  const initialIncludedAbsPaths = new Set();
+  const includedModulePaths = new Set();
+
+  if (includePre) {
+    for (const prependModule of prepend) {
+      if (prependModule?.path) {
+        includedModulePaths.add(prependModule.path);
+      }
+    }
+  }
+
+  for (const serializedEntry of serializedEntries) {
+    const { absolutePath, moduleId } = serializedEntry;
+    if (!moduleFilter(absolutePath, moduleId)) {
+      continue;
+    }
+    initialIncludedAbsPaths.add(absolutePath);
+  }
+
+  const selectedAbsPaths = expandSyncDependencyClosure({
+    serializedEntries,
+    initialIncludedAbsPaths,
+    externalAbsPaths: externalModulePaths,
   });
 
   const selectedWrappedModules = [];
   const selectedGraphModules = [];
   const selectedStartupModuleIds = new Set();
 
-  for (const [moduleId, moduleCode] of modules) {
-    const absolutePath = moduleIdToAbsPath.get(moduleId);
-    if (!absolutePath || !moduleFilter(absolutePath, moduleId)) {
+  for (const serializedEntry of serializedEntries) {
+    const { absolutePath, moduleCode, moduleData, moduleId } = serializedEntry;
+    if (!selectedAbsPaths.has(absolutePath)) {
       continue;
     }
     selectedStartupModuleIds.add(moduleId);
+    includedModulePaths.add(absolutePath);
     selectedWrappedModules.push([moduleId, moduleCode]);
-    const moduleData = graph.dependencies.get(absolutePath);
     if (moduleData) {
       selectedGraphModules.push(moduleData);
     }
@@ -748,40 +786,24 @@ async function writeBundle({
       : `${manifestCode}\n`;
   }
 
-  rewriteAsyncRequirePaths(selectedWrappedModules, moduleToSegment);
+  rewriteAsyncRequirePaths(selectedWrappedModules, {
+    moduleToSegment,
+    moduleIdToAbsPath,
+    eagerAbsPaths: new Set([
+      ...selectedAbsPaths,
+      ...(externalModulePaths || new Set()),
+    ]),
+    runtimeVariants,
+  });
 
-  // Metro's post section has the form:
-  //   __r(initializeCoreId);   ← from getModulesRunBeforeMainModule (e.g. InitializeCore)
-  //   __r(entryId);            ← the actual entry point
-  //
-  // Split bundle strategy:
-  //   common bundle  (includePre=true):  emit runBeforeMainModule __r() calls ONLY
-  //                                      (all but the last), so InitializeCore runs in
-  //                                      both main and background Hermes runtimes when
-  //                                      common.jsbundle is loaded.
-  //   entry bundles  (includePre=false): emit ONLY the entry __r() (last call),
-  //                                      since runBeforeMainModule already ran via common.
-  let postSection = '';
-  if (includePost) {
-    const rCalls = post.match(/__r\(\d+\)/g) || [];
-    if (includePre) {
-      // Common bundle: emit the runBeforeMainModule __r() calls (all except the entry).
-      // These initialize React Native globals (fetch, timers, etc.) in every runtime
-      // that loads common.jsbundle.
-      if (rCalls.length > 1) {
-        postSection = `${rCalls
-          .slice(0, -1)
-          .map((r) => `${r};`)
-          .join('\n')}\n`;
-      }
-      // If there is only one __r() it IS the entry — nothing to emit here.
-    } else {
-      // Entry-only bundle: emit only the entry module's __r().
-      if (rCalls.length > 0) {
-        postSection = `${rCalls[rCalls.length - 1]};\n`;
-      }
-    }
-  }
+  const postSection = includePost
+    ? buildPostSection({
+        bundleOptions,
+        entryPoint,
+        includePre,
+        includedModulePaths,
+      })
+    : '';
 
   const bundle = bundleToString({
     pre: preSection,
@@ -821,21 +843,6 @@ async function writeSegments({
   sharedEquivalentAbsPaths,
 }) {
   const promotedSet = new Set(promotedSegments);
-
-  const collectSegmentOutputs = ({ modules, moduleToSegment }) => {
-    const segmentOutputs = new Map();
-    for (const [moduleId, moduleCode] of modules) {
-      const segmentKey = moduleToSegment.get(moduleId);
-      if (!segmentKey || promotedSet.has(segmentKey)) {
-        continue;
-      }
-      if (!segmentOutputs.has(segmentKey)) {
-        segmentOutputs.set(segmentKey, []);
-      }
-      segmentOutputs.get(segmentKey).push([moduleId, moduleCode]);
-    }
-    return segmentOutputs;
-  };
 
   const emitSegment = async ({
     segmentKey,
@@ -890,8 +897,16 @@ async function writeSegments({
     return entry;
   };
 
-  const mainSegmentOutputs = collectSegmentOutputs(mainRuntime);
-  const backgroundSegmentOutputs = collectSegmentOutputs(backgroundRuntime);
+  const mainSegmentOutputs = groupSerializedEntriesBySegment({
+    serializedEntries: mainRuntime.serializedEntries,
+    absPathToSegment: mainRuntime.absPathToSegment,
+    promotedSegmentKeys: promotedSet,
+  });
+  const backgroundSegmentOutputs = groupSerializedEntriesBySegment({
+    serializedEntries: backgroundRuntime.serializedEntries,
+    absPathToSegment: backgroundRuntime.absPathToSegment,
+    promotedSegmentKeys: promotedSet,
+  });
 
   await fs.remove(getSegmentsDir('main'));
   await fs.remove(getSegmentsDir('background'));
@@ -928,14 +943,10 @@ async function writeSegments({
     const inBackground = backgroundSegmentOutputs.has(segmentKey);
 
     if (inMain && inBackground) {
-      const mainAbsPaths = getSegmentModuleAbsPaths(
-        mainRuntime.segmentModules.get(segmentKey),
-        mainRuntime.moduleIdToAbsPath,
-      );
-      const backgroundAbsPaths = getSegmentModuleAbsPaths(
-        backgroundRuntime.segmentModules.get(segmentKey),
-        backgroundRuntime.moduleIdToAbsPath,
-      );
+      const mainAbsPaths =
+        mainRuntime.segmentAbsPathsByKey.get(segmentKey) || new Set();
+      const backgroundAbsPaths =
+        backgroundRuntime.segmentAbsPathsByKey.get(segmentKey) || new Set();
       const mainDeps = new Set(mainRuntime.segmentDeps.get(segmentKey) || []);
       const backgroundDeps = new Set(
         backgroundRuntime.segmentDeps.get(segmentKey) || [],
@@ -960,19 +971,9 @@ async function writeSegments({
         });
         mainManifest.segments[segmentKey] = sharedEntry;
         backgroundManifest.segments[segmentKey] = sharedEntry;
-        mainReportSegments.set(
-          segmentKey,
-          mainRuntime.segmentModules.get(segmentKey),
-        );
-        backgroundReportSegments.set(
-          segmentKey,
-          backgroundRuntime.segmentModules.get(segmentKey),
-        );
-        setMergedReportSegmentModules(
-          segmentKey,
-          'shared',
-          mainRuntime.segmentModules.get(segmentKey),
-        );
+        mainReportSegments.set(segmentKey, mainAbsPaths);
+        backgroundReportSegments.set(segmentKey, backgroundAbsPaths);
+        setMergedReportSegmentModules(segmentKey, 'shared', mainAbsPaths);
         continue;
       }
 
@@ -1010,23 +1011,13 @@ async function writeSegments({
       });
       mainManifest.segments[segmentKey] = mainSegmentEntry;
       backgroundManifest.segments[segmentKey] = backgroundSegmentEntry;
-      mainReportSegments.set(
-        segmentKey,
-        mainRuntime.segmentModules.get(segmentKey),
-      );
-      backgroundReportSegments.set(
-        segmentKey,
-        backgroundRuntime.segmentModules.get(segmentKey),
-      );
-      setMergedReportSegmentModules(
-        segmentKey,
-        'main',
-        mainRuntime.segmentModules.get(segmentKey),
-      );
+      mainReportSegments.set(segmentKey, mainAbsPaths);
+      backgroundReportSegments.set(segmentKey, backgroundAbsPaths);
+      setMergedReportSegmentModules(segmentKey, 'main', mainAbsPaths);
       setMergedReportSegmentModules(
         segmentKey,
         'background',
-        backgroundRuntime.segmentModules.get(segmentKey),
+        backgroundAbsPaths,
       );
       continue;
     }
@@ -1045,12 +1036,12 @@ async function writeSegments({
       mainManifest.segments[segmentKey] = mainSegmentEntry;
       mainReportSegments.set(
         segmentKey,
-        mainRuntime.segmentModules.get(segmentKey),
+        mainRuntime.segmentAbsPathsByKey.get(segmentKey) || new Set(),
       );
       setMergedReportSegmentModules(
         segmentKey,
         'main',
-        mainRuntime.segmentModules.get(segmentKey),
+        mainRuntime.segmentAbsPathsByKey.get(segmentKey) || new Set(),
       );
       continue;
     }
@@ -1068,12 +1059,12 @@ async function writeSegments({
     backgroundManifest.segments[segmentKey] = backgroundEntry;
     backgroundReportSegments.set(
       segmentKey,
-      backgroundRuntime.segmentModules.get(segmentKey),
+      backgroundRuntime.segmentAbsPathsByKey.get(segmentKey) || new Set(),
     );
     setMergedReportSegmentModules(
       segmentKey,
       'background',
-      backgroundRuntime.segmentModules.get(segmentKey),
+      backgroundRuntime.segmentAbsPathsByKey.get(segmentKey) || new Set(),
     );
   }
 
@@ -1106,12 +1097,14 @@ async function writeSegments({
 }
 
 async function main() {
+  ensureProductionBuildEnv();
   const args = parseArgs();
   assertRequiredArgs(args);
 
   console.log(`Union build: platform=${args.platform}`);
 
   const config = await loadConfig({ cwd: mobileDirPath });
+  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v2`;
   const metroServer = await Metro.runMetro(config, { watch: false });
 
   try {
@@ -1187,6 +1180,8 @@ async function main() {
       bundler.getDeltaBundler(),
     );
 
+    const mainAllocation = buildSegmentAllocation(mainGraph);
+    const backgroundAllocation = buildSegmentAllocation(backgroundGraph);
     const mainReachable = computeReachable(mainGraph, mainEntry, {
       skipAsyncEdges: true,
     });
@@ -1194,6 +1189,14 @@ async function main() {
     const runtimeOwnership = buildRuntimeOwnership({
       mainGraph,
       bgGraph: backgroundGraph,
+      mainStartupAbsPaths: collectStartupAbsPaths(
+        mainGraph,
+        mainAllocation.eagerModuleIds,
+      ),
+      bgStartupAbsPaths: collectStartupAbsPaths(
+        backgroundGraph,
+        backgroundAllocation.eagerModuleIds,
+      ),
       mainReachable,
       bgReachable,
     });
@@ -1211,8 +1214,6 @@ async function main() {
       `BG startup-only modules:   ${runtimeOwnership.bgStartupAbsPaths.size}`,
     );
 
-    const mainAllocation = buildSegmentAllocation(mainGraph);
-    const backgroundAllocation = buildSegmentAllocation(backgroundGraph);
     const segmentIdMap = allocateSegmentIds(
       [
         ...new Set([
@@ -1248,17 +1249,29 @@ async function main() {
         moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
         absPathToSegment: backgroundAbsPathToSegment,
       });
+    const mainRuntimeAsyncPaths = {
+      absPathToSegment: mainAbsPathToSegment,
+      eagerAbsPaths: new Set([
+        ...runtimeOwnership.sharedStartupAbsPaths,
+        ...runtimeOwnership.mainStartupAbsPaths,
+      ]),
+    };
+    const backgroundRuntimeAsyncPaths = {
+      absPathToSegment: backgroundAbsPathToSegment,
+      eagerAbsPaths: new Set([
+        ...runtimeOwnership.sharedStartupAbsPaths,
+        ...runtimeOwnership.bgStartupAbsPaths,
+      ]),
+    };
     const mainSegmentDeps = buildSegmentDeps(
       mainGraph,
-      mainAllocation.segmentModules,
-      mainAllocation.moduleToSegment,
-      mainModuleIndex.moduleIdToAbsPath,
+      mainAllocation.segmentAbsPathsByKey,
+      mainAbsPathToSegment,
     );
     const backgroundSegmentDeps = buildSegmentDeps(
       backgroundGraph,
-      backgroundAllocation.segmentModules,
-      backgroundAllocation.moduleToSegment,
-      backgroundModuleIndex.moduleIdToAbsPath,
+      backgroundAllocation.segmentAbsPathsByKey,
+      backgroundAbsPathToSegment,
     );
     const allSegmentAbsPaths = new Set([
       ...mainAllocation.segmentAbsPaths,
@@ -1284,20 +1297,22 @@ async function main() {
       sourceMapUrl: path.basename(args.backgroundSourceMapOutput),
     });
 
-    const mainSerializedModules = getSerializedBundleParts({
+    const mainSerializedEntries = getSerializedBundleParts({
       cacheKey: 'main-segments',
       entryPoint: mainEntry,
       prepend: mainPrepend,
       graph: mainGraph,
       bundleOptions: commonBundleOptions,
-    }).modules;
-    const backgroundSerializedModules = getSerializedBundleParts({
+      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
+    }).serializedEntries;
+    const backgroundSerializedEntries = getSerializedBundleParts({
       cacheKey: 'background-segments',
       entryPoint: bgEntry,
       prepend: backgroundPrepend,
       graph: backgroundGraph,
       bundleOptions: backgroundBundleOptions,
-    }).modules;
+      moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
+    }).serializedEntries;
 
     const {
       mainManifest,
@@ -1307,17 +1322,17 @@ async function main() {
     } = await writeSegments({
       mainRuntime: {
         graph: mainGraph,
-        modules: mainSerializedModules,
-        segmentModules: mainAllocation.segmentModules,
-        moduleToSegment: mainAllocation.moduleToSegment,
+        serializedEntries: mainSerializedEntries,
+        absPathToSegment: mainAbsPathToSegment,
+        segmentAbsPathsByKey: mainAllocation.segmentAbsPathsByKey,
         segmentDeps: mainSegmentDeps,
         moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
       },
       backgroundRuntime: {
         graph: backgroundGraph,
-        modules: backgroundSerializedModules,
-        segmentModules: backgroundAllocation.segmentModules,
-        moduleToSegment: backgroundAllocation.moduleToSegment,
+        serializedEntries: backgroundSerializedEntries,
+        absPathToSegment: backgroundAbsPathToSegment,
+        segmentAbsPathsByKey: backgroundAllocation.segmentAbsPathsByKey,
         segmentDeps: backgroundSegmentDeps,
         moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
       },
@@ -1341,8 +1356,13 @@ async function main() {
       graph: mainGraph,
       prepend: mainPrepend,
       bundleOptions: commonBundleOptions,
-      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
       moduleToSegment: mainSerializedModuleToSegment,
+      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
+      externalModulePaths: new Set(),
+      runtimeVariants: {
+        main: mainRuntimeAsyncPaths,
+        background: backgroundRuntimeAsyncPaths,
+      },
     });
 
     // Main bundle: main-only eager modules + entry require
@@ -1361,8 +1381,9 @@ async function main() {
       graph: mainGraph,
       prepend: mainPrepend,
       bundleOptions: mainBundleOptions,
-      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
       moduleToSegment: mainSerializedModuleToSegment,
+      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
+      externalModulePaths: runtimeOwnership.sharedStartupAbsPaths,
     });
 
     // Background bundle: bg-only eager modules + entry require
@@ -1381,9 +1402,78 @@ async function main() {
       graph: backgroundGraph,
       prepend: backgroundPrepend,
       bundleOptions: backgroundBundleOptions,
-      moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
       moduleToSegment: backgroundSerializedModuleToSegment,
+      moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
+      externalModulePaths: runtimeOwnership.sharedStartupAbsPaths,
     });
+
+    // --- Bundle completeness validation ---
+    // Ensure every module in each runtime's graph is covered by
+    // eager bundles (common + runtime-specific) or a segment.
+    const { validateBundleCompleteness } = require('./unionBuildHelpers');
+
+    const moduleIdsToAbsPaths = (moduleIds, moduleIdToAbsPath) => {
+      const absPaths = new Set();
+      for (const id of moduleIds) {
+        const p = moduleIdToAbsPath.get(id);
+        if (p) {
+          absPaths.add(p);
+        }
+      }
+      return absPaths;
+    };
+
+    const commonEagerAbsPaths = moduleIdsToAbsPaths(
+      commonBundleResult.startupModuleIds,
+      mainModuleIndex.moduleIdToAbsPath,
+    );
+
+    for (const [runtimeLabel, runtimeGraph, eagerAbsPaths, segAbsPaths] of [
+      [
+        'main',
+        mainGraph,
+        new Set([
+          ...commonEagerAbsPaths,
+          ...moduleIdsToAbsPaths(
+            mainBundleResult.startupModuleIds,
+            mainModuleIndex.moduleIdToAbsPath,
+          ),
+        ]),
+        mainAllocation.segmentAbsPaths,
+      ],
+      [
+        'background',
+        backgroundGraph,
+        new Set([
+          ...commonEagerAbsPaths,
+          ...moduleIdsToAbsPaths(
+            backgroundBundleResult.startupModuleIds,
+            backgroundModuleIndex.moduleIdToAbsPath,
+          ),
+        ]),
+        backgroundAllocation.segmentAbsPaths,
+      ],
+    ]) {
+      const result = validateBundleCompleteness({
+        graph: runtimeGraph.dependencies,
+        eagerAbsPaths,
+        segmentAbsPaths: segAbsPaths,
+        allGraphAbsPaths: new Set(runtimeGraph.dependencies.keys()),
+      });
+
+      if (!result.valid) {
+        const sample = result.missingAbsPaths.slice(0, 20);
+        console.error(
+          `\n[unionBuild] WARNING: ${result.missingAbsPaths.length} modules in ` +
+            `${runtimeLabel} runtime are not in any eager bundle or segment:\n` +
+            sample.map((p) => `  - ${p}`).join('\n') +
+            (result.missingAbsPaths.length > 20
+              ? `\n  ... and ${result.missingAbsPaths.length - 20} more`
+              : '') +
+            '\n',
+        );
+      }
+    }
 
     const commonViolations = detectStartupViolations(
       commonBundleResult.startupModuleIds,
