@@ -503,6 +503,16 @@ function validateBundleCompleteness({
  * @param {Set<string>} eagerAbsPaths - absolute paths in the eager bundle for this runtime
  * @param {Map<number, string>} moduleIdToAbsPath - module ID → absolute path
  */
+/**
+ * Find sync deps of segment modules that are not in the eager bundle
+ * and not in any segment, then add them to the first segment that needs them.
+ *
+ * This prevents "Requiring unknown module" crashes when a segment module
+ * sync-requires a dep that only exists in the other runtime's bundle.
+ *
+ * Each missing dep is added to exactly ONE segment (the first that
+ * references it), avoiding cross-segment duplication.
+ */
 function expandSegmentsWithSyncDeps({
   segmentOutputs,
   serializedEntries,
@@ -516,70 +526,55 @@ function expandSegmentsWithSyncDeps({
     serializedEntries.map((e) => [e.absolutePath, [e.moduleId, e.moduleCode]]),
   );
 
-  // Track which absolute paths are already assigned to ANY segment
-  const allSegmentAbsPaths = new Set();
+  // All paths already covered by some segment in this runtime
+  const coveredBySegment = new Set();
   for (const [, modules] of segmentOutputs) {
     for (const [moduleId] of modules) {
       const absPath = moduleIdToAbsPath.get(moduleId);
       if (absPath) {
-        allSegmentAbsPaths.add(absPath);
+        coveredBySegment.add(absPath);
       }
     }
   }
 
   let totalAdded = 0;
 
-  for (const [segmentKey, modules] of segmentOutputs) {
-    // Collect current segment absolute paths
+  for (const [, modules] of segmentOutputs) {
     const segAbsPaths = new Set();
     for (const [moduleId] of modules) {
       const absPath = moduleIdToAbsPath.get(moduleId);
-      if (absPath) {
-        segAbsPaths.add(absPath);
-      }
+      if (absPath) segAbsPaths.add(absPath);
     }
 
-    // Walk sync deps from segment modules
     const pending = [...segAbsPaths];
     const visited = new Set(segAbsPaths);
-    const added = [];
 
     while (pending.length > 0) {
       const absPath = pending.pop();
       const entry = entryByAbsPath.get(absPath);
-      if (!entry?.moduleData) {
-        continue;
-      }
+      if (!entry?.moduleData) continue;
 
       for (const [, dep] of entry.moduleData.dependencies) {
         const depPath = dep.absolutePath;
         const asyncType = dep.data?.data?.asyncType;
-
-        if (asyncType === 'async' || visited.has(depPath)) {
-          continue;
-        }
+        if (asyncType === 'async' || visited.has(depPath)) continue;
         visited.add(depPath);
 
-        // Add dep if it's not in the eager bundle and not already in any
-        // segment of this runtime.
+        // Add if not in eager, not in any segment, and exists in serialized entries
         if (
           !eagerAbsPaths.has(depPath) &&
-          !allSegmentAbsPaths.has(depPath)
+          !coveredBySegment.has(depPath)
         ) {
           const depModuleEntry = moduleEntryByAbsPath.get(depPath);
           if (depModuleEntry) {
             modules.push(depModuleEntry);
-            segAbsPaths.add(depPath);
-            added.push(depPath);
+            coveredBySegment.add(depPath); // mark so other segments won't duplicate
+            totalAdded += 1;
           }
         }
 
         pending.push(depPath);
       }
-    }
-
-    if (added.length > 0) {
-      totalAdded += added.length;
     }
   }
 

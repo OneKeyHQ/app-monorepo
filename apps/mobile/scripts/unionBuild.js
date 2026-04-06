@@ -911,11 +911,26 @@ async function writeSegments({
     promotedSegmentKeys: promotedSet,
   });
 
-  // NOTE: Segment sync dep expansion is disabled. The per-runtime
-  // moduleFilter in writeBundle (using mainSegmentAbsPaths / bgSegmentAbsPaths
-  // instead of allSegmentAbsPaths) ensures that modules segmented in one
-  // runtime but eager in another are correctly included in the eager bundle.
-  // Expanding segments would cause massive duplication across segments.
+  // Expand segments: add sync deps that are not in the eager bundle and
+  // not in any other segment. Each missing dep is added to exactly ONE
+  // segment (first-come), preventing cross-segment duplication.
+  const mainSyncDepsAdded = expandSegmentsWithSyncDeps({
+    segmentOutputs: mainSegmentOutputs,
+    serializedEntries: mainRuntime.serializedEntries,
+    eagerAbsPaths: mainEagerAbsPaths,
+    moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+  });
+  const bgSyncDepsAdded = expandSegmentsWithSyncDeps({
+    segmentOutputs: backgroundSegmentOutputs,
+    serializedEntries: backgroundRuntime.serializedEntries,
+    eagerAbsPaths: bgEagerAbsPaths,
+    moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
+  });
+  if (mainSyncDepsAdded > 0 || bgSyncDepsAdded > 0) {
+    console.log(
+      `[unionBuild] Expanded segments with sync deps: main +${mainSyncDepsAdded}, background +${bgSyncDepsAdded}`,
+    );
+  }
 
 
   await fs.remove(getSegmentsDir('main'));
