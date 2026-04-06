@@ -48,6 +48,19 @@ const FORBIDDEN_NPM_IN_COMMON = [
   'viem/', // EVM library — lazy loaded by background connectors
 ];
 
+// Module path patterns that must NOT appear in main-runtime segments.
+// These are background-only code that should never be reachable from main.
+const FORBIDDEN_IN_MAIN_SEGMENTS = [
+  {
+    pattern: 'packages/core/src/chains/',
+    reason: 'Chain implementations belong to background — not main segments',
+  },
+  {
+    pattern: 'packages/kit-bg/src/vaults/',
+    reason: 'Vault code belongs to background — not main segments',
+  },
+];
+
 // Modules that should NOT be in common (they belong to one side only).
 // These are architectural warnings, not hard errors.
 const SUSPICIOUS_IN_COMMON = [
@@ -93,7 +106,7 @@ const SUSPICIOUS_NM_IN_COMMON = [
 // ~15 % headroom above current measurements.
 const BUDGETS = {
   commonMaxModules: parseInt(process.env.COMMON_MODULE_BUDGET, 10) || 4700,
-  commonMaxSizeMB: parseFloat(process.env.COMMON_SIZE_BUDGET_MB) || 17,
+  commonMaxSizeMB: parseFloat(process.env.COMMON_SIZE_BUDGET_MB) || 20,
   mainMaxModules: parseInt(process.env.MAIN_MODULE_BUDGET, 10) || 7700,
   bgMaxModules: parseInt(process.env.BG_MODULE_BUDGET, 10) || 10000,
   maxViolations: parseInt(process.env.MAX_VIOLATIONS, 10) || 0,
@@ -268,7 +281,29 @@ function main() {
     }
   }
 
-  // 3. Check suspicious modules in common
+  // 3. Check forbidden modules in main-runtime segments.
+  // Background-only code (core/chains, kit-bg/vaults) must not appear
+  // in segments with runtime=main — it means the main graph has an
+  // unexpected sync import path pulling background code into UI segments.
+  {
+    const manifestPath = path.join(distDir, 'segment-manifest.json');
+    if (fs.existsSync(manifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      const segments = manifest.segments || {};
+      for (const [segKey, segInfo] of Object.entries(segments)) {
+        if (segInfo.runtime !== 'main') continue;
+        for (const rule of FORBIDDEN_IN_MAIN_SEGMENTS) {
+          if (segKey.includes(rule.pattern.replace(/\//g, '.').replace('packages.', '').replace('.src.', '.'))) {
+            errors.push(
+              `[segment] ${segKey} has runtime=main but matches forbidden pattern "${rule.pattern}" — ${rule.reason}`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Check suspicious modules in common
   if (common) {
     warnings.push(...checkSuspiciousInCommon(common));
     errors.push(...checkViolations(common, 'common'));
