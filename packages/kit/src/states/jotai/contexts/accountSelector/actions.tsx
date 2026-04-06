@@ -178,10 +178,23 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         //   selectedAccount,
         //   activeAccount,
         // });
-        set(activeAccountsAtom(), (v) => ({
-          ...v,
+        const newActiveAccounts = {
+          ...get(activeAccountsAtom()),
           [num]: activeAccount,
-        }));
+        };
+        set(activeAccountsAtom(), newActiveAccounts);
+        // Save to MMKV snapshot for next startup
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { syncStorage: ss } = require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { EAppSyncStorageKeys: sk } = require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+          const raw = ss.getString(sk.onekey_jotai_atoms_snapshot);
+          const snapshot = raw ? JSON.parse(raw) : {};
+          snapshot['ctx:activeAccountsAtom'] = newActiveAccounts;
+          snapshot['ctx:selectedAccountsAtom'] = get(selectedAccountsAtom());
+          ss.set(sk.onekey_jotai_atoms_snapshot, JSON.stringify(snapshot));
+        } catch { /* best-effort */ }
         return activeAccount;
       }),
   );

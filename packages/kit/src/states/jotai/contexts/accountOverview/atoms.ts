@@ -45,13 +45,16 @@ export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
     accountId: string;
     initialized: boolean;
     updateAll?: boolean;
-  }>({
-    worth: {},
-    createAtNetworkWorth: '0',
-    accountId: '',
-    initialized: false,
-    updateAll: false,
-  });
+  }>(
+    {
+      worth: {},
+      createAtNetworkWorth: '0',
+      accountId: '',
+      initialized: false,
+      updateAll: false,
+    },
+    { name: 'ctx:accountWorthAtom' },
+  );
 
 export const {
   atom: accountOverviewStateAtom,
@@ -70,10 +73,13 @@ export const {
 } = contextAtom<{
   latest: string;
   byOwner: Record<string, string>;
-}>({
-  latest: '',
-  byOwner: {},
-});
+}>(
+  {
+    latest: '',
+    byOwner: {},
+  },
+  { name: 'ctx:lastConfirmedOverviewBalanceAtom' },
+);
 
 export const {
   atom: overviewTokenCacheStateAtom,

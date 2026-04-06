@@ -616,6 +616,55 @@ function HomeOverviewContainer() {
 
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
+  // Track when balance is first displayed and save contextAtom snapshot to MMKV
+  const balanceDisplayedRef = useRef(false);
+  useEffect(() => {
+    if (!balanceDisplayedRef.current && renderedBalanceString !== undefined) {
+      balanceDisplayedRef.current = true;
+      const jsEntry: number =
+        (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+      if (jsEntry) {
+        const elapsed = Date.now() - jsEntry;
+        defaultLogger.app.appUpdate.log(
+          `[StartupTiming] Home balance displayed: ${renderedBalanceString?.slice(0, 20)} at +${elapsed}ms from JS entry`,
+        );
+      }
+      // Save contextAtom values to MMKV snapshot for next startup
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { syncStorage: ss } = require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { EAppSyncStorageKeys: sk } = require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+        const raw = ss.getString(sk.onekey_jotai_atoms_snapshot);
+        const snapshot = raw ? JSON.parse(raw) : {};
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { contextAtomSnapshotRegistry } = require('@onekeyhq/kit-bg/src/states/jotai/utils') as typeof import('@onekeyhq/kit-bg/src/states/jotai/utils');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { createStore: cs } = require('jotai') as typeof import('jotai');
+        const tempStore = cs();
+        for (const [atomName, entry] of contextAtomSnapshotRegistry) {
+          try {
+            const atomInstance = entry.atom();
+            // Read from the context store that this component uses
+            // (contextAtomSnapshotRegistry stores the atom builder, not the store)
+            // Skip — we'll use a different approach below
+          } catch {
+            /* skip */
+          }
+        }
+        // Direct approach: save the values we already have in this component
+        snapshot['ctx:accountWorthAtom'] = accountWorth;
+        snapshot['ctx:lastConfirmedOverviewBalanceAtom'] = {
+          latest: renderedBalanceString,
+          byOwner: lastConfirmedOverviewBalance.byOwner,
+        };
+        ss.set(sk.onekey_jotai_atoms_snapshot, JSON.stringify(snapshot));
+      } catch {
+        /* best-effort */
+      }
+    }
+  }, [renderedBalanceString, accountWorth, lastConfirmedOverviewBalance.byOwner]);
+
   return (
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">

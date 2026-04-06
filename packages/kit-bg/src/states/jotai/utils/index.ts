@@ -316,17 +316,48 @@ export function globalAtomComputed<Value>(read: IJotaiRead<Value>) {
   return globalAtomComputedR({ read });
 }
 
+/**
+ * Registry of named contextAtoms for MMKV snapshot save/restore.
+ * Unlike globalAtomRegistry (for globalAtoms), this tracks contextAtom
+ * name→atomBuilder mappings so snapshot injection can work.
+ */
+export const contextAtomSnapshotRegistry = new Map<
+  string,
+  { atom: () => any }
+>();
+
 export function contextAtomBase<Value>({
   initialValue,
   useContextAtom,
+  name,
 }: {
   initialValue: Value;
+  name?: string;
   useContextAtom: <Value2, Args extends any[], Result>(
     atomInstance: WritableAtom<Value2, Args, Result>,
   ) => [Awaited<Value2>, IJotaiSetAtom<Args, Result>];
 }) {
-  const atomBuilder = memoizee(() => atom(initialValue));
+  // If named and MMKV snapshot has cached value, use it as initialValue
+  let resolvedInitialValue = initialValue;
+  if (name) {
+    const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
+    if (snapshotStates && name in snapshotStates) {
+      const cached = snapshotStates[name];
+      if (cached !== undefined && cached !== null) {
+        resolvedInitialValue =
+          typeof initialValue === 'object' && typeof cached === 'object'
+            ? { ...initialValue, ...cached }
+            : cached;
+      }
+    }
+  }
+
+  const atomBuilder = memoizee(() => atom(resolvedInitialValue));
   const useFn = () => useContextAtom(atomBuilder());
+
+  if (name) {
+    contextAtomSnapshotRegistry.set(name, { atom: atomBuilder });
+  }
 
   return {
     useContextAtom,

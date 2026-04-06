@@ -56,9 +56,12 @@ export type ISelectedAccountsAtomMap = Partial<{
   [num: number]: IAccountSelectorSelectedAccount;
 }>;
 export const { atom: selectedAccountsAtom, use: useSelectedAccountsAtom } =
-  contextAtom<ISelectedAccountsAtomMap>({
-    0: defaultSelectedAccount(),
-  });
+  contextAtom<ISelectedAccountsAtomMap>(
+    {
+      0: defaultSelectedAccount(),
+    },
+    { name: 'ctx:selectedAccountsAtom' },
+  );
 
 // const atomInstance = selectedAccountsAtom();
 // const oldWrite = atomInstance.write;
@@ -184,9 +187,12 @@ export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
     ready: false,
   });
 export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
-  contextAtom<Partial<{ [num: number]: IAccountSelectorActiveAccountInfo }>>({
-    0: defaultActiveAccountInfo(),
-  });
+  contextAtom<Partial<{ [num: number]: IAccountSelectorActiveAccountInfo }>>(
+    {
+      0: defaultActiveAccountInfo(),
+    },
+    { name: 'ctx:activeAccountsAtom' },
+  );
 
 export function useActiveAccount({ num }: { num: number }): {
   activeAccount: IAccountSelectorActiveAccountInfo;

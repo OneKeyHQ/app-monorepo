@@ -78,10 +78,14 @@ export function createJotaiContext<TContextConfig = undefined>() {
     return useAtom(atomInstance, { store: data.store! });
   }
 
-  function contextAtom<Value>(initialValue: Value) {
+  function contextAtom<Value>(
+    initialValue: Value,
+    options?: { name?: string },
+  ) {
     return contextAtomBase({
       useContextAtom,
       initialValue,
+      name: options?.name,
     });
   }
 
