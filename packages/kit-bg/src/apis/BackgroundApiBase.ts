@@ -16,6 +16,7 @@ import {
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EAppEventBusNames,
   IAppEventBusPayload,
@@ -247,6 +248,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   }
 
   connectWebEmbedBridge(bridge: JsBridgeBase | null) {
+    defaultLogger.app.webembed.webEmbedBgConnectWebEmbedBridge({
+      hasBridge: !!bridge,
+    });
     this.webEmbedBridge = bridge;
     if (bridge) {
       void this.flushPendingInjectedBridgeMessages();

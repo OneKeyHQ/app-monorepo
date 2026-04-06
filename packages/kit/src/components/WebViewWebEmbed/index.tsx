@@ -61,16 +61,28 @@ export function WebViewWebEmbed({
 
   useEffect(() => {
     async function getApiKey() {
-      const devSettings =
-        await backgroundApiProxy.serviceDevSetting.getDevSetting();
-      let apiKey = REVENUECAT_API_KEY_WEB;
-      if (devSettings?.settings?.usePrimeSandboxPayment) {
-        apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
+      try {
+        const devSettings =
+          await backgroundApiProxy.serviceDevSetting.getDevSetting();
+        let apiKey = REVENUECAT_API_KEY_WEB;
+        if (devSettings?.settings?.usePrimeSandboxPayment) {
+          apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
+        }
+        if (!apiKey) {
+          defaultLogger.app.webembed.webEmbedRevenuecatApiKey({
+            hasKey: false,
+            error: 'No REVENUECAT api key found',
+          });
+          throw new OneKeyLocalError('No REVENUECAT api key found');
+        }
+        defaultLogger.app.webembed.webEmbedRevenuecatApiKey({ hasKey: true });
+        setRevenuecatApiKey(apiKey);
+      } catch (error) {
+        defaultLogger.app.webembed.webEmbedRevenuecatApiKey({
+          hasKey: false,
+          error: String(error),
+        });
       }
-      if (!apiKey) {
-        throw new OneKeyLocalError('No REVENUECAT api key found');
-      }
-      setRevenuecatApiKey(apiKey);
     }
     void getApiKey();
   }, []);
@@ -78,6 +90,12 @@ export function WebViewWebEmbed({
   const webEmbedAppSettings = useMemo<
     IWebEmbedOnekeyAppSettings | undefined
   >(() => {
+    defaultLogger.app.webembed.webEmbedAppSettingsResolved({
+      hasSettings: true,
+      hasTheme: !!themeVariant,
+      hasLocale: !!localeVariant,
+      hasApiKey: !!revenuecatApiKey,
+    });
     if (!themeVariant || !localeVariant || !revenuecatApiKey) {
       return undefined;
     }
@@ -120,28 +138,41 @@ export function WebViewWebEmbed({
 
   const nativeWebviewSource = useMemo(() => {
     if (remoteUrl) {
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        remoteUrl,
+      });
       return undefined;
     }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
     if (webEmbedPath) {
-      return {
-        uri: platformEnv.isNativeAndroid
-          ? `file://${webEmbedPath}/index.html`
-          : webEmbedPath,
-      };
+      const uri = platformEnv.isNativeAndroid
+        ? `file://${webEmbedPath}/index.html`
+        : webEmbedPath;
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        nativeUri: uri,
+        webEmbedPath,
+      });
+      return { uri };
     }
     // Android
     if (platformEnv.isNativeAndroid) {
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        nativeUri: 'file:///android_asset/web-embed/index.html',
+      });
       return {
         uri: 'file:///android_asset/web-embed/index.html',
       };
     }
     // iOS
     if (platformEnv.isNativeIOS) {
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        nativeUri: 'web-embed/index.html',
+      });
       return {
         uri: 'web-embed/index.html',
       };
     }
+    defaultLogger.app.webembed.webEmbedWebViewSource({});
     return undefined;
   }, [remoteUrl]);
 
@@ -198,6 +229,27 @@ export function WebViewWebEmbed({
     }
   }, []);
 
+  const onWebViewLoadStart = useCallback(() => {
+    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
+      event: 'loadStart',
+      url: remoteUrl || nativeWebviewSource?.uri,
+    });
+  }, [remoteUrl, nativeWebviewSource?.uri]);
+
+  const onWebViewLoad = useCallback(() => {
+    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
+      event: 'loadSuccess',
+      url: remoteUrl || nativeWebviewSource?.uri,
+    });
+  }, [remoteUrl, nativeWebviewSource?.uri]);
+
+  const onWebViewLoadEnd = useCallback(() => {
+    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
+      event: 'loadEnd',
+      url: remoteUrl || nativeWebviewSource?.uri,
+    });
+  }, [remoteUrl, nativeWebviewSource?.uri]);
+
   const allowFileAccessByUrl = useMemo(() => {
     if (platformEnv.isNativeAndroid) {
       const webEmbedPath = BundleUpdate.getWebEmbedPath();
@@ -242,6 +294,9 @@ export function WebViewWebEmbed({
         onWebViewRef={onWebViewRef}
         customReceiveHandler={customReceiveHandler}
         onMessage={handleMessage}
+        onLoadStart={onWebViewLoadStart}
+        onLoad={onWebViewLoad}
+        onLoadEnd={onWebViewLoadEnd}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
@@ -276,13 +331,23 @@ export function WebViewWebEmbed({
     onWebViewRef,
     customReceiveHandler,
     handleMessage,
+    onWebViewLoadStart,
+    onWebViewLoad,
+    onWebViewLoadEnd,
   ]);
 
   useEffect(() => {
+    const jsBridge = webviewRef?.current?.jsBridge;
+    defaultLogger.app.webembed.webEmbedBridgeEffect({
+      isNative: !!platformEnv.isNative,
+      hasBridge: !!jsBridge,
+      hasWebview: !!webview,
+      hasSettings: !!webEmbedAppSettings,
+      bridgeGlobalOnMessageEnabled: jsBridge?.globalOnMessageEnabled,
+    });
     if (!platformEnv.isNative) {
       return;
     }
-    const jsBridge = webviewRef?.current?.jsBridge;
     if (!jsBridge) {
       return;
     }

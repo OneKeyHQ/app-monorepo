@@ -627,6 +627,13 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
 
+    defaultLogger.app.webembed.callWebEmbedApiProxyEntry({
+      module: data?.module || '',
+      method: data?.method || '',
+      isWebEmbedApiReady: !!this.isWebEmbedApiReady,
+      hasWebEmbedBridge: !!bg?.webEmbedBridge,
+    });
+
     await waitForDataLoaded({
       data: () => this.isWebEmbedApiReady && Boolean(bg?.webEmbedBridge),
       logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${JSON.stringify({
@@ -644,6 +651,11 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
 
     const webviewOrigin = bg?.webEmbedBridge?.remoteInfo?.origin || '';
+    defaultLogger.app.webembed.callWebEmbedApiProxyBridgeReady({
+      module: data?.module || '',
+      method: data?.method || '',
+      origin: webviewOrigin,
+    });
     if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
       throw new OneKeyLocalError(
         `callWebEmbedApiProxy not allowed origin: ${
