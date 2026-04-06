@@ -118,9 +118,14 @@ const allocationRules = [
 ];
 
 /**
- * Modules that must NEVER appear in any startup graph.
- * If the serializer finds any of these in the eager entry,
- * it logs a warning (or fails in strict mode).
+ * Modules that must NEVER appear in the eager startup graph.
+ *
+ * - Vaults: factory.ts & settings.ts already use import() for lazy loading.
+ *   Violations mean a Provider or Service has a sync import of vault impls,
+ *   which pulls chain SDKs into eager and slows startup.
+ * - Services: BackgroundApi uses getter+require() for lazy instantiation.
+ *   Metro still statically collects these, so they appear as violations
+ *   even though they are deferred at runtime.
  */
 const forbiddenInStartup = [
   'packages/kit-bg/src/vaults/',
