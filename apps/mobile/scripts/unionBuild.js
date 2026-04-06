@@ -377,6 +377,69 @@ function buildSegmentAllocation(graph) {
     }
   }
 
+  // Step 3: Fallback pass — classify remaining unclassified modules.
+  // After Step 2's conservative rescan, modules with at least one unresolved
+  // parent stay unclassified even if all their resolved parents are eager.
+  // This creates cascading dead-locks (e.g., @babel/runtime used by both eager
+  // and segment code).  Resolve by treating unclassified modules that have ANY
+  // eager parent as eager (safe default — they were reachable from eager code).
+  let fallbackChanged = true;
+  while (fallbackChanged) {
+    fallbackChanged = false;
+    for (const [absolutePath, moduleData] of graph.dependencies) {
+      const moduleId = fileToIdMap.get(absolutePath);
+      if (eagerModuleIds.has(moduleId) || moduleToSegment.has(moduleId)) {
+        continue;
+      }
+
+      let hasEagerParent = false;
+      let hasSegmentParent = false;
+      for (const parentPath of moduleData.inverseDependencies) {
+        const parentId = fileToIdMap.get(parentPath);
+        if (eagerModuleIds.has(parentId)) {
+          hasEagerParent = true;
+        } else if (moduleToSegment.has(parentId)) {
+          hasSegmentParent = true;
+        }
+      }
+
+      if (hasEagerParent) {
+        // Reachable from eager code → must be eager
+        eagerModuleIds.add(moduleId);
+        fallbackChanged = true;
+      } else if (
+        hasSegmentParent &&
+        moduleData.inverseDependencies.size > 0
+      ) {
+        // All resolved parents are segments, no eager parent → assign to first
+        // parent's segment.  Unresolved parents are likely also segments that
+        // will resolve in subsequent iterations.
+        for (const parentPath of moduleData.inverseDependencies) {
+          const parentId = fileToIdMap.get(parentPath);
+          const parentSeg = moduleToSegment.get(parentId);
+          if (parentSeg) {
+            if (!segmentModules.has(parentSeg)) {
+              segmentModules.set(parentSeg, new Set());
+            }
+            segmentModules.get(parentSeg).add(moduleId);
+            moduleToSegment.set(moduleId, parentSeg);
+            fallbackChanged = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Final sweep: any module still unclassified has no resolved parents at all
+  // (orphan in the graph).  Force them to eager so they're not lost.
+  for (const [absolutePath] of graph.dependencies) {
+    const moduleId = fileToIdMap.get(absolutePath);
+    if (!eagerModuleIds.has(moduleId) && !moduleToSegment.has(moduleId)) {
+      eagerModuleIds.add(moduleId);
+    }
+  }
+
   // Build a path-based set of segment modules for use in moduleFilter.
   // moduleToSegment uses fileToIdMap IDs which may differ from Metro server IDs,
   // so path-based lookup is the reliable way to check in writeBundle.
