@@ -434,20 +434,53 @@ function rewriteAsyncRequirePaths(
   }
 }
 
+/**
+ * Validate that every sync dependency reachable from eager AND segment
+ * modules is covered by either the eager bundle set or a segment.
+ *
+ * Walk from each eager module AND each segment module along synchronous
+ * (non-async) dependency edges.  Any module reached that is NOT in
+ * eagerAbsPaths and NOT in segmentAbsPaths is reported as missing – it
+ * will cause a "Requiring unknown module" crash at runtime.
+ */
 function validateBundleCompleteness({
   graph,
   eagerAbsPaths,
   segmentAbsPaths,
-  allGraphAbsPaths,
 }) {
   const coveredAbsPaths = new Set([...eagerAbsPaths, ...segmentAbsPaths]);
+  const visited = new Set();
   const missingAbsPaths = [];
+  // Start from BOTH eager and segment modules
+  const pending = [...eagerAbsPaths, ...segmentAbsPaths];
 
-  for (const absolutePath of allGraphAbsPaths) {
-    if (!coveredAbsPaths.has(absolutePath)) {
-      const moduleData = graph.get(absolutePath);
-      if (moduleData) {
-        missingAbsPaths.push(absolutePath);
+  while (pending.length > 0) {
+    const absolutePath = pending.pop();
+    if (visited.has(absolutePath)) {
+      continue;
+    }
+    visited.add(absolutePath);
+
+    const moduleData = graph.get(absolutePath);
+    if (!moduleData) {
+      continue;
+    }
+
+    for (const [, dep] of moduleData.dependencies) {
+      const depPath = dep.absolutePath;
+      const asyncType = dep.data?.data?.asyncType;
+
+      // Only follow synchronous dependencies
+      if (asyncType === 'async') {
+        continue;
+      }
+
+      if (!coveredAbsPaths.has(depPath) && graph.has(depPath)) {
+        missingAbsPaths.push(depPath);
+      }
+
+      if (!visited.has(depPath)) {
+        pending.push(depPath);
       }
     }
   }

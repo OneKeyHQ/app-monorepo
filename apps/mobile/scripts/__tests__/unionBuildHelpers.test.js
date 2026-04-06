@@ -683,14 +683,14 @@ describe('unionBuildHelpers', () => {
       graph: sharedGraph,
       eagerAbsPaths: mainEager,
       segmentAbsPaths: new Set(),
-      allGraphAbsPaths: new Set(sharedGraph.keys()),
+  
     });
 
     const bgResult = validateBundleCompleteness({
       graph: sharedGraph,
       eagerAbsPaths: bgEager,
       segmentAbsPaths: new Set(),
-      allGraphAbsPaths: new Set(sharedGraph.keys()),
+  
     });
 
     expect(mainResult.valid).toBe(true);

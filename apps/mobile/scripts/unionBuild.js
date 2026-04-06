@@ -1458,7 +1458,6 @@ async function main() {
         graph: runtimeGraph.dependencies,
         eagerAbsPaths,
         segmentAbsPaths: segAbsPaths,
-        allGraphAbsPaths: new Set(runtimeGraph.dependencies.keys()),
       });
 
       if (!result.valid) {
