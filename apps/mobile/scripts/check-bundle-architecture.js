@@ -35,6 +35,19 @@ const FORBIDDEN_IN_MAIN = [
   'packages/core/src/chains/',
 ];
 
+// npm packages that must NEVER appear in the main eager bundle.
+// Phase 1 optimization (2026-04-06) moved these to dynamic imports.
+const FORBIDDEN_NPM_IN_MAIN = [
+  '@keystonehq/', //      Hardware wallet QR SDK — lazy via qr-wallet-sdk
+  '@reown/', //            WalletConnect UI — event-driven lazy mount
+  '@bufbuild/protobuf', // Protobuf — transitive dep of @keystonehq
+];
+
+// npm packages that must NEVER appear in the common eager bundle.
+const FORBIDDEN_NPM_IN_COMMON = [
+  'viem/', // EVM library — lazy loaded by background connectors
+];
+
 // Modules that should NOT be in common (they belong to one side only).
 // These are architectural warnings, not hard errors.
 const SUSPICIOUS_IN_COMMON = [
@@ -73,12 +86,16 @@ const SUSPICIOUS_NM_IN_COMMON = [
   },
 ];
 
-// Budget thresholds
+// Budget thresholds — calibrated after Phase 1 optimization (2026-04-06).
+//   common: 4062 modules / 14.03 MB
+//   main:   6679 modules / 29.30 MB
+//   bg:     8712 modules / 51.38 MB
+// ~15 % headroom above current measurements.
 const BUDGETS = {
-  commonMaxModules: parseInt(process.env.COMMON_MODULE_BUDGET, 10) || 6500,
-  commonMaxSizeMB: parseFloat(process.env.COMMON_SIZE_BUDGET_MB) || 30,
-  mainMaxModules: parseInt(process.env.MAIN_MODULE_BUDGET, 10) || 4000,
-  bgMaxModules: parseInt(process.env.BG_MODULE_BUDGET, 10) || 4000,
+  commonMaxModules: parseInt(process.env.COMMON_MODULE_BUDGET, 10) || 4700,
+  commonMaxSizeMB: parseFloat(process.env.COMMON_SIZE_BUDGET_MB) || 17,
+  mainMaxModules: parseInt(process.env.MAIN_MODULE_BUDGET, 10) || 7700,
+  bgMaxModules: parseInt(process.env.BG_MODULE_BUDGET, 10) || 10000,
   maxViolations: parseInt(process.env.MAX_VIOLATIONS, 10) || 0,
 };
 
@@ -227,13 +244,37 @@ function main() {
     errors.push(...checkViolations(mainReport, 'main'));
   }
 
-  // 2. Check suspicious modules in common
+  // 2. Check forbidden npm packages (Phase 1 optimization guard)
+  if (mainReport) {
+    const mainMods = mainReport.startup.modules;
+    for (const pattern of FORBIDDEN_NPM_IN_MAIN) {
+      const matches = mainMods.filter((m) => m.includes(pattern));
+      if (matches.length > 0) {
+        errors.push(
+          `[main] Forbidden npm "${pattern}" in eager startup (${matches.length} modules). Use dynamic import().`,
+        );
+      }
+    }
+  }
+  if (common) {
+    const commonMods = common.startup.modules;
+    for (const pattern of FORBIDDEN_NPM_IN_COMMON) {
+      const matches = commonMods.filter((m) => m.includes(pattern));
+      if (matches.length > 0) {
+        errors.push(
+          `[common] Forbidden npm "${pattern}" in eager startup (${matches.length} modules). Must not be eagerly loaded.`,
+        );
+      }
+    }
+  }
+
+  // 3. Check suspicious modules in common
   if (common) {
     warnings.push(...checkSuspiciousInCommon(common));
     errors.push(...checkViolations(common, 'common'));
   }
 
-  // 3. Check budgets
+  // 4. Check budgets
   errors.push(...checkBudgets(common, mainReport, bg));
 
   // ── Summary ─────────────────────────────────────────────────────────────

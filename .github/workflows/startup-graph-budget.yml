@@ -18,13 +18,15 @@ env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
-  budget-check:
+  # Dual-thread three-bundle architecture check (Phase 4)
+  # Runs unionBuild to produce allocation reports, then validates
+  # forbidden packages, module budgets, and architectural rules.
+  bundle-architecture:
     runs-on: ubuntu-24.04
 
     strategy:
       matrix:
         node-version: [24.x]
-        entry: [main, background]
 
     steps:
       - uses: actions/checkout@v4
@@ -45,18 +47,46 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn install --immutable
 
-      - name: Run Startup Graph Budget Check (${{ matrix.entry }})
+      - name: Union Build (three-bundle split)
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
-          METRO_RUNTIME_TARGET: ${{ matrix.entry }}
-          ENTRY: ${{ matrix.entry }}
+          UNION_BUILD: 'true'
+        run: |
+          cd apps/mobile
+          node scripts/unionBuild.js \
+            --platform ios \
+            --common-bundle-output /tmp/common.jsbundle \
+            --common-sourcemap-output /tmp/common.jsbundle.map \
+            --main-bundle-output /tmp/main.jsbundle \
+            --main-sourcemap-output /tmp/main.jsbundle.map \
+            --background-bundle-output /tmp/background.bundle.js \
+            --background-sourcemap-output /tmp/background.bundle.map \
+            --assets-dest /tmp/assets
+
+      - name: Budget Check (main entry)
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          ENTRY: main
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
-      - name: Upload Budget Report
+      - name: Budget Check (background entry)
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          ENTRY: background
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+
+      - name: Architecture Check (three-bundle rules)
+        run: node apps/mobile/scripts/check-bundle-architecture.js
+
+      - name: Upload Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: budget-check-report-${{ matrix.entry }}
-          path: apps/mobile/out-dir-analysis/budget-check-report.json
+          name: bundle-architecture-reports
+          path: |
+            apps/mobile/dist/allocation-report-*.json
+            apps/mobile/out-dir-analysis/budget-check-report.json
           retention-days: 30

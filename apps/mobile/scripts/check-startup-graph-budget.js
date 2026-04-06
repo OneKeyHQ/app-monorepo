@@ -29,15 +29,31 @@ if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
     process.env.SPLIT_BUNDLE_SEGMENTS || 'true';
 }
 
-// Budgets — calibrated from Phase 0 baseline measurements.
-// main-with-alias: 17783 modules as of 2026-04-01
-// These should be tightened as the startup graph shrinks.
+// Budgets — calibrated after Phase 1 bundle-split optimization (2026-04-06).
+//   common: 4062 modules / 14.03 MB
+//   main:   6679 modules / 29.30 MB (includes common overlap)
+//   bg:     8712 modules / 51.38 MB
+// Headroom: ~15 % above current measurements.
 const MODULE_BUDGET = parseInt(
-  process.env.STARTUP_MODULE_BUDGET || '18500',
+  process.env.STARTUP_MODULE_BUDGET || '7700',
   10,
 );
 const SIZE_BUDGET_BYTES =
-  parseFloat(process.env.STARTUP_SIZE_BUDGET_MB || '50') * 1024 * 1024;
+  parseFloat(process.env.STARTUP_SIZE_BUDGET_MB || '34') * 1024 * 1024;
+
+// npm packages that must NEVER appear in the main startup graph.
+// Phase 1 optimization moved these to lazy / dynamic imports.
+// If any creep back, a sync import was accidentally added somewhere.
+const FORBIDDEN_NPM_IN_MAIN = [
+  '@keystonehq/', // Hardware wallet QR SDK — lazy via qr-wallet-sdk
+  '@reown/', //       WalletConnect UI — event-driven lazy mount
+  '@bufbuild/protobuf', // Protobuf — transitive dep of @keystonehq
+];
+
+// npm packages that must NEVER appear in the common startup graph.
+const FORBIDDEN_NPM_IN_COMMON = [
+  'viem/', //   EVM library — lazy loaded by background connectors
+];
 
 function relativePath(absPath, root) {
   return absPath.replace(root, '').replace(/^\//, '');
@@ -200,6 +216,46 @@ async function main() {
     failures.push(
       `Forbidden modules in startup graph: ${foundForbidden.join(', ')}`,
     );
+  }
+
+  // Check forbidden npm packages (Phase 1 optimization guard)
+  if (fs.existsSync(allocationReportPath)) {
+    const allocationReport = JSON.parse(
+      fs.readFileSync(allocationReportPath, 'utf-8'),
+    );
+    const startupModules = (allocationReport.startup || {}).modules || [];
+    const forbiddenPatterns =
+      entryName === 'main' ? FORBIDDEN_NPM_IN_MAIN : [];
+    for (const pattern of forbiddenPatterns) {
+      const matches = startupModules.filter((m) => m.includes(pattern));
+      if (matches.length > 0) {
+        failures.push(
+          `Forbidden npm "${pattern}" found in ${entryName} startup (${matches.length} modules). A sync import of this package was re-introduced — use dynamic import() instead.`,
+        );
+      }
+    }
+
+    // Also check common report if it exists and we're checking main
+    if (entryName === 'main') {
+      const commonReportPath = path.resolve(
+        distDir,
+        'allocation-report-common.json',
+      );
+      if (fs.existsSync(commonReportPath)) {
+        const commonReport = JSON.parse(
+          fs.readFileSync(commonReportPath, 'utf-8'),
+        );
+        const commonModules = (commonReport.startup || {}).modules || [];
+        for (const pattern of FORBIDDEN_NPM_IN_COMMON) {
+          const matches = commonModules.filter((m) => m.includes(pattern));
+          if (matches.length > 0) {
+            failures.push(
+              `Forbidden npm "${pattern}" found in common startup (${matches.length} modules). This package must not be eagerly loaded.`,
+            );
+          }
+        }
+      }
+    }
   }
 
   // Check allocation report violations (Phase 4)
