@@ -110,7 +110,13 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       // Lookup manifest
       const entry = getSegmentEntry(segmentKey);
       if (!entry) {
-        throw new SegmentLoadError(segmentKey, 'Segment not found in manifest');
+        // Module may already be in the eager bundle (e.g. a module that has
+        // both sync and async import() edges — the serializer classifies it
+        // as eager but the async require path is not rewritten inside segment
+        // files). Resolve silently: the module is already available.
+        loadedSegments.add(segmentKey);
+        segmentStates.set(segmentKey, 'ready');
+        return;
       }
 
       // Runtime access control

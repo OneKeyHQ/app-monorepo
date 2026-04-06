@@ -214,6 +214,52 @@ module.exports = async function segmentSerializer(
     }
   }
 
+  // Step 1b: Detect modules with mixed sync+async import edges.
+  // When the same parent has both `import x from 'mod'` (sync) and
+  // `await import('mod')` (async), the module is pulled into the eager
+  // bundle by the sync edge, making the async import a runtime no-op.
+  // However Metro still emits a __loadBundleAsync call for the async edge,
+  // which will fail at runtime because the module has no segment manifest
+  // entry. The production bundle loader handles this gracefully (resolves
+  // silently when not in manifest), but these should ideally be cleaned up
+  // so that each module is imported exclusively via sync OR async — not both.
+  const mixedImportWarnings = [];
+  for (const [key, value] of graph.dependencies) {
+    for (const parentPath of value.inverseDependencies) {
+      const parentModule = graph.dependencies.get(parentPath);
+      if (!parentModule) continue;
+      let hasSyncEdge = false;
+      let hasAsyncEdge = false;
+      for (const [, dep] of parentModule.dependencies) {
+        if (dep.absolutePath === key) {
+          if (dep.data.data.asyncType === 'async') {
+            hasAsyncEdge = true;
+          } else {
+            hasSyncEdge = true;
+          }
+        }
+      }
+      if (hasSyncEdge && hasAsyncEdge) {
+        const relChild = key.replace(monorepoRoot, '').replace(/^\//, '');
+        const relParent = parentPath
+          .replace(monorepoRoot, '')
+          .replace(/^\//, '');
+        mixedImportWarnings.push({ parent: relParent, child: relChild });
+      }
+    }
+  }
+  if (mixedImportWarnings.length > 0) {
+    console.warn(
+      `[segmentSerializer] WARNING: ${mixedImportWarnings.length} module(s) have both sync and async import() from the same parent.\n` +
+        '  The sync edge pulls them into the eager bundle, making the async import() a no-op at build time.\n' +
+        '  At runtime, __loadBundleAsync will silently skip these (not in manifest).\n' +
+        '  Consider using only sync OR async import for each module to avoid confusion:\n' +
+        mixedImportWarnings
+          .map((w) => `    ${w.parent} → ${w.child}`)
+          .join('\n'),
+    );
+  }
+
   // Step 2: Build module allocation map
   const segmentModules = new Map(); // segmentKey → Set<moduleId>
   const moduleToSegment = new Map(); // moduleId → segmentKey
