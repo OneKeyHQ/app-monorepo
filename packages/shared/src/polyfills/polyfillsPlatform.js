@@ -51,12 +51,31 @@ if (platformEnv.isNative) {
   const useJsBundle =
     require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').useJsBundle();
   if (useJsBundle) {
+    // OTA bundle: use the OTA bundle's local assets directory
     const getJsBundlePath =
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
     const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc')[0];
     const assetsPath = `file://${mainBundlePath}/assets/`;
 
     require('./assetResolutionPatch').patchNativeAssetResolution(assetsPath);
+  } else {
+    // Regular release build (including split-bundle): fix the ../→_ path
+    // mismatch between Metro's asset registration and the actual file layout.
+    // Derive assetsPath from SourceCode.scriptURL (e.g. file:///.../app/common.jsbundle → file:///.../app/assets/)
+    try {
+      const { NativeModules } = require('react-native');
+      const scriptURL =
+        NativeModules?.SourceCode?.getConstants?.()?.scriptURL || '';
+      if (scriptURL.startsWith('file://')) {
+        const bundleDir = scriptURL.replace(/\/[^/]+$/, '');
+        const assetsPath = `${bundleDir}/assets/`;
+        require('./assetResolutionPatch').patchNativeAssetResolution(
+          assetsPath,
+        );
+      }
+    } catch (_e) {
+      // noop — asset patch is best-effort
+    }
   }
 }
 
