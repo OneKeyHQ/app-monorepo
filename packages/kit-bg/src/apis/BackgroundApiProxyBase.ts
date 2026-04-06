@@ -85,6 +85,7 @@ export class BackgroundApiProxyBase
         },
         localFallback: () => Promise<any>,
       ) => Promise<any>;
+      ensureReady?: () => Promise<void>;
       isEnabled: () => boolean;
     };
 
@@ -205,7 +206,8 @@ export class BackgroundApiProxyBase
       platformEnv.enableNativeBackgroundThread
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
-      if (transport?.isEnabled()) {
+      if (transport) {
+        await transport.ensureReady?.();
         const backgroundMethod =
           serviceName && serviceName !== 'ROOT'
             ? `${serviceName}.${methodName}`
@@ -271,7 +273,8 @@ export class BackgroundApiProxyBase
           platformEnv.enableNativeBackgroundThread
         ) {
           const transport = this.getNativeBackgroundThreadTransport();
-          if (transport?.isEnabled()) {
+          if (transport) {
+            await transport.ensureReady?.();
             await transport
               .emitAppEventRequest(
                 {
@@ -326,14 +329,17 @@ export class BackgroundApiProxyBase
       platformEnv.enableNativeBackgroundThread
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
-      if (transport?.isEnabled()) {
-        void transport
-          .syncBridgeConnection(
-            {
-              channel: 'dapp',
-              bridge,
-            },
-            () => this.connectLocalBackgroundBridge('dapp', bridge),
+      if (transport) {
+        void Promise.resolve()
+          .then(() => transport.ensureReady?.())
+          .then(() =>
+            transport.syncBridgeConnection(
+              {
+                channel: 'dapp',
+                bridge,
+              },
+              () => this.connectLocalBackgroundBridge('dapp', bridge),
+            ),
           )
           .catch((error) => {
             console.error('connectBridge relay failed', error);
@@ -350,14 +356,17 @@ export class BackgroundApiProxyBase
       platformEnv.enableNativeBackgroundThread
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
-      if (transport?.isEnabled()) {
-        void transport
-          .syncBridgeConnection(
-            {
-              channel: 'webEmbed',
-              bridge,
-            },
-            () => this.connectLocalBackgroundBridge('webEmbed', bridge),
+      if (transport) {
+        void Promise.resolve()
+          .then(() => transport.ensureReady?.())
+          .then(() =>
+            transport.syncBridgeConnection(
+              {
+                channel: 'webEmbed',
+                bridge,
+              },
+              () => this.connectLocalBackgroundBridge('webEmbed', bridge),
+            ),
           )
           .catch((error) => {
             console.error('connectWebEmbedBridge relay failed', error);
@@ -374,14 +383,18 @@ export class BackgroundApiProxyBase
       platformEnv.enableNativeBackgroundThread
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
-      if (transport?.isEnabled()) {
-        return transport.callBridgeRequest(
-          {
-            type: 'bridge-call',
-            payload,
-          },
-          () => this.callLocalBridgeReceiveHandler(payload),
-        );
+      if (transport) {
+        return Promise.resolve()
+          .then(() => transport.ensureReady?.())
+          .then(() =>
+            transport.callBridgeRequest(
+              {
+                type: 'bridge-call',
+                payload,
+              },
+              () => this.callLocalBridgeReceiveHandler(payload),
+            ),
+          );
       }
     }
     // Use async fallback if backgroundApi is not yet available (native-ui stub)

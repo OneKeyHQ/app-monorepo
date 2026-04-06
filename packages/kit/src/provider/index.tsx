@@ -14,6 +14,7 @@ import { Toast } from '@onekeyhq/components';
 import { SyncHomeAccountToDappAccountProvider } from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -48,6 +49,15 @@ const LastActivityTracker = LazyLoad(
 
 const flexStyle = { flex: 1 };
 
+function logKitProvider(message: string) {
+  if (
+    platformEnv.isNativeMainThread &&
+    platformEnv.enableNativeBackgroundThread
+  ) {
+    defaultLogger.app.appUpdate.log(`[KitProvider] ${message}`);
+  }
+}
+
 export function KitProvider(props: any = {}) {
   const {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
@@ -58,6 +68,7 @@ export function KitProvider(props: any = {}) {
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('KitProvider render');
   }
+  logKitProvider('render');
 
   useDebugComponentRemountLog({ name: 'KitProvider' });
 

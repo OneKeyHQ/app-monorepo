@@ -92,6 +92,7 @@ type INativeBackgroundThreadTransport = {
     },
     localFallback: () => Promise<any>,
   ) => Promise<any>;
+  ensureReady: () => Promise<void>;
   getState: () => IBackgroundThreadTransportState;
   isEnabled: () => boolean;
 };
@@ -463,6 +464,32 @@ function ensureBackgroundRuntimeObserver() {
   }, OBSERVER_RETRY_MS);
 }
 
+async function ensureTransportReady() {
+  if (!isNativeBackgroundThreadTransportEnabled()) {
+    throw createTransportError('Native background thread transport disabled');
+  }
+
+  ensureBackgroundRuntimeObserver();
+  const waitUntil = Date.now() + READY_TIMEOUT_MS;
+
+  while (transportState !== 'ready') {
+    if (transportState === 'remote-broken') {
+      throw createTransportError(getRemoteBrokenReason());
+    }
+
+    if (Date.now() >= waitUntil) {
+      const reason = 'Background runtime ready timeout';
+      switchToRemoteBroken(reason);
+      throw createTransportError(getRemoteBrokenReason(reason));
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, OBSERVER_RETRY_MS);
+    });
+    ensureBackgroundRuntimeObserver();
+  }
+}
+
 function dispatchRemoteRequest(
   request: IBackgroundThreadRequest,
   localFallback: () => Promise<any>,
@@ -607,6 +634,7 @@ function installGlobalTransport() {
     emitAppEventRequest,
     callBridgeRequest,
     syncBridgeConnection,
+    ensureReady: ensureTransportReady,
     getState: () => transportState,
     isEnabled: isNativeBackgroundThreadTransportEnabled,
   };

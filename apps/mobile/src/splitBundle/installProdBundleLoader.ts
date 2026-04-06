@@ -202,6 +202,39 @@ export async function loadSegment(segmentKey: string): Promise<void> {
   return loadSegmentInternal(segmentKey);
 }
 
+type RuntimeBundlePathRecord = Partial<
+  Record<'main' | 'background' | 'shared', string | null>
+>;
+
+type BundlePathRequest = string | RuntimeBundlePathRecord;
+
+function resolveBundlePathRequest(request: BundlePathRequest): string | null {
+  if (typeof request === 'string') {
+    return request;
+  }
+
+  const currentRuntime = getRuntimeKind();
+  const hasRuntimeValue = currentRuntime in request;
+  const resolved = hasRuntimeValue ? request[currentRuntime] : request.shared;
+
+  if (resolved === undefined) {
+    throw new SegmentLoadError(
+      '*',
+      `No async bundle path for runtime '${currentRuntime}'`,
+    );
+  }
+
+  return resolved;
+}
+
+async function loadBundleRequest(request: BundlePathRequest): Promise<void> {
+  const resolved = resolveBundlePathRequest(request);
+  if (resolved === null) {
+    return;
+  }
+  return loadSegmentInternal(resolved);
+}
+
 /**
  * Retry a previously failed segment. Clears the failure cache first.
  * Intended for debugging and recovery logic, not normal business flow.
@@ -238,8 +271,64 @@ export function getSegmentLoadStats() {
 // ---------------------------------------------------------------------------
 
 type LoadBundleAsyncGlobal = typeof globalThis & {
-  __loadBundleAsync?: (bundlePath: string) => Promise<void>;
+  __METRO_GLOBAL_PREFIX__?: string;
+  __loadBundleAsync?: (bundlePath: BundlePathRequest) => Promise<void>;
 };
+
+type BundleLoaderFn = (bundlePath: BundlePathRequest) => Promise<void>;
+
+const loadBundleGlobalOverrides = new Map<
+  string,
+  {
+    current: BundleLoaderFn;
+    wrapper: BundleLoaderFn;
+  }
+>();
+
+function getLoadBundleAsyncGlobalKeys(
+  globalRef: LoadBundleAsyncGlobal,
+): string[] {
+  const keys = new Set<string>(['__loadBundleAsync']);
+  const metroPrefix = globalRef.__METRO_GLOBAL_PREFIX__;
+  if (metroPrefix) {
+    keys.add(`${metroPrefix}__loadBundleAsync`);
+  }
+  return Array.from(keys);
+}
+
+function installLoadBundleAsyncOverride(
+  globalRef: LoadBundleAsyncGlobal,
+  loader: BundleLoaderFn,
+) {
+  for (const key of getLoadBundleAsyncGlobalKeys(globalRef)) {
+    const existing = loadBundleGlobalOverrides.get(key);
+    if (existing) {
+      existing.current = loader;
+      continue;
+    }
+
+    const state = {
+      current: loader,
+      wrapper: (bundlePath: BundlePathRequest) => state.current(bundlePath),
+    };
+    loadBundleGlobalOverrides.set(key, state);
+
+    Object.defineProperty(globalRef, key, {
+      configurable: true,
+      enumerable: false,
+      get() {
+        return state.wrapper;
+      },
+      set(nextLoader: unknown) {
+        // Expo async-require installs its own URL loader on first require().
+        // Keep our segment loader authoritative in production split-bundle mode.
+        if (typeof nextLoader === 'function' && nextLoader === state.wrapper) {
+          state.current = nextLoader as BundleLoaderFn;
+        }
+      },
+    });
+  }
+}
 
 /**
  * Install the production `__loadBundleAsync` handler.
@@ -253,5 +342,8 @@ export function installProdBundleLoader(
   loader: ISplitBundleNativeLoader,
 ): void {
   setNativeLoader(loader);
-  (globalThis as LoadBundleAsyncGlobal).__loadBundleAsync = loadSegment;
+  installLoadBundleAsyncOverride(
+    globalThis as LoadBundleAsyncGlobal,
+    loadBundleRequest,
+  );
 }

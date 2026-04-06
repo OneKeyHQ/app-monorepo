@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 type LoadBundleAsyncGlobal = typeof globalThis & {
-  __loadBundleAsync?: (bundlePath: string) => Promise<void>;
+  __METRO_GLOBAL_PREFIX__?: string;
+  __loadBundleAsync?: (
+    bundlePath:
+      | string
+      | Partial<Record<'main' | 'background' | 'shared', string | null>>,
+  ) => Promise<void>;
 };
 
 beforeEach(() => {
@@ -43,6 +48,8 @@ afterEach(() => {
   delete (globalThis as any).__ONEKEY_RUNTIME_KIND__;
   delete (globalThis as any).__SEGMENT_MANIFEST__;
   delete (globalThis as any).__loadBundleAsync;
+  delete (globalThis as any).__METRO_GLOBAL_PREFIX__;
+  delete (globalThis as any).test__loadBundleAsync;
 });
 
 function getLoader() {
@@ -184,6 +191,66 @@ describe('installProdBundleLoader', () => {
       (globalThis as LoadBundleAsyncGlobal).__loadBundleAsync?.('seg:test.a'),
     ).resolves.toBe(undefined);
     expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves runtime-specific async path records without loading eager background modules', async () => {
+    (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'background';
+
+    const mock = createMockNativeLoader();
+    const { installProdBundleLoader, isSegmentLoaded } = getLoader();
+
+    installProdBundleLoader(mock);
+
+    await expect(
+      (globalThis as LoadBundleAsyncGlobal).__loadBundleAsync?.({
+        main: 'seg:test.a',
+        background: null,
+      }),
+    ).resolves.toBe(undefined);
+
+    expect(isSegmentLoaded('seg:test.a')).toBe(false);
+    expect(mock.loadSegment).not.toHaveBeenCalled();
+  });
+
+  it('installs the Metro-prefixed __loadBundleAsync key when a prefix exists', async () => {
+    (globalThis as any).__METRO_GLOBAL_PREFIX__ = 'test';
+
+    const mock = createMockNativeLoader();
+    const { installProdBundleLoader, isSegmentLoaded } = getLoader();
+
+    installProdBundleLoader(mock);
+
+    await expect(
+      (globalThis as LoadBundleAsyncGlobal & {
+        test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
+      }).test__loadBundleAsync?.('seg:test.a'),
+    ).resolves.toBe(undefined);
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the split-bundle loader authoritative when Expo assigns its default loader', async () => {
+    (globalThis as any).__METRO_GLOBAL_PREFIX__ = 'test';
+
+    const mock = createMockNativeLoader();
+    const { installProdBundleLoader, isSegmentLoaded } = getLoader();
+
+    installProdBundleLoader(mock);
+
+    const expoUrlLoader = jest
+      .fn<(bundlePath: string) => Promise<void>>()
+      .mockRejectedValue(new Error('should not be called'));
+
+    (globalThis as any).test__loadBundleAsync = expoUrlLoader;
+
+    await expect(
+      (globalThis as LoadBundleAsyncGlobal & {
+        test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
+      }).test__loadBundleAsync?.('seg:test.a'),
+    ).resolves.toBe(undefined);
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(expoUrlLoader).not.toHaveBeenCalled();
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
   });
 

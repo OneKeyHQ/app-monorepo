@@ -79,6 +79,7 @@ private enum BackgroundThreadBridge {
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
   var window: UIWindow?
+  @objc var reactHost: AnyObject?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
@@ -368,6 +369,8 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   @objc(hostDidStart:)
   func handleHostDidStart(_ host: AnyObject) {
+    (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
+
 #if !DEBUG
     // Defer entry bundle loading to the next run-loop tick.
     //
