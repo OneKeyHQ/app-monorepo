@@ -1,4 +1,6 @@
-import * as bip39 from 'bip39';
+// Import only the English wordlist instead of the full bip39 barrel
+// (which pulls 11 language JSON files ~100KB+ each into common).
+import englishWordlist from 'bip39/src/wordlists/english.json';
 import { padStart } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -6,7 +8,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IDotMapValues } from './types';
 
 const mnemonicWordToValueData = (word: string) => {
-  const wordlist = bip39.wordlists.english;
+  const wordlist = englishWordlist;
   const index = wordlist.indexOf(word);
   if (index < 0) {
     throw new OneKeyLocalError('Invalid mnemonic');

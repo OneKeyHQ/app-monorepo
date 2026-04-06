@@ -13,11 +13,11 @@ import {
   Alert,
   Dialog,
   Icon,
-  Markdown,
   SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { Markdown } from '@onekeyhq/components/src/content/Markdown';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EFirmwareUpdateSteps,
