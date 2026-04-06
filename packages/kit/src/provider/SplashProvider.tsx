@@ -13,20 +13,37 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 const SPLASH_SAFETY_TIMEOUT = 10_000;
+const jsEntryStart: number =
+  (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
 function logSplashProvider(message: string) {
   if (
     platformEnv.isNativeMainThread &&
     platformEnv.enableNativeBackgroundThread
   ) {
-    defaultLogger.app.appUpdate.log(`[SplashProvider] ${message}`);
+    const elapsed = Date.now() - jsEntryStart;
+    defaultLogger.app.appUpdate.log(
+      `[SplashProvider] ${message} (+${elapsed}ms)`,
+    );
   }
+}
+
+/** Check if jotai was hydrated from MMKV snapshot (not first install). */
+function hasJotaiCacheFromMmkv(): boolean {
+  // Set by index.ts when MMKV snapshot is pre-read
+  return Boolean((globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__);
 }
 
 export const useCanDismissSplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
-        const [canDismissSplash, setCanDismissSplash] = useState(false);
+        // When MMKV cache was used, skip processPendingInstallTask gate.
+        // The cached atom states are valid; pending install tasks run in background.
+        const hasCachedStates = hasJotaiCacheFromMmkv();
+
+        const [canDismissSplash, setCanDismissSplash] = useState(
+          hasCachedStates,
+        );
         const hasLaunchCallbackStartedRef = useRef(false);
 
         useEffect(() => {
@@ -34,7 +51,9 @@ export const useCanDismissSplash =
             return;
           }
           hasLaunchCallbackStartedRef.current = true;
-          logSplashProvider('effect started');
+          logSplashProvider(
+            `effect started, hasCachedStates=${hasCachedStates}`,
+          );
 
           const safetyTimer = setTimeout(() => {
             defaultLogger.app.appUpdate.log(
@@ -55,6 +74,8 @@ export const useCanDismissSplash =
             handlePendingInstallTaskFinished,
           );
 
+          // Always run processPendingInstallTask (for OTA updates),
+          // but don't block splash when we have cached states.
           const launchCallback = async () => {
             try {
               logSplashProvider('launch callback start');
@@ -80,7 +101,7 @@ export const useCanDismissSplash =
               handlePendingInstallTaskFinished,
             );
           };
-        }, []);
+        }, [hasCachedStates]);
 
         useEffect(() => {
           logSplashProvider(`canDismissSplash=${canDismissSplash}`);

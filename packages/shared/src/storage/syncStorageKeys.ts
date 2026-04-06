@@ -16,6 +16,7 @@ export enum EAppSyncStorageKeys {
   onekey_whats_new_shown = 'onekey_whats_new_shown',
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',
+  onekey_jotai_atoms_snapshot = 'onekey_jotai_atoms_snapshot',
 }
 
 // Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,

@@ -22,12 +22,14 @@ const bgEntryLog = (msg: string) => {
     /* NativeLogger unavailable before TurboModule init */
   }
 };
-bgEntryLog('polyfills loaded');
+const bgEntryStart: number = (globalThis as any).__ONEKEY_BG_ENTRY_START__;
+bgEntryLog(`polyfills loaded (+${Date.now() - bgEntryStart}ms)`);
 
 // Install production split bundle loader for background runtime (Phase 3).
 // Uses BackgroundThread.loadSegmentInBackground to register segments
 // with the background Hermes runtime.
 if (!__DEV__) {
+  const segLoaderStart = Date.now();
   const { getSegmentManifest } =
     require('./src/splitBundle/segmentManifest') as typeof import('./src/splitBundle/segmentManifest');
   const manifest = getSegmentManifest();
@@ -38,14 +40,21 @@ if (!__DEV__) {
       require('./src/splitBundle/nativeBridgeBackground') as typeof import('./src/splitBundle/nativeBridgeBackground');
     installProdBundleLoader(getBackgroundNativeSplitBundleLoader());
   }
+  bgEntryLog(
+    `segment loader installed in ${Date.now() - segLoaderStart}ms (+${Date.now() - bgEntryStart}ms)`,
+  );
 }
 
-bgEntryLog('importing backgroundApiProxy');
+const apiProxyStart = Date.now();
+bgEntryLog(`importing backgroundApiProxy (+${apiProxyStart - bgEntryStart}ms)`);
 const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
   require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
-bgEntryLog('backgroundApiProxy ready');
+bgEntryLog(
+  `backgroundApiProxy ready in ${Date.now() - apiProxyStart}ms (+${Date.now() - bgEntryStart}ms)`,
+);
 
-bgEntryLog('importing RPC handler');
+const rpcHandlerStart = Date.now();
+bgEntryLog(`importing RPC handler (+${rpcHandlerStart - bgEntryStart}ms)`);
 const { setBackgroundThreadRequestExecutor } =
   require('./src/backgroundThread/setupBackgroundThreadRPCHandler') as typeof import('./src/backgroundThread/setupBackgroundThreadRPCHandler');
 
@@ -72,6 +81,8 @@ const BackgroundThreadRoot = () => null;
 
 AppRegistry.registerComponent('background', () => BackgroundThreadRoot);
 
-const entryElapsed =
-  Date.now() - ((globalThis as any).__ONEKEY_BG_ENTRY_START__ || Date.now());
-bgEntryLog(`entry JS executed in ${entryElapsed}ms`);
+const bgEntryEnd = Date.now();
+const entryElapsed = bgEntryEnd - bgEntryStart;
+bgEntryLog(
+  `entry JS executed in ${entryElapsed}ms (polyfills→apiProxy: ${apiProxyStart - bgEntryStart}ms, apiProxy import: ${Date.now() - apiProxyStart > entryElapsed ? entryElapsed : rpcHandlerStart - apiProxyStart}ms, rpcHandler: ${bgEntryEnd - rpcHandlerStart}ms)`,
+);

@@ -115,6 +115,12 @@ let transportState: IBackgroundThreadTransportState = 'idle';
 let queuedFlushPromise: Promise<void> | undefined;
 let remoteBrokenReason: string | undefined;
 
+// Startup timing milestones (ms since JS entry)
+const jsEntryStart: number =
+  (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
+let transportStartingAt = 0;
+let transportReadyAt = 0;
+
 const queuedCalls: IQueuedCall[] = [];
 const pendingRemoteCalls = new Map<string, IPendingRemoteCall>();
 const mainThreadBridgeMap: Partial<
@@ -283,6 +289,14 @@ function handleRuntimeSignal(sharedRPC: ISharedRPC) {
   // back to ready state (#35).
   remoteBrokenReason = undefined;
   transportState = 'ready';
+  transportReadyAt = Date.now();
+  const readyFromEntry = transportReadyAt - jsEntryStart;
+  const readyFromStarting = transportStartingAt
+    ? transportReadyAt - transportStartingAt
+    : 0;
+  transportLog(
+    `transport → ready at +${readyFromEntry}ms from JS entry (starting→ready: ${readyFromStarting}ms, observer retries: ${observerRetryCount})`,
+  );
   clearReadyTimeoutTimer();
   setBackgroundThreadReadyPayload(runtimePayload);
   dispatchQueuedCallsToRemote();
@@ -471,6 +485,10 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
 
   if (transportState === 'idle') {
     transportState = 'starting';
+    transportStartingAt = Date.now();
+    transportLog(
+      `transport → starting at +${transportStartingAt - jsEntryStart}ms from JS entry`,
+    );
   }
 
   ensureReadyTimeout();
@@ -500,6 +518,10 @@ function ensureBackgroundRuntimeObserver() {
 
   if (transportState === 'idle') {
     transportState = 'starting';
+    transportStartingAt = Date.now();
+    transportLog(
+      `transport → starting (retry path) at +${transportStartingAt - jsEntryStart}ms from JS entry`,
+    );
     ensureReadyTimeout();
   }
 
@@ -701,6 +723,15 @@ function installGlobalTransport() {
     ensureReady: ensureTransportReady,
     getState: () => transportState,
     isEnabled: isNativeBackgroundThreadTransportEnabled,
+  };
+}
+
+/** Expose startup milestones for the timing summary log. */
+export function getTransportTimingMilestones() {
+  return {
+    jsEntryStart,
+    transportStartingAt,
+    transportReadyAt,
   };
 }
 

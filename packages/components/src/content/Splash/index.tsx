@@ -1,7 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import type { PropsWithChildren } from 'react';
-
-import { type LayoutChangeEvent } from 'react-native';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -14,12 +12,16 @@ export type ISplashProps = PropsWithChildren<{
   canDismissSplash?: boolean;
 }>;
 
+const jsEntryStart: number =
+  (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
+
 function logSplash(message: string) {
   if (
     platformEnv.isNativeMainThread &&
     platformEnv.enableNativeBackgroundThread
   ) {
-    defaultLogger.app.appUpdate.log(`[Splash] ${message}`);
+    const elapsed = Date.now() - jsEntryStart;
+    defaultLogger.app.appUpdate.log(`[Splash] ${message} (+${elapsed}ms)`);
   }
 }
 
@@ -27,37 +29,38 @@ export function Splash({
   children,
   canDismissSplash: externalCanDismissSplash = true,
 }: ISplashProps) {
-  const [isContentReady, setIsContentReady] = useState(false);
-  const canDismissSplash = isContentReady ? externalCanDismissSplash : false;
   logSplash(
-    `render isContentReady=${isContentReady}, externalCanDismissSplash=${externalCanDismissSplash}, canDismissSplash=${canDismissSplash}`,
+    `render externalCanDismissSplash=${externalCanDismissSplash}`,
   );
   const handleExitComplete = useCallback(() => {
-    logSplash('exit complete');
-    globalThis.$$onekeyUIVisibleAt = Date.now();
+    const now = Date.now();
+    const totalFromEntry = now - jsEntryStart;
+    logSplash(`exit complete — splash hidden at +${totalFromEntry}ms from JS entry`);
+    globalThis.$$onekeyUIVisibleAt = now;
     if (typeof globalThis.nativePerformanceNow === 'function') {
       globalThis.$$onekeyUIVisibleFromPerformanceNow =
         globalThis.nativePerformanceNow();
     }
-  }, []);
-
-  const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    const { height } = e.nativeEvent.layout;
-    logSplash(`onLayout height=${height}`);
-    if (height) {
-      // close the splash after the react commit phase.
-      setTimeout(() => {
-        logSplash('content marked ready');
-        setIsContentReady(true);
-      });
-    }
+    // Print startup timing summary
+    const jsReadyAt: number | undefined = (globalThis as any).$$onekeyJsReadyAt;
+    defaultLogger.app.appUpdate.log(
+      [
+        `[StartupSummary] Total JS entry → UI visible: ${totalFromEntry}ms`,
+        jsReadyAt
+          ? `  jsReady: +${jsReadyAt - jsEntryStart}ms`
+          : undefined,
+        `  UI visible: +${totalFromEntry}ms`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    );
   }, []);
 
   return (
-    <Stack flex={1} onLayout={handleLayout}>
+    <Stack flex={1}>
       {children}
       <SplashView
-        canDismissSplash={canDismissSplash}
+        canDismissSplash={externalCanDismissSplash}
         onExit={handleExitComplete}
       />
     </Stack>

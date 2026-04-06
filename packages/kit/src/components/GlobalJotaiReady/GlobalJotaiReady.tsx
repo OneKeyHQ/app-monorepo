@@ -7,12 +7,18 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+const jsEntryStart: number =
+  (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
+
 function logGlobalJotaiReady(message: string) {
   if (
     platformEnv.isNativeMainThread &&
     platformEnv.enableNativeBackgroundThread
   ) {
-    defaultLogger.app.appUpdate.log(`[GlobalJotaiReady] ${message}`);
+    const elapsed = Date.now() - jsEntryStart;
+    defaultLogger.app.appUpdate.log(
+      `[GlobalJotaiReady] ${message} (+${elapsed}ms)`,
+    );
   }
 }
 

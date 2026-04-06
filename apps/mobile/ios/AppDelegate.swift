@@ -76,6 +76,9 @@ private enum BackgroundThreadBridge {
   }
 }
 
+/// Captured at static-init time so `hostDidStart` can measure elapsed.
+private let appLaunchCFTime = CFAbsoluteTimeGetCurrent()
+
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
   var window: UIWindow?
@@ -369,6 +372,10 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   @objc(hostDidStart:)
   func handleHostDidStart(_ host: AnyObject) {
+    let hostDidStartAt = CFAbsoluteTimeGetCurrent()
+    let sinceAppLaunch = (hostDidStartAt - appLaunchCFTime) * 1000
+    NitroModuleBridge.logInfo("StartupTiming", "hostDidStart fired at +\(String(format: "%.0f", sinceAppLaunch))ms from app launch (common bundle loaded)")
+
     (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
 
 #if !DEBUG
@@ -384,12 +391,17 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     // registration first, so any dispatch_sync from JS → main succeeds.
     DispatchQueue.main.async { [weak host] in
       guard let host = host else { return }
+      let deferredAt = CFAbsoluteTimeGetCurrent()
+      let deferDelay = (deferredAt - hostDidStartAt) * 1000
+      NitroModuleBridge.logInfo("StartupTiming", "main entry deferred dispatch fired at +\(String(format: "%.0f", (deferredAt - appLaunchCFTime) * 1000))ms (defer delay: \(String(format: "%.1f", deferDelay))ms)")
+
       let entryLoadStart = CFAbsoluteTimeGetCurrent()
       if let entryPath = self.resolveMainEntryBundlePath() {
         NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: loading main entry bundle at \(entryPath)")
         SplitBundleLoader.loadEntryBundle(entryPath, inHost: host)
         let elapsed = (CFAbsoluteTimeGetCurrent() - entryLoadStart) * 1000
-        NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: main entry loaded in \(String(format: "%.1f", elapsed))ms")
+        let totalFromLaunch = (CFAbsoluteTimeGetCurrent() - appLaunchCFTime) * 1000
+        NitroModuleBridge.logInfo("StartupTiming", "main entry evaluated in \(String(format: "%.0f", elapsed))ms, total from launch: +\(String(format: "%.0f", totalFromLaunch))ms")
       } else {
         NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: no main entry bundle found")
       }
@@ -412,7 +424,8 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     // Release split-bundle: pass empty string so BackgroundRunnerReactNativeDelegate
     // uses the default two-step strategy (common.jsbundle first, then background.bundle).
     // Passing any non-empty path would bypass common.jsbundle loading.
-    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (release split-bundle)")
+    let bgStartAt = CFAbsoluteTimeGetCurrent()
+    NitroModuleBridge.logInfo("StartupTiming", "background thread start at +\(String(format: "%.0f", (bgStartAt - appLaunchCFTime) * 1000))ms from app launch")
     BackgroundThreadBridge.startBackgroundRunner(entryURL: "")
 #endif
   }

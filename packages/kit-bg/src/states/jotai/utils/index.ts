@@ -26,14 +26,24 @@ import type {
 } from '../types';
 import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
 
+/** Global registry of atom name → JotaiCrossAtom, populated at module load time.
+ *  Used by jotaiInitFromUi to set cached values WITHOUT importing the barrel. */
+export const globalAtomRegistry = new Map<string, JotaiCrossAtom<any>>();
+
 export function makeCrossAtom<T extends () => any>(name: string, fn: T) {
   const atomBuilder = memoizee(fn, {
     primitive: true,
     normalizer: () => '',
   });
 
+  const crossAtom = new JotaiCrossAtom(name, atomBuilder);
+  // Register named atoms so jotaiInitFromUi can find them without barrel import
+  if (name) {
+    globalAtomRegistry.set(name, crossAtom);
+  }
+
   return {
-    target: new JotaiCrossAtom(name, atomBuilder),
+    target: crossAtom,
     // eslint-disable-next-line react-hooks/rules-of-hooks
     use: () => useAtom(atomBuilder() as ReturnType<T>),
   };
@@ -135,7 +145,22 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   let a = null;
   let persist = false;
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const initialVal = Object.freeze(initialValue!);
+  let initialVal = Object.freeze(initialValue!);
+
+  // If MMKV snapshot was pre-loaded, use cached value as initialValue
+  // so the atom starts with the correct persisted value immediately.
+  const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
+  if (snapshotStates && name && name in snapshotStates) {
+    const cached = snapshotStates[name];
+    if (cached !== undefined && cached !== null) {
+      initialVal = Object.freeze(
+        typeof initialValue === 'object' && typeof cached === 'object'
+          ? { ...initialValue, ...cached }
+          : cached,
+      ) as Value & Readonly<Value>;
+    }
+  }
+
   if (typeof write === 'function') {
     if (typeof read === 'function') {
       // read, write

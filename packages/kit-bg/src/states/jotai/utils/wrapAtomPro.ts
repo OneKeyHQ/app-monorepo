@@ -55,6 +55,36 @@ export function wrapAtomPro(
         name,
         payload,
       });
+      // Incrementally update MMKV snapshot for next startup.
+      // MMKV is memory-mapped so this is ~0ms in the background thread.
+      try {
+        const g = globalThis as any;
+        if (!g.__onekeySnapshotCache) {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { syncStorage: ss } = require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { EAppSyncStorageKeys: sk } = require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+          const raw = ss.getString(sk.onekey_jotai_atoms_snapshot);
+          g.__onekeySnapshotCache = raw ? JSON.parse(raw) : {};
+          g.__onekeySnapshotStorage = { ss, sk };
+        }
+        g.__onekeySnapshotCache[name] = payload;
+        // Debounce: write to MMKV at most once per 500ms
+        if (!g.__onekeySnapshotFlushTimer) {
+          g.__onekeySnapshotFlushTimer = setTimeout(() => {
+            g.__onekeySnapshotFlushTimer = undefined;
+            try {
+              const { ss, sk } = g.__onekeySnapshotStorage;
+              ss.set(
+                sk.onekey_jotai_atoms_snapshot,
+                JSON.stringify(g.__onekeySnapshotCache),
+              );
+            } catch { /* noop */ }
+          }, 500);
+        }
+      } catch {
+        /* best-effort */
+      }
     }
   };
   const proAtom = atom(

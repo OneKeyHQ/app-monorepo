@@ -30,14 +30,18 @@ if (platformEnv.isNativeAndroid) {
   void getLegacyAndroidSplash().preventAutoHideAsync();
 }
 
+const jsEntryStart: number =
+  (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
+
 export function SplashView({ onExit, canDismissSplash }: ISplashViewProps) {
   const hideSplash = useCallback(() => {
     if (
       platformEnv.isNativeMainThread &&
       platformEnv.enableNativeBackgroundThread
     ) {
+      const elapsed = Date.now() - jsEntryStart;
       defaultLogger.app.appUpdate.log(
-        '[SplashView] hideSplash invoked, dismissing native splash',
+        `[SplashView] hideSplash invoked at +${elapsed}ms from JS entry, dismissing native splash`,
       );
     }
     void hideAsync().catch((error) => {

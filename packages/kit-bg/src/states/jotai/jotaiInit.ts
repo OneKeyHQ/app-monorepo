@@ -88,6 +88,9 @@ export async function jotaiInit() {
     }
   });
 
+  // Pause per-atom broadcasts during batch init — flush once at the end.
+  appGlobals.$jotaiBgSync?.pauseBroadcast?.();
+
   await Promise.all(
     Object.entries(atoms).map(async ([key, value]) => {
       if (!value.name) {
@@ -180,6 +183,9 @@ export async function jotaiInit() {
       }
     }),
   );
+
+  // Flush all batched broadcasts in one go.
+  await appGlobals.$jotaiBgSync?.flushBroadcast?.();
 
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('jotaiInit done');
