@@ -721,3 +721,88 @@ describe('unionBuildHelpers', () => {
     expect(expanded.has('/b.js')).toBe(true);
   });
 });
+
+  it('expands segments with sync deps not in eager bundle', () => {
+    const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
+
+    const serializedEntries = [
+      {
+        absolutePath: '/seg-root.js',
+        moduleId: 100,
+        moduleCode: 'seg root code',
+        moduleData: createModuleData({
+          dependencies: [{ key: 'dep', absolutePath: '/missing-dep.js' }],
+        }),
+      },
+      {
+        absolutePath: '/missing-dep.js',
+        moduleId: 101,
+        moduleCode: 'missing dep code',
+        moduleData: createModuleData({}),
+      },
+      {
+        absolutePath: '/eager.js',
+        moduleId: 200,
+        moduleCode: 'eager code',
+        moduleData: createModuleData({}),
+      },
+    ];
+
+    const segmentOutputs = new Map([
+      ['seg:feature', [[100, 'seg root code']]],
+    ]);
+
+    const eagerAbsPaths = new Set(['/eager.js']);
+    const moduleIdToAbsPath = new Map([
+      [100, '/seg-root.js'],
+      [101, '/missing-dep.js'],
+      [200, '/eager.js'],
+    ]);
+
+    const added = expandSegmentsWithSyncDeps({
+      segmentOutputs,
+      serializedEntries,
+      eagerAbsPaths,
+      moduleIdToAbsPath,
+    });
+
+    expect(added).toBe(1);
+    const segModules = segmentOutputs.get('seg:feature');
+    expect(segModules).toHaveLength(2);
+    expect(segModules[1][0]).toBe(101); // missing-dep was added
+  });
+
+  it('does not expand segments with deps already in eager bundle', () => {
+    const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
+
+    const serializedEntries = [
+      {
+        absolutePath: '/seg-root.js',
+        moduleId: 100,
+        moduleCode: 'code',
+        moduleData: createModuleData({
+          dependencies: [{ key: 'dep', absolutePath: '/eager-dep.js' }],
+        }),
+      },
+      {
+        absolutePath: '/eager-dep.js',
+        moduleId: 101,
+        moduleCode: 'code',
+        moduleData: createModuleData({}),
+      },
+    ];
+
+    const segmentOutputs = new Map([
+      ['seg:feature', [[100, 'code']]],
+    ]);
+
+    const added = expandSegmentsWithSyncDeps({
+      segmentOutputs,
+      serializedEntries,
+      eagerAbsPaths: new Set(['/eager-dep.js']),
+      moduleIdToAbsPath: new Map([[100, '/seg-root.js'], [101, '/eager-dep.js']]),
+    });
+
+    expect(added).toBe(0);
+    expect(segmentOutputs.get('seg:feature')).toHaveLength(1);
+  });

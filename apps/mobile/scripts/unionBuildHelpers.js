@@ -491,6 +491,98 @@ function validateBundleCompleteness({
   };
 }
 
+/**
+ * Expand each segment's module list to include transitive sync
+ * dependencies that are NOT already in the eager bundle.
+ *
+ * Without this, a segment module can require() a sync dep that only
+ * exists in the other runtime's eager bundle, causing a runtime crash.
+ *
+ * @param {Map<string, Array<[number, string]>>} segmentOutputs - from groupSerializedEntriesBySegment
+ * @param {Array} serializedEntries - full serialized entries with moduleData
+ * @param {Set<string>} eagerAbsPaths - absolute paths in the eager bundle for this runtime
+ * @param {Map<number, string>} moduleIdToAbsPath - module ID → absolute path
+ */
+function expandSegmentsWithSyncDeps({
+  segmentOutputs,
+  serializedEntries,
+  eagerAbsPaths,
+  moduleIdToAbsPath,
+}) {
+  const entryByAbsPath = new Map(
+    serializedEntries.map((e) => [e.absolutePath, e]),
+  );
+  const moduleEntryByAbsPath = new Map(
+    serializedEntries.map((e) => [e.absolutePath, [e.moduleId, e.moduleCode]]),
+  );
+
+  // Track which absolute paths are already assigned to ANY segment
+  const allSegmentAbsPaths = new Set();
+  for (const [, modules] of segmentOutputs) {
+    for (const [moduleId] of modules) {
+      const absPath = moduleIdToAbsPath.get(moduleId);
+      if (absPath) {
+        allSegmentAbsPaths.add(absPath);
+      }
+    }
+  }
+
+  let totalAdded = 0;
+
+  for (const [segmentKey, modules] of segmentOutputs) {
+    // Collect current segment absolute paths
+    const segAbsPaths = new Set();
+    for (const [moduleId] of modules) {
+      const absPath = moduleIdToAbsPath.get(moduleId);
+      if (absPath) {
+        segAbsPaths.add(absPath);
+      }
+    }
+
+    // Walk sync deps from segment modules
+    const pending = [...segAbsPaths];
+    const visited = new Set(segAbsPaths);
+    const added = [];
+
+    while (pending.length > 0) {
+      const absPath = pending.pop();
+      const entry = entryByAbsPath.get(absPath);
+      if (!entry?.moduleData) {
+        continue;
+      }
+
+      for (const [, dep] of entry.moduleData.dependencies) {
+        const depPath = dep.absolutePath;
+        const asyncType = dep.data?.data?.asyncType;
+
+        if (asyncType === 'async' || visited.has(depPath)) {
+          continue;
+        }
+        visited.add(depPath);
+
+        // If dep is not in eager bundle and not already in a segment
+        if (!eagerAbsPaths.has(depPath) && !allSegmentAbsPaths.has(depPath)) {
+          const depModuleEntry = moduleEntryByAbsPath.get(depPath);
+          if (depModuleEntry) {
+            modules.push(depModuleEntry);
+            segAbsPaths.add(depPath);
+            allSegmentAbsPaths.add(depPath);
+            added.push(depPath);
+          }
+        }
+
+        pending.push(depPath);
+      }
+    }
+
+    if (added.length > 0) {
+      totalAdded += added.length;
+    }
+  }
+
+  return totalAdded;
+}
+
 module.exports = {
   buildPostSection,
   buildSerializedModuleEntries,
@@ -499,6 +591,7 @@ module.exports = {
   buildRuntimeOwnership,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
+  expandSegmentsWithSyncDeps,
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
   rewriteAsyncRequirePaths,

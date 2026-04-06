@@ -56,6 +56,7 @@ const {
   buildRuntimeOwnership,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
+  expandSegmentsWithSyncDeps,
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
   rewriteAsyncRequirePaths,
@@ -841,6 +842,8 @@ async function writeSegments({
   backgroundRuntime,
   segmentIdMap,
   sharedEquivalentAbsPaths,
+  mainEagerAbsPaths,
+  bgEagerAbsPaths,
 }) {
   const promotedSet = new Set(promotedSegments);
 
@@ -907,6 +910,47 @@ async function writeSegments({
     absPathToSegment: backgroundRuntime.absPathToSegment,
     promotedSegmentKeys: promotedSet,
   });
+
+  // Expand segments with missing sync deps that aren't in the eager bundle.
+  // Without this, segment modules can require() sync deps that only exist
+  // in the other runtime's eager bundle → "Requiring unknown module" crash.
+  const mainSyncDepsAdded = expandSegmentsWithSyncDeps({
+    segmentOutputs: mainSegmentOutputs,
+    serializedEntries: mainRuntime.serializedEntries,
+    eagerAbsPaths: mainEagerAbsPaths,
+    moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+  });
+  const bgSyncDepsAdded = expandSegmentsWithSyncDeps({
+    segmentOutputs: backgroundSegmentOutputs,
+    serializedEntries: backgroundRuntime.serializedEntries,
+    eagerAbsPaths: bgEagerAbsPaths,
+    moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
+  });
+  if (mainSyncDepsAdded > 0 || bgSyncDepsAdded > 0) {
+    console.log(
+      `[unionBuild] Expanded segments with sync deps: main +${mainSyncDepsAdded}, background +${bgSyncDepsAdded}`,
+    );
+  }
+
+  // Collect the expanded segment abs paths (original + newly added sync deps)
+  const collectSegmentAbsPaths = (segOutputs, idToAbsPath) => {
+    const paths = new Set();
+    for (const [, modules] of segOutputs) {
+      for (const [moduleId] of modules) {
+        const p = idToAbsPath.get(moduleId);
+        if (p) paths.add(p);
+      }
+    }
+    return paths;
+  };
+  const expandedMainSegmentAbsPaths = collectSegmentAbsPaths(
+    mainSegmentOutputs,
+    mainRuntime.moduleIdToAbsPath,
+  );
+  const expandedBgSegmentAbsPaths = collectSegmentAbsPaths(
+    backgroundSegmentOutputs,
+    backgroundRuntime.moduleIdToAbsPath,
+  );
 
   await fs.remove(getSegmentsDir('main'));
   await fs.remove(getSegmentsDir('background'));
@@ -1088,6 +1132,8 @@ async function writeSegments({
     backgroundManifest,
     mergedManifest,
     promotedSet,
+    expandedMainSegmentAbsPaths,
+    expandedBgSegmentAbsPaths,
     reportSegmentModules: {
       common: mergedReportSegments,
       main: mainReportSegments,
@@ -1318,6 +1364,8 @@ async function main() {
       mainManifest,
       backgroundManifest,
       mergedManifest,
+      expandedMainSegmentAbsPaths,
+      expandedBgSegmentAbsPaths,
       reportSegmentModules,
     } = await writeSegments({
       mainRuntime: {
@@ -1338,6 +1386,14 @@ async function main() {
       },
       segmentIdMap,
       sharedEquivalentAbsPaths: runtimeOwnership.sharedEquivalentAbsPaths,
+      mainEagerAbsPaths: new Set([
+        ...runtimeOwnership.sharedStartupAbsPaths,
+        ...runtimeOwnership.mainStartupAbsPaths,
+      ]),
+      bgEagerAbsPaths: new Set([
+        ...runtimeOwnership.sharedStartupAbsPaths,
+        ...runtimeOwnership.bgStartupAbsPaths,
+      ]),
     });
 
     // Common bundle: shared eager modules + polyfills/runtime + manifest
@@ -1439,7 +1495,7 @@ async function main() {
             mainModuleIndex.moduleIdToAbsPath,
           ),
         ]),
-        mainAllocation.segmentAbsPaths,
+        expandedMainSegmentAbsPaths,
       ],
       [
         'background',
@@ -1451,7 +1507,7 @@ async function main() {
             backgroundModuleIndex.moduleIdToAbsPath,
           ),
         ]),
-        backgroundAllocation.segmentAbsPaths,
+        expandedBgSegmentAbsPaths,
       ],
     ]) {
       const result = validateBundleCompleteness({
