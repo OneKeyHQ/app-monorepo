@@ -560,13 +560,16 @@ function expandSegmentsWithSyncDeps({
         }
         visited.add(depPath);
 
-        // If dep is not in eager bundle and not already in a segment
-        if (!eagerAbsPaths.has(depPath) && !allSegmentAbsPaths.has(depPath)) {
+        // Add dep if it's not in the eager bundle and not already in any
+        // segment of this runtime.
+        if (
+          !eagerAbsPaths.has(depPath) &&
+          !allSegmentAbsPaths.has(depPath)
+        ) {
           const depModuleEntry = moduleEntryByAbsPath.get(depPath);
           if (depModuleEntry) {
             modules.push(depModuleEntry);
             segAbsPaths.add(depPath);
-            allSegmentAbsPaths.add(depPath);
             added.push(depPath);
           }
         }

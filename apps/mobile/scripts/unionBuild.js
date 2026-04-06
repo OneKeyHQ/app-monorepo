@@ -911,46 +911,12 @@ async function writeSegments({
     promotedSegmentKeys: promotedSet,
   });
 
-  // Expand segments with missing sync deps that aren't in the eager bundle.
-  // Without this, segment modules can require() sync deps that only exist
-  // in the other runtime's eager bundle → "Requiring unknown module" crash.
-  const mainSyncDepsAdded = expandSegmentsWithSyncDeps({
-    segmentOutputs: mainSegmentOutputs,
-    serializedEntries: mainRuntime.serializedEntries,
-    eagerAbsPaths: mainEagerAbsPaths,
-    moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
-  });
-  const bgSyncDepsAdded = expandSegmentsWithSyncDeps({
-    segmentOutputs: backgroundSegmentOutputs,
-    serializedEntries: backgroundRuntime.serializedEntries,
-    eagerAbsPaths: bgEagerAbsPaths,
-    moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
-  });
-  if (mainSyncDepsAdded > 0 || bgSyncDepsAdded > 0) {
-    console.log(
-      `[unionBuild] Expanded segments with sync deps: main +${mainSyncDepsAdded}, background +${bgSyncDepsAdded}`,
-    );
-  }
+  // NOTE: Segment sync dep expansion is disabled. The per-runtime
+  // moduleFilter in writeBundle (using mainSegmentAbsPaths / bgSegmentAbsPaths
+  // instead of allSegmentAbsPaths) ensures that modules segmented in one
+  // runtime but eager in another are correctly included in the eager bundle.
+  // Expanding segments would cause massive duplication across segments.
 
-  // Collect the expanded segment abs paths (original + newly added sync deps)
-  const collectSegmentAbsPaths = (segOutputs, idToAbsPath) => {
-    const paths = new Set();
-    for (const [, modules] of segOutputs) {
-      for (const [moduleId] of modules) {
-        const p = idToAbsPath.get(moduleId);
-        if (p) paths.add(p);
-      }
-    }
-    return paths;
-  };
-  const expandedMainSegmentAbsPaths = collectSegmentAbsPaths(
-    mainSegmentOutputs,
-    mainRuntime.moduleIdToAbsPath,
-  );
-  const expandedBgSegmentAbsPaths = collectSegmentAbsPaths(
-    backgroundSegmentOutputs,
-    backgroundRuntime.moduleIdToAbsPath,
-  );
 
   await fs.remove(getSegmentsDir('main'));
   await fs.remove(getSegmentsDir('background'));
@@ -1132,8 +1098,6 @@ async function writeSegments({
     backgroundManifest,
     mergedManifest,
     promotedSet,
-    expandedMainSegmentAbsPaths,
-    expandedBgSegmentAbsPaths,
     reportSegmentModules: {
       common: mergedReportSegments,
       main: mainReportSegments,
@@ -1319,9 +1283,17 @@ async function main() {
       backgroundAllocation.segmentAbsPathsByKey,
       backgroundAbsPathToSegment,
     );
+    // Each runtime's moduleFilter must only exclude its OWN segment paths.
+    // Using the union of both runtimes' segments causes a module that is
+    // segmented in one runtime but eager in another to be incorrectly
+    // excluded from the eager bundle → "Requiring unknown module" crash.
+    const mainSegmentAbsPaths = mainAllocation.segmentAbsPaths;
+    const bgSegmentAbsPaths = backgroundAllocation.segmentAbsPaths;
+    // Keep the union for common bundle (shared modules should not be in
+    // any runtime-specific segment).
     const allSegmentAbsPaths = new Set([
-      ...mainAllocation.segmentAbsPaths,
-      ...backgroundAllocation.segmentAbsPaths,
+      ...mainSegmentAbsPaths,
+      ...bgSegmentAbsPaths,
     ]);
 
     const commonBundleOptions = createBundleOptions({
@@ -1364,8 +1336,6 @@ async function main() {
       mainManifest,
       backgroundManifest,
       mergedManifest,
-      expandedMainSegmentAbsPaths,
-      expandedBgSegmentAbsPaths,
       reportSegmentModules,
     } = await writeSegments({
       mainRuntime: {
@@ -1429,7 +1399,7 @@ async function main() {
       entryPoint: mainEntry,
       moduleFilter: (absolutePath) =>
         runtimeOwnership.mainStartupAbsPaths.has(absolutePath) &&
-        !allSegmentAbsPaths.has(absolutePath),
+        !mainSegmentAbsPaths.has(absolutePath),
       manifest: null,
       includePre: false,
       includePost: true,
@@ -1450,7 +1420,7 @@ async function main() {
       entryPoint: bgEntry,
       moduleFilter: (absolutePath) =>
         runtimeOwnership.bgStartupAbsPaths.has(absolutePath) &&
-        !allSegmentAbsPaths.has(absolutePath),
+        !bgSegmentAbsPaths.has(absolutePath),
       manifest: null,
       includePre: false,
       includePost: true,
@@ -1495,7 +1465,7 @@ async function main() {
             mainModuleIndex.moduleIdToAbsPath,
           ),
         ]),
-        expandedMainSegmentAbsPaths,
+        mainSegmentAbsPaths,
       ],
       [
         'background',
@@ -1507,7 +1477,7 @@ async function main() {
             backgroundModuleIndex.moduleIdToAbsPath,
           ),
         ]),
-        expandedBgSegmentAbsPaths,
+        bgSegmentAbsPaths,
       ],
     ]) {
       const result = validateBundleCompleteness({
