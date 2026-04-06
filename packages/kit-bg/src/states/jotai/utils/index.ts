@@ -337,12 +337,12 @@ export function contextAtomBase<Value>({
     atomInstance: WritableAtom<Value2, Args, Result>,
   ) => [Awaited<Value2>, IJotaiSetAtom<Args, Result>];
 }) {
-  // If named and MMKV snapshot has cached value, use it as initialValue
+  // If named, check context atom snapshot (separate from globalAtom snapshot)
   let resolvedInitialValue = initialValue;
   if (name) {
-    const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
-    if (snapshotStates && name in snapshotStates) {
-      const cached = snapshotStates[name];
+    const ctxSnapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    if (ctxSnapshot && name in ctxSnapshot) {
+      const cached = ctxSnapshot[name];
       if (cached !== undefined && cached !== null) {
         resolvedInitialValue =
           typeof initialValue === 'object' && typeof cached === 'object'

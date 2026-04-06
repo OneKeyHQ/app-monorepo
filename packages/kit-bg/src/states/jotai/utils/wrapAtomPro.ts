@@ -55,36 +55,32 @@ export function wrapAtomPro(
         name,
         payload,
       });
-      // Incrementally update MMKV snapshot for next startup.
-      // MMKV is memory-mapped so this is ~0ms in the background thread.
+      // Incrementally update globalAtom MMKV snapshot (separate key from contextAtom).
       try {
         const g = globalThis as any;
-        if (!g.__onekeySnapshotCache) {
+        if (!g.__onekeyGlobalSnapshotCache) {
           // eslint-disable-next-line @typescript-eslint/no-require-imports
           const { syncStorage: ss } = require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
           // eslint-disable-next-line @typescript-eslint/no-require-imports
           const { EAppSyncStorageKeys: sk } = require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
           const raw = ss.getString(sk.onekey_jotai_atoms_snapshot);
-          g.__onekeySnapshotCache = raw ? JSON.parse(raw) : {};
-          g.__onekeySnapshotStorage = { ss, sk };
+          g.__onekeyGlobalSnapshotCache = raw ? JSON.parse(raw) : {};
+          g.__onekeyGlobalSnapshotStorage = { ss, sk };
         }
-        g.__onekeySnapshotCache[name] = payload;
-        // Debounce: write to MMKV at most once per 500ms
-        if (!g.__onekeySnapshotFlushTimer) {
-          g.__onekeySnapshotFlushTimer = setTimeout(() => {
-            g.__onekeySnapshotFlushTimer = undefined;
+        g.__onekeyGlobalSnapshotCache[name] = payload;
+        if (!g.__onekeyGlobalSnapshotFlushTimer) {
+          g.__onekeyGlobalSnapshotFlushTimer = setTimeout(() => {
+            g.__onekeyGlobalSnapshotFlushTimer = undefined;
             try {
-              const { ss, sk } = g.__onekeySnapshotStorage;
+              const { ss, sk } = g.__onekeyGlobalSnapshotStorage;
               ss.set(
                 sk.onekey_jotai_atoms_snapshot,
-                JSON.stringify(g.__onekeySnapshotCache),
+                JSON.stringify(g.__onekeyGlobalSnapshotCache),
               );
             } catch { /* noop */ }
           }, 500);
         }
-      } catch {
-        /* best-effort */
-      }
+      } catch { /* best-effort */ }
     }
   };
   const proAtom = atom(

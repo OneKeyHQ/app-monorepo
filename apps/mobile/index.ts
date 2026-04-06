@@ -32,7 +32,14 @@ try {
   if (_raw) {
     (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__ = JSON.parse(_raw);
     // eslint-disable-next-line no-console
-    console.log(`[StartupTiming] MMKV jotai snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`);
+    console.log(`[StartupTiming] MMKV globalAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`);
+  }
+  // Pre-read context atom snapshot (separate key, for contextAtom injection)
+  const _ctxRaw = _syncStorage.getString(_keys.onekey_jotai_context_atoms_snapshot);
+  if (_ctxRaw) {
+    (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = JSON.parse(_ctxRaw);
+    // eslint-disable-next-line no-console
+    console.log(`[StartupTiming] MMKV contextAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`);
   }
 } catch {
   /* MMKV not available yet */

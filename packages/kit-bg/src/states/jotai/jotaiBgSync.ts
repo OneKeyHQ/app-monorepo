@@ -125,7 +125,7 @@ export class JotaiBgSync {
   }
 
   /**
-   * Save atom states snapshot to MMKV (synchronous) for next startup.
+   * Save globalAtom states to MMKV snapshot.
    */
   private saveSnapshot(states: Record<string, any>) {
     try {
@@ -134,7 +134,7 @@ export class JotaiBgSync {
         JSON.stringify(states),
       );
       this.syncLog(
-        `mmkv snapshot saved: ${Object.keys(states).length} keys`,
+        `globalAtom snapshot saved: ${Object.keys(states).length} keys`,
       );
     } catch {
       /* best-effort */
@@ -181,7 +181,7 @@ export class JotaiBgSync {
         );
         // Signal SplashProvider to skip processPendingInstallTask gate
         (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__ = true;
-        // Save snapshot for next startup (sync MMKV write).
+        // Save globalAtom snapshot (separate key from contextAtom snapshot)
         this.saveSnapshot(cachedStates);
         return;
       }
