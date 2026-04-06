@@ -772,6 +772,100 @@ describe('unionBuildHelpers', () => {
     expect(segModules[1][0]).toBe(101); // missing-dep was added
   });
 
+  it('expands transitive sync deps of segment modules (qr-wallet-sdk case)', () => {
+    // Reproduces the scenario where qr-wallet-sdk is an ASYNC_DESC (sync child
+    // of a Gallery segment) and its transitive deps (e.g. @keystonehq) must
+    // also be pulled into the segment. Without this, the transitive deps become
+    // orphaned — they exist in the Metro graph but aren't in any bundle or
+    // segment, causing runtime blank pages.
+    //
+    // Graph:
+    //   /eager.js (EAGER)
+    //     └─ async import('/qr-sdk.js')
+    //   /gallery.js (ASYNC_DESC of seg:gallery)
+    //     └─ sync import('/qr-sdk.js')   ← qr-sdk becomes ASYNC_DESC
+    //   /qr-sdk.js
+    //     └─ sync import('/keystonehq.js')  ← transitive dep
+    //   /keystonehq.js
+    //     └─ sync import('/protobuf.js')    ← 2nd-level transitive dep
+    const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
+
+    const serializedEntries = [
+      {
+        absolutePath: '/gallery.js',
+        moduleId: 10,
+        moduleCode: '__d(gallery);',
+        moduleData: createModuleData({
+          dependencies: [{ key: 'qr-sdk', absolutePath: '/qr-sdk.js' }],
+        }),
+      },
+      {
+        absolutePath: '/qr-sdk.js',
+        moduleId: 20,
+        moduleCode: '__d(qr-sdk);',
+        moduleData: createModuleData({
+          dependencies: [
+            { key: '@keystonehq', absolutePath: '/keystonehq.js' },
+          ],
+        }),
+      },
+      {
+        absolutePath: '/keystonehq.js',
+        moduleId: 30,
+        moduleCode: '__d(keystonehq);',
+        moduleData: createModuleData({
+          dependencies: [{ key: 'protobuf', absolutePath: '/protobuf.js' }],
+        }),
+      },
+      {
+        absolutePath: '/protobuf.js',
+        moduleId: 40,
+        moduleCode: '__d(protobuf);',
+        moduleData: createModuleData({}),
+      },
+      {
+        absolutePath: '/eager.js',
+        moduleId: 50,
+        moduleCode: '__d(eager);',
+        moduleData: createModuleData({}),
+      },
+    ];
+
+    // Gallery (10) and qr-sdk (20) are already in the segment
+    const segmentOutputs = new Map([
+      [
+        'seg:gallery',
+        [
+          [10, '__d(gallery);'],
+          [20, '__d(qr-sdk);'],
+        ],
+      ],
+    ]);
+
+    const eagerAbsPaths = new Set(['/eager.js']);
+    const moduleIdToAbsPath = new Map([
+      [10, '/gallery.js'],
+      [20, '/qr-sdk.js'],
+      [30, '/keystonehq.js'],
+      [40, '/protobuf.js'],
+      [50, '/eager.js'],
+    ]);
+
+    const added = expandSegmentsWithSyncDeps({
+      segmentOutputs,
+      serializedEntries,
+      eagerAbsPaths,
+      moduleIdToAbsPath,
+    });
+
+    // Both transitive deps should be pulled into the segment
+    expect(added).toBe(2);
+    const segModules = segmentOutputs.get('seg:gallery');
+    const segModuleIds = segModules.map(([id]) => id);
+    expect(segModuleIds).toContain(30); // keystonehq
+    expect(segModuleIds).toContain(40); // protobuf
+  });
+
   it('does not expand segments with deps already in eager bundle', () => {
     const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
 
