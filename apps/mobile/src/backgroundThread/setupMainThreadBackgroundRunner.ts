@@ -54,6 +54,9 @@ const OBSERVER_RETRY_MS = 50;
 const MAX_OBSERVER_RETRY_COUNT = 600;
 const READY_TIMEOUT_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 30_000;
+// bridge-calls may wait for user interaction (e.g. DApp connect modal),
+// so they need a much longer timeout and should NOT break the transport.
+const BRIDGE_CALL_TIMEOUT_MS = 5 * 60_000; // 5 minutes
 const MAX_REMOTE_CALL_SLOT_COUNT = 512;
 
 type IQueuedCall = {
@@ -559,16 +562,34 @@ function dispatchRemoteRequest(
   transportLog(
     `dispatchRemoteRequest: callId=${callId}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
   );
+  const isBridgeCall = request.type === 'bridge-call';
+  const timeoutMs = isBridgeCall ? BRIDGE_CALL_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       if (!pendingRemoteCalls.has(callId)) {
         return;
       }
       transportLog(`dispatchRemoteRequest TIMEOUT: callId=${callId}`);
-      switchToRemoteBroken(
-        `Background request timeout. request=${getRequestDebugLabel(request)}`,
-      );
-    }, REQUEST_TIMEOUT_MS);
+      if (isBridgeCall) {
+        // bridge-call timeouts mean user didn't interact in time,
+        // NOT that the background thread is dead — don't break transport.
+        const pending = pendingRemoteCalls.get(callId);
+        pendingRemoteCalls.delete(callId);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pending.reject(
+            createTransportError(
+              `Bridge call timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`,
+            ),
+          );
+        }
+      } else {
+        switchToRemoteBroken(
+          `Background request timeout. request=${getRequestDebugLabel(request)}`,
+        );
+      }
+    }, timeoutMs);
 
     pendingRemoteCalls.set(callId, {
       resolve,

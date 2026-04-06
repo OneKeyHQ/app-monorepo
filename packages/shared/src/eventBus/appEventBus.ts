@@ -470,6 +470,10 @@ export interface IAppEventBusPayload {
     data: IRookieShareData;
   };
   [EAppEventBusNames.CreateNewBrowserTab]: undefined;
+  [EAppEventBusNames.NavigateModalFromBackgroundThread]: {
+    screen: any;
+    params: any;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

@@ -10,9 +10,15 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useEffect } from 'react';
+
 import { Toast } from '@onekeyhq/components';
 import { SyncHomeAccountToDappAccountProvider } from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
@@ -48,6 +54,31 @@ const LastActivityTracker = LazyLoad(
 );
 
 const flexStyle = { flex: 1 };
+
+// Relay navigation events from the background thread to the main thread.
+// In dual-thread mode, ServiceDApp.openModal emits an event because it has
+// no access to the navigation ref. This listener performs the actual navigation.
+function BackgroundNavigationRelay() {
+  useEffect(() => {
+    const handler = (payload: { screen: any; params: any }) => {
+      appGlobals.$navigationRef.current?.navigate(
+        payload.screen,
+        payload.params,
+      );
+    };
+    appEventBus.on(
+      EAppEventBusNames.NavigateModalFromBackgroundThread,
+      handler,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.NavigateModalFromBackgroundThread,
+        handler,
+      );
+    };
+  }, []);
+  return null;
+}
 
 function logKitProvider(message: string) {
   if (
@@ -96,6 +127,7 @@ export function KitProvider(props: any = {}) {
                 <StateActiveContainer />
                 <SyncHomeAccountToDappAccountProvider />
                 <HardwareServiceProvider />
+                <BackgroundNavigationRelay />
               </ThemeProvider>
             </GestureHandlerRootView>
           </KeyboardProvider>

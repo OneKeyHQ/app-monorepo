@@ -214,7 +214,7 @@ class ServiceDApp extends ServiceBase {
         });
         this.existingWindowId = extensionWindow.id;
       }
-    } else {
+    } else if (appGlobals.$navigationRef?.current) {
       const doOpenModal = () =>
         appGlobals.$navigationRef.current?.navigate(
           modalParams.screen,
@@ -223,6 +223,13 @@ class ServiceDApp extends ServiceBase {
       console.log('modalParams: ', modalParams);
       // TODO remove timeout after dapp request queue implemented.
       doOpenModal();
+    } else {
+      // Background thread: no navigation ref available.
+      // Relay navigation to main thread via app event bus.
+      appEventBus.emit(
+        EAppEventBusNames.NavigateModalFromBackgroundThread,
+        { screen: modalParams.screen, params: modalParams.params },
+      );
     }
   };
 

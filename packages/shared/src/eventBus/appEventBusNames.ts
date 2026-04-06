@@ -140,4 +140,5 @@ export enum EAppEventBusNames {
   ExecuteNotificationCommand = 'ExecuteNotificationCommand',
   ShowRookieShare = 'ShowRookieShare',
   CreateNewBrowserTab = 'CreateNewBrowserTab',
+  NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
 }
