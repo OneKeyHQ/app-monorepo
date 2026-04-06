@@ -409,16 +409,20 @@ export function useRecentRecipientsData({
     if (isStale()) return;
 
     if (storedAddresses.length > 0) {
-      const enriched = await enrichAddresses(
-        storedAddresses,
-        storedExtraMap,
-        networkId,
-      );
-      if (isStale()) return;
-      setRecentRecipients(enriched);
-      setIsLoadingRecent(false);
-      // Continue loading more from chain history in background.
-      setIsLoadingMore(true);
+      try {
+        const enriched = await enrichAddresses(
+          storedAddresses,
+          storedExtraMap,
+          networkId,
+        );
+        if (isStale()) return;
+        setRecentRecipients(enriched);
+        setIsLoadingRecent(false);
+        // Continue loading more from chain history in background.
+        setIsLoadingMore(true);
+      } catch {
+        // ignore enrichment errors, continue to Phase 3
+      }
     }
 
     // Phase 3: Load from chain history and merge new entries.
