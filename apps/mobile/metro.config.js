@@ -114,11 +114,32 @@ config.resolver.unstable_enablePackageExports = false;
 
 // Manual alias for a subpath export when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
+// In production builds, redirect Developer/router to an empty stub so that
+// Gallery pages and all their background-only transitive dependencies
+// (core/chains, kit-bg/vaults, qr-wallet-sdk, bitcoinjs-lib, etc.) are
+// completely excluded from the Metro graph — they never appear in any bundle,
+// segment, or manifest.
+const devRouterStub = path.resolve(
+  monorepoRoot,
+  'packages/kit/src/views/Developer/router.empty.ts',
+);
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === '@nktkas/hyperliquid/signing') {
     return {
       type: 'sourceFile',
       filePath: hyperliquidSigningPath,
+    };
+  }
+  // Strip Developer/Gallery from production union builds
+  if (
+    process.env.UNION_BUILD === 'true' &&
+    context.originModulePath &&
+    (moduleName.includes('/Developer/router') ||
+      moduleName.includes('/Developer/pages/Gallery'))
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: devRouterStub,
     };
   }
   return resolve(context, moduleName, platform);
