@@ -321,8 +321,19 @@ function buildSegmentAllocation(graph) {
         asyncTypes.length >= 1 &&
         asyncTypes.every((v) => v === asyncFlag || asyncRoots.has(v))
       ) {
-        const rootId = asyncTypes.find((v) => asyncRoots.has(v));
-        asyncDescendants.set(moduleId, rootId);
+        // If ANY parent uses a direct async import (asyncType === 'async'),
+        // promote this module to its own ASYNC_ROOT instead of attaching it
+        // as a descendant of an existing root.  This prevents a module that
+        // is dynamically imported from multiple call sites from being lumped
+        // into an unrelated segment (e.g. qr-wallet-sdk ending up inside
+        // the QRWalletGallery dev segment just because Gallery also sync-
+        // imports it).
+        if (asyncTypes.some((v) => v === asyncFlag)) {
+          asyncRoots.set(moduleId, absolutePath);
+        } else {
+          const rootId = asyncTypes.find((v) => asyncRoots.has(v));
+          asyncDescendants.set(moduleId, rootId);
+        }
         step1Changed = true;
       } else if (hasUnresolved) {
         // Defer to next round.
@@ -515,6 +526,31 @@ function buildSegmentDeps(graph, segmentAbsPathsByKey, absPathToSegment) {
     }
     segmentDeps.set(segmentKey, deps);
   }
+
+  // Remove circular dependencies: if A depends on B and B depends on A,
+  // remove B→A to break the cycle.  The runtime segment loader has its own
+  // cycle detection and throws SegmentLoadError when it hits one, causing
+  // silent blank pages.  Breaking cycles here (at build time) is safe
+  // because both segments will already be loaded by the time the cyclic
+  // require() executes — segment files are self-contained with their sync
+  // deps included via expandSegmentsWithSyncDeps.
+  let cyclesRemoved = 0;
+  for (const [segKey, deps] of segmentDeps) {
+    for (const depKey of deps) {
+      const reverseEdge = segmentDeps.get(depKey);
+      if (reverseEdge && reverseEdge.has(segKey)) {
+        // Break cycle by removing the reverse edge
+        reverseEdge.delete(segKey);
+        cyclesRemoved += 1;
+      }
+    }
+  }
+  if (cyclesRemoved > 0) {
+    console.log(
+      `[unionBuild] Removed ${cyclesRemoved} circular segment dependencies`,
+    );
+  }
+
   return segmentDeps;
 }
 
