@@ -142,6 +142,14 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       filePath: devRouterStub,
     };
   }
+  // Deduplicate lodash: redirect lodash-es → lodash (CJS).
+  // Both versions co-exist in common (640 + 241 = 881 modules).
+  // CJS lodash is already required by project code and @onekeyfe/hd-core,
+  // so aliasing lodash-es to lodash eliminates ~640 redundant modules.
+  if (moduleName === 'lodash-es' || moduleName.startsWith('lodash-es/')) {
+    const cjsName = moduleName.replace('lodash-es', 'lodash');
+    return resolve(context, cjsName, platform);
+  }
   return resolve(context, moduleName, platform);
 };
 
