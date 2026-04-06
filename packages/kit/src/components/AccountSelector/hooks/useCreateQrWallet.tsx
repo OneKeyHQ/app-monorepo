@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
 import { useIntl } from 'react-intl';
 
 import { resetToRoute } from '@onekeyhq/components';
@@ -13,7 +12,6 @@ import type {
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { AirGapUR, IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import {
   OneKeyErrorAirGapDeviceMismatch,
   OneKeyErrorAirGapWalletMismatch,
@@ -145,6 +143,10 @@ export function useCreateQrWallet() {
       const urScanResult =
         scanResult as IQRCodeHandlerParseResult<IAnimationValue>;
       const qrcode = urScanResult?.data?.fullData || urScanResult?.raw || '';
+      const [{ airGapUrUtils }, { InvalidSchemeError }] = await Promise.all([
+        import('@onekeyhq/qr-wallet-sdk'),
+        import('@ngraveio/bc-ur/dist/errors'),
+      ]);
       let ur: AirGapUR | undefined;
       try {
         ur = await airGapUrUtils.qrcodeToUr(qrcode);

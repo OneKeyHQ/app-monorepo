@@ -37,6 +37,24 @@ if (!__DEV__) {
   }
 }
 
+// Install native error logger for Release mode debugging.
+// ErrorUtils is React Native's global error handler — catches both
+// sync exceptions and unhandled promise rejections.
+if (!__DEV__) {
+  const { NativeLogger, LogLevel } =
+    require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+  const origHandler = (globalThis as any).ErrorUtils?.getGlobalHandler?.();
+  (globalThis as any).ErrorUtils?.setGlobalHandler?.(
+    (error: Error, isFatal: boolean) => {
+      NativeLogger.write(
+        LogLevel.Error,
+        `[JSError] ${isFatal ? 'FATAL' : 'ERROR'}: ${error?.message || error}\n${error?.stack?.slice(0, 500) || ''}`,
+      );
+      origHandler?.(error, isFatal);
+    },
+  );
+}
+
 require('./src/backgroundThread/setupMainThreadBackgroundRunner');
 
 const { I18nManager } =

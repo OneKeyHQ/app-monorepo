@@ -518,6 +518,12 @@ function buildSegmentDeps(graph, segmentAbsPathsByKey, absPathToSegment) {
         continue;
       }
       for (const [, dep] of moduleData.dependencies) {
+        // Skip async imports — they are loaded on-demand at runtime,
+        // not as pre-requisites of this segment.
+        const asyncType = dep.data?.data?.asyncType;
+        if (asyncType === 'async') {
+          continue;
+        }
         const depSegment = absPathToSegment.get(dep.absolutePath);
         if (depSegment && depSegment !== segmentKey) {
           deps.add(depSegment);

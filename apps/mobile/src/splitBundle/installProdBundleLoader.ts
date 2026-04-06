@@ -18,6 +18,10 @@
  */
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 
 import { getRuntimeKind } from './runtimeInfo';
 import { getSegmentEntry, isSegmentAllowedInRuntime } from './segmentManifest';
@@ -86,6 +90,10 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
   // Already failed — reject immediately
   const prevError = failedSegments.get(segmentKey);
   if (prevError) {
+    NativeLogger.write(
+      LogLevel.Error,
+      `[SplitBundle] ${segmentKey}: previously failed: ${prevError.message}`,
+    );
     throw prevError;
   }
 
@@ -184,6 +192,10 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
     segmentStats.failures += 1;
     segmentStates.set(segmentKey, 'failed');
     failedSegments.set(segmentKey, segError);
+    NativeLogger.write(
+      LogLevel.Error,
+      `[SplitBundle] SEGMENT LOAD FAILED: ${segError.message}`,
+    );
     throw segError;
   } finally {
     inflightSegments.delete(segmentKey);

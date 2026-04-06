@@ -15,8 +15,6 @@ import {
   YStack,
   usePageWidth,
 } from '@onekeyhq/components';
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -133,15 +131,24 @@ const SecureQRToastBase = ({
             onPress={() => {
               console.log('SecureQRToastContent', value, valueUr);
               if (valueUr) {
-                const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
-                console.log(qrcodeDetails);
-                if (
-                  valueUr &&
-                  qrcodeDetails.single?.startsWith('ur:onekey-app-call-device/')
-                ) {
-                  const data = OneKeyRequestDeviceQR.fromUR(valueUr);
-                  console.log(data);
-                }
+                void (async () => {
+                  const { airGapUrUtils } = await import(
+                    '@onekeyhq/qr-wallet-sdk'
+                  );
+                  const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
+                  console.log(qrcodeDetails);
+                  if (
+                    qrcodeDetails.single?.startsWith(
+                      'ur:onekey-app-call-device/',
+                    )
+                  ) {
+                    const { OneKeyRequestDeviceQR } = await import(
+                      '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR'
+                    );
+                    const data = OneKeyRequestDeviceQR.fromUR(valueUr);
+                    console.log(data);
+                  }
+                })();
               }
             }}
           >
@@ -170,8 +177,13 @@ const SecureQRToastBase = ({
             onPress={() => {
               console.log('SecureQRToastContent', value, valueUr);
               if (valueUr) {
-                const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
-                console.log(qrcodeDetails);
+                void (async () => {
+                  const { airGapUrUtils } = await import(
+                    '@onekeyhq/qr-wallet-sdk'
+                  );
+                  const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
+                  console.log(qrcodeDetails);
+                })();
               }
             }}
           >
