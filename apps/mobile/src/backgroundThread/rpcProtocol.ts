@@ -82,6 +82,8 @@ export const BACKGROUND_THREAD_RESPONSE_KEY_PREFIX = 'onekey:bg:res:';
 export const BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX = 'onekey:bg:jotai:';
 export const BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX = 'onekey:bg:event:';
 export const BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX = 'onekey:bg:bridge:';
+export const WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX = 'onekey:webembed:req:';
+export const WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX = 'onekey:webembed:resp:';
 
 export function buildBackgroundThreadRequestKey(callId: string) {
   return `${BACKGROUND_THREAD_REQUEST_KEY_PREFIX}${callId}`;
@@ -101,6 +103,14 @@ export function buildBackgroundThreadAppEventKey(callId: string) {
 
 export function buildBackgroundThreadBridgeSendKey(callId: string) {
   return `${BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX}${callId}`;
+}
+
+export function buildWebEmbedBridgeRequestKey(callId: string) {
+  return `${WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX}${callId}`;
+}
+
+export function buildWebEmbedBridgeResponseKey(callId: string) {
+  return `${WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX}${callId}`;
 }
 
 export function parseBackgroundThreadCallId(

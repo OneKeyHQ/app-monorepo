@@ -17,12 +17,14 @@ import {
   BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX,
   BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX,
   BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
+  WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
   type IBackgroundThreadBridgeCallRequest,
   type IBackgroundThreadBridgeChannel,
   type IBackgroundThreadRequest,
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
   buildBackgroundThreadRequestKey,
+  buildWebEmbedBridgeResponseKey,
   parseBackgroundThreadAppEventBroadcastPayload,
   parseBackgroundThreadBridgeSendPayload,
   parseBackgroundThreadCallId,
@@ -393,6 +395,42 @@ function handleBackgroundThreadBridgeSend(sharedRPC: ISharedRPC, key: string) {
   });
 }
 
+async function handleWebEmbedBridgeRequest(
+  sharedRPC: ISharedRPC,
+  key: string,
+) {
+  const callId = key.slice(WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX.length);
+  const responseKey = buildWebEmbedBridgeResponseKey(callId);
+
+  try {
+    const raw = sharedRPC.read(key);
+    const data = typeof raw === 'string' ? JSON.parse(raw) : undefined;
+    const bridge = mainThreadBridgeMap.webEmbed;
+
+    if (!bridge) {
+      sharedRPC.write(
+        responseKey,
+        JSON.stringify({
+          ok: false,
+          error: { message: 'webEmbed bridge not available in main thread' },
+        }),
+      );
+      return;
+    }
+
+    const result = await bridge.request({ scope: '$private', data });
+    sharedRPC.write(responseKey, JSON.stringify({ ok: true, result }));
+  } catch (error) {
+    sharedRPC.write(
+      responseKey,
+      JSON.stringify({
+        ok: false,
+        error: { message: String((error as Error)?.message || error) },
+      }),
+    );
+  }
+}
+
 function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
   if (!observerInstalled) {
     observerInstalled = true;
@@ -419,6 +457,11 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
 
       if (callId.startsWith(BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX)) {
         handleBackgroundThreadBridgeSend(sharedRPC, callId);
+        return;
+      }
+
+      if (callId.startsWith(WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX)) {
+        void handleWebEmbedBridgeRequest(sharedRPC, callId);
       }
     });
   }

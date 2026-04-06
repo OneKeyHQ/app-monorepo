@@ -5,6 +5,7 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
   BACKGROUND_THREAD_REQUEST_KEY_PREFIX,
+  WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX,
   type IBackgroundThreadAppEventRequest,
   type IBackgroundThreadBridgeCallRequest,
   type IBackgroundThreadBridgeChannel,
@@ -18,6 +19,7 @@ import {
   buildBackgroundThreadBridgeSendKey,
   buildBackgroundThreadJotaiStateKey,
   buildBackgroundThreadResponseKey,
+  buildWebEmbedBridgeRequestKey,
   parseBackgroundThreadCallId,
   parseBackgroundThreadRequest,
   serializeBackgroundThreadAppEventBroadcastPayload,
@@ -291,6 +293,12 @@ function installBackgroundRequestHandler() {
   if (!handlerInstalled) {
     handlerInstalled = true;
     sharedRPC.onWrite((callId) => {
+      // Handle webembed bridge responses from main thread
+      if (callId.startsWith(WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX)) {
+        handleWebEmbedBridgeResponse(sharedRPC, callId);
+        return;
+      }
+
       const requestCallId = parseBackgroundThreadCallId(
         callId,
         BACKGROUND_THREAD_REQUEST_KEY_PREFIX,
@@ -354,6 +362,79 @@ export function setBackgroundThreadRequestExecutor(
   ensureBackgroundRequestHandlerInstalled();
 }
 
+// --- WebEmbed bridge reverse RPC (background → main thread) ---
+
+const WEBEMBED_BRIDGE_CALL_TIMEOUT_MS = 30_000;
+let webEmbedBridgeCallSequence = 0;
+const pendingWebEmbedBridgeCalls = new Map<
+  string,
+  {
+    resolve: (value: unknown) => void;
+    reject: (reason: unknown) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }
+>();
+
+function handleWebEmbedBridgeResponse(
+  sharedRPC: ReturnType<typeof getSharedRPC>,
+  key: string,
+) {
+  if (!sharedRPC) {
+    return;
+  }
+  const callId = key.slice(WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX.length);
+  const pending = pendingWebEmbedBridgeCalls.get(callId);
+  if (!pending) {
+    return;
+  }
+  pendingWebEmbedBridgeCalls.delete(callId);
+  clearTimeout(pending.timer);
+
+  try {
+    const raw = sharedRPC.read(key);
+    const response = typeof raw === 'string' ? JSON.parse(raw) : undefined;
+    if (response?.ok) {
+      pending.resolve(response.result);
+    } else {
+      pending.reject(
+        new OneKeyLocalError(
+          response?.error?.message || 'WebEmbed bridge call failed',
+        ),
+      );
+    }
+  } catch (error) {
+    pending.reject(error);
+  }
+}
+
+export function callWebEmbedBridgeViaMainThread(data: unknown): Promise<unknown> {
+  const sharedRPC = getSharedRPC();
+  if (!sharedRPC) {
+    return Promise.reject(
+      new OneKeyLocalError('SharedRPC unavailable for webEmbed bridge call'),
+    );
+  }
+
+  webEmbedBridgeCallSequence += 1;
+  const callId = `${webEmbedBridgeCallSequence}`;
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pendingWebEmbedBridgeCalls.delete(callId);
+      reject(new OneKeyLocalError('WebEmbed bridge call timeout (30s)'));
+    }, WEBEMBED_BRIDGE_CALL_TIMEOUT_MS);
+
+    pendingWebEmbedBridgeCalls.set(callId, { resolve, reject, timer });
+
+    sharedRPC.write(
+      buildWebEmbedBridgeRequestKey(callId),
+      JSON.stringify(data),
+    );
+  });
+}
+
+// --- end WebEmbed bridge reverse RPC ---
+
 export function setupBackgroundThreadRPCHandler() {
   const runtimeGlobal = globalThis as IBackgroundRuntimeGlobal;
 
@@ -368,6 +449,9 @@ export function setupBackgroundThreadRPCHandler() {
     sendBridgeMessageToUi: sendBridgeMessageFromBgToUi,
     getBridgeState: (channel) => bridgeStateMap[channel],
   };
+  // Expose reverse RPC for webEmbed bridge calls from background thread
+  (globalThis as any).__onekeyCallWebEmbedBridgeViaMainThread =
+    callWebEmbedBridgeViaMainThread;
 
   ensureBackgroundRequestHandlerInstalled();
 }

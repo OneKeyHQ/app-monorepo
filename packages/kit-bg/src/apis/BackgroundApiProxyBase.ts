@@ -17,16 +17,22 @@ import {
   EEventBusBroadcastMethodNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
   ensureSerializable,
 } from '@onekeyhq/shared/src/utils/assertUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
+import { isWebEmbedApiAllowedOrigin } from './backgroundApiPermissions';
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
+
+import type { IBackgroundApiWebembedCallMessage } from './IBackgroundApi';
 
 import type {
   IBackgroundApi,
@@ -351,14 +357,27 @@ export class BackgroundApiProxyBase
   }
 
   connectWebEmbedBridge(bridge: JsBridgeBase | null) {
+    const hasTransport = !!this.getNativeBackgroundThreadTransport();
+    defaultLogger.app.webembed.connectWebEmbedBridgeEntry({
+      isMainThread: !!platformEnv.isNativeMainThread,
+      enableBgThread: !!platformEnv.enableNativeBackgroundThread,
+      hasTransport,
+      bridgeExists: !!bridge,
+    });
     if (
       platformEnv.isNativeMainThread &&
       platformEnv.enableNativeBackgroundThread
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
       if (transport) {
+        // Always set bridge on local BackgroundApi so main-thread
+        // callWebEmbedBridgeLocal() can use it directly.
+        void this.connectLocalBackgroundBridge('webEmbed', bridge);
         void Promise.resolve()
-          .then(() => transport.ensureReady?.())
+          .then(() => {
+            defaultLogger.app.webembed.connectWebEmbedBridgeTransportReady();
+            return transport.ensureReady?.();
+          })
           .then(() =>
             transport.syncBridgeConnection(
               {
@@ -368,13 +387,65 @@ export class BackgroundApiProxyBase
               () => this.connectLocalBackgroundBridge('webEmbed', bridge),
             ),
           )
+          .then(() => {
+            defaultLogger.app.webembed.connectWebEmbedBridgeSyncDone();
+          })
           .catch((error) => {
+            defaultLogger.app.webembed.connectWebEmbedBridgeSyncError({
+              error: String(error),
+            });
             console.error('connectWebEmbedBridge relay failed', error);
           });
         return;
       }
     }
+    defaultLogger.app.webembed.connectWebEmbedBridgeDirect();
     this.backgroundApi?.connectWebEmbedBridge(bridge);
+  }
+
+  async callWebEmbedBridgeLocal(
+    data: IBackgroundApiWebembedCallMessage,
+  ): Promise<any> {
+    const bg = this.ensureLocalBackgroundApi() as unknown as
+      | import('./BackgroundApiBase').default
+      | undefined;
+
+    defaultLogger.app.webembed.callWebEmbedApiProxyEntry({
+      module: data?.module || '',
+      method: data?.method || '',
+      isWebEmbedApiReady: true,
+      hasWebEmbedBridge: !!bg?.webEmbedBridge,
+    });
+
+    await waitForDataLoaded({
+      data: () => Boolean(bg?.webEmbedBridge),
+      logName: `callWebEmbedBridgeLocal: bridge=${Boolean(bg?.webEmbedBridge)}`,
+      wait: 1000,
+      timeout: timerUtils.getTimeDurationMs({ minute: 3 }),
+    });
+
+    if (!bg?.webEmbedBridge?.request) {
+      throw new OneKeyLocalError('webembed webview bridge not ready (local).');
+    }
+
+    const webviewOrigin = bg.webEmbedBridge.remoteInfo?.origin || '';
+    defaultLogger.app.webembed.callWebEmbedApiProxyBridgeReady({
+      module: data?.module || '',
+      method: data?.method || '',
+      origin: webviewOrigin,
+    });
+
+    if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
+      throw new OneKeyLocalError(
+        `callWebEmbedBridgeLocal not allowed origin: ${webviewOrigin || 'undefined'}`,
+      );
+    }
+
+    const result = await bg.webEmbedBridge.request({
+      scope: '$private',
+      data,
+    });
+    return result;
   }
 
   bridgeReceiveHandler = (payload: IJsBridgeMessagePayload): unknown => {
