@@ -1549,11 +1549,10 @@ function TokenListBlock({
         tokens: aggregateTokenMap,
       });
 
-      refreshTokenList(tokenList);
-      // Mark that the final sorted token list is ready.
-      // coldStartCache will only save tokenListAtom after this flag is set,
-      // preventing intermediate progressive-load data from overwriting.
+      // Mark BEFORE refreshTokenList so coldStartCache wrappedUse sees
+      // the flag on the re-render triggered by this write.
       (globalThis as any).__onekeyTokenListFinalReady = true;
+      refreshTokenList(tokenList);
 
       refreshTokenListMap({
         tokens: mergeTokenListMap,
