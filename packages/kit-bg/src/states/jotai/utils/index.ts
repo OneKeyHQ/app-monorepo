@@ -362,6 +362,29 @@ function flushColdStartCache() {
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
       JSON.stringify(snapshot),
     );
+    // DEBUG: log flush details
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { NativeLogger: NL, LogLevel: LL } =
+        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+      const jsEntry: number =
+        (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+      const elapsed = jsEntry ? Date.now() - jsEntry : 0;
+      const details = Array.from(coldStartDirtyKeys)
+        .map((k) => {
+          const v = coldStartValuesMap.get(k);
+          if (v && typeof v === 'object' && 'tokens' in (v as any)) {
+            const tokens = (v as any).tokens;
+            return `${k}(${Array.isArray(tokens) ? tokens.length : '?'}tokens:${Array.isArray(tokens) ? tokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : '?'})`;
+          }
+          return k;
+        })
+        .join(', ');
+      NL.write(
+        LL.Info,
+        `[ColdStartCache] flush +${elapsed}ms: ${details}`,
+      );
+    } catch { /* */ }
     coldStartDirtyKeys.clear();
   } catch {
     /* best-effort */
@@ -445,6 +468,29 @@ export function contextAtomBase<Value>({
           if (coldStartValuesMap.get(name) !== currentValue) {
             coldStartValuesMap.set(name, currentValue);
             scheduleColdStartSave(name);
+            // DEBUG: log token list changes
+            if (
+              name === 'ctx:tokenListAtom' &&
+              currentValue &&
+              typeof currentValue === 'object' &&
+              'tokens' in (currentValue as any)
+            ) {
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                const { NativeLogger: NL, LogLevel: LL } =
+                  require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+                const tokens = (currentValue as any).tokens;
+                const jsEntry: number =
+                  (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+                const elapsed = jsEntry ? Date.now() - jsEntry : 0;
+                NL.write(
+                  LL.Info,
+                  `[ColdStartCache] tokenList changed +${elapsed}ms: ${Array.isArray(tokens) ? tokens.length : '?'} tokens, first3=[${Array.isArray(tokens) ? tokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : '?'}]`,
+                );
+              } catch {
+                /* */
+              }
+            }
           }
           return result;
         }

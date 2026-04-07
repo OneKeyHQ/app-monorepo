@@ -1,5 +1,3 @@
-import RNCloudFs from 'react-native-cloud-fs';
-
 import {
   decryptStringAsync,
   encryptStringAsync,
@@ -50,6 +48,7 @@ const ICLOUD_KEYCHAIN_DESCRIPTION =
 
 async function isCloudFsAvailable() {
   if (platformEnv.isNativeIOS) {
+    const RNCloudFs = await import('react-native-cloud-fs');
     return RNCloudFs?.isAvailable?.();
   }
   return undefined;
