@@ -1552,10 +1552,24 @@ function TokenListBlock({
       // Mark BEFORE refreshTokenList so coldStartCache wrappedUse sees
       // the flag on the re-render triggered by this write.
       (globalThis as any).__onekeyTokenListFinalReady = true;
-      refreshTokenList(tokenList);
 
+      // Update price map FIRST so refreshTokenList(merge+split) sorts correctly
       refreshTokenListMap({
         tokens: mergeTokenListMap,
+      });
+
+      // Use merge+split to ensure consistent sort with refreshTokenList's
+      // sortTokensByFiatValue logic (same as handleAllNetworkCacheData path)
+      refreshTokenList({
+        tokens: tokenList.tokens,
+        keys: tokenList.keys,
+        merge: true,
+        map: {
+          ...mergeTokenListMap,
+          ...flattenAggregateTokensMap(aggregateTokenMap),
+        },
+        mergeDerive: true,
+        split: true,
       });
 
       refreshSmallBalanceTokenList(smallBalanceTokenList);
