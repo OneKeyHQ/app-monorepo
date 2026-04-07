@@ -1,22 +1,12 @@
-import { createStore } from 'mipd';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import {
   initMipdGlue,
   useOneKeyWalletDetection,
 } from './useOneKeyWalletDetectionCore';
 
 // ---------------------------------------------------------------------------
-// Default (React Native / non-browser): only create the mipd store in
-// extension/web environments where browser APIs are available.
+// React-Native stub: no mipd store (browser APIs unavailable on RN).
+// The full browser implementation lives in the `.web-only.ts` variant.
 // ---------------------------------------------------------------------------
-const sharedMipdStore =
-  typeof globalThis !== 'undefined' &&
-  (platformEnv.isExtension || platformEnv.isWeb)
-    ? createStore()
-    : undefined;
-
-initMipdGlue(sharedMipdStore);
+initMipdGlue(undefined);
 
 export { useOneKeyWalletDetection };
