@@ -5,7 +5,13 @@ import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
+import type {
+  IDesktopApiLegacy,
+  IDesktopApiBridge,
+  IDesktopGlobals,
+} from '@onekeyhq/shared/types/desktop';
 import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
+import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
 import type { BrowserWindow } from 'electron';
@@ -78,8 +84,13 @@ declare global {
     web3: any;
     $onekey: IWindowOneKeyHub;
 
-    // Desktop internal (main,renderer)
-    // ONEKEY_DESKTOP_GLOBALS: Record<any, any>;
+    // Desktop internal (contextBridge-exposed)
+    desktopApi: IDesktopApiLegacy;
+    desktopApiBridge: IDesktopApiBridge;
+    $mmkvSync: (args: { method: string; id: string; key?: string; value?: unknown }) => any;
+    ONEKEY_DESKTOP_GLOBALS_GETTER: () => IDesktopGlobals | undefined;
+    ONEKEY_DESKTOP_DEEP_LINKS_GETTER: () => any[];
+    ONEKEY_DESKTOP_DEEP_LINKS_CLEAR: () => void;
 
     ONEKEY_DESKTOP_DEEP_LINKS: any[];
   }
@@ -92,8 +103,15 @@ declare global {
   // Native App webview content
   var ReactNativeWebView: WebView;
 
-  // Desktop internal (main,renderer)
-  var ONEKEY_DESKTOP_GLOBALS: Record<any, any>;
+  // Desktop internal (main,renderer) — exposed via contextBridge in preload.ts
+  var ONEKEY_DESKTOP_GLOBALS: IDesktopGlobals;
+  var desktopApi: IDesktopApiLegacy;
+  var desktopApiProxy: DesktopApiProxy;
+  var desktopApiBridge: IDesktopApiBridge;
+  var $mmkvSync: (args: { method: string; id: string; key?: string; value?: unknown }) => any;
+  var ONEKEY_DESKTOP_GLOBALS_GETTER: () => IDesktopGlobals | undefined;
+  var ONEKEY_DESKTOP_DEEP_LINKS_GETTER: () => any[];
+  var ONEKEY_DESKTOP_DEEP_LINKS_CLEAR: () => void;
 
   // Ext internal (ui,background,contentScript)
   var extJsBridgeUiToBg: JsBridgeBase;

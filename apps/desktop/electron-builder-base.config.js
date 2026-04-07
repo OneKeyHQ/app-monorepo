@@ -1,6 +1,6 @@
+/* eslint-disable no-template-curly-in-string */
 const { getPath } = require('./scripts/utils');
 
-/* eslint-disable no-template-curly-in-string */
 require('../../development/env');
 
 const baseElectronBuilderConfig = {
@@ -17,13 +17,6 @@ const baseElectronBuilderConfig = {
     'output': 'build-electron',
   },
   'npmRebuild': false,
-  'files': [
-    'dist/**/*',
-    '!dist/__**',
-    'build/**/*',
-    '!build/static/bin/**/*',
-    'package.json',
-  ],
   'protocols': {
     'name': 'electron-deep-linking',
     'schemes': ['onekey-wallet', 'wc', 'ethereum'],
@@ -46,6 +39,20 @@ const baseElectronBuilderConfig = {
     'provider': 'github',
     'repo': 'app-monorepo',
     'owner': 'OneKeyHQ',
+  },
+  'electronFuses': {
+    'runAsNode': false,
+    'enableCookieEncryption': true,
+    'enableNodeOptionsEnvironmentVariable': false,
+    'enableNodeCliInspectArguments': false,
+    'enableEmbeddedAsarIntegrityValidation': true,
+    'onlyLoadAppFromAsar': true,
+    // Keep file:// privileges enabled — disabling makes file:// an opaque origin,
+    // breaking localStorage/sessionStorage/indexedDB for the main window.
+    // Risk mitigation: the production file protocol interceptor in app.ts validates
+    // all resolved paths stay within the build directory (path traversal guard).
+    // TODO: migrate to custom app:// protocol to fully eliminate file:// privileges.
+    'grantFileProtocolExtraPrivileges': true,
   },
   'afterSign': getPath('scripts/afterSign.js'),
   'afterPack': getPath('scripts/afterPack.js'),
