@@ -185,12 +185,14 @@ function AmountCard() {
     bulkSendMode,
     isMaxMode,
     setIsMaxMode,
+    hasDuplicateSenders,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
   const { network } = useAccountData({ networkId });
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const shouldHideMaxMode = !isOneToMany && hasDuplicateSenders;
   const balance = tokenDetails?.balanceParsed ?? '0';
   const minTransferDisplayAmount = useMemo(
     () =>
@@ -782,7 +784,8 @@ function AmountCard() {
         ) : (
           <Stack />
         )}
-        {amountInputMode === EAmountInputMode.Specified ? (
+        {amountInputMode === EAmountInputMode.Specified &&
+        !shouldHideMaxMode ? (
           <SizableText
             size="$bodySmMedium"
             color={isMaxMode ? '$textSuccess' : '$textInteractive'}
@@ -832,6 +835,25 @@ function TransferInfoListSection() {
   });
 
   const isCustomMode = amountInputMode === EAmountInputMode.Custom;
+
+  // Pre-compute aggregated amount per sender for balance color check
+  const aggregatedSenderAmounts = useMemo(() => {
+    if (isOneToMany) return new Map<string, BigNumber>();
+    const map = new Map<string, BigNumber>();
+    for (const transfer of transfersInfo) {
+      const amount = isMaxMode
+        ? senderBalances[transfer.from]
+        : transfer.amount;
+      if (amount && amount !== '') {
+        const bn = new BigNumber(amount);
+        if (!bn.isNaN()) {
+          const existing = map.get(transfer.from);
+          map.set(transfer.from, existing ? existing.plus(bn) : bn);
+        }
+      }
+    }
+    return map;
+  }, [isOneToMany, isMaxMode, transfersInfo, senderBalances]);
 
   if (transfersInfo.length === 0) {
     return null;
@@ -971,15 +993,19 @@ function TransferInfoListSection() {
                         </XStack>
                       );
                     }
+                    const senderBalance = senderBalances[transfer.from];
+                    const aggregatedAmount = aggregatedSenderAmounts.get(
+                      transfer.from,
+                    );
+                    const isBalanceInsufficient =
+                      senderBalance !== undefined &&
+                      aggregatedAmount !== undefined &&
+                      aggregatedAmount.gt(senderBalance);
                     return (
                       <NumberSizeableText
                         size="$bodySm"
                         color={
-                          senderBalances[transfer.from] &&
-                          displayAmount &&
-                          new BigNumber(displayAmount).gt(
-                            senderBalances[transfer.from],
-                          )
+                          isBalanceInsufficient
                             ? '$textCritical'
                             : '$textSubdued'
                         }
@@ -988,7 +1014,7 @@ function TransferInfoListSection() {
                           tokenSymbol: tokenInfo?.symbol,
                         }}
                       >
-                        {senderBalances[transfer.from] ?? '-'}
+                        {senderBalance ?? '-'}
                       </NumberSizeableText>
                     );
                   })()}
