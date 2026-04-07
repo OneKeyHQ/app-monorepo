@@ -968,7 +968,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       const content = await getStringAsync();
       return { allowed: true, content, remember };
     }
-    if (params.type === 'write' && params.text != null) {
+    if (params.type === 'write' && params.text !== undefined) {
       const { setStringAsync } = await import('expo-clipboard');
       await setStringAsync(params.text);
       return { allowed: true, remember };
