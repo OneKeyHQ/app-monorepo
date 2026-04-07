@@ -29,6 +29,7 @@ import {
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -552,7 +553,7 @@ function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
       borderCurve="continuous"
       bg="$bgSubdued"
       animation="quick"
-      animateOnly={['opacity', 'transform']}
+      animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
       enterStyle={{
         opacity: 0,
         x: 24,

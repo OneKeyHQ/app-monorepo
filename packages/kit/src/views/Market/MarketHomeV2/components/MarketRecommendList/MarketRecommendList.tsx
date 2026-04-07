@@ -35,11 +35,6 @@ export function MarketRecommendList({
   const actions = useWatchListV2Action();
   const { height: windowHeight } = useWindowDimensions();
 
-  const actualMaxSize = useMemo(
-    () => (windowHeight < 750 ? 6 : maxSize),
-    [windowHeight, maxSize],
-  );
-
   const actualShowTitle = useMemo(() => windowHeight > 700, [windowHeight]);
 
   const uniqueTokens = useMemo(() => {
@@ -54,8 +49,8 @@ export function MarketRecommendList({
   }, [recommendedTokens]);
 
   const defaultTokens = useMemo(
-    () => uniqueTokens.slice(0, actualMaxSize),
-    [uniqueTokens, actualMaxSize],
+    () => uniqueTokens.slice(0, maxSize),
+    [uniqueTokens, maxSize],
   );
 
   const [selectedTokens, setSelectedTokens] = useState<
@@ -137,18 +132,7 @@ export function MarketRecommendList({
   }
 
   return (
-    <YStack
-      $platform-android={{
-        paddingTop: '$-5',
-      }}
-      $platform-ios={{
-        paddingTop: '$-4',
-      }}
-      p="$5"
-      jc="center"
-      ai="center"
-      width="100%"
-    >
+    <YStack px="$5" jc="center" ai="center" width="100%">
       {actualShowTitle ? (
         <>
           <SizableText
@@ -171,7 +155,7 @@ export function MarketRecommendList({
         </>
       ) : null}
       <YStack
-        pt={actualShowTitle ? '$8' : '$0'}
+        pt={actualShowTitle ? '$6' : '$0'}
         gap="$2.5"
         width="100%"
         $gtMd={{ maxWidth: 480 }}
@@ -179,7 +163,7 @@ export function MarketRecommendList({
           gap: '$2',
         }}
       >
-        {new Array(Math.ceil(actualMaxSize / 2)).fill(0).map((_, i) => (
+        {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
           <XStack
             gap="$2.5"
             key={i}
@@ -209,7 +193,7 @@ export function MarketRecommendList({
             })}
           </XStack>
         ))}
-        <YStack pt="$8">{confirmButton}</YStack>
+        <YStack pt="$6">{confirmButton}</YStack>
       </YStack>
     </YStack>
   );

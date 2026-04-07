@@ -4,6 +4,7 @@ import {
   format as fnsFormat,
   formatDistanceStrict as fnsFormatDistanceStrict,
   formatDistanceToNow as fnsFormatDistanceToNow,
+  formatDistanceToNowStrict as fnsFormatDistanceToNowStrict,
   formatDuration as fnsFormatDuration,
   parseISO,
 } from 'date-fns';
@@ -129,6 +130,15 @@ export default function useFormatDate() {
     [locale],
   );
 
+  const formatDistanceToNowStrict = useCallback(
+    (date: Date | number) =>
+      fnsFormatDistanceToNowStrict(date, {
+        addSuffix: true,
+        locale: parseToDateFnsLocale(locale),
+      }) ?? '',
+    [locale],
+  );
+
   const formatDuration = useCallback(
     (duration: Duration) =>
       fnsFormatDuration(duration, {
@@ -143,6 +153,7 @@ export default function useFormatDate() {
       formatDate,
       formatMonth,
       formatDistanceToNow,
+      formatDistanceToNowStrict,
       formatDuration,
       formatDistanceStrict,
     }),
@@ -151,6 +162,7 @@ export default function useFormatDate() {
       formatDate,
       formatMonth,
       formatDistanceToNow,
+      formatDistanceToNowStrict,
       formatDuration,
       formatDistanceStrict,
     ],

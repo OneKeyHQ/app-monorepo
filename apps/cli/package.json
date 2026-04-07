@@ -1,0 +1,35 @@
+{
+  "name": "@onekeyfe/cli",
+  "version": "0.1.0-alpha.0",
+  "description": "OneKey wallet CLI for developers and AI agents",
+  "bin": {
+    "onekey": "./bin/onekey"
+  },
+  "main": "dist/cli.js",
+  "files": [
+    "dist/",
+    "bin/"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "npx jest",
+    "typecheck": "npx tsc --noEmit",
+    "prepublishOnly": "yarn build",
+    "version:patch": "node scripts/bump-version.js patch",
+    "version:minor": "node scripts/bump-version.js minor",
+    "version:major": "node scripts/bump-version.js major",
+    "version:alpha": "node scripts/bump-version.js alpha",
+    "version:beta": "node scripts/bump-version.js beta"
+  },
+  "devDependencies": {
+    "@onekeyhq/core": "workspace:*",
+    "@onekeyhq/shared": "workspace:*",
+    "axios": "^1.13.2",
+    "chalk": "^4.1.2",
+    "commander": "^12.0.0",
+    "tsup": "^8.0.0",
+    "yaml": "^2.8.0",
+    "zod": "^3.23.0"
+  }
+}

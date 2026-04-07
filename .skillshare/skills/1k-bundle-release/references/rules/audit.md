@@ -25,19 +25,16 @@ If no prior `diff-check` context exists, run the standard detection:
    - `tag_sha` from App Shell tag: `git rev-parse "v${VERSION}"`
    - `last_release_sha` from RELEASES.json (highest `seq` entry), or same as `tag_sha` if first release
 
-### 2. Codex MCP readiness
+### 2. Codex readiness
 
-Check whether Codex MCP is available for cross-validation.
+Check whether Codex is available for cross-validation.
 
-1. Confirm `mcp__codex__codex` exists in available tools
-2. Send probe: `"Health check: respond with 'OK' if you can process requests."`
-3. Retrieve response via `mcp__codex__codex-reply`
+Confirm Codex CLI is installed and authenticated. You can verify this by checking whether the `codex:codex-rescue` subagent type is available for dispatch. If uncertain, invoke `/codex:setup` to check readiness.
 
 | Result | Action |
 |--------|--------|
-| Tool not found | Warn: "⚠️ Codex MCP 未找到，审计将以降级模式继续（无交叉验证）。" Set `CODEX_AVAILABLE = false` |
-| Probe fails | Warn: "⚠️ Codex MCP 连接失败，降级模式继续。" Set `CODEX_AVAILABLE = false` |
-| Valid response | Log: "✅ Codex MCP 就绪。" Set `CODEX_AVAILABLE = true` |
+| Codex CLI ready | Log: "✅ Codex 就绪。" Set `CODEX_AVAILABLE = true` |
+| Codex CLI not ready | Warn: "⚠️ Codex CLI 未就绪，请运行 `/codex:setup`。审计将以降级模式继续。" Set `CODEX_AVAILABLE = false` |
 
 Proceed regardless — Codex enhances but does not gate the audit.
 
@@ -163,18 +160,20 @@ Inspect `.github/workflows/**` and build configs in the diff:
 - Install safety (`--ignore-scripts`, etc.)
 - Build hooks that download remote code, run arbitrary scripts, or leak env into logs
 
-### Step I — Codex MCP Cross-Validation
+### Step I — Codex Cross-Validation
 
 **Skip if `CODEX_AVAILABLE = false`.**
 
 The purpose is to get an independent second opinion. Codex reviews the same diff without seeing primary findings, so its conclusions serve as genuine cross-validation.
 
-#### I.1 — Send audit request
+#### I.1 — Dispatch audit to Codex
 
-Prepare diff summary and send to `mcp__codex__codex`:
+Use the `Agent` tool to dispatch an independent security review:
 
 ```
-Security audit for OneKey crypto wallet monorepo (bundle release).
+Agent(
+  subagent_type = "codex:codex-rescue",
+  prompt = "Security audit for OneKey crypto wallet monorepo (bundle release).
 Comparing ${tag_sha} → ${RELEASE_BRANCH}.
 
 Changed files:
@@ -192,18 +191,21 @@ Review focus areas:
 6. CI/CD pipeline — workflow permissions, unpinned actions, remote scripts
 7. Dynamic execution — eval, new Function, child_process patterns
 
-For each finding report: file path, line, severity, category, description, suggested fix.
+For each finding report: file path, line, severity, category, description, suggested fix."
+)
 ```
 
-If diff > 50KB, chunk by category:
-1. Dependency changes (`package.json` + `yarn.lock`)
+If diff > 50KB, prioritize including in the prompt:
+1. Dependency changes (`package.json` + `yarn.lock` diffs)
 2. Security-critical source diffs (vault, signing, crypto, auth)
 3. CI/CD and build config changes
-4. Remaining source diffs
+4. Note which areas were omitted from the prompt.
 
-#### I.2 — Retrieve and parse response
+#### I.2 — Parse Codex findings
 
-Call `mcp__codex__codex-reply`. Extract findings with: file path, line, severity, category, description, suggested fix.
+The Agent result returns Codex's output as text. If empty or failed, log and continue without Codex findings.
+
+Extract findings with: file path, line, severity, category, description, suggested fix.
 
 ### Step J — Merge and Cross-Validate
 
@@ -339,7 +341,7 @@ Write to `$REPORT_FILE`:
 
 ## 审计方法说明
 - Primary 审计: AI 逐步执行 Steps A–H
-- Codex 交叉验证: 独立 AI 审查同一 diff（Step I）
+- Codex 交叉验证: 通过官方 Codex 插件独立审查同一 diff（Step I）
 - 合并策略: 交叉验证提升置信度，冲突标记人工复核（Step J）
 ```
 

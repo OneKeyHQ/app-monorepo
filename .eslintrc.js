@@ -18,6 +18,7 @@
 // comments don't cause "unknown rule" errors (the real rule lives in oxlint)
 const Module = require('module');
 const path = require('path');
+
 const originalResolve = Module._resolveFilename;
 Module._resolveFilename = function (request, ...args) {
   if (request === 'eslint-plugin-onekey') {
@@ -297,6 +298,7 @@ const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 
 module.exports = {
+  root: true,
   plugins: [
     'import-path',
     'use-effect-no-deps',
@@ -331,6 +333,8 @@ module.exports = {
   },
   ignorePatterns: [
     '*.wasm.bin',
+    '.worktree/**',
+    '.claude/worktrees/**',
     'apps/desktop/public/static/js-sdk*',
     'packages/components/src/primitives/Icon/Icons.tsx',
     'packages/components/src/primitives/Icon/react/*',

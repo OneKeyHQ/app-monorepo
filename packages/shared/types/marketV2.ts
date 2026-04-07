@@ -121,9 +121,30 @@ export interface IMarketStockInfo {
   subtitle: string;
   source?: string;
   sourceLogoUri: string;
-  isOpen: boolean;
+  isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
+  // Stock fundamentals (from FMP API)
+  volume24h?: string;
+  volumeShares?: string;
+  turnoverRate?: string;
+  avgDailyVolume1y?: string;
+  weekHigh52?: string;
+  weekLow52?: string;
+  peRatio?: string;
+  pbRatio?: string;
+  psRatio?: string;
+  roe?: string;
+  roa?: string;
+  netProfitMargin?: string;
+  debtToEquity?: string;
+  dividendYield?: string;
+  dividendPerShare?: string;
+  marketCap?: string;
+  sharesOutstanding?: string;
+  underlyingAssetTicker?: string;
+  underlyingAssetName?: string;
+  sharesPerToken?: number;
 }
 
 export interface IMarketTokenListItem {
@@ -425,6 +446,14 @@ export interface IMarketTokenDetailResponse {
   data: IMarketTokenDetailData;
 }
 
+export interface IMarketAccountPortfolioPnl {
+  isPnlSupported: boolean;
+  totalPnlUsd: string;
+  totalPnlPercent: string;
+  unrealizedPnlUsd: string;
+  unrealizedPnlPercent: string;
+}
+
 export interface IMarketAccountPortfolioItem {
   accountAddress: string;
   tokenAddress: string;
@@ -432,6 +461,7 @@ export interface IMarketAccountPortfolioItem {
   symbol: string;
   tokenPrice: string;
   totalPrice: string;
+  pnl?: IMarketAccountPortfolioPnl;
 }
 
 export interface IMarketAccountPortfolioResponse {

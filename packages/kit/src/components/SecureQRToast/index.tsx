@@ -15,6 +15,7 @@ import {
   YStack,
   usePageWidth,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -95,6 +96,7 @@ const SecureQRToastBase = ({
             <Stack
               ai="center"
               animation="slow"
+              animateOnly={ANIMATE_ONLY_OPACITY}
               exitStyle={{
                 opacity: 0,
               }}

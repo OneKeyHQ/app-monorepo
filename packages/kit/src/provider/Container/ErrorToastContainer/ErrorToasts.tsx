@@ -4,16 +4,21 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   Toast,
   rootNavigationRef,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
+import { CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   ECustomCloudSyncError,
   ECustomOneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
@@ -25,6 +30,7 @@ interface IErrorActionParams {
   errorCode?: number;
   requestId?: string;
   diagnosticText?: string;
+  i18nKey?: ETranslations;
 }
 
 // Cooldown mechanism: prevent high-frequency log uploads (1 minute)
@@ -143,7 +149,7 @@ function NeedFirmwareUpgradeFromWebButton() {
   );
 }
 
-function NavigateToCloudSyncButton() {
+function NavigateToCloudSyncSwitchButton() {
   const intl = useIntl();
 
   return (
@@ -151,14 +157,55 @@ function NavigateToCloudSyncButton() {
       variant="primary"
       size="small"
       onPress={() => {
-        Toast.dismiss(CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID);
+        Toast.dismiss(CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID);
         rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
           screen: EModalRoutes.PrimeModal,
           params: { screen: EPrimePages.PrimeCloudSync },
         });
       }}
     >
-      {intl.formatMessage({ id: ETranslations.global_view_details })}
+      {intl.formatMessage({ id: ETranslations.switch_now__action })}
+    </Button>
+  );
+}
+
+function ClearPendingTransactionsButton() {
+  const intl = useIntl();
+
+  return (
+    <Button
+      variant="primary"
+      size="small"
+      onPress={() => {
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.settings_clear_pending_transactions,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.settings_clear_pending_transactions_desc,
+          }),
+          tone: 'destructive',
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_clear,
+          }),
+          onConfirm: async () => {
+            await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+            appEventBus.emit(
+              EAppEventBusNames.ClearLocalHistoryPendingTxs,
+              undefined,
+            );
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.global_success,
+              }),
+            });
+          },
+        });
+      }}
+    >
+      {intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions,
+      })}
     </Button>
   );
 }
@@ -167,6 +214,7 @@ export function getErrorAction({
   errorCode,
   requestId,
   diagnosticText,
+  i18nKey,
 }: IErrorActionParams) {
   // Special case: firmware upgrade button
   if (errorCode === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
@@ -174,8 +222,13 @@ export function getErrorAction({
   }
 
   // Cloud sync: navigate to Cloud Sync settings page
-  if (errorCode === ECustomCloudSyncError.OnekeyIdSyncUnavailable) {
-    return <NavigateToCloudSyncButton />;
+  if (errorCode === ECustomCloudSyncError.OnekeyIdSyncSunsetReminder) {
+    return <NavigateToCloudSyncSwitchButton />;
+  }
+
+  // Pending queue too long: clear pending transactions button
+  if (i18nKey === ETranslations.send_engine_pending_queue_too_long) {
+    return <ClearPendingTransactionsButton />;
   }
 
   // Default: show contact support + copy diagnostic info buttons

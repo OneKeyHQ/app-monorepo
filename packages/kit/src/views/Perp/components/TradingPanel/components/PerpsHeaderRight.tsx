@@ -28,6 +28,7 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsActiveOrderBookOptionsAtom,
+  usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -35,6 +36,8 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
+import { useShowGuide } from '../../../hooks/useShowGuide';
+import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
 import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 
@@ -93,8 +96,8 @@ function DebugButton() {
 
 function DepositButton() {
   const { gtSm } = useMedia();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const accountValue = accountSummary?.accountValue;
+  const [computedValue] = usePerpsComputedAccountValueAtom();
+  const accountValue = computedValue?.accountValue;
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
@@ -145,6 +148,19 @@ function DepositButton() {
   );
 }
 
+function MobileGuideButton() {
+  const { showGuide } = useShowGuide();
+  return (
+    <IconButton
+      icon="BookOpenOutline"
+      size="small"
+      variant="tertiary"
+      cursor="default"
+      onPress={showGuide}
+    />
+  );
+}
+
 export function PerpsHeaderRight() {
   const { gtMd } = useMedia();
   const content = (
@@ -152,12 +168,19 @@ export function PerpsHeaderRight() {
       <WalletConnectionForWeb tabRoute={ETabRoutes.Perp} />
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       <DepositButton />
-      {gtMd && !platformEnv.isWebDappMode ? (
-        <>
-          <PerpsActivityCenterAction copyAsUrl />
-          <PerpSettingsButton testID="perp-header-settings-button" />
-        </>
-      ) : null}
+      {(() => {
+        if (platformEnv.isWebDappMode) return null;
+        if (gtMd) {
+          return (
+            <>
+              <PerpsActivityCenterAction copyAsUrl />
+              <PerpGuidePopover />
+              <PerpSettingsButton testID="perp-header-settings-button" />
+            </>
+          );
+        }
+        return <MobileGuideButton />;
+      })()}
     </XStack>
   );
   return (

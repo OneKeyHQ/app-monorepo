@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
-  CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
+  CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID,
   EPrimeCloudSyncDataType,
   RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -112,26 +112,28 @@ class ServicePrimeCloudSync extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private _lastIdSyncUnavailableToastTime = 0;
+  private _lastSunsetReminderTime = 0;
 
-  private async notifyIfOnekeyIdSyncUnavailable() {
+  private async notifyOnekeyIdSyncSunset() {
     const now = Date.now();
-    const ONE_HOUR = timerUtils.getTimeDurationMs({ hour: 1 });
-    if (now - this._lastIdSyncUnavailableToastTime < ONE_HOUR) return;
+    const ONE_DAY = timerUtils.getTimeDurationMs({ day: 1 });
+    if (now - this._lastSunsetReminderTime < ONE_DAY) return;
 
     const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
     if (!isCloudSyncEnabled) return;
 
-    this._lastIdSyncUnavailableToastTime = now;
+    this._lastSunsetReminderTime = now;
 
     void this.backgroundApi.serviceApp.showToast({
-      method: 'error',
-      icon: 'CloudDisconnectedSolid',
+      method: 'warning',
       title: appLocale.intl.formatMessage({
-        id: ETranslations.cloud_sync_issue_toast_title,
+        id: ETranslations.switch_to_keyless_wallet_sync__title,
       }),
-      toastId: CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
-      errorCode: ECustomCloudSyncError.OnekeyIdSyncUnavailable,
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.switch_to_keyless_wallet_sync__desc,
+      }),
+      toastId: CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID,
+      errorCode: ECustomCloudSyncError.OnekeyIdSyncSunsetReminder,
     });
   }
 
@@ -1223,9 +1225,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       // const syncMode = await this.getActiveSyncMode();
 
       if (!(await this.isCloudSyncIsAvailable())) {
-        if (!throwError) {
-          void this.notifyIfOnekeyIdSyncUnavailable();
-        }
         return;
       }
       await this.ensureCloudSyncIsAvailable({
@@ -1280,12 +1279,11 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
-      if (!throwError) {
-        void this.notifyIfOnekeyIdSyncUnavailable();
-      }
       if (throwError) {
         throw error;
       }
+    } finally {
+      void this.notifyOnekeyIdSyncSunset();
     }
 
     // the server data has been downloaded, but it may not have been updated to the business scenario, so it needs to be executed again
@@ -1612,9 +1610,44 @@ class ServicePrimeCloudSync extends ServiceBase {
     await primeCloudSyncPersistAtom.set((v) => ({
       ...v,
       isCloudSyncEnabled: enabled,
+      hasEverEnabledOneKeyIdSync:
+        enabled || v.hasEverEnabledOneKeyIdSync || v.isCloudSyncEnabled,
       isCloudSyncEnabledKeyless: enabled ? false : v.isCloudSyncEnabledKeyless,
     }));
     await this.clearCachedSyncCredential();
+  }
+
+  @backgroundMethod()
+  async backfillOneKeyIdSyncHistoryIfNeeded() {
+    await primeCloudSyncPersistAtom.set((v) => {
+      if (!v.isCloudSyncEnabled || v.hasEverEnabledOneKeyIdSync) {
+        return v;
+      }
+      return {
+        ...v,
+        hasEverEnabledOneKeyIdSync: true,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async normalizeCloudSyncStateForPageEnter() {
+    const currentConfig = await primeCloudSyncPersistAtom.get();
+    if (
+      !currentConfig.isCloudSyncEnabled ||
+      !currentConfig.isCloudSyncEnabledKeyless
+    ) {
+      return false;
+    }
+
+    await primeCloudSyncPersistAtom.set((v) => ({
+      ...v,
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+      hasEverEnabledOneKeyIdSync: true,
+    }));
+    await this.clearCachedSyncCredential();
+    return true;
   }
 
   @backgroundMethod()
@@ -1987,12 +2020,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
 
     let syncItemsForAddressBook: IDBCloudSyncItem[] = [];
-    const { isSafe, items: safeAddressBookItems } =
-      await this.backgroundApi.serviceAddressBook.getSafeRawItems({ password });
-    if (isSafe && safeAddressBookItems?.length) {
+    const addressBookItems =
+      await this.backgroundApi.serviceAddressBook.getItemsByNetwork({});
+    if (addressBookItems?.length) {
       syncItemsForAddressBook =
         await this.syncManagers.addressBook.buildInitSyncDBItems({
-          dbRecords: safeAddressBookItems,
+          dbRecords: addressBookItems,
           allDevices,
           syncCredential,
           // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
@@ -2128,12 +2161,14 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async prepareCloudSync(): Promise<{
-    success: boolean;
-    isServerMasterPasswordSet?: boolean;
-    encryptedSecurityPasswordR1ForServer?: string;
-    serverDiffItems?: ICloudSyncServerDiffItem[];
-  }> {
+  async ensureOneKeyIdCloudSyncAvailableForManualSync() {
+    await this.ensureOneKeyIdCloudSyncPreparePrerequisites();
+    await this.ensureCloudSyncIsAvailable({
+      callerName: 'Manual Cloud Sync OneKey ID',
+    });
+  }
+
+  async ensureOneKeyIdCloudSyncPreparePrerequisites() {
     if (systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
       throw new OneKeyError(
         appLocale.intl.formatMessage({
@@ -2146,11 +2181,24 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!isPrimeLoggedIn) {
       throw new OneKeyError('Prime is not logged in');
     }
+
     const isPrimeSubscriptionActive =
       await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
     if (!isPrimeSubscriptionActive) {
       throw new OneKeyErrorPrimePaidMembershipRequired();
     }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async prepareCloudSync(): Promise<{
+    success: boolean;
+    isServerMasterPasswordSet?: boolean;
+    encryptedSecurityPasswordR1ForServer?: string;
+    serverDiffItems?: ICloudSyncServerDiffItem[];
+  }> {
+    await this.ensureOneKeyIdCloudSyncPreparePrerequisites();
+
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify({
         reason: ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD

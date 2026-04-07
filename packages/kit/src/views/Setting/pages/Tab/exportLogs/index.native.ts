@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { prepareLoggerExport } from '@onekeyhq/shared/src/logger/exportSupport';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ELogUploadStage,
@@ -47,6 +48,7 @@ export const exportLogs = async (filename: string) => {
     });
   }
   await waitAsync(1000);
+  await prepareLoggerExport();
   const logFilePath = await utils.getLogFilePath(filename);
   console.log('logFilePath', logFilePath);
   const Share = await getShareModule();
@@ -87,6 +89,7 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(1000);
+  await prepareLoggerExport();
 
   const filePath = await utils.getLogFilePath(baseName);
   if (!filePath) {

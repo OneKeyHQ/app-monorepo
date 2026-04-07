@@ -23,6 +23,7 @@ export enum ESubscriptionType {
   ALL_DEXS_ASSET_CTXS = 'allDexsAssetCtxs',
   TWAP_STATES = 'twapStates',
   BBO = 'bbo',
+  SPOT_STATE = 'spotState',
   // TRADES = 'trades',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
@@ -268,3 +269,11 @@ export interface IPerpTokenSelectorConfig {
 
 // Deprecated: Use IPerpTokenSelectorConfig instead
 export type IPerpTokenSortConfig = IPerpTokenSelectorConfig;
+
+export enum EHyperLiquidAbstractionMode {
+  DISABLED = 'disabled',
+  UNIFIED_ACCOUNT = 'unifiedAccount',
+  PORTFOLIO_MARGIN = 'portfolioMargin',
+  DEX_ABSTRACTION = 'dexAbstraction',
+  DEFAULT = 'default',
+}

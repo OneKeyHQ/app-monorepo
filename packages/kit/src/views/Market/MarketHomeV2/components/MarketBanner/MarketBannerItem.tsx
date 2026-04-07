@@ -10,7 +10,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
+import { ANIMATE_ONLY_BORDER_COLOR } from '@onekeyhq/components/src/utils/animationConstants';
+import { LeverageBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  EMarketBannerType,
+  type IMarketBannerItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 type IMarketBannerItemProps = {
   item: IMarketBannerItem;
@@ -81,6 +86,7 @@ const BannerTokenGroup = memo(BannerTokenGroupComponent);
 
 function MarketBannerItemComponent({ item, onPress }: IMarketBannerItemProps) {
   const { title, description, backgroundColor, tokenLogos } = item;
+  const isPerps = item.type === EMarketBannerType.Perps;
   const bgColor = convertThemeToken(backgroundColor, '$bgSubdued');
   const descriptionColor = convertThemeToken(
     description?.fontColor ?? '',
@@ -103,6 +109,7 @@ function MarketBannerItemComponent({ item, onPress }: IMarketBannerItemProps) {
       justifyContent="space-between"
       onPress={handlePress}
       animation="quick"
+      animateOnly={ANIMATE_ONLY_BORDER_COLOR}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
       hoverStyle={{ borderColor: '$neutral4' }}
@@ -123,9 +130,16 @@ function MarketBannerItemComponent({ item, onPress }: IMarketBannerItemProps) {
       }}
     >
       <YStack gap="$0.5" flex={1} $gtMd={{ flex: 1 }}>
-        <SizableText size="$headingSm" numberOfLines={2}>
-          {title}
-        </SizableText>
+        <XStack alignItems="center" gap="$1">
+          <SizableText
+            size="$headingSm"
+            numberOfLines={isPerps ? 1 : 2}
+            flexShrink={1}
+          >
+            {title}
+          </SizableText>
+          {isPerps ? <LeverageBadge leverage={10} /> : null}
+        </XStack>
         {description ? (
           <SizableText size="$bodyMdMedium" color={descriptionColor}>
             {description.text}

@@ -60,6 +60,7 @@ export type ITabHomeParamList = {
     tokenDetails: { info: IToken } & ITokenFiat;
     bulkSendMode: EBulkSendMode;
     isInModal?: boolean;
+    hasDuplicateSenders?: boolean;
   };
   [ETabHomeRoutes.TabHomeBulkSendProcess]: {
     networkId: string;

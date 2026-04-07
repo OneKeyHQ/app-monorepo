@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -30,6 +32,17 @@ export function normalizeStatValue(
   return normalized;
 }
 
+function toValidString(value?: string | number | null): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  const str = typeof value === 'string' ? value.trim() : String(value);
+  if (!str || !Number.isFinite(Number(str))) {
+    return undefined;
+  }
+  return str;
+}
+
 export function formatStatValueWithFormatter(
   value?: string | number | null,
   formatterProps?: INumberFormatProps,
@@ -41,6 +54,46 @@ export function formatStatValueWithFormatter(
   }
 
   return numberFormat(normalized, formatterProps);
+}
+
+export function formatMarketCapValue(
+  value?: string | number | null,
+  fallback: string = STAT_FALLBACK_VALUE,
+): string {
+  const str = toValidString(value);
+  if (!str) return fallback;
+  return numberFormat(str, { formatter: 'marketCap' });
+}
+
+export function formatCurrencyStatValue(
+  value?: string | number | null,
+  symbol: string = '$',
+): string {
+  const str = toValidString(value);
+  if (!str) return STAT_FALLBACK_VALUE;
+  return numberFormat(str, {
+    formatter: 'marketCap',
+    formatterOptions: { currency: symbol },
+  });
+}
+
+export function formatRatioValue(
+  value?: string | number | null,
+  fallback: string = STAT_FALLBACK_VALUE,
+): string {
+  const str = toValidString(value);
+  if (!str) return fallback;
+  return numberFormat(str, { formatter: 'value' });
+}
+
+export function formatPercentValue(
+  value?: string | number | null,
+  fallback: string = STAT_FALLBACK_VALUE,
+): string {
+  const str = toValidString(value);
+  if (!str) return fallback;
+  const percentStr = new BigNumber(str).times(100).toFixed();
+  return `${numberFormat(percentStr, { formatter: 'value' })}%`;
 }
 
 export function formatPriceChangeDisplay(value?: string | number | null): {
