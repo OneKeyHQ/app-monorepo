@@ -261,28 +261,21 @@ export class OAuthPopup extends OAuthPopupBase {
         const cleanupFn = {
           cleanup: async () => {},
         };
+        let unsubscribeIpc: (() => void) | null = null;
 
         // IPC callback handler
-        const handleCallback = async (
-          _event: Electron.IpcRendererEvent,
-          data: {
-            code?: string;
-            state?: string;
-            oneKeyState?: string;
-          },
-        ) => {
+        const handleCallback = async (data: {
+          code?: string;
+          state?: string;
+          oneKeyState?: string;
+        }) => {
           if (settled) {
             return;
           }
           settled = true;
 
           // Remove listener
-          if (globalThis.desktopApi) {
-            globalThis.desktopApi.removeIpcEventListener(
-              OAUTH_CALLBACK_DESKTOP_CHANNEL,
-              handleCallback,
-            );
-          }
+          unsubscribeIpc?.();
 
           try {
             dialogClosed = true;
@@ -330,12 +323,7 @@ export class OAuthPopup extends OAuthPopupBase {
             clearTimeout(timeoutId);
             timeoutId = null;
           }
-          if (globalThis.desktopApi) {
-            globalThis.desktopApi.removeIpcEventListener(
-              OAUTH_CALLBACK_DESKTOP_CHANNEL,
-              handleCallback,
-            );
-          }
+          unsubscribeIpc?.();
           try {
             await globalThis.desktopApiProxy.oauthLocalServer.stopServer();
           } catch {
@@ -391,7 +379,7 @@ export class OAuthPopup extends OAuthPopupBase {
 
           // Add IPC listener
           if (globalThis.desktopApi) {
-            globalThis.desktopApi.addIpcEventListener(
+            unsubscribeIpc = globalThis.desktopApi.addIpcEventListener(
               OAUTH_CALLBACK_DESKTOP_CHANNEL,
               handleCallback,
             );
