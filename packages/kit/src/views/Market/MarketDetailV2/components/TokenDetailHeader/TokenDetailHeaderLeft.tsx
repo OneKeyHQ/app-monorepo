@@ -122,7 +122,10 @@ export function TokenDetailHeaderLeft({
             fallbackIcon="CryptoCoinOutline"
           />
         ) : (
-          <MarketTokenSelector />
+          <>
+            {marketStar}
+            <MarketTokenSelector />
+          </>
         )}
 
         <YStack>

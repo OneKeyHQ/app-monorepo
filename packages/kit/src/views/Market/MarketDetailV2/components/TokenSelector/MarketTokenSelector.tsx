@@ -212,8 +212,12 @@ function BaseMarketTokenSelector() {
             gap="$2"
             alignItems="center"
             cursor="pointer"
-            hoverStyle={{ opacity: 0.8 }}
-            pressStyle={{ opacity: 0.6 }}
+            bg="$bgApp"
+            px="$2"
+            py="$1.5"
+            borderRadius="$full"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
           >
             <Token
               size="md"
