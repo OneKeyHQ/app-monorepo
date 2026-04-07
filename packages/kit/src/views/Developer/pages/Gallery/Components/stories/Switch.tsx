@@ -29,6 +29,10 @@ const SwitchGallery = () => (
         element: (
           <Stack gap="$4">
             <Stack flexDirection="row" alignItems="center" gap="$2">
+              <SwitchDemo size={ESwitchSize.xsmall} />
+              <SizableText>XSmall</SizableText>
+            </Stack>
+            <Stack flexDirection="row" alignItems="center" gap="$2">
               <SwitchDemo size={ESwitchSize.small} />
               <SizableText>Small</SizableText>
             </Stack>
