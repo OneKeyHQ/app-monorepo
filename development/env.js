@@ -4,7 +4,6 @@ const path = require('path');
 const dateFns = require('date-fns');
 const dotenv = require('dotenv');
 
-
 const envPaths = [
   // priority: high -> low
   path.resolve(__dirname, '../.env.version'),
