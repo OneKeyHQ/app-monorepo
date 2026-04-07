@@ -1083,11 +1083,11 @@ function SendAmountInputContainer() {
     if (isInsufficientBalance) return true;
     if (isNFT) {
       if (nft?.collectionType === ENFTType.ERC1155) {
-        return !nftAmount || nftAmount === '0';
+        return !nftAmount || new BigNumber(nftAmount).isLessThanOrEqualTo(0);
       }
       return false;
     }
-    return !amount || amount === '0';
+    return !amount || new BigNumber(amount).isLessThanOrEqualTo(0);
   }, [
     isSubmitting,
     form.formState.isValid,
