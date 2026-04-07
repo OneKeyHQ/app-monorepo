@@ -57,10 +57,10 @@ jobs:
       - name: 'Setup ENV'
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
-          DATE=`date "+%Y%m%d"`
+          DATE=`date "+%y%m%d"`
           run_number=$(($GITHUB_RUN_NUMBER % 100))
           run_number=$(printf "%02d" $run_number)
-          build_number="${DATE}${run_number}"
+          build_number="10${DATE}${run_number}"
           echo '$build_number='$build_number
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
 

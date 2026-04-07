@@ -21,7 +21,8 @@ if (process.env.NODE_ENV !== 'production') {
   // console.log('process.env', process.env);
 
   process.env.BUILD_NUMBER =
-    process.env.BUILD_NUMBER || `${dateFns.format(Date.now(), 'MMddHHmm')}-dev`;
+    process.env.BUILD_NUMBER ||
+    `10${dateFns.format(Date.now(), 'yyMMdd')}00-dev`;
   process.env.BUNDLE_VERSION = process.env.BUNDLE_VERSION || '1000000';
 }
 
