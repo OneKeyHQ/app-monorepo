@@ -289,6 +289,12 @@ function SendDataInputContainer() {
   const memoValue = form.watch('memo') as string | undefined;
   const noteValue = form.watch('note') as string | undefined;
   const paymentIdValue = form.watch('paymentId') as string | undefined;
+  const isNextDisabled = Boolean(
+    form.formState.errors.memo ||
+    form.formState.errors.paymentId ||
+    form.formState.errors.note ||
+    form.formState.isValidating,
+  );
 
   const toValue = form.watch('to') as IAddressInputValue | undefined;
   const toPending = toValue?.pending;
@@ -364,7 +370,7 @@ function SendDataInputContainer() {
         addressInputMethod: addressInputChangeType.current,
       });
 
-      const nextMemoValue = form.getValues('memo');
+      const nextMemoValue = form.getValues('memo')?.trim();
       const nextPaymentIdValue = form.getValues('paymentId');
       const nextNoteValue = form.getValues('note');
 
@@ -518,6 +524,29 @@ function SendDataInputContainer() {
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
     const maxLength = memoMaxLength || 256;
+    const isNumericMemo = Boolean(numericOnlyMemo);
+    let memoInputLines = 2;
+    if (isNumericMemo) {
+      memoInputLines = memoValue?.length ? 2 : 1;
+    }
+    const clearMemoExtension = memoValue ? (
+      <XStack justifyContent="flex-end">
+        <Button
+          size="small"
+          variant="secondary"
+          icon="BroomOutline"
+          onPress={() =>
+            form.setValue('memo', '', {
+              shouldValidate: true,
+            })
+          }
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_clear,
+          })}
+        </Button>
+      </XStack>
+    ) : undefined;
 
     return (
       <>
@@ -543,31 +572,15 @@ function SendDataInputContainer() {
           }}
         >
           <BaseInput
-            numberOfLines={2}
+            numberOfLines={memoInputLines}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
               id: ETranslations.send_tag_placeholder,
             })}
-            extension={
-              memoValue ? (
-                <XStack justifyContent="flex-end">
-                  <Button
-                    size="small"
-                    variant="secondary"
-                    icon="BroomOutline"
-                    onPress={() =>
-                      form.setValue('memo', '', {
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_clear,
-                    })}
-                  </Button>
-                </XStack>
-              ) : undefined
+            keyboardType={
+              isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
             }
+            extension={clearMemoExtension}
           />
         </Form.Field>
       </>
@@ -579,6 +592,7 @@ function SendDataInputContainer() {
     media.gtMd,
     memoMaxLength,
     memoValue,
+    numericOnlyMemo,
     supportsMemoValidation,
     validateMemoField,
   ]);
@@ -800,11 +814,12 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      const needsMemo = vaultSettings?.withMemo && !selectedMemo;
+      const hasSelectedMemo = Boolean(selectedMemo?.trim());
+      const needsMemoInput = vaultSettings?.withMemo && !hasSelectedMemo;
       const needsPaymentId =
         vaultSettings?.withPaymentId && !form.getValues('paymentId');
       const needsNote = vaultSettings?.withNote && !selectedNote;
-      return needsMemo || needsPaymentId || needsNote;
+      return needsMemoInput || needsPaymentId || needsNote;
     },
     [
       form,
@@ -868,7 +883,7 @@ function SendDataInputContainer() {
           nfts,
           recipientAddress: resolvedAddress,
           recipientIsContract: queryResult.isContract ?? false,
-          recipientMemo: selectedMemo || undefined,
+          recipientMemo: selectedMemo?.trim() || undefined,
           recipientPaymentId: form.getValues('paymentId') || undefined,
           recipientNote: selectedNote || undefined,
           amount: scannedAmount || sendAmount || undefined,
@@ -1123,8 +1138,10 @@ function SendDataInputContainer() {
               // Don't use form.formState.isValid here — the async address
               // validation (AddressInput queryAddress) can leave isValid stale.
               // toResolved && !toPending already gates address validity.
-              // handleNavigateToAmountInput calls form.trigger() as a final
-              // guard for memo/note/paymentId validation before navigating.
+              // Only disable for data-step field errors or in-flight validation.
+              // handleNavigateToAmountInput still calls form.trigger() as a final
+              // guard before navigating.
+              disabled: isNextDisabled,
             }}
           />
         </Page.Footer>

@@ -186,6 +186,7 @@ function SetAmountPerAddressDialogContent({
       senderBalancesFailed: new Set<string>(),
       setSenderBalancesFailed: () => {},
       senderAccountIdMap: new Map(),
+      hasDuplicateSenders: false,
     }),
     [
       accountId,

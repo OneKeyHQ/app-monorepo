@@ -272,9 +272,14 @@ function TxActionCommonDescription({
   }
 
   return (
-    <XStack alignItems="center" flex={1}>
+    <XStack alignItems="center" flex={1} flexShrink={1} minWidth={0}>
       {description?.prefix ? (
-        <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          pr="$1.5"
+          flexShrink={0}
+        >
           {description?.prefix}
         </SizableText>
       ) : null}
@@ -289,6 +294,8 @@ function TxActionCommonDescription({
       <SizableText
         size="$bodyMd"
         color="$textSubdued"
+        flex={1}
+        flexShrink={1}
         minWidth={0}
         numberOfLines={1}
       >
@@ -476,7 +483,7 @@ function TxActionCommonListView(
               riskyLevel={riskyLevel}
               compact={compact}
             />
-            <XStack alignSelf="stretch">
+            <XStack alignSelf="stretch" minWidth={0}>
               {timestamp &&
               (tableLayout || !(description && description.children)) ? (
                 <>
@@ -507,7 +514,7 @@ function TxActionCommonListView(
           maxWidth={changeMaxWidth}
           alignItems="flex-end"
           {...(!tableLayout && {
-            flexShrink: 1,
+            flexShrink: 0,
           })}
           {...(tableLayout && {
             alignItems: 'unset',

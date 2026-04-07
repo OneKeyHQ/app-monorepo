@@ -3,7 +3,6 @@
  */
 export enum EInviteCodeListTableColumn {
   CODE = 'code',
-  NOTE = 'note',
   SALES_ORDERS = 'salesOrders',
   ONCHAIN_WALLETS = 'onchainWallets',
   CUMULATIVE_REWARDS = 'cumulativeRewardsFiatValue',
