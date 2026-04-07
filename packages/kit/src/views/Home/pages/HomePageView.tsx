@@ -210,8 +210,10 @@ export function HomePageView({
   const vaultSettings = fetchedVaultSettings ?? cachedVaultSettings;
 
   const isNFTEnabled =
-    vaultSettings?.NFTEnabled &&
-    networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? '');
+    // All Networks always supports NFT; for single network check vaultSettings
+    network?.isAllNetworks ||
+    (vaultSettings?.NFTEnabled &&
+      networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''));
 
   const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
   useEffect(() => {
