@@ -20,7 +20,8 @@
     "version:minor": "node scripts/bump-version.js minor",
     "version:major": "node scripts/bump-version.js major",
     "version:alpha": "node scripts/bump-version.js alpha",
-    "version:beta": "node scripts/bump-version.js beta"
+    "version:beta": "node scripts/bump-version.js beta",
+    "generate:cli-types": "node -r esbuild-register scripts/generate-cli-types.ts"
   },
   "devDependencies": {
     "@onekeyhq/core": "workspace:*",
