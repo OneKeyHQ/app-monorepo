@@ -70,42 +70,46 @@ function handleTranslateRequest(
         data.targetLang,
         engine,
       );
-      sendTranslationResponse(tabId, data.id, translations);
+      sendTranslationResponse(tabId, data.id, translations, data.sessionId);
     } catch (err) {
       console.error('[Translate] API error:', err);
-      sendTranslationResponse(tabId, data.id, data.texts);
+      sendTranslationResponse(tabId, data.id, data.texts, data.sessionId);
     }
   };
   void handler();
 }
 
-const ALLOWED_METHODS = new Set(['start', 'stop', 'restore']);
 const SAFE_ARG_RE = /^[a-zA-Z0-9\-_]+$/;
 
-function sanitizeArg(value: unknown): string {
-  const str = String(value);
-  if (!SAFE_ARG_RE.test(str)) return JSON.stringify('');
-  return JSON.stringify(str);
+function sanitizeArg(value: string): string {
+  if (!SAFE_ARG_RE.test(value)) return JSON.stringify('');
+  return JSON.stringify(value);
 }
 
-function buildCallScript(
-  method: 'start' | 'stop' | 'restore',
-  ...args: unknown[]
+function buildStartScript(
+  lang: string,
+  mode: string,
+  sessionId: string,
 ): string {
-  if (!ALLOWED_METHODS.has(method)) return '';
-  const argStr = args.map(sanitizeArg).join(', ');
-  return `(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.${method}(${argStr}); })();`;
+  const args = [lang, mode, sessionId].map(sanitizeArg).join(', ');
+  return `(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.start(${args}); })();`;
+}
+
+function generateSessionId(): string {
+  return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
 function sendTranslationResponse(
   tabId: string,
   requestId: string,
   translations: string[],
+  sessionId?: string,
 ) {
   const responseScript = createMessageInjectedScript({
     type: TRANSLATE_RESPONSE_TYPE,
     id: requestId,
     translations,
+    sessionId,
   });
   injectScript(tabId, responseScript);
 }
@@ -197,7 +201,8 @@ export function useWebViewTranslate(
       }
       startTimerRef.current = setTimeout(() => {
         startTimerRef.current = null;
-        injectScript(tabId, buildCallScript('start', targetLang, displayMode));
+        const sid = generateSessionId();
+        injectScript(tabId, buildStartScript(targetLang, displayMode, sid));
         translatingRef.current = true;
       }, 50);
     },
@@ -209,7 +214,10 @@ export function useWebViewTranslate(
       clearTimeout(startTimerRef.current);
       startTimerRef.current = null;
     }
-    injectScript(tabId, buildCallScript('stop'));
+    injectScript(
+      tabId,
+      '(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.stop(); })();',
+    );
     unregisterTranslateHandler(tabId);
     translatingRef.current = false;
   }, [tabId]);
@@ -219,7 +227,10 @@ export function useWebViewTranslate(
       clearTimeout(startTimerRef.current);
       startTimerRef.current = null;
     }
-    injectScript(tabId, buildCallScript('restore'));
+    injectScript(
+      tabId,
+      '(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.restore(); })();',
+    );
     unregisterTranslateHandler(tabId);
     desktopCleanupRef.current?.();
     translatingRef.current = false;

@@ -6,6 +6,7 @@ const TRANSLATE_MARKER = '$$ONEKEY_TRANSLATE';
 export type ITranslateRequest = {
   type: typeof TRANSLATE_REQUEST_TYPE;
   id: string;
+  sessionId?: string;
   texts: string[];
   sourceLang: string;
   targetLang: string;

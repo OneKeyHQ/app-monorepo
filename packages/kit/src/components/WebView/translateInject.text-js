@@ -78,6 +78,7 @@
       sendToNative({
         type: '$$ONEKEY_TRANSLATE_REQUEST',
         id: id,
+        sessionId: sessionId,
         texts: texts,
         sourceLang: sl,
         targetLang: tl,
@@ -91,6 +92,8 @@
       try { data = JSON.parse(data); } catch(e) { return; }
     }
     if (data && data.type === '$$ONEKEY_TRANSLATE_RESPONSE') {
+      // Ignore stale responses from previous translation sessions
+      if (data.sessionId && data.sessionId !== sessionId) return;
       var entry = pendingResolvers[data.id];
       if (entry) {
         entry.resolve(data.translations);
@@ -122,6 +125,7 @@
   var targetLang = '';
   var sourceLang = 'auto';
   var displayMode = 'replace'; // 'replace' | 'bilingual'
+  var sessionId = '';
   var mutationObs = null;
   var intersectionObs = null;
 
@@ -531,10 +535,11 @@
   // Public API
   // ============================================================
 
-  function startTranslation(lang, mode) {
+  function startTranslation(lang, mode, session) {
     if (isTranslating) return;
     targetLang = lang || 'zh';
     displayMode = mode || 'replace';
+    sessionId = session || '';
     isTranslating = true;
 
     setupIntersectionObserver();
