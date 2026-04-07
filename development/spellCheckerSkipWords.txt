@@ -1427,3 +1427,6 @@ Prefs
 oxlintrc
 crosschain
 Blockaid
+posthog
+Posthog
+autocapture
