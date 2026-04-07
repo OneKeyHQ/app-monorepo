@@ -115,11 +115,14 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
     address: string;
     isRefreshing: boolean;
     initialized: boolean;
-  }>({
-    address: '',
-    isRefreshing: true,
-    initialized: false,
-  });
+  }>(
+    {
+      address: '',
+      isRefreshing: true,
+      initialized: false,
+    },
+    { name: 'ctx:tokenListStateAtom', coldStartCache: true },
+  );
 
 export const {
   atom: aggregateTokensListMapAtom,
