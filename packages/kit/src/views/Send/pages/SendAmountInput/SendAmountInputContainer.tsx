@@ -39,7 +39,6 @@ import {
   useSelectedUTXOsAtom,
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -145,8 +144,6 @@ function SendAmountInputContainer() {
       accountUtils.getWalletIdFromAccountId({ accountId: currentAccountId }),
     [currentAccountId],
   );
-
-  const [allTokenListMap] = useAllTokenListMapAtom();
 
   const signatureConfirm = useSignatureConfirm({
     accountId: currentAccountId,
@@ -1171,7 +1168,11 @@ function SendAmountInputContainer() {
           indexedAccountId={account?.indexedAccountId ?? ''}
           activeDeriveInfo={deriveInfo}
           activeDeriveType={deriveType}
-          tokenMap={allTokenListMap}
+          // Use refreshOnOpen so each derive type fetches its own balance.
+          // Do NOT pass tokenMap here — the global map only contains the
+          // currently selected derive type and would show wrong balances
+          // for other types (e.g. Taproot).
+          refreshOnOpen
           onSelect={async ({ account: a }) => {
             if (a) {
               setCurrentAccountId(a.id);
@@ -1207,7 +1208,6 @@ function SendAmountInputContainer() {
     );
   }, [
     account?.indexedAccountId,
-    allTokenListMap,
     deriveInfo,
     deriveType,
     displayCoinControlButton,
