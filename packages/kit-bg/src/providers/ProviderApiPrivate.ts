@@ -951,12 +951,27 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async wallet_requestClipboardPermission(
     request: IJsBridgeMessagePayload,
-    params: { type: 'read' | 'write' },
+    params: { type: 'read' | 'write'; text?: string },
   ) {
-    return this.backgroundApi.serviceDApp.openClipboardPermissionModal(
+    // This will throw if user rejects (modal rejection propagates)
+    await this.backgroundApi.serviceDApp.openClipboardPermissionModal(
       request,
       params.type,
     );
+
+    // User approved - perform clipboard operation on native side
+    if (params.type === 'read') {
+      const { getStringAsync } = await import('expo-clipboard');
+      const content = await getStringAsync();
+      return { allowed: true, content };
+    }
+    if (params.type === 'write' && params.text != null) {
+      const { setStringAsync } = await import('expo-clipboard');
+      await setStringAsync(params.text);
+      return { allowed: true };
+    }
+
+    return { allowed: true };
   }
 }
 
