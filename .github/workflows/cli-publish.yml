@@ -75,9 +75,9 @@ jobs:
           cd apps/cli
           IS_PRERELEASE="${{ needs.get-version.outputs.is_prerelease }}"
           if [ "$IS_PRERELEASE" = "true" ]; then
-            npm publish "${{ env.tarball }}" --access public --dist-tag next
+            npm publish "${{ env.tarball }}" --access public --tag next
           else
-            npm publish "${{ env.tarball }}" --access public --dist-tag latest
+            npm publish "${{ env.tarball }}" --access public --tag latest
           fi
 
       - name: Summary
