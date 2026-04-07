@@ -286,7 +286,7 @@
     "@typescript-eslint/eslint-plugin": "^8.4.0",
     "@typescript-eslint/parser": "^8.4.0",
     "@typescript/native-preview": "^7.0.0-dev.20260127.1",
-    "agentation": "^2.3.3",
+    "agentation": "^3.0.2",
     "axios": "^1.13.2",
     "babel-loader": "^9.1.3",
     "babel-plugin-catch-logger": "0.1.13",
