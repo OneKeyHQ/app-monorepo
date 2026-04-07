@@ -166,6 +166,11 @@ function collectRecipientsFromHistoryTxs({
         networkName,
         memo: recipientInfo.memo,
       });
+    } else if (includeMemo && recipientInfo.memo) {
+      const existing = recipientMap.get(recipientLower);
+      if (existing && !existing.memo) {
+        existing.memo = recipientInfo.memo;
+      }
     }
 
     if (recipientMap.size >= MAX_RECIPIENTS) break;
@@ -346,7 +351,16 @@ export function useRecentRecipientsData({
         }
 
         // Strategy 4: For other chains or if still empty, extract from tx history.
-        if (recipientAddresses.length === 0 && accountId) {
+        // Also runs for non-EVM chains that have addresses but no memo data
+        // (e.g. algo/cosmos/ton from Strategy 3 stored recipients).
+        const hasMemoData =
+          recipientExtraMap &&
+          Array.from(recipientExtraMap.values()).some((r) => !!r.memo);
+        if (
+          accountId &&
+          (recipientAddresses.length === 0 ||
+            (!isEvmNetwork && !hasMemoData))
+        ) {
           try {
             const currentNetwork =
               await backgroundApiProxy.serviceNetwork.getNetworkSafe({
@@ -376,6 +390,7 @@ export function useRecentRecipientsData({
               ownerAddress,
               networkName: currentNetworkName,
               includeMemo: true,
+              seedMap: recipientExtraMap ?? undefined,
             });
 
             recipientAddresses = Array.from(recipientMap.values()).map(
