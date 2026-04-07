@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import { noop } from 'lodash';
-
 import { useIntl } from 'react-intl';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
