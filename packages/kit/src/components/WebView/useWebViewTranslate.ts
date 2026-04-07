@@ -131,6 +131,10 @@ export function useWebViewTranslate(
   useEffect(
     () => () => {
       desktopCleanupRef.current?.();
+      if (startTimerRef.current) {
+        clearTimeout(startTimerRef.current);
+        startTimerRef.current = null;
+      }
     },
     [],
   );
@@ -187,6 +191,7 @@ export function useWebViewTranslate(
       if (startTimerRef.current) {
         clearTimeout(startTimerRef.current);
       }
+      translatingRef.current = true;
       startTimerRef.current = setTimeout(() => {
         startTimerRef.current = null;
         const sid = generateSessionId();
@@ -200,7 +205,6 @@ export function useWebViewTranslate(
             sessionId: sid,
           }),
         );
-        translatingRef.current = true;
       }, 50);
     },
     [tabId, ensureInjected, engine, displayMode],
@@ -219,6 +223,7 @@ export function useWebViewTranslate(
       }),
     );
     unregisterTranslateHandler(tabId);
+    desktopCleanupRef.current?.();
     translatingRef.current = false;
   }, [tabId]);
 
