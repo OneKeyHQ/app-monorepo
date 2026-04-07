@@ -1278,7 +1278,19 @@ function TokenListBlock({
     allNetworkCacheRequests: handleAllNetworkCacheRequests,
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkAccountsData: handleAllNetworkAccountsData,
-    clearAllNetworkData: handleClearAllNetworkData,
+    clearAllNetworkData: useCallback(() => {
+      // Skip initial clear when coldStartCache has token data to prevent
+      // cached tokens from being wiped before fresh data arrives.
+      if (
+        tokenListData.tokens.length > 0 &&
+        !(globalThis as any).__onekeyAllNetworkClearDone
+      ) {
+        (globalThis as any).__onekeyAllNetworkClearDone = true;
+        return;
+      }
+      (globalThis as any).__onekeyAllNetworkClearDone = true;
+      handleClearAllNetworkData();
+    }, [handleClearAllNetworkData, tokenListData.tokens.length]),
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
