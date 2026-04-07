@@ -20,6 +20,7 @@ import { apiClient } from './infra';
 import { OutputFormatter } from './output';
 import { createLogger } from './utils/logger';
 import { detectOutputMode } from './utils/mode-detector';
+import './schemas/register-all';
 
 import type { IEndpointEnv } from './config';
 
