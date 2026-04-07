@@ -1,6 +1,10 @@
 import { useCallback, useState } from 'react';
 
-import { Checkbox, Page, Stack } from '@onekeyhq/components';
+import { getStringAsync, setStringAsync } from 'expo-clipboard';
+import { useIntl } from 'react-intl';
+
+import { Checkbox, Page, SizableText, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -14,8 +18,9 @@ import { useRiskDetection } from '../hooks/useRiskDetection';
 import DappOpenModalPage from './DappOpenModalPage';
 
 function ClipboardPermissionModal() {
-  const { $sourceInfo, clipboardType } = useDappQuery<{
+  const { $sourceInfo, clipboardType, textToWrite } = useDappQuery<{
     clipboardType: 'read' | 'write';
+    textToWrite?: string;
   }>();
 
   const dappApprove = useDappApproveAction({
@@ -31,26 +36,43 @@ function ClipboardPermissionModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
+  const intl = useIntl();
   const [remember, setRemember] = useState(false);
 
   const isRead = clipboardType === 'read';
 
-  const title = isRead ? 'Read Clipboard' : 'Write to Clipboard';
+  const title = intl.formatMessage({
+    id: isRead
+      ? ETranslations.clipboard_read__title
+      : ETranslations.clipboard_write__title,
+  });
 
-  const subtitle = isRead
-    ? 'This site wants to read your clipboard content'
-    : 'This site wants to write to your clipboard';
+  const subtitle = intl.formatMessage({
+    id: isRead
+      ? ETranslations.clipboard_read__desc
+      : ETranslations.clipboard_write__desc,
+  });
 
   const onConfirm = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
+      let content: string | undefined;
+
+      // Perform clipboard operations in the UI process where
+      // expo-clipboard APIs are available
+      if (isRead) {
+        content = await getStringAsync();
+      } else if (textToWrite !== undefined) {
+        await setStringAsync(textToWrite);
+      }
+
       void dappApprove.resolve({
-        result: { allowed: true, remember },
+        result: { allowed: true, remember, content },
         close: () => {
           close?.({ flag: EDAppModalPageStatus.Confirmed });
         },
       });
     },
-    [dappApprove, remember],
+    [dappApprove, remember, isRead, textToWrite],
   );
 
   return (
@@ -64,9 +86,28 @@ function ClipboardPermissionModal() {
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
           >
+            {!isRead && textToWrite ? (
+              <Stack
+                px="$5"
+                py="$3"
+                mx="$5"
+                borderRadius="$2"
+                backgroundColor="$bgSubdued"
+              >
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={3}
+                >
+                  {textToWrite}
+                </SizableText>
+              </Stack>
+            ) : null}
             <Stack px="$5">
               <Checkbox
-                label="Remember for this site"
+                label={intl.formatMessage({
+                  id: ETranslations.clipboard_remember__action,
+                })}
                 value={remember}
                 onChange={(checked) => setRemember(!!checked)}
               />
@@ -86,7 +127,9 @@ function ClipboardPermissionModal() {
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}
-            confirmText="Allow"
+            confirmText={intl.formatMessage({
+              id: ETranslations.global_allow,
+            })}
           />
         </Page.Footer>
       </>

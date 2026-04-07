@@ -959,6 +959,12 @@ class ProviderApiPrivate extends ProviderApiBase {
       throw new OneKeyLocalError('Invalid clipboard permission request');
     }
 
+    if (params.type === 'write' && params.text === undefined) {
+      throw new OneKeyLocalError(
+        'Clipboard write requires text parameter',
+      );
+    }
+
     // Sanitize request before passing to modal to prevent clipboard text
     // from being logged by ServiceDApp.openModal's dappOpenModal logger
     const sanitizedRequest = {
@@ -971,28 +977,18 @@ class ProviderApiPrivate extends ProviderApiBase {
         : request.data,
     };
 
-    // This will throw if user rejects (modal rejection propagates)
+    // Modal performs clipboard operations in the UI process (where
+    // expo-clipboard is available), then resolves with the result.
+    // This avoids importing expo-clipboard in kit-bg, which runs in
+    // a service worker on extensions and has no clipboard API access.
     const modalResult =
       await this.backgroundApi.serviceDApp.openClipboardPermissionModal(
         sanitizedRequest as IJsBridgeMessagePayload,
         params.type,
+        params.text,
       );
 
-    const remember = !!(modalResult as { remember?: boolean })?.remember;
-
-    // User approved - perform clipboard operation on native side
-    if (params.type === 'read') {
-      const { getStringAsync } = await import('expo-clipboard');
-      const content = await getStringAsync();
-      return { allowed: true, content, remember };
-    }
-    if (params.type === 'write' && params.text !== undefined) {
-      const { setStringAsync } = await import('expo-clipboard');
-      await setStringAsync(params.text);
-      return { allowed: true, remember };
-    }
-
-    return { allowed: true, remember };
+    return modalResult;
   }
 }
 

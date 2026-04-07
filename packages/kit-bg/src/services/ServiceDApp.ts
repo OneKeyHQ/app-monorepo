@@ -279,6 +279,7 @@ class ServiceDApp extends ServiceBase {
   async openClipboardPermissionModal(
     request: IJsBridgeMessagePayload,
     clipboardType: 'read' | 'write',
+    textToWrite?: string,
   ) {
     const result = await this.openModal({
       request,
@@ -288,6 +289,7 @@ class ServiceDApp extends ServiceBase {
       ],
       params: {
         clipboardType,
+        textToWrite,
       },
       fullScreen: false,
     });
