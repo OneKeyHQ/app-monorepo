@@ -1,9 +1,6 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Page } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -34,19 +31,13 @@ function ClipboardPermissionModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
-  const intl = useIntl();
-
   const isRead = clipboardType === 'read';
 
-  const title = isRead
-    ? intl.formatMessage({ id: ETranslations.dapp_clipboard_read_title })
-    : intl.formatMessage({ id: ETranslations.dapp_clipboard_write_title });
+  const title = isRead ? 'Read Clipboard' : 'Write to Clipboard';
 
   const subtitle = isRead
-    ? intl.formatMessage({ id: ETranslations.dapp_clipboard_read_description })
-    : intl.formatMessage({
-        id: ETranslations.dapp_clipboard_write_description,
-      });
+    ? 'This site wants to read your clipboard content'
+    : 'This site wants to write to your clipboard';
 
   const onSubmit = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
