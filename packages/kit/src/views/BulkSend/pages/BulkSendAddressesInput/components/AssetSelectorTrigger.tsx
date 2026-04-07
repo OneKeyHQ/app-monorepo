@@ -52,9 +52,14 @@ function AssetSelectorTrigger({
 
   const openChainSelector = useConfigurableChainSelector();
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const displayNetworkId = selectedToken?.networkId ?? selectedNetworkId;
 
   const { network } = useAccountData({
-    networkId: selectedNetworkId,
+    networkId: displayNetworkId,
+    options: {
+      checkIsFocused: false,
+      undefinedResultIfReRun: true,
+    },
   });
 
   const title = useMemo(() => {
@@ -72,8 +77,16 @@ function AssetSelectorTrigger({
   } = usePromiseResult(
     async () => {
       if (!isOneToMany) {
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getAllNetworks({
+            excludeAllNetworkItem: true,
+          });
         return {
-          availableNetworkIds: [],
+          availableNetworkIds: networks
+            .filter(
+              (item) => !networkUtils.isLightningNetworkByNetworkId(item.id),
+            )
+            .map((item) => item.id),
           unavailableNetworkIds: [],
         };
       }
@@ -262,7 +275,8 @@ function AssetSelectorTrigger({
 
   const handleSelectAsset = useCallback(() => {
     openChainSelector({
-      networkIds: isOneToMany ? availableNetworkIds : undefined,
+      networkIds:
+        availableNetworkIds.length > 0 ? availableNetworkIds : undefined,
       disableNetworkIds: isOneToMany ? unavailableNetworkIds : undefined,
       defaultNetworkId: selectedNetworkId,
       showNetworkValues: isOneToMany,
@@ -340,10 +354,11 @@ function AssetSelectorTrigger({
             indexedAccountId: indexedAccountId ?? '',
             hideBalanceAndValue: !isOneToMany,
             onSelect: (token: IToken) => {
+              const nextNetworkId = token.networkId ?? _network.id;
               setSelectedToken(token);
               setSelectedAccountId(accountId);
               setSelectedIndexedAccountId(indexedAccountId);
-              setSelectedNetworkId(_network.id);
+              setSelectedNetworkId(nextNetworkId);
               navigation.popStack();
             },
           });
@@ -356,7 +371,7 @@ function AssetSelectorTrigger({
         }
       },
       excludeAllNetworkItem: true,
-      grouped: false,
+      grouped: !isOneToMany,
       closeAfterSelect: false,
     });
   }, [
@@ -389,15 +404,15 @@ function AssetSelectorTrigger({
         drillIn={media.md}
         renderAvatar={() => (
           <Token
+            key={displayNetworkId}
             tokenImageUri={selectedToken?.logoURI}
             size="lg"
             showNetworkIcon
-            networkImageUri={network?.logoURI}
-            networkId={network?.id}
+            networkId={displayNetworkId}
           />
         )}
         title={title}
-        subtitle={network?.name}
+        subtitle={selectedToken?.networkName ?? network?.name}
         bg="$bgSubdued"
         mx="$0"
         hoverStyle={{
