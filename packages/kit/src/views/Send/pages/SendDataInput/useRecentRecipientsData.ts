@@ -76,10 +76,16 @@ function extractOutgoingRecipientFromDecodedTx({
 
     const firstSend = assetTransfer.sends?.[0];
     if (firstSend) {
-      const senderAddress = firstSend.from?.toLowerCase();
-      if (senderAddress && ownerAddress && senderAddress !== ownerAddress) {
-        // eslint-disable-next-line no-continue
-        continue;
+      // For UTXO chains (BTC/LTC), sends[0].from may be a change/derived
+      // address that differs from the account's main address. The tx-level
+      // owner check (line 54-58) already confirms this is our outgoing tx,
+      // so we only apply the per-send filter when owner is unknown.
+      if (!txOwner) {
+        const senderAddress = firstSend.from?.toLowerCase();
+        if (senderAddress && ownerAddress && senderAddress !== ownerAddress) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
       }
       hasOutgoingSend = true;
       if (hasPositiveTransferAmount(firstSend.amount)) {
