@@ -864,6 +864,7 @@ function SendAmountInputContainer() {
         enableAddressBook: true,
         enableAddressContract: true,
         enableVerifySendFundToSelf: true,
+        enableWalletName: true,
         enableAllowListValidation,
         ignoreSimilarAddressInAddressBook: true,
         enableCheckSimilarAddressInAddressBook: true,

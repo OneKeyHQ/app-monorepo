@@ -422,7 +422,7 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
 
-    if (enableWalletName && resolveAddress) {
+    if ((enableWalletName || enableAllowListValidation) && resolveAddress) {
       let walletAccountItems: {
         walletName: string;
         accountName: string;

@@ -55,9 +55,11 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 let preloadJsUrl = '';
 
-void globalThis.desktopApiProxy.webview.getPreloadJsContent().then((url) => {
-  preloadJsUrl = url;
-});
+void globalThis.desktopApiProxy.webview
+  .getPreloadJsContent()
+  .then((url: string) => {
+    preloadJsUrl = url;
+  });
 
 // Used for webview type referencing
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -477,11 +479,14 @@ const DesktopWebView = forwardRef(
             'height': '100%',
             ...style,
           }}
-          blinkfeatures="false"
+          // Electron interprets blinkFeatures="false" as a feature name to
+          // enable, triggering a security warning (enableBlinkFeatures) without
+          // actually disabling anything. Added in #4874 intending to disable
+          // blink features, but the correct way is to simply omit the attribute.
           // @ts-expect-error
           nodeintegration="false"
           allowpopups={allowpopups}
-          webpreferences="contextIsolation=0, nativeWindowOpen=1, sandbox=1"
+          webpreferences="contextIsolation=1, nativeWindowOpen=1, sandbox=1"
           // https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/platform/runtime_enabled_features.json5
           disableblinkfeatures="Notifications"
           // mobile user-agent
