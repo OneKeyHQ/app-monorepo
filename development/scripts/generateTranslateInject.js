@@ -20,7 +20,7 @@ if (existing !== tsContent) {
   fs.writeFileSync(destPath, tsContent);
   const version = (content.match(/VERSION = '([^']+)'/) || [])[1];
   console.log(
-    `[generateTranslateInject] Updated translateInjectCode.ts (v${version})`,
+    `[generateTranslateInject] Updated translateInjectCode.ts${version ? ` (v${version})` : ''}`,
   );
 } else {
   console.log('[generateTranslateInject] translateInjectCode.ts is up to date');
