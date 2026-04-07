@@ -115,7 +115,9 @@ export const {
 export const {
   atom: accountSelectorStorageReadyAtom,
   use: useAccountSelectorStorageReadyAtom,
-} = contextAtom<boolean>(false);
+} = contextAtom<boolean>(false, {
+  name: 'ctx:accountSelectorStorageReadyAtom',
+});
 
 export type IAccountSelectorAvailableNetworks = {
   networkIds?: string[];

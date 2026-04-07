@@ -657,6 +657,7 @@ function HomeOverviewContainer() {
       // at next startup, enabling ownerKey matching for cached balance.
       ctxSnapshot['ctx:activeAccountsAtom'] = { 0: activeAccount };
       ctxSnapshot['ctx:selectedAccountsAtom'] = selectedAccounts;
+      ctxSnapshot['ctx:accountSelectorStorageReadyAtom'] = true;
       ctxSnapshot['ctx:walletTopBannersAtom'] = walletTopBanners;
       ss.set(
         sk.onekey_jotai_context_atoms_snapshot,
