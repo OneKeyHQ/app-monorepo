@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ETranslateDisplayMode,
+  ETranslateEngine,
+} from '@onekeyhq/shared/types/discovery';
 
 import { getWebviewWrapperRef } from '../../views/Discovery/utils/explorerUtils';
 
@@ -40,75 +44,44 @@ function injectScript(tabId: string, script: string) {
   }
 }
 
-const SEPARATOR = '\n\u200B\n'; // zero-width space as unique separator
-const MAX_CHUNK_CHARS = 4500;
-
-async function translateChunk(
+async function translateTexts(
   texts: string[],
   targetLang: string,
+  engine: ETranslateEngine,
 ): Promise<string[]> {
-  const combined = texts.join(SEPARATOR);
-  const url = new URL('https://translate.googleapis.com/translate_a/single');
-  url.searchParams.set('client', 'gtx');
-  url.searchParams.set('sl', 'auto');
-  url.searchParams.set('tl', targetLang);
-  url.searchParams.set('dt', 't');
-  url.searchParams.set('q', combined);
-
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    throw new OneKeyError(`Translate API HTTP ${res.status}`);
-  }
-  const data = await res.json();
-  if (!Array.isArray(data?.[0])) {
-    throw new OneKeyError('Unexpected translate API response format');
-  }
-  const fullTranslation = (data[0] as Array<[string]>)
-    .map((item) => item[0])
-    .join('');
-  const parts = fullTranslation.split(SEPARATOR);
-  if (parts.length !== texts.length) {
-    return texts;
-  }
-  return parts;
+  const result = await backgroundApiProxy.servicePrime.apiTranslate({
+    texts,
+    sourceLang: 'auto',
+    targetLang,
+    engine,
+  });
+  return result?.translations ?? texts;
 }
 
-async function googleTranslate(
-  texts: string[],
-  targetLang: string,
-): Promise<string[]> {
-  const results: string[] = [];
-  let chunk: string[] = [];
-  let chunkLen = 0;
-
-  for (const text of texts) {
-    if (chunkLen + text.length > MAX_CHUNK_CHARS && chunk.length > 0) {
-      const translated = await translateChunk(chunk, targetLang);
-      results.push(...translated);
-      chunk = [];
-      chunkLen = 0;
-    }
-    chunk.push(text);
-    chunkLen += text.length + SEPARATOR.length;
-  }
-  if (chunk.length > 0) {
-    const translated = await translateChunk(chunk, targetLang);
-    results.push(...translated);
-  }
-  return results;
-}
-
-function handleTranslateRequest(tabId: string, data: ITranslateRequest): void {
+function handleTranslateRequest(
+  tabId: string,
+  data: ITranslateRequest,
+  engine: ETranslateEngine,
+): void {
   const handler = async () => {
     try {
-      const translations = await googleTranslate(data.texts, data.targetLang);
+      const translations = await translateTexts(
+        data.texts,
+        data.targetLang,
+        engine,
+      );
       sendTranslationResponse(tabId, data.id, translations);
     } catch (err) {
-      console.error('[Translate] Google API error:', err);
+      console.error('[Translate] API error:', err);
       sendTranslationResponse(tabId, data.id, data.texts);
     }
   };
   void handler();
+}
+
+function buildCallScript(method: string, ...args: unknown[]): string {
+  const argStr = args.map((a) => JSON.stringify(a)).join(', ');
+  return `(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.${method}(${argStr}); })();`;
 }
 
 function sendTranslationResponse(
@@ -124,7 +97,12 @@ function sendTranslationResponse(
   injectScript(tabId, responseScript);
 }
 
-export function useWebViewTranslate(tabId: string, onNavigate?: () => void) {
+export function useWebViewTranslate(
+  tabId: string,
+  onNavigate?: () => void,
+  engine: ETranslateEngine = ETranslateEngine.standard,
+  displayMode: ETranslateDisplayMode = ETranslateDisplayMode.replace,
+) {
   const translatingRef = useRef(false);
   const desktopCleanupRef = useRef<(() => void) | null>(null);
   const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -170,7 +148,7 @@ export function useWebViewTranslate(tabId: string, onNavigate?: () => void) {
             event.message.slice(TRANSLATE_CONSOLE_PREFIX.length),
           ) as ITranslateRequest;
           if (data.type === TRANSLATE_REQUEST_TYPE) {
-            handleTranslateRequest(tabId, data);
+            handleTranslateRequest(tabId, data, engine);
           }
         } catch {
           // ignore parse errors
@@ -186,7 +164,7 @@ export function useWebViewTranslate(tabId: string, onNavigate?: () => void) {
       );
       desktopCleanupRef.current = null;
     };
-  }, [tabId]);
+  }, [tabId, engine]);
 
   const ensureInjected = useCallback(() => {
     // Re-injection is needed after page navigation clears the old context;
@@ -198,7 +176,7 @@ export function useWebViewTranslate(tabId: string, onNavigate?: () => void) {
   const startTranslate = useCallback(
     (targetLang = 'zh') => {
       registerTranslateHandler(tabId, (data) =>
-        handleTranslateRequest(tabId, data),
+        handleTranslateRequest(tabId, data, engine),
       );
       ensureInjected();
       if (startTimerRef.current) {
@@ -206,14 +184,11 @@ export function useWebViewTranslate(tabId: string, onNavigate?: () => void) {
       }
       startTimerRef.current = setTimeout(() => {
         startTimerRef.current = null;
-        injectScript(
-          tabId,
-          `(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.start(${JSON.stringify(targetLang)}); })();`,
-        );
+        injectScript(tabId, buildCallScript('start', targetLang, displayMode));
         translatingRef.current = true;
       }, 50);
     },
-    [tabId, ensureInjected],
+    [tabId, ensureInjected, engine, displayMode],
   );
 
   const stopTranslate = useCallback(() => {
@@ -221,10 +196,7 @@ export function useWebViewTranslate(tabId: string, onNavigate?: () => void) {
       clearTimeout(startTimerRef.current);
       startTimerRef.current = null;
     }
-    injectScript(
-      tabId,
-      '(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.stop(); })();',
-    );
+    injectScript(tabId, buildCallScript('stop'));
     unregisterTranslateHandler(tabId);
     translatingRef.current = false;
   }, [tabId]);
@@ -234,10 +206,7 @@ export function useWebViewTranslate(tabId: string, onNavigate?: () => void) {
       clearTimeout(startTimerRef.current);
       startTimerRef.current = null;
     }
-    injectScript(
-      tabId,
-      '(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.restore(); })();',
-    );
+    injectScript(tabId, buildCallScript('restore'));
     unregisterTranslateHandler(tabId);
     desktopCleanupRef.current?.();
     translatingRef.current = false;

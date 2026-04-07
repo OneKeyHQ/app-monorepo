@@ -24,6 +24,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
 import type {
   IPrimeDeviceInfo,
   IPrimeServerUserInfo,
@@ -53,6 +54,31 @@ class ServicePrime extends ServiceBase {
 
   async getPrimeClient() {
     return this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+  }
+
+  @backgroundMethod()
+  async apiTranslate({
+    texts,
+    sourceLang,
+    targetLang,
+    engine = ETranslateEngine.standard,
+  }: {
+    texts: string[];
+    sourceLang: string;
+    targetLang: string;
+    engine?: ETranslateEngine;
+  }) {
+    const client = await this.getPrimeClient();
+    const result = await client.post<
+      IApiClientResponse<{ translations: string[] }>
+    >('/prime/v1/translate', {
+      texts,
+      source_lang: sourceLang,
+      target_lang: targetLang,
+      engine,
+      category: 'dapp_browser',
+    });
+    return result?.data?.data;
   }
 
   @backgroundMethod()

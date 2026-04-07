@@ -121,6 +121,7 @@
   var isTranslating = false;
   var targetLang = '';
   var sourceLang = 'auto';
+  var displayMode = 'replace'; // 'replace' | 'bilingual'
   var mutationObs = null;
   var intersectionObs = null;
 
@@ -338,16 +339,23 @@
   function applyToNode(textNode, translatedText) {
     var data = nodeStorage.get(textNode);
     if (!data) return;
-    if (textNode.nodeValue === translatedText) return;
 
     // Save original text before first modification
     if (data.originalText === null) {
       data.originalText = textNode.nodeValue;
     }
 
+    // No-op: translation returned original text unchanged — leave DOM alone
+    if (translatedText === data.originalText) return;
+
+    var newValue = (displayMode === 'bilingual')
+      ? data.originalText + '\n' + translatedText
+      : translatedText;
+    if (textNode.nodeValue === newValue) return;
+
     // Mark as self-caused mutation so MutationObserver skips it
     mutatedNodes.add(textNode);
-    textNode.nodeValue = translatedText;
+    textNode.nodeValue = newValue;
   }
 
   // ============================================================
@@ -454,6 +462,8 @@
           if (nodeStorage.has(target)) {
             var data = nodeStorage.get(target);
             data.updateId++;
+            // Reset so bilingual mode picks up the new source text
+            data.originalText = null;
             var text = target.nodeValue ? target.nodeValue.trim() : '';
             if (text && !shouldSkipText(text)) {
               queueForTranslation([{ node: target, text: text }]);
@@ -521,9 +531,10 @@
   // Public API
   // ============================================================
 
-  function startTranslation(lang) {
+  function startTranslation(lang, mode) {
     if (isTranslating) return;
     targetLang = lang || 'zh';
+    displayMode = mode || 'replace';
     isTranslating = true;
 
     setupIntersectionObserver();

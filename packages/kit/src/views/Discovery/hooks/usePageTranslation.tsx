@@ -30,7 +30,7 @@ function TranslateSettings() {
     [setSettings],
   );
 
-  const isCustomLanguage = settings.targetLanguage !== 'auto';
+  const isCustomMode = settings.targetLanguage !== 'auto';
 
   const customLanguageOptions = useMemo(
     () =>
@@ -117,13 +117,17 @@ function TranslateSettings() {
         </SizableText>
         <SegmentControl
           fullWidth
-          value={isCustomLanguage ? 'custom' : 'auto'}
+          value={isCustomMode ? 'custom' : 'auto'}
           options={targetLanguageOptions}
-          onChange={(v) =>
-            updateSetting('targetLanguage', v === 'auto' ? 'auto' : intl.locale)
-          }
+          onChange={(v) => {
+            if (v === 'auto') {
+              updateSetting('targetLanguage', 'auto');
+            } else {
+              updateSetting('targetLanguage', intl.locale);
+            }
+          }}
         />
-        {isCustomLanguage ? (
+        {isCustomMode ? (
           <Select
             title={intl.formatMessage({
               id: ETranslations.browser_translate_target_language,
@@ -153,19 +157,19 @@ function TranslateSettings() {
   );
 }
 
-function useTargetLanguageLabel() {
+function useResolvedTargetLang() {
   const intl = useIntl();
   const [settings] = useTranslateSettingsPersistAtom();
+  return settings.targetLanguage === 'auto'
+    ? intl.locale
+    : settings.targetLanguage;
+}
 
-  return useMemo(() => {
-    const localeValue =
-      settings.targetLanguage === 'auto'
-        ? intl.locale
-        : settings.targetLanguage;
-    return (
-      LOCALES_OPTION.find((o) => o.value === localeValue)?.label ?? localeValue
-    );
-  }, [intl.locale, settings.targetLanguage]);
+function useTargetLanguageLabel() {
+  const resolvedLang = useResolvedTargetLang();
+  return (
+    LOCALES_OPTION.find((o) => o.value === resolvedLang)?.label ?? resolvedLang
+  );
 }
 
 export function TranslatePopoverContent({
@@ -274,9 +278,9 @@ export function TranslatePopoverTrigger({
 }
 
 export function usePageTranslation(tabId: string) {
-  const intl = useIntl();
   const [settings] = useTranslateSettingsPersistAtom();
   const [isTranslated, setIsTranslated] = useState(false);
+  const resolvedTargetLang = useResolvedTargetLang();
 
   const onNavigate = useCallback(() => {
     setIsTranslated(false);
@@ -285,19 +289,9 @@ export function usePageTranslation(tabId: string) {
   const { toggleTranslate, translatingRef } = useWebViewTranslate(
     tabId,
     onNavigate,
+    settings.engine,
+    settings.displayMode,
   );
-
-  // Resolve effective target language from settings
-  const resolvedTargetLang = useMemo(() => {
-    if (settings.targetLanguage === 'auto') {
-      // Map intl locale to Google Translate language code
-      const locale = intl.locale;
-      // Google Translate uses short codes like 'zh', 'ja', 'ko', 'fr'
-      // intl.locale may be 'zh-CN', 'en-US', etc.
-      return locale.split('-')[0];
-    }
-    return settings.targetLanguage.split('-')[0];
-  }, [settings.targetLanguage, intl.locale]);
 
   const handleTranslate = useCallback(() => {
     const willTranslate = !translatingRef.current;
