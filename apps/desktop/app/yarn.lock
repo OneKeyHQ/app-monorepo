@@ -52,7 +52,7 @@ __metadata:
   resolution: "@onekeyhq/desktop@workspace:."
   dependencies:
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
-    "@stoprocent/noble": "npm:2.3.4"
+    "@stoprocent/noble": "npm:2.3.10"
     electron-check-biometric-auth-changed: "npm:1.0.0"
     passport-desktop: "npm:0.1.2"
     passport-desktop-win32-x64-msvc: "npm:0.1.2"
@@ -207,9 +207,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@stoprocent/noble@npm:2.3.4":
-  version: 2.3.4
-  resolution: "@stoprocent/noble@npm:2.3.4"
+"@stoprocent/noble@npm:2.3.10":
+  version: 2.3.10
+  resolution: "@stoprocent/noble@npm:2.3.10"
   dependencies:
     "@stoprocent/bluetooth-hci-socket": "npm:^2.2.3"
     debug: "npm:^4.3.7"
@@ -219,7 +219,7 @@ __metadata:
   dependenciesMeta:
     "@stoprocent/bluetooth-hci-socket":
       optional: true
-  checksum: 10/d797d2050b60fede51824502d9d64e44a23d75ba8bd6221840a448869f189319876917381cebdf75fde3e95a9a8e6dee24067742abcb897b73dc4f30e332f36f
+  checksum: 10/12ab7ca4d03013880948d02b52df3e58e3b72b44e978f48c8343422e220247ee9f1118c4431ca762e3cce5809c2897f429d67099f1bc689d7515b5260eb3d2f8
   languageName: node
   linkType: hard
 
@@ -298,11 +298,11 @@ __metadata:
   linkType: hard
 
 "brace-expansion@npm:^5.0.2":
-  version: 5.0.4
-  resolution: "brace-expansion@npm:5.0.4"
+  version: 5.0.5
+  resolution: "brace-expansion@npm:5.0.5"
   dependencies:
     balanced-match: "npm:^4.0.2"
-  checksum: 10/cfd57e20d8ded9578149e47ae4d3fff2b2f78d06b54a32a73057bddff65c8e9b930613f0cbcfefedf12dd117151e19d4da16367d5127c54f3bff02d8a4479bb2
+  checksum: 10/f259b2ddf04489da9512ad637ba6b4ef2d77abd4445d20f7f1714585f153435200a53fa6a2e4a5ee974df14ddad4cd16421f6f803e96e8b452bd48598878d0ee
   languageName: node
   linkType: hard
 
@@ -1165,9 +1165,9 @@ __metadata:
   linkType: hard
 
 "picomatch@npm:^2.3.1":
-  version: 2.3.1
-  resolution: "picomatch@npm:2.3.1"
-  checksum: 10/60c2595003b05e4535394d1da94850f5372c9427ca4413b71210f437f7b2ca091dbd611c45e8b37d10036fa8eade25c1b8951654f9d3973bfa66a2ff4d3b08bc
+  version: 2.3.2
+  resolution: "picomatch@npm:2.3.2"
+  checksum: 10/b788ef8148a2415b9dec12f0bb350ae6a5830f8f1950e472abc2f5225494debf7d1b75eb031df0ceaea9e8ec3e7bad599e8dbf3c60d61b42be429ba41bff4426
   languageName: node
   linkType: hard
 
@@ -1436,10 +1436,10 @@ __metadata:
   linkType: hard
 
 "yaml@npm:^2.2.2":
-  version: 2.8.2
-  resolution: "yaml@npm:2.8.2"
+  version: 2.8.3
+  resolution: "yaml@npm:2.8.3"
   bin:
     yaml: bin.mjs
-  checksum: 10/4eab0074da6bc5a5bffd25b9b359cf7061b771b95d1b3b571852098380db3b1b8f96e0f1f354b56cc7216aa97cea25163377ccbc33a2e9ce00316fe8d02f4539
+  checksum: 10/ecad41d39d34fae5cc17ea2d4b7f7f55faacd45cbce8983ba22d48d1ed1a92ed242ea49ea813a79ac39a69f75f9c5a03e7b5395fd954d55476f25e21a47c141d
   languageName: node
   linkType: hard
