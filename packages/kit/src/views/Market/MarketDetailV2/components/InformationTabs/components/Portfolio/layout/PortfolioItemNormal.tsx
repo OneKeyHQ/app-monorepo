@@ -7,7 +7,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
@@ -23,8 +22,6 @@ function PortfolioItemNormalBase({
   tokenLogoUrl,
   columnWidth,
 }: IPortfolioItemNormalProps) {
-  const [settingsPersistAtom] = useSettingsPersistAtom();
-
   const pnl = item.pnl;
   const isPnlSupported = pnl?.isPnlSupported ?? false;
 
@@ -54,7 +51,7 @@ function PortfolioItemNormalBase({
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
           formatterOptions={{
-            currency: settingsPersistAtom.currencyInfo.symbol,
+            currency: '$',
           }}
         >
           {item.totalPrice}
