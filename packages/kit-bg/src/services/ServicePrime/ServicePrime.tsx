@@ -71,7 +71,7 @@ class ServicePrime extends ServiceBase {
     const client = await this.getPrimeClient();
     const result = await client.post<
       IApiClientResponse<{ translations: string[] }>
-    >('/prime/v1/translate', {
+    >('/prime/v1/translate/dapp', {
       texts,
       source_lang: sourceLang,
       target_lang: targetLang,
