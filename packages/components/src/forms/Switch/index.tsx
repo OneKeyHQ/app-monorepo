@@ -8,15 +8,15 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IFormFieldProps } from '../types';
 
 export enum ESwitchSize {
-  'xsmall' = 'xsmall',
-  'small' = 'small',
-  'large' = 'large',
+  extraSmall = 'extraSmall',
+  small = 'small',
+  large = 'large',
 }
 
-type ISwitchSize = 'xsmall' | 'small' | 'large';
+type ISwitchSize = 'extraSmall' | 'small' | 'large';
 
 const SWITCH_SIZE_CONFIG = {
-  xsmall: {
+  extraSmall: {
     trackWidth: 32,
     trackHeight: '$5',
     thumbSize: '$4',
@@ -57,7 +57,7 @@ export function Switch({
   const [stateChecked, setStateChecked] = useState(defaultChecked);
   const sizeConfig = SWITCH_SIZE_CONFIG[size];
   let nativeScale = 1;
-  if (size === ESwitchSize.xsmall) {
+  if (size === ESwitchSize.extraSmall) {
     nativeScale = platformEnv.isNativeAndroid ? 0.82 : 0.7;
   }
 

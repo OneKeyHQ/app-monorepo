@@ -397,7 +397,7 @@ const SwapActionsState = ({
           </XStack>
           <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
             <Switch
-              size={ESwitchSize.xsmall}
+              size={ESwitchSize.extraSmall}
               value={swapIncognitoMode}
               onChange={onIncognitoModeChange}
             />
