@@ -4,6 +4,9 @@
   if (window.__onekeyTranslateInitialized) return;
   window.__onekeyTranslateInitialized = true;
 
+  var VERSION = '2.0.0';
+  console.log('[OneKey Translate] v' + VERSION);
+
   // ============================================================
   // Configuration
   // ============================================================
