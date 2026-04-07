@@ -671,7 +671,7 @@ function HomeOverviewContainer() {
         {showSkeleton ? (
           <Skeleton.Heading5Xl />
         ) : (
-          <XStack alignItems="center" gap="$3">
+          <XStack alignItems="center" gap="$3" h={48}>
             <XStack
               flexShrink={1}
               borderRadius="$3"
