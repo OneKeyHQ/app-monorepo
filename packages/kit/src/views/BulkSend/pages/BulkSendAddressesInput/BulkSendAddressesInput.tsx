@@ -82,9 +82,12 @@ function BaseBulkSendAddressesInput() {
     bulkSendMode,
     setBulkSendMode,
     duplicateAddressCount,
+    setDuplicateAddressCount,
     setSelectedDeriveType,
     resolvedSenderAccountIds,
     setResolvedSenderAccountIds,
+    duplicateSenderAddressCount,
+    setDuplicateSenderAddressCount,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
@@ -157,6 +160,7 @@ function BaseBulkSendAddressesInput() {
     const { fixedNetworkId, isSupported } =
       bulkSendUtils.fixBulkSendSupportedNetworkId({
         networkId: _selectedNetworkId ?? '',
+        bulkSendMode,
       });
 
     _selectedNetworkId = fixedNetworkId;
@@ -219,6 +223,7 @@ function BaseBulkSendAddressesInput() {
     networkId,
     indexedAccountId,
     tokenInfo,
+    bulkSendMode,
     setSelectedAccountId,
     setSelectedNetworkId,
     setSelectedToken,
@@ -413,6 +418,8 @@ function BaseBulkSendAddressesInput() {
     form.setValue('senderAddresses', '');
     form.setValue('receiverAddresses', '');
     form.clearErrors();
+    setDuplicateAddressCount(0);
+    setDuplicateSenderAddressCount(0);
     if (isOneToMany && selectedAccountId && selectedNetworkId) {
       void fetchSelectedAccountAddress();
       setTokenDetailsState({ initialized: false, isRefreshing: true });
@@ -554,6 +561,7 @@ function BaseBulkSendAddressesInput() {
       tokenInfo: selectedToken,
       tokenDetails: effectiveTokenDetails,
       bulkSendMode,
+      hasDuplicateSenders: duplicateSenderAddressCount > 0,
     };
 
     if (isInModal) {
@@ -578,6 +586,7 @@ function BaseBulkSendAddressesInput() {
     isInModal,
     setSelectedTokenDetail,
     resolvedSenderAccountIds,
+    duplicateSenderAddressCount,
     intl,
   ]);
 
@@ -731,6 +740,9 @@ function BulkSendAddressesInput() {
     Record<number, string>
   >({});
 
+  const [duplicateSenderAddressCount, setDuplicateSenderAddressCount] =
+    useState(0);
+
   const context = useMemo(
     () => ({
       selectedAccountId,
@@ -753,6 +765,8 @@ function BulkSendAddressesInput() {
       setSelectedDeriveType,
       resolvedSenderAccountIds,
       setResolvedSenderAccountIds,
+      duplicateSenderAddressCount,
+      setDuplicateSenderAddressCount,
     }),
     [
       selectedAccountId,
@@ -773,6 +787,7 @@ function BulkSendAddressesInput() {
       setDuplicateAddressCount,
       selectedDeriveType,
       resolvedSenderAccountIds,
+      duplicateSenderAddressCount,
     ],
   );
 
