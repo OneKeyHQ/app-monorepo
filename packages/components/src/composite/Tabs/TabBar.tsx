@@ -746,8 +746,14 @@ export function TabBar({
         />
       ));
     }
+    // Only activate animated pill text/bg on items once the pill indicator
+    // background is ready (all items have reported layout).  Before that,
+    // the focused tab would get textInverse (white) color with no dark
+    // background behind it, making the label invisible on cold start.
+    const pillIndicatorReady = itemsLayout.length === tabNames.length;
     return tabNames.map((name, index) => {
-      const hasAnimatedIndicator = useAnimatedPillIndicator && !!renderItem;
+      const hasAnimatedIndicator =
+        useAnimatedPillIndicator && !!renderItem && pillIndicatorReady;
       const itemNode = renderItem ? (
         renderItem(
           {
@@ -802,6 +808,7 @@ export function TabBar({
     focusedTabStyle,
     handleTabPress,
     handleItemLayout,
+    itemsLayout,
     renderItem,
     tabItemStyle,
     tabNames,
