@@ -67,6 +67,14 @@ if (!__DEV__) {
   console.log(`[StartupTiming] segment loader installed in ${Date.now() - segLoaderStart}ms (+${Date.now() - __entryStart}ms)`);
 }
 
+// Pre-warm critical home page icon segments so they're loaded by first render.
+// Must run AFTER segment loader install (line 64) and BEFORE React mount.
+if ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__) {
+  const { warmCriticalIcons } =
+    require('@onekeyhq/components/src/primitives/Icon') as typeof import('@onekeyhq/components/src/primitives/Icon');
+  warmCriticalIcons();
+}
+
 // Install native error logger for Release mode debugging.
 // ErrorUtils is React Native's global error handler — catches both
 // sync exceptions and unhandled promise rejections.
