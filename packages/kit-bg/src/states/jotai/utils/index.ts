@@ -370,11 +370,15 @@ function flushColdStartCache() {
 
 function scheduleColdStartSave(name: string) {
   coldStartDirtyKeys.add(name);
-  if (coldStartSaveTimer) return;
+  // Restart timer on each change so we save the FINAL value, not an
+  // intermediate one (e.g., All Networks token list arrives progressively).
+  if (coldStartSaveTimer) {
+    clearTimeout(coldStartSaveTimer);
+  }
   coldStartSaveTimer = setTimeout(() => {
     coldStartSaveTimer = undefined;
     flushColdStartCache();
-  }, 1000);
+  }, 2000);
 }
 
 let coldStartAppStateListenerRegistered = false;
