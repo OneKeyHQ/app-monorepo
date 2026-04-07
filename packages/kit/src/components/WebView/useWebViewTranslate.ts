@@ -10,6 +10,7 @@ import {
 import { getWebviewWrapperRef } from '../../views/Discovery/utils/explorerUtils';
 
 import {
+  TRANSLATE_COMMAND_TYPE,
   TRANSLATE_CONSOLE_PREFIX,
   TRANSLATE_REQUEST_TYPE,
   TRANSLATE_RESPONSE_TYPE,
@@ -79,24 +80,11 @@ function handleTranslateRequest(
   void handler();
 }
 
-const SAFE_ARG_RE = /^[a-zA-Z0-9\-_]+$/;
-
-function sanitizeArg(value: string): string {
-  if (!SAFE_ARG_RE.test(value)) return JSON.stringify('');
-  return JSON.stringify(value);
-}
-
-function buildStartScript(
-  lang: string,
-  mode: string,
-  sessionId: string,
-): string {
-  const args = [lang, mode, sessionId].map(sanitizeArg).join(', ');
-  return `(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.start(${args}); })();`;
-}
+let sessionCounter = 0;
 
 function generateSessionId(): string {
-  return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  sessionCounter += 1;
+  return 's' + Date.now().toString(36) + sessionCounter.toString(36);
 }
 
 function sendTranslationResponse(
@@ -202,7 +190,16 @@ export function useWebViewTranslate(
       startTimerRef.current = setTimeout(() => {
         startTimerRef.current = null;
         const sid = generateSessionId();
-        injectScript(tabId, buildStartScript(targetLang, displayMode, sid));
+        injectScript(
+          tabId,
+          createMessageInjectedScript({
+            type: TRANSLATE_COMMAND_TYPE,
+            command: 'start',
+            targetLang,
+            displayMode,
+            sessionId: sid,
+          }),
+        );
         translatingRef.current = true;
       }, 50);
     },
@@ -216,7 +213,10 @@ export function useWebViewTranslate(
     }
     injectScript(
       tabId,
-      '(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.stop(); })();',
+      createMessageInjectedScript({
+        type: TRANSLATE_COMMAND_TYPE,
+        command: 'stop',
+      }),
     );
     unregisterTranslateHandler(tabId);
     translatingRef.current = false;
@@ -229,7 +229,10 @@ export function useWebViewTranslate(
     }
     injectScript(
       tabId,
-      '(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.restore(); })();',
+      createMessageInjectedScript({
+        type: TRANSLATE_COMMAND_TYPE,
+        command: 'restore',
+      }),
     );
     unregisterTranslateHandler(tabId);
     desktopCleanupRef.current?.();

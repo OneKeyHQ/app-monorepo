@@ -91,7 +91,20 @@
     if (typeof data === 'string') {
       try { data = JSON.parse(data); } catch(e) { return; }
     }
-    if (data && data.type === '$$ONEKEY_TRANSLATE_RESPONSE') {
+    if (!data || !data.type) return;
+
+    if (data.type === '$$ONEKEY_TRANSLATE_COMMAND') {
+      if (data.command === 'start') {
+        startTranslation(data.targetLang, data.displayMode, data.sessionId);
+      } else if (data.command === 'stop') {
+        stopTranslation();
+      } else if (data.command === 'restore') {
+        restoreOriginal();
+      }
+      return;
+    }
+
+    if (data.type === '$$ONEKEY_TRANSLATE_RESPONSE') {
       // Ignore stale responses from previous translation sessions
       if (data.sessionId && data.sessionId !== sessionId) return;
       var entry = pendingResolvers[data.id];
