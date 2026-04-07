@@ -31,6 +31,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IAddressBadge,
@@ -346,27 +347,37 @@ function AddressInputWarnings({
     });
   }, [isEnableTransferAllowList, navigation, networkId, queryResult?.input]);
 
-  if (interactionBadges.length === 0 && !showAddToAddressBook) return null;
+  if (interactionBadges.length === 0 && !showAddToAddressBook) {
+    return null;
+  }
 
   return (
-    <XStack pt="$1.5" gap="$2" alignItems="center" flexWrap="wrap">
-      {interactionBadges.map((badge) => (
-        <AddressBadge
-          key={badge.label}
-          title={badge.label}
-          badgeType={badge.type}
-          content={badge.tip}
-          icon={badge.icon}
-        />
-      ))}
-      {showAddToAddressBook ? (
-        <Button variant="tertiary" size="small" onPress={onAddToAddressBook}>
-          {intl.formatMessage({
-            id: ETranslations.add_to_address_book__action,
-          })}
-        </Button>
+    <Stack pt="$1.5" gap="$2">
+      {interactionBadges.length > 0 || showAddToAddressBook ? (
+        <XStack gap="$2" alignItems="center" flexWrap="wrap">
+          {interactionBadges.map((badge) => (
+            <AddressBadge
+              key={badge.label}
+              title={badge.label}
+              badgeType={badge.type}
+              content={badge.tip}
+              icon={badge.icon}
+            />
+          ))}
+          {showAddToAddressBook ? (
+            <Button
+              variant="tertiary"
+              size="small"
+              onPress={onAddToAddressBook}
+            >
+              {intl.formatMessage({
+                id: ETranslations.add_to_address_book__action,
+              })}
+            </Button>
+          ) : null}
+        </XStack>
       ) : null}
-    </XStack>
+    </Stack>
   );
 }
 
@@ -450,12 +461,16 @@ export function AddressInput(props: IAddressInputProps) {
       text: string;
       inputType: EInputAddressChangeType;
     }) => {
+      const normalizedText = stringUtils.stripLineBreaks(text);
       inputTypeRef.current = inputType;
-      if (textRef.current !== text) {
-        textRef.current = text;
-        setInputText(text);
+      if (textRef.current !== normalizedText) {
+        textRef.current = normalizedText;
+        setInputText(normalizedText);
         onInputTypeChange?.(inputType);
-        onChange?.({ raw: text, pending: text?.length > 0 });
+        onChange?.({
+          raw: normalizedText,
+          pending: normalizedText.length > 0,
+        });
       }
     },
     [onChange, onInputTypeChange],
@@ -827,9 +842,6 @@ export function AddressInputField(
     hideNonBackedUpWallet,
     hasQuickSelectMatches,
   } = props;
-  const hasQuickSelectMatchesRef = useRef(hasQuickSelectMatches);
-  hasQuickSelectMatchesRef.current = hasQuickSelectMatches;
-
   const { trigger, watch } = useFormContext();
   const toValue = watch(name) as IAddressInputValue | undefined;
 
@@ -902,8 +914,9 @@ export function AddressInputField(
                   })
                 );
               }
-              // Suppress other errors when quick select has matches (hint shown via description)
-              if (hasQuickSelectMatchesRef.current) {
+              // When quick select has matches, keep generic validation errors
+              // hidden and show the contextual hint text instead.
+              if (hasQuickSelectMatches) {
                 return;
               }
               return enableAllowListValidation
