@@ -11,3 +11,4 @@ export { registerMarketCommands } from './market';
 export { registerSecurityCommands } from './security';
 export { registerSwapCommands } from './swap';
 export { registerTokenCommands } from './token';
+export { registerSchemaCommand } from './schema';

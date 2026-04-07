@@ -6,6 +6,7 @@ import {
   registerImportCommand,
   registerLogoutCommand,
   registerMarketCommands,
+  registerSchemaCommand,
   registerSecurityCommands,
   registerStatusCommand,
   registerSwapCommands,
@@ -78,6 +79,7 @@ registerMarketCommands(program);
 registerSwapCommands(program);
 registerSecurityCommands(program);
 registerWalletHistoryCommand(program);
+registerSchemaCommand(program);
 
 // Signal handlers: use Unix-conventional exit codes (128 + signal number)
 process.on('SIGINT', () => {
