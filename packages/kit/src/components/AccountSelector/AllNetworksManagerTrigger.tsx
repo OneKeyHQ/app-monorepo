@@ -181,11 +181,9 @@ function AllNetworksManagerTrigger({
     !enabledNetworksCompatibleWithWalletId ||
     enabledNetworksCompatibleWithWalletId.length === 0
   ) {
-    return (
-      <Stack py="$1">
-        <Skeleton.BodyMd />
-      </Stack>
-    );
+    // Fixed height matches the rendered network badges (h=28 + py=$1)
+    // to prevent layout shift when data arrives.
+    return <Stack h={36} />;
   }
 
   return (

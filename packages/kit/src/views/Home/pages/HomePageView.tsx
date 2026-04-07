@@ -119,6 +119,7 @@ export function HomePageView({
       ready,
       device,
       indexedAccount,
+      vaultSettings: cachedVaultSettings,
     },
   } = useActiveAccount({ num: 0 });
 
@@ -187,7 +188,11 @@ export function HomePageView({
     };
   }, [network, indexedAccount]);
 
-  const { vaultSettings, networkAccounts } = result.result ?? {};
+  const { vaultSettings: fetchedVaultSettings, networkAccounts } =
+    result.result ?? {};
+  // Use cached vaultSettings from activeAccountsAtom (coldStartCache) as
+  // fallback to avoid tab config change on first render.
+  const vaultSettings = fetchedVaultSettings ?? cachedVaultSettings;
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
