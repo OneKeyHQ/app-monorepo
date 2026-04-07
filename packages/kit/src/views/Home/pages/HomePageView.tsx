@@ -98,6 +98,21 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
       return children;
     };
 
+// --- Startup layout diagnostic logger (temporary) ---
+function layoutDiag(tag: string, msg: string) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { NativeLogger: NL, LogLevel: LL } =
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    const jsEntry: number =
+      (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+    const elapsed = jsEntry ? Date.now() - jsEntry : 0;
+    NL.write(LL.Info, `[LayoutDiag:${tag}] +${elapsed}ms ${msg}`);
+  } catch {
+    /* noop */
+  }
+}
+
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -215,6 +230,22 @@ export function HomePageView({
     };
     void checkDeFiEnabled();
   }, [network?.id]);
+
+  // DEBUG: trace tab config state changes
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { NativeLogger: NL, LogLevel: LL } =
+        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+      const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${network?.id ?? ''}-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
+      NL.write(
+        LL.Info,
+        `[LayoutDiag] HomePageView: ready=${ready}, isDeFi=${isDeFiEnabled}, isNFT=${isNFTEnabled}, ` +
+          `cachedVS=${!!cachedVaultSettings}, fetchedVS=${!!fetchedVaultSettings}, ` +
+          `networkId=${network?.id?.slice(-10) ?? 'nil'}, key=${key}`,
+      );
+    } catch { /* */ }
+  }, [ready, isDeFiEnabled, isNFTEnabled, cachedVaultSettings, fetchedVaultSettings, network?.id, account?.id, account?.indexedAccountId]);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -416,9 +447,13 @@ export function HomePageView({
         </Keyboard.AwareScrollView>
       );
     }
+    // Exclude isDeFiEnabled/isNFTEnabled from key to prevent Tabs.Container
+    // from being destroyed and recreated when these values change async.
+    // Tabs render conditionally inside the container instead.
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
-    }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
+    }`;
+    layoutDiag('TabsKey', `key="${key}" isDeFi=${isDeFiEnabled} isNFT=${isNFTEnabled} cachedVS=${!!cachedVaultSettings} fetchedVS=${!!fetchedVaultSettings} ready=${ready}`);
     return (
       <Tabs.Container
         ref={tabsRef as any}
@@ -602,7 +637,9 @@ export function HomePageView({
   }, []);
 
   const homePage = useMemo(() => {
+    layoutDiag('HomePage', `ready=${ready} wallet=${!!wallet}`);
     if (!ready) {
+      layoutDiag('HomePage', 'NOT READY — returning TabPageHeader placeholder');
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 

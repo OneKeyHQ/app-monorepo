@@ -666,7 +666,22 @@ function HomeOverviewContainer() {
   }
 
   return (
-    <YStack gap="$2.5" alignItems="flex-start">
+    <YStack
+      gap="$2.5"
+      alignItems="flex-start"
+      onLayout={(e) => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { NativeLogger: NL, LogLevel: LL } =
+            require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+          const { height, width } = e.nativeEvent.layout;
+          NL.write(
+            LL.Info,
+            `[LayoutDiag] OverviewContainer: h=${height.toFixed(1)}, w=${width.toFixed(1)}, skeleton=${showSkeleton}`,
+          );
+        } catch { /* */ }
+      }}
+    >
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />

@@ -19,6 +19,20 @@ import WalletBanner from '../components/WalletBanner';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
+function layoutDiag(tag: string, msg: string) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { NativeLogger: NL, LogLevel: LL } =
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    const jsEntry: number =
+      (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+    const elapsed = jsEntry ? Date.now() - jsEntry : 0;
+    NL.write(LL.Info, `[LayoutDiag:${tag}] +${elapsed}ms ${msg}`);
+  } catch {
+    /* noop */
+  }
+}
+
 function BaseHomeHeaderContainer() {
   const {
     activeAccount: { wallet },
@@ -103,6 +117,8 @@ function BaseHomeHeaderContainer() {
     showReferralCodeBlock,
   ]);
 
+  layoutDiag('Header', `isWalletNotBackedUp=${isWalletNotBackedUp} shouldShowInitBlock=${shouldShowInitBlock}`);
+
   return (
     <HomeTokenListProviderMirror>
       <YStack
@@ -111,6 +127,15 @@ function BaseHomeHeaderContainer() {
         $gtMd={{ gap: '$8' }}
         bg="$bgApp"
         pointerEvents="box-none"
+        onLayout={(e) => {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { NativeLogger: NL, LogLevel: LL } =
+              require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+            const { height } = e.nativeEvent.layout;
+            NL.write(LL.Info, `[LayoutDiag] HeaderContainer: h=${height.toFixed(1)}`);
+          } catch { /* */ }
+        }}
       >
         <Stack
           testID="Wallet-Tab-Header"
