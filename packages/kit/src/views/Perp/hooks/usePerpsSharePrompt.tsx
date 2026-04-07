@@ -150,9 +150,9 @@ export function usePerpsSharePrompt() {
   const checkAndShowPromptRef = useRef(checkAndShowPrompt);
   checkAndShowPromptRef.current = checkAndShowPrompt;
 
-  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    isFocusedRef.current = isFocus;
-    if (!isFocus) {
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus, isHideByModal) => {
+    isFocusedRef.current = isFocus && !isHideByModal;
+    if (!isFocusedRef.current) {
       return;
     }
     if (!hasBeenFocusedRef.current) {
