@@ -1,9 +1,9 @@
+const fs = require('fs');
 const path = require('path');
 
 const dateFns = require('date-fns');
 const dotenv = require('dotenv');
 
-const fs = require('fs');
 
 const envPaths = [
   // priority: high -> low
