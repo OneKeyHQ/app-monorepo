@@ -35,6 +35,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToAnotherAccountAddressAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   useSettingsAtom,
@@ -55,6 +56,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
+  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -179,6 +181,7 @@ const SwapActionsState = ({
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [, setSwapQuoteList] = useSwapQuoteListAtom();
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
@@ -361,24 +364,29 @@ const SwapActionsState = ({
   );
 
   const incognitoComponent = useMemo(
-    () => (
-      <XStack alignItems="center" gap="$1">
+    () =>
+      swapTypeSwitch === ESwapTabSwitchType.LIMIT ? null : (
         <XStack alignItems="center" gap="$1">
-          <Icon name="AnonymousHiddenOutline" size="$5" color="$iconSubdued" />
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.trade_incognito_incognito_mode,
-            })}
-          </SizableText>
+          <XStack alignItems="center" gap="$1">
+            <Icon
+              name="AnonymousHiddenOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.trade_incognito_incognito_mode,
+              })}
+            </SizableText>
+          </XStack>
+          <Switch
+            size={ESwitchSize.small}
+            value={swapIncognitoMode}
+            onChange={onIncognitoModeChange}
+          />
         </XStack>
-        <Switch
-          size={ESwitchSize.small}
-          value={swapIncognitoMode}
-          onChange={onIncognitoModeChange}
-        />
-      </XStack>
-    ),
-    [intl, onIncognitoModeChange, swapIncognitoMode],
+      ),
+    [intl, onIncognitoModeChange, swapIncognitoMode, swapTypeSwitch],
   );
 
   const recipientComponent = useMemo(() => {
