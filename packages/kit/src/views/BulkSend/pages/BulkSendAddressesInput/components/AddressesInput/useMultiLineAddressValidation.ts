@@ -21,6 +21,11 @@ import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ELineAnnotationType, type ILineError } from './LineNumberedTextArea';
+import {
+  type IBulkSendSenderSelectorAccountItem,
+  buildSenderSelectorAddressKey,
+  resolveSenderSelectorFallbackAccount,
+} from './senderSelectorAccountUtils';
 
 type IUseMultiLineAddressValidationParams = {
   selectedNetworkId: string | undefined;
@@ -35,6 +40,10 @@ type IUseMultiLineAddressValidationParams = {
   onResolvedAccountIds?: (ids: Record<number, string>) => void;
   onDuplicateAddressCountChange?: (count: number) => void;
   duplicateWarningMode?: boolean;
+  senderSelectorAccountItems?: Record<
+    string,
+    IBulkSendSenderSelectorAccountItem
+  >;
 };
 
 function useMultiLineAddressValidation(
@@ -54,6 +63,7 @@ function useMultiLineAddressValidation(
     onResolvedAccountIds,
     onDuplicateAddressCountChange,
     duplicateWarningMode = false,
+    senderSelectorAccountItems,
   } = params;
 
   const intl = useIntl();
@@ -92,25 +102,40 @@ function useMultiLineAddressValidation(
     async (
       address: string,
     ): Promise<{ isValid: false; error: string } | IAddressValidation> => {
+      const networkId = selectedNetworkId ?? '';
       const result =
         await backgroundApiProxy.serviceValidator.localValidateAddress({
-          networkId: selectedNetworkId ?? '',
+          networkId,
           address: address.trim(),
         });
       if (!result.isValid) {
+        // Fetch the network name at validation time to avoid stale names
+        // when the user switches networks while addresses are already entered
+        let networkName = network?.name ?? '';
+        if (networkId && networkId !== network?.id) {
+          try {
+            const networkInfo =
+              await backgroundApiProxy.serviceNetwork.getNetwork({
+                networkId,
+              });
+            networkName = networkInfo.name;
+          } catch {
+            // fallback to hook value
+          }
+        }
         return {
           isValid: false,
           error: intl.formatMessage(
             {
               id: ETranslations.wallet_bulk_send_error_invalid_network_address,
             },
-            { network: network?.name ?? '' },
+            { network: networkName },
           ),
         };
       }
       return result;
     },
-    [intl, selectedNetworkId, network?.name],
+    [intl, selectedNetworkId, network?.name, network?.id],
   );
 
   const validateAmount = useCallback(
@@ -180,14 +205,38 @@ function useMultiLineAddressValidation(
       address: string,
       networkId: string,
     ): Promise<{ accountId: string } | { error: string }> => {
+      const trimmedAddress = address.trim();
+      const fallbackAccountItem =
+        senderSelectorAccountItems?.[
+          buildSenderSelectorAddressKey(trimmedAddress)
+        ];
+
       try {
         const walletAccountItems =
           await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
             networkId,
-            address: address.trim(),
+            address: trimmedAddress,
           });
 
         if (walletAccountItems.length === 0) {
+          const fallbackResult = await resolveSenderSelectorFallbackAccount({
+            fallbackAccountItem,
+            networkId,
+          });
+          if (fallbackResult) {
+            if (fallbackResult.type === 'error') {
+              return {
+                error: intl.formatMessage({
+                  id: fallbackResult.errorMessageId,
+                }),
+              };
+            }
+
+            return {
+              accountId: fallbackResult.accountId,
+            };
+          }
+
           return {
             error: intl.formatMessage({
               id: ETranslations.wallet_bulk_send_error_address_not_found,
@@ -229,6 +278,24 @@ function useMultiLineAddressValidation(
           }),
         };
       } catch (_) {
+        const fallbackResult = await resolveSenderSelectorFallbackAccount({
+          fallbackAccountItem,
+          networkId,
+        });
+        if (fallbackResult) {
+          if (fallbackResult.type === 'error') {
+            return {
+              error: intl.formatMessage({
+                id: fallbackResult.errorMessageId,
+              }),
+            };
+          }
+
+          return {
+            accountId: fallbackResult.accountId,
+          };
+        }
+
         return {
           error: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_address_not_found,
@@ -236,7 +303,7 @@ function useMultiLineAddressValidation(
         };
       }
     },
-    [intl],
+    [intl, senderSelectorAccountItems],
   );
 
   const handleValidateAddresses = useCallback(

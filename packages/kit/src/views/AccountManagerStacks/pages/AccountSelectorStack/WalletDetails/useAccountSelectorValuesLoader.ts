@@ -27,6 +27,7 @@ export function useAccountSelectorValuesLoader({
         networkId: string;
         indexedAccountId?: string;
         accountAddress?: string;
+        xpub?: string;
       }[]
     | undefined;
 }) {

@@ -329,7 +329,9 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         (recipient.addressBookName?.toLowerCase().includes(trimmedSearchKey) ??
           false),
       isAddressMatch: (recipient) =>
-        recipient.input?.toLowerCase().includes(trimmedSearchKey) ?? false,
+        (recipient.input?.toLowerCase().includes(trimmedSearchKey) ?? false) ||
+        (recipient.validAddress?.toLowerCase().includes(trimmedSearchKey) ??
+          false),
     }).sorted;
   }, [isSearchActive, recentRecipients, trimmedSearchKey]);
 
@@ -389,37 +391,41 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       return <QuickSelectListSkeleton />;
     }
     if (filteredRecentRecipients.length > 0) {
-      return filteredRecentRecipients.map((recipient) => (
-        <QuickSelectListItem
-          key={recipient.input}
-          item={{
-            id: recipient.input ?? '',
-            name:
-              recipient.addressBookName ?? recipient.walletAccountName ?? '',
-            address: recipient.input ?? '',
-            memo: recipient.addressMemo || recipient.recipientMemo,
-            note: recipient.addressNote,
-            lastTransferTime: recipient.lastTransferTime,
-            lastTransferNetworkName: recipient.lastTransferNetworkName,
-            isAddressBook: recipient.isAddressBook,
-            walletName: recipient.walletName,
-            walletId: recipient.walletId,
-            wallet: recipient.walletId
-              ? recentWalletMap.get(recipient.walletId)
-              : undefined,
-          }}
-          intl={intl}
-          networkId={networkId}
-          formatRelativeTime={formatCompactTime}
-          onPress={() => {
-            onSelect?.({
-              address: recipient.input ?? '',
+      return filteredRecentRecipients.map((recipient) => {
+        const canonicalAddress =
+          recipient.validAddress ?? recipient.input ?? '';
+        return (
+          <QuickSelectListItem
+            key={canonicalAddress}
+            item={{
+              id: canonicalAddress,
+              name:
+                recipient.addressBookName ?? recipient.walletAccountName ?? '',
+              address: canonicalAddress,
               memo: recipient.addressMemo || recipient.recipientMemo,
               note: recipient.addressNote,
-            });
-          }}
-        />
-      ));
+              lastTransferTime: recipient.lastTransferTime,
+              lastTransferNetworkName: recipient.lastTransferNetworkName,
+              isAddressBook: recipient.isAddressBook,
+              walletName: recipient.walletName,
+              walletId: recipient.walletId,
+              wallet: recipient.walletId
+                ? recentWalletMap.get(recipient.walletId)
+                : undefined,
+            }}
+            intl={intl}
+            networkId={networkId}
+            formatRelativeTime={formatCompactTime}
+            onPress={() => {
+              onSelect?.({
+                address: canonicalAddress,
+                memo: recipient.addressMemo || recipient.recipientMemo,
+                note: recipient.addressNote,
+              });
+            }}
+          />
+        );
+      });
     }
     if (isSearchActive) {
       return (

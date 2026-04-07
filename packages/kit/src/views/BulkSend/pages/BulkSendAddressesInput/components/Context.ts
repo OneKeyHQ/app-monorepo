@@ -37,6 +37,9 @@ export type IBulkSendAddressesInputContext = {
   // Per-sender resolved accountIds (ManyToOne/ManyToMany)
   resolvedSenderAccountIds: Record<number, string>;
   setResolvedSenderAccountIds: (ids: Record<number, string>) => void;
+  // Track duplicate sender addresses (ManyToMany only)
+  duplicateSenderAddressCount: number;
+  setDuplicateSenderAddressCount: (count: number) => void;
 };
 export const BulkSendAddressesInputContext =
   createContext<IBulkSendAddressesInputContext>({
@@ -63,6 +66,8 @@ export const BulkSendAddressesInputContext =
     setSelectedDeriveType: () => {},
     resolvedSenderAccountIds: {},
     setResolvedSenderAccountIds: () => {},
+    duplicateSenderAddressCount: 0,
+    setDuplicateSenderAddressCount: () => {},
   });
 
 export const useBulkSendAddressesInputContext = () =>
