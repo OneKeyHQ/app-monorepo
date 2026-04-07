@@ -33,6 +33,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useAggregateTokensListMapAtom,
   useTokenListActions,
+  useTokenListAtom,
   useTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
@@ -239,6 +240,7 @@ function TokenListBlock({
 
   const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
   const [tokenListMapAtom] = useTokenListMapAtom();
+  const [tokenListData] = useTokenListAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
@@ -1602,16 +1604,26 @@ function TokenListBlock({
       });
 
       if (networkId === networkIdsMap.onekeyall) {
-        perfTokenListView.markStart('tokenListRefreshing_1');
-        updateTokenListState({
-          initialized: false,
-          isRefreshing: true,
-        });
-        updateAccountOverviewState({
-          initialized: false,
-          isRefreshing: true,
-        });
-        handleClearAllNetworkData();
+        // Skip resetting to skeleton when coldStartCache has token data.
+        // The cached data will be shown immediately; background refresh
+        // will update it when fresh data arrives.
+        const hasCachedTokenData =
+          tokenListData.tokens.length > 0 &&
+          !(globalThis as any).__onekeyTokenListInitDone;
+        (globalThis as any).__onekeyTokenListInitDone = true;
+
+        if (!hasCachedTokenData) {
+          perfTokenListView.markStart('tokenListRefreshing_1');
+          updateTokenListState({
+            initialized: false,
+            isRefreshing: true,
+          });
+          updateAccountOverviewState({
+            initialized: false,
+            isRefreshing: true,
+          });
+          handleClearAllNetworkData();
+        }
         return;
       }
 
