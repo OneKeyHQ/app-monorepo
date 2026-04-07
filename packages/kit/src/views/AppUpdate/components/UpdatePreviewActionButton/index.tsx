@@ -14,6 +14,7 @@ import {
   EUpdateFileType,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -43,6 +44,9 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 
   const handleToUpdate: IPageFooterProps['onConfirm'] = useCallback(() => {
     if (appUpdateInfo.data) {
+      defaultLogger.app.appUpdate.changelogUpdateClicked({
+        action: shouldOpenStore ? 'store' : 'download',
+      });
       if (shouldOpenStore && appUpdateInfo.data.storeUrl) {
         openUrlExternal(appUpdateInfo.data.storeUrl);
       } else if (
