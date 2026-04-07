@@ -1,11 +1,15 @@
 import { useCallback, useState } from 'react';
 
-import { Checkbox, Page } from '@onekeyhq/components';
+import { Checkbox, Page, Stack } from '@onekeyhq/components';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
-import { DAppRequestLayout } from '../components/DAppRequestLayout';
+import {
+  DAppRequestFooter,
+  DAppRequestLayout,
+} from '../components/DAppRequestLayout';
+import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
@@ -18,6 +22,14 @@ function ClipboardPermissionModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const {
+    showContinueOperate,
+    continueOperate,
+    setContinueOperate,
+    riskLevel,
+    urlSecurityInfo,
+  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
   const [remember, setRemember] = useState(false);
 
@@ -50,21 +62,32 @@ function ClipboardPermissionModal() {
             title={title}
             subtitle={subtitle}
             origin={$sourceInfo?.origin ?? ''}
-          />
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            <Stack px="$5">
+              <Checkbox
+                label="Remember for this site"
+                value={remember}
+                onChange={(checked) => setRemember(!!checked)}
+              />
+            </Stack>
+          </DAppRequestLayout>
         </Page.Body>
         <Page.Footer>
-          <Page.FooterActions
+          <DAppRequestFooter
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
             onConfirm={onConfirm}
             onCancel={() => dappApprove.reject()}
-            onConfirmText="Allow"
-            cancelButtonProps={{ variant: 'secondary' }}
-          >
-            <Checkbox
-              label="Remember for this site"
-              value={remember}
-              onChange={(checked) => setRemember(!!checked)}
-            />
-          </Page.FooterActions>
+            confirmButtonProps={{
+              disabled: showContinueOperate ? !continueOperate : false,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
+            confirmText="Allow"
+          />
         </Page.Footer>
       </>
     </DappOpenModalPage>

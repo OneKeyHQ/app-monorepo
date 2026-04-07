@@ -959,10 +959,22 @@ class ProviderApiPrivate extends ProviderApiBase {
       throw new OneKeyLocalError('Invalid clipboard permission request');
     }
 
+    // Sanitize request before passing to modal to prevent clipboard text
+    // from being logged by ServiceDApp.openModal's dappOpenModal logger
+    const sanitizedRequest = {
+      ...request,
+      data: request.data
+        ? {
+            ...(request.data as Record<string, unknown>),
+            params: { type: params.type },
+          }
+        : request.data,
+    };
+
     // This will throw if user rejects (modal rejection propagates)
     const modalResult =
       await this.backgroundApi.serviceDApp.openClipboardPermissionModal(
-        request,
+        sanitizedRequest as IJsBridgeMessagePayload,
         params.type,
       );
 
