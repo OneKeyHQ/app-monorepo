@@ -33,6 +33,7 @@ export function usePerpsSharePrompt() {
   const hasShownRef = useRef(false);
   const checkingRef = useRef(false);
   const hasBeenFocusedRef = useRef(false);
+  const isFocusedRef = useRef(false);
   const pendingLoadRef = useRef(false);
   const pendingCheckRef = useRef(false);
   const currentAccountAddressRef = useRef(currentAccount?.accountAddress);
@@ -64,6 +65,10 @@ export function usePerpsSharePrompt() {
   const checkAndShowPrompt = useCallback(async () => {
     const accountAddress = currentAccount?.accountAddress;
     if (!accountAddress || hasShownRef.current || checkingRef.current) {
+      return;
+    }
+    if (!isFocusedRef.current) {
+      pendingCheckRef.current = true;
       return;
     }
 
@@ -146,7 +151,11 @@ export function usePerpsSharePrompt() {
   checkAndShowPromptRef.current = checkAndShowPrompt;
 
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    if (isFocus && !hasBeenFocusedRef.current) {
+    isFocusedRef.current = isFocus;
+    if (!isFocus) {
+      return;
+    }
+    if (!hasBeenFocusedRef.current) {
       hasBeenFocusedRef.current = true;
       if (pendingLoadRef.current) {
         pendingLoadRef.current = false;
@@ -157,10 +166,10 @@ export function usePerpsSharePrompt() {
           );
         }
       }
-      if (pendingCheckRef.current) {
-        pendingCheckRef.current = false;
-        void checkAndShowPromptRef.current();
-      }
+    }
+    if (pendingCheckRef.current) {
+      pendingCheckRef.current = false;
+      void checkAndShowPromptRef.current();
     }
   });
 
