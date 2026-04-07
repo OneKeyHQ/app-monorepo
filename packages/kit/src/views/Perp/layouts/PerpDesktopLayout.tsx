@@ -35,11 +35,11 @@ function PerpDesktopLayout() {
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
 
   const layout = PERP_LAYOUT_CONFIG.desktop;
-  // Reset chartExpanded on mount to avoid desync with iframe state
+  // Reset chartExpanded on mount to stay in sync with iframe state
   useEffect(() => {
-    if (layoutState.chartExpanded) {
-      setLayoutState((prev) => ({ ...prev, chartExpanded: false }));
-    }
+    setLayoutState((prev) =>
+      prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
