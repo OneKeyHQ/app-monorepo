@@ -354,12 +354,7 @@ export function useRecentRecipientsData({
           return;
         }
 
-        if (supported) {
-          // API supported but no results — done.
-          if (isStale()) return;
-          setIsLoadingRecent(false);
-          return;
-        }
+        // supported but empty — fall through to local strategies.
       } catch {
         // Fall through to local strategies.
       }
