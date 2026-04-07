@@ -516,6 +516,11 @@ function TokenListBlock({
   const isAllNetworkManualRefresh = useRef(false);
 
   const updateAllNetworkData = useThrottledCallback(() => {
+    // Skip progressive writes after final sorted data is ready,
+    // otherwise unsorted ref data overwrites the sorted tokenListAtom.
+    if ((globalThis as any).__onekeyTokenListFinalReady) {
+      return;
+    }
     refreshTokenList({
       keys: tokenListRef.current.keys,
       tokens: tokenListRef.current.tokens,

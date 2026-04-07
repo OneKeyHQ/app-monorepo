@@ -466,14 +466,6 @@ export function contextAtomBase<Value>({
           const result = originalUse();
           const currentValue = result[0];
           if (coldStartValuesMap.get(name) !== currentValue) {
-            // For tokenListAtom, only track after final sorted data is ready
-            // to prevent progressive-load intermediate data from being cached.
-            if (
-              name === 'ctx:tokenListAtom' &&
-              !(globalThis as any).__onekeyTokenListFinalReady
-            ) {
-              return result;
-            }
             coldStartValuesMap.set(name, currentValue);
             scheduleColdStartSave(name);
             // DEBUG: log token list changes
