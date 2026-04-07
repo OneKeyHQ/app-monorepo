@@ -149,7 +149,7 @@
     "@reown/appkit-ethers5-react-native": "https://github.com/OneKeyHQ/app-modules#9d96daccc13625e5b3c8b236f9357956b049b884",
     "@reown/appkit-scaffold-react-native": "https://github.com/OneKeyHQ/app-modules#ef39e1c6682f8b50dc019a851f6e2211392d353a",
     "@reown/appkit-scaffold-utils-react-native": "https://github.com/OneKeyHQ/app-modules#aa31ef69e5058bb822c40f0a706ee9bdd191b005",
-    "@reown/walletkit": "1.2.10",
+    "@reown/walletkit": "1.2.11",
     "@revenuecat/purchases-js": "0.15.1",
     "@sentry/browser": "8.42.0",
     "@sentry/core": "8.42.0",
