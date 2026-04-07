@@ -86,6 +86,7 @@ const dirsToRemove = [
 
   // kit-bg
   './packages/kit-bg/node_modules',
+  './packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js',
 
   // shared
   './packages/shared/node_modules',

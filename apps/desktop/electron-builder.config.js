@@ -1,5 +1,11 @@
 /* eslint-disable no-template-curly-in-string */
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
+const {
+  baseFiles,
+  macExcludePrebuilds,
+  winExcludePrebuilds,
+  linuxExcludePrebuilds,
+} = require('./electron-builder-files.config');
 const DLLs = require('./electron-dll.config');
 const { getPath } = require('./scripts/utils');
 
@@ -29,6 +35,7 @@ module.exports = {
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
+    'files': [...baseFiles, ...macExcludePrebuilds],
     'x64ArchFiles': '*',
     'extraResources': [
       {
@@ -70,6 +77,7 @@ module.exports = {
     },
   },
   'win': {
+    'files': [...baseFiles, ...winExcludePrebuilds],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/win-${arch}',
@@ -83,6 +91,7 @@ module.exports = {
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
   'linux': {
+    'files': [...baseFiles, ...linuxExcludePrebuilds],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/linux-${arch}',
