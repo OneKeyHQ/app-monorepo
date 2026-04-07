@@ -48,7 +48,11 @@ export function EditCodeDialogContent({
 
   const validateCode = useCallback(
     (value: string): string => {
-      if (!value) return '';
+      if (!value) {
+        return intl.formatMessage({
+          id: ETranslations.referral_referral_code_too_short,
+        });
+      }
       if (!CODE_REGEX.test(value)) {
         return intl.formatMessage({
           id: ETranslations.referral_invalid_characters,
@@ -86,7 +90,7 @@ export function EditCodeDialogContent({
   const handleSave = useCallback(async () => {
     if (isSubmitting || !hasChanges) return;
 
-    if (codeChanged && codeValue) {
+    if (codeChanged) {
       const error = validateCode(codeValue);
       if (error) {
         setCodeError(error);
@@ -111,7 +115,6 @@ export function EditCodeDialogContent({
           id: ETranslations.referral_edit_success,
         }),
       });
-      await onUpdated?.(isPrimary && codeChanged);
       void dialogInstance?.close();
     } catch (_error) {
       Toast.error({
@@ -119,8 +122,15 @@ export function EditCodeDialogContent({
           id: ETranslations.referral_edit_failure,
         }),
       });
+      return;
     } finally {
       setIsSubmitting(false);
+    }
+
+    try {
+      await onUpdated?.(isPrimary && codeChanged);
+    } catch {
+      // silently ignore refetch failures — edit already succeeded
     }
   }, [
     isSubmitting,
