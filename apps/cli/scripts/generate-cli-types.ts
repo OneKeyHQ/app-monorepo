@@ -222,6 +222,7 @@ function jsonSchemaToInterface(
 
 function generate(): string {
   const lines: string[] = [
+    '/* eslint-disable */',
     '// @generated — do not edit manually',
     '// Generated from zod schemas in src/schemas/',
     '// Run: yarn generate:cli-types',

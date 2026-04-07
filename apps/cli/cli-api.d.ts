@@ -1,7 +1,8 @@
+/* eslint-disable */
 // @generated — do not edit manually
 // Generated from zod schemas in src/schemas/
 // Run: yarn generate:cli-types
-// Generated at: 2026-04-07T03:34:15.597Z
+// Generated at: 2026-04-07T03:38:22.166Z
 
 /** Print CLI version and environment */
 export interface VersionInput {}
