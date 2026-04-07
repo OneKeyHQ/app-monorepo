@@ -359,6 +359,29 @@ export class AppUpdateScene extends BaseScene {
     return { ...payload, level };
   }
 
+  @LogToServer()
+  @LogToLocal()
+  public changelogViewed(params: {
+    toVersion: string;
+    isForceUpdate: boolean;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public changelogUpdateClicked(params: {
+    action: 'store' | 'download' | 'helpLink';
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public whatsNewClosed(params: { durationMs: number }) {
+    return params;
+  }
+
   @LogToLocal({ level: 'info' })
   public log(message: string) {
     return message;
