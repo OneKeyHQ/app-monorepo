@@ -45,7 +45,10 @@ import {
   useOverviewTokenCacheStateAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccountsAtom,
+} from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 // Grace period (ms) after an account switch during which the previous
@@ -54,9 +57,9 @@ const BALANCE_REUSE_GRACE_MS = 180;
 
 function HomeOverviewContainer() {
   const num = 0;
-  const {
-    activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
-  } = useActiveAccount({ num });
+  const { activeAccount } = useActiveAccount({ num });
+  const { account, network, wallet, deriveInfoItems, vaultSettings } =
+    activeAccount;
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
   const handleResourceDetailsOnPress = useCallback(() => {
     if (resourceDialogInstance.current) return;
@@ -92,6 +95,7 @@ function HomeOverviewContainer() {
     updateAccountDeFiOverview,
   } = useAccountOverviewActions().current;
 
+  const [selectedAccounts] = useSelectedAccountsAtom();
   const [settings] = useSettingsPersistAtom();
 
   const isWalletNotBackedUp = useMemo(() => {
@@ -617,13 +621,13 @@ function HomeOverviewContainer() {
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
   // Track when balance is first displayed and save contextAtom snapshot to MMKV
-  const balanceDisplayedRef = useRef(false);
+  // Use module-level flag to survive component re-mounts within the same session.
   if (
-    !balanceDisplayedRef.current &&
+    !(globalThis as any).__onekeyBalanceDisplayed &&
     !showSkeleton &&
     renderedBalanceString != null
   ) {
-    balanceDisplayedRef.current = true;
+    (globalThis as any).__onekeyBalanceDisplayed = true;
     const jsEntry: number =
       (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
     if (jsEntry) {
@@ -647,6 +651,10 @@ function HomeOverviewContainer() {
         latest: renderedBalanceString,
         byOwner: lastConfirmedOverviewBalance.byOwner,
       };
+      // Cache activeAccount so account/network objects are available
+      // at next startup, enabling ownerKey matching for cached balance.
+      ctxSnapshot['ctx:activeAccountsAtom'] = { 0: activeAccount };
+      ctxSnapshot['ctx:selectedAccountsAtom'] = selectedAccounts;
       ss.set(
         sk.onekey_jotai_context_atoms_snapshot,
         JSON.stringify(ctxSnapshot),

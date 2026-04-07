@@ -39,7 +39,7 @@ const requireEnsure = async (chunkId) => {
   }
 };
 
-const wrapAsyncRequire = async (moduleId) => {
+const wrapAsyncRequire = async (moduleId, paths) => {
   const hashMap = chunkModuleIdToHashMap[moduleId];
   if (!hashMap) {
     await Promise.resolve();
@@ -49,7 +49,7 @@ const wrapAsyncRequire = async (moduleId) => {
   } else {
     await requireEnsure(moduleId);
   }
-  return asyncRequire(moduleId);
+  return asyncRequire(moduleId, paths);
 };
 
 module.exports = wrapAsyncRequire;

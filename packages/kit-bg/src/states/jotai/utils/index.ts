@@ -348,6 +348,10 @@ export function contextAtomBase<Value>({
           typeof initialValue === 'object' && typeof cached === 'object'
             ? { ...initialValue, ...cached }
             : cached;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[StartupTiming] contextAtom "${name}" injected from MMKV snapshot`,
+        );
       }
     }
   }

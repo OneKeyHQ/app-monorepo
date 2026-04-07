@@ -346,7 +346,9 @@ const assertSplitBundleOutputs = ({
   }
 
   const bundleCode = fs.readFileSync(bundlePath, 'utf8');
-  if (!bundleCode.includes('__SEGMENT_MANIFEST__')) {
+  // In union build mode, __SEGMENT_MANIFEST__ is injected into the common
+  // bundle (shared by both runtimes), not into main or background bundles.
+  if (!useUnionBuild && !bundleCode.includes('__SEGMENT_MANIFEST__')) {
     throw new Error(
       `[build-bundle] ${runtimeTarget} bundle did not inject __SEGMENT_MANIFEST__`,
     );
@@ -827,7 +829,8 @@ const buildIOSBundle = async () => {
       label: 'build ios common bundle',
     });
 
-    fs.rmSync(commonBundleJsPath, { force: true });
+    // Keep raw JS for debugging module ID issues
+    // fs.rmSync(commonBundleJsPath, { force: true });
     fs.rmSync(commonBundlePackagerMapPath, { force: true });
     fs.rmSync(`${commonBundleHbcPath}.map`, { force: true });
   }
@@ -886,7 +889,8 @@ const buildIOSBundle = async () => {
       label: 'build ios background bundle',
     });
 
-    fs.rmSync(backgroundBundleJsPath, { force: true });
+    // Keep raw JS for debugging module ID issues
+    // fs.rmSync(backgroundBundleJsPath, { force: true });
     fs.rmSync(backgroundBundlePackagerMapPath, { force: true });
     fs.rmSync(`${backgroundBundleHbcPath}.map`, { force: true });
   }
