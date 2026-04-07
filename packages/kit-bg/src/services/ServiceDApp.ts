@@ -276,6 +276,25 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async openClipboardPermissionModal(
+    request: IJsBridgeMessagePayload,
+    clipboardType: 'read' | 'write',
+  ) {
+    const result = await this.openModal({
+      request,
+      screens: [
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.ClipboardPermissionModal,
+      ],
+      params: {
+        clipboardType,
+      },
+      fullScreen: false,
+    });
+    return result;
+  }
+
+  @backgroundMethod()
   openSignMessageModal({
     request,
     unsignedMessage,

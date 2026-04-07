@@ -947,6 +947,17 @@ class ProviderApiPrivate extends ProviderApiBase {
     appEventBus.emit(EAppEventBusNames.ShowRookieShare, { data });
     return { success: true };
   }
+
+  @providerApiMethod()
+  async wallet_requestClipboardPermission(
+    request: IJsBridgeMessagePayload,
+    params: { type: 'read' | 'write' },
+  ) {
+    return this.backgroundApi.serviceDApp.openClipboardPermissionModal(
+      request,
+      params.type,
+    );
+  }
 }
 
 export default ProviderApiPrivate;
