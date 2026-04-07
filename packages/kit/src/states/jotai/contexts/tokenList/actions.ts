@@ -246,6 +246,14 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
               new BigNumber(0),
             );
 
+            // DEBUG
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const { NativeLogger: NL, LogLevel: LL } =
+                require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+              const jsEntry: number = (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+              NL.write(LL.Info, `[TokenListWrite] +${Date.now() - jsEntry}ms SET(merge+split) highValue=${highValueTokens.length} first3=[${highValueTokens.slice(0, 3).map((t) => t?.symbol).join(',')}]`);
+            } catch { /* */ }
             set(tokenListAtom(), {
               tokens: highValueTokens,
               keys: `${get(tokenListAtom()).keys}_${keys}`,
@@ -268,6 +276,14 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           }
         }
       } else if (!isEqual(get(tokenListAtom()).keys, keys)) {
+        // DEBUG: set actually executes
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { NativeLogger: NL, LogLevel: LL } =
+            require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+          const jsEntry: number = (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+          NL.write(LL.Info, `[TokenListWrite] +${Date.now() - jsEntry}ms SET(non-merge) tokens=${tokens.length} first3=[${tokens.slice(0, 3).map((t) => t?.symbol).join(',')}]`);
+        } catch { /* */ }
         set(tokenListAtom(), {
           tokens: uniqBy(tokens, (item) => item.$key),
           keys,
