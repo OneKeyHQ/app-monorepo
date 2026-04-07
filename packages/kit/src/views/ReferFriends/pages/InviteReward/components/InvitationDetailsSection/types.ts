@@ -7,4 +7,5 @@ export enum EInvitationDetailsTab {
 
 export interface IInvitationDetailsSectionProps {
   summaryInfo: IInviteSummary | undefined;
+  fetchSummaryInfo: () => void;
 }
