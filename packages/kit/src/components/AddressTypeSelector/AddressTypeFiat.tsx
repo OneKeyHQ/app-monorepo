@@ -49,17 +49,10 @@ function AddressTypeFiat({
       return null;
     }
 
+    const candidates = Array.from(accountKeyCandidates);
     const result = Object.entries(tokenMap).find(([key]) => {
-      const keyArr = key.split('_');
-      if (keyArr.length < 3) {
-        return false;
-      }
-
-      const accountKey = keyArr.slice(1, -1).join('_');
-      return (
-        accountKeyCandidates.has(accountKey) ||
-        accountKeyCandidates.has(accountKey.toLowerCase())
-      );
+      const keyLower = key.toLowerCase();
+      return candidates.some((c) => keyLower.includes(c));
     })?.[1];
 
     if (!result) {
