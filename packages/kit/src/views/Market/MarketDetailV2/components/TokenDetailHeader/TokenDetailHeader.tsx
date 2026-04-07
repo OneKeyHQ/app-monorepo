@@ -8,11 +8,9 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { MarketStarV2 } from '../../../components/MarketStarV2';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { ShareButton } from './ShareButton';
@@ -26,7 +24,6 @@ import type {
 } from 'react-native';
 
 const SCROLL_THRESHOLD = 2;
-const SCROLL_BREAKPOINT = 720;
 
 export function TokenDetailHeader({
   showStats = true,
@@ -39,40 +36,26 @@ export function TokenDetailHeader({
 }) {
   const { lg, md } = useMedia();
   const { tokenDetail, networkId, isNative, isStockToken } = useTokenDetail();
-  const [containerWidth, setContainerWidth] = useState(0);
   const [scrollX, setScrollX] = useState(0);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
-
-  const shouldScroll = useMemo(() => {
-    if (!containerWidth) {
-      return false;
-    }
-    return containerWidth < SCROLL_BREAKPOINT;
-  }, [containerWidth]);
 
   const networkData = useMemo(() => {
     return networkId ? networkUtils.getLocalNetworkInfo(networkId) : undefined;
   }, [networkId]);
 
   const shouldShowRightGradient = useMemo(() => {
-    if (!shouldScroll) {
-      return false;
-    }
     return (
       contentWidth > scrollViewWidth &&
       scrollX < contentWidth - scrollViewWidth - SCROLL_THRESHOLD
     );
-  }, [contentWidth, scrollViewWidth, scrollX, shouldScroll]);
+  }, [contentWidth, scrollViewWidth, scrollX]);
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (!shouldScroll) {
-        return;
-      }
       setScrollX(event.nativeEvent.contentOffset.x);
     },
-    [shouldScroll],
+    [],
   );
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
@@ -81,10 +64,6 @@ export function TokenDetailHeader({
 
   const handleContentSizeChange = useCallback((width: number) => {
     setContentWidth(width);
-  }, []);
-
-  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
-    setContainerWidth(event.nativeEvent.layout.width);
   }, []);
 
   const renderHeaderContent = () => (
@@ -97,7 +76,6 @@ export function TokenDetailHeader({
       jc="flex-start"
       ai="center"
       gap="$6"
-      minWidth={SCROLL_BREAKPOINT}
       {...containerProps}
     >
       <TokenDetailHeaderLeft
@@ -118,28 +96,16 @@ export function TokenDetailHeader({
         />
       )}
 
-      {/* Spacer to push buttons to the right */}
-      {!platformEnv.isNative && !md && networkId ? (
+      {/* Share button pushed to the right on desktop */}
+      {!platformEnv.isNative && !md && networkId && isNative ? (
         <>
           <Stack flex={1} />
-          <XStack gap="$3" ai="center">
-            <MarketStarV2
-              chainId={networkId}
-              contractAddress={tokenDetail?.address ?? ''}
-              size="medium"
-              from={EWatchlistFrom.Detail}
-              tokenSymbol={tokenDetail?.symbol ?? ''}
-              isNative={isNative}
-            />
-            {isNative ? (
-              <ShareButton
-                networkId={networkId}
-                address={tokenDetail?.address ?? ''}
-                isNative={isNative}
-                useIconButton
-              />
-            ) : null}
-          </XStack>
+          <ShareButton
+            networkId={networkId}
+            address={tokenDetail?.address ?? ''}
+            isNative={isNative}
+            useIconButton
+          />
         </>
       ) : null}
     </XStack>
@@ -148,11 +114,10 @@ export function TokenDetailHeader({
   return (
     <XStack
       position="relative"
-      onLayout={handleContainerLayout}
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
     >
-      {shouldScroll && !platformEnv.isNative && !md ? (
+      {!platformEnv.isNative && !md ? (
         <>
           <ScrollView
             horizontal
