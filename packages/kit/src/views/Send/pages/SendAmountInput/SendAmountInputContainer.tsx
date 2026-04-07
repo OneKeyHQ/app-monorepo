@@ -403,6 +403,14 @@ function SendAmountInputContainer() {
     return false;
   }, [isLightningNetwork, isUseFiat, lnUnit]);
 
+  const tokenMinAmount = useMemo(() => {
+    const decimals = tokenDetails?.info.decimals;
+    if (decimals === undefined || Number.isNaN(decimals)) {
+      return undefined;
+    }
+    return new BigNumber(1).shiftedBy(-decimals).toFixed();
+  }, [tokenDetails?.info.decimals]);
+
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
       if (!value) {
@@ -439,6 +447,13 @@ function SendAmountInputContainer() {
             : tokenAmountBN; // already in sats
       }
 
+      // Block flow if token decimals is missing — server must return explicit decimals
+      if (tokenMinAmount === undefined) {
+        return intl.formatMessage({
+          id: ETranslations.send_amount_invalid,
+        });
+      }
+
       // Minimum transfer amount check
       const isNative = tokenDetails?.info.isNative;
       const minTransferAmount = isNative
@@ -447,16 +462,22 @@ function SendAmountInputContainer() {
           '0')
         : (vaultSettings?.minTransferAmount ?? '0');
 
+      // Effective minimum: the larger of token precision minimum and chain minimum
+      const effectiveMin = BigNumber.max(
+        tokenMinAmount,
+        minTransferAmount,
+      ).toFixed();
+
       // Display min amount in the current unit (BTC or sats for Lightning)
       const displayMinAmount =
         isLightningNetwork && lnUnit === ELightningUnit.BTC
-          ? chainValueUtils.convertSatsToBtc(minTransferAmount)
-          : minTransferAmount;
+          ? chainValueUtils.convertSatsToBtc(effectiveMin)
+          : effectiveMin;
 
       if (
         !isUseFiat &&
-        !new BigNumber(minTransferAmount).isZero() &&
-        amountBNForValidation.isLessThan(minTransferAmount) &&
+        !new BigNumber(effectiveMin).isZero() &&
+        amountBNForValidation.isLessThan(effectiveMin) &&
         !amountBNForValidation.isZero()
       ) {
         return intl.formatMessage(
@@ -468,8 +489,8 @@ function SendAmountInputContainer() {
       if (
         isUseFiat &&
         priceBN.isGreaterThan(0) &&
-        !new BigNumber(minTransferAmount).isZero() &&
-        tokenAmountBN.isLessThan(minTransferAmount) &&
+        !new BigNumber(effectiveMin).isZero() &&
+        tokenAmountBN.isLessThan(effectiveMin) &&
         !tokenAmountBN.isZero()
       ) {
         return intl.formatMessage(
@@ -519,6 +540,7 @@ function SendAmountInputContainer() {
       tokenDetails?.balanceParsed,
       tokenDetails?.info.isNative,
       tokenDetails?.price,
+      tokenMinAmount,
       vaultSettings?.nativeMinTransferAmount,
       vaultSettings?.minTransferAmount,
       vaultSettings?.transferZeroNativeTokenEnabled,
