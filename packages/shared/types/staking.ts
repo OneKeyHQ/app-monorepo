@@ -8,8 +8,11 @@ import type {
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 
 import type { INetworkAccount } from './account';
-import type { IDiscoveryBanner } from './discovery';
-import type { IEarnAvailableAsset, IEarnAvailableAssetAprInfo } from './earn';
+import type {
+  IEarnAvailableAsset,
+  IEarnAvailableAssetAprInfo,
+  IEarnAvailableAssetAprRangeInfo,
+} from './earn';
 import type { IFetchTokenDetailItem, IToken } from './token';
 import type { ESpotlightTour } from '../src/spotlight';
 import type { FontSizeTokens } from 'tamagui';
@@ -1647,22 +1650,30 @@ export type IRecommendAsset = {
   protocols: Array<{
     networkId: string;
     provider: string;
-    vault: string;
+    vault?: string;
   }>;
   aprWithoutFee: string;
   aprInfo: IEarnAvailableAssetAprInfo;
+  rewardUnit?: IEarnAvailableAsset['rewardUnit'];
+  minAprInfo?: IEarnAvailableAssetAprRangeInfo;
+  maxAprInfo?: IEarnAvailableAssetAprRangeInfo;
   bgColor: ColorTokens;
   available: {
     text: string;
     color: ColorTokens;
   };
+  isRecommended: boolean;
+  isPinedRecommend: boolean;
+  badges: Array<{
+    badgeType: IBadgeType;
+    tag: string;
+  }>;
 };
 
 export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;
   recommendedTokens?: IRecommendAsset[];
-  banners?: IDiscoveryBanner[];
   refreshTrigger?: number;
 }
 

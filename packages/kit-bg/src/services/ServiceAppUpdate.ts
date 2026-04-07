@@ -28,6 +28,7 @@ import {
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1388,19 +1389,29 @@ class ServiceAppUpdate extends ServiceBase {
   // ---- Dev Bundle Switcher ----
 
   private getDevBundleSwitcherClient = memoizee(
-    async () =>
-      appApiClient.getBasicClient({
+    async () => {
+      const client = await appApiClient.getBasicClient({
         name: EServiceEndpointEnum.Utility,
         endpoint: buildServiceEndpoint({
           serviceName: EServiceEndpointEnum.Utility,
           env: 'test',
         }),
-      }),
+      });
+      // The test endpoint is not in the prod domain whitelist, so the global
+      // interceptor skips x-onekey-* headers. Inject them explicitly here.
+      client.interceptors.request.use(async (config) => {
+        const headers = await getRequestHeaders();
+        Object.entries(headers).forEach(([key, val]) => {
+          config.headers[key] = val;
+        });
+        return config;
+      });
+      return client;
+    },
     { promise: true },
   );
 
-  @backgroundMethod()
-  async devFetchBundleVersions(): Promise<
+  private async _devFetchBundleVersions(): Promise<
     { version: string; bundleCount: number }[]
   > {
     try {
@@ -1430,7 +1441,11 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async devFetchBundlesForVersion(version: string): Promise<
+  async devFetchBundleVersions() {
+    return this._devFetchBundleVersions();
+  }
+
+  private async _devFetchBundlesForVersion(version: string): Promise<
     {
       bundleVersion?: string;
       ciBundleVersion: string;
@@ -1507,6 +1522,11 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  async devFetchBundlesForVersion(version: string) {
+    return this._devFetchBundlesForVersion(version);
+  }
+
+  @backgroundMethod()
   async devSearchBundleByCommit(commitHash: string): Promise<
     {
       version: string;
@@ -1527,17 +1547,16 @@ class ServiceAppUpdate extends ServiceBase {
   > {
     const needle = commitHash.trim().toLowerCase();
     if (!needle) return [];
-    const versions = await this.devFetchBundleVersions();
-    const results = await Promise.all(
-      versions.map(async (v) => {
-        const bundles = await this.devFetchBundlesForVersion(v.version);
-        const match = bundles.find((b) =>
-          (b.commitHash || '').toLowerCase().startsWith(needle),
-        );
-        return match ? { version: v.version, bundle: match } : null;
-      }),
+    // Only search the current app version's bundles — dev builds
+    // only switch bundles within the same major version.
+    const currentVersion = String(platformEnv.version);
+    const bundles = await this._devFetchBundlesForVersion(currentVersion);
+    const match = bundles.find(
+      (b) =>
+        (b.commitHash || '').toLowerCase().startsWith(needle) ||
+        (b.ciBundleVersion || '').toLowerCase().includes(needle),
     );
-    return results.filter((r): r is NonNullable<typeof r> => r !== null);
+    return match ? [{ version: currentVersion, bundle: match }] : [];
   }
 }
 

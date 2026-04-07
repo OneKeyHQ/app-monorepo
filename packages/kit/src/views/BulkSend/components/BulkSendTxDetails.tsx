@@ -466,71 +466,59 @@ function BulkSendTxDetails(props: IProps) {
 
   const tokenSymbol = tokenInfo.symbol;
 
-  // Group transfers by unique from/to addresses, summing amounts
+  // Don't merge multi-input entries so duplicate addresses show as separate rows.
+  // The single-input side is still grouped by address.
   const { senders, receivers } = useMemo(() => {
-    const senderMap = new Map<
-      string,
-      { address: string; amount?: string; indices: number[] }
-    >();
-    const receiverMap = new Map<
-      string,
-      { address: string; amount?: string; indices: number[] }
-    >();
+    type IEntry = { address: string; amount?: string; indices: number[] };
 
-    const mergeAmounts = (
-      currentAmount: string | undefined,
-      nextAmount: string | undefined,
-    ): string | undefined => {
-      if (currentAmount === undefined || nextAmount === undefined) {
-        return undefined;
-      }
+    const collectEntries = (canEdit: boolean, addressKey: 'from' | 'to') => {
+      const map = new Map<string, IEntry>();
+      const list: IEntry[] = [];
 
-      return new BigNumber(currentAmount || '0')
-        .plus(nextAmount || '0')
-        .toFixed();
+      transfersInfo.forEach((transfer, index) => {
+        const address = transfer[addressKey];
+        const resolvedAmount = shouldResolveMaxAmounts
+          ? senderBalances?.[transfer.from]
+          : transfer.amount;
+        const amount = resolvedAmount ?? '';
+
+        if (canEdit) {
+          list.push({ address, amount, indices: [index] });
+        } else {
+          const existing = map.get(address);
+          if (existing) {
+            if (
+              existing.amount === undefined ||
+              amount === undefined ||
+              amount === ''
+            ) {
+              existing.amount = undefined;
+            } else {
+              existing.amount = new BigNumber(existing.amount || '0')
+                .plus(amount || '0')
+                .toFixed();
+            }
+            existing.indices.push(index);
+          } else {
+            map.set(address, { address, amount, indices: [index] });
+          }
+        }
+      });
+
+      return canEdit ? list : Array.from(map.values());
     };
-
-    transfersInfo.forEach((transfer, index) => {
-      const resolvedAmount = shouldResolveMaxAmounts
-        ? senderBalances?.[transfer.from]
-        : transfer.amount;
-
-      const existingSender = senderMap.get(transfer.from);
-      if (existingSender) {
-        existingSender.amount = mergeAmounts(
-          existingSender.amount,
-          resolvedAmount,
-        );
-        existingSender.indices.push(index);
-      } else {
-        senderMap.set(transfer.from, {
-          address: transfer.from,
-          amount: resolvedAmount,
-          indices: [index],
-        });
-      }
-
-      const existingReceiver = receiverMap.get(transfer.to);
-      if (existingReceiver) {
-        existingReceiver.amount = mergeAmounts(
-          existingReceiver.amount,
-          resolvedAmount,
-        );
-        existingReceiver.indices.push(index);
-      } else {
-        receiverMap.set(transfer.to, {
-          address: transfer.to,
-          amount: resolvedAmount,
-          indices: [index],
-        });
-      }
-    });
 
     return {
-      senders: Array.from(senderMap.values()),
-      receivers: Array.from(receiverMap.values()),
+      senders: collectEntries(canEditSender, 'from'),
+      receivers: collectEntries(canEditReceiver, 'to'),
     };
-  }, [transfersInfo, shouldResolveMaxAmounts, senderBalances]);
+  }, [
+    transfersInfo,
+    canEditSender,
+    canEditReceiver,
+    shouldResolveMaxAmounts,
+    senderBalances,
+  ]);
 
   const visibleSenders = useProgressiveList(senders);
   const visibleReceivers = useProgressiveList(receivers);
@@ -583,7 +571,7 @@ function BulkSendTxDetails(props: IProps) {
       >
         {visibleSenders.map((sender) => (
           <TransferListItem
-            key={sender.address}
+            key={canEditSender ? `sender-${sender.indices[0]}` : sender.address}
             address={sender.address}
             amount={sender.amount}
             tokenSymbol={tokenSymbol}
@@ -620,7 +608,11 @@ function BulkSendTxDetails(props: IProps) {
       >
         {visibleReceivers.map((receiver) => (
           <TransferListItem
-            key={receiver.address}
+            key={
+              canEditReceiver
+                ? `receiver-${receiver.indices[0]}`
+                : receiver.address
+            }
             address={receiver.address}
             amount={receiver.amount}
             tokenSymbol={tokenSymbol}

@@ -102,11 +102,18 @@ module.exports = async () => {
         },
       ],
     ],
-    modulePathIgnorePatterns: ['<rootDir>/.claude/worktrees/'],
+    modulePathIgnorePatterns: [
+      '<rootDir>/.claude/worktrees/',
+      '<rootDir>/.worktree/',
+    ],
     testPathIgnorePatterns: [
       // Detox E2E tests have their own Jest config under apps/mobile/e2e and must not run in unit-test CI.
       'apps/mobile/e2e',
+      // CLI integration/smoke tests require a built binary and must not run in unit-test CI.
+      '\\.integration\\.test\\.ts$',
+      '-smoke\\.test\\.ts$',
       '\\.claude/worktrees/',
+      '\\.worktree/',
       'packages/core/src/chains/ada',
       'packages/core/src/chains/algo',
       'packages/core/src/chains/apt',

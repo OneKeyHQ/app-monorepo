@@ -14,7 +14,7 @@ export enum ECustomOneKeyHardwareError {
 }
 
 export enum ECustomCloudSyncError {
-  OnekeyIdSyncUnavailable = 9001,
+  OnekeyIdSyncSunsetReminder = 9001,
 }
 
 export enum EOneKeyErrorClassNames {

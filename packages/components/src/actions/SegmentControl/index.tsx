@@ -86,6 +86,7 @@ function SegmentControlItem({
         <SizableText
           size="$bodyMdMedium"
           textAlign="center"
+          numberOfLines={1}
           color={
             active
               ? (activeTextColor ?? '$textInverse')
@@ -126,6 +127,7 @@ function SegmentControlFrame({
       backgroundColor={slotBackgroundColor ?? '$bgStrong'}
       borderRadius="$full"
       borderCurve="continuous"
+      overflow="hidden"
       h={32}
       {...rest}
     >
@@ -142,6 +144,7 @@ function SegmentControlFrame({
           inactiveTextColor={inactiveTextColor}
           {...(fullWidth && {
             flexGrow: 1,
+            flexShrink: 1,
             flexBasis: 0,
           })}
           {...segmentControlItemStyleProps}

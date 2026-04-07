@@ -1,3 +1,4 @@
+import type { IIconButtonProps } from '@onekeyhq/components';
 import {
   HeaderIconButton,
   IconButton,
@@ -44,7 +45,7 @@ export function ShareButton({
       <IconButton
         icon="ShareOutline"
         variant="tertiary"
-        size="medium"
+        size={(size as IIconButtonProps['size']) || 'medium'}
         onPress={handleShare}
       />
     );

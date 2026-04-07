@@ -29,6 +29,7 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
+import type { WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
 // /onboarding/auto_typing
@@ -145,14 +146,9 @@ export function WebViewWebEmbed({
     }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
     if (webEmbedPath) {
-      const uri = platformEnv.isNativeAndroid
-        ? `file://${webEmbedPath}/index.html`
-        : webEmbedPath;
-      defaultLogger.app.webembed.webEmbedWebViewSource({
-        nativeUri: uri,
-        webEmbedPath,
-      });
-      return { uri };
+      return {
+        uri: `file://${webEmbedPath}/index.html`,
+      };
     }
     // Android
     if (platformEnv.isNativeAndroid) {
@@ -229,31 +225,26 @@ export function WebViewWebEmbed({
     }
   }, []);
 
-  const onWebViewLoadStart = useCallback(() => {
-    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
-      event: 'loadStart',
-      url: remoteUrl || nativeWebviewSource?.uri,
+  const handleError = useCallback((event: WebViewErrorEvent) => {
+    const { code, description, url } = event?.nativeEvent || {};
+    defaultLogger.app.webembed.webViewOnError({
+      code: code || 0,
+      description: description || 'unknown',
+      url: url || 'unknown',
     });
-  }, [remoteUrl, nativeWebviewSource?.uri]);
-
-  const onWebViewLoad = useCallback(() => {
-    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
-      event: 'loadSuccess',
-      url: remoteUrl || nativeWebviewSource?.uri,
-    });
-  }, [remoteUrl, nativeWebviewSource?.uri]);
-
-  const onWebViewLoadEnd = useCallback(() => {
-    defaultLogger.app.webembed.webEmbedWebViewLoadEvent({
-      event: 'loadEnd',
-      url: remoteUrl || nativeWebviewSource?.uri,
-    });
-  }, [remoteUrl, nativeWebviewSource?.uri]);
+  }, []);
 
   const allowFileAccessByUrl = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
+    const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    return !!webEmbedPath || undefined;
+  }, []);
+
+  const iosAllowingReadAccessToURL = useMemo(() => {
+    if (platformEnv.isNativeIOS) {
       const webEmbedPath = BundleUpdate.getWebEmbedPath();
-      return !!webEmbedPath;
+      if (webEmbedPath) {
+        return `file://${webEmbedPath}/`;
+      }
     }
     return undefined;
   }, []);
@@ -285,6 +276,7 @@ export function WebViewWebEmbed({
       <WebView
         allowFileAccess={allowFileAccessByUrl}
         allowFileAccessFromFileURLs={allowFileAccessByUrl}
+        allowingReadAccessToURL={iosAllowingReadAccessToURL}
         pullToRefreshEnabled={false}
         useGeckoView={false}
         // *** use remote url
@@ -294,9 +286,7 @@ export function WebViewWebEmbed({
         onWebViewRef={onWebViewRef}
         customReceiveHandler={customReceiveHandler}
         onMessage={handleMessage}
-        onLoadStart={onWebViewLoadStart}
-        onLoad={onWebViewLoad}
-        onLoadEnd={onWebViewLoadEnd}
+        onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
             window.location.hash = "${fullHash}";
             const WEB_EMBED_ONEKEY_APP_SETTINGS = ${JSON.stringify(
@@ -326,14 +316,13 @@ export function WebViewWebEmbed({
     devSettingsPersistAtom.enabled,
     devSettingsPersistAtom.settings?.disableWebEmbedApi,
     allowFileAccessByUrl,
+    iosAllowingReadAccessToURL,
     remoteUrl,
     nativeWebviewSource,
     onWebViewRef,
     customReceiveHandler,
     handleMessage,
-    onWebViewLoadStart,
-    onWebViewLoad,
-    onWebViewLoadEnd,
+    handleError,
   ]);
 
   useEffect(() => {

@@ -135,6 +135,9 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('customTokens.migrateFromV1LegacyData', () =>
         this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData(),
       ),
+      timedDeferred('recentRecipients.migrateFromOldStorage', () =>
+        this.backgroundApi.simpleDb.recentRecipients.migrateFromOldStorage(),
+      ),
       timedDeferred('serviceAccount.migrateHdWalletsBackedUpStatus', () =>
         this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus(),
       ),

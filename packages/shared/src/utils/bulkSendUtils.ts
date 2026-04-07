@@ -36,10 +36,30 @@ function getBulkSendSupportedNetworkIds() {
   return ids;
 }
 
-function fixBulkSendSupportedNetworkId({ networkId }: { networkId: string }) {
+function fixBulkSendSupportedNetworkId({
+  networkId,
+  bulkSendMode,
+}: {
+  networkId: string;
+  bulkSendMode?: EBulkSendMode;
+}) {
   let isSupported = false;
   let fixedNetworkId = networkId;
   const supportedNetworkIds = getBulkSendSupportedNetworkIds();
+
+  // For ManyToOne/ManyToMany, skip network correction except for Lightning Network
+  if (
+    bulkSendMode &&
+    bulkSendMode !== EBulkSendMode.OneToMany &&
+    !networkUtils.isLightningNetworkByNetworkId(networkId) &&
+    !networkUtils.isAllNetwork({ networkId })
+  ) {
+    return {
+      fixedNetworkId: networkId,
+      isSupported: true,
+    };
+  }
+
   if (supportedNetworkIds.includes(networkId)) {
     isSupported = true;
     return {

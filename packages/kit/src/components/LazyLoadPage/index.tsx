@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import type { ComponentType } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { Spinner, Stack } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -22,29 +22,25 @@ export function LazyLoadPage<
   unStyle?: boolean,
   fallback?: React.ReactNode,
 ): ComponentType<IExtractComponentProps<T>> {
+  const defaultFallback = (
+    <Stack flex={1} alignItems="center" justifyContent="center">
+      <Spinner size="large" />
+    </Stack>
+  );
   const LazyLoadComponent = LazyLoad<IExtractComponentProps<T>>(
     factory as () => Promise<{
       default: ComponentType<IExtractComponentProps<T>>;
     }>,
     delayMs,
-    fallback,
+    fallback ?? defaultFallback,
   );
   function LazyLoadPageContainer(props: IExtractComponentProps<T>) {
-    const content = unStyle ? (
-      <LazyLoadComponent {...props} />
-    ) : (
-      <Stack
-        flex={1}
-        className="LazyLoadPageContainer"
-        bg={
-          platformEnv.isNative ||
-          platformEnv.isExtensionUiPopup ||
-          platformEnv.isExtensionUiSidePanel ||
-          platformEnv.isExtensionBackground
-            ? '$bgApp'
-            : '$bgSubdued'
-        }
-      >
+    if (unStyle) {
+      return <LazyLoadComponent {...props} />;
+    }
+
+    return (
+      <Stack flex={1} className="LazyLoadPageContainer" bg="$bgApp">
         <LazyLoadComponent {...props} />
       </Stack>
     );

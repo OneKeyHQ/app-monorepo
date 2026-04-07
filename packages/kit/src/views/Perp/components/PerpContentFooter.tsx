@@ -37,7 +37,8 @@ export function PerpContentFooter() {
           bg="$bgApp"
           h={40}
           alignItems="center"
-          p="$2"
+          pl="$2"
+          pr="$6"
           gap="$2"
         >
           <XStack alignItems="center" gap="$2" flexShrink={0}>

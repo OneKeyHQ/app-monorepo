@@ -28,6 +28,7 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsActiveOrderBookOptionsAtom,
+  usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -95,8 +96,8 @@ function DebugButton() {
 
 function DepositButton() {
   const { gtSm } = useMedia();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const accountValue = accountSummary?.accountValue;
+  const [computedValue] = usePerpsComputedAccountValueAtom();
+  const accountValue = computedValue?.accountValue;
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();

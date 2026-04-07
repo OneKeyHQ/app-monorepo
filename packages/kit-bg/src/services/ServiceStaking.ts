@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
@@ -100,7 +99,10 @@ import type {
   IVerifyRegisterSignMessageParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
-import { EApproveType } from '@onekeyhq/shared/types/staking';
+import {
+  EApproveType,
+  EStakeProtocolGroupEnum,
+} from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -866,7 +868,9 @@ class ServiceStaking extends ServiceBase {
         type,
         accountAddress,
       });
-      const protocols = protocolListResp.data.data.protocols;
+      const protocols = protocolListResp.data.data.protocols.filter((item) => {
+        return item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly;
+      });
       return protocols;
     },
     {
@@ -1343,6 +1347,11 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async clearRecommendedAssetsCache() {
+    void this._getAccountAssetV2.clear();
+  }
+
+  @backgroundMethod()
   async getAvailableAssetsV2() {
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<
@@ -1634,33 +1643,6 @@ class ServiceStaking extends ServiceBase {
     });
     return resp.data.data.delegations;
   }
-
-  @backgroundMethod()
-  fetchEarnHomePageBannerList({ theme }: { theme?: string } = {}) {
-    return this._fetchEarnHomePageBannerList({ theme });
-  }
-
-  @backgroundMethod()
-  async clearEarnHomePageBannerListCache() {
-    void this._fetchEarnHomePageBannerList.clear();
-  }
-
-  _fetchEarnHomePageBannerList = memoizee(
-    async ({ theme }: { theme?: string } = {}) => {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const res = await client.get<{ data: IDiscoveryBanner[] }>(
-        '/utility/v1/earn-banner/list',
-        {
-          headers: theme ? { 'X-Onekey-Request-Theme': theme } : {},
-        },
-      );
-      return res.data.data;
-    },
-    {
-      promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
-    },
-  );
 
   @backgroundMethod()
   async getEarnAvailableAccounts(params: {

@@ -103,7 +103,6 @@ const MarketSelectorDesktop = ({
     const baseProps = {
       elevation: 0,
       flexGrow: 1,
-      flexBasis: 0,
       '$platform-native': {
         elevation: 0,
       },
@@ -132,7 +131,7 @@ const MarketSelectorDesktop = ({
       <SegmentControl
         value={mode}
         options={options}
-        width={264}
+        minWidth={264}
         onChange={(value) => onModeChange?.(value as IEarnHomeMode)}
         slotBackgroundColor={backgroundColor}
         activeBackgroundColor={activeBackgroundColor}
@@ -142,8 +141,8 @@ const MarketSelectorDesktop = ({
   );
 };
 
-// Horizontal inset for the underline (matches $5 = 20)
-const UNDERLINE_INSET = 20;
+// Horizontal inset for the underline within each tab cell
+const UNDERLINE_INSET = 0;
 
 const animatedStyles = StyleSheet.create({
   container: {
@@ -304,7 +303,7 @@ const MarketSelectorMobile = ({
             <SizableText
               size="$headingMd"
               textAlign="center"
-              color={isActive ? '$textText' : '$text'}
+              color={isActive ? '$text' : '$textSubdued'}
             >
               {intl.formatMessage({ id: messageId })}
             </SizableText>
@@ -320,9 +319,9 @@ const MarketSelectorMobile = ({
             <YStack
               position="absolute"
               bottom={0}
-              left="$5"
-              right="$5"
-              h="$0.5"
+              left={0}
+              right={0}
+              h={2}
               bg="$text"
               borderRadius={1}
             />
@@ -345,7 +344,7 @@ const MarketSelectorMobile = ({
   // When pageScrollPosition is available, render the animated tab bar
   if (pageScrollPosition) {
     return (
-      <Stack px="$3" pt="$4">
+      <Stack px="$pagePadding" pt="$4">
         <AnimatedTabBar
           pageScrollPosition={pageScrollPosition}
           onModeChange={onModeChange}
@@ -356,11 +355,13 @@ const MarketSelectorMobile = ({
 
   // Fallback: SegmentControl-based approach for web/tablet
   return (
-    <Stack px="$3" pt="$4">
+    <Stack px="$pagePadding" pt="$4">
       <SegmentControl
         value={mode}
         options={options}
         fullWidth
+        h="auto"
+        overflow="visible"
         onChange={(value) => onModeChange?.(value as IEarnHomeMode)}
         slotBackgroundColor="$transparent"
         activeBackgroundColor="$transparent"

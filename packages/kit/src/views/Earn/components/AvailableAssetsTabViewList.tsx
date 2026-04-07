@@ -206,7 +206,7 @@ export function AvailableAssetsTabViewList() {
           const aprB = parseFloat(b.aprWithoutFee || b.apr || '0');
           return aprA - aprB;
         },
-        render: (asset) => <AprText asset={asset} />,
+        render: (asset) => <AprText asset={asset} hideSuffix />,
       },
     ],
     [intl],

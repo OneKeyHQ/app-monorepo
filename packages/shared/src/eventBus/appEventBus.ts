@@ -75,7 +75,7 @@ export enum EFinalizeWalletSetupSteps {
 
 export type IEventBusPayloadShowToast = {
   // IToastProps
-  method: 'success' | 'error' | 'message';
+  method: 'success' | 'error' | 'message' | 'warning';
   title: string;
   message?: string;
   icon?: string;
@@ -433,9 +433,11 @@ export interface IAppEventBusPayload {
       | ETranslations.global_browser
       | ETranslations.global_earn;
     openUrl?: boolean;
+    switchType?: 'default' | 'tap' | 'swipe';
   };
   [EAppEventBusNames.SwitchEarnMode]: {
     mode: 'earn' | 'borrow';
+    switchType?: 'default' | 'tap';
   };
   [EAppEventBusNames.SwitchEarnTab]: {
     tab: 'assets' | 'portfolio' | 'faqs';

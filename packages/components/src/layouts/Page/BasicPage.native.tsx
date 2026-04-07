@@ -11,6 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsModalPage, useIsOverlayPage } from '../../hocs';
 import { Spinner, Stack, View, YStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 
 import { useIsIpadModalPage, useTabBarHeight } from './hooks';
 import {
@@ -88,6 +89,7 @@ function AbsoluteContainer({ children }: PropsWithChildren) {
       opacity={1}
       flex={1}
       animation="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
       exitStyle={exitStyleFadeOut}
     >
       {children}

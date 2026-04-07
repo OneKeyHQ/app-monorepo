@@ -1,6 +1,6 @@
+import { addHexPrefix, isHexString, isValidAddress } from '@ethereumjs/util';
 import BigNumber from 'bignumber.js';
 import { TYPED_MESSAGE_SCHEMA, typedSignatureHash } from 'eth-sig-util';
-import { addHexPrefix, isHexString, isValidAddress } from 'ethereumjs-util';
 import { validate } from 'jsonschema';
 
 import { conflux } from '@onekeyhq/core/src/chains/cfx/sdkCfx';

@@ -12,6 +12,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_BACKGROUND_COLOR,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -81,7 +85,7 @@ export default function PickYourDevice() {
             {DEVICES.map(({ name, tags, image, deviceType }, index) => (
               <YStack
                 key={name}
-                animateOnly={['backgroundColor']}
+                animateOnly={ANIMATE_ONLY_BACKGROUND_COLOR}
                 animation="quick"
                 p="$5"
                 borderWidth={1}
@@ -136,7 +140,7 @@ export default function PickYourDevice() {
                 <YStack
                   position="absolute"
                   animation="quick"
-                  animateOnly={['opacity', 'transform']}
+                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   enterStyle={{
                     opacity: 0,
                     y: 16,

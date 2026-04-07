@@ -10,6 +10,10 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -80,6 +84,7 @@ const SwapInputActions = ({
         {showActionBuy ? (
           <XStack
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 0,
             }}
@@ -114,6 +119,7 @@ const SwapInputActions = ({
         {!platformEnv.isNative && showPercentageInput ? (
           <XStack
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={{
               opacity: 0,
               x: 8,

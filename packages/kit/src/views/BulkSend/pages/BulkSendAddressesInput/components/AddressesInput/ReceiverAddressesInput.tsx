@@ -1,10 +1,15 @@
 /* eslint-disable no-continue */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
-import { Form, useFormContext } from '@onekeyhq/components';
+import {
+  Form,
+  SizableText,
+  YStack,
+  useFormContext,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -17,7 +22,9 @@ import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { useBulkSendAddressesInputContext } from '../Context';
 
-import LineNumberedTextArea from './LineNumberedTextArea';
+import LineNumberedTextArea, {
+  ELineAnnotationType,
+} from './LineNumberedTextArea';
 import { useMultiLineAddressValidation } from './useMultiLineAddressValidation';
 
 type IReceiverAddressesInputProps = {
@@ -27,14 +34,18 @@ type IReceiverAddressesInputProps = {
 // ManyToOne: single-line receiver input
 function SingleLineReceiverInput() {
   const intl = useIntl();
-  const { selectedAccountId, selectedNetworkId } =
+  const { selectedAccountId, selectedNetworkId, setDuplicateAddressCount } =
     useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
+  const validationSeqRef = useRef(0);
 
   const handleValidateAddresses = useCallback(
     async (value: string) => {
+      validationSeqRef.current += 1;
+
       if (!value) {
+        setDuplicateAddressCount(0);
         return intl.formatMessage({
           id: ETranslations.wallet_bulk_send_error_receiver_required,
         });
@@ -42,18 +53,31 @@ function SingleLineReceiverInput() {
 
       const trimmedAddress = value.trim();
 
+      const networkId = selectedNetworkId ?? '';
       const result =
         await backgroundApiProxy.serviceValidator.localValidateAddress({
-          networkId: selectedNetworkId ?? '',
+          networkId,
           address: trimmedAddress,
         });
 
       if (!result.isValid) {
+        let networkName = network?.name ?? '';
+        if (networkId && networkId !== network?.id) {
+          try {
+            const networkInfo =
+              await backgroundApiProxy.serviceNetwork.getNetwork({
+                networkId,
+              });
+            networkName = networkInfo.name;
+          } catch {
+            // fallback to hook value
+          }
+        }
         return intl.formatMessage(
           {
             id: ETranslations.wallet_bulk_send_error_invalid_network_address,
           },
-          { network: network?.name ?? '' },
+          { network: networkName },
         );
       }
 
@@ -62,7 +86,7 @@ function SingleLineReceiverInput() {
         let isAllowed = false;
         try {
           const isBTCNetwork = networkUtils.isBTCNetwork(selectedNetworkId);
-          let walletAccountItems =
+          let walletAccountItems: { accountId: string }[] =
             await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
               networkId: selectedNetworkId,
               address: trimmedAddress,
@@ -92,12 +116,10 @@ function SingleLineReceiverInput() {
               networkId: selectedNetworkId,
             });
             const addressBookItem =
-              await backgroundApiProxy.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
-                {
-                  networkId: isEvmNetwork ? undefined : selectedNetworkId,
-                  address: trimmedAddress,
-                },
-              );
+              await backgroundApiProxy.serviceAddressBook.findItem({
+                networkId: isEvmNetwork ? undefined : selectedNetworkId,
+                address: trimmedAddress,
+              });
             isAllowed = !!addressBookItem;
           } catch {
             // ignore
@@ -112,7 +134,14 @@ function SingleLineReceiverInput() {
 
       return true;
     },
-    [intl, selectedNetworkId, network?.name, isEnableTransferAllowList],
+    [
+      intl,
+      selectedNetworkId,
+      network?.name,
+      network?.id,
+      isEnableTransferAllowList,
+      setDuplicateAddressCount,
+    ],
   );
 
   const debouncedValidate = useDebouncedValidation(handleValidateAddresses);
@@ -163,8 +192,9 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     selectedNetworkId,
     selectedToken,
     maxLines,
-    allowAmounts: false,
-    checkDuplicates: true,
+    allowAmounts: true,
+    requireAmounts: false,
+    checkDuplicates: false,
     checkAllowlist: true,
     selectedAccountId,
   });
@@ -220,36 +250,58 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     void form.trigger('receiverAddresses');
   }, [form, senderAddresses]);
 
+  const warningMessages = useMemo(() => {
+    const warnings = errors.filter(
+      (e) => e.type === ELineAnnotationType.Warning,
+    );
+    if (warnings.length === 0) return null;
+    return warnings
+      .map((w) =>
+        intl.formatMessage(
+          { id: ETranslations.wallet_bulk_send_error_line_with_message },
+          { lineNumber: w.lineNumber, message: w.message },
+        ),
+      )
+      .join('\n');
+  }, [errors, intl]);
+
   return (
-    <Form.Field
-      name="receiverAddresses"
-      label={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_receiving_addresses,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_receiving_desc,
-      })}
-      rules={{
-        required: true,
-        validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
-      }}
-    >
-      <LineNumberedTextArea
-        showPaste
-        showUpload
-        showAccountSelector
-        accountSelector={{
-          num: 1,
-          clearNotMatch: true,
-        }}
-        placeholder={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_placeholder_addresses,
+    <YStack>
+      <Form.Field
+        name="receiverAddresses"
+        label={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_label_receiving_addresses,
         })}
-        errors={errors}
-        networkId={selectedNetworkId}
-        accountId={selectedAccountId}
-      />
-    </Form.Field>
+        description={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_label_receiving_desc,
+        })}
+        rules={{
+          required: true,
+          validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
+        }}
+      >
+        <LineNumberedTextArea
+          showPaste
+          showUpload
+          showAccountSelector
+          accountSelector={{
+            num: 1,
+            clearNotMatch: true,
+          }}
+          placeholder={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_placeholder_addresses,
+          })}
+          errors={errors}
+          networkId={selectedNetworkId}
+          accountId={selectedAccountId}
+        />
+      </Form.Field>
+      {warningMessages ? (
+        <SizableText pt="$1.5" color="$textCaution" size="$bodyMd">
+          {warningMessages}
+        </SizableText>
+      ) : null}
+    </YStack>
   );
 }
 
@@ -287,36 +339,58 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
 
   const debouncedValidate = useDebouncedValidation(validate);
 
+  const warningMessages = useMemo(() => {
+    const warnings = errors.filter(
+      (e) => e.type === ELineAnnotationType.Warning,
+    );
+    if (warnings.length === 0) return null;
+    return warnings
+      .map((w) =>
+        intl.formatMessage(
+          { id: ETranslations.wallet_bulk_send_error_line_with_message },
+          { lineNumber: w.lineNumber, message: w.message },
+        ),
+      )
+      .join('\n');
+  }, [errors, intl]);
+
   return (
-    <Form.Field
-      name="receiverAddresses"
-      label={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_receiving_addresses,
-      })}
-      rules={{
-        required: true,
-        validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
-      }}
-      description={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_receiving_desc,
-      })}
-    >
-      <LineNumberedTextArea
-        showPaste
-        showUpload
-        showAccountSelector
-        accountSelector={{
-          num: 1,
-          clearNotMatch: true,
-        }}
-        placeholder={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_placeholder_addresses,
+    <YStack>
+      <Form.Field
+        name="receiverAddresses"
+        label={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_label_receiving_addresses,
         })}
-        errors={errors}
-        networkId={selectedNetworkId}
-        accountId={selectedAccountId}
-      />
-    </Form.Field>
+        rules={{
+          required: true,
+          validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
+        }}
+        description={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_label_receiving_desc,
+        })}
+      >
+        <LineNumberedTextArea
+          showPaste
+          showUpload
+          showAccountSelector
+          accountSelector={{
+            num: 1,
+            clearNotMatch: true,
+          }}
+          placeholder={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_placeholder_addresses,
+          })}
+          errors={errors}
+          networkId={selectedNetworkId}
+          accountId={selectedAccountId}
+        />
+      </Form.Field>
+      {warningMessages ? (
+        <SizableText pt="$1.5" color="$textCaution" size="$bodyMd">
+          {warningMessages}
+        </SizableText>
+      ) : null}
+    </YStack>
   );
 }
 
