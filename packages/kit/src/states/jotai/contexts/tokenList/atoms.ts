@@ -52,10 +52,13 @@ export const { atom: allTokenListMapAtom, use: useAllTokenListMapAtom } =
 export const { atom: tokenListAtom, use: useTokenListAtom } = contextAtom<{
   tokens: IAccountToken[];
   keys: string;
-}>({
-  tokens: [],
-  keys: '',
-});
+}>(
+  {
+    tokens: [],
+    keys: '',
+  },
+  { name: 'ctx:tokenListAtom', coldStartCache: true },
+);
 
 export const { atom: riskyTokenListAtom, use: useRiskyTokenListAtom } =
   contextAtom<{
@@ -85,7 +88,7 @@ export const {
 export const { atom: tokenListMapAtom, use: useTokenListMapAtom } =
   contextAtom<{
     [key: string]: ITokenFiat;
-  }>({});
+  }>({}, { name: 'ctx:tokenListMapAtom', coldStartCache: true });
 
 export const { atom: riskyTokenListMapAtom, use: useRiskyTokenListMapAtom } =
   contextAtom<{
