@@ -626,13 +626,16 @@ export function HomePageView({
     tabs,
   ]);
 
-  // Initial heights based on typical header sizes on each platform
+  // Initial heights based on measured header sizes on each platform.
+  // iOS measured: 162 (raw 182 - 20 offset). Must match actual layout
+  // to prevent content shift when onLayout fires.
   const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
+    platformEnv.isNativeIOS ? 162 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
     // Use the actual measured height without arbitrary adjustments
     const height = e.nativeEvent.layout.height - 20;
+    layoutDiag('TabPageSpacer', `measured=${height.toFixed(1)} (raw=${e.nativeEvent.layout.height.toFixed(1)})`);
     setTabPageHeight(height);
   }, []);
 
