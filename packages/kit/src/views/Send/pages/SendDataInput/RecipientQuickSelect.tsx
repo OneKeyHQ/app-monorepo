@@ -427,7 +427,12 @@ function AccountRecipients({
 
       // Filter accounts by selected derive type (for multi-derive chains)
       const walletId = group?.walletId ?? '';
-      const activeDeriveType = walletDeriveType[walletId] ?? senderDeriveType;
+      const rawDeriveType = walletDeriveType[walletId] ?? senderDeriveType;
+      // Validate against available options; fall back to first option if not found
+      const activeDeriveType =
+        rawDeriveType && deriveTypeMap.has(rawDeriveType)
+          ? rawDeriveType
+          : deriveTypeOptions[0]?.deriveType;
       let filteredAccounts = allAccounts;
       if (hasMultipleDeriveTypes && activeDeriveType) {
         const filtered = allAccounts.filter(
