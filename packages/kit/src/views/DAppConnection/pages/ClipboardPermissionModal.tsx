@@ -1,15 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Checkbox, Page } from '@onekeyhq/components';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
-import {
-  DAppRequestFooter,
-  DAppRequestLayout,
-} from '../components/DAppRequestLayout';
-import { useRiskDetection } from '../hooks/useRiskDetection';
+import { DAppRequestLayout } from '../components/DAppRequestLayout';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
@@ -23,13 +19,7 @@ function ClipboardPermissionModal() {
     closeWindowAfterResolved: true,
   });
 
-  const {
-    showContinueOperate,
-    continueOperate,
-    setContinueOperate,
-    riskLevel,
-    urlSecurityInfo,
-  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
+  const [remember, setRemember] = useState(false);
 
   const isRead = clipboardType === 'read';
 
@@ -39,16 +29,16 @@ function ClipboardPermissionModal() {
     ? 'This site wants to read your clipboard content'
     : 'This site wants to write to your clipboard';
 
-  const onSubmit = useCallback(
+  const onConfirm = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
       void dappApprove.resolve({
-        result: { allowed: true },
+        result: { allowed: true, remember },
         close: () => {
           close?.({ flag: EDAppModalPageStatus.Confirmed });
         },
       });
     },
-    [dappApprove],
+    [dappApprove, remember],
   );
 
   return (
@@ -60,23 +50,21 @@ function ClipboardPermissionModal() {
             title={title}
             subtitle={subtitle}
             origin={$sourceInfo?.origin ?? ''}
-            urlSecurityInfo={urlSecurityInfo}
           />
         </Page.Body>
         <Page.Footer>
-          <DAppRequestFooter
-            continueOperate={continueOperate}
-            setContinueOperate={(checked) => {
-              setContinueOperate(!!checked);
-            }}
-            onConfirm={onSubmit}
+          <Page.FooterActions
+            onConfirm={onConfirm}
             onCancel={() => dappApprove.reject()}
-            confirmButtonProps={{
-              disabled: !continueOperate,
-            }}
-            showContinueOperateCheckbox={showContinueOperate}
-            riskLevel={riskLevel}
-          />
+            onConfirmText="Allow"
+            cancelButtonProps={{ variant: 'secondary' }}
+          >
+            <Checkbox
+              label="Remember for this site"
+              value={remember}
+              onChange={(checked) => setRemember(!!checked)}
+            />
+          </Page.FooterActions>
         </Page.Footer>
       </>
     </DappOpenModalPage>

@@ -954,24 +954,27 @@ class ProviderApiPrivate extends ProviderApiBase {
     params: { type: 'read' | 'write'; text?: string },
   ) {
     // This will throw if user rejects (modal rejection propagates)
-    await this.backgroundApi.serviceDApp.openClipboardPermissionModal(
-      request,
-      params.type,
-    );
+    const modalResult =
+      await this.backgroundApi.serviceDApp.openClipboardPermissionModal(
+        request,
+        params.type,
+      );
+
+    const remember = !!(modalResult as { remember?: boolean })?.remember;
 
     // User approved - perform clipboard operation on native side
     if (params.type === 'read') {
       const { getStringAsync } = await import('expo-clipboard');
       const content = await getStringAsync();
-      return { allowed: true, content };
+      return { allowed: true, content, remember };
     }
     if (params.type === 'write' && params.text != null) {
       const { setStringAsync } = await import('expo-clipboard');
       await setStringAsync(params.text);
-      return { allowed: true };
+      return { allowed: true, remember };
     }
 
-    return { allowed: true };
+    return { allowed: true, remember };
   }
 }
 
