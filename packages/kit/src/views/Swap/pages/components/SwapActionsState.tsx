@@ -216,6 +216,7 @@ const SwapActionsState = ({
 
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
+  const isDesktopModalPage = isModalPage && !md;
 
   const onActionHandlerBefore = useCallback(async () => {
     if (swapActionState.noConnectWallet) {
@@ -392,7 +393,7 @@ const SwapActionsState = ({
   const recipientComponent = useMemo(() => {
     if (shouldShowRecipient) {
       return (
-        <XStack gap="$1" {...(isModalPage && !md ? { flex: 1 } : { pb: '$4' })}>
+        <XStack gap="$1" {...(isDesktopModalPage ? { flex: 1 } : { pb: '$4' })}>
           <Stack>
             <Icon name="AddedPeopleOutline" w="$5" h="$5" />
           </Stack>
@@ -441,9 +442,8 @@ const SwapActionsState = ({
     return null;
   }, [
     intl,
-    md,
     onOpenRecipientAddress,
-    isModalPage,
+    isDesktopModalPage,
     shouldShowRecipient,
     swapRecipientAddressInfo?.accountInfo?.accountName,
     swapRecipientAddressInfo?.accountInfo?.walletName,
@@ -508,7 +508,7 @@ const SwapActionsState = ({
     () => (
       <Stack
         flex={1}
-        {...(isModalPage && !md
+        {...(isDesktopModalPage
           ? {
               flexDirection: 'row',
               justifyContent: shouldShowRecipient
@@ -520,11 +520,11 @@ const SwapActionsState = ({
       >
         {recipientComponent}
         <Stack gap="$2">
-          {/* In modal: show savings above button; In non-modal: show below */}
-          {isModalPage && !md ? costSavingsComponent : null}
+          {/* In desktop modal: show savings above button; otherwise show below */}
+          {isDesktopModalPage ? costSavingsComponent : null}
           <Button
             onPress={onActionHandlerBefore}
-            size={isModalPage && !md ? 'medium' : 'large'}
+            size={isDesktopModalPage ? 'medium' : 'large'}
             variant="primary"
             disabled={swapActionState.disabled || swapActionState.isLoading}
             borderRadius="$full"
@@ -547,15 +547,14 @@ const SwapActionsState = ({
               swapActionState.label
             )}
           </Button>
-          {/* In non-modal: show savings below button */}
-          {!isModalPage || md ? costSavingsComponent : null}
+          {/* In regular pages and non-desktop modal: show savings below button */}
+          {!isDesktopModalPage ? costSavingsComponent : null}
         </Stack>
       </Stack>
     ),
     [
-      md,
       onActionHandlerBefore,
-      isModalPage,
+      isDesktopModalPage,
       quoteLoading,
       quoting,
       recipientComponent,
@@ -570,12 +569,20 @@ const SwapActionsState = ({
 
   const actionComponent = useMemo(
     () => (
-      <Stack gap="$4">
+      <Stack
+        gap="$4"
+        {...(isDesktopModalPage
+          ? {
+              flex: 1,
+              width: '100%',
+            }
+          : {})}
+      >
         {incognitoComponent}
         {actionRowComponent}
       </Stack>
     ),
-    [actionRowComponent, incognitoComponent],
+    [actionRowComponent, incognitoComponent, isDesktopModalPage],
   );
 
   const actionComponentCoverFooter = useMemo(
@@ -596,7 +603,7 @@ const SwapActionsState = ({
 
   return (
     <>
-      {isModalPage && !md ? (
+      {isDesktopModalPage ? (
         <PageFooter
           onSelectPercentageStage={onSelectPercentageStage}
           actionComponent={actionComponent}
