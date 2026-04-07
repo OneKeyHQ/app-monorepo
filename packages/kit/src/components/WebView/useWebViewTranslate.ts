@@ -79,8 +79,21 @@ function handleTranslateRequest(
   void handler();
 }
 
-function buildCallScript(method: string, ...args: unknown[]): string {
-  const argStr = args.map((a) => JSON.stringify(a)).join(', ');
+const ALLOWED_METHODS = new Set(['start', 'stop', 'restore']);
+const SAFE_ARG_RE = /^[a-zA-Z0-9\-_]+$/;
+
+function sanitizeArg(value: unknown): string {
+  const str = String(value);
+  if (!SAFE_ARG_RE.test(str)) return JSON.stringify('');
+  return JSON.stringify(str);
+}
+
+function buildCallScript(
+  method: 'start' | 'stop' | 'restore',
+  ...args: unknown[]
+): string {
+  if (!ALLOWED_METHODS.has(method)) return '';
+  const argStr = args.map(sanitizeArg).join(', ');
   return `(function(){ if(window.__onekeyTranslate) window.__onekeyTranslate.${method}(${argStr}); })();`;
 }
 
