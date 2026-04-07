@@ -55,6 +55,7 @@ import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
+import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
@@ -424,6 +425,20 @@ function handleDeepLinkUrl(
   argv?: string[],
   isColdStartup?: boolean,
 ) {
+  // Validate deep link scheme before forwarding to renderer
+  if (url) {
+    const allowedSchemes = [
+      `${ONEKEY_APP_DEEP_LINK_NAME}:`,
+      `${WALLET_CONNECT_DEEP_LINK_NAME}:`,
+      'ethereum:',
+    ];
+    const isAllowed = allowedSchemes.some((scheme) => url.startsWith(scheme));
+    if (!isAllowed) {
+      logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+      return;
+    }
+  }
+
   const eventData: IDesktopOpenUrlEventData = {
     url,
     argv,
@@ -574,10 +589,9 @@ async function createMainWindow() {
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
-      // webview injected js needs isolation=false, because property can not be exposeInMainWorld() when isolation enabled.
-      contextIsolation: false,
+      contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      sandbox: false,
+      sandbox: true,
       nodeIntegration: false,
       nodeIntegrationInWorker: false,
       autoplayPolicy: 'user-gesture-required',
@@ -764,20 +778,9 @@ async function createMainWindow() {
     disposeContextMenu?.();
   });
 
-  ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
-  ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
-    event.returnValue = isDevServer;
-  });
-
-  ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);
-  ipcMain.on(ipcMessageKeys.LOG_DIRECTORY, (event) => {
-    event.returnValue = path.dirname(logger.transports.file.getFile().path);
-  });
-
-  ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
-  ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
+  registerInfoHandlers(isDevServer, () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
-    event.returnValue = safelyBrowserWindow?.isFocused();
+    return !!safelyBrowserWindow?.isFocused();
   });
 
   ipcMain.removeAllListeners(ipcMessageKeys.APP_SET_IDLE_TIME);
@@ -863,6 +866,69 @@ async function createMainWindow() {
   ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
 
+  // New invoke-based handler for contextIsolation-compatible API calls
+  ipcMain.removeHandler('DESKTOP_API_CALL');
+  const allowedModules = new Set([
+    'system',
+    'security',
+    'storage',
+    'webview',
+    'notification',
+    'dev',
+    'inAppPurchase',
+    'bluetooth',
+    'appUpdate',
+    'bundleUpdate',
+    'cloudKit',
+    'keychain',
+    'sniRequest',
+    'oauthLocalServer',
+    'appleAuth',
+  ]);
+  ipcMain.handle(
+    'DESKTOP_API_CALL',
+    async (
+      event,
+      payload: { module: string; method: string; params: any[] },
+    ) => {
+      // Only allow calls from the main window renderer
+      if (event.sender.id !== browserWindow.webContents.id) {
+        logger.warn(
+          '[DESKTOP_API_CALL] Rejected call from non-main renderer',
+          event.sender.id,
+        );
+        throw new OneKeyLocalError(
+          'DESKTOP_API_CALL is only allowed from the main window',
+        );
+      }
+      const { module, method, params } = payload;
+      if (!allowedModules.has(module)) {
+        throw new OneKeyLocalError(
+          `DESKTOP_API_CALL: unknown module "${module}"`,
+        );
+      }
+      // Block inherited prototype methods and private methods
+      if (
+        typeof method !== 'string' ||
+        method.startsWith('_') ||
+        ['constructor', 'toString', 'valueOf', 'hasOwnProperty'].includes(
+          method,
+        )
+      ) {
+        throw new OneKeyLocalError(
+          `DESKTOP_API_CALL: disallowed method "${method}"`,
+        );
+      }
+      const result: unknown = await desktopApi.callDesktopApiMethod({
+        type: 'DESKTOP_API_IPC_MESSAGE',
+        module: module as any,
+        method,
+        params,
+      });
+      return result;
+    },
+  );
+
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
@@ -900,12 +966,6 @@ async function createMainWindow() {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'background';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
-  });
-
-  app.removeAllListeners('login');
-  app.on('login', (event, webContents, request, authInfo, callback) => {
-    event.preventDefault();
-    callback('onekey', 'juDUIpz3lVnubZ2aHOkwBB6SJotYynyb');
   });
 
   // Prevents clicking on links to open new Windows
@@ -1023,6 +1083,22 @@ async function createMainWindow() {
     },
   );
 
+  // Inject security response headers for the app's own pages only.
+  // Scoped to file:// and localhost to avoid interfering with external API responses.
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: ['file://*', 'http://localhost:*/*'] },
+    (details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'X-Content-Type-Options': ['nosniff'],
+          'X-Frame-Options': ['SAMEORIGIN'],
+          'Referrer-Policy': ['strict-origin-when-cross-origin'],
+        },
+      });
+    },
+  );
+
   if (!isLocalUnpacked) {
     // Get Windows drive letter for security validation
     const driveLetter = getDriveLetter();
@@ -1110,7 +1186,20 @@ async function createMainWindow() {
             callback(filePath);
           }
         } else {
-          callback(path.join(__dirname, '..', 'build', url));
+          const buildDir = path.resolve(__dirname, '..', 'build');
+          // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+          // so path.resolve treats the segment as relative, not absolute.
+          const relativeUrl = url.replace(/^[:/]+/, '');
+          const resolved = path.resolve(buildDir, relativeUrl);
+          if (
+            !resolved.startsWith(buildDir + path.sep) &&
+            resolved !== buildDir
+          ) {
+            logger.warn('Blocked file access outside build dir:', resolved);
+            callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+            return;
+          }
+          callback(resolved);
         }
       },
     );
@@ -1522,9 +1611,9 @@ function startProcessMetricsMonitoring() {
     );
     if (totalMemoryMB > MEMORY_LIMIT_WARNING_MB) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const { addBreadcrumb } = require('@sentry/electron/main');
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const { addBreadcrumb } = require('@sentry/electron/main') as {
+          addBreadcrumb: (breadcrumb: Record<string, unknown>) => void;
+        };
         addBreadcrumb({
           category: 'memory',
           message: `Total process memory: ${Math.round(totalMemoryMB)}MB`,
@@ -1551,10 +1640,13 @@ async function collectGPUInfo() {
     logger.info('[GPU Info] Complete GPU information collected');
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const { setContext } = require('@sentry/electron/main');
+      const { setContext } = require('@sentry/electron/main') as {
+        setContext: (
+          name: string,
+          context: Record<string, unknown> | null,
+        ) => void;
+      };
       const gpuDevice = (gpuInfo as any)?.gpuDevice?.[0];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       setContext('gpu', {
         vendorId: gpuDevice?.vendorId,
         deviceId: gpuDevice?.deviceId,
@@ -1645,10 +1737,12 @@ app.on('before-quit', () => {
 
 // ==================== End Memory Protection ====================
 
-// Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
-app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
-
-if (isDevServer) {
+// Dev-only switches — NEVER run in production builds
+if (isDevServer && !app.isPackaged) {
+  // OK-8096: webview crashed on pages with COOP headers (e.g. Google Search).
+  // Root cause was Electron bugs #25872 / #25469, fixed in Electron 18+.
+  // No longer needed in production (we're on Electron 39.x), kept for dev only.
+  app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
   app.commandLine.appendSwitch('disable-site-isolation-trials');

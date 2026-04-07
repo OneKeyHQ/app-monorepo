@@ -61,7 +61,7 @@
     "@types/node-fetch": "^2.6.1",
     "concurrently": "9.2.1",
     "cross-env": "7.0.3",
-    "electron": "39.5.1",
+    "electron": "39.8.4",
     "electron-builder": "26.4.0",
     "esbuild": "0.27.2",
     "folderslint": "1.2.0",
