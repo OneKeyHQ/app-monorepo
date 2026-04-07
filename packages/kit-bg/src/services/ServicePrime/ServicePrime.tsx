@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { cloneDeep, isString } from 'lodash';
+import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import {
@@ -69,16 +69,26 @@ class ServicePrime extends ServiceBase {
     engine?: ETranslateEngine;
   }) {
     const client = await this.getPrimeClient();
-    const result = await client.post<
-      IApiClientResponse<{ translations: string[] }>
-    >('/prime/v1/translate/dapp', {
-      texts,
-      source_lang: sourceLang,
-      target_lang: targetLang,
-      engine,
-      category: 'dapp_browser',
-    });
-    return result?.data?.data;
+    // API limit: max 4 texts per translate request
+    const batches = chunk(texts, 4);
+    const results = await Promise.all(
+      batches.map((batch) =>
+        client
+          .post<IApiClientResponse<{ translations: string[] }>>(
+            '/prime/v1/translate/dapp',
+            {
+              texts: batch,
+              source_lang: sourceLang,
+              target_lang: targetLang,
+              engine,
+              category: 'dapp_browser',
+            },
+          )
+          .then((res) => res?.data?.data?.translations ?? batch)
+          .catch(() => batch),
+      ),
+    );
+    return { translations: results.flat() };
   }
 
   @backgroundMethod()
