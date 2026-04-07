@@ -98,6 +98,12 @@ export function usePerpsSharePrompt() {
         return;
       }
 
+      // Re-check focus after async gap — user may have navigated away
+      if (!isFocusedRef.current) {
+        pendingCheckRef.current = true;
+        return;
+      }
+
       if (hasShownRef.current) {
         return;
       }
