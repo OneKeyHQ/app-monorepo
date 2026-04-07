@@ -1162,6 +1162,10 @@ function TokenListBlock({
         mergeDerive: true,
       });
 
+      // Skip cache-data writes after final sorted data is ready
+      if ((globalThis as any).__onekeyTokenListFinalReady) {
+        return;
+      }
       refreshTokenList({
         keys: `${accountId}_${networkId}_local_all`,
         tokens: tokenList,
