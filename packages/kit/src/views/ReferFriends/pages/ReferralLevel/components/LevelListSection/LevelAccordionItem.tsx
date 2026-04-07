@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -171,7 +172,7 @@ export function LevelAccordionItem({
                     </XStack>
                     <XStack gap="$1" ai="center" jc="flex-end">
                       <SizableText size="$bodyMdMedium" color="$text">
-                        {`${condition.currentFiatValue} / ≥ ${condition.thresholdFiatValue}`}
+                        {`${new BigNumber(condition.currentFiatValue).toFixed(2)} / ≥ ${new BigNumber(condition.thresholdFiatValue).toFixed(2)}`}
                       </SizableText>
                       <SizableText size="$bodyMd" color="$textSubdued">
                         {currencyInfo.id.toUpperCase()}
@@ -225,7 +226,7 @@ export function LevelAccordionItem({
                     </XStack>
                     <XStack gap="$1" ai="center" jc="flex-end">
                       <SizableText size="$bodyMdMedium" color="$text">
-                        {`${condition.currentFiatValue} / ≥ ${condition.thresholdFiatValue}`}
+                        {`${new BigNumber(condition.currentFiatValue).toFixed(2)} / ≥ ${new BigNumber(condition.thresholdFiatValue).toFixed(2)}`}
                       </SizableText>
                       <SizableText size="$bodyMd" color="$textSubdued">
                         {currencyInfo.id.toUpperCase()}

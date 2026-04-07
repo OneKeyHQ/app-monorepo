@@ -1,7 +1,6 @@
 import { memo } from 'react';
 
 import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
@@ -11,8 +10,6 @@ interface IPortfolioItemSmallProps {
 }
 
 function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {
-  const [settingsPersistAtom] = useSettingsPersistAtom();
-
   const pnl = item.pnl;
   const isPnlSupported = pnl?.isPnlSupported ?? false;
 
@@ -25,7 +22,7 @@ function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
           formatterOptions={{
-            currency: settingsPersistAtom.currencyInfo.symbol,
+            currency: '$',
           }}
         >
           {item.totalPrice}

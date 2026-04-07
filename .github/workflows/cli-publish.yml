@@ -43,7 +43,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: yarn
@@ -56,14 +55,14 @@ jobs:
 
       - name: Publish to NPM
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           cd apps/cli
           IS_PRERELEASE="${{ needs.get-version.outputs.is_prerelease }}"
           if [ "$IS_PRERELEASE" = "true" ]; then
-            npm publish --access public --dist-tag next
+            yarn npm publish --access public --tag next
           else
-            npm publish --access public --dist-tag latest
+            yarn npm publish --access public --tag latest
           fi
 
       - name: Summary

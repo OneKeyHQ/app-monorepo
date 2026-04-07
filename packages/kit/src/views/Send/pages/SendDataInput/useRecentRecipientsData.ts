@@ -402,7 +402,7 @@ export function useRecentRecipientsData({
         );
 
         return addressInfoResults
-          .filter((result) => !result.isContract)
+          .filter((result) => !result.isContract && !result.isScam)
           .map((result) => {
             const addressLower = result.input?.toLowerCase() ?? '';
             const extraInfo = recipientExtraMap?.get(addressLower);
