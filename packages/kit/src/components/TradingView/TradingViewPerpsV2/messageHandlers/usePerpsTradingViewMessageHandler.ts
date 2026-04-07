@@ -29,7 +29,10 @@ import {
   ESubscriptionType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { MESSAGE_TYPES, PERPS_TV_MESSAGE_METHODS } from '../constants/messageTypes';
+import {
+  MESSAGE_TYPES,
+  PERPS_TV_MESSAGE_METHODS,
+} from '../constants/messageTypes';
 import { EMarksUpdateOperationEnum } from '../types';
 
 import type { IWebViewRef } from '../../../WebView/types';
