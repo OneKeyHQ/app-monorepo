@@ -11,11 +11,13 @@ const envPaths = [
   path.resolve(__dirname, '../.env'),
 ].filter((p) => fs.existsSync(p));
 
-const results = [
-  dotenv.config({
-    path: envPaths,
-  }),
-];
+const results = envPaths.length
+  ? [
+      dotenv.config({
+        path: envPaths,
+      }),
+    ]
+  : [];
 
 if (process.env.NODE_ENV !== 'production') {
   // console.log('process.env', process.env);

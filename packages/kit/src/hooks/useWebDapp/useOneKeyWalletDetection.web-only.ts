@@ -48,7 +48,7 @@ function findOneKeyProvider(providers: readonly EIP6963ProviderDetail[]) {
 // useEIP6963Providers — returns the latest provider list, auto-updates
 // ---------------------------------------------------------------------------
 function useEIP6963Providers() {
-  return useSyncExternalStore(subscribe, getSnapshot);
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
 // ---------------------------------------------------------------------------
