@@ -951,8 +951,14 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async wallet_requestClipboardPermission(
     request: IJsBridgeMessagePayload,
-    params: { type: 'read' | 'write'; text?: string },
+    params: { type: 'read' | 'write'; text?: string } = {} as {
+      type: 'read' | 'write';
+    },
   ) {
+    if (!params?.type || !['read', 'write'].includes(params.type)) {
+      throw new OneKeyLocalError('Invalid clipboard permission request');
+    }
+
     // This will throw if user rejects (modal rejection propagates)
     const modalResult =
       await this.backgroundApi.serviceDApp.openClipboardPermissionModal(
