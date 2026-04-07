@@ -14,8 +14,8 @@ import {
   EUpdateFileType,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
