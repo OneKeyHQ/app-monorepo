@@ -289,6 +289,12 @@ function SendDataInputContainer() {
   const memoValue = form.watch('memo') as string | undefined;
   const noteValue = form.watch('note') as string | undefined;
   const paymentIdValue = form.watch('paymentId') as string | undefined;
+  const isNextDisabled = Boolean(
+    form.formState.errors.memo ||
+    form.formState.errors.paymentId ||
+    form.formState.errors.note ||
+    form.formState.isValidating,
+  );
 
   const toValue = form.watch('to') as IAddressInputValue | undefined;
   const toPending = toValue?.pending;
@@ -1132,8 +1138,10 @@ function SendDataInputContainer() {
               // Don't use form.formState.isValid here — the async address
               // validation (AddressInput queryAddress) can leave isValid stale.
               // toResolved && !toPending already gates address validity.
-              // handleNavigateToAmountInput calls form.trigger() as a final
-              // guard for memo/note/paymentId validation before navigating.
+              // Only disable for data-step field errors or in-flight validation.
+              // handleNavigateToAmountInput still calls form.trigger() as a final
+              // guard before navigating.
+              disabled: isNextDisabled,
             }}
           />
         </Page.Footer>
