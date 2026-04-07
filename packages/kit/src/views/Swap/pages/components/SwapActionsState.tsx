@@ -195,7 +195,6 @@ const SwapActionsState = ({
   const [
     {
       swapEnableRecipientAddress,
-      swapEnableRecipientAddressBeforeIncognito,
       swapIncognitoMode,
       swapToAnotherAccountSwitchOn,
     },
@@ -280,7 +279,6 @@ const SwapActionsState = ({
       const nextSettings = buildSwapIncognitoSettingsUpdate(
         {
           swapEnableRecipientAddress,
-          swapEnableRecipientAddressBeforeIncognito,
           swapIncognitoMode,
           swapToAnotherAccountSwitchOn,
         },
@@ -328,7 +326,6 @@ const SwapActionsState = ({
       setSwapQuoteEventTotalCount,
       setSwapQuoteList,
       swapEnableRecipientAddress,
-      swapEnableRecipientAddressBeforeIncognito,
       swapFromAddressInfo?.accountInfo?.account?.id,
       swapFromAddressInfo?.address,
       swapIncognitoMode,
