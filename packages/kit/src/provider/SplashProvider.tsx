@@ -37,13 +37,12 @@ function hasJotaiCacheFromMmkv(): boolean {
 export const useCanDismissSplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
-        // When MMKV cache was used, skip processPendingInstallTask gate.
-        // The cached atom states are valid; pending install tasks run in background.
+        // When MMKV cache was used, wait for HomePageReady signal instead
+        // of dismissing immediately. This keeps splash visible while React
+        // renders behind it, achieving a single-frame visual transition.
         const hasCachedStates = hasJotaiCacheFromMmkv();
 
-        const [canDismissSplash, setCanDismissSplash] = useState(
-          hasCachedStates,
-        );
+        const [canDismissSplash, setCanDismissSplash] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);
 
         useEffect(() => {
@@ -63,16 +62,36 @@ export const useCanDismissSplash =
             setCanDismissSplash(true);
           }, SPLASH_SAFETY_TIMEOUT);
 
-          const handlePendingInstallTaskFinished = () => {
-            logSplashProvider('pending install task finished event received');
+          const dismiss = () => {
             clearTimeout(safetyTimer);
             setCanDismissSplash(true);
+          };
+
+          const handlePendingInstallTaskFinished = () => {
+            logSplashProvider('pending install task finished event received');
+            if (!hasCachedStates) {
+              // No cache: dismiss on pending task finish (original behavior)
+              dismiss();
+            }
+          };
+
+          const handleHomePageReady = () => {
+            logSplashProvider('HomePageReady event received');
+            dismiss();
           };
 
           appEventBus.on(
             EAppEventBusNames.PendingInstallTaskProcessFinished,
             handlePendingInstallTaskFinished,
           );
+
+          if (hasCachedStates) {
+            // With cache: wait for home page to be fully rendered
+            appEventBus.on(
+              EAppEventBusNames.HomePageReady,
+              handleHomePageReady,
+            );
+          }
 
           // Always run processPendingInstallTask (for OTA updates),
           // but don't block splash when we have cached states.
@@ -88,7 +107,9 @@ export const useCanDismissSplash =
               logSplashProvider(
                 `launch callback failed: ${(error as Error)?.message ?? 'unknown'}`,
               );
-              handlePendingInstallTaskFinished();
+              if (!hasCachedStates) {
+                dismiss();
+              }
             }
           };
           void launchCallback();
@@ -99,6 +120,10 @@ export const useCanDismissSplash =
             appEventBus.off(
               EAppEventBusNames.PendingInstallTaskProcessFinished,
               handlePendingInstallTaskFinished,
+            );
+            appEventBus.off(
+              EAppEventBusNames.HomePageReady,
+              handleHomePageReady,
             );
           };
         }, [hasCachedStates]);

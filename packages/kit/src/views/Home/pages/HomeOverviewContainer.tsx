@@ -630,6 +630,7 @@ function HomeOverviewContainer() {
     renderedBalanceString != null
   ) {
     (globalThis as any).__onekeyBalanceDisplayed = true;
+    appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
     const jsEntry: number =
       (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
     if (jsEntry) {
