@@ -1,7 +1,7 @@
 // @generated — do not edit manually
 // Generated from zod schemas in src/schemas/
 // Run: yarn generate:cli-types
-// Generated at: 2026-04-07T03:17:20.408Z
+// Generated at: 2026-04-07T03:34:15.597Z
 
 /** Print CLI version and environment */
 export interface VersionInput {}
@@ -51,7 +51,7 @@ export interface BalanceOutput {
     symbol: string;
     balance: string;
     contractAddress: string;
-    fiatValue: unknown;
+    fiatValue: string | null;
     isNative: boolean;
   }[];
 }
@@ -93,7 +93,17 @@ export interface HistoryInput {
   detail?: boolean;
 }
 
-export interface HistoryOutput {}
+export type HistoryOutput = {
+  hash: string;
+  from: string;
+  to: string;
+  value: string;
+  block?: string;
+  nonce?: number;
+  confirmations?: number;
+  networkName?: string;
+  tokenSymbol?: string;
+}[]
 
 /** Search tokens by keyword, symbol, or address */
 export interface TokenSearchInput {
@@ -105,7 +115,19 @@ export interface TokenSearchInput {
   limit?: number;
 }
 
-export interface TokenSearchOutput {}
+export type TokenSearchOutput = {
+  contractAddress: string;
+  symbol: string;
+  name: string | null;
+  decimals: number;
+  price: string | null;
+  networkId: string;
+  logoUrl: string | null;
+  isNative: boolean;
+  liquidity: string | null;
+  marketCap: string | null;
+  communityRecognized: boolean;
+}[]
 
 /** Detailed token metadata and market data */
 export interface TokenInfoInput {
@@ -122,17 +144,17 @@ export interface TokenInfoOutput {
   contractAddress: string;
   networkId: string;
   isNative: boolean;
-  logoUrl: unknown;
-  price: unknown;
-  marketCap: unknown;
-  fdv: unknown;
-  tvl: unknown;
-  liquidity: unknown;
-  circulatingSupply: unknown;
-  holders: unknown;
-  priceChange1hPercent: unknown;
-  priceChange4hPercent: unknown;
-  priceChange24hPercent: unknown;
+  logoUrl: string | null;
+  price: string | null;
+  marketCap: string | null;
+  fdv: string | null;
+  tvl: string | null;
+  liquidity: string | null;
+  circulatingSupply: string | null;
+  holders: number | null;
+  priceChange1hPercent: string | null;
+  priceChange4hPercent: string | null;
+  priceChange24hPercent: string | null;
   extraData: {
     website?: string;
     twitter?: string;
@@ -155,12 +177,12 @@ export interface TokenPriceOutput {
   symbol: string;
   contractAddress: string;
   networkId: string;
-  price: unknown;
-  priceChange1mPercent: unknown;
-  priceChange5mPercent: unknown;
-  priceChange1hPercent: unknown;
-  priceChange4hPercent: unknown;
-  priceChange24hPercent: unknown;
+  price: string | null;
+  priceChange1mPercent: string | null;
+  priceChange5mPercent: string | null;
+  priceChange1hPercent: string | null;
+  priceChange4hPercent: string | null;
+  priceChange24hPercent: string | null;
 }
 
 /** Top trending tokens across chains */
@@ -170,7 +192,18 @@ export interface TokenTrendingInput {
   limit?: number;
 }
 
-export interface TokenTrendingOutput {}
+export type TokenTrendingOutput = {
+  symbol: string;
+  name: string | null;
+  contractAddress: string;
+  networkId: string;
+  price: string | null;
+  priceChange24hPercent: string | null;
+  marketCap: string | null;
+  logoUrl: string | null;
+  isNative: boolean;
+  communityRecognized: boolean;
+}[]
 
 /** Buy/sell activity and volume stats by timeframe */
 export interface TokenTradesInput {
@@ -186,49 +219,49 @@ export interface TokenTradesOutput {
   networkId: string;
   stats: {
     '1m': {
-      trades: unknown;
-      buys: unknown;
-      sells: unknown;
-      volume: unknown;
-      vBuy: unknown;
-      vSell: unknown;
-      uniqueWallets: unknown;
+      trades: string | null;
+      buys: string | null;
+      sells: string | null;
+      volume: string | null;
+      vBuy: string | null;
+      vSell: string | null;
+      uniqueWallets: string | null;
     };
     '5m': {
-      trades: unknown;
-      buys: unknown;
-      sells: unknown;
-      volume: unknown;
-      vBuy: unknown;
-      vSell: unknown;
-      uniqueWallets: unknown;
+      trades: string | null;
+      buys: string | null;
+      sells: string | null;
+      volume: string | null;
+      vBuy: string | null;
+      vSell: string | null;
+      uniqueWallets: string | null;
     };
     '1h': {
-      trades: unknown;
-      buys: unknown;
-      sells: unknown;
-      volume: unknown;
-      vBuy: unknown;
-      vSell: unknown;
-      uniqueWallets: unknown;
+      trades: string | null;
+      buys: string | null;
+      sells: string | null;
+      volume: string | null;
+      vBuy: string | null;
+      vSell: string | null;
+      uniqueWallets: string | null;
     };
     '4h': {
-      trades: unknown;
-      buys: unknown;
-      sells: unknown;
-      volume: unknown;
-      vBuy: unknown;
-      vSell: unknown;
-      uniqueWallets: unknown;
+      trades: string | null;
+      buys: string | null;
+      sells: string | null;
+      volume: string | null;
+      vBuy: string | null;
+      vSell: string | null;
+      uniqueWallets: string | null;
     };
     '24h': {
-      trades: unknown;
-      buys: unknown;
-      sells: unknown;
-      volume: unknown;
-      vBuy: unknown;
-      vSell: unknown;
-      uniqueWallets: unknown;
+      trades: string | null;
+      buys: string | null;
+      sells: string | null;
+      volume: string | null;
+      vBuy: string | null;
+      vSell: string | null;
+      uniqueWallets: string | null;
     };
   };
 }
@@ -241,7 +274,12 @@ export interface TokenLiquidityInput {
   token: string;
 }
 
-export interface TokenLiquidityOutput {}
+export type TokenLiquidityOutput = {
+  accountAddress: string;
+  amount: string;
+  fiatValue: string;
+  percentage: string | null;
+}[]
 
 /** Get single token price from market data */
 export interface MarketPriceInput {
@@ -255,12 +293,12 @@ export interface MarketPriceOutput {
   symbol: string;
   contractAddress: string;
   networkId: string;
-  price: unknown;
-  priceChange1mPercent: unknown;
-  priceChange5mPercent: unknown;
-  priceChange1hPercent: unknown;
-  priceChange4hPercent: unknown;
-  priceChange24hPercent: unknown;
+  price: string | null;
+  priceChange1mPercent: string | null;
+  priceChange5mPercent: string | null;
+  priceChange1hPercent: string | null;
+  priceChange4hPercent: string | null;
+  priceChange24hPercent: string | null;
 }
 
 /** Batch pricing for multiple tokens */
@@ -269,7 +307,13 @@ export interface MarketPricesInput {
   tokens: string;
 }
 
-export interface MarketPricesOutput {}
+export type MarketPricesOutput = {
+  symbol: string;
+  contractAddress: string;
+  networkId: string;
+  price: string | null;
+  priceChange24hPercent: string | null;
+}[]
 
 /** Candlestick OHLCV data */
 export interface MarketKlineInput {
@@ -283,7 +327,20 @@ export interface MarketKlineInput {
   limit?: number;
 }
 
-export interface MarketKlineOutput {}
+export type MarketKlineOutput = {
+  /** Open price */
+  o: number;
+  /** High price */
+  h: number;
+  /** Low price */
+  l: number;
+  /** Close price */
+  c: number;
+  /** Volume */
+  v: number;
+  /** Timestamp (seconds) */
+  t: number;
+}[]
 
 /** Get real-time swap quotes (read-only, not commitment) */
 export interface SwapQuoteInput {
@@ -309,13 +366,13 @@ export interface SwapQuoteOutput {
   quotes: {
     provider: string;
     providerName: string;
-    toAmount: unknown;
-    fromAmount: unknown;
-    minToAmount: unknown;
-    estimatedTime: unknown;
-    instantRate: unknown;
+    toAmount: string | null;
+    fromAmount: string | null;
+    minToAmount: string | null;
+    estimatedTime: string | null;
+    instantRate: string | null;
     isBest: boolean;
-    fee: unknown;
+    fee: string | null;
     errorMessage?: string;
     allowanceResult?: {
       allowanceTarget: string;
@@ -345,7 +402,7 @@ export interface SwapQuoteOutput {
     amountSmallestUnit: string;
     slippage: number;
     networkId: string;
-    walletAddress: unknown;
+    walletAddress: string | null;
   };
 }
 
@@ -447,12 +504,31 @@ export interface SwapNetworksInput {
   bridge?: boolean;
 }
 
-export interface SwapNetworksOutput {}
+export type SwapNetworksOutput = {
+  networkId: string;
+  name: string;
+  chainId: string;
+  nativeSymbol: string;
+  supportSingleSwap: boolean;
+  supportCrossChainSwap: boolean;
+  supportLimit: boolean;
+}[]
 
 /** Local swap order history */
 export interface SwapHistoryInput {}
 
-export interface SwapHistoryOutput {}
+export type SwapHistoryOutput = {
+  orderId: string;
+  status: string;
+  chain: string;
+  from: string | null;
+  to: string | null;
+  amount: string;
+  txHash: string | null;
+  provider: string | null;
+  createdAt: number;
+  updatedAt: number;
+}[]
 
 /** Token risk assessment — returns overall risk level with item breakdown */
 export interface SecurityAuditInput {
@@ -487,7 +563,7 @@ export interface SecuritySimulateInput {
 }
 
 export interface SecuritySimulateOutput {
-  type: unknown;
+  type: string | null;
   display?: unknown;
   parsedTx?: unknown | null;
   accountAddress: string;

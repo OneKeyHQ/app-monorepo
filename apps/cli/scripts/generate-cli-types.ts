@@ -83,11 +83,25 @@ function getTypeName(
     return shortRef.replace(/\//g, '_');
   }
 
-  const type = node.type as string | undefined;
+  const rawType = node.type as string | string[] | undefined;
   const anyOf = node.anyOf as IJsonSchemaNode[] | undefined;
   const allOf = node.allOf as IJsonSchemaNode[] | undefined;
   const oneOf = node.oneOf as IJsonSchemaNode[] | undefined;
   const enumValues = node.enum as unknown[] | undefined;
+
+  // Handle type arrays like ["string", "null"] from z.string().nullable()
+  if (Array.isArray(rawType)) {
+    const types = rawType.map((t) => {
+      if (t === 'null') return 'null';
+      if (t === 'string') return 'string';
+      if (t === 'number' || t === 'integer') return 'number';
+      if (t === 'boolean') return 'boolean';
+      return 'unknown';
+    });
+    return types.join(' | ');
+  }
+
+  const type = rawType;
 
   if (enumValues) {
     return enumValues.map((v) => JSON.stringify(v)).join(' | ');
@@ -185,6 +199,19 @@ function jsonSchemaToInterface(
 
   if (!rootDef) {
     return `export interface ${interfaceName} {}`;
+  }
+
+  // Handle non-object root schemas (e.g. z.array(...))
+  const rootType = rootDef.type as string | string[] | undefined;
+  if (rootType !== 'object' && rootType !== undefined) {
+    const tsType = getTypeName(rootDef, doc, '');
+    return `export type ${interfaceName} = ${tsType}`;
+  }
+
+  // Handle anyOf/oneOf at root level
+  if (rootDef.anyOf || rootDef.oneOf) {
+    const tsType = getTypeName(rootDef, doc, '');
+    return `export type ${interfaceName} = ${tsType}`;
   }
 
   const body = renderObjectLiteral(rootDef, doc, '');
