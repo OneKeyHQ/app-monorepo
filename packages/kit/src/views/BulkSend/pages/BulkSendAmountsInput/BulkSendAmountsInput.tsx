@@ -55,6 +55,7 @@ import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBu
 import {
   calculateIsAmountValid,
   calculateTotalAmounts,
+  checkSenderInsufficientBalance,
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
   validateRangeInput,
@@ -105,9 +106,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     senderBalancesFailed,
     senderAccountIdMap,
     minTransferAmount,
+    hasDuplicateSenders,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const shouldHideMaxMode = !isOneToMany && hasDuplicateSenders;
 
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -752,7 +755,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
                 previewTotalFiatAmount={currentModeData.totalFiatAmount}
                 rangePreviewAmounts={previewState.rangePreviewAmounts}
                 onMaxPress={
-                  amountInputMode === EAmountInputMode.Specified
+                  amountInputMode === EAmountInputMode.Specified &&
+                  !shouldHideMaxMode
                     ? handleMaxPress
                     : undefined
                 }
@@ -784,6 +788,7 @@ function BulkSendAmountsInputContent({
   tokenDetails: initialTokenDetails,
   bulkSendMode,
   isInModal,
+  hasDuplicateSenders: _hasDuplicateSendersProp,
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
   const hasCustomAmounts = useMemo(
@@ -834,6 +839,20 @@ function BulkSendAmountsInputContent({
     useState<ITransferInfoErrors>({});
 
   const [transfersInfo, setTransfersInfo] = useState<ITransferInfo[]>([]);
+
+  // Dynamically compute whether there are duplicate sender addresses
+  const hasDuplicateSenders = useMemo(() => {
+    if (bulkSendMode !== EBulkSendMode.ManyToMany) return false;
+    const senderAddresses = transfersInfo.map((t) => t.from);
+    return new Set(senderAddresses).size !== senderAddresses.length;
+  }, [bulkSendMode, transfersInfo]);
+
+  // Auto-exit Max mode when duplicate senders appear
+  useEffect(() => {
+    if (hasDuplicateSenders && isMaxMode) {
+      setIsMaxMode(false);
+    }
+  }, [hasDuplicateSenders, isMaxMode, setIsMaxMode]);
 
   const [previewState, setPreviewState] = useState<IPreviewState>({
     specifiedPreviewed: false,
@@ -912,16 +931,9 @@ function BulkSendAmountsInputContent({
       const modeIsInsufficient = isOneToMany
         ? new BigNumber(modeTotalToken).gt(tokenDetails.balanceParsed)
         : !isMaxMode &&
-          modeData.transfersInfo.some((transfer) => {
-            const balance = senderBalances[transfer.from];
-            if (
-              balance === undefined ||
-              !transfer.amount ||
-              transfer.amount === ''
-            ) {
-              return false;
-            }
-            return new BigNumber(transfer.amount).gt(balance);
+          checkSenderInsufficientBalance({
+            transfersInfo: modeData.transfersInfo,
+            senderBalances,
           });
 
       if (
@@ -1289,6 +1301,7 @@ function BulkSendAmountsInputContent({
   );
 
   // Per-sender balance validation for ManyToOne/ManyToMany
+  // Aggregates amounts for duplicate senders before comparing to balance
   useEffect(() => {
     if (bulkSendMode === EBulkSendMode.OneToMany) return;
     if (isMaxMode) {
@@ -1297,19 +1310,9 @@ function BulkSendAmountsInputContent({
     }
     if (Object.keys(senderBalances).length === 0) return;
 
-    let anyInsufficient = false;
-
-    for (const transfer of transfersInfo) {
-      const balance = senderBalances[transfer.from];
-      if (balance !== undefined && transfer.amount && transfer.amount !== '') {
-        if (new BigNumber(transfer.amount).gt(balance)) {
-          anyInsufficient = true;
-          break;
-        }
-      }
-    }
-
-    setIsInsufficientBalance(anyInsufficient);
+    setIsInsufficientBalance(
+      checkSenderInsufficientBalance({ transfersInfo, senderBalances }),
+    );
   }, [bulkSendMode, isMaxMode, senderBalances, transfersInfo]);
 
   useEffect(() => {
@@ -1488,6 +1491,7 @@ function BulkSendAmountsInputContent({
       senderBalancesFailed,
       setSenderBalancesFailed,
       senderAccountIdMap,
+      hasDuplicateSenders,
     }),
     [
       networkId,
@@ -1519,6 +1523,7 @@ function BulkSendAmountsInputContent({
       senderBalancesLoading,
       senderBalancesFailed,
       senderAccountIdMap,
+      hasDuplicateSenders,
     ],
   );
 

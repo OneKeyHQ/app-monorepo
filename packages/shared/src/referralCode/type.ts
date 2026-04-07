@@ -420,6 +420,7 @@ export interface IInviteCodeItem {
   code: string;
   note: string;
   isPrimary: boolean;
+  isCustomCode: boolean;
   _id: string;
   createdAt: string;
   updatedAt: string;
@@ -431,6 +432,8 @@ export interface IInviteCodeListItem {
   code: string;
   note: string;
   isPrimary: boolean;
+  isCustomCode: boolean;
+  status?: string;
   createdAt: string;
   createdDate: string;
   salesOrders: number;
@@ -449,6 +452,23 @@ export interface IInviteCodeListResponse {
 
 export interface IUpdateInviteCodeNoteResponse {
   success: boolean;
+}
+
+export interface IEditInviteCodeParams {
+  originalCode: string;
+  code?: string;
+  note?: string;
+}
+
+export interface IEditInviteCodeResponse {
+  userId: string;
+  code: string;
+  note: string;
+  isPrimary: boolean;
+  isCustomCode: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Export functionality types

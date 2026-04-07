@@ -211,6 +211,9 @@ export function buildWrappedMarketQuoteResult({
     fromAmount: amount,
     toAmount: amount,
     isWrapped: true,
+    fee: {
+      percentageFee: 0,
+    },
   };
 }
 
