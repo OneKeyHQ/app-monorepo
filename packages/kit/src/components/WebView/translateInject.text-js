@@ -313,7 +313,7 @@
         capturedUpdateId: data ? data.updateId : -1,
       };
 
-      if (!batchMap[item.text]) {
+      if (!Object.prototype.hasOwnProperty.call(batchMap, item.text)) {
         batchMap[item.text] = [];
         texts.push(item.text);
       }
