@@ -30,9 +30,10 @@ function AddressTypeFiat({
       return new Set<string>();
     }
 
-    const xpub = (account as IDBUtxoAccount).xpub;
+    const utxoAccount = account as IDBUtxoAccount;
     const rawCandidates = [
-      xpub,
+      utxoAccount.xpubSegwit,
+      utxoAccount.xpub,
       account.address,
       account.addressDetail.address,
       account.addressDetail.displayAddress,
@@ -49,10 +50,17 @@ function AddressTypeFiat({
       return null;
     }
 
-    const candidates = Array.from(accountKeyCandidates);
     const result = Object.entries(tokenMap).find(([key]) => {
-      const keyLower = key.toLowerCase();
-      return candidates.some((c) => keyLower.includes(c));
+      const keyArr = key.split('_');
+      if (keyArr.length < 3) {
+        return false;
+      }
+
+      const accountKey = keyArr.slice(1, -1).join('_');
+      return (
+        accountKeyCandidates.has(accountKey) ||
+        accountKeyCandidates.has(accountKey.toLowerCase())
+      );
     })?.[1];
 
     if (!result) {
