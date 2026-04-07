@@ -326,13 +326,90 @@ export const contextAtomSnapshotRegistry = new Map<
   { atom: () => any }
 >();
 
+// ============================================================
+// Cold Start Cache — automatic value tracking + debounced save
+// ============================================================
+
+/** Latest values of all coldStartCache atoms, updated on every use() call */
+const coldStartValuesMap = new Map<string, unknown>();
+
+/** Keys that changed since last MMKV flush */
+const coldStartDirtyKeys = new Set<string>();
+
+/** Debounce timer for batched MMKV writes */
+let coldStartSaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+function flushColdStartCache() {
+  if (coldStartDirtyKeys.size === 0) return;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { syncStorage } =
+      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+
+    const raw = syncStorage.getString(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+    );
+    const snapshot = raw ? JSON.parse(raw) : {};
+
+    for (const name of coldStartDirtyKeys) {
+      snapshot[name] = coldStartValuesMap.get(name);
+    }
+
+    syncStorage.set(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+      JSON.stringify(snapshot),
+    );
+    coldStartDirtyKeys.clear();
+  } catch {
+    /* best-effort */
+  }
+}
+
+function scheduleColdStartSave(name: string) {
+  coldStartDirtyKeys.add(name);
+  if (coldStartSaveTimer) return;
+  coldStartSaveTimer = setTimeout(() => {
+    coldStartSaveTimer = undefined;
+    flushColdStartCache();
+  }, 1000);
+}
+
+let coldStartAppStateListenerRegistered = false;
+function ensureColdStartAppStateListener() {
+  if (coldStartAppStateListenerRegistered) return;
+  coldStartAppStateListenerRegistered = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { AppState } =
+      require('react-native') as typeof import('react-native');
+    AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        if (coldStartSaveTimer) {
+          clearTimeout(coldStartSaveTimer);
+          coldStartSaveTimer = undefined;
+        }
+        flushColdStartCache();
+      }
+    });
+  } catch {
+    /* AppState not available in non-RN env */
+  }
+}
+
+// ============================================================
+
 export function contextAtomBase<Value>({
   initialValue,
   useContextAtom,
   name,
+  coldStartCache,
 }: {
   initialValue: Value;
   name?: string;
+  coldStartCache?: boolean;
   useContextAtom: <Value2, Args extends any[], Result>(
     atomInstance: WritableAtom<Value2, Args, Result>,
   ) => [Awaited<Value2>, IJotaiSetAtom<Args, Result>];
@@ -348,25 +425,40 @@ export function contextAtomBase<Value>({
           typeof initialValue === 'object' && typeof cached === 'object'
             ? { ...initialValue, ...cached }
             : cached;
-        // eslint-disable-next-line no-console
-        console.log(
-          `[StartupTiming] contextAtom "${name}" injected from MMKV snapshot`,
-        );
       }
     }
   }
 
   const atomBuilder = memoizee(() => atom(resolvedInitialValue));
-  const useFn = () => useContextAtom(atomBuilder());
+  const originalUse = () => useContextAtom(atomBuilder());
+
+  // coldStartCache: wrap use() to auto-track value changes
+  const wrappedUse =
+    coldStartCache && name
+      ? () => {
+          const result = originalUse();
+          const currentValue = result[0];
+          if (coldStartValuesMap.get(name) !== currentValue) {
+            coldStartValuesMap.set(name, currentValue);
+            scheduleColdStartSave(name);
+          }
+          return result;
+        }
+      : originalUse;
 
   if (name) {
     contextAtomSnapshotRegistry.set(name, { atom: atomBuilder });
   }
 
+  if (coldStartCache && name) {
+    ensureColdStartAppStateListener();
+    coldStartValuesMap.set(name, resolvedInitialValue);
+  }
+
   return {
     useContextAtom,
     atom: atomBuilder,
-    use: useFn,
+    use: wrappedUse,
   };
 }
 

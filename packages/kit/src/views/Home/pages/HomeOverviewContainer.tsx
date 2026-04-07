@@ -43,13 +43,9 @@ import {
   useLastConfirmedOverviewBalanceAtom,
   useOverviewDeFiDataStateAtom,
   useOverviewTokenCacheStateAtom,
-  useWalletTopBannersAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
-import {
-  useActiveAccount,
-  useSelectedAccountsAtom,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 // Grace period (ms) after an account switch during which the previous
@@ -96,8 +92,6 @@ function HomeOverviewContainer() {
     updateAccountDeFiOverview,
   } = useAccountOverviewActions().current;
 
-  const [selectedAccounts] = useSelectedAccountsAtom();
-  const [walletTopBanners] = useWalletTopBannersAtom();
   const [settings] = useSettingsPersistAtom();
 
   const isWalletNotBackedUp = useMemo(() => {
@@ -615,6 +609,34 @@ function HomeOverviewContainer() {
   const showSkeleton =
     !hasDisplayableOverviewBalance && !shouldDisplayZeroBalancePlaceholder;
 
+  // Diagnostic: log cache hit/miss on first render for startup debugging
+  if (!(globalThis as any).__onekeyBalanceDiagLogged) {
+    (globalThis as any).__onekeyBalanceDiagLogged = true;
+    try {
+      const jsEntry: number =
+        (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+      const elapsed = jsEntry ? Date.now() - jsEntry : 0;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { NativeLogger: NL, LogLevel: LL } =
+        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+      NL.write(
+        LL.Info,
+        `[BalanceDiag] firstRender +${elapsed}ms: ` +
+          `ownerKey="${currentOverviewOwnerKey}", ` +
+          `currentConfirmed=${currentConfirmedBalance != null}, ` +
+          `resolved=${resolvedBalanceString != null}, ` +
+          `showSkeleton=${showSkeleton}, ` +
+          `accountId=${account?.id?.slice(-6) ?? 'nil'}, ` +
+          `networkId=${network?.id?.slice(-10) ?? 'nil'}, ` +
+          `worthInit=${accountWorth.initialized}, ` +
+          `worthAccountId=${accountWorth.accountId?.slice(-6) ?? 'nil'}, ` +
+          `byOwnerKeys=${Object.keys(lastConfirmedOverviewBalance.byOwner).length}`,
+      );
+    } catch {
+      /* NativeLogger may not be available */
+    }
+  }
+
   const debouncedBalanceString =
     debouncedBalancePayload.ownerKey === currentOverviewOwnerKey
       ? debouncedBalancePayload.value
@@ -639,37 +661,8 @@ function HomeOverviewContainer() {
         `[StartupTiming] Home balance displayed: ${renderedBalanceString?.slice(0, 20)} at +${elapsed}ms from JS entry`,
       );
     }
-    // Save contextAtom values to MMKV snapshot for next startup
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { syncStorage: ss } =
-        require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { EAppSyncStorageKeys: sk } =
-        require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-      const raw = ss.getString(sk.onekey_jotai_context_atoms_snapshot);
-      const ctxSnapshot = raw ? JSON.parse(raw) : {};
-      ctxSnapshot['ctx:accountWorthAtom'] = accountWorth;
-      ctxSnapshot['ctx:lastConfirmedOverviewBalanceAtom'] = {
-        latest: renderedBalanceString,
-        byOwner: lastConfirmedOverviewBalance.byOwner,
-      };
-      // Cache activeAccount so account/network objects are available
-      // at next startup, enabling ownerKey matching for cached balance.
-      ctxSnapshot['ctx:activeAccountsAtom'] = { 0: activeAccount };
-      ctxSnapshot['ctx:selectedAccountsAtom'] = selectedAccounts;
-      ctxSnapshot['ctx:accountSelectorStorageReadyAtom'] = true;
-      ctxSnapshot['ctx:walletTopBannersAtom'] = walletTopBanners;
-      ss.set(
-        sk.onekey_jotai_context_atoms_snapshot,
-        JSON.stringify(ctxSnapshot),
-      );
-      defaultLogger.app.appUpdate.log(
-        `[StartupTiming] contextAtom snapshot saved: ${Object.keys(ctxSnapshot).length} keys`,
-      );
-    } catch {
-      /* best-effort */
-    }
+    // contextAtom snapshot saving is now automatic via coldStartCache mechanism.
+    // All atoms with { coldStartCache: true } are auto-tracked and debounce-saved.
   }
 
   return (

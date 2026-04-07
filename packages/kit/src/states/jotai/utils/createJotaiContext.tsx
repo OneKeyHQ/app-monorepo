@@ -80,12 +80,13 @@ export function createJotaiContext<TContextConfig = undefined>() {
 
   function contextAtom<Value>(
     initialValue: Value,
-    options?: { name?: string },
+    options?: { name?: string; coldStartCache?: boolean },
   ) {
     return contextAtomBase({
       useContextAtom,
       initialValue,
       name: options?.name,
+      coldStartCache: options?.coldStartCache,
     });
   }
 

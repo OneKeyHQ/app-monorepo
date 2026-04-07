@@ -53,7 +53,7 @@ export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
       initialized: false,
       updateAll: false,
     },
-    { name: 'ctx:accountWorthAtom' },
+    { name: 'ctx:accountWorthAtom', coldStartCache: true },
   );
 
 export const {
@@ -78,7 +78,7 @@ export const {
     latest: '',
     byOwner: {},
   },
-  { name: 'ctx:lastConfirmedOverviewBalanceAtom' },
+  { name: 'ctx:lastConfirmedOverviewBalanceAtom', coldStartCache: true },
 );
 
 export const {
@@ -126,7 +126,7 @@ export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
     {
       banners: [],
     },
-    { name: 'ctx:walletTopBannersAtom' },
+    { name: 'ctx:walletTopBannersAtom', coldStartCache: true },
   );
 
 export const {
