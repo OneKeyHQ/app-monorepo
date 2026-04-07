@@ -32,6 +32,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQuickSelect';
+import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataInput/recipientSelectionUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -86,11 +87,14 @@ const SwapToAnotherAddressPage = () => {
 
   const handleQuickSelectRecipient = useCallback(
     ({ address: selectedAddress }: { address: string }) => {
-      if (selectedAddress) {
-        form.setValue('address', {
-          raw: selectedAddress,
-        } as IAddressInputValue);
+      if (!selectedAddress) return;
+      const currentTo = form.getValues('address');
+      if (shouldSkipResolvedRecipientUpdate({ currentTo, selectedAddress })) {
+        return;
       }
+      form.setValue('address', {
+        raw: selectedAddress,
+      } as IAddressInputValue);
     },
     [form],
   );
