@@ -122,9 +122,12 @@ export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
 export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
   contextAtom<{
     banners: IWalletBanner[];
-  }>({
-    banners: [],
-  });
+  }>(
+    {
+      banners: [],
+    },
+    { name: 'ctx:walletTopBannersAtom' },
+  );
 
 export const {
   atom: accountDeFiOverviewAtom,

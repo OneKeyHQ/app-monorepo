@@ -43,6 +43,7 @@ import {
   useLastConfirmedOverviewBalanceAtom,
   useOverviewDeFiDataStateAtom,
   useOverviewTokenCacheStateAtom,
+  useWalletTopBannersAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import {
@@ -96,6 +97,7 @@ function HomeOverviewContainer() {
   } = useAccountOverviewActions().current;
 
   const [selectedAccounts] = useSelectedAccountsAtom();
+  const [walletTopBanners] = useWalletTopBannersAtom();
   const [settings] = useSettingsPersistAtom();
 
   const isWalletNotBackedUp = useMemo(() => {
@@ -655,6 +657,7 @@ function HomeOverviewContainer() {
       // at next startup, enabling ownerKey matching for cached balance.
       ctxSnapshot['ctx:activeAccountsAtom'] = { 0: activeAccount };
       ctxSnapshot['ctx:selectedAccountsAtom'] = selectedAccounts;
+      ctxSnapshot['ctx:walletTopBannersAtom'] = walletTopBanners;
       ss.set(
         sk.onekey_jotai_context_atoms_snapshot,
         JSON.stringify(ctxSnapshot),

@@ -456,7 +456,14 @@ export function HomePageView({
   );
 
   useEffect(() => {
-    void Icon.prefetch('CloudOffOutline');
+    void Icon.prefetch(
+      'CloudOffOutline',
+      'ArrowTopOutline',
+      'ArrowBottomOutline',
+      'DotHorOutline',
+      'SearchOutline',
+      'BellOutline',
+    );
   }, []);
 
   useEffect(() => {
