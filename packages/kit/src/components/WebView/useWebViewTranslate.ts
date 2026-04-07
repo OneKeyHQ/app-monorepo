@@ -84,7 +84,7 @@ let sessionCounter = 0;
 
 function generateSessionId(): string {
   sessionCounter += 1;
-  return 's' + Date.now().toString(36) + sessionCounter.toString(36);
+  return `s${Date.now().toString(36)}${sessionCounter.toString(36)}`;
 }
 
 function sendTranslationResponse(
