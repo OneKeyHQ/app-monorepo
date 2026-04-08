@@ -699,7 +699,7 @@ function DepositWithdrawContent({
       const usdVal = amountBN
         .multipliedBy(tokenPriceBN)
         .decimalPlaces(2, BigNumber.ROUND_DOWN);
-      return `≈ $${usdVal.toFixed(2)}`;
+      return `≈ ${numberFormat(usdVal.toFixed(2), { formatter: 'value', formatterOptions: { currency: '$' } })}`;
     }
     return '';
   }, [
@@ -1592,6 +1592,7 @@ function DepositWithdrawContent({
             onBlur={handleAmountBlur}
             keyboardType="decimal-pad"
             disabled={isSubmitting}
+            enableThousandsSeparator
             readonly={!checkAccountSupport}
             borderWidth={0}
             size="medium"
@@ -1823,7 +1824,7 @@ function DepositWithdrawContent({
           </SizableText>
           {selectedAction === 'withdraw' ? (
             <SizableText color="$text" size="$bodyMd">
-              ${calculateFinalAmount(WITHDRAW_FEE)}{' '}
+              {calculateFinalAmount(WITHDRAW_FEE)} USDC{' '}
               {intl.formatMessage(
                 {
                   id: ETranslations.perp_deposit_on,
@@ -1842,10 +1843,10 @@ function DepositWithdrawContent({
               ) : (
                 <XStack gap="$1">
                   <SizableText color="$text" size="$bodyMd">
-                    $
                     {numberFormat(depositToAmount.value, {
                       formatter: 'balance',
                     })}{' '}
+                    USDC{' '}
                   </SizableText>
                   <SizableText color="$text" size="$bodyMd">
                     {intl.formatMessage(
