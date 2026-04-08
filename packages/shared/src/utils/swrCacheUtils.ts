@@ -132,6 +132,7 @@ function flushNow(): void {
 export const swrKeys = {
   allNetworksCompatible: (walletId: string, networkId?: string) =>
     `allNetCompat:${walletId}:${networkId ?? ''}`,
+  defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
 };
 
 export const swrCacheUtils = {

@@ -30,6 +30,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -216,23 +217,22 @@ export function HomePageView({
     (vaultSettings?.NFTEnabled &&
       networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''));
 
-  const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
-  useEffect(() => {
-    const checkDeFiEnabled = async () => {
-      if (!network?.id) {
-        setIsDeFiEnabled(false);
-        return;
-      }
-      if (networkUtils.isAllNetwork({ networkId: network.id })) {
-        setIsDeFiEnabled(true);
-        return;
-      }
+  const { result: isDeFiEnabled = true } = usePromiseResult(
+    async () => {
+      if (!network?.id) return false;
+      if (networkUtils.isAllNetwork({ networkId: network.id })) return true;
       const enabledNetworks =
         await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-      setIsDeFiEnabled(!!enabledNetworks[network.id]);
-    };
-    void checkDeFiEnabled();
-  }, [network?.id]);
+      return !!enabledNetworks[network.id];
+    },
+    [network?.id],
+    {
+      initResult: true,
+      swrKey: network?.id
+        ? swrKeys.defiEnabled(network.id)
+        : undefined,
+    },
+  );
 
   // DEBUG: trace tab config state changes
   useEffect(() => {
