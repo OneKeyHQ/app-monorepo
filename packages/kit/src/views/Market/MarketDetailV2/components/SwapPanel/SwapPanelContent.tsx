@@ -94,6 +94,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     paymentAmount,
     paymentToken,
     sellAmount,
+    resetAmounts,
     setSellAmount,
     setPaymentAmount,
     setPaymentToken,
@@ -106,8 +107,13 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const tokenSellInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
   const sellAmountRef = useRef(sellAmount);
-  // Initialize analytics hook
-  const swapAnalytics = useSwapAnalytics();
+  const hasInitializedMarketTokenRef = useRef(false);
+  const {
+    logSwapAction,
+    resetAnalytics,
+    setAmountEnterType,
+    setSlippageSetting,
+  } = useSwapAnalytics();
   const intl = useIntl();
   if (paymentAmount !== paymentAmountRef.current) {
     paymentAmountRef.current = paymentAmount;
@@ -119,6 +125,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const currentInputAmount = useMemo(() => {
     return tradeType === ESwapDirection.BUY ? paymentAmount : sellAmount;
   }, [tradeType, paymentAmount, sellAmount]);
+
+  const parseAmountInput = useCallback((amount: string) => {
+    return new BigNumber(amount || 0);
+  }, []);
 
   const handleBalanceClick = useCallback(() => {
     const reserveGas = swapNativeTokenReserveGas.find(
@@ -214,9 +224,21 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }, [tradeType, balanceToken?.decimals, setPaymentAmount, setSellAmount]);
 
   useEffect(() => {
+    if (!hasInitializedMarketTokenRef.current) {
+      hasInitializedMarketTokenRef.current = true;
+      return;
+    }
+
+    resetAmounts();
+    resetAnalytics();
     tokenBuyInputRef.current?.setValue('');
     tokenSellInputRef.current?.setValue('');
-  }, [currentMarketToken?.networkId, currentMarketToken?.contractAddress]);
+  }, [
+    currentMarketToken?.networkId,
+    currentMarketToken?.contractAddress,
+    resetAmounts,
+    resetAnalytics,
+  ]);
 
   return (
     <YStack gap="$4">
@@ -238,12 +260,12 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           style={tradeType === ESwapDirection.BUY ? {} : { display: 'none' }}
           tradeType={ESwapDirection.BUY}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
-          onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
+          onChange={(amount) => setPaymentAmount(parseAmountInput(amount))}
           selectedToken={paymentToken}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
-          onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
+          onAmountEnterTypeChange={setAmountEnterType}
           disableNativeToken={disableNativeToken}
         />
         <TokenInputSection
@@ -251,12 +273,12 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           style={tradeType === ESwapDirection.SELL ? {} : { display: 'none' }}
           tradeType={ESwapDirection.SELL}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
-          onChange={(amount) => setSellAmount(new BigNumber(amount))}
+          onChange={(amount) => setSellAmount(parseAmountInput(amount))}
           selectedToken={balanceToken}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
-          onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
+          onAmountEnterTypeChange={setAmountEnterType}
         />
 
         {/* Rate display */}
@@ -300,7 +322,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         networkId={networkId}
         disabled={!!speedCheckError || isLoading}
         onSwapAction={() =>
-          swapAnalytics.logSwapAction({
+          logSwapAction({
             tradeType,
             networkId,
             paymentToken,
@@ -316,9 +338,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
           onSlippageChange={(item) => {
             setSlippage(item.value);
-            swapAnalytics.setSlippageSetting(
-              item.key === ESwapSlippageSegmentKey.CUSTOM,
-            );
+            setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);
           }}
         />
       )}
