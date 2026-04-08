@@ -134,7 +134,7 @@ function BaseHomeHeaderContainer() {
             const { NativeLogger: NL, LogLevel: LL } =
               require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
             const { height } = e.nativeEvent.layout;
-            NL.write(LL.Info, `[LayoutDiag] HeaderContainer: h=${height.toFixed(1)}`);
+            NL.write(LL.Info, `[LayoutDiag] HeaderContainer: h=${height} rounded=${Math.round(height)} diff=${(height - 312).toFixed(2)}`);
           } catch { /* */ }
         }}
       >

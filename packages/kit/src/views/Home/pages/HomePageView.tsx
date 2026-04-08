@@ -371,9 +371,11 @@ export function HomePageView({
     return (
       <Stack
         onLayout={(e) => {
+          const rawH = e.nativeEvent.layout.height;
+          const roundedH = Math.round(rawH);
           layoutDiag(
             'TabsHeader',
-            `h=${e.nativeEvent.layout.height.toFixed(1)}`,
+            `h=${rawH} rounded=${roundedH} diff=${(rawH - 312).toFixed(2)}`,
           );
         }}
       >
