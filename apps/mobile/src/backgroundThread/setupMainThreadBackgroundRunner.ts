@@ -17,12 +17,12 @@ import {
   BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX,
   BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX,
   BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
-  WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
   type IBackgroundThreadBridgeCallRequest,
   type IBackgroundThreadBridgeChannel,
   type IBackgroundThreadRequest,
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
+  WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
   buildBackgroundThreadRequestKey,
   buildWebEmbedBridgeResponseKey,
   parseBackgroundThreadAppEventBroadcastPayload,
@@ -412,10 +412,7 @@ function handleBackgroundThreadBridgeSend(sharedRPC: ISharedRPC, key: string) {
   });
 }
 
-async function handleWebEmbedBridgeRequest(
-  sharedRPC: ISharedRPC,
-  key: string,
-) {
+async function handleWebEmbedBridgeRequest(sharedRPC: ISharedRPC, key: string) {
   const callId = key.slice(WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX.length);
   const responseKey = buildWebEmbedBridgeResponseKey(callId);
 

@@ -679,7 +679,9 @@ function HomeOverviewContainer() {
             LL.Info,
             `[LayoutDiag] OverviewContainer: h=${height.toFixed(1)}, w=${width.toFixed(1)}, skeleton=${showSkeleton}`,
           );
-        } catch { /* */ }
+        } catch {
+          /* */
+        }
       }}
     >
       <YStack w="100%" gap="$2">

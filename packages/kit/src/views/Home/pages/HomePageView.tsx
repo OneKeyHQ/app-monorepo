@@ -228,9 +228,7 @@ export function HomePageView({
     [network?.id],
     {
       initResult: true,
-      swrKey: network?.id
-        ? swrKeys.defiEnabled(network.id)
-        : undefined,
+      swrKey: network?.id ? swrKeys.defiEnabled(network.id) : undefined,
     },
   );
 
@@ -247,8 +245,19 @@ export function HomePageView({
           `cachedVS=${!!cachedVaultSettings}, fetchedVS=${!!fetchedVaultSettings}, ` +
           `networkId=${network?.id?.slice(-10) ?? 'nil'}, key=${key}`,
       );
-    } catch { /* */ }
-  }, [ready, isDeFiEnabled, isNFTEnabled, cachedVaultSettings, fetchedVaultSettings, network?.id, account?.id, account?.indexedAccountId]);
+    } catch {
+      /* */
+    }
+  }, [
+    ready,
+    isDeFiEnabled,
+    isNFTEnabled,
+    cachedVaultSettings,
+    fetchedVaultSettings,
+    network?.id,
+    account?.id,
+    account?.indexedAccountId,
+  ]);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -466,7 +475,10 @@ export function HomePageView({
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
     }`;
-    layoutDiag('TabsKey', `key="${key}" isDeFi=${isDeFiEnabled} isNFT=${isNFTEnabled} cachedVS=${!!cachedVaultSettings} fetchedVS=${!!fetchedVaultSettings} ready=${ready}`);
+    layoutDiag(
+      'TabsKey',
+      `key="${key}" isDeFi=${isDeFiEnabled} isNFT=${isNFTEnabled} cachedVS=${!!cachedVaultSettings} fetchedVS=${!!fetchedVaultSettings} ready=${ready}`,
+    );
     return (
       <Tabs.Container
         ref={tabsRef as any}
@@ -649,7 +661,10 @@ export function HomePageView({
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
     // Use the actual measured height without arbitrary adjustments
     const height = e.nativeEvent.layout.height - 20;
-    layoutDiag('TabPageSpacer', `measured=${height.toFixed(1)} (raw=${e.nativeEvent.layout.height.toFixed(1)})`);
+    layoutDiag(
+      'TabPageSpacer',
+      `measured=${height.toFixed(1)} (raw=${e.nativeEvent.layout.height.toFixed(1)})`,
+    );
     setTabPageHeight(height);
   }, []);
 

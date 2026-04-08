@@ -9,11 +9,11 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const WalletConnectModalContainerLazy = lazy(() =>
-  import(
-    '../../../components/WalletConnect/WalletConnectModalContainer'
-  ).then((m) => ({
-    default: m.WalletConnectModalContainer,
-  })),
+  import('../../../components/WalletConnect/WalletConnectModalContainer').then(
+    (m) => ({
+      default: m.WalletConnectModalContainer,
+    }),
+  ),
 );
 
 function ReplayWalletConnectEvent({

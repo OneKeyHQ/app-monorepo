@@ -19,7 +19,7 @@ let _cache: ISWRStore | undefined;
 let _dirty = false;
 let _flushTimer: ReturnType<typeof setTimeout> | undefined;
 
-const FLUSH_DEBOUNCE_MS = 2_000;
+const FLUSH_DEBOUNCE_MS = 2000;
 
 function getSyncStorage(): ISyncStorage {
   if (!_syncStorage) {
@@ -55,10 +55,7 @@ function scheduleFlush() {
 function flush() {
   if (!_dirty || !_cache) return;
   try {
-    getSyncStorage().setObject(
-      EAppSyncStorageKeys.onekey_swr_cache,
-      _cache,
-    );
+    getSyncStorage().setObject(EAppSyncStorageKeys.onekey_swr_cache, _cache);
     _dirty = false;
   } catch {
     // MMKV write failure is non-fatal; cache is best-effort.

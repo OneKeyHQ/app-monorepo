@@ -69,9 +69,8 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     let result: any;
     // In dual-thread mode, the background thread doesn't have the JsBridge
     // object. Route the call to the main thread via reverse RPC.
-    const callViaMainThread = (
-      globalThis as any
-    ).__onekeyCallWebEmbedBridgeViaMainThread as
+    const callViaMainThread = (globalThis as any)
+      .__onekeyCallWebEmbedBridgeViaMainThread as
       | ((data: unknown) => Promise<unknown>)
       | undefined;
     if (callViaMainThread) {

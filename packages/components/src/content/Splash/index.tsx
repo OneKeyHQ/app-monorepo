@@ -29,13 +29,13 @@ export function Splash({
   children,
   canDismissSplash: externalCanDismissSplash = true,
 }: ISplashProps) {
-  logSplash(
-    `render externalCanDismissSplash=${externalCanDismissSplash}`,
-  );
+  logSplash(`render externalCanDismissSplash=${externalCanDismissSplash}`);
   const handleExitComplete = useCallback(() => {
     const now = Date.now();
     const totalFromEntry = now - jsEntryStart;
-    logSplash(`exit complete — splash hidden at +${totalFromEntry}ms from JS entry`);
+    logSplash(
+      `exit complete — splash hidden at +${totalFromEntry}ms from JS entry`,
+    );
     globalThis.$$onekeyUIVisibleAt = now;
     if (typeof globalThis.nativePerformanceNow === 'function') {
       globalThis.$$onekeyUIVisibleFromPerformanceNow =
@@ -46,9 +46,7 @@ export function Splash({
     defaultLogger.app.appUpdate.log(
       [
         `[StartupSummary] Total JS entry → UI visible: ${totalFromEntry}ms`,
-        jsReadyAt
-          ? `  jsReady: +${jsReadyAt - jsEntryStart}ms`
-          : undefined,
+        jsReadyAt ? `  jsReady: +${jsReadyAt - jsEntryStart}ms` : undefined,
         `  UI visible: +${totalFromEntry}ms`,
       ]
         .filter(Boolean)

@@ -1,6 +1,10 @@
 // Import specific @ethersproject sub-packages instead of the full 'ethers'
 // barrel to avoid pulling 126 modules into the common startup bundle.
-import { hexStripZeros, hexlify as ethersHexlifyFn, isHexString as ethersIsHexString } from '@ethersproject/bytes';
+import {
+  hexlify as ethersHexlifyFn,
+  isHexString as ethersIsHexString,
+  hexStripZeros,
+} from '@ethersproject/bytes';
 import { toUtf8Bytes } from '@ethersproject/strings';
 
 import type { BytesLike } from '@ethersproject/bytes';

@@ -66,9 +66,7 @@ function AllNetworksManagerTrigger({
 
   // SWR cache in usePromiseResult provides instant cold-start data,
   // so deferHeavyWorkUntilUIIdle is no longer needed here.
-  const compatQueryWalletId = shouldEnableCompatQuery
-    ? (wallet?.id ?? '')
-    : '';
+  const compatQueryWalletId = shouldEnableCompatQuery ? (wallet?.id ?? '') : '';
 
   const {
     enabledNetworksCompatibleWithWalletId,
@@ -136,7 +134,10 @@ function AllNetworksManagerTrigger({
     !networkUtils.isAllNetwork({ networkId: network?.id }) ||
     accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
   ) {
-    layoutDiag('NetSelector', `null: notAllNetwork=${!networkUtils.isAllNetwork({ networkId: network?.id })} isOthers=${accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })}`);
+    layoutDiag(
+      'NetSelector',
+      `null: notAllNetwork=${!networkUtils.isAllNetwork({ networkId: network?.id })} isOthers=${accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })}`,
+    );
     if (platformEnv.isNativeAndroid) {
       return <Stack height={5} />;
     }
@@ -157,18 +158,31 @@ function AllNetworksManagerTrigger({
           `shouldQuery=${shouldEnableCompatQuery}, ` +
           `isAllNetwork=${networkUtils.isAllNetwork({ networkId: network?.id })}`,
       );
-    } catch { /* */ }
-  }, [showSkeleton, enabledNetworksCompatibleWithWalletId, shouldEnableCompatQuery, network?.id]);
+    } catch {
+      /* */
+    }
+  }, [
+    showSkeleton,
+    enabledNetworksCompatibleWithWalletId,
+    shouldEnableCompatQuery,
+    network?.id,
+  ]);
 
   if (
     showSkeleton ||
     !enabledNetworksCompatibleWithWalletId ||
     enabledNetworksCompatibleWithWalletId.length === 0
   ) {
-    layoutDiag('NetSelector', `placeholder: showSkeleton=${showSkeleton} hasData=${!!enabledNetworksCompatibleWithWalletId} len=${enabledNetworksCompatibleWithWalletId?.length ?? 0}`);
+    layoutDiag(
+      'NetSelector',
+      `placeholder: showSkeleton=${showSkeleton} hasData=${!!enabledNetworksCompatibleWithWalletId} len=${enabledNetworksCompatibleWithWalletId?.length ?? 0}`,
+    );
     return <Stack h={36} />;
   }
-  layoutDiag('NetSelector', `rendered: ${enabledNetworksCompatibleWithWalletId.length} networks`);
+  layoutDiag(
+    'NetSelector',
+    `rendered: ${enabledNetworksCompatibleWithWalletId.length} networks`,
+  );
 
   return (
     <XStack

@@ -45,8 +45,7 @@ const MemoizedTamaguiProvider = memo(TamaguiProvider);
 function FontProvider({ children }: IFontProviderProps) {
   const [loaded, error] = useLoadCustomFonts();
   const shouldBypassFontGate =
-    platformEnv.isNativeMainThread &&
-    platformEnv.enableNativeBackgroundThread;
+    platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread;
 
   if (shouldBypassFontGate) {
     return children;

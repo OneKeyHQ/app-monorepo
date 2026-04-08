@@ -222,9 +222,11 @@ describe('installProdBundleLoader', () => {
     installProdBundleLoader(mock);
 
     await expect(
-      (globalThis as LoadBundleAsyncGlobal & {
-        test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
-      }).test__loadBundleAsync?.('seg:test.a'),
+      (
+        globalThis as LoadBundleAsyncGlobal & {
+          test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
+        }
+      ).test__loadBundleAsync?.('seg:test.a'),
     ).resolves.toBe(undefined);
     expect(isSegmentLoaded('seg:test.a')).toBe(true);
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
@@ -245,9 +247,11 @@ describe('installProdBundleLoader', () => {
     (globalThis as any).test__loadBundleAsync = expoUrlLoader;
 
     await expect(
-      (globalThis as LoadBundleAsyncGlobal & {
-        test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
-      }).test__loadBundleAsync?.('seg:test.a'),
+      (
+        globalThis as LoadBundleAsyncGlobal & {
+          test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
+        }
+      ).test__loadBundleAsync?.('seg:test.a'),
     ).resolves.toBe(undefined);
     expect(isSegmentLoaded('seg:test.a')).toBe(true);
     expect(expoUrlLoader).not.toHaveBeenCalled();

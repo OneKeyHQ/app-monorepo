@@ -136,9 +136,8 @@ const SecureQRToastBase = ({
               console.log('SecureQRToastContent', value, valueUr);
               if (valueUr) {
                 void (async () => {
-                  const { airGapUrUtils } = await import(
-                    '@onekeyhq/qr-wallet-sdk'
-                  );
+                  const { airGapUrUtils } =
+                    await import('@onekeyhq/qr-wallet-sdk');
                   const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
                   console.log(qrcodeDetails);
                   if (
@@ -146,9 +145,8 @@ const SecureQRToastBase = ({
                       'ur:onekey-app-call-device/',
                     )
                   ) {
-                    const { OneKeyRequestDeviceQR } = await import(
-                      '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR'
-                    );
+                    const { OneKeyRequestDeviceQR } =
+                      await import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR');
                     const data = OneKeyRequestDeviceQR.fromUR(valueUr);
                     console.log(data);
                   }
@@ -182,9 +180,8 @@ const SecureQRToastBase = ({
               console.log('SecureQRToastContent', value, valueUr);
               if (valueUr) {
                 void (async () => {
-                  const { airGapUrUtils } = await import(
-                    '@onekeyhq/qr-wallet-sdk'
-                  );
+                  const { airGapUrUtils } =
+                    await import('@onekeyhq/qr-wallet-sdk');
                   const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
                   console.log(qrcodeDetails);
                 })();

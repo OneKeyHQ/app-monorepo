@@ -6,8 +6,8 @@ import type {
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
 import type {
-  IDesktopApiLegacy,
   IDesktopApiBridge,
+  IDesktopApiLegacy,
   IDesktopGlobals,
 } from '@onekeyhq/shared/types/desktop';
 import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
@@ -87,7 +87,12 @@ declare global {
     // Desktop internal (contextBridge-exposed)
     desktopApi: IDesktopApiLegacy;
     desktopApiBridge: IDesktopApiBridge;
-    $mmkvSync: (args: { method: string; id: string; key?: string; value?: unknown }) => any;
+    $mmkvSync: (args: {
+      method: string;
+      id: string;
+      key?: string;
+      value?: unknown;
+    }) => any;
     ONEKEY_DESKTOP_GLOBALS_GETTER: () => IDesktopGlobals | undefined;
     ONEKEY_DESKTOP_DEEP_LINKS_GETTER: () => any[];
     ONEKEY_DESKTOP_DEEP_LINKS_CLEAR: () => void;
@@ -108,7 +113,12 @@ declare global {
   var desktopApi: IDesktopApiLegacy;
   var desktopApiProxy: DesktopApiProxy;
   var desktopApiBridge: IDesktopApiBridge;
-  var $mmkvSync: (args: { method: string; id: string; key?: string; value?: unknown }) => any;
+  var $mmkvSync: (args: {
+    method: string;
+    id: string;
+    key?: string;
+    value?: unknown;
+  }) => any;
   var ONEKEY_DESKTOP_GLOBALS_GETTER: () => IDesktopGlobals | undefined;
   var ONEKEY_DESKTOP_DEEP_LINKS_GETTER: () => any[];
   var ONEKEY_DESKTOP_DEEP_LINKS_CLEAR: () => void;

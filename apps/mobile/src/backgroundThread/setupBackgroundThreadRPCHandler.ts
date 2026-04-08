@@ -5,7 +5,6 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
   BACKGROUND_THREAD_REQUEST_KEY_PREFIX,
-  WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX,
   type IBackgroundThreadAppEventRequest,
   type IBackgroundThreadBridgeCallRequest,
   type IBackgroundThreadBridgeChannel,
@@ -15,6 +14,7 @@ import {
   type IBackgroundThreadJotaiStateBroadcastPayload,
   type IBackgroundThreadRequest,
   type IBackgroundThreadServiceCallRequest,
+  WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX,
   buildBackgroundThreadAppEventKey,
   buildBackgroundThreadBridgeSendKey,
   buildBackgroundThreadJotaiStateKey,
@@ -407,7 +407,9 @@ function handleWebEmbedBridgeResponse(
   }
 }
 
-export function callWebEmbedBridgeViaMainThread(data: unknown): Promise<unknown> {
+export function callWebEmbedBridgeViaMainThread(
+  data: unknown,
+): Promise<unknown> {
   const sharedRPC = getSharedRPC();
   if (!sharedRPC) {
     return Promise.reject(

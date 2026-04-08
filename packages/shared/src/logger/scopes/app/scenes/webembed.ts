@@ -240,11 +240,7 @@ export class WebembedScene extends BaseScene {
   }
 
   @LogToLocal()
-  public webEmbedWaitRemoteApiReady({
-    isReady,
-  }: {
-    isReady: boolean;
-  }) {
+  public webEmbedWaitRemoteApiReady({ isReady }: { isReady: boolean }) {
     return { isReady };
   }
 

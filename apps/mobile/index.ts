@@ -32,14 +32,20 @@ try {
   if (_raw) {
     (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__ = JSON.parse(_raw);
     // eslint-disable-next-line no-console
-    console.log(`[StartupTiming] MMKV globalAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`);
+    console.log(
+      `[StartupTiming] MMKV globalAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
+    );
   }
   // Pre-read context atom snapshot (separate key, for contextAtom injection)
-  const _ctxRaw = _syncStorage.getString(_keys.onekey_jotai_context_atoms_snapshot);
+  const _ctxRaw = _syncStorage.getString(
+    _keys.onekey_jotai_context_atoms_snapshot,
+  );
   if (_ctxRaw) {
     (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = JSON.parse(_ctxRaw);
     // eslint-disable-next-line no-console
-    console.log(`[StartupTiming] MMKV contextAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`);
+    console.log(
+      `[StartupTiming] MMKV contextAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
+    );
   }
 } catch {
   /* MMKV not available yet */
@@ -64,7 +70,9 @@ if (!__DEV__) {
     installProdBundleLoader(getNativeSplitBundleLoader());
   }
   // eslint-disable-next-line no-console
-  console.log(`[StartupTiming] segment loader installed in ${Date.now() - segLoaderStart}ms (+${Date.now() - __entryStart}ms)`);
+  console.log(
+    `[StartupTiming] segment loader installed in ${Date.now() - segLoaderStart}ms (+${Date.now() - __entryStart}ms)`,
+  );
 }
 
 // Pre-warm critical home page icon segments so they're loaded by first render.
@@ -96,7 +104,9 @@ if (!__DEV__) {
 const transportStart = Date.now();
 require('./src/backgroundThread/setupMainThreadBackgroundRunner');
 // eslint-disable-next-line no-console
-console.log(`[StartupTiming] setupMainThreadBackgroundRunner in ${Date.now() - transportStart}ms (+${Date.now() - __entryStart}ms)`);
+console.log(
+  `[StartupTiming] setupMainThreadBackgroundRunner in ${Date.now() - transportStart}ms (+${Date.now() - __entryStart}ms)`,
+);
 
 const importsStart = Date.now();
 const { I18nManager } =
@@ -108,7 +118,9 @@ const { ReactNativeDeviceUtils } =
   require('@onekeyfe/react-native-device-utils') as IReactNativeDeviceUtilsModule;
 const App = (require('./App') as IAppModule).default;
 // eslint-disable-next-line no-console
-console.log(`[StartupTiming] imports (RN+Expo+Sentry+App) in ${Date.now() - importsStart}ms (+${Date.now() - __entryStart}ms)`);
+console.log(
+  `[StartupTiming] imports (RN+Expo+Sentry+App) in ${Date.now() - importsStart}ms (+${Date.now() - __entryStart}ms)`,
+);
 
 ReactNativeDeviceUtils.initEventListeners();
 initSentry();

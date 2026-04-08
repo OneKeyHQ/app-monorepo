@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { syncStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
-import { EAtomNames } from './atomNames';
+import type { EAtomNames } from './atomNames';
 import { jotaiInitFromUi } from './jotaiInitFromUi';
 
 import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
@@ -82,9 +82,12 @@ export class JotaiBgSync {
     if (platformEnv.isNative) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { NativeLogger, LogLevel } = require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+        const { NativeLogger, LogLevel } =
+          require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
         NativeLogger.write(LogLevel.Info, `[JotaiBgSync] ${msg}`);
-      } catch { /* noop */ }
+      } catch {
+        /* noop */
+      }
     }
   }
 

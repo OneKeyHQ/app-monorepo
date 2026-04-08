@@ -226,10 +226,10 @@ class ServiceDApp extends ServiceBase {
     } else {
       // Background thread: no navigation ref available.
       // Relay navigation to main thread via app event bus.
-      appEventBus.emit(
-        EAppEventBusNames.NavigateModalFromBackgroundThread,
-        { screen: modalParams.screen, params: modalParams.params },
-      );
+      appEventBus.emit(EAppEventBusNames.NavigateModalFromBackgroundThread, {
+        screen: modalParams.screen,
+        params: modalParams.params,
+      });
     }
   };
 

@@ -43,11 +43,11 @@ import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
   useFlattenAggregateTokensMapAtom,
+  useRenderedTokenListCacheAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
   useSmallBalanceTokenListAtom,
-  useRenderedTokenListCacheAtom,
   useTokenListAtom,
   useTokenListMapAtom,
   useTokenListSortAtom,
@@ -332,7 +332,14 @@ function TokenListViewCmp(props: IProps) {
         networkId,
       });
     }
-  }, [tokens, tokenListState.initialized, tokenListState.isRefreshing, setRenderedTokenListCache, accountId, networkId]);
+  }, [
+    tokens,
+    tokenListState.initialized,
+    tokenListState.isRefreshing,
+    setRenderedTokenListCache,
+    accountId,
+    networkId,
+  ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
 
@@ -423,40 +430,37 @@ function TokenListViewCmp(props: IProps) {
     };
   }, []);
 
-  const showSkeleton = useMemo(
-    () => {
-      // If we have a cached rendered token list matching current account, skip skeleton
-      const cache = renderedTokenListCacheRef.current;
-      if (
-        cache.initialized &&
-        cache.tokens.length > 0 &&
-        cache.accountId === accountId &&
-        cache.networkId === networkId
-      ) {
-        return false;
-      }
-      return (
-        (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
-        (!isTokenSelector && searchTokenState.isSearching) ||
-        (!tokenListState.initialized && tokenListState.isRefreshing) ||
-        (!activeAccountTokenListState.initialized &&
-          showActiveAccountTokenList &&
-          activeAccountTokenListState.isRefreshing)
-      );
-    },
-    [
-      isTokenSelector,
-      tokenSelectorSearchTokenState.isSearching,
-      searchTokenState.isSearching,
-      tokenListState.initialized,
-      tokenListState.isRefreshing,
-      activeAccountTokenListState.initialized,
-      activeAccountTokenListState.isRefreshing,
-      showActiveAccountTokenList,
-      accountId,
-      networkId,
-    ],
-  );
+  const showSkeleton = useMemo(() => {
+    // If we have a cached rendered token list matching current account, skip skeleton
+    const cache = renderedTokenListCacheRef.current;
+    if (
+      cache.initialized &&
+      cache.tokens.length > 0 &&
+      cache.accountId === accountId &&
+      cache.networkId === networkId
+    ) {
+      return false;
+    }
+    return (
+      (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
+      (!isTokenSelector && searchTokenState.isSearching) ||
+      (!tokenListState.initialized && tokenListState.isRefreshing) ||
+      (!activeAccountTokenListState.initialized &&
+        showActiveAccountTokenList &&
+        activeAccountTokenListState.isRefreshing)
+    );
+  }, [
+    isTokenSelector,
+    tokenSelectorSearchTokenState.isSearching,
+    searchTokenState.isSearching,
+    tokenListState.initialized,
+    tokenListState.isRefreshing,
+    activeAccountTokenListState.initialized,
+    activeAccountTokenListState.isRefreshing,
+    showActiveAccountTokenList,
+    accountId,
+    networkId,
+  ]);
 
   useEffect(() => {
     if (showSkeleton) {

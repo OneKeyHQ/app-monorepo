@@ -49,6 +49,7 @@ const apiProxyStart = Date.now();
 bgEntryLog(`importing backgroundApiProxy (+${apiProxyStart - bgEntryStart}ms)`);
 const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
   require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+
 bgEntryLog(
   `backgroundApiProxy ready in ${Date.now() - apiProxyStart}ms (+${Date.now() - bgEntryStart}ms)`,
 );

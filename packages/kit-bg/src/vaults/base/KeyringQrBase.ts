@@ -258,9 +258,8 @@ export abstract class KeyringQrBase extends KeyringBase {
         index: indexes[0],
       });
 
-    const { OneKeyRequestDeviceQR } = await import(
-      '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR'
-    );
+    const { OneKeyRequestDeviceQR } =
+      await import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR');
     const requestQR = new OneKeyRequestDeviceQR({
       requestId: generateUUID(),
       xfp: wallet.xfp || '',

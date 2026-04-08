@@ -60,9 +60,11 @@ export function wrapAtomPro(
         const g = globalThis as any;
         if (!g.__onekeyGlobalSnapshotCache) {
           // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { syncStorage: ss } = require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+          const { syncStorage: ss } =
+            require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
           // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { EAppSyncStorageKeys: sk } = require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+          const { EAppSyncStorageKeys: sk } =
+            require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
           const raw = ss.getString(sk.onekey_jotai_atoms_snapshot);
           g.__onekeyGlobalSnapshotCache = raw ? JSON.parse(raw) : {};
           g.__onekeyGlobalSnapshotStorage = { ss, sk };
@@ -77,10 +79,14 @@ export function wrapAtomPro(
                 sk.onekey_jotai_atoms_snapshot,
                 JSON.stringify(g.__onekeyGlobalSnapshotCache),
               );
-            } catch { /* noop */ }
+            } catch {
+              /* noop */
+            }
           }, 500);
         }
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     }
   };
   const proAtom = atom(

@@ -301,12 +301,13 @@ export function QRCode({
       }
       void (async () => {
         const { airGapUrUtils } = await import('@onekeyhq/qr-wallet-sdk');
-        const { nextPart, encodeWhole } =
-          airGapUrUtils.createAnimatedUREncoder({
+        const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder(
+          {
             ur: valueUr,
             maxFragmentLength: 30,
             firstSeqNum: 0,
-          });
+          },
+        );
         if (process.env.NODE_ENV !== 'production') {
           console.log('QRCode >>>> encodeWhole', encodeWhole());
           console.log(`\n\n ${encodeWhole().join('\n\n').toUpperCase()} \n\n`);
