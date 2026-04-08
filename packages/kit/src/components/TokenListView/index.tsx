@@ -279,11 +279,14 @@ function TokenListViewCmp(props: IProps) {
     }
 
     // Use cached rendered list on cold start when real data hasn't loaded yet.
+    // Only use cache if it matches the current account+network.
     if (
       resultTokens.length === 0 &&
       !tokenListState.initialized &&
       renderedTokenListCache.initialized &&
-      renderedTokenListCache.tokens.length > 0
+      renderedTokenListCache.tokens.length > 0 &&
+      renderedTokenListCache.accountId === accountId &&
+      renderedTokenListCache.networkId === networkId
     ) {
       return renderedTokenListCache.tokens;
     }
@@ -313,14 +316,17 @@ function TokenListViewCmp(props: IProps) {
     if (
       tokens.length > 0 &&
       tokenListState.initialized &&
-      !tokenListState.isRefreshing
+      !tokenListState.isRefreshing &&
+      accountId
     ) {
       setRenderedTokenListCache({
         tokens,
         initialized: true,
+        accountId,
+        networkId,
       });
     }
-  }, [tokens, tokenListState.initialized, tokenListState.isRefreshing, setRenderedTokenListCache]);
+  }, [tokens, tokenListState.initialized, tokenListState.isRefreshing, setRenderedTokenListCache, accountId, networkId]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
 

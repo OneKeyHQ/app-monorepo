@@ -202,6 +202,8 @@ export const {
 } = contextAtom<{
   tokens: IAccountToken[];
   initialized: boolean;
+  accountId?: string;
+  networkId?: string;
 }>(
   { tokens: [], initialized: false },
   { name: 'ctx:renderedTokenListCacheAtom', coldStartCache: true },
