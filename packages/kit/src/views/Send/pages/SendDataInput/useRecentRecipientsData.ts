@@ -358,8 +358,7 @@ export function useRecentRecipientsData({
           Array.from(recipientExtraMap.values()).some((r) => !!r.memo);
         if (
           accountId &&
-          (recipientAddresses.length === 0 ||
-            (!isEvmNetwork && !hasMemoData))
+          (recipientAddresses.length === 0 || (!isEvmNetwork && !hasMemoData))
         ) {
           try {
             const currentNetwork =
