@@ -1,5 +1,5 @@
 /* eslint-disable no-continue */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
@@ -58,7 +58,7 @@ function buildReceiverSelectorAccountItem(
 }
 
 function useReceiverSelectorAccountItems() {
-  const [selectorAccountItems, setSelectorAccountItems] = useState<
+  const selectorAccountItemsRef = useRef<
     Record<string, IBulkSendSelectorAccountItem>
   >({});
 
@@ -67,11 +67,9 @@ function useReceiverSelectorAccountItems() {
       const selectorAccountItem =
         buildReceiverSelectorAccountItem(activeAccount);
       if (selectorAccountItem) {
-        setSelectorAccountItems((prev) => ({
-          ...prev,
-          [buildBulkSendSelectorAddressKey(selectorAccountItem.address)]:
-            selectorAccountItem,
-        }));
+        selectorAccountItemsRef.current[
+          buildBulkSendSelectorAddressKey(selectorAccountItem.address)
+        ] = selectorAccountItem;
         void backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
       }
     },
@@ -79,7 +77,7 @@ function useReceiverSelectorAccountItems() {
   );
 
   return {
-    selectorAccountItems,
+    selectorAccountItemsRef,
     handleActiveAccountChange,
   };
 }
@@ -92,7 +90,7 @@ function SingleLineReceiverInput() {
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const validationSeqRef = useRef(0);
-  const { selectorAccountItems, handleActiveAccountChange } =
+  const { selectorAccountItemsRef, handleActiveAccountChange } =
     useReceiverSelectorAccountItems();
 
   const handleValidateAddresses = useCallback(
@@ -140,7 +138,9 @@ function SingleLineReceiverInput() {
       if (isEnableTransferAllowList && selectedNetworkId) {
         let isAllowed = false;
         const fallbackAccountItem =
-          selectorAccountItems[buildBulkSendSelectorAddressKey(trimmedAddress)];
+          selectorAccountItemsRef.current[
+            buildBulkSendSelectorAddressKey(trimmedAddress)
+          ];
         try {
           const isBTCNetwork = networkUtils.isBTCNetwork(selectedNetworkId);
           let walletAccountItems: { accountId: string }[] =
@@ -213,7 +213,7 @@ function SingleLineReceiverInput() {
       network?.id,
       isEnableTransferAllowList,
       setDuplicateAddressCount,
-      selectorAccountItems,
+      selectorAccountItemsRef,
     ],
   );
 
@@ -254,7 +254,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
   const intl = useIntl();
   const { selectedAccountId, selectedNetworkId, selectedToken } =
     useBulkSendAddressesInputContext();
-  const { selectorAccountItems, handleActiveAccountChange } =
+  const { selectorAccountItemsRef, handleActiveAccountChange } =
     useReceiverSelectorAccountItems();
 
   const form = useFormContext();
@@ -273,7 +273,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     checkDuplicates: false,
     checkAllowlist: true,
     selectedAccountId,
-    selectorAccountItems,
+    selectorAccountItemsRef,
   });
 
   const validate = useCallback(
@@ -392,7 +392,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     selectedToken,
     setDuplicateAddressCount,
   } = useBulkSendAddressesInputContext();
-  const { selectorAccountItems, handleActiveAccountChange } =
+  const { selectorAccountItemsRef, handleActiveAccountChange } =
     useReceiverSelectorAccountItems();
 
   const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
@@ -406,7 +406,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     selectedAccountId,
     duplicateWarningMode: true,
     onDuplicateAddressCountChange: setDuplicateAddressCount,
-    selectorAccountItems,
+    selectorAccountItemsRef,
   });
 
   const validate = useCallback(

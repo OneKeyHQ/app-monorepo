@@ -1,5 +1,5 @@
 /* eslint-disable no-continue */
-import { useCallback, useRef, useState } from 'react';
+import { type MutableRefObject, useCallback, useRef, useState } from 'react';
 
 import pLimit from 'p-limit';
 import { useIntl } from 'react-intl';
@@ -40,7 +40,9 @@ type IUseMultiLineAddressValidationParams = {
   onResolvedAccountIds?: (ids: Record<number, string>) => void;
   onDuplicateAddressCountChange?: (count: number) => void;
   duplicateWarningMode?: boolean;
-  selectorAccountItems?: Record<string, IBulkSendSelectorAccountItem>;
+  selectorAccountItemsRef?: MutableRefObject<
+    Record<string, IBulkSendSelectorAccountItem>
+  >;
 };
 
 function useMultiLineAddressValidation(
@@ -60,7 +62,7 @@ function useMultiLineAddressValidation(
     onResolvedAccountIds,
     onDuplicateAddressCountChange,
     duplicateWarningMode = false,
-    selectorAccountItems,
+    selectorAccountItemsRef,
   } = params;
 
   const intl = useIntl();
@@ -204,7 +206,9 @@ function useMultiLineAddressValidation(
     ): Promise<{ accountId: string } | { error: string }> => {
       const trimmedAddress = address.trim();
       const fallbackAccountItem =
-        selectorAccountItems?.[buildBulkSendSelectorAddressKey(trimmedAddress)];
+        selectorAccountItemsRef?.current[
+          buildBulkSendSelectorAddressKey(trimmedAddress)
+        ];
 
       try {
         const walletAccountItems =
@@ -298,7 +302,7 @@ function useMultiLineAddressValidation(
         };
       }
     },
-    [intl, selectorAccountItems],
+    [intl, selectorAccountItemsRef],
   );
 
   const handleValidateAddresses = useCallback(
@@ -567,7 +571,7 @@ function useMultiLineAddressValidation(
               limit(async () => {
                 const trimmedAddress = address.trim();
                 const fallbackAccountItem =
-                  selectorAccountItems?.[
+                  selectorAccountItemsRef?.current[
                     buildBulkSendSelectorAddressKey(trimmedAddress)
                   ];
 
@@ -717,7 +721,7 @@ function useMultiLineAddressValidation(
       resolveAccountId,
       resolveAccountIdForAddress,
       duplicateWarningMode,
-      selectorAccountItems,
+      selectorAccountItemsRef,
     ],
   );
 
