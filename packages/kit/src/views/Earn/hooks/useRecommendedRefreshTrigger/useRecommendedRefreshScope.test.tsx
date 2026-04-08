@@ -2,6 +2,8 @@
 
 import { renderHook, waitFor } from '@testing-library/react';
 
+import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
+
 import { useRecommendedRefreshScope } from './useRecommendedRefreshScope';
 
 type IGetEarnAvailableAccounts = (params: {
@@ -62,6 +64,38 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   };
 });
 
+function buildRecommendAsset(
+  overrides: Partial<IRecommendAsset> = {},
+): IRecommendAsset {
+  return {
+    name: 'Tether USD',
+    symbol: 'USDT',
+    logoURI: 'https://assets.onekey.so/usdt.png',
+    protocols: [
+      {
+        networkId: 'evm--1',
+        provider: 'lido',
+      },
+    ],
+    aprWithoutFee: '0',
+    aprInfo: {
+      normal: {
+        text: '0%',
+        color: '$textSuccess',
+      },
+    },
+    bgColor: '$bgSuccess',
+    available: {
+      text: 'Available',
+      color: '$textSuccess',
+    },
+    isRecommended: true,
+    isPinedRecommend: false,
+    badges: [],
+    ...overrides,
+  };
+}
+
 describe('useRecommendedRefreshScope', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -85,17 +119,7 @@ describe('useRecommendedRefreshScope', () => {
         indexedAccountId: 'hd-indexed-1',
         networkId: 'onekeyall--0',
         enableFetch: true,
-        recommendedTokens: [
-          {
-            symbol: 'USDT',
-            protocols: [
-              {
-                networkId: 'evm--1',
-                provider: 'lido',
-              },
-            ],
-          } as never,
-        ],
+        recommendedTokens: [buildRecommendAsset()],
       }),
     );
 
@@ -116,6 +140,44 @@ describe('useRecommendedRefreshScope', () => {
         },
       ]),
     ).toBe(false);
+
+    expect(
+      result.current.shouldRefreshByAccounts([
+        {
+          accountId: 'acc-eth',
+          networkId: 'evm--1',
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it('falls back to the all-network account when scope loading fails', async () => {
+    mockGetEarnAvailableAccounts.mockRejectedValue(new Error('network error'));
+
+    const { result } = renderHook(() =>
+      useRecommendedRefreshScope({
+        accountId: 'hd-1',
+        indexedAccountId: 'hd-indexed-1',
+        networkId: 'onekeyall--0',
+        enableFetch: true,
+        recommendedTokens: [buildRecommendAsset()],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetEarnAvailableAccounts).toHaveBeenCalledWith({
+        accountId: 'hd-1',
+        indexedAccountId: 'hd-indexed-1',
+        networkId: 'onekeyall--0',
+      });
+    });
+
+    expect(result.current.historyRefreshAccounts).toEqual([
+      {
+        accountId: 'hd-1',
+        networkId: 'onekeyall--0',
+      },
+    ]);
 
     expect(
       result.current.shouldRefreshByAccounts([

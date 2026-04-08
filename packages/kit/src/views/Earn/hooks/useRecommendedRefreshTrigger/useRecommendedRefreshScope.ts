@@ -129,7 +129,20 @@ export function useRecommendedRefreshScope({
     const allNetworkId = getNetworkIdsMap().onekeyall;
 
     if (networkId === allNetworkId) {
-      return scopedRefreshEligibleAccounts ?? [];
+      if (scopedRefreshEligibleAccounts) {
+        return scopedRefreshEligibleAccounts;
+      }
+
+      if (!accountId) {
+        return [];
+      }
+
+      return [
+        {
+          accountId,
+          networkId,
+        },
+      ];
     }
 
     if (scopedRefreshEligibleAccounts?.length) {
