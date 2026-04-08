@@ -1,8 +1,8 @@
 # Wallet Skill
 
 ## Pre-flight
-1. `onekey version` — if not installed → `npm i -g @onekeyhq/cli`
-2. `npm view @onekeyhq/cli version` — if not latest → `npm update -g @onekeyhq/cli`
+1. `onekey version` — if not installed → `npm i -g @onekeyfe/cli`
+2. `npm view @onekeyfe/cli version` — if not latest → `npm update -g @onekeyfe/cli`
 
 ## Interface Discovery
 - Run `onekey schema <cmd>` for exact input/output JSON Schema
