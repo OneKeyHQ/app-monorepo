@@ -186,7 +186,7 @@ describe('usePromiseResult', () => {
       expect(swrCacheUtils.get('write-test')).toBe('fresh-value');
     });
 
-    it('does not override explicit initResult with cached value', async () => {
+    it('overrides explicit initResult with cached value', async () => {
       swrCacheUtils.set('override-test', 'cached-value');
 
       const method = jest.fn(async () => 'fresh-value');
@@ -198,7 +198,24 @@ describe('usePromiseResult', () => {
         }),
       );
 
-      // Should use explicit initResult, not cached value
+      // Cache hit should take precedence over explicit initResult.
+      expect(result.current.result).toBe('cached-value');
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('fresh-value');
+      });
+    });
+
+    it('uses explicit initResult when cache misses', async () => {
+      const method = jest.fn(async () => 'fresh-value');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'explicit-init',
+          swrKey: 'missing-cache-key',
+        }),
+      );
+
       expect(result.current.result).toBe('explicit-init');
 
       await waitFor(() => {

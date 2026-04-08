@@ -108,14 +108,14 @@ export function usePromiseResult<T>(
   const swrKey = options.swrKey;
   const swrKeyRef = useRef(swrKey);
   swrKeyRef.current = swrKey;
-  const swrInitResult = useMemo(() => {
+  const swrCacheEntry = useMemo(() => {
     if (!swrKey) return undefined;
-    if (options.initResult !== undefined) return undefined;
-    return swrCacheUtils.get<T>(swrKey);
+    return swrCacheUtils.getWithTimestamp<T>(swrKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [swrKey]);
+  // swrKey cache hit always has higher priority than initResult.
   const effectiveInitResult =
-    options.initResult !== undefined ? options.initResult : swrInitResult;
+    swrCacheEntry !== undefined ? swrCacheEntry.data : options.initResult;
 
   const [result, setResult] = useState<T | undefined>(
     effectiveInitResult as any,

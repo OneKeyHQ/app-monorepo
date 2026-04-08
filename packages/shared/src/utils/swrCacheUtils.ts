@@ -45,13 +45,6 @@ function loadStore(): ISWRStore {
   return _cache;
 }
 
-function scheduleFlush() {
-  if (_flushTimer !== undefined) {
-    clearTimeout(_flushTimer);
-  }
-  _flushTimer = setTimeout(flush, FLUSH_DEBOUNCE_MS);
-}
-
 function flush() {
   if (!_dirty || !_cache) return;
   try {
@@ -60,6 +53,13 @@ function flush() {
   } catch {
     // MMKV write failure is non-fatal; cache is best-effort.
   }
+}
+
+function scheduleFlush() {
+  if (_flushTimer !== undefined) {
+    clearTimeout(_flushTimer);
+  }
+  _flushTimer = setTimeout(flush, FLUSH_DEBOUNCE_MS);
 }
 
 // --- Public API ---
@@ -127,8 +127,30 @@ function flushNow(): void {
 
 // --- Centralized SWR key builders ---
 export const swrKeys = {
-  allNetworksCompatible: (walletId: string, networkId?: string) =>
-    `allNetCompat:${walletId}:${networkId ?? ''}`,
+  allNetworksCompatible: ({
+    walletId,
+    networkId,
+    filterNetworksWithoutAccount,
+    indexedAccountId,
+    withNetworksInfo,
+    enabledNetworkIdsKey,
+  }: {
+    walletId: string;
+    networkId?: string;
+    filterNetworksWithoutAccount?: boolean;
+    indexedAccountId?: string;
+    withNetworksInfo?: boolean;
+    enabledNetworkIdsKey?: string;
+  }) =>
+    [
+      'allNetCompat',
+      walletId,
+      networkId ?? '',
+      filterNetworksWithoutAccount ? '1' : '0',
+      indexedAccountId ?? '',
+      withNetworksInfo ? '1' : '0',
+      enabledNetworkIdsKey ?? '',
+    ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
 };
 

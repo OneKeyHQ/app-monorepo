@@ -819,6 +819,15 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   enabledNetworks?: IServerNetwork[];
 }) {
   const initResult = useMemo(() => getEmptyEnabledNetworksResult(), []);
+  const enabledNetworkIdsKey = useMemo(() => {
+    if (!enabledNetworksParam) {
+      return '';
+    }
+    return enabledNetworksParam
+      .map((network) => network.id)
+      .sort()
+      .join(',');
+  }, [enabledNetworksParam]);
 
   const { result, run } = usePromiseResult(
     async () => {
@@ -981,7 +990,14 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       initResult,
       revalidateOnFocus: true,
       swrKey: walletId
-        ? swrKeys.allNetworksCompatible(walletId, networkId)
+        ? swrKeys.allNetworksCompatible({
+            walletId,
+            networkId,
+            filterNetworksWithoutAccount,
+            indexedAccountId,
+            withNetworksInfo,
+            enabledNetworkIdsKey,
+          })
         : undefined,
     },
   );
