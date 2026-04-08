@@ -818,9 +818,7 @@ export default function RecipientQuickSelect({
   const isRecentHidden = hideTabs?.includes('recent') ?? false;
   // Use controlled state from parent if provided, otherwise use local state
   const [localActiveTab, setLocalActiveTab] =
-    useState<IRecipientQuickSelectTab>(
-      isRecentHidden ? 'account' : 'recent',
-    );
+    useState<IRecipientQuickSelectTab>(isRecentHidden ? 'account' : 'recent');
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
 
@@ -937,7 +935,14 @@ export default function RecipientQuickSelect({
     if (nextTab) {
       setActiveTab(nextTab);
     }
-  }, [isSearchMode, trimmedSearchKey, activeTab, tabMatchStatus, setActiveTab, hideTabs]);
+  }, [
+    isSearchMode,
+    trimmedSearchKey,
+    activeTab,
+    tabMatchStatus,
+    setActiveTab,
+    hideTabs,
+  ]);
 
   const tabOptions = useMemo(() => {
     const formatLabel = (label: string, tab: IRecipientQuickSelectTab) => {
@@ -1006,8 +1011,7 @@ export default function RecipientQuickSelect({
         />
         <Stack mx={-20} pb="$3">
           {/* Render active tab, or visited tabs (hidden with display:none to avoid unmount crashes) */}
-          {!isRecentHidden &&
-          (activeTab === 'recent' || visitedTabs.recent) ? (
+          {!isRecentHidden && (activeTab === 'recent' || visitedTabs.recent) ? (
             <Stack display={activeTab === 'recent' ? 'flex' : 'none'}>
               <RecentRecipients
                 compact
