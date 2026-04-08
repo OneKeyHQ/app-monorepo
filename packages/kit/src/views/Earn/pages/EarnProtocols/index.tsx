@@ -147,6 +147,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         accountId,
         networkId: accountNetworkId,
         filterNetworkId,
+        includeWithdrawOnly: true,
       });
 
       setProtocolData(data);
