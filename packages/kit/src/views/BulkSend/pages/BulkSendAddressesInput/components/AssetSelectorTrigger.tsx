@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -26,11 +26,11 @@ type IResolvedSelectorAccount = {
 };
 
 function AssetSelectorTrigger({
-  senderAddresses,
+  getSenderAddresses,
   activeAccountId,
   activeIndexedAccountId,
 }: {
-  senderAddresses?: string;
+  getSenderAddresses: () => string;
   activeAccountId?: string;
   activeIndexedAccountId?: string;
 }) {
@@ -72,6 +72,19 @@ function AssetSelectorTrigger({
       : intl.formatMessage({ id: ETranslations.token_selector_title });
   }, [selectedToken, media.gtMd, intl]);
 
+  const avatarElement = useMemo(
+    () => (
+      <Token
+        key={displayNetworkId}
+        tokenImageUri={selectedToken?.logoURI}
+        size="lg"
+        showNetworkIcon
+        networkId={displayNetworkId}
+      />
+    ),
+    [displayNetworkId, selectedToken?.logoURI],
+  );
+
   const {
     result: { availableNetworkIds, unavailableNetworkIds },
   } = usePromiseResult(
@@ -84,7 +97,7 @@ function AssetSelectorTrigger({
         return {
           availableNetworkIds: networks
             .filter(
-              (item) => !networkUtils.isLightningNetworkByNetworkId(item.id),
+              (item) => !bulkSendUtils.isBulkSendExcludedNetworkId(item.id),
             )
             .map((item) => item.id),
           unavailableNetworkIds: [],
@@ -200,7 +213,7 @@ function AssetSelectorTrigger({
     async (
       networkId: string,
     ): Promise<IResolvedSelectorAccount | undefined> => {
-      const nonEmptyLines = (senderAddresses ?? '')
+      const nonEmptyLines = getSenderAddresses()
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean);
@@ -229,7 +242,7 @@ function AssetSelectorTrigger({
       return undefined;
     },
     [
-      senderAddresses,
+      getSenderAddresses,
       resolvedSenderAccountIds,
       resolveAccountContextForAddress,
     ],
@@ -402,15 +415,7 @@ function AssetSelectorTrigger({
       )}
       <ListItem
         drillIn={media.md}
-        renderAvatar={() => (
-          <Token
-            key={displayNetworkId}
-            tokenImageUri={selectedToken?.logoURI}
-            size="lg"
-            showNetworkIcon
-            networkId={displayNetworkId}
-          />
-        )}
+        renderAvatar={avatarElement}
         title={title}
         subtitle={selectedToken?.networkName ?? network?.name}
         bg="$bgSubdued"
@@ -442,4 +447,4 @@ function AssetSelectorTrigger({
   );
 }
 
-export default AssetSelectorTrigger;
+export default memo(AssetSelectorTrigger);
