@@ -369,11 +369,18 @@ export function HomePageView({
 
   const renderHeader = useCallback(() => {
     return (
-      <>
+      <Stack
+        onLayout={(e) => {
+          layoutDiag(
+            'TabsHeader',
+            `h=${e.nativeEvent.layout.height.toFixed(1)}`,
+          );
+        }}
+      >
         <RiskApprovalAlert />
         <WatchOnlyAlert />
         <HomeHeaderContainer />
-      </>
+      </Stack>
     );
   }, []);
 
