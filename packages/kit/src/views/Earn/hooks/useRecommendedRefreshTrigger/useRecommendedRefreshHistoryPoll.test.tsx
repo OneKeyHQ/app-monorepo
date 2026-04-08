@@ -55,25 +55,23 @@ describe('useRecommendedRefreshHistoryPoll', () => {
     jest.clearAllMocks();
   });
 
-  it('polls scoped history accounts and refreshes when a watched account changes', async () => {
+  it('uses one all-network history request and refreshes when a watched account changes', async () => {
     const scheduleRecommendedRefresh = jest.fn();
     const shouldRefreshByAccounts = jest.fn(() => true);
 
-    mockFetchAccountHistory
-      .mockResolvedValueOnce({
-        accountsWithChangedTxs: [],
-      })
-      .mockResolvedValueOnce({
-        accountsWithChangedTxs: [
-          {
-            accountId: 'child-2',
-            networkId: 'sol--101',
-          },
-        ],
-      });
+    mockFetchAccountHistory.mockResolvedValueOnce({
+      accountsWithChangedTxs: [
+        {
+          accountId: 'child-2',
+          networkId: 'sol--101',
+        },
+      ],
+    });
 
     renderHook(() =>
       useRecommendedRefreshHistoryPoll({
+        accountId: 'hd-1',
+        networkId: 'onekeyall--0',
         enableFetch: true,
         historyRefreshAccounts: [
           {
@@ -91,16 +89,13 @@ describe('useRecommendedRefreshHistoryPoll', () => {
     );
 
     await waitFor(() => {
-      expect(mockFetchAccountHistory).toHaveBeenNthCalledWith(1, {
-        accountId: 'child-1',
-        networkId: 'evm--1',
+      expect(mockFetchAccountHistory).toHaveBeenCalledWith({
+        accountId: 'hd-1',
+        networkId: 'onekeyall--0',
       });
     });
 
-    expect(mockFetchAccountHistory).toHaveBeenNthCalledWith(2, {
-      accountId: 'child-2',
-      networkId: 'sol--101',
-    });
+    expect(mockFetchAccountHistory).toHaveBeenCalledTimes(1);
     expect(shouldRefreshByAccounts).toHaveBeenCalledWith([
       {
         accountId: 'child-2',

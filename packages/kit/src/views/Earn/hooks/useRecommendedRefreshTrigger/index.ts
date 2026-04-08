@@ -40,6 +40,8 @@ export function useRecommendedRefreshTrigger({
   });
 
   useRecommendedRefreshHistoryPoll({
+    accountId,
+    networkId,
     enableFetch,
     historyRefreshAccounts,
     shouldRefreshByAccounts,
@@ -55,6 +57,8 @@ export function useRecommendedRefreshTrigger({
   });
 
   useRecommendedRefreshSwapEvents({
+    accountId,
+    networkId,
     enableFetch,
     historyRefreshAccounts,
     shouldRefreshByAccounts,

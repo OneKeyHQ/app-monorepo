@@ -58,11 +58,17 @@ describe('useRecommendedRefreshSwapEvents', () => {
 
     renderHook(() =>
       useRecommendedRefreshSwapEvents({
+        accountId: 'hd-1',
+        networkId: 'onekeyall--0',
         enableFetch: true,
         historyRefreshAccounts: [
           {
             accountId: 'hd-1',
-            networkId: 'onekeyall',
+            networkId: 'evm--1',
+          },
+          {
+            accountId: 'hd-2',
+            networkId: 'sol--101',
           },
         ],
         shouldRefreshByAccounts,
@@ -88,9 +94,11 @@ describe('useRecommendedRefreshSwapEvents', () => {
     await waitFor(() => {
       expect(mockFetchAccountHistory).toHaveBeenCalledWith({
         accountId: 'hd-1',
-        networkId: 'onekeyall',
+        networkId: 'onekeyall--0',
       });
     });
+
+    expect(mockFetchAccountHistory).toHaveBeenCalledTimes(1);
 
     expect(shouldRefreshByAccounts).toHaveBeenCalledWith([
       {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -21,11 +22,15 @@ const SWAP_HISTORY_SYNC_CHECK_DELAY = timerUtils.getTimeDurationMs({
 const SWAP_HISTORY_SYNC_MAX_RETRIES = 3;
 
 export function useRecommendedRefreshSwapEvents({
+  accountId,
+  networkId,
   enableFetch,
   historyRefreshAccounts,
   shouldRefreshByAccounts,
   scheduleRecommendedRefresh,
 }: {
+  accountId?: string;
+  networkId: string;
   enableFetch: boolean;
   historyRefreshAccounts: IRecommendedRefreshAccount[];
   shouldRefreshByAccounts: IShouldRefreshByAccounts;
@@ -55,6 +60,12 @@ export function useRecommendedRefreshSwapEvents({
       }
     };
 
+    const allNetworkId = getNetworkIdsMap().onekeyall;
+    const pollTargets =
+      networkId === allNetworkId && accountId && historyRefreshAccounts.length
+        ? [{ accountId, networkId }]
+        : historyRefreshAccounts;
+
     const runSwapHistorySyncCheck = async ({
       token,
       retryCount,
@@ -64,7 +75,7 @@ export function useRecommendedRefreshSwapEvents({
     }) => {
       try {
         const results = await Promise.all(
-          historyRefreshAccounts.map((account) =>
+          pollTargets.map((account) =>
             backgroundApiProxy.serviceHistory
               .fetchAccountHistory({
                 accountId: account.accountId,
@@ -149,8 +160,10 @@ export function useRecommendedRefreshSwapEvents({
       );
     };
   }, [
+    accountId,
     enableFetch,
     historyRefreshAccounts,
+    networkId,
     scheduleRecommendedRefresh,
     shouldRefreshByAccounts,
   ]);

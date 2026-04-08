@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -14,28 +15,40 @@ import type {
 } from './types';
 
 export function useRecommendedRefreshHistoryPoll({
+  accountId,
+  networkId,
   enableFetch,
   historyRefreshAccounts,
   shouldRefreshByAccounts,
   scheduleRecommendedRefresh,
 }: {
+  accountId?: string;
+  networkId: string;
   enableFetch: boolean;
   historyRefreshAccounts: IRecommendedRefreshAccount[];
   shouldRefreshByAccounts: IShouldRefreshByAccounts;
   scheduleRecommendedRefresh: IScheduleRecommendedRefresh;
 }) {
-  const pollTargets = useMemo(
-    () =>
-      Array.from(
-        new Map(
-          historyRefreshAccounts.map((account) => [
-            `${account.networkId}__${account.accountId}`,
-            account,
-          ]),
-        ).values(),
-      ),
-    [historyRefreshAccounts],
-  );
+  const pollTargets = useMemo(() => {
+    const allNetworkId = getNetworkIdsMap().onekeyall;
+
+    if (
+      networkId === allNetworkId &&
+      accountId &&
+      historyRefreshAccounts.length > 0
+    ) {
+      return [{ accountId, networkId }];
+    }
+
+    return Array.from(
+      new Map(
+        historyRefreshAccounts.map((account) => [
+          `${account.networkId}__${account.accountId}`,
+          account,
+        ]),
+      ).values(),
+    );
+  }, [accountId, historyRefreshAccounts, networkId]);
 
   usePromiseResult(
     async () => {
