@@ -86,6 +86,12 @@ const srcDir = path.join(
 copyRecursiveSync(srcDir, jsSdkDestDir);
 console.log(`Copied ${srcDir} to ${jsSdkDestDir}`);
 
+// Copy translate inject source to .text-js (gitignored, like other injected files)
+copyFile(
+  './development/injected-scripts/translateInject.js',
+  './packages/kit/src/components/WebView/translateInject.text-js',
+);
+
 // Generate translate inject code as .ts module
 const generateTranslateInject = path.join(
   __dirname,
