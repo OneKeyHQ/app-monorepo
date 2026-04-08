@@ -264,7 +264,11 @@ export function useWalletBoundReferralCode({
         const isServerApiError =
           err?.className === EOneKeyErrorClassNames.OneKeyServerApiError;
 
-        if (!isServerApiError && err?.message) {
+        // Only suppress toast for server API errors when preventClose is
+        // provided — the caller (InviteCodeDialog) handles them inline via
+        // form.setError(). Other call sites have no inline display, so they
+        // still need the toast.
+        if (!(isServerApiError && preventClose) && err?.message) {
           Toast.error({
             title: err.message,
           });
