@@ -10,6 +10,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsCustomSettingsAtom,
+  usePerpsLayoutStateAtom,
   usePerpsTradesHistoryRefreshHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
@@ -28,7 +29,10 @@ import {
   ESubscriptionType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { MESSAGE_TYPES } from '../constants/messageTypes';
+import {
+  MESSAGE_TYPES,
+  PERPS_TV_MESSAGE_METHODS,
+} from '../constants/messageTypes';
 import { EMarksUpdateOperationEnum } from '../types';
 
 import type { IWebViewRef } from '../../../WebView/types';
@@ -59,6 +63,7 @@ export function usePerpsTradingViewMessageHandler({
   const marksRequestIdRef = useRef(0);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
   const [{ showTradeMarks }] = usePerpsCustomSettingsAtom();
+  const [, setLayoutState] = usePerpsLayoutStateAtom();
   const actions = useHyperliquidActions();
 
   // Use refs to maintain stable references for callbacks
@@ -369,6 +374,16 @@ export function usePerpsTradingViewMessageHandler({
           // User clicked cancel button on order line in TradingView chart
           onOrderCancel?.(messageData.data as ITVOrderCancelPayload);
           break;
+        case PERPS_TV_MESSAGE_METHODS.CHART_EXPAND: {
+          const expandData = messageData.data as
+            | { expanded?: boolean }
+            | undefined;
+          setLayoutState((prev) => ({
+            ...prev,
+            chartExpanded: expandData?.expanded ?? false,
+          }));
+          break;
+        }
         case 'tradingview_touchScroll': {
           const touchData = messageData.data as { deltaY?: number } | undefined;
           const deltaY = Number(touchData?.deltaY ?? 0);
@@ -387,6 +402,7 @@ export function usePerpsTradingViewMessageHandler({
       onChartLinesReady,
       onOrderCancel,
       onTouchScroll,
+      setLayoutState,
     ],
   );
 
