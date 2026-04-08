@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -185,6 +185,9 @@ function TokenListViewCmp(props: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const [renderedTokenListCache, setRenderedTokenListCache] =
     useRenderedTokenListCacheAtom();
+  // Use ref to avoid useMemo→useEffect→setState cycle
+  const renderedTokenListCacheRef = useRef(renderedTokenListCache);
+  renderedTokenListCacheRef.current = renderedTokenListCache;
   const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
 
   const tokenManagementEnabled =
@@ -280,15 +283,17 @@ function TokenListViewCmp(props: IProps) {
 
     // Use cached rendered list on cold start when real data hasn't loaded yet.
     // Only use cache if it matches the current account+network.
+    // Read from ref to avoid dependency cycle (useMemo→useEffect→setState→useMemo).
+    const cache = renderedTokenListCacheRef.current;
     if (
       resultTokens.length === 0 &&
       !tokenListState.initialized &&
-      renderedTokenListCache.initialized &&
-      renderedTokenListCache.tokens.length > 0 &&
-      renderedTokenListCache.accountId === accountId &&
-      renderedTokenListCache.networkId === networkId
+      cache.initialized &&
+      cache.tokens.length > 0 &&
+      cache.accountId === accountId &&
+      cache.networkId === networkId
     ) {
-      return renderedTokenListCache.tokens;
+      return cache.tokens;
     }
 
     return resultTokens;
@@ -308,7 +313,8 @@ function TokenListViewCmp(props: IProps) {
     customTokens,
     exchangeFilter,
     tokenListState.initialized,
-    renderedTokenListCache,
+    accountId,
+    networkId,
   ]);
 
   // Save rendered token list cache for cold start (in useEffect, not useMemo)
@@ -419,10 +425,13 @@ function TokenListViewCmp(props: IProps) {
 
   const showSkeleton = useMemo(
     () => {
-      // If we have a cached rendered token list, skip skeleton
+      // If we have a cached rendered token list matching current account, skip skeleton
+      const cache = renderedTokenListCacheRef.current;
       if (
-        renderedTokenListCache.initialized &&
-        renderedTokenListCache.tokens.length > 0
+        cache.initialized &&
+        cache.tokens.length > 0 &&
+        cache.accountId === accountId &&
+        cache.networkId === networkId
       ) {
         return false;
       }
@@ -444,7 +453,8 @@ function TokenListViewCmp(props: IProps) {
       activeAccountTokenListState.initialized,
       activeAccountTokenListState.isRefreshing,
       showActiveAccountTokenList,
-      renderedTokenListCache,
+      accountId,
+      networkId,
     ],
   );
 
