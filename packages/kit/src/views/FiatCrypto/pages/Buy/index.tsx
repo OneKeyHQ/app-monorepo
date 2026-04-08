@@ -6,13 +6,22 @@ import { useIntl } from 'react-intl';
 
 import { Page, SegmentControl, Stack } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import {
+  BUY_GUIDE_URL,
+  SELL_GUIDE_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList,
 } from '@onekeyhq/shared/src/routes';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -26,6 +35,10 @@ type ITabType = 'buy' | 'sell';
 
 const TAB_TO_INDEX: Record<ITabType, number> = { buy: 0, sell: 1 };
 const INDEX_TO_TAB: ITabType[] = ['buy', 'sell'];
+const TAB_GUIDE_URLS: Record<ITabType, string> = {
+  buy: BUY_GUIDE_URL,
+  sell: SELL_GUIDE_URL,
+};
 
 const BuyPage = () => {
   const route =
@@ -80,6 +93,23 @@ const BuyPage = () => {
     [intl],
   );
 
+  const headerRight = useCallback(
+    () => (
+      <HeaderIconButton
+        icon="QuestionmarkOutline"
+        onPress={() => {
+          const url = TAB_GUIDE_URLS[activeTab];
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({ url });
+          } else {
+            openUrlExternal(url);
+          }
+        }}
+      />
+    ),
+    [activeTab],
+  );
+
   const renderHeaderTitle = useCallback(
     () => (
       <SegmentControl
@@ -110,6 +140,7 @@ const BuyPage = () => {
             <Page.Header
               headerTitle={renderHeaderTitle}
               headerTitleAlign="center"
+              headerRight={headerRight}
             />
             <Page.Body>
               {platformEnv.isNative ? (
