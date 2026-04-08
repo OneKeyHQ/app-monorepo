@@ -39,7 +39,6 @@ import {
   useSelectedUTXOsAtom,
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -145,8 +144,6 @@ function SendAmountInputContainer() {
       accountUtils.getWalletIdFromAccountId({ accountId: currentAccountId }),
     [currentAccountId],
   );
-
-  const [allTokenListMap] = useAllTokenListMapAtom();
 
   const signatureConfirm = useSignatureConfirm({
     accountId: currentAccountId,
@@ -403,6 +400,14 @@ function SendAmountInputContainer() {
     return false;
   }, [isLightningNetwork, isUseFiat, lnUnit]);
 
+  const tokenMinAmount = useMemo(() => {
+    const decimals = tokenDetails?.info.decimals;
+    if (decimals === undefined || Number.isNaN(decimals)) {
+      return undefined;
+    }
+    return new BigNumber(1).shiftedBy(-decimals).toFixed();
+  }, [tokenDetails?.info.decimals]);
+
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
       if (!value) {
@@ -439,6 +444,13 @@ function SendAmountInputContainer() {
             : tokenAmountBN; // already in sats
       }
 
+      // Block flow if token decimals is missing — server must return explicit decimals
+      if (tokenMinAmount === undefined) {
+        return intl.formatMessage({
+          id: ETranslations.send_amount_invalid,
+        });
+      }
+
       // Minimum transfer amount check
       const isNative = tokenDetails?.info.isNative;
       const minTransferAmount = isNative
@@ -447,16 +459,22 @@ function SendAmountInputContainer() {
           '0')
         : (vaultSettings?.minTransferAmount ?? '0');
 
+      // Effective minimum: the larger of token precision minimum and chain minimum
+      const effectiveMin = BigNumber.max(
+        tokenMinAmount,
+        minTransferAmount,
+      ).toFixed();
+
       // Display min amount in the current unit (BTC or sats for Lightning)
       const displayMinAmount =
         isLightningNetwork && lnUnit === ELightningUnit.BTC
-          ? chainValueUtils.convertSatsToBtc(minTransferAmount)
-          : minTransferAmount;
+          ? chainValueUtils.convertSatsToBtc(effectiveMin)
+          : effectiveMin;
 
       if (
         !isUseFiat &&
-        !new BigNumber(minTransferAmount).isZero() &&
-        amountBNForValidation.isLessThan(minTransferAmount) &&
+        !new BigNumber(effectiveMin).isZero() &&
+        amountBNForValidation.isLessThan(effectiveMin) &&
         !amountBNForValidation.isZero()
       ) {
         return intl.formatMessage(
@@ -468,8 +486,8 @@ function SendAmountInputContainer() {
       if (
         isUseFiat &&
         priceBN.isGreaterThan(0) &&
-        !new BigNumber(minTransferAmount).isZero() &&
-        tokenAmountBN.isLessThan(minTransferAmount) &&
+        !new BigNumber(effectiveMin).isZero() &&
+        tokenAmountBN.isLessThan(effectiveMin) &&
         !tokenAmountBN.isZero()
       ) {
         return intl.formatMessage(
@@ -519,6 +537,7 @@ function SendAmountInputContainer() {
       tokenDetails?.balanceParsed,
       tokenDetails?.info.isNative,
       tokenDetails?.price,
+      tokenMinAmount,
       vaultSettings?.nativeMinTransferAmount,
       vaultSettings?.minTransferAmount,
       vaultSettings?.transferZeroNativeTokenEnabled,
@@ -845,6 +864,7 @@ function SendAmountInputContainer() {
         enableAddressBook: true,
         enableAddressContract: true,
         enableVerifySendFundToSelf: true,
+        enableWalletName: true,
         enableAllowListValidation,
         ignoreSimilarAddressInAddressBook: true,
         enableCheckSimilarAddressInAddressBook: true,
@@ -1063,11 +1083,11 @@ function SendAmountInputContainer() {
     if (isInsufficientBalance) return true;
     if (isNFT) {
       if (nft?.collectionType === ENFTType.ERC1155) {
-        return !nftAmount || nftAmount === '0';
+        return !nftAmount || new BigNumber(nftAmount).isLessThanOrEqualTo(0);
       }
       return false;
     }
-    return !amount || amount === '0';
+    return !amount || new BigNumber(amount).isLessThanOrEqualTo(0);
   }, [
     isSubmitting,
     form.formState.isValid,
@@ -1149,7 +1169,11 @@ function SendAmountInputContainer() {
           indexedAccountId={account?.indexedAccountId ?? ''}
           activeDeriveInfo={deriveInfo}
           activeDeriveType={deriveType}
-          tokenMap={allTokenListMap}
+          // Use refreshOnOpen so each derive type fetches its own balance.
+          // Do NOT pass tokenMap here — the global map only contains the
+          // currently selected derive type and would show wrong balances
+          // for other types (e.g. Taproot).
+          refreshOnOpen
           onSelect={async ({ account: a }) => {
             if (a) {
               setCurrentAccountId(a.id);
@@ -1185,7 +1209,6 @@ function SendAmountInputContainer() {
     );
   }, [
     account?.indexedAccountId,
-    allTokenListMap,
     deriveInfo,
     deriveType,
     displayCoinControlButton,

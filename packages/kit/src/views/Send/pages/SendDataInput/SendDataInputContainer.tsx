@@ -56,6 +56,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
@@ -289,6 +290,12 @@ function SendDataInputContainer() {
   const memoValue = form.watch('memo') as string | undefined;
   const noteValue = form.watch('note') as string | undefined;
   const paymentIdValue = form.watch('paymentId') as string | undefined;
+  const isNextDisabled = Boolean(
+    form.formState.errors.memo ||
+    form.formState.errors.paymentId ||
+    form.formState.errors.note ||
+    form.formState.isValidating,
+  );
 
   const toValue = form.watch('to') as IAddressInputValue | undefined;
   const toPending = toValue?.pending;
@@ -364,19 +371,51 @@ function SendDataInputContainer() {
         addressInputMethod: addressInputChangeType.current,
       });
 
-      const nextMemoValue = form.getValues('memo');
+      const nextMemoValue = form.getValues('memo')?.trim();
       const nextPaymentIdValue = form.getValues('paymentId');
       const nextNoteValue = form.getValues('note');
 
       // Reuse the matching amount-input route for the active modal stack.
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
 
-      // For Lightning invoices, decode the invoice to extract embedded amount
-      let invoiceAmount: string | undefined;
-      let isInvoiceAmountLocked = false;
       const isLightning = networkUtils.isLightningNetworkByNetworkId(
         currentAccount.networkId,
       );
+
+      // For LNURL / Lightning Address, skip amount page — LnurlPayRequestModal
+      // handles amount input, comment, and metadata display (OK-52507, OK-52671).
+      // Must check before invoice decode to avoid passing LNURL to decodedInvoice.
+      const rawInput = (toVal?.raw ?? '').trim();
+      if (isLightning && account && isReusableLightningRecipient(rawInput)) {
+        const transfersInfo: ITransferInfo[] = [
+          {
+            from: account.address,
+            to: rawInput,
+            amount: '0',
+            tokenInfo: tokenInfo ?? undefined,
+          },
+        ];
+        await signatureConfirm.navigationToTxConfirm({
+          transfersInfo,
+          sameModal: true,
+          onSuccess,
+          onFail,
+          onCancel,
+          transferPayload: {
+            amountToSend: '0',
+            isMaxSend: false,
+            isNFT: false,
+            originalRecipient: rawInput,
+            isToContract: false,
+          },
+          isInternalTransfer: true,
+        });
+        return;
+      }
+
+      // For Lightning invoices, decode the invoice to extract embedded amount
+      let invoiceAmount: string | undefined;
+      let isInvoiceAmountLocked = false;
       if (isLightning && toResolved) {
         try {
           const isZeroAmount =
@@ -518,6 +557,29 @@ function SendDataInputContainer() {
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
     const maxLength = memoMaxLength || 256;
+    const isNumericMemo = Boolean(numericOnlyMemo);
+    let memoInputLines = 2;
+    if (isNumericMemo) {
+      memoInputLines = memoValue?.length ? 2 : 1;
+    }
+    const clearMemoExtension = memoValue ? (
+      <XStack justifyContent="flex-end">
+        <Button
+          size="small"
+          variant="secondary"
+          icon="BroomOutline"
+          onPress={() =>
+            form.setValue('memo', '', {
+              shouldValidate: true,
+            })
+          }
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_clear,
+          })}
+        </Button>
+      </XStack>
+    ) : undefined;
 
     return (
       <>
@@ -543,31 +605,15 @@ function SendDataInputContainer() {
           }}
         >
           <BaseInput
-            numberOfLines={2}
+            numberOfLines={memoInputLines}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
               id: ETranslations.send_tag_placeholder,
             })}
-            extension={
-              memoValue ? (
-                <XStack justifyContent="flex-end">
-                  <Button
-                    size="small"
-                    variant="secondary"
-                    icon="BroomOutline"
-                    onPress={() =>
-                      form.setValue('memo', '', {
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_clear,
-                    })}
-                  </Button>
-                </XStack>
-              ) : undefined
+            keyboardType={
+              isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
             }
+            extension={clearMemoExtension}
           />
         </Form.Field>
       </>
@@ -579,6 +625,7 @@ function SendDataInputContainer() {
     media.gtMd,
     memoMaxLength,
     memoValue,
+    numericOnlyMemo,
     supportsMemoValidation,
     validateMemoField,
   ]);
@@ -800,11 +847,12 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      const needsMemo = vaultSettings?.withMemo && !selectedMemo;
+      const hasSelectedMemo = Boolean(selectedMemo?.trim());
+      const needsMemoInput = vaultSettings?.withMemo && !hasSelectedMemo;
       const needsPaymentId =
         vaultSettings?.withPaymentId && !form.getValues('paymentId');
       const needsNote = vaultSettings?.withNote && !selectedNote;
-      return needsMemo || needsPaymentId || needsNote;
+      return needsMemoInput || needsPaymentId || needsNote;
     },
     [
       form,
@@ -868,7 +916,7 @@ function SendDataInputContainer() {
           nfts,
           recipientAddress: resolvedAddress,
           recipientIsContract: queryResult.isContract ?? false,
-          recipientMemo: selectedMemo || undefined,
+          recipientMemo: selectedMemo?.trim() || undefined,
           recipientPaymentId: form.getValues('paymentId') || undefined,
           recipientNote: selectedNote || undefined,
           amount: scannedAmount || sendAmount || undefined,
@@ -1091,23 +1139,18 @@ function SendDataInputContainer() {
               />
             ) : null}
             {renderDataInput()}
-            {/* Lightning Network uses invoices/LNURL, not addresses — hide quick select */}
-            {networkUtils.isLightningNetworkByNetworkId(
-              currentAccount.networkId,
-            ) ? null : (
-              <RecipientQuickSelect
-                accountId={currentAccount.accountId}
-                networkId={currentAccount.networkId}
-                senderDeriveType={senderDeriveType}
-                searchKey={toAddressRaw}
-                isSearchMode={!!toAddressRaw?.trim()}
-                activeTab={quickSelectActiveTab}
-                onActiveTabChange={setQuickSelectActiveTab}
-                onInputTypeChange={handleAddressInputChangeType}
-                onMatchStatusChange={setHasQuickSelectMatches}
-                onSelect={handleQuickSelectRecipient}
-              />
-            )}
+            <RecipientQuickSelect
+              accountId={currentAccount.accountId}
+              networkId={currentAccount.networkId}
+              senderDeriveType={senderDeriveType}
+              searchKey={toAddressRaw}
+              isSearchMode={!!toAddressRaw?.trim()}
+              activeTab={quickSelectActiveTab}
+              onActiveTabChange={setQuickSelectActiveTab}
+              onInputTypeChange={handleAddressInputChangeType}
+              onMatchStatusChange={setHasQuickSelectMatches}
+              onSelect={handleQuickSelectRecipient}
+            />
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
@@ -1123,8 +1166,10 @@ function SendDataInputContainer() {
               // Don't use form.formState.isValid here — the async address
               // validation (AddressInput queryAddress) can leave isValid stale.
               // toResolved && !toPending already gates address validity.
-              // handleNavigateToAmountInput calls form.trigger() as a final
-              // guard for memo/note/paymentId validation before navigating.
+              // Only disable for data-step field errors or in-flight validation.
+              // handleNavigateToAmountInput still calls form.trigger() as a final
+              // guard before navigating.
+              disabled: isNextDisabled,
             }}
           />
         </Page.Footer>

@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { checkIsScamTx } from '@onekeyhq/shared/src/utils/historyUtils';
+import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAccountHistoryTx,
@@ -387,6 +388,15 @@ export function useRecentRecipientsData({
           }
         }
 
+        // For Lightning, filter out one-time invoices before querying addresses
+        const isLightning =
+          networkUtils.isLightningNetworkByNetworkId(networkId);
+        if (isLightning) {
+          recipientAddresses = recipientAddresses.filter((addr) =>
+            isReusableLightningRecipient(addr),
+          );
+        }
+
         const addressInfoResults = await Promise.all(
           recipientAddresses.map((recipient) =>
             backgroundApiProxy.serviceAccountProfile.queryAddress({
@@ -402,7 +412,7 @@ export function useRecentRecipientsData({
         );
 
         return addressInfoResults
-          .filter((result) => !result.isContract)
+          .filter((result) => !result.isContract && !result.isScam)
           .map((result) => {
             const addressLower = result.input?.toLowerCase() ?? '';
             const extraInfo = recipientExtraMap?.get(addressLower);

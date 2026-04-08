@@ -44,6 +44,11 @@ export const HARDWARE_TROUBLESHOOTING_URL =
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';
 
+export const BUY_GUIDE_URL =
+  'https://help.onekey.so/articles/11461142#h_01J21115Y8PXEPDWJNYMF2RV7X';
+export const SELL_GUIDE_URL =
+  'https://help.onekey.so/articles/11461142#h_01J3MC84TGDENVZG46K9RSDCYZ';
+
 export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
 export const TWITTER_FOLLOW_URL =
   'https://x.com/intent/follow?screen_name=OneKeyHQ';
@@ -132,8 +137,6 @@ export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';
 export const SUPPORT_URL = 'https://help.onekey.so/hc/requests/new';
 
 export const SWAP_FAQ_HELP_URL = 'https://help.onekey.so/articles/13608266';
-export const SWAP_INCOGNITO_HELP_URL =
-  'https://help.onekey.so/articles/14430164';
 
 export const HYPERLIQUID_EXPLORER_URL = 'https://hypurrscan.io/address/';
 

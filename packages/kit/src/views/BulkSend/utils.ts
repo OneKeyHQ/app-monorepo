@@ -96,6 +96,37 @@ export function calculateTotalAmounts({
   };
 }
 
+// Check if any sender's aggregated transfer amount exceeds their balance.
+// For duplicate senders, sums all transfer amounts for the same address.
+export function checkSenderInsufficientBalance({
+  transfersInfo,
+  senderBalances,
+}: {
+  transfersInfo: ITransferInfo[];
+  senderBalances: Record<string, string>;
+}): boolean {
+  const aggregated = new Map<string, BigNumber>();
+  for (const transfer of transfersInfo) {
+    if (transfer.amount && transfer.amount !== '') {
+      const amount = new BigNumber(transfer.amount);
+      if (!amount.isNaN()) {
+        const existing = aggregated.get(transfer.from);
+        aggregated.set(
+          transfer.from,
+          existing ? existing.plus(amount) : amount,
+        );
+      }
+    }
+  }
+  for (const [address, totalAmount] of aggregated) {
+    const balance = senderBalances[address];
+    if (balance !== undefined && totalAmount.gt(balance)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function getBulkSendMinTransferAmount({
   vaultSettings,
   isNative,

@@ -14,8 +14,6 @@ import {
   Stack,
   XStack,
   YStack,
-  getCurrentVisibilityState,
-  onVisibilityStateChange,
   popModalPages,
   popToTabRootScreen,
   switchTab,
@@ -573,15 +571,34 @@ function BulkSendProcessContent({
 
           if (isNil(networkStatusRef.current[balanceKey]?.nativeBalance)) {
             try {
-              const nativeTokenAddress =
-                await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+              const [
+                nativeTokenAddress,
+                checkInscriptionProtectionEnabled,
+                vaultSettings,
+              ] = await Promise.all([
+                backgroundApiProxy.serviceToken.getNativeTokenAddress({
                   networkId,
-                });
+                }),
+                backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                  {
+                    networkId,
+                    accountId: txAccountId,
+                  },
+                ),
+                backgroundApiProxy.serviceNetwork.getVaultSettings({
+                  networkId,
+                }),
+              ]);
+              const withCheckInscription =
+                checkInscriptionProtectionEnabled &&
+                vaultSettings.hasFrozenBalance;
               const resp =
                 await backgroundApiProxy.serviceToken.fetchTokensDetails({
                   accountId: txAccountId,
                   networkId,
                   contractList: [nativeTokenAddress],
+                  withFrozenBalance: true,
+                  withCheckInscription,
                 });
               if (resp?.[0] && !isNil(resp[0].balanceParsed)) {
                 networkStatusRef.current[balanceKey] = {
@@ -948,29 +965,12 @@ function BulkSendProcessContent({
     progressStateRef.current = progressState;
   }, [progressState]);
 
-  // Auto-pause when app loses focus
-  useEffect(() => {
-    const handleVisibilityStateChange = (visible: boolean) => {
-      if (
-        visible === false &&
-        progressState === EBulkSendProgressState.InProgress
-      ) {
-        setProgressState(EBulkSendProgressState.Paused);
-        setTxStatusMap((prev) => ({
-          ...prev,
-          [currentProcessIndex]: {
-            ...prev[currentProcessIndex],
-            status: EBulkSendTxStatus.Paused,
-          },
-        }));
-      }
-    };
-    handleVisibilityStateChange(getCurrentVisibilityState());
-    const removeSubscription = onVisibilityStateChange(
-      handleVisibilityStateChange,
-    );
-    return removeSubscription;
-  }, [currentProcessIndex, progressState]);
+  useEffect(
+    () => () => {
+      isAborted.current = true;
+    },
+    [],
+  );
 
   const handleOnConfirm = useCallback(() => {
     if (progressState === EBulkSendProgressState.Finished) {
