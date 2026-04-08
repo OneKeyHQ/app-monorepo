@@ -28,6 +28,7 @@ import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -979,6 +980,9 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     {
       initResult,
       revalidateOnFocus: true,
+      swrKey: walletId
+        ? swrKeys.allNetworksCompatible(walletId, networkId)
+        : undefined,
     },
   );
 

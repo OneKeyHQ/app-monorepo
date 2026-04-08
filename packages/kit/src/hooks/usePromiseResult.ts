@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useIsMounted } from './useIsMounted';
@@ -40,6 +41,13 @@ export type IPromiseResultOptions<T> = {
   // automatically revalidate when the browser regains a network connection
   revalidateOnReconnect?: boolean;
   testID?: string;
+  /**
+   * When set, enables stale-while-revalidate:
+   * - On mount: sync-reads cached value from MMKV as initResult
+   * - On success: writes fresh result to MMKV cache
+   * - The real async request always fires (cache never blocks)
+   */
+  swrKey?: string;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -96,8 +104,21 @@ export function usePromiseResult<T>(
     return removeSubscription;
   }, [resetDefer, resolveDefer]);
 
+  // --- SWR: resolve initial value from sync cache ---
+  const swrKey = options.swrKey;
+  const swrKeyRef = useRef(swrKey);
+  swrKeyRef.current = swrKey;
+  const swrInitResult = useMemo(() => {
+    if (!swrKey) return undefined;
+    if (options.initResult !== undefined) return undefined;
+    return swrCacheUtils.get<T>(swrKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swrKey]);
+  const effectiveInitResult =
+    options.initResult !== undefined ? options.initResult : swrInitResult;
+
   const [result, setResult] = useState<T | undefined>(
-    options.initResult as any,
+    effectiveInitResult as any,
   );
   const isEmptyResultRef = useRef<boolean>(true);
 
@@ -195,6 +216,9 @@ export function usePromiseResult<T>(
             });
             if (shouldSetState(config) && nonceRef.current === nonce) {
               setResult(r);
+              if (swrKeyRef.current) {
+                swrCacheUtils.set(swrKeyRef.current, r);
+              }
             }
           }
         } catch (err) {

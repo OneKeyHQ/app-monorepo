@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import {
   Icon,
@@ -20,7 +20,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import { deferHeavyWorkUntilUIIdle } from '../../utils/deferHeavyWork';
 import { NetworkAvatarBase } from '../NetworkAvatar';
 
 import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelectorTrigger';
@@ -64,33 +63,12 @@ function AllNetworksManagerTrigger({
     Boolean(network?.id) &&
     networkUtils.isAllNetwork({ networkId: network?.id }) &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' });
-  const [isDeferredReady, setIsDeferredReady] = useState(
-    !shouldEnableCompatQuery,
-  );
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!shouldEnableCompatQuery) {
-      setIsDeferredReady(true);
-      return;
-    }
-    setIsDeferredReady(false);
-    void (async () => {
-      await deferHeavyWorkUntilUIIdle();
-      if (cancelled) return;
-      setIsDeferredReady(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [shouldEnableCompatQuery, wallet?.id, indexedAccount?.id, network?.id]);
-
-  const compatQueryWalletId = useMemo(() => {
-    if (!shouldEnableCompatQuery) {
-      return '';
-    }
-    return isDeferredReady ? (wallet?.id ?? '') : '';
-  }, [isDeferredReady, shouldEnableCompatQuery, wallet?.id]);
+  // SWR cache in usePromiseResult provides instant cold-start data,
+  // so deferHeavyWorkUntilUIIdle is no longer needed here.
+  const compatQueryWalletId = shouldEnableCompatQuery
+    ? (wallet?.id ?? '')
+    : '';
 
   const {
     enabledNetworksCompatibleWithWalletId,
@@ -104,45 +82,20 @@ function AllNetworksManagerTrigger({
   });
 
   useEffect(() => {
-    const refreshAccountDataUpdate = async () => {
-      if (shouldEnableCompatQuery && !isDeferredReady) {
-        return;
-      }
+    const refresh = async () => {
       try {
         await run({ alwaysSetState: true });
       } catch {
         // silently ignore refresh errors
       }
     };
-    const refreshDeriveTypeChanged = async () => {
-      if (shouldEnableCompatQuery && !isDeferredReady) {
-        return;
-      }
-      try {
-        await run({ alwaysSetState: true });
-      } catch {
-        // silently ignore refresh errors
-      }
-    };
-    appEventBus.on(
-      EAppEventBusNames.NetworkDeriveTypeChanged,
-      refreshDeriveTypeChanged,
-    );
-    appEventBus.on(
-      EAppEventBusNames.AccountDataUpdate,
-      refreshAccountDataUpdate,
-    );
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
     return () => {
-      appEventBus.off(
-        EAppEventBusNames.NetworkDeriveTypeChanged,
-        refreshDeriveTypeChanged,
-      );
-      appEventBus.off(
-        EAppEventBusNames.AccountDataUpdate,
-        refreshAccountDataUpdate,
-      );
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
     };
-  }, [isDeferredReady, run, shouldEnableCompatQuery]);
+  }, [run]);
 
   const handleOnPress = useCallback(() => {
     if (unifiedMode) {
@@ -201,18 +154,18 @@ function AllNetworksManagerTrigger({
         LL.Info,
         `[LayoutDiag] AllNetworksTrigger: showSkeleton=${showSkeleton}, ` +
           `networks=${enabledNetworksCompatibleWithWalletId?.length ?? 'nil'}, ` +
-          `isDeferredReady=${isDeferredReady}, shouldQuery=${shouldEnableCompatQuery}, ` +
+          `shouldQuery=${shouldEnableCompatQuery}, ` +
           `isAllNetwork=${networkUtils.isAllNetwork({ networkId: network?.id })}`,
       );
     } catch { /* */ }
-  }, [showSkeleton, enabledNetworksCompatibleWithWalletId, isDeferredReady, shouldEnableCompatQuery, network?.id]);
+  }, [showSkeleton, enabledNetworksCompatibleWithWalletId, shouldEnableCompatQuery, network?.id]);
 
   if (
     showSkeleton ||
     !enabledNetworksCompatibleWithWalletId ||
     enabledNetworksCompatibleWithWalletId.length === 0
   ) {
-    layoutDiag('NetSelector', `placeholder: showSkeleton=${showSkeleton} hasData=${!!enabledNetworksCompatibleWithWalletId} len=${enabledNetworksCompatibleWithWalletId?.length ?? 0} isDeferredReady=${isDeferredReady}`);
+    layoutDiag('NetSelector', `placeholder: showSkeleton=${showSkeleton} hasData=${!!enabledNetworksCompatibleWithWalletId} len=${enabledNetworksCompatibleWithWalletId?.length ?? 0}`);
     return <Stack h={36} />;
   }
   layoutDiag('NetSelector', `rendered: ${enabledNetworksCompatibleWithWalletId.length} networks`);

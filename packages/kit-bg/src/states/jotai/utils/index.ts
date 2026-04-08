@@ -4,6 +4,7 @@ import { atom, useAtom } from 'jotai';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import {
   atomWithStorage,
@@ -419,6 +420,7 @@ function ensureColdStartAppStateListener() {
           coldStartSaveTimer = undefined;
         }
         flushColdStartCache();
+        swrCacheUtils.flushNow();
       }
     });
   } catch {
