@@ -1608,6 +1608,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
           serviceHardwareUtils.hardwareLog(
             'startUpdateWorkflow: cleared transport type lock',
           );
+          // Reset workflow running state at service level to prevent lock-screen bypass
+          // This ensures the atom is reset even if the UI component has unmounted
+          await firmwareUpdateWorkflowRunningAtom.set(false);
         }
       },
       {
@@ -1706,6 +1709,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           serviceHardwareUtils.hardwareLog(
             'startUpdateWorkflowV2: cleared transport type lock',
           );
+          // Reset workflow running state at service level to prevent lock-screen bypass
+          await firmwareUpdateWorkflowRunningAtom.set(false);
         }
       },
       {
@@ -1814,6 +1819,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         error: toPlainErrorObject(error as any),
       });
 
+      // Allow lock screen while waiting for user to retry
+      // No active hardware communication during retry wait state
+      await firmwareUpdateWorkflowRunningAtom.set(false);
+
       await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
         skipDeviceCancel: true,
         connectId: '',
@@ -1841,6 +1850,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId: string | undefined;
     releaseResult: ICheckAllFirmwareReleaseResult | undefined;
   }) {
+    // Re-block lock screen before resuming hardware communication
+    await firmwareUpdateWorkflowRunningAtom.set(true);
+
     await firmwareUpdateRetryAtom.set(undefined);
 
     await this.waitDeviceRestart({
