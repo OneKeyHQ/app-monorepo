@@ -465,10 +465,39 @@ export function contextAtomBase<Value>({
       ? () => {
           const result = originalUse();
           const currentValue = result[0];
+          // DEBUG: log EVERY tokenListAtom render (not just changes)
+          if (
+            name === 'ctx:tokenListAtom' &&
+            currentValue &&
+            typeof currentValue === 'object' &&
+            'tokens' in (currentValue as any)
+          ) {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const { NativeLogger: NL, LogLevel: LL } =
+                require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+              const tokens = (currentValue as any).tokens;
+              const prev = coldStartValuesMap.get(name);
+              const prevTokens =
+                prev && typeof prev === 'object' && 'tokens' in (prev as any)
+                  ? (prev as any).tokens
+                  : null;
+              const changed = prev !== currentValue;
+              const jsEntry: number =
+                (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+              const elapsed = jsEntry ? Date.now() - jsEntry : 0;
+              NL.write(
+                LL.Info,
+                `[TokenListUI] +${elapsed}ms render: ${Array.isArray(tokens) ? tokens.length : 0} tokens, first3=[${Array.isArray(tokens) ? tokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : ''}], changed=${changed}, prevFirst3=[${Array.isArray(prevTokens) ? prevTokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : 'nil'}]`,
+              );
+            } catch {
+              /* */
+            }
+          }
           if (coldStartValuesMap.get(name) !== currentValue) {
             coldStartValuesMap.set(name, currentValue);
             scheduleColdStartSave(name);
-            // DEBUG: log token list changes
+            // Keep existing change log
             if (
               name === 'ctx:tokenListAtom' &&
               currentValue &&
@@ -485,7 +514,7 @@ export function contextAtomBase<Value>({
                 const elapsed = jsEntry ? Date.now() - jsEntry : 0;
                 NL.write(
                   LL.Info,
-                  `[ColdStartCache] tokenList changed +${elapsed}ms: ${Array.isArray(tokens) ? tokens.length : '?'} tokens, first3=[${Array.isArray(tokens) ? tokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : '?'}]`,
+                  `[TokenListUI] +${elapsed}ms CHANGED → cache updated: ${Array.isArray(tokens) ? tokens.length : '?'} tokens, first3=[${Array.isArray(tokens) ? tokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : '?'}]`,
                 );
               } catch {
                 /* */
