@@ -1030,7 +1030,11 @@ function SendDataInputContainer() {
             ? ETranslations.send_title
             : ETranslations.select_address__title,
         })}
-        headerRight={renderAddressSecurityHeaderRightButton}
+        headerRight={
+          enableAllowListValidation
+            ? renderAddressSecurityHeaderRightButton
+            : undefined
+        }
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
