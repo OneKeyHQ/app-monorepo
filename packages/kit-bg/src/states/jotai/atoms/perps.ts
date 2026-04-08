@@ -668,11 +668,13 @@ export interface IPerpsLayoutState {
   orderBook?: {
     visible: boolean;
   };
+  chartExpanded?: boolean;
   resetAt?: number;
 }
 
 export const DEFAULT_PERPS_LAYOUT_STATE: IPerpsLayoutState = {
   orderBook: { visible: true },
+  chartExpanded: false,
 };
 
 export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
