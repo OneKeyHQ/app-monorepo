@@ -1,34 +1,28 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useState } from 'react';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
-import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
+import { useRecommendedRefreshTrigger } from '../hooks/useRecommendedRefreshTrigger';
 
 import { RecommendedSection } from './RecommendedSection';
-
-const RECOMMENDED_REFRESH_DELAY = timerUtils.getTimeDurationMs({
-  seconds: 3,
-});
 
 function useRecommendedTokens({
   accountId,
   indexedAccountId,
   networkId,
   enableFetch,
-  refreshTrigger,
+  refreshVersion,
 }: {
   accountId?: string;
   indexedAccountId?: string;
   networkId: string;
   enableFetch: boolean;
-  refreshTrigger?: number;
+  refreshVersion: number;
 }) {
   const fetchRecommendedTokens = useCallback(async () => {
     if (!enableFetch) {
@@ -45,72 +39,12 @@ function useRecommendedTokens({
     return recommendedAssets?.tokens || [];
   }, [accountId, enableFetch, indexedAccountId, networkId]);
 
-  const {
-    result: recommendedTokens = [],
-    isLoading,
-    run: refreshRecommendedTokens,
-  } = usePromiseResult<IRecommendAsset[]>(
-    fetchRecommendedTokens,
-    [fetchRecommendedTokens, refreshTrigger],
-    {
-      initResult: [],
-      watchLoading: true,
-      overrideIsFocused: (isFocused) => isFocused && enableFetch,
-    },
-  );
-
-  const recommendedNetworkIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          recommendedTokens.flatMap((token) =>
-            (token.protocols ?? [])
-              .map((protocol) => protocol.networkId)
-              .filter((protocolNetworkId): protocolNetworkId is string =>
-                Boolean(protocolNetworkId),
-              ),
-          ),
-        ),
-      ),
-    [recommendedTokens],
-  );
-
-  const recommendedStakeTags = useMemo(() => {
-    const tags = new Set<string>();
-
-    recommendedTokens.forEach((token) => {
-      token.protocols?.forEach(({ provider }) => {
-        if (!provider || !token.symbol) {
-          return;
-        }
-
-        tags.add(
-          buildLocalTxStatusSyncId({
-            providerName: provider,
-            tokenSymbol: token.symbol,
-          }),
-        );
-      });
-    });
-
-    return tags;
-  }, [recommendedTokens]);
-
-  const tagMatcher = useCallback(
-    (tag: string) => recommendedStakeTags.has(tag),
-    [recommendedStakeTags],
-  );
-
-  const handleRecommendedRefresh = useCallback(async () => {
-    await backgroundApiProxy.serviceStaking.clearRecommendedAssetsCache();
-    await refreshRecommendedTokens();
-  }, [refreshRecommendedTokens]);
-
-  useStakingPendingTxsByInfo({
-    networkIds: enableFetch ? recommendedNetworkIds : [],
-    tagMatcher,
-    onRefresh: enableFetch ? handleRecommendedRefresh : undefined,
-    onRefreshDelayMs: RECOMMENDED_REFRESH_DELAY,
+  const { result: recommendedTokens = [], isLoading } = usePromiseResult<
+    IRecommendAsset[]
+  >(fetchRecommendedTokens, [fetchRecommendedTokens, refreshVersion], {
+    initResult: [],
+    watchLoading: true,
+    overrideIsFocused: (isFocused) => isFocused && enableFetch,
   });
 
   return {
@@ -126,7 +60,6 @@ export function Recommended(
         recommendedItemContainerProps?: IYStackProps;
         withHeader?: boolean;
         enableFetch?: boolean;
-        refreshTrigger?: number;
       }
     | undefined,
 ) {
@@ -135,19 +68,34 @@ export function Recommended(
     recommendedItemContainerProps,
     withHeader = true,
     enableFetch = true,
-    refreshTrigger,
   } = props ?? {};
 
   const allNetworkId = getNetworkIdsMap().onekeyall;
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  const refreshRecommended = useCallback(async () => {
+    await backgroundApiProxy.serviceStaking.clearRecommendedAssetsCache();
+    setRefreshVersion((prev) => prev + 1);
+  }, []);
+
   const { recommendedTokens, isLoading } = useRecommendedTokens({
     accountId: account?.id,
     indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
     networkId: allNetworkId,
     enableFetch,
-    refreshTrigger,
+    refreshVersion,
+  });
+
+  useRecommendedRefreshTrigger({
+    accountId: account?.id,
+    indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+    networkId: allNetworkId,
+    recommendedTokens,
+    enableFetch,
+    onRefresh: refreshRecommended,
   });
 
   const noWalletConnected = !account && !indexedAccount;

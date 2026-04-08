@@ -133,7 +133,6 @@ export type ISettingsAtom = {
   swapEnableRecipientAddress: boolean;
   // Swap page UI state should reset with the page/session instead of persisting silently.
   swapIncognitoMode: boolean;
-  swapEnableRecipientAddressBeforeIncognito?: boolean;
 };
 
 export const { target: settingsAtom, use: useSettingsAtom } =
@@ -145,7 +144,6 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       swapSlippagePercentageCustomValue: swapSlippageAutoValue,
       swapEnableRecipientAddress: false,
       swapIncognitoMode: false,
-      swapEnableRecipientAddressBeforeIncognito: undefined,
     },
   });
 
