@@ -1,20 +1,18 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 export const useBlockRegion = () => {
-  const shouldRefreshConnectionRef = useRef(false);
   const {
-    isLoading: isFetchingBlockResult,
-    run: refreshBlockResult,
+    isLoading: isFetchingBlockResultBase,
+    setResult: setBlockResult,
     result: blockResult,
   } = usePromiseResult(
     async () => {
-      const blockData = shouldRefreshConnectionRef.current
-        ? await backgroundApiProxy.serviceStaking.refreshBlockRegion()
-        : await backgroundApiProxy.serviceStaking.getBlockRegion();
+      const blockData =
+        await backgroundApiProxy.serviceStaking.getBlockRegion();
       return { blockData };
     },
     [],
@@ -23,18 +21,21 @@ export const useBlockRegion = () => {
       revalidateOnFocus: true,
     },
   );
+  const [isRefreshingBlockResult, setIsRefreshingBlockResult] = useState(false);
 
   const handleRefreshBlockResult = useCallback(async () => {
-    shouldRefreshConnectionRef.current = true;
+    setIsRefreshingBlockResult(true);
     try {
-      await refreshBlockResult();
+      const blockData =
+        await backgroundApiProxy.serviceStaking.refreshBlockRegion();
+      setBlockResult({ blockData });
     } finally {
-      shouldRefreshConnectionRef.current = false;
+      setIsRefreshingBlockResult(false);
     }
-  }, [refreshBlockResult]);
+  }, [setBlockResult]);
 
   return {
-    isFetchingBlockResult,
+    isFetchingBlockResult: isFetchingBlockResultBase || isRefreshingBlockResult,
     refreshBlockResult: handleRefreshBlockResult,
     blockResult,
   };

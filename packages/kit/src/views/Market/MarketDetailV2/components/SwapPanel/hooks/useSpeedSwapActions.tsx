@@ -2170,7 +2170,8 @@ export function useSpeedSwapActions(props: {
       };
       const hasOrderContext = Boolean(orderFromToken || orderToToken);
       const shouldRefreshBalance =
-        !hasOrderContext ||
+        (!hasOrderContext &&
+          accountNetworkId === currentBalanceToken.networkId) ||
         (orderFromToken?.networkId === accountNetworkId &&
           (equalTokenNoCaseSensitive({
             token1: orderFromToken,

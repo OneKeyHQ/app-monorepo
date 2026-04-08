@@ -201,6 +201,14 @@ const tonMarketToken: ISwapToken = {
   isNative: false,
 };
 
+const tonUsdtToken: ISwapTokenBase = {
+  networkId: 'ton--239',
+  contractAddress: '0x11112222',
+  symbol: 'USDT',
+  decimals: 6,
+  isNative: false,
+};
+
 function createHookProps({
   marketToken = btcToken,
   tradeToken = usdcToken,
@@ -345,6 +353,85 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it('waits for the matching network account before passive balance refreshes', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue(
+      createTokenDetail({
+        networkId: usdcToken.networkId,
+        contractAddress: usdcToken.contractAddress,
+        symbol: usdcToken.symbol,
+        decimals: usdcToken.decimals,
+        balanceParsed: '100',
+      }),
+    );
+    const getBalanceFetchCalls = () =>
+      mockFetchSwapTokenDetails.mock.calls.filter(
+        ([params]) => params.accountId,
+      );
+
+    const { rerender } = renderHook(
+      ({
+        marketToken,
+        tradeToken,
+      }: {
+        marketToken: ISwapToken;
+        tradeToken: ISwapTokenBase;
+      }) =>
+        useSpeedSwapActions(
+          createHookProps({
+            marketToken,
+            tradeToken,
+          }),
+        ),
+      {
+        initialProps: {
+          marketToken: btcToken,
+          tradeToken: usdcToken,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(getBalanceFetchCalls()).toHaveLength(1);
+    });
+
+    rerender({
+      marketToken: tonMarketToken,
+      tradeToken: tonUsdtToken,
+    });
+
+    await waitFor(() => {
+      expect(getBalanceFetchCalls()).toHaveLength(1);
+    });
+
+    mockNetAccountPromiseResult = {
+      result: {
+        id: 'net-account-ton',
+        addressDetail: {
+          address: 'ton-user',
+          networkId: tonUsdtToken.networkId,
+        },
+      },
+      run: mockNetAccountRun,
+    };
+
+    rerender({
+      marketToken: tonMarketToken,
+      tradeToken: tonUsdtToken,
+    });
+
+    await waitFor(() => {
+      expect(getBalanceFetchCalls()).toHaveLength(2);
+      expect(getBalanceFetchCalls().at(-1)?.[0]).toEqual(
+        expect.objectContaining({
+          accountId: 'net-account-ton',
+          accountAddress: 'ton-user',
+          networkId: tonUsdtToken.networkId,
+          contractAddress: tonUsdtToken.contractAddress,
+        }),
+      );
+    });
+  });
+
   it('keeps the latest cross-network price when token detail requests resolve out of order', async () => {
     const oldTradeTokenPriceRequest = createDeferred<ISwapToken[]>();
     const oldMarketTokenPriceRequest = createDeferred<ISwapToken[]>();
@@ -414,13 +501,7 @@ describe('useSpeedSwapActions', () => {
 
     rerender({
       marketToken: tonMarketToken,
-      tradeToken: {
-        networkId: 'ton--239',
-        contractAddress: '0x11112222',
-        symbol: 'USDT',
-        decimals: 6,
-        isNative: false,
-      },
+      tradeToken: tonUsdtToken,
     });
 
     await waitFor(() => {
