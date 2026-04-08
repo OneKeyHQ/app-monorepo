@@ -112,13 +112,11 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
     address: string;
     isRefreshing: boolean;
     initialized: boolean;
-  }>(
-    {
-      address: '',
-      isRefreshing: true,
-      initialized: false,
-    },
-  );
+  }>({
+    address: '',
+    isRefreshing: true,
+    initialized: false,
+  });
 
 export const {
   atom: aggregateTokensListMapAtom,
