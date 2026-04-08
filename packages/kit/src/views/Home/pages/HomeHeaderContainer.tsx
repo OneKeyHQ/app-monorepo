@@ -124,6 +124,7 @@ function BaseHomeHeaderContainer() {
       <YStack
         pb="$8"
         gap="$5"
+        minHeight={312}
         $gtMd={{ gap: '$8' }}
         bg="$bgApp"
         pointerEvents="box-none"
