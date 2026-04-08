@@ -432,6 +432,126 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it('ignores stale balance responses after a cross-network token switch', async () => {
+    const oldBalanceRequest = createDeferred<ISwapToken[]>();
+    const newBalanceRequest = createDeferred<ISwapToken[]>();
+    mockFetchSwapTokenDetails.mockImplementation(
+      ({
+        accountId,
+        networkId,
+        contractAddress,
+      }: IFetchSwapTokenDetailsParams) => {
+        if (!accountId) {
+          return Promise.resolve([]);
+        }
+        if (
+          networkId === usdcToken.networkId &&
+          contractAddress === usdcToken.contractAddress
+        ) {
+          return oldBalanceRequest.promise;
+        }
+        if (
+          networkId === tonUsdtToken.networkId &&
+          contractAddress === tonUsdtToken.contractAddress
+        ) {
+          return newBalanceRequest.promise;
+        }
+        return Promise.resolve([]);
+      },
+    );
+
+    const { result, rerender } = renderHook(
+      ({
+        marketToken,
+        tradeToken,
+      }: {
+        marketToken: ISwapToken;
+        tradeToken: ISwapTokenBase;
+      }) =>
+        useSpeedSwapActions(
+          createHookProps({
+            marketToken,
+            tradeToken,
+          }),
+        ),
+      {
+        initialProps: {
+          marketToken: btcToken,
+          tradeToken: usdcToken,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'net-account-1',
+          networkId: usdcToken.networkId,
+          contractAddress: usdcToken.contractAddress,
+        }),
+      );
+    });
+
+    rerender({
+      marketToken: tonMarketToken,
+      tradeToken: tonUsdtToken,
+    });
+
+    await waitFor(() => {
+      expect(result.current.balance?.toFixed()).toBe('0');
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+
+    await act(async () => {
+      oldBalanceRequest.resolve(
+        createTokenDetail({
+          networkId: usdcToken.networkId,
+          contractAddress: usdcToken.contractAddress,
+          symbol: usdcToken.symbol,
+          decimals: usdcToken.decimals,
+          balanceParsed: '100',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(result.current.balance?.toFixed()).toBe('0');
+    });
+
+    mockNetAccountPromiseResult = {
+      result: {
+        id: 'net-account-ton',
+        addressDetail: {
+          address: 'ton-user',
+          networkId: tonUsdtToken.networkId,
+        },
+      },
+      run: mockNetAccountRun,
+    };
+
+    rerender({
+      marketToken: tonMarketToken,
+      tradeToken: tonUsdtToken,
+    });
+
+    await act(async () => {
+      newBalanceRequest.resolve(
+        createTokenDetail({
+          networkId: tonUsdtToken.networkId,
+          contractAddress: tonUsdtToken.contractAddress,
+          symbol: tonUsdtToken.symbol,
+          decimals: tonUsdtToken.decimals,
+          balanceParsed: '55',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(result.current.balance?.toFixed()).toBe('55');
+      expect(result.current.balanceToken.symbol).toBe('USDT');
+    });
+  });
+
   it('keeps the latest cross-network price when token detail requests resolve out of order', async () => {
     const oldTradeTokenPriceRequest = createDeferred<ISwapToken[]>();
     const oldMarketTokenPriceRequest = createDeferred<ISwapToken[]>();

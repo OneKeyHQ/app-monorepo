@@ -2190,6 +2190,11 @@ export function useSpeedSwapActions(props: {
       }
 
       if (!shouldRefreshBalance) {
+        balanceRequestIdRef.current += 1;
+        if (!hasOrderContext) {
+          setFetchBalanceLoading(false);
+          setBalance(new BigNumber(0));
+        }
         return;
       }
 
