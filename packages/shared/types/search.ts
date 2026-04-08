@@ -172,3 +172,19 @@ export interface IIUniversalRecentSearchItem {
 export type IUniversalSearchAtomData = {
   recentSearch: IIUniversalRecentSearchItem[];
 };
+
+export type IUniversalSearchTrendingCacheData = {
+  items: IMarketSearchV2Token[];
+};
+
+export type IUniversalSearchTrendingCacheSnapshot = {
+  items: IMarketSearchV2Token[];
+  updatedAt: number;
+  source: 'memory' | 'local' | 'none';
+  shouldKeepOnRefreshFailure: boolean;
+};
+
+export type IUniversalSearchTrendingRefreshResult = {
+  isSuccessful: boolean;
+  result: IUniversalSearchBatchResult;
+};

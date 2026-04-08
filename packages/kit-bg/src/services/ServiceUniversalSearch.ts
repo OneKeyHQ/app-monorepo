@@ -30,6 +30,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -37,7 +38,8 @@ import type {
   IUniversalSearchPerpResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
-  IUniversalSearchV2MarketToken,
+  IUniversalSearchTrendingCacheSnapshot,
+  IUniversalSearchTrendingRefreshResult,
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -45,11 +47,195 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
+import {
+  shouldKeepUniversalSearchTrendingCacheOnRefreshFailure,
+  shouldKeepUniversalSearchTrendingLocalCacheInStorage,
+  shouldRenderUniversalSearchTrendingLocalCache,
+  shouldUseUniversalSearchTrendingMemoryCache,
+} from './universalSearchTrendingCacheUtils';
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
+  private trendingRecommendMemoryCacheSnapshot: {
+    items: IMarketSearchV2Token[];
+    updatedAt: number;
+  } = {
+    items: [],
+    updatedAt: 0,
+  };
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private updateTrendingRecommendMemoryCache(items: IMarketSearchV2Token[]) {
+    this.trendingRecommendMemoryCacheSnapshot = {
+      items,
+      updatedAt: Date.now(),
+    };
+  }
+
+  private async persistTrendingRecommendItems(items: IMarketSearchV2Token[]) {
+    await this.backgroundApi.simpleDb.universalSearchTrending.setRawData({
+      items,
+    });
+  }
+
+  private async updateTrendingRecommendCaches(items: IMarketSearchV2Token[]) {
+    this.updateTrendingRecommendMemoryCache(items);
+    await this.persistTrendingRecommendItems(items);
+  }
+
+  private getTrendingRecommendMemoryCache():
+    | IUniversalSearchTrendingCacheSnapshot
+    | undefined {
+    const snapshot = this.trendingRecommendMemoryCacheSnapshot;
+    if (
+      !shouldUseUniversalSearchTrendingMemoryCache({
+        updatedAt: snapshot.updatedAt,
+      })
+    ) {
+      return undefined;
+    }
+
+    return {
+      items: snapshot.items,
+      updatedAt: snapshot.updatedAt,
+      source: 'memory',
+      shouldKeepOnRefreshFailure:
+        shouldKeepUniversalSearchTrendingCacheOnRefreshFailure({
+          updatedAt: snapshot.updatedAt,
+        }),
+    };
+  }
+
+  private buildTrendingRecommendResult(
+    items: IMarketSearchV2Token[],
+  ): IUniversalSearchBatchResult {
+    if (!items.length) {
+      return {};
+    }
+
+    return {
+      [EUniversalSearchType.V2MarketToken]: {
+        items: items.map((item) => ({
+          type: EUniversalSearchType.V2MarketToken,
+          payload: item,
+        })),
+      },
+    };
+  }
+
+  private async fetchTrendingRecommendItems(): Promise<{
+    isSuccessful: boolean;
+    items: IMarketSearchV2Token[];
+  }> {
+    const memorySnapshot = this.getTrendingRecommendMemoryCache();
+    if (memorySnapshot) {
+      return {
+        isSuccessful: true,
+        items: memorySnapshot.items,
+      };
+    }
+
+    let hasCompletedSuccessfulSource = false;
+
+    try {
+      const trendingItems =
+        await this.backgroundApi.serviceMarket.fetchTrendingV2();
+
+      const validTrendingItems = trendingItems.filter(
+        (item) => Boolean(item.price) && Number(item.price) > 0,
+      );
+      if (validTrendingItems.length) {
+        await this.updateTrendingRecommendCaches(validTrendingItems);
+        return {
+          isSuccessful: true,
+          items: validTrendingItems,
+        };
+      }
+
+      hasCompletedSuccessfulSource = true;
+    } catch {
+      //
+    }
+
+    try {
+      const basicConfig =
+        await this.backgroundApi.serviceMarketV2.fetchMarketBasicConfig();
+      const recommendTokens = basicConfig?.data?.searchRecommendTokens;
+
+      if (recommendTokens?.length) {
+        const batchResult =
+          await this.backgroundApi.serviceMarketV2.fetchMarketTokenListBatch({
+            tokenAddressList: recommendTokens.map((t) => ({
+              contractAddress: t.contractAddress,
+              chainId: t.chainId,
+              isNative: t.isNative,
+            })),
+          });
+
+        const chainIdToNetworkId = new Map(
+          basicConfig?.data?.networkList?.map((n) => [n.chainId, n.networkId]) ??
+            [],
+        );
+
+        const v2Items: IMarketSearchV2Token[] = recommendTokens
+          .map((configToken, index) => {
+            const batchItem = batchResult?.list?.[index];
+            const networkId =
+              batchItem?.networkId ??
+              chainIdToNetworkId.get(configToken.chainId) ??
+              configToken.chainId;
+            return {
+              name: batchItem?.name ?? configToken.name,
+              symbol: batchItem?.symbol ?? configToken.symbol,
+              price: batchItem?.price ?? '0',
+              address: batchItem?.address ?? configToken.contractAddress,
+              network: networkId,
+              logoUrl: batchItem?.logoUrl ?? configToken.logo ?? '',
+              isNative: configToken.isNative,
+              decimals: batchItem?.decimals ?? 18,
+              liquidity: batchItem?.liquidity ?? '0',
+              volume_24h: batchItem?.volume24h ?? '0',
+              volume24h: batchItem?.volume24h,
+              marketCap: batchItem?.marketCap,
+              priceChange24hPercent: batchItem?.priceChange24hPercent,
+              communityRecognized: batchItem?.communityRecognized,
+            };
+          })
+          .filter(
+            (item) =>
+              (Boolean(item.address) || item.isNative) &&
+              Number(item.price) > 0,
+          );
+
+        if (v2Items.length) {
+          await this.updateTrendingRecommendCaches(v2Items);
+          return {
+            isSuccessful: true,
+            items: v2Items,
+          };
+        }
+      }
+
+      hasCompletedSuccessfulSource = true;
+    } catch {
+      //
+    }
+
+    if (hasCompletedSuccessfulSource) {
+      await this.updateTrendingRecommendCaches([]);
+      return {
+        isSuccessful: true,
+        items: [],
+      };
+    }
+
+    return {
+      isSuccessful: false,
+      items: [],
+    };
   }
 
   private getAccountPriority(accountId?: string): number {
@@ -79,92 +265,76 @@ class ServiceUniversalSearch extends ServiceBase {
       return [] as IUniversalSearchBatchResult;
     }
     if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
-      try {
-        // Prefer V2 trending endpoint (has network badge, dynamic data)
-        const trendingItems =
-          await this.backgroundApi.serviceMarket.fetchTrendingV2();
-
-        const validTrendingItems = trendingItems.filter(
-          (item) => Boolean(item.price) && Number(item.price) > 0,
-        );
-        if (validTrendingItems.length) {
-          result[EUniversalSearchType.V2MarketToken] = {
-            items: validTrendingItems.map((item) => ({
-              type: EUniversalSearchType.V2MarketToken,
-              payload: item,
-            })),
-          };
-          return result;
-        }
-      } catch {
-        // V2 trending failed, fall through to searchRecommendTokens
-      }
-
-      try {
-        // Fallback to searchRecommendTokens from market basic config
-        const basicConfig =
-          await this.backgroundApi.serviceMarketV2.fetchMarketBasicConfig();
-        const recommendTokens = basicConfig?.data?.searchRecommendTokens;
-
-        if (recommendTokens?.length) {
-          const batchResult =
-            await this.backgroundApi.serviceMarketV2.fetchMarketTokenListBatch({
-              tokenAddressList: recommendTokens.map((t) => ({
-                contractAddress: t.contractAddress,
-                chainId: t.chainId,
-                isNative: t.isNative,
-              })),
-            });
-
-          const chainIdToNetworkId = new Map(
-            basicConfig?.data?.networkList?.map((n) => [
-              n.chainId,
-              n.networkId,
-            ]) ?? [],
-          );
-
-          const v2Items: IUniversalSearchV2MarketToken[] = recommendTokens
-            .map((configToken, index) => {
-              const batchItem = batchResult?.list?.[index];
-              const networkId =
-                batchItem?.networkId ??
-                chainIdToNetworkId.get(configToken.chainId) ??
-                configToken.chainId;
-              return {
-                type: EUniversalSearchType.V2MarketToken as const,
-                payload: {
-                  name: batchItem?.name ?? configToken.name,
-                  symbol: batchItem?.symbol ?? configToken.symbol,
-                  price: batchItem?.price ?? '0',
-                  address: batchItem?.address ?? configToken.contractAddress,
-                  network: networkId,
-                  logoUrl: batchItem?.logoUrl ?? configToken.logo ?? '',
-                  isNative: configToken.isNative,
-                  decimals: batchItem?.decimals ?? 18,
-                  liquidity: batchItem?.liquidity ?? '0',
-                  volume_24h: batchItem?.volume24h ?? '0',
-                  volume24h: batchItem?.volume24h,
-                  marketCap: batchItem?.marketCap,
-                  priceChange24hPercent: batchItem?.priceChange24hPercent,
-                  communityRecognized: batchItem?.communityRecognized,
-                },
-              };
-            })
-            .filter(
-              (item) =>
-                (Boolean(item.payload.address) || item.payload.isNative) &&
-                Number(item.payload.price) > 0,
-            );
-
-          if (v2Items.length) {
-            result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
-          }
-        }
-      } catch {
-        // searchRecommendTokens also failed
-      }
+      const { items } = await this.fetchTrendingRecommendItems();
+      Object.assign(result, this.buildTrendingRecommendResult(items));
     }
     return result;
+  }
+
+  @backgroundMethod()
+  async refreshTrendingRecommend(): Promise<IUniversalSearchTrendingRefreshResult> {
+    const { isSuccessful, items } = await this.fetchTrendingRecommendItems();
+    return {
+      isSuccessful,
+      result: this.buildTrendingRecommendResult(items),
+    };
+  }
+
+  @backgroundMethod()
+  async getCachedTrendingRecommend(): Promise<IUniversalSearchTrendingCacheSnapshot> {
+    const memorySnapshot = this.getTrendingRecommendMemoryCache();
+    if (memorySnapshot) {
+      return memorySnapshot;
+    }
+
+    const snapshot =
+      await this.backgroundApi.simpleDb.universalSearchTrending.getDataWithMeta();
+
+    if (
+      !shouldKeepUniversalSearchTrendingLocalCacheInStorage({
+        updatedAt: snapshot.updatedAt,
+      })
+    ) {
+      await this.backgroundApi.simpleDb.universalSearchTrending.clearRawData();
+      return {
+        items: [],
+        updatedAt: 0,
+        source: 'none',
+        shouldKeepOnRefreshFailure: false,
+      };
+    }
+
+    if (
+      !shouldRenderUniversalSearchTrendingLocalCache({
+        updatedAt: snapshot.updatedAt,
+      })
+    ) {
+      return {
+        items: [],
+        updatedAt: snapshot.updatedAt,
+        source: 'none',
+        shouldKeepOnRefreshFailure: false,
+      };
+    }
+
+    return {
+      items: snapshot.items,
+      updatedAt: snapshot.updatedAt,
+      source: 'local',
+      shouldKeepOnRefreshFailure:
+        shouldKeepUniversalSearchTrendingCacheOnRefreshFailure({
+          updatedAt: snapshot.updatedAt,
+        }),
+    };
+  }
+
+  @backgroundMethod()
+  async prewarmTrendingRecommend() {
+    try {
+      await this.refreshTrendingRecommend();
+    } catch {
+      //
+    }
   }
 
   @backgroundMethod()

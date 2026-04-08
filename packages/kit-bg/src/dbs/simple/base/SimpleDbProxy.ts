@@ -59,6 +59,7 @@ import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHist
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import type { SimpleDbEntitySwapProSelectToken } from '../entity/SimpleDbEntitySwapProSelectToken';
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
+import type { SimpleDbEntityUniversalSearchTrending } from '../entity/SimpleDbEntityUniversalSearchTrending';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
 import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
@@ -186,6 +187,10 @@ export class SimpleDbProxy
   universalSearch = this._createProxyService(
     'universalSearch',
   ) as SimpleDbEntityUniversalSearch;
+
+  universalSearchTrending = this._createProxyService(
+    'universalSearchTrending',
+  ) as SimpleDbEntityUniversalSearchTrending;
 
   customTokens = this._createProxyService(
     'customTokens',

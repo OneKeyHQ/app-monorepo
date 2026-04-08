@@ -288,6 +288,15 @@ export class SimpleDb {
     return value;
   }
 
+  get universalSearchTrending() {
+    const SimpleDbEntityUniversalSearchTrending = (
+      require('../entity/SimpleDbEntityUniversalSearchTrending') as unknown as typeof import('../entity/SimpleDbEntityUniversalSearchTrending')
+    ).SimpleDbEntityUniversalSearchTrending;
+    const value = new SimpleDbEntityUniversalSearchTrending();
+    Object.defineProperty(this, 'universalSearchTrending', { value });
+    return value;
+  }
+
   get customTokens() {
     const SimpleDbEntityCustomTokens = (
       require('../entity/SimpleDbEntityCustomTokens') as unknown as typeof import('../entity/SimpleDbEntityCustomTokens')

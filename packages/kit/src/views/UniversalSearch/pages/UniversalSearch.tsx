@@ -32,6 +32,7 @@ import type {
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type {
   IUniversalSearchBatchResult,
   IUniversalSearchResultItem,
@@ -276,25 +277,45 @@ export function UniversalSearch({
     activeAccount?.network?.id,
   ]);
 
-  const fetchRecommendList = useCallback(async () => {
-    const searchResultSections: IUniversalSection[] = [];
+  const buildRecommendSectionsFromTrendingItems = useCallback(
+    (items: IMarketSearchV2Token[]): IUniversalSection[] => {
+      if (!items.length) {
+        return [];
+      }
 
-    const result =
-      await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
-        searchTypes: [EUniversalSearchType.MarketToken],
-      });
+      return [
+        {
+          tabIndex: 2,
+          type: EUniversalSearchType.V2MarketToken,
+          title: intl.formatMessage({ id: ETranslations.market_trending }),
+          data: items.map((item) => ({
+            type: EUniversalSearchType.V2MarketToken,
+            payload: item,
+          })),
+        },
+      ];
+    },
+    [intl],
+  );
 
-    // Prefer V2MarketToken (has network badge from searchRecommendTokens)
-    if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
-      searchResultSections.push({
-        tabIndex: 2,
-        type: EUniversalSearchType.V2MarketToken,
-        title: intl.formatMessage({ id: ETranslations.market_trending }),
-        data: result[EUniversalSearchType.V2MarketToken]
-          .items as IUniversalSearchResultItem[],
-      });
-    } else if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      // Fallback: convert MarketToken (coingecko-based, no network) to V2MarketToken
+  const buildRecommendSectionsFromResult = useCallback(
+    (result: IUniversalSearchBatchResult): IUniversalSection[] => {
+      if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
+        return [
+          {
+            tabIndex: 2,
+            type: EUniversalSearchType.V2MarketToken,
+            title: intl.formatMessage({ id: ETranslations.market_trending }),
+            data: result[EUniversalSearchType.V2MarketToken]
+              .items as IUniversalSearchResultItem[],
+          },
+        ];
+      }
+
+      if (!result?.[EUniversalSearchType.MarketToken]?.items?.length) {
+        return [];
+      }
+
       const v2Items = result[EUniversalSearchType.MarketToken].items.map(
         (item) => {
           const token = item.payload;
@@ -319,15 +340,64 @@ export function UniversalSearch({
           };
         },
       );
-      searchResultSections.push({
-        tabIndex: 2,
-        type: EUniversalSearchType.V2MarketToken,
-        title: intl.formatMessage({ id: ETranslations.market_trending }),
-        data: v2Items as IUniversalSearchResultItem[],
-      });
+
+      return buildRecommendSectionsFromTrendingItems(
+        v2Items.map((item) => item.payload),
+      );
+    },
+    [buildRecommendSectionsFromTrendingItems, intl],
+  );
+
+  const fetchRecommendList = useCallback(async () => {
+    let hasCachedRecommend = false;
+    let shouldKeepCachedRecommendOnRefreshFailure = false;
+    try {
+      const cachedRecommend =
+        await backgroundApiProxy.serviceUniversalSearch.getCachedTrendingRecommend();
+      shouldKeepCachedRecommendOnRefreshFailure =
+        cachedRecommend.shouldKeepOnRefreshFailure;
+      if (cachedRecommend.items.length) {
+        const cachedSections = buildRecommendSectionsFromTrendingItems(
+          cachedRecommend.items,
+        );
+        hasCachedRecommend = cachedSections.length > 0;
+        if (hasCachedRecommend) {
+          setRecommendSections(cachedSections);
+        }
+      }
+    } catch {
+      //
     }
-    setRecommendSections(searchResultSections);
-  }, [intl]);
+
+    try {
+      const refreshResult =
+        await backgroundApiProxy.serviceUniversalSearch.refreshTrendingRecommend();
+      const searchResultSections = buildRecommendSectionsFromResult(
+        refreshResult.result,
+      );
+
+      if (refreshResult.isSuccessful) {
+        setRecommendSections(searchResultSections);
+      } else {
+        if (
+          !hasCachedRecommend ||
+          !shouldKeepCachedRecommendOnRefreshFailure
+        ) {
+          setRecommendSections([]);
+        }
+      }
+    } catch {
+      if (
+        !hasCachedRecommend ||
+        !shouldKeepCachedRecommendOnRefreshFailure
+      ) {
+        setRecommendSections([]);
+      }
+    }
+  }, [
+    buildRecommendSectionsFromResult,
+    buildRecommendSectionsFromTrendingItems,
+  ]);
 
   useEffect(() => {
     void fetchRecommendList();

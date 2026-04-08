@@ -2,6 +2,7 @@ import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecor
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import '@onekeyhq/shared/src/storage/appStorage';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
 
@@ -62,6 +63,12 @@ class ServiceBootstrap extends ServiceBase {
       .then(() =>
         this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
       );
+    void timerUtils
+      .wait(timerUtils.getTimeDurationMs({ seconds: 1 }))
+      .then(() => this.backgroundApi.serviceUniversalSearch.prewarmTrendingRecommend())
+      .catch((error) => {
+        console.error('prewarmTrendingRecommend failed', error);
+      });
   }
 }
 
