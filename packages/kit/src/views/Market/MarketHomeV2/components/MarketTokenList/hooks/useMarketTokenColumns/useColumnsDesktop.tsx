@@ -20,7 +20,6 @@ import {
   LeverageBadge,
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
@@ -46,13 +45,15 @@ export const useColumnsDesktop = (
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
+  hasStock?: boolean,
+  showStockSubtitle?: boolean,
+  hiddenDesktopColumns?: readonly string[],
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
+  const watchlistNameWidth = gtLg ? 340 : 260;
 
-  return [
+  const columns = [
     {
       title: (
         <SizableText pl="$3.5" size="$bodyMd" color="$textSubdued">
@@ -84,22 +85,35 @@ export const useColumnsDesktop = (
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
-      columnWidth: 200,
+      columnWidth: (() => {
+        if (isWatchlistMode) return watchlistNameWidth;
+        if (hasStock && showStockSubtitle) return 240;
+        return 200;
+      })(),
       render: (_: unknown, record: IMarketToken) =>
         record.perpsCoin ? (
-          <XStack alignItems="center" gap="$3" userSelect="none">
+          <XStack
+            alignItems="center"
+            gap="$3"
+            userSelect="none"
+            minWidth={0}
+            overflow="hidden"
+          >
             <Token
               size="md"
               borderRadius="$full"
               tokenImageUri={record.tokenImageUri}
+              tokenImageUris={record.tokenImageUris}
               fallbackIcon="CryptoCoinOutline"
             />
             <Stack flex={1} minWidth={0}>
-              <XStack alignItems="center" gap="$1">
+              <XStack alignItems="center" gap="$1" minWidth={0}>
                 <SizableText
                   size="$bodyLgMedium"
                   numberOfLines={1}
                   maxWidth="$32"
+                  flexShrink={1}
+                  ellipsizeMode="tail"
                 >
                   {record.symbol}
                 </SizableText>
@@ -115,6 +129,7 @@ export const useColumnsDesktop = (
         ) : (
           <TokenIdentityItem
             tokenLogoURI={record.tokenImageUri}
+            tokenLogoURIs={record.tokenImageUris}
             networkLogoURI={record.networkLogoUri}
             networkId={record.networkId}
             symbol={record.symbol}
@@ -122,6 +137,8 @@ export const useColumnsDesktop = (
             showCopyButton
             copyFrom={copyFrom || ECopyFrom.Homepage}
             communityRecognized={record.communityRecognized}
+            stock={record.stock}
+            showStockSubtitle={showStockSubtitle}
           />
         ),
       renderSkeleton: () => (
@@ -140,13 +157,12 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_price }),
       dataIndex: 'price',
       columnProps: { flex: 1 },
-      render: (text: string, record: IMarketToken) => {
-        const currencySymbol = record.perpsCoin ? '$' : currency;
+      render: (text: string) => {
         return (
           <NumberSizeableText
             size="$bodyMd"
             formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
-            formatterOptions={{ currency: currencySymbol, capAtMaxT: true }}
+            formatterOptions={{ currency: '$', capAtMaxT: true }}
           >
             {text}
           </NumberSizeableText>
@@ -186,7 +202,7 @@ export const useColumnsDesktop = (
             <NumberSizeableText
               size="$bodyMd"
               formatter="marketCap"
-              formatterOptions={{ currency, capAtMaxT: true }}
+              formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
               {text === 0 ? '--' : text}
             </NumberSizeableText>
@@ -203,7 +219,7 @@ export const useColumnsDesktop = (
             <NumberSizeableText
               size="$bodyMd"
               formatter="marketCap"
-              formatterOptions={{ currency }}
+              formatterOptions={{ currency: '$' }}
             >
               {text === 0 ? '--' : text}
             </NumberSizeableText>
@@ -214,11 +230,11 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
       dataIndex: 'turnover',
       columnProps: { flex: 1.1 },
-      render: (text: number, record: IMarketToken) => (
+      render: (text: number) => (
         <NumberSizeableText
           size="$bodyMd"
           formatter="marketCap"
-          formatterOptions={{ currency: record.perpsCoin ? '$' : currency }}
+          formatterOptions={{ currency: '$' }}
         >
           {text === 0 ? '--' : text}
         </NumberSizeableText>
@@ -292,5 +308,13 @@ export const useColumnsDesktop = (
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
       : undefined,
-  ].filter(Boolean);
+  ].filter(Boolean) as ITableColumn<IMarketToken>[];
+
+  if (!hiddenDesktopColumns?.length) {
+    return columns;
+  }
+
+  return columns.filter(
+    (column) => !hiddenDesktopColumns.includes(String(column.dataIndex)),
+  );
 };

@@ -1,6 +1,9 @@
 export interface IMarketTokenDetail {
+  networkId?: string;
+  isNative?: boolean;
   address: string;
   logoUrl: string;
+  logoUrls?: string[];
   name: string;
   symbol: string;
   decimals: number;
@@ -19,6 +22,7 @@ export interface IMarketTokenDetail {
     warningMessage?: string;
   };
   price?: string;
+  priceConverted?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;
@@ -90,6 +94,7 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
   [key: string]: unknown;
 }
 
@@ -111,9 +116,41 @@ export interface IMarketTokenListItemExtraData {
   [key: string]: unknown;
 }
 
+export interface IMarketStockInfo {
+  title?: string;
+  subtitle: string;
+  source?: string;
+  sourceLogoUri: string;
+  isOpen?: boolean;
+  // Localized description from backend (tooltip when open, countdown + tooltip when closed)
+  description?: string;
+  // Stock fundamentals (from FMP API)
+  volume24h?: string;
+  volumeShares?: string;
+  turnoverRate?: string;
+  avgDailyVolume1y?: string;
+  weekHigh52?: string;
+  weekLow52?: string;
+  peRatio?: string;
+  pbRatio?: string;
+  psRatio?: string;
+  roe?: string;
+  roa?: string;
+  netProfitMargin?: string;
+  debtToEquity?: string;
+  dividendYield?: string;
+  dividendPerShare?: string;
+  marketCap?: string;
+  sharesOutstanding?: string;
+  underlyingAssetTicker?: string;
+  underlyingAssetName?: string;
+  sharesPerToken?: number;
+}
+
 export interface IMarketTokenListItem {
   address: string;
   logoUrl?: string;
+  logoUrls?: string[];
   name: string;
   symbol: string;
   decimals: number;
@@ -182,6 +219,7 @@ export interface IMarketTokenListItem {
   chainId?: string;
   communityRecognized?: boolean;
   isNative?: boolean;
+  stock?: IMarketStockInfo;
 }
 
 export interface IMarketTokenListResponse {
@@ -342,6 +380,12 @@ export interface IMarketBasicConfigData {
   lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
   HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
   perpsCategories?: IMarketPerpsCategory[];
+  spotCategories?: IMarketSpotCategory[];
+}
+
+export interface IMarketSpotCategory {
+  type: string;
+  name: string;
 }
 
 export interface IMarketPerpsCategory {
@@ -402,6 +446,14 @@ export interface IMarketTokenDetailResponse {
   data: IMarketTokenDetailData;
 }
 
+export interface IMarketAccountPortfolioPnl {
+  isPnlSupported: boolean;
+  totalPnlUsd: string;
+  totalPnlPercent: string;
+  unrealizedPnlUsd: string;
+  unrealizedPnlPercent: string;
+}
+
 export interface IMarketAccountPortfolioItem {
   accountAddress: string;
   tokenAddress: string;
@@ -409,6 +461,7 @@ export interface IMarketAccountPortfolioItem {
   symbol: string;
   tokenPrice: string;
   totalPrice: string;
+  pnl?: IMarketAccountPortfolioPnl;
 }
 
 export interface IMarketAccountPortfolioResponse {

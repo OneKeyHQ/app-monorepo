@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Tabs, Toast } from '@onekeyhq/components';
+import { ActionList, Tabs, Toast, useMedia } from '@onekeyhq/components';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
@@ -25,8 +25,16 @@ import { MarketRecommendList } from '../MarketRecommendList';
 
 import { InlineActionBar } from './components/InlineActionBar';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
+import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
 import { type IMarketToken } from './MarketTokenData';
-import { MarketTokenListBase } from './MarketTokenListBase';
+import {
+  type IMarketTokenListLiveOverride,
+  MarketTokenListBase,
+} from './MarketTokenListBase';
+import {
+  type IWatchlistFilterType,
+  MarketWatchlistCategorySelector,
+} from './MarketWatchlistCategorySelector';
 
 type IMarketWatchlistTokenListProps = {
   onItemPress?: (item: IMarketToken) => void;
@@ -39,6 +47,10 @@ type IMarketWatchlistTokenListProps = {
     paddingBottom: number;
   };
   hidePerps?: boolean;
+  hiddenDesktopColumns?: readonly string[];
+  liveTokenOverride?: IMarketTokenListLiveOverride;
+  pollingInterval?: number;
+  rowBg?: string;
 };
 
 function MarketWatchlistTokenList({
@@ -50,14 +62,28 @@ function MarketWatchlistTokenList({
   tabName,
   listContainerProps,
   hidePerps,
+  hiddenDesktopColumns,
+  liveTokenOverride,
+  pollingInterval,
+  rowBg,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
 
   // Get watchlist from atom if not provided externally
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
+  const recommendMaxSize = !platformEnv.isNative && gtMd ? 6 : 8;
 
   const actions = useWatchListV2Actions();
+
+  // Watchlist category filter: all / spot / perps
+  const [selectedFilter, setSelectedFilter] =
+    useState<IWatchlistFilterType>('all');
+  const handleSelectFilter = useCallback(
+    (filter: IWatchlistFilterType) => setSelectedFilter(filter),
+    [],
+  );
 
   // State for mobile inline action bar
   const [activeActionItem, setActiveActionItem] = useState<{
@@ -94,15 +120,32 @@ function MarketWatchlistTokenList({
   const watchlistResult = useMarketWatchlistTokenList({
     watchlist,
     pageSize: 999,
+    pollingInterval,
+  });
+
+  const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data, {
+    hideNativeToken,
+    hidePerps,
   });
 
   const filteredResult = useMemo(() => {
-    if (!hideNativeToken && !hidePerps) return watchlistResult;
-    const filtered = watchlistResult.data.filter(
-      (t) => (!hideNativeToken || !t.isNative) && (!hidePerps || !t.perpsCoin),
-    );
-    return { ...watchlistResult, data: filtered };
-  }, [watchlistResult, hideNativeToken, hidePerps]);
+    const filtered = filteredGroups[selectedFilter];
+    if (filtered === watchlistResult.data) return watchlistResult;
+    return {
+      ...watchlistResult,
+      data: filtered,
+      // Suppress loading when raw data exists but filter produces empty results,
+      // so MarketTokenListBase shows "no data" instead of flashing skeleton.
+      isLoading:
+        watchlistResult.data.length > 0 ? false : watchlistResult.isLoading,
+    };
+  }, [watchlistResult, filteredGroups, selectedFilter]);
+
+  // Disable drag reorder when the list is filtered (hidePerps or category filter).
+  // Dragging in a filtered view would pass visible-only neighbors to
+  // sortWatchListV2Items, which computes sortIndex against the full watchlist,
+  // producing incorrect order for hidden items.
+  const isDraggable = filteredResult.data === watchlistResult.data;
 
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
@@ -258,6 +301,15 @@ function MarketWatchlistTokenList({
     [],
   );
 
+  const categorySelector = useMemo(
+    () => (
+      <MarketWatchlistCategorySelector
+        selectedFilter={selectedFilter}
+        onSelectFilter={handleSelectFilter}
+      />
+    ),
+    [selectedFilter, handleSelectFilter],
+  );
   // Wait for data to be loaded before rendering anything
   // This prevents flashing the recommend list while data is still loading
   if (!watchlistState.isMounted) {
@@ -276,28 +328,39 @@ function MarketWatchlistTokenList({
     if (tabIntegrated && platformEnv.isNative) {
       return (
         <Tabs.ScrollView>
-          <MarketRecommendList recommendedTokens={recommendedTokens} />
+          <MarketRecommendList
+            recommendedTokens={recommendedTokens}
+            maxSize={recommendMaxSize}
+          />
         </Tabs.ScrollView>
       );
     }
-    return <MarketRecommendList recommendedTokens={recommendedTokens} />;
+    return (
+      <MarketRecommendList
+        recommendedTokens={recommendedTokens}
+        maxSize={recommendMaxSize}
+      />
+    );
   }
 
   return (
     <MarketTokenListBase
       onItemPress={onItemPress}
-      toolbar={toolbar}
+      toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
       result={filteredResult}
       isWatchlistMode
       showEndReachedIndicator
-      draggable
+      draggable={isDraggable}
       tabIntegrated={tabIntegrated}
       tabName={tabName}
       listContainerProps={listContainerProps}
+      hiddenDesktopColumns={hiddenDesktopColumns}
       onDragEnd={handleDragEnd}
       onItemLongPress={handleShowContextMenu}
       onItemContextMenu={handleShowContextMenu}
       onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
+      liveTokenOverride={liveTokenOverride}
+      rowBg={rowBg}
     />
   );
 }

@@ -1,6 +1,7 @@
 node_modules
 __generated__
 .cursor/debug*.log
+*.swp
 .expo-shared
 .expo
 .DS_Store
@@ -13,6 +14,9 @@ __generated__
 .claude/settings.json
 .claude/settings.local.json
 .clauderc
+.skillshare/.gitignore
+.skillshare/logs/
+.skillshare/skills/.gitignore
 .tmp/
 # Keyless cloud sync mock server data
 .tmp/keyless-cloud-sync-mock-data.json
@@ -93,6 +97,7 @@ coverage/
 /apps/desktop/public/static/js-sdk
 /apps/ext/src/entry/injected.js
 /apps/desktop/public/static/preload.js
+/packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js
 /apps/ext/src/entry/injected.text-js
 /packages/kit/src/components/WebView/injectedNative.text-js
 /packages/shared/src/web/index.html
@@ -103,6 +108,7 @@ apps/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy
 /apps/mobile/out-dir-bundle-zip
 /apps/mobile/ios/go-install
 /apps/mobile/ios/tmp-oc-test
+/apps/mobile/ios/OneKeyWallet/Fonts
 
 debug.log
 
@@ -124,3 +130,8 @@ debug.log
 # Local documentation files
 .local_docs/
 /.claude/worktrees
+/.worktree
+.skillshare/logs/operations.log
+.gstack/
+
+docs/superpowers/**/*

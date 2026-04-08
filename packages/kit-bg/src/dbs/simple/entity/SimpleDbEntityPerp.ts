@@ -51,7 +51,17 @@ export interface ISimpleDbPerpData {
   hyperliquidTermsAccepted?: boolean;
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
-  referralPromptOptedOut?: Record<string, boolean>; // user address -> whether user has opted out of referral promotion
+  abstractionModeUsers?: Record<string, string>; // user address -> EHyperLiquidAbstractionMode
+  referralBannerSnoozedUntil?: Record<string, number>; // user address -> timestamp until which the banner is snoozed
+  referralBannerCache?: Record<
+    string,
+    {
+      shouldShow: boolean;
+      reason: string;
+      cachedAt: number;
+    }
+  >; // user address -> cached eligibility result
+  perpsSharePromptShown?: boolean; // whether the once-per-app Perps share prompt has been shown
   tokenSearchAliases?: ITokenSearchAliases; // token search aliases from server
   tokenSelectorTabs?: IPerpDynamicTab[]; // dynamic token selector tabs from server
 }
@@ -269,23 +279,101 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }
 
   @backgroundMethod()
-  async getReferralPromptOptedOut(userAddress: string): Promise<boolean> {
+  async getUserAbstractionMode(
+    userAddress: string,
+  ): Promise<string | undefined> {
     const config = await this.getPerpData();
-    return config.referralPromptOptedOut?.[userAddress.toLowerCase()] ?? false;
+    const addr = userAddress.toLowerCase();
+    // New field takes priority
+    const mode = config.abstractionModeUsers?.[addr];
+    if (mode) return mode;
+    // Runtime migration: legacy boolean → dexAbstraction mode
+    if (config.dexAbstractionEnabledUsers?.[addr] === true) {
+      return 'dexAbstraction';
+    }
+    return undefined;
   }
 
   @backgroundMethod()
-  async setReferralPromptOptedOut(
+  async setUserAbstractionMode(userAddress: string, mode: string) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        abstractionModeUsers: {
+          ...prev?.abstractionModeUsers,
+          [userAddress.toLowerCase()]: mode,
+        },
+        // Dual-write legacy field only for dexAbstraction; leave untouched for other modes
+        ...(mode === 'dexAbstraction'
+          ? {
+              dexAbstractionEnabledUsers: {
+                ...prev?.dexAbstractionEnabledUsers,
+                [userAddress.toLowerCase()]: true,
+              },
+            }
+          : {}),
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getReferralBannerSnoozedUntil(userAddress: string): Promise<number> {
+    const config = await this.getPerpData();
+    return config.referralBannerSnoozedUntil?.[userAddress.toLowerCase()] ?? 0;
+  }
+
+  @backgroundMethod()
+  async setReferralBannerSnoozedUntil(
     userAddress: string,
-    optedOut: boolean,
+    snoozedUntil: number,
   ): Promise<void> {
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
-        referralPromptOptedOut: {
-          ...prev?.referralPromptOptedOut,
-          [userAddress.toLowerCase()]: optedOut,
+        referralBannerSnoozedUntil: {
+          ...prev?.referralBannerSnoozedUntil,
+          [userAddress.toLowerCase()]: snoozedUntil,
         },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getReferralBannerCache(
+    userAddress: string,
+  ): Promise<{ shouldShow: boolean; reason: string; cachedAt: number } | null> {
+    const config = await this.getPerpData();
+    return config.referralBannerCache?.[userAddress.toLowerCase()] ?? null;
+  }
+
+  @backgroundMethod()
+  async setReferralBannerCache(
+    userAddress: string,
+    cache: { shouldShow: boolean; reason: string; cachedAt: number },
+  ): Promise<void> {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        referralBannerCache: {
+          ...prev?.referralBannerCache,
+          [userAddress.toLowerCase()]: cache,
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getPerpsSharePromptShown(): Promise<boolean> {
+    const config = await this.getPerpData();
+    return config.perpsSharePromptShown ?? false;
+  }
+
+  @backgroundMethod()
+  async setPerpsSharePromptShown(shown: boolean): Promise<void> {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        perpsSharePromptShown: shown,
       }),
     );
   }

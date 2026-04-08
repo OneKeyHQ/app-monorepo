@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -29,6 +30,16 @@ export type IBulkSendAddressesInputContext = {
   ) => void;
   bulkSendMode: EBulkSendMode;
   setBulkSendMode: (bulkSendMode: EBulkSendMode) => void;
+  duplicateAddressCount: number;
+  setDuplicateAddressCount: (count: number) => void;
+  selectedDeriveType: IAccountDeriveTypes | undefined;
+  setSelectedDeriveType: (deriveType: IAccountDeriveTypes | undefined) => void;
+  // Per-sender resolved accountIds (ManyToOne/ManyToMany)
+  resolvedSenderAccountIds: Record<number, string>;
+  setResolvedSenderAccountIds: (ids: Record<number, string>) => void;
+  // Track duplicate sender addresses (ManyToMany only)
+  duplicateSenderAddressCount: number;
+  setDuplicateSenderAddressCount: (count: number) => void;
 };
 export const BulkSendAddressesInputContext =
   createContext<IBulkSendAddressesInputContext>({
@@ -49,6 +60,14 @@ export const BulkSendAddressesInputContext =
     setTokenDetailsState: () => {},
     bulkSendMode: EBulkSendMode.OneToMany,
     setBulkSendMode: () => {},
+    duplicateAddressCount: 0,
+    setDuplicateAddressCount: () => {},
+    selectedDeriveType: undefined,
+    setSelectedDeriveType: () => {},
+    resolvedSenderAccountIds: {},
+    setResolvedSenderAccountIds: () => {},
+    duplicateSenderAddressCount: 0,
+    setDuplicateSenderAddressCount: () => {},
   });
 
 export const useBulkSendAddressesInputContext = () =>

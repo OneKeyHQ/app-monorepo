@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "_folderslint": "yarn folderslint",
-    "fetch:locale": "npx lokalise-client fetch && node ./scripts/build-locale-json-map.js",
+    "i18n:pull": "node ../../development/scripts/i18n/i18n-pull.js",
+    "i18n:search": "node ../../development/scripts/i18n/i18n-search.js",
+    "i18n:add": "node ../../development/scripts/i18n/i18n-add.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
@@ -17,12 +19,10 @@
     "@types/webextension-polyfill": "^0.8.2",
     "async-mutex": "^0.3.2",
     "fast-safe-stringify": "^2.1.1",
-    "flatted": "^3.2.7",
     "js-base64": "3.7.5",
     "jsonschema": "^1.4.1",
     "localforage": "^1.10.0",
     "ms": "^2.1.3",
-    "react-native-logs": "^5.0.1",
     "react-native-url-polyfill": "^1.3.0",
     "react-native-uuid": "^2.0.1",
     "redux-persist": "^6.0.0",

@@ -852,26 +852,6 @@ class ServiceAccountSelector extends ServiceBase {
     }
 
     let accountsCount = 0;
-    let accountsValue: {
-      accountId: string;
-      value: Record<string, string> | string | undefined;
-      currency: string | undefined;
-    }[] = [];
-    let accountsDeFiOverview: Array<
-      | {
-          overview: Record<
-            string,
-            {
-              totalValue: number;
-              totalDebt: number;
-              totalReward: number;
-              netWorth: number;
-              currency: string;
-            }
-          >;
-        }
-      | undefined
-    > = [];
 
     let mergeDeriveAssetsEnabled = false;
     if (selectedNetworkId) {
@@ -883,17 +863,32 @@ class ServiceAccountSelector extends ServiceBase {
         )?.mergeDeriveAssetsEnabled ?? false;
     }
 
-    try {
-      const accountsForValuesQuery: {
-        accountId: string;
-        networkId: string;
-        indexedAccountId?: string;
-        accountAddress?: string;
-      }[] = [];
+    const accountsForValuesQuery: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[] = [];
 
+    try {
       sectionData?.forEach?.((s) => {
         s?.data?.forEach?.((account) => {
           accountsCount += 1;
+          const accountAddress =
+            (account as IDBAccount).address ||
+            (account as IDBIndexedAccount).associateAccount?.address ||
+            '';
+          const xpub =
+            ('xpub' in account &&
+              ((account.xpubSegwit || account.xpub) ?? '')) ||
+            ('associateAccount' in account &&
+              account.associateAccount &&
+              'xpub' in account.associateAccount &&
+              ((account.associateAccount.xpubSegwit ||
+                account.associateAccount.xpub) ??
+                '')) ||
+            '';
           accountsForValuesQuery.push({
             accountId: account.id,
             networkId:
@@ -904,23 +899,11 @@ class ServiceAccountSelector extends ServiceBase {
               walletId: (account as IDBIndexedAccount).walletId ?? '',
               index: (account as IDBIndexedAccount).index,
             }),
-            accountAddress:
-              (account as IDBAccount).address ||
-              (account as IDBIndexedAccount).associateAccount?.address ||
-              '',
+            accountAddress,
+            xpub,
           });
         });
       });
-      accountsDeFiOverview =
-        await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
-          accounts: accountsForValuesQuery,
-        });
-      accountsValue =
-        await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
-          {
-            accounts: accountsForValuesQuery,
-          },
-        );
     } catch (error) {
       //
     }
@@ -929,10 +912,73 @@ class ServiceAccountSelector extends ServiceBase {
       sectionData,
       focusedWalletInfo,
       accountsCount,
-      accountsValue,
       mergeDeriveAssetsEnabled,
-      accountsDeFiOverview,
+      accountsForValuesQuery,
     };
+  }
+
+  @backgroundMethod()
+  async buildAccountAddressMap({
+    focusedWallet,
+    indexedAccountIds,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+    indexedAccountIds: string[];
+  }): Promise<Record<string, string[]> | undefined> {
+    if (
+      !accountUtils.isIndexedAccountWallet({ walletId: focusedWallet }) ||
+      !indexedAccountIds.length
+    ) {
+      return undefined;
+    }
+
+    try {
+      const relevantIds = new Set(indexedAccountIds);
+      const { allDbAccounts } =
+        await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+          { indexedAccountId: indexedAccountIds[0] },
+        );
+      const accountAddressMap: Record<string, string[]> = {};
+      for (const dbAccount of allDbAccounts) {
+        const key = dbAccount.indexedAccountId;
+        if (key && relevantIds.has(key) && dbAccount.address) {
+          const addr = dbAccount.address.toLowerCase();
+          accountAddressMap[key] ??= [];
+          if (!accountAddressMap[key].includes(addr)) {
+            accountAddressMap[key].push(addr);
+          }
+        }
+      }
+      return accountAddressMap;
+    } catch (error) {
+      // silently fail — address search degrades to name-only
+      return {};
+    }
+  }
+
+  @backgroundMethod()
+  async buildAccountSelectorAccountsValuesData({
+    accounts,
+  }: {
+    accounts: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[];
+  }) {
+    const accountsDeFiOverview =
+      await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+        accounts,
+      });
+    const accountsValue =
+      await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+        {
+          accounts,
+        },
+      );
+    return { accountsValue, accountsDeFiOverview };
   }
 }
 

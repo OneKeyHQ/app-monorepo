@@ -6,8 +6,8 @@
  * - Builds production desktop (main + renderer) and runs Electron in PERF_CI_MODE=1.
  */
 
-const path = require('path');
 const { spawn } = require('child_process');
+const path = require('path');
 
 function main() {
   const repoRoot = path.join(__dirname, '..', '..');

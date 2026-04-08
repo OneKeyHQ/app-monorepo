@@ -4,15 +4,19 @@ import {
   Divider,
   Page,
   SizableText,
+  Toast,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { AppUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 
 import SkipGPGVerificationToggle from './SkipGPGVerificationToggle';
 
 export default function DevAppUpdateTestModal() {
+  const { copyText } = useClipboard();
   const showResultDialog = (title: string, content: string) => {
     Dialog.show({
       title,
@@ -30,7 +34,7 @@ export default function DevAppUpdateTestModal() {
         await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       const params = updateInfo.downloadedEvent;
       if (!params?.downloadUrl) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'No downloaded app package found. Please download app update package first.',
         );
       }
@@ -150,13 +154,11 @@ export default function DevAppUpdateTestModal() {
     });
   };
 
-  const showAppUpdateInfoDialog = async () => {
+  const copyAppUpdateInfo = async () => {
     const appUpdateInfo =
       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-    Dialog.show({
-      title: 'App Update Info',
-      renderContent: <SizableText>{JSON.stringify(appUpdateInfo)}</SizableText>,
-    });
+    copyText(JSON.stringify(appUpdateInfo, null, 2));
+    Toast.success({ title: 'Copied' });
   };
 
   return (
@@ -194,8 +196,23 @@ export default function DevAppUpdateTestModal() {
 
           <Divider />
 
-          <Button variant="secondary" onPress={showAppUpdateInfoDialog}>
-            Show App Update Info
+          <Button variant="secondary" onPress={copyAppUpdateInfo}>
+            Copy App Update Info
+          </Button>
+
+          <Button
+            variant="secondary"
+            onPress={async () => {
+              const task =
+                await backgroundApiProxy.servicePendingInstallTask.getPendingInstallTask();
+              const text = task
+                ? JSON.stringify(task, null, 2)
+                : 'No pending install task';
+              copyText(text);
+              Toast.success({ title: 'Copied' });
+            }}
+          >
+            Copy Pending Install Task
           </Button>
         </YStack>
       </Page.Body>

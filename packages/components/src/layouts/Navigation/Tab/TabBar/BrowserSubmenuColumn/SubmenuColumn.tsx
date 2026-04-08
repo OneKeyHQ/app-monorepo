@@ -1,12 +1,14 @@
+import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 import { Stack, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import { ANIMATE_ONLY_WIDTH } from '@onekeyhq/components/src/utils/animationConstants';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Height to align with primary menu header (Mac drag area or logo area)
 const HEADER_ALIGNMENT_HEIGHT = 52;
-const EXPANDED_SUBMENU_WIDTH = 208;
+export const EXPANDED_SUBMENU_WIDTH = 208;
 const COLLAPSED_SUBMENU_WIDTH = MIN_SIDEBAR_WIDTH - 10;
 
 export interface ISubmenuColumnProps {
@@ -14,10 +16,19 @@ export interface ISubmenuColumnProps {
   isExpanded?: boolean;
 }
 
+const dragRegionStyle = { WebkitAppRegion: 'drag' } as any;
+
 export function SubmenuColumn({
   webPageTabBar,
   isExpanded = false,
 }: ISubmenuColumnProps) {
+  const boxShadowStyle = useMemo(
+    () => ({
+      boxShadow: isExpanded ? '10px 0 30px -10px rgba(0, 0, 0, 0.10)' : 'none',
+    }),
+    [isExpanded],
+  );
+
   return (
     <Stack width={COLLAPSED_SUBMENU_WIDTH} flex={1}>
       {/* Desktop drag area - always bgSidebar, not affected by expand */}
@@ -29,10 +40,7 @@ export function SubmenuColumn({
           right={0}
           h={HEADER_ALIGNMENT_HEIGHT}
           zIndex={11}
-          style={{
-            // @ts-expect-error - Electron drag region
-            WebkitAppRegion: 'drag',
-          }}
+          style={dragRegionStyle}
         />
       ) : null}
       {/* Content area that expands on hover */}
@@ -47,17 +55,14 @@ export function SubmenuColumn({
         px="$3"
         zIndex={10}
         animation="quick"
+        animateOnly={ANIMATE_ONLY_WIDTH}
         borderTopRightRadius={isExpanded ? '$3' : 0}
         borderBottomRightRadius={isExpanded ? '$3' : 0}
         borderTopWidth={1}
         borderBottomWidth={1}
         borderRightWidth={1}
         borderColor={isExpanded ? '$neutral3' : 'transparent'}
-        style={{
-          boxShadow: isExpanded
-            ? '10px 0 30px -10px rgba(0, 0, 0, 0.10)'
-            : 'none',
-        }}
+        style={boxShadowStyle}
       >
         {webPageTabBar}
       </YStack>

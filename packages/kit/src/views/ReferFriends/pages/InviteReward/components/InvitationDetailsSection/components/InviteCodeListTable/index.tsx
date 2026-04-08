@@ -31,16 +31,20 @@ import { useSortableData } from './hooks/useSortableData';
 import { useTableAvailableWidth } from './hooks/useTableAvailableWidth';
 import { useTableColumns } from './hooks/useTableColumns';
 
+const ROW_HEIGHT = 66;
+
 interface IInviteCodeListTableProps {
   codeListData: IInviteCodeListResponse | undefined;
   isLoading: boolean;
-  refetch: () => void;
+  refetch: () => Promise<void>;
+  onCodeUpdated?: (shouldRefreshSummary?: boolean) => Promise<void> | void;
 }
 
 export function InviteCodeListTable({
   codeListData,
   isLoading,
   refetch,
+  onCodeUpdated,
 }: IInviteCodeListTableProps) {
   const intl = useIntl();
   const { containerWidth, onLayout } = useTableAvailableWidth();
@@ -60,7 +64,11 @@ export function InviteCodeListTable({
     scrollableColumns,
     handleHeaderRow,
     shouldUseFlex,
-  } = useTableColumns(containerWidth, handleSortChange, refetch);
+  } = useTableColumns(
+    containerWidth,
+    handleSortChange,
+    onCodeUpdated ?? refetch,
+  );
 
   // Fixed column shadow management using shared hook
   const {
@@ -102,8 +110,8 @@ export function InviteCodeListTable({
         columns={columns}
         keyExtractor={(item) => item.code}
         onHeaderRow={handleHeaderRow}
-        estimatedItemSize={50}
-        rowProps={{ px: '$2', minHeight: '$10' }}
+        estimatedItemSize={ROW_HEIGHT}
+        rowProps={{ px: '$2', minHeight: ROW_HEIGHT }}
       />
       <SimpleEdgeShadowOverlay isDark={isDark} position="right" zIndex={10} />
     </Stack>
@@ -127,8 +135,8 @@ export function InviteCodeListTable({
           columns={fixedColumns}
           keyExtractor={(item) => item.code}
           onHeaderRow={handleHeaderRow}
-          estimatedItemSize={50}
-          rowProps={{ px: '$2', minHeight: '$10' }}
+          estimatedItemSize={ROW_HEIGHT}
+          rowProps={{ px: '$2', minHeight: ROW_HEIGHT }}
           scrollEnabled={false}
         />
         <FixedColumnShadowOverlay
@@ -156,8 +164,8 @@ export function InviteCodeListTable({
           columns={scrollableColumns}
           keyExtractor={(item) => item.code}
           onHeaderRow={handleHeaderRow}
-          estimatedItemSize={50}
-          rowProps={{ px: '$2', minHeight: '$10' }}
+          estimatedItemSize={ROW_HEIGHT}
+          rowProps={{ px: '$2', minHeight: ROW_HEIGHT }}
           scrollEnabled={false}
         />
       </ScrollView>

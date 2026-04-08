@@ -7,6 +7,7 @@ import type {
   IActionListItemProps,
   IPropsWithTestId,
 } from '@onekeyhq/components';
+import { Tooltip } from '@onekeyhq/components/src/actions';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -73,11 +74,13 @@ function DesktopCustomTabBarItem({
   const { handleRenameTab } = useBrowserOptionsAction();
   const { activeTabId } = useActiveTabId();
   const isActive = activeTabId === id;
-  const closeTab = useCallback(() => {
-    if (tab?.id) {
-      onClose?.(tab?.id);
+  const closeOrUnpinTab = useCallback(() => {
+    if (tab?.isPinned) {
+      onPinnedPress(tab.id, false);
+    } else if (tab?.id) {
+      onClose?.(tab.id);
     }
-  }, [onClose, tab?.id]);
+  }, [tab?.isPinned, tab?.id, onPinnedPress, onClose]);
   const actionListItems = useMemo(
     () =>
       [
@@ -174,7 +177,7 @@ function DesktopCustomTabBarItem({
                 id: ETranslations.explore_close_tab,
               }),
               icon: 'CrossedLargeOutline',
-              onPress: closeTab,
+              onPress: closeOrUnpinTab,
               testID: `action-list-item-close`,
             },
           ].filter(Boolean) as IActionListItemProps[],
@@ -195,7 +198,7 @@ function DesktopCustomTabBarItem({
       onClose,
       copyText,
       handleRenameTab,
-      closeTab,
+      closeOrUnpinTab,
       isHomeTab,
     ],
   );
@@ -203,13 +206,23 @@ function DesktopCustomTabBarItem({
     return (tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title;
   }, [tab?.customTitle, tab?.title]);
 
+  const closeButtonTitle = useMemo(
+    () =>
+      tab?.isPinned ? (
+        <Tooltip.Text shortcutKey={EShortcutEvents.PinOrUnpinTab}>
+          {intl.formatMessage({ id: ETranslations.explore_unpin })}
+        </Tooltip.Text>
+      ) : undefined,
+    [tab?.isPinned, intl],
+  );
+
   const tabItem = useMemo(() => {
     return (
       <DesktopTabItem
         hideCloseButton={isCollapse}
         size="small"
         showAvatar={!isHomeTab}
-        icon={isHomeTab ? 'Ai3StarOutline' : undefined}
+        icon={isHomeTab ? 'EarthOutline' : undefined}
         shortcutKey={shortcutKey}
         key={id}
         selected={isActive}
@@ -219,7 +232,10 @@ function DesktopCustomTabBarItem({
         testID={testID}
         id={id}
         actionList={actionListItems}
-        onClose={closeTab}
+        onClose={closeOrUnpinTab}
+        closeButtonIcon={tab?.isPinned ? 'ThumbtackOutline' : undefined}
+        closeButtonTitle={closeButtonTitle}
+        alwaysShowCloseButton={!!tab?.isPinned}
         tabBarStyle={
           isCollapse ? { justifyContent: 'center' as const } : undefined
         }
@@ -233,9 +249,11 @@ function DesktopCustomTabBarItem({
     isActive,
     label,
     tab?.favicon,
+    tab?.isPinned,
     testID,
     actionListItems,
-    closeTab,
+    closeOrUnpinTab,
+    closeButtonTitle,
     onPress,
   ]);
 

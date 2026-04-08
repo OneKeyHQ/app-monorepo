@@ -4,8 +4,10 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAmountInputMode,
   EBulkSendMode,
+  EIntervalMode,
   type IAmountInputError,
   type IAmountInputValues,
+  type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -47,6 +49,9 @@ export type IBulkSendAmountsInputContext = {
     isRefreshing: boolean;
   }) => void;
   bulkSendMode: EBulkSendMode;
+  // Max mode: send entire balance per sender (ManyToOne/ManyToMany only)
+  isMaxMode: boolean;
+  setIsMaxMode: (isMaxMode: boolean) => void;
   // Desktop uses these directly
   transfersInfo: ITransferInfo[];
   setTransfersInfo: (transfersInfo: ITransferInfo[]) => void;
@@ -75,6 +80,23 @@ export type IBulkSendAmountsInputContext = {
   updateCurrentModeData: (data: Partial<IMobileModeData>) => void;
   // Get current mode's data for mobile
   currentModeData: IMobileModeData;
+  // Minimum transfer amount per address (from vault settings)
+  minTransferAmount: string;
+  // Interval settings (ManyToOne/ManyToMany only)
+  intervalSettings: IIntervalSettings;
+  setIntervalSettings: (settings: IIntervalSettings) => void;
+  // Per-sender balance data (ManyToOne/ManyToMany only)
+  senderBalances: Record<string, string>; // address -> balanceParsed
+  setSenderBalances: (balances: Record<string, string>) => void;
+  senderBalancesLoading: boolean;
+  setSenderBalancesLoading: (loading: boolean) => void;
+  // Addresses whose balance fetch failed
+  senderBalancesFailed: Set<string>;
+  setSenderBalancesFailed: (failed: Set<string>) => void;
+  // Per-sender accountId map (address -> accountId)
+  senderAccountIdMap: Map<string, string>;
+  // Whether senders have duplicate addresses (ManyToMany only)
+  hasDuplicateSenders: boolean;
 };
 
 const defaultModeData: IMobileModeData = {
@@ -107,6 +129,8 @@ export const BulkSendAmountsInputContext =
     },
     setTokenDetailsState: () => {},
     bulkSendMode: EBulkSendMode.OneToMany,
+    isMaxMode: false,
+    setIsMaxMode: () => {},
     amountInputMode: EAmountInputMode.Specified,
     setAmountInputMode: () => {},
     amountInputValues: {
@@ -138,6 +162,21 @@ export const BulkSendAmountsInputContext =
     setMobileModeData: () => {},
     updateCurrentModeData: () => {},
     currentModeData: { ...defaultModeData },
+    minTransferAmount: '0',
+    intervalSettings: {
+      mode: EIntervalMode.None,
+      minSeconds: '',
+      maxSeconds: '',
+    },
+    setIntervalSettings: () => {},
+    senderBalances: {},
+    setSenderBalances: () => {},
+    senderBalancesLoading: false,
+    setSenderBalancesLoading: () => {},
+    senderBalancesFailed: new Set<string>(),
+    setSenderBalancesFailed: () => {},
+    senderAccountIdMap: new Map(),
+    hasDuplicateSenders: false,
   });
 
 export const useBulkSendAmountsInputContext = () =>

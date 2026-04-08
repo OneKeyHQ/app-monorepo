@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -43,11 +44,42 @@ import { usePortfolioData } from '../components/InformationTabs/components/Portf
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
+import { StockTokenOverview } from '../components/TokenOverview/StockTokenOverview';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
+function MobileTradingViewTouchBridge({
+  tokenAddress,
+  networkId,
+  tokenSymbol,
+  dataSource,
+}: {
+  tokenAddress: string;
+  networkId: string;
+  tokenSymbol: string;
+  dataSource: 'websocket' | 'polling';
+}) {
+  const handleTouchScroll = useMobileTabTouchScrollBridge();
+
+  return (
+    <MarketTradingView
+      tokenAddress={tokenAddress}
+      networkId={networkId}
+      tokenSymbol={tokenSymbol}
+      dataSource={dataSource}
+      onTouchScroll={handleTouchScroll}
+    />
+  );
+}
+
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
-  const { tokenAddress, networkId, tokenDetail, websocketConfig } =
-    useTokenDetail();
+  const {
+    tokenAddress,
+    networkId,
+    tokenDetail,
+    websocketConfig,
+    isStockToken,
+  } = useTokenDetail();
+  const tokenSymbol = tokenDetail?.symbol;
   const intl = useIntl();
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
@@ -160,6 +192,15 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   );
 
   const informationHeader = useMemo(() => {
+    const chartAreaHorizontalSwipeHandler = platformEnv.isNativeAndroid
+      ? undefined
+      : handleHeaderHorizontalSwipe;
+    const chartAreaPanFailOffsetX: [number, number] =
+      platformEnv.isNativeAndroid ? [-12, 12] : [-40, 40];
+    const chartAreaExcludeRightEdgeRatio = platformEnv.isNativeAndroid
+      ? 0.16
+      : 0.1;
+
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
         <HeaderScrollGestureWrapper
@@ -173,35 +214,68 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             <InformationPanel />
           </YStack>
         </HeaderScrollGestureWrapper>
-        <HeaderScrollGestureWrapper
-          panActiveOffsetY={[-4, 4]}
-          panFailOffsetX={[-40, 40]}
-          excludeRightEdgeRatio={0.1}
-          scrollScale={1}
-          onHorizontalSwipe={handleHeaderHorizontalSwipe}
-          horizontalSwipeThreshold={24}
-          horizontalSwipeVelocityThreshold={900}
-          simultaneousWithNativeGesture
-          cancelChildTouches={false}
-        >
-          <Stack h={tradingViewHeight} overflow="hidden">
-            {networkId && tokenDetail?.symbol ? (
-              <MarketTradingView
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-                tokenSymbol={tokenDetail.symbol}
-                dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
-              />
-            ) : null}
-          </Stack>
-        </HeaderScrollGestureWrapper>
+        <Stack position="relative">
+          <HeaderScrollGestureWrapper
+            panActiveOffsetY={[-4, 4]}
+            panFailOffsetX={chartAreaPanFailOffsetX}
+            excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
+            scrollScale={1}
+            onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
+            horizontalSwipeThreshold={24}
+            horizontalSwipeVelocityThreshold={900}
+            simultaneousWithNativeGesture
+            cancelChildTouches={false}
+          >
+            <Stack h={tradingViewHeight} overflow="hidden">
+              {(() => {
+                if (!networkId || !tokenSymbol) {
+                  return null;
+                }
+                if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
+                  return (
+                    <MobileTradingViewTouchBridge
+                      tokenAddress={tokenAddress}
+                      networkId={networkId}
+                      tokenSymbol={tokenSymbol}
+                      dataSource={
+                        websocketConfig?.kline ? 'websocket' : 'polling'
+                      }
+                    />
+                  );
+                }
+                return (
+                  <MarketTradingView
+                    tokenAddress={tokenAddress}
+                    networkId={networkId}
+                    tokenSymbol={tokenSymbol}
+                    dataSource={
+                      websocketConfig?.kline ? 'websocket' : 'polling'
+                    }
+                  />
+                );
+              })()}
+            </Stack>
+          </HeaderScrollGestureWrapper>
+          {platformEnv.isNativeIOS ? (
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 50,
+                bottom: 0,
+                width: 20,
+                zIndex: 9999,
+              }}
+            />
+          ) : null}
+        </Stack>
       </YStack>
     );
   }, [
     handleHeaderHorizontalSwipe,
     networkId,
     tokenAddress,
-    tokenDetail?.symbol,
+    tokenSymbol,
     tradingViewHeight,
     websocketConfig?.kline,
   ]);
@@ -221,6 +295,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
               renderHeader={renderInformationHeader}
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              tokenLogoUrl={tokenDetail?.logoUrl}
             />
           </YStack>
         );
@@ -231,8 +306,14 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             onTouchStart={handleSecondTabTouchStart}
             onTouchEnd={handleSecondTabTouchEnd}
           >
-            <TokenOverview />
-            <TokenActivityOverview />
+            {isStockToken ? (
+              <StockTokenOverview />
+            ) : (
+              <>
+                <TokenOverview />
+                <TokenActivityOverview />
+              </>
+            )}
             <Stack h={100} w="100%" />
           </ScrollView>
         </YStack>
@@ -243,8 +324,10 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       renderInformationHeader,
       portfolioData,
       isRefreshing,
+      tokenDetail?.logoUrl,
       handleSecondTabTouchStart,
       handleSecondTabTouchEnd,
+      isStockToken,
     ],
   );
 

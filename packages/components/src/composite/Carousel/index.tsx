@@ -142,27 +142,61 @@ export function Carousel<T>({
   }, [data.length, debouncedSetPageIndex, setPage]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPageVisibleRef = useRef(true);
+
+  const stopAutoPlay = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
   const startAutoPlay = useCallback(() => {
-    if (loop) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+    if (loop && isPageVisibleRef.current) {
+      stopAutoPlay();
       timerRef.current = setTimeout(() => {
         scrollToNextPage();
         startAutoPlay();
       }, autoPlayInterval);
     }
-  }, [loop, autoPlayInterval, scrollToNextPage]);
+  }, [loop, autoPlayInterval, scrollToNextPage, stopAutoPlay]);
+
+  // Pause auto-play when the Carousel is not visible in the viewport
+  // (e.g. user switched to another in-app tab). This avoids unnecessary
+  // scroll events firing in the background which can blur focused inputs
+  // on other pages via react-native-web's dismissKeyboard().
+  const containerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (platformEnv.isNative || !loop) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const nowVisible = entry?.isIntersecting ?? true;
+        const prevVisible = isPageVisibleRef.current;
+        isPageVisibleRef.current = nowVisible;
+        if (nowVisible && !prevVisible) {
+          startAutoPlay();
+        } else if (!nowVisible && prevVisible) {
+          stopAutoPlay();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loop, startAutoPlay, stopAutoPlay]);
 
   useEffect(() => {
     startAutoPlay();
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      stopAutoPlay();
     };
-  }, [loop, autoPlayInterval, scrollToNextPage, startAutoPlay]);
+  }, [loop, autoPlayInterval, scrollToNextPage, startAutoPlay, stopAutoPlay]);
 
   useImperativeHandle(instanceRef, () => {
     return {
@@ -181,10 +215,13 @@ export function Carousel<T>({
     };
   });
 
-  const onPressPagination = (index: number) => {
-    setPage(index);
-    debouncedSetPageIndex(index);
-  };
+  const onPressPagination = useCallback(
+    (index: number) => {
+      setPage(index);
+      debouncedSetPageIndex(index);
+    },
+    [setPage, debouncedSetPageIndex],
+  );
 
   const onPageSelected = useCallback(
     (e: NativeSyntheticEvent<Readonly<{ position: number }>>) => {
@@ -237,9 +274,38 @@ export function Carousel<T>({
 
   const value = useMemo(() => ({ pageIndex }), [pageIndex]);
 
+  const containerSizeStyle = useMemo(
+    () => ({
+      width: pageWidthProp || layout.width,
+      height: pageWidthProp ? '100%' : layout.height,
+    }),
+    [pageWidthProp, layout.width, layout.height],
+  );
+
+  const pagerViewStyle = useMemo(
+    () => ({
+      width: (pageWidthProp || layout.width) as number,
+      height: (pageWidthProp ? '100%' : layout.height) as number | `${number}%`,
+    }),
+    [pageWidthProp, layout.width, layout.height],
+  );
+
+  const pageItemStyle = useMemo(
+    () => ({
+      width: pageWidth,
+      height: '100%' as const,
+    }),
+    [pageWidth],
+  );
+
+  const defaultActiveDotStyle = useMemo(
+    () => activeDotStyle || { bg: '$bgPrimary' as const },
+    [activeDotStyle],
+  );
+
   return (
     <CarouselContext.Provider value={value}>
-      <YStack userSelect="none">
+      <YStack userSelect="none" ref={containerRef as any}>
         <XStack
           {...(containerStyle as any)}
           onLayout={handleLayout}
@@ -250,35 +316,25 @@ export function Carousel<T>({
         >
           {pageWidthProp || (layout.width > 0 && layout.height > 0) ? (
             <Stack
-              style={{
-                width: pageWidthProp || layout.width,
-                height: pageWidthProp ? '100%' : layout.height,
-              }}
+              style={containerSizeStyle}
               key={
                 pageWidthProp ? undefined : `${layout.width}-${layout.height}`
               }
             >
               <PagerView
                 ref={pagerRef as RefObject<NativePagerView>}
-                style={{
-                  width: (pageWidthProp || layout.width) as number,
-                  height: pageWidthProp ? '100%' : layout.height,
-                }}
+                style={pagerViewStyle}
                 initialPage={defaultIndex}
                 pageWidth={pageWidth}
                 onPageSelected={onPageSelected}
+                // Only effective on native; web PagerView ignores this and uses "none"
+                // to avoid globally blurring focused inputs via dismissKeyboard().
                 keyboardDismissMode="on-drag"
                 disableAnimation={disableAnimation}
                 {...pagerProps}
               >
                 {data.map((item, index) => (
-                  <Stack
-                    key={index}
-                    style={{
-                      width: pageWidth,
-                      height: '100%',
-                    }}
-                  >
+                  <Stack key={index} style={pageItemStyle}>
                     {renderItem({ item, index })}
                   </Stack>
                 ))}
@@ -286,7 +342,9 @@ export function Carousel<T>({
             </Stack>
           ) : null}
         </XStack>
-        {showPagination && data.length > 1 ? (
+        {showPagination &&
+        data.length > 1 &&
+        (!!pageWidthProp || (layout.width > 0 && layout.height > 0)) ? (
           <XStack
             gap="$1"
             ai="center"
@@ -297,20 +355,18 @@ export function Carousel<T>({
               <IconButton
                 icon="ChevronLeftSmallOutline"
                 variant="tertiary"
-                onPress={() => scrollToPreviousPage()}
+                onPress={scrollToPreviousPage}
                 disabled={data.length <= 1}
               />
             ) : null}
-            <XStack flex={1} gap="$0.5" ai="center" jc="center">
+            <XStack flex={1} gap="$0" ai="center" jc="center">
               {data.map((item, index) => {
                 return renderPaginationItem?.(
                   {
                     data: item,
                     dotStyle,
                     activeDotStyle:
-                      index === pageIndex
-                        ? activeDotStyle || { bg: '$bgPrimary' }
-                        : undefined,
+                      index === pageIndex ? defaultActiveDotStyle : undefined,
                     onPress: () => onPressPagination(index),
                   },
                   index,
@@ -321,7 +377,7 @@ export function Carousel<T>({
               <IconButton
                 icon="ChevronRightSmallOutline"
                 variant="tertiary"
-                onPress={() => scrollToNextPage()}
+                onPress={scrollToNextPage}
                 disabled={data.length <= 1}
               />
             ) : null}

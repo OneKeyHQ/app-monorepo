@@ -834,6 +834,7 @@ class ServiceToken extends ServiceBase {
       tokenList,
       smallBalanceTokenList,
       riskyTokenList,
+      hasCache: localTokens.hasCache,
       accountId,
       networkId,
     };

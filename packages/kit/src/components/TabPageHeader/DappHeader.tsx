@@ -34,6 +34,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { KeylessWebConnectAlertContainer } from '../../provider/Container/KeylessWebConnectAlertContainer';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
@@ -372,8 +373,6 @@ function MoreDappActionContent() {
   const [activeSelect, setActiveSelect] = useState<
     'language' | 'currency' | null
   >(null);
-  const [languageKey, setLanguageKey] = useState(0);
-  const [currencyKey, setCurrencyKey] = useState(0);
 
   const handleLanguageOpenChange = useCallback((isOpen: boolean) => {
     setActiveSelect(isOpen ? 'language' : null);
@@ -385,20 +384,16 @@ function MoreDappActionContent() {
 
   const closeAllDropdowns = useCallback(() => {
     setActiveSelect(null);
-    setLanguageKey((prev) => prev + 1);
-    setCurrencyKey((prev) => prev + 1);
   }, []);
 
   return (
     <YStack py="$3">
       <ThemeListItem />
       <LanguageListItem
-        key={languageKey}
         open={activeSelect === 'language'}
         onOpenChange={handleLanguageOpenChange}
       />
       <CurrencyListItem
-        key={currencyKey}
         open={activeSelect === 'currency'}
         onOpenChange={handleCurrencyOpenChange}
       />
@@ -486,6 +481,7 @@ function RightActions({
           onPress={handleSearchPress}
         />
       )}
+
       {isPerpsTab && customHeaderRightItems ? (
         customHeaderRightItems
       ) : (
@@ -500,7 +496,10 @@ function RightActions({
           </XStack>
         </>
       )}
+
       {!isPerpsTab && gtLg ? <DownloadAppButton /> : null}
+      <KeylessWebConnectAlertContainer />
+
       <XStack
         ai="center"
         gap="$2.5"

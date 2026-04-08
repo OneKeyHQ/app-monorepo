@@ -126,11 +126,13 @@ export const {
   },
 });
 
-type ISettingsAtom = {
+export type ISettingsAtom = {
   swapToAnotherAccountSwitchOn: boolean;
   swapSlippagePercentageMode: ESwapSlippageSegmentKey;
   swapSlippagePercentageCustomValue: number;
   swapEnableRecipientAddress: boolean;
+  // Swap page UI state should reset with the page/session instead of persisting silently.
+  swapIncognitoMode: boolean;
 };
 
 export const { target: settingsAtom, use: useSettingsAtom } =
@@ -141,6 +143,7 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
       swapSlippagePercentageCustomValue: swapSlippageAutoValue,
       swapEnableRecipientAddress: false,
+      swapIncognitoMode: false,
     },
   });
 
@@ -171,6 +174,21 @@ export const {
   name: EAtomNames.settingsTronRentalPersistAtom,
   initialValue: {
     preventDisableTronRental: false,
+  },
+});
+
+export type ISettingsFiatPaySiteWhitelistPersistAtom = {
+  fiatPaySiteWhitelist: string[];
+};
+
+export const {
+  target: settingsFiatPaySiteWhitelistPersistAtom,
+  use: useSettingsFiatPaySiteWhitelistPersistAtom,
+} = globalAtom<ISettingsFiatPaySiteWhitelistPersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsFiatPaySiteWhitelistPersistAtom,
+  initialValue: {
+    fiatPaySiteWhitelist: [],
   },
 });
 

@@ -11,6 +11,8 @@ export type IPaginationItemProps = {
   onPress: () => void;
 };
 
+const hoverStyleConst = { bg: '$bgHover' } as const;
+
 export function PaginationItem({
   dotStyle,
   activeDotStyle,
@@ -19,11 +21,9 @@ export function PaginationItem({
   return (
     <YStack
       onPress={onPress}
-      p="$2"
+      p="$1"
       borderRadius="$full"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
+      hoverStyle={hoverStyleConst}
     >
       <YStack
         w="$1.5"

@@ -292,7 +292,7 @@ export function PrimeTransferHomeEnterLink({
       onPress: async () => {
         const result = await start({
           handlers: [],
-          autoHandleResult: false,
+          autoExecuteParsedAction: false,
         });
         let text = result?.raw || '';
         if (text.startsWith(TRANSFER_DEEPLINK_URL)) {

@@ -24,6 +24,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getSearchTypeTrackingName } from '@onekeyhq/shared/src/logger/scopes/universalSearch/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -31,7 +32,10 @@ import type {
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
+import type {
+  IUniversalSearchBatchResult,
+  IUniversalSearchResultItem,
+} from '@onekeyhq/shared/types/search';
 import {
   ESearchStatus,
   EUniversalSearchType,
@@ -69,12 +73,15 @@ import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 interface IUniversalSection {
   tabIndex: number;
   title: string;
+  type: EUniversalSearchType;
   data: IUniversalSearchResultItem[];
   sliceData?: IUniversalSearchResultItem[];
   showMore?: boolean;
 }
 
-const getSearchTypes = () => {
+const SEARCH_DEBOUNCE_MS = 300;
+
+const getSearchTypes = (): EUniversalSearchType[] => {
   return [
     !platformEnv.isWebDappMode && EUniversalSearchType.Address,
     EUniversalSearchType.MarketToken,
@@ -85,6 +92,11 @@ const getSearchTypes = () => {
     EUniversalSearchType.Perp,
   ].filter(Boolean);
 };
+
+const PRIMARY_SEARCH_TYPES: EUniversalSearchType[] = [
+  EUniversalSearchType.V2MarketToken,
+  EUniversalSearchType.Perp,
+];
 
 const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
   const tabMapping: Record<EUniversalSearchType, number> = {
@@ -276,6 +288,7 @@ export function UniversalSearch({
     if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
       searchResultSections.push({
         tabIndex: 2,
+        type: EUniversalSearchType.V2MarketToken,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: result[EUniversalSearchType.V2MarketToken]
           .items as IUniversalSearchResultItem[],
@@ -308,6 +321,7 @@ export function UniversalSearch({
       );
       searchResultSections.push({
         tabIndex: 2,
+        type: EUniversalSearchType.V2MarketToken,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: v2Items as IUniversalSearchResultItem[],
       });
@@ -320,89 +334,82 @@ export function UniversalSearch({
   }, [fetchRecommendList]);
 
   const searchInputRef = useRef<string>('');
+  const getSearchInput = useCallback(() => searchInputRef.current, []);
 
-  const handleTextChange = useDebouncedCallback(async (val: string) => {
-    console.log('[universalSearch] handleTextChange: ', val);
-    const input = val?.trim?.() || '';
-    if (input) {
-      searchInputRef.current = input;
-      const result =
-        await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-          input,
-          networkId: activeAccount?.network?.id,
-          accountId: activeAccount?.account?.id,
-          indexedAccountId: activeAccount?.indexedAccount?.id,
-          searchTypes: getSearchTypes(),
-          tokenListCache: shouldUseTokensCacheData
-            ? allTokenList?.tokens
-            : undefined,
-          tokenListCacheMap: shouldUseTokensCacheData
-            ? allTokenListMap
-            : undefined,
-          aggregateTokenListCacheMap: shouldUseTokensCacheData
-            ? aggregateTokenListMap
-            : undefined,
-        });
-      const generateDataFn = (data: IUniversalSearchResultItem[]) => {
-        return {
-          data,
-          sliceData: data.slice(0, DEFAULT_SLICE_LIMIT),
-          showMore: data.length > DEFAULT_SLICE_LIMIT,
-        };
+  const getDeferredSearchTypes = useCallback(
+    () =>
+      getSearchTypes().filter((type) => !PRIMARY_SEARCH_TYPES.includes(type)),
+    [],
+  );
+
+  const buildSectionData = useCallback((data: IUniversalSearchResultItem[]) => {
+    return {
+      data,
+      sliceData: data.slice(0, DEFAULT_SLICE_LIMIT),
+      showMore: data.length > DEFAULT_SLICE_LIMIT,
+    };
+  }, []);
+
+  const buildDappSectionData = useCallback(
+    (data: IUniversalSearchResultItem[]) => {
+      const googleSearchIndex = data.findIndex(
+        (item) =>
+          item.type === EUniversalSearchType.Dapp &&
+          isGoogleSearchItem(item.payload?.dappId),
+      );
+
+      if (googleSearchIndex === -1) {
+        return buildSectionData(data);
+      }
+
+      const googleSearchItem = data[googleSearchIndex];
+      const otherResults = data.filter(
+        (_, index) => index !== googleSearchIndex,
+      );
+      const slicedOtherResults = otherResults.slice(0, DEFAULT_SLICE_LIMIT);
+
+      return {
+        data,
+        sliceData: [...slicedOtherResults, googleSearchItem],
+        showMore: otherResults.length > DEFAULT_SLICE_LIMIT,
       };
+    },
+    [buildSectionData],
+  );
 
-      // Special function for dApp results to handle Google search item
-      const generateDappDataFn = (data: IUniversalSearchResultItem[]) => {
-        const googleSearchIndex = data.findIndex(
-          (item) =>
-            item.type === EUniversalSearchType.Dapp &&
-            isGoogleSearchItem(item.payload?.dappId),
-        );
-
-        if (googleSearchIndex === -1) {
-          // No Google search item, use normal logic
-          return generateDataFn(data);
-        }
-
-        // Separate Google search item from other results
-        const googleSearchItem = data[googleSearchIndex];
-        const otherResults = data.filter(
-          (_, index) => index !== googleSearchIndex,
-        );
-
-        // Take first N non-Google results + always include Google search item
-        const slicedOtherResults = otherResults.slice(0, DEFAULT_SLICE_LIMIT);
-        const sliceData = [...slicedOtherResults, googleSearchItem];
-
-        return {
-          data,
-          sliceData,
-          // Only count non-Google items for showMore
-          showMore: otherResults.length > DEFAULT_SLICE_LIMIT,
-        };
-      };
-
+  const buildSearchResultSections = useCallback(
+    ({
+      result,
+      input,
+      includeSettings,
+    }: {
+      result: IUniversalSearchBatchResult;
+      input: string;
+      includeSettings?: boolean;
+    }): IUniversalSection[] => {
       const searchResultSections: IUniversalSection[] = [];
+
       if (result?.[EUniversalSearchType.Address]?.items?.length) {
-        const data = result?.[EUniversalSearchType.Address]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.Address]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Address),
+          type: EUniversalSearchType.Address,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_wallets,
           }),
-          ...generateDataFn(data),
+          ...buildSectionData(data),
         });
       }
 
-      // Show V2 market tokens
       if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
-        const data = result?.[EUniversalSearchType.V2MarketToken]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.V2MarketToken]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.V2MarketToken,
           ),
+          type: EUniversalSearchType.V2MarketToken,
           title: intl.formatMessage({
             id: ETranslations.global_market,
           }),
@@ -413,101 +420,227 @@ export function UniversalSearch({
       }
 
       if (result?.[EUniversalSearchType.Perp]?.items?.length) {
-        const data = result?.[EUniversalSearchType.Perp]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.Perp]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Perp),
+          type: EUniversalSearchType.Perp,
           title: intl.formatMessage({
             id: ETranslations.global_perp,
           }),
-          ...generateDataFn(data),
+          ...buildSectionData(data),
         });
       }
 
       if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
-        const data = result?.[EUniversalSearchType.MarketToken]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.MarketToken]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.MarketToken),
+          type: EUniversalSearchType.MarketToken,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_tokens,
           }),
-          ...generateDataFn(data),
+          ...buildSectionData(data),
         });
       }
 
       if (result?.[EUniversalSearchType.AccountAssets]?.items?.length) {
-        const data = result?.[EUniversalSearchType.AccountAssets]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.AccountAssets]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(
             EUniversalSearchType.AccountAssets,
           ),
+          type: EUniversalSearchType.AccountAssets,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_my_assets,
           }),
-          ...generateDataFn(data),
+          ...buildSectionData(data),
         });
       }
 
       if (result?.[EUniversalSearchType.Dapp]?.items?.length) {
-        const data = result?.[EUniversalSearchType.Dapp]
-          ?.items as IUniversalSearchResultItem[];
+        const data = result[EUniversalSearchType.Dapp]
+          .items as IUniversalSearchResultItem[];
         searchResultSections.push({
           tabIndex: getTabIndexForSearchType(EUniversalSearchType.Dapp),
+          type: EUniversalSearchType.Dapp,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_dapps,
           }),
-          ...generateDappDataFn(data),
+          ...buildDappSectionData(data),
         });
       }
 
-      // Settings search runs locally (no backend needed), hidden on Web
-      const settingsResults = platformEnv.isWeb ? [] : searchSettings(input);
-      if (settingsResults.length > 0) {
-        const data = settingsResults as IUniversalSearchResultItem[];
-        searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Settings),
-          title: intl.formatMessage({
-            id: ETranslations.global_settings,
-          }),
-          ...generateDataFn(data),
-        });
+      if (includeSettings) {
+        const settingsResults = platformEnv.isWeb ? [] : searchSettings(input);
+        if (settingsResults.length > 0) {
+          const data = settingsResults as IUniversalSearchResultItem[];
+          searchResultSections.push({
+            tabIndex: getTabIndexForSearchType(EUniversalSearchType.Settings),
+            type: EUniversalSearchType.Settings,
+            title: intl.formatMessage({
+              id: ETranslations.global_settings,
+            }),
+            ...buildSectionData(data),
+          });
+        }
       }
 
-      setSections(searchResultSections);
-      setSearchStatus(ESearchStatus.done);
+      return searchResultSections.toSorted((a, b) => a.tabIndex - b.tabIndex);
+    },
+    [buildDappSectionData, buildSectionData, intl, searchSettings],
+  );
 
-      // Track search event for analytics
-      // Exclude Google search item from result count
-      const resultCount = searchResultSections.reduce((sum, section) => {
-        const count = section.data.filter(
+  const mergeSearchResultSections = useCallback(
+    (
+      primarySections: IUniversalSection[],
+      deferredSections: IUniversalSection[],
+    ): IUniversalSection[] => {
+      const sectionMap = new Map<number, IUniversalSection>();
+      primarySections.forEach((section) => {
+        sectionMap.set(section.tabIndex, section);
+      });
+      deferredSections.forEach((section) => {
+        sectionMap.set(section.tabIndex, section);
+      });
+      return Array.from(sectionMap.values()).toSorted(
+        (a, b) => a.tabIndex - b.tabIndex,
+      );
+    },
+    [],
+  );
+
+  const logSearchAnalytics = useCallback(
+    (input: string, searchResultSections: IUniversalSection[]) => {
+      const filteredSections = searchResultSections.map((section) => ({
+        type: section.type,
+        count: section.data.filter(
           (item) =>
             !(
               item.type === EUniversalSearchType.Dapp &&
               isGoogleSearchItem(item.payload?.dappId)
             ),
-        ).length;
-        return sum + count;
-      }, 0);
+        ).length,
+      }));
+      const resultCount = filteredSections.reduce((sum, s) => sum + s.count, 0);
+      const exposedTypes = filteredSections
+        .filter((s) => s.count > 0)
+        .map((s) => `${getSearchTypeTrackingName(s.type)}:${s.count}`)
+        .join(',');
       defaultLogger.universalSearch.search.universalSearchQuery({
         searchText: input,
         resultCount,
+        exposedTypes,
       });
+    },
+    [],
+  );
+
+  const isSearchResultStale = useCallback((input: string) => {
+    return searchInputRef.current !== input;
+  }, []);
+
+  const handleTextChange = useDebouncedCallback(async (val: string) => {
+    console.log('[universalSearch] handleTextChange: ', val);
+    const input = val?.trim?.() || '';
+    if (input) {
+      const deferredSearchTypes = getDeferredSearchTypes();
+      let primarySections: IUniversalSection[] = [];
+      const searchParams = {
+        input,
+        networkId: activeAccount?.network?.id,
+        accountId: activeAccount?.account?.id,
+        indexedAccountId: activeAccount?.indexedAccount?.id,
+        tokenListCache: shouldUseTokensCacheData
+          ? allTokenList?.tokens
+          : undefined,
+        tokenListCacheMap: shouldUseTokensCacheData
+          ? allTokenListMap
+          : undefined,
+        aggregateTokenListCacheMap: shouldUseTokensCacheData
+          ? aggregateTokenListMap
+          : undefined,
+      };
+      try {
+        const primaryResult =
+          await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+            ...searchParams,
+            searchTypes: PRIMARY_SEARCH_TYPES,
+          });
+        if (isSearchResultStale(input)) {
+          return;
+        }
+
+        primarySections = buildSearchResultSections({
+          result: primaryResult,
+          input,
+        });
+
+        if (primarySections.length > 0) {
+          setSections(primarySections);
+          setSearchStatus(ESearchStatus.done);
+        }
+
+        const deferredResult =
+          await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+            ...searchParams,
+            searchTypes: deferredSearchTypes,
+          });
+        if (isSearchResultStale(input)) {
+          return;
+        }
+
+        const deferredSections = buildSearchResultSections({
+          result: deferredResult,
+          input,
+          includeSettings: true,
+        });
+        const mergedSections = mergeSearchResultSections(
+          primarySections,
+          deferredSections,
+        );
+        setSections(mergedSections);
+        setSearchStatus(ESearchStatus.done);
+        logSearchAnalytics(input, mergedSections);
+      } catch (error) {
+        if (isSearchResultStale(input)) {
+          return;
+        }
+        console.error('[universalSearch] search failed', error);
+        if (primarySections.length > 0) {
+          setSections(primarySections);
+          setSearchStatus(ESearchStatus.done);
+          logSearchAnalytics(input, primarySections);
+          return;
+        }
+        setSections([]);
+        setSearchStatus(ESearchStatus.done);
+      }
     } else {
+      setSections([]);
+      searchInputRef.current = '';
       setSearchStatus(ESearchStatus.init);
     }
-  }, 1200);
+  }, SEARCH_DEBOUNCE_MS);
 
   const handleChangeText = useCallback((val: string) => {
     console.log('[universalSearch] handleChangeText');
     setSearchValue(val); // Update search value state immediately
-    setSearchStatus(ESearchStatus.loading);
+    searchInputRef.current = val.trim();
+    if (val.trim()) {
+      setSearchStatus(ESearchStatus.loading);
+    } else {
+      setSections([]);
+      setSearchStatus(ESearchStatus.init);
+    }
   }, []);
 
   const handleSearchTextFill = useCallback(
     (text: string) => {
       setSearchValue(text);
+      searchInputRef.current = text.trim();
       // Set loading status to show skeleton screen
       setSearchStatus(ESearchStatus.loading);
       // Trigger search with the filled text
@@ -525,6 +658,22 @@ export function UniversalSearch({
               {section.title}
             </SizableText>
           </XStack>
+        </YStack>
+      );
+    },
+    [],
+  );
+
+  const renderRecommendSectionHeader = useCallback(
+    ({ section }: { section: IUniversalSection }) => {
+      return (
+        <YStack bg="$bgApp">
+          <XStack h="$9" ai="center">
+            <SizableText px="$5" size="$headingSm" color="$textSubdued">
+              {section.title}
+            </SizableText>
+          </XStack>
+          {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
         </YStack>
       );
     },
@@ -579,6 +728,7 @@ export function UniversalSearch({
             <UniversalSearchAddressItem
               item={item}
               contextNetworkId={activeAccount?.network?.id}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.MarketToken:
@@ -586,17 +736,21 @@ export function UniversalSearch({
             <UniversalSearchMarketTokenItem
               item={item}
               searchStatus={searchStatus}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.V2MarketToken:
           return (
             <>
-              {index === 0 && isMarketSection(section.tabIndex) ? (
+              {index === 0 &&
+              isMarketSection(section.tabIndex) &&
+              searchStatus !== ESearchStatus.init ? (
                 <MarketTableHeader />
               ) : null}
               <UniversalSearchV2MarketTokenItem
                 item={item}
                 isTrending={searchStatus === ESearchStatus.init}
+                getSearchInput={getSearchInput}
               />
             </>
           );
@@ -605,24 +759,40 @@ export function UniversalSearch({
             <UniversalSearchAccountAssetItem
               item={item}
               allAggregateTokenMap={allAggregateTokenMap}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.Dapp:
           return (
             <UniversalSearchDappItem
               item={item}
-              getSearchInput={() => searchInputRef.current}
+              getSearchInput={getSearchInput}
             />
           );
         case EUniversalSearchType.Perp:
-          return <UniversalSearchPerpItem item={item} />;
+          return (
+            <UniversalSearchPerpItem
+              item={item}
+              getSearchInput={getSearchInput}
+            />
+          );
         case EUniversalSearchType.Settings:
-          return <UniversalSearchSettingsItem item={item} />;
+          return (
+            <UniversalSearchSettingsItem
+              item={item}
+              getSearchInput={getSearchInput}
+            />
+          );
         default:
           return null;
       }
     },
-    [activeAccount?.network?.id, searchStatus, allAggregateTokenMap],
+    [
+      activeAccount?.network?.id,
+      searchStatus,
+      allAggregateTokenMap,
+      getSearchInput,
+    ],
   );
 
   const keyExtractor = useCallback(
@@ -698,7 +868,8 @@ export function UniversalSearch({
       case ESearchStatus.init:
         return (
           <SectionList
-            renderSectionHeader={renderSectionHeader}
+            stickySectionHeadersEnabled
+            renderSectionHeader={renderRecommendSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
@@ -767,6 +938,7 @@ export function UniversalSearch({
   }, [
     searchStatus,
     renderSectionHeader,
+    renderRecommendSectionHeader,
     recommendSections,
     renderItem,
     keyExtractor,

@@ -1,8 +1,9 @@
 require('../../development/env');
 
-const crypto = require('crypto');
 const { execSync } = require('child_process');
+const crypto = require('crypto');
 const path = require('path');
+
 const fs = require('fs-extra');
 
 const mobileDirPath = __dirname;
@@ -15,9 +16,12 @@ const SENTRY_ORG = 'onekey-bb';
 const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
 const SENTRY_AUTH_TOKEN = process.env.SENTRY_TOKEN;
 
+const HERMES_PLATFORM_DIR =
+  process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
+// cspell:ignore hermesc
 const HERMES_COMMAND = path.join(
   projectRootPath,
-  'node_modules/react-native/sdks/hermesc/osx-bin/hermesc',
+  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
 );
 
 const webEmbedOutputPath = path.join(

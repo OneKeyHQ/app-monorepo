@@ -10,9 +10,10 @@
 // NOTE: Tests that require actual downloads or app restart are skipped.
 // We focus on local operations: SHA256, file manipulation, version logic, parameter validation.
 
+import { ReactNativeBundleUpdate as BundleUpdateModule } from '@onekeyfe/react-native-bundle-update';
 import { describe, expect, test } from 'react-native-harness';
 
-import { ReactNativeBundleUpdate as BundleUpdateModule } from '@onekeyfe/react-native-bundle-update';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 // ---- Helpers ----
 
@@ -20,7 +21,7 @@ const RNFS = // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('@onekeyhq/shared/src/modules3rdParty/react-native-fs')?.default;
 
 async function writeTestFile(filePath: string, content: string): Promise<void> {
-  if (!RNFS) throw new Error('RNFS unavailable');
+  if (!RNFS) throw new OneKeyLocalError('RNFS unavailable');
   await RNFS.writeFile(filePath, content, 'utf8');
 }
 
@@ -33,7 +34,7 @@ async function deleteIfExists(filePath: string): Promise<void> {
 }
 
 async function getTempDir(): Promise<string> {
-  if (!RNFS) throw new Error('RNFS unavailable');
+  if (!RNFS) throw new OneKeyLocalError('RNFS unavailable');
   const dir = `${RNFS.CachesDirectoryPath}/bundleUpdateTest`;
   const exists = await RNFS.exists(dir);
   if (!exists) {

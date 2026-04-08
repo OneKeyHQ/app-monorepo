@@ -46,6 +46,10 @@ export const BundleUpdate: IBundleUpdate = {
   downloadBundleASC: () => Promise.resolve(),
   installBundle: () => Promise.resolve(),
   clearBundle: () => Promise.resolve(),
+  clearDownload: () => Promise.resolve(),
+  resetToBuiltInBundle: () => Promise.resolve(),
+  restart: () => {},
+  isSkipGpgVerificationAllowed: () => Promise.resolve(false),
   clearAllJSBundleData: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   testVerification: () => Promise.resolve(false),
@@ -66,6 +70,7 @@ export const BundleUpdate: IBundleUpdate = {
   getNativeAppVersion: () => Promise.resolve(''),
   getSha256FromFilePath: () => Promise.resolve(''),
   getNativeBuildNumber: () => Promise.resolve(''),
+  getBuiltinBundleVersion: () => Promise.resolve(''),
   getJsBundlePath: () => Promise.resolve(''),
 };
 

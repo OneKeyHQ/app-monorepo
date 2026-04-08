@@ -66,9 +66,14 @@ interface IVerifyRecoveryPhraseParams {
   accountName?: string;
 }
 
+export type IOnboardingAutoConnectOrigin = string;
+
 export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.GetStarted]: {
     fromExt?: boolean;
+    autoConnectOrigin?: IOnboardingAutoConnectOrigin;
+    autoLoginKeylessProvider?: EOAuthSocialLoginProvider;
+    autoConnectNonce?: string;
   };
   [EOnboardingPagesV2.AddExistingWallet]: undefined;
   [EOnboardingPagesV2.CreateOrImportWallet]: {
@@ -79,6 +84,7 @@ export type IOnboardingParamListV2 = {
     mnemonicType?: EMnemonicType;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
+    shouldAutoResetKeylessPinAfterRestore?: boolean;
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
     keylessPackSetId?: string;

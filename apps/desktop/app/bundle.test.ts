@@ -34,9 +34,11 @@ jest.mock('electron-log/main', () => ({
 jest.mock('./libs/store', () => ({
   clearUpdateBundleData: jest.fn(),
   getNativeVersion: jest.fn(() => '1.0.0'),
+  getNativeBuildNumber: jest.fn(() => ''),
   getUpdateBundleData: jest.fn(() => null),
   setUpdateBundleData: jest.fn(),
   setNativeVersion: jest.fn(),
+  setNativeBuildNumber: jest.fn(),
   getFallbackUpdateBundleData: jest.fn(() => []),
   setFallbackUpdateBundleData: jest.fn(),
 }));

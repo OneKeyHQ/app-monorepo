@@ -1,7 +1,9 @@
 import * as React from 'react';
-import { forwardRef, useImperativeHandle } from 'react';
+import { forwardRef, useImperativeHandle, useMemo } from 'react';
 
 import { Platform, Pressable, Text, View } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOnWebPaste } from '../../../Input';
 import TextInput from '../../../Input/TextInput';
@@ -60,6 +62,12 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
 
     useOnWebPaste(inputRef, textInputProps?.onPaste);
 
+    const autoComplete = useMemo(() => {
+      if (platformEnv.isDesktop) return 'off' as const;
+      if (Platform.OS === 'android') return 'sms-otp' as const;
+      return 'one-time-code' as const;
+    }, []);
+
     const generatePinCodeContainerStyle = (
       isFocusedContainer: boolean,
       char: string,
@@ -84,13 +92,36 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
       return stylesArray;
     };
 
-    const placeholderStyle = {
-      opacity: placeholder ? 0.5 : pinCodeTextStyle?.opacity || 1,
-      ...(placeholder ? placeholderTextStyle : {}),
-    };
+    const placeholderStyle = useMemo(
+      () => ({
+        opacity: placeholder ? 0.5 : pinCodeTextStyle?.opacity || 1,
+        ...(placeholder ? placeholderTextStyle : {}),
+      }),
+      [placeholder, pinCodeTextStyle?.opacity, placeholderTextStyle],
+    );
+
+    const containerViewStyle = useMemo(
+      () => [styles.container, containerStyle, inputsContainerStyle],
+      [containerStyle, inputsContainerStyle],
+    );
+
+    const hiddenInputStyle = useMemo(
+      () => [styles.hiddenInput, textInputProps?.style],
+      [textInputProps?.style],
+    );
+
+    const codeTextPlaceholderStyle = useMemo(
+      () => [styles.codeText, pinCodeTextStyle, placeholderStyle],
+      [pinCodeTextStyle, placeholderStyle],
+    );
+
+    const codeTextNormalStyle = useMemo(
+      () => [styles.codeText, pinCodeTextStyle],
+      [pinCodeTextStyle],
+    );
 
     return (
-      <View style={[styles.container, containerStyle, inputsContainerStyle]}>
+      <View style={containerViewStyle}>
         {Array(numberOfDigits)
           .fill(0)
           .map((_, index) => {
@@ -107,7 +138,7 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
 
             return (
               <Pressable
-                key={`${char}-${index}`}
+                key={index}
                 disabled={disabled}
                 onPress={handlePress}
                 style={generatePinCodeContainerStyle(isFocusedContainer, char)}
@@ -121,11 +152,11 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
                   />
                 ) : (
                   <Text
-                    style={[
-                      styles.codeText,
-                      pinCodeTextStyle,
-                      isPlaceholderCell ? placeholderStyle : {},
-                    ]}
+                    style={
+                      isPlaceholderCell
+                        ? codeTextPlaceholderStyle
+                        : codeTextNormalStyle
+                    }
                   >
                     {char && secureTextEntry ? '•' : char}
                   </Text>
@@ -139,11 +170,11 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
           onChangeText={handleTextChange}
           maxLength={numberOfDigits}
           inputMode={type === 'numeric' ? type : 'text'}
-          textContentType="oneTimeCode"
+          textContentType={platformEnv.isDesktop ? undefined : 'oneTimeCode'}
           ref={inputRef}
           autoFocus={autoFocus}
           secureTextEntry={secureTextEntry}
-          autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
+          autoComplete={autoComplete}
           aria-disabled={disabled}
           editable={!disabled}
           testID="otp-input-hidden"
@@ -152,7 +183,7 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
           caretHidden={Platform.OS === 'ios'}
           accessibilityLabel="OTP input field"
           {...textInputProps}
-          style={[styles.hiddenInput, textInputProps?.style]}
+          style={hiddenInputStyle}
         />
       </View>
     );

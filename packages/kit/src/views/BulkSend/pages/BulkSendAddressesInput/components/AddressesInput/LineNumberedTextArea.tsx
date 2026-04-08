@@ -35,9 +35,15 @@ import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import { showUploadCSVDialog } from '../UploadCSVDialog';
 
+export enum ELineAnnotationType {
+  Error = 'error',
+  Warning = 'warning',
+}
+
 export type ILineError = {
   lineNumber: number;
   message: string;
+  type?: ELineAnnotationType;
 };
 
 export type ILineNumberedTextAreaProps = {
@@ -83,6 +89,7 @@ const LINE_NUMBER_WIDTH = 40;
 const NATIVE_LINE_NUMBER_TOP_OFFSET = platformEnv.isNativeIOS ? 3 : 0;
 // Allow 2 lines of text in singleLine mode for wrapped long addresses
 const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
+const WEB_WORD_BREAK_STYLE = { wordBreak: 'break-all' } as const;
 
 function LineNumberedTextArea({
   value = '',
@@ -178,12 +185,17 @@ function LineNumberedTextArea({
     return value.split('\n');
   }, [value]);
 
-  const errorLineNumbers = useMemo(() => {
+  const { errorLineNumbers, warningLineNumbers } = useMemo(() => {
     const errorSet = new Set<number>();
-    errors.forEach((error) => {
-      errorSet.add(error.lineNumber);
+    const warningSet = new Set<number>();
+    errors.forEach((item) => {
+      if (item.type === ELineAnnotationType.Warning) {
+        warningSet.add(item.lineNumber);
+      } else {
+        errorSet.add(item.lineNumber);
+      }
     });
-    return errorSet;
+    return { errorLineNumbers: errorSet, warningLineNumbers: warningSet };
   }, [errors]);
 
   // #1 iOS: scroll outer page ScrollView to keep this component visible above keyboard
@@ -464,7 +476,12 @@ function LineNumberedTextArea({
                 {hasContent ? (
                   lines.map((line, index) => {
                     const lineNumber = index + 1;
-                    const hasError = errorLineNumbers.has(lineNumber);
+                    let lineColor = '$text';
+                    if (errorLineNumbers.has(lineNumber)) {
+                      lineColor = '$textCritical';
+                    } else if (warningLineNumbers.has(lineNumber)) {
+                      lineColor = '$textCaution';
+                    }
 
                     return (
                       <Stack
@@ -476,7 +493,11 @@ function LineNumberedTextArea({
                         <SizableText
                           fontSize={FONT_SIZE}
                           lineHeight={LINE_HEIGHT}
-                          color={hasError ? '$textCritical' : '$text'}
+                          color={lineColor}
+                          textBreakStrategy="simple"
+                          style={
+                            platformEnv.isWeb ? WEB_WORD_BREAK_STYLE : undefined
+                          }
                         >
                           {line || ' '}
                         </SizableText>
@@ -516,6 +537,7 @@ function LineNumberedTextArea({
                 }
                 editable={!disabled}
                 multiline
+                textBreakStrategy="simple"
                 style={styles.textInput}
                 selectionColor={selectionColor}
                 cursorColor={textColor}

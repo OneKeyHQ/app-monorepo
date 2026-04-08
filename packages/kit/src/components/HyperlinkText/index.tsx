@@ -26,7 +26,11 @@ export type IHyperlinkTextProps = {
     string,
     string | ReactElement | ((v: string) => ReactElement | string)
   >;
-  autoHandleResult?: boolean;
+  /**
+   * Whether a recognized URL should trigger built-in navigation/action side
+   * effects immediately, instead of returning parsed data for the caller.
+   */
+  autoExecuteParsedAction?: boolean;
   urlTextProps?: ISizableTextProps;
   actionTextProps?: ISizableTextProps;
   underlineTextProps?: ISizableTextProps;
@@ -53,7 +57,8 @@ export function HyperlinkText({
   onAction,
   children,
   values,
-  autoHandleResult = true,
+  // HyperlinkText is action-oriented, so auto execution is enabled by default.
+  autoExecuteParsedAction = true,
   urlTextProps,
   actionTextProps,
   underlineTextProps,
@@ -132,14 +137,14 @@ export function HyperlinkText({
                             EQRCodeHandlerNames.updatePreview,
                           ],
                           qrWalletScene: false,
-                          autoHandleResult,
+                          autoExecuteParsedAction,
                           defaultHandler: openUrlExternal,
                         });
                       }
                     }}
                   >
                     {isLinkString ? chunks : link}
-                    {autoHandleResult ? ' ↗' : null}
+                    {autoExecuteParsedAction ? ' ↗' : null}
                   </SizableText>
                 );
               },
@@ -201,7 +206,7 @@ export function HyperlinkText({
       onAction,
       urlTextProps,
       parseQRCode,
-      autoHandleResult,
+      autoExecuteParsedAction,
       scriptFontSize,
       subscriptsTextProps,
       underlineTextProps,

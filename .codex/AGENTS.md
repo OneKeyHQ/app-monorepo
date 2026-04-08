@@ -477,24 +477,21 @@ Follow the same format as commit messages:
 - Breaking localization for international users
 
 ### Using Translations
-- Use `useFormatMessage` or `formatMessage` functions for displaying translated text
-- Define new translation keys in the appropriate modules
+- Use `useIntl` / `formatMessage` for displaying translated text
 - Always use translation keys instead of hardcoding text strings
-- Follow the established pattern for translation keys: `namespace__action_or_description`
+- New keys follow `{semantic_key}__{type}` suffix format: `send__title`, `confirm_send__action`, `enter_send_amount__desc`, `transaction_failed__msg`
+- 4 type suffixes: `__title` (Title Case), `__action` (Title Case), `__desc` (Sentence case), `__msg` (Sentence case)
 
 ### Updating Translation Keys
-1. **Direct translation from design specs**: Update i18n directly based on design spec annotations without searching existing translation keys
-2. Run `yarn fetch:locale` to pull the latest translation keys from the remote system
-3. This command automatically updates `@onekeyhq/shared/src/locale/enum/translations.ts` with new translation enums
-4. For design spec translation keys like `prime::restore_purchases`, convert to code format:
-   - Replace `::` with `_` (underscore)
-   - Use the enum: `ETranslations.prime_restore_purchases`
-   - In component code:
-     ```tsx
-     {intl.formatMessage({
-       id: ETranslations.prime_restore_purchases,
-     })}
-     ```
+1. **Search first** to avoid duplicates: `yarn i18n:search "keyword"`
+2. **Add new key**: `yarn i18n:add send__title "Send"`
+3. **Sync to local**: `yarn i18n:pull`
+4. **Use in code**: `ETranslations.send__title`
+   ```tsx
+   {intl.formatMessage({
+     id: ETranslations.send__title,
+   })}
+   ```
 
 ### Locale Handling
 - The system uses automatic locale detection with fallbacks

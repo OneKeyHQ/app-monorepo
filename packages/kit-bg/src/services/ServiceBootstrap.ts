@@ -46,6 +46,7 @@ class ServiceBootstrap extends ServiceBase {
     }
     void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
     void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
+    void this.backgroundApi.simpleDb.recentRecipients.migrateFromOldStorage();
     void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
     void this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting();
     void this.backgroundApi.serviceAccount.migrateHardwareLtcXPub();
@@ -54,6 +55,13 @@ class ServiceBootstrap extends ServiceBase {
     void systemTimeUtils.startServerTimeInterval();
     void this.backgroundApi.serviceIpTable.init();
     void this.backgroundApi.serviceCloudBackupV2.init();
+    // Restore persisted whitelist first, then fetch fresh data from server.
+    // Sequencing prevents the stale persisted data from overwriting a newer fetch result.
+    void this.backgroundApi.serviceSetting
+      .restoreFiatPaySiteWhitelistFromPersist()
+      .then(() =>
+        this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
+      );
   }
 }
 

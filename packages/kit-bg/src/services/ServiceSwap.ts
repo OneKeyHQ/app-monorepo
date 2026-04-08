@@ -107,6 +107,7 @@ import {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 
@@ -366,6 +367,7 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
         throw new Error('swap fetch token cancel', {
           cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
@@ -474,12 +476,14 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     contractAddress,
     direction,
+    currency,
   }: {
     networkId: string;
     accountAddress?: string;
     accountId?: string;
     contractAddress: string;
     direction?: ESwapDirectionType;
+    currency?: string;
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
@@ -488,6 +492,7 @@ export default class ServiceSwap extends ServiceBase {
         networkId,
         accountAddress,
         contractAddress,
+        currency,
       };
       if (direction) {
         if (direction === ESwapDirectionType.FROM) {
@@ -538,12 +543,14 @@ export default class ServiceSwap extends ServiceBase {
         {
           params,
           signal: fetchSignal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          headers: {
+            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId,
               },
-            ),
+            )),
+            ...(currency ? { 'x-onekey-request-currency': currency } : {}),
+          },
         },
       );
       return data?.data;
@@ -563,6 +570,7 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage,
     blockNumber,
     receivingAddress,
+    incognito,
     accountId,
     protocol,
     expirationTime,
@@ -578,6 +586,7 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage: number;
     autoSlippage?: boolean;
     receivingAddress?: string;
+    incognito?: boolean;
     blockNumber?: number;
     accountId?: string;
     expirationTime?: number;
@@ -623,6 +632,7 @@ export default class ServiceSwap extends ServiceBase {
       denyCrossChainProvider,
       denySingleSwapProvider,
       walletDeviceType: walletDevice?.deviceType,
+      ...(incognito ? { incognito } : {}),
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -648,7 +658,7 @@ export default class ServiceSwap extends ServiceBase {
       }
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
         throw new Error('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
@@ -677,6 +687,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     expirationTime,
     receivingAddress,
+    incognito,
     limitPartiallyFillable,
     kind,
     toTokenAmount,
@@ -718,6 +729,7 @@ export default class ServiceSwap extends ServiceBase {
       denyCrossChainProvider,
       denySingleSwapProvider,
       walletDeviceType: walletDevice?.deviceType,
+      ...(incognito ? { incognito } : {}),
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)
@@ -1076,7 +1088,7 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data;
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
         throw new Error('swap check token approve allowance cancel', {
           cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
         });
@@ -2382,7 +2394,7 @@ export default class ServiceSwap extends ServiceBase {
       }
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
         throw new Error('swap speed fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
         });
@@ -2398,6 +2410,56 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchSpeedMarketQuote({
+    fromToken,
+    toToken,
+    fromTokenAmount,
+    userAddress,
+    receivingAddress,
+    slippagePercentage,
+    accountId,
+  }: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromTokenAmount: string;
+    userAddress: string;
+    receivingAddress: string;
+    slippagePercentage: number;
+    accountId?: string;
+  }): Promise<IFetchQuoteResult | undefined> {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const params = {
+      fromTokenAddress: fromToken.contractAddress,
+      toTokenAddress: toToken.contractAddress,
+      fromTokenAmount,
+      fromNetworkId: fromToken.networkId,
+      toNetworkId: toToken.networkId,
+      userAddress,
+      receivingAddress,
+      slippagePercentage,
+    };
+    const headers =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+    try {
+      const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
+        '/swap/v1/quote-market/speed',
+        {
+          params,
+          headers,
+        },
+      );
+      if (data?.code === 0 && data?.data?.length) {
+        return data.data[0];
+      }
+    } catch (e) {
+      console.error('fetchSpeedMarketQuote error', e);
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async fetchBuildSpeedSwapTx({
     fromToken,
@@ -2410,6 +2472,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     protocol,
     kind,
+    quoteResultCtx,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -2422,6 +2485,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol: EProtocolOfExchange;
     kind: ESwapQuoteKind;
     walletType?: string;
+    quoteResultCtx?: any;
   }): Promise<IFetchBuildTxResponse | undefined> {
     let headers = await getRequestHeaders();
     const walletType =
@@ -2436,12 +2500,10 @@ export default class ServiceSwap extends ServiceBase {
           }
         : {}),
     };
-    const params: IFetchBuildTxParams = {
-      fromTokenAddress: fromToken.contractAddress,
-      toTokenAddress: toToken.contractAddress,
+    const params: IFetchBuildTxParams = buildSpeedSwapTxParams({
+      fromToken,
+      toToken,
       fromTokenAmount,
-      fromNetworkId: fromToken.networkId,
-      toNetworkId: toToken.networkId,
       protocol,
       provider,
       userAddress,
@@ -2449,7 +2511,8 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
       kind,
       walletType,
-    };
+      quoteResultCtx,
+    });
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
@@ -2461,10 +2524,18 @@ export default class ServiceSwap extends ServiceBase {
       );
       return data?.data;
     } catch (e) {
-      const error = e as { code: number; message: string; requestId: string };
+      const error = e as {
+        code?: number;
+        message?: string;
+        requestId?: string;
+        response?: {
+          status?: number;
+          data?: unknown;
+        };
+      };
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
-        title: error?.message,
+        title: error?.message ?? 'Request failed',
         message: error?.requestId,
       });
       return undefined;

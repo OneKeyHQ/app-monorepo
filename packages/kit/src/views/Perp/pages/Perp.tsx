@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,6 +15,8 @@ import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeCont
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { consumePerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -23,6 +25,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
+import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
@@ -55,6 +58,22 @@ function PerpBodyContent() {
 }
 
 function PerpContent() {
+  const firedRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!firedRef.current) {
+        firedRef.current = true;
+        defaultLogger.perp.common.pageView({
+          source: consumePerpPageEnterSource(),
+        });
+      }
+      return () => {
+        firedRef.current = false;
+      };
+    }, []),
+  );
+
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
   );
@@ -90,6 +109,7 @@ function PerpContent() {
       customToolbarItems={
         <>
           <PerpsActivityCenterAction size="small" copyAsUrl />
+          <PerpGuidePopover />
           <PerpSettingsButton testID="perp-header-settings-button" />
           <HeaderIconButton
             icon="DownloadOutline"
@@ -152,6 +172,7 @@ function ExtPerpNull() {
 
 export default function Perp() {
   const canRenderPerp = useNativePerpFeatureGuard();
+
   if (!canRenderPerp) {
     return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
   }

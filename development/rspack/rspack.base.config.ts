@@ -376,7 +376,7 @@ export function createBaseConfig({
         },
         {
           test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
-          exclude: [/react-native-logs/],
+
           use: [
             {
               loader: 'builtin:swc-loader',
@@ -415,7 +415,7 @@ export function createBaseConfig({
             /turbo-stream/,
             /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
           ],
-          exclude: [/react-native-logs/],
+
           use: [
             {
               loader: 'builtin:swc-loader',

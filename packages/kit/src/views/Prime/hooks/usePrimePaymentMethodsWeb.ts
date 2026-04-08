@@ -116,16 +116,26 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
             ? new BigNumber(currentPrice.amountMicros).div(1_000_000)
             : new BigNumber(currentPrice.amountMicros).div(12).div(1_000_000);
 
-        const pricePerMonth = pricePerMonthBN.toFixed(2);
-        const pricePerYear = pricePerMonthBN.times(12).toFixed(2);
+        const pricePerMonth = pricePerMonthBN.toNumber();
+        const pricePerYear = pricePerMonthBN.times(12).toNumber();
 
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
-          pricePerYear: Number(pricePerYear),
-          pricePerYearString: `${pricePerYear} ${currencyCode}`,
-          pricePerMonth: Number(pricePerMonth),
-          pricePerMonthString: `${pricePerMonth} ${currencyCode}`,
-          priceTotalPerYearString: `${pricePerYear} ${currencyCode}`,
+          currencyCode,
+          pricePerYear,
+          pricePerYearString: primePaymentUtils.formatPriceString(
+            pricePerYear,
+            currencyCode,
+          ),
+          pricePerMonth,
+          pricePerMonthString: primePaymentUtils.formatPriceString(
+            pricePerMonth,
+            currencyCode,
+          ),
+          priceTotalPerYearString: primePaymentUtils.formatPriceString(
+            pricePerYear,
+            currencyCode,
+          ),
         };
       }) || [];
 
@@ -142,11 +152,13 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       subscriptionPeriod,
       email,
       locale,
+      currency,
       featureName,
     }: {
       subscriptionPeriod: string;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
+      currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
       await initSdk({ loginRequired: true });
@@ -162,7 +174,9 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         //   }),
         // });
 
-        const offerings = await Purchases.getSharedInstance().getOfferings();
+        const offerings = await Purchases.getSharedInstance().getOfferings(
+          currency ? { currency } : undefined,
+        );
 
         if (!offerings.current) {
           throw new OneKeyLocalError(

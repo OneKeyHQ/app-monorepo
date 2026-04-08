@@ -26,7 +26,12 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
-import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
+import {
+  getFiatPaySiteWhitelistDomainKeys,
+  getFiatPaySiteWhitelistOrigins,
+  getOriginDomainKey,
+  getTemplatePhishingUrls,
+} from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -47,10 +52,17 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
+// Side-effect import: registers synchronous IPC handler for renderer MMKV access
+// eslint-disable-next-line import-js/order
+import './libs/react-native-mmkv-desktop-main';
+import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+// Logger initialization (file rotation, sanitization, rate limiting)
+import './logger';
 import initProcess from './process';
+import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
   getResourcesPath,
@@ -58,16 +70,29 @@ import {
 } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
+// eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-
-logger.initialize();
-logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 initSentry();
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
+
+function isWhitelistedMediaOrigin(
+  origin: string,
+  whitelistOrigins: Set<string>,
+  whitelistDomainKeys: Set<string>,
+): boolean {
+  if (!origin) {
+    return false;
+  }
+  if (whitelistOrigins.has(origin)) {
+    return true;
+  }
+  const domainKey = getOriginDomainKey(origin);
+  return !!domainKey && whitelistDomainKeys.has(domainKey);
+}
 
 if (isPerfCiMode) {
   // Keep prepared state in a stable location on perf machines.
@@ -400,6 +425,20 @@ function handleDeepLinkUrl(
   argv?: string[],
   isColdStartup?: boolean,
 ) {
+  // Validate deep link scheme before forwarding to renderer
+  if (url) {
+    const allowedSchemes = [
+      `${ONEKEY_APP_DEEP_LINK_NAME}:`,
+      `${WALLET_CONNECT_DEEP_LINK_NAME}:`,
+      'ethereum:',
+    ];
+    const isAllowed = allowedSchemes.some((scheme) => url.startsWith(scheme));
+    if (!isAllowed) {
+      logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+      return;
+    }
+  }
+
   const eventData: IDesktopOpenUrlEventData = {
     url,
     argv,
@@ -473,6 +512,33 @@ const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
 async function createMainWindow() {
+  // === Boot Recovery Check (must be first) ===
+  const currentAppVersion = app.getVersion();
+  const storedFailVersion = store.getBootFailAppVersion();
+  if (storedFailVersion && storedFailVersion !== currentAppVersion) {
+    store.resetConsecutiveBootFailCount();
+    logger.info(
+      'Boot fail counter reset due to version change',
+      storedFailVersion,
+      '→',
+      currentAppVersion,
+    );
+  }
+  store.setBootFailAppVersion(currentAppVersion);
+  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  logger.info('Boot fail count:', bootFailCount);
+  if (bootFailCount >= 3) {
+    logger.error('Recovery page triggered', {
+      crashCount: bootFailCount,
+      appVersion: currentAppVersion,
+    });
+    const recoveryWin = createRecoveryWindow();
+    recoveryWin.on('closed', () => {
+      mainWindow = null;
+    });
+    return recoveryWin;
+  }
+
   // https://github.com/electron/electron/issues/16168
   const { screen } = require('electron');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -523,10 +589,9 @@ async function createMainWindow() {
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
-      // webview injected js needs isolation=false, because property can not be exposeInMainWorld() when isolation enabled.
-      contextIsolation: false,
+      contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      sandbox: false,
+      sandbox: true,
       nodeIntegration: false,
       nodeIntegrationInWorker: false,
       autoplayPolicy: 'user-gesture-required',
@@ -542,6 +607,7 @@ async function createMainWindow() {
     return undefined;
   };
 
+  store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
   const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
@@ -614,7 +680,7 @@ async function createMainWindow() {
   }
 
   /* eslint-disable no-nested-ternary */
-  const src = isPerfCiMode
+  let src = isPerfCiMode
     ? formatUrl({
         pathname: perfIndexHtmlPath,
         protocol: PROTOCOL,
@@ -712,15 +778,9 @@ async function createMainWindow() {
     disposeContextMenu?.();
   });
 
-  ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
-  ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
-    event.returnValue = isDevServer;
-  });
-
-  ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
-  ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
+  registerInfoHandlers(isDevServer, () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
-    event.returnValue = safelyBrowserWindow?.isFocused();
+    return !!safelyBrowserWindow?.isFocused();
   });
 
   ipcMain.removeAllListeners(ipcMessageKeys.APP_SET_IDLE_TIME);
@@ -787,8 +847,87 @@ async function createMainWindow() {
     }
   });
 
+  // === Boot Recovery IPC Handlers ===
+  ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
+  ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
+    store.resetConsecutiveBootFailCount();
+    logger.info('Boot success confirmed, crash counter reset');
+  });
+
+  ipcMain.removeAllListeners(ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT);
+  ipcMain.on(
+    ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT,
+    (_event: unknown, count: number) => {
+      store.setConsecutiveBootFailCount(count);
+      logger.info('Consecutive boot fail count set to', count);
+    },
+  );
+
   ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
+
+  // New invoke-based handler for contextIsolation-compatible API calls
+  ipcMain.removeHandler('DESKTOP_API_CALL');
+  const allowedModules = new Set([
+    'system',
+    'security',
+    'storage',
+    'webview',
+    'notification',
+    'dev',
+    'inAppPurchase',
+    'bluetooth',
+    'appUpdate',
+    'bundleUpdate',
+    'cloudKit',
+    'keychain',
+    'sniRequest',
+    'oauthLocalServer',
+    'appleAuth',
+  ]);
+  ipcMain.handle(
+    'DESKTOP_API_CALL',
+    async (
+      event,
+      payload: { module: string; method: string; params: any[] },
+    ) => {
+      // Only allow calls from the main window renderer
+      if (event.sender.id !== browserWindow.webContents.id) {
+        logger.warn(
+          '[DESKTOP_API_CALL] Rejected call from non-main renderer',
+          event.sender.id,
+        );
+        throw new OneKeyLocalError(
+          'DESKTOP_API_CALL is only allowed from the main window',
+        );
+      }
+      const { module, method, params } = payload;
+      if (!allowedModules.has(module)) {
+        throw new OneKeyLocalError(
+          `DESKTOP_API_CALL: unknown module "${module}"`,
+        );
+      }
+      // Block inherited prototype methods and private methods
+      if (
+        typeof method !== 'string' ||
+        method.startsWith('_') ||
+        ['constructor', 'toString', 'valueOf', 'hasOwnProperty'].includes(
+          method,
+        )
+      ) {
+        throw new OneKeyLocalError(
+          `DESKTOP_API_CALL: disallowed method "${method}"`,
+        );
+      }
+      const result: unknown = await desktopApi.callDesktopApiMethod({
+        type: 'DESKTOP_API_IPC_MESSAGE',
+        module: module as any,
+        method,
+        params,
+      });
+      return result;
+    },
+  );
 
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
@@ -827,12 +966,6 @@ async function createMainWindow() {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'background';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
-  });
-
-  app.removeAllListeners('login');
-  app.on('login', (event, webContents, request, authInfo, callback) => {
-    event.preventDefault();
-    callback('onekey', 'juDUIpz3lVnubZ2aHOkwBB6SJotYynyb');
   });
 
   // Prevents clicking on links to open new Windows
@@ -888,6 +1021,48 @@ async function createMainWindow() {
     return false;
   });
 
+  // Permission handler for webview (partition: persist:onekey)
+  //
+  // - media: only allowed for whitelisted fiat pay sites (camera/microphone for KYC, etc.)
+  // - notifications: already disabled at the webview tag level via
+  //   disableBlinkFeatures="Notifications" in DesktopWebView.tsx,
+  //   so the Notification API is completely unavailable and this handler
+  //   will never receive a 'notifications' permission request.
+  // - all other permissions: allowed to preserve default Electron behavior.
+  const webviewSession = session.fromPartition('persist:onekey');
+  webviewSession.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      const requestingUrl = details.requestingUrl || '';
+      const topLevelUrl = webContents.getURL();
+
+      if (permission === 'media') {
+        try {
+          const requestingOrigin = requestingUrl
+            ? new URL(requestingUrl).origin
+            : '';
+          const topLevelOrigin = topLevelUrl ? new URL(topLevelUrl).origin : '';
+          const origins = getFiatPaySiteWhitelistOrigins();
+          const domainKeys = getFiatPaySiteWhitelistDomainKeys();
+          const isWhitelisted =
+            isWhitelistedMediaOrigin(requestingOrigin, origins, domainKeys) ||
+            isWhitelistedMediaOrigin(topLevelOrigin, origins, domainKeys);
+          if (isWhitelisted) {
+            callback(true);
+            return;
+          }
+        } catch {
+          // Ignore malformed URLs and fall through to deny by default.
+        }
+        callback(false);
+        return;
+      }
+      // Allow all non-media permissions to preserve default Electron behavior.
+      // Note: 'notifications' is never requested here because it is disabled
+      // at the Blink engine level (see disableBlinkFeatures in DesktopWebView.tsx).
+      callback(true);
+    },
+  );
+
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
     (details, callback) => {
@@ -908,22 +1083,48 @@ async function createMainWindow() {
     },
   );
 
+  // Inject security response headers for the app's own pages only.
+  // Scoped to file:// and localhost to avoid interfering with external API responses.
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: ['file://*', 'http://localhost:*/*'] },
+    (details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'X-Content-Type-Options': ['nosniff'],
+          'X-Frame-Options': ['SAMEORIGIN'],
+          'Referrer-Policy': ['strict-origin-when-cross-origin'],
+        },
+      });
+    },
+  );
+
   if (!isLocalUnpacked) {
     // Get Windows drive letter for security validation
     const driveLetter = getDriveLetter();
     logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
-    const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
+    let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
-    const metadata = bundleDirPath
-      ? await getMetadata({
+    let metadata: Record<string, string> = {};
+    let metadataFailed = false;
+    if (bundleDirPath) {
+      try {
+        metadata = await getMetadata({
           bundleDir: bundleDirPath,
           appVersion: bundleData.appVersion,
           bundleVersion: bundleData.bundleVersion,
           signature: bundleData.signature,
-        })
-      : {};
+        });
+      } catch (e) {
+        // GPG verification failed or metadata unreadable — disable JS bundle
+        // so the interceptor falls back to the builtin bundle in the asar.
+        logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        useJsBundle = false;
+        metadataFailed = true;
+      }
+    }
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -985,10 +1186,34 @@ async function createMainWindow() {
             callback(filePath);
           }
         } else {
-          callback(path.join(__dirname, '..', 'build', url));
+          const buildDir = path.resolve(__dirname, '..', 'build');
+          // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+          // so path.resolve treats the segment as relative, not absolute.
+          const relativeUrl = url.replace(/^[:/]+/, '');
+          const resolved = path.resolve(buildDir, relativeUrl);
+          if (
+            !resolved.startsWith(buildDir + path.sep) &&
+            resolved !== buildDir
+          ) {
+            logger.warn('Blocked file access outside build dir:', resolved);
+            callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+            return;
+          }
+          callback(resolved);
         }
       },
     );
+    // When getMetadata failed, src still points to the bundle path which the
+    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
+    // now that the interceptor is registered and will serve builtin files.
+    if (metadataFailed) {
+      src = formatUrl({
+        pathname: 'index.html',
+        protocol: PROTOCOL,
+        slashes: true,
+      });
+      void browserWindow.loadURL(src);
+    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
@@ -1083,14 +1308,27 @@ if (!singleInstance && !process.mas) {
 
   app.on('ready', async (_, launchInfo) => {
     logger.info('launchInfo >>>> ', launchInfo);
+    logger.info(
+      `nativeAppVersion: ${app.getVersion()}, buildNumber: ${process.env.BUILD_NUMBER ?? ''}, builtinBundleVersion: ${process.env.BUNDLE_VERSION ?? ''}`,
+    );
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
-    startServices();
 
     if (!mainWindow) {
       mainWindow = await createMainWindow();
-      initMenu();
     }
+
+    // Menu is needed in both normal and recovery mode
+    initMenu();
+
+    // In recovery mode, skip heavy app initialization.
+    // createMainWindow() increments bootFailCount; if >= 3 it returned
+    // a standalone recovery window that doesn't need these services.
+    if (store.getConsecutiveBootFailCount() >= 3) {
+      return;
+    }
+
+    startServices();
     void initChildProcess();
   });
 }
@@ -1107,6 +1345,14 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  // Reset crash counter on graceful shutdown so normal close
+  // is not mistaken for a crash on next boot.
+  // Skip reset when in recovery mode (count >= 3) so recovery is still
+  // offered if the user closes the recovery window without resolving.
+  if (store.getConsecutiveBootFailCount() < 3) {
+    store.resetConsecutiveBootFailCount();
+  }
+
   if (systemIdleInterval) {
     clearInterval(systemIdleInterval);
   }
@@ -1365,9 +1611,9 @@ function startProcessMetricsMonitoring() {
     );
     if (totalMemoryMB > MEMORY_LIMIT_WARNING_MB) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const { addBreadcrumb } = require('@sentry/electron/main');
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const { addBreadcrumb } = require('@sentry/electron/main') as {
+          addBreadcrumb: (breadcrumb: Record<string, unknown>) => void;
+        };
         addBreadcrumb({
           category: 'memory',
           message: `Total process memory: ${Math.round(totalMemoryMB)}MB`,
@@ -1394,10 +1640,13 @@ async function collectGPUInfo() {
     logger.info('[GPU Info] Complete GPU information collected');
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const { setContext } = require('@sentry/electron/main');
+      const { setContext } = require('@sentry/electron/main') as {
+        setContext: (
+          name: string,
+          context: Record<string, unknown> | null,
+        ) => void;
+      };
       const gpuDevice = (gpuInfo as any)?.gpuDevice?.[0];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       setContext('gpu', {
         vendorId: gpuDevice?.vendorId,
         deviceId: gpuDevice?.deviceId,
@@ -1488,10 +1737,12 @@ app.on('before-quit', () => {
 
 // ==================== End Memory Protection ====================
 
-// Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
-app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
-
-if (isDevServer) {
+// Dev-only switches — NEVER run in production builds
+if (isDevServer && !app.isPackaged) {
+  // OK-8096: webview crashed on pages with COOP headers (e.g. Google Search).
+  // Root cause was Electron bugs #25872 / #25469, fixed in Electron 18+.
+  // No longer needed in production (we're on Electron 39.x), kept for dev only.
+  app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
   app.commandLine.appendSwitch('disable-site-isolation-trials');

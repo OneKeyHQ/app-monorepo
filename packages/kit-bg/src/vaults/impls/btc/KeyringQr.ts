@@ -33,6 +33,7 @@ import type {
   IGetChildPathTemplatesParams,
   IGetChildPathTemplatesResult,
   INormalizeGetMultiAccountsPathParams,
+  IPrepareHardwareAccountsParams,
   IPrepareQrAccountsParams,
   IQrWalletGetVerifyAddressChainParamsQuery,
   IQrWalletGetVerifyAddressChainParamsResult,
@@ -164,7 +165,6 @@ export class KeyringQr extends KeyringQrBase {
           // **** sign psbt
           psbtHex = sdk.btc.parsePSBT(checkIsDefined(signatureUr));
         } catch (_error) {
-          // eslint-disable-next-line @cspell/spellchecker
           // oxlint-disable-next-line @cspell/spellchecker
           // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/bitcoin.js
           //        throw new OneKeyLocalError('type not match');
@@ -202,6 +202,38 @@ export class KeyringQr extends KeyringQrBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
     throw new NotImplemented();
+  }
+
+  override async batchGetAddresses(params: IPrepareQrAccountsParams) {
+    const chainExtraParams = (params as IPrepareHardwareAccountsParams)
+      .chainExtraParams;
+    const receiveAddressPath = chainExtraParams?.receiveAddressPath;
+
+    if (!receiveAddressPath) {
+      return [];
+    }
+
+    const enableBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        enableBTCFreshAddress,
+        networkId: this.networkId,
+        walletId: this.walletId,
+      })
+    ) {
+      return [];
+    }
+
+    const results = await this.verifyQrWalletAddressByTwoWayScan(params, {
+      indexes: params.indexes,
+      customFullPath: receiveAddressPath,
+    });
+
+    return results.map((item) => ({
+      address: item.address,
+      path: item.path ?? '',
+    }));
   }
 
   override async getVerifyAddressChainParams(

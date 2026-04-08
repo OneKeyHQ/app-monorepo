@@ -59,6 +59,7 @@ export function TokenDetailsDeFiBlock({
         await backgroundApiProxy.serviceStaking.getProtocolList({
           symbol: symbolInfo.symbol,
           filterNetworkId: networkId,
+          includeWithdrawOnly: true,
         });
       if (!Array.isArray(protocolList) || !protocolList.length) {
         earnResultCache.delete(cacheKey);
@@ -68,6 +69,10 @@ export function TokenDetailsDeFiBlock({
         .map((o) => Number(o.provider.aprWithoutFee))
         .filter((n) => n > 0);
       const maxApr = Math.max(0, ...aprItems);
+      if (maxApr === 0) {
+        earnResultCache.delete(cacheKey);
+        return undefined;
+      }
       const blockData =
         await backgroundApiProxy.serviceStaking.getBlockRegion();
       const data = { symbolInfo, maxApr, protocolList, blockData };

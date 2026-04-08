@@ -30,10 +30,12 @@ import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalCon
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
+import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { RookieShareContainer } from './RookieShareContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
@@ -65,9 +67,11 @@ function DetailRouter() {
       <HardwareUiStateContainer />
       <PrimeLoginContainerLazy />
       <KeylessWalletContainerLazy />
+      <KeylessWebAutoConnectHashCleanupContainer />
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <CloudBackupContainer />
+
       {/* <PortalBodyContainer /> */}
       <PageTrackerContainer />
       <ErrorToastContainer />
@@ -77,6 +81,7 @@ function DetailRouter() {
       <PrimeGlobalEffect />
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
+      <RookieShareContainer />
     </NavigationContainer>
   );
 }

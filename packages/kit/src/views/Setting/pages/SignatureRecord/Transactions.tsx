@@ -224,7 +224,7 @@ const ContractInteractionTransactionItem = () => {
           alignItems="center"
           justifyContent="center"
         >
-          <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
+          <Icon size="$6" name="Document2Outline" color="$iconSubdued" />
         </Stack>
         <SizableText size="$bodyLgMedium">
           {intl.formatMessage({

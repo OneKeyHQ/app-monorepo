@@ -5,7 +5,9 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import { isValidElement, useCallback } from 'react';
+import { isValidElement, useCallback, useState } from 'react';
+
+import { Pressable } from 'react-native';
 
 import {
   Divider,
@@ -33,12 +35,14 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { useStatefulAction } from '../../hooks/useStatefulAction';
 import { AccountAvatar } from '../AccountAvatar';
 
 import type { IAccountAvatarProps } from '../AccountAvatar';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: IStackProps;
@@ -272,6 +276,8 @@ export type IListItemProps = PropsWithChildren<
     childrenBefore?: ComponentType | ReactNode;
     disabled?: boolean;
     testID?: string;
+    /** Style for the native Pressable wrapper. Only effective on native platforms. */
+    nativePressableStyle?: StyleProp<ViewStyle>;
   } & IStackProps
 >;
 
@@ -315,6 +321,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       renderItemText,
       titleMatch,
       subTitleMatch,
+      nativePressableStyle,
       ...rest
     } = props;
 
@@ -323,7 +330,40 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       await onPress?.();
     }, [onPress, props.disabled]);
 
-    return (
+    const hasPressHandler = !!onPress && !props.disabled;
+
+    // On native, use Pressable to wrap the item for better scroll-vs-tap
+    // disambiguation. Pressable cooperates with ScrollView's gesture system,
+    // automatically cancelling the press when a scroll gesture takes over.
+    // This prevents accidental onPress triggers while scrolling in nested
+    // PagerView + ScrollView layouts.
+    const useNativePressable = platformEnv.isNative && hasPressHandler;
+    const useWebPress = !platformEnv.isNative && hasPressHandler;
+
+    // Track native press state for visual feedback. Pressable's onPressIn/
+    // onPressOut drive this state, which applies bg='$bgActive' on the Stack.
+    // This replaces Tamagui's pressStyle which requires onPress on the Stack
+    // (but we removed Stack's onPress so Pressable handles scroll cancellation).
+    const [nativePressed, setNativePressed] = useState(false);
+    const handlePressIn = useCallback(() => setNativePressed(true), []);
+    const handlePressOut = useCallback(() => setNativePressed(false), []);
+
+    // On native with Pressable wrapper, strip pressStyle/hoverStyle from rest
+    // to prevent the inner Stack from claiming the touch responder. Without this,
+    // Tamagui attaches onStartShouldSetResponder to the inner Stack (because
+    // pressStyle triggers attachPress), which steals the responder from the
+    // outer Pressable and prevents onPress from firing.
+    let contentRest: typeof rest = rest;
+    let nativePressStyle: IStackProps['pressStyle'];
+    let nativeLongPress: (() => void) | undefined;
+    if (useNativePressable) {
+      const { pressStyle, hoverStyle, onLongPress, ...filtered } = rest;
+      contentRest = filtered;
+      nativePressStyle = pressStyle;
+      nativeLongPress = onLongPress as (() => void) | undefined;
+    }
+
+    const content = (
       <Stack
         ref={ref}
         flexDirection="row"
@@ -335,12 +375,15 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
         mx="$2"
         borderRadius="$3"
         borderCurve="continuous"
-        onPress={onPress ? handleItemPress : undefined}
+        onPress={useWebPress ? handleItemPress : undefined}
         {...(props.disabled && {
           opacity: 0.5,
         })}
-        {...(onPress && !props.disabled && listItemPressStyle)}
-        {...rest}
+        {...(useWebPress ? listItemPressStyle : undefined)}
+        {...contentRest}
+        {...(nativePressed
+          ? (nativePressStyle ?? { bg: '$bgActive' })
+          : undefined)}
       >
         {childrenBefore}
         {renderWithFallback(
@@ -391,6 +434,25 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
         </Unspaced>
       </Stack>
     );
+
+    if (useNativePressable) {
+      // unstable_pressDelay delays onPressIn so the bg highlight doesn't
+      // briefly flash when the user starts a scroll gesture on a list item.
+      return (
+        <Pressable
+          onPress={handleItemPress}
+          onLongPress={nativeLongPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          unstable_pressDelay={50}
+          style={nativePressableStyle ?? { flex: 1 }}
+        >
+          {content}
+        </Pressable>
+      );
+    }
+
+    return content;
   },
 );
 

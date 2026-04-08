@@ -35,7 +35,15 @@ const defaultTimeRangeConfigs: Array<{
   },
 ];
 
-export function TokenActivityOverview() {
+export function TokenActivityOverview({
+  pl,
+  pr,
+  px = '$5',
+}: {
+  pl?: string;
+  pr?: string;
+  px?: string;
+}) {
   const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
   const { tokenDetail, isLoading } = useTokenDetail();
@@ -79,7 +87,7 @@ export function TokenActivityOverview() {
     buys !== undefined && sells !== undefined ? buys + sells : undefined;
 
   return (
-    <Stack gap="$3" pl="$3" pr="$5" pt="$3" pb="$4">
+    <Stack gap="$3" pl={pl ?? px} pr={pr ?? px} pt="$3" pb="$4">
       <TimeRangeSelector
         options={timeRangeOptions}
         value={selectedTimeRange}

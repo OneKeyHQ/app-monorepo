@@ -1,6 +1,5 @@
-import { Linking } from 'react-native';
-
 import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
+import { Linking } from 'react-native';
 
 import type { IWebViewChecker } from './type';
 

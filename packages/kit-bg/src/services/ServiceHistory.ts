@@ -35,11 +35,13 @@ import type {
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsParams,
+  IFetchTransferRecipientsResp,
   IFetchTxDetailsParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
   IServerFetchAccountHistoryDetailParams,
+  ITransferRecipient,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
@@ -535,17 +537,16 @@ class ServiceHistory extends ServiceBase {
     ]);
 
     const localHistoryConfirmedTxs =
-      await this.getAccountLocalHistoryPendingTxs({
-        networkId,
-        accountAddress,
-        xpub,
-      });
-    const localHistoryPendingTxs =
       await this.getAccountLocalHistoryConfirmedTxs({
         networkId,
         accountAddress,
         xpub,
       });
+    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+      networkId,
+      accountAddress,
+      xpub,
+    });
 
     const result = unionBy(
       [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
@@ -693,6 +694,26 @@ class ServiceHistory extends ServiceBase {
         finalPendingTxs = pendingTxs;
       }
 
+      // For fast-confirming chains (e.g. Solana), fetchHistoryTxDetails may be
+      // slower than fetchAccountOnChainHistory. When on-chain history already
+      // contains a confirmed tx that matches a local pending tx by ID, we must
+      // filter it out of finalPendingTxs so that accountsWithChangedPendingTxs
+      // detection fires and the pending record is cleaned from simpleDb.
+      const onChainMatchedPendingTxs: IAccountHistoryTx[] = [];
+      finalPendingTxs = finalPendingTxs.filter((tx) => {
+        const matched = onChainHistoryTxs.find(
+          (onChainTx) =>
+            onChainTx.id === tx.id ||
+            (onChainTx.decodedTx.originalTxId &&
+              onChainTx.decodedTx.originalTxId === tx.decodedTx.txid),
+        );
+        if (matched) {
+          onChainMatchedPendingTxs.push(tx);
+          return false;
+        }
+        return true;
+      });
+
       allNonceHasBeenUsedTxs.push(...nonceHasBeenUsedTxs);
       allFinalPendingTxs.push(...finalPendingTxs);
       allConfirmedTxsToSave.push(...confirmedTxsToSave);
@@ -701,7 +722,11 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountAddress,
         xpub,
-        confirmedTxs: [...confirmedTxs, ...nonceHasBeenUsedTxs],
+        confirmedTxs: [
+          ...confirmedTxs,
+          ...nonceHasBeenUsedTxs,
+          ...onChainMatchedPendingTxs,
+        ],
         confirmedTxsToSave: finalConfirmedTxs,
         confirmedTxsToRemove,
         pendingTxsToModify,
@@ -873,6 +898,49 @@ class ServiceHistory extends ServiceBase {
       addressMap,
       hasMore,
     };
+  }
+
+  @backgroundMethod()
+  public async fetchTransferRecipients(params: {
+    accountId: string;
+    networkId: string;
+    limit?: number;
+  }): Promise<{ supported: boolean; data: ITransferRecipient[] }> {
+    const { accountId, networkId, limit = 10 } = params;
+
+    // Get account address for API
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+
+    try {
+      const resp = await client.get<{ data: IFetchTransferRecipientsResp }>(
+        '/wallet/v1/account/transfer-recipient',
+        {
+          params: {
+            networkId,
+            accountAddress,
+            limit,
+          },
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
+      );
+
+      const { supported, data } = resp.data.data;
+      return { supported: supported ?? true, data: data ?? [] };
+    } catch (error) {
+      console.error('Failed to fetch transfer recipients:', error);
+      return { supported: false, data: [] };
+    }
   }
 
   @backgroundMethod()

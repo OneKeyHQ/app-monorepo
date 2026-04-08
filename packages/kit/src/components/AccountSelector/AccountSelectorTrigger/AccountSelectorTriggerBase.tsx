@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,8 +14,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
+import { useAccountSelectorSceneInfo } from '../../../states/jotai/contexts/accountSelector';
 import { AccountAvatar } from '../../AccountAvatar';
 import { SpotlightView } from '../../Spotlight';
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
@@ -41,6 +44,7 @@ export function AccountSelectorTriggerBase({
   showWalletName?: boolean;
   showConnectWalletModalInDappMode?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
+  const { sceneName } = useAccountSelectorSceneInfo();
   const {
     activeAccount: { account, dbAccount, indexedAccount, accountName, wallet },
     showAccountSelector,
@@ -59,12 +63,27 @@ export function AccountSelectorTriggerBase({
 
   const isWebDappModeWithNoWallet =
     platformEnv.isWebDappMode && !wallet && !accountName;
+  const isTriggerDisabled =
+    platformEnv.isWebDappMode &&
+    sceneName === EAccountSelectorSceneName.homeUrlAccount &&
+    !isWebDappModeWithNoWallet;
+  const displayLabel =
+    isTriggerDisabled && account?.address
+      ? accountUtils.shortenAddress({ address: account.address })
+      : displayAccountName;
+
+  const handleAccountSelectorPress = useCallback(() => {
+    if (isTriggerDisabled) {
+      return;
+    }
+    showAccountSelector();
+  }, [isTriggerDisabled, showAccountSelector]);
 
   const contentView = useMemo(
     () => (
       <XStack
         testID="AccountSelectorTriggerBase"
-        role="button"
+        role={isTriggerDisabled ? undefined : 'button'}
         alignItems="center"
         width="$full"
         // width="$80"
@@ -73,13 +92,19 @@ export function AccountSelectorTriggerBase({
         px="$1.5"
         mx="$-1.5"
         borderRadius="$2"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-        onPress={showAccountSelector}
+        hoverStyle={isTriggerDisabled ? undefined : { bg: '$bgHover' }}
+        pressStyle={isTriggerDisabled ? undefined : { bg: '$bgActive' }}
+        focusable={!isTriggerDisabled}
+        focusVisibleStyle={
+          isTriggerDisabled
+            ? undefined
+            : {
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+              }
+        }
+        onPress={handleAccountSelectorPress}
         userSelect="none"
       >
         {isWebDappModeWithNoWallet ? (
@@ -129,8 +154,8 @@ export function AccountSelectorTriggerBase({
                   maxWidth="$36"
                 >
                   {showWalletName
-                    ? `${walletName} / ${displayAccountName}`
-                    : displayAccountName}
+                    ? `${walletName} / ${displayLabel}`
+                    : displayLabel}
                 </SizableText>
               ) : (
                 <>
@@ -148,16 +173,18 @@ export function AccountSelectorTriggerBase({
                     flexShrink={1}
                     testID="account-name"
                   >
-                    {displayAccountName}
+                    {displayLabel}
                   </SizableText>
                 </>
               )}
             </Stack>
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-            />
+            {isTriggerDisabled ? null : (
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            )}
           </>
         )}
       </XStack>
@@ -165,11 +192,12 @@ export function AccountSelectorTriggerBase({
     [
       account,
       dbAccount,
-      displayAccountName,
+      displayLabel,
+      handleAccountSelectorPress,
       horizontalLayout,
       indexedAccount,
       isWebDappModeWithNoWallet,
-      showAccountSelector,
+      isTriggerDisabled,
       showWalletAvatar,
       showWalletName,
       wallet,
@@ -189,7 +217,7 @@ export function AccountSelectorTriggerBase({
 
   useShortcutsOnRouteFocused(
     EShortcutEvents.AccountSelector,
-    showAccountSelector,
+    handleAccountSelectorPress,
   );
 
   return spotlightProps ? (

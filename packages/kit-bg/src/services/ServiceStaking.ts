@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
@@ -100,7 +99,10 @@ import type {
   IVerifyRegisterSignMessageParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
-import { EApproveType } from '@onekeyhq/shared/types/staking';
+import {
+  EApproveType,
+  EStakeProtocolGroupEnum,
+} from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -109,6 +111,7 @@ import { vaultFactory } from '../vaults/factory';
 import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 
 import ServiceBase from './ServiceBase';
+import { pollSolTxFinalization } from './utils/pollSolTxFinalization';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
@@ -148,6 +151,17 @@ interface IAvailableAssetsResponseV2 {
   data: {
     assets: IEarnAvailableAssetV2[];
   };
+}
+
+interface IEarnBatchInvestmentDetailError {
+  vault: string;
+  symbol: string;
+  errorCode: string;
+}
+
+interface IEarnBatchInvestmentDetailResponse {
+  items: IEarnInvestmentItemV2[];
+  errors: IEarnBatchInvestmentDetailError[];
 }
 
 @backgroundClass()
@@ -319,6 +333,7 @@ class ServiceStaking extends ServiceBase {
       permitSignature,
       unsignedMessage,
       message,
+      effectiveApy,
       validatorPublicKey,
       ...rest
     } = params;
@@ -366,6 +381,7 @@ class ServiceStaking extends ServiceBase {
       unsignedMessage:
         approveType === EApproveType.Permit ? unsignedMessage : undefined,
       message,
+      effectiveApy,
       ...rest,
     };
 
@@ -392,7 +408,8 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, protocolVault, ...rest } = params;
+    const { networkId, accountId, protocolVault, effectiveApy, ...rest } =
+      params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -417,6 +434,7 @@ class ServiceStaking extends ServiceBase {
         accountId,
       }),
       vault: isVaultBased ? protocolVault : undefined,
+      effectiveApy,
       ...rest,
     });
     return resp.data.data;
@@ -850,8 +868,7 @@ class ServiceStaking extends ServiceBase {
         type,
         accountAddress,
       });
-      const protocols = protocolListResp.data.data.protocols;
-      return protocols;
+      return protocolListResp.data.data.protocols;
     },
     {
       promise: true,
@@ -868,17 +885,23 @@ class ServiceStaking extends ServiceBase {
     networkId?: string;
     filterNetworkId?: string;
     skipStakingConfigFilter?: boolean;
+    includeWithdrawOnly?: boolean;
   }) {
     const accountNetworkId = params.networkId ?? params.filterNetworkId;
-    const accountAddress =
-      params.accountId &&
-      accountNetworkId &&
-      !networkUtils.isAllNetwork({ networkId: accountNetworkId })
-        ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-            networkId: accountNetworkId,
-            accountId: params.accountId,
-          })
-        : undefined;
+    let accountAddress: string | undefined;
+    try {
+      accountAddress =
+        params.accountId &&
+        accountNetworkId &&
+        !networkUtils.isAllNetwork({ networkId: accountNetworkId })
+          ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              networkId: accountNetworkId,
+              accountId: params.accountId,
+            })
+          : undefined;
+    } catch {
+      // ignore
+    }
 
     let allItems: IStakeProtocolListItem[] = [];
     try {
@@ -903,6 +926,12 @@ class ServiceStaking extends ServiceBase {
     ) {
       allItems = allItems.filter(
         (item) => item.network.networkId === params.filterNetworkId,
+      );
+    }
+
+    if (!params.includeWithdrawOnly) {
+      allItems = allItems.filter(
+        (item) => item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly,
       );
     }
 
@@ -1077,7 +1106,7 @@ class ServiceStaking extends ServiceBase {
         accountParams.push({
           accountAddress: account?.apiAddress,
           networkId: earnNetworkId,
-          publicKey: account?.pub,
+          publicKey: account?.pub?.trim() || undefined,
         });
       }
     });
@@ -1241,6 +1270,29 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchInvestmentBatchDetail(params: {
+    publicKey?: string | undefined;
+    accountAddress: string;
+    networkId: string;
+    provider: string;
+    accountId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const { accountId, ...rest } = params;
+
+    const response = await client.post<{
+      data: IEarnBatchInvestmentDetailResponse;
+    }>(`/earn/v1/investment/batch/detail`, rest, {
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
+
+    return response.data.data;
+  }
+
+  @backgroundMethod()
   async fetchAirdropInvestmentDetail(params: {
     publicKey?: string | undefined;
     vault?: string | undefined;
@@ -1301,6 +1353,11 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async clearAvailableAssetsCache() {
     void this._getAvailableAssets.clear();
+  }
+
+  @backgroundMethod()
+  async clearRecommendedAssetsCache() {
+    void this._getAccountAssetV2.clear();
   }
 
   @backgroundMethod()
@@ -1595,33 +1652,6 @@ class ServiceStaking extends ServiceBase {
     });
     return resp.data.data.delegations;
   }
-
-  @backgroundMethod()
-  fetchEarnHomePageBannerList({ theme }: { theme?: string } = {}) {
-    return this._fetchEarnHomePageBannerList({ theme });
-  }
-
-  @backgroundMethod()
-  async clearEarnHomePageBannerListCache() {
-    void this._fetchEarnHomePageBannerList.clear();
-  }
-
-  _fetchEarnHomePageBannerList = memoizee(
-    async ({ theme }: { theme?: string } = {}) => {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const res = await client.get<{ data: IDiscoveryBanner[] }>(
-        '/utility/v1/earn-banner/list',
-        {
-          headers: theme ? { 'X-Onekey-Request-Theme': theme } : {},
-        },
-      );
-      return res.data.data;
-    },
-    {
-      promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
-    },
-  );
 
   @backgroundMethod()
   async getEarnAvailableAccounts(params: {
@@ -2432,6 +2462,68 @@ class ServiceStaking extends ServiceBase {
       amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
     });
     return response.data.data;
+  }
+
+  @backgroundMethod()
+  async borrowBuildSetupLutTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    collateralReserveAddress: string;
+    accountId: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-setup-lut-transaction', {
+      ...rest,
+      accountAddress,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async waitForSolTxFinalized(params: {
+    networkId: string;
+    txId: string;
+    maxAttempts?: number;
+    intervalMs?: number;
+  }): Promise<'finalized' | 'failed' | 'timeout'> {
+    const { networkId, txId, maxAttempts = 40, intervalMs = 3000 } = params;
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+
+    return pollSolTxFinalization({
+      txId,
+      maxAttempts,
+      intervalMs,
+      getSignatureStatuses: async (signatures) => {
+        const statuses = await vault.getSignatureStatuses(signatures);
+        return statuses?.map((status) =>
+          status
+            ? {
+                ...status,
+                confirmationStatus: status.confirmationStatus ?? undefined,
+              }
+            : status,
+        );
+      },
+      onStatusError: (error) => {
+        defaultLogger.app.error.log(
+          `[waitForSolTxFinalized] getSignatureStatuses failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      },
+    });
   }
 
   @backgroundMethod()

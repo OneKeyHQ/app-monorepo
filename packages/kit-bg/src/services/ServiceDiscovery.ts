@@ -75,7 +75,7 @@ class ServiceDiscovery extends ServiceBase {
     return Promise.all(
       data.map(async (i) => ({
         ...i,
-        logo: await this.buildWebsiteIconUrl(i.url),
+        logo: i.logo || (await this.buildWebsiteIconUrl(i.url)),
       })),
     );
   }
@@ -210,6 +210,12 @@ class ServiceDiscovery extends ServiceBase {
   _checkUrlSecurity = memoizee(
     async (params: { url: string; from: 'app' | 'script' }) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
+      let authToken = '';
+      try {
+        authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+      } catch {
+        // ignore auth token errors, proceed without it
+      }
       const res = await client.get<{ data: IHostSecurity }>(
         '/utility/v1/discover/check-host',
         {
@@ -218,6 +224,7 @@ class ServiceDiscovery extends ServiceBase {
             from: params.from,
           },
           timeout: 5000,
+          headers: authToken ? { 'X-Onekey-Request-Token': authToken } : {},
         },
       );
       return res.data.data;
@@ -350,7 +357,9 @@ class ServiceDiscovery extends ServiceBase {
     const histories = await Promise.all(
       dataSource.map(async (i) => ({
         ...i,
-        logo: generateIcon ? await this.buildWebsiteIconUrl(i.url) : undefined,
+        logo: generateIcon
+          ? i.logo || (await this.buildWebsiteIconUrl(i.url))
+          : i.logo,
       })),
     );
 

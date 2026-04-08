@@ -254,6 +254,18 @@ function isHwOrQrWallet({
   return isHwWallet({ walletId }) || isQrWallet({ walletId });
 }
 
+function isIndexedAccountWallet({
+  walletId,
+}: {
+  walletId: string | undefined;
+}): boolean {
+  return (
+    isHdWallet({ walletId }) ||
+    isHwWallet({ walletId }) ||
+    isQrWallet({ walletId })
+  );
+}
+
 function isHwHiddenWallet({
   wallet,
 }: {
@@ -982,10 +994,18 @@ function isEnabledBtcFreshAddress({
     return false;
   }
   if (accountId) {
-    return isHdAccount({ accountId }) || isHwAccount({ accountId });
+    return (
+      isHdAccount({ accountId }) ||
+      isHwAccount({ accountId }) ||
+      isQrAccount({ accountId })
+    );
   }
   if (walletId) {
-    return isHdWallet({ walletId }) || isHwWallet({ walletId });
+    return (
+      isHdWallet({ walletId }) ||
+      isHwWallet({ walletId }) ||
+      isQrWallet({ walletId })
+    );
   }
   return false;
 }
@@ -1173,6 +1193,7 @@ export default {
   isQrWallet,
   isHwWallet,
   isHwOrQrWallet,
+  isIndexedAccountWallet,
   isHwHiddenWallet,
   isWatchingWallet,
   isImportedWallet,

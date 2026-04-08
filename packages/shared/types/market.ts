@@ -1,3 +1,5 @@
+import type { IMarketStockInfo } from './marketV2';
+
 export interface IMarketCategory {
   categoryId: string;
   coingeckoIds: string[];
@@ -259,6 +261,7 @@ export interface IMarketSearchV2Token {
   address: string;
   network: string;
   logoUrl: string;
+  logoUrls?: string[];
   isNative: boolean;
   decimals: number;
   liquidity: string;
@@ -267,4 +270,5 @@ export interface IMarketSearchV2Token {
   marketCap?: string;
   priceChange24hPercent?: string;
   communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
 }

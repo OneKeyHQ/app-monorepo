@@ -72,6 +72,7 @@ const MoreButton: FC<IMoreButtonProps> = ({
       placement={placement}
       floatingPanelProps={{
         maxWidth: 384,
+        maxHeight: 420,
       }}
       renderContent={
         <NetworksSearchPanel

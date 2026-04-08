@@ -9,7 +9,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
@@ -20,6 +20,20 @@ import { AdaManageContent } from './AdaManageContent';
 import { ManagePageV2Content } from './ManagePageV2Content';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
+
+export type IManagePositionSelectedProtocol = {
+  networkId: string;
+  provider: string;
+  vault?: string;
+};
+
+export type IManagePositionProtocolSwitchConfig = {
+  currentProtocol?: IStakeProtocolListItem;
+  isLoading?: boolean;
+  protocols: IStakeProtocolListItem[];
+  selectedProtocol: IManagePositionSelectedProtocol;
+  onProtocolSelect: (protocol: IStakeProtocolListItem) => void | Promise<void>;
+};
 
 export interface IManagePositionContentProps {
   // Essential params
@@ -37,14 +51,13 @@ export interface IManagePositionContentProps {
   // Borrow-specific params
   reserveAddress?: string;
   marketAddress?: string;
-  borrowReserves?: IBorrowReserveItem;
-
   // Optional configurations
   defaultTab?: 'deposit' | 'withdraw';
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
   providerLogoUri?: string;
+  stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -102,12 +115,12 @@ export function ManagePositionContent({
   type = EManagePositionType.Staking,
   reserveAddress,
   marketAddress,
-  borrowReserves,
   defaultTab,
   onTabChange,
   showApyDetail = false,
   fallbackTokenImageUri,
   providerLogoUri,
+  stakeProtocolSwitchConfig,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -138,6 +151,7 @@ export function ManagePositionContent({
     type,
     reserveAddress,
     marketAddress,
+    revalidateOnFocus: !isInModalContext,
   });
 
   const resolvedProtocolInfo = useMemo(() => {
@@ -424,7 +438,6 @@ export function ManagePositionContent({
         fallbackTokenImageUri={resolvedTokenImageUri}
         protocolInfo={resolvedProtocolInfo}
         earnAccount={earnAccount ?? undefined}
-        borrowReserves={borrowReserves}
         depositDisabled={depositDisabled}
         withdrawDisabled={withdrawDisabled}
         stakeBeforeFooter={stakeBeforeFooter}
@@ -518,7 +531,6 @@ export function ManagePositionContent({
       fallbackTokenImageUri={resolvedTokenImageUri}
       protocolInfo={resolvedProtocolInfo}
       earnAccount={earnAccount ?? undefined}
-      borrowReserves={borrowReserves}
       depositDisabled={depositDisabled}
       withdrawDisabled={withdrawDisabled}
       stakeBeforeFooter={stakeBeforeFooter}
@@ -535,6 +547,7 @@ export function ManagePositionContent({
       isInModalContext={isInModalContext}
       appNavigation={appNavigation}
       showApyDetail={showApyDetail}
+      stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
       ongoingValidator={ongoingValidator}
       managePageData={managePageData}
     />

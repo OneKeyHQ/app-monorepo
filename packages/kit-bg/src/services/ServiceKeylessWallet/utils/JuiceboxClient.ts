@@ -204,10 +204,11 @@ export class JuiceboxClient {
         appLocale.intl.formatMessage({
           id: ETranslations.global_unknown_error_retry_message,
         });
+      const plainError = errorUtils.toPlainErrorObject(e);
       defaultLogger.wallet.keyless.juiceboxRegisterError({
         message: errorMessage,
         sdkError: e,
-        plainError: errorUtils.toPlainErrorObject(e),
+        plainError,
       });
       throw new OneKeyLocalError({
         message: errorMessage,

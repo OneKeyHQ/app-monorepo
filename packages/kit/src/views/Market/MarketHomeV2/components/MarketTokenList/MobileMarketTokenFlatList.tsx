@@ -19,10 +19,13 @@ import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 
 import type { IMarketToken } from './MarketTokenData';
+import type { IMarketTimeRangeValue } from '../../types';
 import type { FlatListProps } from 'react-native';
 
 interface IMobileMarketTokenFlatListProps {
   networkId: string;
+  selectedCategory?: string;
+  timeRange?: IMarketTimeRangeValue;
   listContainerProps: {
     paddingBottom: number;
   };
@@ -32,6 +35,8 @@ const EMPTY_DATA: IMarketToken[] = [];
 
 function MobileMarketTokenFlatListBase({
   networkId,
+  selectedCategory,
+  timeRange,
   listContainerProps,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
@@ -47,9 +52,11 @@ function MobileMarketTokenFlatListBase({
     loadMore,
   } = useMarketTokenList({
     networkId,
-    initialSortBy: 'v24hUSD', // Default sort by 24h volume
+    initialSortBy: 'v24hUSD',
     initialSortType: 'desc',
     pageSize: 20,
+    type: selectedCategory,
+    timeRange,
   });
 
   // Render item callback
@@ -119,17 +126,6 @@ function MobileMarketTokenFlatListBase({
     );
   }, [showSkeleton, intl]);
 
-  // Note: getItemLayout is disabled because dynamic item heights are more accurate
-  // If re-enabling, measure actual rendered item height and uncomment below:
-  const getItemLayout = useCallback(
-    (_: ArrayLike<IMarketToken> | null | undefined, index: number) => ({
-      length: 73,
-      offset: 73 * index,
-      index,
-    }),
-    [],
-  );
-
   const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <Tabs.FlatList<IMarketToken>
@@ -138,7 +134,6 @@ function MobileMarketTokenFlatListBase({
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       onEndReached={handleEndReached}
-      getItemLayout={getItemLayout}
       onEndReachedThreshold={0.2}
       // Performance optimizations to improve page switching speed
       initialNumToRender={10}
@@ -149,7 +144,7 @@ function MobileMarketTokenFlatListBase({
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        paddingTop: 8 + (platformEnv.isNative ? 248 : 0),
+        ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

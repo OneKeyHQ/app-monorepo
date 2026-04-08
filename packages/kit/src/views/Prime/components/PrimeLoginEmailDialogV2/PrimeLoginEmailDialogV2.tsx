@@ -176,35 +176,6 @@ function PrimeLoginEmailDialogV2(props: {
           </Form.Field>
         </Form>
       </Stack>
-      {!title ? (
-        <XStack jc="center" pt="$2">
-          {isSignUpMode ? null : (
-            <SizableText size="$bodySm" color="$textSubdued">
-              {`${intl.formatMessage({
-                id: ETranslations.no_account,
-              })}?`}
-            </SizableText>
-          )}
-          <SizableText
-            size="$bodySmMedium"
-            color="$textInteractive"
-            ml="$1"
-            cursor="pointer"
-            role="button"
-            hoverStyle={{ opacity: 0.8 }}
-            pressStyle={{ opacity: 0.7 }}
-            onPress={() => setIsSignUpMode((prev) => !prev)}
-          >
-            {isSignUpMode
-              ? intl.formatMessage({
-                  id: ETranslations.prime_signup_login,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.prime_onekeyid_signup,
-                })}
-          </SizableText>
-        </XStack>
-      ) : null}
       <Dialog.Footer
         showCancelButton={false}
         onConfirmText={intl.formatMessage({
@@ -216,6 +187,37 @@ function PrimeLoginEmailDialogV2(props: {
         onConfirm={async ({ preventClose }) => {
           await submit({ preventClose });
         }}
+        extraContent={
+          !title ? (
+            <XStack jc="center" px="$5" pb="$5">
+              {isSignUpMode ? null : (
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {`${intl.formatMessage({
+                    id: ETranslations.no_account,
+                  })}?`}
+                </SizableText>
+              )}
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textInteractive"
+                ml="$1"
+                cursor="pointer"
+                role="button"
+                hoverStyle={{ opacity: 0.8 }}
+                pressStyle={{ opacity: 0.7 }}
+                onPress={() => setIsSignUpMode((prev) => !prev)}
+              >
+                {isSignUpMode
+                  ? intl.formatMessage({
+                      id: ETranslations.prime_signup_login,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.prime_onekeyid_signup,
+                    })}
+              </SizableText>
+            </XStack>
+          ) : undefined
+        }
       />
     </Stack>
   );

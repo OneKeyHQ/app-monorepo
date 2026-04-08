@@ -1,5 +1,5 @@
-// eslint-disable-next-line no-restricted-syntax
-import React from 'react';
+import { forwardRef, useCallback, useEffect, useMemo } from 'react';
+import type { ReactElement, Ref } from 'react';
 
 import {
   useAfterMountEffect,
@@ -23,8 +23,8 @@ function TabsDraggableFlatListImpl<T>(
     onContentSizeChange,
     ...rest
   }: DraggableFlatListProps<T>,
-  passRef: React.Ref<RNFlatList>,
-): React.ReactElement {
+  passRef: Ref<RNFlatList>,
+): ReactElement {
   const name = useTabNameContext();
   const { setRef, contentInset } = useTabsContext();
   const ref = useSharedAnimatedRef<RNFlatList<unknown>>(passRef);
@@ -42,7 +42,7 @@ function TabsDraggableFlatListImpl<T>(
     progressViewOffset,
   } = useCollapsibleStyle();
 
-  React.useEffect(() => {
+  useEffect(() => {
     setRef(name, ref);
   }, [name, ref, setRef]);
 
@@ -51,36 +51,39 @@ function TabsDraggableFlatListImpl<T>(
   });
 
   const scrollContentSizeChangeHandlers = useChainCallback(
-    React.useMemo(
+    useMemo(
       () => [scrollContentSizeChange, onContentSizeChange],
       [onContentSizeChange, scrollContentSizeChange],
     ),
   );
 
-  const memoContentInset = React.useMemo(
+  const memoContentInset = useMemo(
     () => ({ top: contentInset }),
     [contentInset],
   );
 
-  const memoContentOffset = React.useMemo(
+  const memoContentOffset = useMemo(
     () => ({ x: 0, y: -contentInset }),
     [contentInset],
   );
 
-  const memoContentContainerStyle = React.useMemo(
+  const memoContentContainerStyle = useMemo(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => [_contentContainerStyle, contentContainerStyle as any],
     [_contentContainerStyle, contentContainerStyle],
   );
 
-  const memoStyle = React.useMemo(() => [_style, style], [_style, style]);
+  const memoStyle = useMemo(() => [_style, style], [_style, style]);
+
+  const containerStyleMemo = useMemo(() => ({ flex: 1 as const }), []);
+  const handleMomentumScrollEnd = useCallback(() => {}, []);
 
   return (
     <DraggableFlatList<T>
       {...rest}
       onLayout={onLayout}
       ref={ref as any}
-      containerStyle={{ flex: 1 }}
+      containerStyle={containerStyleMemo}
       style={memoStyle as any}
       contentContainerStyle={memoContentContainerStyle as any}
       progressViewOffset={progressViewOffset}
@@ -91,13 +94,13 @@ function TabsDraggableFlatListImpl<T>(
       contentOffset={memoContentOffset}
       automaticallyAdjustContentInsets={false}
       // workaround for: https://github.com/software-mansion/react-native-reanimated/issues/2735
-      onMomentumScrollEnd={() => {}}
+      onMomentumScrollEnd={handleMomentumScrollEnd}
     />
   );
 }
 
-export const TabsDraggableFlatList = React.forwardRef(
-  TabsDraggableFlatListImpl,
-) as <T>(
-  props: DraggableFlatListProps<T> & { ref?: React.Ref<RNFlatList<T>> },
-) => React.ReactElement;
+export const TabsDraggableFlatList = forwardRef(TabsDraggableFlatListImpl) as <
+  T,
+>(
+  props: DraggableFlatListProps<T> & { ref?: Ref<RNFlatList<T>> },
+) => ReactElement;

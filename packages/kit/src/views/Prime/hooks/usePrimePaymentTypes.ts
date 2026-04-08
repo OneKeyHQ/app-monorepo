@@ -13,6 +13,7 @@ export type ISubscriptionPeriod = 'P1Y' | 'P1M';
 
 export type IPackage = {
   subscriptionPeriod: ISubscriptionPeriod;
+  currencyCode: string;
   pricePerMonth: number;
   pricePerMonthString: string;
   pricePerYear: number;
@@ -37,6 +38,7 @@ export type IUsePrimePayment = {
     primeUserEmail: string;
     subscriptionPeriod: ISubscriptionPeriod;
     locale: string;
+    currency?: string;
     mode: 'dev' | 'prod';
     featureName?: string;
   };
@@ -54,11 +56,13 @@ export type IUsePrimePayment = {
         subscriptionPeriod,
         email,
         locale,
+        currency,
         featureName,
       }: {
         subscriptionPeriod: ISubscriptionPeriod;
         email: string;
         locale?: string;
+        currency?: string;
         featureName?: EPrimeFeatures;
       }) => Promise<PurchaseResult>)
     | undefined;

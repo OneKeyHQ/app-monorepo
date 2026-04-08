@@ -423,9 +423,15 @@ export function CreateOrEditContent({
         >
           <Page.FooterActions
             flex={platformEnv.isNative ? undefined : 1}
-            onConfirmText={intl.formatMessage({
-              id: ETranslations.address_book_add_address_button_save,
-            })}
+            onConfirmText={
+              isSubmitLoading || form.formState.isSubmitting
+                ? intl.formatMessage({
+                    id: ETranslations.update_verifying,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.address_book_add_address_button_save,
+                  })
+            }
             confirmButtonProps={{
               variant: 'primary',
               loading: isSubmitLoading || form.formState.isSubmitting,

@@ -35,6 +35,7 @@ export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
+export const PERPS_CAMPAIGN_HELP_LINK = 'https://campaign.onekey.so/perps-s1';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
 export const HARDWARE_TROUBLESHOOTING_URL =
@@ -123,6 +124,7 @@ export const defaultColorScheme = 'dark';
 
 export const TRADING_VIEW_URL = 'https://tradingview.onekey.so';
 export const TRADING_VIEW_URL_TEST = 'https://tradingview.onekeytest.com';
+export const TRADING_VIEW_LOCALHOST_ORIGIN = 'http://localhost:5173';
 
 export const FALCON_DOCS_URL = 'https://docs.falcon.finance/';
 export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';

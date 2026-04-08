@@ -1,12 +1,21 @@
 import { useCallback } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { calculateDisplayPriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
 import { handleAnalyticsEvent } from './analyticsHandler';
-import { handleKLineDataRequest } from './klineDataHandler';
+import {
+  fetchAccountTransactionMarks,
+  handleKLineDataRequest,
+} from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
 import type { ICustomReceiveHandlerData } from '../types';
+
+const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
 
 interface IUseTradingViewMessageHandlerParams {
   tokenAddress?: string;
@@ -16,6 +25,159 @@ interface IUseTradingViewMessageHandlerParams {
   accountAddress?: string;
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
+  onTouchScroll?: (deltaY: number) => void;
+}
+
+async function handleGetHyperliquidPriceScale({
+  request,
+  webRef,
+}: {
+  request: { symbol?: string; requestId?: string };
+  webRef: React.RefObject<IWebViewRef | null>;
+}) {
+  if (!request.requestId) {
+    return;
+  }
+
+  const requestSymbol = request.symbol;
+  let priceScale = DEFAULT_HYPERLIQUID_PRICE_SCALE;
+  let persistedPriceScale: number | undefined;
+  let midValue: string | undefined;
+
+  if (!requestSymbol) {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: 'HYPERLIQUID_PRICESCALE_RESPONSE',
+      payload: {
+        priceScale,
+        minmov: 1,
+        requestId: request.requestId,
+      },
+    });
+    return;
+  }
+
+  const loadMidPrice = async () => {
+    return backgroundApiProxy.serviceHyperliquid.getTradingviewMidPrice(
+      requestSymbol,
+    );
+  };
+
+  midValue = await loadMidPrice();
+
+  if (!midValue && requestSymbol) {
+    try {
+      persistedPriceScale =
+        await backgroundApiProxy.serviceHyperliquid.getTradingviewDisplayPriceScale(
+          requestSymbol,
+        );
+    } catch (error) {
+      console.error(
+        '[TradingViewV2] Failed to load HyperLiquid price scale:',
+        error,
+      );
+    }
+  }
+
+  if (!midValue && persistedPriceScale === undefined) {
+    const deadline = Date.now() + timerUtils.getTimeDurationMs({ seconds: 3 });
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      midValue = await loadMidPrice();
+      if (midValue) {
+        break;
+      }
+    }
+  }
+
+  if (midValue && requestSymbol) {
+    priceScale = calculateDisplayPriceScale(midValue);
+    try {
+      await backgroundApiProxy.serviceHyperliquid.setTradingviewDisplayPriceScale(
+        {
+          symbol: requestSymbol,
+          priceScale,
+        },
+      );
+    } catch (error) {
+      console.error(
+        '[TradingViewV2] Failed to persist HyperLiquid price scale:',
+        error,
+      );
+    }
+  } else if (persistedPriceScale !== undefined) {
+    priceScale = persistedPriceScale;
+  }
+
+  webRef.current?.sendMessageViaInjectedScript({
+    type: 'HYPERLIQUID_PRICESCALE_RESPONSE',
+    payload: {
+      priceScale,
+      minmov: 1,
+      requestId: request.requestId,
+    },
+  });
+}
+
+async function handleGetMarks({
+  request,
+  accountAddress,
+  tokenAddress,
+  networkId,
+  webRef,
+}: {
+  request: {
+    requestId?: string;
+    from?: number;
+    to?: number;
+  };
+  accountAddress?: string;
+  tokenAddress: string;
+  networkId: string;
+  webRef: React.RefObject<IWebViewRef | null>;
+}) {
+  const requestId = request.requestId;
+
+  if (!requestId) {
+    return;
+  }
+
+  if (!tokenAddress || !networkId) {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: 'MARKS_RESPONSE',
+      payload: {
+        marks: [],
+        requestId,
+      },
+    });
+    return;
+  }
+
+  try {
+    const marks = await fetchAccountTransactionMarks({
+      accountAddress,
+      tokenAddress,
+      networkId,
+      from: request.from ?? 0,
+      to: request.to ?? Math.floor(Date.now() / 1000),
+    });
+
+    webRef.current?.sendMessageViaInjectedScript({
+      type: 'MARKS_RESPONSE',
+      payload: {
+        marks,
+        requestId,
+      },
+    });
+  } catch (error) {
+    console.error('[TradingViewV2] Failed to fetch marks:', error);
+    webRef.current?.sendMessageViaInjectedScript({
+      type: 'MARKS_RESPONSE',
+      payload: {
+        marks: [],
+        requestId,
+      },
+    });
+  }
 }
 
 export function useTradingViewMessageHandler({
@@ -26,6 +188,7 @@ export function useTradingViewMessageHandler({
   accountAddress,
   tokenSymbol,
   marksTimeRange,
+  onTouchScroll,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -73,6 +236,41 @@ export function useTradingViewMessageHandler({
 
         await handleAnalyticsEvent(data.method, { data, context });
       }
+
+      if (
+        data.scope === '$private' &&
+        data.method === 'tradingview_getHyperliquidPriceScale'
+      ) {
+        await handleGetHyperliquidPriceScale({
+          request: data.data as { symbol?: string; requestId?: string },
+          webRef,
+        });
+      }
+
+      if (data.scope === '$private' && data.method === 'tradingview_getMarks') {
+        await handleGetMarks({
+          request: data.data as {
+            requestId?: string;
+            from?: number;
+            to?: number;
+          },
+          accountAddress,
+          tokenAddress,
+          networkId,
+          webRef,
+        });
+      }
+
+      if (
+        data.scope === '$private' &&
+        data.method === 'tradingview_touchScroll'
+      ) {
+        const touchData = data.data as { deltaY?: number } | undefined;
+        const deltaY = Number(touchData?.deltaY ?? 0);
+        if (Number.isFinite(deltaY) && deltaY !== 0) {
+          onTouchScroll?.(deltaY);
+        }
+      }
     },
     [
       tokenAddress,
@@ -82,6 +280,7 @@ export function useTradingViewMessageHandler({
       accountAddress,
       tokenSymbol,
       marksTimeRange,
+      onTouchScroll,
     ],
   );
 
