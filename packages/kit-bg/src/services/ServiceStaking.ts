@@ -888,15 +888,20 @@ class ServiceStaking extends ServiceBase {
     includeWithdrawOnly?: boolean;
   }) {
     const accountNetworkId = params.networkId ?? params.filterNetworkId;
-    const accountAddress =
-      params.accountId &&
-      accountNetworkId &&
-      !networkUtils.isAllNetwork({ networkId: accountNetworkId })
-        ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-            networkId: accountNetworkId,
-            accountId: params.accountId,
-          })
-        : undefined;
+    let accountAddress: string | undefined;
+    try {
+      accountAddress =
+        params.accountId &&
+        accountNetworkId &&
+        !networkUtils.isAllNetwork({ networkId: accountNetworkId })
+          ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              networkId: accountNetworkId,
+              accountId: params.accountId,
+            })
+          : undefined;
+    } catch {
+      // ignore
+    }
 
     let allItems: IStakeProtocolListItem[] = [];
     try {
