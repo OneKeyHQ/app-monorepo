@@ -35,6 +35,10 @@ const INPUT_WIDTH = 130;
 const INITIAL_BATCH = 20;
 const BATCH_SIZE = 50;
 const BATCH_INTERVAL = 100;
+const WEB_ADDRESS_BREAK_STYLE = {
+  wordBreak: 'break-all',
+  whiteSpace: 'normal',
+} as const;
 
 // Renders items in batches on native to avoid blocking the UI thread
 function useProgressiveList<T>(items: T[]): T[] {
@@ -238,6 +242,9 @@ function TransferListItemBase({
         <SizableText
           size="$bodyMdMedium"
           color={hasAddressError ? '$textCritical' : '$text'}
+          minWidth={0}
+          flexShrink={1}
+          style={platformEnv.isWeb ? WEB_ADDRESS_BREAK_STYLE : undefined}
         >
           {address}
         </SizableText>
@@ -267,12 +274,13 @@ function TransferListItemBase({
   };
 
   return (
-    <XStack gap="$3" py="$2" minWidth={0} alignItems="center">
-      <YStack
-        justifyContent="center"
-        minWidth={0}
-        {...(isCompactLayout ? { flex: 1 } : { flexShrink: 0 })}
-      >
+    <XStack
+      gap="$3"
+      py="$2"
+      minWidth={0}
+      alignItems={isCompactLayout ? 'center' : 'flex-start'}
+    >
+      <YStack justifyContent="center" minWidth={0} flex={1}>
         {renderAddress()}
         {(() => {
           if (type !== 'send') return null;
@@ -366,11 +374,7 @@ function TransferListItemBase({
         ) : null}
       </YStack>
 
-      <Stack
-        alignItems="flex-end"
-        minWidth={0}
-        {...(isCompactLayout ? { flexShrink: 0 } : { flex: 1 })}
-      >
+      <Stack alignItems="flex-end" minWidth={0} flexShrink={0}>
         {renderAmount()}
       </Stack>
 
