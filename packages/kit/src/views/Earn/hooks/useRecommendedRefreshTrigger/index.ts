@@ -25,18 +25,14 @@ export function useRecommendedRefreshTrigger({
     onRefresh,
   });
 
-  const {
-    historyRefreshAccounts,
-    recommendedNetworkIds,
-    tagMatcher,
-    shouldRefreshByAccounts,
-  } = useRecommendedRefreshScope({
-    accountId,
-    indexedAccountId,
-    networkId,
-    recommendedTokens,
-    enableFetch,
-  });
+  const { recommendedNetworkIds, tagMatcher, shouldRefreshByAccounts } =
+    useRecommendedRefreshScope({
+      accountId,
+      indexedAccountId,
+      networkId,
+      recommendedTokens,
+      enableFetch,
+    });
 
   useRecommendedRefreshAppEvents({
     accountId,
@@ -47,11 +43,7 @@ export function useRecommendedRefreshTrigger({
   });
 
   useRecommendedRefreshSwapEvents({
-    accountId,
-    networkId,
     enableFetch,
-    historyRefreshAccounts,
-    shouldRefreshByAccounts,
     scheduleRecommendedRefresh,
   });
 
