@@ -9515,7 +9515,7 @@ __metadata:
     "@electron/remote": "npm:^2.0.1"
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
     "@sentry/electron": "npm:5.8.0"
-    "@stoprocent/noble": "npm:2.3.4"
+    "@stoprocent/noble": "npm:2.3.10"
     "@types/adm-zip": "npm:^0"
     "@types/electron-localshortcut": "npm:^3.1.0"
     "@types/node-fetch": "npm:^2.6.1"
@@ -15424,8 +15424,8 @@ __metadata:
   linkType: hard
 
 "@stoprocent/bluetooth-hci-socket@npm:^2.2.3":
-  version: 2.2.3
-  resolution: "@stoprocent/bluetooth-hci-socket@npm:2.2.3"
+  version: 2.2.6
+  resolution: "@stoprocent/bluetooth-hci-socket@npm:2.2.6"
   dependencies:
     async: "npm:^3.2.6"
     debug: "npm:^4.3.7"
@@ -15461,6 +15461,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@stoprocent/noble@npm:2.3.10":
+  version: 2.3.10
+  resolution: "@stoprocent/noble@npm:2.3.10"
+  dependencies:
+    "@stoprocent/bluetooth-hci-socket": "npm:^2.2.3"
+    debug: "npm:^4.3.7"
+    node-addon-api: "npm:^8.1.0"
+    node-gyp: "npm:latest"
+    node-gyp-build: "npm:^4.8.1"
+  dependenciesMeta:
+    "@stoprocent/bluetooth-hci-socket":
+      optional: true
+  checksum: 10/12ab7ca4d03013880948d02b52df3e58e3b72b44e978f48c8343422e220247ee9f1118c4431ca762e3cce5809c2897f429d67099f1bc689d7515b5260eb3d2f8
+  languageName: node
+  linkType: hard
+
 "@stoprocent/noble@npm:2.3.16":
   version: 2.3.16
   resolution: "@stoprocent/noble@npm:2.3.16"
@@ -15475,22 +15491,6 @@ __metadata:
     "@stoprocent/bluetooth-hci-socket":
       optional: true
   checksum: 10/59e9a3c5abeb9fbc3efbbb3bf12ca282810e8aeaf8ca6a5921cb01dc4d027436c0fc99a63cee126ec461c2ab1cfef629acdfb03e419d42ee8b74d98d4a47b163
-  languageName: node
-  linkType: hard
-
-"@stoprocent/noble@npm:2.3.4":
-  version: 2.3.4
-  resolution: "@stoprocent/noble@npm:2.3.4"
-  dependencies:
-    "@stoprocent/bluetooth-hci-socket": "npm:^2.2.3"
-    debug: "npm:^4.3.7"
-    node-addon-api: "npm:^8.1.0"
-    node-gyp: "npm:latest"
-    node-gyp-build: "npm:^4.8.1"
-  dependenciesMeta:
-    "@stoprocent/bluetooth-hci-socket":
-      optional: true
-  checksum: 10/d797d2050b60fede51824502d9d64e44a23d75ba8bd6221840a448869f189319876917381cebdf75fde3e95a9a8e6dee24067742abcb897b73dc4f30e332f36f
   languageName: node
   linkType: hard
 
