@@ -550,6 +550,7 @@ function MultiLineSenderInput({
         accountSelector={{
           num: 0,
           clearNotMatch: true,
+          accountSelectorOnly: true,
         }}
         placeholder={intl.formatMessage({
           id: allowAmounts
