@@ -127,9 +127,21 @@ function BaseBulkSendAddressesInput() {
     mode: 'onChange',
     reValidateMode: 'onChange',
   });
+  const senderAddressesRef = useRef(form.getValues('senderAddresses') ?? '');
+  const getSenderAddresses = useCallback(
+    () => senderAddressesRef.current ?? '',
+    [],
+  );
 
   const navigation = useAppNavigation();
-  const senderAddresses = form.watch('senderAddresses');
+
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      senderAddressesRef.current = values.senderAddresses ?? '';
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   const initBulkSendInfo = useCallback(async () => {
     let _selectedAccountId: string | undefined;
@@ -643,7 +655,7 @@ function BaseBulkSendAddressesInput() {
           />
           <YStack gap="$6" $gtMd={{ gap: '$8' }}>
             <AssetSelectorTrigger
-              senderAddresses={senderAddresses}
+              getSenderAddresses={getSenderAddresses}
               activeAccountId={activeAccount?.account?.id}
               activeIndexedAccountId={activeAccount?.indexedAccount?.id}
             />
