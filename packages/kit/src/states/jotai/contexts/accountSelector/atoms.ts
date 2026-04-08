@@ -20,6 +20,7 @@ import type {
   IServerNetwork,
 } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -62,7 +63,8 @@ export const { atom: selectedAccountsAtom, use: useSelectedAccountsAtom } =
     },
     {
       coldStartCache: true,
-      coldStartCacheKey: 'ctx:selectedAccountsAtom',
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
     },
   );
 
@@ -120,7 +122,8 @@ export const {
   use: useAccountSelectorStorageReadyAtom,
 } = contextAtom<boolean>(false, {
   coldStartCache: true,
-  coldStartCacheKey: 'ctx:accountSelectorStorageReadyAtom',
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorStorageReadyAtom,
 });
 
 export type IAccountSelectorAvailableNetworks = {
@@ -199,7 +202,7 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
     },
     {
       coldStartCache: true,
-      coldStartCacheKey: 'ctx:activeAccountsAtom',
+      coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom,
     },
   );
 

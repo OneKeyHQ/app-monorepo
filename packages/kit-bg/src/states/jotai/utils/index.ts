@@ -5,6 +5,7 @@ import { atom, useAtom } from 'jotai';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import type { IContextAtomColdStartCacheKey } from '@onekeyhq/shared/src/consts/jotaiConsts';
 
 import {
   atomWithStorage,
@@ -336,7 +337,7 @@ function buildColdStartScopedKey({
   coldStartCacheKey,
 }: {
   coldStartScopeKey?: string;
-  coldStartCacheKey: string;
+  coldStartCacheKey: IContextAtomColdStartCacheKey;
 }) {
   return `${coldStartScopeKey || COLD_START_SCOPE_KEY_FALLBACK}${COLD_START_SCOPED_KEY_SEPARATOR}${coldStartCacheKey}`;
 }
@@ -349,7 +350,7 @@ function getScopedColdStartSnapshotValue({
 }: {
   snapshot: Record<string, unknown>;
   coldStartScopeKey?: string;
-  coldStartCacheKey: string;
+  coldStartCacheKey: IContextAtomColdStartCacheKey;
   allowLegacyFallback?: boolean;
 }) {
   const scopedKey = buildColdStartScopedKey({
@@ -559,7 +560,7 @@ export function contextAtomBase<Value>({
   initialValue: Value;
   name?: string;
   coldStartCache?: boolean;
-  coldStartCacheKey?: string;
+  coldStartCacheKey?: IContextAtomColdStartCacheKey;
   useColdStartScopeKey?: () => string | undefined;
   useContextAtom: <Value2, Args extends any[], Result>(
     atomInstance: WritableAtom<Value2, Args, Result>,

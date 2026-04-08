@@ -14,6 +14,7 @@ import {
   contextAtomMethodBase,
   hydrateContextColdStartCacheForProvider,
 } from '@onekeyhq/kit-bg/src/states/jotai/utils';
+import type { IContextAtomColdStartCacheKey } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { WritableAtom } from 'jotai';
@@ -30,7 +31,7 @@ type IContextAtomOptions =
   | {
       name?: string;
       coldStartCache: true;
-      coldStartCacheKey: string;
+      coldStartCacheKey: IContextAtomColdStartCacheKey;
     };
 
 export function createJotaiContext<TContextConfig = undefined>() {

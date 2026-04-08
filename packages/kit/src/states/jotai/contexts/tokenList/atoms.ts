@@ -1,6 +1,7 @@
 import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -206,6 +207,7 @@ export const {
   { tokens: [], initialized: false },
   {
     coldStartCache: true,
-    coldStartCacheKey: 'ctx:renderedTokenListCacheAtom',
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.renderedTokenListCacheAtom,
   },
 );

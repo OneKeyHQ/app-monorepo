@@ -1,4 +1,5 @@
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -55,7 +56,7 @@ export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
     },
     {
       coldStartCache: true,
-      coldStartCacheKey: 'ctx:accountWorthAtom',
+      coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountWorthAtom,
     },
   );
 
@@ -83,7 +84,8 @@ export const {
   },
   {
     coldStartCache: true,
-    coldStartCacheKey: 'ctx:lastConfirmedOverviewBalanceAtom',
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.lastConfirmedOverviewBalanceAtom,
   },
 );
 
@@ -134,7 +136,8 @@ export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
     },
     {
       coldStartCache: true,
-      coldStartCacheKey: 'ctx:walletTopBannersAtom',
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.walletTopBannersAtom,
     },
   );
 
