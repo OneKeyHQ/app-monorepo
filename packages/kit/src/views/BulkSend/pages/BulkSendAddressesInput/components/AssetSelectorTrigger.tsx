@@ -97,7 +97,7 @@ function AssetSelectorTrigger({
         return {
           availableNetworkIds: networks
             .filter(
-              (item) => !networkUtils.isLightningNetworkByNetworkId(item.id),
+              (item) => !bulkSendUtils.isBulkSendExcludedNetworkId(item.id),
             )
             .map((item) => item.id),
           unavailableNetworkIds: [],
