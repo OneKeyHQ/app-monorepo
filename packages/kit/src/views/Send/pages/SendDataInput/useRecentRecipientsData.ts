@@ -267,8 +267,16 @@ async function enrichAddresses(
 ): Promise<IEnrichedRecentRecipient[]> {
   if (addresses.length === 0) return [];
 
+  const filteredAddresses = networkUtils.isLightningNetworkByNetworkId(
+    networkId,
+  )
+    ? addresses.filter((addr) => isReusableLightningRecipient(addr))
+    : addresses;
+
+  if (filteredAddresses.length === 0) return [];
+
   const addressInfoResults = await Promise.all(
-    addresses.map((recipient) =>
+    filteredAddresses.map((recipient) =>
       backgroundApiProxy.serviceAccountProfile.queryAddress({
         networkId,
         address: recipient,
