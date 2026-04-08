@@ -103,6 +103,7 @@ export const useManagePage = ({
           accountId,
           networkId,
           filterNetworkId: networkId,
+          includeWithdrawOnly: true,
         }),
       ]);
 
