@@ -18,7 +18,10 @@ import type {
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList,
 } from '@onekeyhq/shared/src/routes';
-import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -94,7 +97,14 @@ const BuyPage = () => {
     () => (
       <HeaderIconButton
         icon="QuestionmarkOutline"
-        onPress={() => openUrlInDiscovery({ url: TAB_GUIDE_URLS[activeTab] })}
+        onPress={() => {
+          const url = TAB_GUIDE_URLS[activeTab];
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({ url });
+          } else {
+            openUrlExternal(url);
+          }
+        }}
       />
     ),
     [activeTab],
