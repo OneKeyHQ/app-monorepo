@@ -246,7 +246,7 @@ export function UrlAccountPageContainer() {
     defaultLogger.app.router.pageMounted('UrlAccountPageContainer');
   }, []);
   return (
-    <ProviderJotaiContextAccountOverview>
+    <ProviderJotaiContextAccountOverview coldStartScopeKey="accountOverview:urlAccount">
       <AccountSelectorProviderMirror
         config={{
           sceneName,
@@ -265,7 +265,7 @@ export function UrlAccountLanding() {
     name: 'URLAccountMount:  UrlAccountLanding',
   });
   return (
-    <ProviderJotaiContextAccountOverview>
+    <ProviderJotaiContextAccountOverview coldStartScopeKey="accountOverview:urlAccount">
       <AccountSelectorProviderMirror
         config={{
           sceneName,

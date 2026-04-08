@@ -327,6 +327,53 @@ export const contextAtomSnapshotRegistry = new Map<
   { atom: () => any }
 >();
 
+const COLD_START_SCOPE_KEY_FALLBACK = '__default_context_scope__';
+const COLD_START_SCOPED_KEY_SEPARATOR = '::';
+const hydratedColdStartScopesByStore = new WeakMap<object, Set<string>>();
+
+function buildColdStartScopedKey({
+  coldStartScopeKey,
+  coldStartCacheKey,
+}: {
+  coldStartScopeKey?: string;
+  coldStartCacheKey: string;
+}) {
+  return `${coldStartScopeKey || COLD_START_SCOPE_KEY_FALLBACK}${COLD_START_SCOPED_KEY_SEPARATOR}${coldStartCacheKey}`;
+}
+
+function getScopedColdStartSnapshotValue({
+  snapshot,
+  coldStartScopeKey,
+  coldStartCacheKey,
+  allowLegacyFallback,
+}: {
+  snapshot: Record<string, unknown>;
+  coldStartScopeKey?: string;
+  coldStartCacheKey: string;
+  allowLegacyFallback?: boolean;
+}) {
+  const scopedKey = buildColdStartScopedKey({
+    coldStartScopeKey,
+    coldStartCacheKey,
+  });
+  if (scopedKey in snapshot) {
+    return snapshot[scopedKey];
+  }
+  // Legacy fallback before provider scope support.
+  if (allowLegacyFallback && coldStartCacheKey in snapshot) {
+    return snapshot[coldStartCacheKey];
+  }
+  return undefined;
+}
+
+function getTokenSymbolSafe(token: unknown): string {
+  if (!token || typeof token !== 'object') {
+    return '?';
+  }
+  const symbol = (token as { symbol?: unknown }).symbol;
+  return typeof symbol === 'string' ? symbol : '?';
+}
+
 // ============================================================
 // Cold Start Cache — automatic value tracking + debounced save
 // ============================================================
@@ -376,16 +423,22 @@ function flushColdStartCache() {
           const v = coldStartValuesMap.get(k);
           if (v && typeof v === 'object' && 'tokens' in (v as any)) {
             const tokens = (v as any).tokens;
-            return `${k}(${Array.isArray(tokens) ? tokens.length : '?'}tokens:${Array.isArray(tokens) ? tokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : '?'})`;
+            return `${k}(${Array.isArray(tokens) ? tokens.length : '?'}tokens:${
+              Array.isArray(tokens)
+                ? tokens
+                    .slice(0, 3)
+                    .map((t: unknown) => getTokenSymbolSafe(t))
+                    .join(',')
+                : '?'
+            })`;
           }
           return k;
         })
         .join(', ');
-      NL.write(
-        LL.Info,
-        `[ColdStartCache] flush +${elapsed}ms: ${details}`,
-      );
-    } catch { /* */ }
+      NL.write(LL.Info, `[ColdStartCache] flush +${elapsed}ms: ${details}`);
+    } catch {
+      /* */
+    }
     coldStartDirtyKeys.clear();
   } catch {
     /* best-effort */
@@ -428,27 +481,106 @@ function ensureColdStartAppStateListener() {
   }
 }
 
+export function hydrateContextColdStartCacheForProvider({
+  store,
+  coldStartScopeKey,
+}: {
+  store: {
+    get: (atomInstance: unknown) => unknown;
+    set: (atomInstance: unknown, value: unknown) => void;
+  };
+  coldStartScopeKey?: string;
+}) {
+  const scope = coldStartScopeKey || COLD_START_SCOPE_KEY_FALLBACK;
+  let scopeSet = hydratedColdStartScopesByStore.get(store as object);
+  if (!scopeSet) {
+    scopeSet = new Set<string>();
+    hydratedColdStartScopesByStore.set(store as object, scopeSet);
+  }
+  if (scopeSet.has(scope)) {
+    return;
+  }
+  scopeSet.add(scope);
+
+  try {
+    const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
+      | Record<string, unknown>
+      | undefined;
+    if (!snapshot) {
+      return;
+    }
+
+    for (const [
+      cacheKey,
+      { atom: atomBuilder },
+    ] of contextAtomSnapshotRegistry) {
+      const cached = getScopedColdStartSnapshotValue({
+        snapshot,
+        coldStartScopeKey: scope,
+        coldStartCacheKey: cacheKey,
+        allowLegacyFallback: scope === COLD_START_SCOPE_KEY_FALLBACK,
+      });
+      if (cached !== undefined && cached !== null) {
+        const atomInstance = atomBuilder();
+        const currentValue = store.get(atomInstance);
+        const nextValue =
+          typeof currentValue === 'object' &&
+          currentValue !== null &&
+          typeof cached === 'object' &&
+          cached !== null
+            ? { ...(currentValue as any), ...(cached as any) }
+            : cached;
+
+        store.set(atomInstance, nextValue);
+        coldStartValuesMap.set(
+          buildColdStartScopedKey({
+            coldStartScopeKey: scope,
+            coldStartCacheKey: cacheKey,
+          }),
+          nextValue,
+        );
+      }
+    }
+  } catch {
+    /* best-effort */
+  }
+}
+
 // ============================================================
 
 export function contextAtomBase<Value>({
   initialValue,
   useContextAtom,
+  useColdStartScopeKey,
   name,
   coldStartCache,
+  coldStartCacheKey,
 }: {
   initialValue: Value;
   name?: string;
   coldStartCache?: boolean;
+  coldStartCacheKey?: string;
+  useColdStartScopeKey?: () => string | undefined;
   useContextAtom: <Value2, Args extends any[], Result>(
     atomInstance: WritableAtom<Value2, Args, Result>,
   ) => [Awaited<Value2>, IJotaiSetAtom<Args, Result>];
 }) {
+  if (coldStartCache && !coldStartCacheKey) {
+    throw new OneKeyLocalError(
+      'contextAtom coldStartCache requires explicit coldStartCacheKey',
+    );
+  }
+
+  const snapshotKey = name;
+  const activeColdStartCacheKey =
+    coldStartCache && coldStartCacheKey ? coldStartCacheKey : undefined;
+
   // If named, check context atom snapshot (separate from globalAtom snapshot)
   let resolvedInitialValue = initialValue;
-  if (name) {
+  if (snapshotKey) {
     const ctxSnapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
-    if (ctxSnapshot && name in ctxSnapshot) {
-      const cached = ctxSnapshot[name];
+    if (ctxSnapshot && snapshotKey in ctxSnapshot) {
+      const cached = ctxSnapshot[snapshotKey];
       if (cached !== undefined && cached !== null) {
         resolvedInitialValue =
           typeof initialValue === 'object' && typeof cached === 'object'
@@ -459,17 +591,70 @@ export function contextAtomBase<Value>({
   }
 
   const atomBuilder = memoizee(() => atom(resolvedInitialValue));
-  const originalUse = () => useContextAtom(atomBuilder());
 
   // coldStartCache: wrap use() to auto-track value changes
-  const wrappedUse =
-    coldStartCache && name
-      ? () => {
-          const result = originalUse();
-          const currentValue = result[0];
-          // DEBUG: log EVERY tokenListAtom render (not just changes)
+  const wrappedUse = activeColdStartCacheKey
+    ? () => {
+        const cacheKey = activeColdStartCacheKey;
+        const scopedCacheKey = buildColdStartScopedKey({
+          coldStartScopeKey: useColdStartScopeKey?.(),
+          coldStartCacheKey: cacheKey,
+        });
+        const result = useContextAtom(atomBuilder());
+        const currentValue = result[0];
+        // DEBUG: log EVERY tokenListAtom render (not just changes)
+        if (
+          cacheKey === 'ctx:tokenListAtom' &&
+          currentValue &&
+          typeof currentValue === 'object' &&
+          'tokens' in (currentValue as any)
+        ) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { NativeLogger: NL, LogLevel: LL } =
+              require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+            const tokens = (currentValue as any).tokens;
+            const prev = coldStartValuesMap.get(scopedCacheKey);
+            const prevTokens =
+              prev && typeof prev === 'object' && 'tokens' in (prev as any)
+                ? (prev as any).tokens
+                : null;
+            const changed = prev !== currentValue;
+            const jsEntry: number =
+              (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+            const elapsed = jsEntry ? Date.now() - jsEntry : 0;
+            NL.write(
+              LL.Info,
+              `[TokenListUI] +${elapsed}ms render: ${Array.isArray(tokens) ? tokens.length : 0} tokens, first3=[${
+                Array.isArray(tokens)
+                  ? tokens
+                      .slice(0, 3)
+                      .map((t: unknown) => getTokenSymbolSafe(t))
+                      .join(',')
+                  : ''
+              }], changed=${changed}, prevFirst3=[${
+                Array.isArray(prevTokens)
+                  ? prevTokens
+                      .slice(0, 3)
+                      .map((t: unknown) => getTokenSymbolSafe(t))
+                      .join(',')
+                  : 'nil'
+              }]`,
+            );
+          } catch {
+            /* */
+          }
+        }
+        if (!coldStartValuesMap.has(scopedCacheKey)) {
+          coldStartValuesMap.set(scopedCacheKey, currentValue);
+          return result;
+        }
+        if (coldStartValuesMap.get(scopedCacheKey) !== currentValue) {
+          coldStartValuesMap.set(scopedCacheKey, currentValue);
+          scheduleColdStartSave(scopedCacheKey);
+          // Keep existing change log
           if (
-            name === 'ctx:tokenListAtom' &&
+            cacheKey === 'ctx:tokenListAtom' &&
             currentValue &&
             typeof currentValue === 'object' &&
             'tokens' in (currentValue as any)
@@ -479,61 +664,36 @@ export function contextAtomBase<Value>({
               const { NativeLogger: NL, LogLevel: LL } =
                 require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
               const tokens = (currentValue as any).tokens;
-              const prev = coldStartValuesMap.get(name);
-              const prevTokens =
-                prev && typeof prev === 'object' && 'tokens' in (prev as any)
-                  ? (prev as any).tokens
-                  : null;
-              const changed = prev !== currentValue;
               const jsEntry: number =
                 (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
               const elapsed = jsEntry ? Date.now() - jsEntry : 0;
               NL.write(
                 LL.Info,
-                `[TokenListUI] +${elapsed}ms render: ${Array.isArray(tokens) ? tokens.length : 0} tokens, first3=[${Array.isArray(tokens) ? tokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : ''}], changed=${changed}, prevFirst3=[${Array.isArray(prevTokens) ? prevTokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : 'nil'}]`,
+                `[TokenListUI] +${elapsed}ms CHANGED → cache updated: ${Array.isArray(tokens) ? tokens.length : '?'} tokens, first3=[${
+                  Array.isArray(tokens)
+                    ? tokens
+                        .slice(0, 3)
+                        .map((t: unknown) => getTokenSymbolSafe(t))
+                        .join(',')
+                    : '?'
+                }]`,
               );
             } catch {
               /* */
             }
           }
-          if (coldStartValuesMap.get(name) !== currentValue) {
-            coldStartValuesMap.set(name, currentValue);
-            scheduleColdStartSave(name);
-            // Keep existing change log
-            if (
-              name === 'ctx:tokenListAtom' &&
-              currentValue &&
-              typeof currentValue === 'object' &&
-              'tokens' in (currentValue as any)
-            ) {
-              try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { NativeLogger: NL, LogLevel: LL } =
-                  require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-                const tokens = (currentValue as any).tokens;
-                const jsEntry: number =
-                  (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-                const elapsed = jsEntry ? Date.now() - jsEntry : 0;
-                NL.write(
-                  LL.Info,
-                  `[TokenListUI] +${elapsed}ms CHANGED → cache updated: ${Array.isArray(tokens) ? tokens.length : '?'} tokens, first3=[${Array.isArray(tokens) ? tokens.slice(0, 3).map((t: any) => t?.symbol || '?').join(',') : '?'}]`,
-                );
-              } catch {
-                /* */
-              }
-            }
-          }
-          return result;
         }
-      : originalUse;
+        return result;
+      }
+    : () => useContextAtom(atomBuilder());
 
-  if (name) {
-    contextAtomSnapshotRegistry.set(name, { atom: atomBuilder });
+  const registryKey = activeColdStartCacheKey || snapshotKey;
+  if (registryKey) {
+    contextAtomSnapshotRegistry.set(registryKey, { atom: atomBuilder });
   }
 
-  if (coldStartCache && name) {
+  if (activeColdStartCacheKey) {
     ensureColdStartAppStateListener();
-    coldStartValuesMap.set(name, resolvedInitialValue);
   }
 
   return {

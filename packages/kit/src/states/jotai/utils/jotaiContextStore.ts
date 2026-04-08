@@ -17,6 +17,20 @@ export function buildJotaiContextStoreId(data: IJotaiContextStoreData) {
   return storeId;
 }
 
+function setStoreColdStartScopeKey({
+  store,
+  storeId,
+}: {
+  store: IJotaiContextStore;
+  storeId: string;
+}) {
+  (
+    store as IJotaiContextStore & {
+      __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__?: string;
+    }
+  ).__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__ = `store:${storeId}`;
+}
+
 // AccountSelectorStore
 class JotaiContextStore {
   storeCache = new Map<string, IJotaiContextStore>();
@@ -24,6 +38,7 @@ class JotaiContextStore {
   createStore(data: IJotaiContextStoreData): IJotaiContextStore {
     const id = buildJotaiContextStoreId(data);
     const store = createStore();
+    setStoreColdStartScopeKey({ store, storeId: id });
     this.storeCache.set(id, store);
     return store;
   }

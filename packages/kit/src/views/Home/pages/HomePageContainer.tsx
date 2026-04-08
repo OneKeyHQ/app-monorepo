@@ -6,7 +6,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
-import { withAccountOverviewProvider } from '../../../states/jotai/contexts/accountOverview';
+import { ProviderJotaiContextAccountOverview } from '../../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -92,4 +92,12 @@ function HomePageContainer() {
   );
 }
 
-export default withAccountOverviewProvider(HomePageContainer);
+function HomePageContainerWithOverviewProvider() {
+  return (
+    <ProviderJotaiContextAccountOverview coldStartScopeKey="accountOverview:home">
+      <HomePageContainer />
+    </ProviderJotaiContextAccountOverview>
+  );
+}
+
+export default HomePageContainerWithOverviewProvider;

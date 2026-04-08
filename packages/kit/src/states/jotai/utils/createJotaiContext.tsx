@@ -12,6 +12,7 @@ import {
   contextAtomBase,
   contextAtomComputedBase,
   contextAtomMethodBase,
+  hydrateContextColdStartCacheForProvider,
 } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -20,26 +21,52 @@ import type { WritableAtom } from 'jotai';
 export { atom };
 
 export type IJotaiContextStore = ReturnType<typeof createStore>;
+type IContextAtomOptions =
+  | {
+      name?: string;
+      coldStartCache?: false | undefined;
+      coldStartCacheKey?: never;
+    }
+  | {
+      name?: string;
+      coldStartCache: true;
+      coldStartCacheKey: string;
+    };
 
 export function createJotaiContext<TContextConfig = undefined>() {
   const Context = createContext<{
     store: IJotaiContextStore | undefined;
     config: TContextConfig | undefined;
-  }>({ store: undefined, config: undefined });
+    coldStartScopeKey: string | undefined;
+  }>({ store: undefined, config: undefined, coldStartScopeKey: undefined });
 
   function Provider({
     config,
     store,
+    coldStartScopeKey,
     children,
   }: {
     config?: TContextConfig;
     store?: IJotaiContextStore;
+    coldStartScopeKey?: string;
     children?: ReactNode | undefined;
   }) {
     const value = useMemo(() => {
       const s = store || createStore();
-      return { store: s, config };
-    }, [store, config]);
+      const resolvedColdStartScopeKey =
+        coldStartScopeKey ||
+        (s as { __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__?: string })
+          .__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__;
+      hydrateContextColdStartCacheForProvider({
+        store: s as any,
+        coldStartScopeKey: resolvedColdStartScopeKey,
+      });
+      return {
+        store: s,
+        config,
+        coldStartScopeKey: resolvedColdStartScopeKey,
+      };
+    }, [store, config, coldStartScopeKey]);
     return <Context.Provider value={value}>{children}</Context.Provider>;
   }
   function withProvider<P>(WrappedComponent: React.ComponentType<P>) {
@@ -48,13 +75,19 @@ export function createJotaiContext<TContextConfig = undefined>() {
       {
         store,
         config,
+        coldStartScopeKey,
       }: {
         config?: TContextConfig;
         store?: IJotaiContextStore;
+        coldStartScopeKey?: string;
       } = {},
     ) {
       return (
-        <Provider store={store} config={config}>
+        <Provider
+          store={store}
+          config={config}
+          coldStartScopeKey={coldStartScopeKey}
+        >
           <WrappedComponent {...(props as any)} />
         </Provider>
       );
@@ -77,16 +110,22 @@ export function createJotaiContext<TContextConfig = undefined>() {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     return useAtom(atomInstance, { store: data.store! });
   }
+  function useColdStartScopeKey() {
+    const data = useContextData();
+    return data.coldStartScopeKey;
+  }
 
   function contextAtom<Value>(
     initialValue: Value,
-    options?: { name?: string; coldStartCache?: boolean },
+    options?: IContextAtomOptions,
   ) {
     return contextAtomBase({
       useContextAtom,
       initialValue,
       name: options?.name,
       coldStartCache: options?.coldStartCache,
+      coldStartCacheKey: options?.coldStartCacheKey,
+      useColdStartScopeKey,
     });
   }
 

@@ -60,7 +60,10 @@ export const { atom: selectedAccountsAtom, use: useSelectedAccountsAtom } =
     {
       0: defaultSelectedAccount(),
     },
-    { name: 'ctx:selectedAccountsAtom', coldStartCache: true },
+    {
+      coldStartCache: true,
+      coldStartCacheKey: 'ctx:selectedAccountsAtom',
+    },
   );
 
 // const atomInstance = selectedAccountsAtom();
@@ -116,8 +119,8 @@ export const {
   atom: accountSelectorStorageReadyAtom,
   use: useAccountSelectorStorageReadyAtom,
 } = contextAtom<boolean>(false, {
-  name: 'ctx:accountSelectorStorageReadyAtom',
   coldStartCache: true,
+  coldStartCacheKey: 'ctx:accountSelectorStorageReadyAtom',
 });
 
 export type IAccountSelectorAvailableNetworks = {
@@ -194,7 +197,10 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
     {
       0: defaultActiveAccountInfo(),
     },
-    { name: 'ctx:activeAccountsAtom', coldStartCache: true },
+    {
+      coldStartCache: true,
+      coldStartCacheKey: 'ctx:activeAccountsAtom',
+    },
   );
 
 export function useActiveAccount({ num }: { num: number }): {

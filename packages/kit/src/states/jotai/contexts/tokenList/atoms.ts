@@ -206,5 +206,8 @@ export const {
   networkId?: string;
 }>(
   { tokens: [], initialized: false },
-  { name: 'ctx:renderedTokenListCacheAtom', coldStartCache: true },
+  {
+    coldStartCache: true,
+    coldStartCacheKey: 'ctx:renderedTokenListCacheAtom',
+  },
 );
