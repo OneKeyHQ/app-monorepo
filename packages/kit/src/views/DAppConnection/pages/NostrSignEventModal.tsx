@@ -332,11 +332,7 @@ function NostrSignEventModal() {
             {/* Content Start */}
             <YStack gap="$2">
               <SizableText>{eventKindText}</SizableText>
-              <TextArea
-                editable={false}
-                numberOfLines={5}
-                value={content}
-              />
+              <TextArea editable={false} numberOfLines={5} value={content} />
               {renderEncryptSignEventPlaintext()}
               {renderEventDetails()}
             </YStack>
