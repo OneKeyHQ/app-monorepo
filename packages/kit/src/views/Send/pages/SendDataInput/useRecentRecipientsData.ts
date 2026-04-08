@@ -397,7 +397,9 @@ export function useRecentRecipientsData({
             );
             recipientExtraMap = recipientMap;
           } catch {
-            recipientAddresses = [];
+            // Don't clear recipientAddresses — Strategy 1/3 may have
+            // already populated it. Showing addresses without memo
+            // is better than showing nothing.
           }
         }
 
