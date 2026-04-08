@@ -1,223 +1,62 @@
-import type { PropsWithChildren } from 'react';
-import { memo, useCallback, useMemo } from 'react';
-
-import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { useCallback, useState } from 'react';
 
 import type { IYStackProps } from '@onekeyhq/components';
-import {
-  Icon,
-  Image,
-  ScrollView,
-  SizableText,
-  Skeleton,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import {
-  useEarnActions,
-  useEarnAtom,
-} from '../../../states/jotai/contexts/earn';
-import { EarnNavigation } from '../earnUtils';
+import { useRecommendedRefreshTrigger } from '../hooks/useRecommendedRefreshTrigger';
 
-import { AprText } from './AprText';
+import { RecommendedSection } from './RecommendedSection';
 
-function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
-  return (
-    <YStack
-      gap="$4"
-      px="$pagePadding"
-      py="$3.5"
-      borderRadius="$3"
-      bg="$bg"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
-      borderCurve="continuous"
-      alignItems="flex-start"
-      {...rest}
-    >
-      <YStack alignItems="flex-start" gap="$4">
-        <XStack gap="$3" ai="center" width="100%">
-          <Skeleton width="$8" height="$8" radius="round" />
-          <YStack py="$1">
-            <Skeleton w={56} h={24} borderRadius="$2" />
-          </YStack>
-        </XStack>
-        <Skeleton w={118} h={28} borderRadius="$2" pt="$4" pb="$1" />
-      </YStack>
-    </YStack>
-  );
-}
-
-const RecommendedItem = memo(
-  ({
-    token,
-    noWalletConnected,
-    ...rest
-  }: {
-    token?: IRecommendAsset;
-    noWalletConnected: boolean;
-  } & IYStackProps) => {
-    const navigation = useAppNavigation();
-
-    const onPress = useCallback(async () => {
-      if (token) {
-        defaultLogger.staking.page.selectAsset({ tokenSymbol: token.symbol });
-
-        if (token.protocols.length === 1) {
-          const protocol = token.protocols[0];
-          await EarnNavigation.pushToEarnProtocolDetails(navigation, {
-            networkId: protocol.networkId,
-            symbol: token.symbol,
-            provider: protocol.provider,
-            vault: protocol.vault,
-          });
-        } else {
-          EarnNavigation.pushToEarnProtocols(navigation, {
-            symbol: token.symbol,
-            filterNetworkId: undefined,
-            logoURI: token.logoURI
-              ? encodeURIComponent(token.logoURI)
-              : undefined,
-          });
-        }
-      }
-    }, [navigation, token]);
-
-    if (!token) {
-      return <YStack width="$40" flexGrow={1} />;
+function useRecommendedTokens({
+  accountId,
+  indexedAccountId,
+  networkId,
+  enableFetch,
+  refreshVersion,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+  networkId: string;
+  enableFetch: boolean;
+  refreshVersion: number;
+}) {
+  const fetchRecommendedTokens = useCallback(async () => {
+    if (!enableFetch) {
+      return [];
     }
 
-    return (
-      <YStack
-        role="button"
-        flex={1}
-        p="$4"
-        borderRadius="$3"
-        borderCurve="continuous"
-        bg={token.bgColor}
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        animation="quick"
-        hoverStyle={{
-          scale: 1.05,
-        }}
-        pressStyle={{
-          scale: 0.95,
-        }}
-        onPress={onPress}
-        userSelect="none"
-        alignItems="flex-start"
-        overflow="hidden"
-        {...rest}
-      >
-        <YStack alignItems="flex-start" width="100%">
-          <XStack gap="$2" ai="center" width="100%">
-            <YStack>
-              <Image
-                size="$6"
-                source={{ uri: token.logoURI }}
-                fallback={
-                  <Image.Fallback
-                    w="$6"
-                    h="$6"
-                    alignItems="center"
-                    justifyContent="center"
-                    bg="$bgStrong"
-                  >
-                    <Icon size="$6" name="CoinOutline" color="$iconDisabled" />
-                  </Image.Fallback>
-                }
-              />
-            </YStack>
-            <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-          </XStack>
-          <YStack alignItems="flex-start" width="100%">
-            <SizableText size="$headingXl" pt="$3.5">
-              <AprText
-                asset={{
-                  aprWithoutFee: token?.aprWithoutFee ?? '',
-                  aprInfo: token?.aprInfo,
-                }}
-              />
-            </SizableText>
-            {!noWalletConnected ? (
-              <SizableText
-                pt="$1"
-                size="$bodyMd"
-                color={token.available.color ?? '$textSubdued'}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {token?.available?.text}
-              </SizableText>
-            ) : null}
-          </YStack>
-        </YStack>
-      </YStack>
-    );
-  },
-);
+    const recommendedAssets =
+      await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
+        accountId: accountId ?? '',
+        networkId,
+        indexedAccountId,
+      });
 
-RecommendedItem.displayName = 'RecommendedItem';
+    return recommendedAssets?.tokens || [];
+  }, [accountId, enableFetch, indexedAccountId, networkId]);
 
-function RecommendedContainer({
-  withHeader,
-  children,
-}: PropsWithChildren & { withHeader?: boolean }) {
-  const intl = useIntl();
+  const { result: recommendedTokens = [], isLoading } = usePromiseResult<
+    IRecommendAsset[]
+  >(fetchRecommendedTokens, [fetchRecommendedTokens, refreshVersion], {
+    initResult: [],
+    watchLoading: true,
+    overrideIsFocused: (isFocused) => isFocused && enableFetch,
+  });
 
-  if (!withHeader) {
-    return children;
-  }
-  return (
-    <YStack
-      gap="$3"
-      px="$pagePadding"
-      $md={
-        platformEnv.isNative
-          ? {
-              mx: -20,
-            }
-          : undefined
-      }
-    >
-      {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
-      <YStack
-        gap="$1"
-        pointerEvents="box-none"
-        zIndex={10}
-        $md={
-          platformEnv.isNative
-            ? {
-                px: '$5',
-              }
-            : undefined
-        }
-      >
-        <SizableText size="$headingLg" pointerEvents="box-none">
-          {intl.formatMessage({ id: ETranslations.market_trending })}
-        </SizableText>
-      </YStack>
-      {children}
-    </YStack>
-  );
+  return {
+    isLoading,
+    recommendedTokens,
+  };
 }
 
 export function Recommended(
   props:
     | {
+        disableHorizontalBleed?: boolean;
         recommendedItemContainerProps?: IYStackProps;
         withHeader?: boolean;
         enableFetch?: boolean;
@@ -225,153 +64,52 @@ export function Recommended(
     | undefined,
 ) {
   const {
+    disableHorizontalBleed = false,
     recommendedItemContainerProps,
     withHeader = true,
     enableFetch = true,
   } = props ?? {};
 
-  const { md } = useMedia();
   const allNetworkId = getNetworkIdsMap().onekeyall;
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const [{ refreshTrigger = 0, recommendedTokens = [] }] = useEarnAtom();
-  const actions = useEarnActions();
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
-  const noWalletConnected = useMemo(
-    () => !account && !indexedAccount,
-    [account, indexedAccount],
-  );
+  const refreshRecommended = useCallback(async () => {
+    await backgroundApiProxy.serviceStaking.clearRecommendedAssetsCache();
+    setRefreshVersion((prev) => prev + 1);
+  }, []);
 
-  // Fetch new tokens in background and update cache
-  usePromiseResult(
-    async () => {
-      if (!enableFetch) {
-        return recommendedTokens;
+  const { recommendedTokens, isLoading } = useRecommendedTokens({
+    accountId: account?.id,
+    indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+    networkId: allNetworkId,
+    enableFetch,
+    refreshVersion,
+  });
+
+  useRecommendedRefreshTrigger({
+    accountId: account?.id,
+    indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+    networkId: allNetworkId,
+    recommendedTokens,
+    enableFetch,
+    onRefresh: refreshRecommended,
+  });
+
+  const noWalletConnected = !account && !indexedAccount;
+
+  return (
+    <RecommendedSection
+      tokens={recommendedTokens}
+      noWalletConnected={noWalletConnected}
+      withHeader={withHeader}
+      disableHorizontalBleed={disableHorizontalBleed}
+      recommendedItemContainerProps={recommendedItemContainerProps}
+      showSkeleton={
+        isLoading === true ? recommendedTokens.length === 0 : undefined
       }
-      const recommendedAssets =
-        await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
-          accountId: account?.id ?? '',
-          networkId: allNetworkId,
-          indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
-        });
-
-      const newTokens = recommendedAssets?.tokens || [];
-
-      // Update cache with new tokens
-      actions.current.updateRecommendedTokens(newTokens);
-
-      return newTokens;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      enableFetch,
-      account?.id,
-      allNetworkId,
-      account?.indexedAccountId,
-      indexedAccount?.id,
-      refreshTrigger,
-    ],
-    {
-      watchLoading: true,
-      overrideIsFocused: (isFocused) => isFocused && enableFetch,
-    },
+    />
   );
-
-  // Render skeleton when loading and no data
-  const shouldShowSkeleton = recommendedTokens.length === 0;
-  if (shouldShowSkeleton) {
-    return (
-      <RecommendedContainer withHeader={withHeader}>
-        {/* Desktop/Extension with larger screen: 4 items per row */}
-        {platformEnv.isNative ? (
-          // Mobile: horizontal scrolling skeleton
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 20,
-            }}
-          >
-            <XStack gap="$3">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <YStack key={index} width="$40">
-                  <RecommendedSkeletonItem />
-                </YStack>
-              ))}
-            </XStack>
-          </ScrollView>
-        ) : (
-          // Desktop/Extension: grid layout
-          <XStack m="$-5" p="$3.5" flexWrap="wrap">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <YStack
-                key={index}
-                p="$1.5"
-                flexBasis={
-                  md
-                    ? '50%' // Extension small screen: 2 per row
-                    : '25%' // Desktop: 4 per row
-                }
-              >
-                <RecommendedSkeletonItem />
-              </YStack>
-            ))}
-          </XStack>
-        )}
-      </RecommendedContainer>
-    );
-  }
-
-  // Render actual tokens
-  if (recommendedTokens.length) {
-    return (
-      <RecommendedContainer withHeader={withHeader}>
-        {platformEnv.isNative ? (
-          // Mobile: horizontal scrolling
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 20,
-            }}
-          >
-            <XStack gap="$3">
-              {recommendedTokens.map((token) => (
-                <YStack key={token.symbol} minWidth="$52">
-                  <RecommendedItem
-                    token={token}
-                    noWalletConnected={noWalletConnected}
-                    {...recommendedItemContainerProps}
-                  />
-                </YStack>
-              ))}
-            </XStack>
-          </ScrollView>
-        ) : (
-          // Desktop/Extension: grid layout
-          <XStack m="$-5" p="$3.5" flexWrap="wrap">
-            {recommendedTokens.map((token) => (
-              <YStack
-                key={token.symbol}
-                p="$1.5"
-                flexBasis={
-                  md
-                    ? '50%' // Extension small screen: 2 per row
-                    : '25%' // Desktop: 4 per row
-                }
-              >
-                <RecommendedItem
-                  token={token}
-                  noWalletConnected={noWalletConnected}
-                  {...recommendedItemContainerProps}
-                />
-              </YStack>
-            ))}
-          </XStack>
-        )}
-      </RecommendedContainer>
-    );
-  }
-  return null;
 }

@@ -139,7 +139,6 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     alwaysCreate: boolean;
     readOnly?: boolean;
   }) {
-    // eslint-disable-next-line @cspell/spellchecker
     // oxlint-disable-next-line @cspell/spellchecker
     // type IDBTransactionMode = "readonly" | "readwrite" | "versionchange";
     const mode: 'readwrite' = readOnly ? ('readonly' as any) : 'readwrite';
@@ -560,6 +559,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
             .openCursor(null, 'prev');
 
           let skipped = 0;
+          // oxlint-disable-next-line no-unmodified-loop-condition -- IDB cursor is advanced via cursor.continue()
           while (cursor) {
             if (skipped < offset) {
               skipped += 1;

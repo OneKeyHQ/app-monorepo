@@ -103,16 +103,14 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
   }) {
     const rawData = deFiRawData ?? (await this.getRawData());
     return accounts.map(({ accountAddress, xpub }) => {
-      let key = '';
-      try {
-        key = accountUtils.buildAccountLocalAssetsKey({
-          accountAddress,
-          xpub,
-        });
-      } catch (e) {
-        console.error(e);
+      if (!accountAddress && !xpub) {
         return undefined;
       }
+
+      const key = accountUtils.buildAccountLocalAssetsKey({
+        accountAddress,
+        xpub,
+      });
 
       if (!rawData?.overview?.[key]) {
         return undefined;

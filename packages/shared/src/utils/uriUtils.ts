@@ -74,6 +74,21 @@ function safeParseURL(url: string): URL | null {
   }
 }
 
+export function appendUtmSourceToUrl({
+  url,
+  utmSource,
+}: {
+  url: string;
+  utmSource: string;
+}) {
+  const parsedUrl = safeParseURL(url);
+  if (!parsedUrl) {
+    return url;
+  }
+  parsedUrl.searchParams.set('utm_source', utmSource);
+  return parsedUrl.toString();
+}
+
 function isProtocolSupportedOpenInApp(dappUrl: string) {
   return PROTOCOLS_SUPPORTED_TO_OPEN.some((protocol) =>
     dappUrl.toLowerCase().startsWith(protocol.toLowerCase()),
@@ -204,7 +219,6 @@ export function parseUrl(url: string): IUrlValue | null {
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
-// eslint-disable-next-line @cspell/spellchecker
 // oxlint-disable-next-line @cspell/spellchecker
 // check the ens format 元宇宙.bnb / diamondgs198.x
 export const addressIsEnsFormat = (address: string) => {
@@ -219,6 +233,21 @@ export function isValidDeepLink(url: string) {
 }
 
 export const validateUrl = (url: string): string => {
+  // In development mode, allow HTTP localhost URLs
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const parsedUrl = new URL(url);
+      if (
+        parsedUrl.protocol === 'http:' &&
+        ['localhost', '127.0.0.1'].includes(parsedUrl.hostname)
+      ) {
+        return url;
+      }
+    } catch {
+      // Continue with normal validation
+    }
+  }
+
   // Extract host/path part from URL if it has a protocol
   let urlWithoutProtocol = url;
   if (url.includes('://')) {
@@ -369,6 +398,7 @@ export default {
   safeGetWalletConnectOrigin,
   parseUrl,
   safeParseURL,
+  appendUtmSourceToUrl,
   isUrlWithoutProtocol,
   ensureHttpsPrefix,
 };

@@ -51,6 +51,7 @@ import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
   onDone: () => void;
+  disableGlobalApproveSync?: boolean;
   preSwapBeforeStepActions: (
     data?: IFetchQuoteResult,
     currentFromToken?: ISwapToken,
@@ -66,6 +67,7 @@ interface IPreSwapDialogContentProps {
 const PreSwapDialogContent = ({
   onDone,
   onConfirm,
+  disableGlobalApproveSync = false,
   preSwapBeforeStepActions,
   preSwapStepsStart,
 }: IPreSwapDialogContentProps) => {
@@ -128,6 +130,10 @@ const PreSwapDialogContent = ({
     setShowPreSwapTipInfo(undefined);
   }, []);
   useEffect(() => {
+    if (disableGlobalApproveSync) {
+      return;
+    }
+
     if (
       inAppNotificationAtom.swapApprovingTransaction &&
       inAppNotificationAtom.swapApprovingTransaction.status !==
@@ -173,6 +179,7 @@ const PreSwapDialogContent = ({
       });
     }
   }, [
+    disableGlobalApproveSync,
     inAppNotificationAtom.swapApprovingTransaction,
     setSwapSteps,
     preSwapStepsStart,

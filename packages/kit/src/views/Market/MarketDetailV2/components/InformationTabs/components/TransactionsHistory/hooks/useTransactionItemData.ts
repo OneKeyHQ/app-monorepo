@@ -72,9 +72,10 @@ export function useTransactionItemData({ item }: IUseTransactionItemDataProps) {
     [isBuy, intl],
   );
 
+  const basePrice = baseToken.price;
   const value =
     item.volumeUSD ??
-    BigNumber(baseToken.amount).times(BigNumber(baseToken.price)).toNumber();
+    BigNumber(baseToken.amount).times(BigNumber(basePrice)).toNumber();
 
   return {
     isBuy,
@@ -84,7 +85,7 @@ export function useTransactionItemData({ item }: IUseTransactionItemDataProps) {
     quoteSign,
     typeColor,
     typeText,
-    price: baseToken.price,
+    price: basePrice,
     value,
     formattedTime,
   };

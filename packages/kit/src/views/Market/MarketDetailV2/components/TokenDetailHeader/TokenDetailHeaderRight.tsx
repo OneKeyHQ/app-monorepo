@@ -6,14 +6,18 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import { STAT_FALLBACK_VALUE, normalizeStatValue } from '../../utils/statValue';
+import {
+  STAT_FALLBACK_VALUE,
+  formatRatioValue,
+  normalizeStatValue,
+} from '../../utils/statValue';
 
 import { ShareButton } from './ShareButton';
 
@@ -38,6 +42,7 @@ interface ITokenDetailHeaderRightProps {
   networkId?: string;
   isNative?: boolean;
   showStats: boolean;
+  isStockToken?: boolean;
 }
 
 export function TokenDetailHeaderRight({
@@ -45,13 +50,15 @@ export function TokenDetailHeaderRight({
   networkId,
   isNative,
   showStats,
+  isStockToken,
 }: ITokenDetailHeaderRightProps) {
   const intl = useIntl();
-  const [settingsPersistAtom] = useSettingsPersistAtom();
+  const currencyInfo = useCurrency();
   const {
     name = '',
     symbol = '',
     price: currentPrice = '--',
+    priceConverted,
     priceChange24hPercent = '--',
     marketCap = '0',
     liquidity = '0',
@@ -80,63 +87,136 @@ export function TokenDetailHeaderRight({
     <XStack gap="$8" ai="center">
       {/* Price and Price Change */}
       <XStack ai="center" gap="$1.5">
-        <MarketTokenPrice
-          size="$headingXl"
-          price={currentPrice}
-          tokenName={name}
-          tokenSymbol={symbol}
-          lastUpdated={tokenDetail?.lastUpdated?.toString()}
-        />
-        <PriceChangePercentage size="$headingXs">
-          {priceChange24hPercent}
-        </PriceChangePercentage>
+        <XStack ai="center" jc="center" gap="$3">
+          <YStack ai="flex-end">
+            <MarketTokenPrice
+              size="$bodyLgMedium"
+              price={currentPrice}
+              tokenName={name}
+              tokenSymbol={symbol}
+              lastUpdated={tokenDetail?.lastUpdated?.toString()}
+            />
+            {priceConverted ? (
+              <NumberSizeableText
+                size="$bodySm"
+                color="$textSubdued"
+                formatter="price"
+                formatterOptions={{ currency: currencyInfo.symbol }}
+              >
+                {priceConverted}
+              </NumberSizeableText>
+            ) : null}
+          </YStack>
+
+          <PriceChangePercentage size="$headingXs">
+            {priceChange24hPercent}
+          </PriceChangePercentage>
+        </XStack>
       </XStack>
 
-      <StatItem
-        label={intl.formatMessage({ id: ETranslations.dexmarket_market_cap })}
-        value={
-          <NumberSizeableText
-            size="$headingXs"
-            color="$text"
-            formatter="marketCap"
-            formatterOptions={{
-              capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
-            }}
-          >
-            {marketCapValue}
-          </NumberSizeableText>
-        }
-      />
-
-      <StatItem
-        label={intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
-        value={
-          <NumberSizeableText
-            size="$headingXs"
-            color="$text"
-            formatter="marketCap"
-            formatterOptions={{
-              currency: settingsPersistAtom.currencyInfo.symbol,
-            }}
-          >
-            {liquidityValue}
-          </NumberSizeableText>
-        }
-      />
-
-      <StatItem
-        label={intl.formatMessage({ id: ETranslations.dexmarket_holders })}
-        value={
-          <NumberSizeableText
-            size="$headingXs"
-            color="$text"
-            formatter="marketCap"
-          >
-            {holdersValue}
-          </NumberSizeableText>
-        }
-      />
+      {isStockToken ? (
+        <>
+          <StatItem
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_market_cap,
+            })}
+            value={
+              <NumberSizeableText
+                size="$headingXs"
+                color="$text"
+                formatter="marketCap"
+                formatterOptions={{
+                  capAtMaxT: true,
+                  currency: '$',
+                }}
+              >
+                {normalizeStatValue(tokenDetail?.stock?.marketCap) ??
+                  STAT_FALLBACK_VALUE}
+              </NumberSizeableText>
+            }
+          />
+          <StatItem
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_stock_24h_volume,
+            })}
+            value={
+              <NumberSizeableText
+                size="$headingXs"
+                color="$text"
+                formatter="marketCap"
+                formatterOptions={{
+                  currency: '$',
+                }}
+              >
+                {normalizeStatValue(tokenDetail?.stock?.volume24h) ??
+                  STAT_FALLBACK_VALUE}
+              </NumberSizeableText>
+            }
+          />
+          <StatItem
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_stock_pe_ttm,
+            })}
+            value={
+              <SizableText size="$headingXs" color="$text">
+                {formatRatioValue(tokenDetail?.stock?.peRatio)}
+              </SizableText>
+            }
+          />
+        </>
+      ) : (
+        <>
+          <StatItem
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_market_cap,
+            })}
+            value={
+              <NumberSizeableText
+                size="$headingXs"
+                color="$text"
+                formatter="marketCap"
+                formatterOptions={{
+                  capAtMaxT: true,
+                  currency: '$',
+                }}
+              >
+                {marketCapValue}
+              </NumberSizeableText>
+            }
+          />
+          <StatItem
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_liquidity,
+            })}
+            value={
+              <NumberSizeableText
+                size="$headingXs"
+                color="$text"
+                formatter="marketCap"
+                formatterOptions={{
+                  currency: '$',
+                }}
+              >
+                {liquidityValue}
+              </NumberSizeableText>
+            }
+          />
+          <StatItem
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_holders,
+            })}
+            value={
+              <NumberSizeableText
+                size="$headingXs"
+                color="$text"
+                formatter="marketCap"
+              >
+                {holdersValue}
+              </NumberSizeableText>
+            }
+          />
+        </>
+      )}
 
       {shareButton}
     </XStack>

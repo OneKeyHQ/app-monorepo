@@ -85,7 +85,7 @@ jobs:
           echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > apps/mobile/ios/certs/serviceextension-profile.mobileprovision
 
       - name: Modify OneKeyWallet info.plist
-        uses: OneKeyHQ/actions/build-plist-edit@main
+        uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           buildNumber: ${{ env.BUILD_NUMBER }}
           versionName: ${{ env.BUILD_APP_VERSION }}
@@ -93,12 +93,24 @@ jobs:
           dir: ./apps/mobile
 
       - name: Modify ServiceExtension info.plist
-        uses: OneKeyHQ/actions/build-plist-edit@main
+        uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           buildNumber: ${{ env.BUILD_NUMBER }}
           versionName: ${{ env.BUILD_APP_VERSION }}
           projectName: ServiceExtension
           dir: ./apps/mobile
+
+      - name: Set BUNDLE_VERSION in Info.plist
+        run: |
+          python3 << 'PYEOF'
+          import plistlib
+          path = './apps/mobile/ios/OneKeyWallet/Info.plist'
+          with open(path, 'rb') as f:
+              plist = plistlib.load(f)
+          plist['BUNDLE_VERSION'] = '${{ env.BUILD_BUNDLE_VERSION }}'
+          with open(path, 'wb') as f:
+              plistlib.dump(plist, f)
+          PYEOF
 
       - name: Write .env.version
         run: |

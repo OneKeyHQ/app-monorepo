@@ -90,6 +90,7 @@ export default function PageWebEmbedPrimePurchase() {
     primeUserEmail,
     subscriptionPeriod,
     locale,
+    currency,
     mode,
     featureName,
   } = webEmbedQueryParams || {};
@@ -119,6 +120,7 @@ export default function PageWebEmbedPrimePurchase() {
         subscriptionPeriod,
         email: primeUserEmail,
         locale,
+        currency,
         featureName: validFeatureName,
       });
 
@@ -156,6 +158,7 @@ export default function PageWebEmbedPrimePurchase() {
     apiKey,
     purchasePackageWeb,
     locale,
+    currency,
     featureName,
   ]);
 

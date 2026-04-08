@@ -1,237 +1,273 @@
 import { useId } from 'react';
 
-import { Stack, useTheme } from '@onekeyhq/components';
+import {
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+  useTheme,
+} from '@onekeyhq/components';
 
 import {
   BOTTOM_Y,
   CHART_WIDTH,
   COLORS,
-  CURVE_LAYOUT,
-  CURVE_PATH,
+  CURRENT_REFERENCE_Y,
   DOT_X,
   END_X,
-  FILL_LAYOUT,
-  FILL_PATH,
+  FULL_CURVE_PATH,
+  FULL_FILL_PATH,
   LABEL_Y,
-  LEFT_LAYOUT,
-  LEFT_LINE_PATH,
   MID_X,
   NOW_X,
   SVG_HEIGHT,
-  SVG_WIDTH,
   TARGET_Y,
-  buildPathTransform,
-  fitTextToWidth,
   formatRate,
-  getBadgeWidth,
-  getCurrentPointY,
-  getCurveScale,
 } from './shared';
 
 import type { IPendlePtConvergenceChartProps } from './shared';
 
-const WEB_AXIS_X = 522;
-const WEB_AXIS_TEXT_PADDING = 4;
-const WEB_AXIS_RIGHT_PADDING = 4;
-const WEB_BADGE_MIN_WIDTH = 56;
-const WEB_BADGE_HEIGHT = 22;
 const WEB_BADGE_RADIUS = 2;
+// Width reserved for the right-side labels column
+const LABELS_COLUMN_WIDTH = 110;
+const LABELS_COLUMN_GAP = 10;
+
+const SMALL_SCREEN_SCALE = 0.8;
+
+// Convert SVG x-coordinate to percentage within the chart area
+const chartPct = (x: number) => `${(x / CHART_WIDTH) * 100}%`;
 
 export function PendlePtConvergenceChart({
   chart,
 }: IPendlePtConvergenceChartProps) {
   const theme = useTheme();
+  const media = useMedia();
+  const isSmall = !media.gtMd;
+  const scale = isSmall ? SMALL_SCREEN_SCALE : 1;
+  const chartHeight = Math.round(SVG_HEIGHT * scale);
+
   const chartId = useId().replace(/:/g, '');
   const { currentRate, targetRate, remainingDays, accountingSymbol, ptSymbol } =
     chart;
-  const midLabel = `${Math.round(remainingDays / 2)} days`;
-  const curveScale = getCurveScale({ currentRate, targetRate });
-  const currentY = getCurrentPointY(curveScale);
-  const currentRateText = formatRate(currentRate);
-  const targetRateText = formatRate(targetRate);
+  const midLabel = `${remainingDays} days`;
+  // Curve shape is fixed (illustrative diagram); only right-side labels reflect actual prices.
+  const currentY = CURRENT_REFERENCE_Y * scale;
   const guideLineColor = theme.iconDisabled.val;
-  const textMutedColor = theme.textSubdued.val;
   const dotStrokeColor = theme.bg.val;
   const gradientId = `convergenceGrad-${chartId}`;
   const clipId = `convergenceClip-${chartId}`;
-  const axisMaxWidth = SVG_WIDTH - WEB_AXIS_X - WEB_AXIS_RIGHT_PADDING;
-  const titleLabel = fitTextToWidth(`${ptSymbol} Price`, axisMaxWidth);
-  const targetLabel = fitTextToWidth(
-    `${targetRateText} ${accountingSymbol}`,
-    axisMaxWidth,
-  );
-  const currentLabel = fitTextToWidth(
-    `${currentRateText} ${accountingSymbol}`,
-    axisMaxWidth,
-  );
-  const currentBadgeWidth = getBadgeWidth({
-    text: currentLabel,
-    minWidth: WEB_BADGE_MIN_WIDTH,
-    maxWidth: axisMaxWidth,
-  });
-  const currentBadgeY = currentY - WEB_BADGE_HEIGHT / 2;
-  const badgeClipId = `convergenceBadgeClip-${chartId}`;
-  const badgeTextClipX = WEB_AXIS_X + WEB_AXIS_TEXT_PADDING;
-  const badgeTextClipWidth = Math.max(
-    0,
-    currentBadgeWidth - WEB_AXIS_TEXT_PADDING * 2,
-  );
+
+  const currentRateText = formatRate(currentRate);
+  const targetRateText = formatRate(targetRate);
+  const titleLabel = `${ptSymbol} Price`;
+  const targetLabel = `${targetRateText} ${accountingSymbol}`;
+  const currentLabel = `${currentRateText} ${accountingSymbol}`;
+
+  // Scaled Y positions for HTML overlays
+  const targetYScaled = TARGET_Y * scale;
+  const labelYScaled = LABEL_Y * scale;
 
   return (
-    <Stack position="relative" width="100%" style={{ height: 'fit-content' }}>
-      <svg
-        viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-        width="100%"
-        preserveAspectRatio="xMidYMid meet"
-        style={{ display: 'block', height: 'auto' }}
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COLORS.fillTop} />
-            <stop offset="95%" stopColor={COLORS.fillBottom} />
-          </linearGradient>
-          <clipPath id={clipId}>
-            <rect x="0" y="0" width={CHART_WIDTH} height={BOTTOM_Y} />
-          </clipPath>
-          <clipPath id={badgeClipId}>
-            <rect
-              x={badgeTextClipX}
-              y={currentBadgeY}
-              width={badgeTextClipWidth}
-              height={WEB_BADGE_HEIGHT}
-            />
-          </clipPath>
-        </defs>
+    <XStack width="100%" height={chartHeight}>
+      {/* Chart area: SVG graphics + bottom labels + dot overlay */}
+      <Stack flex={1} position="relative" overflow="visible">
+        <svg
+          viewBox={`0 0 ${CHART_WIDTH} ${SVG_HEIGHT}`}
+          width="100%"
+          height="100%"
+          preserveAspectRatio="none"
+          style={{ display: 'block', position: 'absolute', inset: 0 }}
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={COLORS.fillTop} />
+              <stop offset="95%" stopColor={COLORS.fillBottom} />
+            </linearGradient>
+            <clipPath id={clipId}>
+              <rect x="0" y="0" width={CHART_WIDTH} height={BOTTOM_Y} />
+            </clipPath>
+          </defs>
 
-        <line
-          x1={0}
-          y1={TARGET_Y}
-          x2={CHART_WIDTH}
-          y2={TARGET_Y}
-          stroke={guideLineColor}
-          strokeWidth={1}
-          strokeDasharray="3,3"
-        />
-        <line
-          x1={NOW_X}
-          y1={0}
-          x2={NOW_X}
-          y2={BOTTOM_Y}
-          stroke={guideLineColor}
-          strokeWidth={1}
-          strokeDasharray="3,3"
-        />
-        <line
-          x1={END_X}
-          y1={0}
-          x2={END_X}
-          y2={BOTTOM_Y}
-          stroke={guideLineColor}
-          strokeWidth={1}
-        />
-
-        <g clipPath={`url(#${clipId})`}>
           <line
             x1={0}
-            y1={currentY}
+            y1={TARGET_Y}
             x2={CHART_WIDTH}
-            y2={currentY}
+            y2={TARGET_Y}
             stroke={guideLineColor}
             strokeWidth={1}
             strokeDasharray="3,3"
+            vectorEffect="non-scaling-stroke"
           />
-          <g
-            transform={`translate(0 ${TARGET_Y}) scale(1 ${curveScale}) translate(0 ${-TARGET_Y})`}
-          >
-            <path
-              d={FILL_PATH}
-              transform={buildPathTransform(FILL_LAYOUT)}
-              fill={`url(#${gradientId})`}
-            />
-            <path
-              d={LEFT_LINE_PATH}
-              transform={buildPathTransform(LEFT_LAYOUT)}
-              stroke={COLORS.greenStroke}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-              fill="none"
-            />
-            <path
-              d={CURVE_PATH}
-              transform={buildPathTransform(CURVE_LAYOUT)}
-              stroke={COLORS.greenStroke}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray="3 6"
-              vectorEffect="non-scaling-stroke"
-              fill="none"
-            />
-          </g>
-          <circle
-            cx={DOT_X}
-            cy={currentY}
-            r={5}
-            fill={COLORS.greenStroke}
-            stroke={dotStrokeColor}
-            strokeWidth={2}
+          <line
+            x1={NOW_X}
+            y1={0}
+            x2={NOW_X}
+            y2={BOTTOM_Y}
+            stroke={guideLineColor}
+            strokeWidth={1}
+            strokeDasharray="3,3"
+            vectorEffect="non-scaling-stroke"
           />
-        </g>
+          <line
+            x1={END_X}
+            y1={0}
+            x2={END_X}
+            y2={BOTTOM_Y}
+            stroke={guideLineColor}
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
 
-        <text
-          x={NOW_X}
-          y={LABEL_Y}
-          textAnchor="middle"
-          fill={textMutedColor}
-          fontSize={12}
-        >
-          Now
-        </text>
-        <text
-          x={MID_X}
-          y={LABEL_Y}
-          textAnchor="middle"
-          fill={textMutedColor}
-          fontSize={12}
-        >
-          {midLabel}
-        </text>
-        <text
-          x={END_X}
-          y={LABEL_Y}
-          textAnchor="middle"
-          fill={textMutedColor}
-          fontSize={12}
-        >
-          Maturity
-        </text>
-        <text x={WEB_AXIS_X} y={16} fill={textMutedColor} fontSize={12}>
-          {titleLabel}
-        </text>
-        <text x={WEB_AXIS_X} y={58} fill={textMutedColor} fontSize={12}>
-          {targetLabel}
-        </text>
-        <rect
-          x={WEB_AXIS_X}
-          y={currentBadgeY}
-          rx={WEB_BADGE_RADIUS}
-          ry={WEB_BADGE_RADIUS}
-          width={currentBadgeWidth}
-          height={WEB_BADGE_HEIGHT}
-          fill={COLORS.badge}
+          <g clipPath={`url(#${clipId})`}>
+            <line
+              x1={0}
+              y1={CURRENT_REFERENCE_Y}
+              x2={CHART_WIDTH}
+              y2={CURRENT_REFERENCE_Y}
+              stroke={guideLineColor}
+              strokeWidth={1}
+              strokeDasharray="3,3"
+              vectorEffect="non-scaling-stroke"
+            />
+            <g>
+              <path d={FULL_FILL_PATH} fill={`url(#${gradientId})`} />
+              <path
+                d={FULL_CURVE_PATH}
+                stroke={COLORS.greenStroke}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="3 6"
+                vectorEffect="non-scaling-stroke"
+                fill="none"
+              />
+            </g>
+          </g>
+        </svg>
+
+        {/* Dot overlay (HTML to keep circular shape under non-uniform scaling) */}
+        <Stack
+          position="absolute"
+          style={{
+            left: chartPct(DOT_X),
+            top: currentY - 6,
+            transform: 'translateX(-50%)',
+            width: 12,
+            height: 12,
+            borderRadius: 6,
+            backgroundColor: COLORS.greenStroke,
+            borderWidth: 2,
+            borderStyle: 'solid',
+            borderColor: dotStrokeColor,
+            boxSizing: 'border-box',
+          }}
         />
-        <text
-          x={WEB_AXIS_X + WEB_AXIS_TEXT_PADDING}
-          y={currentY + 4}
-          clipPath={`url(#${badgeClipId})`}
-          fill="rgba(255,255,255,0.93)"
-          fontSize={12}
+
+        {/* Bottom axis labels */}
+        <Stack
+          position="absolute"
+          style={{
+            left: chartPct(NOW_X),
+            top: labelYScaled - 14,
+            transform: 'translateX(-50%)',
+          }}
         >
-          {currentLabel}
-        </text>
-      </svg>
-    </Stack>
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            Now
+          </SizableText>
+        </Stack>
+        <Stack
+          position="absolute"
+          style={{
+            left: chartPct(MID_X),
+            top: labelYScaled - 14,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {midLabel}
+          </SizableText>
+        </Stack>
+        <Stack
+          position="absolute"
+          style={{
+            left: chartPct(END_X),
+            top: labelYScaled - 14,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            Maturity
+          </SizableText>
+        </Stack>
+      </Stack>
+
+      {/* Right labels column (fixed width, never compressed) */}
+      <Stack width={LABELS_COLUMN_WIDTH} flexShrink={0} position="relative">
+        {/* Title */}
+        <Stack
+          position="absolute"
+          top={Math.round(4 * scale)}
+          left={LABELS_COLUMN_GAP}
+        >
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            style={{ fontWeight: '600', whiteSpace: 'nowrap' }}
+          >
+            {titleLabel}
+          </SizableText>
+        </Stack>
+
+        {/* Target rate */}
+        <Stack
+          position="absolute"
+          top={targetYScaled - 8}
+          left={LABELS_COLUMN_GAP}
+        >
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {targetLabel}
+          </SizableText>
+        </Stack>
+
+        {/* Current rate badge */}
+        <Stack
+          position="absolute"
+          left={LABELS_COLUMN_GAP}
+          top={currentY - 11}
+          borderRadius={WEB_BADGE_RADIUS}
+          style={{
+            backgroundColor: COLORS.badge,
+            paddingLeft: 4,
+            paddingRight: 4,
+            paddingTop: 3,
+            paddingBottom: 3,
+          }}
+        >
+          <SizableText
+            size="$bodySm"
+            style={{ whiteSpace: 'nowrap', color: 'rgba(255,255,255,0.93)' }}
+          >
+            {currentLabel}
+          </SizableText>
+        </Stack>
+      </Stack>
+    </XStack>
   );
 }

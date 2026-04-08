@@ -7,7 +7,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { AddressDisplay } from '../../../AddressDisplay';
@@ -39,7 +38,6 @@ function TransactionItemNormalBase({
     value,
     formattedTime,
   } = useTransactionItemData({ item });
-  const [settingsPersistAtom] = useSettingsPersistAtom();
 
   return (
     <XStack
@@ -86,7 +84,7 @@ function TransactionItemNormalBase({
             autoFormatter="price-marketCap"
             formatterOptions={{
               capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
           >
             {value}
@@ -97,7 +95,7 @@ function TransactionItemNormalBase({
             autoFormatter="price-marketCap"
             formatterOptions={{
               capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
           >
             {price}
@@ -111,7 +109,7 @@ function TransactionItemNormalBase({
             autoFormatter="price-marketCap"
             formatterOptions={{
               capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
             {...styles.price}
           >
@@ -124,7 +122,7 @@ function TransactionItemNormalBase({
             autoFormatter="price-marketCap"
             formatterOptions={{
               capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
             {...styles.value}
           >

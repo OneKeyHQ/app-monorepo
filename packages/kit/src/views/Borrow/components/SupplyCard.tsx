@@ -4,7 +4,9 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Switch, XStack, useMedia } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
@@ -52,6 +54,31 @@ export const SupplyCard = () => {
       activeAccount.indexedAccount?.id,
     ],
   );
+  const { result: accountNetworkNotSupported = false } = usePromiseResult(
+    async () => {
+      if (!market?.networkId) return false;
+      if (!activeAccount.wallet?.id && !activeAccount.account?.id) return false;
+
+      const result =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: activeAccount.wallet?.id,
+            accountId: activeAccount.account?.id,
+            accountImpl: activeAccount.account?.impl,
+            activeNetworkId: market.networkId,
+          },
+        );
+
+      return !!result?.networkImpl;
+    },
+    [
+      activeAccount.account?.id,
+      activeAccount.account?.impl,
+      activeAccount.wallet?.id,
+      market?.networkId,
+    ],
+    { initResult: false },
+  );
 
   const toOnBoardingPage = useToOnBoardingPage();
 
@@ -81,17 +108,9 @@ export const SupplyCard = () => {
         providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Supply,
-        borrowReserves: reserves.data ?? undefined,
       });
     },
-    [
-      noConnectedWalletRef,
-      toOnBoardingPage,
-      navigation,
-      market,
-      accountId,
-      reserves.data,
-    ],
+    [noConnectedWalletRef, toOnBoardingPage, navigation, market, accountId],
   );
 
   const handlePressRow = useCallback(
@@ -191,6 +210,10 @@ export const SupplyCard = () => {
     ),
     [showZeroBalance, labels.showAssetsWithZeroBalance],
   );
+  const showAdditionalActions = useMemo(
+    () => gtLg && !noConnectedWallet && !accountNetworkNotSupported,
+    [gtLg, noConnectedWallet, accountNetworkNotSupported],
+  );
 
   // Mobile columns - 2 columns only
   const mobileColumns = useMemo(
@@ -269,7 +292,7 @@ export const SupplyCard = () => {
             buttonText={<EarnText text={{ text: labels.supply }} />}
             item={item}
             onPress={() => handleManageSupply(item)}
-            needAdditionButton={gtLg ? !noConnectedWallet : undefined}
+            needAdditionButton={showAdditionalActions}
             accountId={accountId}
             walletId={walletId}
             indexedAccountId={indexedAccountId}
@@ -281,7 +304,7 @@ export const SupplyCard = () => {
     ],
     [
       handleManageSupply,
-      gtLg,
+      showAdditionalActions,
       noConnectedWallet,
       accountId,
       walletId,

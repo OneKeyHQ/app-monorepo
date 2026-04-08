@@ -7,7 +7,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -30,6 +29,7 @@ interface ITokenListProps {
   onTradePress: () => void;
   disabledOnSwitchToTrade?: boolean;
   currentSelectToken?: ISwapToken;
+  disableNativeToken?: boolean;
 }
 
 export function TokenList({
@@ -38,10 +38,10 @@ export function TokenList({
   onTradePress,
   disabledOnSwitchToTrade,
   currentSelectToken,
+  disableNativeToken,
 }: ITokenListProps) {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [settingsPersistAtom] = useSettingsPersistAtom();
-  const currencySymbol = settingsPersistAtom.currencyInfo.symbol;
+  const currencySymbol = '$';
   const currentNetworkId = tokens[0]?.networkId;
 
   // get network account
@@ -87,6 +87,7 @@ export function TokenList({
               contractAddress: token.contractAddress,
               accountId: networkAccount.result?.id,
               accountAddress: networkAccount.result?.address,
+              currency: 'usd',
             });
 
           const swapTokenDetail = details?.[0];
@@ -142,11 +143,12 @@ export function TokenList({
       <YStack px="$1" py="$1">
         {displayTokens?.map((token: IEnhancedToken) => {
           const isDisabled = Boolean(
-            currentSelectToken &&
-            equalTokenNoCaseSensitive({
-              token1: currentSelectToken,
-              token2: token,
-            }),
+            (currentSelectToken &&
+              equalTokenNoCaseSensitive({
+                token1: currentSelectToken,
+                token2: token,
+              })) ||
+            (disableNativeToken && token.isNative),
           );
           const onPress = () => {
             if (isDisabled) return;

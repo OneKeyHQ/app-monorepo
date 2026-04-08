@@ -15,15 +15,17 @@ import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
 export function usePurchasePackageWebview() {
   const navigation = useAppNavigation();
-  const { user } = useOneKeyAuth();
+  const { user, supabaseUser } = useOneKeyAuth();
   const intl = useIntl();
 
   const purchasePackageWebview = useCallback(
     async ({
       selectedSubscriptionPeriod,
+      currency,
       featureName,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod | undefined;
+      currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
       if (!selectedSubscriptionPeriod) {
@@ -41,16 +43,17 @@ export function usePurchasePackageWebview() {
         hashRoutePath: EWebEmbedRoutePath.primePurchase,
         hashRouteQueryParams: {
           primeUserId: user?.onekeyUserId || '',
-          primeUserEmail: user?.email || '',
+          primeUserEmail: supabaseUser?.email || '',
           subscriptionPeriod: selectedSubscriptionPeriod,
           locale: intl.locale,
           mode: platformEnv.isDev ? 'dev' : 'prod',
           apiKey: apiKey || '',
+          ...(currency ? { currency } : {}),
           ...(featureName ? { featureName } : {}),
         },
       });
     },
-    [navigation, user?.onekeyUserId, user?.email, intl.locale],
+    [navigation, user?.onekeyUserId, supabaseUser?.email, intl.locale],
   );
 
   return purchasePackageWebview;

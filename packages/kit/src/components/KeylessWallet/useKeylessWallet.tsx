@@ -21,6 +21,7 @@ import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
+  IncorrectPinError,
   OneKeyLocalError,
   PrimeSendEmailOTPCancelError,
 } from '@onekeyhq/shared/src/errors';
@@ -52,6 +53,7 @@ import {
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -63,6 +65,12 @@ import {
   showAppleIDMismatchDialog,
   showGoogleDriveMismatchDialog,
 } from './AccountMismatchDialog';
+import {
+  getPromotedSameEmailAccountStatusAfterAutoRetryRateLimit,
+  isKeylessSameEmailAutoRetryRateLimitError,
+} from './sameEmailAccountStatusUtils';
+
+import type { IKeylessSameEmailAccountStatus } from './sameEmailAccountStatusUtils';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
   return true;
@@ -311,7 +319,7 @@ export function useKeylessWalletMethods() {
 
 export const keylessOnboardingCache = new cacheUtils.LRUCache<string, string>({
   max: 1000,
-  ttl: timerUtils.getTimeDurationMs({ minute: 5 }),
+  ttl: timerUtils.getTimeDurationMs({ minute: 8 }),
   ttlAutopurge: true,
 });
 
@@ -361,9 +369,110 @@ async function cacheKeylessOnboardingPin({ pin }: { pin: string }) {
   await keylessOnboardingCacheSet('onboardingPin', pin);
 }
 
-async function getKeylessOnboardingPin() {
+export async function getKeylessOnboardingPin() {
   const pin = keylessOnboardingCacheGet('onboardingPin');
   return pin;
+}
+
+async function cacheKeylessOnboardingSameEmailAccountStatus({
+  status,
+}: {
+  status: IKeylessSameEmailAccountStatus;
+}) {
+  await keylessOnboardingCacheSet(
+    'sameEmailAccountStatus',
+    JSON.stringify(status),
+  );
+}
+
+export async function getKeylessOnboardingSameEmailAccountStatus(): Promise<IKeylessSameEmailAccountStatus> {
+  const raw = await keylessOnboardingCacheGet('sameEmailAccountStatus');
+  if (!raw) {
+    return {
+      isSameEmailAccountAtOldVersion: false,
+    };
+  }
+
+  try {
+    const status = JSON.parse(raw) as IKeylessSameEmailAccountStatus;
+    return {
+      isSameEmailAccountAtOldVersion: !!status?.isSameEmailAccountAtOldVersion,
+      retryProvider: status?.retryProvider,
+      currentProvider: status?.currentProvider,
+    };
+  } catch {
+    return {
+      isSameEmailAccountAtOldVersion: false,
+    };
+  }
+}
+
+async function promoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+  status,
+}: {
+  status: IKeylessSameEmailAccountStatus;
+}) {
+  const nextStatus =
+    getPromotedSameEmailAccountStatusAfterAutoRetryRateLimit(status);
+
+  if (!nextStatus) {
+    return;
+  }
+
+  await cacheKeylessOnboardingSameEmailAccountStatus({
+    status: nextStatus,
+  });
+}
+
+async function shouldPromoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+  token,
+  error,
+}: {
+  token: string;
+  error: unknown;
+}) {
+  if (!isKeylessSameEmailAutoRetryRateLimitError(error)) {
+    return false;
+  }
+
+  try {
+    const result =
+      await backgroundApiProxy.serviceKeylessWallet.apiCheckRateLimitStatus({
+        token,
+      });
+
+    return result.isRateLimited && result.retryAfterSeconds > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function syncKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+  token,
+  error,
+  status,
+}: {
+  token: string;
+  error: unknown;
+  status: IKeylessSameEmailAccountStatus;
+}) {
+  try {
+    if (
+      await shouldPromoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+        token,
+        error,
+      })
+    ) {
+      await promoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+        status,
+      });
+    }
+  } catch (syncError) {
+    console.error(
+      'Failed to sync keyless same-email retry provider after rate limit:',
+      syncError,
+    );
+  }
 }
 
 async function cacheKeylessOnboardingCustomMnemonic({
@@ -634,6 +743,11 @@ export function useKeylessWallet() {
         }
       };
       await checkLoginMatchedKeylessWallet();
+      await cacheKeylessOnboardingSameEmailAccountStatus({
+        status: {
+          isSameEmailAccountAtOldVersion: false,
+        },
+      });
 
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin) {
         navigation.navigate(ERootRoutes.Onboarding, {
@@ -669,6 +783,20 @@ export function useKeylessWallet() {
           },
         );
       if (isCreated) {
+        await cacheKeylessOnboardingSameEmailAccountStatus({
+          status: {
+            isSameEmailAccountAtOldVersion: false,
+          },
+        });
+        const sameEmailAccountStatus =
+          await backgroundApiProxy.serviceKeylessWallet.apiGetKeylessSameEmailAccountStatus(
+            {
+              token,
+            },
+          );
+        await cacheKeylessOnboardingSameEmailAccountStatus({
+          status: sameEmailAccountStatus,
+        });
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
@@ -910,6 +1038,11 @@ export function useKeylessWallet() {
             isKeylessWallet: true,
             keylessOwnerId: ownerId,
             keylessDetailsInfo,
+            shouldAutoResetKeylessPinAfterRestore:
+              action === EKeylessFinalizeAction.Restore
+                ? (await getKeylessOnboardingSameEmailAccountStatus())
+                    .isSameEmailAccountAtOldVersion
+                : false,
           },
         },
       });
@@ -947,9 +1080,11 @@ export function useKeylessWallet() {
     async ({
       pin,
       mode,
+      dangerousRetryByFixedProvider,
     }: {
       pin: string;
       mode?: EOnboardingV2OneKeyIDLoginMode;
+      dangerousRetryByFixedProvider: boolean;
     }) => {
       const token = await getKeylessOnboardingToken();
       if (!token) {
@@ -957,14 +1092,63 @@ export function useKeylessWallet() {
         return;
       }
       const refreshToken = await getKeylessOnboardingRefreshToken();
-      await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
-        {
-          token,
-          pin,
-          refreshToken,
-          mode,
-        },
-      );
+      const sameEmailAccountStatus =
+        mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore
+          ? await getKeylessOnboardingSameEmailAccountStatus()
+          : {
+              isSameEmailAccountAtOldVersion: false,
+            };
+
+      try {
+        await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
+          {
+            token,
+            pin,
+            refreshToken,
+            mode,
+            dangerousRetryByFixedProvider,
+            providerOverride: dangerousRetryByFixedProvider
+              ? undefined
+              : sameEmailAccountStatus.currentProvider,
+          },
+        );
+      } catch (error) {
+        const isPinErrorByInstance = error instanceof IncorrectPinError;
+        const isPinErrorByClassName = errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.IncorrectPinError,
+        });
+        const isPinError = isPinErrorByInstance || isPinErrorByClassName;
+
+        if (
+          isPinError &&
+          sameEmailAccountStatus.isSameEmailAccountAtOldVersion &&
+          sameEmailAccountStatus.retryProvider &&
+          !dangerousRetryByFixedProvider
+        ) {
+          try {
+            await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
+              {
+                token,
+                pin,
+                refreshToken,
+                mode,
+                dangerousRetryByFixedProvider: false,
+                providerOverride: sameEmailAccountStatus.retryProvider,
+              },
+            );
+          } catch (retryError) {
+            void syncKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+              token,
+              error: retryError,
+              status: sameEmailAccountStatus,
+            });
+            throw retryError;
+          }
+        } else {
+          throw error;
+        }
+      }
 
       // VerifyPinOnly: just verify, show success toast and close modal
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
@@ -1040,7 +1224,28 @@ export function useVerifyKeylessPinChecking() {
       if (isPinReminderDialogShowing) {
         return;
       }
-      const activeWallet = options.wallet;
+
+      const getCurrentActiveWallet = async () => {
+        try {
+          const selectedAccount =
+            await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount(
+              {
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+              },
+            );
+          if (!selectedAccount?.walletId) {
+            return undefined;
+          }
+          return await backgroundApiProxy.serviceAccount.getWallet({
+            walletId: selectedAccount.walletId,
+          });
+        } catch {
+          return undefined;
+        }
+      };
+
+      const activeWallet = (await getCurrentActiveWallet()) ?? options.wallet;
       if (activeWallet?.isKeyless) {
         const ownerId = activeWallet?.keylessDetailsInfo?.keylessOwnerId;
         if (!ownerId) {
@@ -1079,6 +1284,14 @@ export function useVerifyKeylessPinChecking() {
               { ownerId },
             );
           let shouldVerifyPin = false;
+          if (accessToken) {
+            void backgroundApiProxy.serviceKeylessWallet.fixKeylessWalletAvatar(
+              {
+                wallet: activeWallet,
+                accessToken,
+              },
+            );
+          }
           if (accessToken) {
             const { shouldRemind } =
               await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(

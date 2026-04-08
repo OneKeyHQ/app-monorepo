@@ -1,30 +1,42 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { ICheckedState } from '@onekeyhq/components';
 import {
   Badge,
   Button,
+  Checkbox,
+  Dialog,
+  ESwitchSize,
   Icon,
   LottieView,
   Page,
   SizableText,
   Stack,
+  Switch,
   XStack,
-  rootNavigationRef,
+  YStack,
+  resetToRoute,
   useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
+  useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapToAnotherAccountAddressAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   useSettingsAtom,
@@ -40,9 +52,11 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
+  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -55,6 +69,7 @@ import {
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
+import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
 
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
@@ -90,6 +105,70 @@ function PageFooter({
   );
 }
 
+function SwapIncognitoDialogContent({
+  onConfirm,
+}: {
+  onConfirm: () => Promise<void>;
+}) {
+  const intl = useIntl();
+  const [checked, setChecked] = useState<ICheckedState>(false);
+  const incognitoHelpLink = useHelpLink({
+    path: 'articles/14430164',
+  });
+
+  const description = useMemo(
+    () =>
+      `${intl.formatMessage({
+        id: ETranslations.trade_incognito_description,
+      })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
+        id: ETranslations.trade_incognito_read_more,
+      })}</underline></url>`,
+    [incognitoHelpLink, intl],
+  );
+
+  return (
+    <YStack gap="$4">
+      <FormatHyperlinkText
+        autoExecuteParsedAction={false}
+        onAction={openUrlExternal}
+        size="$bodyLg"
+        color="$text"
+        urlTextProps={{
+          color: '$textInfo',
+        }}
+      >
+        {description}
+      </FormatHyperlinkText>
+      <XStack alignItems="flex-start" gap="$2">
+        <Checkbox
+          labelContainerProps={{
+            flex: 1,
+          }}
+          label={intl.formatMessage({
+            id: ETranslations.trade_incognito_kyc_warning,
+          })}
+          value={checked}
+          onChange={setChecked}
+          labelProps={{
+            variant: '$bodyMd',
+            color: '$textSubdued',
+          }}
+        />
+      </XStack>
+      <Dialog.Footer
+        showCancelButton={false}
+        confirmButtonProps={{
+          disabled: !checked,
+        }}
+        onConfirm={onConfirm}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_confirm,
+        })}
+      />
+    </YStack>
+  );
+}
+
 const SwapActionsState = ({
   onPreSwap,
   onOpenRecipientAddress,
@@ -100,16 +179,30 @@ const SwapActionsState = ({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [, setSwapManualSelectQuoteProvider] =
+    useSwapManualSelectQuoteProvidersAtom();
+  const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [, setSwapQuoteList] = useSwapQuoteListAtom();
+  const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { quoteAction } = useSwapActions().current;
+  const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
+    useSwapActions().current;
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
   const hasEverShownCostSavingsRef = useRef(false);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
-  const [{ swapEnableRecipientAddress }] = useSettingsAtom();
+  const [
+    {
+      swapEnableRecipientAddress,
+      swapIncognitoMode,
+      swapToAnotherAccountSwitchOn,
+    },
+    setSettings,
+  ] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const quoteLoading = useSwapQuoteLoading();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
@@ -123,6 +216,7 @@ const SwapActionsState = ({
 
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
+  const isDesktopModalPage = isModalPage && !md;
 
   const onActionHandlerBefore = useCallback(async () => {
     if (swapActionState.noConnectWallet) {
@@ -131,8 +225,7 @@ const SwapActionsState = ({
           screen: EOnboardingPages.ConnectWalletOptions,
         });
       } else {
-        await closeModalPages();
-        rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+        resetToRoute(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
             screen: EOnboardingPagesV2.GetStarted,
@@ -151,6 +244,7 @@ const SwapActionsState = ({
         currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
         true,
         swapToAddressInfo?.address,
+        swapIncognitoMode,
       );
       return;
     }
@@ -162,6 +256,7 @@ const SwapActionsState = ({
     quoteAction,
     swapActionState.isRefreshQuote,
     swapActionState.noConnectWallet,
+    swapIncognitoMode,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,
     swapToAddressInfo?.address,
@@ -169,28 +264,160 @@ const SwapActionsState = ({
 
   const shouldShowRecipient = useMemo(
     () =>
-      swapEnableRecipientAddress &&
-      swapProviderSupportReceiveAddress &&
-      fromToken &&
-      toToken &&
-      currentQuoteRes?.toTokenInfo.networkId === toToken.networkId,
+      !!(
+        swapEnableRecipientAddress &&
+        swapProviderSupportReceiveAddress &&
+        fromToken &&
+        toToken
+      ),
     [
       swapEnableRecipientAddress,
-      currentQuoteRes?.toTokenInfo.networkId,
       swapProviderSupportReceiveAddress,
       fromToken,
       toToken,
     ],
   );
 
-  const recipientComponent = useMemo(() => {
-    if (shouldShowRecipient) {
-      return (
-        <XStack gap="$1" {...(isModalPage && !md ? { flex: 1 } : { pb: '$4' })}>
-          <Stack>
-            <Icon name="AddedPeopleOutline" w="$5" h="$5" />
+  const showRecipientInMetaRow = useMemo(
+    () => !md && swapTypeSwitch !== ESwapTabSwitchType.LIMIT,
+    [md, swapTypeSwitch],
+  );
+
+  const shouldShowRecipientInMetaRow = useMemo(
+    () => showRecipientInMetaRow && shouldShowRecipient,
+    [showRecipientInMetaRow, shouldShowRecipient],
+  );
+
+  const shouldShowRecipientInActionRow = useMemo(
+    () => shouldShowRecipient && !showRecipientInMetaRow,
+    [shouldShowRecipient, showRecipientInMetaRow],
+  );
+
+  const applyIncognitoModeChange = useCallback(
+    (value: boolean) => {
+      const nextSettings = buildSwapIncognitoSettingsUpdate(
+        {
+          swapEnableRecipientAddress,
+          swapIncognitoMode,
+          swapToAnotherAccountSwitchOn,
+        },
+        value,
+      );
+
+      setSettings((settings) =>
+        buildSwapIncognitoSettingsUpdate(settings, value),
+      );
+
+      cleanQuoteInterval();
+      closeQuoteEvent();
+      setSwapManualSelectQuoteProvider(undefined);
+      setSwapQuoteEventTotalCount({ count: 0 });
+      setSwapQuoteList([]);
+
+      if (
+        swapToAnotherAccountSwitchOn &&
+        !nextSettings.swapToAnotherAccountSwitchOn
+      ) {
+        return;
+      }
+
+      void quoteAction(
+        swapSlippageRef.current,
+        swapFromAddressInfo?.address,
+        swapFromAddressInfo?.accountInfo?.account?.id,
+        undefined,
+        undefined,
+        currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
+        true,
+        nextSettings.swapToAnotherAccountSwitchOn
+          ? (swapToAnotherAccountAddress.address ?? swapToAddressInfo?.address)
+          : swapToAddressInfo?.address,
+        value,
+      );
+    },
+    [
+      cleanQuoteInterval,
+      closeQuoteEvent,
+      currentQuoteRes?.kind,
+      quoteAction,
+      setSettings,
+      setSwapManualSelectQuoteProvider,
+      setSwapQuoteEventTotalCount,
+      setSwapQuoteList,
+      swapEnableRecipientAddress,
+      swapFromAddressInfo?.accountInfo?.account?.id,
+      swapFromAddressInfo?.address,
+      swapIncognitoMode,
+      swapToAnotherAccountSwitchOn,
+      swapToAnotherAccountAddress.address,
+      swapToAddressInfo.address,
+    ],
+  );
+
+  const onIncognitoModeChange = useCallback(
+    (value: boolean) => {
+      if (!value) {
+        applyIncognitoModeChange(false);
+        return;
+      }
+
+      void Dialog.show({
+        icon: 'AnonymousHiddenOutline',
+        title: intl.formatMessage({
+          id: ETranslations.trade_incognito_title,
+        }),
+        showFooter: false,
+        renderContent: (
+          <SwapIncognitoDialogContent
+            onConfirm={async () => {
+              applyIncognitoModeChange(true);
+            }}
+          />
+        ),
+      });
+    },
+    [applyIncognitoModeChange, intl],
+  );
+
+  const incognitoComponent = useMemo(
+    () =>
+      swapTypeSwitch === ESwapTabSwitchType.LIMIT ? null : (
+        <XStack alignItems="center" gap="$2">
+          <XStack alignItems="center" gap="$1.5">
+            <Icon
+              name="AnonymousHiddenOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.trade_incognito_incognito_mode,
+              })}
+            </SizableText>
+          </XStack>
+          <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
+            <Switch
+              size={ESwitchSize.extraSmall}
+              value={swapIncognitoMode}
+              onChange={onIncognitoModeChange}
+            />
           </Stack>
-          <XStack flex={1} flexWrap="wrap" gap="$1">
+        </XStack>
+      ),
+    [intl, onIncognitoModeChange, swapIncognitoMode, swapTypeSwitch],
+  );
+
+  const recipientComponent = useMemo(() => {
+    if (shouldShowRecipientInActionRow) {
+      return (
+        <XStack
+          gap="$1.5"
+          {...(isDesktopModalPage ? { flex: 1 } : { pb: '$4' })}
+        >
+          <Stack>
+            <Icon name="AddedPeopleOutline" size="$5" color="$iconSubdued" />
+          </Stack>
+          <XStack flex={1} flexWrap="wrap" gap="$1.5">
             <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.swap_page_recipient_send_to,
@@ -235,10 +462,87 @@ const SwapActionsState = ({
     return null;
   }, [
     intl,
-    md,
     onOpenRecipientAddress,
-    isModalPage,
-    shouldShowRecipient,
+    isDesktopModalPage,
+    shouldShowRecipientInActionRow,
+    swapRecipientAddressInfo?.accountInfo?.accountName,
+    swapRecipientAddressInfo?.accountInfo?.walletName,
+    swapRecipientAddressInfo?.isExtAccount,
+    swapRecipientAddressInfo?.showAddress,
+  ]);
+
+  const recipientMetaRowComponent = useMemo(() => {
+    if (!shouldShowRecipientInMetaRow) {
+      return null;
+    }
+
+    return (
+      <XStack
+        flex={isDesktopModalPage ? undefined : 1}
+        justifyContent={isDesktopModalPage ? undefined : 'flex-end'}
+        minWidth={0}
+      >
+        <XStack
+          gap="$1.5"
+          flexWrap="wrap"
+          justifyContent={isDesktopModalPage ? 'flex-start' : 'flex-end'}
+          maxWidth="100%"
+        >
+          <Stack>
+            <Icon name="AddedPeopleOutline" size="$5" color="$iconSubdued" />
+          </Stack>
+          <XStack
+            flexWrap="wrap"
+            justifyContent={isDesktopModalPage ? 'flex-start' : 'flex-end'}
+            gap="$1.5"
+            minWidth={0}
+          >
+            <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.swap_page_recipient_send_to,
+              })}
+            </SizableText>
+            <SizableText
+              flexShrink={0}
+              size="$bodyMd"
+              cursor="pointer"
+              textDecorationLine="underline"
+              onPress={onOpenRecipientAddress}
+            >
+              {swapRecipientAddressInfo?.showAddress ??
+                intl.formatMessage({
+                  id: ETranslations.swap_page_recipient_add,
+                })}
+            </SizableText>
+            {swapRecipientAddressInfo?.showAddress ? (
+              <SizableText
+                numberOfLines={1}
+                flexShrink={1}
+                size="$bodyMd"
+                color="$textSubdued"
+              >
+                {`(${
+                  !swapRecipientAddressInfo?.isExtAccount
+                    ? `${
+                        swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
+                      }-${
+                        swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
+                      }`
+                    : intl.formatMessage({
+                        id: ETranslations.swap_page_recipient_external_account,
+                      })
+                })`}
+              </SizableText>
+            ) : null}
+          </XStack>
+        </XStack>
+      </XStack>
+    );
+  }, [
+    isDesktopModalPage,
+    intl,
+    onOpenRecipientAddress,
+    shouldShowRecipientInMetaRow,
     swapRecipientAddressInfo?.accountInfo?.accountName,
     swapRecipientAddressInfo?.accountInfo?.walletName,
     swapRecipientAddressInfo?.isExtAccount,
@@ -298,14 +602,14 @@ const SwapActionsState = ({
     intl,
   ]);
 
-  const actionComponent = useMemo(
+  const actionRowComponent = useMemo(
     () => (
       <Stack
         flex={1}
-        {...(isModalPage && !md
+        {...(isDesktopModalPage
           ? {
               flexDirection: 'row',
-              justifyContent: shouldShowRecipient
+              justifyContent: shouldShowRecipientInActionRow
                 ? 'space-between'
                 : 'flex-end',
               alignItems: 'center',
@@ -314,11 +618,11 @@ const SwapActionsState = ({
       >
         {recipientComponent}
         <Stack gap="$2">
-          {/* In modal: show savings above button; In non-modal: show below */}
-          {isModalPage && !md ? costSavingsComponent : null}
+          {/* In desktop modal: show savings above button; otherwise show below */}
+          {isDesktopModalPage ? costSavingsComponent : null}
           <Button
             onPress={onActionHandlerBefore}
-            size={isModalPage && !md ? 'medium' : 'large'}
+            size={isDesktopModalPage ? 'medium' : 'large'}
             variant="primary"
             disabled={swapActionState.disabled || swapActionState.isLoading}
             borderRadius="$full"
@@ -341,19 +645,18 @@ const SwapActionsState = ({
               swapActionState.label
             )}
           </Button>
-          {/* In non-modal: show savings below button */}
-          {!isModalPage || md ? costSavingsComponent : null}
+          {/* In regular pages and non-desktop modal: show savings below button */}
+          {!isDesktopModalPage ? costSavingsComponent : null}
         </Stack>
       </Stack>
     ),
     [
-      md,
       onActionHandlerBefore,
-      isModalPage,
+      isDesktopModalPage,
       quoteLoading,
       quoting,
       recipientComponent,
-      shouldShowRecipient,
+      shouldShowRecipientInActionRow,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,
@@ -361,6 +664,50 @@ const SwapActionsState = ({
       costSavingsComponent,
     ],
   );
+
+  const actionComponent = useMemo(() => {
+    let metaRow = incognitoComponent;
+
+    if (showRecipientInMetaRow && incognitoComponent) {
+      metaRow = isDesktopModalPage ? (
+        <XStack gap="$6" alignItems="center" flexWrap="wrap" width="100%">
+          {incognitoComponent}
+          {recipientMetaRowComponent}
+        </XStack>
+      ) : (
+        <XStack
+          gap="$4"
+          alignItems="center"
+          justifyContent="space-between"
+          width="100%"
+        >
+          {incognitoComponent}
+          {recipientMetaRowComponent}
+        </XStack>
+      );
+    }
+
+    return (
+      <Stack
+        gap="$4"
+        {...(showRecipientInMetaRow
+          ? {
+              flex: 1,
+              width: '100%',
+            }
+          : {})}
+      >
+        {metaRow}
+        {actionRowComponent}
+      </Stack>
+    );
+  }, [
+    actionRowComponent,
+    incognitoComponent,
+    showRecipientInMetaRow,
+    isDesktopModalPage,
+    recipientMetaRowComponent,
+  ]);
 
   const actionComponentCoverFooter = useMemo(
     () => (
@@ -380,7 +727,7 @@ const SwapActionsState = ({
 
   return (
     <>
-      {isModalPage && !md ? (
+      {isDesktopModalPage ? (
         <PageFooter
           onSelectPercentageStage={onSelectPercentageStage}
           actionComponent={actionComponent}

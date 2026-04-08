@@ -1,13 +1,15 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import type { ComponentType, FC, ReactNode } from 'react';
-import { useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
 import { Toast } from '../actions/Toast';
+
+const cursorZoomInStyle = { cursor: 'zoom-in' } as const;
 
 const css1 = 'debug-render-tracker-animated-bg';
 const css2 = 'debug-render-tracker-animated-bg0';
@@ -43,6 +45,23 @@ function DebugRenderTracker(
   const classRef = useRef<typeof css1 | typeof css2>(css1);
   const renderTimesRef = useRef(0);
 
+  const handleClick = useCallback(() => {
+    Toast.message({
+      title: `DebugRenderTracker`,
+      message: `${props.name || '[UnknownTrackerName]'}: ${
+        renderTimesRef.current
+      }`,
+    });
+    setRefresh(new Date().getTime());
+  }, [props.name]);
+
+  const badgeTextStyle = useMemo(
+    () => ({
+      transform: `translate(${offsetX || 0}px, ${offsetY || 0}px)`,
+    }),
+    [offsetX, offsetY],
+  );
+
   if (process.env.NODE_ENV !== 'production') {
     if (platformEnv.isRuntimeBrowser) {
       const isDebugRenderTrackerEnabled = appStorage.syncStorage.getBoolean(
@@ -53,32 +72,15 @@ function DebugRenderTracker(
         renderTimesRef.current += 1;
 
         const divElement = (
-          <div
-            className={classRef.current}
-            style={{
-              ...containerStyle,
-            }}
-          >
+          <div className={classRef.current} style={containerStyle}>
             <div
-              onClick={() => {
-                Toast.message({
-                  title: `DebugRenderTracker`,
-                  message: `${props.name || '[UnknownTrackerName]'}: ${
-                    renderTimesRef.current
-                  }`,
-                });
-                setRefresh(new Date().getTime());
-              }}
-              style={{
-                cursor: 'zoom-in',
-              }}
+              onClick={handleClick}
+              style={cursorZoomInStyle}
               className={`debug-render-tracker-times-badge ${position}`}
             >
               <div
                 className="debug-render-tracker-times-badge-text"
-                style={{
-                  transform: `translate(${offsetX || 0}px, ${offsetY || 0}px)`,
-                }}
+                style={badgeTextStyle}
               >
                 {renderTimesRef.current}
               </div>

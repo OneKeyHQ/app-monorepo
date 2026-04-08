@@ -35,6 +35,7 @@ import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
   getValidPriceDecimals,
+  mapTriggerOrderType,
   parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -56,10 +57,12 @@ import type {
   IPlaceOrderParams,
   IPositionTpslOrderParams,
   ISetReferrerRequest,
+  ITriggerOrderParams,
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 
 import {
   perpsActiveAccountAtom,
@@ -283,15 +286,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       throw error;
     }
-  }
-
-  @backgroundMethod()
-  async enableDexAbstraction(): Promise<{ status: 'ok' } | undefined> {
-    await this.checkAccountCanTrade();
-    const response = await convertHyperLiquidResponse(() =>
-      this.exchangeClient.agentEnableDexAbstraction(),
-    );
-    return response;
   }
 
   @backgroundMethod()
@@ -596,6 +590,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           extra,
         },
       });
+      // Record PERPS task completion for rookie guide
+      void this.backgroundApi.serviceRookieGuide.recordTaskCompleted(
+        ERookieTaskType.PERPS,
+      );
       return response;
     } catch (error) {
       dispatchHyperLiquidOrderLog({
@@ -798,6 +796,82 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  async orderTrigger(params: ITriggerOrderParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
+    try {
+      const { isMarket } = mapTriggerOrderType(params.triggerOrderType);
+      const { tpsl } = params;
+
+      // Format trigger price
+      const triggerPxDecimals = getValidPriceDecimals(params.triggerPx);
+      const formattedTriggerPx = formatPriceToSignificantDigits(
+        +params.triggerPx,
+        MAX_DECIMALS_PERP - triggerPxDecimals,
+      );
+
+      // Determine execution price (p):
+      // - Market trigger: apply slippage to triggerPx
+      // - Limit trigger: use executionPx directly
+      let executionPrice: string;
+      if (isMarket) {
+        executionPrice = this._calculateSlippagePrice({
+          markPrice: params.triggerPx,
+          isBuy: params.isBuy,
+          slippage: params.slippage || this.slippage,
+        });
+      } else {
+        if (!params.executionPx) {
+          throw new OneKeyLocalError(
+            'Limit trigger orders require an execution price',
+          );
+        }
+        const execDecimals = getValidPriceDecimals(params.executionPx);
+        executionPrice = formatPriceToSignificantDigits(
+          +params.executionPx,
+          MAX_DECIMALS_PERP - execDecimals,
+        );
+      }
+
+      const order: IOrderParams = {
+        a: params.assetId,
+        b: params.isBuy,
+        p: executionPrice,
+        s: params.size,
+        r: params.reduceOnly,
+        t: {
+          trigger: {
+            isMarket,
+            triggerPx: formattedTriggerPx,
+            tpsl,
+          },
+        },
+      };
+
+      const response = await this.placeOrderRaw(
+        {
+          orders: [order],
+          grouping: 'na',
+        },
+        {
+          action: 'orderTrigger',
+          originalParams: params,
+          extra: {
+            triggerOrderType: params.triggerOrderType,
+            isMarket,
+            tpsl,
+            reduceOnly: params.reduceOnly,
+          },
+        },
+      );
+      return response;
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to place trigger order: ${String(error)}`,
+      );
+    }
+  }
+
+  @backgroundMethod()
   async ordersClose(params: IOrderCloseParams[]): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
     const ordersParam = params.map((param) => {
@@ -982,6 +1056,36 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         `Failed to set position TP/SL: ${String(error)}`,
       );
     }
+  }
+
+  @backgroundMethod()
+  async setAbstractionWithUserWallet(params: {
+    userAccountId: string;
+    userAddress: string;
+    abstraction:
+      | 'disabled'
+      | 'unifiedAccount'
+      | 'portfolioMargin'
+      | 'dexAbstraction';
+  }): Promise<void> {
+    await this.checkAccountCanTrade();
+    const wallet =
+      await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
+        userAccountId: params.userAccountId,
+      });
+    const exchangeClient = new ExchangeClient({
+      transport: new HttpTransport(),
+      wallet,
+      signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+    });
+    // TODO: i18n — HL returns English errors like "Cannot disable unified account with open positions..."
+    // Need to add these to hyperliquidErrorLocales config for localization
+    await convertHyperLiquidResponse(() =>
+      exchangeClient.userSetAbstraction({
+        user: params.userAddress as `0x${string}`,
+        abstraction: params.abstraction,
+      }),
+    );
   }
 
   @backgroundMethod()

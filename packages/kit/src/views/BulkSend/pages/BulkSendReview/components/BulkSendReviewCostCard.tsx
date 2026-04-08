@@ -1,9 +1,12 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   ActionList,
+  Alert,
   Icon,
   NumberSizeableText,
+  Popover,
   SizableText,
   Skeleton,
   XStack,
@@ -12,7 +15,15 @@ import {
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EBulkSendMode,
+  EIntervalMode,
+  type IIntervalSettings,
+} from '@onekeyhq/shared/types/bulkSend';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+
+import { INTERVAL_SETTINGS_TITLE } from '../../../components/IntervalSettingsContent';
+import { formatIntervalSecondsRange } from '../../../utils';
 
 import { useBulkSendReviewContext } from './Context';
 
@@ -22,6 +33,9 @@ type Props = {
   isMultiTxs?: boolean;
   onFeeChange?: (index: number) => void;
   editFeeEnabled?: boolean;
+  transferTxCount?: number;
+  isTransferSplit?: boolean;
+  intervalSettings?: IIntervalSettings;
 };
 
 function BulkSendReviewCostCard({
@@ -29,10 +43,13 @@ function BulkSendReviewCostCard({
   isMultiTxs,
   onFeeChange,
   editFeeEnabled,
+  transferTxCount,
+  isTransferSplit,
+  intervalSettings,
 }: Props) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
-  const { feeState } = useBulkSendReviewContext();
+  const { feeState, ataCount, bulkSendMode } = useBulkSendReviewContext();
   const {
     feeStatus,
     totalFeeNative: networkFee,
@@ -41,23 +58,72 @@ function BulkSendReviewCostCard({
     isInitialized,
     feeSelectorItems,
     selectedFee,
+    ataRentFeeNative,
+    insufficientSol,
+    solBalanceNeeded,
+    singleTxFeeNative,
+    txCountForFeeDisplay,
   } = feeState;
+
+  const showAtaRent = ataRentFeeNative && new BigNumber(ataRentFeeNative).gt(0);
 
   // Only show loading skeleton when not initialized
   // After initialization, keep showing the current fee data during polling
   const isLoading = feeStatus === ESendFeeStatus.Loading && !isInitialized;
   const isError = feeStatus === ESendFeeStatus.Error;
 
+  const displayTxCount = transferTxCount ?? 0;
+  const showSplit = bulkSendMode === EBulkSendMode.OneToMany && isTransferSplit;
+  const showFeeLevel =
+    !isMultiTxs ||
+    bulkSendMode === EBulkSendMode.ManyToOne ||
+    bulkSendMode === EBulkSendMode.ManyToMany;
+
   return (
-    <YStack px="$5">
+    <YStack px="$5" gap="$3">
       <YStack bg="$bgSubdued" borderRadius="$3" py="$2">
         {/* Network Fee Row */}
         <XStack gap="$2" px="$4" py="$2" alignItems="flex-start">
-          <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.swap_history_detail_network_fee,
-            })}
-          </SizableText>
+          <XStack flex={1} gap="$1" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.swap_history_detail_network_fee,
+              })}
+              {showSplit
+                ? ` (${intl.formatMessage(
+                    { id: ETranslations.wallet_bulk_send_split_txns_count },
+                    { count: displayTxCount },
+                  )})`
+                : ''}
+            </SizableText>
+            {showSplit ? (
+              <Popover
+                title={intl.formatMessage(
+                  { id: ETranslations.wallet_bulk_send_split_txns_title },
+                  { count: displayTxCount },
+                )}
+                renderTrigger={
+                  <Icon
+                    name="InfoCircleOutline"
+                    size="$4"
+                    color="$iconSubdued"
+                  />
+                }
+                renderContent={
+                  <YStack p="$5">
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage(
+                        {
+                          id: ETranslations.wallet_bulk_send_split_txns_description,
+                        },
+                        { count: displayTxCount },
+                      )}
+                    </SizableText>
+                  </YStack>
+                }
+              />
+            ) : null}
+          </XStack>
           <YStack alignItems="flex-end">
             {isLoading ? (
               <Skeleton.BodyMd />
@@ -68,13 +134,34 @@ function BulkSendReviewCostCard({
                     <SizableText size="$bodyMdMedium">-</SizableText>
                   ) : (
                     <>
-                      <NumberSizeableText
-                        size="$bodyMdMedium"
-                        formatter="balance"
-                        formatterOptions={{ tokenSymbol: nativeSymbol }}
-                      >
-                        {networkFee}
-                      </NumberSizeableText>
+                      {txCountForFeeDisplay && txCountForFeeDisplay > 1 ? (
+                        <>
+                          <SizableText size="$bodyMdMedium">~</SizableText>
+                          <NumberSizeableText
+                            size="$bodyMdMedium"
+                            formatter="balance"
+                            formatterOptions={{
+                              tokenSymbol: nativeSymbol,
+                            }}
+                          >
+                            {singleTxFeeNative ?? '0'}
+                          </NumberSizeableText>
+                          <SizableText
+                            size="$bodyMdMedium"
+                            color="$textSubdued"
+                          >
+                            {` × ${txCountForFeeDisplay}`}
+                          </SizableText>
+                        </>
+                      ) : (
+                        <NumberSizeableText
+                          size="$bodyMdMedium"
+                          formatter="balance"
+                          formatterOptions={{ tokenSymbol: nativeSymbol }}
+                        >
+                          {networkFee}
+                        </NumberSizeableText>
+                      )}
                       <SizableText size="$bodyMdMedium">
                         (
                         <NumberSizeableText
@@ -92,8 +179,8 @@ function BulkSendReviewCostCard({
                     </>
                   )}
                 </XStack>
-                {/* Fee Level - Only show for single tx */}
-                {!isMultiTxs && (feeLevel || isError)
+                {/* Fee Level */}
+                {showFeeLevel && (feeLevel || isError)
                   ? (() => {
                       const canEditFee =
                         !isError &&
@@ -146,7 +233,66 @@ function BulkSendReviewCostCard({
             )}
           </YStack>
         </XStack>
+
+        {/* Interval Row */}
+        {intervalSettings?.mode === EIntervalMode.Specified ? (
+          <XStack gap="$2" px="$4" py="$2" alignItems="center">
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {INTERVAL_SETTINGS_TITLE}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {formatIntervalSecondsRange({
+                minSeconds: intervalSettings.minSeconds,
+                maxSeconds: intervalSettings.maxSeconds,
+              })}
+            </SizableText>
+          </XStack>
+        ) : null}
+
+        {/* ATA Rent Row (Solana SPL token transfers) */}
+        {showAtaRent ? (
+          <XStack gap="$2" px="$4" py="$2" alignItems="flex-start">
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.sig_account_rent_label,
+              })}
+              {ataCount ? ` x${ataCount}` : ''}
+            </SizableText>
+            <YStack alignItems="flex-end">
+              <XStack gap="$1" alignItems="baseline">
+                <NumberSizeableText
+                  size="$bodyMdMedium"
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol: nativeSymbol }}
+                >
+                  {ataRentFeeNative}
+                </NumberSizeableText>
+              </XStack>
+            </YStack>
+          </XStack>
+        ) : null}
       </YStack>
+
+      {/* Insufficient native token for fees */}
+      {insufficientSol ? (
+        <Alert
+          icon="ErrorOutline"
+          type="critical"
+          title={intl.formatMessage(
+            { id: ETranslations.send_error_insufficient_balance },
+            { token: nativeSymbol || 'SOL' },
+          )}
+          description={intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_insufficient_native_description,
+            },
+            {
+              amount: solBalanceNeeded ?? '0.05',
+              token: nativeSymbol || 'SOL',
+            },
+          )}
+        />
+      ) : null}
     </YStack>
   );
 }

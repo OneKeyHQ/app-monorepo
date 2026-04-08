@@ -24,13 +24,11 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
-  usePerpsCommonConfigPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   APP_STORE_LINK,
   BRIDGE_STATUS_URL,
-  EXT_RATE_URL,
   PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -47,6 +45,7 @@ import {
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
+import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extensionStoreUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -54,7 +53,6 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
-import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 
 import {
   AutoLockListItem,
@@ -155,14 +153,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
-  const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn } = useOneKeyAuth();
-  const [{ perpConfigCommon, perpConfigLoaded }] =
-    usePerpsCommonConfigPersistAtom();
-  const isPerpConfigLoaded = perpConfigLoaded ?? false;
-  const perpDisabled = isPerpConfigLoaded
-    ? perpConfigCommon.disablePerp
-    : false;
   const [settings] = useSettingsPersistAtom();
 
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
@@ -202,25 +193,23 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : null,
-                isPrimeAvailable
-                  ? {
-                      // OneKey Cloud
-                      icon: 'CloudOutline',
-                      title: intl.formatMessage({
-                        id: ETranslations.global_onekey_cloud,
-                      }),
-                      onPress: (navigation) => {
-                        defaultLogger.prime.subscription.primeEntryClick({
-                          featureName: EPrimeFeatures.OneKeyCloud,
-                          entryPoint: 'settingsPage',
-                        });
+                {
+                  // OneKey Cloud
+                  icon: 'CloudOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_onekey_cloud,
+                  }),
+                  onPress: (navigation) => {
+                    defaultLogger.prime.subscription.primeEntryClick({
+                      featureName: EPrimeFeatures.OneKeyCloud,
+                      entryPoint: 'settingsPage',
+                    });
 
-                        navigation?.pushModal(EModalRoutes.PrimeModal, {
-                          screen: EPrimePages.PrimeCloudSync,
-                        });
-                      },
-                    }
-                  : undefined,
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeCloudSync,
+                    });
+                  },
+                },
               ],
               [
                 !platformEnv.isWebDappMode
@@ -358,17 +347,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
         ],
       },
-      {
-        name: ESettingsTabNames.Wallet,
-        icon: 'WalletSolid',
-        title: intl.formatMessage({
-          id: ETranslations.global_wallet,
-        }),
-        configs: [
-          [
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            name: ESettingsTabNames.Wallet,
+            icon: 'WalletSolid',
+            title: intl.formatMessage({
+              id: ETranslations.global_wallet,
+            }),
+            configs: [
+              [
+                {
                   icon: 'ContactsOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_address_book,
@@ -377,25 +366,24 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     void onPressAddressBook(navigation);
                   },
                 },
-          ],
-          [
-            !platformEnv.isWeb
-              ? {
-                  icon: 'RefreshCcwOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_account_sync_modal_title,
-                  }),
-                  settingRoute: EModalSettingRoutes.SettingAlignPrimaryAccount,
-                  onPress: (navigation) => {
-                    navigation?.push(
-                      EModalSettingRoutes.SettingAlignPrimaryAccount,
-                    );
-                  },
-                }
-              : undefined,
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
+              ],
+              [
+                !platformEnv.isWeb
+                  ? {
+                      icon: 'RefreshCcwOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.settings_account_sync_modal_title,
+                      }),
+                      settingRoute:
+                        EModalSettingRoutes.SettingAlignPrimaryAccount,
+                      onPress: (navigation) => {
+                        navigation?.push(
+                          EModalSettingRoutes.SettingAlignPrimaryAccount,
+                        );
+                      },
+                    }
+                  : undefined,
+                {
                   icon: 'LabOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_customize_transaction,
@@ -418,11 +406,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     );
                   },
                 },
-          ],
-          [
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
+              ],
+              [
+                {
                   icon: 'BranchesOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
@@ -435,25 +421,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     );
                   },
                 },
-          ],
-          [
-            !perpDisabled && !perpConfigCommon.usePerpWeb
-              ? {
-                  icon: 'BrowserOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.perp_setting_interface,
-                  }),
-                  settingRoute: EModalSettingRoutes.SettingPerpUserConfig,
-                  onPress: (navigation) => {
-                    navigation?.push(EModalSettingRoutes.SettingPerpUserConfig);
-                  },
-                }
-              : null,
-          ],
-          [
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
+              ],
+              [
+                {
                   icon: 'FlashCardSolid',
                   title: intl.formatMessage({
                     id: ETranslations.settings_btc_multiple_addresses,
@@ -463,9 +433,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   }),
                   renderElement: <BTCFreshAddressListItem />,
                 },
-          ],
-        ],
-      },
+              ],
+            ],
+          },
       {
         name: ESettingsTabNames.Security,
         icon: 'Shield2CheckSolid',
@@ -748,10 +718,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   isExternalLink: true,
                   onPress: () => {
                     if (platformEnv.isExtension) {
-                      let url = EXT_RATE_URL.chrome;
-                      if (platformEnv.isExtFirefox) url = EXT_RATE_URL.firefox;
                       window.open(
-                        url,
+                        getOneKeyExtensionStoreUrl(),
                         intl.formatMessage({
                           id: ETranslations.settings_rate_app,
                         }),
@@ -870,9 +838,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       cloudBackupFeatureInfo?.supportCloudBackup,
       cloudBackupFeatureInfo?.icon,
       cloudBackupFeatureInfo?.title,
-      isPrimeAvailable,
-      perpDisabled,
-      perpConfigCommon.usePerpWeb,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,

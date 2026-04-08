@@ -6,7 +6,10 @@ import {
   ETonSendMode,
   genAddressFromAddress,
 } from '@onekeyhq/core/src/chains/ton/sdkTon';
-import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
+import type {
+  IDecodedTxExtraTon,
+  IEncodedTxTon,
+} from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
@@ -35,6 +38,7 @@ import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
 } from '@onekeyhq/shared/types/fee';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EDecodedTxActionType,
@@ -289,6 +293,16 @@ export default class Vault extends VaultBase {
       },
       encodedTx,
     };
+  }
+
+  override buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraTon | null> {
+    const comment = onChainHistoryTx.sends?.[0]?.comment;
+    if (!comment) return Promise.resolve(null);
+    return Promise.resolve({ memo: comment });
   }
 
   override async buildUnsignedTx(

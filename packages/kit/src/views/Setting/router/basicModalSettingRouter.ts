@@ -116,10 +116,6 @@ const CustomTransactionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomTransaction'),
 );
 
-const PerpUserConfigModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/PerpUserConfig'),
-);
-
 // OneKey ID sub-pages
 const OneKeyIdPersonalInfoPage = LazyLoadPage(
   () =>
@@ -158,6 +154,10 @@ const DevBundleList = LazyLoadPage(
 const DevLocalBundleList = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/DevBundleSwitcher/LocalBundleList'),
+);
+
+const DevBundleUpdateStatusModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/DevBundleUpdateStatus'),
 );
 
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
@@ -269,10 +269,6 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     name: EModalSettingRoutes.SettingFloatingIconModal,
     component: FloatingIconModal,
   },
-  {
-    name: EModalSettingRoutes.SettingPerpUserConfig,
-    component: PerpUserConfigModal,
-  },
   // OneKey ID sub-pages
   {
     name: EModalSettingRoutes.SettingOneKeyIdPersonalInfo,
@@ -301,6 +297,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevLocalBundleList,
     component: DevLocalBundleList,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevBundleUpdateStatusModal,
+    component: DevBundleUpdateStatusModal,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

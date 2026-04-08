@@ -1,4 +1,3 @@
-import type { PropsWithChildren } from 'react';
 import {
   memo,
   useCallback,
@@ -9,26 +8,19 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import {
-  useKeyboardEventWithoutNavigation,
-  useSafeAreaInsets,
-} from '../../hooks';
 import { Button, XStack } from '../../primitives';
 
 import { DialogContext } from './context';
 import { useDialogInstance } from './hooks';
 
 import type { IDialogFooterProps } from './type';
+
+const mdSizeLargeStyle = { size: 'large' } as any;
 
 const useConfirmButtonDisabled = (
   props: IDialogFooterProps['confirmButtonProps'],
@@ -114,34 +106,6 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
   };
 };
 
-const DEFAULT_KEYBOARD_HEIGHT = 330;
-const useSafeKeyboardAnimationStyle = () => {
-  const { bottom } = useSafeAreaInsets();
-  const keyboardHeightValue = useSharedValue(0);
-  const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: keyboardHeightValue.value + bottom,
-  }));
-
-  useKeyboardEventWithoutNavigation({
-    keyboardWillShow: (e) => {
-      const height = e.endCoordinates.height;
-      const keyboardHeight = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
-      keyboardHeightValue.value = keyboardHeight - bottom;
-    },
-    keyboardWillHide: () => {
-      keyboardHeightValue.value = 0;
-    },
-  });
-  return platformEnv.isNative ? animatedStyles : undefined;
-};
-
-const DialogFooterContainer = ({ children }: PropsWithChildren) => {
-  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
-  return (
-    <Animated.View style={safeKeyboardAnimationStyle}>{children}</Animated.View>
-  );
-};
-
 export function Footer(props: IDialogFooterProps) {
   const intl = useIntl();
   const [confirmLoading, setConfirmLoading] = useState(false);
@@ -165,6 +129,7 @@ export function Footer(props: IDialogFooterProps) {
     confirmButtonProps = {},
     onCancelText,
     tone,
+    extraContent,
   } = restProps;
   const { onCancel } = props;
   const { disabled, disabledOn, ...restConfirmButtonProps } =
@@ -174,18 +139,14 @@ export function Footer(props: IDialogFooterProps) {
     disabledOn,
   });
   return (
-    <DialogFooterContainer>
+    <>
       {showFooter ? (
         <XStack p="$5" pt="$0" gap="$2.5" {...footerProps}>
           {showCancelButton ? (
             <Button
               flexGrow={1}
               flexBasis={0}
-              $md={
-                {
-                  size: 'large',
-                } as any
-              }
+              $md={mdSizeLargeStyle}
               onPress={onCancel}
               {...cancelButtonProps}
             >
@@ -200,11 +161,7 @@ export function Footer(props: IDialogFooterProps) {
               flexBasis={0}
               loading={confirmLoading}
               disabled={confirmButtonDisabled}
-              $md={
-                {
-                  size: 'large',
-                } as any
-              }
+              $md={mdSizeLargeStyle}
               {...restConfirmButtonProps}
               onPress={onConfirmWithLoading}
             >
@@ -214,7 +171,8 @@ export function Footer(props: IDialogFooterProps) {
           ) : null}
         </XStack>
       ) : null}
-    </DialogFooterContainer>
+      {extraContent}
+    </>
   );
 }
 
@@ -231,6 +189,7 @@ function BasicFooterAction({
   confirmButtonProps = {},
   tone,
   trackID,
+  extraContent,
 }: IDialogFooterProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -249,6 +208,7 @@ function BasicFooterAction({
       onCancelText,
       trackID,
       tone,
+      extraContent,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -270,6 +230,7 @@ function BasicFooterAction({
         onCancelText || intl.formatMessage({ id: ETranslations.global_cancel }),
       trackID,
       tone,
+      extraContent,
     };
     footerRef.notifyUpdate?.();
   }, [
@@ -287,6 +248,7 @@ function BasicFooterAction({
     tone,
     footerRef,
     intl,
+    extraContent,
   ]);
   return null;
 }

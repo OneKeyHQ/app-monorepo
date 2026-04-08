@@ -68,6 +68,7 @@ import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServiceOneKeyID from '../services/ServiceOneKeyID';
 import type ServicePassword from '../services/ServicePassword';
+import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
@@ -200,6 +201,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
   serviceAppUpdate: ServiceAppUpdate;
+  servicePendingInstallTask: ServicePendingInstallTask;
   serviceSpotlight: ServiceSpotlight;
   serviceMarket: ServiceMarket;
   serviceMarketV2: ServiceMarketV2;

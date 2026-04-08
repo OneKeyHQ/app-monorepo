@@ -3,11 +3,10 @@ import BigNumber from 'bignumber.js';
 import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
 
 import type { IManagePageV2ReceiveInputConfig } from './ManagePageV2ReceiveInput';
-
 import type { IntlShape } from 'react-intl';
-import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
 
 // Price impact threshold: show dialog when user receives >1% less than they pay
 const HIGH_PRICE_IMPACT_THRESHOLD = -1;

@@ -10,6 +10,7 @@ export enum ETabHomeRoutes {
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
   TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
   TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
+  TabHomeBulkSendProcess = 'TabHomeBulkSendProcess',
   TabHomeApprovalList = 'TabHomeApprovalList',
 }
 
@@ -29,6 +30,7 @@ export type ITabHomeParamList = {
   [ETabHomeRoutes.TabHomeReferralLanding]: {
     code: string;
     page: string;
+    fromDeepLink?: boolean;
   };
   [ETabHomeRoutes.TabHomeReferralLandingWithoutPage]: {
     code: string;
@@ -43,6 +45,7 @@ export type ITabHomeParamList = {
     indexedAccountId: string | undefined;
     tokenInfo?: IToken;
     isInModal?: boolean;
+    bulkSendMode?: EBulkSendMode;
   };
   [ETabHomeRoutes.TabHomeBulkSendAmountsInput]: {
     networkId: string;
@@ -50,11 +53,18 @@ export type ITabHomeParamList = {
     senders: {
       address: string;
       amount: string | undefined;
+      accountId: string | undefined;
     }[];
     receivers: { address: string; amount: string | undefined }[];
     tokenInfo: IToken;
     tokenDetails: { info: IToken } & ITokenFiat;
     bulkSendMode: EBulkSendMode;
+    isInModal?: boolean;
+    hasDuplicateSenders?: boolean;
+  };
+  [ETabHomeRoutes.TabHomeBulkSendProcess]: {
+    networkId: string;
+    accountId: string | undefined;
     isInModal?: boolean;
   };
   [ETabHomeRoutes.TabHomeApprovalList]: {

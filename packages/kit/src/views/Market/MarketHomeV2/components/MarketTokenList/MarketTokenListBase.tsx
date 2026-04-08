@@ -1,8 +1,11 @@
 import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   ListEndIndicator,
+  SizableText,
   Spinner,
   Stack,
   Table,
@@ -17,6 +20,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   ECopyFrom,
@@ -24,9 +28,10 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
@@ -84,6 +89,22 @@ export type IMarketTokenListResult = {
   currentSortType?: 'asc' | 'desc';
 };
 
+export type IMarketTokenListLiveOverride = Partial<
+  Pick<
+    IMarketToken,
+    | 'price'
+    | 'change24h'
+    | 'marketCap'
+    | 'liquidity'
+    | 'transactions'
+    | 'uniqueTraders'
+    | 'holders'
+    | 'turnover'
+    | 'walletInfo'
+  >
+> &
+  Pick<IMarketToken, 'networkId' | 'address'>;
+
 type IMarketTokenListBaseProps = {
   networkId?: string;
   onItemPress?: (item: IMarketToken) => void;
@@ -96,6 +117,7 @@ type IMarketTokenListBaseProps = {
   watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
   draggable?: boolean;
+  showTableHeader?: boolean;
   tabIntegrated?: boolean;
   tabName?: string;
   listContainerProps?: {
@@ -109,6 +131,10 @@ type IMarketTokenListBaseProps = {
     position?: { x: number; y: number },
   ) => void;
   onScrollBegin?: () => void;
+  showStockSubtitle?: boolean;
+  hiddenDesktopColumns?: readonly string[];
+  liveTokenOverride?: IMarketTokenListLiveOverride;
+  rowBg?: string;
 };
 
 function MarketTokenListBase({
@@ -123,6 +149,7 @@ function MarketTokenListBase({
   watchlistFrom,
   copyFrom,
   draggable = false,
+  showTableHeader = true,
   tabIntegrated,
   tabName,
   listContainerProps,
@@ -130,18 +157,15 @@ function MarketTokenListBase({
   onItemLongPress,
   onItemContextMenu,
   onScrollBegin,
+  showStockSubtitle = true,
+  hiddenDesktopColumns,
+  liveTokenOverride,
+  rowBg,
 }: IMarketTokenListBaseProps) {
+  const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
-
-  const marketTokenColumns = useMarketTokenColumns(
-    networkId,
-    isWatchlistMode,
-    hideTokenAge,
-    watchlistFrom,
-    copyFrom,
-  );
 
   const {
     data: rawData,
@@ -158,17 +182,93 @@ function MarketTokenListBase({
     currentSortType,
   } = result;
 
+  const hasStock = useMemo(
+    () => rawData.some((item) => !!item.stock),
+    [rawData],
+  );
+
+  const marketTokenColumns = useMarketTokenColumns(
+    networkId,
+    isWatchlistMode,
+    hideTokenAge,
+    watchlistFrom,
+    copyFrom,
+    hasStock,
+    showStockSubtitle,
+    hiddenDesktopColumns,
+  );
+
   // Client-side sorting: sort data locally when clientSort is enabled
   const data = useMemo(() => {
-    if (!clientSort || !currentSortBy || !currentSortType) return rawData;
-    const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
-    if (!field) return rawData;
-    return [...rawData].toSorted((a, b) => {
-      const aVal = (a[field] as number) ?? 0;
-      const bVal = (b[field] as number) ?? 0;
-      return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
+    let nextData = rawData;
+
+    if (clientSort && currentSortBy && currentSortType) {
+      const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
+      if (field) {
+        nextData = [...rawData].toSorted((a, b) => {
+          const aVal = (a[field] as number) ?? 0;
+          const bVal = (b[field] as number) ?? 0;
+          return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
+        });
+      }
+    }
+
+    if (!liveTokenOverride?.networkId || !liveTokenOverride.address) {
+      return nextData;
+    }
+
+    let hasMatchedToken = false;
+    const dataWithLiveOverride = nextData.map((item) => {
+      const isMatchedToken = equalTokenNoCaseSensitive({
+        token1: {
+          networkId: item.networkId,
+          contractAddress: item.address,
+        },
+        token2: {
+          networkId: liveTokenOverride.networkId,
+          contractAddress: liveTokenOverride.address,
+        },
+      });
+
+      if (!isMatchedToken) {
+        return item;
+      }
+
+      hasMatchedToken = true;
+      return {
+        ...item,
+        ...(liveTokenOverride.price !== undefined && {
+          price: liveTokenOverride.price,
+        }),
+        ...(liveTokenOverride.change24h !== undefined && {
+          change24h: liveTokenOverride.change24h,
+        }),
+        ...(liveTokenOverride.marketCap !== undefined && {
+          marketCap: liveTokenOverride.marketCap,
+        }),
+        ...(liveTokenOverride.liquidity !== undefined && {
+          liquidity: liveTokenOverride.liquidity,
+        }),
+        ...(liveTokenOverride.transactions !== undefined && {
+          transactions: liveTokenOverride.transactions,
+        }),
+        ...(liveTokenOverride.uniqueTraders !== undefined && {
+          uniqueTraders: liveTokenOverride.uniqueTraders,
+        }),
+        ...(liveTokenOverride.holders !== undefined && {
+          holders: liveTokenOverride.holders,
+        }),
+        ...(liveTokenOverride.turnover !== undefined && {
+          turnover: liveTokenOverride.turnover,
+        }),
+        ...(liveTokenOverride.walletInfo !== undefined && {
+          walletInfo: liveTokenOverride.walletInfo,
+        }),
+      };
     });
-  }, [clientSort, rawData, currentSortBy, currentSortType]);
+
+    return hasMatchedToken ? dataWithLiveOverride : nextData;
+  }, [clientSort, rawData, currentSortBy, currentSortType, liveTokenOverride]);
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   // Skip for clientSort mode — banner detail pages manage their own sort state
@@ -278,11 +378,58 @@ function MarketTokenListBase({
     }
   }, [canLoadMore, loadMore, isLoadingMore]);
 
-  // Show skeleton on initial load or network switching
-  // Initial load: when there's no data yet
-  // Network switching: when network is changing (provides better UX feedback)
+  // Stable onRow handler — uses refs to avoid re-creating on every render,
+  // which prevents the Table from seeing a new onRow prop and re-rendering all rows.
+  const onItemPressRef = useRef(onItemPress);
+  onItemPressRef.current = onItemPress;
+  const onItemLongPressRef = useRef(onItemLongPress);
+  onItemLongPressRef.current = onItemLongPress;
+  const onItemContextMenuRef = useRef(onItemContextMenu);
+  onItemContextMenuRef.current = onItemContextMenu;
+
+  const stableOnRow = useCallback(
+    (item: IMarketToken, index: number) => ({
+      onPress: onItemPressRef.current
+        ? () => onItemPressRef.current!(item)
+        : () => {
+            if (item.perpsCoin) {
+              navigateToPerps(item.perpsCoin);
+              return;
+            }
+            void toMarketDetailPage({
+              symbol: item.symbol,
+              tokenAddress: item.address,
+              networkId: item.networkId,
+              isNative: item.isNative,
+            });
+          },
+      onLongPress: onItemLongPressRef.current
+        ? () => onItemLongPressRef.current!(item, index)
+        : undefined,
+      onContextMenu: onItemContextMenuRef.current
+        ? (position?: { x: number; y: number }) =>
+            onItemContextMenuRef.current!(item, index, position)
+        : undefined,
+    }),
+    [navigateToPerps, toMarketDetailPage],
+  );
+
+  // Show skeleton only when there's no data to display.
+  // When switching networks with existing data, keep old data visible
+  // until new data arrives — avoids unnecessary skeleton flash.
   const showSkeleton =
-    (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
+    (Boolean(isLoading) || Boolean(isNetworkSwitching)) && data.length === 0;
+
+  const TableEmptyComponent = useMemo(() => {
+    if (isLoading) return null;
+    return (
+      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_no_data })}
+        </SizableText>
+      </Stack>
+    );
+  }, [isLoading, intl]);
 
   const TableFooterComponent = useMemo(() => {
     if (isLoadingMore) {
@@ -293,13 +440,25 @@ function MarketTokenListBase({
       );
     }
 
-    // Show end indicator when no more data to load
-    if (showEndReachedIndicator && !canLoadMore && data.length > 0) {
+    // End indicator is rendered outside the Table when draggable,
+    // so it doesn't participate in absolute positioning during drag.
+    if (
+      !draggable &&
+      showEndReachedIndicator &&
+      !canLoadMore &&
+      data.length > 0
+    ) {
       return <ListEndIndicator />;
     }
 
     return null;
-  }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
+  }, [
+    isLoadingMore,
+    showEndReachedIndicator,
+    canLoadMore,
+    data.length,
+    draggable,
+  ]);
   const tabBarHeight = useScrollContentTabBarOffset();
 
   // On web with tabIntegrated, disable FlatList's own scroll so the outer
@@ -362,11 +521,7 @@ function MarketTokenListBase({
     <Stack flex={1} width="100%">
       {portalContent}
       {/* render custom toolbar if provided (only when not in desktop portal mode) */}
-      {!useDesktopPortal && toolbar ? (
-        <Stack width="100%" mb="$3">
-          {toolbar}
-        </Stack>
-      ) : null}
+      {!useDesktopPortal ? toolbar : null}
 
       {/* Table container with horizontal scroll support */}
       <Stack
@@ -375,6 +530,12 @@ function MarketTokenListBase({
         style={{
           paddingTop: 4,
           overflowX: 'auto',
+          // Explicitly set overflowY to prevent browsers from implicitly
+          // changing it to 'auto' (CSS spec: setting one overflow axis to
+          // non-visible forces the other to auto). Without this, drag
+          // auto-scroll would bind to this horizontal wrapper instead of
+          // the real vertical scroll container (Tabs.Container).
+          overflowY: 'hidden',
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
@@ -411,7 +572,7 @@ function MarketTokenListBase({
                     }
               }
               stickyHeader
-              showHeader={!useDesktopPortal}
+              showHeader={showTableHeader ? !useDesktopPortal : false}
               scrollEnabled={!webTabIntegrated}
               draggable={draggable}
               tabIntegrated={tabIntegrated}
@@ -422,35 +583,23 @@ function MarketTokenListBase({
               keyExtractor={(item) => item.id}
               extraData={networkId}
               onHeaderRow={stableHandleHeaderRow}
+              TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize={60}
-              onRow={(item, index) => ({
-                onPress: onItemPress
-                  ? () => onItemPress(item)
-                  : () => {
-                      if (item.perpsCoin) {
-                        navigateToPerps(item.perpsCoin);
-                        return;
-                      }
-                      void toMarketDetailPage({
-                        symbol: item.symbol,
-                        tokenAddress: item.address,
-                        networkId: item.networkId,
-                        isNative: item.isNative,
-                      });
-                    },
-                onLongPress: onItemLongPress
-                  ? () => onItemLongPress(item, index)
-                  : undefined,
-                onContextMenu: onItemContextMenu
-                  ? (position?: { x: number; y: number }) =>
-                      onItemContextMenu(item, index, position)
-                  : undefined,
-              })}
+              onRow={stableOnRow}
+              {...(rowBg ? { rowProps: { bg: rowBg } } : undefined)}
             />
           )}
           {webTabIntegrated ? (
             <div ref={endSentinelRef} style={{ height: 1 }} />
+          ) : null}
+          {/* Render end indicator outside the Table for draggable lists
+              so it doesn't participate in absolute positioning during drag. */}
+          {draggable &&
+          showEndReachedIndicator &&
+          !canLoadMore &&
+          data.length > 0 ? (
+            <ListEndIndicator />
           ) : null}
         </Stack>
       </Stack>

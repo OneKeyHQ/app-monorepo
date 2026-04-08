@@ -30,13 +30,28 @@ import {
 
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useMobileTabTouchScrollBridge } from '../../../hooks/useMobileTabTouchScrollBridge';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { PerpCandles } from '../components/PerpCandles';
 import PerpMarketFooter from '../components/PerpMarketFooter';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
+import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+
+function MobilePerpCandlesTouchBridge() {
+  const handleTouchScroll = useMobileTabTouchScrollBridge();
+
+  return (
+    <YStack>
+      <MobilePerpMarketHeader />
+      <YStack flex={1} minHeight={500}>
+        <PerpCandles onTouchScroll={handleTouchScroll} />
+      </YStack>
+    </YStack>
+  );
+}
 
 function MobilePerpMarket() {
   const intl = useIntl();
@@ -58,7 +73,7 @@ function MobilePerpMarket() {
   const renderHeaderTitle = useCallback(() => {
     const parsedCoin = coin ? parseDexCoin(coin) : null;
     const displayCoin = parsedCoin?.displayName || coin || '';
-    const pairLabel = displayCoin ? `${displayCoin}USD` : '--';
+    const pairLabel = displayCoin ? `${displayCoin}USDC` : '--';
     return (
       <XStack alignItems="center" gap="$2">
         <NavBackButton
@@ -110,9 +125,19 @@ function MobilePerpMarket() {
     };
   }, [isLandscape, isTablet]);
 
+  const renderHeaderRight = useCallback(
+    () => <FavoriteButton coin={coin} iconSize="$5" />,
+    [coin],
+  );
+
   const pageHeader = useMemo(
-    () => <Page.Header headerLeft={renderHeaderTitle} />,
-    [renderHeaderTitle],
+    () => (
+      <Page.Header
+        headerLeft={renderHeaderTitle}
+        headerRight={renderHeaderRight}
+      />
+    ),
+    [renderHeaderTitle, renderHeaderRight],
   );
 
   const marketHeaderContent = useMemo(
@@ -147,7 +172,7 @@ function MobilePerpMarket() {
           <YStack flex={1} bg="$bgApp" gap="$1.5">
             <Tabs.Container
               initialTabName="orderbook"
-              renderHeader={() => marketHeaderContent}
+              renderHeader={() => <MobilePerpCandlesTouchBridge />}
               renderTabBar={() => null}
             >
               <Tabs.Tab name="orderbook">

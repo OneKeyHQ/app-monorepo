@@ -1,5 +1,11 @@
 /* eslint-disable camelcase */
-import { type ChangeEvent, useCallback, useRef, useState } from 'react';
+import {
+  type ChangeEvent,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { Cropper } from 'react-mobile-cropper';
 import 'react-mobile-cropper/dist/style.css';
@@ -20,6 +26,8 @@ import {
 import type { IStackStyle } from '../../primitives';
 import type { CropperRef } from 'react-mobile-cropper';
 import type { LayoutChangeEvent } from 'react-native';
+
+const cropGtMdStyle = { height: 'calc(100vh - 180px)' };
 
 const MINE_TYPE = RESULT_MINE_TYPE;
 const resizeImage = (
@@ -91,49 +99,53 @@ function BasicImageCrop({
     }
   }, []);
 
+  const stencilProps = useMemo(
+    () => ({
+      aspectRatio: defaultSize.width / defaultSize.height,
+    }),
+    [defaultSize.width, defaultSize.height],
+  );
+
+  const handleConfirm = useCallback(async () => {
+    if (cropperRef.current && cropperRef.current.getCanvas()) {
+      const canvas = cropperRef.current.getCanvas();
+      if (canvas) {
+        const { width, height } = defaultSize;
+        const imageWidth = cropRectRef.current.width;
+        const imageHeight = cropRectRef.current.height;
+        let base64String = canvas.toDataURL(MINE_TYPE, 1.0);
+        if (imageHeight > height || imageWidth > width) {
+          base64String = await resizeImage(base64String, width, height);
+        }
+        onConfirm({
+          data: base64String,
+          cropRect: cropRectRef.current,
+          path: '',
+          size: base64String.length,
+          width: Math.min(imageWidth, width),
+          height: Math.min(imageHeight, height),
+          mime: MINE_TYPE,
+        });
+      }
+    }
+  }, [defaultSize, onConfirm]);
+
   return (
     <>
       <Stack
         onLayout={onStackLayout}
-        $gtMd={{ height: 'calc(100vh - 180px)' }}
+        $gtMd={cropGtMdStyle}
         height="calc(100vh - 172px)"
       >
         <Cropper
           src={src}
           onChange={onChange}
           ref={cropperRef}
-          stencilProps={{
-            aspectRatio: defaultSize.width / defaultSize.height,
-          }}
+          stencilProps={stencilProps}
           className="onekey-img-cropper"
         />
       </Stack>
-      <Dialog.Footer
-        onCancel={onCancel}
-        onConfirm={async () => {
-          if (cropperRef.current && cropperRef.current.getCanvas()) {
-            const canvas = cropperRef.current.getCanvas();
-            if (canvas) {
-              const { width, height } = defaultSize;
-              const imageWidth = cropRectRef.current.width;
-              const imageHeight = cropRectRef.current.height;
-              let base64String = canvas.toDataURL(MINE_TYPE, 1.0);
-              if (imageHeight > height || imageWidth > width) {
-                base64String = await resizeImage(base64String, width, height);
-              }
-              onConfirm({
-                data: base64String,
-                cropRect: cropRectRef.current,
-                path: '',
-                size: base64String.length,
-                width: Math.min(imageWidth, width),
-                height: Math.min(imageHeight, height),
-                mime: MINE_TYPE,
-              });
-            }
-          }
-        }}
-      />
+      <Dialog.Footer onCancel={onCancel} onConfirm={handleConfirm} />
     </>
   );
 }
@@ -164,6 +176,7 @@ const openPicker: IOpenPickerFunc = ({ width, height }) =>
               renderContent: (
                 <BasicImageCrop
                   src={imageSrc}
+                  // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
                   defaultSize={{
                     width,
                     height,
@@ -196,11 +209,13 @@ const openCropImage = (
       renderContent: (
         <BasicImageCrop
           src={image}
+          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
           defaultSize={{
             width,
             height,
           }}
           onConfirm={resolve as any}
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
           onCancel={() => {
             void dialog?.close();
             reject(new Error('User cancelled'));

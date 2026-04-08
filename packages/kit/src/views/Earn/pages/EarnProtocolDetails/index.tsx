@@ -22,7 +22,10 @@ import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCa
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   EJotaiContextStoreNames,
   useDevSettingsPersistAtom,
@@ -40,7 +43,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   normalizeToEarnProvider,
   normalizeToEarnSymbol,
@@ -330,12 +332,12 @@ function ChartSection({
         showUnderlyingApyToggle={showUnderlyingApyToggle}
         primaryApyLabel={
           isPendleProvider
-            ? intl.formatMessage({ id: ETranslations.earn_fixed_apy })
+            ? intl.formatMessage({ id: ETranslations.earn_fixed_income })
             : undefined
         }
         secondaryApyLabel={
           isPendleProvider
-            ? intl.formatMessage({ id: ETranslations.earn_base_apy })
+            ? intl.formatMessage({ id: ETranslations.defi_underlying_apy })
             : undefined
         }
       />
@@ -615,13 +617,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, indexedAccount } = activeAccount;
+  const { indexedAccount } = activeAccount;
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [keepSkeletonVisible, setKeepSkeletonVisible] = useState(false);
 
   // Parse route params, support both normal and share link routes
   const resolvedParams = useMemo<{
     networkId: string;
-    symbol: ISupportedSymbol;
+    symbol: string;
     provider: string;
     vault: string | undefined;
   }>(() => {
@@ -643,9 +646,6 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
       if (!networkId) {
         throw new OneKeyLocalError(`Unknown network: ${String(network)}`);
-      }
-      if (!symbol) {
-        throw new OneKeyLocalError(`Unknown symbol: ${String(symbolParam)}`);
       }
       if (!normalizedProvider) {
         throw new OneKeyLocalError(
@@ -672,8 +672,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     };
   }, [route.params]);
 
-  const accountId = account?.id || '';
-  const indexedAccountId = indexedAccount?.id;
+  // For cross-network: only use othersWalletAccountId (external wallets),
+  // NEVER account?.id which is network-specific and will mismatch.
+  const accountId = selectedAccount.othersWalletAccountId || '';
+  const indexedAccountId =
+    selectedAccount.indexedAccountId || indexedAccount?.id;
   const { networkId, symbol, provider, vault } = resolvedParams;
 
   const { detailInfo, tokenInfo, isLoading, refreshData, refreshAccount } =
@@ -710,6 +713,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const { breadcrumbProps } = useProtocolDetailBreadcrumb({
     accountReady: activeAccount.ready,
     accountId,
+    indexedAccountId,
     networkId,
     symbol,
     provider,
@@ -825,7 +829,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       tabRoute={ETabRoutes.Earn}
       showBackButton
       header={
-        <XStack ml={gtMd ? 'auto' : '0'} pr="$2">
+        <XStack ml={gtMd ? 'auto' : '0'} pr="$2" pt={gtMd ? undefined : '$4'}>
           <ManagersSection managers={detailInfo?.managers} noPadding />
         </XStack>
       }

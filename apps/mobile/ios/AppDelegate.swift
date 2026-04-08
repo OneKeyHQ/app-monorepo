@@ -37,9 +37,48 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    // === Recovery Check ===
+    let defaults = UserDefaults.standard
+
+    // Version-aware counter reset
+    let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+    let storedVersion = defaults.string(forKey: BootRecoveryKeys.bootFailAppVersion) ?? ""
+    if !storedVersion.isEmpty && storedVersion != currentVersion {
+      defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    }
+    defaults.set(currentVersion, forKey: BootRecoveryKeys.bootFailAppVersion)
+
+    // Increment boot fail count; counter is reset in applicationDidEnterBackground
+    // on graceful exit, so only consecutive crashes accumulate
+    let oldCount = defaults.integer(forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    let newCount = oldCount + 1
+    defaults.set(newCount, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    defaults.synchronize()
+
+    NitroModuleBridge.logInfo("BootRecovery", "boot_fail_count: \(oldCount) -> \(newCount), shouldShowRecovery: \(newCount >= 3)")
+
+    // Harness tests set this flag via globalSetup so the recovery page
+    // never blocks React Native from starting during test runs.
+    let isHarnessMode = defaults.bool(forKey: "onekey_harness_mode")
+
+    if !isHarnessMode && newCount >= 3 {
+      // Skip super.application() and React Native initialization entirely.
+      // Create our own window — this replaces the system launch storyboard.
+      // Do NOT call super here: ExpoAppDelegate.super would start the RN engine
+      // and show the Expo splash screen overlay, which would cover recovery UI.
+      window = UIWindow(frame: UIScreen.main.bounds)
+      window?.rootViewController = RecoveryViewController()
+      window?.makeKeyAndVisible()
+      return true
+    }
+
     let store = NitroModuleBridge.launchOptionsStore()
     store?.setValue(NSNumber(value: Date().timeIntervalSince1970), forKey: "startupTime")
     NitroModuleBridge.logInfo("App", "OneKey started")
+    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+    let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+    let builtinBundleVersion = Bundle.main.infoDictionary?["BUNDLE_VERSION"] as? String ?? ""
+    NitroModuleBridge.logInfo("App", "nativeAppVersion: \(appVersion), buildNumber: \(buildNumber), builtinBundleVersion: \(builtinBundleVersion)")
 
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
@@ -65,6 +104,18 @@ public class AppDelegate: ExpoAppDelegate {
     JPUSHService.setDebugMode()
     JPUSHService.register(forRemoteNotificationConfig: entity, delegate: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // Reset crash counter on graceful exit so normal close is not mistaken for a crash.
+  // Skip reset when in recovery mode (count >= 3) so recovery is still offered
+  // if the user force-kills from the app switcher while viewing the recovery screen.
+  public override func applicationDidEnterBackground(_ application: UIApplication) {
+    super.applicationDidEnterBackground(application)
+    let count = UserDefaults.standard.integer(forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    if count < 3 {
+      UserDefaults.standard.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+      UserDefaults.standard.synchronize()
+    }
   }
 
   // Linking API
@@ -118,13 +169,32 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
-    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+    let metroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(DEBUG): metroURL=\(metroURL?.absoluteString ?? "nil")")
+    return metroURL
 #else
     // Check for updated bundle via dynamic bridge (avoids Nitro module import)
-    if let bundlePath = NitroModuleBridge.currentBundleMainJSBundle() {
-      return URL(string: bundlePath)
+    if let bundlePath = NitroModuleBridge.currentBundleMainJSBundle(), !bundlePath.isEmpty {
+      let isFileURL = bundlePath.hasPrefix("file://")
+      let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
+      let exists = FileManager.default.fileExists(atPath: bundleFilePath)
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): otaPath=\(bundlePath), exists=\(exists)")
+
+      if exists {
+        if isFileURL, let fileURL = URL(string: bundlePath) {
+          NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA file URL=\(fileURL.absoluteString)")
+          return fileURL
+        }
+        let fileURL = URL(fileURLWithPath: bundlePath)
+        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA file path=\(fileURL.absoluteString)")
+        return fileURL
+      }
+
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA path not found, will fallback")
     }
-    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+    let fallbackURL = Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback main.jsbundle=\(fallbackURL?.absoluteString ?? "nil")")
+    return fallbackURL
 #endif
   }
 }

@@ -340,10 +340,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         tabs.splice(targetIndex, 1);
 
         // Add to browser history when tab is closed
-        if (closedTab.url && closedTab.title && closedTab.url !== homeTab.url) {
+        if (closedTab.url && closedTab.url !== homeTab.url) {
           void this.addBrowserHistory.call(set, {
             url: closedTab.url,
-            title: closedTab.title,
+            title: closedTab.title || closedTab.url,
+            logo: closedTab.favicon,
           });
         }
 
@@ -416,10 +417,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       // Create a queue for closing tabs
       const closeQueue = tabsToClose.map((tab) => async () => {
-        if (tab.url && tab.title) {
+        if (tab.url && tab.url !== homeTab.url) {
           await this.addBrowserHistory.call(set, {
             url: tab.url,
-            title: tab.title,
+            title: tab.title || tab.url,
+            logo: tab.favicon,
           });
         }
       });
@@ -460,10 +462,24 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   setPinnedTab = contextAtomMethod(
     (get, set, payload: { id: string; pinned: boolean }) => {
+      let timestamp = Date.now();
+      // When unpinning, place the tab at the top of the unpinned list
+      if (!payload.pinned) {
+        const allTabs = get(webTabsAtom())?.tabs ?? [];
+        const minUnpinnedTimestamp = allTabs
+          .filter((t) => !t.isPinned && t.id !== payload.id && t.timestamp)
+          .reduce(
+            (min, t) => Math.min(min, t.timestamp ?? min),
+            Number.MAX_SAFE_INTEGER,
+          );
+        if (minUnpinnedTimestamp < Number.MAX_SAFE_INTEGER) {
+          timestamp = minUnpinnedTimestamp - 1;
+        }
+      }
       this.setWebTabData.call(set, {
         id: payload.id,
         isPinned: payload.pinned,
-        timestamp: Date.now(),
+        timestamp,
       });
       this.setTabs.call(set);
 
@@ -671,11 +687,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       const updatedHistory = history.filter((item) => item.url !== payload.url);
 
-      const newHistoryEntry = {
+      const newHistoryEntry: IBrowserHistory = {
         id: generateUUID(),
         url: payload.url,
         title: payload.title,
         createdAt: Date.now(),
+        // Skip data: URIs to avoid inflating storage
+        logo: payload.logo?.startsWith('data:') ? undefined : payload.logo,
       };
 
       this.buildHistoryData.call(set, {

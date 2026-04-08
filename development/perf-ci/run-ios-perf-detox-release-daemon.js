@@ -14,8 +14,8 @@
  *   node development/perf-ci/run-ios-perf-detox-release-daemon.js --interval-minutes 300
  */
 
-const path = require('path');
 const { spawn } = require('child_process');
+const path = require('path');
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -79,6 +79,7 @@ async function main() {
   console.log(`[perf] release daemon started; intervalMs=${intervalMs}`);
 
   // Run immediately, then sleep interval.
+  // oxlint-disable-next-line no-unmodified-loop-condition -- stopping is set by SIGINT/SIGTERM signal handler
   while (!stopping) {
     const startedAt = new Date().toISOString();
     // eslint-disable-next-line no-console

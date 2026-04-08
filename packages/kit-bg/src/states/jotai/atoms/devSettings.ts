@@ -46,8 +46,6 @@ export interface IDevSettings {
   allowDeleteKeylessKey?: boolean;
   // show Keyless-related debug dialogs/logs in UI (dev only)
   enableKeylessDebugInfo?: boolean;
-  // show Keyless cloud sync switch in OneKey Cloud page (dev only)
-  enableKeylessCloudSyncFeature?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -80,6 +78,8 @@ export interface IDevSettings {
   enableMockMarketBanner?: boolean;
   // Test accounts for OneKey ID login testing
   testAccounts?: ITestAccount[];
+  // Ignore server bundle update info (prevents rollback when dev-switching bundles)
+  ignoreServerBundleUpdate?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -106,7 +106,6 @@ export const {
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
       enableKeylessDebugInfo: false,
-      enableKeylessCloudSyncFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
       showPerformanceMonitor: true,

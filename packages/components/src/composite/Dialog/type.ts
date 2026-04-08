@@ -56,6 +56,8 @@ export interface IDialogFooterProps extends PropsWithChildren {
   cancelButtonProps?: IDialogButtonProps;
   onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
+  /** Content rendered below the footer buttons */
+  extraContent?: ReactNode;
 }
 
 export type IDialogHeaderProps = PropsWithChildren<{
@@ -93,6 +95,7 @@ interface IBasicDialogProps extends TMDialogProps {
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close
+  trapFocus?: boolean; // Enable focus trapping within the dialog
   testID?: string;
   onConfirm?: IOnDialogConfirm;
   onCancel?: (close: () => Promise<void>) => void;

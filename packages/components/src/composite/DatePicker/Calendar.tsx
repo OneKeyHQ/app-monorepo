@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useDatePickerContext } from '@rehookify/datepicker';
 
@@ -37,14 +37,24 @@ export const Calendar = memo(
     const media = useMedia();
     const { month, year } = calendars[0];
 
+    const handlePrevYear = useCallback(
+      () => callOnClick(subtractOffset({ years: 1 })),
+      [subtractOffset],
+    );
+
+    const handleNextYear = useCallback(
+      () => callOnClick(addOffset({ years: 1 })),
+      [addOffset],
+    );
+
     if (mode === 'month') {
       return (
         <YStack>
           <CalendarHeader
             month={month}
             year={year}
-            onPrevMonth={() => callOnClick(subtractOffset({ years: 1 }))}
-            onNextMonth={() => callOnClick(addOffset({ years: 1 }))}
+            onPrevMonth={handlePrevYear}
+            onNextMonth={handleNextYear}
             mode={mode}
           />
           <MonthGrid onMonthSelect={onMonthSelect} />

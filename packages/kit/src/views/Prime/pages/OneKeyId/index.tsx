@@ -11,7 +11,8 @@ import {
   Stack,
   XStack,
   YStack,
-  popModalPagesOnNative,
+  resetAboveMainRoute,
+  resetToRoute,
   rootNavigationRef,
   useUpdateEffect,
 } from '@onekeyhq/components';
@@ -45,14 +46,20 @@ function OneKeyIdPage() {
       try {
         if (isPrimeAvailable) {
           if (platformEnv.isNative) {
-            popModalPagesOnNative();
+            resetToRoute(ERootRoutes.iOSFullScreen, {
+              screen: EModalRoutes.PrimeModal,
+              params: {
+                screen: EPrimePages.PrimeDashboard,
+              },
+            });
+          } else {
+            rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
+              screen: EModalRoutes.PrimeModal,
+              params: {
+                screen: EPrimePages.PrimeDashboard,
+              },
+            });
           }
-          rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
-            screen: EModalRoutes.PrimeModal,
-            params: {
-              screen: EPrimePages.PrimeDashboard,
-            },
-          });
         }
       } catch (e) {
         defaultLogger.prime.subscription.onekeyIdLogout({
@@ -68,7 +75,7 @@ function OneKeyIdPage() {
     }
     if (!isLoggedIn && isFocused) {
       await timerUtils.wait(300);
-      popModalPagesOnNative();
+      resetAboveMainRoute();
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason:
           'OneKeyIdPage: is focused and primePersistAtom is not logged in',
@@ -87,7 +94,7 @@ function OneKeyIdPage() {
 
   const handleLogoutSuccess = useCallback(async () => {
     defaultLogger.referral.page.logoutOneKeyIDResult();
-    popModalPagesOnNative();
+    resetAboveMainRoute();
   }, []);
 
   return (

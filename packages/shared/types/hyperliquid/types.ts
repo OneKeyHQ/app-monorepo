@@ -23,6 +23,7 @@ export enum ESubscriptionType {
   ALL_DEXS_ASSET_CTXS = 'allDexsAssetCtxs',
   TWAP_STATES = 'twapStates',
   BBO = 'bbo',
+  SPOT_STATE = 'spotState',
   // TRADES = 'trades',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
@@ -154,6 +155,25 @@ export interface IPositionTpslOrderParams {
   slippage?: number;
 }
 
+// ── Standalone Trigger Order Types ──
+
+export enum ETriggerOrderType {
+  TRIGGER_MARKET = 'triggerMarket',
+  TRIGGER_LIMIT = 'triggerLimit',
+}
+
+export interface ITriggerOrderParams {
+  assetId: number;
+  isBuy: boolean;
+  size: string;
+  triggerPx: string;
+  triggerOrderType: ETriggerOrderType;
+  tpsl: 'tp' | 'sl';
+  executionPx?: string; // required for limit triggers
+  reduceOnly: boolean;
+  slippage?: number;
+}
+
 export interface IL2BookOptions {
   nSigFigs?: 2 | 3 | 4 | 5 | null;
   mantissa?: 2 | 5 | null;
@@ -249,3 +269,11 @@ export interface IPerpTokenSelectorConfig {
 
 // Deprecated: Use IPerpTokenSelectorConfig instead
 export type IPerpTokenSortConfig = IPerpTokenSelectorConfig;
+
+export enum EHyperLiquidAbstractionMode {
+  DISABLED = 'disabled',
+  UNIFIED_ACCOUNT = 'unifiedAccount',
+  PORTFOLIO_MARGIN = 'portfolioMargin',
+  DEX_ABSTRACTION = 'dexAbstraction',
+  DEFAULT = 'default',
+}

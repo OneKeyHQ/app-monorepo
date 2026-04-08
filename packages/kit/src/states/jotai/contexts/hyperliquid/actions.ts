@@ -30,6 +30,8 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
+  getTriggerEffectivePrice,
+  inferTpsl,
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -38,6 +40,7 @@ import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
+  ETriggerOrderType,
   type IL2BookOptions,
   type IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -645,18 +648,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin,
       });
 
+      const nextFormUpdates: Partial<ITradingFormData> = {
+        triggerPrice: '',
+        executionPrice: '',
+        triggerReduceOnly: true,
+      };
+
       // update limit price once using current atom snapshot.
       if (shouldUpdateLimitPrice) {
         const allMids = get(perpsAllMidsAtom());
         const mid = allMids?.mids?.[coin];
         const midValue = new BigNumber(mid || '');
-        this.updateTradingForm.call(set, {
-          price:
-            mid && midValue.isFinite() && midValue.gt(0)
-              ? formatPriceToSignificantDigits(mid)
-              : '',
-        });
+        nextFormUpdates.price =
+          mid && midValue.isFinite() && midValue.gt(0)
+            ? formatPriceToSignificantDigits(mid)
+            : '';
       }
+
+      this.updateTradingForm.call(set, nextFormUpdates);
     },
   );
 
@@ -854,6 +863,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       tpValue: '',
       slType: 'price',
       slValue: '',
+      triggerPrice: '',
+      executionPrice: '',
     });
   });
 
@@ -985,6 +996,166 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
         },
         actionType: EActionType.ORDER_OPEN,
+      });
+    },
+  );
+
+  triggerOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+      const slippage = params.slippage;
+      const triggerOrderType =
+        formData.triggerOrderType ?? ETriggerOrderType.TRIGGER_MARKET;
+
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const [
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+            ] = await Promise.all([
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+            ]);
+
+            // Use trigger effective price for size resolution
+            const effectivePrice = getTriggerEffectivePrice({
+              triggerOrderType,
+              triggerPrice: formData.triggerPrice,
+              executionPrice: formData.executionPrice,
+              midPrice: activeAssetCtxValue?.ctx?.markPrice,
+            });
+
+            // Trigger orders don't lock margin, slider max = balance × leverage / price
+            const leverageValue = activeAssetDataValue?.leverage?.value;
+            const fallbackLeverage = activeAssetValue?.universe?.maxLeverage;
+            const effPriceBN =
+              effectivePrice.isFinite() && effectivePrice.gt(0)
+                ? effectivePrice
+                : new BigNumber(activeAssetCtxValue?.ctx?.markPrice ?? 0);
+            let triggerMaxTradeSzs = activeAssetDataValue?.maxTradeSzs;
+            if (effPriceBN.gt(0)) {
+              const effLeverage = new BigNumber(
+                leverageValue ?? fallbackLeverage ?? 1,
+              );
+              const availableIdx = formData.side === 'long' ? 0 : 1;
+              const balanceBN = new BigNumber(
+                activeAssetDataValue?.availableToTrade?.[availableIdx] ?? 0,
+              );
+              const markPxBN = new BigNumber(
+                activeAssetCtxValue?.ctx?.markPrice ?? 0,
+              );
+              if (effLeverage.gt(0) && balanceBN.gt(0) && markPxBN.gt(0)) {
+                // Produce tokens-at-markPrice so resolveTradingSize converts correctly
+                const triggerMax = balanceBN
+                  .multipliedBy(effLeverage)
+                  .dividedBy(markPxBN);
+                triggerMaxTradeSzs = [
+                  formData.side === 'long' ? triggerMax.toFixed() : '0',
+                  formData.side === 'short' ? triggerMax.toFixed() : '0',
+                ];
+              }
+            }
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: effectivePrice.isFinite() ? effectivePrice.toFixed() : '',
+              markPrice: activeAssetCtxValue?.ctx?.markPrice,
+              maxTradeSzs: triggerMaxTradeSzs,
+              leverageValue,
+              fallbackLeverage,
+              szDecimals: activeAssetValue?.universe?.szDecimals,
+            });
+
+            const isLimitTrigger =
+              triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+
+            // Infer TP/SL from side + triggerPrice vs midPrice
+            const midPriceBN = new BigNumber(
+              activeAssetCtxValue?.ctx?.midPrice ?? 0,
+            );
+            const triggerPriceBN = new BigNumber(formData.triggerPrice ?? 0);
+            if (
+              triggerPriceBN.isFinite() &&
+              triggerPriceBN.gt(0) &&
+              midPriceBN.isFinite() &&
+              midPriceBN.gt(0) &&
+              triggerPriceBN.eq(midPriceBN)
+            ) {
+              throw new OneKeyLocalError(
+                'Trigger price must differ from current price',
+              );
+            }
+            const tpsl = inferTpsl({
+              side: formData.side,
+              triggerPrice: triggerPriceBN,
+              currentPrice: midPriceBN,
+            });
+
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.orderTrigger({
+                assetId: params.assetId,
+                isBuy: formData.side === 'long',
+                size: resolvedSize,
+                triggerPx: formData.triggerPrice ?? '',
+                triggerOrderType,
+                tpsl,
+                executionPx: isLimitTrigger
+                  ? formData.executionPrice
+                  : undefined,
+                reduceOnly: formData.triggerReduceOnly ?? true,
+                slippage,
+              });
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.PLACE_ORDER,
+      });
+    },
+  );
+
+  submitOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+        price: string;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+
+      if (formData.orderMode === 'trigger') {
+        return this.triggerOrder.call(set, {
+          assetId: params.assetId,
+          formData,
+          slippage: params.slippage,
+        });
+      }
+
+      return this.orderOpen.call(set, {
+        assetId: params.assetId,
+        formData,
+        slippage: params.slippage,
+        price: params.price,
       });
     },
   );
@@ -1447,6 +1618,8 @@ export function useHyperliquidActions() {
 
   const placeOrder = actions.placeOrder.use();
   const orderOpen = actions.orderOpen.use();
+  const triggerOrder = actions.triggerOrder.use();
+  const submitOrder = actions.submitOrder.use();
   const updateLeverage = actions.updateLeverage.use();
   const updateIsolatedMargin = actions.updateIsolatedMargin.use();
   const ordersClose = actions.ordersClose.use();
@@ -1500,6 +1673,8 @@ export function useHyperliquidActions() {
 
     placeOrder,
     orderOpen,
+    triggerOrder,
+    submitOrder,
     updateLeverage,
     updateIsolatedMargin,
     ordersClose,

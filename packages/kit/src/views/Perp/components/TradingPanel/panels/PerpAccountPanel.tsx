@@ -20,12 +20,15 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountMmrAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsComputedAccountValueAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { useShowPortfolio } from '../../../hooks/useShowPortfolio';
+import { getPortfolioTitle } from '../../Portfolio/PerpPortfolioModal';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
@@ -48,18 +51,14 @@ export function PerpAccountDebugInfo() {
 function PerpAccountMMRView() {
   const [{ mmrPercent }] = usePerpsActiveAccountMmrAtom();
   const intl = useIntl();
-  if (mmrPercent) {
-    // return (
-    //   <XStack justifyContent="space-between">
-    //     <SizableText size="$bodySm" color="$textSubdued" cursor="default">
-    //       Cross Margin Ratio
-    //     </SizableText>
-    //     <SizableText size="$bodySmMedium" color="$textSubdued">
-    //       {mmrPercent}%
-    //     </SizableText>
-    //   </XStack>
-    // );
+  const mmrColor = (() => {
+    const pct = parseFloat(mmrPercent ?? '0');
+    if (pct <= 40) return '$green11';
+    if (pct <= 70) return '$yellow11';
+    return '$red11';
+  })();
 
+  if (mmrPercent) {
     return (
       <XStack justifyContent="space-between">
         <Tooltip
@@ -81,10 +80,7 @@ function PerpAccountMMRView() {
             </DashText>
           }
         />
-        <SizableText
-          size="$bodySmMedium"
-          color={parseFloat(mmrPercent) <= 50 ? '$green11' : '$red11'}
-        >
+        <SizableText size="$bodySmMedium" color={mmrColor}>
           {mmrPercent}%
         </SizableText>
       </XStack>
@@ -95,11 +91,13 @@ function PerpAccountMMRView() {
 
 function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [computedValue] = usePerpsComputedAccountValueAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
   const dialogInTab = useInTabDialog();
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const { showPortfolio } = useShowPortfolio();
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
@@ -146,7 +144,7 @@ function PerpAccountPanel() {
             }
           />
           <PerpsAccountNumberValue
-            value={accountSummary?.accountValue ?? ''}
+            value={computedValue?.accountValue ?? ''}
             skeletonWidth={70}
           />
         </XStack>
@@ -167,7 +165,7 @@ function PerpAccountPanel() {
             })}
           </SizableText>
           <PerpsAccountNumberValue
-            value={accountSummary?.withdrawable ?? ''}
+            value={computedValue?.withdrawable ?? ''}
             skeletonWidth={60}
           />
         </XStack>
@@ -240,11 +238,12 @@ function PerpAccountPanel() {
       </YStack>
       {/* Action Buttons */}
       {userAddress ? (
-        <XStack gap="$2.5">
+        <XStack gap="$2.5" alignItems="center">
           <Button
             borderRadius="$full"
             flex={1}
             size="medium"
+            h={36}
             variant="secondary"
             onPress={() =>
               showDepositWithdrawDialog(
@@ -264,6 +263,8 @@ function PerpAccountPanel() {
           <IconButton
             borderRadius="$full"
             size="medium"
+            h={36}
+            w={36}
             variant="secondary"
             icon="AlignTopOutline"
             iconSize="$4.5"
@@ -278,6 +279,17 @@ function PerpAccountPanel() {
                 dialogInTab,
               )
             }
+          />
+          <IconButton
+            borderRadius="$full"
+            size="medium"
+            h={36}
+            w={36}
+            variant="secondary"
+            icon="ChartLine2Outline"
+            iconSize="$4.5"
+            title={getPortfolioTitle()}
+            onPress={showPortfolio}
           />
         </XStack>
       ) : null}

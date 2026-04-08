@@ -19,7 +19,6 @@ import { XStack, YStack } from '../../primitives';
 
 import { TabsContext, TabsScrollContext } from './context';
 import { TabBar } from './TabBar';
-import { startViewTransition } from './utils';
 
 import type { LayoutChangeEvent } from 'react-native';
 import type {
@@ -28,6 +27,14 @@ import type {
 } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
 import type { WindowScrollerChildProps } from 'react-virtualized';
+
+const overflowYScrollStyle = { overflowY: 'scroll' } as const;
+const scrollSnapStyle = { scrollSnapType: 'x' } as const;
+const childDivStyle = {
+  width: '100%',
+  flexShrink: 0,
+  scrollSnapAlign: 'center',
+} as const;
 
 export function ContainerChild({
   children,
@@ -65,18 +72,11 @@ export function ContainerChild({
         ref={listContainerRef as any}
         width={containerWidth || props.width}
         overflow="hidden"
-        style={{ scrollSnapType: 'x' }}
+        style={scrollSnapStyle}
       >
         {Children.map(children, (child, index) => {
           return (
-            <div
-              style={{
-                width: '100%',
-                flexShrink: 0,
-                scrollSnapAlign: 'center',
-              }}
-              key={index}
-            >
+            <div style={childDivStyle} key={index}>
               {child}
             </div>
           );
@@ -133,6 +133,19 @@ export function Container({
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
   Pick<ITabContainerProps, 'disableScroll' | 'useNativeHeaderAnimation'>) {
+  const getTabContentHeight = useCallback((element: Element | null) => {
+    const htmlElement = element as HTMLElement | null;
+    if (!htmlElement) {
+      return 0;
+    }
+
+    return Math.max(
+      htmlElement.scrollHeight || 0,
+      htmlElement.clientHeight || 0,
+      htmlElement.getBoundingClientRect().height || 0,
+    );
+  }, []);
+
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
   const tabNames = useMemo(() => {
@@ -204,21 +217,21 @@ export function Container({
         if (resizeObserverRef.current) {
           resizeObserverRef.current.disconnect();
         }
-        const height =
-          scrollTabElementsRef.current?.[focusedTab.value]?.element
-            ?.clientHeight;
+        const height = getTabContentHeight(
+          scrollTabElementsRef.current?.[focusedTab.value]?.element ?? null,
+        );
 
         if (height) {
-          (listContainerRef.current as HTMLElement).style.maxHeight =
+          (listContainerRef.current as HTMLElement).style.height =
             `${height}px`;
           setTimeout(() => {
             resizeObserverRef.current = new ResizeObserver((entries) => {
               const entry = entries[0];
-              const borderBoxHeight =
-                entry?.borderBoxSize?.[0]?.blockSize ??
-                (entry?.target as HTMLElement)?.clientHeight;
+              const borderBoxHeight = getTabContentHeight(
+                (entry?.target as HTMLElement) ?? null,
+              );
               if (borderBoxHeight) {
-                (listContainerRef.current as HTMLElement).style.maxHeight =
+                (listContainerRef.current as HTMLElement).style.height =
                   `${borderBoxHeight}px`;
               } else {
                 // When quickly removing and adding observer nodes, ResizeObserver API has a delay
@@ -242,7 +255,7 @@ export function Container({
         }
       }
     },
-    [focusedTab],
+    [focusedTab, getTabContentHeight],
   );
 
   useLayoutEffect(() => {
@@ -287,25 +300,28 @@ export function Container({
         isSwitchingTabRef.current = true;
         const index = tabNames.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
-        startViewTransition(() => {
-          updateListContainerHeight();
-          const width = scrollElement?.clientWidth || 0;
-          listContainerRef.current?.scrollTo({
-            left: width * index,
-            behavior: 'instant',
-          });
 
-          if (stickyHeaderHeight.current > 0) {
-            if ((scrollElement?.scrollTop || 0) >= stickyHeaderHeight.current) {
-              scrollTop = Math.max(scrollTop, stickyHeaderHeight.current);
-              scrollElement?.scrollTo({
-                top: scrollTop,
-                behavior: 'instant',
-              });
-            }
-          }
-          isSwitchingTabRef.current = false;
+        // Execute DOM updates synchronously instead of inside startViewTransition.
+        // startViewTransition's callback runs asynchronously and gets aborted when
+        // a new transition starts during rapid switching, which causes scrollTo
+        // to never execute and the tab switch to visually fail.
+        updateListContainerHeight();
+        const width = scrollElement?.clientWidth || 0;
+        listContainerRef.current?.scrollTo({
+          left: width * index,
+          behavior: 'instant',
         });
+
+        if (stickyHeaderHeight.current > 0) {
+          if ((scrollElement?.scrollTop || 0) >= stickyHeaderHeight.current) {
+            scrollTop = Math.max(scrollTop, stickyHeaderHeight.current);
+            scrollElement?.scrollTo({
+              top: scrollTop,
+              behavior: 'instant',
+            });
+          }
+        }
+        isSwitchingTabRef.current = false;
       }
     },
   );
@@ -374,7 +390,7 @@ export function Container({
       flex={1}
       className="onekey-tabs-container"
       position="relative"
-      style={disableScroll ? undefined : { overflowY: 'scroll' }}
+      style={disableScroll ? undefined : overflowYScrollStyle}
       ref={ref as React.RefObject<HTMLDivElement>}
     >
       {scrollElement ? (
@@ -400,14 +416,7 @@ export function Container({
                 <>
                   <YStack
                     position="relative"
-                    width={containerWidth ? undefined : width}
-                    style={
-                      containerWidth
-                        ? {
-                            width: containerWidth,
-                          }
-                        : undefined
-                    }
+                    width={containerWidth || width}
                     onLayout={handlerStickyHeaderLayout}
                   >
                     {renderHeader?.({

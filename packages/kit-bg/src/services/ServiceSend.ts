@@ -57,6 +57,7 @@ import type {
   IPreCheckFeeInfoParams,
   ISignTransactionParamsBase,
   ITokenApproveInfo,
+  ITransferInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
 
@@ -294,13 +295,17 @@ class ServiceSend extends ServiceBase {
             deviceParams,
             signOnly,
           });
-          console.log('signTx@vault.signTransaction', signedTx);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('signTx@vault.signTransaction', signedTx);
+          }
           return signedTx;
         },
         { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
       );
 
-    console.log('signTx@serviceSend.signTransaction', tx);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('signTx@serviceSend.signTransaction', tx);
+    }
 
     tx.swapInfo = unsignedTx.swapInfo;
     tx.stakingInfo = unsignedTx.stakingInfo;
@@ -452,16 +457,20 @@ class ServiceSend extends ServiceBase {
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
 
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
-      const unsignedTx = unsignedTxs[i];
+      let unsignedTx = unsignedTxs[i];
       const feeInfo = sendSelectedFeeInfos?.[i];
       if (
         !successfullySentTxs ||
         !unsignedTx.uuid ||
         !successfullySentTxs.includes(unsignedTx.uuid)
       ) {
+        if (isMultiTxs && i > 0) {
+          unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+        }
         const signedTx = signOnly
           ? await this.signTransaction({
               unsignedTx,
@@ -493,10 +502,13 @@ class ServiceSend extends ServiceBase {
           approveInfo: unsignedTx.approveInfo,
         };
 
-        // only fill swap(staking) tx info for batch approve&swap(staking) callback
+        // For batch approve+swap/staking: only return the swap/staking tx result
+        // For bulk send (multiple transfer txs): return all results
         if (
           !isMultiTxs ||
-          (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo))
+          unsignedTx.swapInfo ||
+          unsignedTx.stakingInfo ||
+          unsignedTx.transfersInfo
         ) {
           result.push(data);
         }
@@ -955,6 +967,43 @@ class ServiceSend extends ServiceBase {
     return (await vaultFactory.getChainOnlyVault({ networkId })).validateMemo(
       memo,
     );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async buildBulkSendUnsignedTxs(params: {
+    networkId: string;
+    accountId: string;
+    transfersInfo: ITransferInfo[];
+  }): Promise<{ unsignedTxs: IUnsignedTxPro[]; ataCount?: number }> {
+    const { networkId, accountId, transfersInfo } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+
+    const { encodedTxs, transfersInfoChunks, ataCount } =
+      await vault.buildBulkSendEncodedTxs({ transfersInfo });
+
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+
+    const unsignedTxs: IUnsignedTxPro[] = [];
+    for (let i = 0; i < encodedTxs.length; i += 1) {
+      const unsignedTx = await vault.buildUnsignedTx({
+        encodedTx: encodedTxs[i],
+        transfersInfo: transfersInfoChunks[i],
+      });
+      // Ensure transfersInfo is set on the unsigned tx for all chains
+      // (some vaults like SOL don't propagate it from buildUnsignedTx params)
+      unsignedTx.transfersInfo = transfersInfoChunks[i];
+      unsignedTx.accountId = accountId;
+      unsignedTx.networkId = networkId;
+      unsignedTx.indexedAccountId = account.indexedAccountId;
+      unsignedTx.uuid = generateUUID();
+      unsignedTxs.push(unsignedTx);
+    }
+
+    return { unsignedTxs, ataCount };
   }
 }
 

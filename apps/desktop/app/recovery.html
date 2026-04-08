@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
+  <title>OneKey Recovery</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background-color: #0F0F0F;
+      color: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 360px;
+      width: 100%;
+      -webkit-app-region: no-drag;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 32px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #8C8C8C;
+      text-align: center;
+      line-height: 1.5;
+      margin-bottom: 32px;
+    }
+    .btn {
+      width: 100%;
+      height: 48px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 12px;
+      color: #FFFFFF;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { opacity: 0.7; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background-color: #2C2C2C; }
+    .btn-primary { background-color: #44D62C; color: #000000; }
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 16px;
+    }
+    .btn-link {
+      background: none;
+      border: none;
+      color: #666666;
+      font-size: 12px;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .btn-link:hover { color: #999999; }
+    .btn-link:disabled { color: #444444; cursor: not-allowed; }
+    .version {
+      font-size: 12px;
+      color: #666666;
+    }
+    .bottom-bar .separator {
+      color: #444444;
+      font-size: 12px;
+    }
+    .error-msg {
+      font-size: 12px;
+      color: #FF6B6B;
+      margin-top: 8px;
+      text-align: center;
+      min-height: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- OneKey App Icon -->
+    <img class="logo" src="../build/static/images/icons/512x512.png" alt="OneKey" onerror="this.style.display='none'" />
+
+    <h1 class="title" id="title">Something went wrong</h1>
+    <p class="subtitle" id="subtitle">The app failed to start. You can export logs for troubleshooting, try again, or auto repair to fix the issue.</p>
+
+    <button class="btn btn-primary" id="autoRepairBtn" onclick="handleAutoRepair()">Quick Fix</button>
+    <button class="btn btn-secondary" id="tryAgainBtn" onclick="handleTryAgain()">Dismiss</button>
+
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="bottom-bar">
+      <span class="version" id="version"></span>
+      <span class="separator" id="separator">&middot;</span>
+      <button class="btn-link" id="exportLogsBtn" onclick="handleExportLogs()">Export Logs</button>
+    </div>
+  </div>
+
+  <script>
+    // i18n - full locale map matching app's supported languages
+    const i18nMap = {
+      'en': {
+        title: 'We hit a snag',
+        subtitle: 'It looks like the app had trouble starting. A quick fix should get things back to normal.',
+        exportLogs: 'Export Logs', tryAgain: 'Not Now', autoRepair: 'Quick Fix',
+        repairComplete: 'Repair Complete', pleaseRestart: 'Please reopen the app', error: 'Error', ok: 'OK',
+        exportError: 'Failed to export logs', repairError: 'Repair failed',
+        noLogs: 'No log files found',
+      },
+      'zh-CN': {
+        title: '遇到了一点问题',
+        subtitle: '应用似乎未能正常启动，快速修复一下试试？',
+        exportLogs: '导出日志', tryAgain: '暂不修复', autoRepair: '快速修复',
+        repairComplete: '修复完成', pleaseRestart: '请重新打开应用', error: '错误', ok: '确定',
+        exportError: '导出日志失败', repairError: '修复失败',
+        noLogs: '未找到日志文件',
+      },
+      'zh-Hant': {
+        title: '遇到了一點問題',
+        subtitle: '應用程式似乎未能正常啟動，快速修復一下試試？',
+        exportLogs: '匯出日誌', tryAgain: '暫不修復', autoRepair: '快速修復',
+        repairComplete: '修復完成', pleaseRestart: '請重新打開應用程式', error: '錯誤', ok: '確定',
+        exportError: '匯出日誌失敗', repairError: '修復失敗',
+        noLogs: '未找到日誌檔案',
+      },
+      'ja-JP': {
+        title: '問題が発生しました',
+        subtitle: 'アプリの起動がうまくいかなかったようです。クイック修復をお試しください。',
+        exportLogs: 'ログを書き出す', tryAgain: '今はしない', autoRepair: 'クイック修復',
+        repairComplete: '修復完了', pleaseRestart: 'アプリを再起動してください', error: 'エラー', ok: 'OK',
+        exportError: 'ログの書き出しに失敗しました', repairError: '修復に失敗しました',
+        noLogs: 'ログファイルが見つかりません',
+      },
+      'ko-KR': {
+        title: '문제가 발생했어요',
+        subtitle: '앱이 정상적으로 시작되지 않은 것 같아요. 빠른 수리를 시도해 보세요.',
+        exportLogs: '로그 내보내기', tryAgain: '나중에', autoRepair: '빠른 수리',
+        repairComplete: '복구 완료', pleaseRestart: '앱을 다시 열어주세요', error: '오류', ok: '확인',
+        exportError: '로그 내보내기 실패', repairError: '복구 실패',
+        noLogs: '로그 파일을 찾을 수 없습니다',
+      },
+      'de': {
+        title: 'Ein kleines Problem',
+        subtitle: 'Die App scheint nicht richtig gestartet zu sein. Eine Schnellreparatur sollte helfen.',
+        exportLogs: 'Protokolle exportieren', tryAgain: 'Nicht jetzt', autoRepair: 'Schnellreparatur',
+        repairComplete: 'Reparatur abgeschlossen', pleaseRestart: 'Bitte starten Sie die App neu', error: 'Fehler', ok: 'OK',
+        exportError: 'Protokollexport fehlgeschlagen', repairError: 'Reparatur fehlgeschlagen',
+        noLogs: 'Keine Protokolldateien gefunden',
+      },
+      'es': {
+        title: 'Algo no salió bien',
+        subtitle: 'Parece que la aplicación tuvo problemas al iniciarse. Una reparación rápida debería solucionarlo.',
+        exportLogs: 'Exportar registros', tryAgain: 'Ahora no', autoRepair: 'Reparación rápida',
+        repairComplete: 'Reparación completada', pleaseRestart: 'Por favor, vuelva a abrir la aplicación', error: 'Error', ok: 'OK',
+        exportError: 'Error al exportar registros', repairError: 'Reparación fallida',
+        noLogs: 'No se encontraron archivos de registro',
+      },
+      'fr-FR': {
+        title: 'Un petit souci',
+        subtitle: "L'application semble avoir eu du mal à démarrer. Une réparation rapide devrait arranger les choses.",
+        exportLogs: 'Exporter les journaux', tryAgain: 'Pas maintenant', autoRepair: 'Réparation rapide',
+        repairComplete: 'Réparation terminée', pleaseRestart: "Veuillez rouvrir l'application", error: 'Erreur', ok: 'OK',
+        exportError: "Échec de l'exportation des journaux", repairError: 'Échec de la réparation',
+        noLogs: 'Aucun fichier journal trouvé',
+      },
+      'it-IT': {
+        title: 'Un piccolo problema',
+        subtitle: "Sembra che l'app abbia avuto difficoltà ad avviarsi. Una riparazione rapida dovrebbe risolvere.",
+        exportLogs: 'Esporta log', tryAgain: 'Non ora', autoRepair: 'Riparazione rapida',
+        repairComplete: 'Riparazione completata', pleaseRestart: "Si prega di riaprire l'app", error: 'Errore', ok: 'OK',
+        exportError: 'Esportazione log non riuscita', repairError: 'Riparazione non riuscita',
+        noLogs: 'Nessun file di log trovato',
+      },
+      'pt': {
+        title: 'Um pequeno problema',
+        subtitle: 'A aplicação parece ter tido dificuldades ao iniciar. Uma reparação rápida deverá resolver.',
+        exportLogs: 'Exportar registos', tryAgain: 'Agora não', autoRepair: 'Reparação rápida',
+        repairComplete: 'Reparação concluída', pleaseRestart: 'Por favor, reabra a aplicação', error: 'Erro', ok: 'OK',
+        exportError: 'Falha ao exportar registos', repairError: 'Falha na reparação',
+        noLogs: 'Nenhum ficheiro de registo encontrado',
+      },
+      'pt-BR': {
+        title: 'Um pequeno problema',
+        subtitle: 'O aplicativo parece ter tido dificuldades ao iniciar. Uma correção rápida deve resolver.',
+        exportLogs: 'Exportar logs', tryAgain: 'Agora não', autoRepair: 'Correção rápida',
+        repairComplete: 'Reparo concluído', pleaseRestart: 'Por favor, reabra o aplicativo', error: 'Erro', ok: 'OK',
+        exportError: 'Falha ao exportar logs', repairError: 'Falha no reparo',
+        noLogs: 'Nenhum arquivo de log encontrado',
+      },
+      'ru': {
+        title: 'Небольшая проблема',
+        subtitle: 'Похоже, приложение не смогло нормально запуститься. Быстрое исправление должно помочь.',
+        exportLogs: 'Экспорт журналов', tryAgain: 'Не сейчас', autoRepair: 'Быстрое исправление',
+        repairComplete: 'Восстановление завершено', pleaseRestart: 'Пожалуйста, откройте приложение заново', error: 'Ошибка', ok: 'OK',
+        exportError: 'Не удалось экспортировать журналы', repairError: 'Не удалось выполнить восстановление',
+        noLogs: 'Файлы журналов не найдены',
+      },
+      'bn': {
+        title: 'একটু সমস্যা হয়েছে',
+        subtitle: 'অ্যাপটি সঠিকভাবে চালু হতে পারেনি বলে মনে হচ্ছে। দ্রুত মেরামত করে দেখুন।',
+        exportLogs: 'লগ রপ্তানি', tryAgain: 'এখন নয়', autoRepair: 'দ্রুত মেরামত',
+        repairComplete: 'মেরামত সম্পন্ন', pleaseRestart: 'অনুগ্রহ করে অ্যাপটি পুনরায় খুলুন', error: 'ত্রুটি', ok: 'ঠিক আছে',
+        exportError: 'লগ রপ্তানি ব্যর্থ', repairError: 'মেরামত ব্যর্থ',
+        noLogs: 'কোনো লগ ফাইল পাওয়া যায়নি',
+      },
+      'hi-IN': {
+        title: 'एक छोटी सी समस्या',
+        subtitle: 'ऐप सही से शुरू नहीं हो पाया लगता है। त्वरित मरम्मत से ठीक हो जाना चाहिए।',
+        exportLogs: 'लॉग निर्यात करें', tryAgain: 'अभी नहीं', autoRepair: 'त्वरित मरम्मत',
+        repairComplete: 'मरम्मत पूर्ण', pleaseRestart: 'कृपया ऐप को पुनः खोलें', error: 'त्रुटि', ok: 'ठीक है',
+        exportError: 'लॉग निर्यात विफल', repairError: 'मरम्मत विफल',
+        noLogs: 'कोई लॉग फ़ाइल नहीं मिली',
+      },
+      'id': {
+        title: 'Ada sedikit masalah',
+        subtitle: 'Sepertinya aplikasi mengalami kendala saat memulai. Perbaikan cepat seharusnya bisa mengatasinya.',
+        exportLogs: 'Ekspor log', tryAgain: 'Nanti saja', autoRepair: 'Perbaikan cepat',
+        repairComplete: 'Perbaikan selesai', pleaseRestart: 'Silakan buka ulang aplikasi', error: 'Kesalahan', ok: 'OK',
+        exportError: 'Gagal mengekspor log', repairError: 'Perbaikan gagal',
+        noLogs: 'File log tidak ditemukan',
+      },
+      'th-TH': {
+        title: 'พบปัญหาเล็กน้อย',
+        subtitle: 'ดูเหมือนแอปเริ่มต้นไม่สำเร็จ การซ่อมแซมด่วนน่าจะช่วยได้',
+        exportLogs: 'ส่งออกบันทึก', tryAgain: 'ไว้ทีหลัง', autoRepair: 'ซ่อมแซมด่วน',
+        repairComplete: 'ซ่อมแซมเสร็จสิ้น', pleaseRestart: 'กรุณาเปิดแอปใหม่', error: 'ข้อผิดพลาด', ok: 'ตกลง',
+        exportError: 'ส่งออกบันทึกไม่สำเร็จ', repairError: 'ซ่อมแซมไม่สำเร็จ',
+        noLogs: 'ไม่พบไฟล์บันทึก',
+      },
+      'uk-UA': {
+        title: 'Невелика проблема',
+        subtitle: 'Схоже, додаток не зміг нормально запуститися. Швидке виправлення має допомогти.',
+        exportLogs: 'Експорт журналів', tryAgain: 'Не зараз', autoRepair: 'Швидке виправлення',
+        repairComplete: 'Відновлення завершено', pleaseRestart: 'Будь ласка, відкрийте додаток заново', error: 'Помилка', ok: 'OK',
+        exportError: 'Не вдалося експортувати журнали', repairError: 'Не вдалося виконати відновлення',
+        noLogs: 'Файли журналів не знайдено',
+      },
+      'vi': {
+        title: 'Gặp chút trục trặc',
+        subtitle: 'Có vẻ ứng dụng gặp khó khăn khi khởi động. Sửa nhanh sẽ giúp mọi thứ trở lại bình thường.',
+        exportLogs: 'Xuất nhật ký', tryAgain: 'Để sau', autoRepair: 'Sửa nhanh',
+        repairComplete: 'Sửa chữa hoàn tất', pleaseRestart: 'Vui lòng mở lại ứng dụng', error: 'Lỗi', ok: 'OK',
+        exportError: 'Xuất nhật ký thất bại', repairError: 'Sửa chữa thất bại',
+        noLogs: 'Không tìm thấy tệp nhật ký',
+      },
+    };
+
+    // Script-to-region mapping for CJK script subtags.
+    // iOS/Android use BCP 47 script subtags (Hans/Hant) for Chinese variants,
+    // while our i18n keys use region codes (CN/TW/HK).
+    //   - zh-Hans (iOS) / zh-Hans-CN (Android) → zh-CN (Simplified)
+    //   - zh-Hant (iOS) / zh-Hant-TW (Android) → zh-Hant (Traditional, shared by TW/HK)
+    // zh-TW / zh-HK share the same Traditional Chinese translations
+    i18nMap['zh-TW'] = i18nMap['zh-Hant'];
+    i18nMap['zh-HK'] = i18nMap['zh-Hant'];
+    const scriptMap = { 'Hans': 'zh-CN', 'Hant': 'zh-Hant' };
+
+    // Locale matching priority:
+    //   1. Exact match (e.g. "zh-CN", "ja-JP", "de")
+    //   2. Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-Hant")
+    //   3. First-last parts (e.g. "zh-Hans-CN" → "zh-CN")
+    //   4. Prefix match (e.g. "fr" → "fr-FR", "ja" → "ja-JP")
+    //   5. Fallback to "en"
+    //
+    // Electron: navigator.language returns BCP 47 tags like "zh-CN", "ja", "fr-FR".
+    // Chinese typically returns "zh-CN"/"zh-TW" directly without script subtag.
+    function getLocale() {
+      const lang = navigator.language || 'en';
+      if (i18nMap[lang]) return lang;
+      const parts = lang.split('-');
+      if (parts.length >= 2) {
+        for (const [script, mapped] of Object.entries(scriptMap)) {
+          if (parts.includes(script) && i18nMap[mapped]) return mapped;
+        }
+      }
+      if (parts.length >= 2) {
+        const twoPartKey = parts[0] + '-' + parts[parts.length - 1];
+        if (i18nMap[twoPartKey]) return twoPartKey;
+      }
+      const code = parts[0];
+      if (i18nMap[code]) return code;
+      const prefixMatch = Object.keys(i18nMap).find(k => k.startsWith(code + '-'));
+      if (prefixMatch) return prefixMatch;
+      return 'en';
+    }
+
+    const locale = getLocale();
+    const i18n = i18nMap[locale] || i18nMap['en'];
+
+    document.getElementById('title').textContent = i18n.title;
+    document.getElementById('subtitle').textContent = i18n.subtitle;
+    document.getElementById('exportLogsBtn').textContent = i18n.exportLogs + ' \u203A';
+    document.getElementById('tryAgainBtn').textContent = i18n.tryAgain;
+    document.getElementById('autoRepairBtn').textContent = i18n.autoRepair;
+
+    // Version display
+    try {
+      const ver = window.desktopApi?.appVersion || '';
+      if (ver) {
+        document.getElementById('version').textContent = 'v' + ver;
+      } else {
+        document.getElementById('separator').style.display = 'none';
+      }
+    } catch (_) {}
+
+    function showError(msg) {
+      document.getElementById('errorMsg').textContent = msg;
+    }
+
+    function setButtonsDisabled(disabled) {
+      document.getElementById('exportLogsBtn').disabled = disabled;
+      document.getElementById('tryAgainBtn').disabled = disabled;
+      document.getElementById('autoRepairBtn').disabled = disabled;
+    }
+
+    async function handleExportLogs() {
+      showError('');
+      setButtonsDisabled(true);
+      try {
+        const result = await window.desktopApi?.recoveryExportLogs?.();
+        if (result && result.error) {
+          showError(i18n.exportError + ': ' + result.error);
+        }
+      } catch (e) {
+        showError(i18n.exportError + ': ' + (e.message || e));
+      } finally {
+        setButtonsDisabled(false);
+      }
+    }
+
+    async function handleTryAgain() {
+      showError('');
+      setButtonsDisabled(true);
+      try {
+        const result = await window.desktopApi?.recoveryTryAgain?.();
+        if (result && result.needsManualRestart) {
+          // MAS cannot relaunch — prompt user
+          alert(i18n.pleaseRestart || 'Please reopen the app');
+          setButtonsDisabled(false);
+        }
+        // Non-MAS: app.relaunch() already called, process will exit
+      } catch (e) {
+        showError(e.message || e);
+        setButtonsDisabled(false);
+      }
+    }
+
+    async function handleAutoRepair() {
+      showError('');
+      setButtonsDisabled(true);
+      try {
+        const result = await window.desktopApi?.recoveryAutoRepair?.();
+        if (result && result.error) {
+          showError(i18n.repairError);
+          setButtonsDisabled(false);
+          return;
+        }
+        // Show success prompt first, then restart on confirm
+        alert(i18n.repairComplete);
+        await window.desktopApi?.recoveryTryAgain?.();
+        // If MAS (can't relaunch), show manual restart hint
+        alert(i18n.pleaseRestart);
+        setButtonsDisabled(false);
+      } catch (e) {
+        showError(i18n.repairError);
+        setButtonsDisabled(false);
+      }
+    }
+  </script>
+</body>
+</html>

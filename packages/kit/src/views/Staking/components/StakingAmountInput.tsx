@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
@@ -87,6 +88,7 @@ export function StakingAmountInput({
           (percentageInputStageShow || !!value) ? (
             <XStack
               animation="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{
                 opacity: 0,
                 x: 8,

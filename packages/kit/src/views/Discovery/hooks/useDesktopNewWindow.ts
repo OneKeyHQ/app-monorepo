@@ -11,7 +11,7 @@ export function useDesktopNewWindow() {
   const { handleOpenWebSite } = useBrowserAction().current;
   const { gtMd } = useMedia();
   const onNewWindow = useCallback(
-    (_: any, data: { url: string }) => {
+    (data: { url: string }) => {
       if (data.url) {
         handleOpenWebSite({
           useCurrentWindow: false,
@@ -29,15 +29,12 @@ export function useDesktopNewWindow() {
     [handleOpenWebSite, navigation, gtMd],
   );
   useEffect(() => {
-    globalThis.desktopApi?.addIpcEventListener(
+    const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
       ipcMessageKeys.WEBVIEW_NEW_WINDOW,
       onNewWindow,
     );
     return () => {
-      globalThis.desktopApi?.removeIpcEventListener(
-        ipcMessageKeys.WEBVIEW_NEW_WINDOW,
-        onNewWindow,
-      );
+      unsubscribe?.();
     };
   }, [onNewWindow]);
 }

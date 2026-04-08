@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 declare module 'miscreant' {
   interface ICryptoProvider {
     importBlockCipherKey(keyData: Uint8Array): Promise<IBlockCipher>;

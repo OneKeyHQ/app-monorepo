@@ -1,6 +1,10 @@
 import { StackActions } from '@react-navigation/native';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import {
+  navigateFromOverlayToTab,
+  resetAboveMainRoute,
+  rootNavigationRef,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -238,27 +242,61 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
+
+    const alreadyOnUrlAccountPage = isCurrentlyInUrlAccountPage();
+
     defaultLogger.app.router.switchTab(ETabRoutes.Home);
-    navigation.switchTab(ETabRoutes.Home);
+
+    if (alreadyOnUrlAccountPage) {
+      // When already on UrlAccountPage (e.g. second scan), skip
+      // switchTab(pop:true) which would pop the existing page and trigger
+      // expensive RNSScreenStack retry storms on orphaned screen stacks.
+      // Instead, just remove overlays and replace the page in-place.
+      resetAboveMainRoute();
+      await timerUtils.wait(100);
+    } else {
+      // Standard flow: remove overlays, switch tab (with pop), then push.
+      await navigateFromOverlayToTab({
+        targetTab: ETabRoutes.Home,
+        switchTab: (tab) => navigation.switchTab(tab),
+      });
+    }
+
     defaultLogger.app.router.switchTabDone(ETabRoutes.Home);
-    await timerUtils.wait(0);
     const navState = rootNavigationRef.current?.getRootState();
     const focusedRoute = navState?.routes?.[navState?.index ?? 0];
     const mainRoute = focusedRoute?.state;
     const focusedTab = mainRoute?.routes?.[mainRoute?.index ?? 0];
     const tabStack = focusedTab?.state;
+    const tabStackRoutes = tabStack?.routes;
+    const tabStackTopRouteName =
+      tabStackRoutes && tabStackRoutes.length > 0
+        ? tabStackRoutes[tabStackRoutes.length - 1]?.name
+        : undefined;
     defaultLogger.app.router.navState({
       action: 'pushUrlAccountPage:afterWait',
       focusedTab: focusedTab?.name,
       stackDepth: tabStack?.routes?.length,
-      topRoute: tabStack?.routes?.[tabStack?.routes?.length - 1]?.name,
+      topRoute: tabStackTopRouteName,
     });
-    rootNavigationRef.current?.dispatch(
-      StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
-        address: params.address,
-        networkId: networkSegment,
-      }),
-    );
+
+    const routeParams = {
+      address: params.address,
+      networkId: networkSegment,
+    };
+
+    if (alreadyOnUrlAccountPage) {
+      // Replace the existing UrlAccountPage with new params.
+      // This avoids pop+push cycle that causes iOS window-nil freeze.
+      rootNavigationRef.current?.dispatch(
+        StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, routeParams),
+      );
+    } else {
+      rootNavigationRef.current?.dispatch(
+        StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, routeParams),
+      );
+    }
+
     const navStateAfter = rootNavigationRef.current?.getRootState();
     const focusedRouteAfter =
       navStateAfter?.routes?.[navStateAfter?.index ?? 0];
@@ -266,12 +304,16 @@ export const urlAccountNavigation = {
     const focusedTabAfter =
       mainRouteAfter?.routes?.[mainRouteAfter?.index ?? 0];
     const tabStackAfter = focusedTabAfter?.state;
+    const tabStackAfterRoutes = tabStackAfter?.routes;
+    const tabStackAfterTopRouteName =
+      tabStackAfterRoutes && tabStackAfterRoutes.length > 0
+        ? tabStackAfterRoutes[tabStackAfterRoutes.length - 1]?.name
+        : undefined;
     defaultLogger.app.router.navState({
       action: 'pushUrlAccountPage:afterDispatch',
       focusedTab: focusedTabAfter?.name,
       stackDepth: tabStackAfter?.routes?.length,
-      topRoute:
-        tabStackAfter?.routes?.[tabStackAfter?.routes?.length - 1]?.name,
+      topRoute: tabStackAfterTopRouteName,
     });
   },
   async pushOrReplaceUrlAccountPage(

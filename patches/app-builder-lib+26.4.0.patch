@@ -74,3 +74,35 @@ index a52a853..1815f53 100644
          await this.doSign(signOptions, customSignOptions, identity);
          // https://github.com/electron-userland/electron-builder/issues/1196#issuecomment-312310209
          if (masOptions != null && !isDevelopment) {
+diff --git a/node_modules/app-builder-lib/out/targets/snap.js b/node_modules/app-builder-lib/out/targets/snap.js
+index be3bb87..1b25951 100644
+--- a/node_modules/app-builder-lib/out/targets/snap.js
++++ b/node_modules/app-builder-lib/out/targets/snap.js
+@@ -58,10 +58,15 @@ class SnapTarget extends core_1.Target {
+         }
+         if (options.base != null) {
+             snap.base = options.base;
++            const coreVersion = Number(snap.base.split("core")[1]);
+             // from core22 onwards adapter is legacy
+-            if (Number(snap.base.split("core")[1]) >= 22) {
++            if (coreVersion >= 22) {
+                 delete appDescriptor.adapter;
+             }
++            // core24+ does not support gnome-3-28-1804, remove default template plug
++            if (coreVersion >= 24 && snap.plugs && snap.plugs["gnome-3-28-1804"]) {
++                delete snap.plugs["gnome-3-28-1804"];
++            }
+         }
+         if (options.grade != null) {
+             snap.grade = options.grade;
+@@ -95,7 +100,9 @@ class SnapTarget extends core_1.Target {
+             summary: options.summary || appInfo.productName,
+             compression: options.compression,
+             description: this.helper.getDescription(options),
+-            architectures: [(0, builder_util_1.toLinuxArchString)(arch, "snap")],
++            ...((options.base != null && Number(options.base.split("core")[1]) >= 24)
++                ? { platforms: { [(0, builder_util_1.toLinuxArchString)(arch, "snap")]: null } }
++                : { architectures: [(0, builder_util_1.toLinuxArchString)(arch, "snap")] }),
+             apps: {
+                 [snapName]: appDescriptor,
+             },

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
-import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -62,6 +62,24 @@ function getReactNativeAppUpdate(): IReactNativeAppUpdateNative {
   return _reactNativeAppUpdate!;
 }
 
+const toNativeString = (value: unknown): string => {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value);
+};
+
+const toNativeNumber = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const clearPackage: IClearPackage = async () => {
   if (!isAppUpdateAvailable) {
     return;
@@ -74,46 +92,48 @@ const downloadPackage: IDownloadPackage = async ({
   latestVersion,
   fileSize,
 }) => {
-  if (!downloadUrl || !latestVersion) {
+  const nativeDownloadUrl = toNativeString(downloadUrl).trim();
+  const nativeLatestVersion = toNativeString(latestVersion).trim();
+  if (!nativeDownloadUrl || !nativeLatestVersion) {
     throw new OneKeyLocalError('Invalid version or downloadUrl');
   }
   await getReactNativeAppUpdate().downloadAPK({
-    downloadUrl,
+    downloadUrl: nativeDownloadUrl,
     notificationTitle: 'Downloading',
-    fileSize: fileSize || 0,
+    fileSize: toNativeNumber(fileSize),
   });
   return {
-    downloadedFile: downloadUrl,
+    downloadedFile: nativeDownloadUrl,
   };
 };
 
 const downloadASC: IDownloadASC = async (params) => {
-  const { downloadUrl } = params || {};
-  if (!downloadUrl) {
+  const nativeDownloadUrl = toNativeString(params?.downloadUrl).trim();
+  if (!nativeDownloadUrl) {
     return;
   }
   await getReactNativeAppUpdate().downloadASC({
-    downloadUrl,
+    downloadUrl: nativeDownloadUrl,
   });
 };
 
 const verifyASC: IVerifyASC = async (params) => {
-  const { downloadUrl } = params || {};
-  if (!downloadUrl) {
+  const nativeDownloadUrl = toNativeString(params?.downloadUrl).trim();
+  if (!nativeDownloadUrl) {
     return;
   }
   await getReactNativeAppUpdate().verifyASC({
-    downloadUrl,
+    downloadUrl: nativeDownloadUrl,
   });
 };
 
 const verifyPackage: IVerifyPackage = async (params) => {
-  const { downloadUrl } = params || {};
-  if (!downloadUrl) {
+  const nativeDownloadUrl = toNativeString(params?.downloadUrl).trim();
+  if (!nativeDownloadUrl) {
     return;
   }
   await getReactNativeAppUpdate().verifyAPK({
-    downloadUrl,
+    downloadUrl: nativeDownloadUrl,
   });
 };
 
@@ -122,11 +142,12 @@ const installPackage: IInstallPackage = async ({
   downloadUrl,
 }) => {
   defaultLogger.update.app.log('install', latestVersion);
-  if (!latestVersion) {
+  const nativeLatestVersion = toNativeString(latestVersion).trim();
+  if (!nativeLatestVersion) {
     return;
   }
   return getReactNativeAppUpdate().installAPK({
-    downloadUrl: downloadUrl || '',
+    downloadUrl: toNativeString(downloadUrl),
   });
 };
 
@@ -209,11 +230,11 @@ export const AppUpdate: IAppUpdate = {
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
     const result = await ReactNativeBundleUpdate.downloadBundle({
-      downloadUrl: params.downloadUrl || '',
-      latestVersion: params.latestVersion || '',
-      bundleVersion: params.bundleVersion || '',
-      fileSize: params.fileSize || 0,
-      sha256: params.sha256 || '',
+      downloadUrl: toNativeString(params.downloadUrl),
+      latestVersion: toNativeString(params.latestVersion),
+      bundleVersion: toNativeString(params.bundleVersion),
+      fileSize: toNativeNumber(params.fileSize),
+      sha256: toNativeString(params.sha256),
     });
     return {
       ...params,
@@ -222,34 +243,34 @@ export const BundleUpdate: IBundleUpdate = {
   },
   verifyBundle: (params) =>
     ReactNativeBundleUpdate.verifyBundle({
-      downloadedFile: params?.downloadedFile || '',
-      sha256: params?.sha256 || '',
-      latestVersion: params?.latestVersion || '',
-      bundleVersion: params?.bundleVersion || '',
+      downloadedFile: toNativeString(params?.downloadedFile),
+      sha256: toNativeString(params?.sha256),
+      latestVersion: toNativeString(params?.latestVersion),
+      bundleVersion: toNativeString(params?.bundleVersion),
     }),
   verifyBundleASC: (params) =>
     ReactNativeBundleUpdate.verifyBundleASC({
-      downloadedFile: params?.downloadedFile || '',
-      sha256: params?.sha256 || '',
-      latestVersion: params?.latestVersion || '',
-      bundleVersion: params?.bundleVersion || '',
-      signature: params?.signature || '',
+      downloadedFile: toNativeString(params?.downloadedFile),
+      sha256: toNativeString(params?.sha256),
+      latestVersion: toNativeString(params?.latestVersion),
+      bundleVersion: toNativeString(params?.bundleVersion),
+      signature: toNativeString(params?.signature),
     }),
   downloadBundleASC: (params) =>
     ReactNativeBundleUpdate.downloadBundleASC({
-      downloadUrl: params?.downloadUrl || '',
-      downloadedFile: params?.downloadedFile || '',
-      signature: params?.signature || '',
-      latestVersion: params?.latestVersion || '',
-      bundleVersion: params?.bundleVersion || '',
-      sha256: params?.sha256 || '',
+      downloadUrl: toNativeString(params?.downloadUrl),
+      downloadedFile: toNativeString(params?.downloadedFile),
+      signature: toNativeString(params?.signature),
+      latestVersion: toNativeString(params?.latestVersion),
+      bundleVersion: toNativeString(params?.bundleVersion),
+      sha256: toNativeString(params?.sha256),
     }),
   installBundle: async (params) => {
     await ReactNativeBundleUpdate.installBundle({
-      downloadedFile: params?.downloadedFile || '',
-      latestVersion: params?.latestVersion || '',
-      bundleVersion: params?.bundleVersion || '',
-      signature: params?.signature || '',
+      downloadedFile: toNativeString(params?.downloadedFile),
+      latestVersion: toNativeString(params?.latestVersion),
+      bundleVersion: toNativeString(params?.bundleVersion),
+      signature: toNativeString(params?.signature),
     });
     defaultLogger.app.appUpdate.restartRNApp();
     setTimeout(() => {
@@ -257,6 +278,17 @@ export const BundleUpdate: IBundleUpdate = {
     }, 2500);
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
+  clearDownload: () => ReactNativeBundleUpdate.clearDownload(),
+  resetToBuiltInBundle: async () => {
+    await ReactNativeBundleUpdate.resetToBuiltInBundle();
+  },
+  restart: () => {
+    setTimeout(() => {
+      RNRestart.restart();
+    }, 2500);
+  },
+  isSkipGpgVerificationAllowed: () =>
+    Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
   clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
   testVerification: () => ReactNativeBundleUpdate.testVerification(),
   testSkipVerification: () => ReactNativeBundleUpdate.testSkipVerification(),
@@ -282,12 +314,16 @@ export const BundleUpdate: IBundleUpdate = {
   listLocalBundles: () => ReactNativeBundleUpdate.listLocalBundles(),
   switchBundle: async (params) => {
     await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
-    setTimeout(() => {
-      RNRestart.restart();
-    }, 2500);
+    if (params.appVersion && params.bundleVersion) {
+      setTimeout(() => {
+        RNRestart.restart();
+      }, 2500);
+    }
   },
   getNativeAppVersion: () => ReactNativeBundleUpdate.getNativeAppVersion(),
-  getNativeBuildNumber: () => Promise.resolve(''),
+  getNativeBuildNumber: () => ReactNativeBundleUpdate.getNativeBuildNumber(),
+  getBuiltinBundleVersion: () =>
+    ReactNativeBundleUpdate.getBuiltinBundleVersion(),
   getJsBundlePath: () => ReactNativeBundleUpdate.getJsBundlePathAsync(),
   getSha256FromFilePath: (filePath) =>
     ReactNativeBundleUpdate.getSha256FromFilePath(filePath),

@@ -8,8 +8,11 @@ import type {
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 
 import type { INetworkAccount } from './account';
-import type { IDiscoveryBanner } from './discovery';
-import type { IEarnAvailableAsset, IEarnAvailableAssetAprInfo } from './earn';
+import type {
+  IEarnAvailableAsset,
+  IEarnAvailableAssetAprInfo,
+  IEarnAvailableAssetAprRangeInfo,
+} from './earn';
 import type { IFetchTokenDetailItem, IToken } from './token';
 import type { ESpotlightTour } from '../src/spotlight';
 import type { FontSizeTokens } from 'tamagui';
@@ -169,6 +172,7 @@ export type IStakeBaseParams = {
   inputTokenAddress?: string;
   outputTokenAddress?: string;
   slippage?: number;
+  effectiveApy?: string | number;
 
   term?: number; // Babylon
   feeRate?: number;
@@ -202,6 +206,7 @@ export type IWithdrawBaseParams = {
   inputTokenAddress?: string;
   outputTokenAddress?: string;
   slippage?: number;
+  effectiveApy?: string | number;
 
   identity?: string; // sol pubkey
   signature?: string; // lido unstake, stakefish withdraw all
@@ -515,6 +520,8 @@ export type IProtocolInfo = {
   maxRepayBalance?: string;
   // Debt balance for collateral repay (from debt field in manage page response)
   debtBalance?: string;
+  // Whether repay with collateral needs a setup LUT transaction first
+  needsSetupLut?: boolean;
   // Max supply balance for supply max button
   maxSupplyBalance?: string;
 };
@@ -698,15 +705,28 @@ export interface IEarnTextTooltip {
   data: {
     title?: IEarnText;
     description: IEarnText;
-    items?: {
-      title: IEarnText;
-      description: IEarnText;
-      logo?: {
-        logoURI: string;
-        color: string;
-        percentage: string;
-      };
-    }[];
+    items?: IEarnTooltipComparisonItem[];
+  };
+}
+
+export interface IEarnTooltipComparisonItem {
+  title: IEarnText;
+  description: IEarnText;
+  logo?: {
+    logoURI: string;
+    color?: string;
+    percentage?: string;
+  };
+  color?: string;
+  value?: string;
+}
+
+export interface IEarnFeeComparisonTooltip {
+  type: 'feeComparison';
+  data: {
+    title?: IEarnText;
+    description: IEarnText;
+    items?: IEarnTooltipComparisonItem[];
   };
 }
 
@@ -750,6 +770,7 @@ export interface IEarnRebateDetailsTooltip {
 
 export type IEarnTooltip =
   | IEarnTextTooltip
+  | IEarnFeeComparisonTooltip
   | IEarnRebateTooltip
   | IEarnWithdrawTooltip
   | IEarnRebateDetailsTooltip;
@@ -1119,6 +1140,7 @@ export interface IEarnManagePageResponse {
   repay?: IEarnRepayActionData;
   debt?: IEarnManagePageActionData;
   collateral?: IEarnManagePageActionData;
+  needsSetupLut?: boolean;
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
   receive?: IEarnReceiveActionIcon;
@@ -1355,6 +1377,7 @@ export interface IStakeTransactionConfirmation {
   title?: IEarnText;
   tooltip?: IEarnTooltip;
   apyDetail?: IStakeEarnDetail['apyDetail'];
+  effectiveApy?: string | number;
   rewards?: Array<{
     title: IEarnText;
     description: IEarnText;
@@ -1627,22 +1650,30 @@ export type IRecommendAsset = {
   protocols: Array<{
     networkId: string;
     provider: string;
-    vault: string;
+    vault?: string;
   }>;
   aprWithoutFee: string;
   aprInfo: IEarnAvailableAssetAprInfo;
+  rewardUnit?: IEarnAvailableAsset['rewardUnit'];
+  minAprInfo?: IEarnAvailableAssetAprRangeInfo;
+  maxAprInfo?: IEarnAvailableAssetAprRangeInfo;
   bgColor: ColorTokens;
   available: {
     text: string;
     color: ColorTokens;
   };
+  isRecommended: boolean;
+  isPinedRecommend: boolean;
+  badges: Array<{
+    badgeType: IBadgeType;
+    tag: string;
+  }>;
 };
 
 export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;
   recommendedTokens?: IRecommendAsset[];
-  banners?: IDiscoveryBanner[];
   refreshTrigger?: number;
 }
 
@@ -1700,6 +1731,8 @@ export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   earnings24hFiatValue: string;
   totalFiatValueUsd?: string;
+  netPnl?: IEarnText;
+  netPnlFiatValue?: IEarnText;
   protocol: {
     networkId?: string;
     provider?: string;
@@ -1809,6 +1842,8 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
     network: IEarnInvestmentItemV2['network'];
     fiatValue?: string;
     fiatValueUsd?: string;
+    netPnl?: IEarnText;
+    netPnlFiatValue?: IEarnText;
   };
 };
 
@@ -1935,6 +1970,7 @@ export type IApproveConfirmFnParams = {
   unsignedMessage?: IEarnPermit2ApproveSignData;
   // Stakefish: original message for permit signature
   message?: string;
+  effectiveApy?: string | number;
   // Stakefish ETH validator
   validatorPubkey?: string;
 };
@@ -2456,7 +2492,13 @@ export interface IBorrowTransactionConfirmation {
   slippage?: {
     title: IEarnText;
     description: IEarnText;
+    tooltip?: IEarnTooltip;
     value: number;
+  };
+  fee?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
   };
 }
 

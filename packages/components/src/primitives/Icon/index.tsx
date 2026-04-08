@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState } from 'react';
+import { forwardRef, useEffect, useMemo, useState } from 'react';
 
 import {
   type GetProps,
@@ -94,16 +94,19 @@ function IconLoader({
     });
   }, [name]);
 
+  const placeholderStyle = useMemo(
+    () => ({
+      width: props.width,
+      height: props.height,
+    }),
+    [props.width, props.height],
+  );
+
   const Svg = ComponentMaps[name];
   return Svg ? (
     <Svg {...props} />
   ) : (
-    <OptimizationView
-      style={{
-        width: props.width,
-        height: props.height,
-      }}
-    />
+    <OptimizationView style={placeholderStyle} />
   );
 }
 

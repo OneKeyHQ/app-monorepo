@@ -36,7 +36,10 @@ import type {
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
-import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import {
+  devSettingsPersistAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
@@ -73,15 +76,21 @@ class ServiceMarketV2 extends ServiceBase {
     tokenAddress: string,
     networkId: string,
   ) {
+    const settings = await settingsPersistAtom.get();
+    const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const params: Record<string, string> = {
+      tokenAddress,
+      networkId,
+      currency: 'usd',
+    };
+    // When the user has selected a non-USD currency, request a converted price
+    if (selectedCurrencyId !== 'usd') {
+      params.convertCurrency = selectedCurrencyId;
+    }
     const response = await client.get<IMarketTokenDetailResponse>(
       '/utility/v2/market/token/detail',
-      {
-        params: {
-          tokenAddress,
-          networkId,
-        },
-      },
+      { params },
     );
     return response.data;
   }
@@ -139,6 +148,8 @@ class ServiceMarketV2 extends ServiceBase {
     limit = 20,
     minLiquidity,
     maxLiquidity,
+    type,
+    timeFrame,
   }: {
     networkId: string;
     sortBy?: string;
@@ -147,6 +158,8 @@ class ServiceMarketV2 extends ServiceBase {
     limit?: number;
     minLiquidity?: number;
     maxLiquidity?: number;
+    type?: string;
+    timeFrame?: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
@@ -162,6 +175,9 @@ class ServiceMarketV2 extends ServiceBase {
         limit,
         minLiquidity,
         maxLiquidity,
+        type,
+        timeFrame,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -200,6 +216,7 @@ class ServiceMarketV2 extends ServiceBase {
         interval: innerInterval,
         timeFrom,
         timeTo,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -227,6 +244,7 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        currency: 'usd',
         ...(cursor !== undefined && { cursor }),
         ...(limit !== undefined && { limit }),
       },
@@ -262,6 +280,7 @@ class ServiceMarketV2 extends ServiceBase {
           accountAddress,
           tokenAddress,
           networkId,
+          currency: 'usd',
           ...(cursor !== undefined && { cursor }),
           ...(timeFrom !== undefined && { timeFrom }),
           ...(timeTo !== undefined && { timeTo }),
@@ -295,6 +314,7 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -304,12 +324,14 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async fetchMarketTokenListBatch({
     tokenAddressList,
+    skipCache = false,
   }: {
     tokenAddressList: {
       contractAddress: string;
       chainId: string;
       isNative: boolean;
     }[];
+    skipCache?: boolean;
   }) {
     // Clean expired cache entries periodically
     this._cleanExpiredMarketTokenBatchCache();
@@ -325,6 +347,11 @@ class ServiceMarketV2 extends ServiceBase {
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
       tokenIndexMap.set(cacheKey, index);
+
+      if (skipCache) {
+        missingTokens.push(token);
+        return;
+      }
 
       const cached = this._marketTokenBatchCache.get(cacheKey);
       if (cached && now - cached.timestamp < this._marketTokenBatchCacheTTL) {
@@ -345,9 +372,16 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketTokenBatchListResponse;
-    }>('/utility/v2/market/token/list/batch', {
-      tokenAddressList: missingTokens,
-    });
+    }>(
+      '/utility/v2/market/token/list/batch',
+      {
+        tokenAddressList: missingTokens,
+        currency: 'usd',
+      },
+      {
+        headers: { 'x-onekey-request-currency': 'usd' },
+      },
+    );
 
     const { data } = response.data;
 
@@ -363,9 +397,12 @@ class ServiceMarketV2 extends ServiceBase {
       return { list: cachedResults };
     }
 
-    // Update cache and merge results
+    // Update cache and merge results using positional index (API preserves
+    // request order). Cache keys use the request-side chainId:contractAddress
+    // to stay consistent with the lookup keys built above.
     data.list.forEach((item, apiIndex) => {
       const token = missingTokens[apiIndex];
+      if (!token) return;
       const cacheKey = `${
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
@@ -567,7 +604,10 @@ class ServiceMarketV2 extends ServiceBase {
     }
 
     // Filter out perps items — they don't have chainId/contractAddress for batch lookup
-    const spotItems = watchlistData.data.filter((item) => !item.perpsCoin);
+    // Also filter out items with empty chainId to avoid server validation errors
+    const spotItems = watchlistData.data.filter(
+      (item) => !item.perpsCoin && item.chainId?.trim(),
+    );
     const tokenAddressList = spotItems.map((item) => ({
       chainId: item.chainId,
       contractAddress: item.contractAddress,
@@ -605,6 +645,7 @@ class ServiceMarketV2 extends ServiceBase {
 
     // Only filter out symbol-less tokens when batch succeeded;
     // if batch failed, return all entries to avoid wiping server-side watchlist.
+    // Note: empty networkId is already filtered out at the spotItems stage above.
     return batchSucceeded ? tokens.filter((t) => t.symbol) : tokens;
   }
 
@@ -672,6 +713,7 @@ class ServiceMarketV2 extends ServiceBase {
           accountAddress,
           tokenAddress,
           xpub,
+          currency: 'usd',
         },
       });
 
@@ -728,6 +770,7 @@ class ServiceMarketV2 extends ServiceBase {
       data: IMarketBannerTokenListResponse;
     }>(
       `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
+      { params: { currency: 'usd' } },
     );
     const { data } = response.data;
     return data.list;

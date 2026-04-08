@@ -1,8 +1,8 @@
-const path = require('path');
-const fs = require('fs-extra');
 const { execSync } = require('child_process');
-
+const path = require('path');
 const { exit } = require('process');
+
+const fs = require('fs-extra');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();

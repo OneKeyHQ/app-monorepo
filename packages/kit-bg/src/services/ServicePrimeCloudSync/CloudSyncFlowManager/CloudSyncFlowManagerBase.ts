@@ -340,10 +340,9 @@ export abstract class CloudSyncFlowManagerBase<
 
     if (tx) {
       keylessCloudSyncCredential =
-        (await this.backgroundApi.servicePrimeCloudSync.getKeylessCloudSyncCredentialCache()) ||
-        (await this.backgroundApi.localDb.txGetKeylessCloudSyncCredential({
+        await this.backgroundApi.localDb.txGetKeylessCloudSyncCredential({
           tx,
-        }));
+        });
     }
 
     // Asynchronously fetching sync credentials may cause the transaction to commit prematurely, leading to the failure of subsequent database transaction operations.
@@ -529,13 +528,15 @@ export abstract class CloudSyncFlowManagerBase<
     // }
     for (const item of items) {
       try {
-        const shouldSync =
-          forceSync ||
-          (syncCredential &&
-            cloudSyncItemBuilder.canLocalItemSyncToScene({
-              item,
-              syncCredential,
-            }));
+        let shouldSync =
+          syncCredential &&
+          cloudSyncItemBuilder.canLocalItemSyncToScene({
+            item,
+            syncCredential,
+          });
+        if (forceSync) {
+          shouldSync = true;
+        }
         if (item.dataType === this.dataType && shouldSync) {
           // TODO performance issue of decrypting in the loop
           const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({

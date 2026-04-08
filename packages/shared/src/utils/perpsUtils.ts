@@ -5,6 +5,7 @@
 
 import BigNumber from 'bignumber.js';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   EPerpsSizeInputMode,
   IPerpsFormattedAssetCtx,
@@ -19,10 +20,13 @@ import type {
   IPerpsUniverse,
   IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 import type {
   IPerpTokenSortDirection,
   IPerpTokenSortField,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+
+import { numberFormat } from './numberUtils';
 
 // Types for liquidation price calculation
 interface IMarginTier {
@@ -34,6 +38,7 @@ interface ILiquidationPriceParams {
   totalValue: BigNumber;
   referencePrice: BigNumber;
   markPrice?: BigNumber;
+  clampToCurrentMark?: boolean;
   positionSize: BigNumber;
   side: 'long' | 'short';
   leverage: number;
@@ -772,6 +777,7 @@ function calculateLiquidationPrice(
     totalValue,
     referencePrice,
     markPrice,
+    clampToCurrentMark = true,
     positionSize,
     side,
     leverage,
@@ -788,7 +794,7 @@ function calculateLiquidationPrice(
   if (positionSize.isZero()) return null;
 
   let effectivePrice = referencePrice;
-  if (markPrice) {
+  if (markPrice && clampToCurrentMark) {
     const _side = newOrderSide || side;
     if (_side === 'long') {
       // Long: if limit price > mark price, will execute at market price
@@ -1206,6 +1212,97 @@ export function sortPerpsAssetIndices({
   return indicesWithData.map((item) => item.index);
 }
 
+// ── Standalone Trigger Order Utilities ──
+
+/**
+ * Map trigger order type to HyperLiquid `isMarket` field.
+ *
+ * - `isMarket: true` for market triggers, `false` for limit triggers
+ */
+function mapTriggerOrderType(triggerOrderType: ETriggerOrderType): {
+  isMarket: boolean;
+} {
+  switch (triggerOrderType) {
+    case ETriggerOrderType.TRIGGER_MARKET:
+      return { isMarket: true };
+    case ETriggerOrderType.TRIGGER_LIMIT:
+      return { isMarket: false };
+    default: {
+      const _exhaustive: never = triggerOrderType;
+      throw new OneKeyLocalError(
+        `Unknown trigger order type: ${String(_exhaustive)}`,
+      );
+    }
+  }
+}
+
+/**
+ * Infer TP/SL direction from side, triggerPrice, and currentPrice.
+ *
+ * HL API tpsl semantics (standalone trigger orders):
+ * - tpsl='sl': buy triggers when price rises above triggerPx; sell triggers when price drops below
+ * - tpsl='tp': buy triggers when price drops below triggerPx; sell triggers when price rises above
+ *
+ * So for order side:
+ * - Long (buy) + trigger > current → 'sl' (buy stop: triggers on price rise)
+ * - Long (buy) + trigger < current → 'tp' (buy TP: triggers on price drop)
+ * - Short (sell) + trigger > current → 'tp' (sell TP: triggers on price rise)
+ * - Short (sell) + trigger < current → 'sl' (sell stop: triggers on price drop)
+ */
+function inferTpsl(params: {
+  side: 'long' | 'short';
+  triggerPrice: BigNumber;
+  currentPrice: BigNumber;
+}): 'tp' | 'sl' {
+  const { side, triggerPrice, currentPrice } = params;
+  const isAbove = triggerPrice.gt(currentPrice);
+  if (side === 'long') {
+    return isAbove ? 'sl' : 'tp';
+  }
+  return isAbove ? 'tp' : 'sl';
+}
+
+/**
+ * Get the effective price used for size/margin calculations in trigger mode.
+ *
+ * - Market trigger: uses triggerPrice (the price at which the order activates)
+ * - Limit trigger: uses executionPrice (the limit price for the resulting order)
+ * - Fallback: uses midPrice
+ */
+function getTriggerEffectivePrice(params: {
+  triggerOrderType: ETriggerOrderType;
+  triggerPrice?: string;
+  executionPrice?: string;
+  midPrice?: string;
+}): BigNumber {
+  const { triggerOrderType, triggerPrice, executionPrice, midPrice } = params;
+
+  const isLimitTrigger = triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+
+  if (isLimitTrigger && executionPrice) {
+    const execBN = new BigNumber(executionPrice);
+    if (execBN.isFinite() && execBN.gt(0)) {
+      return execBN;
+    }
+  }
+
+  if (triggerPrice) {
+    const trigBN = new BigNumber(triggerPrice);
+    if (trigBN.isFinite() && trigBN.gt(0)) {
+      return trigBN;
+    }
+  }
+
+  if (midPrice) {
+    const midBN = new BigNumber(midPrice);
+    if (midBN.isFinite() && midBN.gt(0)) {
+      return midBN;
+    }
+  }
+
+  return new BigNumber(0);
+}
+
 export function parseSignatureToRSV(signatureHex: string): {
   r: string;
   s: string;
@@ -1273,6 +1370,84 @@ export function getTokenSubtitle(
   return serverAliases?.[tokenName]?.subtitle;
 }
 
+// ─── Shared formatting utilities for Perps UI ──────────────────────────────
+
+/**
+ * Format a number as USD string using numberFormat 'value' formatter.
+ * Optionally shows +/- sign for non-zero values.
+ */
+export function formatPerpsUsd(
+  value: number | null | undefined,
+  showSign = false,
+): string {
+  if (value === null || value === undefined) return '--';
+  const bn = new BigNumber(value);
+  const abs = bn.abs().toFixed();
+  const formatted = numberFormat(abs, {
+    formatter: 'value',
+    formatterOptions: { currency: '$' },
+  });
+  if (showSign && !bn.isZero()) {
+    return bn.lt(0) ? `-${formatted}` : `+${formatted}`;
+  }
+  if (bn.lt(0)) {
+    return `-${formatted}`;
+  }
+  return formatted;
+}
+
+/**
+ * Format a number as compact USD (K/M/B suffixes) using numberFormat 'marketCap' formatter.
+ */
+export function formatPerpsCompactUsd(value: number): string {
+  if (value === 0) return '$0';
+  const bn = new BigNumber(value);
+  const abs = bn.abs().toFixed();
+  const formatted = numberFormat(abs, {
+    formatter: 'marketCap',
+    formatterOptions: { currency: '$' },
+  });
+  if (bn.lt(0)) {
+    return `-${formatted}`;
+  }
+  return formatted;
+}
+
+/**
+ * Return a theme color token based on PnL sign.
+ * Positive → '$green11', Negative → '$red11', Zero/null → '$text'.
+ */
+type IPerpsValueColor = '$text' | '$green11' | '$red11';
+
+export function getPerpsValueColor(
+  value: number | null | undefined,
+): IPerpsValueColor {
+  if (value === null || value === undefined || value === 0) return '$text';
+  return value > 0 ? '$green11' : '$red11';
+}
+
+/**
+ * Compact USD formatter for chart Y-axis labels (lightweight-charts priceFormatter).
+ * Output: "$1.2M", "$45K", "$120", "$3.14" etc.
+ *
+ * NOTE: Keep in sync with `usdPriceFormatter` in LightweightChart/utils/htmlTemplate.ts
+ * (native WebView cannot use TS functions, so the logic is duplicated as inline JS).
+ */
+export function formatChartUsdPrice(price: number): string {
+  const abs = Math.abs(price);
+  const sign = price < 0 ? '-' : '';
+  if (abs >= 1_000_000) {
+    return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+  }
+  if (abs >= 1000) {
+    return `${sign}$${(abs / 1000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
+  }
+  if (Number.isInteger(abs)) {
+    return `${sign}$${abs.toFixed(0)}`;
+  }
+  return `${sign}$${abs.toFixed(2)}`;
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1302,6 +1477,9 @@ export {
   resolveTradingSize,
   resolveTradingSizeBN,
   getHyperliquidTokenImageUrl,
+  mapTriggerOrderType,
+  inferTpsl,
+  getTriggerEffectivePrice,
 };
 export default {
   formatAssetCtx,
@@ -1335,4 +1513,11 @@ export default {
   getHyperliquidTokenImageUrl,
   findTokensByAlias,
   getTokenSubtitle,
+  mapTriggerOrderType,
+  inferTpsl,
+  getTriggerEffectivePrice,
+  formatPerpsUsd,
+  formatPerpsCompactUsd,
+  getPerpsValueColor,
+  formatChartUsdPrice,
 };

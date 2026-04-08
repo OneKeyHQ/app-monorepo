@@ -21,12 +21,16 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { SizableText, XStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 import { Shortcut } from '../Shortcut';
 
 import { TooltipContext } from './context';
 
 import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
+
+const tooltipEnterStyle = { scale: 0.95, opacity: 0 } as const;
+const tooltipExitStyle = { scale: 0.95, opacity: 0 } as const;
 
 const useHoverTooltip = () => {
   const [isHovered, setIsHovered] = useState(false);
@@ -290,12 +294,10 @@ export function Tooltip({
           {...contentProps}
           elevation={10}
           style={contentStyle}
-          enterStyle={{
-            scale: 0.95,
-            opacity: 0,
-          }}
-          exitStyle={{ scale: 0.95, opacity: 0 }}
+          enterStyle={tooltipEnterStyle}
+          exitStyle={tooltipExitStyle}
           animation="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >

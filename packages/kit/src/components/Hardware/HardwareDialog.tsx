@@ -189,7 +189,7 @@ function WebDeviceAccessDialogContent({
       <HyperlinkText
         size="$bodyLg"
         translationId={ETranslations.device_reconnect_from_beginning}
-        autoHandleResult={false}
+        autoExecuteParsedAction={false}
         onAction={() => {
           void promptWebUsbDeviceAccess();
         }}

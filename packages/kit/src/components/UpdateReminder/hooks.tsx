@@ -22,6 +22,8 @@ import {
   getUpdateFileType,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
+  isWhatsNewShown,
+  markWhatsNewShown,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -63,6 +65,17 @@ const updateStrategyMap: Record<EUpdateStrategy, string> = {
   [EUpdateStrategy.seamless]: 'seamless',
 };
 
+function asOptionalString(value: unknown): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  return String(value);
+}
+
+function asString(value: unknown): string {
+  return asOptionalString(value) ?? '';
+}
+
 function buildSoftwareUpdateParams(
   fileType: EUpdateFileType,
   appUpdateInfo: IAppUpdateInfo,
@@ -73,11 +86,11 @@ function buildSoftwareUpdateParams(
     attemptId: attemptId ?? generateUUID(),
     updateType: isBundle ? 'bundle' : 'app',
     fromVersion: isBundle
-      ? (platformEnv.bundleVersion ?? '')
-      : (platformEnv.version ?? ''),
+      ? asString(platformEnv.bundleVersion)
+      : asString(platformEnv.version),
     toVersion: isBundle
-      ? (appUpdateInfo.jsBundleVersion ?? '')
-      : (appUpdateInfo.latestVersion ?? ''),
+      ? asString(appUpdateInfo.jsBundleVersion)
+      : asString(appUpdateInfo.latestVersion),
     updateStrategy:
       updateStrategyMap[appUpdateInfo.updateStrategy] ?? 'unknown',
     platform: getUpdatePlatform(),
@@ -279,6 +292,21 @@ export const useDownloadPackage = () => {
     return getUpdateFileType(appUpdateInfo);
   }, []);
 
+  const getSkipGPGVerification = useCallback(
+    async (isJsBundle: boolean): Promise<boolean> => {
+      if (!isJsBundle) {
+        return false;
+      }
+      const isSkipGpgVerificationAllowed =
+        await BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false);
+      if (!isSkipGpgVerificationAllowed) {
+        return false;
+      }
+      return backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification();
+    },
+    [],
+  );
+
   const installPackage = useCallback(
     async (onSuccess: () => void, onFail: () => void) => {
       const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
@@ -288,16 +316,9 @@ export const useDownloadPackage = () => {
         defaultLogger.app.appUpdate.startInstallPackage({ fileType, data });
         if (fileType === EUpdateFileType.jsBundle) {
           if (!data.downloadedEvent) {
-            onFail();
-            return;
+            throw new OneKeyError('NOT_FOUND_PACKAGE');
           }
-          const skipGPGVerification =
-            !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification());
-          await BundleUpdate.installBundle({
-            ...data.downloadedEvent,
-            skipGPGVerification,
-          });
+          await BundleUpdate.installBundle(data.downloadedEvent);
         } else {
           await AppUpdate.installPackage(data);
         }
@@ -351,11 +372,9 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
         return;
       }
-      const skipGPGVerification =
-        fileType === EUpdateFileType.jsBundle
-          ? !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification())
-          : false;
+      const skipGPGVerification = await getSkipGPGVerification(
+        fileType === EUpdateFileType.jsBundle,
+      );
       defaultLogger.app.appUpdate.startVerifyPackage(params);
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await Promise.all([
@@ -383,7 +402,7 @@ export const useDownloadPackage = () => {
       });
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, []);
+  }, [getSkipGPGVerification]);
 
   const verifyASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -394,11 +413,9 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
         return;
       }
-      const skipGPGVerification =
-        fileType === EUpdateFileType.jsBundle
-          ? !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification())
-          : false;
+      const skipGPGVerification = await getSkipGPGVerification(
+        fileType === EUpdateFileType.jsBundle,
+      );
       defaultLogger.app.appUpdate.startVerifyASC(params);
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await Promise.all([
@@ -428,7 +445,7 @@ export const useDownloadPackage = () => {
       });
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
     }
-  }, [getFileTypeFromUpdateInfo, verifyPackage]);
+  }, [getFileTypeFromUpdateInfo, getSkipGPGVerification, verifyPackage]);
 
   const downloadASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -439,11 +456,9 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
         return;
       }
-      const skipGPGVerification =
-        fileType === EUpdateFileType.jsBundle
-          ? !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification())
-          : false;
+      const skipGPGVerification = await getSkipGPGVerification(
+        fileType === EUpdateFileType.jsBundle,
+      );
       defaultLogger.app.appUpdate.startDownloadASC(params);
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await Promise.all([
@@ -473,7 +488,7 @@ export const useDownloadPackage = () => {
       });
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
     }
-  }, [getFileTypeFromUpdateInfo, verifyASC]);
+  }, [getFileTypeFromUpdateInfo, getSkipGPGVerification, verifyASC]);
 
   const downloadPackage = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -494,21 +509,24 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
       const { latestVersion, jsBundleVersion, jsBundle, downloadUrl } = params;
       const isJsBundle = fileType === EUpdateFileType.jsBundle;
-      const skipGPGVerification =
-        isJsBundle &&
-        !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-        (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification());
+      const skipGPGVerification = await getSkipGPGVerification(isJsBundle);
       const updateEvent =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       const headers = await getRequestHeaders();
       const downloadParams: IDownloadPackageParams = {
         ...updateEvent,
-        signature: isJsBundle ? jsBundle?.signature : undefined,
-        latestVersion,
-        bundleVersion: jsBundleVersion,
-        downloadUrl: isJsBundle ? jsBundle?.downloadUrl : downloadUrl,
+        signature: isJsBundle
+          ? asOptionalString(jsBundle?.signature)
+          : undefined,
+        latestVersion: asOptionalString(latestVersion),
+        bundleVersion: isJsBundle
+          ? asOptionalString(jsBundleVersion)
+          : undefined,
+        downloadUrl: isJsBundle
+          ? asOptionalString(jsBundle?.downloadUrl)
+          : asOptionalString(downloadUrl),
         fileSize: isJsBundle ? jsBundle?.fileSize : (params.fileSize ?? 0),
-        sha256: isJsBundle ? jsBundle?.sha256 : undefined,
+        sha256: isJsBundle ? asOptionalString(jsBundle?.sha256) : undefined,
         skipGPGVerification: isJsBundle ? skipGPGVerification : undefined,
         headers,
       };
@@ -544,7 +562,7 @@ export const useDownloadPackage = () => {
         });
       }
     }
-  }, [downloadASC, getFileTypeFromUpdateInfo, intl]);
+  }, [downloadASC, getFileTypeFromUpdateInfo, getSkipGPGVerification, intl]);
 
   const resetToInComplete = useCallback(async () => {
     await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
@@ -588,15 +606,20 @@ export const useDownloadPackage = () => {
 
   const manualInstallPackage = useCallback(async () => {
     const params = await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       defaultLogger.app.appUpdate.startManualInstallPackage(params);
       if (!params) {
         throw new OneKeyError('No download event found');
       }
-      await AppUpdate.manualInstallPackage({
-        ...params,
-        buildNumber: String(platformEnv.buildNumber || 1),
-      });
+      if (fileType === EUpdateFileType.jsBundle) {
+        await BundleUpdate.installBundle(params);
+      } else {
+        await AppUpdate.manualInstallPackage({
+          ...params,
+          buildNumber: String(platformEnv.buildNumber || 1),
+        });
+      }
       defaultLogger.app.appUpdate.endManualInstallPackage(true);
     } catch (e) {
       defaultLogger.app.appUpdate.endManualInstallPackage(false, e as Error);
@@ -612,7 +635,7 @@ export const useDownloadPackage = () => {
         },
       });
     }
-  }, [intl, navigation, showUpdateInCompleteDialog]);
+  }, [getFileTypeFromUpdateInfo, intl, navigation, showUpdateInCompleteDialog]);
 
   return useMemo(
     () => ({
@@ -651,6 +674,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     verifyPackage,
     verifyASC,
     downloadASC,
+    installPackage,
     showSilentUpdateDialog,
     showUpdateInCompleteDialog,
   } = useDownloadPackage();
@@ -716,7 +740,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     defaultLogger.app.appUpdate.startCheckForUpdatesOnly();
     const response =
       await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
-    const { shouldUpdate, fileType } = isNeedUpdate({
+    const { shouldUpdate, fileType, isRollback } = isNeedUpdate({
       latestVersion: response?.latestVersion,
       jsBundleVersion: response?.jsBundleVersion,
       status: response?.status,
@@ -725,6 +749,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     const result = {
       isForceUpdate: isForceUpdateStrategy(updateStrategy),
       isNeedUpdate: shouldUpdate,
+      isRollback,
       updateFileType: fileType,
       response,
     };
@@ -742,6 +767,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       isFull = false,
       params?: {
         latestVersion?: string;
+        jsBundleVersion?: string;
         isForceUpdate?: boolean;
         summary?: string;
         storeUrl?: string;
@@ -758,7 +784,17 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           summary: params?.summary || '',
           lastUpdateDialogShownAt: currentUpdateInfo.lastUpdateDialogShownAt,
           onConfirm: () => {
-            if (!platformEnv.isExtension && params?.storeUrl) {
+            const fileType = getUpdateFileType({
+              latestVersion:
+                params?.latestVersion ?? currentUpdateInfo.latestVersion,
+              jsBundleVersion:
+                params?.jsBundleVersion ?? currentUpdateInfo.jsBundleVersion,
+            });
+            if (
+              !platformEnv.isExtension &&
+              params?.storeUrl &&
+              fileType === EUpdateFileType.appShell
+            ) {
               openUrlExternal(params.storeUrl);
             } else {
               setTimeout(async () => {
@@ -792,7 +828,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
 
     const fetchUpdateInfo = (_trigger: string) => {
       void checkForUpdates().then(
-        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+        async ({
+          isNeedUpdate: needUpdate,
+          isForceUpdate,
+          isRollback,
+          response,
+        }) => {
           if (isShowForceUpdatePreviewPage) {
             return;
           }
@@ -808,6 +849,17 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
                 showUpdateDialog(false, response);
               }, 200);
             }
+          } else if (
+            isRollback &&
+            response?.status === EAppUpdateStatus.notify
+          ) {
+            // Rollback always auto-downloads regardless of server strategy —
+            // it is a corrective action, not a user-facing update.
+            // Guard on status===notify to prevent retry loops:
+            // startFailedRecoveryTimer resets failed → notify with a
+            // per-target retry limit; after MAX_FAILED_RECOVERY_RETRY the
+            // target is frozen/ignored so status never reaches notify again.
+            void downloadPackage();
           }
         },
       );
@@ -837,7 +889,16 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         ...buildSoftwareUpdateParams(fileType, appUpdateInfo),
         status: 'success',
       });
-      if (appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless) {
+      const whatsNewAlreadyShown = isWhatsNewShown();
+      // Don't use fileType here — getUpdateFileType compares against the
+      // already-updated running version (current == target), so it always
+      // returns appShell for completed updates. Determine the type directly
+      // from appUpdateInfo instead.
+      markWhatsNewShown(Boolean(appUpdateInfo.jsBundleVersion));
+      if (
+        appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless &&
+        !whatsNewAlreadyShown
+      ) {
         onViewReleaseInfo();
       }
       setTimeout(async () => {
@@ -872,22 +933,28 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         return;
       }
       const fileType = getUpdateFileType(appUpdateInfo);
-      if (
-        fileType === EUpdateFileType.jsBundle &&
-        appUpdateInfo.updateStrategy === EUpdateStrategy.seamless
-      ) {
-        // Only install if signature verification data is present
-        if (
-          appUpdateInfo.downloadedEvent?.signature &&
-          appUpdateInfo.downloadedEvent?.sha256
-        ) {
-          void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+      if (appUpdateInfo.updateStrategy === EUpdateStrategy.seamless) {
+        if (fileType === EUpdateFileType.jsBundle) {
+          // Only install if signature verification data is present
+          if (
+            appUpdateInfo.downloadedEvent?.signature &&
+            appUpdateInfo.downloadedEvent?.sha256
+          ) {
+            void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+          } else {
+            defaultLogger.app.appUpdate.endInstallPackage(
+              false,
+              new Error('Missing signature or sha256 for seamless install'),
+            );
+            void backgroundApiProxy.serviceAppUpdate.reset();
+          }
         } else {
-          defaultLogger.app.appUpdate.endInstallPackage(
-            false,
-            new Error('Missing signature or sha256 for seamless install'),
+          void installPackage(
+            () => undefined,
+            () => {
+              void backgroundApiProxy.serviceAppUpdate.resetToInComplete();
+            },
           );
-          void backgroundApiProxy.serviceAppUpdate.reset();
         }
       } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
         showSilentUpdateDialog();
@@ -915,6 +982,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     toUpdatePreviewPage,
     verifyASC,
     verifyPackage,
+    installPackage,
     appUpdateInfo,
   ]);
 

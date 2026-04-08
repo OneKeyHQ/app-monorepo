@@ -15,6 +15,14 @@ export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
 export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
 export type IWsBbo = HL.BboWsEvent;
 
+// Spot state types
+export type IWsSpotState = HL.SpotStateWsEvent;
+export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
+export type IEventSpotStateParameters = HL.SpotStateWsParameters;
+
+// Abstraction query types
+export type IUserAbstractionResponse = HL.UserAbstractionResponse;
+
 export type IHyperliquidEventTarget = EventTarget;
 
 export type IUserNonFundingLedgerUpdate =
@@ -67,7 +75,7 @@ export type IPerpsClearinghouseState = HL.ClearinghouseStateResponse;
 export type IInfoClient = HL.InfoClient;
 export type IExchangeClient = HL.ExchangeClient;
 export type ISubscriptionClient = HL.SubscriptionClient;
-export type IPerpsSubscription = HL.WebSocketSubscription;
+export type IPerpsSubscription = HL.ISubscription;
 export type IHttpTransport = HL.HttpTransport;
 export type IWebSocketTransport = HL.WebSocketTransport;
 
@@ -82,6 +90,9 @@ export type IFill = HL.UserFillsResponse[number];
 export type IUserFees = HL.UserFeesResponse;
 export type IUserRole = HL.UserRoleResponse;
 export type IPortfolio = HL.PortfolioResponse;
+export type IPortfolioMetrics = IPortfolio[number][1];
+export type IUserNonFundingLedgerUpdatesResponse =
+  HL.UserNonFundingLedgerUpdatesResponse;
 export type IReferral = HL.ReferralResponse;
 
 // Request types
@@ -135,6 +146,7 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.OPEN_ORDERS]: IEventOpenOrdersParameters;
   [ESubscriptionType.ALL_DEXS_ASSET_CTXS]: IEventAllDexsAssetCtxsParameters;
   [ESubscriptionType.TWAP_STATES]: IEventTwapStatesParameters;
+  [ESubscriptionType.SPOT_STATE]: IEventSpotStateParameters;
 };
 
 export type IWebSocketTransportOptions = HL.WebSocketTransportOptions;

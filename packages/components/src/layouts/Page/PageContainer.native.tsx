@@ -26,10 +26,19 @@ import type {
 export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
 
-  const {
-    contentContainerStyle: rawContentContainerStyle,
-    ...restScrollProps
-  } = scrollProps || {};
+  const rawContentContainerStyle = scrollProps?.contentContainerStyle;
+  const keyboardShouldPersistTaps = scrollProps?.keyboardShouldPersistTaps;
+  const restScrollProps = useMemo(() => {
+    if (!scrollProps) {
+      return {};
+    }
+    const {
+      contentContainerStyle: _contentContainerStyle,
+      keyboardShouldPersistTaps: _keyboardShouldPersistTaps,
+      ...rest
+    } = scrollProps;
+    return rest;
+  }, [scrollProps]);
 
   const [nativeProps, style] = usePropsAndStyle(
     restScrollProps as Record<string, unknown>,
@@ -56,6 +65,11 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
     [scrollViewRef],
   );
 
+  const scrollViewStyle = useMemo(
+    () => [{ flex: 1 }, style] as StyleProp<ViewStyle>,
+    [style],
+  );
+
   return useMemo(
     () => (
       <BasicPage lazyLoad={lazyLoad} fullPage={fullPage}>
@@ -65,9 +79,10 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
             scrollEventThrottle={30}
             {...(nativeProps as Record<string, unknown>)}
             onScroll={handleScroll}
-            style={[{ flex: 1 }, style] as StyleProp<ViewStyle>}
+            style={scrollViewStyle}
             contentContainerStyle={contentContainerStyle}
             bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+            keyboardShouldPersistTaps={keyboardShouldPersistTaps}
           >
             <ScrollViewRefProvider value={contextValue}>
               {children}
@@ -85,8 +100,9 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
       scrollEnabled,
       nativeProps,
       handleScroll,
-      style,
+      scrollViewStyle,
       contentContainerStyle,
+      keyboardShouldPersistTaps,
       contextValue,
       children,
     ],

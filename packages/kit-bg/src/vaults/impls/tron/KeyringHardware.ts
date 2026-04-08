@@ -106,7 +106,9 @@ export class KeyringHardware extends KeyringHardwareBase {
           },
         });
 
-        console.log('tron-buildAddressesInfo', publicKeys);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('tron-buildAddressesInfo', publicKeys);
+        }
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {

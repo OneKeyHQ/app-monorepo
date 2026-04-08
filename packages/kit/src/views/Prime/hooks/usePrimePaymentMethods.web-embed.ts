@@ -1,8 +1,10 @@
+/* oxlint-disable import-js/order */
 import { useCallback, useMemo } from 'react';
 
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
+
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { useSearchParams } from 'react-router-dom';
@@ -40,6 +42,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       '') as ISubscriptionPeriod;
     const locale = searchParams.get('locale') || 'en';
     const mode = (searchParams.get('mode') || 'prod') as 'dev' | 'prod';
+    const currency = searchParams.get('currency') || undefined;
     const featureName = searchParams.get('featureName') || '';
     return {
       apiKey,
@@ -47,6 +50,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       primeUserEmail,
       subscriptionPeriod,
       locale,
+      currency,
       mode,
       featureName,
     };
@@ -104,7 +108,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
-    const offerings = await Purchases.getSharedInstance().getOfferings();
+    const offerings = await Purchases.getSharedInstance().getOfferings(
+      params.currency ? { currency: params.currency } : undefined,
+    );
 
     const packages: IPackage[] =
       offerings?.current?.availablePackages?.map((p) => {
@@ -122,6 +128,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
+          currencyCode,
           pricePerYear: Number(pricePerYear),
           pricePerYearString: `${pricePerYear} ${currencyCode}`,
           pricePerMonth: Number(pricePerMonth),
@@ -136,24 +143,27 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     });
 
     return packages;
-  }, [initSdk, isReady]);
+  }, [initSdk, isReady, params.currency]);
 
   const purchasePackageWeb = useCallback(
     async ({
       subscriptionPeriod,
       email,
       locale,
+      currency,
       featureName,
     }: {
       subscriptionPeriod: string;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
+      currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
       console.log('purchasePackageWeb77632723>>>>>>', {
         subscriptionPeriod,
         email,
         locale,
+        currency,
         featureName,
       });
 
@@ -177,7 +187,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           'purchasePackageWeb77632723>>>>>> getOfferings',
           typeof Purchases.getSharedInstance().getOfferings,
         );
-        const offerings = await Purchases.getSharedInstance().getOfferings();
+        const offerings = await Purchases.getSharedInstance().getOfferings(
+          currency ? { currency } : undefined,
+        );
         console.log('purchasePackageWeb77632723>>>>>> offerings', {
           offerings,
         });
