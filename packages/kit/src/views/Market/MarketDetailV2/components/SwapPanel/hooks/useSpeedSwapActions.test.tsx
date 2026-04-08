@@ -491,4 +491,76 @@ describe('useSpeedSwapActions', () => {
       expect(result.current.priceRate?.rate).toBeCloseTo(0.2);
     });
   });
+
+  it('falls back to remote price fetch when inline token prices are placeholder zeroes', async () => {
+    mockNetAccountPromiseResult = {
+      result: undefined,
+      run: mockNetAccountRun,
+    };
+
+    mockFetchSwapTokenDetails.mockImplementation(
+      ({
+        accountId,
+        networkId,
+        contractAddress,
+      }: IFetchSwapTokenDetailsParams) => {
+        if (accountId) {
+          return Promise.resolve([]);
+        }
+
+        const requestKey = `${networkId ?? ''}:${contractAddress ?? ''}`;
+        switch (requestKey) {
+          case `${usdcToken.networkId}:${usdcToken.contractAddress}`:
+            return Promise.resolve(
+              createTokenDetail({
+                networkId: usdcToken.networkId,
+                contractAddress: usdcToken.contractAddress,
+                symbol: usdcToken.symbol,
+                decimals: usdcToken.decimals,
+                price: '1',
+              }),
+            );
+          case `${tonMarketToken.networkId}:${tonMarketToken.contractAddress}`:
+            return Promise.resolve(
+              createTokenDetail({
+                networkId: tonMarketToken.networkId,
+                contractAddress: tonMarketToken.contractAddress,
+                symbol: tonMarketToken.symbol,
+                decimals: tonMarketToken.decimals,
+                price: '5',
+              }),
+            );
+          default:
+            return Promise.resolve([]);
+        }
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: {
+            ...tonMarketToken,
+            price: '5',
+          },
+          tradeToken: {
+            ...usdcToken,
+            price: '0',
+          },
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2);
+      expect(result.current.priceRate).toEqual(
+        expect.objectContaining({
+          fromTokenSymbol: 'USDC',
+          toTokenSymbol: 'TON',
+          loading: false,
+        }),
+      );
+      expect(result.current.priceRate?.rate).toBeCloseTo(0.2);
+    });
+  });
 });

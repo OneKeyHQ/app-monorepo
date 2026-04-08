@@ -2235,6 +2235,13 @@ export function useSpeedSwapActions(props: {
   const fetchTokenPrice = useCallback(async () => {
     const currentRequestId = priceRequestIdRef.current + 1;
     priceRequestIdRef.current = currentRequestId;
+    const fromTokenPriceBN = new BigNumber(fromToken.price || 0);
+    const toTokenPriceBN = new BigNumber(toToken.price || 0);
+    const canUseInlineTokenPrices =
+      !fromTokenPriceBN.isNaN() &&
+      !toTokenPriceBN.isNaN() &&
+      fromTokenPriceBN.gt(0) &&
+      toTokenPriceBN.gt(0);
 
     setPriceRate({
       rate: undefined,
@@ -2242,10 +2249,7 @@ export function useSpeedSwapActions(props: {
       toTokenSymbol: toToken.symbol,
       loading: true,
     });
-    if (fromToken.price && toToken.price) {
-      const fromTokenPriceBN = new BigNumber(fromToken.price || 0);
-      const toTokenPriceBN = new BigNumber(toToken.price || 0);
-
+    if (canUseInlineTokenPrices) {
       if (currentRequestId !== priceRequestIdRef.current) {
         return;
       }
@@ -2291,12 +2295,16 @@ export function useSpeedSwapActions(props: {
       }
 
       if (fromTokenPrice?.length && toTokenPrice?.length) {
-        const fromTokenPriceBN = new BigNumber(fromTokenPrice[0].price || 0);
-        const toTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
+        const fetchedFromTokenPriceBN = new BigNumber(
+          fromTokenPrice[0].price || 0,
+        );
+        const fetchedToTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
         setPriceRate({
-          rate: toTokenPriceBN.isZero()
+          rate: fetchedToTokenPriceBN.isZero()
             ? 0
-            : fromTokenPriceBN.dividedBy(toTokenPriceBN).toNumber(),
+            : fetchedFromTokenPriceBN
+                .dividedBy(fetchedToTokenPriceBN)
+                .toNumber(),
           fromTokenSymbol: fromToken.symbol,
           toTokenSymbol: toToken.symbol,
           loading: false,
