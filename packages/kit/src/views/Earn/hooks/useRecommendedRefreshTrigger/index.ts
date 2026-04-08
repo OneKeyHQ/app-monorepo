@@ -1,7 +1,6 @@
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { useRecommendedRefreshAppEvents } from './useRecommendedRefreshAppEvents';
-import { useRecommendedRefreshHistoryPoll } from './useRecommendedRefreshHistoryPoll';
 import { useRecommendedRefreshPendingTx } from './useRecommendedRefreshPendingTx';
 import { useRecommendedRefreshScheduler } from './useRecommendedRefreshScheduler';
 import { useRecommendedRefreshScope } from './useRecommendedRefreshScope';
@@ -37,15 +36,6 @@ export function useRecommendedRefreshTrigger({
     networkId,
     recommendedTokens,
     enableFetch,
-  });
-
-  useRecommendedRefreshHistoryPoll({
-    accountId,
-    networkId,
-    enableFetch,
-    historyRefreshAccounts,
-    shouldRefreshByAccounts,
-    scheduleRecommendedRefresh,
   });
 
   useRecommendedRefreshAppEvents({
