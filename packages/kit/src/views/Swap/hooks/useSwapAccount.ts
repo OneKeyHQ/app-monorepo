@@ -21,7 +21,6 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapProviderSupportReceiveAddressAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
@@ -393,7 +392,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
 export function useSwapRecipientAddressInfo(enable: boolean) {
   const fromAccountInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
   const getToNetWorkAddressFromAccountId = usePromiseResult(
@@ -456,7 +455,7 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
           swapToAnotherAddressInfo.address) ||
         !getToNetWorkAddressFromAccountId?.result?.accountAddress) &&
       swapToAnotherAddressInfo.networkId ===
-        currentQuoteRes?.toTokenInfo.networkId
+        (toToken?.networkId ?? swapToAddressInfo.networkId)
     ) {
       return {
         accountInfo:
