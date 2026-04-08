@@ -328,7 +328,6 @@ export const contextAtomSnapshotRegistry = new Map<
   { atom: () => any }
 >();
 
-const COLD_START_SCOPE_KEY_FALLBACK = '__default_context_scope__';
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
 const hydratedColdStartScopesByStore = new WeakMap<object, Set<string>>();
 
@@ -336,22 +335,20 @@ function buildColdStartScopedKey({
   coldStartScopeKey,
   coldStartCacheKey,
 }: {
-  coldStartScopeKey?: string;
+  coldStartScopeKey: string;
   coldStartCacheKey: IContextAtomColdStartCacheKey;
 }) {
-  return `${coldStartScopeKey || COLD_START_SCOPE_KEY_FALLBACK}${COLD_START_SCOPED_KEY_SEPARATOR}${coldStartCacheKey}`;
+  return `${coldStartScopeKey}${COLD_START_SCOPED_KEY_SEPARATOR}${coldStartCacheKey}`;
 }
 
 function getScopedColdStartSnapshotValue({
   snapshot,
   coldStartScopeKey,
   coldStartCacheKey,
-  allowLegacyFallback,
 }: {
   snapshot: Record<string, unknown>;
-  coldStartScopeKey?: string;
+  coldStartScopeKey: string;
   coldStartCacheKey: IContextAtomColdStartCacheKey;
-  allowLegacyFallback?: boolean;
 }) {
   const scopedKey = buildColdStartScopedKey({
     coldStartScopeKey,
@@ -359,10 +356,6 @@ function getScopedColdStartSnapshotValue({
   });
   if (scopedKey in snapshot) {
     return snapshot[scopedKey];
-  }
-  // Legacy fallback before provider scope support.
-  if (allowLegacyFallback && coldStartCacheKey in snapshot) {
-    return snapshot[coldStartCacheKey];
   }
   return undefined;
 }
@@ -490,9 +483,9 @@ export function hydrateContextColdStartCacheForProvider({
     get: (atomInstance: unknown) => unknown;
     set: (atomInstance: unknown, value: unknown) => void;
   };
-  coldStartScopeKey?: string;
+  coldStartScopeKey: string;
 }) {
-  const scope = coldStartScopeKey || COLD_START_SCOPE_KEY_FALLBACK;
+  const scope = coldStartScopeKey;
   let scopeSet = hydratedColdStartScopesByStore.get(store as object);
   if (!scopeSet) {
     scopeSet = new Set<string>();
@@ -519,7 +512,6 @@ export function hydrateContextColdStartCacheForProvider({
         snapshot,
         coldStartScopeKey: scope,
         coldStartCacheKey: cacheKey,
-        allowLegacyFallback: scope === COLD_START_SCOPE_KEY_FALLBACK,
       });
       if (cached !== undefined && cached !== null) {
         const atomInstance = atomBuilder();
@@ -597,8 +589,14 @@ export function contextAtomBase<Value>({
   const wrappedUse = activeColdStartCacheKey
     ? () => {
         const cacheKey = activeColdStartCacheKey;
+        const coldStartScopeKey = useColdStartScopeKey?.();
+        if (!coldStartScopeKey) {
+          throw new OneKeyLocalError(
+            `contextAtom coldStartCache requires provider store scope, atom=${cacheKey}`,
+          );
+        }
         const scopedCacheKey = buildColdStartScopedKey({
-          coldStartScopeKey: useColdStartScopeKey?.(),
+          coldStartScopeKey,
           coldStartCacheKey: cacheKey,
         });
         const result = useContextAtom(atomBuilder());

@@ -38,36 +38,33 @@ export function createJotaiContext<TContextConfig = undefined>() {
   const Context = createContext<{
     store: IJotaiContextStore | undefined;
     config: TContextConfig | undefined;
-    coldStartScopeKey: string | undefined;
-  }>({ store: undefined, config: undefined, coldStartScopeKey: undefined });
+  }>({ store: undefined, config: undefined });
 
   function Provider({
     config,
     store,
-    coldStartScopeKey,
     children,
   }: {
     config?: TContextConfig;
     store?: IJotaiContextStore;
-    coldStartScopeKey?: string;
     children?: ReactNode | undefined;
   }) {
     const value = useMemo(() => {
       const s = store || createStore();
-      const resolvedColdStartScopeKey =
-        coldStartScopeKey ||
-        (s as { __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__?: string })
-          .__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__;
-      hydrateContextColdStartCacheForProvider({
-        store: s as any,
-        coldStartScopeKey: resolvedColdStartScopeKey,
-      });
+      const resolvedColdStartScopeKey = (
+        s as { __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__?: string }
+      ).__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__;
+      if (resolvedColdStartScopeKey) {
+        hydrateContextColdStartCacheForProvider({
+          store: s as any,
+          coldStartScopeKey: resolvedColdStartScopeKey,
+        });
+      }
       return {
         store: s,
         config,
-        coldStartScopeKey: resolvedColdStartScopeKey,
       };
-    }, [store, config, coldStartScopeKey]);
+    }, [store, config]);
     return <Context.Provider value={value}>{children}</Context.Provider>;
   }
   function withProvider<P>(WrappedComponent: React.ComponentType<P>) {
@@ -76,19 +73,13 @@ export function createJotaiContext<TContextConfig = undefined>() {
       {
         store,
         config,
-        coldStartScopeKey,
       }: {
         config?: TContextConfig;
         store?: IJotaiContextStore;
-        coldStartScopeKey?: string;
       } = {},
     ) {
       return (
-        <Provider
-          store={store}
-          config={config}
-          coldStartScopeKey={coldStartScopeKey}
-        >
+        <Provider store={store} config={config}>
           <WrappedComponent {...(props as any)} />
         </Provider>
       );
@@ -113,7 +104,13 @@ export function createJotaiContext<TContextConfig = undefined>() {
   }
   function useColdStartScopeKey() {
     const data = useContextData();
-    return data.coldStartScopeKey;
+    return (
+      data.store as
+        | (IJotaiContextStore & {
+            __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__?: string;
+          })
+        | undefined
+    )?.__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__;
   }
 
   function contextAtom<Value>(

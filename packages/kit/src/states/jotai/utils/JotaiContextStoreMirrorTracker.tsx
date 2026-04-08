@@ -133,6 +133,11 @@ function JotaiContextRootProvidersAutoMountCmp() {
               />
             );
           }
+          case EJotaiContextStoreNames.homeAccountOverview:
+          case EJotaiContextStoreNames.urlAccountOverview: {
+            // AccountOverview uses local root providers and does not mirror.
+            return null;
+          }
           case EJotaiContextStoreNames.homeTokenList: {
             return <HomeTokenListRootProvider key={key} />;
           }
