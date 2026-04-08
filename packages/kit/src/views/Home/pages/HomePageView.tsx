@@ -470,6 +470,7 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
+        headerHeight={platformEnv.isNative ? 312 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
