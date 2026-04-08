@@ -436,18 +436,12 @@ export function HomePageView({
 
   const renderTabBar = useCallback(
     (props: any) => (
-      <Stack
-        onLayout={(e) => {
-          layoutDiag('TabBar', `h=${e.nativeEvent.layout.height}`);
-        }}
-      >
-        <Tabs.TabBar
-          {...props}
-          variant="pill"
-          renderItem={handleRenderItem}
-          renderToolbar={renderToolbar}
-        />
-      </Stack>
+      <Tabs.TabBar
+        {...props}
+        variant="pill"
+        renderItem={handleRenderItem}
+        renderToolbar={renderToolbar}
+      />
     ),
     [handleRenderItem, renderToolbar],
   );
