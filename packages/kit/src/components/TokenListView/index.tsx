@@ -279,8 +279,6 @@ function TokenListViewCmp(props: IProps) {
     }
 
     // Use cached rendered list on cold start when real data hasn't loaded yet.
-    // Once real data arrives (resultTokens.length > 0 && tokenListState.initialized),
-    // update the cache for next startup.
     if (
       resultTokens.length === 0 &&
       !tokenListState.initialized &&
@@ -288,18 +286,6 @@ function TokenListViewCmp(props: IProps) {
       renderedTokenListCache.tokens.length > 0
     ) {
       return renderedTokenListCache.tokens;
-    }
-
-    // Update rendered cache when we have real filtered data
-    if (
-      resultTokens.length > 0 &&
-      tokenListState.initialized &&
-      !tokenListState.isRefreshing
-    ) {
-      setRenderedTokenListCache({
-        tokens: resultTokens,
-        initialized: true,
-      });
     }
 
     return resultTokens;
@@ -319,10 +305,22 @@ function TokenListViewCmp(props: IProps) {
     customTokens,
     exchangeFilter,
     tokenListState.initialized,
-    tokenListState.isRefreshing,
     renderedTokenListCache,
-    setRenderedTokenListCache,
   ]);
+
+  // Save rendered token list cache for cold start (in useEffect, not useMemo)
+  useEffect(() => {
+    if (
+      tokens.length > 0 &&
+      tokenListState.initialized &&
+      !tokenListState.isRefreshing
+    ) {
+      setRenderedTokenListCache({
+        tokens,
+        initialized: true,
+      });
+    }
+  }, [tokens, tokenListState.initialized, tokenListState.isRefreshing, setRenderedTokenListCache]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
 
