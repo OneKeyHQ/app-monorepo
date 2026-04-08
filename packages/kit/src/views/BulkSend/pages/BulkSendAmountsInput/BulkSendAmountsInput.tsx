@@ -1258,6 +1258,11 @@ function BulkSendAmountsInputContent({
 
       setSenderBalancesLoading(true);
 
+      const vaultSettings =
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId,
+        });
+
       const balanceMap: Record<string, string> = {};
       const failedSet = new Set<string>();
       const limit = pLimit(5);
@@ -1268,13 +1273,21 @@ function BulkSendAmountsInputContent({
             limit(async () => {
               if (!sender.accountId) return;
               try {
+                const withCheckInscription =
+                  vaultSettings.hasFrozenBalance &&
+                  (await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                    {
+                      networkId,
+                      accountId: sender.accountId,
+                    },
+                  ));
                 const resp =
                   await backgroundApiProxy.serviceToken.fetchTokensDetails({
                     accountId: sender.accountId,
                     networkId,
                     contractList: [tokenInfo.address],
                     withFrozenBalance: true,
-                    withCheckInscription: false,
+                    withCheckInscription,
                   });
                 if (resp[0]) {
                   balanceMap[sender.address] = resp[0].balanceParsed;
