@@ -168,6 +168,7 @@ const SwapToAnotherAddressPage = () => {
           <RecipientQuickSelect
             accountId={accountInfo?.account?.id ?? ''}
             networkId={networkId}
+            senderDeriveType={activeAccount?.deriveType}
             searchKey={toAddressRaw}
             isSearchMode={!!toAddressRaw?.trim()}
             hideTabs={['recent']}
