@@ -480,7 +480,7 @@ function MultiLineSenderInput({
     onResolvedAccountIds: setResolvedSenderAccountIds,
     duplicateWarningMode,
     onDuplicateAddressCountChange,
-    senderSelectorAccountItems,
+    selectorAccountItems: senderSelectorAccountItems,
   });
 
   const handleActiveAccountChange = useCallback(

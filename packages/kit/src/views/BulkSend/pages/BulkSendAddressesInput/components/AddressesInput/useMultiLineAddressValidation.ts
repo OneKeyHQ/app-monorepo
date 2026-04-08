@@ -22,9 +22,9 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ELineAnnotationType, type ILineError } from './LineNumberedTextArea';
 import {
-  type IBulkSendSenderSelectorAccountItem,
-  buildSenderSelectorAddressKey,
-  resolveSenderSelectorFallbackAccount,
+  type IBulkSendSelectorAccountItem,
+  buildBulkSendSelectorAddressKey,
+  resolveBulkSendSelectorFallbackAccount,
 } from './senderSelectorAccountUtils';
 
 type IUseMultiLineAddressValidationParams = {
@@ -40,10 +40,7 @@ type IUseMultiLineAddressValidationParams = {
   onResolvedAccountIds?: (ids: Record<number, string>) => void;
   onDuplicateAddressCountChange?: (count: number) => void;
   duplicateWarningMode?: boolean;
-  senderSelectorAccountItems?: Record<
-    string,
-    IBulkSendSenderSelectorAccountItem
-  >;
+  selectorAccountItems?: Record<string, IBulkSendSelectorAccountItem>;
 };
 
 function useMultiLineAddressValidation(
@@ -63,7 +60,7 @@ function useMultiLineAddressValidation(
     onResolvedAccountIds,
     onDuplicateAddressCountChange,
     duplicateWarningMode = false,
-    senderSelectorAccountItems,
+    selectorAccountItems,
   } = params;
 
   const intl = useIntl();
@@ -207,9 +204,7 @@ function useMultiLineAddressValidation(
     ): Promise<{ accountId: string } | { error: string }> => {
       const trimmedAddress = address.trim();
       const fallbackAccountItem =
-        senderSelectorAccountItems?.[
-          buildSenderSelectorAddressKey(trimmedAddress)
-        ];
+        selectorAccountItems?.[buildBulkSendSelectorAddressKey(trimmedAddress)];
 
       try {
         const walletAccountItems =
@@ -219,7 +214,7 @@ function useMultiLineAddressValidation(
           });
 
         if (walletAccountItems.length === 0) {
-          const fallbackResult = await resolveSenderSelectorFallbackAccount({
+          const fallbackResult = await resolveBulkSendSelectorFallbackAccount({
             fallbackAccountItem,
             networkId,
           });
@@ -278,7 +273,7 @@ function useMultiLineAddressValidation(
           }),
         };
       } catch (_) {
-        const fallbackResult = await resolveSenderSelectorFallbackAccount({
+        const fallbackResult = await resolveBulkSendSelectorFallbackAccount({
           fallbackAccountItem,
           networkId,
         });
@@ -303,7 +298,7 @@ function useMultiLineAddressValidation(
         };
       }
     },
-    [intl, senderSelectorAccountItems],
+    [intl, selectorAccountItems],
   );
 
   const handleValidateAddresses = useCallback(
@@ -571,6 +566,10 @@ function useMultiLineAddressValidation(
             validAddresses.map(({ index, address }) =>
               limit(async () => {
                 const trimmedAddress = address.trim();
+                const fallbackAccountItem =
+                  selectorAccountItems?.[
+                    buildBulkSendSelectorAddressKey(trimmedAddress)
+                  ];
 
                 try {
                   let walletAccountItems: { accountId: string }[] =
@@ -597,6 +596,20 @@ function useMultiLineAddressValidation(
                         accountId: item.accountId,
                       }),
                     )
+                  ) {
+                    return { index, isAllowed: true };
+                  }
+
+                  const fallbackResult =
+                    await resolveBulkSendSelectorFallbackAccount({
+                      fallbackAccountItem,
+                      networkId: selectedNetworkId,
+                    });
+                  if (
+                    fallbackResult?.type === 'resolved' &&
+                    accountUtils.isOwnAccount({
+                      accountId: fallbackResult.accountId,
+                    })
                   ) {
                     return { index, isAllowed: true };
                   }
@@ -704,6 +717,7 @@ function useMultiLineAddressValidation(
       resolveAccountId,
       resolveAccountIdForAddress,
       duplicateWarningMode,
+      selectorAccountItems,
     ],
   );
 
