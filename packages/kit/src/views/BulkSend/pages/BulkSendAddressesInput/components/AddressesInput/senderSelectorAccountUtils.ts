@@ -2,7 +2,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-export type IBulkSendSenderSelectorAccountItem = {
+export type IBulkSendSelectorAccountItem = {
   address: string;
   walletName: string;
   accountName: string;
@@ -10,10 +10,14 @@ export type IBulkSendSenderSelectorAccountItem = {
   indexedAccountId?: string;
 };
 
-export const buildSenderSelectorAddressKey = (address: string) =>
+export type IBulkSendSenderSelectorAccountItem = IBulkSendSelectorAccountItem;
+
+export const buildBulkSendSelectorAddressKey = (address: string) =>
   address.trim();
 
-type IResolvedSenderSelectorFallback =
+export const buildSenderSelectorAddressKey = buildBulkSendSelectorAddressKey;
+
+type IResolvedBulkSendSelectorFallback =
   | {
       type: 'resolved';
       accountId: string;
@@ -24,13 +28,13 @@ type IResolvedSenderSelectorFallback =
       errorMessageId: ETranslations;
     };
 
-export async function resolveSenderSelectorFallbackAccount({
+export async function resolveBulkSendSelectorFallbackAccount({
   fallbackAccountItem,
   networkId,
 }: {
-  fallbackAccountItem?: IBulkSendSenderSelectorAccountItem;
+  fallbackAccountItem?: IBulkSendSelectorAccountItem;
   networkId: string;
-}): Promise<IResolvedSenderSelectorFallback | undefined> {
+}): Promise<IResolvedBulkSendSelectorFallback | undefined> {
   if (!fallbackAccountItem) {
     return undefined;
   }
@@ -93,3 +97,6 @@ export async function resolveSenderSelectorFallbackAccount({
     indexedAccountId: fallbackAccountItem.indexedAccountId,
   };
 }
+
+export const resolveSenderSelectorFallbackAccount =
+  resolveBulkSendSelectorFallbackAccount;
