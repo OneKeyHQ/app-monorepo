@@ -767,11 +767,9 @@ export default function RecipientQuickSelect({
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
   // Use controlled state from parent if provided, otherwise use local state
-  const isLightningNetwork =
-    networkUtils.isLightningNetworkByNetworkId(networkId);
   const [localActiveTab, setLocalActiveTab] =
     useState<IRecipientQuickSelectTab>(
-      isLightningNetwork || hideTabs?.includes('recent') ? 'account' : 'recent',
+      hideTabs?.includes('recent') ? 'account' : 'recent',
     );
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
@@ -884,29 +882,25 @@ export default function RecipientQuickSelect({
 
     const options: { label: string; value: IRecipientQuickSelectTab }[] = [];
 
-    // Lightning invoices are one-time, hide Recent tab to avoid showing them
+    options.push({
+      label: formatLabel(
+        intl.formatMessage({ id: ETranslations.global_recents }),
+        'recent',
+      ),
+      value: 'recent',
+    });
+
     if (!isLightning) {
       options.push({
         label: formatLabel(
-          intl.formatMessage({ id: ETranslations.global_recents }),
-          'recent',
+          intl.formatMessage({
+            id: ETranslations.global_accounts,
+          }),
+          'account',
         ),
-        value: 'recent',
+        value: 'account',
       });
-    }
 
-    options.push({
-      label: formatLabel(
-        intl.formatMessage({
-          id: ETranslations.global_accounts,
-        }),
-        'account',
-      ),
-      value: 'account',
-    });
-
-    // Lightning network doesn't support address book
-    if (!isLightning) {
       options.push({
         label: formatLabel(
           intl.formatMessage({ id: ETranslations.address_book_title }),
