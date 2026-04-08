@@ -15424,8 +15424,8 @@ __metadata:
   linkType: hard
 
 "@stoprocent/bluetooth-hci-socket@npm:^2.2.3":
-  version: 2.2.3
-  resolution: "@stoprocent/bluetooth-hci-socket@npm:2.2.3"
+  version: 2.2.6
+  resolution: "@stoprocent/bluetooth-hci-socket@npm:2.2.6"
   dependencies:
     async: "npm:^3.2.6"
     debug: "npm:^4.3.7"
