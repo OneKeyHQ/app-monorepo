@@ -1,11 +1,11 @@
 import { type RefObject, useEffect, useRef } from 'react';
 
-import { onVisibilityStateChange } from '@onekeyhq/components/src/hooks/useVisibilityChange';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useTokenDetailActions,
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
 import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
   EAppEventBusNames,
@@ -23,6 +23,14 @@ interface IUseTradingViewV2WebSocketProps {
   currency?: string;
 }
 
+interface IMarketPriceUpdatePayload {
+  channel: string;
+  tokenAddress: string;
+  messageType?: string;
+  data: unknown;
+  originalData?: unknown;
+}
+
 export function useTradingViewV2WebSocket({
   networkId,
   tokenAddress,
@@ -30,23 +38,28 @@ export function useTradingViewV2WebSocket({
   enabled = true,
   chartType = '1m',
   currency = 'usd',
-}: IUseTradingViewV2WebSocketProps) {
+}: IUseTradingViewV2WebSocketProps): void {
   const lastUpdateTime = useRef<number>(0);
   const tokenDetailActions = useTokenDetailActions();
   const [tokenDetail] = useTokenDetailAtom();
   const tokenDetailRef = useRef(tokenDetail);
+  const { markSubscriptionActivity } = useMarketWSSubscriptionRecovery({
+    enabled,
+    networkId,
+    tokenAddress,
+    chartType,
+    currency,
+    channel: 'ohlcv',
+  });
   tokenDetailRef.current = tokenDetail;
-  // Initialize and manage WebSocket connection
   useEffect(() => {
     if (!networkId || !tokenAddress) {
       return;
     }
 
-    const initWebSocket = async () => {
+    async function initWebSocket(): Promise<void> {
       try {
         await backgroundApiProxy.serviceMarketWS.connect();
-
-        // Subscribe to OHLCV data if enabled
         await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
           networkId,
           tokenAddress,
@@ -56,15 +69,14 @@ export function useTradingViewV2WebSocket({
       } catch (error) {
         console.error('Failed to initialize market WebSocket:', error);
       }
-    };
+    }
 
     if (enabled) {
       void initWebSocket();
     }
 
     return () => {
-      // Clean up specific subscriptions instead of disconnecting everything
-      const cleanup = async () => {
+      async function cleanup(): Promise<void> {
         try {
           await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
             networkId,
@@ -75,96 +87,87 @@ export function useTradingViewV2WebSocket({
         } catch (error) {
           console.error('Failed to unsubscribe from market data:', error);
         }
-      };
+      }
 
       void cleanup();
     };
   }, [networkId, tokenAddress, enabled, chartType, currency]);
 
-  // Listen for market data updates via the app event bus
   useEffect(() => {
     if (!enabled) {
       return;
     }
 
-    const handleMarketDataUpdate = (payload: {
-      channel: string;
-      tokenAddress: string;
-      messageType?: string;
-      data: any;
-      originalData?: any;
-    }) => {
-      // Only process messages for our specific token and network
-      if (payload.tokenAddress === tokenAddress) {
-        if (payload.channel === 'ohlcv') {
-          const now = Math.floor(Date.now() / 1000);
+    function handleMarketDataUpdate(payload: IMarketPriceUpdatePayload): void {
+      if (
+        payload.tokenAddress !== tokenAddress ||
+        payload.channel !== 'ohlcv'
+      ) {
+        return;
+      }
 
-          // Skip if we just updated recently (avoid duplicate calls)
-          if (now - lastUpdateTime.current < 4) {
-            return;
-          }
+      markSubscriptionActivity();
 
-          if (webRef.current) {
-            console.log('pushLatestKLineData1', payload.data);
+      const now = Math.floor(Date.now() / 1000);
+      if (now - lastUpdateTime.current < 4) {
+        return;
+      }
 
-            const receivedData = payload.data as IWsPriceData;
+      const webView = webRef.current;
+      if (!webView) {
+        return;
+      }
 
-            // Follow useAutoKLineUpdate pattern
-            // Convert single point to array format if needed
-            const dataForWebView =
-              receivedData && 'points' in receivedData
-                ? receivedData
-                : {
-                    points: [
-                      {
-                        ...receivedData,
+      const receivedData = payload.data as IWsPriceData;
+      const dataForWebView =
+        receivedData && 'points' in receivedData
+          ? receivedData
+          : {
+              points: [
+                {
+                  ...receivedData,
 
-                        // oxlint-disable-next-line @cspell/spellchecker
-                        t: receivedData.unixTime, // Convert timestamp to t
-                      },
-                    ],
-                    total: 1,
-                  };
+                  // oxlint-disable-next-line @cspell/spellchecker
+                  t: receivedData.unixTime,
+                },
+              ],
+              total: 1,
+            };
 
-            webRef.current.sendMessageViaInjectedScript({
-              type: 'autoKLineUpdate',
-              payload: {
-                type: 'realtime',
-                kLineData: dataForWebView,
-                timestamp: now,
-              },
-            });
+      webView.sendMessageViaInjectedScript({
+        type: 'autoKLineUpdate',
+        payload: {
+          type: 'realtime',
+          kLineData: dataForWebView,
+          timestamp: now,
+        },
+      });
 
-            void backgroundApiProxy.serviceMarketWS.clearDataCount({
-              address: tokenAddress,
-              type: 'ohlcv',
-            });
+      void backgroundApiProxy.serviceMarketWS.clearDataCount({
+        address: tokenAddress,
+        type: 'ohlcv',
+      });
 
-            // Update token detail if we have valid price data
-            if (
-              receivedData &&
-              typeof receivedData.c === 'number' &&
-              tokenDetailRef.current
-            ) {
-              const latestPrice = receivedData.c.toString(); // close price
+      if (
+        receivedData &&
+        typeof receivedData.c === 'number' &&
+        tokenDetailRef.current
+      ) {
+        const latestPrice = receivedData.c.toString();
 
-              // Only update if the price is different to avoid unnecessary updates
-              if (tokenDetailRef.current.price !== latestPrice) {
-                const updatedTokenDetail: typeof tokenDetailRef.current = {
-                  ...tokenDetailRef.current,
-                  price: latestPrice,
-                  lastUpdated: now * 1000, // Convert to milliseconds for JavaScript Date
-                };
+        if (tokenDetailRef.current.price !== latestPrice) {
+          const updatedTokenDetail: typeof tokenDetailRef.current = {
+            ...tokenDetailRef.current,
+            price: latestPrice,
+            lastUpdated: now * 1000,
+          };
 
-                tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
-              }
-            }
-
-            lastUpdateTime.current = now;
-          }
+          tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
         }
       }
-    };
+
+      lastUpdateTime.current = now;
+    }
 
     appEventBus.on(
       EAppEventBusNames.MarketWSDataUpdate,
@@ -177,26 +180,11 @@ export function useTradingViewV2WebSocket({
         handleMarketDataUpdate,
       );
     };
-  }, [networkId, tokenAddress, webRef, enabled, tokenDetailActions]);
-
-  // Re-subscribe when browser tab becomes visible again
-  // Auto-unsubscribe may have killed the subscription while tab was in background
-  // (UI-side clearDataCount stops being called → dataCount reaches threshold)
-  useEffect(() => {
-    if (!enabled || !networkId || !tokenAddress) {
-      return;
-    }
-    const removeSubscription = onVisibilityStateChange((visible) => {
-      if (visible) {
-        void backgroundApiProxy.serviceMarketWS.ensureSubscription({
-          networkId,
-          tokenAddress,
-          chartType,
-          currency,
-          channel: 'ohlcv',
-        });
-      }
-    });
-    return removeSubscription;
-  }, [enabled, networkId, tokenAddress, chartType, currency]);
+  }, [
+    markSubscriptionActivity,
+    tokenAddress,
+    webRef,
+    enabled,
+    tokenDetailActions,
+  ]);
 }
