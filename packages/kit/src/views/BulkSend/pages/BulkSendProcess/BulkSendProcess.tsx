@@ -573,15 +573,34 @@ function BulkSendProcessContent({
 
           if (isNil(networkStatusRef.current[balanceKey]?.nativeBalance)) {
             try {
-              const nativeTokenAddress =
-                await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+              const [
+                nativeTokenAddress,
+                checkInscriptionProtectionEnabled,
+                vaultSettings,
+              ] = await Promise.all([
+                backgroundApiProxy.serviceToken.getNativeTokenAddress({
                   networkId,
-                });
+                }),
+                backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                  {
+                    networkId,
+                    accountId: txAccountId,
+                  },
+                ),
+                backgroundApiProxy.serviceNetwork.getVaultSettings({
+                  networkId,
+                }),
+              ]);
+              const withCheckInscription =
+                checkInscriptionProtectionEnabled &&
+                vaultSettings.hasFrozenBalance;
               const resp =
                 await backgroundApiProxy.serviceToken.fetchTokensDetails({
                   accountId: txAccountId,
                   networkId,
                   contractList: [nativeTokenAddress],
+                  withFrozenBalance: true,
+                  withCheckInscription,
                 });
               if (resp?.[0] && !isNil(resp[0].balanceParsed)) {
                 networkStatusRef.current[balanceKey] = {
