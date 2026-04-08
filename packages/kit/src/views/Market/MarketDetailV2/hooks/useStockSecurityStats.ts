@@ -19,6 +19,7 @@ export interface IDescriptionRow {
   key: string;
   label: string;
   value: string;
+  tooltip?: string;
 }
 
 export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
@@ -184,17 +185,11 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_shares_per_token,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_shares_per_token_desc,
+        }),
         value: stock.sharesPerToken
           ? `${stock.sharesPerToken} ${stock.underlyingAssetTicker ?? ''}`.trim()
-          : STAT_FALLBACK_VALUE,
-      },
-      {
-        key: 'lastDividend',
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_dividend_yield,
-        }),
-        value: stock.dividendPerShare
-          ? `$${formatRatioValue(stock.dividendPerShare)}`
           : STAT_FALLBACK_VALUE,
       },
     ];
@@ -204,7 +199,6 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
     stock?.underlyingAssetTicker,
     stock?.underlyingAssetName,
     stock?.sharesPerToken,
-    stock?.dividendPerShare,
   ]);
 
   return { statRows, descriptionRows };

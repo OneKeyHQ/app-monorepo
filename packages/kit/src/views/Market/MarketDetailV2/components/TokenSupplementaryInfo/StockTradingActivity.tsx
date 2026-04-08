@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useStockSecurityStats } from '../../hooks/useStockSecurityStats';
@@ -21,13 +21,17 @@ export function StockTradingActivity() {
 
   return (
     <YStack px="$3" pt="$3" gap="$3">
-      <SizableText size="$bodyLgMedium">
-        {intl.formatMessage({
-          id: ETranslations.dexmarket_stock_asset_analysis,
-        })}
-      </SizableText>
+      <StockDescriptionRows rows={descriptionRows} />
+
+      <Divider my="$1" />
 
       <YStack gap="$2">
+        <SizableText size="$bodyLgMedium">
+          {intl.formatMessage({
+            id: ETranslations.dexmarket_stock_asset_analysis,
+          })}
+        </SizableText>
+
         {statRows.map((row) => (
           <XStack key={row[0]?.label} gap="$2">
             {row.map((item) => (
@@ -36,8 +40,6 @@ export function StockTradingActivity() {
           </XStack>
         ))}
       </YStack>
-
-      <StockDescriptionRows rows={descriptionRows} />
     </YStack>
   );
 }
