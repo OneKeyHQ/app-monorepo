@@ -47,6 +47,7 @@ import {
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
   useSmallBalanceTokenListAtom,
+  useRenderedTokenListCacheAtom,
   useTokenListAtom,
   useTokenListMapAtom,
   useTokenListSortAtom,
@@ -182,6 +183,8 @@ function TokenListViewCmp(props: IProps) {
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
+  const [renderedTokenListCache, setRenderedTokenListCache] =
+    useRenderedTokenListCacheAtom();
   const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
 
   const tokenManagementEnabled =
@@ -275,19 +278,30 @@ function TokenListViewCmp(props: IProps) {
       });
     }
 
-    // DEBUG: trace actual rendered token list
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { NativeLogger: NL, LogLevel: LL } =
-        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-      const jsEntry: number =
-        (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-      const elapsed = jsEntry ? Date.now() - jsEntry : 0;
-      NL.write(
-        LL.Info,
-        `[TokenListRender] +${elapsed}ms tokens=${resultTokens.length} first3=[${resultTokens.slice(0, 3).map((t) => t?.symbol || '?').join(',')}] source=${showActiveAccountTokenList ? 'activeAccount' : 'tokenList'} atomFirst3=[${tokenList.tokens.slice(0, 3).map((t) => t?.symbol || '?').join(',')}] atomLen=${tokenList.tokens.length}`,
-      );
-    } catch { /* */ }
+    // Use cached rendered list on cold start when real data hasn't loaded yet.
+    // Once real data arrives (resultTokens.length > 0 && tokenListState.initialized),
+    // update the cache for next startup.
+    if (
+      resultTokens.length === 0 &&
+      !tokenListState.initialized &&
+      renderedTokenListCache.initialized &&
+      renderedTokenListCache.tokens.length > 0
+    ) {
+      return renderedTokenListCache.tokens;
+    }
+
+    // Update rendered cache when we have real filtered data
+    if (
+      resultTokens.length > 0 &&
+      tokenListState.initialized &&
+      !tokenListState.isRefreshing
+    ) {
+      setRenderedTokenListCache({
+        tokens: resultTokens,
+        initialized: true,
+      });
+    }
+
     return resultTokens;
   }, [
     showActiveAccountTokenList,
@@ -304,6 +318,10 @@ function TokenListViewCmp(props: IProps) {
     homeDefaultTokenMap,
     customTokens,
     exchangeFilter,
+    tokenListState.initialized,
+    tokenListState.isRefreshing,
+    renderedTokenListCache,
+    setRenderedTokenListCache,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
@@ -396,13 +414,23 @@ function TokenListViewCmp(props: IProps) {
   }, []);
 
   const showSkeleton = useMemo(
-    () =>
-      (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
-      (!isTokenSelector && searchTokenState.isSearching) ||
-      (!tokenListState.initialized && tokenListState.isRefreshing) ||
-      (!activeAccountTokenListState.initialized &&
-        showActiveAccountTokenList &&
-        activeAccountTokenListState.isRefreshing),
+    () => {
+      // If we have a cached rendered token list, skip skeleton
+      if (
+        renderedTokenListCache.initialized &&
+        renderedTokenListCache.tokens.length > 0
+      ) {
+        return false;
+      }
+      return (
+        (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
+        (!isTokenSelector && searchTokenState.isSearching) ||
+        (!tokenListState.initialized && tokenListState.isRefreshing) ||
+        (!activeAccountTokenListState.initialized &&
+          showActiveAccountTokenList &&
+          activeAccountTokenListState.isRefreshing)
+      );
+    },
     [
       isTokenSelector,
       tokenSelectorSearchTokenState.isSearching,
@@ -412,6 +440,7 @@ function TokenListViewCmp(props: IProps) {
       activeAccountTokenListState.initialized,
       activeAccountTokenListState.isRefreshing,
       showActiveAccountTokenList,
+      renderedTokenListCache,
     ],
   );
 

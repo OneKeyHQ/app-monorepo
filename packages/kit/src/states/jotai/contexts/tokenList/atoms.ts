@@ -52,13 +52,10 @@ export const { atom: allTokenListMapAtom, use: useAllTokenListMapAtom } =
 export const { atom: tokenListAtom, use: useTokenListAtom } = contextAtom<{
   tokens: IAccountToken[];
   keys: string;
-}>(
-  {
-    tokens: [],
-    keys: '',
-  },
-  { name: 'ctx:tokenListAtom', coldStartCache: true },
-);
+}>({
+  tokens: [],
+  keys: '',
+});
 
 export const { atom: riskyTokenListAtom, use: useRiskyTokenListAtom } =
   contextAtom<{
@@ -88,7 +85,7 @@ export const {
 export const { atom: tokenListMapAtom, use: useTokenListMapAtom } =
   contextAtom<{
     [key: string]: ITokenFiat;
-  }>({}, { name: 'ctx:tokenListMapAtom', coldStartCache: true });
+  }>({});
 
 export const { atom: riskyTokenListMapAtom, use: useRiskyTokenListMapAtom } =
   contextAtom<{
@@ -121,7 +118,6 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
       isRefreshing: true,
       initialized: false,
     },
-    { name: 'ctx:tokenListStateAtom', coldStartCache: true },
   );
 
 export const {
@@ -194,3 +190,19 @@ export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
     sortType: ETokenListSortType.Value,
     sortDirection: 'desc',
   });
+
+/**
+ * Cached snapshot of the final rendered token list (after filtering
+ * hideZeroBalance, hideDeFiMarked, etc.). Used for cold start cache
+ * so the exact UI-visible list is restored on next launch.
+ */
+export const {
+  atom: renderedTokenListCacheAtom,
+  use: useRenderedTokenListCacheAtom,
+} = contextAtom<{
+  tokens: IAccountToken[];
+  initialized: boolean;
+}>(
+  { tokens: [], initialized: false },
+  { name: 'ctx:renderedTokenListCacheAtom', coldStartCache: true },
+);

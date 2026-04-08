@@ -495,16 +495,6 @@ export function contextAtomBase<Value>({
             }
           }
           if (coldStartValuesMap.get(name) !== currentValue) {
-            // For token-related atoms: only track after final sorted data
-            // is ready, to ensure tokenListAtom and tokenListMapAtom are
-            // saved in sync from the same final state.
-            if (
-              (name === 'ctx:tokenListAtom' ||
-                name === 'ctx:tokenListMapAtom') &&
-              !(globalThis as any).__onekeyTokenListFinalReady
-            ) {
-              return result;
-            }
             coldStartValuesMap.set(name, currentValue);
             scheduleColdStartSave(name);
             // Keep existing change log

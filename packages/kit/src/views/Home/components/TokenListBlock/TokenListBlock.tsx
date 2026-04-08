@@ -33,7 +33,6 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useAggregateTokensListMapAtom,
   useTokenListActions,
-  useTokenListAtom,
   useTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
@@ -240,7 +239,6 @@ function TokenListBlock({
 
   const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
   const [tokenListMapAtom] = useTokenListMapAtom();
-  const [tokenListData] = useTokenListAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
@@ -516,11 +514,6 @@ function TokenListBlock({
   const isAllNetworkManualRefresh = useRef(false);
 
   const updateAllNetworkData = useThrottledCallback(() => {
-    // Skip progressive writes after final sorted data is ready,
-    // otherwise unsorted ref data overwrites the sorted tokenListAtom.
-    if ((globalThis as any).__onekeyTokenListFinalReady) {
-      return;
-    }
     refreshTokenList({
       keys: tokenListRef.current.keys,
       tokens: tokenListRef.current.tokens,
@@ -1162,10 +1155,6 @@ function TokenListBlock({
         mergeDerive: true,
       });
 
-      // Skip cache-data writes after final sorted data is ready
-      if ((globalThis as any).__onekeyTokenListFinalReady) {
-        return;
-      }
       refreshTokenList({
         keys: `${accountId}_${networkId}_local_all`,
         tokens: tokenList,
@@ -1287,19 +1276,7 @@ function TokenListBlock({
     allNetworkCacheRequests: handleAllNetworkCacheRequests,
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkAccountsData: handleAllNetworkAccountsData,
-    clearAllNetworkData: useCallback(() => {
-      // Skip initial clear when coldStartCache has token data to prevent
-      // cached tokens from being wiped before fresh data arrives.
-      if (
-        tokenListData.tokens.length > 0 &&
-        !(globalThis as any).__onekeyAllNetworkClearDone
-      ) {
-        (globalThis as any).__onekeyAllNetworkClearDone = true;
-        return;
-      }
-      (globalThis as any).__onekeyAllNetworkClearDone = true;
-      handleClearAllNetworkData();
-    }, [handleClearAllNetworkData, tokenListData.tokens.length]),
+    clearAllNetworkData: handleClearAllNetworkData,
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
@@ -1549,26 +1526,10 @@ function TokenListBlock({
         tokens: aggregateTokenMap,
       });
 
-      // Mark BEFORE refreshTokenList so coldStartCache wrappedUse sees
-      // the flag on the re-render triggered by this write.
-      (globalThis as any).__onekeyTokenListFinalReady = true;
+      refreshTokenList(tokenList);
 
-      // Update price map FIRST so refreshTokenList(merge+split) sorts correctly
       refreshTokenListMap({
         tokens: mergeTokenListMap,
-      });
-
-      // Use merge+split to ensure consistent sort with refreshTokenList's
-      // sortTokensByFiatValue logic (same as handleAllNetworkCacheData path)
-      refreshTokenList({
-        tokens: tokenList.tokens,
-        keys: tokenList.keys,
-        merge: true,
-        map: {
-          ...mergeTokenListMap,
-          ...flattenAggregateTokensMap(aggregateTokenMap),
-        },
-        mergeDerive: true,
         split: true,
       });
 
@@ -1642,26 +1603,16 @@ function TokenListBlock({
       });
 
       if (networkId === networkIdsMap.onekeyall) {
-        // Skip resetting to skeleton when coldStartCache has token data.
-        // The cached data will be shown immediately; background refresh
-        // will update it when fresh data arrives.
-        const hasCachedTokenData =
-          tokenListData.tokens.length > 0 &&
-          !(globalThis as any).__onekeyTokenListInitDone;
-        (globalThis as any).__onekeyTokenListInitDone = true;
-
-        if (!hasCachedTokenData) {
-          perfTokenListView.markStart('tokenListRefreshing_1');
-          updateTokenListState({
-            initialized: false,
-            isRefreshing: true,
-          });
-          updateAccountOverviewState({
-            initialized: false,
-            isRefreshing: true,
-          });
-          handleClearAllNetworkData();
-        }
+        perfTokenListView.markStart('tokenListRefreshing_1');
+        updateTokenListState({
+          initialized: false,
+          isRefreshing: true,
+        });
+        updateAccountOverviewState({
+          initialized: false,
+          isRefreshing: true,
+        });
+        handleClearAllNetworkData();
         return;
       }
 
