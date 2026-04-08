@@ -258,10 +258,8 @@ export const {
         account.accountAddress?.toLowerCase()
     ) {
       abstractionOk =
-        abstractionMode.mode ===
-          EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
-        abstractionMode.mode ===
-          EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+        abstractionMode.mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+        abstractionMode.mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
     }
 
     const canTrade =
