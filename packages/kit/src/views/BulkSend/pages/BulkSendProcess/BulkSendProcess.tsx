@@ -14,8 +14,6 @@ import {
   Stack,
   XStack,
   YStack,
-  getCurrentVisibilityState,
-  onVisibilityStateChange,
   popModalPages,
   popToTabRootScreen,
   switchTab,
@@ -967,29 +965,12 @@ function BulkSendProcessContent({
     progressStateRef.current = progressState;
   }, [progressState]);
 
-  // Auto-pause when app loses focus
-  useEffect(() => {
-    const handleVisibilityStateChange = (visible: boolean) => {
-      if (
-        visible === false &&
-        progressState === EBulkSendProgressState.InProgress
-      ) {
-        setProgressState(EBulkSendProgressState.Paused);
-        setTxStatusMap((prev) => ({
-          ...prev,
-          [currentProcessIndex]: {
-            ...prev[currentProcessIndex],
-            status: EBulkSendTxStatus.Paused,
-          },
-        }));
-      }
-    };
-    handleVisibilityStateChange(getCurrentVisibilityState());
-    const removeSubscription = onVisibilityStateChange(
-      handleVisibilityStateChange,
-    );
-    return removeSubscription;
-  }, [currentProcessIndex, progressState]);
+  useEffect(
+    () => () => {
+      isAborted.current = true;
+    },
+    [],
+  );
 
   const handleOnConfirm = useCallback(() => {
     if (progressState === EBulkSendProgressState.Finished) {
