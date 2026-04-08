@@ -823,9 +823,18 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     if (!enabledNetworksParam) {
       return '';
     }
-    return enabledNetworksParam
-      .map((network) => network.id)
-      .sort()
+    return Array.from(
+      new Set(enabledNetworksParam.map((network) => network.id)),
+    )
+      .sort((a, b) => {
+        if (a < b) {
+          return -1;
+        }
+        if (a > b) {
+          return 1;
+        }
+        return 0;
+      })
       .join(',');
   }, [enabledNetworksParam]);
 

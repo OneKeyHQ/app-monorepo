@@ -144,6 +144,7 @@ export const swrKeys = {
   }) =>
     [
       'allNetCompat',
+      'v1',
       walletId,
       networkId ?? '',
       filterNetworksWithoutAccount ? '1' : '0',
