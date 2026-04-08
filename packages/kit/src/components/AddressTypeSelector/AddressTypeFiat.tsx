@@ -30,9 +30,10 @@ function AddressTypeFiat({
       return new Set<string>();
     }
 
-    const xpub = (account as IDBUtxoAccount).xpub;
+    const utxoAccount = account as IDBUtxoAccount;
     const rawCandidates = [
-      xpub,
+      utxoAccount.xpubSegwit,
+      utxoAccount.xpub,
       account.address,
       account.addressDetail.address,
       account.addressDetail.displayAddress,
