@@ -1819,10 +1819,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
         error: toPlainErrorObject(error as any),
       });
 
-      // Allow lock screen while waiting for user to retry
-      // No active hardware communication during retry wait state
-      await firmwareUpdateWorkflowRunningAtom.set(false);
-
       await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
         skipDeviceCancel: true,
         connectId: '',
@@ -1833,6 +1829,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       //
       try {
         await this.cancelUpdateWorkflowIfExit();
+        // Workflow is still alive (not exited by user), but in retry wait state
+        // Allow lock screen since no active hardware communication is happening
+        const retryInfo = await firmwareUpdateRetryAtom.get();
+        if (retryInfo) {
+          await firmwareUpdateWorkflowRunningAtom.set(false);
+        }
       } catch (error2) {
         await this.updateTasksReject({ id, error: error2 });
       }
