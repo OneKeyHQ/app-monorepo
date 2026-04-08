@@ -25,6 +25,104 @@ import type {
 const appStorage = storageHub.$webStorageGlobalStates || storageHub.appStorage;
 const mockStorage = storageHub._mockStorage;
 
+class JotaiStorageNativeMMKV implements AsyncStorage<any> {
+  private mmkv: {
+    getString(key: string): string | undefined;
+    set(key: string, value: string): void;
+    remove(key: string): void;
+    getAllKeys(): string[];
+  };
+
+  constructor() {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { default: instance } =
+      require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
+    this.mmkv = instance;
+  }
+
+  private log(msg: string) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { NativeLogger, LogLevel } =
+        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+      NativeLogger.write(LogLevel.Info, `[JotaiStorageMMKV] ${msg}`);
+    } catch {
+      /* noop */
+    }
+  }
+
+  private async readFromAsyncStorage(key: string): Promise<any> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const asyncStorage =
+      require('@react-native-async-storage/async-storage') as typeof import('@react-native-async-storage/async-storage');
+    const data = await asyncStorage.default.getItem(key);
+    if (data === null) return null;
+    try {
+      return isString(data) ? JSON.parse(data) : data;
+    } catch {
+      return null;
+    }
+  }
+
+  async getItem(key: string, initialValue: any): Promise<any> {
+    // Fast path: MMKV per-key
+    const raw = this.mmkv.getString(key);
+    if (raw !== undefined) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return JSON.parse(raw);
+      } catch (e) {
+        this.log(`MMKV parse failed for ${key}: ${(e as Error)?.message}`);
+      }
+    }
+
+    // Fallback: read from legacy AsyncStorage
+    try {
+      const legacyValue = await this.readFromAsyncStorage(key);
+      if (legacyValue !== null && legacyValue !== undefined) {
+        // Self-heal: write back to MMKV so next read is fast
+        this.mmkv.set(key, JSON.stringify(legacyValue));
+        this.log(`fallback to AsyncStorage OK for ${key}, self-healed to MMKV`);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return legacyValue;
+      }
+    } catch (e) {
+      this.log(
+        `AsyncStorage fallback failed for ${key}: ${(e as Error)?.message}`,
+      );
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return initialValue;
+  }
+
+  async setItem(key: string, newValue: any): Promise<void> {
+    this.mmkv.set(key, JSON.stringify(newValue));
+  }
+
+  async removeItem(key: string): Promise<void> {
+    this.mmkv.remove(key);
+  }
+
+  async getAllEntries(): Promise<Map<string, any>> {
+    const map = new Map<string, any>();
+    const keys = this.mmkv.getAllKeys();
+    for (const key of keys) {
+      const raw = this.mmkv.getString(key);
+      if (raw !== undefined) {
+        try {
+          map.set(key, JSON.parse(raw));
+        } catch {
+          map.set(key, undefined);
+        }
+      }
+    }
+    return map;
+  }
+
+  subscribe = undefined;
+}
+
 class JotaiStorage implements AsyncStorage<any> {
   async getItem(key: string, initialValue: any): Promise<any> {
     let data: string | null = await appStorage.getItem(key);
@@ -83,9 +181,19 @@ class JotaiStorage implements AsyncStorage<any> {
   subscribe = undefined;
 }
 
-export const onekeyJotaiStorage = platformEnv.isExtensionUi
-  ? mockStorage // extension real storage is running at bg, the ui is a mock storage
-  : new JotaiStorage();
+function createJotaiStorage() {
+  if (platformEnv.isExtensionUi) {
+    // extension real storage is running at bg, the ui is a mock storage
+    return mockStorage;
+  }
+  if (platformEnv.isNative) {
+    return new JotaiStorageNativeMMKV();
+  }
+  // web/desktop keep IndexedDB
+  return new JotaiStorage();
+}
+
+export const onekeyJotaiStorage = createJotaiStorage();
 
 export function buildJotaiStorageKey(name: IAtomNameKeys) {
   const key = `g_states_v5:${name}`;

@@ -20,23 +20,68 @@ require('@onekeyhq/shared/src/performance/init');
 require('./jsReady');
 require('@onekeyhq/shared/src/polyfills');
 
-// Pre-read jotai atom snapshot from MMKV (synchronous, ~1ms).
-// This runs at the very start of JS execution so the data is ready
-// when BackgroundApiProxyBase.constructor calls jotaiInitFromUi ~1500ms later.
+// One-time migration: globalAtom snapshot blob → MMKV per-key storage.
+// After migration, each globalAtom reads its own MMKV key directly
+// (no snapshot blob needed). Context atom snapshot pre-read is unchanged.
+function _migrationLog(msg: string) {
+  try {
+    const { NativeLogger: NL, LogLevel: LL } =
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    NL.write(LL.Info, `[JotaiMigration] ${msg}`);
+  } catch {
+    /* NativeLogger not available yet */
+  }
+}
 try {
   const { syncStorage: _syncStorage } =
     require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
   const { EAppSyncStorageKeys: _keys } =
     require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-  const _raw = _syncStorage.getString(_keys.onekey_jotai_atoms_snapshot);
-  if (_raw) {
-    (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__ = JSON.parse(_raw);
-    // eslint-disable-next-line no-console
-    console.log(
-      `[StartupTiming] MMKV globalAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
-    );
+
+  // Migrate globalAtom snapshot blob → MMKV per-key (one-time, synchronous)
+  const _migrated = _syncStorage.getBoolean(
+    _keys.onekey_jotai_mmkv_per_key_migrated,
+  );
+  if (!_migrated) {
+    try {
+      const { default: _jotaiMMKV } =
+        require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
+      const { buildJotaiStorageKey } =
+        require('@onekeyhq/kit-bg/src/states/jotai/jotaiStorage') as typeof import('@onekeyhq/kit-bg/src/states/jotai/jotaiStorage');
+      const { EAtomNames } =
+        require('@onekeyhq/kit-bg/src/states/jotai/atomNames') as typeof import('@onekeyhq/kit-bg/src/states/jotai/atomNames');
+
+      const _raw = _syncStorage.getString(_keys.onekey_jotai_atoms_snapshot);
+      if (_raw) {
+        const _snapshot = JSON.parse(_raw) as Record<string, any>;
+        let _count = 0;
+        for (const _atomName of Object.values(EAtomNames)) {
+          if (_atomName in _snapshot) {
+            const _storageKey = buildJotaiStorageKey(
+              _atomName as keyof typeof EAtomNames,
+            );
+            _jotaiMMKV.set(_storageKey, JSON.stringify(_snapshot[_atomName]));
+            _count += 1;
+          }
+        }
+        _migrationLog(
+          `snapshot → MMKV per-key OK: ${_count} atoms migrated (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
+        );
+      } else {
+        _migrationLog('no snapshot blob found, skip migration (first install)');
+      }
+      // Flag ONLY after all writes succeed
+      _syncStorage.set(_keys.onekey_jotai_mmkv_per_key_migrated, true);
+    } catch (e) {
+      // Migration failed — don't set flag, retry next launch.
+      // getItem fallback to AsyncStorage ensures data is not lost.
+      _migrationLog(
+        `migration FAILED, will retry next launch: ${(e as Error)?.message}`,
+      );
+    }
   }
-  // Pre-read context atom snapshot (separate key, for contextAtom injection)
+
+  // Pre-read context atom snapshot (separate system, unchanged)
   const _ctxRaw = _syncStorage.getString(
     _keys.onekey_jotai_context_atoms_snapshot,
   );

@@ -55,37 +55,40 @@ export function wrapAtomPro(
         name,
         payload,
       });
-      // Incrementally update globalAtom MMKV snapshot (separate key from contextAtom).
-      try {
-        const g = globalThis as any;
-        if (!g.__onekeyGlobalSnapshotCache) {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { syncStorage: ss } =
-            require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { EAppSyncStorageKeys: sk } =
-            require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-          const raw = ss.getString(sk.onekey_jotai_atoms_snapshot);
-          g.__onekeyGlobalSnapshotCache = raw ? JSON.parse(raw) : {};
-          g.__onekeyGlobalSnapshotStorage = { ss, sk };
+      // Non-native: incrementally update globalAtom MMKV snapshot blob.
+      // Native: no snapshot blob needed — atomWithStorage already wrote to MMKV per-key.
+      if (!platformEnv.isNative) {
+        try {
+          const g = globalThis as any;
+          if (!g.__onekeyGlobalSnapshotCache) {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { syncStorage: ss } =
+              require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { EAppSyncStorageKeys: sk } =
+              require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+            const raw = ss.getString(sk.onekey_jotai_atoms_snapshot);
+            g.__onekeyGlobalSnapshotCache = raw ? JSON.parse(raw) : {};
+            g.__onekeyGlobalSnapshotStorage = { ss, sk };
+          }
+          g.__onekeyGlobalSnapshotCache[name] = payload;
+          if (!g.__onekeyGlobalSnapshotFlushTimer) {
+            g.__onekeyGlobalSnapshotFlushTimer = setTimeout(() => {
+              g.__onekeyGlobalSnapshotFlushTimer = undefined;
+              try {
+                const { ss, sk } = g.__onekeyGlobalSnapshotStorage;
+                ss.set(
+                  sk.onekey_jotai_atoms_snapshot,
+                  JSON.stringify(g.__onekeyGlobalSnapshotCache),
+                );
+              } catch {
+                /* noop */
+              }
+            }, 500);
+          }
+        } catch {
+          /* best-effort */
         }
-        g.__onekeyGlobalSnapshotCache[name] = payload;
-        if (!g.__onekeyGlobalSnapshotFlushTimer) {
-          g.__onekeyGlobalSnapshotFlushTimer = setTimeout(() => {
-            g.__onekeyGlobalSnapshotFlushTimer = undefined;
-            try {
-              const { ss, sk } = g.__onekeyGlobalSnapshotStorage;
-              ss.set(
-                sk.onekey_jotai_atoms_snapshot,
-                JSON.stringify(g.__onekeyGlobalSnapshotCache),
-              );
-            } catch {
-              /* noop */
-            }
-          }, 500);
-        }
-      } catch {
-        /* best-effort */
       }
     }
   };

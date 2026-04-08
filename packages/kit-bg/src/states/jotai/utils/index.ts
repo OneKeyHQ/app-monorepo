@@ -7,8 +7,11 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IContextAtomColdStartCacheKey } from '@onekeyhq/shared/src/consts/jotaiConsts';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   atomWithStorage,
+  buildJotaiStorageKey,
   globalJotaiStorageReadyHandler,
 } from '../jotaiStorage';
 
@@ -149,17 +152,40 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   let initialVal = Object.freeze(initialValue!);
 
-  // If MMKV snapshot was pre-loaded, use cached value as initialValue
-  // so the atom starts with the correct persisted value immediately.
-  const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
-  if (snapshotStates && name && name in snapshotStates) {
-    const cached = snapshotStates[name];
-    if (cached !== undefined && cached !== null) {
-      initialVal = Object.freeze(
-        typeof initialValue === 'object' && typeof cached === 'object'
-          ? { ...initialValue, ...cached }
-          : cached,
-      ) as Value & Readonly<Value>;
+  // Hydrate persisted initialValue so the atom starts with the correct value.
+  if (platformEnv.isNative && name) {
+    // Native: read directly from MMKV per-key (synchronous, ~0.01ms)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { default: jotaiMMKV } =
+        require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
+      const storageKey = buildJotaiStorageKey(name as IAtomNameKeys);
+      const raw = jotaiMMKV.getString(storageKey);
+      if (raw !== undefined && raw !== null) {
+        const cached = JSON.parse(raw);
+        if (cached !== undefined && cached !== null) {
+          initialVal = Object.freeze(
+            typeof initialValue === 'object' && typeof cached === 'object'
+              ? { ...initialValue, ...cached }
+              : cached,
+          ) as Value & Readonly<Value>;
+        }
+      }
+    } catch {
+      /* fallback to default initialValue */
+    }
+  } else {
+    // Non-native: use pre-loaded snapshot from __ONEKEY_JOTAI_INIT_STATES__
+    const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
+    if (snapshotStates && name && name in snapshotStates) {
+      const cached = snapshotStates[name];
+      if (cached !== undefined && cached !== null) {
+        initialVal = Object.freeze(
+          typeof initialValue === 'object' && typeof cached === 'object'
+            ? { ...initialValue, ...cached }
+            : cached,
+        ) as Value & Readonly<Value>;
+      }
     }
   }
 

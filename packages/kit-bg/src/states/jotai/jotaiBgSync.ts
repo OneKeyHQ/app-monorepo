@@ -8,6 +8,7 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKey
 
 import type { EAtomNames } from './atomNames';
 import { jotaiInitFromUi } from './jotaiInitFromUi';
+import { globalJotaiStorageReadyHandler } from './jotaiStorage';
 
 import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
 
@@ -154,48 +155,32 @@ export class JotaiBgSync {
     const jsEntry: number =
       (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
-    // P0 optimization: for native dual-thread mode, read from MMKV snapshot
-    // instead of waiting for BG thread RPC (saves ~1.3s).
-    // BG thread's jotaiInit() will broadcast any diffs after it's ready.
+    // Native dual-thread: MMKV per-key is always available.
+    // crossAtomBuilder reads directly from MMKV — no snapshot blob needed.
+    // Resolve ready immediately so GlobalJotaiReady can render.
     if (
       platformEnv.isNativeMainThread &&
       platformEnv.enableNativeBackgroundThread
     ) {
-      const cacheStart = Date.now();
       this.syncLog(
-        `local cache read start at +${cacheStart - jsEntry}ms from JS entry`,
+        `native MMKV per-key: resolving ready immediately, +${Date.now() - jsEntry}ms from JS entry`,
       );
-      const cachedStates = this.readLocalCachedStates();
-      const cacheEnd = Date.now();
-
-      if (cachedStates) {
-        const keyCount = Object.keys(cachedStates).length;
-        this.syncLog(
-          `local cache hit: ${keyCount} keys in ${cacheEnd - cacheStart}ms, +${cacheEnd - jsEntry}ms from JS entry`,
-        );
-        const initStart = Date.now();
-        await jotaiInitFromUi({
-          states: cachedStates as Record<EAtomNames, any>,
-          useSnapshotInjection: true,
-        });
-        const initEnd = Date.now();
-        this.syncLog(
-          `jotaiInitFromUi (snapshot injection) done in ${initEnd - initStart}ms, total: ${initEnd - cacheStart}ms, +${initEnd - jsEntry}ms from JS entry`,
-        );
-        // Signal SplashProvider to skip processPendingInstallTask gate
-        (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__ = true;
-        // Save globalAtom snapshot (separate key from contextAtom snapshot)
-        this.saveSnapshot(cachedStates);
-        return;
+      // Signal SplashProvider: check if jotai MMKV has data (not first install)
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { default: jotaiMMKV } =
+          require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
+        if (jotaiMMKV.getAllKeys().length > 0) {
+          (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__ = true;
+        }
+      } catch {
+        /* noop */
       }
-
-      this.syncLog(
-        `local cache miss in ${cacheEnd - cacheStart}ms, falling back to RPC`,
-      );
-      // Fall through to RPC path below
+      globalJotaiStorageReadyHandler.resolveReady(true);
+      return;
     }
 
-    // Original RPC path: wait for BG thread (used by extension UI and as fallback)
+    // Extension UI: keep existing RPC path (unchanged)
     const rpcStart = Date.now();
     this.syncLog(
       `getAtomStates RPC start at +${rpcStart - jsEntry}ms from JS entry`,
@@ -211,13 +196,6 @@ export class JotaiBgSync {
     this.syncLog(
       `jotaiInitFromUi (from RPC) done in ${initEnd - initStart}ms, total: ${initEnd - rpcStart}ms, +${initEnd - jsEntry}ms from JS entry`,
     );
-    // Save snapshot for next startup
-    if (
-      platformEnv.isNativeMainThread &&
-      platformEnv.enableNativeBackgroundThread
-    ) {
-      this.saveSnapshot(states);
-    }
   }
 
   async broadcastStateUpdateFromBgToUi({
