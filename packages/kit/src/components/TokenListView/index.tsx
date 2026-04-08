@@ -275,6 +275,19 @@ function TokenListViewCmp(props: IProps) {
       });
     }
 
+    // DEBUG: trace actual rendered token list
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { NativeLogger: NL, LogLevel: LL } =
+        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+      const jsEntry: number =
+        (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+      const elapsed = jsEntry ? Date.now() - jsEntry : 0;
+      NL.write(
+        LL.Info,
+        `[TokenListRender] +${elapsed}ms tokens=${resultTokens.length} first3=[${resultTokens.slice(0, 3).map((t) => t?.symbol || '?').join(',')}] source=${showActiveAccountTokenList ? 'activeAccount' : 'tokenList'} atomFirst3=[${tokenList.tokens.slice(0, 3).map((t) => t?.symbol || '?').join(',')}] atomLen=${tokenList.tokens.length}`,
+      );
+    } catch { /* */ }
     return resultTokens;
   }, [
     showActiveAccountTokenList,
