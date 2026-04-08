@@ -33,11 +33,14 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQuickSelect';
 import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataInput/recipientSelectionUtils';
+import type { IRecipientQuickSelectTab } from '../../../Send/pages/SendDataInput/recipientQuickSelectTabUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { SubmitHandler } from 'react-hook-form';
+
+const SWAP_HIDDEN_TABS: IRecipientQuickSelectTab[] = ['recent'];
 
 interface IFormType {
   address: IAddressInputValue;
@@ -171,7 +174,7 @@ const SwapToAnotherAddressPage = () => {
             senderDeriveType={activeAccount?.deriveType}
             searchKey={toAddressRaw}
             isSearchMode={!!toAddressRaw?.trim()}
-            hideTabs={['recent']}
+            hideTabs={SWAP_HIDDEN_TABS}
             onMatchStatusChange={setHasQuickSelectMatches}
             onSelect={handleQuickSelectRecipient}
           />
