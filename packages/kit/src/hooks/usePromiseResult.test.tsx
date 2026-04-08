@@ -53,6 +53,8 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+
 // eslint-disable-next-line import/no-relative-packages
 import { globalNetInfo } from '../../../components/src/hooks/useNetInfo';
 
@@ -145,5 +147,78 @@ describe('usePromiseResult', () => {
 
     // At least one additional call after recovery
     expect(method.mock.calls.length).toBeGreaterThan(callsBeforeRecovery);
+  });
+
+  describe('swrKey', () => {
+    beforeEach(() => {
+      swrCacheUtils.clearAll();
+    });
+
+    it('uses cached value as initial result on mount', async () => {
+      swrCacheUtils.set('test-key', 'cached-value');
+
+      const method = jest.fn(async () => 'fresh-value');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], { swrKey: 'test-key' }),
+      );
+
+      // Initial render should have the cached value immediately
+      expect(result.current.result).toBe('cached-value');
+
+      // After async resolution, should update to fresh value
+      await waitFor(() => {
+        expect(result.current.result).toBe('fresh-value');
+      });
+    });
+
+    it('writes fresh result to SWR cache on success', async () => {
+      const method = jest.fn(async () => 'fresh-value');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], { swrKey: 'write-test' }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('fresh-value');
+      });
+
+      expect(swrCacheUtils.get('write-test')).toBe('fresh-value');
+    });
+
+    it('does not override explicit initResult with cached value', async () => {
+      swrCacheUtils.set('override-test', 'cached-value');
+
+      const method = jest.fn(async () => 'fresh-value');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          initResult: 'explicit-init',
+          swrKey: 'override-test',
+        }),
+      );
+
+      // Should use explicit initResult, not cached value
+      expect(result.current.result).toBe('explicit-init');
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('fresh-value');
+      });
+    });
+
+    it('returns undefined initially when no cache exists', async () => {
+      const method = jest.fn(async () => 'fresh-value');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], { swrKey: 'no-cache-key' }),
+      );
+
+      // No cache, no initResult → undefined
+      expect(result.current.result).toBeUndefined();
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('fresh-value');
+      });
+    });
   });
 });
