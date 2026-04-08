@@ -860,14 +860,18 @@ export default function RecipientQuickSelect({
   // addresses are visible without manual tab switch (OK-52809).
   useEffect(() => {
     if (!networkId) return;
+    let cancelled = false;
     void backgroundApiProxy.serviceNetwork
       .getVaultSettings({ networkId })
       .then((settings) => {
-        if (settings?.mergeDeriveAssetsEnabled) {
+        if (!cancelled && settings?.mergeDeriveAssetsEnabled) {
           setActiveTab('account');
         }
       })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [networkId, setActiveTab]);
 
   // Use debounced search key for auto-switch logic
