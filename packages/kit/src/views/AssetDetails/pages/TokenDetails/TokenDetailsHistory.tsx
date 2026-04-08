@@ -106,7 +106,6 @@ function TokenDetailsHistory(props: IProps) {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       overrideIsFocused: (isPageFocused: boolean) =>
         isPageFocused && (isTabView ? isFocused : true),
-      watchLoading: true,
       ...(cachedHistory !== undefined ? { initResult: cachedHistory } : {}),
     }),
     [cachedHistory, isFocused, isTabView],
@@ -114,7 +113,6 @@ function TokenDetailsHistory(props: IProps) {
   const {
     result: tokenHistory,
     run,
-    isLoading,
   } = usePromiseResult(
     async () => {
       try {
@@ -157,10 +155,9 @@ function TokenDetailsHistory(props: IProps) {
   );
 
   const resolvedHistory = tokenHistory ?? cachedHistory ?? [];
-  const resolvedIsLoading =
-    !historyInit && cachedHistory === undefined
-      ? (isLoading ?? true)
-      : isLoading;
+  // Derive initialized synchronously to avoid one-frame flash of empty history
+  // when historyCacheKey changes and cachedHistory becomes undefined
+  const effectiveInit = historyInit || cachedHistory !== undefined;
 
   const handleHistoryItemPress = useCallback(
     async (tx: IAccountHistoryTx) => {
@@ -217,8 +214,7 @@ function TokenDetailsHistory(props: IProps) {
       networkId={networkId}
       indexedAccountId={indexedAccountId}
       inTabList={inTabList}
-      initialized={historyInit}
-      isLoading={resolvedIsLoading}
+      initialized={effectiveInit}
       data={resolvedHistory}
       onPressHistory={handleHistoryItemPress}
       ListHeaderComponent={ListHeaderComponent as React.ReactElement}

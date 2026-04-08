@@ -205,7 +205,7 @@ const trackPendingModalTarget = (target: IPendingModalTarget) => {
     }
   };
 
-  // Use navigation state listener instead of polling
+  // React Navigation's NavigationContainerRef types don't expose 'state' as a typed event name
   pendingModalTargetUnsubscribe = rootNavigationRef.current?.addListener?.(
     'state' as any,
     checkAndClear,
