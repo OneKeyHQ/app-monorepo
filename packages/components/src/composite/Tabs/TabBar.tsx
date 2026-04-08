@@ -105,10 +105,8 @@ export function TabBarItem({
   if (variant === 'pill') {
     // When animatedPillIndicator is active, the sliding background is rendered
     // by AnimatedPillIndicator — items should be transparent so it shows through.
-    let pillBg: string = '$bgStrong';
-    if (animatedPillIndicator) {
-      pillBg = 'transparent';
-    } else if (isFocused) {
+    let pillBg: string = 'transparent';
+    if (!animatedPillIndicator && isFocused) {
       pillBg = '$bgPrimary';
     }
 
