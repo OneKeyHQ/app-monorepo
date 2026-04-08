@@ -19,7 +19,8 @@ import {
   registerTranslateHandler,
   unregisterTranslateHandler,
 } from './translateBridge';
-import translateInjectCode from './translateInjectCode';
+// @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
+import translateInjectScript from './translateInject.text-js';
 import { createMessageInjectedScript } from './utils';
 
 import type { ITranslateRequest } from './translateBridge';
@@ -178,7 +179,7 @@ export function useWebViewTranslate(
   const ensureInjected = useCallback(() => {
     // Re-injection is needed after page navigation clears the old context;
     // the script has an idempotency guard for same-page calls.
-    injectScript(tabId, translateInjectCode);
+    injectScript(tabId, translateInjectScript);
     setupDesktopListener();
   }, [tabId, setupDesktopListener]);
 
