@@ -65,7 +65,9 @@ class ServiceBootstrap extends ServiceBase {
       );
     void timerUtils
       .wait(timerUtils.getTimeDurationMs({ seconds: 1 }))
-      .then(() => this.backgroundApi.serviceUniversalSearch.prewarmTrendingRecommend())
+      .then(() =>
+        this.backgroundApi.serviceUniversalSearch.prewarmTrendingRecommend(),
+      )
       .catch((error) => {
         console.error('prewarmTrendingRecommend failed', error);
       });

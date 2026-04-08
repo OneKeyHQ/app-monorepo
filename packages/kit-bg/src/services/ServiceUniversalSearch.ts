@@ -176,8 +176,10 @@ class ServiceUniversalSearch extends ServiceBase {
           });
 
         const chainIdToNetworkId = new Map(
-          basicConfig?.data?.networkList?.map((n) => [n.chainId, n.networkId]) ??
-            [],
+          basicConfig?.data?.networkList?.map((n) => [
+            n.chainId,
+            n.networkId,
+          ]) ?? [],
         );
 
         const v2Items: IMarketSearchV2Token[] = recommendTokens

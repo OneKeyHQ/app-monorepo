@@ -379,18 +379,12 @@ export function UniversalSearch({
       if (refreshResult.isSuccessful) {
         setRecommendSections(searchResultSections);
       } else {
-        if (
-          !hasCachedRecommend ||
-          !shouldKeepCachedRecommendOnRefreshFailure
-        ) {
+        if (!hasCachedRecommend || !shouldKeepCachedRecommendOnRefreshFailure) {
           setRecommendSections([]);
         }
       }
     } catch {
-      if (
-        !hasCachedRecommend ||
-        !shouldKeepCachedRecommendOnRefreshFailure
-      ) {
+      if (!hasCachedRecommend || !shouldKeepCachedRecommendOnRefreshFailure) {
         setRecommendSections([]);
       }
     }
