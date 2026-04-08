@@ -106,7 +106,10 @@ function QuickSelectListItemBase({
     isEvmNetwork && !hasName && !!item.lastTransferNetworkName;
 
   // Only show menu for items NOT already in address book
-  const showAddToAddressBook = !item.isAddressBook;
+  // Lightning Network doesn't support address book
+  const isLightningNetwork =
+    networkUtils.isLightningNetworkByNetworkId(networkId);
+  const showAddToAddressBook = !item.isAddressBook && !isLightningNetwork;
 
   const addToAddressBookLabel = intl.formatMessage({
     id: ETranslations.add_to_address_book__action,
