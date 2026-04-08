@@ -166,14 +166,13 @@ function collectRecipientsFromHistoryTxs({
         networkName,
         memo: recipientInfo.memo,
       });
+      if (recipientMap.size >= MAX_RECIPIENTS) break;
     } else if (includeMemo && recipientInfo.memo) {
       const existing = recipientMap.get(recipientLower);
       if (existing && !existing.memo) {
         existing.memo = recipientInfo.memo;
       }
     }
-
-    if (recipientMap.size >= MAX_RECIPIENTS) break;
   }
 
   return recipientMap;
