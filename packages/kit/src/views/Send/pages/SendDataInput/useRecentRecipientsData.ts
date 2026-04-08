@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { checkIsScamTx } from '@onekeyhq/shared/src/utils/historyUtils';
+import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAccountHistoryTx,
@@ -400,6 +401,15 @@ export function useRecentRecipientsData({
             // already populated it. Showing addresses without memo
             // is better than showing nothing.
           }
+        }
+
+        // For Lightning, filter out one-time invoices before querying addresses
+        const isLightning =
+          networkUtils.isLightningNetworkByNetworkId(networkId);
+        if (isLightning) {
+          recipientAddresses = recipientAddresses.filter((addr) =>
+            isReusableLightningRecipient(addr),
+          );
         }
 
         const addressInfoResults = await Promise.all(
