@@ -110,10 +110,7 @@ function TokenDetailsHistory(props: IProps) {
     }),
     [cachedHistory, isFocused, isTabView],
   );
-  const {
-    result: tokenHistory,
-    run,
-  } = usePromiseResult(
+  const { result: tokenHistory, run } = usePromiseResult(
     async () => {
       try {
         const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
