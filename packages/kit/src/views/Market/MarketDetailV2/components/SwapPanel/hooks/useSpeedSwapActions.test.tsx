@@ -2,6 +2,10 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   ISwapToken,
   ISwapTokenBase,
@@ -206,6 +210,14 @@ const tonUsdtToken: ISwapTokenBase = {
   contractAddress: '0x11112222',
   symbol: 'USDT',
   decimals: 6,
+  isNative: false,
+};
+
+const solToken: ISwapTokenBase = {
+  networkId: 'sol--101',
+  contractAddress: '0xsol',
+  symbol: 'SOL',
+  decimals: 9,
   isNative: false,
 };
 
@@ -552,6 +564,73 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it('ignores unrelated balance update events while the current passive balance request is in flight', async () => {
+    const currentBalanceRequest = createDeferred<ISwapToken[]>();
+
+    mockFetchSwapTokenDetails.mockImplementation(
+      ({ accountId }: IFetchSwapTokenDetailsParams) => {
+        if (!accountId) {
+          return Promise.resolve([]);
+        }
+        return currentBalanceRequest.promise;
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: btcToken,
+          tradeToken: usdcToken,
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'net-account-1',
+          networkId: usdcToken.networkId,
+          contractAddress: usdcToken.contractAddress,
+        }),
+      );
+    });
+
+    const balanceUpdateListener = (appEventBus.on as jest.Mock).mock.calls.find(
+      ([eventName]) => eventName === EAppEventBusNames.SwapSpeedBalanceUpdate,
+    )?.[1] as
+      | ((params: {
+          orderFromToken: ISwapTokenBase;
+          orderToToken: ISwapTokenBase;
+        }) => void)
+      | undefined;
+
+    expect(balanceUpdateListener).toBeDefined();
+
+    act(() => {
+      balanceUpdateListener?.({
+        orderFromToken: solToken,
+        orderToToken: tonUsdtToken,
+      });
+    });
+
+    await act(async () => {
+      currentBalanceRequest.resolve(
+        createTokenDetail({
+          networkId: usdcToken.networkId,
+          contractAddress: usdcToken.contractAddress,
+          symbol: usdcToken.symbol,
+          decimals: usdcToken.decimals,
+          balanceParsed: '100',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(result.current.balance?.toFixed()).toBe('100');
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+  });
+
   it('keeps the latest cross-network price when token detail requests resolve out of order', async () => {
     const oldTradeTokenPriceRequest = createDeferred<ISwapToken[]>();
     const oldMarketTokenPriceRequest = createDeferred<ISwapToken[]>();
@@ -762,6 +841,75 @@ describe('useSpeedSwapActions', () => {
         }),
       );
       expect(result.current.priceRate?.rate).toBeCloseTo(0.2);
+    });
+  });
+
+  it('clears price loading when remote fallback price fetching fails', async () => {
+    mockNetAccountPromiseResult = {
+      result: undefined,
+      run: mockNetAccountRun,
+    };
+
+    mockFetchSwapTokenDetails.mockImplementation(
+      ({
+        accountId,
+        networkId,
+        contractAddress,
+      }: IFetchSwapTokenDetailsParams) => {
+        if (accountId) {
+          return Promise.resolve([]);
+        }
+
+        if (
+          networkId === usdcToken.networkId &&
+          contractAddress === usdcToken.contractAddress
+        ) {
+          return Promise.reject(new Error('trade token price failed'));
+        }
+
+        if (
+          networkId === btcToken.networkId &&
+          contractAddress === btcToken.contractAddress
+        ) {
+          return Promise.resolve(
+            createTokenDetail({
+              networkId: btcToken.networkId,
+              contractAddress: btcToken.contractAddress,
+              symbol: btcToken.symbol,
+              decimals: btcToken.decimals,
+              price: '100000',
+            }),
+          );
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: {
+            ...btcToken,
+            price: '0',
+          },
+          tradeToken: {
+            ...usdcToken,
+            price: '0',
+          },
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.priceRate).toEqual(
+        expect.objectContaining({
+          rate: undefined,
+          fromTokenSymbol: 'USDC',
+          toTokenSymbol: 'BTC',
+          loading: false,
+        }),
+      );
     });
   });
 });

@@ -2072,8 +2072,6 @@ class ServiceStaking extends ServiceBase {
     } catch (_error) {
       // Fall back to the current connection info when the speed test fails.
     }
-
-    return this.getBlockRegion();
   }
 
   @backgroundMethod()

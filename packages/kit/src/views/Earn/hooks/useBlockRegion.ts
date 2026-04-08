@@ -7,7 +7,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 export const useBlockRegion = () => {
   const {
     isLoading: isFetchingBlockResultBase,
-    setResult: setBlockResult,
+    run: runBlockResult,
     result: blockResult,
   } = usePromiseResult(
     async () => {
@@ -26,13 +26,12 @@ export const useBlockRegion = () => {
   const handleRefreshBlockResult = useCallback(async () => {
     setIsRefreshingBlockResult(true);
     try {
-      const blockData =
-        await backgroundApiProxy.serviceStaking.refreshBlockRegion();
-      setBlockResult({ blockData });
+      await backgroundApiProxy.serviceStaking.refreshBlockRegion();
+      await runBlockResult({ alwaysSetState: true });
     } finally {
       setIsRefreshingBlockResult(false);
     }
-  }, [setBlockResult]);
+  }, [runBlockResult]);
 
   return {
     isFetchingBlockResult: isFetchingBlockResultBase || isRefreshingBlockResult,

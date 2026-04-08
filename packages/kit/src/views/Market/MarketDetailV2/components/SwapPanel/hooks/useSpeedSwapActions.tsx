@@ -2190,8 +2190,8 @@ export function useSpeedSwapActions(props: {
       }
 
       if (!shouldRefreshBalance) {
-        balanceRequestIdRef.current += 1;
         if (!hasOrderContext) {
+          balanceRequestIdRef.current += 1;
           setFetchBalanceLoading(false);
           setBalance(new BigNumber(0));
         }
@@ -2268,21 +2268,24 @@ export function useSpeedSwapActions(props: {
         toTokenSymbol: toToken.symbol,
         loading: false,
       });
-    } else {
-      if (!fromToken?.networkId || !toToken?.networkId) {
-        if (currentRequestId !== priceRequestIdRef.current) {
-          return;
-        }
+      return;
+    }
 
-        setPriceRate({
-          rate: undefined,
-          fromTokenSymbol: fromToken.symbol,
-          toTokenSymbol: toToken.symbol,
-          loading: false,
-        });
+    if (!fromToken?.networkId || !toToken?.networkId) {
+      if (currentRequestId !== priceRequestIdRef.current) {
         return;
       }
 
+      setPriceRate({
+        rate: undefined,
+        fromTokenSymbol: fromToken.symbol,
+        toTokenSymbol: toToken.symbol,
+        loading: false,
+      });
+      return;
+    }
+
+    try {
       const [fromTokenPrice, toTokenPrice] = await Promise.all([
         backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
           networkId: fromToken.networkId ?? '',
@@ -2317,14 +2320,22 @@ export function useSpeedSwapActions(props: {
         });
         return;
       }
-
-      setPriceRate({
-        rate: undefined,
-        fromTokenSymbol: fromToken.symbol,
-        toTokenSymbol: toToken.symbol,
-        loading: false,
-      });
+    } catch (_e) {
+      if (currentRequestId !== priceRequestIdRef.current) {
+        return;
+      }
     }
+
+    if (currentRequestId !== priceRequestIdRef.current) {
+      return;
+    }
+
+    setPriceRate({
+      rate: undefined,
+      fromTokenSymbol: fromToken.symbol,
+      toTokenSymbol: toToken.symbol,
+      loading: false,
+    });
   }, [
     fromToken.price,
     fromToken.symbol,
