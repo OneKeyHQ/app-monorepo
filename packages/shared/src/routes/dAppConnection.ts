@@ -81,6 +81,6 @@ export type IDAppConnectionModalParamList = {
   // Clipboard Permission
   [EDAppConnectionModal.ClipboardPermissionModal]: {
     clipboardType: 'read' | 'write';
-    textToWrite?: string;
+    textNonce?: string;
   };
 };
