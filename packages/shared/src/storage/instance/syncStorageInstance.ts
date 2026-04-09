@@ -10,17 +10,33 @@ import mmkvStorageInstance from './mmkvStorageInstance';
 
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
+/**
+ * Safe MMKV set — guards against undefined/null values that crash MMKV.
+ * undefined/null → writes empty string (key preserved, value cleared).
+ */
+function mmkvSafeSet(
+  instance: { set(key: string, value: string | number | boolean): void },
+  key: string,
+  value: string | number | boolean | undefined | null,
+) {
+  if (value === undefined || value === null) {
+    instance.set(key, '');
+    return;
+  }
+  instance.set(key, value);
+}
+
 const syncStorageWeb = {
   set(key: EAppSyncStorageKeys, value: boolean | string | number) {
     resetUtils.checkNotInResetting();
-    mmkvStorageInstance.set(key, value);
+    mmkvSafeSet(mmkvStorageInstance, key, value);
   },
   setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
     resetUtils.checkNotInResetting();
     if (!isPlainObject(value)) {
       throw new OneKeyLocalError('value must be a plain object');
     }
-    mmkvStorageInstance.set(key, JSON.stringify(value));
+    mmkvSafeSet(mmkvStorageInstance, key, JSON.stringify(value));
   },
   getObject<T>(key: EAppSyncStorageKeys): T | undefined {
     try {
@@ -104,13 +120,13 @@ export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
  */
 const coldStartCacheStorageImpl: ISyncStorage = {
   set(key: EAppSyncStorageKeys, value: boolean | string | number) {
-    coldStartCacheMMKVInstance.set(key, value);
+    mmkvSafeSet(coldStartCacheMMKVInstance, key, value);
   },
   setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
     if (!isPlainObject(value)) {
       throw new OneKeyLocalError('value must be a plain object');
     }
-    coldStartCacheMMKVInstance.set(key, JSON.stringify(value));
+    mmkvSafeSet(coldStartCacheMMKVInstance, key, JSON.stringify(value));
   },
   getObject<T>(key: EAppSyncStorageKeys): T | undefined {
     try {

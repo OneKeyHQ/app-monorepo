@@ -115,8 +115,9 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
-    // Always write to MMKV
-    this.mmkv.set(key, JSON.stringify(newValue));
+    // Always write to MMKV — undefined/null values write empty string (clears data)
+    const serialized = JSON.stringify(newValue) ?? '';
+    this.mmkv.set(key, serialized);
 
     if (!this.migrated) {
       // Migration not done — also write to AsyncStorage so it stays
@@ -182,7 +183,9 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         return;
       }
     } catch (e) {
-      this.log(`migration probe failed: ${(e as Error)?.message}, proceeding with full migration`);
+      this.log(
+        `migration probe failed: ${(e as Error)?.message}, proceeding with full migration`,
+      );
     }
 
     this.log(`migration start: ${expectedKeys.length} keys to check`);
@@ -194,7 +197,7 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         try {
           const value = await this.readFromAsyncStorage(key);
           if (value !== null && value !== undefined) {
-            this.mmkv.set(key, JSON.stringify(value));
+            this.mmkv.set(key, JSON.stringify(value) ?? '');
             migrated += 1;
           } else {
             absent += 1;
