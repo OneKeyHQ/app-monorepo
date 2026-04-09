@@ -70,7 +70,9 @@ async function migrateToMMKVIfNeeded() {
     buildJotaiStorageKey(name),
   );
   await (
-    onekeyJotaiStorage as { migrateFromAsyncStorage: (keys: string[]) => Promise<void> }
+    onekeyJotaiStorage as {
+      migrateFromAsyncStorage: (keys: string[]) => Promise<void>;
+    }
   ).migrateFromAsyncStorage(expectedKeys);
 }
 

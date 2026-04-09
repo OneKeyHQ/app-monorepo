@@ -10,6 +10,7 @@ import type { IContextAtomColdStartCacheKey } from '@onekeyhq/shared/src/consts/
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  MMKV_MIGRATION_COMPLETE_KEY,
   atomWithStorage,
   buildJotaiStorageKey,
   globalJotaiStorageReadyHandler,
@@ -154,22 +155,51 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
 
   // Hydrate persisted initialValue so the atom starts with the correct value.
   if (platformEnv.isNative && name) {
-    // Native: read directly from MMKV per-key (synchronous, ~0.01ms)
+    // Native: read from MMKV per-key if BG thread migration is complete,
+    // otherwise fall back to old snapshot blob from onekey-app-setting MMKV.
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { default: jotaiMMKV } =
         require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
-      const storageKey = buildJotaiStorageKey(name as IAtomNameKeys);
-      const raw = jotaiMMKV.getString(storageKey);
-      if (raw !== undefined && raw !== null) {
-        const cached = JSON.parse(raw);
-        if (cached !== undefined && cached !== null) {
-          initialVal = Object.freeze(
-            typeof initialValue === 'object' && typeof cached === 'object'
-              ? { ...initialValue, ...cached }
-              : cached,
-          ) as Value & Readonly<Value>;
+
+      let cached: unknown;
+      const migrationDone =
+        jotaiMMKV.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
+
+      if (migrationDone) {
+        // Fast path: BG thread has migrated all data to MMKV per-key
+        const raw = jotaiMMKV.getString(
+          buildJotaiStorageKey(name as IAtomNameKeys),
+        );
+        if (raw !== undefined && raw !== null) {
+          cached = JSON.parse(raw);
         }
+      } else {
+        // Migration not yet complete — read old snapshot blob as fallback
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { syncStorage: ss } =
+          require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { EAppSyncStorageKeys: sk } =
+          require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+        // Lazy-parse snapshot blob (cache on globalThis to avoid re-parsing)
+        let snapshot = (globalThis as any).__ONEKEY_LEGACY_SNAPSHOT_CACHE__;
+        if (snapshot === undefined) {
+          const blobRaw = ss.getString(sk.onekey_jotai_atoms_snapshot);
+          snapshot = blobRaw ? JSON.parse(blobRaw) : null;
+          (globalThis as any).__ONEKEY_LEGACY_SNAPSHOT_CACHE__ = snapshot;
+        }
+        if (snapshot && name in snapshot) {
+          cached = snapshot[name];
+        }
+      }
+
+      if (cached !== undefined && cached !== null) {
+        initialVal = Object.freeze(
+          typeof initialValue === 'object' && typeof cached === 'object'
+            ? { ...initialValue, ...cached }
+            : cached,
+        ) as Value & Readonly<Value>;
       }
     } catch {
       /* fallback to default initialValue */

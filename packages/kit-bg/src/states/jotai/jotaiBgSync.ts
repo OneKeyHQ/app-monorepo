@@ -8,7 +8,10 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKey
 
 import type { EAtomNames } from './atomNames';
 import { jotaiInitFromUi } from './jotaiInitFromUi';
-import { globalJotaiStorageReadyHandler } from './jotaiStorage';
+import {
+  MMKV_MIGRATION_COMPLETE_KEY,
+  globalJotaiStorageReadyHandler,
+} from './jotaiStorage';
 
 import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
 
@@ -165,12 +168,22 @@ export class JotaiBgSync {
       this.syncLog(
         `native MMKV per-key: resolving ready immediately, +${Date.now() - jsEntry}ms from JS entry`,
       );
-      // Signal SplashProvider: check if jotai MMKV has data (not first install)
+      // Signal SplashProvider: check if we have cached data (not first install).
+      // Either MMKV migration is complete, or old snapshot blob exists.
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { default: jotaiMMKV } =
           require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
-        if (jotaiMMKV.getAllKeys().length > 0) {
+        const hasMmkvData =
+          jotaiMMKV.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
+        const hasSnapshotBlob =
+          !hasMmkvData &&
+          Boolean(
+            syncStorage.getString(
+              EAppSyncStorageKeys.onekey_jotai_atoms_snapshot,
+            ),
+          );
+        if (hasMmkvData || hasSnapshotBlob) {
           (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__ = true;
         }
       } catch {

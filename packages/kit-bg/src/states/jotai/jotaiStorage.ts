@@ -25,6 +25,8 @@ import type {
 const appStorage = storageHub.$webStorageGlobalStates || storageHub.appStorage;
 const mockStorage = storageHub._mockStorage;
 
+export const MMKV_MIGRATION_COMPLETE_KEY = '__mmkv_migration_v1__';
+
 class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   private mmkv: {
     getString(key: string): string | undefined;
@@ -105,27 +107,42 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   /**
-   * One-time proactive migration: batch-read all expected keys from
+   * Check if BG thread has completed the one-time AsyncStorage → MMKV migration.
+   * Main thread uses this to decide whether to read MMKV per-key or old snapshot blob.
+   */
+  isMigrationComplete(): boolean {
+    return this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
+  }
+
+  /**
+   * One-time proactive migration: batch-read ALL expected atom keys from
    * AsyncStorage and write to MMKV. Called by jotaiInit() on BG thread.
-   * Skips keys that already exist in MMKV (idempotent).
+   *
+   * Completeness guarantee:
+   * - Iterates every key in EAtomNames (exhaustive enum of all atoms)
+   * - For each key: reads AsyncStorage → writes to MMKV (skip if already present)
+   * - Migration-complete flag set ONLY after ALL keys are processed
+   * - Flag is checked by main thread crossAtomBuilder to decide read path
    */
   async migrateFromAsyncStorage(expectedKeys: string[]): Promise<void> {
-    // If MMKV already has keys, migration was already done
-    const existingKeys = new Set(this.mmkv.getAllKeys());
-    const missingKeys = expectedKeys.filter((k) => !existingKeys.has(k));
-    if (missingKeys.length === 0) {
-      this.log(
-        `migration skip: MMKV already has ${existingKeys.size} keys, 0 missing`,
-      );
+    // Already migrated — skip
+    if (this.isMigrationComplete()) {
+      this.log('migration already complete, skip');
       return;
     }
 
+    const existingKeys = new Set(this.mmkv.getAllKeys());
     this.log(
-      `migration start: ${missingKeys.length} missing keys (MMKV has ${existingKeys.size})`,
+      `migration start: ${expectedKeys.length} expected, ${existingKeys.size} already in MMKV`,
     );
     let migrated = 0;
+    let skipped = 0;
     await Promise.all(
-      missingKeys.map(async (key) => {
+      expectedKeys.map(async (key) => {
+        if (existingKeys.has(key)) {
+          skipped += 1;
+          return;
+        }
         const value = await this.readFromAsyncStorage(key);
         if (value !== null && value !== undefined) {
           this.mmkv.set(key, JSON.stringify(value));
@@ -133,7 +150,12 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         }
       }),
     );
-    this.log(`migration done: ${migrated}/${missingKeys.length} keys migrated`);
+
+    // Flag ONLY after all keys processed — guarantees completeness
+    this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
+    this.log(
+      `migration complete: ${migrated} migrated, ${skipped} skipped (already present)`,
+    );
   }
 
   async getAllEntries(): Promise<Map<string, any>> {
