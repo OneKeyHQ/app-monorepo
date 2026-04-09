@@ -690,7 +690,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         ? navigation.pushFullModal
         : navigation.pushModal;
 
-      if (hasFeaturedChangelog(currentInfo.featuredChangelog)) {
+      // TODO: Remove __DEV__ mock before release
+      const hasFeatured = __DEV__
+        ? true
+        : hasFeaturedChangelog(currentInfo.featuredChangelog);
+
+      if (hasFeatured) {
         pushModal(EModalRoutes.AppUpdateModal, {
           screen: EAppUpdateRoutes.FeaturedChangelog,
           params: { isPreInstall: false },

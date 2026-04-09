@@ -48,7 +48,43 @@ function FeaturedChangelog({
   const [activeIndex, setActiveIndex] = useState(0);
   const mountTimeRef = useRef(Date.now());
 
-  const features = appUpdateInfo.featuredChangelog?.features ?? [];
+  // TODO: Remove __DEV__ mock before release
+  const mockFeatures: IFeaturedItem[] = __DEV__
+    ? [
+        {
+          tabLabel: '⚡ 0 手续费',
+          title: 'Perps 交易，0 手续费',
+          description: '所有合约订单享受零费率交易体验，不收取任何手续费。',
+          mediaUrl:
+            'https://placehold.co/600x338/1e1b4b/a5b4fc?text=Perps+Zero+Fee',
+          mediaType: 'image' as const,
+          ctaText: '立即体验',
+          ctaDeeplink: 'onekey-wallet://market_detail',
+        },
+        {
+          tabLabel: '🔑 Keyless',
+          title: 'Keyless 钱包，无需助记词',
+          description: '用 iCloud / Google 账号直接创建钱包，安全便捷。',
+          mediaUrl:
+            'https://placehold.co/600x338/0f3460/7dd3fc?text=Keyless+Wallet',
+          mediaType: 'image' as const,
+          ctaText: '创建 Keyless 钱包',
+          ctaDeeplink: 'onekey-wallet://url_account',
+        },
+        {
+          tabLabel: '🔋 能量补贴',
+          title: 'Tron 能量补贴',
+          description: '首次转账 Tron 网络，享受能量补贴优惠。',
+          mediaUrl:
+            'https://placehold.co/600x338/064e3b/6ee7b7?text=Energy+Subsidy',
+          mediaType: 'image' as const,
+          ctaText: '了解更多',
+          ctaDeeplink: 'onekey-wallet://market_detail',
+        },
+      ]
+    : [];
+  const features =
+    appUpdateInfo.featuredChangelog?.features ?? mockFeatures;
   const activeFeature: IFeaturedItem | undefined = features[activeIndex];
 
   const isForceUpdate = appUpdateInfo
@@ -107,6 +143,7 @@ function FeaturedChangelog({
 
   return (
     <Page onClose={handleClose}>
+      <Page.Header headerShown={false} />
       <Page.Body>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
@@ -144,7 +181,6 @@ function FeaturedChangelog({
       <FeaturedFooter
         ctaText={ctaText}
         onCtaPress={handleCtaPress}
-        isForceUpdate={isForceUpdate}
       />
     </Page>
   );

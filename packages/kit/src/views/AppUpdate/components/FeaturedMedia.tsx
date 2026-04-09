@@ -11,11 +11,10 @@ function FeaturedMedia({ feature }: IFeaturedMediaProps) {
   const videoRef = useRef<{ seek?: (time: number) => void }>(null);
 
   useEffect(() => {
-    // Reset video to start when feature changes
     if (feature.mediaType === 'video' && videoRef.current?.seek) {
       videoRef.current.seek(0);
     }
-  }, [feature]);
+  }, [feature.mediaUrl, feature.mediaType]);
 
   return (
     <Stack

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
+import { Page, SizableText } from '@onekeyhq/components';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -8,7 +8,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 interface IFeaturedFooterProps {
   ctaText: string;
   onCtaPress: () => void;
-  isForceUpdate?: boolean;
 }
 
 function FeaturedFooter({ ctaText, onCtaPress }: IFeaturedFooterProps) {
@@ -20,12 +19,10 @@ function FeaturedFooter({ ctaText, onCtaPress }: IFeaturedFooterProps) {
 
   return (
     <Page.Footer>
-      {/* TODO: replace hardcoded string with ETranslations.update_view_full_changelog once i18n key is added via Lokalise */}
-      <YStack
-        p="$5"
-        pt="$0"
-        gap="$3"
-        $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
+      {/* TODO: replace hardcoded string with ETranslations key once added via Lokalise */}
+      <Page.FooterActions
+        onConfirmText={ctaText}
+        onConfirm={() => onCtaPress()}
       >
         <SizableText
           size="$bodyMd"
@@ -35,19 +32,11 @@ function FeaturedFooter({ ctaText, onCtaPress }: IFeaturedFooterProps) {
           hoverStyle={{ color: '$textInteractive' }}
           pressStyle={{ opacity: 0.7 }}
           onPress={handleViewChangelog}
-          $gtMd={{ order: -1, textAlign: 'left', flex: 1 }}
+          $gtMd={{ textAlign: 'left' }}
         >
           {'View full changelog ›'}
         </SizableText>
-        <Button
-          variant="primary"
-          size="large"
-          onPress={onCtaPress}
-          $gtMd={{ flexGrow: 0, minWidth: 160 }}
-        >
-          {ctaText}
-        </Button>
-      </YStack>
+      </Page.FooterActions>
     </Page.Footer>
   );
 }
