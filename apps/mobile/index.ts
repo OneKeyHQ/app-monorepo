@@ -20,16 +20,24 @@ require('@onekeyhq/shared/src/performance/init');
 require('./jsReady');
 require('@onekeyhq/shared/src/polyfills');
 
-// Main thread is read-only for globalAtom MMKV per-key storage.
-// Migration (AsyncStorage → MMKV) happens on BG thread via getItem self-heal.
-// Context atom snapshot pre-read is unchanged.
+// ── Jotai Cold Start SSR — Phase 1: Snapshot Pre-read ──
+//
+// Pattern analogous to SSR hydration:
+//   "Server" = previous session that saved atom values to MMKV
+//   "Transfer" = MMKV cold-start cache (synchronous, survives app restart)
+//   "Hydration" = contextAtomBase reads snapshot at module-load time
+//   "First Paint" = React renders cached data immediately (no skeleton)
+//   "Revalidation" = BG thread fetches fresh data, atoms update in-place
+//
+// This block pre-reads the snapshot from MMKV into globalThis before any
+// module evaluates, so contextAtomBase can use it as initial atom values.
+// Without this, atoms start empty → skeleton → wait for network → ~2s slower.
 try {
   const { coldStartCacheStorage: _coldStartCache } =
     require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
   const { EAppSyncStorageKeys: _keys } =
     require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
 
-  // Pre-read context atom snapshot from cold-start cache MMKV instance
   const _ctxRaw = _coldStartCache.getString(
     _keys.onekey_jotai_context_atoms_snapshot,
   );

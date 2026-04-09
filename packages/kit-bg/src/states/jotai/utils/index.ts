@@ -420,7 +420,12 @@ function getScopedColdStartSnapshotValue({
 }
 
 // ============================================================
-// Cold Start Cache — automatic value tracking + debounced save
+// Jotai Cold Start SSR — Phase 3: Value Tracking + Debounced Save
+//
+// Tracks atom value changes at runtime and debounce-writes them to
+// MMKV so the next cold start can hydrate from fresh data.
+// This is the "server render" side — generating the snapshot that
+// Phase 1 (index.ts pre-read) and Phase 2 (hydration below) consume.
 // ============================================================
 
 /** Latest values of all coldStartCache atoms, updated on every use() call */
@@ -594,9 +599,10 @@ export function contextAtomBase<Value>({
   const activeColdStartCacheKey =
     coldStartCache && coldStartCacheKey ? coldStartCacheKey : undefined;
 
-  // Pre-populate initial value from cold start snapshot so the first render
-  // can display cached data immediately (e.g. token list, balance) without
-  // waiting for BG thread network requests.
+  // ── Jotai Cold Start SSR — Phase 2: Hydration ──
+  // Read cached value from the pre-loaded snapshot (Phase 1) and use it as
+  // the atom's initial value. This lets the first React render display cached
+  // data (token list, balance) immediately, like SSR hydration.
   let resolvedInitialValue = initialValue;
   if (snapshotKey) {
     const ctxSnapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
