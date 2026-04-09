@@ -201,7 +201,7 @@ function FeaturedChangelog({
                 {'New'}
               </Badge>
             </Stack>
-            <SizableText size="$heading3xl" mb="$1">
+            <SizableText size="$heading3xl" mb={subheadline ? '$1' : '$4'}>
               {headline}
             </SizableText>
             {subheadline ? (
