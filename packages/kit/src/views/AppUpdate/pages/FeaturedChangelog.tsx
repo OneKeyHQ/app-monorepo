@@ -192,7 +192,7 @@ function FeaturedChangelog({
           {/* Top section: badge, title, subtitle, tabs */}
           <YStack px="$5" pt="$5" pb="$3">
             <Stack mb="$2.5" alignSelf="flex-start">
-              <Badge badgeType="success" badgeSize="sm">
+              <Badge badgeType="info" badgeSize="sm">
                 {'NEW'}
               </Badge>
             </Stack>
