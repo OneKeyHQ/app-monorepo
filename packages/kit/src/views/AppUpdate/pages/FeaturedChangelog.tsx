@@ -47,11 +47,8 @@ function FeaturedChangelog({
 >) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const {
-    isPreInstall = false,
-    isForceUpdate: isForceUpdateParam,
-    latestVersion,
-  } = route.params || {};
+  const { isPreInstall = false, isForceUpdate: isForceUpdateParam } =
+    route.params || {};
 
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -72,7 +69,8 @@ function FeaturedChangelog({
         {
           tabLabel: 'Keyless',
           title: 'Keyless Wallet',
-          description: 'Create a wallet with iCloud or Google — no seed phrase needed.',
+          description:
+            'Create a wallet with iCloud or Google — no seed phrase needed.',
           mediaUrl: '',
           mediaType: 'image' as const,
           ctaText: 'Create Keyless Wallet',
@@ -89,8 +87,7 @@ function FeaturedChangelog({
         },
       ]
     : [];
-  const features =
-    appUpdateInfo.featuredChangelog?.features ?? mockFeatures;
+  const features = appUpdateInfo.featuredChangelog?.features ?? mockFeatures;
 
   // #2/#3: Clamp activeIndex when features array changes
   const clampedIndex = Math.min(activeIndex, Math.max(features.length - 1, 0));
@@ -140,9 +137,7 @@ function FeaturedChangelog({
     [appUpdateInfo.latestVersion, appUpdateInfo.jsBundleVersion],
   );
   const shouldOpenStore =
-    isPreInstall &&
-    updateFileType === EUpdateFileType.appShell &&
-    !!storeUrl;
+    isPreInstall && updateFileType === EUpdateFileType.appShell && !!storeUrl;
 
   const handleCtaPress = useCallback(() => {
     if (isPreInstall) {
@@ -185,8 +180,7 @@ function FeaturedChangelog({
 
   // TODO: replace fallback string with ETranslations key once added via Lokalise
   const headline =
-    featuredChangelog?.headline ??
-    `What's new in v${versionDisplay}`;
+    featuredChangelog?.headline ?? `What's new in v${versionDisplay}`;
   const { subheadline } = featuredChangelog ?? {};
 
   const ctaText = isPreInstall
@@ -226,7 +220,7 @@ function FeaturedChangelog({
           <YStack px="$5" pt="$5" pb="$3">
             <Stack mb="$2.5" alignSelf="flex-start">
               <Badge badgeType="info" badgeSize="sm">
-                {'New'}
+                New
               </Badge>
             </Stack>
             <SizableText
@@ -250,35 +244,27 @@ function FeaturedChangelog({
 
           {/* Media fills remaining space, with gradient + text overlay */}
           <Stack flex={1} px="$5" pb={0}>
-          <FeaturedMedia feature={activeFeature}>
-            <Stack
-              position="absolute"
-              bottom={0}
-              left={0}
-              right={0}
-            >
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.7)']}
-                px="$4"
-                pb="$4"
-                pt="$16"
-              >
-                <SizableText size="$headingLg" color="$whiteA12" mb="$1">
-                  {activeFeature.title}
-                </SizableText>
-                <SizableText size="$bodyMd" color="$whiteA11">
-                  {activeFeature.description}
-                </SizableText>
-              </LinearGradient>
-            </Stack>
-          </FeaturedMedia>
+            <FeaturedMedia feature={activeFeature}>
+              <Stack position="absolute" bottom={0} left={0} right={0}>
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.7)']}
+                  px="$4"
+                  pb="$4"
+                  pt="$16"
+                >
+                  <SizableText size="$headingLg" color="$whiteA12" mb="$1">
+                    {activeFeature.title}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$whiteA11">
+                    {activeFeature.description}
+                  </SizableText>
+                </LinearGradient>
+              </Stack>
+            </FeaturedMedia>
           </Stack>
         </YStack>
       </Page.Body>
-      <FeaturedFooter
-        ctaText={ctaText}
-        onCtaPress={handleCtaPress}
-      />
+      <FeaturedFooter ctaText={ctaText} onCtaPress={handleCtaPress} />
     </Page>
   );
 }
