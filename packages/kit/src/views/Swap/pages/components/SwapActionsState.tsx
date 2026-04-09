@@ -376,7 +376,7 @@ const SwapActionsState = ({
           <Stack>
             <Icon name="AddedPeopleOutline" size="$5" color="$iconSubdued" />
           </Stack>
-          <XStack flex={1} flexWrap="wrap" gap="$1.5">
+          <XStack flex={1} flexWrap="wrap" gap="$1.5" minWidth={0}>
             <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.swap_page_recipient_send_to,
@@ -396,8 +396,8 @@ const SwapActionsState = ({
             </SizableText>
             {swapRecipientAddressInfo?.showAddress ? (
               <SizableText
-                numberOfLines={1}
-                flexShrink={0}
+                flexShrink={1}
+                minWidth={0}
                 size="$bodyMd"
                 color="$textSubdued"
               >
@@ -436,15 +436,11 @@ const SwapActionsState = ({
     }
 
     return (
-      <XStack
-        flex={isDesktopModalPage ? undefined : 1}
-        justifyContent={isDesktopModalPage ? undefined : 'flex-end'}
-        minWidth={0}
-      >
+      <XStack minWidth={0} maxWidth="100%">
         <XStack
           gap="$1.5"
           flexWrap="wrap"
-          justifyContent={isDesktopModalPage ? 'flex-start' : 'flex-end'}
+          justifyContent="flex-start"
           maxWidth="100%"
         >
           <Stack>
@@ -452,7 +448,7 @@ const SwapActionsState = ({
           </Stack>
           <XStack
             flexWrap="wrap"
-            justifyContent={isDesktopModalPage ? 'flex-start' : 'flex-end'}
+            justifyContent="flex-start"
             gap="$1.5"
             minWidth={0}
           >
@@ -475,8 +471,8 @@ const SwapActionsState = ({
             </SizableText>
             {swapRecipientAddressInfo?.showAddress ? (
               <SizableText
-                numberOfLines={1}
                 flexShrink={1}
+                minWidth={0}
                 size="$bodyMd"
                 color="$textSubdued"
               >
@@ -498,7 +494,6 @@ const SwapActionsState = ({
       </XStack>
     );
   }, [
-    isDesktopModalPage,
     intl,
     onOpenRecipientAddress,
     shouldShowRecipientInMetaRow,
@@ -637,6 +632,7 @@ const SwapActionsState = ({
         <XStack
           gap="$4"
           alignItems="center"
+          flexWrap="wrap"
           justifyContent="space-between"
           width="100%"
         >
