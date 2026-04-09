@@ -3769,6 +3769,7 @@
   "send.unrecognized_hex_data_risky_warning": "Data heksadesimal yang tidak dikenali bisa berisiko. Lanjutkan hanya jika Anda benar-benar mempercayainya.",
   "send.verification_failure": "Verifikasi gagal.",
   "send_address_not_transferred_not_checksummed__desc": "Verifikasi sebelum mengirim. alamat belum digunakan untuk transfer dan tidak dalam format checksum.",
+  "send_tag_out_of_range__msg": "Destination tag must be between {min} and {max}",
   "send_token_selector.no_match_found": "Tidak ada hasil yang cocok dengan pencarian Anda.",
   "send_token_selector.no_results": "Tidak ditemukan hasil",
   "send_token_selector.search_placeholder": "Cari simbol atau alamat kontrak",

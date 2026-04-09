@@ -450,7 +450,10 @@ export default class Vault extends VaultBase {
     if (tag > XRP_DESTINATION_TAG_MAX) {
       return {
         isValid: false,
-        errorMessage: `Destination tag must be between 0 and ${XRP_DESTINATION_TAG_MAX}`,
+        errorMessage: appLocale.intl.formatMessage(
+          { id: ETranslations.send_tag_out_of_range__msg },
+          { min: 0, max: XRP_DESTINATION_TAG_MAX },
+        ),
       };
     }
 

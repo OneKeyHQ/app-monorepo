@@ -3769,6 +3769,7 @@
   "send.unrecognized_hex_data_risky_warning": "Нерозпізнані шістнадцяткові дані можуть бути небезпечними. Продовжуйте лише якщо ви повністю їм довіряєте.",
   "send.verification_failure": "Помилка перевірки.",
   "send_address_not_transferred_not_checksummed__desc": "Перевірте перед відправкою. Адреса не використовувалася для переказів і не має формату контрольної суми.",
+  "send_tag_out_of_range__msg": "Destination tag must be between {min} and {max}",
   "send_token_selector.no_match_found": "Не знайдено жодного збігу для вашого пошуку.",
   "send_token_selector.no_results": "Не знайдено результатів",
   "send_token_selector.search_placeholder": "Шукати символ або адресу контракту",

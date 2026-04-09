@@ -3769,6 +3769,7 @@
   "send.unrecognized_hex_data_risky_warning": "अज्ञात हेक्स डेटा जोखिम भरा हो सकता है। केवल तभी आगे बढ़ें जब आप उस पर पूरी तरह भरोसा करते हों।",
   "send.verification_failure": "सत्यापन विफल रहा।",
   "send_address_not_transferred_not_checksummed__desc": "भेजने से पहले सत्यापित करें। पता ट्रांसफर के लिए उपयोग नहीं किया गया है और यह चेकसम प्रारूप में नहीं है।",
+  "send_tag_out_of_range__msg": "Destination tag must be between {min} and {max}",
   "send_token_selector.no_match_found": "आपकी खोज के लिए कोई मिलान नहीं मिला।",
   "send_token_selector.no_results": "कोई परिणाम नहीं मिला",
   "send_token_selector.search_placeholder": "संकेत या संविदा पते की खोज करें",
