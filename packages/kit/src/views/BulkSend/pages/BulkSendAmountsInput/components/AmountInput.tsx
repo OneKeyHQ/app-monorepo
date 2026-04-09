@@ -194,7 +194,6 @@ export function SpecifiedAmountInput() {
 }
 
 export function RangeAmountInput() {
-  const intl = useIntl();
   const {
     tokenDetails,
     tokenInfo,
@@ -450,9 +449,7 @@ export function RangeAmountInput() {
               flex={1}
               value={localMax}
               onChangeText={handleMaxChange}
-              placeholder={intl.formatMessage({
-                id: ETranslations.global_max,
-              })}
+              placeholder="0"
               keyboardType="decimal-pad"
               containerProps={{
                 width: '100%',
