@@ -283,6 +283,117 @@ describe('JotaiStorageNativeMMKV', () => {
     });
   });
 
+  // ------ Edge cases ------
+
+  describe('edge cases', () => {
+    // -- getItem --
+
+    it('getItem: MMKV corrupted JSON after migration → returns initialValue', async () => {
+      mmkvInstance.set(MIGRATION_KEY, '1');
+      mmkvInstance.set('g_states_v5:fooAtom', '{bad json');
+
+      const s = createStorage();
+      expect(await s.getItem('g_states_v5:fooAtom', 'fallback')).toBe(
+        'fallback',
+      );
+    });
+
+    it('getItem: AsyncStorage throws before migration → returns initialValue', async () => {
+      asyncStorageMock.getItem.mockImplementation(async () => {
+        throw new Error('db locked');
+      });
+
+      const s = createStorage();
+      expect(await s.getItem('g_states_v5:fooAtom', 'default')).toBe(
+        'default',
+      );
+    });
+
+    // -- setItem --
+
+    it('setItem: AsyncStorage dual-write failure is swallowed', async () => {
+      asyncStorageMock.setItem.mockImplementation(async () => {
+        throw new Error('write error');
+      });
+
+      const s = createStorage();
+      // Should NOT throw
+      await s.setItem('g_states_v5:fooAtom', { ok: true });
+      // MMKV still written
+      expect(
+        JSON.parse(mmkvInstance.getString('g_states_v5:fooAtom')!),
+      ).toEqual({ ok: true });
+    });
+
+    // -- migration --
+
+    it('migration: all keys absent in AsyncStorage (first install) → sets flag', async () => {
+      // AsyncStorage has nothing
+      const s = createStorage();
+      await s.migrateFromAsyncStorage([
+        'g_states_v5:aAtom',
+        'g_states_v5:bAtom',
+      ]);
+      expect(s.isMigrationComplete()).toBe(true);
+      // No keys written (all absent), but flag is set
+      expect(mmkvInstance.getString('g_states_v5:aAtom')).toBeUndefined();
+    });
+
+    it('migration: empty keys array → sets flag immediately', async () => {
+      const s = createStorage();
+      await s.migrateFromAsyncStorage([]);
+      expect(s.isMigrationComplete()).toBe(true);
+    });
+
+    it('migration: state transition — getItem switches from AsyncStorage to MMKV within same instance', async () => {
+      asyncStorageData.set('g_states_v5:xAtom', JSON.stringify('from-async'));
+
+      const s = createStorage();
+
+      // Before migration: reads AsyncStorage
+      expect(await s.getItem('g_states_v5:xAtom', null)).toBe('from-async');
+
+      // Run migration
+      await s.migrateFromAsyncStorage(['g_states_v5:xAtom']);
+      expect(s.isMigrationComplete()).toBe(true);
+
+      // Update MMKV directly to prove it's now the source of truth
+      mmkvInstance.set('g_states_v5:xAtom', JSON.stringify('from-mmkv'));
+
+      // After migration: reads MMKV (not AsyncStorage)
+      expect(await s.getItem('g_states_v5:xAtom', null)).toBe('from-mmkv');
+    });
+
+    it('setItem before migration keeps AsyncStorage fresh for retry', async () => {
+      asyncStorageData.set('g_states_v5:aAtom', JSON.stringify('old'));
+
+      const s = createStorage();
+      // App writes a new value before migration completes
+      await s.setItem('g_states_v5:aAtom', 'new');
+      // AsyncStorage should have the new value (dual-write)
+      expect(asyncStorageData.get('g_states_v5:aAtom')).toBe('"new"');
+
+      // Migration reads from AsyncStorage → gets the latest value
+      await s.migrateFromAsyncStorage(['g_states_v5:aAtom']);
+      expect(JSON.parse(mmkvInstance.getString('g_states_v5:aAtom')!)).toBe(
+        'new',
+      );
+    });
+
+    // -- getAllEntries --
+
+    it('getAllEntries: MMKV corrupted JSON → sets undefined for that key', async () => {
+      mmkvInstance.set(MIGRATION_KEY, '1');
+      mmkvInstance.set('g_states_v5:goodAtom', JSON.stringify('ok'));
+      mmkvInstance.set('g_states_v5:badAtom', '{corrupted');
+
+      const s = createStorage();
+      const entries = await s.getAllEntries();
+      expect(entries!.get('g_states_v5:goodAtom')).toBe('ok');
+      expect(entries!.get('g_states_v5:badAtom')).toBeUndefined();
+    });
+  });
+
   // ------ After migration ------
 
   describe('after migration', () => {
