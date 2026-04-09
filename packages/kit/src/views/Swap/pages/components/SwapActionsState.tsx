@@ -1,14 +1,12 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { ICheckedState } from '@onekeyhq/components';
 import {
   Badge,
   Button,
-  Checkbox,
-  Dialog,
+  DashText,
   ESwitchSize,
   Icon,
   LottieView,
@@ -17,14 +15,11 @@ import {
   Stack,
   Switch,
   XStack,
-  YStack,
   resetToRoute,
   useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
@@ -52,7 +47,6 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
@@ -105,70 +99,6 @@ function PageFooter({
   );
 }
 
-function SwapIncognitoDialogContent({
-  onConfirm,
-}: {
-  onConfirm: () => Promise<void>;
-}) {
-  const intl = useIntl();
-  const [checked, setChecked] = useState<ICheckedState>(false);
-  const incognitoHelpLink = useHelpLink({
-    path: 'articles/14430164',
-  });
-
-  const description = useMemo(
-    () =>
-      `${intl.formatMessage({
-        id: ETranslations.trade_incognito_description,
-      })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
-        id: ETranslations.trade_incognito_read_more,
-      })}</underline></url>`,
-    [incognitoHelpLink, intl],
-  );
-
-  return (
-    <YStack gap="$4">
-      <FormatHyperlinkText
-        autoExecuteParsedAction={false}
-        onAction={openUrlExternal}
-        size="$bodyLg"
-        color="$text"
-        urlTextProps={{
-          color: '$textInfo',
-        }}
-      >
-        {description}
-      </FormatHyperlinkText>
-      <XStack alignItems="flex-start" gap="$2">
-        <Checkbox
-          labelContainerProps={{
-            flex: 1,
-          }}
-          label={intl.formatMessage({
-            id: ETranslations.trade_incognito_kyc_warning,
-          })}
-          value={checked}
-          onChange={setChecked}
-          labelProps={{
-            variant: '$bodyMd',
-            color: '$textSubdued',
-          }}
-        />
-      </XStack>
-      <Dialog.Footer
-        showCancelButton={false}
-        confirmButtonProps={{
-          disabled: !checked,
-        }}
-        onConfirm={onConfirm}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_confirm,
-        })}
-      />
-    </YStack>
-  );
-}
-
 const SwapActionsState = ({
   onPreSwap,
   onOpenRecipientAddress,
@@ -217,6 +147,21 @@ const SwapActionsState = ({
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
   const isDesktopModalPage = isModalPage && !md;
+  const incognitoTitle = intl.formatMessage({
+    id: ETranslations.trade_incognito_incognito_mode,
+  });
+  const incognitoTooltip = useMemo(
+    () =>
+      [
+        intl.formatMessage({
+          id: ETranslations.trade_incognito_description,
+        }),
+        intl.formatMessage({
+          id: ETranslations.trade_incognito_kyc_warning,
+        }),
+      ].join('\n\n'),
+    [intl],
+  );
 
   const onActionHandlerBefore = useCallback(async () => {
     if (swapActionState.noConnectWallet) {
@@ -356,27 +301,9 @@ const SwapActionsState = ({
 
   const onIncognitoModeChange = useCallback(
     (value: boolean) => {
-      if (!value) {
-        applyIncognitoModeChange(false);
-        return;
-      }
-
-      void Dialog.show({
-        icon: 'AnonymousHiddenOutline',
-        title: intl.formatMessage({
-          id: ETranslations.trade_incognito_title,
-        }),
-        showFooter: false,
-        renderContent: (
-          <SwapIncognitoDialogContent
-            onConfirm={async () => {
-              applyIncognitoModeChange(true);
-            }}
-          />
-        ),
-      });
+      applyIncognitoModeChange(value);
     },
-    [applyIncognitoModeChange, intl],
+    [applyIncognitoModeChange],
   );
 
   const incognitoComponent = useMemo(
@@ -389,11 +316,16 @@ const SwapActionsState = ({
               size="$5"
               color="$iconSubdued"
             />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.trade_incognito_incognito_mode,
-              })}
-            </SizableText>
+            <DashText
+              size="$bodyMd"
+              color="$textSubdued"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              tooltip={incognitoTooltip}
+              tooltipTitle={incognitoTitle}
+            >
+              {incognitoTitle}
+            </DashText>
           </XStack>
           <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
             <Switch
@@ -404,7 +336,13 @@ const SwapActionsState = ({
           </Stack>
         </XStack>
       ),
-    [intl, onIncognitoModeChange, swapIncognitoMode, swapTypeSwitch],
+    [
+      incognitoTitle,
+      incognitoTooltip,
+      onIncognitoModeChange,
+      swapIncognitoMode,
+      swapTypeSwitch,
+    ],
   );
 
   const recipientComponent = useMemo(() => {
