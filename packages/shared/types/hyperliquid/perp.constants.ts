@@ -1,6 +1,7 @@
 import type { IHex } from './sdk';
 
 export const MAX_DECIMALS_PERP = 6;
+export const MAX_DECIMALS_SPOT = 8;
 export const MAX_SIGNIFICANT_FIGURES = 5;
 export const MAX_PRICE_INTEGER_DIGITS = 12;
 

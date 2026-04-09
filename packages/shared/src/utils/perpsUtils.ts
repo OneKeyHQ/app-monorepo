@@ -13,6 +13,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 import {
   MAX_DECIMALS_PERP,
+  MAX_DECIMALS_SPOT,
   MAX_PRICE_INTEGER_DIGITS,
   MAX_SIGNIFICANT_FIGURES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -515,6 +516,72 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
  * @param szDecimals - Optional asset's szDecimals for precision limiting
  * @returns Formatted price string suitable for display
  */
+/**
+ * Get valid decimal places for a spot price
+ *
+ * HyperLiquid spot prices follow: maxDecimals = MAX_DECIMALS_SPOT - szDecimals
+ * with up to MAX_SIGNIFICANT_FIGURES significant figures.
+ */
+function getValidSpotPriceDecimals(
+  marketPrice: string | number,
+  szDecimals: number,
+): number {
+  const price = new BigNumber(marketPrice);
+
+  if (!price.isFinite() || price.isLessThanOrEqualTo(0)) {
+    return 2;
+  }
+
+  const maxDecimals = MAX_DECIMALS_SPOT - szDecimals;
+
+  if (price.isInteger()) {
+    return 0;
+  }
+
+  const priceStr = price.toFixed();
+  const decimalIndex = priceStr.indexOf('.');
+
+  if (decimalIndex === -1) {
+    return 0;
+  }
+
+  const actualDecimals = priceStr.length - decimalIndex - 1;
+  const significantFigures = _countSignificantFigures(price);
+
+  let maxAllowedDecimals = Math.min(actualDecimals, maxDecimals);
+
+  if (significantFigures > MAX_SIGNIFICANT_FIGURES) {
+    const integerPart = price.integerValue(BigNumber.ROUND_DOWN);
+    const integerDigits = integerPart.isZero()
+      ? 0
+      : integerPart.toFixed().length;
+    maxAllowedDecimals = Math.min(
+      maxAllowedDecimals,
+      Math.max(0, MAX_SIGNIFICANT_FIGURES - integerDigits),
+    );
+  }
+
+  return maxAllowedDecimals;
+}
+
+/**
+ * Format a spot price to a valid string according to HyperLiquid rules
+ */
+function formatSpotPriceToValid(
+  marketPrice: string | number,
+  szDecimals: number,
+): string {
+  const price = new BigNumber(marketPrice);
+
+  if (!price.isFinite() || price.isLessThanOrEqualTo(0)) {
+    return '0';
+  }
+
+  const validDecimals = getValidSpotPriceDecimals(marketPrice, szDecimals);
+
+  return price.toFixed(validDecimals).replace(/\.?0+$/, '');
+}
+
 function formatPriceToSignificantDigits(
   price: number | string | BigNumber | undefined,
   szDecimals?: number,
@@ -1578,6 +1645,8 @@ export {
   mapTriggerOrderType,
   inferTpsl,
   getTriggerEffectivePrice,
+  getValidSpotPriceDecimals,
+  formatSpotPriceToValid,
 };
 export default {
   formatAssetCtx,
@@ -1625,4 +1694,6 @@ export default {
   filterSpotTokensStrict,
   SPOT_TOKEN_DISPLAY_MAP,
   SPOT_MIN_VOLUME_STRICT,
+  getValidSpotPriceDecimals,
+  formatSpotPriceToValid,
 };

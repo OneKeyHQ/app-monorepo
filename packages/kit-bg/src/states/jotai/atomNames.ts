@@ -109,6 +109,7 @@ export enum EAtomNames {
   spotTradesHistoryDataAtom = 'spotTradesHistoryDataAtom',
   spotAssetCtxsMapAtom = 'spotAssetCtxsMapAtom',
   spotActiveOpenOrdersAtom = 'spotActiveOpenOrdersAtom',
+  spotPairDisplayMapAtom = 'spotPairDisplayMapAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 

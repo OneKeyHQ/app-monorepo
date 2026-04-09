@@ -45,10 +45,13 @@ import type {
   IPerpsActiveAssetData,
   IPerpsActiveAssetDataRaw,
   IPerpsUniverse,
+  ISpotUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
   IWsActiveAssetCtx,
+  IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
+  IWsSpotAssetCtxs,
   IWsSpotState,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -73,7 +76,16 @@ import {
   perpsLastUsedLeverageAtom,
   perpsSpotBalancesAtom,
   perpsTradesHistoryDataAtom,
+  spotActiveAssetAtom,
+  spotActiveAssetCtxAtom,
+  spotAssetCtxsMapAtom,
+  spotBalancesAtom,
+  spotPairDisplayMapAtom,
 } from '../../states/jotai/atoms';
+import type {
+  ISpotActiveAssetCtxAtom,
+  ISpotAssetCtxEntry,
+} from '../../states/jotai/atoms/spot';
 import ServiceBase from '../ServiceBase';
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
@@ -106,6 +118,61 @@ export default class ServiceHyperliquid extends ServiceBase {
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
+
+  // Throttled spot price atom writer — both updateSpotAssetCtxsMap and
+  // extractSpotPricesFromAllMids feed into this to limit re-renders
+  // Authoritative spot price cache — avoids async atom reads in the hot path.
+  // Written to atom on a throttled schedule.
+  private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
+
+  private _spotPriceDirty = false;
+
+  private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _flushSpotPrices(map: Record<string, ISpotAssetCtxEntry>) {
+    // Field-level merge into cache: allMids only sets markPx, spotAssetCtxs sets full entry
+    for (const [key, entry] of Object.entries(map)) {
+      const existing = this._spotPriceCache[key];
+      if (existing) {
+        this._spotPriceCache[key] = { ...existing, ...entry };
+      } else {
+        this._spotPriceCache[key] = entry;
+      }
+    }
+    this._spotPriceDirty = true;
+
+    if (!this._spotPriceFlushTimer) {
+      // Leading edge: flush immediately
+      void spotAssetCtxsMapAtom.set({ ...this._spotPriceCache });
+      this._spotPriceDirty = false;
+      // Then throttle subsequent flushes
+      this._spotPriceFlushTimer = setTimeout(() => {
+        this._spotPriceFlushTimer = null;
+        if (this._spotPriceDirty) {
+          void spotAssetCtxsMapAtom.set({ ...this._spotPriceCache });
+          this._spotPriceDirty = false;
+        }
+      }, 1000);
+    }
+  }
+
+  // Cached spot symbol mappings — rebuilt on refreshSpotMeta(),
+  // reused by WS handlers and future trading logic without hitting SimpleDb
+  private _spotMappings: {
+    // pair name (@107, PURR/USDC) → base token name (HYPE, PURR)
+    pairToBaseName: Record<string, string>;
+    // base token name → spot asset ID (10000 + index)
+    baseNameToAssetId: Record<string, number>;
+    // base token name → size decimals for order sizing
+    baseNameToSzDecimals: Record<string, number>;
+    // base token name → pair name (for subscription coin params)
+    baseNameToPairName: Record<string, string>;
+  } = {
+    pairToBaseName: {},
+    baseNameToAssetId: {},
+    baseNameToSzDecimals: {},
+    baseNameToPairName: {},
+  };
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -561,15 +628,36 @@ export default class ServiceHyperliquid extends ServiceBase {
   async getSymbolsMetaMap({ coins }: { coins: string[] }) {
     const { universesByDex, marginTablesMapByDex } =
       await this.getTradingUniverse();
+    const { universes: spotUniverses } =
+      await this.backgroundApi.simpleDb.perp.getSpotMeta();
     const map: Partial<{
       [coin: string]: {
         coin: string;
         assetId: number;
         universe: IPerpsUniverse | undefined;
         marginTable: IMarginTable | undefined;
+        isSpot?: boolean;
+        spotUniverse?: ISpotUniverse;
       };
     }> = {};
     coins.forEach((coin) => {
+      if (perpsUtils.isSpotInstrument(coin)) {
+        const spotUni = spotUniverses.find(
+          (item: ISpotUniverse) => item.name === coin,
+        );
+        if (isNil(spotUni?.assetId)) {
+          throw new OneKeyLocalError(`Asset id not found for coin: ${coin}`);
+        }
+        map[coin] = {
+          assetId: spotUni.assetId,
+          coin,
+          universe: undefined,
+          marginTable: undefined,
+          isSpot: true,
+          spotUniverse: spotUni,
+        };
+        return;
+      }
       const dexIndex = this.detectDexIndexByCoin(coin);
       const universes = universesByDex?.[dexIndex];
       const marginTables = marginTablesMapByDex?.[dexIndex];
@@ -611,6 +699,53 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (activeAssetCtx?.coin !== activeAsset?.coin) {
         await perpsActiveAssetCtxAtom.set(undefined);
       }
+    }
+  }
+
+  async updateActiveSpotAssetCtx(data: IWsActiveSpotAssetCtx | undefined) {
+    const activeSpotAsset = await spotActiveAssetAtom.get();
+    if (activeSpotAsset?.coin === data?.coin && data?.coin && data?.ctx) {
+      await spotActiveAssetCtxAtom.set(
+        (_prev): ISpotActiveAssetCtxAtom => ({
+          coin: data.coin,
+          assetId: activeSpotAsset?.assetId,
+          ctx: perpsUtils.formatSpotAssetCtx(data.ctx),
+        }),
+      );
+    }
+    // Don't clear to undefined — stale data from the previous coin is preferable
+    // to a brief flash of empty state while waiting for the new WS update.
+  }
+
+  // Called from spotAssetCtxs WS — provides full context for token selector
+  // Key is pair name (@107, PURR/USDC) matching universe.name
+  async updateSpotAssetCtxsMap(data: IWsSpotAssetCtxs) {
+    if (!Array.isArray(data) || data.length === 0) return;
+
+    const map: Record<string, ISpotAssetCtxEntry> = {};
+    data.forEach((ctx) => {
+      if (ctx?.coin && ctx?.markPx) {
+        map[ctx.coin] = {
+          markPx: ctx.markPx,
+          prevDayPx: ctx.prevDayPx,
+          dayNtlVlm: ctx.dayNtlVlm,
+          circulatingSupply: ctx.circulatingSupply,
+        };
+      }
+    });
+    this._flushSpotPrices(map);
+  }
+
+  // Called from allMids WS — updates only markPx, keyed by pair name (@107, PURR/USDC)
+  async extractSpotPricesFromAllMids(mids: Record<string, string>) {
+    const map: Record<string, ISpotAssetCtxEntry> = {};
+    for (const [coin, price] of Object.entries(mids)) {
+      if (perpsUtils.isSpotInstrument(coin) && price) {
+        map[coin] = { markPx: price };
+      }
+    }
+    if (Object.keys(map).length > 0) {
+      this._flushSpotPrices(map);
     }
   }
 
@@ -793,6 +928,9 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     const balances = spotStateData?.spotState?.balances || [];
 
+    // Write to standalone spot balances atom (spot trading UI)
+    await spotBalancesAtom.set({ balances, isLoaded: true });
+
     // Calculate total USD value from spot balances
     // Price lookup: USDC (token=0) → 1:1, others → allMids.mids[coin] (perp mid price by token name)
     // Note: allMids["HYPE"]=36.20 is the correct USD price
@@ -886,6 +1024,66 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (!prev || prev.spotTotalUsd !== undefined) return prev;
       return { ...prev, spotTotalUsd: computed };
     });
+  }
+
+  private _rebuildSpotMappings(universes: ISpotUniverse[]) {
+    const pairToBaseName: Record<string, string> = {};
+    const baseNameToAssetId: Record<string, number> = {};
+    const baseNameToSzDecimals: Record<string, number> = {};
+    const baseNameToPairName: Record<string, string> = {};
+
+    for (const u of universes) {
+      pairToBaseName[u.name] = u.baseName;
+      baseNameToAssetId[u.baseName] = u.assetId;
+      baseNameToSzDecimals[u.baseName] = u.baseSzDecimals;
+      baseNameToPairName[u.baseName] = u.name;
+    }
+
+    this._spotMappings = {
+      pairToBaseName,
+      baseNameToAssetId,
+      baseNameToSzDecimals,
+      baseNameToPairName,
+    };
+
+    // Write display map atom so UI can resolve @N → display name synchronously
+    const displayMap: Record<string, string> = {};
+    for (const u of universes) {
+      displayMap[u.name] = perpsUtils.getSpotTokenDisplayName(u.baseName);
+    }
+    void spotPairDisplayMapAtom.set(displayMap);
+  }
+
+  // Lazily rebuild from SimpleDb if service was restarted without refreshSpotMeta
+  private async _ensureSpotMappings() {
+    if (Object.keys(this._spotMappings.pairToBaseName).length > 0) return;
+    const { universes } = await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    if (universes.length > 0) {
+      this._rebuildSpotMappings(universes);
+    }
+  }
+
+  @backgroundMethod()
+  async getSpotAssetId(tokenName: string): Promise<number | undefined> {
+    await this._ensureSpotMappings();
+    return this._spotMappings.baseNameToAssetId[tokenName];
+  }
+
+  @backgroundMethod()
+  async getSpotSzDecimals(tokenName: string): Promise<number | undefined> {
+    await this._ensureSpotMappings();
+    return this._spotMappings.baseNameToSzDecimals[tokenName];
+  }
+
+  @backgroundMethod()
+  async getSpotPairName(tokenName: string): Promise<string | undefined> {
+    await this._ensureSpotMappings();
+    return this._spotMappings.baseNameToPairName[tokenName];
+  }
+
+  @backgroundMethod()
+  async getSpotMeta() {
+    return this.backgroundApi.simpleDb.perp.getSpotMeta();
   }
 
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;

@@ -1,10 +1,7 @@
 import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
-  IEventActiveAssetCtxParameters,
-  IEventActiveAssetDataParameters,
   IEventAllDexsClearinghouseStateParameters,
-  IEventBboParameters,
   IEventL2BookParameters,
   IEventOpenOrdersParameters,
   IEventUserFillsParameters,
@@ -81,6 +78,16 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 3,
   },
+  [ESubscriptionType.SPOT_ASSET_CTXS]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
+    priority: 2,
+  },
+  // ACTIVE_SPOT_ASSET_CTX shares wire type "activeAssetCtx" with perps.
+  // Not used directly — spot mode reuses ACTIVE_ASSET_CTX with coin format detection in WS handler.
+  [ESubscriptionType.ACTIVE_SPOT_ASSET_CTX]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
+    priority: 2,
+  },
 };
 
 export interface ISubscriptionSpec<T extends ESubscriptionType> {
@@ -96,6 +103,14 @@ export interface ISubscriptionState {
   isConnected: boolean;
   l2BookOptions?: IL2BookOptions | null;
   enableLedgerUpdates?: boolean;
+  // Spot balance subscription (Balances tab)
+  spotEnabled?: boolean;
+  // Spot asset contexts subscription (Token selector Spot tab)
+  spotAssetCtxsEnabled?: boolean;
+  // Active spot pair for BBO/ACTIVE_ASSET_CTX subscriptions (e.g. "@107")
+  currentSpotSymbol?: string;
+  // Trading mode — per-asset subscriptions are exclusive based on this
+  tradingMode?: 'perp' | 'spot';
 }
 
 export interface ISubscriptionDiff {
@@ -162,41 +177,59 @@ export function calculateRequiredSubscriptions(
     }),
   );
 
-  if (state.currentSymbol) {
-    const activeAssetCtxParams: IEventActiveAssetCtxParameters = {
-      coin: state.currentSymbol,
-    };
+  // Per-asset subscriptions are MUTUALLY EXCLUSIVE — only one mode active at a time
+  // to avoid duplicate BBO/ctx data and unnecessary bandwidth
+  if (state.tradingMode === 'spot' && state.currentSpotSymbol) {
+    // Spot mode: reuse ACTIVE_ASSET_CTX with spot coin
+    // (wire protocol is the same "activeAssetCtx", server returns spot data for @N coins)
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.ACTIVE_ASSET_CTX,
-        params: activeAssetCtxParams,
+        params: { coin: state.currentSpotSymbol },
       }),
     );
-
-    // BBO subscription for trading price reference
-    const bboParams: IEventBboParameters = {
-      coin: state.currentSymbol,
-    };
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.BBO,
-        params: bboParams,
+        params: { coin: state.currentSpotSymbol },
       }),
     );
-
-    const activeAssetDataParams: IEventActiveAssetDataParameters = {
-      coin: state.currentSymbol,
-      user: state.currentUser || PERPS_EMPTY_ADDRESS,
-    };
+    if (state.l2BookOptions) {
+      specs.push(
+        buildSubscriptionSpec({
+          type: ESubscriptionType.L2_BOOK,
+          params: {
+            coin: state.currentSpotSymbol,
+            nSigFigs: state.l2BookOptions.nSigFigs ?? null,
+            mantissa: state.l2BookOptions.mantissa ?? null,
+          },
+        }),
+      );
+    }
+  } else if (state.currentSymbol) {
+    // Perps mode: subscribe to perps asset context + BBO + asset data + order book
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.ACTIVE_ASSET_CTX,
+        params: { coin: state.currentSymbol },
+      }),
+    );
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.BBO,
+        params: { coin: state.currentSymbol },
+      }),
+    );
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.ACTIVE_ASSET_DATA,
-        params: activeAssetDataParams,
+        params: {
+          coin: state.currentSymbol,
+          user: state.currentUser || PERPS_EMPTY_ADDRESS,
+        },
       }),
     );
-
     if (state.l2BookOptions) {
-      // Create L2_BOOK subscription with default parameters if no custom params are provided
       const l2BookParams: IEventL2BookParameters = {
         coin: state.currentSymbol,
         nSigFigs: state.l2BookOptions.nSigFigs ?? null,
@@ -295,6 +328,16 @@ export function calculateRequiredSubscriptions(
   } else {
     // WebData3 requires a user address.
     // If no user, we likely only need market data (handled above).
+  }
+
+  // Spot: global asset contexts (token selector, independent of balance subscription)
+  if (state.spotAssetCtxsEnabled) {
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.SPOT_ASSET_CTXS,
+        params: {},
+      }),
+    );
   }
 
   return specs.toSorted((a, b) => a.priority - b.priority);

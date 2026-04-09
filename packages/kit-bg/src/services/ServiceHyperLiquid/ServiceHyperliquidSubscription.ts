@@ -26,10 +26,12 @@ import type {
   IPerpsSubscriptionParams,
   IWebSocketTransportOptions,
   IWsActiveAssetCtx,
+  IWsActiveSpotAssetCtx,
   IWsAllDexsAssetCtxs,
   IWsAllDexsClearinghouseState,
   IWsAllMids,
   IWsOpenOrders,
+  IWsSpotAssetCtxs,
   IWsSpotState,
   IWsUserFills,
   IWsWebData2,
@@ -52,7 +54,9 @@ import {
   perpsTradesHistoryRefreshHookAtom,
   perpsWebSocketDataUpdateTimesAtom,
   perpsWebSocketReadyStateAtom,
+  tradingModeAtom,
 } from '../../states/jotai/atoms/perps';
+import { spotActiveAssetAtom } from '../../states/jotai/atoms/spot';
 import ServiceBase from '../ServiceBase';
 
 import hyperLiquidCache from './hyperLiquidCache';
@@ -121,6 +125,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     isConnected: false,
     l2BookOptions: undefined,
     enableLedgerUpdates: false,
+    spotEnabled: false,
+    spotAssetCtxsEnabled: false,
+    currentSpotSymbol: undefined,
+    tradingMode: 'perp',
   };
 
   private _networkTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -143,15 +151,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAsset = await perpsActiveAssetAtom.get();
+    const spotActiveAsset = await spotActiveAssetAtom.get();
+    const currentMode = (await tradingModeAtom.get()) ?? 'perp';
+    const currentCoin =
+      currentMode === 'spot' ? spotActiveAsset?.coin : activeAsset?.coin;
+    const currentAssetId =
+      currentMode === 'spot' ? spotActiveAsset?.assetId : activeAsset?.assetId;
     let activeOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
 
     if (
       activeOrderBookOptions?.coin &&
-      activeOrderBookOptions?.coin !== activeAsset.coin
+      activeOrderBookOptions?.coin !== currentCoin
     ) {
       const syncedOptions = {
         ...activeOrderBookOptions,
-        coin: activeAsset.coin,
+        coin: currentCoin,
+        assetId: currentAssetId,
       };
       await perpsActiveOrderBookOptionsAtom.set(syncedOptions);
       activeOrderBookOptions = syncedOptions;
@@ -181,12 +196,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
         : undefined;
     delete l2BookOptions?.assetId;
+    const currentSpotSymbol = spotActiveAsset?.coin || undefined;
     const params: ISubscriptionState = {
       isConnected,
       l2BookOptions,
-      currentSymbol: activeAsset?.coin,
+      currentSymbol: currentCoin,
       currentUser: activeAccount?.accountAddress,
       enableLedgerUpdates: this._currentState.enableLedgerUpdates,
+      spotEnabled: this._currentState.spotEnabled,
+      spotAssetCtxsEnabled: this._currentState.spotAssetCtxsEnabled,
+      currentSpotSymbol,
+      tradingMode: currentMode,
     };
 
     const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
@@ -659,7 +679,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.ALL_DEXS_ASSET_CTXS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
+        // Spot subscription types
         ESubscriptionType.SPOT_STATE,
+        ESubscriptionType.SPOT_ASSET_CTXS,
+        ESubscriptionType.ACTIVE_SPOT_ASSET_CTX,
       ];
       const removeAllSubscriptionHandlers = () => {
         allTypes.forEach((type) => {
@@ -682,18 +705,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       };
       // const payload = { type: "activeAssetCtx", ...params };
       console.log('getWebSocketClient__wsRequester', wsRequester);
+      // Map SDK channel types to Hyperliquid wire types
+      // (some SDK types use different channel names for event dispatch)
+      const getWireType = (type: ESubscriptionType): string => {
+        if (type === ESubscriptionType.ACTIVE_SPOT_ASSET_CTX) {
+          return 'activeAssetCtx'; // spot shares wire type with perps
+        }
+        return type;
+      };
+
       const subscribe = async <T extends ESubscriptionType>(
         type: T,
         params: IPerpsSubscriptionParams[T],
       ) => {
-        // for (let i = 0; i < 100; i += 1) {
-        //   void wsRequester.request('subscribe', {
-        //     type,
-        //     ...params,
-        //   });
-        // }
         return wsRequester.request('subscribe', {
-          type,
+          type: getWireType(type),
           ...params,
         });
       };
@@ -702,7 +728,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         params: IPerpsSubscriptionParams[T],
       ) => {
         return wsRequester.request('unsubscribe', {
-          type,
+          type: getWireType(type),
           ...params,
         });
       };
@@ -995,6 +1021,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
         // Cache allMids in background for spot balance USD calculation
         hyperLiquidCache.allMids = data as IWsAllMids;
+        // Extract @N spot prices from allMids (always available, serves Balance tab)
+        const allMidsData = data as { mids?: Record<string, string> };
+        if (allMidsData?.mids) {
+          void this.backgroundApi.serviceHyperliquid.extractSpotPricesFromAllMids(
+            allMidsData.mids,
+          );
+        }
         // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)
         void this.backgroundApi.serviceHyperliquid.recalculateSpotTotalUsd();
         // Emit to frontend (PerpsGlobalEffects listens for allMids updates)
@@ -1084,9 +1117,31 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         return;
       }
 
+      if (subscriptionType === ESubscriptionType.SPOT_ASSET_CTXS) {
+        // Writes directly to spotAssetCtxsMapAtom — no eventBus needed
+        void this.backgroundApi.serviceHyperliquid.updateSpotAssetCtxsMap(
+          data as IWsSpotAssetCtxs,
+        );
+        this._updateNetworkLiveness();
+        return;
+      }
+
       if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_CTX) {
-        void this.backgroundApi.serviceHyperliquid.updateActiveAssetCtx(
-          data as IWsActiveAssetCtx,
+        const coinStr = (data as { coin?: string })?.coin ?? '';
+        const isSpotData = coinStr.startsWith('@') || coinStr.includes('/');
+        if (isSpotData) {
+          void this.backgroundApi.serviceHyperliquid.updateActiveSpotAssetCtx(
+            data as IWsActiveSpotAssetCtx,
+          );
+        } else {
+          void this.backgroundApi.serviceHyperliquid.updateActiveAssetCtx(
+            data as IWsActiveAssetCtx,
+          );
+        }
+      } else if (subscriptionType === ESubscriptionType.ACTIVE_SPOT_ASSET_CTX) {
+        // SDK dispatches spot activeAssetCtx on channel "activeSpotAssetCtx"
+        void this.backgroundApi.serviceHyperliquid.updateActiveSpotAssetCtx(
+          data as IWsActiveSpotAssetCtx,
         );
       } else if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA) {
         void this.backgroundApi.serviceHyperliquid.updateActiveAssetData(

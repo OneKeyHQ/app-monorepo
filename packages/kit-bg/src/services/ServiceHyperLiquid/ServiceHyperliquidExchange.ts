@@ -34,6 +34,7 @@ import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiqu
 import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
   getValidPriceDecimals,
   mapTriggerOrderType,
   parseSignatureToRSV,
@@ -57,6 +58,7 @@ import type {
   IPlaceOrderParams,
   IPositionTpslOrderParams,
   ISetReferrerRequest,
+  ISpotOrderParams,
   ITriggerOrderParams,
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
@@ -685,6 +687,68 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return response;
     } catch (error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
+    }
+  }
+
+  private _calculateSpotSlippagePrice(params: {
+    markPrice: string;
+    isBuy: boolean;
+    slippage: number;
+    szDecimals: number;
+  }): string {
+    const price = new BigNumber(params.markPrice);
+    const slippageMultiplier = params.isBuy
+      ? new BigNumber(1).plus(params.slippage)
+      : new BigNumber(1).minus(params.slippage);
+    const adjustedPrice = price.multipliedBy(slippageMultiplier);
+    return formatSpotPriceToValid(adjustedPrice.toFixed(), params.szDecimals);
+  }
+
+  @backgroundMethod()
+  async placeSpotOrder(params: ISpotOrderParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
+    try {
+      const isMarket = params.orderType === 'market';
+
+      const price = isMarket
+        ? this._calculateSpotSlippagePrice({
+            markPrice: params.limitPx,
+            isBuy: params.isBuy,
+            slippage: params.slippage || this.slippage,
+            szDecimals: params.szDecimals || 0,
+          })
+        : params.limitPx;
+
+      const orderParams: IOrderParams = {
+        a: params.assetId,
+        b: params.isBuy,
+        p: price,
+        s: params.sz,
+        r: false, // spot orders never use reduceOnly
+        t: isMarket
+          ? { limit: { tif: params.tif || 'Ioc' } }
+          : { limit: { tif: params.tif || 'Gtc' } },
+      };
+
+      const response = await this.placeOrderRaw(
+        {
+          orders: [orderParams],
+          grouping: 'na',
+        },
+        {
+          action: 'placeSpotOrder',
+          originalParams: params,
+          extra: {
+            isMarket,
+            isSpot: true,
+          },
+        },
+      );
+      return response;
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to place spot order: ${String(error)}`,
+      );
     }
   }
 
