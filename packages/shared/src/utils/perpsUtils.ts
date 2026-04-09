@@ -1647,6 +1647,13 @@ export {
   getTriggerEffectivePrice,
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
+  formatSpotAssetCtx,
+  isSpotInstrument,
+  getSpotTokenDisplayName,
+  formatSpotPairDisplayName,
+  filterSpotTokensStrict,
+  SPOT_TOKEN_DISPLAY_MAP,
+  SPOT_MIN_VOLUME_STRICT,
 };
 export default {
   formatAssetCtx,
