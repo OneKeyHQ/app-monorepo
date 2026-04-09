@@ -9,6 +9,7 @@ import {
   LinearGradient,
   Page,
   SizableText,
+  Skeleton,
   Stack,
   YStack,
 } from '@onekeyhq/components';
@@ -60,37 +61,46 @@ function FeaturedChangelog({
   const mockFeatures: IFeaturedItem[] = __DEV__
     ? [
         {
-          tabLabel: '0 手续费',
-          title: 'Perps 交易，0 手续费',
-          description: '所有合约订单享受零费率交易体验，不收取任何手续费。',
+          tabLabel: 'Zero Fees',
+          title: 'Perps Trading, Zero Fees',
+          description: 'Enjoy zero-fee trading on all perpetual contracts.',
           mediaUrl: '',
           mediaType: 'image' as const,
-          ctaText: '立即体验',
+          ctaText: 'Try Now',
           ctaDeeplink: 'onekey-wallet://market_detail',
         },
         {
           tabLabel: 'Keyless',
-          title: 'Keyless 钱包，无需助记词',
-          description: '用 iCloud / Google 账号直接创建钱包，安全便捷。',
+          title: 'Keyless Wallet',
+          description: 'Create a wallet with iCloud or Google — no seed phrase needed.',
           mediaUrl: '',
           mediaType: 'image' as const,
-          ctaText: '创建 Keyless 钱包',
+          ctaText: 'Create Keyless Wallet',
           ctaDeeplink: 'onekey-wallet://url_account',
         },
         {
-          tabLabel: '能量补贴',
-          title: 'Tron 能量补贴',
-          description: '首次转账 Tron 网络，享受能量补贴优惠。',
+          tabLabel: 'Energy Subsidy',
+          title: 'Tron Energy Subsidy',
+          description: 'Get energy subsidies for your first Tron transactions.',
           mediaUrl: '',
           mediaType: 'image' as const,
-          ctaText: '了解更多',
+          ctaText: 'Learn More',
           ctaDeeplink: 'onekey-wallet://market_detail',
         },
       ]
     : [];
   const features =
     appUpdateInfo.featuredChangelog?.features ?? mockFeatures;
-  const activeFeature: IFeaturedItem | undefined = features[activeIndex];
+
+  // #2/#3: Clamp activeIndex when features array changes
+  const clampedIndex = Math.min(activeIndex, Math.max(features.length - 1, 0));
+  useEffect(() => {
+    if (clampedIndex !== activeIndex) {
+      setActiveIndex(clampedIndex);
+    }
+  }, [clampedIndex, activeIndex]);
+
+  const activeFeature: IFeaturedItem | undefined = features[clampedIndex];
 
   const isForceUpdate = appUpdateInfo
     ? isForceUpdateStrategy(appUpdateInfo.updateStrategy)
@@ -143,6 +153,9 @@ function FeaturedChangelog({
           void downloadPackage();
         }
         navigation.push(EAppUpdateRoutes.DownloadVerify);
+      } else {
+        // Fallback: no store URL and no download URL — just close
+        navigation.popStack();
       }
     } else if (activeFeature?.ctaDeeplink) {
       navigation.popStack();
@@ -186,7 +199,18 @@ function FeaturedChangelog({
       intl.formatMessage({ id: ETranslations.global_done }));
 
   if (!activeFeature) {
-    return null;
+    return (
+      <Page>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <YStack flex={1} px="$5" pt="$5" gap="$4">
+            <Skeleton width={48} height={20} borderRadius="$1" />
+            <Skeleton width="60%" height={32} borderRadius="$2" />
+            <Skeleton width="100%" flex={1} borderRadius="$4" />
+          </YStack>
+        </Page.Body>
+      </Page>
+    );
   }
 
   return (
@@ -201,7 +225,11 @@ function FeaturedChangelog({
                 {'New'}
               </Badge>
             </Stack>
-            <SizableText size="$heading3xl" mb={subheadline ? '$1' : '$4'}>
+            <SizableText
+              size="$heading3xl"
+              mb={subheadline ? '$1' : '$4'}
+              numberOfLines={1}
+            >
               {headline}
             </SizableText>
             {subheadline ? (
@@ -219,23 +247,26 @@ function FeaturedChangelog({
           {/* Media fills remaining space, with gradient + text overlay */}
           <Stack flex={1} px="$5" pb={0}>
           <FeaturedMedia feature={activeFeature}>
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.7)']}
+            <Stack
               position="absolute"
               bottom={0}
               left={0}
               right={0}
-              px="$4"
-              pb="$4"
-              pt="$16"
             >
-              <SizableText size="$headingLg" color="$whiteA12" mb="$1">
-                {activeFeature.title}
-              </SizableText>
-              <SizableText size="$bodyMd" color="$whiteA11">
-                {activeFeature.description}
-              </SizableText>
-            </LinearGradient>
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.7)']}
+                px="$4"
+                pb="$4"
+                pt="$16"
+              >
+                <SizableText size="$headingLg" color="$whiteA12" mb="$1">
+                  {activeFeature.title}
+                </SizableText>
+                <SizableText size="$bodyMd" color="$whiteA11">
+                  {activeFeature.description}
+                </SizableText>
+              </LinearGradient>
+            </Stack>
           </FeaturedMedia>
           </Stack>
         </YStack>
