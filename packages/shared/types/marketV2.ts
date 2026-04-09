@@ -116,21 +116,16 @@ export interface IMarketTokenListItemExtraData {
   [key: string]: unknown;
 }
 
-export interface IMarketStockInfo {
-  title?: string;
-  subtitle: string;
-  source?: string;
-  sourceLogoUri: string;
-  isOpen?: boolean;
-  // Localized description from backend (tooltip when open, countdown + tooltip when closed)
-  description?: string;
-  // Stock fundamentals (from FMP API)
+export interface IMarketStockAssetAnalysis {
   volume24h?: string;
   volumeShares?: string;
   turnoverRate?: string;
   avgDailyVolume1y?: string;
   weekHigh52?: string;
   weekLow52?: string;
+}
+
+export interface IMarketStockTradingActivity {
   peRatio?: string;
   pbRatio?: string;
   psRatio?: string;
@@ -139,6 +134,18 @@ export interface IMarketStockInfo {
   netProfitMargin?: string;
   debtToEquity?: string;
   dividendYield?: string;
+}
+
+export interface IMarketStockInfo {
+  title?: string;
+  subtitle: string;
+  source?: string;
+  sourceLogoUri: string;
+  isOpen?: boolean;
+  // Localized description from backend (tooltip when open, countdown + tooltip when closed)
+  description?: string;
+  assetAnalysis?: IMarketStockAssetAnalysis;
+  tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
   marketCap?: string;
   sharesOutstanding?: string;

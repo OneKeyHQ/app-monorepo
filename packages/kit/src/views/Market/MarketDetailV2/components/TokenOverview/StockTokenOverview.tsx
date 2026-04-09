@@ -4,15 +4,14 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useStockSecurityStats } from '../../hooks/useStockSecurityStats';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import { StockDescriptionRows } from '../StockDescriptionRows';
+import { StockStatSections } from '../StockStatSections';
 
-import { StatCard } from './components/StatCard';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
 
 export function StockTokenOverview() {
   const { tokenDetail, isStockToken } = useTokenDetail();
-  const { statRows, descriptionRows } = useStockSecurityStats(
-    tokenDetail?.stock,
-  );
+  const { assetAnalysisRows, tradingActivityRows, descriptionRows } =
+    useStockSecurityStats(tokenDetail?.stock);
 
   if (!tokenDetail || !isStockToken) {
     return <TokenOverviewSkeleton />;
@@ -32,19 +31,16 @@ export function StockTokenOverview() {
         </Stack>
       </XStack>
 
-      {statRows.map((row) => (
-        <XStack key={row[0]?.label} gap="$2">
-          {row.map((item) => (
-            <StatCard key={item.label} {...item} />
-          ))}
-        </XStack>
-      ))}
-
-      <Divider my="$1" />
-
       <Stack pt="$3">
         <StockDescriptionRows rows={descriptionRows} />
       </Stack>
+
+      <Divider my="$1" />
+
+      <StockStatSections
+        assetAnalysisRows={assetAnalysisRows}
+        tradingActivityRows={tradingActivityRows}
+      />
     </Stack>
   );
 }
