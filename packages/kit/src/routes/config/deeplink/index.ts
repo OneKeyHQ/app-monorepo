@@ -119,6 +119,10 @@ async function processDeepLinkUrlAccount(
           {
             const { code, page } =
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+            const VALID_REFERRAL_CODE = /^[a-zA-Z0-9_-]{1,32}$/;
+            if (!code || !VALID_REFERRAL_CODE.test(code)) {
+              break;
+            }
             if (navigation) {
               // Navigate to ReferralLandingPage which handles the modal opening
               navigation.switchTab(ETabRoutes.Home);
