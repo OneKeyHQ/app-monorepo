@@ -35,11 +35,15 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     getAllKeys(): string[];
   };
 
+  /** Cached migration status — set once, never reverts to false. */
+  private migrated: boolean;
+
   constructor() {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { default: instance } =
       require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
     this.mmkv = instance;
+    this.migrated = instance.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
   }
 
   private log(msg: string) {
@@ -74,44 +78,66 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     }
   }
 
+  private async writeToAsyncStorage(key: string, value: any): Promise<void> {
+    await this.getAsyncStorageModule().setItem(key, JSON.stringify(value));
+  }
+
+  // ---- Migration-aware read/write ----
+
   async getItem(key: string, initialValue: any): Promise<any> {
-    // Fast path: MMKV per-key
-    const raw = this.mmkv.getString(key);
-    if (raw !== undefined) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return JSON.parse(raw);
-      } catch (e) {
-        this.log(`MMKV parse failed for ${key}: ${(e as Error)?.message}`);
+    if (this.migrated) {
+      // Migration done — MMKV is source of truth
+      const raw = this.mmkv.getString(key);
+      if (raw !== undefined) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return JSON.parse(raw);
+        } catch (e) {
+          this.log(`MMKV parse failed for ${key}: ${(e as Error)?.message}`);
+        }
       }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return initialValue;
     }
 
-    // Fallback: read from legacy AsyncStorage
+    // Migration not done — AsyncStorage is source of truth
     try {
-      const legacyValue = await this.readFromAsyncStorage(key);
-      if (legacyValue !== null && legacyValue !== undefined) {
-        // Self-heal: write back to MMKV so next read is fast
-        this.mmkv.set(key, JSON.stringify(legacyValue));
-        this.log(`fallback to AsyncStorage OK for ${key}, self-healed to MMKV`);
+      const value = await this.readFromAsyncStorage(key);
+      if (value !== null && value !== undefined) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return legacyValue;
+        return value;
       }
     } catch (e) {
-      this.log(
-        `AsyncStorage fallback failed for ${key}: ${(e as Error)?.message}`,
-      );
+      this.log(`AsyncStorage read failed for ${key}: ${(e as Error)?.message}`);
     }
-
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return initialValue;
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
+    // Always write to MMKV
     this.mmkv.set(key, JSON.stringify(newValue));
+
+    if (!this.migrated) {
+      // Migration not done — also write to AsyncStorage so it stays
+      // up-to-date as fallback and for next migration retry
+      try {
+        await this.writeToAsyncStorage(key, newValue);
+      } catch {
+        /* best-effort */
+      }
+    }
   }
 
   async removeItem(key: string): Promise<void> {
     this.mmkv.remove(key);
+    if (!this.migrated) {
+      try {
+        await this.getAsyncStorageModule().removeItem(key);
+      } catch {
+        /* best-effort */
+      }
+    }
   }
 
   /**
@@ -119,7 +145,7 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
    * Main thread uses this to decide whether to read MMKV per-key or old snapshot blob.
    */
   isMigrationComplete(): boolean {
-    return this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
+    return this.migrated;
   }
 
   /**
@@ -128,39 +154,32 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
    *
    * Completeness guarantee:
    * - Iterates every key in EAtomNames (exhaustive enum of all atoms)
-   * - For each key: reads AsyncStorage → writes to MMKV (skip if already present)
-   * - Tracks errors separately from "key not found" (null from AsyncStorage)
+   * - Always overwrites existing MMKV keys (previous partial migration
+   *   may have left stale data; AsyncStorage is kept up-to-date via
+   *   dual-write in setItem, so it's always the authoritative source)
+   * - Tracks errors separately from "key not found"
    * - Migration-complete flag set ONLY when zero errors
-   * - On errors: flag not set → retry next launch; main thread reads snapshot blob
+   * - On failure: flag not set → getItem/setItem stay in dual-write mode
+   *   → retry next launch
    */
   async migrateFromAsyncStorage(expectedKeys: string[]): Promise<void> {
-    // Already migrated — skip
-    if (this.isMigrationComplete()) {
+    if (this.migrated) {
       this.log('migration already complete, skip');
       return;
     }
 
-    const existingKeys = new Set(this.mmkv.getAllKeys());
-    this.log(
-      `migration start: ${expectedKeys.length} expected, ${existingKeys.size} already in MMKV`,
-    );
+    this.log(`migration start: ${expectedKeys.length} keys to check`);
     let migrated = 0;
-    let skipped = 0;
     let absent = 0;
     let errors = 0;
     await Promise.all(
       expectedKeys.map(async (key) => {
-        if (existingKeys.has(key)) {
-          skipped += 1;
-          return;
-        }
         try {
           const value = await this.readFromAsyncStorage(key);
           if (value !== null && value !== undefined) {
             this.mmkv.set(key, JSON.stringify(value));
             migrated += 1;
           } else {
-            // Key genuinely doesn't exist in AsyncStorage (new or non-persist atom)
             absent += 1;
           }
         } catch (e) {
@@ -171,23 +190,26 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     );
 
     if (errors === 0) {
-      // All keys processed successfully — safe to set flag
       this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
-      this.log(
-        `migration complete: ${migrated} migrated, ${skipped} existed, ${absent} absent`,
-      );
+      this.migrated = true;
+      this.log(`migration complete: ${migrated} migrated, ${absent} absent`);
     } else {
-      // Some keys failed — don't set flag, retry next launch.
-      // Main thread continues reading old snapshot blob as fallback.
       this.log(
         `migration incomplete: ${migrated} migrated, ${errors} errors — will retry next launch`,
       );
     }
   }
 
-  async getAllEntries(): Promise<Map<string, any>> {
+  async getAllEntries(): Promise<Map<string, any> | null> {
+    if (!this.migrated) {
+      // Migration not done — signal caller to use individual getItem
+      // (which falls back to AsyncStorage)
+      return null;
+    }
     const map = new Map<string, any>();
-    const keys = this.mmkv.getAllKeys();
+    const keys = this.mmkv
+      .getAllKeys()
+      .filter((k) => k !== MMKV_MIGRATION_COMPLETE_KEY);
     for (const key of keys) {
       const raw = this.mmkv.getString(key);
       if (raw !== undefined) {
