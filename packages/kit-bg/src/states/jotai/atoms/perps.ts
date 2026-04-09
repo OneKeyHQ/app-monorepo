@@ -241,12 +241,27 @@ export const {
   read: (get) => {
     const status = get(perpsActiveAccountStatusInfoAtom.atom());
     const account = get(perpsActiveAccountAtom.atom());
+    const abstractionMode = get(perpsAbstractionModeAtom.atom());
     const details: IPerpsActiveAccountStatusDetails | undefined =
       status?.accountAddress &&
       status?.accountAddress?.toLowerCase() ===
         account.accountAddress?.toLowerCase()
         ? status.details
         : undefined;
+
+    // statusInfo.abstractionOk is stale until checkPerpsAccountStatus() reruns,
+    // prefer WS-pushed mode so canTrade reacts immediately (OK-52729)
+    let abstractionOk = details?.abstractionOk;
+    if (
+      abstractionMode &&
+      abstractionMode.accountAddress?.toLowerCase() ===
+        account.accountAddress?.toLowerCase()
+    ) {
+      abstractionOk =
+        abstractionMode.mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+        abstractionMode.mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+    }
+
     const canTrade =
       account?.accountAddress &&
       details?.agentOk &&
@@ -254,7 +269,7 @@ export const {
       details?.referralCodeOk &&
       details?.activatedOk &&
       details?.internalRebateBoundOk &&
-      details?.abstractionOk;
+      abstractionOk;
     const isReadOnlyAccount = account?.accountId
       ? accountUtils.isWatchingAccount({ accountId: account.accountId })
       : false;

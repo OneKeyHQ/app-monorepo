@@ -15,6 +15,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -256,12 +257,18 @@ export function useWalletBoundReferralCode({
           onSuccess?.();
         }
       } catch (e) {
-        // Disable auto toast for this error to show custom toast without requestId
+        // Keep API validation errors inline in the form instead of showing a toast.
         errorToastUtils.toastIfErrorDisable(e);
 
-        // Show custom error toast without requestId
         const err = e as OneKeyError;
-        if (err?.message) {
+        const isServerApiError =
+          err?.className === EOneKeyErrorClassNames.OneKeyServerApiError;
+
+        // Only suppress toast for server API errors when preventClose is
+        // provided — the caller (InviteCodeDialog) handles them inline via
+        // form.setError(). Other call sites have no inline display, so they
+        // still need the toast.
+        if (!(isServerApiError && preventClose) && err?.message) {
           Toast.error({
             title: err.message,
           });
