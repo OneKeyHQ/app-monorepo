@@ -36,6 +36,7 @@ import {
   EModalRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
@@ -933,6 +934,16 @@ function BulkSendAmountsInputContent({
   const [senderBalancesFailed, setSenderBalancesFailed] = useState<Set<string>>(
     new Set(),
   );
+  const buildSenderBalanceAddressKey = useCallback(
+    (address: string) => {
+      const trimmedAddress = address.trim();
+      if (networkUtils.isEvmNetwork({ networkId })) {
+        return trimmedAddress.toLowerCase();
+      }
+      return trimmedAddress;
+    },
+    [networkId],
+  );
 
   // Recalculate mobile mode totals when transfersInfo or token price changes
   useEffect(() => {
@@ -1306,16 +1317,15 @@ function BulkSendAmountsInputContent({
 
       setSenderBalancesLoading(true);
 
-      const vaultSettings =
-        await backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId,
-        });
+      const fetchSenderBalancesLegacy = async () => {
+        const vaultSettings =
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          });
+        const balanceMap: Record<string, string> = {};
+        const failedSet = new Set<string>();
+        const limit = pLimit(5);
 
-      const balanceMap: Record<string, string> = {};
-      const failedSet = new Set<string>();
-      const limit = pLimit(5);
-
-      try {
         await Promise.all(
           sendersWithAccountId.map((sender) =>
             limit(async () => {
@@ -1348,13 +1358,111 @@ function BulkSendAmountsInputContent({
             }),
           ),
         );
-      } finally {
+
+        return {
+          balanceMap,
+          failedSet,
+        };
+      };
+
+      try {
+        const isCustomNetwork =
+          await backgroundApiProxy.serviceNetwork.isCustomNetwork({
+            networkId,
+          });
+
+        if (isCustomNetwork) {
+          const { balanceMap, failedSet } = await fetchSenderBalancesLegacy();
+          setSenderBalances(balanceMap);
+          setSenderBalancesFailed(failedSet);
+          return;
+        }
+
+        const senderGroups = new Map<
+          string,
+          {
+            queryAddress: string;
+            originalAddresses: Set<string>;
+          }
+        >();
+
+        sendersWithAccountId.forEach((sender) => {
+          const addressKey = buildSenderBalanceAddressKey(sender.address);
+          const existingGroup = senderGroups.get(addressKey);
+          if (existingGroup) {
+            existingGroup.originalAddresses.add(sender.address);
+            return;
+          }
+          senderGroups.set(addressKey, {
+            queryAddress: sender.address.trim(),
+            originalAddresses: new Set([sender.address]),
+          });
+        });
+
+        const balanceMap: Record<string, string> = {};
+        const failedSet = new Set<string>();
+        const batchBalancesByKey = new Map<string, string>();
+        const batchAccountId =
+          sendersWithAccountId.find((sender) => sender.accountId)?.accountId ??
+          accountId ??
+          '';
+        const resp =
+          await backgroundApiProxy.serviceToken.fetchTokensDetailsBatch({
+            accountId: batchAccountId,
+            networkId,
+            contractList: [tokenInfo.address],
+            queries: Array.from(senderGroups.values()).map((group) => ({
+              accountAddress: group.queryAddress,
+            })),
+          });
+
+        resp.forEach((item) => {
+          const addressKey = buildSenderBalanceAddressKey(item.accountAddress);
+          if (!senderGroups.has(addressKey)) {
+            return;
+          }
+          if (batchBalancesByKey.has(addressKey)) {
+            return;
+          }
+          const matchedToken = item.tokens.find((token) =>
+            isBulkSendTokenDetailsMatched({
+              networkId,
+              tokenInfo,
+              tokenDetails: token,
+            }),
+          );
+          if (matchedToken?.balanceParsed !== undefined) {
+            batchBalancesByKey.set(addressKey, matchedToken.balanceParsed);
+          }
+        });
+
+        senderGroups.forEach(({ originalAddresses }, addressKey) => {
+          const balance = batchBalancesByKey.get(addressKey);
+          if (balance === undefined) {
+            originalAddresses.forEach((address) => {
+              failedSet.add(address);
+            });
+            return;
+          }
+          originalAddresses.forEach((address) => {
+            balanceMap[address] = balance;
+          });
+        });
+
         setSenderBalances(balanceMap);
         setSenderBalancesFailed(failedSet);
+      } finally {
         setSenderBalancesLoading(false);
       }
     },
-    [networkId, tokenInfo, bulkSendMode, senders],
+    [
+      networkId,
+      tokenInfo,
+      bulkSendMode,
+      senders,
+      accountId,
+      buildSenderBalanceAddressKey,
+    ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
