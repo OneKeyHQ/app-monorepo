@@ -79,6 +79,13 @@ export enum EDAppModalPageStatus {
   Confirmed = 'Confirmed',
 }
 
+export type IWalletConnectAuthRequestResult = {
+  address: string;
+  signature: string;
+  accountId: string;
+  networkId: string;
+};
+
 export enum EAlignPrimaryAccountMode {
   Independent = 'Independent',
   AlignDappToWallet = 'AlignDappToWallet',

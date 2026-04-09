@@ -16,6 +16,10 @@ const WalletConnectSessionProposalModal = LazyLoadPage(
   () => import('../pages/WalletConnect/WCSessionProposalModal'),
 );
 
+const WalletConnectAuthRequestModal = LazyLoadPage(
+  () => import('../pages/WalletConnect/WCAuthRequestModal'),
+);
+
 // For Extension Only
 const CurrentConnectionModal = LazyLoadPage(
   () => import('../pages/CurrentConnectionModal'),
@@ -104,5 +108,9 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.RiskWhiteListModal,
     component: RiskWhiteListModal,
+  },
+  {
+    name: EDAppConnectionModal.WalletConnectAuthRequestModal,
+    component: WalletConnectAuthRequestModal,
   },
 ];

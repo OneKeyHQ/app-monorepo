@@ -27,6 +27,8 @@ export enum EDAppConnectionModal {
   NostrSignEventModal = 'NostrSignEventModal',
   // Cosmos Enigma
   CosmosEnigmaUnlockModal = 'CosmosEnigmaUnlockModal',
+  // WalletConnect Auth
+  WalletConnectAuthRequestModal = 'WalletConnectAuthRequestModal',
   // Risk WhiteList
   RiskWhiteListModal = 'RiskWhiteListModal',
 }
@@ -71,6 +73,10 @@ export type IDAppConnectionModalParamList = {
     walletId: string;
     accountId: string;
     networkId: string;
+  };
+  // WalletConnect Auth
+  [EDAppConnectionModal.WalletConnectAuthRequestModal]: {
+    authRequest: WalletKitTypes.SessionAuthenticate;
   };
   // Risk WhiteList
   [EDAppConnectionModal.RiskWhiteListModal]: {
