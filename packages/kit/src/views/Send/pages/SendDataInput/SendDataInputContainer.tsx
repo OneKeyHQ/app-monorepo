@@ -193,6 +193,9 @@ function SendDataInputContainer() {
     ];
   }, [vaultSettings]);
 
+  // Algo uses Note instead of Memo; history memos should map to the note field
+  const isNoteOnlyChain = displayNoteForm && !displayMemoForm;
+
   const { result: [tokenDetails] = [] } = usePromiseResult(
     async () => {
       if (!account?.id || !network?.id) return;
@@ -515,33 +518,29 @@ function SendDataInputContainer() {
   ]);
 
   const validateMemoField = useCallback(
-    async (value: string): Promise<string | undefined> => {
+    (value: string): string | undefined | Promise<string | undefined> => {
+      if (!value) return undefined;
+
+      // Fast synchronous check — avoids async flickering on mobile
+      if (numericOnlyMemo && !/^[0-9]+$/.test(value)) {
+        return intl.formatMessage({
+          id: ETranslations.send_field_only_integer,
+        });
+      }
+
+      // Async vault validation only when sync check passes
       if (vaultSettings?.supportMemoValidation) {
-        try {
-          const result = await backgroundApiProxy.serviceSend.validateMemo({
+        return backgroundApiProxy.serviceSend
+          .validateMemo({
             networkId: currentAccount.networkId,
             accountId: currentAccount.accountId,
             memo: value,
-          });
-          if (!result.isValid) {
-            return result.errorMessage;
-          }
-          return undefined;
-        } catch (error) {
-          console.error('Vault memo validation failed:', error);
-        }
+          })
+          .then((result) => (result.isValid ? undefined : result.errorMessage))
+          .catch(() => undefined);
       }
 
-      const validateErrMsg = numericOnlyMemo
-        ? intl.formatMessage({
-            id: ETranslations.send_field_only_integer,
-          })
-        : undefined;
-      const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
-
-      if (!value || !memoRegExp) return undefined;
-      const result = !memoRegExp.test(value);
-      return result ? validateErrMsg : undefined;
+      return undefined;
     },
     [
       currentAccount.accountId,
@@ -584,19 +583,17 @@ function SendDataInputContainer() {
             ) : undefined
           }
           rules={{
-            maxLength: supportsMemoValidation
-              ? undefined
-              : {
-                  value: maxLength,
-                  message: intl.formatMessage(
-                    {
-                      id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
-                    },
-                    {
-                      number: maxLength,
-                    },
-                  ),
+            maxLength: {
+              value: maxLength,
+              message: intl.formatMessage(
+                {
+                  id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
                 },
+                {
+                  number: maxLength,
+                },
+              ),
+            },
             validate: validateMemoField,
           }}
         >
@@ -621,7 +618,6 @@ function SendDataInputContainer() {
     memoMaxLength,
     memoValue,
     numericOnlyMemo,
-    supportsMemoValidation,
     validateMemoField,
   ]);
 
@@ -797,12 +793,18 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo), {
-        shouldValidate: true,
-      });
-      form.setValue('note', normalizeOptionalRecipientText(selectedNote), {
-        shouldValidate: true,
-      });
+      const memoText = normalizeOptionalRecipientText(selectedMemo);
+      const noteText = normalizeOptionalRecipientText(selectedNote);
+      form.setValue(
+        'memo',
+        displayMemoForm ? memoText : '',
+        { shouldValidate: true },
+      );
+      form.setValue(
+        'note',
+        noteText || (isNoteOnlyChain ? memoText : ''),
+        { shouldValidate: true },
+      );
 
       const currentTo = form.getValues('to') as IAddressInputValue | undefined;
       // Skip resetting when the same address is already resolved,
@@ -835,7 +837,7 @@ function SendDataInputContainer() {
         },
       );
     },
-    [form],
+    [displayMemoForm, isNoteOnlyChain, form],
   );
 
   const shouldStayOnDataStepForQuickSelect = useCallback(
@@ -847,10 +849,12 @@ function SendDataInputContainer() {
       selectedNote?: string;
     }) => {
       const hasSelectedMemo = Boolean(selectedMemo?.trim());
+      const hasSelectedNote = Boolean(selectedNote?.trim());
       const needsMemoInput = vaultSettings?.withMemo && !hasSelectedMemo;
       const needsPaymentId =
         vaultSettings?.withPaymentId && !form.getValues('paymentId');
-      const needsNote = vaultSettings?.withNote && !selectedNote;
+      const needsNote =
+        vaultSettings?.withNote && !hasSelectedNote && !hasSelectedMemo;
       return needsMemoInput || needsPaymentId || needsNote;
     },
     [
@@ -907,6 +911,11 @@ function SendDataInputContainer() {
           addressInputMethod: addressInputChangeType.current,
         });
 
+        const effectiveNote =
+          selectedNote ||
+          (isNoteOnlyChain
+            ? selectedMemo?.trim()
+            : undefined);
         pushAmountInput({
           networkId: currentAccount.networkId,
           accountId: currentAccount.accountId,
@@ -915,9 +924,11 @@ function SendDataInputContainer() {
           nfts,
           recipientAddress: resolvedAddress,
           recipientIsContract: queryResult.isContract ?? false,
-          recipientMemo: selectedMemo?.trim() || undefined,
+          recipientMemo: displayMemoForm
+            ? selectedMemo?.trim() || undefined
+            : undefined,
           recipientPaymentId: form.getValues('paymentId') || undefined,
-          recipientNote: selectedNote || undefined,
+          recipientNote: effectiveNote || undefined,
           amount: scannedAmount || sendAmount || undefined,
           isAllNetworks,
           onSuccess,
@@ -938,6 +949,8 @@ function SendDataInputContainer() {
     [
       currentAccount.accountId,
       currentAccount.networkId,
+      displayMemoForm,
+      isNoteOnlyChain,
       fillRecipientFromQuickSelect,
       form,
       enableAllowListValidation,

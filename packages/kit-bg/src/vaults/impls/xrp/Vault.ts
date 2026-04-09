@@ -20,6 +20,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
@@ -416,6 +417,27 @@ export default class Vault extends VaultBase {
     }
 
     return true;
+  }
+
+  override async validateMemo(
+    memo: string,
+  ): Promise<{ isValid: boolean; errorMessage?: string }> {
+    if (!memo) return { isValid: true };
+
+    // XRP destination tag: unsigned 32-bit integer (0 – 4 294 967 295)
+    const MAX_UINT32 = 4294967295;
+    const tag = Number(memo);
+
+    if (!Number.isInteger(tag) || tag < 0 || tag > MAX_UINT32) {
+      return {
+        isValid: false,
+        errorMessage: appLocale.intl.formatMessage({
+          id: ETranslations.send_field_only_integer,
+        }),
+      };
+    }
+
+    return { isValid: true };
   }
 
   override async getCustomRpcEndpointStatus(

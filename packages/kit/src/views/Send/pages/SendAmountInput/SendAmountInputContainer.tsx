@@ -848,7 +848,18 @@ function SendAmountInputContainer() {
     }
     Dialog.show({
       title: txMessageViewActionLabel,
-      description: content,
+      renderContent: (
+        <Stack maxHeight="$96" overflow="scroll">
+          <SizableText
+            size="$bodyLg"
+            color="$textSubdued"
+            selectable
+            style={platformEnv.isNative ? undefined : { wordBreak: 'break-all' }}
+          >
+            {content}
+          </SizableText>
+        </Stack>
+      ),
       showCancelButton: false,
       onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
     });
