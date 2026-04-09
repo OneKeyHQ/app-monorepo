@@ -39,11 +39,13 @@ describe('onekey schema command', () => {
     expect(result).not.toBeNull();
     expect(result!.name).toBe('test-cmd');
     expect(result!.description).toBe('Test command');
-    expect(result!.input.type).toBe('object');
-    expect(result!.input.properties.chain).toBeDefined();
-    expect(result!.input.properties.amount).toBeDefined();
-    expect(result!.output.type).toBe('object');
-    expect(result!.output.properties.txid).toBeDefined();
+    const input = result!.input as { type: string; properties: Record<string, unknown> };
+    expect(input.type).toBe('object');
+    expect(input.properties.chain).toBeDefined();
+    expect(input.properties.amount).toBeDefined();
+    const output = result!.output as { type: string; properties: Record<string, unknown> };
+    expect(output.type).toBe('object');
+    expect(output.properties.txid).toBeDefined();
     expect(result!.examples).toEqual([
       'onekey test-cmd --chain eth --amount 1',
     ]);
