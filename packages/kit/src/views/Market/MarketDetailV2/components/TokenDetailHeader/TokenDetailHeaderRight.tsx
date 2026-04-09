@@ -148,8 +148,9 @@ export function TokenDetailHeaderRight({
                   currency: '$',
                 }}
               >
-                {normalizeStatValue(tokenDetail?.stock?.volume24h) ??
-                  STAT_FALLBACK_VALUE}
+                {normalizeStatValue(
+                  tokenDetail?.stock?.assetAnalysis?.volume24h,
+                ) ?? STAT_FALLBACK_VALUE}
               </NumberSizeableText>
             }
           />
@@ -159,7 +160,7 @@ export function TokenDetailHeaderRight({
             })}
             value={
               <SizableText size="$headingXs" color="$text">
-                {formatRatioValue(tokenDetail?.stock?.peRatio)}
+                {formatRatioValue(tokenDetail?.stock?.tradingActivity?.peRatio)}
               </SizableText>
             }
           />
