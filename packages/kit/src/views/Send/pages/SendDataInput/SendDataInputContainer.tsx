@@ -34,6 +34,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useValidateMemoField } from '@onekeyhq/kit/src/hooks/useValidateMemoField';
 import type {
   IChainValue,
   IQRCodeHandlerParseResult,
@@ -518,39 +519,12 @@ function SendDataInputContainer() {
     onCancel,
   ]);
 
-  const validateMemoField = useCallback(
-    (value: string): string | undefined | Promise<string | undefined> => {
-      if (!value) return undefined;
-
-      // Fast synchronous check — avoids async flickering on mobile
-      if (numericOnlyMemo && !/^[0-9]+$/.test(value)) {
-        return intl.formatMessage({
-          id: ETranslations.send_field_only_integer,
-        });
-      }
-
-      // Async vault validation only when sync check passes
-      if (vaultSettings?.supportMemoValidation) {
-        return backgroundApiProxy.serviceSend
-          .validateMemo({
-            networkId: currentAccount.networkId,
-            accountId: currentAccount.accountId,
-            memo: value,
-          })
-          .then((result) => (result.isValid ? undefined : result.errorMessage))
-          .catch(() => undefined);
-      }
-
-      return undefined;
-    },
-    [
-      currentAccount.accountId,
-      currentAccount.networkId,
-      intl,
-      numericOnlyMemo,
-      vaultSettings?.supportMemoValidation,
-    ],
-  );
+  const validateMemoField = useValidateMemoField({
+    networkId: currentAccount.networkId,
+    accountId: currentAccount.accountId,
+    numericOnlyMemo,
+    supportMemoValidation: vaultSettings?.supportMemoValidation,
+  });
 
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;

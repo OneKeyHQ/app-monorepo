@@ -26,6 +26,7 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
+import { useValidateMemoField } from '@onekeyhq/kit/src/hooks/useValidateMemoField';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -186,37 +187,11 @@ export function CreateOrEditContent({
     );
   }, [intl, media.gtMd, vaultSettings?.noteMaxLength, vaultSettings?.withNote]);
 
-  const validateMemoField = useCallback(
-    (value: string): string | undefined | Promise<string | undefined> => {
-      if (!value) return undefined;
-
-      // Fast synchronous check — mirrors Send flow to avoid async flicker
-      if (vaultSettings?.numericOnlyMemo && !/^[0-9]+$/.test(value)) {
-        return intl.formatMessage({
-          id: ETranslations.send_field_only_integer,
-        });
-      }
-
-      // Async vault validation only when sync check passes
-      if (vaultSettings?.supportMemoValidation) {
-        return backgroundApiProxy.serviceSend
-          .validateMemo({
-            networkId,
-            memo: value,
-          })
-          .then((result) => (result.isValid ? undefined : result.errorMessage))
-          .catch(() => undefined);
-      }
-
-      return undefined;
-    },
-    [
-      intl,
-      networkId,
-      vaultSettings?.numericOnlyMemo,
-      vaultSettings?.supportMemoValidation,
-    ],
-  );
+  const validateMemoField = useValidateMemoField({
+    networkId,
+    numericOnlyMemo: vaultSettings?.numericOnlyMemo,
+    supportMemoValidation: vaultSettings?.supportMemoValidation,
+  });
 
   const renderMemoForm = useCallback(() => {
     if (!vaultSettings?.withMemo) return null;

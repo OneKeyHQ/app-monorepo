@@ -65,6 +65,15 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 
+// XRPL destination tag is a 32-bit unsigned integer.
+// Spec: https://xrpl.org/docs/references/protocol/transactions/common-fields#common-fields
+//   "DestinationTag ... UInt32 ... Arbitrary tag that identifies the reason
+//    for the payment to the destination, or a hosted recipient to pay."
+// Uint32 range: 0 – 4_294_967_295 (2^32 − 1). Values outside this range are
+// rejected by the XRPL network at submission time; we catch them client-side
+// so users get an actionable error in the form instead of a rippled failure.
+const XRP_DESTINATION_TAG_MAX = 4_294_967_295;
+
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
@@ -437,13 +446,11 @@ export default class Vault extends VaultBase {
       };
     }
 
-    // XRP destination tag: unsigned 32-bit integer (0 – 4 294 967 295)
-    const MAX_UINT32 = 4_294_967_295;
     const tag = Number(memo);
-    if (tag > MAX_UINT32) {
+    if (tag > XRP_DESTINATION_TAG_MAX) {
       return {
         isValid: false,
-        errorMessage: `Destination tag must be between 0 and ${MAX_UINT32}`,
+        errorMessage: `Destination tag must be between 0 and ${XRP_DESTINATION_TAG_MAX}`,
       };
     }
 
