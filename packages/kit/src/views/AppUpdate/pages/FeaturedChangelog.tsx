@@ -203,9 +203,9 @@ function FeaturedChangelog({
       <Page>
         <Page.Header headerShown={false} />
         <Page.Body>
-          <YStack flex={1} px="$5" pt="$5" gap="$4">
-            <Skeleton width={48} height={20} borderRadius="$1" />
-            <Skeleton width="60%" height={32} borderRadius="$2" />
+          <YStack flex={1} px="$5" pt="$5">
+            <Skeleton width={48} height={20} borderRadius="$1" mb="$2.5" />
+            <Skeleton.Heading3Xl w="60%" mb="$4" />
             <Skeleton width="100%" flex={1} borderRadius="$4" />
           </YStack>
         </Page.Body>
