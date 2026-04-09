@@ -104,6 +104,38 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     this.mmkv.remove(key);
   }
 
+  /**
+   * One-time proactive migration: batch-read all expected keys from
+   * AsyncStorage and write to MMKV. Called by jotaiInit() on BG thread.
+   * Skips keys that already exist in MMKV (idempotent).
+   */
+  async migrateFromAsyncStorage(expectedKeys: string[]): Promise<void> {
+    // If MMKV already has keys, migration was already done
+    const existingKeys = new Set(this.mmkv.getAllKeys());
+    const missingKeys = expectedKeys.filter((k) => !existingKeys.has(k));
+    if (missingKeys.length === 0) {
+      this.log(
+        `migration skip: MMKV already has ${existingKeys.size} keys, 0 missing`,
+      );
+      return;
+    }
+
+    this.log(
+      `migration start: ${missingKeys.length} missing keys (MMKV has ${existingKeys.size})`,
+    );
+    let migrated = 0;
+    await Promise.all(
+      missingKeys.map(async (key) => {
+        const value = await this.readFromAsyncStorage(key);
+        if (value !== null && value !== undefined) {
+          this.mmkv.set(key, JSON.stringify(value));
+          migrated += 1;
+        }
+      }),
+    );
+    this.log(`migration done: ${migrated}/${missingKeys.length} keys migrated`);
+  }
+
   async getAllEntries(): Promise<Map<string, any>> {
     const map = new Map<string, any>();
     const keys = this.mmkv.getAllKeys();
