@@ -1042,11 +1042,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
 
           if (wsAbstraction) {
-            // Update atom for display (all accounts including watch-only)
-            await perpsAbstractionModeAtom.set({
-              accountAddress: userAddress.toLowerCase() as IHex,
-              mode: wsAbstraction as EHyperLiquidAbstractionMode,
-            });
+            // mode rarely changes, skip redundant atom set + recomputation
+            const currentAbstraction = await perpsAbstractionModeAtom.get();
+            if (
+              currentAbstraction?.mode !== wsAbstraction ||
+              currentAbstraction?.accountAddress?.toLowerCase() !==
+                userAddress.toLowerCase()
+            ) {
+              await perpsAbstractionModeAtom.set({
+                accountAddress: userAddress.toLowerCase() as IHex,
+                mode: wsAbstraction as EHyperLiquidAbstractionMode,
+              });
+            }
             // Persist to SimpleDb only for non-watch-only accounts
             const isWatcher = activeAccount?.accountId
               ? accountUtils.isWatchingAccount({
