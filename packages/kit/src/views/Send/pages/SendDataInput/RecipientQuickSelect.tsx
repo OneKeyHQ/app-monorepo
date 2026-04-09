@@ -265,12 +265,16 @@ function AccountRecipients({
             // accounts so users can switch derive type via header menu.
             // For other chains, filter by sender's derive type to avoid
             // showing duplicates (e.g. bip44 + ledger-live on EVM).
-            if (senderDeriveType && !showAllDeriveTypes) {
-              const filtered = accounts.filter(
-                (a) => !a.deriveType || a.deriveType === senderDeriveType,
-              );
-              if (filtered.length > 0) {
-                accounts = filtered;
+            if (!showAllDeriveTypes) {
+              const targetDeriveType =
+                senderDeriveType ?? accounts[0]?.deriveType;
+              if (targetDeriveType) {
+                const filtered = accounts.filter(
+                  (a) => !a.deriveType || a.deriveType === targetDeriveType,
+                );
+                if (filtered.length > 0) {
+                  accounts = filtered;
+                }
               }
             }
             if (accounts.length === 0) {
@@ -288,10 +292,11 @@ function AccountRecipients({
           };
 
         for (const wallet of wallets) {
-          // Skip watch-only, deprecated, and deleted (mocked) wallets
-          // Keep HD, Hardware, External, Imported, QR wallets
+          // Skip watch-only, external, deprecated, and deleted (mocked) wallets
+          // Keep HD, Hardware, Imported, QR wallets
           const shouldSkip =
             accountUtils.isWatchingWallet({ walletId: wallet.id }) ||
+            accountUtils.isExternalWallet({ walletId: wallet.id }) ||
             wallet.deprecated ||
             wallet.isMocked;
 
@@ -569,6 +574,8 @@ function AccountRecipients({
               <Button
                 size="small"
                 variant="tertiary"
+                flexShrink={1}
+                textEllipsis
                 onPress={() => toggleCollapse(item.walletId)}
                 iconAfter={
                   isCollapsed
@@ -597,6 +604,7 @@ function AccountRecipients({
                       size="small"
                       variant="tertiary"
                       iconAfter="ChevronDownSmallSolid"
+                      flexShrink={0}
                     >
                       {activeLabel ?? ''}
                     </Button>
@@ -807,11 +815,10 @@ export default function RecipientQuickSelect({
   senderDeriveType,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
+  const isRecentHidden = hideTabs?.includes('recent') ?? false;
   // Use controlled state from parent if provided, otherwise use local state
   const [localActiveTab, setLocalActiveTab] =
-    useState<IRecipientQuickSelectTab>(
-      hideTabs?.includes('recent') ? 'account' : 'recent',
-    );
+    useState<IRecipientQuickSelectTab>(isRecentHidden ? 'account' : 'recent');
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
 
@@ -844,7 +851,7 @@ export default function RecipientQuickSelect({
   const [visitedTabs, setVisitedTabs] = useState<
     Record<IRecipientQuickSelectTab, boolean>
   >({
-    recent: true, // Default tab starts as visited
+    recent: !isRecentHidden,
     account: false,
     addressBook: false,
   });
@@ -922,12 +929,20 @@ export default function RecipientQuickSelect({
       activeTab,
       tabMatchStatus,
       lastManualSwitchSearchKey: lastManualSwitchSearchKeyRef.current,
+      hideTabs,
     });
 
     if (nextTab) {
       setActiveTab(nextTab);
     }
-  }, [isSearchMode, trimmedSearchKey, activeTab, tabMatchStatus, setActiveTab]);
+  }, [
+    isSearchMode,
+    trimmedSearchKey,
+    activeTab,
+    tabMatchStatus,
+    setActiveTab,
+    hideTabs,
+  ]);
 
   const tabOptions = useMemo(() => {
     const formatLabel = (label: string, tab: IRecipientQuickSelectTab) => {
@@ -996,7 +1011,7 @@ export default function RecipientQuickSelect({
         />
         <Stack mx={-20} pb="$3">
           {/* Render active tab, or visited tabs (hidden with display:none to avoid unmount crashes) */}
-          {activeTab === 'recent' || visitedTabs.recent ? (
+          {!isRecentHidden && (activeTab === 'recent' || visitedTabs.recent) ? (
             <Stack display={activeTab === 'recent' ? 'flex' : 'none'}>
               <RecentRecipients
                 compact
