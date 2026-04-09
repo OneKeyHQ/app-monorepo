@@ -22,7 +22,9 @@ describe('verifyIpTableConfigSignature', () => {
       },
     } as unknown as IIpTableRemoteConfig;
 
-    await expect(verifyIpTableConfigSignature(configWithoutSignature)).resolves.toBe(false);
+    await expect(
+      verifyIpTableConfigSignature(configWithoutSignature),
+    ).resolves.toBe(false);
   });
 
   test('returns false when signature is invalid', async () => {
@@ -40,9 +42,9 @@ describe('verifyIpTableConfigSignature', () => {
       },
     };
 
-    await expect(verifyIpTableConfigSignature(configWithInvalidSignature)).resolves.toBe(
-      false,
-    );
+    await expect(
+      verifyIpTableConfigSignature(configWithInvalidSignature),
+    ).resolves.toBe(false);
   });
 
   test('returns false when signer address does not match', async () => {
@@ -63,7 +65,9 @@ describe('verifyIpTableConfigSignature', () => {
       },
     };
 
-    await expect(verifyIpTableConfigSignature(configWithWrongSigner)).resolves.toBe(false);
+    await expect(
+      verifyIpTableConfigSignature(configWithWrongSigner),
+    ).resolves.toBe(false);
   });
 
   test('returns true for valid signature from correct signer', async () => {
@@ -90,7 +94,9 @@ describe('verifyIpTableConfigSignature', () => {
   });
 
   test('returns true for build-in config', async () => {
-    await expect(verifyIpTableConfigSignature(DEFAULT_IP_TABLE_CONFIG)).resolves.toBe(true);
+    await expect(
+      verifyIpTableConfigSignature(DEFAULT_IP_TABLE_CONFIG),
+    ).resolves.toBe(true);
   });
 
   test('handles malformed signature gracefully', async () => {
@@ -108,9 +114,9 @@ describe('verifyIpTableConfigSignature', () => {
       },
     };
 
-    await expect(verifyIpTableConfigSignature(configWithMalformedSignature)).resolves.toBe(
-      false,
-    );
+    await expect(
+      verifyIpTableConfigSignature(configWithMalformedSignature),
+    ).resolves.toBe(false);
   });
 
   test('handles empty signature string', async () => {
@@ -128,7 +134,9 @@ describe('verifyIpTableConfigSignature', () => {
       },
     };
 
-    await expect(verifyIpTableConfigSignature(configWithEmptySignature)).resolves.toBe(false);
+    await expect(
+      verifyIpTableConfigSignature(configWithEmptySignature),
+    ).resolves.toBe(false);
   });
 });
 

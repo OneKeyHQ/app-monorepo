@@ -7,11 +7,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IDotMapValues } from './types';
 
-const VALID_MNEMONIC_LENGTHS = [12, 15, 18, 21, 24];
+const VALID_MNEMONIC_LENGTHS = new Set([12, 15, 18, 21, 24]);
 
 function validateMnemonic(mnemonic: string): boolean {
   const words = mnemonic.split(' ');
-  if (!VALID_MNEMONIC_LENGTHS.includes(words.length)) return false;
+  if (!VALID_MNEMONIC_LENGTHS.has(words.length)) return false;
   return words.every((word) => englishWordlist.includes(word));
 }
 

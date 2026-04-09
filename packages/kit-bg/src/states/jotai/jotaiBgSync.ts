@@ -4,13 +4,13 @@ import { GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME } from '@onekeyhq/shared/src/b
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { EAtomNames } from './atomNames';
 import { jotaiInitFromUi } from './jotaiInitFromUi';
 import {
   MMKV_MIGRATION_COMPLETE_KEY,
   globalJotaiStorageReadyHandler,
 } from './jotaiStorage';
 
+import type { EAtomNames } from './atomNames';
 import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
 
 export class JotaiBgSync {

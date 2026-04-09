@@ -3,11 +3,11 @@ import { PureComponent } from 'react';
 
 import { SafeAreaView, Text } from 'react-native';
 
-import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import {
   LogLevel,
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
+import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 type IErrorBoundaryProps = {
   children: React.ReactNode;

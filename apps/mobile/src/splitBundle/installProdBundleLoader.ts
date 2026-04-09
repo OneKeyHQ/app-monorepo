@@ -318,29 +318,31 @@ function installLoadBundleAsyncOverride(
     const existing = loadBundleGlobalOverrides.get(key);
     if (existing) {
       existing.current = loader;
-      continue;
+    } else {
+      const state = {
+        current: loader,
+        wrapper: (bundlePath: BundlePathRequest) => state.current(bundlePath),
+      };
+      loadBundleGlobalOverrides.set(key, state);
+
+      Object.defineProperty(globalRef, key, {
+        configurable: true,
+        enumerable: false,
+        get() {
+          return state.wrapper;
+        },
+        set(nextLoader: unknown) {
+          // Expo async-require installs its own URL loader on first require().
+          // Keep our segment loader authoritative in production split-bundle mode.
+          if (
+            typeof nextLoader === 'function' &&
+            nextLoader === state.wrapper
+          ) {
+            state.current = nextLoader as BundleLoaderFn;
+          }
+        },
+      });
     }
-
-    const state = {
-      current: loader,
-      wrapper: (bundlePath: BundlePathRequest) => state.current(bundlePath),
-    };
-    loadBundleGlobalOverrides.set(key, state);
-
-    Object.defineProperty(globalRef, key, {
-      configurable: true,
-      enumerable: false,
-      get() {
-        return state.wrapper;
-      },
-      set(nextLoader: unknown) {
-        // Expo async-require installs its own URL loader on first require().
-        // Keep our segment loader authoritative in production split-bundle mode.
-        if (typeof nextLoader === 'function' && nextLoader === state.wrapper) {
-          state.current = nextLoader as BundleLoaderFn;
-        }
-      },
-    });
   }
 }
 

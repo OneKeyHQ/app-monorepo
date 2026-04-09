@@ -8,9 +8,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
-import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
-
 import type { ISyncStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
+import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import { atomsConfig } from './atomNames';
 import { JOTAI_RESET } from './types';

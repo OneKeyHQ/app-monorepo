@@ -1,5 +1,5 @@
-import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 

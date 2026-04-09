@@ -35,7 +35,6 @@ import type {
   IBackgroundApiInternalCallMessage,
   IBackgroundApiWebembedCallMessage,
 } from './IBackgroundApi';
-
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';

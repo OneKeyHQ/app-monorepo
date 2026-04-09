@@ -644,9 +644,7 @@ describe('unionBuildHelpers', () => {
   it('accepts modules in segments as covered', () => {
     const aModule = createModuleData({
       code: 'a',
-      dependencies: [
-        { key: './b', absolutePath: '/b.js', asyncType: 'async' },
-      ],
+      dependencies: [{ key: './b', absolutePath: '/b.js', asyncType: 'async' }],
     });
     const bModule = createModuleData({ code: 'b' });
 
@@ -667,12 +665,18 @@ describe('unionBuildHelpers', () => {
 
   it('detects modules missing from one runtime but present in another', () => {
     const sharedGraph = new Map([
-      ['/entry.js', createModuleData({
-        dependencies: [{ key: 'shared', absolutePath: '/shared.js' }],
-      })],
-      ['/shared.js', createModuleData({
-        dependencies: [{ key: 'c', absolutePath: '/c.js' }],
-      })],
+      [
+        '/entry.js',
+        createModuleData({
+          dependencies: [{ key: 'shared', absolutePath: '/shared.js' }],
+        }),
+      ],
+      [
+        '/shared.js',
+        createModuleData({
+          dependencies: [{ key: 'c', absolutePath: '/c.js' }],
+        }),
+      ],
       ['/c.js', createModuleData({ code: 'module C' })],
     ]);
 
@@ -683,14 +687,12 @@ describe('unionBuildHelpers', () => {
       graph: sharedGraph,
       eagerAbsPaths: mainEager,
       segmentAbsPaths: new Set(),
-  
     });
 
     const bgResult = validateBundleCompleteness({
       graph: sharedGraph,
       eagerAbsPaths: bgEager,
       segmentAbsPaths: new Set(),
-  
     });
 
     expect(mainResult.valid).toBe(true);
@@ -700,16 +702,29 @@ describe('unionBuildHelpers', () => {
 
   it('catches sync dependency of eager module that was incorrectly segmented', () => {
     const graph = new Map([
-      ['/a.js', createModuleData({
-        code: 'module A',
-        dependencies: [{ key: 'b', absolutePath: '/b.js' }],
-      })],
+      [
+        '/a.js',
+        createModuleData({
+          code: 'module A',
+          dependencies: [{ key: 'b', absolutePath: '/b.js' }],
+        }),
+      ],
       ['/b.js', createModuleData({ code: 'module B' })],
     ]);
 
     const serializedEntries = [
-      { absolutePath: '/a.js', moduleData: graph.get('/a.js'), moduleId: 1, moduleCode: '' },
-      { absolutePath: '/b.js', moduleData: graph.get('/b.js'), moduleId: 2, moduleCode: '' },
+      {
+        absolutePath: '/a.js',
+        moduleData: graph.get('/a.js'),
+        moduleId: 1,
+        moduleCode: '',
+      },
+      {
+        absolutePath: '/b.js',
+        moduleData: graph.get('/b.js'),
+        moduleId: 2,
+        moduleCode: '',
+      },
     ];
 
     const expanded = expandSyncDependencyClosure({
@@ -722,181 +737,178 @@ describe('unionBuildHelpers', () => {
   });
 });
 
-  it('expands segments with sync deps not in eager bundle', () => {
-    const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
+it('expands segments with sync deps not in eager bundle', () => {
+  const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
 
-    const serializedEntries = [
-      {
-        absolutePath: '/seg-root.js',
-        moduleId: 100,
-        moduleCode: 'seg root code',
-        moduleData: createModuleData({
-          dependencies: [{ key: 'dep', absolutePath: '/missing-dep.js' }],
-        }),
-      },
-      {
-        absolutePath: '/missing-dep.js',
-        moduleId: 101,
-        moduleCode: 'missing dep code',
-        moduleData: createModuleData({}),
-      },
-      {
-        absolutePath: '/eager.js',
-        moduleId: 200,
-        moduleCode: 'eager code',
-        moduleData: createModuleData({}),
-      },
-    ];
+  const serializedEntries = [
+    {
+      absolutePath: '/seg-root.js',
+      moduleId: 100,
+      moduleCode: 'seg root code',
+      moduleData: createModuleData({
+        dependencies: [{ key: 'dep', absolutePath: '/missing-dep.js' }],
+      }),
+    },
+    {
+      absolutePath: '/missing-dep.js',
+      moduleId: 101,
+      moduleCode: 'missing dep code',
+      moduleData: createModuleData({}),
+    },
+    {
+      absolutePath: '/eager.js',
+      moduleId: 200,
+      moduleCode: 'eager code',
+      moduleData: createModuleData({}),
+    },
+  ];
 
-    const segmentOutputs = new Map([
-      ['seg:feature', [[100, 'seg root code']]],
-    ]);
+  const segmentOutputs = new Map([['seg:feature', [[100, 'seg root code']]]]);
 
-    const eagerAbsPaths = new Set(['/eager.js']);
-    const moduleIdToAbsPath = new Map([
-      [100, '/seg-root.js'],
-      [101, '/missing-dep.js'],
-      [200, '/eager.js'],
-    ]);
+  const eagerAbsPaths = new Set(['/eager.js']);
+  const moduleIdToAbsPath = new Map([
+    [100, '/seg-root.js'],
+    [101, '/missing-dep.js'],
+    [200, '/eager.js'],
+  ]);
 
-    const added = expandSegmentsWithSyncDeps({
-      segmentOutputs,
-      serializedEntries,
-      eagerAbsPaths,
-      moduleIdToAbsPath,
-    });
-
-    expect(added).toBe(1);
-    const segModules = segmentOutputs.get('seg:feature');
-    expect(segModules).toHaveLength(2);
-    expect(segModules[1][0]).toBe(101); // missing-dep was added
+  const added = expandSegmentsWithSyncDeps({
+    segmentOutputs,
+    serializedEntries,
+    eagerAbsPaths,
+    moduleIdToAbsPath,
   });
 
-  it('expands transitive sync deps of segment modules (qr-wallet-sdk case)', () => {
-    // Reproduces the scenario where qr-wallet-sdk is an ASYNC_DESC (sync child
-    // of a Gallery segment) and its transitive deps (e.g. @keystonehq) must
-    // also be pulled into the segment. Without this, the transitive deps become
-    // orphaned — they exist in the Metro graph but aren't in any bundle or
-    // segment, causing runtime blank pages.
-    //
-    // Graph:
-    //   /eager.js (EAGER)
-    //     └─ async import('/qr-sdk.js')
-    //   /gallery.js (ASYNC_DESC of seg:gallery)
-    //     └─ sync import('/qr-sdk.js')   ← qr-sdk becomes ASYNC_DESC
-    //   /qr-sdk.js
-    //     └─ sync import('/keystonehq.js')  ← transitive dep
-    //   /keystonehq.js
-    //     └─ sync import('/protobuf.js')    ← 2nd-level transitive dep
-    const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
+  expect(added).toBe(1);
+  const segModules = segmentOutputs.get('seg:feature');
+  expect(segModules).toHaveLength(2);
+  expect(segModules[1][0]).toBe(101); // missing-dep was added
+});
 
-    const serializedEntries = [
-      {
-        absolutePath: '/gallery.js',
-        moduleId: 10,
-        moduleCode: '__d(gallery);',
-        moduleData: createModuleData({
-          dependencies: [{ key: 'qr-sdk', absolutePath: '/qr-sdk.js' }],
-        }),
-      },
-      {
-        absolutePath: '/qr-sdk.js',
-        moduleId: 20,
-        moduleCode: '__d(qr-sdk);',
-        moduleData: createModuleData({
-          dependencies: [
-            { key: '@keystonehq', absolutePath: '/keystonehq.js' },
-          ],
-        }),
-      },
-      {
-        absolutePath: '/keystonehq.js',
-        moduleId: 30,
-        moduleCode: '__d(keystonehq);',
-        moduleData: createModuleData({
-          dependencies: [{ key: 'protobuf', absolutePath: '/protobuf.js' }],
-        }),
-      },
-      {
-        absolutePath: '/protobuf.js',
-        moduleId: 40,
-        moduleCode: '__d(protobuf);',
-        moduleData: createModuleData({}),
-      },
-      {
-        absolutePath: '/eager.js',
-        moduleId: 50,
-        moduleCode: '__d(eager);',
-        moduleData: createModuleData({}),
-      },
-    ];
+it('expands transitive sync deps of segment modules (qr-wallet-sdk case)', () => {
+  // Reproduces the scenario where qr-wallet-sdk is an ASYNC_DESC (sync child
+  // of a Gallery segment) and its transitive deps (e.g. @keystonehq) must
+  // also be pulled into the segment. Without this, the transitive deps become
+  // orphaned — they exist in the Metro graph but aren't in any bundle or
+  // segment, causing runtime blank pages.
+  //
+  // Graph:
+  //   /eager.js (EAGER)
+  //     └─ async import('/qr-sdk.js')
+  //   /gallery.js (ASYNC_DESC of seg:gallery)
+  //     └─ sync import('/qr-sdk.js')   ← qr-sdk becomes ASYNC_DESC
+  //   /qr-sdk.js
+  //     └─ sync import('/keystonehq.js')  ← transitive dep
+  //   /keystonehq.js
+  //     └─ sync import('/protobuf.js')    ← 2nd-level transitive dep
+  const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
 
-    // Gallery (10) and qr-sdk (20) are already in the segment
-    const segmentOutputs = new Map([
+  const serializedEntries = [
+    {
+      absolutePath: '/gallery.js',
+      moduleId: 10,
+      moduleCode: '__d(gallery);',
+      moduleData: createModuleData({
+        dependencies: [{ key: 'qr-sdk', absolutePath: '/qr-sdk.js' }],
+      }),
+    },
+    {
+      absolutePath: '/qr-sdk.js',
+      moduleId: 20,
+      moduleCode: '__d(qr-sdk);',
+      moduleData: createModuleData({
+        dependencies: [{ key: '@keystonehq', absolutePath: '/keystonehq.js' }],
+      }),
+    },
+    {
+      absolutePath: '/keystonehq.js',
+      moduleId: 30,
+      moduleCode: '__d(keystonehq);',
+      moduleData: createModuleData({
+        dependencies: [{ key: 'protobuf', absolutePath: '/protobuf.js' }],
+      }),
+    },
+    {
+      absolutePath: '/protobuf.js',
+      moduleId: 40,
+      moduleCode: '__d(protobuf);',
+      moduleData: createModuleData({}),
+    },
+    {
+      absolutePath: '/eager.js',
+      moduleId: 50,
+      moduleCode: '__d(eager);',
+      moduleData: createModuleData({}),
+    },
+  ];
+
+  // Gallery (10) and qr-sdk (20) are already in the segment
+  const segmentOutputs = new Map([
+    [
+      'seg:gallery',
       [
-        'seg:gallery',
-        [
-          [10, '__d(gallery);'],
-          [20, '__d(qr-sdk);'],
-        ],
+        [10, '__d(gallery);'],
+        [20, '__d(qr-sdk);'],
       ],
-    ]);
+    ],
+  ]);
 
-    const eagerAbsPaths = new Set(['/eager.js']);
-    const moduleIdToAbsPath = new Map([
-      [10, '/gallery.js'],
-      [20, '/qr-sdk.js'],
-      [30, '/keystonehq.js'],
-      [40, '/protobuf.js'],
-      [50, '/eager.js'],
-    ]);
+  const eagerAbsPaths = new Set(['/eager.js']);
+  const moduleIdToAbsPath = new Map([
+    [10, '/gallery.js'],
+    [20, '/qr-sdk.js'],
+    [30, '/keystonehq.js'],
+    [40, '/protobuf.js'],
+    [50, '/eager.js'],
+  ]);
 
-    const added = expandSegmentsWithSyncDeps({
-      segmentOutputs,
-      serializedEntries,
-      eagerAbsPaths,
-      moduleIdToAbsPath,
-    });
-
-    // Both transitive deps should be pulled into the segment
-    expect(added).toBe(2);
-    const segModules = segmentOutputs.get('seg:gallery');
-    const segModuleIds = segModules.map(([id]) => id);
-    expect(segModuleIds).toContain(30); // keystonehq
-    expect(segModuleIds).toContain(40); // protobuf
+  const added = expandSegmentsWithSyncDeps({
+    segmentOutputs,
+    serializedEntries,
+    eagerAbsPaths,
+    moduleIdToAbsPath,
   });
 
-  it('does not expand segments with deps already in eager bundle', () => {
-    const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
+  // Both transitive deps should be pulled into the segment
+  expect(added).toBe(2);
+  const segModules = segmentOutputs.get('seg:gallery');
+  const segModuleIds = segModules.map(([id]) => id);
+  expect(segModuleIds).toContain(30); // keystonehq
+  expect(segModuleIds).toContain(40); // protobuf
+});
 
-    const serializedEntries = [
-      {
-        absolutePath: '/seg-root.js',
-        moduleId: 100,
-        moduleCode: 'code',
-        moduleData: createModuleData({
-          dependencies: [{ key: 'dep', absolutePath: '/eager-dep.js' }],
-        }),
-      },
-      {
-        absolutePath: '/eager-dep.js',
-        moduleId: 101,
-        moduleCode: 'code',
-        moduleData: createModuleData({}),
-      },
-    ];
+it('does not expand segments with deps already in eager bundle', () => {
+  const { expandSegmentsWithSyncDeps } = require('../unionBuildHelpers');
 
-    const segmentOutputs = new Map([
-      ['seg:feature', [[100, 'code']]],
-    ]);
+  const serializedEntries = [
+    {
+      absolutePath: '/seg-root.js',
+      moduleId: 100,
+      moduleCode: 'code',
+      moduleData: createModuleData({
+        dependencies: [{ key: 'dep', absolutePath: '/eager-dep.js' }],
+      }),
+    },
+    {
+      absolutePath: '/eager-dep.js',
+      moduleId: 101,
+      moduleCode: 'code',
+      moduleData: createModuleData({}),
+    },
+  ];
 
-    const added = expandSegmentsWithSyncDeps({
-      segmentOutputs,
-      serializedEntries,
-      eagerAbsPaths: new Set(['/eager-dep.js']),
-      moduleIdToAbsPath: new Map([[100, '/seg-root.js'], [101, '/eager-dep.js']]),
-    });
+  const segmentOutputs = new Map([['seg:feature', [[100, 'code']]]]);
 
-    expect(added).toBe(0);
-    expect(segmentOutputs.get('seg:feature')).toHaveLength(1);
+  const added = expandSegmentsWithSyncDeps({
+    segmentOutputs,
+    serializedEntries,
+    eagerAbsPaths: new Set(['/eager-dep.js']),
+    moduleIdToAbsPath: new Map([
+      [100, '/seg-root.js'],
+      [101, '/eager-dep.js'],
+    ]),
   });
+
+  expect(added).toBe(0);
+  expect(segmentOutputs.get('seg:feature')).toHaveLength(1);
+});

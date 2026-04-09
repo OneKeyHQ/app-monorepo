@@ -34,10 +34,7 @@ if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
 //   main:   6679 modules / 29.30 MB (includes common overlap)
 //   bg:     8712 modules / 51.38 MB
 // Headroom: ~15 % above current measurements.
-const MODULE_BUDGET = parseInt(
-  process.env.STARTUP_MODULE_BUDGET || '7700',
-  10,
-);
+const MODULE_BUDGET = parseInt(process.env.STARTUP_MODULE_BUDGET || '7700', 10);
 const SIZE_BUDGET_BYTES =
   parseFloat(process.env.STARTUP_SIZE_BUDGET_MB || '34') * 1024 * 1024;
 
@@ -224,8 +221,7 @@ async function main() {
       fs.readFileSync(allocationReportPath, 'utf-8'),
     );
     const startupModules = (allocationReport.startup || {}).modules || [];
-    const forbiddenPatterns =
-      entryName === 'main' ? FORBIDDEN_NPM_IN_MAIN : [];
+    const forbiddenPatterns = entryName === 'main' ? FORBIDDEN_NPM_IN_MAIN : [];
     for (const pattern of forbiddenPatterns) {
       const matches = startupModules.filter((m) => m.includes(pattern));
       if (matches.length > 0) {

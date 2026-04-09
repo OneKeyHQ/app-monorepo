@@ -128,7 +128,7 @@ describe('createMMKVSyncStorage', () => {
       testMMKV.set('x', '1');
       testMMKV.set('y', '2');
       const store = createMMKVSyncStorage(testMMKV);
-      expect(store.getAllKeys().sort()).toEqual(['x', 'y']);
+      expect(store.getAllKeys().toSorted()).toEqual(['x', 'y']);
     });
   });
 

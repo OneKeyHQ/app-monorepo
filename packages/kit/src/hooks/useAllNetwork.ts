@@ -826,7 +826,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     return Array.from(
       new Set(enabledNetworksParam.map((network) => network.id)),
     )
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         if (a < b) {
           return -1;
         }
