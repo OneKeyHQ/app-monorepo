@@ -974,11 +974,10 @@ function SendDataInputContainer() {
       const isFromAddressBook =
         addressInputChangeType.current === EInputAddressChangeType.AddressBook;
 
-      const recipientType = isFromAccount
-        ? 'walletAccount'
-        : isFromAddressBook
-          ? 'addressBook'
-          : 'recentRecipient';
+      let recipientType: 'walletAccount' | 'addressBook' | 'recentRecipient' =
+        'recentRecipient';
+      if (isFromAccount) recipientType = 'walletAccount';
+      else if (isFromAddressBook) recipientType = 'addressBook';
 
       if (quickSelectTab) {
         defaultLogger.transaction.send.quickSelectTap({
