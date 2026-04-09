@@ -345,7 +345,7 @@ const SwapActionsState = ({
               size="$5"
               color="$iconSubdued"
             />
-            {gtMd ? (
+            {!platformEnv.isNative && gtMd ? (
               <Tooltip
                 placement="top"
                 hovering
