@@ -58,6 +58,7 @@ import {
   checkSenderInsufficientBalance,
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
+  isBulkSendTokenDetailsMatched,
   validateRangeInput,
 } from '../../utils';
 
@@ -799,10 +800,22 @@ function BulkSendAmountsInputContent({
     [receivers, senders],
   );
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const sanitizedInitialTokenDetails = useMemo(
+    () =>
+      isBulkSendTokenDetailsMatched({
+        networkId,
+        tokenInfo,
+        tokenDetails: initialTokenDetails,
+      })
+        ? initialTokenDetails
+        : undefined,
+    [networkId, tokenInfo, initialTokenDetails],
+  );
 
   const [tokenDetails, setTokenDetails] = useState<
     ({ info: IToken } & ITokenFiat) | undefined
-  >(initialTokenDetails);
+  >(sanitizedInitialTokenDetails);
+  const tokenDetailsRequestIdRef = useRef(0);
   const [tokenDetailsState, setTokenDetailsState] = useState<{
     initialized: boolean;
     isRefreshing: boolean;
@@ -878,6 +891,22 @@ function BulkSendAmountsInputContent({
     [EAmountInputMode.Custom]: { ...defaultModeData },
   });
 
+  const matchedTokenDetails = useMemo(
+    () =>
+      isBulkSendTokenDetailsMatched({
+        networkId,
+        tokenInfo,
+        tokenDetails,
+      })
+        ? tokenDetails
+        : undefined,
+    [networkId, tokenInfo, tokenDetails],
+  );
+
+  useEffect(() => {
+    setTokenDetails(sanitizedInitialTokenDetails);
+  }, [sanitizedInitialTokenDetails]);
+
   const updateCurrentModeData = useCallback(
     (data: Partial<IMobileModeData>) => {
       setMobileModeData((prev) => ({
@@ -907,7 +936,7 @@ function BulkSendAmountsInputContent({
 
   // Recalculate mobile mode totals when transfersInfo or token price changes
   useEffect(() => {
-    if (!tokenDetails) return;
+    if (!matchedTokenDetails) return;
 
     setMobileModeData((prev) => {
       const modeData = prev[amountInputMode];
@@ -926,10 +955,10 @@ function BulkSendAmountsInputContent({
         totalFiatAmount: modeTotalFiat,
       } = calculateTotalAmounts({
         transfersInfo: resolvedModeTransfersInfo,
-        tokenPrice: tokenDetails.price,
+        tokenPrice: matchedTokenDetails.price,
       });
       const modeIsInsufficient = isOneToMany
-        ? new BigNumber(modeTotalToken).gt(tokenDetails.balanceParsed)
+        ? new BigNumber(modeTotalToken).gt(matchedTokenDetails.balanceParsed)
         : !isMaxMode &&
           checkSenderInsufficientBalance({
             transfersInfo: modeData.transfersInfo,
@@ -961,8 +990,8 @@ function BulkSendAmountsInputContent({
     isOneToMany,
     isMaxMode,
     senderBalances,
-    tokenDetails?.price,
-    tokenDetails?.balanceParsed,
+    matchedTokenDetails?.price,
+    matchedTokenDetails?.balanceParsed,
   ]);
 
   const isAmountValid = useMemo(
@@ -1017,7 +1046,7 @@ function BulkSendAmountsInputContent({
 
   const validateSpecifiedAmountValue = useCallback(
     (specifiedAmount: string): IAmountInputError => {
-      const balance = tokenDetails?.balanceParsed ?? '0';
+      const balance = matchedTokenDetails?.balanceParsed ?? '0';
       const minTransferAmountBN = new BigNumber(minTransferAmount);
       const valueBN = new BigNumber(specifiedAmount || '0');
 
@@ -1068,7 +1097,7 @@ function BulkSendAmountsInputContent({
       isOneToMany,
       minTransferAmount,
       minTransferDisplayAmount,
-      tokenDetails?.balanceParsed,
+      matchedTokenDetails?.balanceParsed,
       tokenInfo,
       transfersInfo.length,
     ],
@@ -1080,7 +1109,7 @@ function BulkSendAmountsInputContent({
     // doesn't exceed any sender's balance.
     let balance: string | undefined;
     if (isOneToMany) {
-      balance = tokenDetails?.balanceParsed ?? '0';
+      balance = matchedTokenDetails?.balanceParsed ?? '0';
     } else {
       const balanceValues = Object.values(senderBalances);
       if (balanceValues.length > 0) {
@@ -1105,7 +1134,7 @@ function BulkSendAmountsInputContent({
     isOneToMany,
     minTransferAmount,
     senderBalances,
-    tokenDetails?.balanceParsed,
+    matchedTokenDetails?.balanceParsed,
     tokenInfo.decimals,
     tokenInfo.symbol,
   ]);
@@ -1168,19 +1197,19 @@ function BulkSendAmountsInputContent({
     () =>
       calculateTotalAmounts({
         transfersInfo: displaySummaryTransfersInfo,
-        tokenPrice: tokenDetails?.price,
+        tokenPrice: matchedTokenDetails?.price,
       }),
-    [displaySummaryTransfersInfo, tokenDetails?.price],
+    [displaySummaryTransfersInfo, matchedTokenDetails?.price],
   );
 
   useEffect(() => {
-    if (bulkSendMode === EBulkSendMode.OneToMany && tokenDetails) {
+    if (bulkSendMode === EBulkSendMode.OneToMany && matchedTokenDetails) {
       const totalTokenAmountBN = new BigNumber(totalTokenAmount ?? '0');
       setIsInsufficientBalance(
-        totalTokenAmountBN.gt(tokenDetails.balanceParsed),
+        totalTokenAmountBN.gt(matchedTokenDetails.balanceParsed),
       );
     }
-  }, [tokenDetails, totalTokenAmount, bulkSendMode]);
+  }, [matchedTokenDetails, totalTokenAmount, bulkSendMode]);
 
   usePromiseResult(
     async () => {
@@ -1190,6 +1219,9 @@ function BulkSendAmountsInputContent({
         networkId &&
         tokenInfo
       ) {
+        const requestId = tokenDetailsRequestIdRef.current + 1;
+        tokenDetailsRequestIdRef.current = requestId;
+        setTokenDetails(undefined);
         setTokenDetailsState((prev) => ({
           ...prev,
           isRefreshing: true,
@@ -1220,7 +1252,18 @@ function BulkSendAmountsInputContent({
             },
           );
 
-          if (resp[0]) {
+          if (tokenDetailsRequestIdRef.current !== requestId) {
+            return;
+          }
+
+          if (
+            resp[0] &&
+            isBulkSendTokenDetailsMatched({
+              networkId,
+              tokenInfo,
+              tokenDetails: resp[0],
+            })
+          ) {
             setTokenDetails(resp[0]);
             setTokenDetailsState({
               initialized: true,
@@ -1230,12 +1273,17 @@ function BulkSendAmountsInputContent({
             setTokenDetails(undefined);
           }
         } catch (_) {
+          if (tokenDetailsRequestIdRef.current !== requestId) {
+            return;
+          }
           setTokenDetails(undefined);
         } finally {
-          setTokenDetailsState({
-            initialized: true,
-            isRefreshing: false,
-          });
+          if (tokenDetailsRequestIdRef.current === requestId) {
+            setTokenDetailsState({
+              initialized: true,
+              isRefreshing: false,
+            });
+          }
         }
       }
     },
@@ -1467,7 +1515,7 @@ function BulkSendAmountsInputContent({
       networkId,
       hasCustomAmounts,
       tokenInfo,
-      tokenDetails,
+      tokenDetails: matchedTokenDetails,
       setTokenDetails,
       tokenDetailsState,
       setTokenDetailsState,
@@ -1510,7 +1558,7 @@ function BulkSendAmountsInputContent({
       networkId,
       accountId,
       hasCustomAmounts,
-      tokenDetails,
+      matchedTokenDetails,
       tokenDetailsState,
       bulkSendMode,
       isMaxMode,

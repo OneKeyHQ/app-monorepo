@@ -178,7 +178,7 @@ export function SpecifiedAmountInput() {
           currency: settings.currencyInfo.symbol,
         }}
         tokenSelectorTriggerProps={{
-          selectedTokenImageUri: tokenDetails?.info.logoURI,
+          selectedTokenImageUri: tokenInfo.logoURI,
           selectedNetworkImageUri: network?.logoURI,
           selectedTokenSymbol: tokenSymbol,
           loading: isLoading,
@@ -430,7 +430,7 @@ export function RangeAmountInput() {
               {minFiatValue}
             </NumberSizeableText>
             <SizableText size="$bodyMdMedium" color="$text">
-              {tokenDetails?.info.symbol}
+              {tokenInfo.symbol}
             </SizableText>
           </XStack>
         </Stack>
@@ -479,7 +479,7 @@ export function RangeAmountInput() {
               {maxFiatValue}
             </NumberSizeableText>
             <SizableText size="$bodyMdMedium" color="$text">
-              {tokenDetails?.info.symbol}
+              {tokenInfo.symbol}
             </SizableText>
           </XStack>
         </Stack>

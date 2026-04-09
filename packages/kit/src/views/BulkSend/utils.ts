@@ -16,6 +16,8 @@ import {
   type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 export const BULK_SEND_INTERVAL_MAX_SECONDS = 600;
 
@@ -94,6 +96,46 @@ export function calculateTotalAmounts({
     totalTokenAmount: total.isZero() ? '0' : total.toFixed(),
     totalFiatAmount: fiat,
   };
+}
+
+export function isBulkSendTokenDetailsMatched({
+  networkId,
+  tokenInfo,
+  tokenDetails,
+}: {
+  networkId?: string;
+  tokenInfo?: IToken;
+  tokenDetails?: ({ info: IToken } & Partial<ITokenFiat>) | undefined;
+}): tokenDetails is { info: IToken } & Partial<ITokenFiat> {
+  if (!tokenInfo || !tokenDetails?.info) {
+    return false;
+  }
+
+  const expectedNetworkId = tokenInfo.networkId ?? networkId;
+  const currentNetworkId = tokenDetails.info.networkId ?? networkId;
+
+  if (!expectedNetworkId || !currentNetworkId) {
+    return false;
+  }
+
+  if (expectedNetworkId !== currentNetworkId) {
+    return false;
+  }
+
+  if (tokenInfo.isNative && tokenDetails.info.isNative) {
+    return true;
+  }
+
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId: expectedNetworkId,
+      contractAddress: tokenInfo.address,
+    },
+    token2: {
+      networkId: currentNetworkId,
+      contractAddress: tokenDetails.info.address,
+    },
+  });
 }
 
 // Check if any sender's aggregated transfer amount exceeds their balance.

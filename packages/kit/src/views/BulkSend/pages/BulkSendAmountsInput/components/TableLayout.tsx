@@ -570,7 +570,7 @@ function AmountCard() {
               currency: settings.currencyInfo.symbol,
             }}
             tokenSelectorTriggerProps={{
-              selectedTokenImageUri: tokenDetails?.info.logoURI,
+              selectedTokenImageUri: tokenInfo.logoURI,
               selectedNetworkImageUri: network?.logoURI,
               selectedTokenSymbol: tokenInfo.symbol,
             }}
