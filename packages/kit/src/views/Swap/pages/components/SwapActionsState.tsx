@@ -152,14 +152,9 @@ const SwapActionsState = ({
   });
   const incognitoTooltip = useMemo(
     () =>
-      [
-        intl.formatMessage({
-          id: ETranslations.trade_incognito_description,
-        }),
-        intl.formatMessage({
-          id: ETranslations.trade_incognito_kyc_warning,
-        }),
-      ].join('\n\n'),
+      intl.formatMessage({
+        id: ETranslations.trade_incognito_description,
+      }),
     [intl],
   );
 
