@@ -161,15 +161,19 @@ function collectRecipientsFromHistoryTxs({
 
     const recipientLower = recipientInfo.address.toLowerCase();
     if (!recipientMap.has(recipientLower)) {
+      if (recipientMap.size >= MAX_RECIPIENTS) break;
       recipientMap.set(recipientLower, {
         address: recipientInfo.address,
         time: recipientInfo.time,
         networkName,
         memo: recipientInfo.memo,
       });
+    } else if (includeMemo && recipientInfo.memo) {
+      const existing = recipientMap.get(recipientLower);
+      if (existing && !existing.memo) {
+        existing.memo = recipientInfo.memo;
+      }
     }
-
-    if (recipientMap.size >= MAX_RECIPIENTS) break;
   }
 
   return recipientMap;
@@ -347,7 +351,15 @@ export function useRecentRecipientsData({
         }
 
         // Strategy 4: For other chains or if still empty, extract from tx history.
-        if (recipientAddresses.length === 0 && accountId) {
+        // Also runs for non-EVM chains that have addresses but no memo data
+        // (e.g. algo/cosmos/ton from Strategy 3 stored recipients).
+        const hasMemoData =
+          recipientExtraMap &&
+          Array.from(recipientExtraMap.values()).some((r) => !!r.memo);
+        if (
+          accountId &&
+          (recipientAddresses.length === 0 || (!isEvmNetwork && !hasMemoData))
+        ) {
           try {
             const currentNetwork =
               await backgroundApiProxy.serviceNetwork.getNetworkSafe({
@@ -377,6 +389,7 @@ export function useRecentRecipientsData({
               ownerAddress,
               networkName: currentNetworkName,
               includeMemo: true,
+              seedMap: recipientExtraMap ?? undefined,
             });
 
             recipientAddresses = Array.from(recipientMap.values()).map(
@@ -384,7 +397,9 @@ export function useRecentRecipientsData({
             );
             recipientExtraMap = recipientMap;
           } catch {
-            recipientAddresses = [];
+            // Don't clear recipientAddresses — Strategy 1/3 may have
+            // already populated it. Showing addresses without memo
+            // is better than showing nothing.
           }
         }
 

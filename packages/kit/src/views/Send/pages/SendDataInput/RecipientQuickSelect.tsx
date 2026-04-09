@@ -856,6 +856,24 @@ export default function RecipientQuickSelect({
     );
   }, [activeTab]);
 
+  // For multi-derive chains (BTC/LTC), default to Accounts tab so
+  // addresses are visible without manual tab switch (OK-52809).
+  useEffect(() => {
+    if (!networkId) return;
+    let cancelled = false;
+    void backgroundApiProxy.serviceNetwork
+      .getVaultSettings({ networkId })
+      .then((settings) => {
+        if (!cancelled && settings?.mergeDeriveAssetsEnabled) {
+          setActiveTab('account');
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [networkId, setActiveTab]);
+
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
