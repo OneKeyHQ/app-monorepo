@@ -625,6 +625,21 @@ function HomeOverviewContainer() {
     if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
       (globalThis as any).__onekeyBalanceDisplayed = true;
       appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { NativeLogger: NL, LogLevel: LL } =
+          require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+        const jsEntry: number =
+          (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+        if (jsEntry) {
+          NL.write(
+            LL.Info,
+            `[StartupTiming] Balance displayed (+${Date.now() - jsEntry}ms)`,
+          );
+        }
+      } catch {
+        /* NativeLogger may not be available */
+      }
     }
   }, [balanceReady]);
 

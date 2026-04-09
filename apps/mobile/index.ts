@@ -35,6 +35,12 @@ try {
   );
   if (_ctxRaw) {
     (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = JSON.parse(_ctxRaw);
+    const { NativeLogger: _NL, LogLevel: _LL } =
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    _NL.write(
+      _LL.Info,
+      `[StartupTiming] MMKV contextAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
+    );
   }
 } catch {
   /* MMKV not available yet */
@@ -45,6 +51,7 @@ try {
 // In production, if the native module fails to load, we crash early (#37)
 // rather than letting async imports silently fail with stale dev-server URLs.
 if (!__DEV__) {
+  const _segStart = Date.now();
   const { getSegmentManifest } =
     require('./src/splitBundle/segmentManifest') as typeof import('./src/splitBundle/segmentManifest');
   const manifest = getSegmentManifest();
@@ -55,6 +62,12 @@ if (!__DEV__) {
       require('./src/splitBundle/nativeBridge') as typeof import('./src/splitBundle/nativeBridge');
     installProdBundleLoader(getNativeSplitBundleLoader());
   }
+  const { NativeLogger: _NL2, LogLevel: _LL2 } =
+    require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+  _NL2.write(
+    _LL2.Info,
+    `[StartupTiming] segment loader installed in ${Date.now() - _segStart}ms (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
+  );
 }
 
 // Pre-warm critical home page icon segments so they're loaded by first render.
@@ -83,6 +96,7 @@ if (!__DEV__) {
   );
 }
 
+const _transportStart = Date.now();
 require('./src/backgroundThread/setupMainThreadBackgroundRunner');
 
 const { I18nManager } =
@@ -93,6 +107,20 @@ const { initSentry } =
 const { ReactNativeDeviceUtils } =
   require('@onekeyfe/react-native-device-utils') as IReactNativeDeviceUtilsModule;
 const App = (require('./App') as IAppModule).default;
+
+{
+  const _e = (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number;
+  const { NativeLogger: _NL3, LogLevel: _LL3 } =
+    require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+  _NL3.write(
+    _LL3.Info,
+    `[StartupTiming] BG transport setup in ${Date.now() - _transportStart}ms (+${Date.now() - _e}ms)`,
+  );
+  _NL3.write(
+    _LL3.Info,
+    `[StartupTiming] main entry evaluated (+${Date.now() - _e}ms)`,
+  );
+}
 
 ReactNativeDeviceUtils.initEventListeners();
 initSentry();
