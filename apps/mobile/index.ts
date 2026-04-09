@@ -24,13 +24,13 @@ require('@onekeyhq/shared/src/polyfills');
 // Migration (AsyncStorage → MMKV) happens on BG thread via getItem self-heal.
 // Context atom snapshot pre-read is unchanged.
 try {
-  const { syncStorage: _syncStorage } =
+  const { coldStartCacheStorage: _coldStartCache } =
     require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
   const { EAppSyncStorageKeys: _keys } =
     require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
 
-  // Pre-read context atom snapshot (separate system, unchanged)
-  const _ctxRaw = _syncStorage.getString(
+  // Pre-read context atom snapshot from cold-start cache MMKV instance
+  const _ctxRaw = _coldStartCache.getString(
     _keys.onekey_jotai_context_atoms_snapshot,
   );
   if (_ctxRaw) {

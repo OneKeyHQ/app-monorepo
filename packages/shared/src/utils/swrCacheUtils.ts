@@ -2,6 +2,8 @@ import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
 
+// SWR cache uses the dedicated cold-start cache MMKV instance,
+// separate from onekey-app-setting.
 type ISWREntry<T = any> = {
   /** data */
   d: T;
@@ -25,9 +27,9 @@ function getSyncStorage(): ISyncStorage {
   if (!_syncStorage) {
     // Lazy require to avoid circular dependency at module load time.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { syncStorage } =
+    const { coldStartCacheStorage } =
       require('../storage/instance/syncStorageInstance') as typeof import('../storage/instance/syncStorageInstance');
-    _syncStorage = syncStorage;
+    _syncStorage = coldStartCacheStorage;
   }
   return _syncStorage;
 }

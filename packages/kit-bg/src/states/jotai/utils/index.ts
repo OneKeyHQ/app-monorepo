@@ -441,13 +441,13 @@ function flushColdStartCache() {
   if (coldStartDirtyKeys.size === 0) return;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { syncStorage } =
+    const { coldStartCacheStorage } =
       require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { EAppSyncStorageKeys } =
       require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
 
-    const raw = syncStorage.getString(
+    const raw = coldStartCacheStorage.getString(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
     );
     const snapshot = raw ? JSON.parse(raw) : {};
@@ -456,7 +456,7 @@ function flushColdStartCache() {
       snapshot[name] = coldStartValuesMap.get(name);
     }
 
-    syncStorage.set(
+    coldStartCacheStorage.set(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
       JSON.stringify(snapshot),
     );

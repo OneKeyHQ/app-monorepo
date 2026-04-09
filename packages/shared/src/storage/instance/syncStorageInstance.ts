@@ -5,6 +5,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '../../platformEnv';
 import resetUtils from '../../utils/resetUtils';
 
+import coldStartCacheMMKVInstance from './coldStartCacheMMKVInstance';
 import mmkvStorageInstance from './mmkvStorageInstance';
 
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
@@ -95,3 +96,52 @@ const syncStorageExtBg: ISyncStorage = {
 export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
   ? syncStorageExtBg
   : syncStorageWeb;
+
+/**
+ * Dedicated MMKV storage for cold-start caches (contextAtom snapshot + SWR).
+ * Isolated from onekey-app-setting so it can be cleared independently.
+ * Extension BG uses no-op stub (cold-start cache not applicable).
+ */
+const coldStartCacheStorageImpl: ISyncStorage = {
+  set(key: EAppSyncStorageKeys, value: boolean | string | number) {
+    coldStartCacheMMKVInstance.set(key, value);
+  },
+  setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
+    if (!isPlainObject(value)) {
+      throw new OneKeyLocalError('value must be a plain object');
+    }
+    coldStartCacheMMKVInstance.set(key, JSON.stringify(value));
+  },
+  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+    try {
+      const value = coldStartCacheMMKVInstance.getString(key);
+      if (!value) return undefined;
+      return JSON.parse(value) as T;
+    } catch {
+      return undefined;
+    }
+  },
+  getString(key: EAppSyncStorageKeys) {
+    return coldStartCacheMMKVInstance.getString(key);
+  },
+  getNumber(key: EAppSyncStorageKeys) {
+    return coldStartCacheMMKVInstance.getNumber(key);
+  },
+  getBoolean(key: EAppSyncStorageKeys) {
+    return coldStartCacheMMKVInstance.getBoolean(key);
+  },
+  delete(key: EAppSyncStorageKeys) {
+    coldStartCacheMMKVInstance.remove(key);
+  },
+  clearAll() {
+    coldStartCacheMMKVInstance.clearAll();
+  },
+  getAllKeys() {
+    return coldStartCacheMMKVInstance.getAllKeys();
+  },
+};
+
+export const coldStartCacheStorage =
+  platformEnv.isExtensionBackgroundServiceWorker
+    ? syncStorageExtBg
+    : coldStartCacheStorageImpl;

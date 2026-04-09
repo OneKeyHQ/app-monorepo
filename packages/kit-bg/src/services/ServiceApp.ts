@@ -117,6 +117,17 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
     }
 
+    // Clean cold-start cache MMKV (contextAtom snapshot + SWR cache)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { coldStartCacheStorage } =
+        require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+      coldStartCacheStorage.clearAll();
+    } catch {
+      console.error('coldStartCacheStorage.clearAll() error');
+    }
+    defaultLogger.setting.page.clearDataStep('coldStartCache-clearAll');
+
     await timerUtils.wait(100);
 
     try {
