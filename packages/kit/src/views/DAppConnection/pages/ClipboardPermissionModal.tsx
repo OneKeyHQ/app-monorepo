@@ -103,18 +103,18 @@ function ClipboardPermissionModal() {
                 </SizableText>
               </Stack>
             ) : null}
-            <Stack px="$5">
-              <Checkbox
-                label={intl.formatMessage({
-                  id: ETranslations.clipboard_remember__action,
-                })}
-                value={remember}
-                onChange={(checked) => setRemember(!!checked)}
-              />
-            </Stack>
           </DAppRequestLayout>
         </Page.Body>
         <Page.Footer>
+          <Stack px="$5" pb="$2">
+            <Checkbox
+              label={intl.formatMessage({
+                id: ETranslations.clipboard_remember__action,
+              })}
+              value={remember}
+              onChange={(checked) => setRemember(!!checked)}
+            />
+          </Stack>
           <DAppRequestFooter
             continueOperate={continueOperate}
             setContinueOperate={(checked) => {
