@@ -25,13 +25,13 @@ import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import {
@@ -861,6 +861,34 @@ export default function RecipientQuickSelect({
     );
   }, [activeTab]);
 
+  // Set of tabs that should appear (excludes hideTabs and Lightning hidden tabs)
+  const visibleTabKeys = useMemo<IRecipientQuickSelectTab[]>(() => {
+    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
+    const all: IRecipientQuickSelectTab[] = isLightning
+      ? ['recent']
+      : ['recent', 'account', 'addressBook'];
+    return hideTabs?.length ? all.filter((t) => !hideTabs.includes(t)) : all;
+  }, [hideTabs, networkId]);
+
+  // Pre-mount all visible tabs (kept hidden via display:none until active) so
+  // each can report its match status. Without this, unmounted tabs would
+  // leave their status as null forever and the no-result event would never
+  // fire — also blocking onMatchStatusChange callers from learning that no
+  // results exist anywhere.
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      visibleTabKeys.forEach((tab) => {
+        if (!next[tab]) {
+          next[tab] = true;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [visibleTabKeys]);
+
   // For multi-derive chains (BTC/LTC), default to Accounts tab so
   // addresses are visible without manual tab switch (OK-52809).
   useEffect(() => {
@@ -916,27 +944,6 @@ export default function RecipientQuickSelect({
 
   // Report match status to parent: true only if a tab has explicitly reported matches
   const lastNoResultKeyRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    const statuses = Object.values(tabMatchStatus);
-    const anyTabHasMatches = statuses.some((status) => status === true);
-    onMatchStatusChange?.(anyTabHasMatches);
-
-    // Fire no-result event when all tabs have reported and none matched
-    const allReported = statuses.every((status) => status !== null);
-    if (
-      isSearchMode &&
-      trimmedSearchKey &&
-      allReported &&
-      !anyTabHasMatches &&
-      lastNoResultKeyRef.current !== trimmedSearchKey
-    ) {
-      lastNoResultKeyRef.current = trimmedSearchKey;
-      defaultLogger.transaction.send.quickSelectSearchNoResult({
-        network: networkId,
-        searchKeyLength: trimmedSearchKey.length,
-      });
-    }
-  }, [tabMatchStatus, onMatchStatusChange, isSearchMode, trimmedSearchKey, networkId]);
 
   // Auto-switch to a tab with matches when current tab has no matches
   useEffect(() => {
@@ -961,7 +968,14 @@ export default function RecipientQuickSelect({
       }
       setActiveTab(nextTab);
     }
-  }, [isSearchMode, trimmedSearchKey, activeTab, tabMatchStatus, setActiveTab, networkId]);
+  }, [
+    isSearchMode,
+    trimmedSearchKey,
+    activeTab,
+    tabMatchStatus,
+    setActiveTab,
+    networkId,
+  ]);
 
   const tabOptions = useMemo(() => {
     const formatLabel = (label: string, tab: IRecipientQuickSelectTab) => {
@@ -971,48 +985,45 @@ export default function RecipientQuickSelect({
       return label;
     };
 
-    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
+    const labelMap: Record<IRecipientQuickSelectTab, string> = {
+      recent: intl.formatMessage({ id: ETranslations.global_recents }),
+      account: intl.formatMessage({ id: ETranslations.global_accounts }),
+      addressBook: intl.formatMessage({ id: ETranslations.address_book_title }),
+    };
+    return visibleTabKeys.map((tab) => ({
+      label: formatLabel(labelMap[tab], tab),
+      value: tab,
+    }));
+  }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys]);
 
-    const options: { label: string; value: IRecipientQuickSelectTab }[] = [];
+  // Report match status to parent. Only consider tabs that are actually visible
+  // (Lightning hides account/addressBook; callers can pass hideTabs).
+  useEffect(() => {
+    const visibleStatuses = visibleTabKeys.map((tab) => tabMatchStatus[tab]);
+    const anyTabHasMatches = visibleStatuses.some((status) => status === true);
+    onMatchStatusChange?.(anyTabHasMatches);
 
-    options.push({
-      label: formatLabel(
-        intl.formatMessage({ id: ETranslations.global_recents }),
-        'recent',
-      ),
-      value: 'recent',
-    });
-
-    if (!isLightning) {
-      options.push({
-        label: formatLabel(
-          intl.formatMessage({
-            id: ETranslations.global_accounts,
-          }),
-          'account',
-        ),
-        value: 'account',
-      });
-
-      options.push({
-        label: formatLabel(
-          intl.formatMessage({ id: ETranslations.address_book_title }),
-          'addressBook',
-        ),
-        value: 'addressBook',
+    const allReported = visibleStatuses.every((status) => status !== null);
+    if (
+      isSearchMode &&
+      trimmedSearchKey &&
+      allReported &&
+      !anyTabHasMatches &&
+      lastNoResultKeyRef.current !== trimmedSearchKey
+    ) {
+      lastNoResultKeyRef.current = trimmedSearchKey;
+      defaultLogger.transaction.send.quickSelectSearchNoResult({
+        network: networkId,
+        searchKeyLength: trimmedSearchKey.length,
       });
     }
-
-    return hideTabs?.length
-      ? options.filter((o) => !hideTabs.includes(o.value))
-      : options;
   }, [
-    intl,
+    visibleTabKeys,
+    tabMatchStatus,
+    onMatchStatusChange,
     isSearchMode,
     trimmedSearchKey,
-    tabMatchCounts,
     networkId,
-    hideTabs,
   ]);
 
   const getSearchContext = useCallback(
