@@ -6,6 +6,7 @@ import {
   registerImportCommand,
   registerLogoutCommand,
   registerMarketCommands,
+  registerSchemaCommand,
   registerSecurityCommands,
   registerStatusCommand,
   registerSwapCommands,
@@ -18,6 +19,7 @@ import { secureCache } from './core';
 import { ERROR_CODES } from './errors';
 import { apiClient } from './infra';
 import { OutputFormatter } from './output';
+import './schemas/register-all';
 import { createLogger } from './utils/logger';
 import { detectOutputMode } from './utils/mode-detector';
 
@@ -77,6 +79,7 @@ registerMarketCommands(program);
 registerSwapCommands(program);
 registerSecurityCommands(program);
 registerWalletHistoryCommand(program);
+registerSchemaCommand(program);
 
 // Signal handlers: use Unix-conventional exit codes (128 + signal number)
 process.on('SIGINT', () => {
