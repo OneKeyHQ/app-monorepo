@@ -66,7 +66,7 @@ function HeaderBackButton({
   }
 
   return (
-    <HeaderButtonGroup mr="$4">
+    <HeaderButtonGroup mr="$3">
       {!renderLeft ? renderBackButton() : null}
       {renderLeft
         ? renderLeft({
