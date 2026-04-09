@@ -103,6 +103,20 @@ class ServiceApp extends ServiceBase {
       console.error('syncStorage.clear() error');
     }
     defaultLogger.setting.page.clearDataStep('syncStorage-clearAll');
+
+    // Clean jotai MMKV per-key storage (separate instance from syncStorage)
+    if (platformEnv.isNative) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { default: jotaiMMKV } =
+          require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
+        jotaiMMKV.clearAll();
+      } catch {
+        console.error('jotaiMMKV.clearAll() error');
+      }
+      defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
+    }
+
     await timerUtils.wait(100);
 
     try {
