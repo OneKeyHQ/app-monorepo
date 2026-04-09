@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
+  useActiveTradeInstrumentAtom,
   useHyperliquidActions,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
@@ -36,11 +37,16 @@ import {
   usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotActiveAssetAtom,
+  useSpotActiveAssetCtxAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
   getTriggerEffectivePrice,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -48,6 +54,7 @@ import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
   type ITradeSide,
@@ -113,16 +120,19 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [tradingMode] = useTradingModeAtom();
-  const isSpot = tradingMode === 'spot';
 
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [spotActiveAsset] = useSpotActiveAssetAtom();
+  const [spotActiveAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [{ balances: spotBalances }] = useSpotBalancesAtom();
+  const { baseName: activeBaseName } = useActiveTradeDisplay();
   const { midPrice, midPriceBN } = useTradingPrice();
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
@@ -132,12 +142,95 @@ function PerpTradingForm({
     [perpsSelectedSymbol.coin],
   );
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
-  const { universe } = perpsSelectedSymbol;
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
 
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
+
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const spotUniverse = isSpot ? spotActiveAsset?.universe : undefined;
+  const sizeSzDecimals = isSpot
+    ? (spotUniverse?.baseSzDecimals ?? 2)
+    : (activeAsset?.universe?.szDecimals ?? 2);
+  const selectedTradeAsset = useMemo(
+    () =>
+      isSpot
+        ? ({
+            coin: spotActiveAsset?.coin ?? activeTradeInstrument.coin,
+            assetId: spotActiveAsset?.assetId,
+            universe: {
+              ...(spotUniverse ?? {}),
+              szDecimals: sizeSzDecimals,
+            },
+          } as typeof activeAsset)
+        : activeAsset,
+    [
+      activeAsset,
+      activeTradeInstrument.coin,
+      isSpot,
+      sizeSzDecimals,
+      spotActiveAsset?.assetId,
+      spotActiveAsset?.coin,
+      spotUniverse,
+    ],
+  );
+  const selectedTradeAssetCtx = isSpot
+    ? (spotActiveAssetCtx as typeof activeAssetCtx)
+    : activeAssetCtx;
+
+  const spotAvailableBaseBN = useMemo(() => {
+    if (!spotUniverse?.baseName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.baseName,
+    );
+    if (!balance) {
+      return new BigNumber(0);
+    }
+    return BigNumber.max(
+      new BigNumber(balance.total).minus(balance.hold ?? 0),
+      0,
+    );
+  }, [spotBalances, spotUniverse?.baseName]);
+
+  const spotAvailableQuoteBN = useMemo(() => {
+    if (!spotUniverse?.quoteName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.quoteName,
+    );
+    if (!balance) {
+      return new BigNumber(0);
+    }
+    return BigNumber.max(
+      new BigNumber(balance.total).minus(balance.hold ?? 0),
+      0,
+    );
+  }, [spotBalances, spotUniverse?.quoteName]);
+
+  const spotMaxTradeSzs = useMemo(() => {
+    if (!isSpot) {
+      return undefined;
+    }
+    const buyMax = midPriceBN.gt(0)
+      ? spotAvailableQuoteBN.dividedBy(midPriceBN)
+      : new BigNumber(0);
+    return [
+      buyMax.decimalPlaces(sizeSzDecimals, BigNumber.ROUND_FLOOR).toFixed(),
+      spotAvailableBaseBN
+        .decimalPlaces(sizeSzDecimals, BigNumber.ROUND_FLOOR)
+        .toFixed(),
+    ] as [string, string];
+  }, [
+    isSpot,
+    midPriceBN,
+    sizeSzDecimals,
+    spotAvailableBaseBN,
+    spotAvailableQuoteBN,
+  ]);
 
   // Derive primaryOrderType from formData.orderMode
   const primaryOrderType: IPrimaryOrderType =
@@ -168,26 +261,52 @@ function PerpTradingForm({
 
     if (prevType !== 'limit' && currentType === 'limit' && midPrice) {
       updateForm({
-        price: formatPriceToSignificantDigits(midPrice),
+        price: isSpot
+          ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
+          : formatPriceToSignificantDigits(midPrice),
       });
     }
 
     prevTypeRef.current = currentType;
-  }, [formData.type, formData.price, midPrice, updateForm]);
+  }, [
+    formData.type,
+    formData.price,
+    isSpot,
+    midPrice,
+    sizeSzDecimals,
+    updateForm,
+  ]);
 
   useEffect(() => {
-    const rawAvailable = activeAssetData?.availableToTrade;
-    const maxAvailable = rawAvailable
-      ? Math.max(Number(rawAvailable[0] ?? 0), Number(rawAvailable[1] ?? 0))
-      : 0;
-    const nextEnv = {
-      markPrice: midPrice,
-      availableToTrade: [maxAvailable, maxAvailable],
-      maxTradeSzs: activeAssetData?.maxTradeSzs,
-      leverageValue: activeAssetData?.leverage?.value,
-      fallbackLeverage: activeAsset?.universe?.maxLeverage,
-      szDecimals: activeAsset?.universe?.szDecimals,
-    };
+    const nextEnv = isSpot
+      ? {
+          markPrice: midPrice,
+          availableToTrade: [
+            spotAvailableQuoteBN.toFixed(),
+            spotAvailableBaseBN.toFixed(),
+          ],
+          maxTradeSzs: spotMaxTradeSzs,
+          leverageValue: 1,
+          fallbackLeverage: 1,
+          szDecimals: sizeSzDecimals,
+        }
+      : (() => {
+          const rawAvailable = activeAssetData?.availableToTrade;
+          const maxAvailable = rawAvailable
+            ? Math.max(
+                Number(rawAvailable[0] ?? 0),
+                Number(rawAvailable[1] ?? 0),
+              )
+            : 0;
+          return {
+            markPrice: midPrice,
+            availableToTrade: [maxAvailable, maxAvailable],
+            maxTradeSzs: activeAssetData?.maxTradeSzs,
+            leverageValue: activeAssetData?.leverage?.value,
+            fallbackLeverage: activeAsset?.universe?.maxLeverage,
+            szDecimals: activeAsset?.universe?.szDecimals,
+          };
+        })();
     setTradingFormEnv((prev) => {
       const prevAvailable = prev.availableToTrade ?? [];
       const nextAvailable = nextEnv.availableToTrade ?? [];
@@ -214,6 +333,11 @@ function PerpTradingForm({
     }
   }, [
     midPrice,
+    isSpot,
+    sizeSzDecimals,
+    spotAvailableBaseBN,
+    spotAvailableQuoteBN,
+    spotMaxTradeSzs,
     activeAssetData?.availableToTrade,
     activeAssetData?.maxTradeSzs,
     activeAssetData?.leverage?.value,
@@ -223,6 +347,20 @@ function PerpTradingForm({
     formData.leverage,
     updateForm,
   ]);
+
+  useEffect(() => {
+    if (!isSpot || formData.orderMode !== 'trigger') {
+      return;
+    }
+    updateForm({
+      ...TRIGGER_MODE_TPSL_RESET,
+      bboPriceMode: null,
+      orderMode: 'standard',
+      type: 'market',
+      triggerPrice: '',
+      executionPrice: '',
+    });
+  }, [formData.orderMode, isSpot, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price, market price, or trigger effective price)
   const [, referencePriceString] = useMemo(() => {
@@ -244,10 +382,9 @@ function PerpTradingForm({
     }
     return [
       price,
-      formatPriceToSignificantDigits(
-        price,
-        activeAsset?.universe?.szDecimals ?? 2,
-      ),
+      isSpot
+        ? formatSpotPriceToValid(price.toFixed(), sizeSzDecimals)
+        : formatPriceToSignificantDigits(price, sizeSzDecimals),
     ];
   }, [
     formData.type,
@@ -256,8 +393,9 @@ function PerpTradingForm({
     formData.triggerOrderType,
     formData.triggerPrice,
     formData.executionPrice,
+    isSpot,
     midPriceBN,
-    activeAsset?.universe?.szDecimals,
+    sizeSzDecimals,
   ]);
 
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
@@ -273,15 +411,31 @@ function PerpTradingForm({
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
   const availableToTrade = useMemo(() => {
+    if (isSpot) {
+      const availableValue =
+        formData.side === 'long'
+          ? spotAvailableQuoteBN
+          : spotAvailableBaseBN.multipliedBy(
+              midPriceBN.isFinite() && midPriceBN.gt(0) ? midPriceBN : 0,
+            );
+      return availableValue.toFixed(2, BigNumber.ROUND_DOWN);
+    }
     const available = activeAssetData?.availableToTrade;
     if (!available) return '0';
     const longValue = Number(available[0] ?? 0);
     const shortValue = Number(available[1] ?? 0);
-    return new BigNumber(Math.min(longValue, shortValue)).toFixed(
+    return new BigNumber(Math.max(longValue, shortValue)).toFixed(
       2,
       BigNumber.ROUND_DOWN,
     );
-  }, [activeAssetData?.availableToTrade]);
+  }, [
+    activeAssetData?.availableToTrade,
+    formData.side,
+    isSpot,
+    midPriceBN,
+    spotAvailableBaseBN,
+    spotAvailableQuoteBN,
+  ]);
 
   const switchToManual = useCallback(() => {
     if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
@@ -414,37 +568,34 @@ function PerpTradingForm({
     ],
     [intl],
   );
-  const mobileOrderTypeOptions = useMemo(
-    () => {
-      const base = [
-        {
-          label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
-          value: 'market' as string,
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
-          value: 'limit' as string,
-        },
-      ];
-      if (isSpot) return base;
-      return [
-        ...base,
-        {
-          label: intl.formatMessage({
-            id: ETranslations.perp_order_trigger_market,
-          }),
-          value: ETriggerOrderType.TRIGGER_MARKET as string,
-        },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.perp_order_trigger_limit,
-          }),
-          value: ETriggerOrderType.TRIGGER_LIMIT as string,
-        },
-      ];
-    },
-    [intl, isSpot],
-  );
+  const mobileOrderTypeOptions = useMemo(() => {
+    const base = [
+      {
+        label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
+        value: 'market' as string,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
+        value: 'limit' as string,
+      },
+    ];
+    if (isSpot) return base;
+    return [
+      ...base,
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_order_trigger_market,
+        }),
+        value: ETriggerOrderType.TRIGGER_MARKET as string,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_order_trigger_limit,
+        }),
+        value: ETriggerOrderType.TRIGGER_LIMIT as string,
+      },
+    ];
+  }, [intl, isSpot]);
 
   const applyPrimaryOrderType = useCallback(
     (nextType: IPrimaryOrderType) => {
@@ -515,7 +666,8 @@ function PerpTradingForm({
             })}
             value={triggerPrice}
             onChange={(value) => updateForm({ triggerPrice: value })}
-            szDecimals={universe?.szDecimals ?? 2}
+            szDecimals={sizeSzDecimals}
+            isSpot={isSpot}
             isMobile={isMobile}
             disabled={isSubmitting}
           />
@@ -524,7 +676,9 @@ function PerpTradingForm({
               onUseMidPrice={() => {
                 if (midPrice) {
                   updateForm({
-                    executionPrice: formatPriceToSignificantDigits(midPrice),
+                    executionPrice: isSpot
+                      ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
+                      : formatPriceToSignificantDigits(midPrice),
                   });
                 }
               }}
@@ -533,7 +687,8 @@ function PerpTradingForm({
               })}
               value={formData.executionPrice ?? ''}
               onChange={(value) => updateForm({ executionPrice: value })}
-              szDecimals={universe?.szDecimals ?? 2}
+              szDecimals={sizeSzDecimals}
+              isSpot={isSpot}
               isMobile={isMobile}
               disabled={isSubmitting}
             />
@@ -559,7 +714,9 @@ function PerpTradingForm({
                 onUseMidPrice={() => {
                   if (midPrice) {
                     updateForm({
-                      price: formatPriceToSignificantDigits(midPrice),
+                      price: isSpot
+                        ? formatSpotPriceToValid(midPrice, sizeSzDecimals)
+                        : formatPriceToSignificantDigits(midPrice),
                     });
                   }
                 }}
@@ -571,7 +728,8 @@ function PerpTradingForm({
                       })
                 }
                 onChange={(value) => updateForm({ price: value })}
-                szDecimals={universe?.szDecimals ?? 2}
+                szDecimals={sizeSzDecimals}
+                isSpot={isSpot}
                 isMobile={isMobile}
                 disabled={formData.type === 'market'}
               />
@@ -643,6 +801,7 @@ function PerpTradingForm({
     : ETranslations.perp_trade_sl_price;
 
   const renderBottomSection = () => {
+    if (isSpot) return null;
     if (shouldShowEnableTradingButton && isMobile) {
       return null;
     }
@@ -749,7 +908,7 @@ function PerpTradingForm({
               value={formData.tpValue || ''}
               inputType={formData.tpType || 'price'}
               referencePrice={referencePriceString}
-              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+              szDecimals={sizeSzDecimals}
               onChange={handleTpValueChange}
               onTypeChange={handleTpTypeChange}
               disabled={isSubmitting}
@@ -763,7 +922,7 @@ function PerpTradingForm({
               value={formData.slValue || ''}
               inputType={formData.slType || 'price'}
               referencePrice={referencePriceString}
-              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+              szDecimals={sizeSzDecimals}
               onChange={handleSlValueChange}
               onTypeChange={handleSlTypeChange}
               disabled={isSubmitting}
@@ -793,7 +952,10 @@ function PerpTradingForm({
           {isSpot ? null : (
             <XStack alignItems="center" flex={1} gap="$2.5">
               <YStack flex={1}>
-                <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+                <MarginModeSelector
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
               </YStack>
               <LeverageAdjustModal isMobile={isMobile} />
             </XStack>
@@ -907,62 +1069,64 @@ function PerpTradingForm({
                   </XStack>
                 );
               })}
-              {isSpot ? null : <Select
-                items={triggerTypeOptions}
-                title="Trigger"
-                value={triggerOrderType}
-                onOpenChange={setTriggerMenuOpen}
-                onChange={handleTriggerOrderTypeChange}
-                disabled={isSubmitting}
-                placement="bottom-start"
-                floatingPanelProps={{ width: 180 }}
-                renderTrigger={({ onPress, disabled: disabledTrigger }) => (
-                  <XStack
-                    h={38}
-                    alignItems="center"
-                    position="relative"
-                    gap="$1"
-                    cursor="pointer"
-                    onPress={(e) => {
-                      if (disabledTrigger) return;
-                      if (!isTriggerMode) {
-                        // First click: activate trigger mode with persisted type
-                        applyPrimaryOrderType('trigger');
-                      } else {
-                        // Already in trigger mode: open dropdown to switch type
-                        onPress?.(e);
-                      }
-                    }}
-                  >
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={isTriggerMode ? '$text' : '$textSubdued'}
+              {isSpot ? null : (
+                <Select
+                  items={triggerTypeOptions}
+                  title="Trigger"
+                  value={triggerOrderType}
+                  onOpenChange={setTriggerMenuOpen}
+                  onChange={handleTriggerOrderTypeChange}
+                  disabled={isSubmitting}
+                  placement="bottom-start"
+                  floatingPanelProps={{ width: 180 }}
+                  renderTrigger={({ onPress, disabled: disabledTrigger }) => (
+                    <XStack
+                      h={38}
+                      alignItems="center"
+                      position="relative"
+                      gap="$1"
+                      cursor="pointer"
+                      onPress={(e) => {
+                        if (disabledTrigger) return;
+                        if (!isTriggerMode) {
+                          // First click: activate trigger mode with persisted type
+                          applyPrimaryOrderType('trigger');
+                        } else {
+                          // Already in trigger mode: open dropdown to switch type
+                          onPress?.(e);
+                        }
+                      }}
                     >
-                      {triggerTabLabel}
-                    </SizableText>
-                    <Icon
-                      name={
-                        triggerMenuOpen
-                          ? 'ChevronTopSmallOutline'
-                          : 'ChevronDownSmallOutline'
-                      }
-                      color={isTriggerMode ? '$icon' : '$iconSubdued'}
-                      size="$4"
-                    />
-                    {isTriggerMode ? (
-                      <YStack
-                        position="absolute"
-                        bottom={0}
-                        left={0}
-                        right={0}
-                        h="$0.5"
-                        bg="$text"
-                        borderRadius={1}
+                      <SizableText
+                        size="$bodyMdMedium"
+                        color={isTriggerMode ? '$text' : '$textSubdued'}
+                      >
+                        {triggerTabLabel}
+                      </SizableText>
+                      <Icon
+                        name={
+                          triggerMenuOpen
+                            ? 'ChevronTopSmallOutline'
+                            : 'ChevronDownSmallOutline'
+                        }
+                        color={isTriggerMode ? '$icon' : '$iconSubdued'}
+                        size="$4"
                       />
-                    ) : null}
-                  </XStack>
-                )}
-              />}
+                      {isTriggerMode ? (
+                        <YStack
+                          position="absolute"
+                          bottom={0}
+                          left={0}
+                          right={0}
+                          h="$0.5"
+                          bg="$text"
+                          borderRadius={1}
+                        />
+                      ) : null}
+                    </XStack>
+                  )}
+                />
+              )}
             </XStack>
           </YStack>
         </>
@@ -993,7 +1157,7 @@ function PerpTradingForm({
           </XStack>
         </XStack>
 
-        {isMobile ? null : (
+        {isMobile || isSpot ? null : (
           <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
@@ -1021,9 +1185,9 @@ function PerpTradingForm({
       <SizeInput
         referencePrice={referencePriceString}
         side={formData.side}
-        activeAsset={activeAsset}
-        activeAssetCtx={activeAssetCtx}
-        symbol={perpsSelectedDisplayName}
+        activeAsset={selectedTradeAsset}
+        activeAssetCtx={selectedTradeAssetCtx}
+        symbol={activeBaseName || perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
         sizeInputMode={tradingComputed.sizeInputMode}
@@ -1046,7 +1210,7 @@ function PerpTradingForm({
         />
       </YStack>
 
-      {isSpot ? null : renderBottomSection()}
+      {renderBottomSection()}
     </YStack>
   );
 }

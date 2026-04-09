@@ -25,19 +25,27 @@ import {
   usePerpsAllAssetsFilteredAtom,
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useSpotTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import {
+  usePerpTokenFavoritesPersistAtom,
+  useSpotAssetCtxsMapAtom,
+  useSpotTokenFavoritesPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
+  getSpotTokenDisplayName,
   getTokenSubtitle,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import type {
+  IPerpsUniverse,
+  ISpotUniverse,
+} from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 
@@ -45,6 +53,7 @@ interface IPerpTokenSelectorRowProps {
   mockedToken: {
     index: number;
     dexIndex: number;
+    spotUniverse?: ISpotUniverse;
   };
   onPress: (name: string) => void;
   isOnModal?: boolean;
@@ -52,6 +61,7 @@ interface IPerpTokenSelectorRowProps {
 }
 
 interface ITokenSelectorRowContextValue {
+  isSpot?: boolean;
   token: {
     name: string;
     displayName: string;
@@ -65,11 +75,11 @@ interface ITokenSelectorRowContextValue {
     change24h: string;
     change24hPercent: number;
     fundingRate: string;
+    marketCap?: string;
     volume24h: string;
     openInterest: string;
   };
   isLoading: boolean;
-  isSpot?: boolean;
   onPress: () => void;
 }
 
@@ -119,28 +129,25 @@ export const FavoriteButton = memo(
       : perpFavs.favorites.includes(coin);
 
     const handleToggle = useCallback(() => {
+      const toggleFavorites = (prev: string[]) => {
+        const removing = prev.includes(coin);
+        return removing ? prev.filter((f) => f !== coin) : [...prev, coin];
+      };
       if (isSpot) {
-        setSpotFavs((prev) => {
-          const alreadyFavorite = prev.favorites.includes(coin);
-          return {
-            ...prev,
-            favorites: alreadyFavorite
-              ? prev.favorites.filter((f) => f !== coin)
-              : [...prev.favorites, coin],
-          };
-        });
+        setSpotFavs((prev) => ({
+          ...prev,
+          favorites: toggleFavorites(prev.favorites),
+        }));
       } else {
         setPerpFavs((prev) => {
-          const alreadyFavorite = prev.favorites.includes(coin);
+          const removing = prev.favorites.includes(coin);
           void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
             coin,
-            action: alreadyFavorite ? 'remove' : 'add',
+            action: removing ? 'remove' : 'add',
           });
           return {
             ...prev,
-            favorites: alreadyFavorite
-              ? prev.favorites.filter((f) => f !== coin)
-              : [...prev.favorites, coin],
+            favorites: toggleFavorites(prev.favorites),
           };
         });
       }
@@ -236,7 +243,7 @@ const TokenInfoCellDesktop = memo(() => {
           alignItems="center"
           minWidth={0}
         >
-          <FavoriteButton coin={token.name} />
+          <FavoriteButton coin={token.name} isSpot={isSpot} />
           <XStack
             gap="$1.5"
             alignItems="center"
@@ -287,7 +294,14 @@ const TokenInfoCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.subtitle, token.maxLeverage, token.name, gtLg, isSpot],
+    [
+      token.displayName,
+      token.subtitle,
+      token.maxLeverage,
+      token.name,
+      gtLg,
+      isSpot,
+    ],
   );
   return content;
 });
@@ -422,6 +436,26 @@ const TokenVolumeCellDesktop = memo(() => {
 
 TokenVolumeCellDesktop.displayName = 'TokenVolumeCellDesktop';
 
+const TokenMarketCapCellDesktop = memo(() => {
+  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+
+  const content = useMemo(
+    () => (
+      <XStack width={200} justifyContent="flex-start">
+        <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
+          <SizableText size="$bodySm" color="$text">
+            {assetCtx.marketCap ?? '--'}
+          </SizableText>
+        </SkeletonContainer>
+      </XStack>
+    ),
+    [assetCtx.marketCap, isLoading],
+  );
+  return content;
+});
+
+TokenMarketCapCellDesktop.displayName = 'TokenMarketCapCellDesktop';
+
 const TokenOpenInterestCellDesktop = memo(() => {
   const { assetCtx, isLoading } = useTokenSelectorRowContext();
 
@@ -461,7 +495,7 @@ const TokenOpenInterestCellDesktop = memo(() => {
 TokenOpenInterestCellDesktop.displayName = 'TokenOpenInterestCellDesktop';
 
 const TokenSelectorRowDesktop = memo(() => {
-  const { onPress } = useTokenSelectorRowContext();
+  const { onPress, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -483,13 +517,23 @@ const TokenSelectorRowDesktop = memo(() => {
           <TokenInfoCellDesktop />
           <TokenPriceCellDesktop />
           <Token24hChangeCellDesktop />
-          <TokenFundingCellDesktop />
-          <TokenVolumeCellDesktop />
-          <TokenOpenInterestCellDesktop />
+          {isSpot ? null : (
+            <>
+              <TokenFundingCellDesktop />
+              <TokenVolumeCellDesktop />
+              <TokenOpenInterestCellDesktop />
+            </>
+          )}
+          {isSpot ? (
+            <>
+              <TokenVolumeCellDesktop />
+              <TokenMarketCapCellDesktop />
+            </>
+          ) : null}
         </XStack>
       </DebugRenderTracker>
     ),
-    [onPress],
+    [onPress, isSpot],
   );
   return content;
 });
@@ -508,7 +552,7 @@ const TokenImageMobile = memo(() => {
         offsetY={10}
       >
         <XStack gap="$2" alignItems="center">
-          <FavoriteButton coin={token.name} isMobile />
+          <FavoriteButton coin={token.name} isMobile isSpot={isSpot} />
           <Token
             size="lg"
             borderRadius="$full"
@@ -528,7 +572,7 @@ const TokenImageMobile = memo(() => {
 TokenImageMobile.displayName = 'TokenImageMobile';
 
 const TokenNameMobile = memo(() => {
-  const { token } = useTokenSelectorRowContext();
+  const { token, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -542,22 +586,24 @@ const TokenNameMobile = memo(() => {
             <SizableText size="$bodyMdMedium">{token.displayName}</SizableText>
 
             <XStack gap="$1">
-              <XStack
-                borderRadius="$1"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
-                <SizableText
-                  fontSize={10}
-                  alignSelf="center"
-                  color="$textSubdued"
-                  lineHeight={16}
+              {!isSpot && token.maxLeverage > 0 ? (
+                <XStack
+                  borderRadius="$1"
+                  bg="$bgStrong"
+                  justifyContent="center"
+                  alignItems="center"
+                  px="$1.5"
                 >
-                  {token.maxLeverage}x
-                </SizableText>
-              </XStack>
+                  <SizableText
+                    fontSize={10}
+                    alignSelf="center"
+                    color="$textSubdued"
+                    lineHeight={16}
+                  >
+                    {token.maxLeverage}x
+                  </SizableText>
+                </XStack>
+              ) : null}
               {token.subtitle ? (
                 <SubtitleBadge
                   subtitle={token.subtitle}
@@ -569,7 +615,7 @@ const TokenNameMobile = memo(() => {
         </YStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.subtitle, token.maxLeverage],
+    [token.displayName, token.subtitle, token.maxLeverage, isSpot],
   );
   return content;
 });
@@ -717,7 +763,79 @@ const TokenSelectorRowMobile = memo(() => {
 
 TokenSelectorRowMobile.displayName = 'TokenSelectorRowMobile';
 
-const PerpTokenSelectorRow = memo(
+const SpotTokenSelectorRowInner = memo(
+  ({
+    spotUniverse,
+    onPress,
+    isOnModal,
+  }: {
+    spotUniverse: ISpotUniverse;
+    onPress: (name: string) => void;
+    isOnModal?: boolean;
+  }) => {
+    const [spotPriceMap] = useSpotAssetCtxsMapAtom();
+    // Use pair name (@107 or PURR/USDC) as key — matches universe.name
+    const ctx = spotPriceMap[spotUniverse.name];
+    const markPx = ctx?.markPx || '0';
+    const prevDayPx = Number(ctx?.prevDayPx || 0);
+    const markPxNum = Number(markPx);
+    const change24hPercent =
+      prevDayPx > 0 ? ((markPxNum - prevDayPx) / prevDayPx) * 100 : 0;
+    const change24h = prevDayPx > 0 ? (markPxNum - prevDayPx).toFixed(6) : '0';
+
+    const handlePress = useMemo(
+      () => () => onPress(spotUniverse.name),
+      [onPress, spotUniverse.name],
+    );
+
+    const contextValue: ITokenSelectorRowContextValue = useMemo(
+      () => ({
+        isSpot: true,
+        token: {
+          name: getSpotTokenDisplayName(spotUniverse.baseName),
+          displayName: formatSpotPairDisplayName(
+            spotUniverse.baseName,
+            spotUniverse.quoteName,
+          ),
+          maxLeverage: 0,
+          assetId: spotUniverse.assetId,
+        },
+        assetCtx: {
+          markPrice: markPx,
+          change24h,
+          change24hPercent,
+          fundingRate: '0',
+          volume24h: ctx?.dayNtlVlm || '0',
+          openInterest: '0',
+          marketCap:
+            ctx?.circulatingSupply && markPxNum > 0
+              ? `${Math.round(Number(ctx.circulatingSupply) * markPxNum).toLocaleString('en-US')} ${spotUniverse.quoteName}`
+              : undefined,
+        },
+        isLoading: !ctx,
+        onPress: handlePress,
+      }),
+      [
+        spotUniverse,
+        markPx,
+        markPxNum,
+        change24h,
+        change24hPercent,
+        ctx,
+        handlePress,
+      ],
+    );
+
+    return (
+      <TokenSelectorRowProvider value={contextValue}>
+        {isOnModal ? <TokenSelectorRowMobile /> : <TokenSelectorRowDesktop />}
+      </TokenSelectorRowProvider>
+    );
+  },
+);
+SpotTokenSelectorRowInner.displayName = 'SpotTokenSelectorRowInner';
+
+const PerpTokenSelectorRowPerps = memo(
   ({
     mockedToken,
     onPress,
@@ -796,7 +914,37 @@ const PerpTokenSelectorRow = memo(
     );
   },
 );
+PerpTokenSelectorRowPerps.displayName = 'PerpTokenSelectorRowPerps';
 
+const PerpTokenSelectorRow = memo(
+  ({
+    mockedToken,
+    onPress,
+    isOnModal,
+    skipMarkRequired,
+  }: IPerpTokenSelectorRowProps) => {
+    // Spot path: render from spotUniverse data
+    if (mockedToken.spotUniverse) {
+      return (
+        <SpotTokenSelectorRowInner
+          spotUniverse={mockedToken.spotUniverse}
+          onPress={onPress}
+          isOnModal={isOnModal}
+        />
+      );
+    }
+
+    // Perps path: existing logic
+    return (
+      <PerpTokenSelectorRowPerps
+        mockedToken={mockedToken}
+        onPress={onPress}
+        isOnModal={isOnModal}
+        skipMarkRequired={skipMarkRequired}
+      />
+    );
+  },
+);
 PerpTokenSelectorRow.displayName = 'PerpTokenSelectorRow';
 
 export { PerpTokenSelectorRow };

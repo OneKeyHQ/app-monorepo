@@ -40,20 +40,24 @@ import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebvi
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
-  usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
+  SPOT_MIN_VOLUME_STRICT,
+  formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
+  getSpotTokenDisplayName,
   isSpotInstrument,
-  parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
+  ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import {
   DEFAULT_PERP_TOKEN_ACTIVE_TAB,
@@ -68,15 +72,20 @@ import {
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
+import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import { SortableHeaderCell } from './SortableHeaderCell';
 
+export const SPOT_DEX_INDEX = -1;
+
 export type ITokenSelectorListItem = {
   dexIndex: number;
   index: number;
   assetId?: number;
+  // Spot-specific: carries display name for rendering since spot uses @N identifiers
+  spotUniverse?: ISpotUniverse;
 };
 
 const TabItem = memo(
@@ -114,7 +123,7 @@ const TabItem = memo(
 );
 TabItem.displayName = 'TabItem';
 
-function TokenListHeader() {
+function TokenListHeader({ isSpot }: { isSpot?: boolean }) {
   const intl = useIntl();
   return (
     <XStack
@@ -144,27 +153,47 @@ function TokenListHeader() {
         })}
         width={150}
       />
-      <SortableHeaderCell
-        field="fundingRate"
-        label={intl.formatMessage({
-          id: ETranslations.perp_position_funding,
-        })}
-        width={110}
-      />
-      <SortableHeaderCell
-        field="volume24h"
-        label={intl.formatMessage({
-          id: ETranslations.perp_token_selector_volume,
-        })}
-        width={110}
-      />
-      <SortableHeaderCell
-        field="openInterest"
-        label={intl.formatMessage({
-          id: ETranslations.perp_token_bar_open_Interest,
-        })}
-        width={120}
-      />
+      {isSpot ? null : (
+        <>
+          <SortableHeaderCell
+            field="fundingRate"
+            label={intl.formatMessage({
+              id: ETranslations.perp_position_funding,
+            })}
+            width={110}
+          />
+          <SortableHeaderCell
+            field="volume24h"
+            label={intl.formatMessage({
+              id: ETranslations.perp_token_selector_volume,
+            })}
+            width={110}
+          />
+          <SortableHeaderCell
+            field="openInterest"
+            label={intl.formatMessage({
+              id: ETranslations.perp_token_bar_open_Interest,
+            })}
+            width={120}
+          />
+        </>
+      )}
+      {isSpot ? (
+        <>
+          <SortableHeaderCell
+            field="volume24h"
+            label={intl.formatMessage({
+              id: ETranslations.perp_token_selector_volume,
+            })}
+            width={130}
+          />
+          <SortableHeaderCell
+            field="openInterest"
+            label="Market Cap"
+            width={200}
+          />
+        </>
+      ) : null}
     </XStack>
   );
 }
@@ -195,9 +224,21 @@ function BasePerpTokenSelectorContent({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
+      spot: 'Spot',
     }),
     [intl],
   );
+
+  // Spot data
+  const [spotPriceMap] = useSpotAssetCtxsMapAtom();
+  const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
+  useEffect(() => {
+    void backgroundApiProxy.serviceHyperliquid
+      .getSpotMeta()
+      .then(({ universes }) => {
+        setSpotUniverses(universes);
+      });
+  }, []);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
 
@@ -214,8 +255,11 @@ function BasePerpTokenSelectorContent({
             }) as any,
         );
       });
+      actions.current.setTradeRouteViewState({
+        tokenSelectorTab: tab,
+      });
     },
-    [setSelectorConfig],
+    [actions, setSelectorConfig],
   );
 
   const handleSelectToken = useCallback(
@@ -223,18 +267,30 @@ function BasePerpTokenSelectorContent({
       const isSpotToken = isSpotInstrument(symbol);
       try {
         onLoadingChange(true);
+        if (isSpotToken) {
+          const universe = spotUniverses.find((u) => u.name === symbol);
+          if (!universe) {
+            return;
+          }
+          await actions.current.switchTradeInstrument({
+            mode: 'spot',
+            coin: symbol,
+            spotUniverse: universe,
+          });
+        } else {
+          await actions.current.switchTradeInstrument({
+            mode: 'perp',
+            coin: symbol,
+          });
+        }
         void closePopover?.();
-        await actions.current.switchTradeInstrument({
-          mode: isSpotToken ? 'spot' : 'perp',
-          coin: symbol,
-        });
       } catch (error) {
         console.error('Failed to switch token:', error);
       } finally {
         onLoadingChange(false);
       }
     },
-    [closePopover, actions, onLoadingChange],
+    [closePopover, actions, onLoadingChange, spotUniverses],
   );
 
   const { favoriteItems, isReady: isFavoritesReady } = usePerpsFavorites();
@@ -271,6 +327,12 @@ function BasePerpTokenSelectorContent({
       actions.current.markAllAssetCtxsNotRequired();
     };
   }, [actions]);
+
+  useEffect(() => {
+    actions.current.setTradeRouteViewState({
+      tokenSelectorTab: activeTab,
+    });
+  }, [actions, activeTab]);
 
   const computeSortValues = useCallback(
     (assetCtx: IPerpsAssetCtx | undefined) => {
@@ -343,6 +405,89 @@ function BasePerpTokenSelectorContent({
   );
 
   const activeTabData = useMemo(() => {
+    // Spot tab: render from spot universe data
+    if (activeTab === 'spot') {
+      let filtered = spotUniverses;
+      const sortField = selectorConfig?.field ?? '';
+      const sortDirection = selectorConfig?.direction ?? 'desc';
+
+      // Apply search filter — match raw name, display name, and formatted display name
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter((u) => {
+          const displayBase = getSpotTokenDisplayName(u.baseName);
+          const pairDisplay = formatSpotPairDisplayName(
+            u.baseName,
+            u.quoteName,
+          );
+          return (
+            u.baseName.toLowerCase().includes(q) ||
+            displayBase.toLowerCase().includes(q) ||
+            pairDisplay.toLowerCase().includes(q)
+          );
+        });
+      }
+
+      const entries = filtered
+        .map((u, index) => {
+          // Use pair name (@107 or PURR/USDC) as key
+          const ctx = spotPriceMap[u.name];
+          const markPrice = Number(ctx?.markPx || 0);
+          const prevDayPx = Number(ctx?.prevDayPx || 0);
+          const change24hPercent =
+            prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+          const volume24h = Number(ctx?.dayNtlVlm || 0);
+          const circulatingSupply = Number(ctx?.circulatingSupply || 0);
+          const marketCap = circulatingSupply * markPrice;
+          return {
+            item: {
+              dexIndex: SPOT_DEX_INDEX,
+              index,
+              assetId: u.assetId,
+              spotUniverse: u,
+            } as ITokenSelectorListItem,
+            name: u.baseName,
+            markPrice,
+            change24hPercent,
+            volume24h,
+            marketCap,
+          };
+        })
+        .filter((e) => e.volume24h >= SPOT_MIN_VOLUME_STRICT);
+
+      if (sortField) {
+        entries.sort((a, b) => {
+          let cmp = 0;
+          switch (sortField) {
+            case 'name':
+              cmp = a.name.localeCompare(b.name, undefined, {
+                sensitivity: 'base',
+              });
+              break;
+            case 'markPrice':
+              cmp = a.markPrice - b.markPrice;
+              break;
+            case 'change24hPercent':
+              cmp = a.change24hPercent - b.change24hPercent;
+              break;
+            case 'volume24h':
+              cmp = a.volume24h - b.volume24h;
+              break;
+            case 'openInterest':
+              // Reuse openInterest field for marketCap sort in spot tab
+              cmp = a.marketCap - b.marketCap;
+              break;
+            default:
+              break;
+          }
+          return sortDirection === 'asc' ? cmp : -cmp;
+        });
+      }
+
+      return entries.map((e) => e.item);
+    }
+
+    // Perps tabs: existing logic
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] =
       ctxSnapshotRef.current || [];
@@ -419,7 +564,11 @@ function BasePerpTokenSelectorContent({
     favoriteItems,
     sortCompare,
     selectorConfig?.field,
+    selectorConfig?.direction,
     activeTab,
+    spotPriceMap,
+    searchQuery,
+    spotUniverses,
   ]);
 
   // Always show all dynamic tabs — filtering them by search would hide tabs mid-search.
@@ -515,6 +664,12 @@ function BasePerpTokenSelectorContent({
             isFocused={activeTab === 'all'}
             onPress={setActiveTab}
           />
+          <TabItem
+            id="spot"
+            name={tabNames.spot}
+            isFocused={activeTab === 'spot'}
+            onPress={setActiveTab}
+          />
           {visibleDynamicTabs.map((tab: IPerpDynamicTab) => (
             <TabItem
               key={tab.tabId}
@@ -526,7 +681,9 @@ function BasePerpTokenSelectorContent({
           ))}
         </XStack>
         <YStack>
-          {!showFavoritesEmpty ? <TokenListHeader /> : null}
+          {!showFavoritesEmpty ? (
+            <TokenListHeader isSpot={activeTab === 'spot'} />
+          ) : null}
           <YStack height={350}>
             {showFavoritesEmpty ? (
               <FavoritesEmptyState />
@@ -575,10 +732,9 @@ const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
   const intl = useIntl();
+  const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
-  const [currentToken] = usePerpsActiveAssetAtom();
-  const { coin } = currentToken;
-  const parsedActive = useMemo(() => parseDexCoin(coin), [coin]);
+  const { displayName, baseName, mode } = useActiveTradeDisplay();
   const [isLoading, setIsLoading] = useState(false);
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
 
@@ -589,6 +745,11 @@ function BasePerpTokenSelector() {
         setBuilderFeeRate(fee);
       });
   }, []);
+  useEffect(() => {
+    actions.current.setTradeRouteViewState({
+      tokenSelectorOpen: isOpen,
+    });
+  }, [actions, isOpen]);
   const content = useMemo(
     () => (
       <Popover
@@ -597,7 +758,9 @@ function BasePerpTokenSelector() {
           width: 800,
         }}
         open={isOpen}
-        onOpenChange={setIsOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+        }}
         placement="bottom-start"
         renderTrigger={
           <Badge
@@ -617,15 +780,13 @@ function BasePerpTokenSelector() {
             <Token
               size="md"
               borderRadius="$full"
-              tokenImageUri={getHyperliquidTokenImageUrl(
-                parsedActive.displayName,
-              )}
+              tokenImageUri={getHyperliquidTokenImageUrl(baseName)}
               fallbackIcon="CryptoCoinOutline"
             />
 
             {/* Token Name */}
             <SizableText size="$heading2xl">
-              {parsedActive.displayName}USDC
+              {mode === 'spot' ? displayName : `${displayName}USDC`}
             </SizableText>
             {builderFeeRate === 0 ? (
               <Tooltip
@@ -658,7 +819,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, isLoading, parsedActive.displayName, builderFeeRate, intl],
+    [isOpen, isLoading, displayName, baseName, mode, builderFeeRate, intl],
   );
   return (
     <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>
@@ -670,54 +831,55 @@ export const PerpTokenSelector = memo(BasePerpTokenSelector);
 const BasePerpTokenSelectorMobileView = memo(
   ({
     onPressTokenSelector,
-    coin,
+    displayLabel,
     change24hPercent,
   }: {
     onPressTokenSelector: () => void;
-    coin: string;
+    displayLabel: string;
     change24hPercent: number;
-  }) => {
-    const parsedCoin = useMemo(() => parseDexCoin(coin), [coin]);
-    const displayCoin = parsedCoin.displayName || coin;
-
-    return (
-      <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
-        <XStack
-          gap="$1"
-          bg="$bgApp"
-          justifyContent="center"
-          alignItems="center"
-          onPress={onPressTokenSelector}
-          hitSlop={NATIVE_HIT_SLOP}
+  }) => (
+    <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
+      <XStack
+        gap="$1"
+        bg="$bgApp"
+        justifyContent="center"
+        alignItems="center"
+        onPress={onPressTokenSelector}
+        hitSlop={NATIVE_HIT_SLOP}
+      >
+        <SizableText size="$headingLg">{displayLabel}</SizableText>
+        <NumberSizeableText
+          style={{ fontSize: 10 }}
+          fontFamily="$monoRegular"
+          fontVariant={['tabular-nums']}
+          alignSelf="center"
+          color={change24hPercent >= 0 ? '$green11' : '$red11'}
+          formatter="priceChange"
+          formatterOptions={{
+            showPlusMinusSigns: true,
+          }}
         >
-          <SizableText size="$headingLg">{displayCoin}USDC</SizableText>
-          <NumberSizeableText
-            style={{ fontSize: 10 }}
-            fontFamily="$monoRegular"
-            fontVariant={['tabular-nums']}
-            alignSelf="center"
-            color={change24hPercent >= 0 ? '$green11' : '$red11'}
-            formatter="priceChange"
-            formatterOptions={{
-              showPlusMinusSigns: true,
-            }}
-          >
-            {change24hPercent}
-          </NumberSizeableText>
-          <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
-        </XStack>
-      </DebugRenderTracker>
-    );
-  },
+          {change24hPercent}
+        </NumberSizeableText>
+        <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
+      </XStack>
+    </DebugRenderTracker>
+  ),
 );
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
+  const { displayName, mode } = useActiveTradeDisplay();
 
-  const [asset] = usePerpsActiveAssetAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const coin = asset?.coin || '';
-  const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const change24hPercent =
+    mode === 'spot'
+      ? spotAssetCtx?.ctx?.change24hPercent || 0
+      : assetCtx?.ctx?.change24hPercent || 0;
+
+  const displayLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
+
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
@@ -727,7 +889,7 @@ function BasePerpTokenSelectorMobile() {
   return (
     <BasePerpTokenSelectorMobileView
       onPressTokenSelector={onPressTokenSelector}
-      coin={coin}
+      displayLabel={displayLabel}
       change24hPercent={change24hPercent}
     />
   );

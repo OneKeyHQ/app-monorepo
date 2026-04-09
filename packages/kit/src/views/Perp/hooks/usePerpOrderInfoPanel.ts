@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
   usePerpsTradesHistoryDataAtom,
   usePerpsTradesHistoryRefreshHookAtom,
+  useSpotTradesHistoryDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_HISTORY_FILLS_URL } from '@onekeyhq/shared/src/consts/perp';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -16,8 +18,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 
 export function usePerpTradesHistory() {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
-  const [tradesData] = usePerpsTradesHistoryDataAtom();
+  const [perpsTradesData] = usePerpsTradesHistoryDataAtom();
+  const [spotTradesData] = useSpotTradesHistoryDataAtom();
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
 
   const [currentListPage, setCurrentListPage] = useState(1);
@@ -59,6 +63,8 @@ export function usePerpTradesHistory() {
     }, 300);
   }, [refreshHook]);
 
+  const tradesData =
+    activeTradeInstrument.mode === 'spot' ? spotTradesData : perpsTradesData;
   const fills: IFill[] = tradesData?.fills ?? [];
   const isLoaded: boolean = tradesData?.isLoaded ?? false;
   const hasAccountAddress = Boolean(currentAccount?.accountAddress);
@@ -67,6 +73,7 @@ export function usePerpTradesHistory() {
     trades: fills,
     currentListPage,
     setCurrentListPage,
+    mode: activeTradeInstrument.mode,
     // If current account has no Perp address (unsupported or not created yet),
     // show empty state instead of skeleton loading.
     isLoading: hasAccountAddress ? !isLoaded : false,

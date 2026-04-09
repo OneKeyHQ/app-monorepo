@@ -3,8 +3,17 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { useSpotAssetCtxsMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  formatSpotPairDisplayName,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type {
+  IPerpsUniverse,
+  ISpotUniverse,
+} from '@onekeyhq/shared/types/hyperliquid';
 import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -12,8 +21,10 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 const POPULAR_TICKER_COUNT = 10;
 
 export interface IPopularTickerItem {
+  mode: 'perp' | 'spot';
   coinName: string;
   displayName: string;
+  imageTokenName: string;
   assetId: number;
   dexIndex: number;
   hotScore: number;
@@ -28,12 +39,27 @@ export interface IPopularTickerItem {
  * disappearing when the user types in the token search bar.
  */
 export function usePopularTickers(): IPopularTickerItem[] {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
+  const [spotPriceMap] = useSpotAssetCtxsMapAtom();
+  const mode = activeTradeInstrument.mode;
 
   // Fetch the full universe independently — must not read from the
   // search-filtered atom, otherwise popular tickers disappear during search.
   const { result: universe } = usePromiseResult(
-    async () => {
+    async (): Promise<IPerpsUniverse[][] | ISpotUniverse[]> => {
+      if (mode === 'spot') {
+        let { universes } = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+
+        if (!universes?.length) {
+          await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+          const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+          universes = res.universes;
+        }
+
+        return universes ?? [];
+      }
+
       let { universesByDex } =
         await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
 
@@ -50,19 +76,55 @@ export function usePopularTickers(): IPopularTickerItem[] {
 
       return universesByDex ?? [];
     },
-    [],
+    [mode],
     { checkIsFocused: false },
   );
 
   return useMemo(() => {
+    if (mode === 'spot') {
+      const spotUniverses = universe as ISpotUniverse[] | undefined;
+      if (!spotUniverses?.length) {
+        return [];
+      }
+
+      const scored = spotUniverses
+        .map((asset) => {
+          const ctx = spotPriceMap[asset.name];
+          const volume24h = new BigNumber(ctx?.dayNtlVlm ?? '0');
+          const markPrice = new BigNumber(ctx?.markPx ?? '0');
+          const circulatingSupply = new BigNumber(ctx?.circulatingSupply ?? '0');
+          const hotScore = volume24h.toNumber();
+          const marketCap = circulatingSupply.multipliedBy(markPrice).toNumber();
+
+          return {
+            mode: 'spot' as const,
+            coinName: asset.name,
+            displayName:
+              asset.displayName ||
+              formatSpotPairDisplayName(asset.baseName, asset.quoteName),
+            imageTokenName: asset.baseName,
+            assetId: asset.assetId,
+            dexIndex: -1,
+            hotScore: Number.isFinite(hotScore) ? hotScore : 0,
+            marketCap,
+          };
+        })
+        .filter((item) => item.hotScore > 0 || item.marketCap > 0);
+
+      scored.sort((a, b) => b.hotScore - a.hotScore || b.marketCap - a.marketCap);
+      return scored.slice(0, POPULAR_TICKER_COUNT).map(({ marketCap, ...item }) => item);
+    }
+
     const { assetCtxsByDex } = allAssetCtxs;
 
     if (!assetCtxsByDex.length || !universe?.length) return [];
 
+    // After the mode === 'spot' early return above, universe is IPerpsUniverse[][]
+    const perpUniverse = universe as IPerpsUniverse[][];
     const scored: IPopularTickerItem[] = [];
 
-    for (let dexIndex = 0; dexIndex < universe.length; dexIndex += 1) {
-      const assets = universe[dexIndex] ?? [];
+    for (let dexIndex = 0; dexIndex < perpUniverse.length; dexIndex += 1) {
+      const assets = perpUniverse[dexIndex] ?? [];
       const ctxs = assetCtxsByDex[dexIndex] ?? [];
 
       for (const asset of assets) {
@@ -81,8 +143,10 @@ export function usePopularTickers(): IPopularTickerItem[] {
             if (Number.isFinite(hotScore) && hotScore > 0) {
               const parsed = parseDexCoin(asset.name);
               scored.push({
+                mode: 'perp',
                 coinName: asset.name,
                 displayName: parsed.displayName,
+                imageTokenName: parsed.displayName,
                 assetId: asset.assetId,
                 dexIndex,
                 hotScore,
@@ -95,5 +159,5 @@ export function usePopularTickers(): IPopularTickerItem[] {
 
     scored.sort((a, b) => b.hotScore - a.hotScore);
     return scored.slice(0, POPULAR_TICKER_COUNT);
-  }, [allAssetCtxs, universe]);
+  }, [allAssetCtxs, mode, spotPriceMap, universe]);
 }

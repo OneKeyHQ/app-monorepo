@@ -14,13 +14,14 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import {
+  useActiveTradeInstrumentAtom,
+  useConnectionStateAtom,
   useHyperliquidActions,
   useOrderBookTickOptionsAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -28,7 +29,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
-import { usePerpSession } from '../hooks/usePerpSession';
 
 import {
   type IOrderBookSelection,
@@ -44,9 +44,18 @@ import type { IOrderBookVariant } from './OrderBook/types';
 function MobileHeader() {
   const intl = useIntl();
   const countdown = useFundingCountdown();
-  const { isReady, hasError } = usePerpSession();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const hasError = connectionState.reconnectCount > 3;
+  const isReady = connectionState.isConnected && !hasError;
+  const isSpot = activeTradeInstrument.mode === 'spot';
 
+  if (isSpot) {
+    return null;
+  }
+
+  // After the isSpot early return above, we know this is perps-only
   const { fundingRate, markPrice } = assetCtx?.ctx || {
     fundingRate: '0',
     markPrice: '0',
@@ -318,14 +327,14 @@ export function PerpOrderBook({
 }) {
   const { gtMd } = useMedia();
   const actionsRef = useHyperliquidActions();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
-  const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
 
   const l2SubscriptionOptions = useMemo(() => {
-    const coin = perpsSelectedSymbol?.coin;
+    const coin = activeTradeInstrument.coin;
     if (!coin) {
       return { nSigFigs: null, mantissa: undefined };
     }
@@ -334,7 +343,7 @@ export function PerpOrderBook({
     const mantissa =
       stored?.mantissa === undefined ? undefined : stored.mantissa;
     return { nSigFigs, mantissa };
-  }, [orderBookTickOptions, perpsSelectedSymbol?.coin]);
+  }, [activeTradeInstrument.coin, orderBookTickOptions]);
 
   const { l2Book, hasOrderBook } = useL2Book({
     nSigFigs: l2SubscriptionOptions.nSigFigs,
