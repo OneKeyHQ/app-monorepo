@@ -1,22 +1,17 @@
-import { useIntl } from 'react-intl';
-
 import { Divider, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useStockSecurityStats } from '../../hooks/useStockSecurityStats';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import { StockDescriptionRows } from '../StockDescriptionRows';
+import { StockStatSections } from '../StockStatSections';
 
-import { StatCard } from './components/StatCard';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
 
 export function StockTokenOverview() {
-  const intl = useIntl();
   const { tokenDetail, isStockToken } = useTokenDetail();
-  const { statRows, descriptionRows } = useStockSecurityStats(
-    tokenDetail?.stock,
-  );
+  const { assetAnalysisRows, tradingActivityRows, descriptionRows } =
+    useStockSecurityStats(tokenDetail?.stock);
 
   if (!tokenDetail || !isStockToken) {
     return <TokenOverviewSkeleton />;
@@ -42,21 +37,10 @@ export function StockTokenOverview() {
 
       <Divider my="$1" />
 
-      <Stack gap="$2">
-        <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({
-            id: ETranslations.dexmarket_stock_asset_analysis,
-          })}
-        </SizableText>
-
-        {statRows.map((row) => (
-          <XStack key={row[0]?.label} gap="$2">
-            {row.map((item) => (
-              <StatCard key={item.label} {...item} />
-            ))}
-          </XStack>
-        ))}
-      </Stack>
+      <StockStatSections
+        assetAnalysisRows={assetAnalysisRows}
+        tradingActivityRows={tradingActivityRows}
+      />
     </Stack>
   );
 }
