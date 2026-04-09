@@ -19,9 +19,9 @@ import { secureCache } from './core';
 import { ERROR_CODES } from './errors';
 import { apiClient } from './infra';
 import { OutputFormatter } from './output';
+import './schemas/register-all';
 import { createLogger } from './utils/logger';
 import { detectOutputMode } from './utils/mode-detector';
-import './schemas/register-all';
 
 import type { IEndpointEnv } from './config';
 

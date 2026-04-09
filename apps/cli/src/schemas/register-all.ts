@@ -1,6 +1,4 @@
 // apps/cli/src/schemas/register-all.ts
-import { defineCommand } from './registry';
-
 import { balanceAllOutputSchema, balanceInputSchema } from './balance-schema';
 import { importInputSchema, importOutputSchema } from './import-schema';
 import { logoutInputSchema, logoutOutputSchema } from './logout-schema';
@@ -12,6 +10,7 @@ import {
   marketPricesInputSchema,
   marketPricesOutputSchema,
 } from './market-schemas';
+import { defineCommand } from './registry';
 import {
   securityAuditInputSchema,
   securityAuditOutputSchema,
