@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useAccountSelectorSyncLoadingAtom } from '../../states/jotai/contexts/accountSelector';
+import { useIsAccountSelectorSyncLoading } from '../../states/jotai/contexts/accountSelector';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
 import {
@@ -33,8 +33,7 @@ function InPageHeader({
   tabRoute: ETabRoutes;
   hasNoUsableWallet?: boolean;
 }) {
-  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
-  const isSyncLoading = syncLoading?.[0]?.isLoading;
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
 
   const item = useMemo(() => {
     if (

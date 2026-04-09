@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useAccountSelectorSyncLoadingAtom } from '../../states/jotai/contexts/accountSelector';
+import { useIsAccountSelectorSyncLoading } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { MoreActionButton } from '../MoreActionButton';
 
@@ -84,8 +84,7 @@ export function MDHeader({
     tabRoute === ETabRoutes.Home &&
     sceneName !== EAccountSelectorSceneName.homeUrlAccount;
 
-  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
-  const isSyncLoading = syncLoading?.[0]?.isLoading;
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
 
   return (
     <>

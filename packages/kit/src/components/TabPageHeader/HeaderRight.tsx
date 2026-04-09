@@ -12,8 +12,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  useAccountSelectorSyncLoadingAtom,
   useActiveAccount,
+  useIsAccountSelectorSyncLoading,
 } from '../../states/jotai/contexts/accountSelector';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
@@ -34,8 +34,7 @@ export function SelectorTrigger() {
   const {
     activeAccount: { network, wallet, account },
   } = useActiveAccount({ num: 0 });
-  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
-  const isSyncLoading = syncLoading?.[0]?.isLoading;
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
 
   const hasNoUsableWallet = accountUtils.hasNoUsableWallet({ wallet, account });
 

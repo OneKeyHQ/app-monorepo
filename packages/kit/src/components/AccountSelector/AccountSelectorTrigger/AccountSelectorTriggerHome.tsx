@@ -3,8 +3,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
-  useAccountSelectorSyncLoadingAtom,
   useActiveAccount,
+  useIsAccountSelectorSyncLoading,
 } from '../../../states/jotai/contexts/accountSelector';
 
 import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
@@ -29,8 +29,7 @@ export function AccountSelectorTriggerHome({
   });
   const resolvedLinkNetworkId =
     linkNetworkId ?? (!network?.isAllNetworks ? network?.id : undefined);
-  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
-  const isSyncLoading = syncLoading?.[num]?.isLoading;
+  const isSyncLoading = useIsAccountSelectorSyncLoading(num);
 
   if (
     !platformEnv.isWebDappMode &&

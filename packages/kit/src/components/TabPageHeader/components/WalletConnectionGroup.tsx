@@ -20,8 +20,8 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
-  useAccountSelectorSyncLoadingAtom,
   useActiveAccount,
+  useIsAccountSelectorSyncLoading,
 } from '../../../states/jotai/contexts/accountSelector';
 import { AllNetworksManagerTrigger } from '../../AccountSelector/AllNetworksManagerTrigger';
 
@@ -153,8 +153,7 @@ export function WalletConnectionGroup({
     ],
   );
 
-  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
-  const isSyncLoading = syncLoading?.[0]?.isLoading;
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
 
   if (
     !platformEnv.isWebDappMode &&

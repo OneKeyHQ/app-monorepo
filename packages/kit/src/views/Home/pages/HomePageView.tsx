@@ -48,8 +48,8 @@ import {
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import {
-  useAccountSelectorSyncLoadingAtom,
   useActiveAccount,
+  useIsAccountSelectorSyncLoading,
 } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
@@ -595,8 +595,7 @@ export function HomePageView({
     setTabPageHeight(height);
   }, []);
 
-  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
-  const isSyncLoading = syncLoading?.[0]?.isLoading;
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
 
   const hasNoUsableWallet = useMemo(
     () => accountUtils.hasNoUsableWallet({ wallet, account }),
