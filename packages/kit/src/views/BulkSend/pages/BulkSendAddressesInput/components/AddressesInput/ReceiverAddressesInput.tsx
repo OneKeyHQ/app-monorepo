@@ -13,6 +13,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,11 +26,61 @@ import { useBulkSendAddressesInputContext } from '../Context';
 import LineNumberedTextArea, {
   ELineAnnotationType,
 } from './LineNumberedTextArea';
+import {
+  type IBulkSendSelectorAccountItem,
+  buildBulkSendSelectorAddressKey,
+  resolveBulkSendSelectorFallbackAccount,
+} from './senderSelectorAccountUtils';
 import { useMultiLineAddressValidation } from './useMultiLineAddressValidation';
 
 type IReceiverAddressesInputProps = {
   maxLines?: number;
 };
+
+function buildReceiverSelectorAccountItem(
+  activeAccount: IAccountSelectorActiveAccountInfo,
+): IBulkSendSelectorAccountItem | undefined {
+  if (
+    !activeAccount.wallet ||
+    !activeAccount.account?.id ||
+    !activeAccount.account.address
+  ) {
+    return undefined;
+  }
+
+  return {
+    address: activeAccount.account.address,
+    walletName: activeAccount.wallet.name,
+    accountName: activeAccount.account.name,
+    accountId: activeAccount.account.id,
+    indexedAccountId: activeAccount.indexedAccount?.id,
+  };
+}
+
+function useReceiverSelectorAccountItems() {
+  const selectorAccountItemsRef = useRef<
+    Record<string, IBulkSendSelectorAccountItem>
+  >({});
+
+  const handleActiveAccountChange = useCallback(
+    (activeAccount: IAccountSelectorActiveAccountInfo) => {
+      const selectorAccountItem =
+        buildReceiverSelectorAccountItem(activeAccount);
+      if (selectorAccountItem) {
+        selectorAccountItemsRef.current[
+          buildBulkSendSelectorAddressKey(selectorAccountItem.address)
+        ] = selectorAccountItem;
+        void backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+      }
+    },
+    [],
+  );
+
+  return {
+    selectorAccountItemsRef,
+    handleActiveAccountChange,
+  };
+}
 
 // ManyToOne: single-line receiver input
 function SingleLineReceiverInput() {
@@ -39,6 +90,8 @@ function SingleLineReceiverInput() {
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const validationSeqRef = useRef(0);
+  const { selectorAccountItemsRef, handleActiveAccountChange } =
+    useReceiverSelectorAccountItems();
 
   const handleValidateAddresses = useCallback(
     async (value: string) => {
@@ -84,6 +137,10 @@ function SingleLineReceiverInput() {
       // Allowlist check
       if (isEnableTransferAllowList && selectedNetworkId) {
         let isAllowed = false;
+        const fallbackAccountItem =
+          selectorAccountItemsRef.current[
+            buildBulkSendSelectorAddressKey(trimmedAddress)
+          ];
         try {
           const isBTCNetwork = networkUtils.isBTCNetwork(selectedNetworkId);
           let walletAccountItems: { accountId: string }[] =
@@ -106,6 +163,21 @@ function SingleLineReceiverInput() {
             )
           ) {
             isAllowed = true;
+          } else {
+            const fallbackResult = await resolveBulkSendSelectorFallbackAccount(
+              {
+                fallbackAccountItem,
+                networkId: selectedNetworkId,
+              },
+            );
+            if (
+              fallbackResult?.type === 'resolved' &&
+              accountUtils.isOwnAccount({
+                accountId: fallbackResult.accountId,
+              })
+            ) {
+              isAllowed = true;
+            }
           }
         } catch {
           // ignore
@@ -141,6 +213,7 @@ function SingleLineReceiverInput() {
       network?.id,
       isEnableTransferAllowList,
       setDuplicateAddressCount,
+      selectorAccountItemsRef,
     ],
   );
 
@@ -170,6 +243,7 @@ function SingleLineReceiverInput() {
         showLineNumbers={false}
         networkId={selectedNetworkId}
         accountId={selectedAccountId}
+        onActiveAccountChange={handleActiveAccountChange}
       />
     </Form.Field>
   );
@@ -180,6 +254,8 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
   const intl = useIntl();
   const { selectedAccountId, selectedNetworkId, selectedToken } =
     useBulkSendAddressesInputContext();
+  const { selectorAccountItemsRef, handleActiveAccountChange } =
+    useReceiverSelectorAccountItems();
 
   const form = useFormContext();
   const senderAddresses = useWatch({
@@ -197,6 +273,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     checkDuplicates: false,
     checkAllowlist: true,
     selectedAccountId,
+    selectorAccountItemsRef,
   });
 
   const validate = useCallback(
@@ -294,6 +371,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
           errors={errors}
           networkId={selectedNetworkId}
           accountId={selectedAccountId}
+          onActiveAccountChange={handleActiveAccountChange}
         />
       </Form.Field>
       {warningMessages ? (
@@ -314,6 +392,8 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     selectedToken,
     setDuplicateAddressCount,
   } = useBulkSendAddressesInputContext();
+  const { selectorAccountItemsRef, handleActiveAccountChange } =
+    useReceiverSelectorAccountItems();
 
   const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
     selectedNetworkId,
@@ -326,6 +406,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     selectedAccountId,
     duplicateWarningMode: true,
     onDuplicateAddressCountChange: setDuplicateAddressCount,
+    selectorAccountItemsRef,
   });
 
   const validate = useCallback(
@@ -383,6 +464,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
           errors={errors}
           networkId={selectedNetworkId}
           accountId={selectedAccountId}
+          onActiveAccountChange={handleActiveAccountChange}
         />
       </Form.Field>
       {warningMessages ? (

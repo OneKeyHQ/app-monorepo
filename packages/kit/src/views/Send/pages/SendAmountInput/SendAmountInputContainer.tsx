@@ -382,7 +382,10 @@ function SendAmountInputContainer() {
       }
     }
     setIsUseFiat((prev) => !prev);
-    form.setValue('amount', amountValue, { shouldValidate: true });
+    // Don't validate here — the validator closes over the stale isUseFiat
+    // value, causing false min-amount errors (OK-52679). A useEffect below
+    // re-triggers validation after isUseFiat state has propagated.
+    form.setValue('amount', amountValue);
   }, [
     form,
     isLightningNetwork,
@@ -392,6 +395,16 @@ function SendAmountInputContainer() {
     lnUnit,
     tokenDetails?.info.decimals,
   ]);
+
+  // Re-validate amount after isUseFiat state propagates so the validator
+  // reads the correct mode. Fixes false min-amount errors on toggle (OK-52679).
+  const isUseFiatRef = useRef(isUseFiat);
+  useEffect(() => {
+    if (isUseFiatRef.current !== isUseFiat) {
+      isUseFiatRef.current = isUseFiat;
+      void form.trigger('amount');
+    }
+  }, [isUseFiat, form]);
 
   const isIntegerAmount = useMemo(() => {
     if (!isUseFiat && isLightningNetwork && lnUnit === ELightningUnit.SATS) {
@@ -799,21 +812,52 @@ function SendAmountInputContainer() {
   const txMessageDescription = useMemo(() => {
     if (recipientIsContract) return '';
     if (!txMessage) return '';
-    return isHexTxMessage
-      ? intl.formatMessage(
-          { id: ETranslations.global_hex_data_input_desc_hex },
-          { utf: txMessageLinkedString },
-        )
-      : intl.formatMessage(
-          { id: ETranslations.global_hex_data_input_desc_utf },
-          { data: txMessageLinkedString },
+    return intl.formatMessage(
+      { id: ETranslations.current_input_format__desc },
+      {
+        format: isHexTxMessage
+          ? intl.formatMessage({ id: ETranslations.raw_data__title })
+          : 'UTF-8',
+      },
+    );
+  }, [intl, isHexTxMessage, recipientIsContract, txMessage]);
+
+  const txMessageViewActionLabel = useMemo(() => {
+    if (!txMessage) return '';
+    return intl.formatMessage(
+      { id: ETranslations.view_format__action },
+      {
+        format: isHexTxMessage
+          ? 'UTF-8'
+          : intl.formatMessage({ id: ETranslations.raw_data__title }),
+      },
+    );
+  }, [intl, isHexTxMessage, txMessage]);
+
+  const showTxMessageRawData = useCallback(() => {
+    if (!txMessage) return;
+    let content = txMessageLinkedString;
+    if (isHexTxMessage) {
+      try {
+        content = Buffer.from(txMessage.replace(/^0x/i, ''), 'hex').toString(
+          'utf-8',
         );
+      } catch {
+        content = txMessageLinkedString;
+      }
+    }
+    Dialog.show({
+      title: txMessageViewActionLabel,
+      description: content,
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
+    });
   }, [
     intl,
     isHexTxMessage,
-    recipientIsContract,
     txMessage,
     txMessageLinkedString,
+    txMessageViewActionLabel,
   ]);
 
   const showTxMessageFaq = useCallback(() => {
@@ -1087,7 +1131,14 @@ function SendAmountInputContainer() {
       }
       return false;
     }
-    return !amount || new BigNumber(amount).isLessThanOrEqualTo(0);
+    if (!amount) return true;
+    if (
+      amount === '0' &&
+      !(tokenInfo?.isNative && vaultSettings?.transferZeroNativeTokenEnabled)
+    ) {
+      return true;
+    }
+    return false;
   }, [
     isSubmitting,
     form.formState.isValid,
@@ -1096,6 +1147,8 @@ function SendAmountInputContainer() {
     isNFT,
     nft?.collectionType,
     nftAmount,
+    tokenInfo?.isNative,
+    vaultSettings?.transferZeroNativeTokenEnabled,
     amount,
   ]);
 
@@ -1534,7 +1587,21 @@ function SendAmountInputContainer() {
                 rules={{
                   validate: validateTxMessage,
                 }}
-                description={txMessageDescription}
+                description={
+                  txMessageDescription ? (
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {`${txMessageDescription} `}
+                      <SizableText
+                        size="$bodySm"
+                        color="$textSubdued"
+                        textDecorationLine="underline"
+                        onPress={showTxMessageRawData}
+                      >
+                        {txMessageViewActionLabel}
+                      </SizableText>
+                    </SizableText>
+                  ) : undefined
+                }
                 labelAddon={
                   <Button
                     size="small"

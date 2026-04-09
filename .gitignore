@@ -42,7 +42,6 @@ yarn-error.log
 !.yarn/versions
 
 .env
-.env.*
 webpack.config.preview.json
 webpack.config.preview.devServer.json
 

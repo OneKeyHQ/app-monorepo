@@ -28,7 +28,7 @@ import { AutoSizeInput } from './AutoSizeInput';
 
 import type { IAutoSizeInputRef } from './AutoSizeInput.types';
 
-const INLINE_SYMBOL_MAX_LENGTH = 12;
+const INLINE_SYMBOL_MAX_LENGTH = 8;
 const WRAPPED_SYMBOL_FONT_SCALE = 0.5;
 const WRAPPED_SYMBOL_MIN_FONT_SIZE = 14;
 const WRAPPED_SYMBOL_MAX_FONT_SIZE = 24;

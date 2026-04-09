@@ -53,11 +53,13 @@ import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 import {
+  DEFAULT_INTERVAL_SETTINGS,
   calculateIsAmountValid,
   calculateTotalAmounts,
   checkSenderInsufficientBalance,
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
+  validateIntervalSettings,
   validateRangeInput,
 } from '../../utils';
 
@@ -224,8 +226,12 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       // Mobile non-OneToMany: navigate to interval page first
       const shouldShowInterval = !media.gtMd && !isOneToMany;
       // Desktop: pass interval settings directly to review
+      // OneToMany uses smart contract batch, interval not applicable
+      const effectiveIntervalSettings = isOneToMany
+        ? { mode: EIntervalMode.None, minSeconds: '', maxSeconds: '' }
+        : intervalSettings;
       const reviewParams = media.gtMd
-        ? { ...params, intervalSettings }
+        ? { ...params, intervalSettings: effectiveIntervalSettings }
         : params;
       const intervalInputParams = {
         ...params,
@@ -557,7 +563,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       return !isAmountValid;
     }
 
-    return !isAmountValid || isInsufficientBalance;
+    // Desktop non-OneToMany: also check interval validity (inline editing has no confirm gate)
+    const hasIntervalError =
+      !isOneToMany && !!validateIntervalSettings(intervalSettings);
+
+    return !isAmountValid || isInsufficientBalance || hasIntervalError;
   }, [
     tokenDetailsState.initialized,
     tokenDetailsState.isRefreshing,
@@ -575,6 +585,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     media.gtMd,
     isInPreviewMode,
     amountInputMode,
+    intervalSettings,
   ]);
 
   const confirmButtonText = useMemo(() => {
@@ -1000,11 +1011,9 @@ function BulkSendAmountsInputContent({
 
   const [isInsufficientBalance, setIsInsufficientBalance] = useState(false);
 
-  const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
-    mode: EIntervalMode.None,
-    minSeconds: '',
-    maxSeconds: '',
-  });
+  const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>(
+    DEFAULT_INTERVAL_SETTINGS,
+  );
 
   // Per-sender accountId map (address -> accountId) from route params
   const senderAccountIdMap = useMemo(() => {
@@ -1258,6 +1267,11 @@ function BulkSendAmountsInputContent({
 
       setSenderBalancesLoading(true);
 
+      const vaultSettings =
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId,
+        });
+
       const balanceMap: Record<string, string> = {};
       const failedSet = new Set<string>();
       const limit = pLimit(5);
@@ -1268,13 +1282,21 @@ function BulkSendAmountsInputContent({
             limit(async () => {
               if (!sender.accountId) return;
               try {
+                const withCheckInscription =
+                  vaultSettings.hasFrozenBalance &&
+                  (await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                    {
+                      networkId,
+                      accountId: sender.accountId,
+                    },
+                  ));
                 const resp =
                   await backgroundApiProxy.serviceToken.fetchTokensDetails({
                     accountId: sender.accountId,
                     networkId,
                     contractList: [tokenInfo.address],
                     withFrozenBalance: true,
-                    withCheckInscription: false,
+                    withCheckInscription,
                   });
                 if (resp[0]) {
                   balanceMap[sender.address] = resp[0].balanceParsed;

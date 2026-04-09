@@ -111,11 +111,11 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       activeAccountFromSelector?.account?.address &&
       accountSelectorOpen.current
     ) {
+      onActiveAccountChange?.(activeAccountFromSelector);
       onChange?.({
         text: activeAccountFromSelector?.account?.address,
         inputType: EInputAddressChangeType.AccountSelector,
       });
-      onActiveAccountChange?.(activeAccountFromSelector);
       accountSelectorOpen.current = false;
     }
   }, [

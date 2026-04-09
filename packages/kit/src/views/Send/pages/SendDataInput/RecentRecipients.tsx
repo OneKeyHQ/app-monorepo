@@ -12,6 +12,7 @@ import {
   Empty,
   MatchSizeableText,
   SizableText,
+  Spinner,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -106,7 +107,10 @@ function QuickSelectListItemBase({
     isEvmNetwork && !hasName && !!item.lastTransferNetworkName;
 
   // Only show menu for items NOT already in address book
-  const showAddToAddressBook = !item.isAddressBook;
+  // Lightning Network doesn't support address book
+  const isLightningNetwork =
+    networkUtils.isLightningNetworkByNetworkId(networkId);
+  const showAddToAddressBook = !item.isAddressBook && !isLightningNetwork;
 
   const addToAddressBookLabel = intl.formatMessage({
     id: ETranslations.add_to_address_book__action,
@@ -303,11 +307,12 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     [intl.locale, formatDistanceToNowStrict],
   );
 
-  const { recentRecipients, isLoadingRecent } = useRecentRecipientsData({
-    accountId,
-    networkId,
-    refreshKey,
-  });
+  const { recentRecipients, isLoadingRecent, isLoadingMore } =
+    useRecentRecipientsData({
+      accountId,
+      networkId,
+      refreshKey,
+    });
 
   const debouncedSearchKey = useDebounce(rawSearchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -470,6 +475,11 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         </SizableText>
       )}
       {renderContent()}
+      {isLoadingMore ? (
+        <XStack justifyContent="center" py="$3">
+          <Spinner size="small" />
+        </XStack>
+      ) : null}
     </Stack>
   );
 }

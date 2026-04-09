@@ -1262,13 +1262,11 @@ function DepositWithdrawContent({
 
   const shouldShowBuyButton = useMemo(
     () =>
-      !errorMessage &&
       isInsufficientBalance &&
       selectedAction === 'deposit' &&
       checkAccountSupport &&
       !balanceLoading,
     [
-      errorMessage,
       isInsufficientBalance,
       selectedAction,
       checkAccountSupport,
@@ -1619,29 +1617,18 @@ function DepositWithdrawContent({
                 {errorMessage}
               </SizableText>
             ) : null}
-            {shouldShowBuyButton ? (
-              <>
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  flexShrink={1}
-                >
-                  {intl.formatMessage(
-                    { id: ETranslations.perps_buy_tip },
-                    { token: currentPerpsDepositSelectedToken?.symbol ?? '' },
-                  )}
-                </SizableText>
-                <DashText
-                  onPress={handleBuyPress}
-                  color="$textSuccess"
-                  size="$bodySmMedium"
-                  dashColor="$textSuccess"
-                  flexShrink={0}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_top_up })}
-                </DashText>
-              </>
+            {shouldShowBuyButton && !errorMessage ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.perps_buy_tip },
+                  { token: currentPerpsDepositSelectedToken?.symbol ?? '' },
+                )}
+              </SizableText>
             ) : null}
           </XStack>
           {convertedDisplayValue ? (
@@ -1864,23 +1851,29 @@ function DepositWithdrawContent({
         </XStack>
       </YStack>
 
-      <Button
-        variant="primary"
-        size="medium"
-        disabled={
-          !isValidAmount ||
-          isSubmitting ||
-          balanceLoading ||
-          (selectedAction === 'deposit' && perpDepositQuoteLoading) ||
-          (selectedAction === 'deposit' &&
-            !depositToAmount.canDeposit &&
-            !checkRefreshQuote)
-        }
-        loading={isSubmitting}
-        onPress={handleConfirm}
-      >
-        {buttonText}
-      </Button>
+      {shouldShowBuyButton ? (
+        <Button variant="primary" size="medium" onPress={handleBuyPress}>
+          {intl.formatMessage({ id: ETranslations.global_top_up })}
+        </Button>
+      ) : (
+        <Button
+          variant="primary"
+          size="medium"
+          disabled={
+            !isValidAmount ||
+            isSubmitting ||
+            balanceLoading ||
+            (selectedAction === 'deposit' && perpDepositQuoteLoading) ||
+            (selectedAction === 'deposit' &&
+              !depositToAmount.canDeposit &&
+              !checkRefreshQuote)
+          }
+          loading={isSubmitting}
+          onPress={handleConfirm}
+        >
+          {buttonText}
+        </Button>
+      )}
       {showDepositNoConfirmHint ? (
         <SizableText
           size="$bodySm"

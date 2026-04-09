@@ -19,6 +19,16 @@ import {
 
 export const BULK_SEND_INTERVAL_MAX_SECONDS = 600;
 
+export const DEFAULT_INTERVAL_SETTINGS: IIntervalSettings = {
+  mode: EIntervalMode.Specified,
+  minSeconds: '5',
+  maxSeconds: '30',
+};
+
+export function filterIntegerInput(text: string): string {
+  return text.replace(/[^0-9]/g, '');
+}
+
 // Filter input to only allow numbers and decimal point
 export function filterNumericInput(text: string): string {
   // Remove all characters except digits and decimal point
