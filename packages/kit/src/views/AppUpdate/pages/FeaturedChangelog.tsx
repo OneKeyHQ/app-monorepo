@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -121,25 +121,27 @@ function FeaturedChangelog({
 
   const { downloadPackage } = useDownloadPackage();
 
-  // Pre-install: replicate UpdatePreviewActionButton logic
-  const updateFileType = getUpdateFileType({
-    latestVersion: appUpdateInfo.latestVersion,
-    jsBundleVersion: appUpdateInfo.jsBundleVersion,
-  });
+  const { storeUrl, downloadUrl, jsBundle, status } = appUpdateInfo;
+
+  const updateFileType = useMemo(
+    () =>
+      getUpdateFileType({
+        latestVersion: appUpdateInfo.latestVersion,
+        jsBundleVersion: appUpdateInfo.jsBundleVersion,
+      }),
+    [appUpdateInfo.latestVersion, appUpdateInfo.jsBundleVersion],
+  );
   const shouldOpenStore =
     isPreInstall &&
     updateFileType === EUpdateFileType.appShell &&
-    !!appUpdateInfo.storeUrl;
+    !!storeUrl;
 
   const handleCtaPress = useCallback(() => {
     if (isPreInstall) {
-      if (shouldOpenStore && appUpdateInfo.storeUrl) {
-        openUrlExternal(appUpdateInfo.storeUrl);
-      } else if (
-        appUpdateInfo.downloadUrl ||
-        appUpdateInfo.jsBundle?.downloadUrl
-      ) {
-        if (appUpdateInfo.status === EAppUpdateStatus.notify) {
+      if (shouldOpenStore && storeUrl) {
+        openUrlExternal(storeUrl);
+      } else if (downloadUrl || jsBundle?.downloadUrl) {
+        if (status === EAppUpdateStatus.notify) {
           void downloadPackage();
         }
         navigation.push(EAppUpdateRoutes.DownloadVerify);
@@ -155,7 +157,10 @@ function FeaturedChangelog({
   }, [
     isPreInstall,
     shouldOpenStore,
-    appUpdateInfo,
+    storeUrl,
+    downloadUrl,
+    jsBundle?.downloadUrl,
+    status,
     downloadPackage,
     navigation,
     activeFeature,
@@ -165,13 +170,12 @@ function FeaturedChangelog({
     ? displayAppUpdateVersion(appUpdateInfo)
     : displayWhatsNewVersion();
 
-  const preInstallCtaText = intl.formatMessage({
-    id: shouldOpenStore
-      ? ETranslations.update_update_now
-      : ETranslations.update_download_and_verify_text,
-  });
   const ctaText = isPreInstall
-    ? preInstallCtaText
+    ? intl.formatMessage({
+        id: shouldOpenStore
+          ? ETranslations.update_update_now
+          : ETranslations.update_download_and_verify_text,
+      })
     : (activeFeature?.ctaText ??
       intl.formatMessage({ id: ETranslations.global_done }));
 
