@@ -288,7 +288,7 @@ export function useBulkSendFeeEstimation({
               feeType: EFeeType.Standard,
               presetIndex: 0,
             }),
-            value: 1,
+            value: 0,
             feeInfo: {
               common: txFee.common,
             },

@@ -1245,7 +1245,6 @@ function BulkSendAmountsInputContent({
       ) {
         const requestId = tokenDetailsRequestIdRef.current + 1;
         tokenDetailsRequestIdRef.current = requestId;
-        setTokenDetails(undefined);
         setTokenDetailsState((prev) => ({
           ...prev,
           isRefreshing: true,
@@ -1468,6 +1467,13 @@ function BulkSendAmountsInputContent({
 
         setSenderBalances(balanceMap);
         setSenderBalancesFailed(failedSet);
+      } catch (_e) {
+        const allAddresses = new Set<string>();
+        sendersWithAccountId.forEach((sender) => {
+          allAddresses.add(sender.address);
+        });
+        setSenderBalances({});
+        setSenderBalancesFailed(allAddresses);
       } finally {
         setSenderBalancesLoading(false);
       }
