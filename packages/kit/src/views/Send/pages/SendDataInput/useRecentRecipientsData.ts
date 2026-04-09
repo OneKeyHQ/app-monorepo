@@ -312,6 +312,58 @@ function mergeRecipients(
     .slice(0, MAX_RECIPIENTS);
 }
 
+// Load recipients from the local store (SimpleDbEntityRecentRecipients),
+// which is updated every time a send flow completes via
+// ServiceSignatureConfirm.updateRecentRecipients. Used both as the Phase 2
+// source when the transfer-recipient API is unsupported/empty AND as a
+// freshness overlay on top of the Phase 1 API result — a tx the user just
+// sent is in the local store instantly, while the indexer backing
+// /transfer-recipient has lag (minutes) and non-indexer EVM chains are
+// not covered at all. Without this overlay OK-52728 reproduces: the user
+// sends a tx and still sees the API's stale cross-chain history.
+async function loadStoredRecipients(networkId: string): Promise<{
+  addresses: string[];
+  extraMap: Map<string, IRecipientExtraInfo> | null;
+}> {
+  try {
+    const storedRecipients =
+      await backgroundApiProxy.serviceSignatureConfirm.getRecentRecipients({
+        networkId,
+      });
+    if (storedRecipients.length === 0) {
+      return { addresses: [], extraMap: null };
+    }
+
+    const uniqueNetworkIds = [
+      ...new Set(
+        storedRecipients
+          .map((r) => r.networkId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const networkNameMap = await fetchNetworkNames(uniqueNetworkIds);
+
+    const extraMap = new Map<string, IRecipientExtraInfo>(
+      storedRecipients.map((r) => [
+        r.address.toLowerCase(),
+        {
+          address: r.address,
+          time: r.updatedAt,
+          networkName: r.networkId
+            ? networkNameMap.get(r.networkId)
+            : undefined,
+        },
+      ]),
+    );
+    return {
+      addresses: storedRecipients.map((r) => r.address),
+      extraMap,
+    };
+  } catch {
+    return { addresses: [], extraMap: null };
+  }
+}
+
 type IUseRecentRecipientsDataParams = {
   accountId?: string;
   networkId: string;
@@ -341,6 +393,7 @@ export function useRecentRecipientsData({
     const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
 
     // Phase 1: Try transfer-recipient API first (authoritative when supported).
+    let apiEnriched: IEnrichedRecentRecipient[] | null = null;
     if (accountId) {
       try {
         let apiNetworkId = networkId;
@@ -357,66 +410,64 @@ export function useRecentRecipientsData({
         if (supported && apiRecipients.length > 0) {
           const extraMap = await buildExtraMapFromApiRecipients(apiRecipients);
           const addresses = apiRecipients.map((r) => r.address);
-          const enriched = await enrichAddresses(
-            addresses,
-            extraMap,
-            networkId,
-          );
-          if (isStale()) return;
-          setRecentRecipients(enriched);
-          setIsLoadingRecent(false);
-          return;
+          apiEnriched = await enrichAddresses(addresses, extraMap, networkId);
         }
-
-        // supported but empty — fall through to local strategies.
       } catch {
         // Fall through to local strategies.
       }
     }
 
-    // API not supported — use progressive local loading.
     if (isStale()) return;
 
-    // Phase 2: Show stored recipients instantly.
-    let storedAddresses: string[] = [];
-    let storedExtraMap: Map<string, IRecipientExtraInfo> | null = null;
+    // Always load the local store so fresh sends (OK-52728) and
+    // non-indexer EVM chains are not masked by the API result.
+    const { addresses: storedAddresses, extraMap: storedExtraMap } =
+      await loadStoredRecipients(networkId);
 
-    try {
-      const storedRecipients =
-        await backgroundApiProxy.serviceSignatureConfirm.getRecentRecipients({
-          networkId,
-        });
+    if (isStale()) return;
 
-      if (storedRecipients.length > 0) {
-        const uniqueNetworkIds = [
-          ...new Set(
-            storedRecipients
-              .map((r) => r.networkId)
-              .filter((id): id is string => !!id),
-          ),
-        ];
-        const networkNameMap = await fetchNetworkNames(uniqueNetworkIds);
-
-        storedExtraMap = new Map(
-          storedRecipients.map((r) => [
-            r.address.toLowerCase(),
-            {
-              address: r.address,
-              time: r.updatedAt,
-              networkName: r.networkId
-                ? networkNameMap.get(r.networkId)
-                : undefined,
-            },
-          ]),
-        );
-        storedAddresses = storedRecipients.map((r) => r.address);
+    if (apiEnriched) {
+      // Phase 1 succeeded — merge local entries on top. The local store
+      // reflects sends the user just made, while the API reflects the
+      // indexer (lagged, missing non-indexer EVM chains). For addresses
+      // that appear in both, the local updatedAt wins when it is newer,
+      // so a fresh re-send bumps the entry to the top of the list.
+      if (storedAddresses.length > 0) {
+        try {
+          const enrichedStored = await enrichAddresses(
+            storedAddresses,
+            storedExtraMap,
+            networkId,
+          );
+          if (isStale()) return;
+          const apiByAddress = new Map(
+            apiEnriched.map((r) => [r.input?.toLowerCase() ?? '', r]),
+          );
+          for (const local of enrichedStored) {
+            const key = local.input?.toLowerCase() ?? '';
+            const existing = apiByAddress.get(key);
+            if (
+              !existing ||
+              (local.lastTransferTime ?? 0) > (existing.lastTransferTime ?? 0)
+            ) {
+              apiByAddress.set(key, local);
+            }
+          }
+          apiEnriched = [...apiByAddress.values()]
+            .toSorted(
+              (a, b) => (b.lastTransferTime ?? 0) - (a.lastTransferTime ?? 0),
+            )
+            .slice(0, MAX_RECIPIENTS);
+        } catch {
+          // ignore enrichment errors — still show the API result
+        }
       }
-    } catch {
-      // ignore
+      setRecentRecipients(apiEnriched);
+      setIsLoadingRecent(false);
+      return;
     }
 
-    if (isStale()) return;
-
+    // Phase 2: API not supported or empty — show stored recipients instantly.
     if (storedAddresses.length > 0) {
       try {
         const enriched = await enrichAddresses(
