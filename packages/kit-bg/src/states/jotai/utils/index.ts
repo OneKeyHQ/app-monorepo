@@ -594,9 +594,24 @@ export function contextAtomBase<Value>({
   const activeColdStartCacheKey =
     coldStartCache && coldStartCacheKey ? coldStartCacheKey : undefined;
 
-  // Hydration from snapshot is handled by hydrateContextColdStartCacheForProvider
-  // at provider mount time, not here at module-load time.
-  const atomBuilder = memoizee(() => atom(initialValue));
+  // Pre-populate initial value from cold start snapshot so the first render
+  // can display cached data immediately (e.g. token list, balance) without
+  // waiting for BG thread network requests.
+  let resolvedInitialValue = initialValue;
+  if (snapshotKey) {
+    const ctxSnapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    if (ctxSnapshot && snapshotKey in ctxSnapshot) {
+      const cached = ctxSnapshot[snapshotKey];
+      if (cached !== undefined && cached !== null) {
+        resolvedInitialValue =
+          typeof initialValue === 'object' && typeof cached === 'object'
+            ? { ...initialValue, ...cached }
+            : cached;
+      }
+    }
+  }
+
+  const atomBuilder = memoizee(() => atom(resolvedInitialValue));
 
   // coldStartCache: wrap use() to auto-track value changes
   const wrappedUse = activeColdStartCacheKey
