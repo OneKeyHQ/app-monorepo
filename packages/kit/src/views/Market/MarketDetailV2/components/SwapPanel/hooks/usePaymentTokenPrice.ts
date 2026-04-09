@@ -4,8 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-
-import type { IToken } from '../types';
+import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 
 interface IUsePaymentTokenPriceResult {
   price?: BigNumber;
@@ -14,7 +13,7 @@ interface IUsePaymentTokenPriceResult {
 }
 
 export function usePaymentTokenPrice(
-  paymentToken?: IToken,
+  paymentToken?: ISwapTokenBase,
   networkId?: string,
 ): IUsePaymentTokenPriceResult {
   const {

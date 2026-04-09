@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import { act, renderHook, waitFor } from '@testing-library/react';
+import BigNumber from 'bignumber.js';
 
 import {
   EAppEventBusNames,
@@ -26,6 +27,17 @@ type IFetchSwapNativeTokenConfigParams = {
   networkId: string;
 };
 
+type IUsePaymentTokenPriceResult = {
+  price?: BigNumber;
+  isLoading: boolean;
+  refetch: jest.Mock;
+};
+
+type IUsePaymentTokenPriceMock = (
+  paymentToken?: ISwapTokenBase & { price?: string },
+  networkId?: string,
+) => IUsePaymentTokenPriceResult;
+
 const mockFetchSwapTokenDetails: jest.MockedFunction<
   (params: IFetchSwapTokenDetailsParams) => Promise<ISwapToken[]>
 > = jest.fn();
@@ -38,8 +50,11 @@ const mockSetInAppNotificationAtom = jest.fn();
 const mockNavigationToTxConfirm = jest.fn();
 const mockNetAccountRun = jest.fn();
 const mockMarketDeriveInfoRun = jest.fn();
+const mockUsePaymentTokenPrice: jest.MockedFunction<IUsePaymentTokenPriceMock> =
+  jest.fn();
 
 let mockUsePromiseResultCallCount = 0;
+let mockPaymentTokenPriceCache: Record<string, BigNumber> = {};
 let mockNetAccountPromiseResult: {
   result?: {
     id: string;
@@ -146,6 +161,14 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   },
 }));
 
+jest.mock('./usePaymentTokenPrice', () => ({
+  usePaymentTokenPrice: (
+    paymentToken?: ISwapTokenBase & { price?: string },
+    networkId?: string,
+  ): IUsePaymentTokenPriceResult =>
+    mockUsePaymentTokenPrice(paymentToken, networkId),
+}));
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -248,8 +271,26 @@ describe('useSpeedSwapActions', () => {
     mockNavigationToTxConfirm.mockReset();
     mockNetAccountRun.mockReset();
     mockMarketDeriveInfoRun.mockReset();
+    mockUsePaymentTokenPrice.mockReset();
     mockUsePromiseResultCallCount = 0;
+    mockPaymentTokenPriceCache = {};
     mockInAppNotificationAtomState = {};
+    mockUsePaymentTokenPrice.mockImplementation(
+      (paymentToken?: ISwapTokenBase & { price?: string }) => {
+        const priceValue = paymentToken?.price;
+        let price: BigNumber | undefined;
+        if (priceValue) {
+          mockPaymentTokenPriceCache[priceValue] =
+            mockPaymentTokenPriceCache[priceValue] ?? new BigNumber(priceValue);
+          price = mockPaymentTokenPriceCache[priceValue];
+        }
+        return {
+          price: price && !price.isNaN() && price.gt(0) ? price : undefined,
+          isLoading: false,
+          refetch: jest.fn(),
+        };
+      },
+    );
     mockFetchSwapNativeTokenConfig.mockResolvedValue({
       networkId: 'evm--1',
       reserveGas: '0.01',
@@ -842,6 +883,70 @@ describe('useSpeedSwapActions', () => {
       );
       expect(result.current.priceRate?.rate).toBeCloseTo(0.2);
     });
+  });
+
+  it('uses the refreshed live payment token price without requiring token reselection', async () => {
+    mockNetAccountPromiseResult = {
+      result: undefined,
+      run: mockNetAccountRun,
+    };
+    mockUsePaymentTokenPrice.mockReturnValue({
+      price: new BigNumber(2),
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+
+    const { result, rerender } = renderHook(
+      ({ revision }: { revision: number }) => {
+        void revision;
+        return useSpeedSwapActions(
+          createHookProps({
+            marketToken: {
+              ...tonMarketToken,
+              price: '5',
+            },
+            tradeToken: {
+              ...usdcToken,
+              price: '1',
+            },
+          }),
+        );
+      },
+      {
+        initialProps: {
+          revision: 0,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.priceRate).toEqual(
+        expect.objectContaining({
+          fromTokenSymbol: 'USDC',
+          toTokenSymbol: 'TON',
+          loading: false,
+        }),
+      );
+      expect(result.current.priceRate?.rate).toBeCloseTo(0.4);
+    });
+
+    expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+
+    mockUsePaymentTokenPrice.mockReturnValue({
+      price: new BigNumber(4),
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+
+    rerender({
+      revision: 1,
+    });
+
+    await waitFor(() => {
+      expect(result.current.priceRate?.rate).toBeCloseTo(0.8);
+    });
+
+    expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
   });
 
   it('clears price loading when remote fallback price fetching fails', async () => {

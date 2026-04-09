@@ -109,6 +109,7 @@ import {
   extractMarketSwapSuccessResult,
   normalizeMarketReviewQuoteResult,
 } from './marketSwapReviewUtils';
+import { usePaymentTokenPrice } from './usePaymentTokenPrice';
 import { ESwapDirection } from './useTradeType';
 
 export type IMarketSwapReviewAdapter = ISwapReviewAdapter;
@@ -208,6 +209,10 @@ export function useSpeedSwapActions(props: {
       balanceToken: marketToken,
     };
   }, [tradeType, marketToken, tradeToken]);
+  const { price: liveTradeTokenPrice } = usePaymentTokenPrice(
+    tradeToken,
+    tradeToken.networkId,
+  );
 
   // Use atom to get selected derive type from Market Detail page
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
@@ -2241,8 +2246,14 @@ export function useSpeedSwapActions(props: {
   const fetchTokenPrice = useCallback(async () => {
     const currentRequestId = priceRequestIdRef.current + 1;
     priceRequestIdRef.current = currentRequestId;
-    const fromTokenPriceBN = new BigNumber(fromToken.price || 0);
-    const toTokenPriceBN = new BigNumber(toToken.price || 0);
+    const fromTokenPriceBN =
+      tradeType === ESwapDirection.BUY
+        ? (liveTradeTokenPrice ?? new BigNumber(0))
+        : new BigNumber(fromToken.price || 0);
+    const toTokenPriceBN =
+      tradeType === ESwapDirection.SELL
+        ? (liveTradeTokenPrice ?? new BigNumber(0))
+        : new BigNumber(toToken.price || 0);
     const canUseInlineTokenPrices =
       !fromTokenPriceBN.isNaN() &&
       !toTokenPriceBN.isNaN() &&
@@ -2337,6 +2348,7 @@ export function useSpeedSwapActions(props: {
       loading: false,
     });
   }, [
+    tradeType,
     fromToken.price,
     fromToken.symbol,
     fromToken.networkId,
@@ -2345,6 +2357,7 @@ export function useSpeedSwapActions(props: {
     toToken.symbol,
     toToken.networkId,
     toToken.contractAddress,
+    liveTradeTokenPrice,
   ]);
 
   useEffect(() => {
