@@ -436,12 +436,22 @@ export function useRecentRecipientsData({
       // The stored entries for addresses already in the API are used as a
       // "freshness overlay": when a user re-sends to an existing recipient,
       // the local updatedAt is newer than the indexer's and the entry
-      // should bump to the top. Keep a lookup of local times for those.
-      const localTimeByAddress = new Map<string, number>();
+      // should bump to the top. Keep a lookup of local time + network name
+      // so both fields get applied consistently — otherwise the UI shows
+      // the new timestamp with the API's stale network badge.
+      const localOverlayByAddress = new Map<
+        string,
+        { time: number; networkName?: string }
+      >();
       for (const addr of storedAddresses) {
         const lower = addr.toLowerCase();
         const extra = storedExtraMap?.get(lower);
-        if (extra?.time) localTimeByAddress.set(lower, extra.time);
+        if (extra?.time) {
+          localOverlayByAddress.set(lower, {
+            time: extra.time,
+            networkName: extra.networkName,
+          });
+        }
       }
 
       const combinedAddresses = [...apiAddresses, ...localOnlyAddresses];
@@ -463,13 +473,21 @@ export function useRecentRecipientsData({
         if (isStale()) return;
 
         // Apply freshness overlay: for addresses present in both sources,
-        // pick the newer timestamp so a re-send bubbles the entry up.
+        // pick the newer timestamp so a re-send bubbles the entry up, and
+        // overwrite the network name to match the path the user actually
+        // sent from — otherwise the UI would show the new time with the
+        // API's stale network badge.
         apiEnriched = enriched
           .map((r) => {
             const lower = r.input?.toLowerCase();
-            const localTime = lower ? localTimeByAddress.get(lower) : undefined;
-            if (localTime && localTime > (r.lastTransferTime ?? 0)) {
-              return { ...r, lastTransferTime: localTime };
+            const local = lower ? localOverlayByAddress.get(lower) : undefined;
+            if (local && local.time > (r.lastTransferTime ?? 0)) {
+              return {
+                ...r,
+                lastTransferTime: local.time,
+                lastTransferNetworkName:
+                  local.networkName ?? r.lastTransferNetworkName,
+              };
             }
             return r;
           })
