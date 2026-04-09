@@ -18,7 +18,10 @@ import {
   IntervalSettingsContent,
 } from '../../components/IntervalSettingsContent';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
-import { validateIntervalSettings } from '../../utils';
+import {
+  DEFAULT_INTERVAL_SETTINGS,
+  validateIntervalSettings,
+} from '../../utils';
 
 type IBulkSendIntervalInputRouteParams =
   IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendIntervalInput];
@@ -42,9 +45,13 @@ function BulkSendIntervalInputContent({
   const navigation = useAppNavigation();
 
   const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
-    mode: initialIntervalSettings?.mode ?? EIntervalMode.None,
-    minSeconds: initialIntervalSettings?.minSeconds ?? '',
-    maxSeconds: initialIntervalSettings?.maxSeconds ?? '',
+    mode: initialIntervalSettings?.mode ?? DEFAULT_INTERVAL_SETTINGS.mode,
+    minSeconds:
+      initialIntervalSettings?.minSeconds ??
+      DEFAULT_INTERVAL_SETTINGS.minSeconds,
+    maxSeconds:
+      initialIntervalSettings?.maxSeconds ??
+      DEFAULT_INTERVAL_SETTINGS.maxSeconds,
   });
   const [showValidationError, setShowValidationError] = useState(false);
 
