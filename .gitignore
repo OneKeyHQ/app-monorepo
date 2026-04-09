@@ -139,3 +139,4 @@ debug.log
 /apps/mobile/ios-bundle
 
 docs/superpowers/**/*
+apps/mobile/android/app/src/main/assets/modules.json
