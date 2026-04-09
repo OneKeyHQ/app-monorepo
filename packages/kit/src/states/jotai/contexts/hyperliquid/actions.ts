@@ -17,6 +17,12 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
   perpsDepositOrderAtom,
+  perpsTradingPreferencesAtom,
+  spotActiveAssetAtom,
+  spotActiveAssetCtxAtom,
+  spotActiveOpenOrdersAtom,
+  spotBalancesAtom,
+  tradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
@@ -32,11 +38,15 @@ import {
   formatPriceToSignificantDigits,
   getTriggerEffectivePrice,
   inferTpsl,
+  isSpotInstrument,
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
+import type {
+  IPerpsAssetPosition,
+  ISpotUniverse,
+} from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -46,6 +56,7 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
+  activeTradeInstrumentAtom,
   bboAtom,
   connectionStateAtom,
   contextAtomMethod,
@@ -61,11 +72,17 @@ import {
   perpsTokenSearchAliasesAtom,
   subscriptionActiveAtom,
   tradingFormAtom,
+  tradingFormEnvAtom,
   tradingLoadingAtom,
+  tradeRouteViewStateAtom,
 } from './atoms';
 import { EActionType, withToast } from './utils';
 
-import type { ITradingFormData } from './atoms';
+import type {
+  IActiveTradeInstrument,
+  ITradeRouteViewState,
+  ITradingFormData,
+} from './atoms';
 
 type IChStateLite = {
   assetPositions?: HL.IPerpsAssetPosition[];
@@ -239,18 +256,27 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
       const allOrders = data?.openOrders || [];
-      const openOrders = allOrders.filter(
+      const perpOrders = allOrders.filter(
         (order) =>
-          !order.coin.startsWith('@') && !this.canceledOrderIds.has(order.oid),
+          !isSpotInstrument(order.coin) &&
+          !this.canceledOrderIds.has(order.oid),
+      );
+      const spotOrders = allOrders.filter(
+        (order) =>
+          isSpotInstrument(order.coin) && !this.canceledOrderIds.has(order.oid),
       );
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
-        openOrders,
+        perpOrders,
         prevOpenOrdersState?.openOrdersByCoin,
       );
       set(perpsActiveOpenOrdersAtom(), {
         accountAddress: activeAccountAddress,
-        openOrders,
+        openOrders: perpOrders,
         openOrdersByCoin,
+      });
+      void spotActiveOpenOrdersAtom.set({
+        accountAddress: activeAccountAddress,
+        openOrders: spotOrders,
       });
     } else {
       const activePosition = get(perpsActivePositionAtom());
@@ -272,6 +298,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           openOrdersByCoin: {},
         });
       }
+      void spotActiveOpenOrdersAtom.set({
+        accountAddress: activeAccountAddress,
+        openOrders: [],
+      });
     }
   });
 
@@ -357,24 +387,37 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             openOrders: [],
             openOrdersByCoin: {},
           });
+          void spotActiveOpenOrdersAtom.set({
+            accountAddress: activeAccountAddress,
+            openOrders: [],
+          });
         }
         return;
       }
 
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
       const allOrders = data?.orders || [];
-      const openOrders = allOrders.filter(
+      const perpOrders = allOrders.filter(
         (order) =>
-          !order.coin.startsWith('@') && !this.canceledOrderIds.has(order.oid),
+          !isSpotInstrument(order.coin) &&
+          !this.canceledOrderIds.has(order.oid),
+      );
+      const spotOrders = allOrders.filter(
+        (order) =>
+          isSpotInstrument(order.coin) && !this.canceledOrderIds.has(order.oid),
       );
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
-        openOrders,
+        perpOrders,
         prevOpenOrdersState?.openOrdersByCoin,
       );
       set(perpsActiveOpenOrdersAtom(), {
         accountAddress: activeAccountAddress,
-        openOrders,
+        openOrders: perpOrders,
         openOrdersByCoin,
+      });
+      void spotActiveOpenOrdersAtom.set({
+        accountAddress: activeAccountAddress,
+        openOrders: spotOrders,
       });
     },
   );
@@ -492,29 +535,62 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  private async _getActiveCoin(): Promise<string> {
+    const mode = await tradingModeAtom.get();
+    if (mode === 'spot') {
+      const spotAsset = await spotActiveAssetAtom.get();
+      return spotAsset?.coin ?? '';
+    }
+    const perpAsset = await perpsActiveAssetAtom.get();
+    return perpAsset?.coin ?? '';
+  }
+
+  private async _buildActiveTradeInstrument(
+    mode?: 'perp' | 'spot',
+  ): Promise<IActiveTradeInstrument> {
+    const nextMode = mode ?? (await tradingModeAtom.get()) ?? 'perp';
+    if (nextMode === 'spot') {
+      const spotAsset = await spotActiveAssetAtom.get();
+      return {
+        mode: 'spot',
+        coin: spotAsset?.coin ?? '',
+        assetId: spotAsset?.assetId,
+        universe: spotAsset?.universe,
+      };
+    }
+
+    const perpAsset = await perpsActiveAssetAtom.get();
+    return {
+      mode: 'perp',
+      coin: perpAsset?.coin ?? '',
+      assetId: perpAsset?.assetId,
+      universe: perpAsset?.universe,
+    };
+  }
+
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
-    const activeAsset = await perpsActiveAssetAtom.get();
+    const activeCoin = await this._getActiveCoin();
     if (!data) {
       return;
     }
-    if (activeAsset?.coin === data.coin) {
+    if (activeCoin === data.coin) {
       set(l2BookAtom(), data);
     } else {
       const currentBook = get(l2BookAtom());
-      if (currentBook?.coin && currentBook?.coin !== activeAsset?.coin) {
+      if (currentBook?.coin && currentBook?.coin !== activeCoin) {
         set(l2BookAtom(), null);
       }
     }
   });
 
   updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo) => {
-    const activeAsset = await perpsActiveAssetAtom.get();
+    const activeCoin = await this._getActiveCoin();
     if (!data) {
       return;
     }
-    if (activeAsset?.coin !== data.coin) {
+    if (activeCoin !== data.coin) {
       const currentBbo = get(bboAtom());
-      if (currentBbo?.coin && currentBbo?.coin !== activeAsset?.coin) {
+      if (currentBbo?.coin && currentBbo?.coin !== activeCoin) {
         set(bboAtom(), null);
       }
       return;
@@ -637,6 +713,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     async (get, set, { coin, force }: { coin: string; force?: boolean }) => {
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
+        set(
+          activeTradeInstrumentAtom(),
+          await this._buildActiveTradeInstrument('perp'),
+        );
         return;
       }
 
@@ -644,6 +724,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const shouldUpdateLimitPrice = form.type === 'limit';
 
       await this.clearActiveAssetData.call(set);
+      await tradingModeAtom.set('perp');
       await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
         coin,
       });
@@ -666,6 +747,109 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       this.updateTradingForm.call(set, nextFormUpdates);
+      set(
+        activeTradeInstrumentAtom(),
+        await this._buildActiveTradeInstrument('perp'),
+      );
+    },
+  );
+
+  changeActiveSpotAsset = contextAtomMethod(
+    async (
+      _get,
+      set,
+      {
+        coin,
+        spotUniverse,
+      }: { coin: string; spotUniverse: ISpotUniverse | undefined },
+    ) => {
+      const currentSpotAsset = await spotActiveAssetAtom.get();
+      if (currentSpotAsset?.coin === coin) {
+        const currentMode = await tradingModeAtom.get();
+        if (currentMode === 'spot') {
+          set(
+            activeTradeInstrumentAtom(),
+            await this._buildActiveTradeInstrument('spot'),
+          );
+          return;
+        }
+      }
+
+      await this.clearActiveAssetData.call(set);
+      await tradingModeAtom.set('spot');
+      await spotActiveAssetCtxAtom.set(undefined);
+      await spotActiveAssetAtom.set({
+        coin,
+        assetId: spotUniverse?.assetId,
+        universe: spotUniverse,
+      });
+
+      this.updateTradingForm.call(set, {
+        size: '',
+        price: '',
+        orderMode: 'standard',
+        type: 'market',
+        bboPriceMode: null,
+        hasTpsl: false,
+        sizeInputMode: EPerpsSizeInputMode.MANUAL,
+        sizePercent: 0,
+        triggerPrice: '',
+        executionPrice: '',
+      });
+      // Spot doesn't have margin mode -- force to usd if currently set to margin
+      const currentPrefs = await perpsTradingPreferencesAtom.get();
+      if (currentPrefs.sizeInputUnit === 'margin') {
+        await perpsTradingPreferencesAtom.set({
+          ...currentPrefs,
+          sizeInputUnit: 'usd',
+        });
+      }
+      set(
+        activeTradeInstrumentAtom(),
+        await this._buildActiveTradeInstrument('spot'),
+      );
+    },
+  );
+
+  switchTradeInstrument = contextAtomMethod(
+    async (
+      _get,
+      set,
+      params: {
+        mode: 'perp' | 'spot';
+        coin: string;
+        force?: boolean;
+        spotUniverse?: ISpotUniverse;
+      },
+    ) => {
+      if (params.mode === 'spot') {
+        let spotUniverse = params.spotUniverse;
+        if (!spotUniverse) {
+          const { universes } =
+            await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+          spotUniverse = universes.find((item) => item.name === params.coin);
+        }
+        await this.changeActiveSpotAsset.call(set, {
+          coin: params.coin,
+          spotUniverse,
+        });
+        return;
+      }
+
+      await this.changeActiveAsset.call(set, {
+        coin: params.coin,
+        force: params.force,
+      });
+    },
+  );
+
+  setTradeRouteViewState = contextAtomMethod(
+    (get, set, patch: Partial<ITradeRouteViewState>) => {
+      const current = get(tradeRouteViewStateAtom());
+      set(tradeRouteViewStateAtom(), {
+        ...current,
+        ...patch,
+      });
     },
   );
 
@@ -781,6 +965,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     set(l2BookAtom(), null);
     await perpsActiveAssetCtxAtom.set(undefined);
     await perpsActiveAssetDataAtom.set(undefined);
+    await spotActiveAssetCtxAtom.set(undefined);
 
     set(
       tradingFormAtom(),
@@ -816,6 +1001,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     await perpsActiveAccountSummaryAtom.set(undefined);
     await perpsActiveAccountStatusInfoAtom.set(undefined);
     await perpsActiveAssetDataAtom.set(undefined);
+    // Prevent stale spot data from showing under the wrong account
+    await spotBalancesAtom.set({ balances: [], isLoaded: false });
+    void spotActiveOpenOrdersAtom.set({
+      accountAddress: undefined,
+      openOrders: [],
+    });
   });
 
   // reset all data
@@ -1130,6 +1321,56 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  placeSpotOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        price: string;
+        slippage?: number;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+      const env = get(tradingFormEnvAtom());
+
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: params.price,
+              markPrice: env.markPrice,
+              maxTradeSzs: env.maxTradeSzs,
+              leverageValue: 1,
+              fallbackLeverage: 1,
+              szDecimals: env.szDecimals,
+            });
+
+            return await backgroundApiProxy.serviceHyperliquidExchange.placeSpotOrder(
+              {
+                assetId: params.assetId,
+                isBuy: formData.side === 'long',
+                sz: resolvedSize,
+                limitPx: params.price,
+                orderType: formData.type,
+                slippage: params.slippage,
+              },
+            );
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.PLACE_ORDER,
+      });
+    },
+  );
+
   submitOrder = contextAtomMethod(
     async (
       get,
@@ -1142,6 +1383,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
+      const tradingMode = await tradingModeAtom.get();
+
+      if (tradingMode === 'spot') {
+        return this.placeSpotOrder.call(set, {
+          assetId: params.assetId,
+          formData,
+          slippage: params.slippage,
+          price: params.price,
+        });
+      }
 
       if (formData.orderMode === 'trigger') {
         return this.triggerOrder.call(set, {
@@ -1617,6 +1868,7 @@ export function useHyperliquidActions() {
   const setTradingLoading = actions.setTradingLoading.use();
 
   const placeOrder = actions.placeOrder.use();
+  const placeSpotOrder = actions.placeSpotOrder.use();
   const orderOpen = actions.orderOpen.use();
   const triggerOrder = actions.triggerOrder.use();
   const submitOrder = actions.submitOrder.use();
@@ -1633,6 +1885,9 @@ export function useHyperliquidActions() {
     actions.ensureOrderBookTickOptionsLoaded.use();
   const setOrderBookTickOption = actions.setOrderBookTickOption.use();
   const changeActiveAsset = actions.changeActiveAsset.use();
+  const changeActiveSpotAsset = actions.changeActiveSpotAsset.use();
+  const switchTradeInstrument = actions.switchTradeInstrument.use();
+  const setTradeRouteViewState = actions.setTradeRouteViewState.use();
   const changeActivePerpsAccount = actions.changeActivePerpsAccount.use();
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
   const ensureTradingEnabled = actions.ensureTradingEnabled.use();
@@ -1655,6 +1910,7 @@ export function useHyperliquidActions() {
     updateBbo,
     updateConnectionState,
     changeActiveAsset,
+    changeActiveSpotAsset,
     changeActivePerpsAccount,
     updateAllDexsClearinghouseState,
     updateOpenOrders,
@@ -1672,6 +1928,7 @@ export function useHyperliquidActions() {
     setTradingLoading,
 
     placeOrder,
+    placeSpotOrder,
     orderOpen,
     triggerOrder,
     submitOrder,
@@ -1689,5 +1946,7 @@ export function useHyperliquidActions() {
     refreshAllPerpsData,
     getTokenSzDecimals,
     getMidPrice,
+    switchTradeInstrument,
+    setTradeRouteViewState,
   });
 }

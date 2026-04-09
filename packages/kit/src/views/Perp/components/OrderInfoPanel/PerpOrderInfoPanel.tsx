@@ -21,12 +21,14 @@ import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
+import { SpotBalanceList } from './List/SpotBalanceList';
 
 const tabNameToTranslationKey: Record<string, string> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
   'Trades History': ETranslations.perp_trades_history_title,
   'Account': ETranslations.perp_account_history,
+  'Balances': 'Balances',
 };
 
 function TabBarItem({
@@ -124,6 +126,9 @@ function PerpOrderInfoPanel() {
       </Tabs.Tab>
       <Tabs.Tab name="Trades History">
         <PerpTradesHistoryList useTabsList />
+      </Tabs.Tab>
+      <Tabs.Tab name="Balances">
+        <SpotBalanceList />
       </Tabs.Tab>
       <Tabs.Tab name="Account">
         <PerpAccountList useTabsList />

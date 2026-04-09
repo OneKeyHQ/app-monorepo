@@ -48,6 +48,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
   getHyperliquidTokenImageUrl,
+  isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -219,10 +220,12 @@ function BasePerpTokenSelectorContent({
 
   const handleSelectToken = useCallback(
     async (symbol: string) => {
+      const isSpotToken = isSpotInstrument(symbol);
       try {
         onLoadingChange(true);
         void closePopover?.();
-        await actions.current.changeActiveAsset({
+        await actions.current.switchTradeInstrument({
+          mode: isSpotToken ? 'spot' : 'perp',
           coin: symbol,
         });
       } catch (error) {

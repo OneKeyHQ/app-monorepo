@@ -15,13 +15,14 @@ import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/stat
 import {
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
+  tradingModeAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountRefreshHookAtom,
-  usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
   usePerpsWebSocketConnectedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+import { spotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -55,21 +56,28 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
+import {
+  useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
+  useTradeRouteViewStateAtom,
+} from '../../../states/jotai/contexts/hyperliquid';
 import {
   useOrderBookTickOptionsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsSharePrompt } from '../hooks/usePerpsSharePrompt';
+import { planTradeSubscriptions } from '../utils/subscriptionPlanner';
 
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
 function useSyncContextOrderBookOptionsToGlobal() {
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
 
   const orderBookTickOptionsRef = useRef(orderBookTickOptions);
   orderBookTickOptionsRef.current = orderBookTickOptions;
+  const activeTradeInstrumentRef = useRef(activeTradeInstrument);
+  activeTradeInstrumentRef.current = activeTradeInstrument;
 
   const isFocusedRef = useRef(false);
 
@@ -81,10 +89,10 @@ function useSyncContextOrderBookOptionsToGlobal() {
         return;
       }
       const prev = await perpsActiveOrderBookOptionsAtom.get();
-      const _activeAsset = await perpsActiveAssetAtom.get();
+      const _activeInstrument = activeTradeInstrumentRef.current;
 
       const l2SubscriptionOptions = (() => {
-        const coin = _activeAsset?.coin;
+        const coin = _activeInstrument?.coin;
         if (!coin) {
           return { nSigFigs: null, mantissa: null };
         }
@@ -96,8 +104,8 @@ function useSyncContextOrderBookOptionsToGlobal() {
       })();
 
       const next: IPerpsActiveOrderBookOptionsAtom = {
-        coin: _activeAsset?.coin,
-        assetId: _activeAsset?.assetId,
+        coin: _activeInstrument?.coin,
+        assetId: _activeInstrument?.assetId,
         ...l2SubscriptionOptions,
       };
       if (isEqual(prev, next)) {
@@ -112,9 +120,14 @@ function useSyncContextOrderBookOptionsToGlobal() {
 
   useEffect(() => {
     noop(orderBookTickOptions);
-    noop(activeAsset?.coin);
+    noop(activeTradeInstrument?.coin);
     void updateGlobalOrderBookOptions(orderBookTickOptions);
-  }, [orderBookTickOptions, activeAsset?.coin, updateGlobalOrderBookOptions]);
+  }, [
+    orderBookTickOptions,
+    activeTradeInstrument?.coin,
+    activeTradeInstrument?.assetId,
+    updateGlobalOrderBookOptions,
+  ]);
 
   useListenTabFocusState(
     ETabRoutes.Perp,
@@ -126,6 +139,29 @@ function useSyncContextOrderBookOptionsToGlobal() {
       }
     },
   );
+}
+
+function useTradeRouteViewStateSync() {
+  const actions = useHyperliquidActions();
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    (isFocus: boolean, isHiddenByModal: boolean) => {
+      actions.current.setTradeRouteViewState({
+        routeFocused: isFocus && !isHiddenByModal,
+      });
+    },
+  );
+
+  useEffect(() => {
+    const actionsRef = actions.current;
+    return () => {
+      actionsRef.setTradeRouteViewState({
+        routeFocused: false,
+        tokenSelectorOpen: false,
+      });
+    };
+  }, [actions]);
 }
 
 function useHyperliquidEventBusListener() {
@@ -433,8 +469,9 @@ function useHyperliquidAccountSelect() {
 function WebSocketSubscriptionUpdate() {
   const [loadingInfo] = usePerpsAccountLoadingInfoAtom();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
+  const [tradeRouteViewState] = useTradeRouteViewStateAtom();
   const actions = useHyperliquidActions();
   const [isWebSocketConnected] = usePerpsWebSocketConnectedAtom();
 
@@ -453,32 +490,48 @@ function WebSocketSubscriptionUpdate() {
       isLoading,
       actions,
       address: activePerpsAccount?.accountAddress,
-      coin: activeAsset?.coin,
+      coin: activeTradeInstrument?.coin,
+      tradingMode: activeTradeInstrument.mode,
       mantissa: activeOrderBookOptions?.mantissa,
       nSigFigs: activeOrderBookOptions?.nSigFigs,
       orderBookCoin: activeOrderBookOptions?.coin,
+      routeFocused: tradeRouteViewState.routeFocused,
+      tokenSelectorOpen: tradeRouteViewState.tokenSelectorOpen,
+      tokenSelectorTab: tradeRouteViewState.tokenSelectorTab,
+      infoPanelTab: tradeRouteViewState.infoPanelTab,
     });
     noop(activePerpsAccount?.accountAddress);
-    noop(activeAsset?.coin);
+    noop(activeTradeInstrument?.coin);
     noop(activeOrderBookOptions?.coin);
     noop(activeOrderBookOptions?.mantissa);
     noop(activeOrderBookOptions?.nSigFigs);
+    noop(activeTradeInstrument.mode);
+    noop(tradeRouteViewState.routeFocused);
+    noop(tradeRouteViewState.tokenSelectorOpen);
+    noop(tradeRouteViewState.tokenSelectorTab);
+    noop(tradeRouteViewState.infoPanelTab);
 
-    if (isWebSocketConnected === true && !isLoading) {
-      if (
-        activeAsset?.coin &&
-        activeOrderBookOptions?.coin === activeAsset?.coin
-      ) {
-        console.log('updateSubscriptions______PerpsGlobalEffects');
-        void actions.current.updateSubscriptions();
-      } else {
-        // update orderbook options to match the active asset
-        // Toast.error({
-        //   title: 'Error',
-        //   message:
-        //     'Orderbook options do not match the active asset coin, please change the asset',
-        // });
-      }
+    const plan = planTradeSubscriptions({
+      activeInstrument: activeTradeInstrument,
+      hasAccount: !!activePerpsAccount?.accountAddress,
+      orderBookOptions: activeOrderBookOptions,
+      viewState: tradeRouteViewState,
+    });
+
+    void backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
+      {
+        enableLedgerUpdates: plan.enableLedgerUpdates,
+        spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
+        spotEnabled: plan.spotEnabled,
+      },
+    );
+
+    if (
+      isWebSocketConnected === true &&
+      !isLoading &&
+      plan.shouldSyncSubscriptions
+    ) {
+      void actions.current.updateSubscriptions();
     }
   }, [
     checkDeps,
@@ -486,10 +539,9 @@ function WebSocketSubscriptionUpdate() {
     isLoading,
     actions,
     activePerpsAccount?.accountAddress,
-    activeAsset?.coin,
-    activeOrderBookOptions?.mantissa,
-    activeOrderBookOptions?.nSigFigs,
-    activeOrderBookOptions?.coin,
+    activeTradeInstrument,
+    activeOrderBookOptions,
+    tradeRouteViewState,
   ]);
   return null;
 }
@@ -502,11 +554,28 @@ function useHyperliquidSymbolSelect() {
     if (isFocus && !initDoneRef.current) {
       initDoneRef.current = true;
       void (async () => {
-        await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-        const currentToken = await perpsActiveAssetAtom.get();
-        await actions.current.changeActiveAsset({
-          coin: currentToken.coin,
+        await Promise.all([
+          backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
+          // Spot meta failure must not block perps initialization
+          backgroundApiProxy.serviceHyperliquid.refreshSpotMeta().catch((e) => {
+            console.error('refreshSpotMeta failed (non-blocking):', e);
+          }),
+        ]);
+        const currentMode = await tradingModeAtom.get();
+        const currentPerpToken = await perpsActiveAssetAtom.get();
+        const currentSpotToken = await spotActiveAssetAtom.get();
+        const nextMode = currentMode === 'spot' ? 'spot' : 'perp';
+        const nextCoin =
+          nextMode === 'spot' ? currentSpotToken?.coin : currentPerpToken?.coin;
+        if (!nextCoin) {
+          return;
+        }
+        await actions.current.switchTradeInstrument({
+          mode: nextMode,
+          coin: nextCoin,
           force: true,
+          spotUniverse:
+            nextMode === 'spot' ? currentSpotToken?.universe : undefined,
         });
       })();
     }
@@ -637,6 +706,7 @@ function PerpsGlobalEffectsView() {
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
+  useTradeRouteViewStateSync();
   usePerpsSharePrompt();
 
   return (

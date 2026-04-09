@@ -25,6 +25,7 @@ import {
   usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingPreferencesAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -67,6 +68,8 @@ function SideButtonInternal({
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
   const [tradingPreferences] = usePerpsTradingPreferencesAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const isSpot = tradingMode === 'spot';
   const [activeAsset] = usePerpsActiveAssetAtom();
 
   const { handleConfirm } = useOrderConfirm();
@@ -168,12 +171,16 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_no_enough_margin,
       });
+    if (isSpot) {
+      return side === 'long' ? 'Buy' : 'Sell';
+    }
     return side === 'long'
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
     priceError,
     isNoEnoughMargin,
+    isSpot,
     side,
     intl,
     perpConfigCommon?.ipDisablePerp,
@@ -460,6 +467,7 @@ function SideButtonInternal({
   if (isMobile) {
     return (
       <YStack gap="$2" flex={1}>
+        {isSpot ? null : (
         <YStack gap="$1.5">
           {/* <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
@@ -544,6 +552,7 @@ function SideButtonInternal({
             {renderLiquidationPrice()}
           </XStack>
         </YStack>
+        )}
 
         <Button
           size="medium"

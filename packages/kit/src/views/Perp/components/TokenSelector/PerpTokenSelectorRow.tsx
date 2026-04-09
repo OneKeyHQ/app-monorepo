@@ -26,6 +26,7 @@ import {
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   NUMBER_FORMATTER,
@@ -68,6 +69,7 @@ interface ITokenSelectorRowContextValue {
     openInterest: string;
   };
   isLoading: boolean;
+  isSpot?: boolean;
   onPress: () => void;
 }
 
@@ -103,29 +105,46 @@ export const FavoriteButton = memo(
     coin,
     isMobile,
     iconSize,
+    isSpot,
   }: {
     coin: string;
     isMobile?: boolean;
     iconSize?: string;
+    isSpot?: boolean;
   }) => {
-    const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
-    const isFavorite = favorites.favorites.includes(coin);
+    const [perpFavs, setPerpFavs] = usePerpTokenFavoritesPersistAtom();
+    const [spotFavs, setSpotFavs] = useSpotTokenFavoritesPersistAtom();
+    const isFavorite = isSpot
+      ? spotFavs.favorites.includes(coin)
+      : perpFavs.favorites.includes(coin);
 
     const handleToggle = useCallback(() => {
-      setFavorites((prev) => {
-        const alreadyFavorite = prev.favorites.includes(coin);
-        void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
-          coin,
-          action: alreadyFavorite ? 'remove' : 'add',
+      if (isSpot) {
+        setSpotFavs((prev) => {
+          const alreadyFavorite = prev.favorites.includes(coin);
+          return {
+            ...prev,
+            favorites: alreadyFavorite
+              ? prev.favorites.filter((f) => f !== coin)
+              : [...prev.favorites, coin],
+          };
         });
-        return {
-          ...prev,
-          favorites: alreadyFavorite
-            ? prev.favorites.filter((f) => f !== coin)
-            : [...prev.favorites, coin],
-        };
-      });
-    }, [coin, setFavorites]);
+      } else {
+        setPerpFavs((prev) => {
+          const alreadyFavorite = prev.favorites.includes(coin);
+          void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
+            coin,
+            action: alreadyFavorite ? 'remove' : 'add',
+          });
+          return {
+            ...prev,
+            favorites: alreadyFavorite
+              ? prev.favorites.filter((f) => f !== coin)
+              : [...prev.favorites, coin],
+          };
+        });
+      }
+    }, [coin, isSpot, setPerpFavs, setSpotFavs]);
 
     return (
       <IconButton
@@ -200,7 +219,7 @@ SubtitleBadge.displayName = 'SubtitleBadge';
 
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
-  const { token } = useTokenSelectorRowContext();
+  const { token, isSpot } = useTokenSelectorRowContext();
   const { gtLg } = useMedia();
 
   const content = useMemo(
@@ -229,29 +248,33 @@ const TokenInfoCellDesktop = memo(() => {
             <Token
               size="xs"
               borderRadius="$full"
-              tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
+              tokenImageUri={getHyperliquidTokenImageUrl(
+                isSpot ? token.name : token.displayName,
+              )}
               fallbackIcon="CryptoCoinOutline"
             />
             <SizableText size="$bodySmMedium" numberOfLines={1} flexShrink={1}>
               {token.displayName}
             </SizableText>
             <XStack gap="$1" minWidth={0}>
-              <XStack
-                borderRadius="$1"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
-                <SizableText
-                  fontSize={10}
-                  alignSelf="center"
-                  color="$textSubdued"
-                  lineHeight={16}
+              {!isSpot && token.maxLeverage > 0 ? (
+                <XStack
+                  borderRadius="$1"
+                  bg="$bgStrong"
+                  justifyContent="center"
+                  alignItems="center"
+                  px="$1.5"
                 >
-                  {token.maxLeverage}x
-                </SizableText>
-              </XStack>
+                  <SizableText
+                    fontSize={10}
+                    alignSelf="center"
+                    color="$textSubdued"
+                    lineHeight={16}
+                  >
+                    {token.maxLeverage}x
+                  </SizableText>
+                </XStack>
+              ) : null}
               {token.subtitle && gtLg ? (
                 <SubtitleBadge
                   subtitle={token.subtitle}
@@ -264,7 +287,7 @@ const TokenInfoCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.subtitle, token.maxLeverage, token.name, gtLg],
+    [token.displayName, token.subtitle, token.maxLeverage, token.name, gtLg, isSpot],
   );
   return content;
 });
@@ -475,7 +498,7 @@ TokenSelectorRowDesktop.displayName = 'TokenSelectorRowDesktop';
 
 // Mobile cell components
 const TokenImageMobile = memo(() => {
-  const { token } = useTokenSelectorRowContext();
+  const { token, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -489,13 +512,15 @@ const TokenImageMobile = memo(() => {
           <Token
             size="lg"
             borderRadius="$full"
-            tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
+            tokenImageUri={getHyperliquidTokenImageUrl(
+              isSpot ? token.name : token.displayName,
+            )}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.name],
+    [token.displayName, token.name, isSpot],
   );
   return content;
 });

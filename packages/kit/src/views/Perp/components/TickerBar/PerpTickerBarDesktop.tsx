@@ -19,7 +19,9 @@ import {
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
@@ -33,7 +35,14 @@ import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
 
 function useTickerBarIsLoading() {
   const { isReady, hasError } = usePerpSession();
+  const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const isSpot = tradingMode === 'spot';
+  if (isSpot) {
+    // Spot: loaded when spotAssetCtx is available
+    return !isReady || hasError || !spotAssetCtx?.ctx;
+  }
   const { markPrice } = assetCtx?.ctx || {
     markPrice: '0',
   };
@@ -633,6 +642,8 @@ function TickerBarFundingRate() {
 
 function PerpTickerBarDesktop() {
   const [activeAsset] = usePerpsActiveAssetAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const isSpot = tradingMode === 'spot';
   const content = (
     <XStack
       bg="$bgApp"
@@ -648,7 +659,7 @@ function PerpTickerBarDesktop() {
     >
       <XStack gap="$4" alignItems="center">
         <XStack gap="$2" alignItems="center">
-          <FavoriteButton coin={activeAsset.coin} iconSize="$4" />
+          <FavoriteButton coin={activeAsset.coin} iconSize="$4" isSpot={isSpot} />
           <PerpTokenSelector />
         </XStack>
 
@@ -658,22 +669,24 @@ function PerpTickerBarDesktop() {
         </XStack>
       </XStack>
 
-      {/* Right: Market Data */}
-      <ScrollView
-        cursor="default"
-        horizontal
-        flex={1}
-        contentContainerStyle={{
-          gap: '$8',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-        }}
-      >
-        <TickerBarOraclePrice />
-        <TickerBar24hVolume />
-        <TickerBarOpenInterest />
-        <TickerBarFundingRate />
-      </ScrollView>
+      {/* Right: Market Data -- hide perps-only items for spot */}
+      {isSpot ? null : (
+        <ScrollView
+          cursor="default"
+          horizontal
+          flex={1}
+          contentContainerStyle={{
+            gap: '$8',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+          }}
+        >
+          <TickerBarOraclePrice />
+          <TickerBar24hVolume />
+          <TickerBarOpenInterest />
+          <TickerBarFundingRate />
+        </ScrollView>
+      )}
     </XStack>
   );
   return (

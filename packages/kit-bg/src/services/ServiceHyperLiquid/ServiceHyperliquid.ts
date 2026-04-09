@@ -1086,6 +1086,40 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this.backgroundApi.simpleDb.perp.getSpotMeta();
   }
 
+  @backgroundMethod()
+  async refreshSpotMeta() {
+    const { infoClient } = hyperLiquidApiClients;
+    const result = await infoClient.spotMetaAndAssetCtxs();
+    const meta = result[0];
+    if (meta?.tokens && meta?.universe) {
+      const tokens = meta.tokens;
+      const universes: ISpotUniverse[] = meta.universe.map(
+        (item) => {
+          const baseTokenIdx = item.tokens[0];
+          const quoteTokenIdx = item.tokens[1];
+          const baseToken = tokens[baseTokenIdx];
+          const quoteToken = tokens[quoteTokenIdx];
+          const baseName = baseToken?.name ?? '';
+          const quoteName = quoteToken?.name ?? 'USDC';
+          return {
+            ...item,
+            assetId: item.index,
+            baseName,
+            quoteName,
+            displayName: perpsUtils.getSpotTokenDisplayName(baseName),
+            baseSzDecimals: baseToken?.szDecimals ?? 0,
+          };
+        },
+      );
+      await this.backgroundApi.simpleDb.perp.setSpotMeta({
+        tokens,
+        universes,
+      });
+      // Rebuild cached mappings from fresh data
+      this._rebuildSpotMappings(universes);
+    }
+  }
+
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   @backgroundMethod()

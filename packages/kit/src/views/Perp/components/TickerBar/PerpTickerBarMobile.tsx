@@ -17,6 +17,7 @@ import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/c
 import {
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -51,6 +52,8 @@ function PerpCandleChartButtonMobile() {
 
 function PerpBadgesRow() {
   const intl = useIntl();
+  const [tradingMode] = useTradingModeAtom();
+  const isSpot = tradingMode === 'spot';
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const [asset] = usePerpsActiveAssetAtom();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
@@ -101,9 +104,11 @@ function PerpBadgesRow() {
     <XStack alignItems="center" gap="$1.5">
       <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
         <SizableText color="$textSubdued" fontSize={10}>
-          {intl.formatMessage({
-            id: ETranslations.perp_label_perp,
-          })}
+          {isSpot
+            ? 'Spot'
+            : intl.formatMessage({
+                id: ETranslations.perp_label_perp,
+              })}
         </SizableText>
       </Badge>
       {subtitle ? (
@@ -141,7 +146,7 @@ function PerpBadgesRow() {
           }
         />
       ) : null}
-      {builderFeeRate === 0 ? (
+      {!isSpot && builderFeeRate === 0 ? (
         <Badge radius="$1" bg="$bgSuccess" px="$0.5" py={0}>
           <SizableText color="$textSuccess" fontSize={10}>
             {intl.formatMessage({
@@ -156,6 +161,8 @@ function PerpBadgesRow() {
 
 export function PerpTickerBarMobile() {
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const isSpot = tradingMode === 'spot';
 
   const content = (
     <XStack

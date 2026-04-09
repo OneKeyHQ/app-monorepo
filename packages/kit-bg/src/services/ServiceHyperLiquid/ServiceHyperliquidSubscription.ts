@@ -426,6 +426,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setRouteSubscriptionState(params: {
+    enableLedgerUpdates: boolean;
+    spotAssetCtxsEnabled: boolean;
+    spotEnabled: boolean;
+  }): Promise<void> {
+    this._currentState.enableLedgerUpdates = params.enableLedgerUpdates;
+    this._currentState.spotAssetCtxsEnabled = params.spotAssetCtxsEnabled;
+    this._currentState.spotEnabled = params.spotEnabled;
+  }
+
+  @backgroundMethod()
   async forceReloadCandlesWebview(): Promise<void> {
     await perpsCandlesWebviewReloadHookAtom.set({
       reloadHook: Date.now(),

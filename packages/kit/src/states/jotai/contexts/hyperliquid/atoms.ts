@@ -87,6 +87,47 @@ export const {
 export const { atom: subscriptionActiveAtom, use: useSubscriptionActiveAtom } =
   contextAtom<boolean>(false);
 
+export type IActiveTradeInstrument =
+  | {
+      mode: 'perp';
+      coin: string;
+      assetId: number | undefined;
+      universe: HL.IPerpsUniverse | undefined;
+    }
+  | {
+      mode: 'spot';
+      coin: string;
+      assetId: number | undefined;
+      universe: HL.ISpotUniverse | undefined;
+    };
+
+export const {
+  atom: activeTradeInstrumentAtom,
+  use: useActiveTradeInstrumentAtom,
+} = contextAtom<IActiveTradeInstrument>({
+  mode: 'perp',
+  coin: '',
+  assetId: undefined,
+  universe: undefined,
+});
+
+export interface ITradeRouteViewState {
+  routeFocused: boolean;
+  tokenSelectorOpen: boolean;
+  tokenSelectorTab: string;
+  infoPanelTab: string;
+}
+
+export const {
+  atom: tradeRouteViewStateAtom,
+  use: useTradeRouteViewStateAtom,
+} = contextAtom<ITradeRouteViewState>({
+  routeFocused: false,
+  tokenSelectorOpen: false,
+  tokenSelectorTab: 'all',
+  infoPanelTab: 'Positions',
+});
+
 export type IBBOPriceMode =
   | null
   | { type: 'counterparty'; level: number }

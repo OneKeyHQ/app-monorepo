@@ -36,6 +36,7 @@ import {
   usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -112,6 +113,8 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const isSpot = tradingMode === 'spot';
 
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
@@ -412,29 +415,35 @@ function PerpTradingForm({
     [intl],
   );
   const mobileOrderTypeOptions = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
-        value: 'market' as string,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
-        value: 'limit' as string,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perp_order_trigger_market,
-        }),
-        value: ETriggerOrderType.TRIGGER_MARKET as string,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perp_order_trigger_limit,
-        }),
-        value: ETriggerOrderType.TRIGGER_LIMIT as string,
-      },
-    ],
-    [intl],
+    () => {
+      const base = [
+        {
+          label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
+          value: 'market' as string,
+        },
+        {
+          label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
+          value: 'limit' as string,
+        },
+      ];
+      if (isSpot) return base;
+      return [
+        ...base,
+        {
+          label: intl.formatMessage({
+            id: ETranslations.perp_order_trigger_market,
+          }),
+          value: ETriggerOrderType.TRIGGER_MARKET as string,
+        },
+        {
+          label: intl.formatMessage({
+            id: ETranslations.perp_order_trigger_limit,
+          }),
+          value: ETriggerOrderType.TRIGGER_LIMIT as string,
+        },
+      ];
+    },
+    [intl, isSpot],
   );
 
   const applyPrimaryOrderType = useCallback(
@@ -781,12 +790,14 @@ function PerpTradingForm({
     <YStack gap={isMobile ? '$2.5' : '$4'} pt={isMobile ? '$0' : '$2.5'}>
       {isMobile ? (
         <>
-          <XStack alignItems="center" flex={1} gap="$2.5">
-            <YStack flex={1}>
-              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-            </YStack>
-            <LeverageAdjustModal isMobile={isMobile} />
-          </XStack>
+          {isSpot ? null : (
+            <XStack alignItems="center" flex={1} gap="$2.5">
+              <YStack flex={1}>
+                <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+              </YStack>
+              <LeverageAdjustModal isMobile={isMobile} />
+            </XStack>
+          )}
 
           <XStack alignItems="center" flex={1} gap="$2.5">
             <YStack flex={1}>
@@ -842,15 +853,17 @@ function PerpTradingForm({
       ) : (
         <>
           <YStack gap="$2">
-            <XStack alignItems="center" flex={1} gap="$3">
-              <YStack flex={1}>
-                <MarginModeSelector
-                  disabled={isSubmitting}
-                  isMobile={isMobile}
-                />
-              </YStack>
-              <LeverageAdjustModal isMobile={isMobile} />
-            </XStack>
+            {isSpot ? null : (
+              <XStack alignItems="center" flex={1} gap="$3">
+                <YStack flex={1}>
+                  <MarginModeSelector
+                    disabled={isSubmitting}
+                    isMobile={isMobile}
+                  />
+                </YStack>
+                <LeverageAdjustModal isMobile={isMobile} />
+              </XStack>
+            )}
 
             <XStack
               h={38}
@@ -894,7 +907,7 @@ function PerpTradingForm({
                   </XStack>
                 );
               })}
-              <Select
+              {isSpot ? null : <Select
                 items={triggerTypeOptions}
                 title="Trigger"
                 value={triggerOrderType}
@@ -949,7 +962,7 @@ function PerpTradingForm({
                     ) : null}
                   </XStack>
                 )}
-              />
+              />}
             </XStack>
           </YStack>
         </>
@@ -1033,7 +1046,7 @@ function PerpTradingForm({
         />
       </YStack>
 
-      {renderBottomSection()}
+      {isSpot ? null : renderBottomSection()}
     </YStack>
   );
 }
