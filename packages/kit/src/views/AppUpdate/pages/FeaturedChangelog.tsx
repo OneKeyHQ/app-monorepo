@@ -170,13 +170,11 @@ function FeaturedChangelog({
     ? displayAppUpdateVersion(appUpdateInfo)
     : displayWhatsNewVersion();
 
-  // TODO: replace fallback strings with ETranslations keys once added via Lokalise
+  // TODO: replace fallback string with ETranslations key once added via Lokalise
   const headline =
     featuredChangelog?.headline ??
     `What's new in v${versionDisplay}`;
-  const subheadline =
-    featuredChangelog?.subheadline ??
-    '\u672C\u6B21\u66F4\u65B0\u7684\u4EAE\u70B9\u529F\u80FD';
+  const { subheadline } = featuredChangelog ?? {};
 
   const ctaText = isPreInstall
     ? intl.formatMessage({
@@ -206,9 +204,11 @@ function FeaturedChangelog({
             <SizableText size="$heading3xl" mb="$1">
               {headline}
             </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued" mb="$4">
-              {subheadline}
-            </SizableText>
+            {subheadline ? (
+              <SizableText size="$bodyMd" color="$textSubdued" mb="$4">
+                {subheadline}
+              </SizableText>
+            ) : null}
             <FeaturedTabBar
               features={features}
               activeIndex={activeIndex}
