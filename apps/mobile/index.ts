@@ -55,17 +55,27 @@ try {
       if (_raw) {
         const _snapshot = JSON.parse(_raw) as Record<string, any>;
         let _count = 0;
+        let _skipped = 0;
         for (const _atomName of Object.values(EAtomNames)) {
           if (_atomName in _snapshot) {
             const _storageKey = buildJotaiStorageKey(
               _atomName as keyof typeof EAtomNames,
             );
-            _jotaiMMKV.set(_storageKey, JSON.stringify(_snapshot[_atomName]));
-            _count += 1;
+            // Only write keys that don't already exist in MMKV.
+            // In dual-thread mode the BG thread may have already
+            // self-healed from AsyncStorage (authoritative source)
+            // before this migration runs — don't overwrite with
+            // potentially stale snapshot blob data.
+            if (_jotaiMMKV.getString(_storageKey) === undefined) {
+              _jotaiMMKV.set(_storageKey, JSON.stringify(_snapshot[_atomName]));
+              _count += 1;
+            } else {
+              _skipped += 1;
+            }
           }
         }
         _migrationLog(
-          `snapshot → MMKV per-key OK: ${_count} atoms migrated (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
+          `snapshot → MMKV per-key: ${_count} migrated, ${_skipped} skipped (already present) (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
         );
       } else {
         _migrationLog('no snapshot blob found, skip migration (first install)');
