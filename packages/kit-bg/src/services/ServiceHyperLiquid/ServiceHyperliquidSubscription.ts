@@ -546,7 +546,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     await timerUtils.wait(600); // wait network status atom update
 
-    if (wasConnected === false) {
+    if (!wasConnected) {
       console.log('updateSubscriptions__by__socketOpen');
       // resubscribe when reconnecting
       await this.updateSubscriptions();
