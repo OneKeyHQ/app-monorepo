@@ -424,14 +424,11 @@ export default class Vault extends VaultBase {
   ): Promise<{ isValid: boolean; errorMessage?: string }> {
     if (!memo) return { isValid: true };
 
-    // XRP destination tag: unsigned 32-bit integer (0 – 4 294 967 295)
-    const MAX_UINT32 = 4_294_967_295;
-    const tag = Number(memo);
-
-    // Non-integer / negative → generic "positive integer" message.
-    // The sync regex in the form layer normally catches these first; this is
-    // a safety net for address book imports and API callers.
-    if (!Number.isInteger(tag) || tag < 0) {
+    // Strict digit-only check first — Number() would otherwise silently
+    // coerce "0x10", "1e2", "+123", whitespace-padded strings, etc., and
+    // callers that skip the form-layer regex (e.g. bulk imports) would
+    // happily store an entry that later becomes a wrong destinationTag.
+    if (!/^[0-9]+$/.test(memo)) {
       return {
         isValid: false,
         errorMessage: appLocale.intl.formatMessage({
@@ -440,7 +437,9 @@ export default class Vault extends VaultBase {
       };
     }
 
-    // Out-of-range but otherwise valid integer — give a precise range hint.
+    // XRP destination tag: unsigned 32-bit integer (0 – 4 294 967 295)
+    const MAX_UINT32 = 4_294_967_295;
+    const tag = Number(memo);
     if (tag > MAX_UINT32) {
       return {
         isValid: false,
