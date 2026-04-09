@@ -1039,9 +1039,15 @@ export default function RecipientQuickSelect({
     () => ({
       isSearchMode: !!(isSearchMode && trimmedSearchKey),
       searchKeyLength: trimmedSearchKey.length,
-      matchCount: Object.values(tabMatchCounts).reduce((a, b) => a + b, 0),
+      // Only count tabs that are actually visible — hidden tabs (e.g. swap
+      // passes hideTabs={['recent']}) stay mounted but their counts would
+      // otherwise inflate the analytics matchCount.
+      matchCount: visibleTabKeys.reduce(
+        (sum, tab) => sum + (tabMatchCounts[tab] ?? 0),
+        0,
+      ),
     }),
-    [isSearchMode, trimmedSearchKey, tabMatchCounts],
+    [isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys],
   );
 
   return (
