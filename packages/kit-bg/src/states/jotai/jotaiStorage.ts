@@ -162,10 +162,27 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
    * - On failure: flag not set → getItem/setItem stay in dual-write mode
    *   → retry next launch
    */
-  async migrateFromAsyncStorage(expectedKeys: string[]): Promise<void> {
+  async migrateFromAsyncStorage(
+    expectedKeys: string[],
+    probeKey: string,
+  ): Promise<void> {
     if (this.migrated) {
       this.log('migration already complete, skip');
       return;
+    }
+
+    // Fast probe: read one key that every existing user has (settingsPersistAtom).
+    // If absent → first install, nothing to migrate → set flag and return.
+    try {
+      const probe = await this.getAsyncStorageModule().getItem(probeKey);
+      if (probe === null) {
+        this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
+        this.migrated = true;
+        this.log('migration skip: first install (probe key absent)');
+        return;
+      }
+    } catch (e) {
+      this.log(`migration probe failed: ${(e as Error)?.message}, proceeding with full migration`);
     }
 
     this.log(`migration start: ${expectedKeys.length} keys to check`);

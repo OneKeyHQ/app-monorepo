@@ -69,11 +69,17 @@ async function migrateToMMKVIfNeeded() {
   const expectedKeys = Object.values(EAtomNames).map((name) =>
     buildJotaiStorageKey(name),
   );
+  // settingsPersistAtom always exists for non-first-install users.
+  // Used as a fast probe to skip migration on fresh installs.
+  const probeKey = buildJotaiStorageKey(EAtomNames.settingsPersistAtom);
   await (
     onekeyJotaiStorage as {
-      migrateFromAsyncStorage: (keys: string[]) => Promise<void>;
+      migrateFromAsyncStorage: (
+        keys: string[],
+        probe: string,
+      ) => Promise<void>;
     }
-  ).migrateFromAsyncStorage(expectedKeys);
+  ).migrateFromAsyncStorage(expectedKeys, probeKey);
 }
 
 export async function jotaiInit() {
