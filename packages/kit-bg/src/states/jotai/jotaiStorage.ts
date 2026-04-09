@@ -53,11 +53,19 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     }
   }
 
-  private async readFromAsyncStorage(key: string): Promise<any> {
+  private getAsyncStorageModule() {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const asyncStorage =
       require('@react-native-async-storage/async-storage') as typeof import('@react-native-async-storage/async-storage');
-    const data = await asyncStorage.default.getItem(key);
+    return asyncStorage.default;
+  }
+
+  /**
+   * Read from legacy AsyncStorage. Returns null if key doesn't exist.
+   * Throws on actual read errors (callers decide how to handle).
+   */
+  private async readFromAsyncStorage(key: string): Promise<any> {
+    const data = await this.getAsyncStorageModule().getItem(key);
     if (data === null) return null;
     try {
       return isString(data) ? JSON.parse(data) : data;
@@ -121,8 +129,9 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
    * Completeness guarantee:
    * - Iterates every key in EAtomNames (exhaustive enum of all atoms)
    * - For each key: reads AsyncStorage → writes to MMKV (skip if already present)
-   * - Migration-complete flag set ONLY after ALL keys are processed
-   * - Flag is checked by main thread crossAtomBuilder to decide read path
+   * - Tracks errors separately from "key not found" (null from AsyncStorage)
+   * - Migration-complete flag set ONLY when zero errors
+   * - On errors: flag not set → retry next launch; main thread reads snapshot blob
    */
   async migrateFromAsyncStorage(expectedKeys: string[]): Promise<void> {
     // Already migrated — skip
@@ -137,25 +146,43 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     );
     let migrated = 0;
     let skipped = 0;
+    let absent = 0;
+    let errors = 0;
     await Promise.all(
       expectedKeys.map(async (key) => {
         if (existingKeys.has(key)) {
           skipped += 1;
           return;
         }
-        const value = await this.readFromAsyncStorage(key);
-        if (value !== null && value !== undefined) {
-          this.mmkv.set(key, JSON.stringify(value));
-          migrated += 1;
+        try {
+          const value = await this.readFromAsyncStorage(key);
+          if (value !== null && value !== undefined) {
+            this.mmkv.set(key, JSON.stringify(value));
+            migrated += 1;
+          } else {
+            // Key genuinely doesn't exist in AsyncStorage (new or non-persist atom)
+            absent += 1;
+          }
+        } catch (e) {
+          errors += 1;
+          this.log(`migration read error for ${key}: ${(e as Error)?.message}`);
         }
       }),
     );
 
-    // Flag ONLY after all keys processed — guarantees completeness
-    this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
-    this.log(
-      `migration complete: ${migrated} migrated, ${skipped} skipped (already present)`,
-    );
+    if (errors === 0) {
+      // All keys processed successfully — safe to set flag
+      this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
+      this.log(
+        `migration complete: ${migrated} migrated, ${skipped} existed, ${absent} absent`,
+      );
+    } else {
+      // Some keys failed — don't set flag, retry next launch.
+      // Main thread continues reading old snapshot blob as fallback.
+      this.log(
+        `migration incomplete: ${migrated} migrated, ${errors} errors — will retry next launch`,
+      );
+    }
   }
 
   async getAllEntries(): Promise<Map<string, any>> {
