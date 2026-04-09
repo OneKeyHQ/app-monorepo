@@ -12,6 +12,7 @@ import {
   Empty,
   MatchSizeableText,
   SizableText,
+  Spinner,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -306,11 +307,12 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     [intl.locale, formatDistanceToNowStrict],
   );
 
-  const { recentRecipients, isLoadingRecent } = useRecentRecipientsData({
-    accountId,
-    networkId,
-    refreshKey,
-  });
+  const { recentRecipients, isLoadingRecent, isLoadingMore } =
+    useRecentRecipientsData({
+      accountId,
+      networkId,
+      refreshKey,
+    });
 
   const debouncedSearchKey = useDebounce(rawSearchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -473,6 +475,11 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         </SizableText>
       )}
       {renderContent()}
+      {isLoadingMore ? (
+        <XStack justifyContent="center" py="$3">
+          <Spinner size="small" />
+        </XStack>
+      ) : null}
     </Stack>
   );
 }
