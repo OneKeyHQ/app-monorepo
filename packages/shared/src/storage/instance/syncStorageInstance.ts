@@ -10,154 +10,122 @@ import mmkvStorageInstance from './mmkvStorageInstance';
 
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
-/**
- * Safe MMKV set — guards against undefined/null values that crash MMKV.
- * undefined/null → writes empty string (key preserved, value cleared).
- */
-function mmkvSafeSet(
-  instance: { set(key: string, value: string | number | boolean): void },
-  key: string,
-  value: string | number | boolean | undefined | null,
-) {
-  if (value === undefined || value === null) {
-    instance.set(key, '');
-    return;
-  }
-  instance.set(key, value);
-}
+// ---- MMKV instance interface (subset used by wrapper) ----
 
-const syncStorageWeb = {
-  set(key: EAppSyncStorageKeys, value: boolean | string | number) {
-    resetUtils.checkNotInResetting();
-    mmkvSafeSet(mmkvStorageInstance, key, value);
-  },
-  setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
-    resetUtils.checkNotInResetting();
-    if (!isPlainObject(value)) {
-      throw new OneKeyLocalError('value must be a plain object');
-    }
-    mmkvSafeSet(mmkvStorageInstance, key, JSON.stringify(value));
-  },
-  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-    try {
-      const value = mmkvStorageInstance.getString(key);
-      if (!value) {
-        return undefined;
-      }
-      return JSON.parse(value) as T;
-    } catch (_e) {
-      return undefined;
-    }
-  },
-  getString(key: EAppSyncStorageKeys) {
-    return mmkvStorageInstance.getString(key);
-  },
-  getNumber(key: EAppSyncStorageKeys) {
-    return mmkvStorageInstance.getNumber(key);
-  },
-  getBoolean(key: EAppSyncStorageKeys) {
-    return mmkvStorageInstance.getBoolean(key);
-  },
-  delete(key: EAppSyncStorageKeys) {
-    mmkvStorageInstance.remove(key);
-  },
-  clearAll() {
-    mmkvStorageInstance.clearAll();
-  },
-  getAllKeys() {
-    return mmkvStorageInstance.getAllKeys();
-  },
+type IMMKVInstance = {
+  getString(key: string): string | undefined;
+  getNumber(key: string): number | undefined;
+  getBoolean(key: string): boolean | undefined;
+  set(key: string, value: string | number | boolean): void;
+  remove(key: string): void;
+  clearAll(): void;
+  getAllKeys(): string[];
 };
 
-export type ISyncStorage = typeof syncStorageWeb;
+// ---- Factory: create ISyncStorage wrapper from any MMKV instance ----
+
+function createMMKVSyncStorage(
+  mmkv: IMMKVInstance,
+  options?: { checkResetting?: boolean },
+) {
+  const checkResetting = options?.checkResetting ?? false;
+
+  /**
+   * Safe MMKV set — guards against undefined/null values that crash MMKV.
+   * undefined/null → writes empty string (key preserved, value cleared).
+   */
+  function safeSet(
+    key: string,
+    value: string | number | boolean | undefined | null,
+  ) {
+    if (checkResetting) {
+      resetUtils.checkNotInResetting();
+    }
+    if (value === undefined || value === null) {
+      mmkv.set(key, '');
+      return;
+    }
+    mmkv.set(key, value);
+  }
+
+  return {
+    set(key: EAppSyncStorageKeys, value: boolean | string | number) {
+      safeSet(key, value);
+    },
+    setObject<T extends Record<string, any>>(
+      key: EAppSyncStorageKeys,
+      value: T,
+    ) {
+      if (!isPlainObject(value)) {
+        throw new OneKeyLocalError('value must be a plain object');
+      }
+      safeSet(key, JSON.stringify(value));
+    },
+    getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+      try {
+        const raw = mmkv.getString(key);
+        if (!raw) return undefined;
+        return JSON.parse(raw) as T;
+      } catch {
+        return undefined;
+      }
+    },
+    getString(key: EAppSyncStorageKeys) {
+      return mmkv.getString(key);
+    },
+    getNumber(key: EAppSyncStorageKeys) {
+      return mmkv.getNumber(key);
+    },
+    getBoolean(key: EAppSyncStorageKeys) {
+      return mmkv.getBoolean(key);
+    },
+    delete(key: EAppSyncStorageKeys) {
+      mmkv.remove(key);
+    },
+    clearAll() {
+      mmkv.clearAll();
+    },
+    getAllKeys() {
+      return mmkv.getAllKeys();
+    },
+  };
+}
+
+export type ISyncStorage = ReturnType<typeof createMMKVSyncStorage>;
+
+// ---- No-op stub for extension background service worker ----
 
 const syncStorageExtBg: ISyncStorage = {
-  set(_key: EAppSyncStorageKeys, _value: boolean | string | number): void {
-    // do nothing
-  },
-  setObject<T extends Record<string, any>>(
-    _key: EAppSyncStorageKeys,
-    _value: T,
-  ): void {
-    // do nothing
-  },
-  getObject<T>(_key: EAppSyncStorageKeys): T | undefined {
-    // do nothing
+  set() {},
+  setObject() {},
+  getObject() {
     return undefined;
   },
-  getString(_key: EAppSyncStorageKeys): string | undefined {
-    // do nothing
+  getString() {
     return undefined;
   },
-  getNumber(_key: EAppSyncStorageKeys): number | undefined {
-    // do nothing
+  getNumber() {
     return undefined;
   },
-  getBoolean(_key: EAppSyncStorageKeys): boolean | undefined {
-    // do nothing
+  getBoolean() {
     return undefined;
   },
-  delete(_key: EAppSyncStorageKeys): void {
-    // do nothing
-  },
-  clearAll(): void {
-    // do nothing
-  },
-  getAllKeys(): string[] {
-    // do nothing
+  delete() {},
+  clearAll() {},
+  getAllKeys() {
     return [];
   },
 };
-// eslint-disable-next-line import/no-named-as-default-member
+
+// ---- Exports ----
+
+/** App settings storage (onekey-app-setting MMKV instance) */
 export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
   ? syncStorageExtBg
-  : syncStorageWeb;
+  : createMMKVSyncStorage(mmkvStorageInstance, { checkResetting: true });
 
-/**
- * Dedicated MMKV storage for cold-start caches (contextAtom snapshot + SWR).
- * Isolated from onekey-app-setting so it can be cleared independently.
- * Extension BG uses no-op stub (cold-start cache not applicable).
- */
-const coldStartCacheStorageImpl: ISyncStorage = {
-  set(key: EAppSyncStorageKeys, value: boolean | string | number) {
-    mmkvSafeSet(coldStartCacheMMKVInstance, key, value);
-  },
-  setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
-    if (!isPlainObject(value)) {
-      throw new OneKeyLocalError('value must be a plain object');
-    }
-    mmkvSafeSet(coldStartCacheMMKVInstance, key, JSON.stringify(value));
-  },
-  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-    try {
-      const value = coldStartCacheMMKVInstance.getString(key);
-      if (!value) return undefined;
-      return JSON.parse(value) as T;
-    } catch {
-      return undefined;
-    }
-  },
-  getString(key: EAppSyncStorageKeys) {
-    return coldStartCacheMMKVInstance.getString(key);
-  },
-  getNumber(key: EAppSyncStorageKeys) {
-    return coldStartCacheMMKVInstance.getNumber(key);
-  },
-  getBoolean(key: EAppSyncStorageKeys) {
-    return coldStartCacheMMKVInstance.getBoolean(key);
-  },
-  delete(key: EAppSyncStorageKeys) {
-    coldStartCacheMMKVInstance.remove(key);
-  },
-  clearAll() {
-    coldStartCacheMMKVInstance.clearAll();
-  },
-  getAllKeys() {
-    return coldStartCacheMMKVInstance.getAllKeys();
-  },
-};
-
+/** Cold-start cache storage (onekey-cold-start-cache MMKV instance) */
 export const coldStartCacheStorage =
   platformEnv.isExtensionBackgroundServiceWorker
     ? syncStorageExtBg
-    : coldStartCacheStorageImpl;
+    : createMMKVSyncStorage(coldStartCacheMMKVInstance);
