@@ -1109,7 +1109,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           const quoteName = quoteToken?.name ?? 'USDC';
           return {
             ...item,
-            assetId: item.index,
+            assetId: 10_000 + item.index,
             baseName,
             quoteName,
             displayName: perpsUtils.getSpotTokenDisplayName(baseName),
