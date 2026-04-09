@@ -133,7 +133,8 @@ function getTypeName(
   if (type === 'array') {
     const items = node.items as IJsonSchemaNode | undefined;
     const itemType = items ? getTypeName(items, doc, indent) : 'unknown';
-    return `${itemType}[]`;
+    const needsParens = itemType.includes(' | ') || itemType.includes(' & ');
+    return needsParens ? `(${itemType})[]` : `${itemType}[]`;
   }
 
   if (type === 'object') {
