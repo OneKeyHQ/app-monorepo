@@ -20,6 +20,7 @@ import {
   EUpdateFileType,
   EUpdateStrategy,
   getUpdateFileType,
+  hasFeaturedChangelog,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
   isWhatsNewShown,
@@ -682,13 +683,23 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     if (platformEnv.isE2E) {
       return;
     }
-    setTimeout(() => {
+    setTimeout(async () => {
+      const currentInfo =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       const pushModal = isFullModal
         ? navigation.pushFullModal
         : navigation.pushModal;
-      pushModal(EModalRoutes.AppUpdateModal, {
-        screen: EAppUpdateRoutes.WhatsNew,
-      });
+
+      if (hasFeaturedChangelog(currentInfo.featuredChangelog)) {
+        pushModal(EModalRoutes.AppUpdateModal, {
+          screen: EAppUpdateRoutes.FeaturedChangelog,
+          params: { isPreInstall: false },
+        });
+      } else {
+        pushModal(EModalRoutes.AppUpdateModal, {
+          screen: EAppUpdateRoutes.WhatsNew,
+        });
+      }
     });
   }, [isFullModal, navigation.pushFullModal, navigation.pushModal]);
 
@@ -706,18 +717,33 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         const pushModal = isFull
           ? navigation.pushFullModal
           : navigation.pushModal;
-        pushModal(EModalRoutes.AppUpdateModal, {
-          screen: EAppUpdateRoutes.UpdatePreview,
-          params: {
-            latestVersion:
-              params?.latestVersion ?? currentAppUpdateInfo.latestVersion,
-            isForceUpdate:
-              params?.isForceUpdate ??
-              isForceUpdateStrategy(appUpdateInfo.updateStrategy),
-            autoClose: isFull,
-            ...params,
-          },
-        });
+
+        if (hasFeaturedChangelog(currentAppUpdateInfo.featuredChangelog)) {
+          pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.FeaturedChangelog,
+            params: {
+              isPreInstall: true,
+              latestVersion:
+                params?.latestVersion ?? currentAppUpdateInfo.latestVersion,
+              isForceUpdate:
+                params?.isForceUpdate ??
+                isForceUpdateStrategy(appUpdateInfo.updateStrategy),
+            },
+          });
+        } else {
+          pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.UpdatePreview,
+            params: {
+              latestVersion:
+                params?.latestVersion ?? currentAppUpdateInfo.latestVersion,
+              isForceUpdate:
+                params?.isForceUpdate ??
+                isForceUpdateStrategy(appUpdateInfo.updateStrategy),
+              autoClose: isFull,
+              ...params,
+            },
+          });
+        }
       }, 0);
     },
     [
