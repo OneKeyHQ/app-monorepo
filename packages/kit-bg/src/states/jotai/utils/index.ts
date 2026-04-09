@@ -174,27 +174,19 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
           cached = JSON.parse(raw);
         }
       } else {
-        // Migration not yet complete — read old snapshot blob as fallback
+        // Migration not yet complete — read from legacy snapshot blob directly
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { syncStorage: ss } =
           require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { EAppSyncStorageKeys: sk } =
           require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-        // Lazy-parse snapshot blob (cache on globalThis to avoid re-parsing)
-        let snapshot = (globalThis as any).__ONEKEY_LEGACY_SNAPSHOT_CACHE__;
-        if (snapshot === undefined) {
-          const blobRaw = ss.getString(sk.onekey_jotai_atoms_snapshot);
-          snapshot = blobRaw ? JSON.parse(blobRaw) : null;
-          (globalThis as any).__ONEKEY_LEGACY_SNAPSHOT_CACHE__ = snapshot;
-          // Clean up after first screen renders; globalAtoms are mostly
-          // synchronous but split-bundle segments may define more later.
-          setTimeout(() => {
-            delete (globalThis as any).__ONEKEY_LEGACY_SNAPSHOT_CACHE__;
-          }, 15_000);
-        }
-        if (snapshot && name in snapshot) {
-          cached = snapshot[name];
+        const blobRaw = ss.getString(sk.onekey_jotai_atoms_snapshot);
+        if (blobRaw) {
+          const snapshot = JSON.parse(blobRaw);
+          if (snapshot && name in snapshot) {
+            cached = snapshot[name];
+          }
         }
       }
 
