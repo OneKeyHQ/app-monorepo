@@ -36,12 +36,47 @@
 
 ### 3.1 触发与替代
 
+版本特色浮层**完全覆盖**当前 changelog 的所有弹出时机，不区分"更新前"和"更新后"。
+
+**当前 changelog 弹出的所有时机：**
+
+| 时机 | 原有行为 | 有特色配置时 |
+|------|---------|------------|
+| **更新前** — 检测到新版本（Force/Manual 策略） | 弹 UpdatePreview（changelog + 下载按钮） | 弹版本特色浮层，CTA = "立即更新" → 跳转下载验证流程 |
+| **更新后** — 安装完成首次冷启动 | 弹 WhatsNew（changelog） | 弹版本特色浮层，CTA = 功能 deep link（如"立即体验"） |
+| **无配置时** | — | 降级回现有行为（弹 changelog） |
+
+**Primary CTA 根据上下文自动切换：**
+
+| 上下文 | Primary CTA | 行为 |
+|--------|------------|------|
+| 更新前（尚未安装） | "立即更新" / "Download" | 跳转到下载验证流程 |
+| 更新后（已安装） | 各亮点配置的 CTA（如"立即体验"） | 关闭浮层 + 跳转到功能页 |
+
+**其他规则：**
+
 | 规则 | 行为 |
 |------|------|
-| 触发时机 | 版本更新后首次打开 App |
-| 替代关系 | 后台有配置「版本特色」时 → 展示版本特色浮层，**替代**现有 WhatsNew 弹出 |
-| 无配置时 | 降级回现有 WhatsNew 行为（弹出 changelog） |
-| 展示次数 | 每个版本最多展示一次，关闭后不再弹出 |
+| 展示次数 | 每个版本每个时机最多展示一次，关闭后不再弹出 |
+| Seamless 策略 | 不弹任何东西（与现有行为一致） |
+| Silent 策略 | 下载完成后弹出（与现有行为一致） |
+
+### 3.1.1 导航层级
+
+版本特色浮层位于现有 `AppUpdateModal` stack 内，作为 WhatsNew / UpdatePreview 的替代 screen：
+
+```
+Root Navigation
+├── Modal (半透明) / iOSFullScreen (全屏)
+│   └── AppUpdateModal
+│       ├── FeaturedChangelog  ← 新增：有配置时替代下方两个
+│       ├── UpdatePreview      ← 无配置时仍走此路径
+│       ├── WhatsNew           ← 无配置时仍走此路径
+│       ├── DownloadVerify
+│       └── ManualInstall
+```
+
+推入方式复用现有逻辑（`pushModal` / `pushFullModal`），层级关系不变。
 
 ### 3.2 浮层形式
 
@@ -180,6 +215,8 @@ FeaturedItem {
 | 浮层形式 | 大面积模态卡片 | 参考 Claude.ai "What's New"，平衡视觉冲击力和侵入感 |
 | 信息层级 | 标题优先 | Tab 在上方发现性强，全平台适配灵活 |
 | 多亮点策略 | 单次 Tab 切换 | 一次性展示，不分天打扰 |
+| 触发覆盖 | 完全覆盖所有 changelog 弹出时机 | 更新前/后统一体验，逻辑简单；CTA 按上下文自动切换 |
+| 导航层级 | 同一 AppUpdateModal stack 内 | 复用现有 modal 基础设施，层级不变 |
 | L2 更新日志 | 不改动 | 最小范围，现有 WhatsNew 保持原样 |
 | 内容来源 | 后台配置下发 | 运营可按版本配置，无需发版 |
 | Modal Header | 不使用 | 用 Body 顶部自定义布局；自定义 ✕ 待定 |
