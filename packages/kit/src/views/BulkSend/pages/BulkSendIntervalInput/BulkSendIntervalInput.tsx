@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
@@ -119,12 +119,14 @@ function BulkSendIntervalInputContent({
         />
       </Page.Body>
       <Page.Footer>
-        <Page.FooterActions
-          onConfirmText={INTERVAL_SETTINGS_REVIEW_TEXT}
-          confirmButtonProps={{
-            onPress: handleConfirm,
-          }}
-        />
+        <YStack $md={{ pb: '$5' }}>
+          <Page.FooterActions
+            onConfirmText={INTERVAL_SETTINGS_REVIEW_TEXT}
+            confirmButtonProps={{
+              onPress: handleConfirm,
+            }}
+          />
+        </YStack>
       </Page.Footer>
     </Page>
   );
