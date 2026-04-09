@@ -392,15 +392,18 @@ export function useRecentRecipientsData({
 
     const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
 
-    // Phase 1: Try transfer-recipient API first (authoritative when supported).
+    // Phase 1: fetch /transfer-recipient and local store in parallel. The
+    // local store is always loaded so fresh sends (OK-52728) and non-indexer
+    // EVM chains are not masked by the API result even when Phase 1
+    // succeeds.
     let apiEnriched: IEnrichedRecentRecipient[] | null = null;
-    if (accountId) {
-      try {
-        let apiNetworkId = networkId;
-        if (isEvmNetwork) {
-          apiNetworkId = 'evm--1';
-        }
+    let apiExtraMap: Map<string, IRecipientExtraInfo> | null = null;
+    let apiAddresses: string[] = [];
 
+    const apiPromise = (async () => {
+      if (!accountId) return;
+      try {
+        const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
         const { supported, data: apiRecipients } =
           await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
             accountId,
@@ -408,60 +411,78 @@ export function useRecentRecipientsData({
             limit: MAX_RECIPIENTS,
           });
         if (supported && apiRecipients.length > 0) {
-          const extraMap = await buildExtraMapFromApiRecipients(apiRecipients);
-          const addresses = apiRecipients.map((r) => r.address);
-          apiEnriched = await enrichAddresses(addresses, extraMap, networkId);
+          apiExtraMap = await buildExtraMapFromApiRecipients(apiRecipients);
+          apiAddresses = apiRecipients.map((r) => r.address);
         }
       } catch {
         // Fall through to local strategies.
       }
-    }
+    })();
+
+    const [, { addresses: storedAddresses, extraMap: storedExtraMap }] =
+      await Promise.all([apiPromise, loadStoredRecipients(networkId)]);
 
     if (isStale()) return;
 
-    // Always load the local store so fresh sends (OK-52728) and
-    // non-indexer EVM chains are not masked by the API result.
-    const { addresses: storedAddresses, extraMap: storedExtraMap } =
-      await loadStoredRecipients(networkId);
+    if (apiAddresses.length > 0) {
+      // Merge API addresses with local-only addresses BEFORE enrichment so
+      // queryAddress / /badges is called exactly once per unique address
+      // instead of twice (OK-52897 — badge calls are the expensive part).
+      const apiAddressSet = new Set(apiAddresses.map((a) => a.toLowerCase()));
+      const localOnlyAddresses = storedAddresses.filter(
+        (a) => !apiAddressSet.has(a.toLowerCase()),
+      );
 
-    if (isStale()) return;
+      // The stored entries for addresses already in the API are used as a
+      // "freshness overlay": when a user re-sends to an existing recipient,
+      // the local updatedAt is newer than the indexer's and the entry
+      // should bump to the top. Keep a lookup of local times for those.
+      const localTimeByAddress = new Map<string, number>();
+      for (const addr of storedAddresses) {
+        const lower = addr.toLowerCase();
+        const extra = storedExtraMap?.get(lower);
+        if (extra?.time) localTimeByAddress.set(lower, extra.time);
+      }
 
-    if (apiEnriched) {
-      // Phase 1 succeeded — merge local entries on top. The local store
-      // reflects sends the user just made, while the API reflects the
-      // indexer (lagged, missing non-indexer EVM chains). For addresses
-      // that appear in both, the local updatedAt wins when it is newer,
-      // so a fresh re-send bumps the entry to the top of the list.
-      if (storedAddresses.length > 0) {
-        try {
-          const enrichedStored = await enrichAddresses(
-            storedAddresses,
-            storedExtraMap,
-            networkId,
-          );
-          if (isStale()) return;
-          const apiByAddress = new Map(
-            apiEnriched.map((r) => [r.input?.toLowerCase() ?? '', r]),
-          );
-          for (const local of enrichedStored) {
-            const key = local.input?.toLowerCase() ?? '';
-            const existing = apiByAddress.get(key);
-            if (
-              !existing ||
-              (local.lastTransferTime ?? 0) > (existing.lastTransferTime ?? 0)
-            ) {
-              apiByAddress.set(key, local);
-            }
-          }
-          apiEnriched = [...apiByAddress.values()]
-            .toSorted(
-              (a, b) => (b.lastTransferTime ?? 0) - (a.lastTransferTime ?? 0),
-            )
-            .slice(0, MAX_RECIPIENTS);
-        } catch {
-          // ignore enrichment errors — still show the API result
+      const combinedAddresses = [...apiAddresses, ...localOnlyAddresses];
+      const combinedExtraMap = new Map<string, IRecipientExtraInfo>(
+        apiExtraMap ?? [],
+      );
+      if (storedExtraMap) {
+        for (const [key, value] of storedExtraMap) {
+          if (!combinedExtraMap.has(key)) combinedExtraMap.set(key, value);
         }
       }
+
+      try {
+        const enriched = await enrichAddresses(
+          combinedAddresses,
+          combinedExtraMap,
+          networkId,
+        );
+        if (isStale()) return;
+
+        // Apply freshness overlay: for addresses present in both sources,
+        // pick the newer timestamp so a re-send bubbles the entry up.
+        apiEnriched = enriched
+          .map((r) => {
+            const lower = r.input?.toLowerCase();
+            const localTime = lower ? localTimeByAddress.get(lower) : undefined;
+            if (localTime && localTime > (r.lastTransferTime ?? 0)) {
+              return { ...r, lastTransferTime: localTime };
+            }
+            return r;
+          })
+          .toSorted(
+            (a, b) => (b.lastTransferTime ?? 0) - (a.lastTransferTime ?? 0),
+          )
+          .slice(0, MAX_RECIPIENTS);
+      } catch {
+        // ignore enrichment errors — fall through to local strategies
+      }
+    }
+
+    if (apiEnriched) {
       setRecentRecipients(apiEnriched);
       setIsLoadingRecent(false);
       return;
