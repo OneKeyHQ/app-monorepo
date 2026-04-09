@@ -36,6 +36,9 @@ function ClipboardPermissionModal() {
         .then((text) => {
           setTextToWrite(text);
           setTextLoading(false);
+        })
+        .catch(() => {
+          setTextLoading(false);
         });
     }
   }, [textNonce]);
@@ -140,7 +143,8 @@ function ClipboardPermissionModal() {
             onConfirm={onConfirm}
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
-              disabled: textLoading || (showContinueOperate ? !continueOperate : false),
+              disabled:
+                textLoading || (showContinueOperate ? !continueOperate : false),
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}
