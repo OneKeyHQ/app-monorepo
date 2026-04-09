@@ -23,7 +23,6 @@ import {
   IP_TABLE_SPEED_TEST_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
 import {
-  clearSelectedIpForHostCache,
   getSelectedIpForHost,
   setReportRequestFailureCallback,
   testDomainSpeed,
@@ -515,14 +514,6 @@ class ServiceIpTable extends ServiceBase {
     }
 
     try {
-      const updateSelection = async (selection: string) => {
-        await this.backgroundApi.simpleDb.ipTable.updateSelection(
-          domain,
-          selection,
-        );
-        clearSelectedIpForHostCache();
-      };
-
       // 1. Test domain directly
       defaultLogger.ipTable.request.info({
         info: `[IpTable] Testing domain: ${domain}`,
@@ -582,7 +573,10 @@ class ServiceIpTable extends ServiceBase {
           defaultLogger.ipTable.request.info({
             info: `[IpTable] Domain failed, using IP: ${domain} -> ${bestIp}`,
           });
-          await updateSelection(bestIp);
+          await this.backgroundApi.simpleDb.ipTable.updateSelection(
+            domain,
+            bestIp,
+          );
         } else {
           // All tests failed
           defaultLogger.ipTable.request.info({
@@ -597,7 +591,7 @@ class ServiceIpTable extends ServiceBase {
         defaultLogger.ipTable.request.info({
           info: `[IpTable] All IP tests failed, using domain: ${domain}`,
         });
-        await updateSelection('');
+        await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
         return;
       }
 
@@ -611,7 +605,10 @@ class ServiceIpTable extends ServiceBase {
         defaultLogger.ipTable.request.info({
           info: `[IpTable] [STRICT MODE] Using best IP: ${domain} -> ${bestIp} (${bestIpLatency}ms)`,
         });
-        await updateSelection(bestIp);
+        await this.backgroundApi.simpleDb.ipTable.updateSelection(
+          domain,
+          bestIp,
+        );
         return;
       }
 
@@ -626,7 +623,10 @@ class ServiceIpTable extends ServiceBase {
             1,
           )}% faster, using IP: ${domain} -> ${bestIp}`,
         });
-        await updateSelection(bestIp);
+        await this.backgroundApi.simpleDb.ipTable.updateSelection(
+          domain,
+          bestIp,
+        );
       } else {
         // Domain is competitive, prefer domain for stability
         defaultLogger.ipTable.request.info({
@@ -634,7 +634,7 @@ class ServiceIpTable extends ServiceBase {
             improvement * 100
           ).toFixed(1)}% faster), using domain: ${domain}`,
         });
-        await updateSelection('');
+        await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
       }
 
       // Clean up health stats for unused endpoints after speed test

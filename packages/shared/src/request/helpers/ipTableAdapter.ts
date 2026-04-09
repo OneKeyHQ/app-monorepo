@@ -224,22 +224,6 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
   primitive: true, // hostname is a string primitive, use simple equality check
 });
 
-type IMemoizedSelectedIpForHost = typeof getSelectedIpForHost & {
-  clear: () => void;
-  delete: (hostname: string) => void;
-};
-
-const memoizedSelectedIpForHost =
-  getSelectedIpForHost as IMemoizedSelectedIpForHost;
-
-export function clearSelectedIpForHostCache(hostname?: string) {
-  if (hostname) {
-    void memoizedSelectedIpForHost.delete(hostname);
-    return;
-  }
-  memoizedSelectedIpForHost.clear();
-}
-
 /**
  * Convert AxiosHeaders to plain object
  */

@@ -2066,15 +2066,6 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async refreshBlockRegion() {
-    try {
-      await this.backgroundApi.serviceIpTable.runFullSpeedTest();
-    } catch (_error) {
-      // Fall back to the current connection info when the speed test fails.
-    }
-  }
-
-  @backgroundMethod()
   async getApyHistory(params: {
     networkId: string;
     provider: string;

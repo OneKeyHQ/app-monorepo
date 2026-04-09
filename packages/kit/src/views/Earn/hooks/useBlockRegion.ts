@@ -1,13 +1,11 @@
-import { useCallback, useState } from 'react';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 export const useBlockRegion = () => {
   const {
-    isLoading: isFetchingBlockResultBase,
-    run: runBlockResult,
+    isLoading: isFetchingBlockResult,
+    run: refreshBlockResult,
     result: blockResult,
   } = usePromiseResult(
     async () => {
@@ -21,21 +19,6 @@ export const useBlockRegion = () => {
       revalidateOnFocus: true,
     },
   );
-  const [isRefreshingBlockResult, setIsRefreshingBlockResult] = useState(false);
 
-  const handleRefreshBlockResult = useCallback(async () => {
-    setIsRefreshingBlockResult(true);
-    try {
-      await backgroundApiProxy.serviceStaking.refreshBlockRegion();
-      await runBlockResult({ alwaysSetState: true });
-    } finally {
-      setIsRefreshingBlockResult(false);
-    }
-  }, [runBlockResult]);
-
-  return {
-    isFetchingBlockResult: isFetchingBlockResultBase || isRefreshingBlockResult,
-    refreshBlockResult: handleRefreshBlockResult,
-    blockResult,
-  };
+  return { isFetchingBlockResult, refreshBlockResult, blockResult };
 };
