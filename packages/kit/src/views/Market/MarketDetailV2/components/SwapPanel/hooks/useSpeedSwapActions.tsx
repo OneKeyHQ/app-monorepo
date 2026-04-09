@@ -1145,27 +1145,32 @@ export function useSpeedSwapActions(props: {
         );
       }
 
-      const { buildRes, encodedTx, transferInfo, swapInfo, userAddress } =
-        await buildSpeedSwapTxData({
+      const currentSpenderAddress = effectiveSpenderAddress;
+      const [
+        { buildRes, encodedTx, transferInfo, swapInfo, userAddress },
+        allowanceState,
+      ] = await Promise.all([
+        buildSpeedSwapTxData({
           fromAmount: amount,
           fromToken: fromTokenFinal,
           toToken: toTokenFinal,
-        });
-      const allowanceState = await resolveMarketReviewAllowanceState({
-        amount,
-        currentState: {
-          allowanceTarget: effectiveSpenderAddress,
-          shouldApprove,
-          shouldResetApprove,
-        },
-        isWrapped,
-        spenderAddress: effectiveSpenderAddress,
-        token: fromTokenFinal,
-        walletAddress: netAccountRes.result?.addressDetail.address,
-      });
+        }),
+        resolveMarketReviewAllowanceState({
+          amount,
+          currentState: {
+            allowanceTarget: currentSpenderAddress,
+            shouldApprove,
+            shouldResetApprove,
+          },
+          isWrapped,
+          spenderAddress: currentSpenderAddress,
+          token: fromTokenFinal,
+          walletAddress: netAccountRes.result?.addressDetail.address,
+        }),
+      ]);
       setShouldApprove(allowanceState.shouldApprove);
       setShouldResetApprove(allowanceState.shouldResetApprove);
-      if (allowanceState.allowanceTarget !== effectiveSpenderAddress) {
+      if (allowanceState.allowanceTarget !== currentSpenderAddress) {
         setCheckSpenderAddress(allowanceState.allowanceTarget ?? '');
       }
       const normalizedQuoteResult = assertMarketReviewQuoteResult(
@@ -1177,7 +1182,7 @@ export function useSpeedSwapActions(props: {
           shouldApprove: allowanceState.shouldApprove,
           shouldResetApprove: allowanceState.shouldResetApprove,
           spenderAddress:
-            allowanceState.allowanceTarget ?? effectiveSpenderAddress,
+            allowanceState.allowanceTarget ?? currentSpenderAddress,
           amount,
         }),
       );
