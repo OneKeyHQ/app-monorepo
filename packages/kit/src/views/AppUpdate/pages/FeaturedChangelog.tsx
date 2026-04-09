@@ -196,7 +196,7 @@ function FeaturedChangelog({
               {'NEW'}
             </Badge>
           </Stack>
-          <SizableText size="$headingXl" mb="$1">
+          <SizableText size="$heading3xl" mb="$1">
             {intl.formatMessage(
               { id: ETranslations.update_changelog_title },
               { ver: versionDisplay },
