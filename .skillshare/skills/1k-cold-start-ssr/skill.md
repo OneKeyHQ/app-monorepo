@@ -106,6 +106,110 @@ coldStartCacheStorage.set(key, JSON.stringify(snapshot));
 
 `__ONEKEY_CTX_ATOM_SNAPSHOT__` is cleaned up on `HomePageReady` event (first screen rendered), not on `setTimeout(0)`. This ensures split-bundle lazy-loaded modules can still hydrate from the snapshot.
 
+## Split Bundle: main vs background Bundle Sizes
+
+The app uses a dual-runtime split bundle architecture. Bundle sizes directly impact cold start:
+
+```
+common.jsbundle    ~8.8MB    Shared polyfills, loaded by native at app launch
+main.jsbundle     ~10.1MB    UI thread entry, async-evaluated after ~100ms defer
+background.bundle ~20.7MB    BG thread, loaded in parallel Hermes runtime
++ segment files   variable   Lazy-loaded on demand (vault impls, icons, etc.)
+```
+
+**Impact on cold start timeline:**
+- `common.jsbundle` (8.8MB): blocks native → JS handoff (~100ms)
+- `main.jsbundle` (10.1MB): async eval takes ~1300ms — **the single biggest bottleneck** (87% of total startup)
+- `background.bundle` (20.7MB): runs in parallel, apiProxy import ~700ms. Currently non-blocking but close to critical path (BG ready at +1261ms vs main eval at +1300ms)
+- Segment loads: icon segments ~25ms each, vault settings ~20ms each, loaded on-demand after first render
+
+**Rules of thumb:**
+- Any code added to `main.jsbundle` directly increases the 1300ms eval time
+- Move non-critical code to segments (lazy `import()`) to keep main bundle lean
+- `background.bundle` size is less critical since it runs in parallel, but if it gets slower than main eval it becomes a blocker
+- Use `apps/mobile/scripts/unionBuild.js` to analyze bundle composition
+
+## contextAtom Cold Start Cache Keys (SSR Keys)
+
+Each context atom that participates in Cold Start SSR must declare a `coldStartCacheKey`. These keys are registered in a central const:
+
+**File:** `packages/shared/src/consts/jotaiConsts.ts`
+
+```typescript
+export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
+  accountWorthAtom: 'ctx:accountWorthAtom',
+  lastConfirmedOverviewBalanceAtom: 'ctx:lastConfirmedOverviewBalanceAtom',
+  walletTopBannersAtom: 'ctx:walletTopBannersAtom',
+  selectedAccountsAtom: 'ctx:selectedAccountsAtom',
+  accountSelectorStorageReadyAtom: 'ctx:accountSelectorStorageReadyAtom',
+  activeAccountsAtom: 'ctx:activeAccountsAtom',
+  renderedTokenListCacheAtom: 'ctx:renderedTokenListCacheAtom',
+} as const;
+```
+
+**Usage in atom definition:**
+
+```typescript
+// packages/kit/src/states/jotai/contexts/tokenList/atoms.ts
+const { atom: renderedTokenListCacheAtom } = contextAtom<ITokenListValue>(
+  defaultValue,
+  {
+    coldStartCache: true,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.renderedTokenListCacheAtom,
+  },
+);
+```
+
+**Scoped key format in MMKV snapshot:**
+
+Context atoms are scoped by provider (e.g., different accounts). The snapshot stores scoped keys:
+
+```
+{scopeKey}::{coldStartCacheKey}
+```
+
+Example: `hd-1--0::ctx:renderedTokenListCacheAtom`
+
+- `scopeKey` comes from `store.__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__` (set when creating the Jotai store for a provider)
+- `coldStartCacheKey` is the `ctx:xxx` string from the const above
+
+**Adding a new SSR-cached atom:**
+
+1. Add key to `CONTEXT_ATOM_COLD_START_CACHE_KEYS` in `jotaiConsts.ts`
+2. Pass `{ coldStartCache: true, coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.yourKey }` to `contextAtom()`
+3. The atom will automatically be tracked by `wrappedUse()` and saved by `flushColdStartCache()`
+4. On next cold start, the cached value will be used as `initialValue` via Phase 2 hydration
+
+**Caution:** Only cache atoms whose data is safe to show stale (e.g., token list, balance). Don't cache atoms with security-sensitive or time-critical data.
+
+## SWR Cache (usePromiseResult)
+
+Separate from Jotai Cold Start SSR but shares the same `coldStartCacheStorage` MMKV instance.
+
+**File:** `packages/shared/src/utils/swrCacheUtils.ts`
+
+**Purpose:** Cache results of `usePromiseResult` hooks so repeated renders / screen revisits don't re-fetch from network.
+
+```typescript
+// In usePromiseResult:
+const swrCacheEntry = swrCacheUtils.getWithTimestamp<T>(swrKey);
+const effectiveInitResult =
+  swrCacheEntry !== undefined ? swrCacheEntry.data : options.initResult;
+```
+
+**Key characteristics:**
+- Stored in `coldStartCacheStorage` under key `onekey_swr_cache` (single JSON blob)
+- Max 80 entries with LRU eviction (oldest timestamp dropped first)
+- Debounced 2s flush + immediate flush on `AppState 'background'`
+- Key builders centralized in `swrKeys` (e.g., `swrKeys.allNetworksCompatible(...)`, `swrKeys.defiEnabled(networkId)`)
+- Survives app restart (same MMKV instance as cold start cache)
+
+**Relationship to Cold Start SSR:**
+- SWR cache handles **hook-level** data (network responses, computed results)
+- Cold Start SSR handles **atom-level** data (Jotai state)
+- Both persist to the same MMKV instance (`coldStartCacheStorage`) but under different keys
+- Both flush on `AppState 'background'`
+
 ## Key Differences: contextAtom vs globalAtom
 
 | | contextAtom (scoped) | globalAtom (singleton) |
