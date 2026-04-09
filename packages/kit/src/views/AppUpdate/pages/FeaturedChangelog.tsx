@@ -17,8 +17,6 @@ import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import {
   EAppUpdateStatus,
   EUpdateFileType,
-  displayAppUpdateVersion,
-  displayWhatsNewVersion,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate';
@@ -174,13 +172,8 @@ function FeaturedChangelog({
 
   const featuredChangelog = appUpdateInfo.featuredChangelog;
 
-  const versionDisplay = isPreInstall
-    ? displayAppUpdateVersion(appUpdateInfo)
-    : displayWhatsNewVersion();
-
   // TODO: replace fallback string with ETranslations key once added via Lokalise
-  const headline =
-    featuredChangelog?.headline ?? `You're going to like this`;
+  const headline = featuredChangelog?.headline ?? "You're going to like this";
   const { subheadline } = featuredChangelog ?? {};
 
   const ctaText = isPreInstall
