@@ -60,31 +60,28 @@ function FeaturedChangelog({
   const mockFeatures: IFeaturedItem[] = __DEV__
     ? [
         {
-          tabLabel: '⚡ 0 手续费',
+          tabLabel: '0 手续费',
           title: 'Perps 交易，0 手续费',
           description: '所有合约订单享受零费率交易体验，不收取任何手续费。',
-          mediaUrl:
-            'https://placehold.co/600x338/1e1b4b/a5b4fc?text=Perps+Zero+Fee',
+          mediaUrl: '',
           mediaType: 'image' as const,
           ctaText: '立即体验',
           ctaDeeplink: 'onekey-wallet://market_detail',
         },
         {
-          tabLabel: '🔑 Keyless',
+          tabLabel: 'Keyless',
           title: 'Keyless 钱包，无需助记词',
           description: '用 iCloud / Google 账号直接创建钱包，安全便捷。',
-          mediaUrl:
-            'https://placehold.co/600x338/0f3460/7dd3fc?text=Keyless+Wallet',
+          mediaUrl: '',
           mediaType: 'image' as const,
           ctaText: '创建 Keyless 钱包',
           ctaDeeplink: 'onekey-wallet://url_account',
         },
         {
-          tabLabel: '🔋 能量补贴',
+          tabLabel: '能量补贴',
           title: 'Tron 能量补贴',
           description: '首次转账 Tron 网络，享受能量补贴优惠。',
-          mediaUrl:
-            'https://placehold.co/600x338/064e3b/6ee7b7?text=Energy+Subsidy',
+          mediaUrl: '',
           mediaType: 'image' as const,
           ctaText: '了解更多',
           ctaDeeplink: 'onekey-wallet://market_detail',
@@ -167,9 +164,19 @@ function FeaturedChangelog({
     activeFeature,
   ]);
 
+  const featuredChangelog = appUpdateInfo.featuredChangelog;
+
   const versionDisplay = isPreInstall
     ? displayAppUpdateVersion(appUpdateInfo)
     : displayWhatsNewVersion();
+
+  // TODO: replace fallback strings with ETranslations keys once added via Lokalise
+  const headline =
+    featuredChangelog?.headline ??
+    `What's new in v${versionDisplay}`;
+  const subheadline =
+    featuredChangelog?.subheadline ??
+    '\u672C\u6B21\u66F4\u65B0\u7684\u4EAE\u70B9\u529F\u80FD';
 
   const ctaText = isPreInstall
     ? intl.formatMessage({
@@ -193,18 +200,14 @@ function FeaturedChangelog({
           <YStack px="$5" pt="$5" pb="$3">
             <Stack mb="$2.5" alignSelf="flex-start">
               <Badge badgeType="info" badgeSize="sm">
-                {'NEW'}
+                {'New'}
               </Badge>
             </Stack>
             <SizableText size="$heading3xl" mb="$1">
-              {intl.formatMessage(
-                { id: ETranslations.update_changelog_title },
-                { ver: versionDisplay },
-              )}
+              {headline}
             </SizableText>
-            {/* TODO: replace hardcoded subtitle with ETranslations key once added via Lokalise */}
             <SizableText size="$bodyMd" color="$textSubdued" mb="$4">
-              {'\u672C\u6B21\u66F4\u65B0\u7684\u4EAE\u70B9\u529F\u80FD'}
+              {subheadline}
             </SizableText>
             <FeaturedTabBar
               features={features}
