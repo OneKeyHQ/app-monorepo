@@ -13,19 +13,26 @@ import {
 } from '@onekeyhq/components';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  EAppUpdateStatus,
+  EUpdateFileType,
   displayAppUpdateVersion,
   displayWhatsNewVersion,
+  getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
-import { isForceUpdateStrategy } from '../../../components/UpdateReminder/hooks';
+import {
+  isForceUpdateStrategy,
+  useDownloadPackage,
+} from '../../../components/UpdateReminder/hooks';
 import { FeaturedFooter } from '../components/FeaturedFooter';
 import { FeaturedMedia } from '../components/FeaturedMedia';
 import { FeaturedTabBar } from '../components/FeaturedTabBar';
@@ -112,28 +119,59 @@ function FeaturedChangelog({
     }
   }, [isPreInstall]);
 
+  const { downloadPackage } = useDownloadPackage();
+
+  // Pre-install: replicate UpdatePreviewActionButton logic
+  const updateFileType = getUpdateFileType({
+    latestVersion: appUpdateInfo.latestVersion,
+    jsBundleVersion: appUpdateInfo.jsBundleVersion,
+  });
+  const shouldOpenStore =
+    isPreInstall &&
+    updateFileType === EUpdateFileType.appShell &&
+    !!appUpdateInfo.storeUrl;
+
   const handleCtaPress = useCallback(() => {
     if (isPreInstall) {
-      // Navigate to download & verify flow
-      navigation.push(EAppUpdateRoutes.DownloadVerify);
+      if (shouldOpenStore && appUpdateInfo.storeUrl) {
+        openUrlExternal(appUpdateInfo.storeUrl);
+      } else if (
+        appUpdateInfo.downloadUrl ||
+        appUpdateInfo.jsBundle?.downloadUrl
+      ) {
+        if (appUpdateInfo.status === EAppUpdateStatus.notify) {
+          void downloadPackage();
+        }
+        navigation.push(EAppUpdateRoutes.DownloadVerify);
+      }
     } else if (activeFeature?.ctaDeeplink) {
-      // Close modal first, then navigate via deep link
       navigation.popStack();
       setTimeout(() => {
         handleDeepLinkUrl({ url: activeFeature.ctaDeeplink });
       }, 300);
     } else {
-      // Fallback: just close the modal
       navigation.popStack();
     }
-  }, [isPreInstall, navigation, activeFeature]);
+  }, [
+    isPreInstall,
+    shouldOpenStore,
+    appUpdateInfo,
+    downloadPackage,
+    navigation,
+    activeFeature,
+  ]);
 
   const versionDisplay = isPreInstall
     ? displayAppUpdateVersion(appUpdateInfo)
     : displayWhatsNewVersion();
 
+  const preInstallCtaText = intl.formatMessage({
+    id: shouldOpenStore
+      ? ETranslations.update_update_now
+      : ETranslations.update_download_and_verify_text,
+  });
   const ctaText = isPreInstall
-    ? intl.formatMessage({ id: ETranslations.update_update_now })
+    ? preInstallCtaText
     : (activeFeature?.ctaText ??
       intl.formatMessage({ id: ETranslations.global_done }));
 

@@ -4,8 +4,8 @@ export interface IFeaturedItem {
   description: string; // Feature description, ≤40 chars
   mediaUrl: string; // Remote image or video URL
   mediaType: 'image' | 'video';
-  ctaText: string; // CTA button text, e.g. "立即体验"
-  ctaDeeplink: string; // Deep link for CTA action
+  ctaText?: string; // CTA button text, e.g. "立即体验" — optional, falls back to "Done"
+  ctaDeeplink?: string; // Deep link for post-install CTA — optional, no link = just close modal
 }
 
 export interface IFeaturedChangelog {
