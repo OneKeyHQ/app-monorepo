@@ -95,59 +95,6 @@ export class JotaiBgSync {
     }
   }
 
-  /**
-   * Read atom states snapshot.
-   * Fast path: use pre-read snapshot from globalThis (set in index.ts at JS entry).
-   * Fallback: read from MMKV directly (synchronous, ~1ms).
-   * Returns null if no snapshot exists (first install).
-   */
-  private readLocalCachedStates(): Record<string, any> | null {
-    // Fast path: snapshot was pre-read in index.ts at JS entry time
-    const preRead = (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__;
-    if (preRead && typeof preRead === 'object') {
-      const keys = Object.keys(preRead);
-      this.syncLog(`pre-read snapshot hit: ${keys.length} keys`);
-      // Clear to avoid stale references
-      delete (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT__;
-      return keys.length > 0 ? preRead : null;
-    }
-
-    // Fallback: read MMKV directly
-    try {
-      const raw = syncStorage.getString(
-        EAppSyncStorageKeys.onekey_jotai_atoms_snapshot,
-      );
-      if (!raw) {
-        this.syncLog('mmkv snapshot miss');
-        return null;
-      }
-      const snapshot = JSON.parse(raw) as Record<string, any>;
-      const keys = Object.keys(snapshot);
-      this.syncLog(`mmkv snapshot hit: ${keys.length} keys`);
-      return keys.length > 0 ? snapshot : null;
-    } catch (e) {
-      this.syncLog(`mmkv snapshot error: ${(e as Error)?.message}`);
-      return null;
-    }
-  }
-
-  /**
-   * Save globalAtom states to MMKV snapshot.
-   */
-  private saveSnapshot(states: Record<string, any>) {
-    try {
-      syncStorage.set(
-        EAppSyncStorageKeys.onekey_jotai_atoms_snapshot,
-        JSON.stringify(states),
-      );
-      this.syncLog(
-        `globalAtom snapshot saved: ${Object.keys(states).length} keys`,
-      );
-    } catch {
-      /* best-effort */
-    }
-  }
-
   async jotaiInitFromUi() {
     this.syncLog(
       `shouldSync=${this.shouldSyncFromUiToBg}, isMainThread=${platformEnv.isNativeMainThread}, enableBg=${platformEnv.enableNativeBackgroundThread}`,
