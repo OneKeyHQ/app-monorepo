@@ -24,7 +24,7 @@ type IMMKVInstance = {
 
 // ---- Factory: create ISyncStorage wrapper from any MMKV instance ----
 
-function createMMKVSyncStorage(
+export function createMMKVSyncStorage(
   mmkv: IMMKVInstance,
   options?: { checkResetting?: boolean },
 ) {

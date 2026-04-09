@@ -10,6 +10,8 @@ import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
+import type { ISyncStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
+
 import { atomsConfig } from './atomNames';
 import { JOTAI_RESET } from './types';
 import jotaiVerify from './utils/jotaiVerify';
@@ -28,10 +30,12 @@ const mockStorage = storageHub._mockStorage;
 export const MMKV_MIGRATION_COMPLETE_KEY = '__mmkv_migration_v1__';
 
 class JotaiStorageNativeMMKV implements AsyncStorage<any> {
+  /** Safe MMKV wrapper — null/undefined guarded via createMMKVSyncStorage */
+  private store: ISyncStorage;
+
+  /** Raw MMKV instance for getString/getAllKeys (read-only) */
   private mmkv: {
     getString(key: string): string | undefined;
-    set(key: string, value: string): void;
-    remove(key: string): void;
     getAllKeys(): string[];
   };
 
@@ -42,6 +46,10 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { default: instance } =
       require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createMMKVSyncStorage } =
+      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+    this.store = createMMKVSyncStorage(instance, { checkResetting: true });
     this.mmkv = instance;
     this.migrated = instance.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
   }
@@ -115,9 +123,8 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
-    // Always write to MMKV — undefined/null values write empty string (clears data)
-    const serialized = JSON.stringify(newValue) ?? '';
-    this.mmkv.set(key, serialized);
+    // Always write via safe store wrapper (null/undefined → empty string)
+    this.store.set(key as any, JSON.stringify(newValue) ?? '');
 
     if (!this.migrated) {
       // Migration not done — also write to AsyncStorage so it stays
@@ -131,7 +138,7 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   async removeItem(key: string): Promise<void> {
-    this.mmkv.remove(key);
+    this.store.delete(key as any);
     if (!this.migrated) {
       try {
         await this.getAsyncStorageModule().removeItem(key);
@@ -177,7 +184,7 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     try {
       const probe = await this.getAsyncStorageModule().getItem(probeKey);
       if (probe === null) {
-        this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
+        this.store.set(MMKV_MIGRATION_COMPLETE_KEY as any, '1');
         this.migrated = true;
         this.log('migration skip: first install (probe key absent)');
         return;
@@ -197,7 +204,7 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         try {
           const value = await this.readFromAsyncStorage(key);
           if (value !== null && value !== undefined) {
-            this.mmkv.set(key, JSON.stringify(value) ?? '');
+            this.store.set(key as any, JSON.stringify(value) ?? '');
             migrated += 1;
           } else {
             absent += 1;
@@ -210,7 +217,7 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     );
 
     if (errors === 0) {
-      this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
+      this.store.set(MMKV_MIGRATION_COMPLETE_KEY as any, '1');
       this.migrated = true;
       this.log(`migration complete: ${migrated} migrated, ${absent} absent`);
     } else {
