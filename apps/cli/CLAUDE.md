@@ -1,10 +1,14 @@
 # OneKey Wallet — CLI Agent Skills
 
-When working with the `onekey` CLI, read the skill files before running commands.
-Do NOT guess parameters or explore via `--help` — the skills document exact
-command signatures, workflows, and security rules.
+When working with the `onekey` CLI, use the schema command and skill files to understand commands.
 
-## Skills
+## Interface Discovery (Primary)
+- `onekey schema <cmd>` — exact input/output JSON Schema for any command
+- `onekey schema --list` — all available commands
+- `onekey schema --all` — full registry dump
+- `apps/cli/cli-api.d.ts` — TypeScript types for full API surface
+
+## Skills (Framework & Security)
 
 | Skill | Path | Use When |
 |---|---|---|
@@ -13,15 +17,15 @@ command signatures, workflows, and security rules.
 | **Market** | `skills/market/SKILL.md` | Token search, price, trending, kline, trades, liquidity |
 | **Security** | `skills/security/SKILL.md` | Token security audit, risk classification, transaction simulation |
 
+Skills contain security rules, workflows, and domain knowledge.
+For exact command parameters, use `onekey schema <cmd>`.
+
 ## Quick Start
 
 ```bash
 # Run the CLI locally (from monorepo)
 apps/cli/bin/onekey <command>
 
-# Or if installed globally (npm install -g @onekeyfe/cli)
+# Or if installed globally
 onekey <command>
 ```
-
-Each skill file includes pre-flight checks, security rules, and parameter
-conventions. Read the relevant skill for your task.
