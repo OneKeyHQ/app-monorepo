@@ -341,9 +341,7 @@ describe('JotaiStorageNativeMMKV', () => {
       });
 
       const s = createStorage();
-      expect(await s.getItem('g_states_v5:fooAtom', 'default')).toBe(
-        'default',
-      );
+      expect(await s.getItem('g_states_v5:fooAtom', 'default')).toBe('default');
     });
 
     // -- setItem --

@@ -64,6 +64,43 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 updateInterceptorRequestHelper();
 
+function summarizeSetAtomValuePayload(value: unknown) {
+  if (value === undefined) {
+    return 'undefined';
+  }
+  if (value === null) {
+    return 'null';
+  }
+  if (Array.isArray(value)) {
+    return `array(len=${value.length})`;
+  }
+  const valueType = typeof value;
+  if (valueType === 'string') {
+    return `string(len=${(value as string).length})`;
+  }
+  if (
+    valueType === 'number' ||
+    valueType === 'boolean' ||
+    valueType === 'bigint'
+  ) {
+    return `${valueType}(${String(value)})`;
+  }
+  if (valueType === 'object') {
+    const objectValue = value as Record<string, unknown>;
+    const keys = Object.keys(objectValue);
+    const previewKeys = keys.slice(0, 12);
+    const undefinedKeys = previewKeys.filter(
+      (key) => objectValue[key] === undefined,
+    );
+    return [
+      `object(keys=${keys.length})`,
+      `previewKeys=${previewKeys.join('|') || 'none'}`,
+      `undefinedPreviewKeys=${undefinedKeys.join('|') || 'none'}`,
+    ].join(', ');
+  }
+  return valueType;
+}
+
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
   private static readonly PENDING_BRIDGE_MESSAGE_TTL_MS = 10_000;
@@ -200,6 +237,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   @bindThis()
   @backgroundMethod()
   async setAtomValue(atomName: EAtomNames, value: any) {
+    const startedAt = Date.now();
     const atoms = await this.allAtoms;
     const atom = atoms[atomName];
     if (!atom) {
@@ -207,7 +245,25 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         `setAtomValue ERROR: atomName not found: ${atomName}`,
       );
     }
-    await atom.set(value);
+    try {
+      await atom.set(value);
+      const durationMs = Date.now() - startedAt;
+      if (durationMs >= 1000) {
+        defaultLogger.app.appUpdate.log(
+          `[BgSetAtomValue] slow atom=${atomName}, durationMs=${durationMs}, payload=${summarizeSetAtomValuePayload(
+            value,
+          )}`,
+        );
+      }
+    } catch (error) {
+      const durationMs = Date.now() - startedAt;
+      defaultLogger.app.appUpdate.log(
+        `[BgSetAtomValue] failed atom=${atomName}, durationMs=${durationMs}, payload=${summarizeSetAtomValuePayload(
+          value,
+        )}, error=${(error as Error)?.message || 'unknown'}`,
+      );
+      throw error;
+    }
   }
 
   @backgroundMethod()

@@ -2,6 +2,10 @@ import { getSharedRPC } from '@onekeyfe/react-native-background-thread';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 
 import {
   BACKGROUND_THREAD_REQUEST_KEY_PREFIX,
@@ -77,9 +81,24 @@ let jotaiStateBroadcastSequence = 0;
 let appEventBroadcastSequence = 0;
 let bridgeSendSequence = 0;
 
+function logBgRpcTrace(message: string, level: 'info' | 'error' = 'info') {
+  try {
+    NativeLogger.write(
+      level === 'error' ? LogLevel.Error : LogLevel.Info,
+      `[BgRPC] ${message}`,
+    );
+  } catch {
+    /* noop */
+  }
+}
+
 const bridgeStateMap: Partial<
   Record<IBackgroundThreadBridgeChannel, IBackgroundThreadBridgeStatePayload>
 > = {};
+let handleWebEmbedBridgeResponse: (
+  sharedRPC: ReturnType<typeof getSharedRPC>,
+  key: string,
+) => void = () => {};
 
 function buildErrorPayload(error: unknown) {
   const runtimeError = error as Error;
@@ -251,6 +270,28 @@ async function handleRequest(callId: string) {
     }
   }
 
+  let requestLabel = request.type;
+  if (request.type === 'service-call') {
+    requestLabel = `service-call:${request.method}`;
+  } else if (request.type === 'bridge-call') {
+    requestLabel = `bridge-call:${request.payload.scope || 'unknown-scope'}`;
+  }
+  const shouldTracePendingInstallTask =
+    request.type === 'service-call' &&
+    request.method === 'servicePendingInstallTask.processPendingInstallTask';
+  const requestStartedAt = Date.now();
+  let traceHeartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  if (shouldTracePendingInstallTask) {
+    logBgRpcTrace(`start callId=${callId}, request=${requestLabel}`);
+    traceHeartbeatTimer = setInterval(() => {
+      logBgRpcTrace(
+        `heartbeat callId=${callId}, request=${requestLabel}, elapsedMs=${
+          Date.now() - requestStartedAt
+        }`,
+      );
+    }, 5000);
+  }
+
   try {
     let result: unknown;
     switch (request.type) {
@@ -276,11 +317,30 @@ async function handleRequest(callId: string) {
         result,
       }),
     );
+    if (shouldTracePendingInstallTask) {
+      logBgRpcTrace(
+        `done callId=${callId}, request=${requestLabel}, elapsedMs=${
+          Date.now() - requestStartedAt
+        }`,
+      );
+    }
   } catch (error) {
+    if (shouldTracePendingInstallTask) {
+      logBgRpcTrace(
+        `error callId=${callId}, request=${requestLabel}, elapsedMs=${
+          Date.now() - requestStartedAt
+        }, message=${(error as Error)?.message || 'unknown'}`,
+        'error',
+      );
+    }
     sharedRPC.write(
       responseKey,
       serializeBackgroundThreadResponse(buildErrorPayload(error)),
     );
+  } finally {
+    if (traceHeartbeatTimer) {
+      clearInterval(traceHeartbeatTimer);
+    }
   }
 }
 
@@ -375,10 +435,10 @@ const pendingWebEmbedBridgeCalls = new Map<
   }
 >();
 
-function handleWebEmbedBridgeResponse(
+handleWebEmbedBridgeResponse = (
   sharedRPC: ReturnType<typeof getSharedRPC>,
   key: string,
-) {
+) => {
   if (!sharedRPC) {
     return;
   }
@@ -405,7 +465,7 @@ function handleWebEmbedBridgeResponse(
   } catch (error) {
     pending.reject(error);
   }
-}
+};
 
 export function callWebEmbedBridgeViaMainThread(
   data: unknown,

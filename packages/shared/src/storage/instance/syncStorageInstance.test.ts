@@ -31,11 +31,8 @@ jest.mock('./coldStartCacheMMKVInstance', () => ({
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const {
-  createMMKVSyncStorage,
-  syncStorage,
-  coldStartCacheStorage,
-} = require('./syncStorageInstance') as typeof import('./syncStorageInstance');
+const { createMMKVSyncStorage, syncStorage, coldStartCacheStorage } =
+  require('./syncStorageInstance') as typeof import('./syncStorageInstance');
 
 function resetAll() {
   testMMKV.clearAll();
@@ -86,9 +83,9 @@ describe('createMMKVSyncStorage', () => {
 
     it('throws on non-plain object', () => {
       const store = createMMKVSyncStorage(testMMKV);
-      expect(() => store.setObject('testKey' as any, 'not-object' as any)).toThrow(
-        'value must be a plain object',
-      );
+      expect(() =>
+        store.setObject('testKey' as any, 'not-object' as any),
+      ).toThrow('value must be a plain object');
     });
   });
 
