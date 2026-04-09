@@ -154,48 +154,28 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
 
   // Hydrate persisted initialValue so the atom starts with the correct value.
   if (platformEnv.isNative && name) {
-    // Native: read from MMKV per-key if BG thread migration is complete,
-    // otherwise fall back to old snapshot blob from onekey-app-setting MMKV.
+    // Native: read from MMKV per-key if BG thread migration is complete.
+    // If migration not done yet, use default initialValue — BG thread will
+    // migrate from AsyncStorage to MMKV per-key, available on next cold start.
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { default: jotaiMMKV } =
         require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
 
-      let cached: unknown;
-      const migrationDone =
-        jotaiMMKV.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
-
-      if (migrationDone) {
-        // Fast path: BG thread has migrated all data to MMKV per-key
+      if (jotaiMMKV.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1') {
         const raw = jotaiMMKV.getString(
           buildJotaiStorageKey(name as IAtomNameKeys),
         );
         if (raw !== undefined && raw !== null) {
-          cached = JSON.parse(raw);
-        }
-      } else {
-        // Migration not yet complete — read from legacy snapshot blob directly
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { syncStorage: ss } =
-          require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { EAppSyncStorageKeys: sk } =
-          require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-        const blobRaw = ss.getString(sk.onekey_jotai_atoms_snapshot);
-        if (blobRaw) {
-          const snapshot = JSON.parse(blobRaw);
-          if (snapshot && name in snapshot) {
-            cached = snapshot[name];
+          const cached = JSON.parse(raw);
+          if (cached !== undefined && cached !== null) {
+            initialVal = Object.freeze(
+              typeof initialValue === 'object' && typeof cached === 'object'
+                ? { ...initialValue, ...cached }
+                : cached,
+            ) as Value & Readonly<Value>;
           }
         }
-      }
-
-      if (cached !== undefined && cached !== null) {
-        initialVal = Object.freeze(
-          typeof initialValue === 'object' && typeof cached === 'object'
-            ? { ...initialValue, ...cached }
-            : cached,
-        ) as Value & Readonly<Value>;
       }
     } catch {
       /* fallback to default initialValue */
