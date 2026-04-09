@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, onekey/no-raw-error */
 /**
  * Unit tests for JotaiStorageNativeMMKV migration-aware read/write logic.
  */
