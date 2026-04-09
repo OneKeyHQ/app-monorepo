@@ -13,7 +13,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Alert,
-  Button,
   Form,
   Page,
   SizableText,
@@ -29,7 +28,6 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
-import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -56,6 +54,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
@@ -377,12 +376,44 @@ function SendDataInputContainer() {
       // Reuse the matching amount-input route for the active modal stack.
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
 
-      // For Lightning invoices, decode the invoice to extract embedded amount
-      let invoiceAmount: string | undefined;
-      let isInvoiceAmountLocked = false;
       const isLightning = networkUtils.isLightningNetworkByNetworkId(
         currentAccount.networkId,
       );
+
+      // For LNURL / Lightning Address, skip amount page — LnurlPayRequestModal
+      // handles amount input, comment, and metadata display (OK-52507, OK-52671).
+      // Must check before invoice decode to avoid passing LNURL to decodedInvoice.
+      const rawInput = (toVal?.raw ?? '').trim();
+      if (isLightning && account && isReusableLightningRecipient(rawInput)) {
+        const transfersInfo: ITransferInfo[] = [
+          {
+            from: account.address,
+            to: rawInput,
+            amount: '0',
+            tokenInfo: tokenInfo ?? undefined,
+          },
+        ];
+        await signatureConfirm.navigationToTxConfirm({
+          transfersInfo,
+          sameModal: true,
+          onSuccess,
+          onFail,
+          onCancel,
+          transferPayload: {
+            amountToSend: '0',
+            isMaxSend: false,
+            isNFT: false,
+            originalRecipient: rawInput,
+            isToContract: false,
+          },
+          isInternalTransfer: true,
+        });
+        return;
+      }
+
+      // For Lightning invoices, decode the invoice to extract embedded amount
+      let invoiceAmount: string | undefined;
+      let isInvoiceAmountLocked = false;
       if (isLightning && toResolved) {
         try {
           const isZeroAmount =
@@ -529,31 +560,29 @@ function SendDataInputContainer() {
     if (isNumericMemo) {
       memoInputLines = memoValue?.length ? 2 : 1;
     }
-    const clearMemoExtension = memoValue ? (
-      <XStack justifyContent="flex-end">
-        <Button
-          size="small"
-          variant="secondary"
-          icon="BroomOutline"
-          onPress={() =>
-            form.setValue('memo', '', {
-              shouldValidate: true,
-            })
-          }
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_clear,
-          })}
-        </Button>
-      </XStack>
-    ) : undefined;
-
     return (
       <>
         <Form.Field
           label={intl.formatMessage({ id: ETranslations.send_tag })}
           optional
           name="memo"
+          labelAddon={
+            memoValue ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                cursor="pointer"
+                hoverStyle={{ color: '$text' }}
+                onPress={() =>
+                  form.setValue('memo', '', {
+                    shouldValidate: true,
+                  })
+                }
+              >
+                {intl.formatMessage({ id: ETranslations.global_clear })}
+              </SizableText>
+            ) : undefined
+          }
           rules={{
             maxLength: supportsMemoValidation
               ? undefined
@@ -571,7 +600,7 @@ function SendDataInputContainer() {
             validate: validateMemoField,
           }}
         >
-          <BaseInput
+          <TextArea
             numberOfLines={memoInputLines}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
@@ -580,7 +609,6 @@ function SendDataInputContainer() {
             keyboardType={
               isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
             }
-            extension={clearMemoExtension}
           />
         </Form.Field>
       </>
@@ -769,8 +797,12 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo));
-      form.setValue('note', normalizeOptionalRecipientText(selectedNote));
+      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo), {
+        shouldValidate: true,
+      });
+      form.setValue('note', normalizeOptionalRecipientText(selectedNote), {
+        shouldValidate: true,
+      });
 
       const currentTo = form.getValues('to') as IAddressInputValue | undefined;
       // Skip resetting when the same address is already resolved,
@@ -997,7 +1029,11 @@ function SendDataInputContainer() {
             ? ETranslations.send_title
             : ETranslations.select_address__title,
         })}
-        headerRight={renderAddressSecurityHeaderRightButton}
+        headerRight={
+          enableAllowListValidation
+            ? renderAddressSecurityHeaderRightButton
+            : undefined
+        }
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
@@ -1106,23 +1142,18 @@ function SendDataInputContainer() {
               />
             ) : null}
             {renderDataInput()}
-            {/* Lightning Network uses invoices/LNURL, not addresses — hide quick select */}
-            {networkUtils.isLightningNetworkByNetworkId(
-              currentAccount.networkId,
-            ) ? null : (
-              <RecipientQuickSelect
-                accountId={currentAccount.accountId}
-                networkId={currentAccount.networkId}
-                senderDeriveType={senderDeriveType}
-                searchKey={toAddressRaw}
-                isSearchMode={!!toAddressRaw?.trim()}
-                activeTab={quickSelectActiveTab}
-                onActiveTabChange={setQuickSelectActiveTab}
-                onInputTypeChange={handleAddressInputChangeType}
-                onMatchStatusChange={setHasQuickSelectMatches}
-                onSelect={handleQuickSelectRecipient}
-              />
-            )}
+            <RecipientQuickSelect
+              accountId={currentAccount.accountId}
+              networkId={currentAccount.networkId}
+              senderDeriveType={senderDeriveType}
+              searchKey={toAddressRaw}
+              isSearchMode={!!toAddressRaw?.trim()}
+              activeTab={quickSelectActiveTab}
+              onActiveTabChange={setQuickSelectActiveTab}
+              onInputTypeChange={handleAddressInputChangeType}
+              onMatchStatusChange={setHasQuickSelectMatches}
+              onSelect={handleQuickSelectRecipient}
+            />
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>

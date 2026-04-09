@@ -5,12 +5,12 @@ import { useIntl } from 'react-intl';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import {
+  ActionList,
   Badge,
+  Button,
   Empty,
-  Icon,
   MatchSizeableText,
   SegmentControl,
-  SizableText,
   Stack,
   XStack,
   YStack,
@@ -239,6 +239,12 @@ function AccountRecipients({
           return [];
         }
 
+        const vaultSettings =
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          });
+        const showAllDeriveTypes = !!vaultSettings?.mergeDeriveAssetsEnabled;
+
         // Fetch wallets, filter non-backed-up, include accounts
         const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
           ignoreEmptySingletonWalletAccounts: true,
@@ -255,14 +261,20 @@ function AccountRecipients({
           (wallet: IDBWallet, walletName: string) =>
           async (): Promise<IWalletGroup | null> => {
             let accounts = await getWalletNetworkAccounts(wallet, networkId);
-            // Filter by sender's derive type to avoid showing duplicate accounts
-            // (e.g. bip44 + ledger-live for same indexed account on EVM)
-            if (senderDeriveType) {
-              const filtered = accounts.filter(
-                (a) => !a.deriveType || a.deriveType === senderDeriveType,
-              );
-              if (filtered.length > 0) {
-                accounts = filtered;
+            // For chains with multiple derive types (BTC/LTC), keep all
+            // accounts so users can switch derive type via header menu.
+            // For other chains, filter by sender's derive type to avoid
+            // showing duplicates (e.g. bip44 + ledger-live on EVM).
+            if (!showAllDeriveTypes) {
+              const targetDeriveType =
+                senderDeriveType ?? accounts[0]?.deriveType;
+              if (targetDeriveType) {
+                const filtered = accounts.filter(
+                  (a) => !a.deriveType || a.deriveType === targetDeriveType,
+                );
+                if (filtered.length > 0) {
+                  accounts = filtered;
+                }
               }
             }
             if (accounts.length === 0) {
@@ -280,10 +292,11 @@ function AccountRecipients({
           };
 
         for (const wallet of wallets) {
-          // Skip watch-only, deprecated, and deleted (mocked) wallets
-          // Keep HD, Hardware, External, Imported, QR wallets
+          // Skip watch-only, external, deprecated, and deleted (mocked) wallets
+          // Keep HD, Hardware, Imported, QR wallets
           const shouldSkip =
             accountUtils.isWatchingWallet({ walletId: wallet.id }) ||
+            accountUtils.isExternalWallet({ walletId: wallet.id }) ||
             wallet.deprecated ||
             wallet.isMocked;
 
@@ -375,21 +388,6 @@ function AccountRecipients({
     return [...nameMatchedGroups, ...addressOnlyGroups];
   }, [walletGroups, isSearchActive, searchValue]);
 
-  // Notify parent of match status and count
-  const accountMatchCount = useMemo(
-    () =>
-      filteredWalletGroups.reduce(
-        (sum, group) => sum + (group?.accounts?.length ?? 0),
-        0,
-      ),
-    [filteredWalletGroups],
-  );
-  useEffect(() => {
-    // Skip reporting stale counts during debounce gap to prevent badge flickering
-    if (isDebouncing) return;
-    onMatchStatusChange?.(accountMatchCount > 0, accountMatchCount);
-  }, [accountMatchCount, onMatchStatusChange, isDebouncing]);
-
   // Handle account selection
   const handleSelectAccount = useCallback(
     (item: IAccountWithDeriveInfo) => {
@@ -402,17 +400,10 @@ function AccountRecipients({
     [onInputTypeChange, onSelect],
   );
 
-  // Get derive type label
-  const getDeriveLabel = useCallback(
-    (deriveInfo?: IAccountDeriveInfo) => {
-      if (!deriveInfo) return undefined;
-      if (deriveInfo.labelKey) {
-        return intl.formatMessage({ id: deriveInfo.labelKey });
-      }
-      return deriveInfo.label;
-    },
-    [intl],
-  );
+  // Derive type selection per wallet group (for BTC/LTC multi-derive chains)
+  const [walletDeriveType, setWalletDeriveType] = useState<
+    Record<string, string>
+  >({});
 
   // Convert wallet groups to sections format for SectionList
   const sections = useMemo(() => {
@@ -420,33 +411,79 @@ function AccountRecipients({
       return [];
     }
     return filteredWalletGroups.map((group) => {
-      // Check if this wallet group has multiple derive types
-      const accounts = group?.accounts ?? [];
-      const deriveTypes = new Set(
-        accounts
-          .map((item) => item.deriveInfo?.label || item.deriveInfo?.labelKey)
-          .filter(Boolean),
-      );
-      const hasMultipleDeriveTypes = deriveTypes.size > 1;
+      const allAccounts = group?.accounts ?? [];
+
+      // Collect unique derive types for this wallet group
+      const deriveTypeMap = new Map<
+        string,
+        { label: string; deriveType: string }
+      >();
+      for (const item of allAccounts) {
+        const dt = item.deriveType;
+        if (dt && !deriveTypeMap.has(dt)) {
+          const label = item.deriveInfo?.labelKey
+            ? intl.formatMessage({ id: item.deriveInfo.labelKey })
+            : (item.deriveInfo?.label ?? dt);
+          deriveTypeMap.set(dt, { label, deriveType: dt });
+        }
+      }
+      const deriveTypeOptions = Array.from(deriveTypeMap.values());
+      const hasMultipleDeriveTypes = deriveTypeOptions.length > 1;
+
+      // Filter accounts by selected derive type (for multi-derive chains)
+      const walletId = group?.walletId ?? '';
+      const rawDeriveType = walletDeriveType[walletId] ?? senderDeriveType;
+      // Validate against available options; fall back to first option if not found
+      const activeDeriveType =
+        rawDeriveType && deriveTypeMap.has(rawDeriveType)
+          ? rawDeriveType
+          : deriveTypeOptions[0]?.deriveType;
+      let filteredAccounts = allAccounts;
+      if (hasMultipleDeriveTypes && activeDeriveType) {
+        const filtered = allAccounts.filter(
+          (a) => !a.deriveType || a.deriveType === activeDeriveType,
+        );
+        if (filtered.length > 0) {
+          filteredAccounts = filtered;
+        }
+      }
 
       return {
         title: group?.walletName ?? '',
-        walletId: group?.walletId ?? '',
+        walletId,
         wallet: group?.wallet,
         hasMultipleDeriveTypes,
-        data: accounts,
+        deriveTypeOptions,
+        activeDeriveType,
+        data: filteredAccounts,
       };
     });
-  }, [filteredWalletGroups]);
+  }, [filteredWalletGroups, walletDeriveType, senderDeriveType, intl]);
+
+  // Count visible accounts (after derive type filtering)
+  const accountMatchCount = useMemo(
+    () => sections.reduce((sum, s) => sum + (s.data?.length ?? 0), 0),
+    [sections],
+  );
+
+  useEffect(() => {
+    if (isDebouncing) return;
+    onMatchStatusChange?.(accountMatchCount > 0, accountMatchCount);
+  }, [accountMatchCount, onMatchStatusChange, isDebouncing]);
 
   // Flatten sections for simple rendering with section headers
   type IFlatItem =
-    | { type: 'header'; title: string; walletId: string }
+    | {
+        type: 'header';
+        title: string;
+        walletId: string;
+        hasMultipleDeriveTypes: boolean;
+        deriveTypeOptions: { label: string; deriveType: string }[];
+        activeDeriveType?: string;
+      }
     | {
         type: 'account';
         account: INetworkAccount;
-        deriveInfo?: IAccountDeriveInfo;
-        hasMultipleDeriveTypes: boolean;
         walletId: string;
         walletName: string;
         wallet?: IDBWallet;
@@ -462,6 +499,9 @@ function AccountRecipients({
             type: 'header',
             title: section.title,
             walletId: section.walletId,
+            hasMultipleDeriveTypes: section.hasMultipleDeriveTypes,
+            deriveTypeOptions: section.deriveTypeOptions,
+            activeDeriveType: section.activeDeriveType,
           });
         }
         // Add account items
@@ -469,8 +509,6 @@ function AccountRecipients({
           items.push({
             type: 'account',
             account: item.account,
-            deriveInfo: item.deriveInfo,
-            hasMultipleDeriveTypes: section.hasMultipleDeriveTypes,
             walletId: section.walletId,
             walletName: section.title,
             wallet: section.wallet,
@@ -521,6 +559,9 @@ function AccountRecipients({
         // Render section header with collapse toggle
         if (item.type === 'header') {
           const isCollapsed = !!collapsedWallets[item.walletId];
+          const activeLabel = item.deriveTypeOptions.find(
+            (o) => o.deriveType === item.activeDeriveType,
+          )?.label;
           return (
             <XStack
               key={`header-${item.walletId}`}
@@ -528,28 +569,48 @@ function AccountRecipients({
               pt="$4"
               pb="$2"
               alignItems="center"
-              onPress={() => toggleCollapse(item.walletId)}
-              cursor="pointer"
-              hoverStyle={{ opacity: 0.7 }}
+              gap="$4"
             >
-              <SizableText
-                size="$headingXs"
-                color="$textSubdued"
-                numberOfLines={1}
+              <Button
+                size="small"
+                variant="tertiary"
                 flexShrink={1}
-              >
-                {item.title}
-              </SizableText>
-              <Icon
-                name={
+                textEllipsis
+                onPress={() => toggleCollapse(item.walletId)}
+                iconAfter={
                   isCollapsed
                     ? 'ChevronRightSmallOutline'
                     : 'ChevronDownSmallOutline'
                 }
-                size="$4.5"
-                color="$iconSubdued"
-                ml="$1"
-              />
+              >
+                {item.title}
+              </Button>
+              {item.hasMultipleDeriveTypes ? (
+                <ActionList
+                  title={intl.formatMessage({
+                    id: ETranslations.address_type_selector_title,
+                  })}
+                  items={item.deriveTypeOptions.map((option) => ({
+                    label: option.label,
+                    onPress: () => {
+                      setWalletDeriveType((prev) => ({
+                        ...prev,
+                        [item.walletId]: option.deriveType,
+                      }));
+                    },
+                  }))}
+                  renderTrigger={
+                    <Button
+                      size="small"
+                      variant="tertiary"
+                      iconAfter="ChevronDownSmallSolid"
+                      flexShrink={0}
+                    >
+                      {activeLabel ?? ''}
+                    </Button>
+                  }
+                />
+              ) : null}
             </XStack>
           );
         }
@@ -563,20 +624,9 @@ function AccountRecipients({
         if (!item.account) {
           return null;
         }
-        const {
-          account,
-          deriveInfo,
-          hasMultipleDeriveTypes,
-          walletId,
-          wallet,
-        } = item;
+        const { account, walletId, wallet } = item;
         const itemAddress =
           account.address ?? account.addressDetail?.address ?? '';
-        // Show derive label only when multiple derive types exist in this group
-        // (after filtering by senderDeriveType, usually only one type remains)
-        const deriveLabel = hasMultipleDeriveTypes
-          ? getDeriveLabel(deriveInfo)
-          : undefined;
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
         // Wallet name is already shown in the section header, only show account name
@@ -592,11 +642,10 @@ function AccountRecipients({
               address: itemAddress || account.id || '',
               // Only show address in secondary text when it's a real address
               displayAddress: itemAddress,
-              deriveLabel,
               walletId,
               wallet,
             }}
-            onPress={() => handleSelectAccount({ account, deriveInfo })}
+            onPress={() => handleSelectAccount({ account })}
           />
         );
       })}
@@ -766,13 +815,10 @@ export default function RecipientQuickSelect({
   senderDeriveType,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
+  const isRecentHidden = hideTabs?.includes('recent') ?? false;
   // Use controlled state from parent if provided, otherwise use local state
-  const isLightningNetwork =
-    networkUtils.isLightningNetworkByNetworkId(networkId);
   const [localActiveTab, setLocalActiveTab] =
-    useState<IRecipientQuickSelectTab>(
-      isLightningNetwork || hideTabs?.includes('recent') ? 'account' : 'recent',
-    );
+    useState<IRecipientQuickSelectTab>(isRecentHidden ? 'account' : 'recent');
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
 
@@ -805,7 +851,7 @@ export default function RecipientQuickSelect({
   const [visitedTabs, setVisitedTabs] = useState<
     Record<IRecipientQuickSelectTab, boolean>
   >({
-    recent: true, // Default tab starts as visited
+    recent: !isRecentHidden,
     account: false,
     addressBook: false,
   });
@@ -816,6 +862,24 @@ export default function RecipientQuickSelect({
       prev[activeTab] ? prev : { ...prev, [activeTab]: true },
     );
   }, [activeTab]);
+
+  // For multi-derive chains (BTC/LTC), default to Accounts tab so
+  // addresses are visible without manual tab switch (OK-52809).
+  useEffect(() => {
+    if (!networkId) return;
+    let cancelled = false;
+    void backgroundApiProxy.serviceNetwork
+      .getVaultSettings({ networkId })
+      .then((settings) => {
+        if (!cancelled && settings?.mergeDeriveAssetsEnabled) {
+          setActiveTab('account');
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [networkId, setActiveTab]);
 
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);
@@ -865,12 +929,20 @@ export default function RecipientQuickSelect({
       activeTab,
       tabMatchStatus,
       lastManualSwitchSearchKey: lastManualSwitchSearchKeyRef.current,
+      hideTabs,
     });
 
     if (nextTab) {
       setActiveTab(nextTab);
     }
-  }, [isSearchMode, trimmedSearchKey, activeTab, tabMatchStatus, setActiveTab]);
+  }, [
+    isSearchMode,
+    trimmedSearchKey,
+    activeTab,
+    tabMatchStatus,
+    setActiveTab,
+    hideTabs,
+  ]);
 
   const tabOptions = useMemo(() => {
     const formatLabel = (label: string, tab: IRecipientQuickSelectTab) => {
@@ -884,29 +956,25 @@ export default function RecipientQuickSelect({
 
     const options: { label: string; value: IRecipientQuickSelectTab }[] = [];
 
-    // Lightning invoices are one-time, hide Recent tab to avoid showing them
+    options.push({
+      label: formatLabel(
+        intl.formatMessage({ id: ETranslations.global_recents }),
+        'recent',
+      ),
+      value: 'recent',
+    });
+
     if (!isLightning) {
       options.push({
         label: formatLabel(
-          intl.formatMessage({ id: ETranslations.global_recents }),
-          'recent',
+          intl.formatMessage({
+            id: ETranslations.global_accounts,
+          }),
+          'account',
         ),
-        value: 'recent',
+        value: 'account',
       });
-    }
 
-    options.push({
-      label: formatLabel(
-        intl.formatMessage({
-          id: ETranslations.global_accounts,
-        }),
-        'account',
-      ),
-      value: 'account',
-    });
-
-    // Lightning network doesn't support address book
-    if (!isLightning) {
       options.push({
         label: formatLabel(
           intl.formatMessage({ id: ETranslations.address_book_title }),
@@ -943,7 +1011,7 @@ export default function RecipientQuickSelect({
         />
         <Stack mx={-20} pb="$3">
           {/* Render active tab, or visited tabs (hidden with display:none to avoid unmount crashes) */}
-          {activeTab === 'recent' || visitedTabs.recent ? (
+          {!isRecentHidden && (activeTab === 'recent' || visitedTabs.recent) ? (
             <Stack display={activeTab === 'recent' ? 'flex' : 'none'}>
               <RecentRecipients
                 compact

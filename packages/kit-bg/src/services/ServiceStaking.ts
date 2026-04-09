@@ -868,10 +868,7 @@ class ServiceStaking extends ServiceBase {
         type,
         accountAddress,
       });
-      const protocols = protocolListResp.data.data.protocols.filter((item) => {
-        return item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly;
-      });
-      return protocols;
+      return protocolListResp.data.data.protocols;
     },
     {
       promise: true,
@@ -888,17 +885,23 @@ class ServiceStaking extends ServiceBase {
     networkId?: string;
     filterNetworkId?: string;
     skipStakingConfigFilter?: boolean;
+    includeWithdrawOnly?: boolean;
   }) {
     const accountNetworkId = params.networkId ?? params.filterNetworkId;
-    const accountAddress =
-      params.accountId &&
-      accountNetworkId &&
-      !networkUtils.isAllNetwork({ networkId: accountNetworkId })
-        ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-            networkId: accountNetworkId,
-            accountId: params.accountId,
-          })
-        : undefined;
+    let accountAddress: string | undefined;
+    try {
+      accountAddress =
+        params.accountId &&
+        accountNetworkId &&
+        !networkUtils.isAllNetwork({ networkId: accountNetworkId })
+          ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              networkId: accountNetworkId,
+              accountId: params.accountId,
+            })
+          : undefined;
+    } catch {
+      // ignore
+    }
 
     let allItems: IStakeProtocolListItem[] = [];
     try {
@@ -923,6 +926,12 @@ class ServiceStaking extends ServiceBase {
     ) {
       allItems = allItems.filter(
         (item) => item.network.networkId === params.filterNetworkId,
+      );
+    }
+
+    if (!params.includeWithdrawOnly) {
+      allItems = allItems.filter(
+        (item) => item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly,
       );
     }
 

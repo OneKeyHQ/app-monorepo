@@ -68,6 +68,7 @@ import type {
   IAccountToken,
   IFetchTokenDetailItem,
   IToken,
+  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import {
@@ -88,6 +89,8 @@ export type IProps = {
   networkId: string;
   walletId: string;
   tokenInfo: IToken;
+  tokenMap?: Record<string, ITokenFiat>;
+  allowTokenMapAsInitialDetails?: boolean;
   isBlocked?: boolean;
   riskyTokens?: string[];
   isAllNetworks?: boolean;
@@ -555,6 +558,7 @@ function TokenDetailsView() {
             networkId={token.networkId ?? ''}
             walletId={walletId}
             tokenInfo={token}
+            tokenMap={tokenMap}
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={indexedAccountId}
@@ -585,6 +589,8 @@ function TokenDetailsView() {
               deriveInfo={item.deriveInfo}
               deriveType={item.deriveType}
               tokenInfo={tokenInfo}
+              tokenMap={tokenMap}
+              allowTokenMapAsInitialDetails={false}
               isAllNetworks={isAllNetworks}
               listViewContentContainerStyle={listViewContentContainerStyle}
               indexedAccountId={indexedAccountId}
@@ -600,6 +606,7 @@ function TokenDetailsView() {
             networkId={tokenInfo.networkId ?? ''}
             walletId={walletId}
             tokenInfo={tokenInfo}
+            tokenMap={tokenMap}
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={indexedAccountId}
@@ -620,6 +627,7 @@ function TokenDetailsView() {
     refreshAllNetworkState,
     vaultSettings?.mergeDeriveAssetsEnabled,
     tokenInfo,
+    tokenMap,
     result?.networkAccounts,
     intl,
     uniqueTabNames,
@@ -734,6 +742,7 @@ function TokenDetailsView() {
         networkId={tokenInfo.networkId ?? networkId}
         walletId={walletId}
         tokenInfo={tokenInfo}
+        tokenMap={tokenMap}
         isAllNetworks={isAllNetworks}
         indexedAccountId={indexedAccountId}
         listViewContentContainerStyle={listViewContentContainerStyle}
@@ -746,6 +755,7 @@ function TokenDetailsView() {
     vaultSettings?.mergeDeriveAssetsEnabled,
     tokens,
     tokenInfo,
+    tokenMap,
     accountId,
     networkId,
     isAllNetworks,

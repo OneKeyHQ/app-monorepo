@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -36,7 +36,17 @@ function PerpDesktopLayout() {
 
   const layout = PERP_LAYOUT_CONFIG.desktop;
 
-  const showOrderBook = gtXl && (layoutState.orderBook?.visible ?? true);
+  // Reset chartExpanded on mount to stay in sync with iframe state
+  useEffect(() => {
+    setLayoutState((prev) =>
+      prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const chartExpanded = layoutState.chartExpanded ?? false;
+  const showOrderBook =
+    gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
   const tradingWidth = layout.widths.trading;
   const orderBookMaxLevelsPerSide = useMemo(
     () =>
@@ -105,55 +115,62 @@ function PerpDesktopLayout() {
     <Stack
       ref={scrollContainerRef as any}
       flex={1}
-      style={{ overflowY: 'auto' }}
+      style={{ overflowY: chartExpanded ? 'hidden' : 'auto' }}
     >
-      <YStack>
+      <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
         <FavoritesBar />
 
-        <YStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
+        <YStack
+          flex={chartExpanded ? 1 : undefined}
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
           <PerpTickerBar />
 
-          <XStack h={layout.marketContentHeight} overflow="hidden">
+          <XStack
+            h={chartExpanded ? undefined : layout.marketContentHeight}
+            flex={chartExpanded ? 1 : undefined}
+            overflow="hidden"
+          >
             <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
               <XStack flex={1} overflow="hidden">
                 <YStack flex={1} position="relative">
                   <PerpCandles onTouchScroll={handleTradingViewTouchScroll} />
 
-                  {gtXl ? (
-                    <Stack
-                      position="absolute"
-                      top="50%"
-                      right={showOrderBook ? -4 : 3.5}
-                      zIndex={2}
-                      marginTop={-2}
-                    >
-                      <IconButton
-                        icon={
-                          showOrderBook
-                            ? 'ChevronRightSmallSolid'
-                            : 'ChevronLeftSmallSolid'
-                        }
-                        size="small"
-                        variant="tertiary"
-                        bg="$bg"
-                        borderWidth="$px"
-                        borderColor="$borderSubdued"
-                        borderRadius="$1"
-                        p="$0"
-                        h={30}
-                        w={16}
-                        cursor="default"
-                        hoverStyle={{
-                          borderColor: '$border',
-                        }}
-                        pressStyle={{
-                          borderColor: '$border',
-                        }}
-                        onPress={toggleOrderBook}
-                      />
-                    </Stack>
-                  ) : null}
+                  <Stack
+                    display={gtXl && !chartExpanded ? 'flex' : 'none'}
+                    position="absolute"
+                    top="50%"
+                    right={showOrderBook ? -4 : 3.5}
+                    zIndex={2}
+                    marginTop={-2}
+                  >
+                    <IconButton
+                      icon={
+                        showOrderBook
+                          ? 'ChevronRightSmallSolid'
+                          : 'ChevronLeftSmallSolid'
+                      }
+                      size="small"
+                      variant="tertiary"
+                      bg="$bg"
+                      borderWidth="$px"
+                      borderColor="$borderSubdued"
+                      borderRadius="$1"
+                      p="$0"
+                      h={30}
+                      w={16}
+                      cursor="default"
+                      hoverStyle={{
+                        borderColor: '$border',
+                      }}
+                      pressStyle={{
+                        borderColor: '$border',
+                      }}
+                      onPress={toggleOrderBook}
+                    />
+                  </Stack>
                 </YStack>
 
                 {showOrderBook ? (
@@ -187,10 +204,13 @@ function PerpDesktopLayout() {
               </XStack>
             </YStack>
 
-            {tradingPanel}
+            <YStack display={chartExpanded ? 'none' : 'flex'}>
+              {tradingPanel}
+            </YStack>
           </XStack>
 
           <XStack
+            display={chartExpanded ? 'none' : 'flex'}
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"
             minHeight={layout.bottomPanelHeight}
