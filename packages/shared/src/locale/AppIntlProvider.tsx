@@ -17,7 +17,7 @@ export function AppIntlProvider({
   locale: ResolvedIntlConfig['locale'];
   onLocaleChange?: (locale: ILocaleSymbol) => void;
 }>) {
-  const [, setLocaleUpdateTs] = useState(0);
+  const [localeUpdateTs, setLocaleUpdateTs] = useState(0);
 
   const updateAppLocaleMessage = useCallback(
     (localeString: string, messages: Record<string, string>) => {
@@ -43,7 +43,7 @@ export function AppIntlProvider({
       updateAppLocaleMessage(locale, data);
     }
   }, [locale, onLocaleChange, updateAppLocaleMessage]);
-  return (
+  return localeUpdateTs ? (
     <RawIntlProvider value={appLocale.intl}>{children as any}</RawIntlProvider>
-  );
+  ) : null;
 }

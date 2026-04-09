@@ -59,7 +59,9 @@ export function SplashView({ onExit, canDismissSplash }: ISplashViewProps) {
     if (!canDismissSplash) {
       return;
     }
-    hideSplash();
+    // Delay 50ms to let React commit the pending render before hiding the splash
+    const timer = setTimeout(hideSplash, 50);
+    return () => clearTimeout(timer);
   }, [canDismissSplash, hideSplash]);
   return null;
 }
