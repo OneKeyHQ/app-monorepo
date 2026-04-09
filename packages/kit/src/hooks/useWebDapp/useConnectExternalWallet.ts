@@ -243,22 +243,44 @@ export function useConnectExternalWallet() {
         nonce?: string;
       },
     ) => {
+      const cachedPendingLogin = options?.provider
+        ? keylessWebPendingLoginCache.readKeylessPendingLogin()
+        : undefined;
+
       let webKeylessPendingLogin: IKeylessPendingLogin | undefined =
-        keylessWebPendingLoginCache.readKeylessPendingLogin();
-      if (!webKeylessPendingLogin && options?.provider) {
-        webKeylessPendingLogin =
-          keylessWebPendingLoginCache.createKeylessPendingLogin({
-            provider: options?.provider,
-            nonce: options?.nonce || `silent-${Date.now()}`,
+        cachedPendingLogin;
+
+      if (options?.provider) {
+        const shouldReusePendingLogin =
+          cachedPendingLogin?.provider === options.provider &&
+          (!options.nonce || cachedPendingLogin?.nonce === options.nonce);
+
+        if (!shouldReusePendingLogin) {
+          keylessWebPendingLoginCache.clearKeylessPendingLogin({
+            nonce: cachedPendingLogin?.nonce,
           });
+          webKeylessPendingLogin =
+            keylessWebPendingLoginCache.createKeylessPendingLogin({
+              provider: options.provider,
+              nonce: options.nonce || `silent-${Date.now()}`,
+            });
+        }
       }
 
-      return connectToWallet(connectionInfo, {
+      const connected = await connectToWallet(connectionInfo, {
         allowEmptyAuthorizedAddresses: true,
         suppressDeniedToast: true,
         skipDisconnectConnector: true,
         webKeylessPendingLogin,
       });
+
+      if (connected) {
+        keylessWebPendingLoginCache.clearKeylessPendingLogin({
+          nonce: webKeylessPendingLogin?.nonce,
+        });
+      }
+
+      return connected;
     },
     [connectToWallet],
   );
