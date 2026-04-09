@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Page } from '@onekeyhq/components';
+import { Icon, Page, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -29,6 +29,7 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useCurrency } from '../../../components/Currency';
+import { NetworkAvatarBase } from '../../../components/NetworkAvatar/NetworkAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
@@ -82,6 +83,7 @@ function TokenSelector() {
     enableNetworkAfterSelect,
     exchangeFilter,
     hideBalanceAndValue,
+    onSwitchNetwork,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -336,6 +338,41 @@ function TokenSelector() {
     [debounceUpdateSearchKey, intl, searchPlaceholder],
   );
 
+  const headerRight = useMemo(() => {
+    if (!onSwitchNetwork || !network?.name) return undefined;
+    return () => (
+      <XStack
+        alignItems="center"
+        gap="$1.5"
+        px="$2"
+        py="$1"
+        mr="$-2"
+        borderRadius="$full"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        onPress={onSwitchNetwork}
+        userSelect="none"
+      >
+        <NetworkAvatarBase
+          logoURI={network.logoURI}
+          size="$5"
+          isCustomNetwork={network.isCustomNetwork}
+          networkName={network.name}
+        />
+        <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth="$16">
+          {network.shortname}
+        </SizableText>
+        <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
+      </XStack>
+    );
+  }, [
+    onSwitchNetwork,
+    network?.name,
+    network?.shortname,
+    network?.logoURI,
+    network?.isCustomNetwork,
+  ]);
+
   const searchTokensBySearchKey = useCallback(
     async (keywords: string) => {
       setSearchTokenState({ isSearching: true });
@@ -466,6 +503,7 @@ function TokenSelector() {
           })
         }
         headerSearchBarOptions={headerSearchBarOptions}
+        headerRight={headerRight}
       />
       <Page.Body>
         <TokenListView

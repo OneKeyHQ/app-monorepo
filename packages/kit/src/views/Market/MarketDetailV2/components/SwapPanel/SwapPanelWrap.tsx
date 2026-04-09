@@ -184,6 +184,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       decimals: tokenDetail?.decimals || 0,
       logoURI: tokenDetail?.logoUrl || '',
       price: tokenDetail?.price || '',
+      isNative: !!tokenDetail?.isNative,
     },
     tradeToken: {
       networkId: paymentToken?.networkId || '',
@@ -191,9 +192,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       symbol: paymentToken?.symbol || '',
       decimals: paymentToken?.decimals || 0,
       logoURI: paymentToken?.logoURI || '',
+      price: paymentToken?.price || '',
       isNative: paymentToken?.isNative || false,
     },
-    defaultTradeTokens: defaultTokens,
     provider,
     tradeType: tradeType || ESwapDirection.BUY,
     fromTokenAmount:

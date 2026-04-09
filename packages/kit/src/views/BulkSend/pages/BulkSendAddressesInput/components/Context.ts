@@ -40,6 +40,8 @@ export type IBulkSendAddressesInputContext = {
   // Track duplicate sender addresses (ManyToMany only)
   duplicateSenderAddressCount: number;
   setDuplicateSenderAddressCount: (count: number) => void;
+  hasUserSelectedAsset: boolean;
+  setHasUserSelectedAsset: (value: boolean) => void;
 };
 export const BulkSendAddressesInputContext =
   createContext<IBulkSendAddressesInputContext>({
@@ -68,6 +70,8 @@ export const BulkSendAddressesInputContext =
     setResolvedSenderAccountIds: () => {},
     duplicateSenderAddressCount: 0,
     setDuplicateSenderAddressCount: () => {},
+    hasUserSelectedAsset: false,
+    setHasUserSelectedAsset: () => {},
   });
 
 export const useBulkSendAddressesInputContext = () =>

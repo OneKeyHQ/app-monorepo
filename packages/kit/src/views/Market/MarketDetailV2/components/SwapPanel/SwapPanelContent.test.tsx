@@ -12,6 +12,11 @@ import {
 } from './SwapPanelContent';
 
 const actionButtonMock = jest.fn();
+const setAmountEnterTypeMock = jest.fn();
+const setSlippageSettingMock = jest.fn();
+const resetAnalyticsMock = jest.fn();
+const logSwapActionMock = jest.fn();
+const tokenInputSectionMock = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
   SizableText: ({ children }: { children?: ReactNode }) => (
@@ -31,8 +36,10 @@ jest.mock('react-intl', () => ({
 
 jest.mock('./hooks/useSwapAnalytics', () => ({
   useSwapAnalytics: () => ({
-    setAmountEnterType: jest.fn(),
-    logSwapAction: jest.fn(),
+    setAmountEnterType: setAmountEnterTypeMock,
+    setSlippageSetting: setSlippageSettingMock,
+    resetAnalytics: resetAnalyticsMock,
+    logSwapAction: logSwapActionMock,
   }),
 }));
 
@@ -46,7 +53,26 @@ jest.mock('./components/SwapPanelTop', () => ({
 }));
 
 jest.mock('./components/TokenInputSection', () => ({
-  TokenInputSection: () => <div data-testid="token-input" />,
+  TokenInputSection: jest
+    .requireActual<typeof import('react')>('react')
+    .forwardRef(
+      (
+        {
+          tradeType,
+        }: {
+          tradeType: ESwapDirection;
+        },
+        ref,
+      ) => {
+        const React = jest.requireActual<typeof import('react')>('react');
+        const setValue = jest.fn();
+        React.useImperativeHandle(ref, () => ({
+          setValue,
+        }));
+        tokenInputSectionMock({ tradeType, setValue });
+        return <div data-testid="token-input" />;
+      },
+    ),
 }));
 
 jest.mock('./components/RateDisplay', () => ({
@@ -104,6 +130,7 @@ function createProps(): ISwapPanelContentProps {
       sellAmount: new BigNumber(1),
       setSellAmount: jest.fn(),
       setPaymentAmount: jest.fn(),
+      resetAmounts: jest.fn(),
       setPaymentToken: jest.fn(),
       tradeType: ESwapDirection.BUY,
       setTradeType: jest.fn(),
@@ -151,6 +178,11 @@ function createProps(): ISwapPanelContentProps {
 describe('SwapPanelContent', () => {
   beforeEach(() => {
     actionButtonMock.mockReset();
+    setAmountEnterTypeMock.mockReset();
+    setSlippageSettingMock.mockReset();
+    resetAnalyticsMock.mockReset();
+    logSwapActionMock.mockReset();
+    tokenInputSectionMock.mockReset();
   });
 
   it('routes the main action button to the review swap handler', () => {
@@ -188,5 +220,41 @@ describe('SwapPanelContent', () => {
         disabled: true,
       }),
     );
+  });
+
+  it('resets panel state when the market token changes', () => {
+    const props = createProps();
+    const { rerender } = render(<SwapPanelContent {...props} />);
+
+    expect(props.swapPanel.resetAmounts).not.toHaveBeenCalled();
+    expect(resetAnalyticsMock).not.toHaveBeenCalled();
+
+    tokenInputSectionMock.mockClear();
+
+    rerender(
+      <SwapPanelContent
+        {...props}
+        currentMarketToken={{
+          networkId: 'evm--10',
+          contractAddress: '0xmarket-2',
+          symbol: 'ETH',
+          decimals: 18,
+          isNative: true,
+        }}
+      />,
+    );
+
+    expect(props.swapPanel.resetAmounts).toHaveBeenCalledTimes(1);
+    expect(resetAnalyticsMock).toHaveBeenCalledTimes(1);
+
+    const renderedInputs = tokenInputSectionMock.mock.calls.map(
+      ([renderedProps]) =>
+        renderedProps as {
+          setValue: jest.Mock;
+        },
+    );
+    expect(renderedInputs).toHaveLength(2);
+    expect(renderedInputs[0].setValue).toHaveBeenCalledWith('');
+    expect(renderedInputs[1].setValue).toHaveBeenCalledWith('');
   });
 });

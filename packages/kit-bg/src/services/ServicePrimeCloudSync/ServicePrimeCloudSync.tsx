@@ -1388,13 +1388,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     } finally {
       const endTime = Date.now();
       const duration = endTime - now;
-      if (process.env.NODE_ENV !== 'production') {
-        if (duration > 600) {
-          void this.backgroundApi.serviceApp.showToast({
-            method: 'error',
-            title: `isCloudSyncIsAvailable took too long: ${duration}ms`,
-          });
-        }
+      if (duration > 600) {
+        void this.backgroundApi.serviceApp.showToastIfDevMode({
+          method: 'error',
+          title: `isCloudSyncIsAvailable took too long: ${duration}ms`,
+        });
       }
       console.log(
         `CloudSyncTookTime:: ServicePrimeCloudSync.isCloudSyncIsAvailable() ${duration}ms`,
@@ -1471,14 +1469,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     } finally {
       const endTime = Date.now();
       const duration = endTime - now;
-      if (process.env.NODE_ENV !== 'production') {
-        if (duration > 600) {
-          void this.backgroundApi.serviceApp.showToast({
-            method: 'error',
-            title: `getSyncCredentialSafe took too long: ${duration}ms`,
-            message: `ServicePrimeCloudSync.getSyncCredentialSafe() took ${duration}ms`,
-          });
-        }
+      if (duration > 600) {
+        void this.backgroundApi.serviceApp.showToastIfDevMode({
+          method: 'error',
+          title: `getSyncCredentialSafe took too long: ${duration}ms`,
+          message: `ServicePrimeCloudSync.getSyncCredentialSafe() took ${duration}ms`,
+        });
       }
       console.log(
         `CloudSyncTookTime:: ServicePrimeCloudSync.getSyncCredentialSafe() ${duration}ms`,

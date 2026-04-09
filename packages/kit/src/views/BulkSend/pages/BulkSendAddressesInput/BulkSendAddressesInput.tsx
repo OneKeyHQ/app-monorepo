@@ -88,6 +88,7 @@ function BaseBulkSendAddressesInput() {
     setResolvedSenderAccountIds,
     duplicateSenderAddressCount,
     setDuplicateSenderAddressCount,
+    setHasUserSelectedAsset,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
@@ -227,6 +228,7 @@ function BaseBulkSendAddressesInput() {
     setSelectedNetworkId(_selectedNetworkId);
     setSelectedToken(_selectedTokenInfo);
     setSelectedIndexedAccountId(_selectedIndexedAccountId);
+    setHasUserSelectedAsset(false);
   }, [
     accountId,
     activeAccount?.account?.id,
@@ -240,6 +242,7 @@ function BaseBulkSendAddressesInput() {
     setSelectedNetworkId,
     setSelectedToken,
     setSelectedIndexedAccountId,
+    setHasUserSelectedAsset,
   ]);
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
@@ -432,6 +435,7 @@ function BaseBulkSendAddressesInput() {
     form.clearErrors();
     setDuplicateAddressCount(0);
     setDuplicateSenderAddressCount(0);
+    setHasUserSelectedAsset(false);
     if (isOneToMany && selectedAccountId && selectedNetworkId) {
       void fetchSelectedAccountAddress();
       setTokenDetailsState({ initialized: false, isRefreshing: true });
@@ -755,6 +759,8 @@ function BulkSendAddressesInput() {
   const [duplicateSenderAddressCount, setDuplicateSenderAddressCount] =
     useState(0);
 
+  const [hasUserSelectedAsset, setHasUserSelectedAsset] = useState(false);
+
   const context = useMemo(
     () => ({
       selectedAccountId,
@@ -779,6 +785,8 @@ function BulkSendAddressesInput() {
       setResolvedSenderAccountIds,
       duplicateSenderAddressCount,
       setDuplicateSenderAddressCount,
+      hasUserSelectedAsset,
+      setHasUserSelectedAsset,
     }),
     [
       selectedAccountId,
@@ -800,6 +808,7 @@ function BulkSendAddressesInput() {
       selectedDeriveType,
       resolvedSenderAccountIds,
       duplicateSenderAddressCount,
+      hasUserSelectedAsset,
     ],
   );
 

@@ -27,6 +27,8 @@ import {
   useSwapToAnotherAccountAddressAtom,
 } from '../../../states/jotai/contexts/swap';
 
+import { shouldUseSwapCustomRecipientAddress } from './useSwapAccount.utils';
+
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
 /**
@@ -301,26 +303,28 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       accountInfo: undefined,
       activeAccount: undefined,
     };
+    // Keep the confirmed custom recipient even when cross-chain TO account
+    // resolution has not materialized a network account yet.
     if (
-      type === ESwapDirectionType.TO &&
-      swapToAnotherAccountSwitchOn &&
-      swapToAnotherAccountAddressAtom.address &&
-      swapToAnotherAccountAddressAtom.networkId &&
-      swapToAnotherAccountAddressAtom.accountInfo &&
-      swapToAnotherAccountAddressAtom.accountInfo.account &&
-      activeAccount &&
-      activeAccount.account &&
-      (activeAccount.network?.id ===
-        swapToAnotherAccountAddressAtom.networkId ||
-        isAllNetwork)
+      shouldUseSwapCustomRecipientAddress({
+        type,
+        swapToAnotherAccountSwitchOn,
+        selectedRecipientAddress: swapToAnotherAccountAddressAtom.address,
+        selectedRecipientNetworkId: swapToAnotherAccountAddressAtom.networkId,
+        activeNetworkId: activeAccount.network?.id,
+        tokenNetworkId,
+        isAllNetwork,
+      })
     ) {
       return {
         ...res,
         address: swapToAnotherAccountAddressAtom.address ?? '',
         networkId: swapToAnotherAccountAddressAtom.networkId ?? '',
-        accountInfo: {
-          ...swapToAnotherAccountAddressAtom.accountInfo,
-        },
+        accountInfo: swapToAnotherAccountAddressAtom.accountInfo
+          ? {
+              ...swapToAnotherAccountAddressAtom.accountInfo,
+            }
+          : undefined,
         activeAccount: {
           ...activeAccount,
         },

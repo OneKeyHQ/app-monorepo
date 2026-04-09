@@ -19,57 +19,79 @@ export interface IDescriptionRow {
   key: string;
   label: string;
   value: string;
+  tooltip?: string;
+}
+
+function buildStatRows(items: IStatItem[]) {
+  const rows: IStatItem[][] = [];
+
+  for (let i = 0; i < items.length; i += 2) {
+    rows.push(items.slice(i, i + 2));
+  }
+
+  return rows;
 }
 
 export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
   const intl = useIntl();
 
-  const statRows = useMemo(() => {
-    if (!stock) return [] as IStatItem[][];
-    const items: IStatItem[] = [
+  const { assetAnalysisRows, tradingActivityRows } = useMemo(() => {
+    if (!stock) {
+      return {
+        assetAnalysisRows: [] as IStatItem[][],
+        tradingActivityRows: [] as IStatItem[][],
+      };
+    }
+
+    const { assetAnalysis, tradingActivity } = stock;
+
+    const assetAnalysisItems: IStatItem[] = [
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_24h_volume,
         }),
-        value: formatCurrencyStatValue(stock.volume24h),
+        value: formatCurrencyStatValue(assetAnalysis?.volume24h),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_volume_shares,
         }),
-        value: formatMarketCapValue(stock.volumeShares),
+        value: formatMarketCapValue(assetAnalysis?.volumeShares),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_turnover_rate,
         }),
-        value: stock.turnoverRate
-          ? `${formatMarketCapValue(stock.turnoverRate)}%`
+        value: assetAnalysis?.turnoverRate
+          ? `${formatMarketCapValue(assetAnalysis.turnoverRate)}%`
           : STAT_FALLBACK_VALUE,
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_1y_avg_daily_vol,
         }),
-        value: formatMarketCapValue(stock.avgDailyVolume1y),
+        value: formatMarketCapValue(assetAnalysis?.avgDailyVolume1y),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_high,
         }),
-        value: formatCurrencyStatValue(stock.weekHigh52),
+        value: formatCurrencyStatValue(assetAnalysis?.weekHigh52),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_low,
         }),
-        value: formatCurrencyStatValue(stock.weekLow52),
+        value: formatCurrencyStatValue(assetAnalysis?.weekLow52),
       },
+    ];
+
+    const tradingActivityItems: IStatItem[] = [
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_pe_ttm,
         }),
-        value: formatRatioValue(stock.peRatio),
+        value: formatRatioValue(tradingActivity?.peRatio),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_stock_pe_ttm_desc,
         }),
@@ -78,7 +100,7 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_pb,
         }),
-        value: formatRatioValue(stock.pbRatio),
+        value: formatRatioValue(tradingActivity?.pbRatio),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_stock_pb_desc,
         }),
@@ -87,7 +109,7 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_ps,
         }),
-        value: formatRatioValue(stock.psRatio),
+        value: formatRatioValue(tradingActivity?.psRatio),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_stock_ps_desc,
         }),
@@ -96,7 +118,7 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_roe,
         }),
-        value: formatPercentValue(stock.roe),
+        value: formatPercentValue(tradingActivity?.roe),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_stock_roe_desc,
         }),
@@ -105,7 +127,7 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_roa,
         }),
-        value: formatPercentValue(stock.roa),
+        value: formatPercentValue(tradingActivity?.roa),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_stock_roa_desc,
         }),
@@ -114,7 +136,7 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_profit_margin,
         }),
-        value: formatPercentValue(stock.netProfitMargin),
+        value: formatPercentValue(tradingActivity?.netProfitMargin),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_stock_profit_margin_desc,
         }),
@@ -123,7 +145,7 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_de,
         }),
-        value: formatRatioValue(stock.debtToEquity),
+        value: formatRatioValue(tradingActivity?.debtToEquity),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_stock_de_desc,
         }),
@@ -132,35 +154,18 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_dividend_yield,
         }),
-        value: formatPercentValue(stock.dividendYield),
+        value: formatPercentValue(tradingActivity?.dividendYield),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_stock_dividend_yield_desc,
         }),
       },
     ];
-    const rows: IStatItem[][] = [];
-    for (let i = 0; i < items.length; i += 2) {
-      rows.push(items.slice(i, i + 2));
-    }
-    return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    intl,
-    stock?.volume24h,
-    stock?.volumeShares,
-    stock?.turnoverRate,
-    stock?.avgDailyVolume1y,
-    stock?.weekHigh52,
-    stock?.weekLow52,
-    stock?.peRatio,
-    stock?.pbRatio,
-    stock?.psRatio,
-    stock?.roe,
-    stock?.roa,
-    stock?.netProfitMargin,
-    stock?.debtToEquity,
-    stock?.dividendYield,
-  ]);
+
+    return {
+      assetAnalysisRows: buildStatRows(assetAnalysisItems),
+      tradingActivityRows: buildStatRows(tradingActivityItems),
+    };
+  }, [intl, stock]);
 
   const descriptionRows = useMemo<IDescriptionRow[]>(() => {
     if (!stock) return [];
@@ -184,28 +189,15 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_shares_per_token,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_shares_per_token_desc,
+        }),
         value: stock.sharesPerToken
           ? `${stock.sharesPerToken} ${stock.underlyingAssetTicker ?? ''}`.trim()
           : STAT_FALLBACK_VALUE,
       },
-      {
-        key: 'lastDividend',
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_dividend_yield,
-        }),
-        value: stock.dividendPerShare
-          ? `$${formatRatioValue(stock.dividendPerShare)}`
-          : STAT_FALLBACK_VALUE,
-      },
     ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    intl,
-    stock?.underlyingAssetTicker,
-    stock?.underlyingAssetName,
-    stock?.sharesPerToken,
-    stock?.dividendPerShare,
-  ]);
+  }, [intl, stock]);
 
-  return { statRows, descriptionRows };
+  return { assetAnalysisRows, tradingActivityRows, descriptionRows };
 }

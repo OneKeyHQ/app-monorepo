@@ -13,7 +13,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Alert,
-  Button,
   Form,
   Page,
   SizableText,
@@ -29,7 +28,6 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
-import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -562,31 +560,29 @@ function SendDataInputContainer() {
     if (isNumericMemo) {
       memoInputLines = memoValue?.length ? 2 : 1;
     }
-    const clearMemoExtension = memoValue ? (
-      <XStack justifyContent="flex-end">
-        <Button
-          size="small"
-          variant="secondary"
-          icon="BroomOutline"
-          onPress={() =>
-            form.setValue('memo', '', {
-              shouldValidate: true,
-            })
-          }
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_clear,
-          })}
-        </Button>
-      </XStack>
-    ) : undefined;
-
     return (
       <>
         <Form.Field
           label={intl.formatMessage({ id: ETranslations.send_tag })}
           optional
           name="memo"
+          labelAddon={
+            memoValue ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                cursor="pointer"
+                hoverStyle={{ color: '$text' }}
+                onPress={() =>
+                  form.setValue('memo', '', {
+                    shouldValidate: true,
+                  })
+                }
+              >
+                {intl.formatMessage({ id: ETranslations.global_clear })}
+              </SizableText>
+            ) : undefined
+          }
           rules={{
             maxLength: supportsMemoValidation
               ? undefined
@@ -604,7 +600,7 @@ function SendDataInputContainer() {
             validate: validateMemoField,
           }}
         >
-          <BaseInput
+          <TextArea
             numberOfLines={memoInputLines}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
@@ -613,7 +609,6 @@ function SendDataInputContainer() {
             keyboardType={
               isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
             }
-            extension={clearMemoExtension}
           />
         </Form.Field>
       </>
@@ -802,8 +797,12 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo));
-      form.setValue('note', normalizeOptionalRecipientText(selectedNote));
+      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo), {
+        shouldValidate: true,
+      });
+      form.setValue('note', normalizeOptionalRecipientText(selectedNote), {
+        shouldValidate: true,
+      });
 
       const currentTo = form.getValues('to') as IAddressInputValue | undefined;
       // Skip resetting when the same address is already resolved,
@@ -1030,7 +1029,11 @@ function SendDataInputContainer() {
             ? ETranslations.send_title
             : ETranslations.select_address__title,
         })}
-        headerRight={renderAddressSecurityHeaderRightButton}
+        headerRight={
+          enableAllowListValidation
+            ? renderAddressSecurityHeaderRightButton
+            : undefined
+        }
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
