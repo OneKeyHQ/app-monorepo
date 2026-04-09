@@ -23,14 +23,13 @@ function FeaturedFooter({ ctaText, onCtaPress }: IFeaturedFooterProps) {
       <Page.FooterActions
         onConfirmText={ctaText}
         onConfirm={() => onCtaPress()}
+        $md={{
+          flexDirection: 'column-reverse',
+          gap: '$4',
+        }}
       >
-        <Button
-          size="small"
-          variant="tertiary"
-          onPress={handleViewChangelog}
-          $md={{ pb: '$4' }}
-        >
-          {'View full changelog'}
+        <Button size="small" variant="tertiary" onPress={handleViewChangelog}>
+          View full changelog
         </Button>
       </Page.FooterActions>
     </Page.Footer>
