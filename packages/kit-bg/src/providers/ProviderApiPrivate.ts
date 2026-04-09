@@ -960,9 +960,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
 
     if (params.type === 'write' && params.text === undefined) {
-      throw new OneKeyLocalError(
-        'Clipboard write requires text parameter',
-      );
+      throw new OneKeyLocalError('Clipboard write requires text parameter');
     }
 
     // Sanitize request before passing to modal to prevent clipboard text

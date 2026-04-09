@@ -2,8 +2,6 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { Semaphore } from 'async-mutex';
 import { debounce, isEqual, pick } from 'lodash';
 
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -39,6 +37,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';

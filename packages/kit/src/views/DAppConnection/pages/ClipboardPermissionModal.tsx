@@ -4,9 +4,10 @@ import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
 import { Checkbox, Page, SizableText, Stack } from '@onekeyhq/components';
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
@@ -27,11 +28,15 @@ function ClipboardPermissionModal() {
   // Retrieve sensitive text from background memory store (not from route
   // params) to avoid clipboard content appearing in logs
   const [textToWrite, setTextToWrite] = useState<string | undefined>();
+  const [textLoading, setTextLoading] = useState(!!textNonce);
   useEffect(() => {
     if (textNonce) {
       void backgroundApiProxy.serviceDApp
         .getClipboardTextToWrite(textNonce)
-        .then(setTextToWrite);
+        .then((text) => {
+          setTextToWrite(text);
+          setTextLoading(false);
+        });
     }
   }, [textNonce]);
 
@@ -135,7 +140,7 @@ function ClipboardPermissionModal() {
             onConfirm={onConfirm}
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
-              disabled: showContinueOperate ? !continueOperate : false,
+              disabled: textLoading || (showContinueOperate ? !continueOperate : false),
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}
