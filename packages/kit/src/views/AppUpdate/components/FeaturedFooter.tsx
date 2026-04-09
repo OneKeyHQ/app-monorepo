@@ -4,6 +4,8 @@ import { Button, Page } from '@onekeyhq/components';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useIntl } from 'react-intl';
 
 interface IFeaturedFooterProps {
   ctaText: string;
@@ -12,14 +14,13 @@ interface IFeaturedFooterProps {
 
 function FeaturedFooter({ ctaText, onCtaPress }: IFeaturedFooterProps) {
   const navigation = useAppNavigation();
-
+  const intl = useIntl();
   const handleViewChangelog = useCallback(() => {
     navigation.push(EAppUpdateRoutes.WhatsNew);
   }, [navigation]);
 
   return (
     <Page.Footer>
-      {/* TODO: replace hardcoded string with ETranslations key once added via Lokalise */}
       <Page.FooterActions
         onConfirmText={ctaText}
         onConfirm={() => onCtaPress()}
@@ -29,7 +30,7 @@ function FeaturedFooter({ ctaText, onCtaPress }: IFeaturedFooterProps) {
         }}
       >
         <Button size="small" variant="tertiary" onPress={handleViewChangelog}>
-          View full changelog
+          {intl.formatMessage({ id: ETranslations.view_full_changelog })}
         </Button>
       </Page.FooterActions>
     </Page.Footer>

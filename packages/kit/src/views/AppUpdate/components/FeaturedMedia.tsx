@@ -2,6 +2,7 @@ import { Image, Skeleton, Stack, Video } from '@onekeyhq/components';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
 
 import type { PropsWithChildren } from 'react';
+import { StyleSheet } from 'react-native';
 
 interface IFeaturedMediaProps extends PropsWithChildren {
   feature: IFeaturedItem;
@@ -15,6 +16,8 @@ function FeaturedMedia({ feature, children }: IFeaturedMediaProps) {
       position="relative"
       borderRadius="$4"
       borderCurve="continuous"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
     >
       {feature.mediaType === 'video' ? (
         <Video
