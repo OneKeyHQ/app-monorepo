@@ -94,8 +94,11 @@ const useNativeDevTools =
         } = require('@rozenite/network-activity-plugin');
         const { useMMKVDevTools } = require('@rozenite/mmkv-plugin');
 
+        // oxlint-disable-next-line typescript-eslint/no-unsafe-call
         useReactNavigationDevTools({ ref });
+        // oxlint-disable-next-line typescript-eslint/no-unsafe-call
         useNetworkActivityDevTools();
+        // oxlint-disable-next-line typescript-eslint/no-unsafe-call
         useMMKVDevTools({
           storages: [mmkvStorageInstance],
         });

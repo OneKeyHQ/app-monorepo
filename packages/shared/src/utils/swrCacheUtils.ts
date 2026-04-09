@@ -1,3 +1,4 @@
+/* cspell:ignore ISWR IMMKV */
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
@@ -87,7 +88,9 @@ function set<T>(key: string, data: T): void {
   // Evict oldest entries when over limit.
   const keys = Object.keys(store);
   if (keys.length > MAX_ENTRIES) {
-    const sorted = keys.sort((a, b) => (store[a].t ?? 0) - (store[b].t ?? 0));
+    const sorted = keys.toSorted(
+      (a, b) => (store[a].t ?? 0) - (store[b].t ?? 0),
+    );
     const removeCount = keys.length - MAX_ENTRIES;
     for (let i = 0; i < removeCount; i += 1) {
       delete store[sorted[i]];
@@ -118,7 +121,7 @@ function clearAll(): void {
   scheduleFlush();
 }
 
-/** Call on app backgrounding to persist immediately. */
+/** Call on app background to persist immediately. */
 function flushNow(): void {
   if (_flushTimer !== undefined) {
     clearTimeout(_flushTimer);

@@ -250,13 +250,11 @@ module.exports = async function segmentSerializer(
   }
   if (mixedImportWarnings.length > 0) {
     console.warn(
-      `[segmentSerializer] WARNING: ${mixedImportWarnings.length} module(s) have both sync and async import() from the same parent.\n` +
-        '  The sync edge pulls them into the eager bundle, making the async import() a no-op at build time.\n' +
-        '  At runtime, __loadBundleAsync will silently skip these (not in manifest).\n' +
-        '  Consider using only sync OR async import for each module to avoid confusion:\n' +
-        mixedImportWarnings
-          .map((w) => `    ${w.parent} → ${w.child}`)
-          .join('\n'),
+      `[segmentSerializer] WARNING: ${mixedImportWarnings.length} module(s) have both sync and async import() from the same parent.
+  The sync edge pulls them into the eager bundle, making the async import() a no-op at build time.
+  At runtime, __loadBundleAsync will silently skip these (not in manifest).
+  Consider using only sync OR async import for each module to avoid confusion:
+${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
     );
   }
 

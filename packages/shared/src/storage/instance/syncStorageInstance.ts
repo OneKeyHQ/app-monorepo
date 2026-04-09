@@ -10,7 +10,7 @@ import mmkvStorageInstance from './mmkvStorageInstance';
 
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
-// ---- MMKV instance interface (subset used by wrapper) ----
+// ---- MMKV instance interface (subset used by wrapper) ---- cspell:ignore IMMKV
 
 type IMMKVInstance = {
   getString(key: string): string | undefined;

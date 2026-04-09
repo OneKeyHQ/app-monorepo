@@ -418,10 +418,7 @@ function buildSegmentAllocation(graph) {
         // Reachable from eager code → must be eager
         eagerModuleIds.add(moduleId);
         fallbackChanged = true;
-      } else if (
-        hasSegmentParent &&
-        moduleData.inverseDependencies.size > 0
-      ) {
+      } else if (hasSegmentParent && moduleData.inverseDependencies.size > 0) {
         // All resolved parents are segments, no eager parent → assign to first
         // parent's segment.  Unresolved parents are likely also segments that
         // will resolve in subsequent iterations.
@@ -1037,7 +1034,6 @@ async function writeSegments({
     );
   }
 
-
   await fs.remove(getSegmentsDir('main'));
   await fs.remove(getSegmentsDir('background'));
   await fs.ensureDir(getSegmentsDir('main'));
@@ -1609,13 +1605,11 @@ async function main() {
       if (!result.valid) {
         const sample = result.missingAbsPaths.slice(0, 20);
         console.error(
-          `\n[unionBuild] WARNING: ${result.missingAbsPaths.length} modules in ` +
-            `${runtimeLabel} runtime are not in any eager bundle or segment:\n` +
-            sample.map((p) => `  - ${p}`).join('\n') +
-            (result.missingAbsPaths.length > 20
+          `\n[unionBuild] WARNING: ${result.missingAbsPaths.length} modules in ${runtimeLabel} runtime are not in any eager bundle or segment:\n${sample.map((p) => `  - ${p}`).join('\n')}${
+            result.missingAbsPaths.length > 20
               ? `\n  ... and ${result.missingAbsPaths.length - 20} more`
-              : '') +
-            '\n',
+              : ''
+          }\n`,
         );
       }
     }

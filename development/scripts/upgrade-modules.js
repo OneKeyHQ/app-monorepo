@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 const newVersion = process.argv[2];
 if (!newVersion) {
@@ -24,10 +24,7 @@ const VERSION_RE = /3\.0\.\d+/;
 const isAppModulesRef = (name, value) => {
   if (name.startsWith('@onekeyfe/react-native-')) return true;
   if (name === '@onekeyfe/react-native-native-logger') return true;
-  if (
-    typeof value === 'string' &&
-    value.includes('@onekeyfe/react-native-')
-  ) {
+  if (typeof value === 'string' && value.includes('@onekeyfe/react-native-')) {
     return true;
   }
   return false;
@@ -42,20 +39,21 @@ for (const file of files) {
   let fileUpdated = 0;
 
   for (const section of ['dependencies', 'devDependencies', 'resolutions']) {
-    if (!pkg[section]) continue;
-    for (const [name, value] of Object.entries(pkg[section])) {
-      if (!isAppModulesRef(name, value)) continue;
-      if (!VERSION_RE.test(value)) continue;
-      const newValue = value.replace(VERSION_RE, newVersion);
-      if (newValue !== value) {
-        pkg[section][name] = newValue;
-        fileUpdated++;
+    if (pkg[section]) {
+      for (const [name, value] of Object.entries(pkg[section])) {
+        if (isAppModulesRef(name, value) && VERSION_RE.test(value)) {
+          const newValue = value.replace(VERSION_RE, newVersion);
+          if (newValue !== value) {
+            pkg[section][name] = newValue;
+            fileUpdated += 1;
+          }
+        }
       }
     }
   }
 
   if (fileUpdated > 0) {
-    fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+    fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
     console.log(`✓ ${relPath} (${fileUpdated} packages updated)`);
     totalUpdated += fileUpdated;
   } else {

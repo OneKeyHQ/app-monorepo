@@ -443,11 +443,7 @@ function rewriteAsyncRequirePaths(
  * eagerAbsPaths and NOT in segmentAbsPaths is reported as missing – it
  * will cause a "Requiring unknown module" crash at runtime.
  */
-function validateBundleCompleteness({
-  graph,
-  eagerAbsPaths,
-  segmentAbsPaths,
-}) {
+function validateBundleCompleteness({ graph, eagerAbsPaths, segmentAbsPaths }) {
   const coveredAbsPaths = new Set([...eagerAbsPaths, ...segmentAbsPaths]);
   const visited = new Set();
   const missingAbsPaths = [];
@@ -457,12 +453,14 @@ function validateBundleCompleteness({
   while (pending.length > 0) {
     const absolutePath = pending.pop();
     if (visited.has(absolutePath)) {
+      // oxlint-disable-next-line eslint/no-continue
       continue;
     }
     visited.add(absolutePath);
 
     const moduleData = graph.get(absolutePath);
     if (!moduleData) {
+      // oxlint-disable-next-line eslint/no-continue
       continue;
     }
 
@@ -472,6 +470,7 @@ function validateBundleCompleteness({
 
       // Only follow synchronous dependencies
       if (asyncType === 'async') {
+        // oxlint-disable-next-line eslint/no-continue
         continue;
       }
 
@@ -552,19 +551,18 @@ function expandSegmentsWithSyncDeps({
     while (pending.length > 0) {
       const absPath = pending.pop();
       const entry = entryByAbsPath.get(absPath);
+      // oxlint-disable-next-line eslint/no-continue
       if (!entry?.moduleData) continue;
 
       for (const [, dep] of entry.moduleData.dependencies) {
         const depPath = dep.absolutePath;
         const asyncType = dep.data?.data?.asyncType;
+        // oxlint-disable-next-line eslint/no-continue
         if (asyncType === 'async' || visited.has(depPath)) continue;
         visited.add(depPath);
 
         // Add if not in eager, not in any segment, and exists in serialized entries
-        if (
-          !eagerAbsPaths.has(depPath) &&
-          !coveredBySegment.has(depPath)
-        ) {
+        if (!eagerAbsPaths.has(depPath) && !coveredBySegment.has(depPath)) {
           const depModuleEntry = moduleEntryByAbsPath.get(depPath);
           if (depModuleEntry) {
             modules.push(depModuleEntry);

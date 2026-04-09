@@ -108,7 +108,7 @@ const BUDGETS = {
   commonMaxModules: parseInt(process.env.COMMON_MODULE_BUDGET, 10) || 4700,
   commonMaxSizeMB: parseFloat(process.env.COMMON_SIZE_BUDGET_MB) || 20,
   mainMaxModules: parseInt(process.env.MAIN_MODULE_BUDGET, 10) || 7700,
-  bgMaxModules: parseInt(process.env.BG_MODULE_BUDGET, 10) || 10000,
+  bgMaxModules: parseInt(process.env.BG_MODULE_BUDGET, 10) || 10_000,
   maxViolations: parseInt(process.env.MAX_VIOLATIONS, 10) || 0,
 };
 
@@ -291,9 +291,17 @@ function main() {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
       const segments = manifest.segments || {};
       for (const [segKey, segInfo] of Object.entries(segments)) {
+        // oxlint-disable-next-line eslint/no-continue
         if (segInfo.runtime !== 'main') continue;
         for (const rule of FORBIDDEN_IN_MAIN_SEGMENTS) {
-          if (segKey.includes(rule.pattern.replace(/\//g, '.').replace('packages.', '').replace('.src.', '.'))) {
+          if (
+            segKey.includes(
+              rule.pattern
+                .replace(/\//g, '.')
+                .replace('packages.', '')
+                .replace('.src.', '.'),
+            )
+          ) {
             errors.push(
               `[segment] ${segKey} has runtime=main but matches forbidden pattern "${rule.pattern}" — ${rule.reason}`,
             );
