@@ -74,6 +74,7 @@ jest.mock('./hooks/useSwapPanel', () => ({
   useSwapPanel: () => ({
     networkId: 'evm--1',
     setPaymentToken: jest.fn(),
+    resetAmounts: jest.fn(),
     paymentToken: {
       networkId: 'evm--1',
       contractAddress: '0xpay',
