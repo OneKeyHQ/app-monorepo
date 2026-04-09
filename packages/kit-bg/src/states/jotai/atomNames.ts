@@ -98,6 +98,17 @@ export enum EAtomNames {
   perpsAbstractionModeAtom = 'perpsAbstractionModeAtom',
   perpsSpotBalancesAtom = 'perpsSpotBalancesAtom',
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
+  // trading mode
+  tradingModeAtom = 'tradingModeAtom',
+  // spot
+  spotActiveAssetAtom = 'spotActiveAssetAtom',
+  spotActiveAssetCtxAtom = 'spotActiveAssetCtxAtom',
+  spotBalancesAtom = 'spotBalancesAtom',
+  spotTokenSelectorConfigPersistAtom = 'spotTokenSelectorConfigPersistAtom',
+  spotTokenFavoritesPersistAtom = 'spotTokenFavoritesPersistAtom',
+  spotTradesHistoryDataAtom = 'spotTradesHistoryDataAtom',
+  spotAssetCtxsMapAtom = 'spotAssetCtxsMapAtom',
+  spotActiveOpenOrdersAtom = 'spotActiveOpenOrdersAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
