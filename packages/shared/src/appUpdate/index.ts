@@ -10,6 +10,11 @@ import type { IAppUpdateInfo, IResolvedUpdateDecision } from './type';
 
 export * from './utils';
 export * from './type';
+export {
+  type IFeaturedItem,
+  type IFeaturedChangelog,
+  hasFeaturedChangelog,
+} from './featuredChangelog';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
 const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '1';

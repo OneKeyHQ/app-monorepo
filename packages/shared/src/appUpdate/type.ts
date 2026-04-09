@@ -1,5 +1,6 @@
 import type { ETranslations } from '../locale';
 import type { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
+import type { IFeaturedChangelog } from './featuredChangelog';
 
 export enum EUpdateStrategy {
   // Download and install silently in the background; only show UI when ready to install.
@@ -173,6 +174,7 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   ignoredTargets?: Record<string, IIgnoredUpdateTargetInfo>;
   fullFlowRetryByTarget?: Record<string, IFullFlowRetryInfo>;
   lastRequestSeq?: number;
+  featuredChangelog?: IFeaturedChangelog;
 }
 
 export enum EAppUpdateStatus {
