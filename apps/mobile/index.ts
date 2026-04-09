@@ -112,4 +112,3 @@ if (typeof globalThis.nativePerformanceNow === 'function') {
   }
 }
 registerRootComponent(App);
-

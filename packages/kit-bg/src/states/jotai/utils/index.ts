@@ -2,12 +2,11 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom, useAtom } from 'jotai';
 
+import type { IContextAtomColdStartCacheKey } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import type { IContextAtomColdStartCacheKey } from '@onekeyhq/shared/src/consts/jotaiConsts';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   MMKV_MIGRATION_COMPLETE_KEY,

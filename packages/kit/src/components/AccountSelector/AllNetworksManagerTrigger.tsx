@@ -1,12 +1,7 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect } from 'react';
 
-import {
-  Icon,
-  SizableText,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EAppEventBusNames,
