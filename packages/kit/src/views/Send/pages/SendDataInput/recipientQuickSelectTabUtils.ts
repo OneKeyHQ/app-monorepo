@@ -17,12 +17,14 @@ export function getAutoSwitchRecipientTab({
   activeTab,
   tabMatchStatus,
   lastManualSwitchSearchKey,
+  hideTabs,
 }: {
   isSearchMode?: boolean;
   trimmedSearchKey: string;
   activeTab: IRecipientQuickSelectTab;
   tabMatchStatus: IRecipientTabMatchStatus;
   lastManualSwitchSearchKey?: string;
+  hideTabs?: IRecipientQuickSelectTab[];
 }) {
   if (!isSearchMode || !trimmedSearchKey) {
     return undefined;
@@ -39,6 +41,9 @@ export function getAutoSwitchRecipientTab({
   }
 
   return TAB_SWITCH_ORDER.find(
-    (tab) => tab !== activeTab && tabMatchStatus[tab] === true,
+    (tab) =>
+      tab !== activeTab &&
+      tabMatchStatus[tab] === true &&
+      !hideTabs?.includes(tab),
   );
 }
