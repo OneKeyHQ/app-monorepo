@@ -1283,10 +1283,22 @@ const buildWebEmbed = async () => {
 };
 
 async function main() {
+  const platformArg = process.argv
+    .find((a) => a.startsWith('--platform=') || a === '--platform')
+    ?.replace('--platform=', '');
+  const platformValue =
+    platformArg === '--platform'
+      ? process.argv[process.argv.indexOf('--platform') + 1]
+      : platformArg;
+
   await cleanBundleOutput();
   await buildWebEmbed();
-  await buildIOSBundle();
-  await buildAndroidBundle();
+  if (!platformValue || platformValue === 'ios') {
+    await buildIOSBundle();
+  }
+  if (!platformValue || platformValue === 'android') {
+    await buildAndroidBundle();
+  }
 }
 
 main().catch((error) => {
