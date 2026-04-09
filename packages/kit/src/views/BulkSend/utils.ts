@@ -23,6 +23,10 @@ export const BULK_SEND_INTERVAL_MAX_SECONDS = 600;
 
 // Filter input to only allow numbers and decimal point
 export function filterNumericInput(text: string): string {
+  if (!text) {
+    return '';
+  }
+
   // Remove all characters except digits and decimal point
   let filtered = text.replace(/[^0-9.]/g, '');
   // Ensure only one decimal point
@@ -30,6 +34,12 @@ export function filterNumericInput(text: string): string {
   if (parts.length > 2) {
     filtered = `${parts[0]}.${parts.slice(1).join('')}`;
   }
+
+  // Normalize decimal inputs like ".5" to "0.5"
+  if (filtered.startsWith('.')) {
+    filtered = `0${filtered}`;
+  }
+
   return filtered;
 }
 

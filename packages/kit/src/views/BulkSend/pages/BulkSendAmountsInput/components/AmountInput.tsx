@@ -76,16 +76,17 @@ export function SpecifiedAmountInput() {
 
   const handleChange = useCallback(
     (value: string) => {
+      const filteredValue = filterNumericInput(value);
       setAmountInputValues({
         ...amountInputValues,
-        specifiedAmount: value,
+        specifiedAmount: filteredValue,
       });
 
       // Reset preview state when input changes
       setPreviewState((prev) => ({ ...prev, specifiedPreviewed: false }));
 
       const minTransferAmountBN = new BigNumber(minTransferAmount);
-      const valueBN = new BigNumber(value || '0');
+      const valueBN = new BigNumber(filteredValue || '0');
       if (
         !minTransferAmountBN.isZero() &&
         !valueBN.isZero() &&
@@ -104,7 +105,7 @@ export function SpecifiedAmountInput() {
 
       const { error } = validateTokenAmount({
         token: tokenInfo,
-        amount: new BigNumber(value || '0')
+        amount: new BigNumber(filteredValue || '0')
           .times(transfersInfo.length)
           .toFixed(),
         maxAmount: isOneToMany ? balance : undefined,
