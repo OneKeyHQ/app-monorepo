@@ -17,6 +17,7 @@ import { SwapPanelWrap } from './SwapPanelWrap';
 const showDialogMock = jest.fn();
 const prepareMarketSwapReviewMock = jest.fn();
 const useSpeedSwapActionsMock = jest.fn();
+const swapPanelContentMock = jest.fn();
 let mockSpeedCheckLoading = false;
 let mockCheckTokenAllowanceLoading = false;
 let mockSwapApprovingMatchLoading = false;
@@ -178,17 +179,30 @@ jest.mock('./MarketSwapReviewDialog', () => ({
 
 jest.mock('./SwapPanelContent', () => ({
   SwapPanelContent: ({
+    isLoading,
     onSwap,
     onWrappedSwap,
   }: {
+    isLoading: boolean;
     onSwap: () => void;
     onWrappedSwap: () => void;
   }) => (
     <div>
-      <button data-testid="swap-action" onClick={onSwap} type="button">
+      {swapPanelContentMock({ isLoading, onSwap, onWrappedSwap })}
+      <button
+        data-testid="swap-action"
+        disabled={isLoading}
+        onClick={onSwap}
+        type="button"
+      >
         swap
       </button>
-      <button data-testid="wrap-action" onClick={onWrappedSwap} type="button">
+      <button
+        data-testid="wrap-action"
+        disabled={isLoading}
+        onClick={onWrappedSwap}
+        type="button"
+      >
         wrap
       </button>
     </div>
@@ -200,6 +214,7 @@ describe('SwapPanelWrap', () => {
     showDialogMock.mockReset();
     prepareMarketSwapReviewMock.mockReset();
     useSpeedSwapActionsMock.mockReset();
+    swapPanelContentMock.mockReset();
     (Toast.error as jest.Mock).mockReset();
     mockSpeedCheckLoading = false;
     mockCheckTokenAllowanceLoading = false;
@@ -252,15 +267,8 @@ describe('SwapPanelWrap', () => {
     expect(showDialogMock).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps only the latest review-open request when users click quickly', async () => {
-    let resolveFirstReview:
-      | ((value: {
-          steps: unknown[];
-          preSwapData: Record<string, never>;
-          quoteResult: undefined;
-        }) => void)
-      | undefined;
-    let resolveSecondReview:
+  it('keeps the action button loading while opening the review and prevents duplicate requests', async () => {
+    let resolveReview:
       | ((value: {
           steps: unknown[];
           preSwapData: Record<string, never>;
@@ -268,30 +276,32 @@ describe('SwapPanelWrap', () => {
         }) => void)
       | undefined;
 
-    prepareMarketSwapReviewMock
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveFirstReview = resolve;
-          }),
-      )
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveSecondReview = resolve;
-          }),
-      );
+    prepareMarketSwapReviewMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveReview = resolve;
+        }),
+    );
 
     render(<SwapPanelWrap />);
 
     fireEvent.click(screen.getByTestId('swap-action'));
+
+    await waitFor(() => {
+      expect(swapPanelContentMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          isLoading: true,
+        }),
+      );
+    });
+
     fireEvent.click(screen.getByTestId('swap-action'));
 
-    expect(prepareMarketSwapReviewMock).toHaveBeenCalledTimes(2);
+    expect(prepareMarketSwapReviewMock).toHaveBeenCalledTimes(1);
     expect(showDialogMock).not.toHaveBeenCalled();
 
     await act(async () => {
-      resolveSecondReview?.({
+      resolveReview?.({
         steps: [],
         preSwapData: {},
         quoteResult: undefined,
@@ -301,18 +311,11 @@ describe('SwapPanelWrap', () => {
     await waitFor(() => {
       expect(showDialogMock).toHaveBeenCalledTimes(1);
     });
-
-    await act(async () => {
-      resolveFirstReview?.({
-        steps: [],
-        preSwapData: {},
-        quoteResult: undefined,
-      });
-    });
-
-    await waitFor(() => {
-      expect(showDialogMock).toHaveBeenCalledTimes(1);
-    });
+    expect(swapPanelContentMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        isLoading: false,
+      }),
+    );
   });
 
   it('does not open the preview while action state is still loading', () => {
