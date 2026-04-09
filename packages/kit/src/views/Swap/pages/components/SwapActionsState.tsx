@@ -1,23 +1,22 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { ICheckedState } from '@onekeyhq/components';
 import {
   Badge,
   Button,
-  Checkbox,
-  Dialog,
+  DashText,
   ESwitchSize,
   Icon,
   LottieView,
   Page,
+  Popover,
   SizableText,
   Stack,
   Switch,
+  Tooltip,
   XStack,
-  YStack,
   resetToRoute,
   useIsOverlayPage,
   useMedia,
@@ -105,70 +104,6 @@ function PageFooter({
   );
 }
 
-function SwapIncognitoDialogContent({
-  onConfirm,
-}: {
-  onConfirm: () => Promise<void>;
-}) {
-  const intl = useIntl();
-  const [checked, setChecked] = useState<ICheckedState>(false);
-  const incognitoHelpLink = useHelpLink({
-    path: 'articles/14430164',
-  });
-
-  const description = useMemo(
-    () =>
-      `${intl.formatMessage({
-        id: ETranslations.trade_incognito_description,
-      })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
-        id: ETranslations.trade_incognito_read_more,
-      })}</underline></url>`,
-    [incognitoHelpLink, intl],
-  );
-
-  return (
-    <YStack gap="$4">
-      <FormatHyperlinkText
-        autoExecuteParsedAction={false}
-        onAction={openUrlExternal}
-        size="$bodyLg"
-        color="$text"
-        urlTextProps={{
-          color: '$textInfo',
-        }}
-      >
-        {description}
-      </FormatHyperlinkText>
-      <XStack alignItems="flex-start" gap="$2">
-        <Checkbox
-          labelContainerProps={{
-            flex: 1,
-          }}
-          label={intl.formatMessage({
-            id: ETranslations.trade_incognito_kyc_warning,
-          })}
-          value={checked}
-          onChange={setChecked}
-          labelProps={{
-            variant: '$bodyMd',
-            color: '$textSubdued',
-          }}
-        />
-      </XStack>
-      <Dialog.Footer
-        showCancelButton={false}
-        confirmButtonProps={{
-          disabled: !checked,
-        }}
-        onConfirm={onConfirm}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_confirm,
-        })}
-      />
-    </YStack>
-  );
-}
-
 const SwapActionsState = ({
   onPreSwap,
   onOpenRecipientAddress,
@@ -215,8 +150,47 @@ const SwapActionsState = ({
   const quoting = useSwapQuoteEventFetching();
 
   const isModalPage = useIsOverlayPage();
-  const { md } = useMedia();
+  const { gtMd, md } = useMedia();
   const isDesktopModalPage = isModalPage && !md;
+  const incognitoHelpLink = useHelpLink({
+    path: 'articles/14430164',
+  });
+  const incognitoTitle = intl.formatMessage({
+    id: ETranslations.trade_incognito_incognito_mode,
+  });
+  const incognitoTooltipDescription = useMemo(
+    () =>
+      `${intl.formatMessage({
+        id: ETranslations.trade_incognito_description,
+      })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
+        id: ETranslations.trade_incognito_read_more,
+      })}</underline></url>`,
+    [incognitoHelpLink, intl],
+  );
+  const incognitoTooltipContent = useMemo(
+    () => (
+      <FormatHyperlinkText
+        autoExecuteParsedAction={false}
+        onAction={openUrlExternal}
+        size="$bodyLg"
+        color="$text"
+        urlTextProps={{
+          color: '$textInfo',
+        }}
+      >
+        {incognitoTooltipDescription}
+      </FormatHyperlinkText>
+    ),
+    [incognitoTooltipDescription],
+  );
+  const incognitoPopoverContent = useMemo(
+    () => (
+      <Stack px="$5" pt="$1" pb="$5">
+        {incognitoTooltipContent}
+      </Stack>
+    ),
+    [incognitoTooltipContent],
+  );
 
   const onActionHandlerBefore = useCallback(async () => {
     if (swapActionState.noConnectWallet) {
@@ -356,27 +330,9 @@ const SwapActionsState = ({
 
   const onIncognitoModeChange = useCallback(
     (value: boolean) => {
-      if (!value) {
-        applyIncognitoModeChange(false);
-        return;
-      }
-
-      void Dialog.show({
-        icon: 'AnonymousHiddenOutline',
-        title: intl.formatMessage({
-          id: ETranslations.trade_incognito_title,
-        }),
-        showFooter: false,
-        renderContent: (
-          <SwapIncognitoDialogContent
-            onConfirm={async () => {
-              applyIncognitoModeChange(true);
-            }}
-          />
-        ),
-      });
+      applyIncognitoModeChange(value);
     },
-    [applyIncognitoModeChange, intl],
+    [applyIncognitoModeChange],
   );
 
   const incognitoComponent = useMemo(
@@ -389,11 +345,40 @@ const SwapActionsState = ({
               size="$5"
               color="$iconSubdued"
             />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.trade_incognito_incognito_mode,
-              })}
-            </SizableText>
+            {!platformEnv.isNative && gtMd ? (
+              <Tooltip
+                placement="top"
+                hovering
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    cursor="help"
+                  >
+                    {incognitoTitle}
+                  </DashText>
+                }
+                renderContent={incognitoTooltipContent}
+              />
+            ) : (
+              <Popover
+                title={incognitoTitle}
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    cursor="help"
+                  >
+                    {incognitoTitle}
+                  </DashText>
+                }
+                renderContent={incognitoPopoverContent}
+              />
+            )}
           </XStack>
           <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
             <Switch
@@ -404,7 +389,15 @@ const SwapActionsState = ({
           </Stack>
         </XStack>
       ),
-    [intl, onIncognitoModeChange, swapIncognitoMode, swapTypeSwitch],
+    [
+      gtMd,
+      incognitoPopoverContent,
+      incognitoTooltipContent,
+      incognitoTitle,
+      onIncognitoModeChange,
+      swapIncognitoMode,
+      swapTypeSwitch,
+    ],
   );
 
   const recipientComponent = useMemo(() => {
