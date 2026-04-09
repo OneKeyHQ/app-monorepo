@@ -31,6 +31,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import {
@@ -62,6 +63,7 @@ type IRecipientQuickSelectProps = {
     address: string;
     memo?: string;
     note?: string;
+    quickSelectTab?: IRecipientQuickSelectTab;
   }) => void;
   onMatchStatusChange?: (hasMatches: boolean) => void;
 };
@@ -881,6 +883,8 @@ export default function RecipientQuickSelect({
   // Track the search key at the time of last manual tab switch
   // Only allow auto-switch if user has typed something new
   const lastManualSwitchSearchKeyRef = useRef<string | undefined>(undefined);
+  // Dedup auto-switch analytics to avoid multiple events per search
+  const lastAutoSwitchRef = useRef<string | undefined>(undefined);
 
   // Callbacks for each tab's match status and count
   const handleRecentMatchStatus = useCallback(
@@ -925,9 +929,19 @@ export default function RecipientQuickSelect({
     });
 
     if (nextTab) {
+      const dedupKey = `${trimmedSearchKey}:${activeTab}:${nextTab}`;
+      if (lastAutoSwitchRef.current !== dedupKey) {
+        lastAutoSwitchRef.current = dedupKey;
+        defaultLogger.transaction.send.quickSelectTabSwitch({
+          network: networkId,
+          fromTab: activeTab,
+          toTab: nextTab,
+          isAutoSwitch: true,
+        });
+      }
       setActiveTab(nextTab);
     }
-  }, [isSearchMode, trimmedSearchKey, activeTab, tabMatchStatus, setActiveTab]);
+  }, [isSearchMode, trimmedSearchKey, activeTab, tabMatchStatus, setActiveTab, networkId]);
 
   const tabOptions = useMemo(() => {
     const formatLabel = (label: string, tab: IRecipientQuickSelectTab) => {
@@ -991,7 +1005,14 @@ export default function RecipientQuickSelect({
           onChange={(value) => {
             // Record the current search key to prevent auto-switch until user types again
             lastManualSwitchSearchKeyRef.current = trimmedSearchKey;
-            setActiveTab(value as IRecipientQuickSelectTab);
+            const toTab = value as IRecipientQuickSelectTab;
+            defaultLogger.transaction.send.quickSelectTabSwitch({
+              network: networkId,
+              fromTab: activeTab,
+              toTab,
+              isAutoSwitch: false,
+            });
+            setActiveTab(toTab);
           }}
         />
         <Stack mx={-20} pb="$3">
@@ -1007,7 +1028,7 @@ export default function RecipientQuickSelect({
                 onSelect={(params) => {
                   // Reset input type to Manual to prevent auto-navigation from Recent tab
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
-                  onSelect?.(params);
+                  onSelect?.({ ...params, quickSelectTab: 'recent' });
                 }}
                 onMatchStatusChange={handleRecentMatchStatus}
                 refreshKey={recentRefreshKey}
@@ -1022,7 +1043,9 @@ export default function RecipientQuickSelect({
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
-                onSelect={({ address }) => onSelect?.({ address })}
+                onSelect={({ address }) =>
+                  onSelect?.({ address, quickSelectTab: 'account' })
+                }
                 onMatchStatusChange={handleAccountMatchStatus}
               />
             </Stack>
@@ -1034,7 +1057,9 @@ export default function RecipientQuickSelect({
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
-                onSelect={onSelect}
+                onSelect={(params) =>
+                  onSelect?.({ ...params, quickSelectTab: 'addressBook' })
+                }
                 onMatchStatusChange={handleAddressBookMatchStatus}
               />
             </Stack>

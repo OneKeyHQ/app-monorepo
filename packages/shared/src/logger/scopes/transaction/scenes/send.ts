@@ -157,6 +157,60 @@ export class SendScene extends BaseScene {
     };
   }
 
+  @LogToServer()
+  public quickSelectTap({
+    network,
+    tab,
+    recipientType,
+  }: {
+    network: string | undefined;
+    tab: 'recent' | 'account' | 'addressBook';
+    recipientType: 'walletAccount' | 'addressBook' | 'recentRecipient';
+  }) {
+    return {
+      network,
+      tab,
+      recipientType,
+    };
+  }
+
+  @LogToServer()
+  public quickSelectNavigation({
+    network,
+    tab,
+    skippedToAmount,
+  }: {
+    network: string | undefined;
+    tab: 'recent' | 'account' | 'addressBook';
+    skippedToAmount: boolean;
+  }) {
+    return {
+      network,
+      tab,
+      skippedToAmount,
+    };
+  }
+
+  @LogToServer()
+  public quickSelectTabSwitch({
+    network,
+    fromTab,
+    toTab,
+    isAutoSwitch,
+  }: {
+    network: string | undefined;
+    fromTab: 'recent' | 'account' | 'addressBook';
+    toTab: 'recent' | 'account' | 'addressBook';
+    isAutoSwitch: boolean;
+  }) {
+    return {
+      network,
+      fromTab,
+      toTab,
+      isAutoSwitch,
+    };
+  }
+
   @LogToLocal()
   public rawTxFetchFailed({
     network,

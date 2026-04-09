@@ -95,6 +95,7 @@ type IQuickSelectRecipient = {
   address: string;
   memo?: string;
   note?: string;
+  quickSelectTab?: 'recent' | 'account' | 'addressBook';
 };
 
 type ISendInputFlowParamList = IModalSendParamList &
@@ -964,6 +965,7 @@ function SendDataInputContainer() {
       address: selectedAddress,
       memo: selectedMemo,
       note: selectedNote,
+      quickSelectTab,
     }: IQuickSelectRecipient) => {
       const isFromAccount =
         addressInputChangeType.current ===
@@ -971,15 +973,35 @@ function SendDataInputContainer() {
       const isFromAddressBook =
         addressInputChangeType.current === EInputAddressChangeType.AddressBook;
 
+      const recipientType = isFromAccount
+        ? 'walletAccount'
+        : isFromAddressBook
+          ? 'addressBook'
+          : 'recentRecipient';
+
+      if (quickSelectTab) {
+        defaultLogger.transaction.send.quickSelectTap({
+          network: currentAccount.networkId,
+          tab: quickSelectTab,
+          recipientType,
+        });
+      }
+
       if (isFromAccount || isFromAddressBook) {
-        if (
-          shouldStayOnDataStepForQuickSelect({
-            selectedMemo,
-            selectedNote,
-          })
-        ) {
-          // Chain still needs memo/paymentId/note input, so keep
-          // the user on the data step instead of skipping ahead.
+        const willSkip = !shouldStayOnDataStepForQuickSelect({
+          selectedMemo,
+          selectedNote,
+        });
+
+        if (quickSelectTab) {
+          defaultLogger.transaction.send.quickSelectNavigation({
+            network: currentAccount.networkId,
+            tab: quickSelectTab,
+            skippedToAmount: willSkip,
+          });
+        }
+
+        if (!willSkip) {
           fillRecipientFromQuickSelect({
             selectedAddress,
             selectedMemo,
@@ -1005,6 +1027,13 @@ function SendDataInputContainer() {
 
       // For recent recipients / paste / manual: fill the input
       // and let the user review before proceeding.
+      if (quickSelectTab) {
+        defaultLogger.transaction.send.quickSelectNavigation({
+          network: currentAccount.networkId,
+          tab: quickSelectTab,
+          skippedToAmount: false,
+        });
+      }
       fillRecipientFromQuickSelect({
         selectedAddress,
         selectedMemo,
@@ -1012,6 +1041,7 @@ function SendDataInputContainer() {
       });
     },
     [
+      currentAccount.networkId,
       fillRecipientFromQuickSelect,
       navigateQuickSelectRecipientToAmount,
       shouldStayOnDataStepForQuickSelect,
