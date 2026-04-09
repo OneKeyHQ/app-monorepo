@@ -28,6 +28,7 @@ function FeaturedFooter({ ctaText, onCtaPress }: IFeaturedFooterProps) {
           size="small"
           variant="tertiary"
           onPress={handleViewChangelog}
+          $md={{ pb: '$4' }}
         >
           {'View full changelog'}
         </Button>
