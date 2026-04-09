@@ -48,6 +48,13 @@ interface IPerpPortfolioContentProps {
   isMobile?: boolean;
 }
 
+const WIN_RATE_TOOLTIP_MAP: Record<IPortfolioTimePeriod, ETranslations> = {
+  day: ETranslations.perp_portfolio_win_rate_tooltip_day__desc,
+  week: ETranslations.perp_portfolio_win_rate_tooltip_week__desc,
+  month: ETranslations.perp_portfolio_win_rate_tooltip_month__desc,
+  allTime: ETranslations.perp_portfolio_win_rate_tooltip_all_time__desc,
+};
+
 // Time period and chart type options are built inside the component using intl
 
 function formatPercent(value: number | null | undefined): string {
@@ -315,6 +322,12 @@ function PerpPortfolioContentComponent({
   const totalPnlVal = totalPnl ?? fillsStats.realizedPnl;
   const realizedPnl = formatPerpsUsd(totalPnlVal, true);
   const realizedColor = getPerpsValueColor(totalPnlVal);
+  const totalPnlTooltip = intl.formatMessage({
+    id: ETranslations.perp_portfolio_total_pnl_tooltip__desc,
+  });
+  const winRateTooltip = intl.formatMessage({
+    id: WIN_RATE_TOOLTIP_MAP[timePeriod],
+  });
 
   const vlm = chartData?.vlm
     ? formatPerpsCompactUsd(parseFloat(chartData.vlm))
@@ -568,11 +581,17 @@ function PerpPortfolioContentComponent({
             </SizableText>
           </YStack>
           <YStack flex={1} gap="$0.5" alignItems="center">
-            <SizableText size="$bodyXs" color="$textDisabled">
+            <DashText
+              size="$bodyXs"
+              color="$textDisabled"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              tooltip={totalPnlTooltip}
+            >
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_total_pnl,
               })}
-            </SizableText>
+            </DashText>
             <SizableText
               size="$headingSm"
               color={realizedColor}
@@ -857,11 +876,17 @@ function PerpPortfolioContentComponent({
         <YStack gap="$2">
           <XStack justifyContent="space-between" alignItems="flex-end">
             <YStack gap="$0.5">
-              <SizableText size="$bodyXs" color="$textDisabled">
+              <DashText
+                size="$bodyXs"
+                color="$textDisabled"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={winRateTooltip}
+              >
                 {intl.formatMessage({
                   id: ETranslations.perp_portfolio_win_rate,
                 })}
-              </SizableText>
+              </DashText>
               <SizableText size="$headingLg" color={winRateClr}>
                 {winRateVal}
               </SizableText>
