@@ -21,12 +21,13 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapProviderSupportReceiveAddressAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
   useSwapToAnotherAccountAddressAtom,
 } from '../../../states/jotai/contexts/swap';
+
+import { shouldUseSwapCustomRecipientAddress } from './useSwapAccount.utils';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
@@ -302,26 +303,28 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       accountInfo: undefined,
       activeAccount: undefined,
     };
+    // Keep the confirmed custom recipient even when cross-chain TO account
+    // resolution has not materialized a network account yet.
     if (
-      type === ESwapDirectionType.TO &&
-      swapToAnotherAccountSwitchOn &&
-      swapToAnotherAccountAddressAtom.address &&
-      swapToAnotherAccountAddressAtom.networkId &&
-      swapToAnotherAccountAddressAtom.accountInfo &&
-      swapToAnotherAccountAddressAtom.accountInfo.account &&
-      activeAccount &&
-      activeAccount.account &&
-      (activeAccount.network?.id ===
-        swapToAnotherAccountAddressAtom.networkId ||
-        isAllNetwork)
+      shouldUseSwapCustomRecipientAddress({
+        type,
+        swapToAnotherAccountSwitchOn,
+        selectedRecipientAddress: swapToAnotherAccountAddressAtom.address,
+        selectedRecipientNetworkId: swapToAnotherAccountAddressAtom.networkId,
+        activeNetworkId: activeAccount.network?.id,
+        tokenNetworkId,
+        isAllNetwork,
+      })
     ) {
       return {
         ...res,
         address: swapToAnotherAccountAddressAtom.address ?? '',
         networkId: swapToAnotherAccountAddressAtom.networkId ?? '',
-        accountInfo: {
-          ...swapToAnotherAccountAddressAtom.accountInfo,
-        },
+        accountInfo: swapToAnotherAccountAddressAtom.accountInfo
+          ? {
+              ...swapToAnotherAccountAddressAtom.accountInfo,
+            }
+          : undefined,
         activeAccount: {
           ...activeAccount,
         },
@@ -393,7 +396,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
 export function useSwapRecipientAddressInfo(enable: boolean) {
   const fromAccountInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
   const getToNetWorkAddressFromAccountId = usePromiseResult(
@@ -456,7 +459,7 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
           swapToAnotherAddressInfo.address) ||
         !getToNetWorkAddressFromAccountId?.result?.accountAddress) &&
       swapToAnotherAddressInfo.networkId ===
-        currentQuoteRes?.toTokenInfo.networkId
+        (toToken?.networkId ?? swapToAddressInfo.networkId)
     ) {
       return {
         accountInfo:

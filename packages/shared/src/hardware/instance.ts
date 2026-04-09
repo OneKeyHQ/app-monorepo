@@ -101,7 +101,10 @@ const createHardwareSDKInstance = async (params: {
     if (!platformEnv.isNative) {
       let connectSrc = generateConnectSrc();
       if (platformEnv.isDesktop) {
-        const { sdkConnectSrc } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
+        const desktopGlobals =
+          globalThis.ONEKEY_DESKTOP_GLOBALS_GETTER?.() ??
+          globalThis.ONEKEY_DESKTOP_GLOBALS;
+        const { sdkConnectSrc } = desktopGlobals ?? {};
         if (sdkConnectSrc) {
           connectSrc = sdkConnectSrc;
         }

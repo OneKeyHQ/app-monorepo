@@ -42,7 +42,6 @@ yarn-error.log
 !.yarn/versions
 
 .env
-.env.*
 webpack.config.preview.json
 webpack.config.preview.devServer.json
 
@@ -98,6 +97,7 @@ coverage/
 /apps/desktop/public/static/js-sdk
 /apps/ext/src/entry/injected.js
 /apps/desktop/public/static/preload.js
+/packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js
 /apps/ext/src/entry/injected.text-js
 /packages/kit/src/components/WebView/injectedNative.text-js
 /packages/shared/src/web/index.html

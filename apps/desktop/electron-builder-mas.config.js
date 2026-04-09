@@ -1,5 +1,9 @@
 // oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
+const {
+  baseFiles,
+  macExcludePrebuilds,
+} = require('./electron-builder-files.config');
 
 module.exports = {
   ...baseElectronBuilderConfig,
@@ -9,6 +13,7 @@ module.exports = {
     'sign': false,
   },
   'mac': {
+    'files': [...baseFiles, ...macExcludePrebuilds],
     'identity': null,
     'icon': 'app/build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',

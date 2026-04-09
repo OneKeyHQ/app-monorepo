@@ -3,7 +3,6 @@ import type { ISettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/sett
 type ISwapIncognitoSettings = Pick<
   ISettingsAtom,
   | 'swapEnableRecipientAddress'
-  | 'swapEnableRecipientAddressBeforeIncognito'
   | 'swapIncognitoMode'
   | 'swapToAnotherAccountSwitchOn'
 >;
@@ -16,24 +15,13 @@ export function buildSwapIncognitoSettingsUpdate<
       ...settings,
       swapIncognitoMode: true,
       swapEnableRecipientAddress: true,
-      swapEnableRecipientAddressBeforeIncognito: settings.swapIncognitoMode
-        ? settings.swapEnableRecipientAddressBeforeIncognito
-        : settings.swapEnableRecipientAddress,
     };
   }
-
-  const shouldEnableRecipientAddress =
-    settings.swapEnableRecipientAddressBeforeIncognito ??
-    settings.swapEnableRecipientAddress;
 
   return {
     ...settings,
     swapIncognitoMode: false,
-    swapEnableRecipientAddress: shouldEnableRecipientAddress,
-    swapEnableRecipientAddressBeforeIncognito: undefined,
-    swapToAnotherAccountSwitchOn: shouldEnableRecipientAddress
-      ? settings.swapToAnotherAccountSwitchOn
-      : false,
+    swapEnableRecipientAddress: true,
   };
 }
 
@@ -52,6 +40,5 @@ export function buildSwapRecipientAddressSettingsUpdate<
     swapEnableRecipientAddress: false,
     swapToAnotherAccountSwitchOn: false,
     swapIncognitoMode: false,
-    swapEnableRecipientAddressBeforeIncognito: undefined,
   };
 }

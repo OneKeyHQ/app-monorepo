@@ -88,6 +88,7 @@ function BaseBulkSendAddressesInput() {
     setResolvedSenderAccountIds,
     duplicateSenderAddressCount,
     setDuplicateSenderAddressCount,
+    setHasUserSelectedAsset,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
@@ -127,9 +128,21 @@ function BaseBulkSendAddressesInput() {
     mode: 'onChange',
     reValidateMode: 'onChange',
   });
+  const senderAddressesRef = useRef(form.getValues('senderAddresses') ?? '');
+  const getSenderAddresses = useCallback(
+    () => senderAddressesRef.current ?? '',
+    [],
+  );
 
   const navigation = useAppNavigation();
-  const senderAddresses = form.watch('senderAddresses');
+
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      senderAddressesRef.current = values.senderAddresses ?? '';
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   const initBulkSendInfo = useCallback(async () => {
     let _selectedAccountId: string | undefined;
@@ -215,6 +228,7 @@ function BaseBulkSendAddressesInput() {
     setSelectedNetworkId(_selectedNetworkId);
     setSelectedToken(_selectedTokenInfo);
     setSelectedIndexedAccountId(_selectedIndexedAccountId);
+    setHasUserSelectedAsset(false);
   }, [
     accountId,
     activeAccount?.account?.id,
@@ -228,6 +242,7 @@ function BaseBulkSendAddressesInput() {
     setSelectedNetworkId,
     setSelectedToken,
     setSelectedIndexedAccountId,
+    setHasUserSelectedAsset,
   ]);
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
@@ -420,6 +435,7 @@ function BaseBulkSendAddressesInput() {
     form.clearErrors();
     setDuplicateAddressCount(0);
     setDuplicateSenderAddressCount(0);
+    setHasUserSelectedAsset(false);
     if (isOneToMany && selectedAccountId && selectedNetworkId) {
       void fetchSelectedAccountAddress();
       setTokenDetailsState({ initialized: false, isRefreshing: true });
@@ -643,7 +659,7 @@ function BaseBulkSendAddressesInput() {
           />
           <YStack gap="$6" $gtMd={{ gap: '$8' }}>
             <AssetSelectorTrigger
-              senderAddresses={senderAddresses}
+              getSenderAddresses={getSenderAddresses}
               activeAccountId={activeAccount?.account?.id}
               activeIndexedAccountId={activeAccount?.indexedAccount?.id}
             />
@@ -743,6 +759,8 @@ function BulkSendAddressesInput() {
   const [duplicateSenderAddressCount, setDuplicateSenderAddressCount] =
     useState(0);
 
+  const [hasUserSelectedAsset, setHasUserSelectedAsset] = useState(false);
+
   const context = useMemo(
     () => ({
       selectedAccountId,
@@ -767,6 +785,8 @@ function BulkSendAddressesInput() {
       setResolvedSenderAccountIds,
       duplicateSenderAddressCount,
       setDuplicateSenderAddressCount,
+      hasUserSelectedAsset,
+      setHasUserSelectedAsset,
     }),
     [
       selectedAccountId,
@@ -788,6 +808,7 @@ function BulkSendAddressesInput() {
       selectedDeriveType,
       resolvedSenderAccountIds,
       duplicateSenderAddressCount,
+      hasUserSelectedAsset,
     ],
   );
 
