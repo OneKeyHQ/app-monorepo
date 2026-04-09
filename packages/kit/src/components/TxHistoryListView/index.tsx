@@ -240,7 +240,7 @@ function TxHistoryListViewSectionHeader(
       >
         <Spinner size="small" color="$textCaution" />
         <SizableText numberOfLines={1} size="$headingXs" color="$textCaution">
-          {intl.formatMessage({ id: ETranslations.global_pending })}
+          {intl.formatMessage({ id: ETranslations.global_confirming })}
         </SizableText>
       </XStack>
     );
