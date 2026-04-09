@@ -120,12 +120,8 @@ function SessionProposalModal() {
         },
         result: { accountsInfo, supportedNamespaces },
       });
-      Toast.success({
-        title: intl.formatMessage({ id: ETranslations.global_connected }),
-      });
     },
     [
-      intl,
       dappApprove,
       accountChangedParamsMap,
       sessionAccountsInfo,
