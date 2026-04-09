@@ -11,15 +11,17 @@ import {
   Icon,
   LottieView,
   Page,
+  Popover,
   SizableText,
   Stack,
   Switch,
+  Tooltip,
   XStack,
-  YStack,
   resetToRoute,
   useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -148,7 +150,7 @@ const SwapActionsState = ({
   const quoting = useSwapQuoteEventFetching();
 
   const isModalPage = useIsOverlayPage();
-  const { md } = useMedia();
+  const { gtMd, md } = useMedia();
   const isDesktopModalPage = isModalPage && !md;
   const incognitoHelpLink = useHelpLink({
     path: 'articles/14430164',
@@ -156,19 +158,39 @@ const SwapActionsState = ({
   const incognitoTitle = intl.formatMessage({
     id: ETranslations.trade_incognito_incognito_mode,
   });
-  const incognitoReadMore = intl.formatMessage({
-    id: ETranslations.trade_incognito_read_more,
-  });
-  const incognitoTooltip = useMemo(
+  const incognitoTooltipDescription = useMemo(
     () =>
-      intl.formatMessage({
+      `${intl.formatMessage({
         id: ETranslations.trade_incognito_description,
-      }),
-    [intl],
+      })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
+        id: ETranslations.trade_incognito_read_more,
+      })}</underline></url>`,
+    [incognitoHelpLink, intl],
   );
-  const handleOpenIncognitoHelp = useCallback(() => {
-    openUrlExternal(incognitoHelpLink);
-  }, [incognitoHelpLink]);
+  const incognitoTooltipContent = useMemo(
+    () => (
+      <FormatHyperlinkText
+        autoExecuteParsedAction={false}
+        onAction={openUrlExternal}
+        size="$bodyLg"
+        color="$text"
+        urlTextProps={{
+          color: '$textInfo',
+        }}
+      >
+        {incognitoTooltipDescription}
+      </FormatHyperlinkText>
+    ),
+    [incognitoTooltipDescription],
+  );
+  const incognitoPopoverContent = useMemo(
+    () => (
+      <Stack px="$5" pt="$1" pb="$5">
+        {incognitoTooltipContent}
+      </Stack>
+    ),
+    [incognitoTooltipContent],
+  );
 
   const onActionHandlerBefore = useCallback(async () => {
     if (swapActionState.noConnectWallet) {
@@ -316,50 +338,62 @@ const SwapActionsState = ({
   const incognitoComponent = useMemo(
     () =>
       swapTypeSwitch === ESwapTabSwitchType.LIMIT ? null : (
-        <YStack gap="$1">
-          <XStack alignItems="center" gap="$2">
-            <XStack alignItems="center" gap="$1.5">
-              <Icon
-                name="AnonymousHiddenOutline"
-                size="$5"
-                color="$iconSubdued"
+        <XStack alignItems="center" gap="$2">
+          <XStack alignItems="center" gap="$1.5">
+            <Icon
+              name="AnonymousHiddenOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+            {gtMd ? (
+              <Tooltip
+                placement="top"
+                hovering
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    cursor="help"
+                  >
+                    {incognitoTitle}
+                  </DashText>
+                }
+                renderContent={incognitoTooltipContent}
               />
-              <DashText
-                size="$bodyMd"
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                tooltip={incognitoTooltip}
-                tooltipTitle={incognitoTitle}
-              >
-                {incognitoTitle}
-              </DashText>
-            </XStack>
-            <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
-              <Switch
-                size={ESwitchSize.extraSmall}
-                value={swapIncognitoMode}
-                onChange={onIncognitoModeChange}
+            ) : (
+              <Popover
+                title={incognitoTitle}
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    cursor="help"
+                  >
+                    {incognitoTitle}
+                  </DashText>
+                }
+                renderContent={incognitoPopoverContent}
               />
-            </Stack>
+            )}
           </XStack>
-          <XStack alignSelf="flex-start" pl="$6" onPress={handleOpenIncognitoHelp}>
-            <SizableText
-              size="$bodySm"
-              color="$textInfo"
-              cursor="pointer"
-              textDecorationLine="underline"
-            >
-              {incognitoReadMore}
-            </SizableText>
-          </XStack>
-        </YStack>
+          <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
+            <Switch
+              size={ESwitchSize.extraSmall}
+              value={swapIncognitoMode}
+              onChange={onIncognitoModeChange}
+            />
+          </Stack>
+        </XStack>
       ),
     [
-      handleOpenIncognitoHelp,
-      incognitoReadMore,
+      gtMd,
+      incognitoPopoverContent,
+      incognitoTooltipContent,
       incognitoTitle,
-      incognitoTooltip,
       onIncognitoModeChange,
       swapIncognitoMode,
       swapTypeSwitch,
