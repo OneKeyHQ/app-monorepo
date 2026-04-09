@@ -214,7 +214,7 @@ function FeaturedChangelog({
           </YStack>
 
           {/* Media fills remaining space, with gradient + text overlay */}
-          <Stack flex={1} px="$5" pb="$3">
+          <Stack flex={1} px="$5" pb={0}>
           <FeaturedMedia feature={activeFeature}>
             <LinearGradient
               colors={['transparent', 'rgba(0,0,0,0.7)']}
