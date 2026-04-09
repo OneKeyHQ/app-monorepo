@@ -562,6 +562,66 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it('does not refetch the current balance when only the market token price changes', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue(
+      createTokenDetail({
+        networkId: btcToken.networkId,
+        contractAddress: btcToken.contractAddress,
+        symbol: btcToken.symbol,
+        decimals: btcToken.decimals,
+        balanceParsed: '3',
+      }),
+    );
+
+    const getBalanceFetchCalls = () =>
+      mockFetchSwapTokenDetails.mock.calls.filter(
+        ([params]) => params.accountId,
+      );
+
+    const { rerender } = renderHook(
+      ({ marketPrice }: { marketPrice: string }) =>
+        useSpeedSwapActions({
+          ...createHookProps({
+            marketToken: {
+              ...btcToken,
+              price: marketPrice,
+            },
+            tradeToken: {
+              ...usdcToken,
+              price: '1',
+            },
+          }),
+          tradeType: ESwapDirection.SELL,
+        }),
+      {
+        initialProps: {
+          marketPrice: '100000',
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(getBalanceFetchCalls()).toHaveLength(1);
+      expect(getBalanceFetchCalls()[0][0]).toEqual(
+        expect.objectContaining({
+          accountId: 'net-account-1',
+          networkId: btcToken.networkId,
+          contractAddress: btcToken.contractAddress,
+        }),
+      );
+    });
+
+    rerender({
+      marketPrice: '120000',
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getBalanceFetchCalls()).toHaveLength(1);
+  });
+
   it('falls back to the current token price sources when the live price still belongs to the previous token', async () => {
     mockNetAccountPromiseResult = {
       result: undefined,

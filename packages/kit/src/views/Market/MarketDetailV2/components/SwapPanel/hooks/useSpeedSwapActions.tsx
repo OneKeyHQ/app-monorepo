@@ -285,7 +285,6 @@ export function useSpeedSwapActions(props: {
       logoURI: balanceToken?.logoURI,
       name: balanceToken?.name,
       isNative: balanceToken?.isNative,
-      price: balanceToken?.price,
     };
   }, [
     balanceToken?.contractAddress,
@@ -294,7 +293,6 @@ export function useSpeedSwapActions(props: {
     balanceToken?.logoURI,
     balanceToken?.name,
     balanceToken?.networkId,
-    balanceToken?.price,
     balanceToken?.symbol,
   ]);
 
