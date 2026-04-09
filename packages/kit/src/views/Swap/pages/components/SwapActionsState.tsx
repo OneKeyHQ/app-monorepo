@@ -149,9 +149,12 @@ const SwapActionsState = ({
       <FormatHyperlinkText
         autoExecuteParsedAction={false}
         onAction={openUrlExternal}
-        size="$bodyLg"
-        color="$text"
+        size="$bodyMd"
+        color="$textSubdued"
         urlTextProps={{
+          color: '$textInfo',
+        }}
+        underlineTextProps={{
           color: '$textInfo',
         }}
       >
