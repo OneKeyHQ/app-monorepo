@@ -48,7 +48,8 @@ function resolveRef(ref: string, doc: ISchemaDoc): IJsonSchemaNode | undefined {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let node: any = doc;
   for (const part of parts) {
-    if (node == null || typeof node !== 'object') return undefined;
+    if (node === null || node === undefined || typeof node !== 'object')
+      return undefined;
     node = node[part];
   }
   return node as IJsonSchemaNode | undefined;
