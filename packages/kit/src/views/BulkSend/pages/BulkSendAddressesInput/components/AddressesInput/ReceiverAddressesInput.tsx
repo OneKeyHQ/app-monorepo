@@ -42,7 +42,6 @@ type IReceiverAddressesInputProps = {
   maxLines?: number;
 };
 
-const BULK_SEND_ALLOWLIST_ACTION_ID = 'bulk_send_to_add_address_page';
 const BULK_SEND_ALLOWLIST_ERROR_ID =
   ETranslations.wallet_bulk_send_error_address_not_in_allowlist;
 
@@ -66,40 +65,11 @@ function buildReceiverSelectorAccountItem(
   };
 }
 
-function renderBulkSendAllowlistMessage({
-  lineNumber,
-  intl,
-}: {
-  lineNumber?: number;
-  intl: ReturnType<typeof useIntl>;
-}) {
-  const actionLabel = intl.formatMessage({
-    id: ETranslations.add_to_address_book__action,
-  });
-  const allowlistMessage = intl.formatMessage({
-    id: ETranslations.send_address_not_allowlist_error,
-  });
-
-  if (typeof lineNumber !== 'number') {
-    return allowlistMessage;
-  }
-
-  return intl.formatMessage(
-    {
-      id: ETranslations.wallet_bulk_send_error_line_with_message,
-    },
-    {
-      lineNumber,
-      message: `${allowlistMessage} <action>${BULK_SEND_ALLOWLIST_ACTION_ID}<underline>${actionLabel}</underline></action>`,
-    },
-  );
-}
-
 function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
-  const intl = useIntl();
   const form = useFormContext();
   const navigation = useAppNavigation();
   const {
+    selectedAccountId,
     selectedNetworkId,
     receiverValidationErrors,
     setReceiverValidationErrors,
@@ -111,7 +81,7 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
   }, [form, setReceiverValidationErrors]);
 
   const handleOpenAddressBook = useCallback(
-    (lineNumber?: number) => {
+    async (lineNumber?: number) => {
       const receiverAddresses =
         (form.getValues('receiverAddresses') as string | undefined) ?? '';
       const lines = receiverAddresses.split('\n');
@@ -123,9 +93,24 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
         return;
       }
 
+      const { addressBookId, isAllowListed } =
+        await backgroundApiProxy.serviceAccountProfile.queryAddress({
+          accountId: selectedAccountId,
+          networkId: selectedNetworkId,
+          address,
+          enableAddressBook: true,
+          enableWalletName: true,
+          skipValidateAddress: true,
+        });
+
+      if (isAllowListed) {
+        return;
+      }
+
       navigation.pushModal(EModalRoutes.AddressBookModal, {
         screen: EModalAddressBookRoutes.EditItemModal,
         params: {
+          id: addressBookId,
           address,
           networkId: selectedNetworkId,
           isAllowListed: true,
@@ -133,7 +118,13 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
         },
       });
     },
-    [form, handleAddressBookSaved, navigation, selectedNetworkId],
+    [
+      form,
+      handleAddressBookSaved,
+      navigation,
+      selectedAccountId,
+      selectedNetworkId,
+    ],
   );
 
   const parsedMessages = useMemo(() => {
@@ -147,10 +138,6 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
       return blockingAllowlistErrors.map((item) => ({
         key: `${item.lineNumber}`,
         lineNumber: item.lineNumber,
-        message: renderBulkSendAllowlistMessage({
-          lineNumber: item.lineNumber,
-          intl,
-        }),
       }));
     }
 
@@ -164,24 +151,30 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
         message: error.message,
       },
     ];
-  }, [error?.message, intl, receiverValidationErrors]);
+  }, [error?.message, receiverValidationErrors]);
 
   return (
     <YStack gap="$1">
-      {parsedMessages.map((item) => (
-        <HyperlinkText
-          key={item.key}
-          color="$textCritical"
-          size="$bodyMd"
-          defaultMessage={item.message}
-          autoExecuteParsedAction={false}
-          onAction={(actionId) => {
-            if (actionId === BULK_SEND_ALLOWLIST_ACTION_ID) {
-              handleOpenAddressBook(item.lineNumber);
-            }
-          }}
-        />
-      ))}
+      {parsedMessages.map((item) =>
+        item.lineNumber ? (
+          <HyperlinkText
+            key={item.key}
+            color="$textCritical"
+            size="$bodyMd"
+            translationId={ETranslations.send_address_not_allowlist_error}
+            autoExecuteParsedAction={false}
+            onAction={(actionId) => {
+              if (actionId === 'to_add_address_page') {
+                void handleOpenAddressBook(item.lineNumber);
+              }
+            }}
+          />
+        ) : (
+          <SizableText key={item.key} color="$textCritical" size="$bodyMd">
+            {item.message}
+          </SizableText>
+        ),
+      )}
     </YStack>
   );
 }
