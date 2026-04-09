@@ -50,6 +50,7 @@ import { isBulkSendTokenDetailsMatched } from '../../utils';
 
 import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
+import type { ILineError } from './components/AddressesInput/LineNumberedTextArea';
 import AssetSelectorTrigger from './components/AssetSelectorTrigger';
 import {
   BulkSendAddressesInputContext,
@@ -789,6 +790,9 @@ function BulkSendAddressesInput() {
     useState(0);
 
   const [hasUserSelectedAsset, setHasUserSelectedAsset] = useState(false);
+  const [receiverValidationErrors, setReceiverValidationErrors] = useState<
+    ILineError[]
+  >([]);
 
   const context = useMemo(
     () => ({
@@ -816,6 +820,8 @@ function BulkSendAddressesInput() {
       setDuplicateSenderAddressCount,
       hasUserSelectedAsset,
       setHasUserSelectedAsset,
+      receiverValidationErrors,
+      setReceiverValidationErrors,
     }),
     [
       selectedAccountId,
@@ -838,6 +844,7 @@ function BulkSendAddressesInput() {
       resolvedSenderAccountIds,
       duplicateSenderAddressCount,
       hasUserSelectedAsset,
+      receiverValidationErrors,
     ],
   );
 
