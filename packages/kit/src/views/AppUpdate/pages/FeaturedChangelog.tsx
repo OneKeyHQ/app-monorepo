@@ -6,10 +6,11 @@ import { useIntl } from 'react-intl';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Badge,
+  LinearGradient,
   Page,
-  ScrollView,
   SizableText,
   Stack,
+  YStack,
 } from '@onekeyhq/components';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -187,38 +188,52 @@ function FeaturedChangelog({
     <Page onClose={handleClose}>
       <Page.Header headerShown={false} />
       <Page.Body>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ px: '$5', pt: '$5', pb: '$2' }}
-        >
-          <Stack mb="$2.5" alignSelf="flex-start">
-            <Badge badgeType="success" badgeSize="sm">
-              {'NEW'}
-            </Badge>
-          </Stack>
-          <SizableText size="$heading3xl" mb="$1">
-            {intl.formatMessage(
-              { id: ETranslations.update_changelog_title },
-              { ver: versionDisplay },
-            )}
-          </SizableText>
-          {/* TODO: replace hardcoded subtitle with ETranslations key once added via Lokalise */}
-          <SizableText size="$bodyMd" color="$textSubdued" mb="$4">
-            {'\u672C\u6B21\u66F4\u65B0\u7684\u4EAE\u70B9\u529F\u80FD'}
-          </SizableText>
-          <FeaturedTabBar
-            features={features}
-            activeIndex={activeIndex}
-            onTabPress={setActiveIndex}
-          />
-          <FeaturedMedia feature={activeFeature} />
-          <SizableText size="$headingMd" mb="$1">
-            {activeFeature.title}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {activeFeature.description}
-          </SizableText>
-        </ScrollView>
+        <YStack flex={1}>
+          {/* Top section: badge, title, subtitle, tabs */}
+          <YStack px="$5" pt="$5" pb="$3">
+            <Stack mb="$2.5" alignSelf="flex-start">
+              <Badge badgeType="success" badgeSize="sm">
+                {'NEW'}
+              </Badge>
+            </Stack>
+            <SizableText size="$heading3xl" mb="$1">
+              {intl.formatMessage(
+                { id: ETranslations.update_changelog_title },
+                { ver: versionDisplay },
+              )}
+            </SizableText>
+            {/* TODO: replace hardcoded subtitle with ETranslations key once added via Lokalise */}
+            <SizableText size="$bodyMd" color="$textSubdued" mb="$4">
+              {'\u672C\u6B21\u66F4\u65B0\u7684\u4EAE\u70B9\u529F\u80FD'}
+            </SizableText>
+            <FeaturedTabBar
+              features={features}
+              activeIndex={activeIndex}
+              onTabPress={setActiveIndex}
+            />
+          </YStack>
+
+          {/* Media fills remaining space, with gradient + text overlay */}
+          <FeaturedMedia feature={activeFeature}>
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.7)']}
+              position="absolute"
+              bottom={0}
+              left={0}
+              right={0}
+              px="$5"
+              pb="$5"
+              pt="$16"
+            >
+              <SizableText size="$headingLg" color="$whiteA12" mb="$1">
+                {activeFeature.title}
+              </SizableText>
+              <SizableText size="$bodyMd" color="$whiteA11">
+                {activeFeature.description}
+              </SizableText>
+            </LinearGradient>
+          </FeaturedMedia>
+        </YStack>
       </Page.Body>
       <FeaturedFooter
         ctaText={ctaText}

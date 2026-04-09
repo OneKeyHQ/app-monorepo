@@ -1,32 +1,18 @@
-import { useEffect, useRef } from 'react';
-
 import { Image, Skeleton, Stack, Video } from '@onekeyhq/components';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
 
-interface IFeaturedMediaProps {
+import type { PropsWithChildren } from 'react';
+
+interface IFeaturedMediaProps extends PropsWithChildren {
   feature: IFeaturedItem;
 }
 
-function FeaturedMedia({ feature }: IFeaturedMediaProps) {
-  const videoRef = useRef<{ seek?: (time: number) => void }>(null);
-
-  useEffect(() => {
-    if (feature.mediaType === 'video' && videoRef.current?.seek) {
-      videoRef.current.seek(0);
-    }
-  }, [feature.mediaUrl, feature.mediaType]);
-
+function FeaturedMedia({ feature, children }: IFeaturedMediaProps) {
   return (
-    <Stack
-      borderRadius="$3"
-      overflow="hidden"
-      mb="$3"
-      bg="$bgSubdued"
-      aspectRatio={16 / 9}
-    >
+    <Stack flex={1} overflow="hidden" position="relative">
       {feature.mediaType === 'video' ? (
         <Video
-          ref={videoRef}
+          key={feature.mediaUrl}
           source={{ uri: feature.mediaUrl }}
           style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
@@ -43,6 +29,7 @@ function FeaturedMedia({ feature }: IFeaturedMediaProps) {
           skeleton={<Skeleton width="100%" height="100%" />}
         />
       )}
+      {children}
     </Stack>
   );
 }
