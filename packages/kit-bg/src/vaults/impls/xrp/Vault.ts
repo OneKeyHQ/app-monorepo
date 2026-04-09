@@ -428,12 +428,23 @@ export default class Vault extends VaultBase {
     const MAX_UINT32 = 4_294_967_295;
     const tag = Number(memo);
 
-    if (!Number.isInteger(tag) || tag < 0 || tag > MAX_UINT32) {
+    // Non-integer / negative → generic "positive integer" message.
+    // The sync regex in the form layer normally catches these first; this is
+    // a safety net for address book imports and API callers.
+    if (!Number.isInteger(tag) || tag < 0) {
       return {
         isValid: false,
         errorMessage: appLocale.intl.formatMessage({
           id: ETranslations.send_field_only_integer,
         }),
+      };
+    }
+
+    // Out-of-range but otherwise valid integer — give a precise range hint.
+    if (tag > MAX_UINT32) {
+      return {
+        isValid: false,
+        errorMessage: `Destination tag must be between 0 and ${MAX_UINT32}`,
       };
     }
 

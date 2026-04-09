@@ -187,46 +187,42 @@ export function CreateOrEditContent({
   }, [intl, media.gtMd, vaultSettings?.noteMaxLength, vaultSettings?.withNote]);
 
   const validateMemoField = useCallback(
-    async (value: string): Promise<string | undefined> => {
+    (value: string): string | undefined | Promise<string | undefined> => {
       if (!value) return undefined;
 
-      try {
-        const validationResult =
-          await backgroundApiProxy.serviceSend.validateMemo({
-            networkId,
-            memo: value,
-          });
-        if (!validationResult.isValid) {
-          return validationResult.errorMessage;
-        }
-        return undefined;
-      } catch (error) {
-        // Fallback to client-side validation if Vault validation fails
-        console.warn('Vault validateMemo failed, using fallback:', error);
+      // Fast synchronous check — mirrors Send flow to avoid async flicker
+      if (vaultSettings?.numericOnlyMemo && !/^[0-9]+$/.test(value)) {
+        return intl.formatMessage({
+          id: ETranslations.send_field_only_integer,
+        });
       }
 
-      // Fallback: use original logic
-      const validateErrMsg = vaultSettings?.numericOnlyMemo
-        ? intl.formatMessage({
-            id: ETranslations.send_field_only_integer,
+      // Async vault validation only when sync check passes
+      if (vaultSettings?.supportMemoValidation) {
+        return backgroundApiProxy.serviceSend
+          .validateMemo({
+            networkId,
+            memo: value,
           })
-        : undefined;
-      const memoRegExp = vaultSettings?.numericOnlyMemo
-        ? /^[0-9]+$/
-        : undefined;
+          .then((result) => (result.isValid ? undefined : result.errorMessage))
+          .catch(() => undefined);
+      }
 
-      if (!value || !memoRegExp) return undefined;
-      const result = !memoRegExp.test(value);
-      return result ? validateErrMsg : undefined;
+      return undefined;
     },
-    [intl, networkId, vaultSettings?.numericOnlyMemo],
+    [
+      intl,
+      networkId,
+      vaultSettings?.numericOnlyMemo,
+      vaultSettings?.supportMemoValidation,
+    ],
   );
 
   const renderMemoForm = useCallback(() => {
     if (!vaultSettings?.withMemo) return null;
 
     const maxLength = vaultSettings?.memoMaxLength || 256;
-    const customValidate = vaultSettings?.supportMemoValidation;
+    const isNumericMemo = Boolean(vaultSettings?.numericOnlyMemo);
 
     return (
       <Form.Field
@@ -234,19 +230,17 @@ export function CreateOrEditContent({
         optional
         name="memo"
         rules={{
-          maxLength: customValidate
-            ? undefined
-            : {
-                value: maxLength,
-                message: intl.formatMessage(
-                  {
-                    id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
-                  },
-                  {
-                    number: maxLength,
-                  },
-                ),
+          maxLength: {
+            value: maxLength,
+            message: intl.formatMessage(
+              {
+                id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
               },
+              {
+                number: maxLength,
+              },
+            ),
+          },
           validate: validateMemoField,
         }}
       >
@@ -256,6 +250,9 @@ export function CreateOrEditContent({
           placeholder={intl.formatMessage({
             id: ETranslations.send_tag_placeholder,
           })}
+          keyboardType={
+            isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
+          }
         />
       </Form.Field>
     );
@@ -264,8 +261,8 @@ export function CreateOrEditContent({
     media.gtMd,
     validateMemoField,
     vaultSettings?.memoMaxLength,
+    vaultSettings?.numericOnlyMemo,
     vaultSettings?.withMemo,
-    vaultSettings?.supportMemoValidation,
   ]);
 
   return (
