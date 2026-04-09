@@ -209,6 +209,10 @@ function FeaturedChangelog({
             <Skeleton width="100%" flex={1} borderRadius="$4" />
           </YStack>
         </Page.Body>
+        <FeaturedFooter
+          ctaText={intl.formatMessage({ id: ETranslations.global_done })}
+          onCtaPress={() => navigation.popStack()}
+        />
       </Page>
     );
   }
