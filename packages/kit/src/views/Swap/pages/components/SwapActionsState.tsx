@@ -15,11 +15,13 @@ import {
   Stack,
   Switch,
   XStack,
+  YStack,
   resetToRoute,
   useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
@@ -47,6 +49,7 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
@@ -147,8 +150,14 @@ const SwapActionsState = ({
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
   const isDesktopModalPage = isModalPage && !md;
+  const incognitoHelpLink = useHelpLink({
+    path: 'articles/14430164',
+  });
   const incognitoTitle = intl.formatMessage({
     id: ETranslations.trade_incognito_incognito_mode,
+  });
+  const incognitoReadMore = intl.formatMessage({
+    id: ETranslations.trade_incognito_read_more,
   });
   const incognitoTooltip = useMemo(
     () =>
@@ -157,6 +166,9 @@ const SwapActionsState = ({
       }),
     [intl],
   );
+  const handleOpenIncognitoHelp = useCallback(() => {
+    openUrlExternal(incognitoHelpLink);
+  }, [incognitoHelpLink]);
 
   const onActionHandlerBefore = useCallback(async () => {
     if (swapActionState.noConnectWallet) {
@@ -304,34 +316,48 @@ const SwapActionsState = ({
   const incognitoComponent = useMemo(
     () =>
       swapTypeSwitch === ESwapTabSwitchType.LIMIT ? null : (
-        <XStack alignItems="center" gap="$2">
-          <XStack alignItems="center" gap="$1.5">
-            <Icon
-              name="AnonymousHiddenOutline"
-              size="$5"
-              color="$iconSubdued"
-            />
-            <DashText
-              size="$bodyMd"
-              color="$textSubdued"
-              dashColor="$textDisabled"
-              dashThickness={0.5}
-              tooltip={incognitoTooltip}
-              tooltipTitle={incognitoTitle}
-            >
-              {incognitoTitle}
-            </DashText>
+        <YStack gap="$1">
+          <XStack alignItems="center" gap="$2">
+            <XStack alignItems="center" gap="$1.5">
+              <Icon
+                name="AnonymousHiddenOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+              <DashText
+                size="$bodyMd"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={incognitoTooltip}
+                tooltipTitle={incognitoTitle}
+              >
+                {incognitoTitle}
+              </DashText>
+            </XStack>
+            <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
+              <Switch
+                size={ESwitchSize.extraSmall}
+                value={swapIncognitoMode}
+                onChange={onIncognitoModeChange}
+              />
+            </Stack>
           </XStack>
-          <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
-            <Switch
-              size={ESwitchSize.extraSmall}
-              value={swapIncognitoMode}
-              onChange={onIncognitoModeChange}
-            />
-          </Stack>
-        </XStack>
+          <XStack alignSelf="flex-start" pl="$6" onPress={handleOpenIncognitoHelp}>
+            <SizableText
+              size="$bodySm"
+              color="$textInfo"
+              cursor="pointer"
+              textDecorationLine="underline"
+            >
+              {incognitoReadMore}
+            </SizableText>
+          </XStack>
+        </YStack>
       ),
     [
+      handleOpenIncognitoHelp,
+      incognitoReadMore,
       incognitoTitle,
       incognitoTooltip,
       onIncognitoModeChange,
