@@ -9,6 +9,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   EPerpsSizeInputMode,
   IPerpsFormattedAssetCtx,
+  ISpotFormattedAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid';
 import {
   MAX_DECIMALS_PERP,
@@ -18,6 +19,7 @@ import {
 import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
+  ISpotAssetCtx,
   IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -1448,6 +1450,102 @@ export function formatChartUsdPrice(price: number): string {
   return `${sign}$${abs.toFixed(2)}`;
 }
 
+// ── Spot Asset Context Formatter ──
+
+function formatSpotAssetCtx(
+  spotCtx: ISpotAssetCtx | null,
+): ISpotFormattedAssetCtx {
+  const midPrice = spotCtx?.midPx || '0';
+  const markPrice = spotCtx?.markPx || '0';
+  const prevDayPrice = spotCtx?.prevDayPx || '0';
+  const priceDecimals = getValidPriceDecimals(markPrice);
+
+  const markPriceBN = new BigNumber(markPrice);
+  const prevDayPriceBN = new BigNumber(prevDayPrice);
+  const change24hBN = markPriceBN.minus(prevDayPriceBN);
+
+  const change24h = change24hBN.toFixed(priceDecimals);
+  const change24hPercent = prevDayPriceBN.isZero()
+    ? 0
+    : change24hBN.dividedBy(prevDayPriceBN).multipliedBy(100).toNumber();
+
+  return {
+    midPrice,
+    markPrice,
+    prevDayPrice,
+    volume24h: spotCtx?.dayNtlVlm || '0',
+    change24h,
+    change24hPercent,
+    circulatingSupply: spotCtx?.circulatingSupply || '0',
+    totalSupply: spotCtx?.totalSupply || '0',
+    dayBaseVlm: spotCtx?.dayBaseVlm || '0',
+  };
+}
+
+// ── Spot Token Utils ──
+
+const SPOT_TOKEN_DISPLAY_MAP: Record<string, string> = {
+  UBTC: 'BTC',
+  UETH: 'ETH',
+  USOL: 'SOL',
+  UFART: 'FARTCOIN',
+  UBONK: 'BONK',
+  UPUMP: 'PUMP',
+  UENA: 'ENA',
+  UXPL: 'XPL',
+  UZEC: 'ZEC',
+  UMON: 'MON',
+  UUUSPX: 'SPX',
+  UDOGE: 'DOGE',
+  UMOG: 'MOG',
+  UWLD: 'WLD',
+  UMEGA: 'MEGA',
+  UVIRT: 'VIRTUAL',
+  USPYX: 'SPYX',
+  UDZ: 'DZ',
+  LINK0: 'LINK',
+  AAVE0: 'AAVE',
+  AVAX0: 'AVAX',
+  BNB0: 'BNB',
+  CFX0: 'CFX',
+  PEPE0: 'PEPE',
+  TRX0: 'TRX',
+  USDT0: 'USDT',
+  XAUT0: 'XAUT',
+  HPENGU: 'PENGU',
+  HPEPE: 'PEPE',
+  FXRP: 'XRP',
+  XMR1: 'XMR',
+  HBNB: 'BNB',
+  HSEI: 'SEI',
+};
+
+function getSpotTokenDisplayName(rawName: string): string {
+  return SPOT_TOKEN_DISPLAY_MAP[rawName] ?? rawName;
+}
+
+function formatSpotPairDisplayName(
+  baseName: string,
+  quoteName: string,
+): string {
+  return `${getSpotTokenDisplayName(baseName)}/${quoteName}`;
+}
+
+function isSpotInstrument(coin?: string | null): boolean {
+  if (!coin) return false;
+  return coin.startsWith('@') || coin.includes('/');
+}
+
+const SPOT_MIN_VOLUME_STRICT = 10;
+
+function filterSpotTokensStrict(
+  tokens: Array<{ dayNtlVlm: number; midPx: boolean }>,
+): Array<{ dayNtlVlm: number; midPx: boolean }> {
+  return tokens.filter(
+    (t) => t.dayNtlVlm >= SPOT_MIN_VOLUME_STRICT && t.midPx,
+  );
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1520,4 +1618,11 @@ export default {
   formatPerpsCompactUsd,
   getPerpsValueColor,
   formatChartUsdPrice,
+  formatSpotAssetCtx,
+  isSpotInstrument,
+  getSpotTokenDisplayName,
+  formatSpotPairDisplayName,
+  filterSpotTokensStrict,
+  SPOT_TOKEN_DISPLAY_MAP,
+  SPOT_MIN_VOLUME_STRICT,
 };
