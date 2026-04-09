@@ -85,12 +85,14 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects when segment is not in manifest', async () => {
-    const { installProdBundleLoader, loadSegment } = getLoader();
-    installProdBundleLoader(createMockNativeLoader());
-    await expect(loadSegment('seg:nonexistent')).rejects.toThrow(
-      'not found in manifest',
-    );
+  it('resolves silently when segment is not in manifest (assumed eager)', async () => {
+    const mock = createMockNativeLoader();
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader();
+    installProdBundleLoader(mock);
+    await expect(loadSegment('seg:nonexistent')).resolves.toBe(undefined);
+    expect(isSegmentLoaded('seg:nonexistent')).toBe(true);
+    expect(mock.loadSegment).not.toHaveBeenCalled();
   });
 
   it('rejects when runtime access control denies', async () => {
