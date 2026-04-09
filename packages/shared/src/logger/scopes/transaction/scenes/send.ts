@@ -1,9 +1,29 @@
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class SendScene extends BaseScene {
+  private _sendFlowId: string | undefined;
+
+  private _addressInputMethod: string | undefined;
+
+  get sendFlowId() {
+    return this._sendFlowId;
+  }
+
+  startNewFlow() {
+    this._sendFlowId = generateUUID();
+    this._addressInputMethod = undefined;
+    return this._sendFlowId;
+  }
+
+  clearFlow() {
+    this._sendFlowId = undefined;
+    this._addressInputMethod = undefined;
+  }
+
   @LogToLocal()
   public coinControlSelected({
     network,
@@ -62,7 +82,9 @@ export class SendScene extends BaseScene {
     tokenSymbol: string | undefined;
     tokenAddress: string | undefined;
   }) {
+    this.startNewFlow();
     return {
+      sendFlowId: this._sendFlowId,
       network,
       tokenType,
       tokenSymbol,
@@ -81,6 +103,7 @@ export class SendScene extends BaseScene {
     tokenAddress: string | undefined;
   }) {
     return {
+      sendFlowId: this._sendFlowId,
       tokenType,
       tokenSymbol,
       tokenAddress,
@@ -93,7 +116,9 @@ export class SendScene extends BaseScene {
   }: {
     addressInputMethod: string | undefined;
   }) {
+    this._addressInputMethod = addressInputMethod;
     return {
+      sendFlowId: this._sendFlowId,
       addressInputMethod,
     };
   }
@@ -110,6 +135,7 @@ export class SendScene extends BaseScene {
     feeFiatValue,
     txnParseType,
     txnOrigin,
+    addressInputMethod,
     tronIsResourceRentalNeeded,
     tronIsResourceRentalEnabled,
     tronIsSwapTrxEnabled,
@@ -128,6 +154,7 @@ export class SendScene extends BaseScene {
     tokenAddress: string | undefined;
     feeToken: string | undefined;
     feeFiatValue: string | undefined;
+    addressInputMethod?: string | undefined;
     tronIsResourceRentalNeeded: boolean | undefined;
     tronIsResourceRentalEnabled: boolean | undefined;
     tronIsSwapTrxEnabled: boolean | undefined;
@@ -136,7 +163,8 @@ export class SendScene extends BaseScene {
     tronUseRedemptionCode: boolean | undefined;
     tronIsCreditAutoClaimed: boolean | undefined;
   }) {
-    return {
+    const result = {
+      sendFlowId: this._sendFlowId,
       network,
       txnType,
       txnParseType,
@@ -147,6 +175,7 @@ export class SendScene extends BaseScene {
       tokenAddress,
       feeToken,
       feeFiatValue,
+      addressInputMethod: addressInputMethod ?? this._addressInputMethod,
       tronIsResourceRentalNeeded,
       tronIsResourceRentalEnabled,
       tronIsSwapTrxEnabled,
@@ -155,6 +184,8 @@ export class SendScene extends BaseScene {
       tronUseRedemptionCode,
       tronIsCreditAutoClaimed,
     };
+    this.clearFlow();
+    return result;
   }
 
   @LogToServer()
@@ -174,6 +205,7 @@ export class SendScene extends BaseScene {
     matchCount: number;
   }) {
     return {
+      sendFlowId: this._sendFlowId,
       network,
       tab,
       recipientType,
@@ -194,6 +226,7 @@ export class SendScene extends BaseScene {
     skippedToAmount: boolean;
   }) {
     return {
+      sendFlowId: this._sendFlowId,
       network,
       tab,
       skippedToAmount,
@@ -213,6 +246,7 @@ export class SendScene extends BaseScene {
     isAutoSwitch: boolean;
   }) {
     return {
+      sendFlowId: this._sendFlowId,
       network,
       fromTab,
       toTab,
@@ -229,6 +263,7 @@ export class SendScene extends BaseScene {
     searchKeyLength: number;
   }) {
     return {
+      sendFlowId: this._sendFlowId,
       network,
       searchKeyLength,
     };
