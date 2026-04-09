@@ -188,6 +188,10 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
           const blobRaw = ss.getString(sk.onekey_jotai_atoms_snapshot);
           snapshot = blobRaw ? JSON.parse(blobRaw) : null;
           (globalThis as any).__ONEKEY_LEGACY_SNAPSHOT_CACHE__ = snapshot;
+          // Schedule cleanup after all synchronous atom initializations complete
+          setTimeout(() => {
+            delete (globalThis as any).__ONEKEY_LEGACY_SNAPSHOT_CACHE__;
+          }, 0);
         }
         if (snapshot && name in snapshot) {
           cached = snapshot[name];
@@ -416,14 +420,6 @@ function getScopedColdStartSnapshotValue({
   return undefined;
 }
 
-function getTokenSymbolSafe(token: unknown): string {
-  if (!token || typeof token !== 'object') {
-    return '?';
-  }
-  const symbol = (token as { symbol?: unknown }).symbol;
-  return typeof symbol === 'string' ? symbol : '?';
-}
-
 // ============================================================
 // Cold Start Cache — automatic value tracking + debounced save
 // ============================================================
@@ -447,48 +443,18 @@ function flushColdStartCache() {
     const { EAppSyncStorageKeys } =
       require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
 
-    const raw = coldStartCacheStorage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
-    const snapshot = raw ? JSON.parse(raw) : {};
-
-    for (const name of coldStartDirtyKeys) {
-      snapshot[name] = coldStartValuesMap.get(name);
+    // Write the full values map directly — avoids read-modify-write race
+    // between main thread and BG thread. coldStartValuesMap already contains
+    // all tracked atom values (both dirty and previously synced).
+    const snapshot: Record<string, unknown> = {};
+    for (const [key, value] of coldStartValuesMap) {
+      snapshot[key] = value;
     }
 
     coldStartCacheStorage.set(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
       JSON.stringify(snapshot),
     );
-    // DEBUG: log flush details
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { NativeLogger: NL, LogLevel: LL } =
-        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-      const jsEntry: number =
-        (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-      const elapsed = jsEntry ? Date.now() - jsEntry : 0;
-      const details = Array.from(coldStartDirtyKeys)
-        .map((k) => {
-          const v = coldStartValuesMap.get(k);
-          if (v && typeof v === 'object' && 'tokens' in (v as any)) {
-            const tokens = (v as any).tokens;
-            return `${k}(${Array.isArray(tokens) ? tokens.length : '?'}tokens:${
-              Array.isArray(tokens)
-                ? tokens
-                    .slice(0, 3)
-                    .map((t: unknown) => getTokenSymbolSafe(t))
-                    .join(',')
-                : '?'
-            })`;
-          }
-          return k;
-        })
-        .join(', ');
-      NL.write(LL.Info, `[ColdStartCache] flush +${elapsed}ms: ${details}`);
-    } catch {
-      /* */
-    }
     coldStartDirtyKeys.clear();
   } catch {
     /* best-effort */
@@ -590,6 +556,11 @@ export function hydrateContextColdStartCacheForProvider({
         );
       }
     }
+    // Snapshot consumed for this scope — schedule cleanup so it can be GC'd.
+    // Use setTimeout(0) to allow all synchronous hydrations in this tick to complete.
+    setTimeout(() => {
+      delete (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    }, 0);
   } catch {
     /* best-effort */
   }
@@ -624,22 +595,9 @@ export function contextAtomBase<Value>({
   const activeColdStartCacheKey =
     coldStartCache && coldStartCacheKey ? coldStartCacheKey : undefined;
 
-  // If named, check context atom snapshot (separate from globalAtom snapshot)
-  let resolvedInitialValue = initialValue;
-  if (snapshotKey) {
-    const ctxSnapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
-    if (ctxSnapshot && snapshotKey in ctxSnapshot) {
-      const cached = ctxSnapshot[snapshotKey];
-      if (cached !== undefined && cached !== null) {
-        resolvedInitialValue =
-          typeof initialValue === 'object' && typeof cached === 'object'
-            ? { ...initialValue, ...cached }
-            : cached;
-      }
-    }
-  }
-
-  const atomBuilder = memoizee(() => atom(resolvedInitialValue));
+  // Hydration from snapshot is handled by hydrateContextColdStartCacheForProvider
+  // at provider mount time, not here at module-load time.
+  const atomBuilder = memoizee(() => atom(initialValue));
 
   // coldStartCache: wrap use() to auto-track value changes
   const wrappedUse = activeColdStartCacheKey
@@ -657,49 +615,6 @@ export function contextAtomBase<Value>({
         });
         const result = useContextAtom(atomBuilder());
         const currentValue = result[0];
-        // DEBUG: log EVERY tokenListAtom render (not just changes)
-        if (
-          cacheKey === 'ctx:tokenListAtom' &&
-          currentValue &&
-          typeof currentValue === 'object' &&
-          'tokens' in (currentValue as any)
-        ) {
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const { NativeLogger: NL, LogLevel: LL } =
-              require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-            const tokens = (currentValue as any).tokens;
-            const prev = coldStartValuesMap.get(scopedCacheKey);
-            const prevTokens =
-              prev && typeof prev === 'object' && 'tokens' in (prev as any)
-                ? (prev as any).tokens
-                : null;
-            const changed = prev !== currentValue;
-            const jsEntry: number =
-              (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-            const elapsed = jsEntry ? Date.now() - jsEntry : 0;
-            NL.write(
-              LL.Info,
-              `[TokenListUI] +${elapsed}ms render: ${Array.isArray(tokens) ? tokens.length : 0} tokens, first3=[${
-                Array.isArray(tokens)
-                  ? tokens
-                      .slice(0, 3)
-                      .map((t: unknown) => getTokenSymbolSafe(t))
-                      .join(',')
-                  : ''
-              }], changed=${changed}, prevFirst3=[${
-                Array.isArray(prevTokens)
-                  ? prevTokens
-                      .slice(0, 3)
-                      .map((t: unknown) => getTokenSymbolSafe(t))
-                      .join(',')
-                  : 'nil'
-              }]`,
-            );
-          } catch {
-            /* */
-          }
-        }
         if (!coldStartValuesMap.has(scopedCacheKey)) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
           return result;
@@ -707,36 +622,6 @@ export function contextAtomBase<Value>({
         if (coldStartValuesMap.get(scopedCacheKey) !== currentValue) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
           scheduleColdStartSave(scopedCacheKey);
-          // Keep existing change log
-          if (
-            cacheKey === 'ctx:tokenListAtom' &&
-            currentValue &&
-            typeof currentValue === 'object' &&
-            'tokens' in (currentValue as any)
-          ) {
-            try {
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
-              const { NativeLogger: NL, LogLevel: LL } =
-                require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-              const tokens = (currentValue as any).tokens;
-              const jsEntry: number =
-                (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-              const elapsed = jsEntry ? Date.now() - jsEntry : 0;
-              NL.write(
-                LL.Info,
-                `[TokenListUI] +${elapsed}ms CHANGED → cache updated: ${Array.isArray(tokens) ? tokens.length : '?'} tokens, first3=[${
-                  Array.isArray(tokens)
-                    ? tokens
-                        .slice(0, 3)
-                        .map((t: unknown) => getTokenSymbolSafe(t))
-                        .join(',')
-                    : '?'
-                }]`,
-              );
-            } catch {
-              /* */
-            }
-          }
         }
         return result;
       }
@@ -765,10 +650,7 @@ export function contextAtomComputedBase<Value>({
   read: IJotaiRead<Value>;
   useContextAtom: <Value2>(atomInstance: Atom<Value2>) => [Awaited<Value2>];
 }) {
-  const atomBuilder = memoizee(() => {
-    console.log('create contextAtomComputedBase', Date.now());
-    return atom(read);
-  });
+  const atomBuilder = memoizee(() => atom(read));
   const useFn = () => {
     const r = useContextAtom(atomBuilder());
     return r;

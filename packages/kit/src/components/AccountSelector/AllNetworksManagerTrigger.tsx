@@ -4,7 +4,6 @@ import { useCallback, useEffect } from 'react';
 import {
   Icon,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -25,20 +24,6 @@ import { NetworkAvatarBase } from '../NetworkAvatar';
 import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelectorTrigger';
 
 const MAX_DISPLAY_NETWORKS = 2;
-
-function layoutDiag(tag: string, msg: string) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { NativeLogger: NL, LogLevel: LL } =
-      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    const jsEntry: number =
-      (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-    const elapsed = jsEntry ? Date.now() - jsEntry : 0;
-    NL.write(LL.Info, `[LayoutDiag:${tag}] +${elapsed}ms ${msg}`);
-  } catch {
-    /* noop */
-  }
-}
 
 function AllNetworksManagerTrigger({
   num,
@@ -126,7 +111,6 @@ function AllNetworksManagerTrigger({
   ]);
 
   if (!wallet) {
-    layoutDiag('NetSelector', 'null: no wallet');
     return null;
   }
 
@@ -134,10 +118,6 @@ function AllNetworksManagerTrigger({
     !networkUtils.isAllNetwork({ networkId: network?.id }) ||
     accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
   ) {
-    layoutDiag(
-      'NetSelector',
-      `null: notAllNetwork=${!networkUtils.isAllNetwork({ networkId: network?.id })} isOthers=${accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })}`,
-    );
     if (platformEnv.isNativeAndroid) {
       return <Stack height={5} />;
     }
@@ -145,44 +125,13 @@ function AllNetworksManagerTrigger({
     return null;
   }
 
-  // DEBUG: trace network selector state changes
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { NativeLogger: NL, LogLevel: LL } =
-        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-      NL.write(
-        LL.Info,
-        `[LayoutDiag] AllNetworksTrigger: showSkeleton=${showSkeleton}, ` +
-          `networks=${enabledNetworksCompatibleWithWalletId?.length ?? 'nil'}, ` +
-          `shouldQuery=${shouldEnableCompatQuery}, ` +
-          `isAllNetwork=${networkUtils.isAllNetwork({ networkId: network?.id })}`,
-      );
-    } catch {
-      /* */
-    }
-  }, [
-    showSkeleton,
-    enabledNetworksCompatibleWithWalletId,
-    shouldEnableCompatQuery,
-    network?.id,
-  ]);
-
   if (
     showSkeleton ||
     !enabledNetworksCompatibleWithWalletId ||
     enabledNetworksCompatibleWithWalletId.length === 0
   ) {
-    layoutDiag(
-      'NetSelector',
-      `placeholder: showSkeleton=${showSkeleton} hasData=${!!enabledNetworksCompatibleWithWalletId} len=${enabledNetworksCompatibleWithWalletId?.length ?? 0}`,
-    );
     return <Stack h={36} />;
   }
-  layoutDiag(
-    'NetSelector',
-    `rendered: ${enabledNetworksCompatibleWithWalletId.length} networks`,
-  );
 
   return (
     <XStack

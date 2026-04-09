@@ -177,26 +177,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       },
     ) => {
       const { keys, tokens, merge, mergeDerive, split } = payload;
-      // DEBUG: trace all tokenListAtom writes
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { NativeLogger: NL, LogLevel: LL } =
-          require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-        const jsEntry: number =
-          (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-        const elapsed = jsEntry ? Date.now() - jsEntry : 0;
-        NL.write(
-          LL.Info,
-          `[TokenListWrite] +${elapsed}ms merge=${!!merge} split=${!!split} tokens=${tokens.length} first3=[${tokens
-            .slice(0, 3)
-            .map((t) => t?.symbol || '?')
-            .join(
-              ',',
-            )}] keys=${keys?.slice(0, 40)} finalReady=${!!(globalThis as any).__onekeyTokenListFinalReady}`,
-        );
-      } catch {
-        /* */
-      }
       if (merge) {
         if (tokens.length) {
           let newTokens = get(tokenListAtom()).tokens.concat(
@@ -253,23 +233,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
               new BigNumber(0),
             );
 
-            // DEBUG
-            try {
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
-              const { NativeLogger: NL, LogLevel: LL } =
-                require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-              const jsEntry: number =
-                (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-              NL.write(
-                LL.Info,
-                `[TokenListWrite] +${Date.now() - jsEntry}ms SET(merge+split) highValue=${highValueTokens.length} first3=[${highValueTokens
-                  .slice(0, 3)
-                  .map((t) => t?.symbol)
-                  .join(',')}]`,
-              );
-            } catch {
-              /* */
-            }
             set(tokenListAtom(), {
               tokens: highValueTokens,
               keys: `${get(tokenListAtom()).keys}_${keys}`,
@@ -292,23 +255,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           }
         }
       } else if (!isEqual(get(tokenListAtom()).keys, keys)) {
-        // DEBUG: set actually executes
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { NativeLogger: NL, LogLevel: LL } =
-            require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-          const jsEntry: number =
-            (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-          NL.write(
-            LL.Info,
-            `[TokenListWrite] +${Date.now() - jsEntry}ms SET(non-merge) tokens=${tokens.length} first3=[${tokens
-              .slice(0, 3)
-              .map((t) => t?.symbol)
-              .join(',')}]`,
-          );
-        } catch {
-          /* */
-        }
         set(tokenListAtom(), {
           tokens: uniqBy(tokens, (item) => item.$key),
           keys,

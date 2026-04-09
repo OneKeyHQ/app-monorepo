@@ -100,21 +100,6 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
       return children;
     };
 
-// --- Startup layout diagnostic logger (temporary) ---
-function layoutDiag(tag: string, msg: string) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { NativeLogger: NL, LogLevel: LL } =
-      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    const jsEntry: number =
-      (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-    const elapsed = jsEntry ? Date.now() - jsEntry : 0;
-    NL.write(LL.Info, `[LayoutDiag:${tag}] +${elapsed}ms ${msg}`);
-  } catch {
-    /* noop */
-  }
-}
-
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -378,16 +363,7 @@ export function HomePageView({
 
   const renderHeader = useCallback(() => {
     return (
-      <Stack
-        onLayout={(e) => {
-          const rawH = e.nativeEvent.layout.height;
-          const roundedH = Math.round(rawH);
-          layoutDiag(
-            'TabsHeader',
-            `h=${rawH} rounded=${roundedH} diff=${(rawH - 312).toFixed(2)}`,
-          );
-        }}
-      >
+      <Stack>
         <RiskApprovalAlert />
         <WatchOnlyAlert />
         <HomeHeaderContainer />
@@ -475,10 +451,6 @@ export function HomePageView({
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
     }`;
-    layoutDiag(
-      'TabsKey',
-      `key="${key}" isDeFi=${isDeFiEnabled} isNFT=${isNFTEnabled} cachedVS=${!!cachedVaultSettings} fetchedVS=${!!fetchedVaultSettings} ready=${ready}`,
-    );
     return (
       <Tabs.Container
         ref={tabsRef as any}
@@ -502,8 +474,6 @@ export function HomePageView({
     tabContainerWidth,
     account?.id,
     account?.indexedAccountId,
-    isDeFiEnabled,
-    isNFTEnabled,
     isWalletNotBackedUp,
     network?.id,
     renderHeader,
@@ -659,19 +629,12 @@ export function HomePageView({
     platformEnv.isNativeIOS ? 162 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    // Use the actual measured height without arbitrary adjustments
     const height = e.nativeEvent.layout.height - 20;
-    layoutDiag(
-      'TabPageSpacer',
-      `measured=${height.toFixed(1)} (raw=${e.nativeEvent.layout.height.toFixed(1)})`,
-    );
     setTabPageHeight(height);
   }, []);
 
   const homePage = useMemo(() => {
-    layoutDiag('HomePage', `ready=${ready} wallet=${!!wallet}`);
     if (!ready) {
-      layoutDiag('HomePage', 'NOT READY — returning TabPageHeader placeholder');
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 

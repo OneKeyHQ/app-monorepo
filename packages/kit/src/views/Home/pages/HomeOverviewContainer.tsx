@@ -609,34 +609,6 @@ function HomeOverviewContainer() {
   const showSkeleton =
     !hasDisplayableOverviewBalance && !shouldDisplayZeroBalancePlaceholder;
 
-  // Diagnostic: log cache hit/miss on first render for startup debugging
-  if (!(globalThis as any).__onekeyBalanceDiagLogged) {
-    (globalThis as any).__onekeyBalanceDiagLogged = true;
-    try {
-      const jsEntry: number =
-        (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-      const elapsed = jsEntry ? Date.now() - jsEntry : 0;
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { NativeLogger: NL, LogLevel: LL } =
-        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-      NL.write(
-        LL.Info,
-        `[BalanceDiag] firstRender +${elapsed}ms: ` +
-          `ownerKey="${currentOverviewOwnerKey}", ` +
-          `currentConfirmed=${currentConfirmedBalance != null}, ` +
-          `resolved=${resolvedBalanceString != null}, ` +
-          `showSkeleton=${showSkeleton}, ` +
-          `accountId=${account?.id?.slice(-6) ?? 'nil'}, ` +
-          `networkId=${network?.id?.slice(-10) ?? 'nil'}, ` +
-          `worthInit=${accountWorth.initialized}, ` +
-          `worthAccountId=${accountWorth.accountId?.slice(-6) ?? 'nil'}, ` +
-          `byOwnerKeys=${Object.keys(lastConfirmedOverviewBalance.byOwner).length}`,
-      );
-    } catch {
-      /* NativeLogger may not be available */
-    }
-  }
-
   const debouncedBalanceString =
     debouncedBalancePayload.ownerKey === currentOverviewOwnerKey
       ? debouncedBalancePayload.value
@@ -644,46 +616,20 @@ function HomeOverviewContainer() {
 
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
-  // Track when balance is first displayed and save contextAtom snapshot to MMKV
-  // Use module-level flag to survive component re-mounts within the same session.
-  if (
-    !(globalThis as any).__onekeyBalanceDisplayed &&
+  // Track when balance is first displayed
+  const balanceReady =
     !showSkeleton &&
-    renderedBalanceString != null
-  ) {
-    (globalThis as any).__onekeyBalanceDisplayed = true;
-    appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
-    const jsEntry: number =
-      (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
-    if (jsEntry) {
-      const elapsed = Date.now() - jsEntry;
-      defaultLogger.app.appUpdate.log(
-        `[StartupTiming] Home balance displayed: ${renderedBalanceString?.slice(0, 20)} at +${elapsed}ms from JS entry`,
-      );
+    renderedBalanceString !== null &&
+    renderedBalanceString !== undefined;
+  useEffect(() => {
+    if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
+      (globalThis as any).__onekeyBalanceDisplayed = true;
+      appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
     }
-    // contextAtom snapshot saving is now automatic via coldStartCache mechanism.
-    // All atoms with { coldStartCache: true } are auto-tracked and debounce-saved.
-  }
+  }, [balanceReady]);
 
   return (
-    <YStack
-      gap="$2.5"
-      alignItems="flex-start"
-      onLayout={(e) => {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { NativeLogger: NL, LogLevel: LL } =
-            require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-          const { height, width } = e.nativeEvent.layout;
-          NL.write(
-            LL.Info,
-            `[LayoutDiag] OverviewContainer: h=${height.toFixed(1)}, w=${width.toFixed(1)}, skeleton=${showSkeleton}`,
-          );
-        } catch {
-          /* */
-        }
-      }}
-    >
+    <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />
