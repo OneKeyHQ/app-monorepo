@@ -967,6 +967,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     // from being logged by ServiceDApp.openModal's dappOpenModal logger
     const sanitizedRequest = {
       ...request,
+      scope: request.scope || this.providerName,
       data: request.data
         ? {
             ...(request.data as Record<string, unknown>),

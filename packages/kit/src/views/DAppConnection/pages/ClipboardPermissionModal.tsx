@@ -143,7 +143,9 @@ function ClipboardPermissionModal() {
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
               disabled:
-                textLoading || (showContinueOperate ? !continueOperate : false),
+                textLoading ||
+                (!isRead && textToWrite === undefined) ||
+                (showContinueOperate ? !continueOperate : false),
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}
