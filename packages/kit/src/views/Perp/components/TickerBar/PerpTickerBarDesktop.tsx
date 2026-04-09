@@ -88,8 +88,13 @@ const TickerBarMarkPriceView = memo(
 TickerBarMarkPriceView.displayName = 'TickerBarMarkPriceView';
 
 function TickerBarMarkPrice() {
+  const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const formattedMarkPrice = assetCtx?.ctx?.markPrice || '';
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const formattedMarkPrice =
+    tradingMode === 'spot'
+      ? spotAssetCtx?.ctx?.markPrice || ''
+      : assetCtx?.ctx?.markPrice || '';
   const isLoading = useTickerBarIsLoading();
   return (
     <TickerBarMarkPriceView
@@ -135,8 +140,13 @@ TickerBarChange24hPercentView.displayName = 'TickerBarChange24hPercentView';
 
 export function TickerBarChange24hPercent() {
   const { gtMd } = useMedia();
+  const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const change24hPercent =
+    tradingMode === 'spot'
+      ? spotAssetCtx?.ctx?.change24hPercent || 0
+      : assetCtx?.ctx?.change24hPercent || 0;
   const isLoading = useTickerBarIsLoading();
 
   return (
@@ -234,8 +244,13 @@ const TickerBar24hVolumeView = memo(
 TickerBar24hVolumeView.displayName = 'TickerBar24hVolumeView';
 
 function TickerBar24hVolume() {
+  const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const volume24h = assetCtx?.ctx?.volume24h || '0';
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const volume24h =
+    tradingMode === 'spot'
+      ? spotAssetCtx?.ctx?.volume24h || '0'
+      : assetCtx?.ctx?.volume24h || '0';
   const formattedVolume24h = formatDisplayNumber(
     NUMBER_FORMATTER.marketCap(volume24h.toString()),
   );
@@ -670,23 +685,21 @@ function PerpTickerBarDesktop() {
       </XStack>
 
       {/* Right: Market Data -- hide perps-only items for spot */}
-      {isSpot ? null : (
-        <ScrollView
-          cursor="default"
-          horizontal
-          flex={1}
-          contentContainerStyle={{
-            gap: '$8',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-          }}
-        >
-          <TickerBarOraclePrice />
-          <TickerBar24hVolume />
-          <TickerBarOpenInterest />
-          <TickerBarFundingRate />
-        </ScrollView>
-      )}
+      <ScrollView
+        cursor="default"
+        horizontal
+        flex={1}
+        contentContainerStyle={{
+          gap: '$8',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+        }}
+      >
+        {isSpot ? null : <TickerBarOraclePrice />}
+        <TickerBar24hVolume />
+        {isSpot ? null : <TickerBarOpenInterest />}
+        {isSpot ? null : <TickerBarFundingRate />}
+      </ScrollView>
     </XStack>
   );
   return (
