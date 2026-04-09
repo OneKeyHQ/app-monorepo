@@ -238,21 +238,27 @@ function FeaturedChangelog({
           {/* Media fills remaining space, with gradient + text overlay */}
           <Stack flex={1} px="$5" pb={0}>
             <FeaturedMedia feature={activeFeature}>
-              <Stack position="absolute" bottom={0} left={0} right={0}>
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.7)']}
-                  px="$4"
-                  pb="$4"
-                  pt="$16"
-                >
-                  <SizableText size="$headingLg" color="$whiteA12" mb="$1">
-                    {activeFeature.title}
-                  </SizableText>
-                  <SizableText size="$bodyMd" color="$whiteA11">
-                    {activeFeature.description}
-                  </SizableText>
-                </LinearGradient>
-              </Stack>
+              {activeFeature.title || activeFeature.description ? (
+                <Stack position="absolute" bottom={0} left={0} right={0}>
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.7)']}
+                    px="$4"
+                    pb="$4"
+                    pt="$16"
+                  >
+                    {activeFeature.title ? (
+                      <SizableText size="$headingLg" color="$whiteA12" mb="$1">
+                        {activeFeature.title}
+                      </SizableText>
+                    ) : null}
+                    {activeFeature.description ? (
+                      <SizableText size="$bodyMd" color="$whiteA11">
+                        {activeFeature.description}
+                      </SizableText>
+                    ) : null}
+                  </LinearGradient>
+                </Stack>
+              ) : null}
             </FeaturedMedia>
           </Stack>
         </YStack>

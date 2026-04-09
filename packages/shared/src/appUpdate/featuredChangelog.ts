@@ -1,7 +1,7 @@
 export interface IFeaturedItem {
   tabLabel: string; // Tab pill text, e.g. "⚡ 0 手续费"
-  title: string; // Feature title, ≤15 chars
-  description: string; // Feature description, ≤40 chars
+  title?: string; // Feature title — optional, not shown when empty
+  description?: string; // Feature description — optional, not shown when empty
   mediaUrl: string; // Remote image or video URL
   mediaType: 'image' | 'video';
   ctaText?: string; // CTA button text, e.g. "立即体验" — optional, falls back to "Done"
