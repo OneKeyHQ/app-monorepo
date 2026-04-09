@@ -704,6 +704,12 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   async updateActiveSpotAssetCtx(data: IWsActiveSpotAssetCtx | undefined) {
     const activeSpotAsset = await spotActiveAssetAtom.get();
+    console.log('updateActiveSpotAssetCtx__debug', {
+      activeCoin: activeSpotAsset?.coin,
+      dataCoin: data?.coin,
+      hasCtx: !!data?.ctx,
+      match: activeSpotAsset?.coin === data?.coin,
+    });
     if (activeSpotAsset?.coin === data?.coin && data?.coin && data?.ctx) {
       await spotActiveAssetCtxAtom.set(
         (_prev): ISpotActiveAssetCtxAtom => ({
