@@ -37,6 +37,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
@@ -105,6 +106,10 @@ class ServiceDApp extends ServiceBase {
   private existingWindowId: number | null | undefined = null;
 
   private isAlignPrimaryAccountProcessing = false;
+
+  // Temporary store for sensitive clipboard text to avoid logging through
+  // openModal's params pipeline (logger + console.log serialize all params)
+  private clipboardTextStore = new Map<string, string>();
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -273,6 +278,46 @@ class ServiceDApp extends ServiceBase {
       fullScreen: false,
     });
     return result;
+  }
+
+  @backgroundMethod()
+  async openClipboardPermissionModal(
+    request: IJsBridgeMessagePayload,
+    clipboardType: 'read' | 'write',
+    textToWrite?: string,
+  ) {
+    // Store sensitive text in memory map instead of passing through
+    // openModal params, which get logged by dappOpenModal logger and console.log
+    let textNonce: string | undefined;
+    if (textToWrite !== undefined) {
+      textNonce = generateUUID();
+      this.clipboardTextStore.set(textNonce, textToWrite);
+    }
+
+    try {
+      const result = await this.openModal({
+        request,
+        screens: [
+          EModalRoutes.DAppConnectionModal,
+          EDAppConnectionModal.ClipboardPermissionModal,
+        ],
+        params: {
+          clipboardType,
+          ...(textNonce ? { textNonce } : {}),
+        },
+        fullScreen: false,
+      });
+      return result;
+    } finally {
+      if (textNonce) {
+        this.clipboardTextStore.delete(textNonce);
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async getClipboardTextToWrite(nonce: string) {
+    return this.clipboardTextStore.get(nonce);
   }
 
   @backgroundMethod()
