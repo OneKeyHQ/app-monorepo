@@ -289,11 +289,14 @@ function SendDataInputContainer() {
   const memoValue = form.watch('memo') as string | undefined;
   const noteValue = form.watch('note') as string | undefined;
   const paymentIdValue = form.watch('paymentId') as string | undefined;
+  // Don't include isValidating — async memo validation (XRP vault) would
+  // otherwise make the Next button flicker on every keystroke (OK-52883).
+  // handleNavigateToAmountInput awaits form.trigger() as the final guard, so
+  // it's safe to keep the button enabled while async validation is pending.
   const isNextDisabled = Boolean(
     form.formState.errors.memo ||
     form.formState.errors.paymentId ||
-    form.formState.errors.note ||
-    form.formState.isValidating,
+    form.formState.errors.note,
   );
 
   const toValue = form.watch('to') as IAddressInputValue | undefined;
