@@ -12,6 +12,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
@@ -47,6 +48,77 @@ import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
 import type BTCVault from '../vaults/impls/btc/Vault';
+
+// Shape of `/wallet/v1/account/badges` response after local mapping.
+// Declared at module level so the xpub fan-out merge helper can be a
+// pure function (easier to test, no class coupling).
+type IAccountBadgeResult = {
+  isScam: boolean;
+  isContract: boolean;
+  isCex: boolean;
+  interacted: EAddressInteractionStatus;
+  addressLabel?: string;
+  badges: IAddressBadge[];
+  similarAddress?: string;
+};
+
+function emptyAccountBadgeResult(): IAccountBadgeResult {
+  return {
+    isScam: false,
+    isContract: false,
+    isCex: false,
+    interacted: EAddressInteractionStatus.UNKNOWN,
+    badges: [],
+  };
+}
+
+// Merge multiple /badges responses (one per xpub on merge-derive chains)
+// into a single result. Semantics:
+//   - any-true wins for boolean risk flags (a scam/contract/cex match on
+//     ANY derive path is significant)
+//   - `interacted` is escalated from UNKNOWN → NOT_INTERACTED → INTERACTED
+//     so we never demote a positive interaction on one path with a
+//     negative on another
+//   - `addressLabel` / `similarAddress` take the first non-empty response
+//   - badges are concatenated and deduped by (type, label)
+function mergeAccountBadgeResults(
+  responses: IAccountBadgeResult[],
+): IAccountBadgeResult {
+  const merged = emptyAccountBadgeResult();
+  const seenBadgeKeys = new Set<string>();
+
+  for (const r of responses) {
+    merged.isScam = merged.isScam || r.isScam;
+    merged.isContract = merged.isContract || r.isContract;
+    merged.isCex = merged.isCex || r.isCex;
+
+    if (r.interacted === EAddressInteractionStatus.INTERACTED) {
+      merged.interacted = EAddressInteractionStatus.INTERACTED;
+    } else if (
+      merged.interacted === EAddressInteractionStatus.UNKNOWN &&
+      r.interacted === EAddressInteractionStatus.NOT_INTERACTED
+    ) {
+      merged.interacted = EAddressInteractionStatus.NOT_INTERACTED;
+    }
+
+    if (!merged.addressLabel && r.addressLabel) {
+      merged.addressLabel = r.addressLabel;
+    }
+    if (!merged.similarAddress && r.similarAddress) {
+      merged.similarAddress = r.similarAddress;
+    }
+
+    for (const badge of r.badges) {
+      const key = `${badge.type ?? ''}:${badge.label ?? ''}`;
+      if (!seenBadgeKeys.has(key)) {
+        seenBadgeKeys.add(key);
+        merged.badges.push(badge);
+      }
+    }
+  }
+
+  return merged;
+}
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -286,60 +358,28 @@ class ServiceAccountProfile extends ServiceBase {
         )
       : [];
 
-    type IBadgeResult = Awaited<ReturnType<typeof this.getAddressAccountBadge>>;
-    let merged: IBadgeResult;
+    let merged: IAccountBadgeResult;
     if (xpubEntries.length > 1) {
-      const responses = await Promise.all(
-        xpubEntries.map((entry) =>
-          this.getAddressAccountBadge({
-            networkId,
-            fromAddress,
-            toAddress,
-            checkInteraction,
-            xpub: entry.xpub,
-          }),
+      // Use allSettled-style fan-out so one slow/failing derive path does
+      // not block the whole lookup. Null responses are filtered before
+      // merge.
+      const settled = await promiseAllSettledEnhanced(
+        xpubEntries.map(
+          (entry) => () =>
+            this.getAddressAccountBadge({
+              networkId,
+              fromAddress,
+              toAddress,
+              checkInteraction,
+              xpub: entry.xpub,
+            }),
         ),
+        { continueOnError: true, concurrency: xpubEntries.length },
       );
-      // Merge semantics: any-true wins for boolean flags (a tag that
-      // matches ANY of the derive paths is meaningful); label/similar
-      // address are taken from the first non-empty response; badges are
-      // concatenated and deduped.
-      const seenBadgeIds = new Set<string>();
-      const mergedBadges: IAddressBadge[] = [];
-      merged = {
-        isScam: false,
-        isContract: false,
-        isCex: false,
-        interacted: EAddressInteractionStatus.UNKNOWN,
-        badges: mergedBadges,
-      };
-      for (const r of responses) {
-        merged.isScam = merged.isScam || r.isScam;
-        merged.isContract = merged.isContract || r.isContract;
-        merged.isCex = merged.isCex || r.isCex;
-        // "interacted" from any derive path is enough
-        if (r.interacted === EAddressInteractionStatus.INTERACTED) {
-          merged.interacted = EAddressInteractionStatus.INTERACTED;
-        } else if (
-          merged.interacted === EAddressInteractionStatus.UNKNOWN &&
-          r.interacted === EAddressInteractionStatus.NOT_INTERACTED
-        ) {
-          merged.interacted = EAddressInteractionStatus.NOT_INTERACTED;
-        }
-        if (!merged.addressLabel && r.addressLabel) {
-          merged.addressLabel = r.addressLabel;
-        }
-        if (!merged.similarAddress && r.similarAddress) {
-          merged.similarAddress = r.similarAddress;
-        }
-        for (const badge of r.badges) {
-          const key = `${badge.type ?? ''}:${badge.label ?? ''}`;
-          if (!seenBadgeIds.has(key)) {
-            seenBadgeIds.add(key);
-            mergedBadges.push(badge);
-          }
-        }
-      }
+      const responses = settled.filter((r): r is IAccountBadgeResult => !!r);
+      merged = responses.length
+        ? mergeAccountBadgeResults(responses)
+        : emptyAccountBadgeResult();
     } else {
       merged = await this.getAddressAccountBadge({
         networkId,

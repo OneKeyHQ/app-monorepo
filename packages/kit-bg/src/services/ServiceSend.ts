@@ -935,11 +935,22 @@ class ServiceSend extends ServiceBase {
     // parse-transaction is scoped to the xpub that built this encoded tx,
     // so here we always use the caller's own account xpub (not the merged
     // set in OK-52897 — those are other derive paths whose inputs are not
-    // in this encodedTx).
-    const xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
-      accountId,
-      networkId,
-    });
+    // in this encodedTx). Failure to resolve the xpub is non-fatal: the
+    // backend parses the tx from encodedTx regardless, xpub is only used
+    // as an additional identity hint for the interaction-history check.
+    let xpub: string | undefined;
+    try {
+      xpub =
+        (await this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        })) || undefined;
+    } catch (error) {
+      console.warn(
+        'ServiceSend.parseTransaction: failed to resolve xpub, continuing without it',
+        error,
+      );
+    }
 
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,

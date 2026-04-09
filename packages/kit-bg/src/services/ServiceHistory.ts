@@ -930,7 +930,7 @@ class ServiceHistory extends ServiceBase {
         accountId,
       });
 
-    const callOnce = async (xpub?: string) => {
+    const callOnce = async (xpub: string | undefined, perCallLimit: number) => {
       try {
         const resp = await client.get<{ data: IFetchTransferRecipientsResp }>(
           '/wallet/v1/account/transfer-recipient',
@@ -938,7 +938,7 @@ class ServiceHistory extends ServiceBase {
             params: {
               networkId,
               accountAddress,
-              limit,
+              limit: perCallLimit,
               xpub,
             },
             headers,
@@ -953,12 +953,21 @@ class ServiceHistory extends ServiceBase {
     };
 
     if (xpubEntries.length <= 1) {
-      return callOnce(xpubEntries[0]?.xpub);
+      return callOnce(xpubEntries[0]?.xpub, limit);
     }
 
-    const responses = await Promise.all(
-      xpubEntries.map((entry) => callOnce(entry.xpub)),
+    // Ask each xpub for just enough rows so the merged result can still
+    // fill `limit` slots even after dedup. Without this we'd waste N×limit
+    // bandwidth only to slice back down to limit at the end.
+    const perCallLimit = Math.max(Math.ceil(limit / xpubEntries.length) + 2, 5);
+    const settled = await promiseAllSettledEnhanced(
+      xpubEntries.map((entry) => () => callOnce(entry.xpub, perCallLimit)),
+      { continueOnError: true, concurrency: xpubEntries.length },
     );
+    const responses = settled.filter(
+      (r): r is { supported: boolean; data: ITransferRecipient[] } => !!r,
+    );
+
     // A single derive-path returning supported=true is enough to mark the
     // whole query as supported; the merged list is deduped by lowercase
     // address and sorted by most-recent time.
