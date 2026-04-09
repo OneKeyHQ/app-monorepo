@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
 import { Checkbox, Page, SizableText, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
@@ -18,10 +19,21 @@ import { useRiskDetection } from '../hooks/useRiskDetection';
 import DappOpenModalPage from './DappOpenModalPage';
 
 function ClipboardPermissionModal() {
-  const { $sourceInfo, clipboardType, textToWrite } = useDappQuery<{
+  const { $sourceInfo, clipboardType, textNonce } = useDappQuery<{
     clipboardType: 'read' | 'write';
-    textToWrite?: string;
+    textNonce?: string;
   }>();
+
+  // Retrieve sensitive text from background memory store (not from route
+  // params) to avoid clipboard content appearing in logs
+  const [textToWrite, setTextToWrite] = useState<string | undefined>();
+  useEffect(() => {
+    if (textNonce) {
+      void backgroundApiProxy.serviceDApp
+        .getClipboardTextToWrite(textNonce)
+        .then(setTextToWrite);
+    }
+  }, [textNonce]);
 
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
