@@ -381,6 +381,7 @@ class ServiceAppUpdate extends ServiceBase {
               signature: normalizeOptionalString(data.jsBundle.signature),
             }
           : undefined,
+        featuredChangelog: data.featuredChangelog,
       };
       // Security: Validate updateStrategy is a known enum value
       if (

@@ -148,6 +148,7 @@ export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
   // builtin if it has an active custom bundle.
   // When > 0 and jsBundleVersion is absent, the client is already up to date.
   jsBundleCount?: number;
+  featuredChangelog?: IFeaturedChangelog;
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
