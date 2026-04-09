@@ -97,21 +97,56 @@ export function useRecommendedRefreshScope({
     }
   }, [enableFetch, accountId, networkId, indexedAccountId]);
 
-  const refreshEligibleAccountKeys = useMemo(() => {
+  const scopedRefreshEligibleAccounts = useMemo(() => {
     if (!refreshEligibleAccounts) {
       return undefined;
     }
 
+    if (recommendedNetworkIds.length === 0) {
+      return [];
+    }
+
+    const recommendedNetworkIdsSet = new Set(recommendedNetworkIds);
+
+    return refreshEligibleAccounts.filter((account) =>
+      recommendedNetworkIdsSet.has(account.networkId),
+    );
+  }, [recommendedNetworkIds, refreshEligibleAccounts]);
+
+  const refreshEligibleAccountKeys = useMemo(() => {
+    if (!scopedRefreshEligibleAccounts) {
+      return undefined;
+    }
+
     return new Set(
-      refreshEligibleAccounts.map(
+      scopedRefreshEligibleAccounts.map(
         (account) => `${account.networkId}__${account.accountId}`,
       ),
     );
-  }, [refreshEligibleAccounts]);
+  }, [scopedRefreshEligibleAccounts]);
 
   const historyRefreshAccounts = useMemo(() => {
-    if (refreshEligibleAccounts?.length) {
-      return refreshEligibleAccounts;
+    const allNetworkId = getNetworkIdsMap().onekeyall;
+
+    if (networkId === allNetworkId) {
+      if (scopedRefreshEligibleAccounts) {
+        return scopedRefreshEligibleAccounts;
+      }
+
+      if (!accountId) {
+        return [];
+      }
+
+      return [
+        {
+          accountId,
+          networkId,
+        },
+      ];
+    }
+
+    if (scopedRefreshEligibleAccounts?.length) {
+      return scopedRefreshEligibleAccounts;
     }
 
     if (!accountId || !networkId) {
@@ -124,7 +159,7 @@ export function useRecommendedRefreshScope({
         networkId,
       },
     ];
-  }, [accountId, networkId, refreshEligibleAccounts]);
+  }, [accountId, networkId, scopedRefreshEligibleAccounts]);
 
   const shouldRefreshByAccounts = useCallback(
     (accounts: IRecommendedRefreshAccount[]) => {
