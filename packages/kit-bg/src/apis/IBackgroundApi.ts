@@ -1,9 +1,6 @@
 // import type only here to avoid cycle-deps error
 
-import type {
-  EAppEventBusNames,
-  IAppEventBusPayload,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
@@ -126,7 +123,7 @@ export interface IBackgroundApiBridge {
   getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
 
   // **** eventBus
-  emitEvent<T extends EAppEventBusNames>(
+  emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
   ): Promise<boolean>;

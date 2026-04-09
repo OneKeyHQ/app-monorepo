@@ -511,10 +511,11 @@ export function hydrateContextColdStartCacheForProvider({
       cacheKey,
       { atom: atomBuilder },
     ] of contextAtomSnapshotRegistry) {
+      const typedCacheKey = cacheKey as IContextAtomColdStartCacheKey;
       const cached = getScopedColdStartSnapshotValue({
         snapshot,
         coldStartScopeKey: scope,
-        coldStartCacheKey: cacheKey,
+        coldStartCacheKey: typedCacheKey,
       });
       if (cached !== undefined && cached !== null) {
         const atomInstance = atomBuilder();
@@ -531,7 +532,7 @@ export function hydrateContextColdStartCacheForProvider({
         coldStartValuesMap.set(
           buildColdStartScopedKey({
             coldStartScopeKey: scope,
-            coldStartCacheKey: cacheKey,
+            coldStartCacheKey: typedCacheKey,
           }),
           nextValue,
         );

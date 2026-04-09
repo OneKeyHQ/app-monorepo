@@ -243,7 +243,7 @@ describe('installProdBundleLoader', () => {
     installProdBundleLoader(mock);
 
     const expoUrlLoader = jest
-      .fn<(bundlePath: string) => Promise<void>>()
+      .fn<Promise<void>, [string]>()
       .mockRejectedValue(new Error('should not be called'));
 
     (globalThis as any).test__loadBundleAsync = expoUrlLoader;

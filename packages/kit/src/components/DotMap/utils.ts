@@ -7,6 +7,14 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IDotMapValues } from './types';
 
+const VALID_MNEMONIC_LENGTHS = [12, 15, 18, 21, 24];
+
+function validateMnemonic(mnemonic: string): boolean {
+  const words = mnemonic.split(' ');
+  if (!VALID_MNEMONIC_LENGTHS.includes(words.length)) return false;
+  return words.every((word) => englishWordlist.includes(word));
+}
+
 const mnemonicWordToValueData = (word: string) => {
   const wordlist = englishWordlist;
   const index = wordlist.indexOf(word);
@@ -21,12 +29,12 @@ const mnemonicWordToValueData = (word: string) => {
 
 export const mnemonicToDotMapValues = (mnemonics: string) => {
   const usedMnemonic = mnemonics.trim().replace(/\s+/g, ' ');
-  let validMnemonic = bip39.validateMnemonic(usedMnemonic);
+  let validMnemonic = validateMnemonic(usedMnemonic);
   if (!validMnemonic) {
     throw new OneKeyLocalError('Invalid mnemonic');
   }
   const words = usedMnemonic.split(' ');
-  validMnemonic = bip39.validateMnemonic(words.join(' '));
+  validMnemonic = validateMnemonic(words.join(' '));
   if (!validMnemonic) {
     throw new OneKeyLocalError('Invalid mnemonic');
   }

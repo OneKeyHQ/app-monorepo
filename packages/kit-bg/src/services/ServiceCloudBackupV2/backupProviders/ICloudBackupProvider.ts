@@ -49,7 +49,7 @@ const ICLOUD_KEYCHAIN_DESCRIPTION =
 async function isCloudFsAvailable() {
   if (platformEnv.isNativeIOS) {
     const RNCloudFs = await import('react-native-cloud-fs');
-    return RNCloudFs?.isAvailable?.();
+    return RNCloudFs?.default?.isAvailable?.();
   }
   return undefined;
 }

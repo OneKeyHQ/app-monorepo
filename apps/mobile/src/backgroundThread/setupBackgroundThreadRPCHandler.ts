@@ -270,7 +270,7 @@ async function handleRequest(callId: string) {
     }
   }
 
-  let requestLabel = request.type;
+  let requestLabel: string = request.type;
   if (request.type === 'service-call') {
     requestLabel = `service-call:${request.method}`;
   } else if (request.type === 'bridge-call') {

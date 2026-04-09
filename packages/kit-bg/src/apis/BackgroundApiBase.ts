@@ -17,10 +17,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  EAppEventBusNames,
-  IAppEventBusPayload,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EEventBusBroadcastMethodNames,
   appEventBus,
@@ -267,7 +264,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   }
 
   @backgroundMethod()
-  async emitEvent<T extends EAppEventBusNames>(
+  async emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
   ): Promise<boolean> {

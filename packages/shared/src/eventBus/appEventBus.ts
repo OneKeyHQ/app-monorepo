@@ -476,6 +476,7 @@ export interface IAppEventBusPayload {
     screen: any;
     params: any;
   };
+  [EAppEventBusNames.HomePageReady]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
@@ -535,7 +536,7 @@ class AppEventBusClass extends CrossEventEmitter {
     );
   }
 
-  override emit<T extends EAppEventBusNames>(
+  override emit<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
   ): boolean {
@@ -546,35 +547,35 @@ class AppEventBusClass extends CrossEventEmitter {
     return true;
   }
 
-  override once<T extends EAppEventBusNames>(
+  override once<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {
     return super.once(type, listener);
   }
 
-  override on<T extends EAppEventBusNames>(
+  override on<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {
     return super.on(type, listener);
   }
 
-  override off<T extends EAppEventBusNames>(
+  override off<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {
     return super.off(type, listener);
   }
 
-  override addListener<T extends EAppEventBusNames>(
+  override addListener<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {
     return super.addListener(type, listener);
   }
 
-  override removeListener<T extends EAppEventBusNames>(
+  override removeListener<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {

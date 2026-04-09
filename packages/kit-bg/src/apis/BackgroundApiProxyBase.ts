@@ -9,10 +9,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import type {
-  EAppEventBusNames,
-  IAppEventBusPayload,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EEventBusBroadcastMethodNames,
   appEventBus,
@@ -312,7 +309,7 @@ export class BackgroundApiProxyBase
     return this.callBackground('setAtomValue', atomName, value);
   }
 
-  async emitEvent<T extends EAppEventBusNames>(
+  async emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
   ): Promise<boolean> {
