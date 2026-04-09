@@ -96,6 +96,9 @@ type IQuickSelectRecipient = {
   memo?: string;
   note?: string;
   quickSelectTab?: 'recent' | 'account' | 'addressBook';
+  isSearchMode?: boolean;
+  searchKeyLength?: number;
+  matchCount?: number;
 };
 
 type ISendInputFlowParamList = IModalSendParamList &
@@ -966,6 +969,9 @@ function SendDataInputContainer() {
       memo: selectedMemo,
       note: selectedNote,
       quickSelectTab,
+      isSearchMode: selectIsSearchMode,
+      searchKeyLength: selectSearchKeyLength,
+      matchCount: selectMatchCount,
     }: IQuickSelectRecipient) => {
       const isFromAccount =
         addressInputChangeType.current ===
@@ -984,6 +990,9 @@ function SendDataInputContainer() {
           network: currentAccount.networkId,
           tab: quickSelectTab,
           recipientType,
+          isSearchMode: selectIsSearchMode ?? false,
+          searchKeyLength: selectSearchKeyLength ?? 0,
+          matchCount: selectMatchCount ?? 0,
         });
       }
 

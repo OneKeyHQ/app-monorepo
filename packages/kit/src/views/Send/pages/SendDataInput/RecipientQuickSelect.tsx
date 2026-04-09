@@ -64,6 +64,9 @@ type IRecipientQuickSelectProps = {
     memo?: string;
     note?: string;
     quickSelectTab?: IRecipientQuickSelectTab;
+    isSearchMode?: boolean;
+    searchKeyLength?: number;
+    matchCount?: number;
   }) => void;
   onMatchStatusChange?: (hasMatches: boolean) => void;
 };
@@ -912,11 +915,28 @@ export default function RecipientQuickSelect({
   );
 
   // Report match status to parent: true only if a tab has explicitly reported matches
+  const lastNoResultKeyRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const statuses = Object.values(tabMatchStatus);
     const anyTabHasMatches = statuses.some((status) => status === true);
     onMatchStatusChange?.(anyTabHasMatches);
-  }, [tabMatchStatus, onMatchStatusChange]);
+
+    // Fire no-result event when all tabs have reported and none matched
+    const allReported = statuses.every((status) => status !== null);
+    if (
+      isSearchMode &&
+      trimmedSearchKey &&
+      allReported &&
+      !anyTabHasMatches &&
+      lastNoResultKeyRef.current !== trimmedSearchKey
+    ) {
+      lastNoResultKeyRef.current = trimmedSearchKey;
+      defaultLogger.transaction.send.quickSelectSearchNoResult({
+        network: networkId,
+        searchKeyLength: trimmedSearchKey.length,
+      });
+    }
+  }, [tabMatchStatus, onMatchStatusChange, isSearchMode, trimmedSearchKey, networkId]);
 
   // Auto-switch to a tab with matches when current tab has no matches
   useEffect(() => {
@@ -995,6 +1015,15 @@ export default function RecipientQuickSelect({
     hideTabs,
   ]);
 
+  const getSearchContext = useCallback(
+    () => ({
+      isSearchMode: !!(isSearchMode && trimmedSearchKey),
+      searchKeyLength: trimmedSearchKey.length,
+      matchCount: Object.values(tabMatchCounts).reduce((a, b) => a + b, 0),
+    }),
+    [isSearchMode, trimmedSearchKey, tabMatchCounts],
+  );
+
   return (
     <Animated.View entering={FadeIn.duration(200)}>
       <YStack mt="$3" gap="$3">
@@ -1028,7 +1057,11 @@ export default function RecipientQuickSelect({
                 onSelect={(params) => {
                   // Reset input type to Manual to prevent auto-navigation from Recent tab
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
-                  onSelect?.({ ...params, quickSelectTab: 'recent' });
+                  onSelect?.({
+                    ...params,
+                    quickSelectTab: 'recent',
+                    ...getSearchContext(),
+                  });
                 }}
                 onMatchStatusChange={handleRecentMatchStatus}
                 refreshKey={recentRefreshKey}
@@ -1044,7 +1077,11 @@ export default function RecipientQuickSelect({
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
                 onSelect={({ address }) =>
-                  onSelect?.({ address, quickSelectTab: 'account' })
+                  onSelect?.({
+                    address,
+                    quickSelectTab: 'account',
+                    ...getSearchContext(),
+                  })
                 }
                 onMatchStatusChange={handleAccountMatchStatus}
               />
@@ -1058,7 +1095,11 @@ export default function RecipientQuickSelect({
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
                 onSelect={(params) =>
-                  onSelect?.({ ...params, quickSelectTab: 'addressBook' })
+                  onSelect?.({
+                    ...params,
+                    quickSelectTab: 'addressBook',
+                    ...getSearchContext(),
+                  })
                 }
                 onMatchStatusChange={handleAddressBookMatchStatus}
               />

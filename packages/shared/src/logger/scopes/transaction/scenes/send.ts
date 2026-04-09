@@ -162,15 +162,24 @@ export class SendScene extends BaseScene {
     network,
     tab,
     recipientType,
+    isSearchMode,
+    searchKeyLength,
+    matchCount,
   }: {
     network: string | undefined;
     tab: 'recent' | 'account' | 'addressBook';
     recipientType: 'walletAccount' | 'addressBook' | 'recentRecipient';
+    isSearchMode: boolean;
+    searchKeyLength: number;
+    matchCount: number;
   }) {
     return {
       network,
       tab,
       recipientType,
+      isSearchMode,
+      searchKeyLength,
+      matchCount,
     };
   }
 
@@ -208,6 +217,20 @@ export class SendScene extends BaseScene {
       fromTab,
       toTab,
       isAutoSwitch,
+    };
+  }
+
+  @LogToServer()
+  public quickSelectSearchNoResult({
+    network,
+    searchKeyLength,
+  }: {
+    network: string | undefined;
+    searchKeyLength: number;
+  }) {
+    return {
+      network,
+      searchKeyLength,
     };
   }
 
