@@ -8,7 +8,7 @@ const UpdatePreview = LazyLoadPage(
 );
 
 const FeaturedChangelogPage = LazyLoadPage(
-  () => import('../pages/FeaturedChangelog'),
+  () => import('@onekeyhq/kit/src/views/AppUpdate/pages/FeaturedChangelog'),
 );
 
 const WhatsNew = LazyLoadPage(
