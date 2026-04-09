@@ -294,6 +294,9 @@ async function handleRequest(callId: string) {
 
   try {
     let result: unknown;
+    logBgRpcTrace(
+      `exec-start callId=${callId}, request=${requestLabel}`,
+    );
     switch (request.type) {
       case 'service-call':
       case 'bridge-call':
@@ -310,13 +313,30 @@ async function handleRequest(callId: string) {
           `Background request type is not supported: ${(request as IBackgroundThreadRequest).type}`,
         );
     }
-    sharedRPC.write(
-      responseKey,
-      serializeBackgroundThreadResponse({
-        ok: true,
-        result,
-      }),
+    logBgRpcTrace(
+      `exec-done callId=${callId}, request=${requestLabel}, elapsedMs=${
+        Date.now() - requestStartedAt
+      }`,
     );
+    try {
+      sharedRPC.write(
+        responseKey,
+        serializeBackgroundThreadResponse({
+          ok: true,
+          result,
+        }),
+      );
+      logBgRpcTrace(
+        `write-ok callId=${callId}, request=${requestLabel}`,
+      );
+    } catch (writeError) {
+      logBgRpcTrace(
+        `write-fail callId=${callId}, request=${requestLabel}, error=${
+          (writeError as Error)?.message || 'unknown'
+        }`,
+        'error',
+      );
+    }
     if (shouldTracePendingInstallTask) {
       logBgRpcTrace(
         `done callId=${callId}, request=${requestLabel}, elapsedMs=${
@@ -325,18 +345,25 @@ async function handleRequest(callId: string) {
       );
     }
   } catch (error) {
-    if (shouldTracePendingInstallTask) {
+    logBgRpcTrace(
+      `error callId=${callId}, request=${requestLabel}, elapsedMs=${
+        Date.now() - requestStartedAt
+      }, message=${(error as Error)?.message || 'unknown'}`,
+      'error',
+    );
+    try {
+      sharedRPC.write(
+        responseKey,
+        serializeBackgroundThreadResponse(buildErrorPayload(error)),
+      );
+    } catch (writeError) {
       logBgRpcTrace(
-        `error callId=${callId}, request=${requestLabel}, elapsedMs=${
-          Date.now() - requestStartedAt
-        }, message=${(error as Error)?.message || 'unknown'}`,
+        `error-write-fail callId=${callId}, error=${
+          (writeError as Error)?.message || 'unknown'
+        }`,
         'error',
       );
     }
-    sharedRPC.write(
-      responseKey,
-      serializeBackgroundThreadResponse(buildErrorPayload(error)),
-    );
   } finally {
     if (traceHeartbeatTimer) {
       clearInterval(traceHeartbeatTimer);
