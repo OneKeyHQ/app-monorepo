@@ -16,6 +16,7 @@ import {
   Input,
   NumberSizeableText,
   Page,
+  ScrollView,
   SizableText,
   Skeleton,
   Stack,
@@ -849,16 +850,18 @@ function SendAmountInputContainer() {
     Dialog.show({
       title: txMessageViewActionLabel,
       renderContent: (
-        <Stack maxHeight="$96" overflow="scroll">
+        <ScrollView maxHeight="$96">
           <SizableText
             size="$bodyLg"
             color="$textSubdued"
             selectable
-            style={platformEnv.isNative ? undefined : { wordBreak: 'break-all' }}
+            style={
+              platformEnv.isNative ? undefined : { wordBreak: 'break-all' }
+            }
           >
             {content}
           </SizableText>
-        </Stack>
+        </ScrollView>
       ),
       showCancelButton: false,
       onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),

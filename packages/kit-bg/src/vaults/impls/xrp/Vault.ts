@@ -425,7 +425,7 @@ export default class Vault extends VaultBase {
     if (!memo) return { isValid: true };
 
     // XRP destination tag: unsigned 32-bit integer (0 – 4 294 967 295)
-    const MAX_UINT32 = 4294967295;
+    const MAX_UINT32 = 4_294_967_295;
     const tag = Number(memo);
 
     if (!Number.isInteger(tag) || tag < 0 || tag > MAX_UINT32) {

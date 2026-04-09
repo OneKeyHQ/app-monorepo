@@ -180,7 +180,6 @@ function SendDataInputContainer() {
     numericOnlyMemo,
     displayNoteForm,
     noteMaxLength,
-    supportsMemoValidation,
   ] = useMemo(() => {
     return [
       vaultSettings?.withMemo,
@@ -189,7 +188,6 @@ function SendDataInputContainer() {
       vaultSettings?.numericOnlyMemo,
       vaultSettings?.withNote,
       vaultSettings?.noteMaxLength,
-      vaultSettings?.supportMemoValidation,
     ];
   }, [vaultSettings]);
 
@@ -795,16 +793,12 @@ function SendDataInputContainer() {
     }) => {
       const memoText = normalizeOptionalRecipientText(selectedMemo);
       const noteText = normalizeOptionalRecipientText(selectedNote);
-      form.setValue(
-        'memo',
-        displayMemoForm ? memoText : '',
-        { shouldValidate: true },
-      );
-      form.setValue(
-        'note',
-        noteText || (isNoteOnlyChain ? memoText : ''),
-        { shouldValidate: true },
-      );
+      form.setValue('memo', displayMemoForm ? memoText : '', {
+        shouldValidate: true,
+      });
+      form.setValue('note', noteText || (isNoteOnlyChain ? memoText : ''), {
+        shouldValidate: true,
+      });
 
       const currentTo = form.getValues('to') as IAddressInputValue | undefined;
       // Skip resetting when the same address is already resolved,
@@ -912,10 +906,7 @@ function SendDataInputContainer() {
         });
 
         const effectiveNote =
-          selectedNote ||
-          (isNoteOnlyChain
-            ? selectedMemo?.trim()
-            : undefined);
+          selectedNote || (isNoteOnlyChain ? selectedMemo?.trim() : undefined);
         pushAmountInput({
           networkId: currentAccount.networkId,
           accountId: currentAccount.accountId,
