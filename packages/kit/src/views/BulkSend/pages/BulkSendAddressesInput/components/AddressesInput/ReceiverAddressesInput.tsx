@@ -255,6 +255,7 @@ function SingleLineReceiverInput() {
         });
 
       if (!result.isValid) {
+        setReceiverValidationErrors([]);
         let networkName = network?.name ?? '';
         if (networkId && networkId !== network?.id) {
           try {
