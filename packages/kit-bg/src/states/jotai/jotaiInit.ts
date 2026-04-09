@@ -59,27 +59,44 @@ async function preloadAtomStorageValues() {
 }
 
 /**
- * Proactive one-time migration: AsyncStorage → MMKV per-key.
- * Reads all expected atom keys from AsyncStorage and writes any
- * missing ones to MMKV. Idempotent — skips keys already in MMKV.
+ * Collect storage keys for persist-only atoms.
+ * Requires atoms to be imported first so we can check atomObj.persist.
  */
-async function migrateToMMKVIfNeeded() {
+function collectPersistKeys(allAtoms: Record<string, unknown>): string[] {
+  const keys: string[] = [];
+  for (const value of Object.values(allAtoms)) {
+    if (!(value instanceof JotaiCrossAtom) || !value.name) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const atomObj = (value as any).atom() as IJotaiWritableAtomPro<
+      any,
+      any,
+      any
+    >;
+    if (atomObj.persist) {
+      keys.push(buildJotaiStorageKey(value.name as EAtomNames));
+    }
+  }
+  return keys;
+}
+
+/**
+ * Proactive one-time migration: AsyncStorage → MMKV per-key.
+ * Only migrates persist atoms (42 keys), not all 110+ atoms.
+ */
+async function migrateToMMKVIfNeeded(allAtoms: Record<string, unknown>) {
   if (!platformEnv.isNative) return;
   if (!('migrateFromAsyncStorage' in onekeyJotaiStorage)) return;
-  const expectedKeys = Object.values(EAtomNames).map((name) =>
-    buildJotaiStorageKey(name),
-  );
-  // settingsPersistAtom always exists for non-first-install users.
-  // Used as a fast probe to skip migration on fresh installs.
+
+  const persistKeys = collectPersistKeys(allAtoms);
   const probeKey = buildJotaiStorageKey(EAtomNames.settingsPersistAtom);
   await (
     onekeyJotaiStorage as {
-      migrateFromAsyncStorage: (
-        keys: string[],
-        probe: string,
-      ) => Promise<void>;
+      migrateFromAsyncStorage: (keys: string[], probe: string) => Promise<void>;
     }
-  ).migrateFromAsyncStorage(expectedKeys, probeKey);
+  ).migrateFromAsyncStorage(persistKeys, probeKey);
 }
 
 export async function jotaiInit() {
@@ -87,15 +104,14 @@ export async function jotaiInit() {
     debugLandingLog('jotaiInit start');
   }
 
-  // Native: proactively migrate AsyncStorage → MMKV per-key before reading.
-  // Must complete before preloadAtomStorageValues() so MMKV has all data.
-  await migrateToMMKVIfNeeded();
+  // Import atoms first — needed to determine which atoms are persist.
+  const allAtoms = await import('./atoms');
 
-  // Parallelize: import atoms + preload all storage values at the same time
-  const [allAtoms, preloadedStorage] = await Promise.all([
-    import('./atoms'),
-    preloadAtomStorageValues(),
-  ]);
+  // Native: proactively migrate persist atoms AsyncStorage → MMKV per-key.
+  // Must complete before preloadAtomStorageValues() so MMKV has all data.
+  await migrateToMMKVIfNeeded(allAtoms);
+
+  const preloadedStorage = await preloadAtomStorageValues();
 
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('jotaiInit atoms imported & storage preloaded');
