@@ -524,9 +524,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ...args
   ) => {
     const socket = event.target as WebSocket | undefined;
-    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
+    const readyState = socket?.readyState;
+    this._lastReadyState = readyState;
+    void perpsWebSocketReadyStateAtom.set({ readyState });
     console.log('hyperliquidWebSocket__event__error', {
-      readyState: socket?.readyState,
+      readyState,
       code: (event as any)?.code,
       message: (event as any)?.message,
       reason: (event as any)?.reason,
@@ -540,9 +542,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ...args
   ) => {
     const socket = event.target as WebSocket | undefined;
-    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
+    const readyState = socket?.readyState;
+    this._lastReadyState = readyState;
+    void perpsWebSocketReadyStateAtom.set({ readyState });
     console.log('hyperliquidWebSocket__event__close', {
-      readyState: socket?.readyState,
+      readyState,
       code: event.code,
       reason: event.reason,
       wasClean: event.wasClean,
@@ -565,9 +569,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ...args
   ) => {
     const socket = event.target as WebSocket | undefined;
-    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
+    const readyState = socket?.readyState;
+    this._lastReadyState = readyState;
+    void perpsWebSocketReadyStateAtom.set({ readyState });
     console.log('hyperliquidWebSocket__event__open', {
-      readyState: socket?.readyState,
+      readyState,
       args,
       event,
     });
@@ -594,14 +600,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._startPingLoop();
   };
 
+  private _lastReadyState: number | undefined;
+
   socketMessageHandler: (event: WebSocketEventMap['message']) => void = (
     event,
     ...args
   ) => {
     const socket = event.target as WebSocket | undefined;
-    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
+    const readyState = socket?.readyState;
+    // Only write readyState atom when it actually changes to avoid
+    // triggering downstream re-renders on every WS message
+    if (readyState !== this._lastReadyState) {
+      this._lastReadyState = readyState;
+      void perpsWebSocketReadyStateAtom.set({ readyState });
+    }
     console.log('hyperliquidWebSocket__event__message', {
-      readyState: socket?.readyState,
+      readyState,
       args,
       event,
     });

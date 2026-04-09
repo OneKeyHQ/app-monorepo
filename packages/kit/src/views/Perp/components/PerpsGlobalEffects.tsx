@@ -484,38 +484,50 @@ function WebSocketSubscriptionUpdate() {
   const isLoadingRef = useRef(isLoading);
   isLoadingRef.current = isLoading;
 
+  // Extract primitive values from objects to avoid re-running effect on
+  // every new object reference when the actual values haven't changed
+  const instrumentCoin = activeTradeInstrument?.coin;
+  const instrumentMode = activeTradeInstrument.mode;
+  const instrumentAssetId = activeTradeInstrument?.assetId;
+  const orderBookCoin = activeOrderBookOptions?.coin;
+  const orderBookMantissa = activeOrderBookOptions?.mantissa;
+  const orderBookNSigFigs = activeOrderBookOptions?.nSigFigs;
+  const routeFocused = tradeRouteViewState.routeFocused;
+  const tokenSelectorOpen = tradeRouteViewState.tokenSelectorOpen;
+  const tokenSelectorTab = tradeRouteViewState.tokenSelectorTab;
+  const infoPanelTab = tradeRouteViewState.infoPanelTab;
+  const accountAddress = activePerpsAccount?.accountAddress;
+
+  // Keep refs for objects needed inside the effect body (not as triggers)
+  const activeTradeInstrumentRef = useRef(activeTradeInstrument);
+  activeTradeInstrumentRef.current = activeTradeInstrument;
+  const activeOrderBookOptionsRef = useRef(activeOrderBookOptions);
+  activeOrderBookOptionsRef.current = activeOrderBookOptions;
+  const tradeRouteViewStateRef = useRef(tradeRouteViewState);
+  tradeRouteViewStateRef.current = tradeRouteViewState;
+
   useEffect(() => {
     checkDeps({
       isWebSocketConnected,
       isLoading,
       actions,
-      address: activePerpsAccount?.accountAddress,
-      coin: activeTradeInstrument?.coin,
-      tradingMode: activeTradeInstrument.mode,
-      mantissa: activeOrderBookOptions?.mantissa,
-      nSigFigs: activeOrderBookOptions?.nSigFigs,
-      orderBookCoin: activeOrderBookOptions?.coin,
-      routeFocused: tradeRouteViewState.routeFocused,
-      tokenSelectorOpen: tradeRouteViewState.tokenSelectorOpen,
-      tokenSelectorTab: tradeRouteViewState.tokenSelectorTab,
-      infoPanelTab: tradeRouteViewState.infoPanelTab,
+      address: accountAddress,
+      coin: instrumentCoin,
+      tradingMode: instrumentMode,
+      mantissa: orderBookMantissa,
+      nSigFigs: orderBookNSigFigs,
+      orderBookCoin,
+      routeFocused,
+      tokenSelectorOpen,
+      tokenSelectorTab,
+      infoPanelTab,
     });
-    noop(activePerpsAccount?.accountAddress);
-    noop(activeTradeInstrument?.coin);
-    noop(activeOrderBookOptions?.coin);
-    noop(activeOrderBookOptions?.mantissa);
-    noop(activeOrderBookOptions?.nSigFigs);
-    noop(activeTradeInstrument.mode);
-    noop(tradeRouteViewState.routeFocused);
-    noop(tradeRouteViewState.tokenSelectorOpen);
-    noop(tradeRouteViewState.tokenSelectorTab);
-    noop(tradeRouteViewState.infoPanelTab);
 
     const plan = planTradeSubscriptions({
-      activeInstrument: activeTradeInstrument,
-      hasAccount: !!activePerpsAccount?.accountAddress,
-      orderBookOptions: activeOrderBookOptions,
-      viewState: tradeRouteViewState,
+      activeInstrument: activeTradeInstrumentRef.current,
+      hasAccount: !!accountAddress,
+      orderBookOptions: activeOrderBookOptionsRef.current,
+      viewState: tradeRouteViewStateRef.current,
     });
 
     void backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
@@ -538,10 +550,17 @@ function WebSocketSubscriptionUpdate() {
     isWebSocketConnected,
     isLoading,
     actions,
-    activePerpsAccount?.accountAddress,
-    activeTradeInstrument,
-    activeOrderBookOptions,
-    tradeRouteViewState,
+    accountAddress,
+    instrumentCoin,
+    instrumentMode,
+    instrumentAssetId,
+    orderBookCoin,
+    orderBookMantissa,
+    orderBookNSigFigs,
+    routeFocused,
+    tokenSelectorOpen,
+    tokenSelectorTab,
+    infoPanelTab,
   ]);
   return null;
 }

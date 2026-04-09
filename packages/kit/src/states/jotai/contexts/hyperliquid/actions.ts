@@ -71,10 +71,10 @@ import {
   perpsOpenOrdersByCoinAtomCache,
   perpsTokenSearchAliasesAtom,
   subscriptionActiveAtom,
+  tradeRouteViewStateAtom,
   tradingFormAtom,
   tradingFormEnvAtom,
   tradingLoadingAtom,
-  tradeRouteViewStateAtom,
 } from './atoms';
 import { EActionType, withToast } from './utils';
 
@@ -568,6 +568,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     };
   }
 
+  /**
+   * Compare two IActiveTradeInstrument values by their meaningful fields.
+   * Used to skip redundant atom writes that would create new object
+   * references and trigger downstream re-renders.
+   */
+  private static _isTradeInstrumentEqual(
+    a: IActiveTradeInstrument,
+    b: IActiveTradeInstrument,
+  ): boolean {
+    return a.mode === b.mode && a.coin === b.coin && a.assetId === b.assetId;
+  }
+
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
     const activeCoin = await this._getActiveCoin();
     if (!data) {
@@ -713,10 +725,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     async (get, set, { coin, force }: { coin: string; force?: boolean }) => {
       const activeAsset = await perpsActiveAssetAtom.get();
       if (activeAsset?.coin === coin && !force) {
-        set(
-          activeTradeInstrumentAtom(),
-          await this._buildActiveTradeInstrument('perp'),
-        );
+        const next = await this._buildActiveTradeInstrument('perp');
+        const prev = get(activeTradeInstrumentAtom());
+        if (
+          !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
+        ) {
+          set(activeTradeInstrumentAtom(), next);
+        }
         return;
       }
 
@@ -756,7 +771,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   changeActiveSpotAsset = contextAtomMethod(
     async (
-      _get,
+      get,
       set,
       {
         coin,
@@ -767,10 +782,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (currentSpotAsset?.coin === coin) {
         const currentMode = await tradingModeAtom.get();
         if (currentMode === 'spot') {
-          set(
-            activeTradeInstrumentAtom(),
-            await this._buildActiveTradeInstrument('spot'),
-          );
+          const next = await this._buildActiveTradeInstrument('spot');
+          const prev = get(activeTradeInstrumentAtom());
+          if (
+            !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
+          ) {
+            set(activeTradeInstrumentAtom(), next);
+          }
           return;
         }
       }
@@ -846,6 +864,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   setTradeRouteViewState = contextAtomMethod(
     (get, set, patch: Partial<ITradeRouteViewState>) => {
       const current = get(tradeRouteViewStateAtom());
+      // Skip atom write when all patched values are identical to current
+      // to avoid creating a new object reference that triggers re-renders
+      const keys = Object.keys(patch) as Array<keyof ITradeRouteViewState>;
+      const hasChange = keys.some((k) => current[k] !== patch[k]);
+      if (!hasChange) {
+        return;
+      }
       set(tradeRouteViewStateAtom(), {
         ...current,
         ...patch,
