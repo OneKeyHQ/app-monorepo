@@ -422,9 +422,10 @@ const SwapActionsState = ({
   const recipientAddressDisplayLabel =
     swapRecipientAddressInfo?.showAddress ?? recipientAddLabel;
 
-  const recipientAccountDisplayLabel = swapRecipientAddressInfo?.showAddress
-    ? `(${recipientAccountLabel})`
-    : null;
+  const recipientAccountDisplayLabel =
+    swapRecipientAddressInfo?.showAddress && recipientAccountLabel
+      ? `(${recipientAccountLabel})`
+      : null;
 
   const recipientComponent = useMemo(() => {
     if (shouldShowRecipientInActionRow) {
@@ -655,24 +656,31 @@ const SwapActionsState = ({
     }
   }, [costSavingsComponent]);
 
-  const onDesktopActionTagLayout = useCallback((event: any) => {
-    const nextWidth = event?.nativeEvent?.layout?.width;
+  const onDesktopActionTagLayout = useCallback(
+    (event: { nativeEvent: { layout: { width: number } } }) => {
+      const nextWidth = event?.nativeEvent?.layout?.width;
 
-    if (typeof nextWidth !== 'number' || Number.isNaN(nextWidth)) {
-      return;
-    }
-
-    setDesktopActionWidth((prevWidth) =>
-      prevWidth === nextWidth ? prevWidth : nextWidth,
-    );
-  }, []);
-
-  const desktopActionWidthProps = desktopActionWidth
-    ? {
-        width: desktopActionWidth,
-        minWidth: desktopActionWidth,
+      if (typeof nextWidth !== 'number' || Number.isNaN(nextWidth)) {
+        return;
       }
-    : undefined;
+
+      setDesktopActionWidth((prevWidth) =>
+        prevWidth === nextWidth ? prevWidth : nextWidth,
+      );
+    },
+    [],
+  );
+
+  const desktopActionWidthProps = useMemo(
+    () =>
+      desktopActionWidth
+        ? {
+            width: desktopActionWidth,
+            minWidth: desktopActionWidth,
+          }
+        : undefined,
+    [desktopActionWidth],
+  );
 
   const actionButtonChildren = useMemo(
     () =>
@@ -785,58 +793,73 @@ const SwapActionsState = ({
     recipientMetaRowComponent,
   ]);
 
-  const desktopFooterComponent = (
-    <Page.Footer>
-      <Stack p="$5" bg="$bgApp" gap="$2">
-        {costSavingsComponent ? (
-          <XStack width="100%" justifyContent="flex-end">
+  const desktopFooterComponent = useMemo(
+    () => (
+      <Page.Footer>
+        <Stack p="$5" bg="$bgApp" gap="$2">
+          {costSavingsComponent ? (
+            <XStack width="100%" justifyContent="flex-end">
+              <Stack
+                flexShrink={0}
+                alignItems="stretch"
+                {...desktopActionWidthProps}
+              >
+                <Stack alignItems="center" onLayout={onDesktopActionTagLayout}>
+                  {costSavingsComponent}
+                </Stack>
+              </Stack>
+            </XStack>
+          ) : null}
+          <XStack width="100%" alignItems="center" gap="$4">
+            <Stack
+              flex={1}
+              minWidth={0}
+              gap="$6"
+              alignItems="center"
+              overflow="hidden"
+            >
+              {incognitoComponent}
+              {recipientFooterComponent}
+            </Stack>
             <Stack
               flexShrink={0}
               alignItems="stretch"
+              gap="$2"
               {...desktopActionWidthProps}
             >
-              <Stack alignItems="center" onLayout={onDesktopActionTagLayout}>
-                {costSavingsComponent}
-              </Stack>
+              <Button
+                onPress={onActionHandlerBefore}
+                size="medium"
+                variant="primary"
+                disabled={swapActionState.disabled || swapActionState.isLoading}
+                borderRadius="$full"
+                {...(desktopActionWidth ? { width: '100%' } : {})}
+              >
+                {actionButtonChildren}
+              </Button>
             </Stack>
           </XStack>
+        </Stack>
+        {!platformEnv.isNativeIOS ? (
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
         ) : null}
-        <XStack width="100%" alignItems="center" gap="$4">
-          <XStack
-            flex={1}
-            minWidth={0}
-            gap="$6"
-            alignItems="center"
-            overflow="hidden"
-          >
-            {incognitoComponent}
-            {recipientFooterComponent}
-          </XStack>
-          <Stack
-            flexShrink={0}
-            alignItems="stretch"
-            gap="$2"
-            {...desktopActionWidthProps}
-          >
-            <Button
-              onPress={onActionHandlerBefore}
-              size="medium"
-              variant="primary"
-              disabled={swapActionState.disabled || swapActionState.isLoading}
-              borderRadius="$full"
-              {...(desktopActionWidth ? { width: '100%' } : {})}
-            >
-              {actionButtonChildren}
-            </Button>
-          </Stack>
-        </XStack>
-      </Stack>
-      {!platformEnv.isNativeIOS ? (
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-      ) : null}
-    </Page.Footer>
+      </Page.Footer>
+    ),
+    [
+      actionButtonChildren,
+      costSavingsComponent,
+      desktopActionWidth,
+      desktopActionWidthProps,
+      incognitoComponent,
+      onActionHandlerBefore,
+      onDesktopActionTagLayout,
+      onSelectPercentageStage,
+      recipientFooterComponent,
+      swapActionState.disabled,
+      swapActionState.isLoading,
+    ],
   );
 
   const actionComponentCoverFooter = useMemo(
