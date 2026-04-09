@@ -12,8 +12,8 @@ import {
   useFormContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -41,6 +41,16 @@ import { useMultiLineAddressValidation } from './useMultiLineAddressValidation';
 type IReceiverAddressesInputProps = {
   maxLines?: number;
 };
+
+type IParsedAllowlistMessage =
+  | {
+      key: string;
+      lineNumber: number;
+    }
+  | {
+      key: string;
+      message: string;
+    };
 
 const BULK_SEND_ALLOWLIST_ERROR_ID =
   ETranslations.wallet_bulk_send_error_address_not_in_allowlist;
@@ -127,7 +137,7 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
     ],
   );
 
-  const parsedMessages = useMemo(() => {
+  const parsedMessages = useMemo<IParsedAllowlistMessage[]>(() => {
     const blockingAllowlistErrors = receiverValidationErrors.filter(
       (item) =>
         item.translationId === ETranslations.send_address_not_allowlist_error &&
@@ -156,7 +166,7 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
   return (
     <YStack gap="$1">
       {parsedMessages.map((item) =>
-        item.lineNumber ? (
+        'lineNumber' in item ? (
           <HyperlinkText
             key={item.key}
             color="$textCritical"

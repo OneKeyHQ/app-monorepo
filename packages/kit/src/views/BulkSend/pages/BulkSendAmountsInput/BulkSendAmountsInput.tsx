@@ -803,11 +803,13 @@ function BulkSendAmountsInputContent({
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
   const sanitizedInitialTokenDetails = useMemo(
     () =>
-      isBulkSendTokenDetailsMatched({
-        networkId,
-        tokenInfo,
-        tokenDetails: initialTokenDetails,
-      })
+      isBulkSendTokenDetailsMatched(
+        {
+          networkId,
+          tokenInfo,
+        },
+        initialTokenDetails,
+      )
         ? initialTokenDetails
         : undefined,
     [networkId, tokenInfo, initialTokenDetails],
@@ -894,11 +896,13 @@ function BulkSendAmountsInputContent({
 
   const matchedTokenDetails = useMemo(
     () =>
-      isBulkSendTokenDetailsMatched({
-        networkId,
-        tokenInfo,
+      isBulkSendTokenDetailsMatched(
+        {
+          networkId,
+          tokenInfo,
+        },
         tokenDetails,
-      })
+      )
         ? tokenDetails
         : undefined,
     [networkId, tokenInfo, tokenDetails],
@@ -1269,11 +1273,13 @@ function BulkSendAmountsInputContent({
 
           if (
             resp[0] &&
-            isBulkSendTokenDetailsMatched({
-              networkId,
-              tokenInfo,
-              tokenDetails: resp[0],
-            })
+            isBulkSendTokenDetailsMatched(
+              {
+                networkId,
+                tokenInfo,
+              },
+              resp[0],
+            )
           ) {
             setTokenDetails(resp[0]);
             setTokenDetailsState({
@@ -1425,11 +1431,13 @@ function BulkSendAmountsInputContent({
             return;
           }
           const matchedToken = item.tokens.find((token) =>
-            isBulkSendTokenDetailsMatched({
-              networkId,
-              tokenInfo,
-              tokenDetails: token,
-            }),
+            isBulkSendTokenDetailsMatched(
+              {
+                networkId,
+                tokenInfo,
+              },
+              token,
+            ),
           );
           if (matchedToken?.balanceParsed !== undefined) {
             batchBalancesByKey.set(addressKey, matchedToken.balanceParsed);

@@ -94,7 +94,10 @@ function LnurlPayRequestModal() {
     },
   });
   const amountValue = useFormReturn.watch('amount');
-  const isAmountEmpty = useMemo(() => !`${amountValue ?? ''}`.trim(), [amountValue]);
+  const isAmountEmpty = useMemo(
+    () => !String(amountValue ?? '').trim(),
+    [amountValue],
+  );
 
   const commentAllowedLength = useMemo(() => {
     if (

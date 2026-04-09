@@ -1,9 +1,10 @@
 import { createContext, useContext } from 'react';
 
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import type { ILineError } from './AddressesInput/LineNumberedTextArea';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
+import type { ILineError } from './AddressesInput/LineNumberedTextArea';
 
 export type ITokenDetailsState = {
   initialized: boolean;

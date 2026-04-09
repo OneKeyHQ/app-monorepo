@@ -8,6 +8,7 @@ import type {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   EIntervalMode,
@@ -17,7 +18,6 @@ import {
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 export const BULK_SEND_INTERVAL_MAX_SECONDS = 600;
 
@@ -108,15 +108,16 @@ export function calculateTotalAmounts({
   };
 }
 
-export function isBulkSendTokenDetailsMatched({
-  networkId,
-  tokenInfo,
-  tokenDetails,
-}: {
-  networkId?: string;
-  tokenInfo?: IToken;
-  tokenDetails?: ({ info: IToken } & Partial<ITokenFiat>) | undefined;
-}): tokenDetails is { info: IToken } & Partial<ITokenFiat> {
+export function isBulkSendTokenDetailsMatched(
+  {
+    networkId,
+    tokenInfo,
+  }: {
+    networkId?: string;
+    tokenInfo?: IToken;
+  },
+  tokenDetails?: ({ info: IToken } & Partial<ITokenFiat>) | undefined,
+): tokenDetails is { info: IToken } & Partial<ITokenFiat> {
   if (!tokenInfo || !tokenDetails?.info) {
     return false;
   }

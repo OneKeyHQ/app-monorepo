@@ -50,12 +50,13 @@ import { isBulkSendTokenDetailsMatched } from '../../utils';
 
 import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
-import type { ILineError } from './components/AddressesInput/LineNumberedTextArea';
 import AssetSelectorTrigger from './components/AssetSelectorTrigger';
 import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
 } from './components/Context';
+
+import type { ILineError } from './components/AddressesInput/LineNumberedTextArea';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
@@ -343,11 +344,13 @@ function BaseBulkSendAddressesInput() {
 
           if (
             resp[0] &&
-            isBulkSendTokenDetailsMatched({
-              networkId: selectedNetworkId,
-              tokenInfo: selectedToken,
-              tokenDetails: resp[0],
-            })
+            isBulkSendTokenDetailsMatched(
+              {
+                networkId: selectedNetworkId,
+                tokenInfo: selectedToken,
+              },
+              resp[0],
+            )
           ) {
             setSelectedTokenDetail(resp[0]);
           } else {
@@ -571,11 +574,13 @@ function BaseBulkSendAddressesInput() {
 
         if (
           resp[0] &&
-          isBulkSendTokenDetailsMatched({
-            networkId: selectedNetworkId,
-            tokenInfo: selectedToken,
-            tokenDetails: resp[0],
-          })
+          isBulkSendTokenDetailsMatched(
+            {
+              networkId: selectedNetworkId,
+              tokenInfo: selectedToken,
+            },
+            resp[0],
+          )
         ) {
           resolvedTokenDetails = resp[0];
           setSelectedTokenDetail(resp[0]);
