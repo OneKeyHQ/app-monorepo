@@ -9,7 +9,7 @@ interface IFeaturedMediaProps extends PropsWithChildren {
 
 function FeaturedMedia({ feature, children }: IFeaturedMediaProps) {
   return (
-    <Stack flex={1} overflow="hidden" position="relative">
+    <Stack flex={1} overflow="hidden" position="relative" borderRadius="$4" borderCurve="continuous">
       {feature.mediaType === 'video' ? (
         <Video
           key={feature.mediaUrl}

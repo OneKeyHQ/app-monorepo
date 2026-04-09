@@ -214,6 +214,7 @@ function FeaturedChangelog({
           </YStack>
 
           {/* Media fills remaining space, with gradient + text overlay */}
+          <Stack flex={1} px="$5" pb="$3">
           <FeaturedMedia feature={activeFeature}>
             <LinearGradient
               colors={['transparent', 'rgba(0,0,0,0.7)']}
@@ -221,8 +222,8 @@ function FeaturedChangelog({
               bottom={0}
               left={0}
               right={0}
-              px="$5"
-              pb="$5"
+              px="$4"
+              pb="$4"
               pt="$16"
             >
               <SizableText size="$headingLg" color="$whiteA12" mb="$1">
@@ -233,6 +234,7 @@ function FeaturedChangelog({
               </SizableText>
             </LinearGradient>
           </FeaturedMedia>
+          </Stack>
         </YStack>
       </Page.Body>
       <FeaturedFooter
