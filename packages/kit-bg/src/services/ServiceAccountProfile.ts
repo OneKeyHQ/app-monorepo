@@ -160,11 +160,13 @@ class ServiceAccountProfile extends ServiceBase {
     fromAddress,
     toAddress,
     checkInteraction,
+    xpub,
   }: {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
     checkInteraction?: boolean;
+    xpub?: string;
   }): Promise<{
     isScam: boolean;
     isContract: boolean;
@@ -197,6 +199,7 @@ class ServiceAccountProfile extends ServiceBase {
           fromAddress,
           toAddress,
           checkInteraction,
+          xpub,
         },
       });
       const {
@@ -270,6 +273,83 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
 
+    // For merge-derive chains (BTC/LTC) one user-facing account owns
+    // multiple xpubs; the /badges API is xpub-scoped so we must call it
+    // once per xpub and merge, otherwise the result only reflects the
+    // derive type of the currently-selected address (OK-52897).
+    const xpubEntries = accountId
+      ? await this.backgroundApi.serviceAccount.getAccountXpubsForAllDeriveTypes(
+          {
+            accountId,
+            networkId,
+          },
+        )
+      : [];
+
+    type IBadgeResult = Awaited<ReturnType<typeof this.getAddressAccountBadge>>;
+    let merged: IBadgeResult;
+    if (xpubEntries.length > 1) {
+      const responses = await Promise.all(
+        xpubEntries.map((entry) =>
+          this.getAddressAccountBadge({
+            networkId,
+            fromAddress,
+            toAddress,
+            checkInteraction,
+            xpub: entry.xpub,
+          }),
+        ),
+      );
+      // Merge semantics: any-true wins for boolean flags (a tag that
+      // matches ANY of the derive paths is meaningful); label/similar
+      // address are taken from the first non-empty response; badges are
+      // concatenated and deduped.
+      const seenBadgeIds = new Set<string>();
+      const mergedBadges: IAddressBadge[] = [];
+      merged = {
+        isScam: false,
+        isContract: false,
+        isCex: false,
+        interacted: EAddressInteractionStatus.UNKNOWN,
+        badges: mergedBadges,
+      };
+      for (const r of responses) {
+        merged.isScam = merged.isScam || r.isScam;
+        merged.isContract = merged.isContract || r.isContract;
+        merged.isCex = merged.isCex || r.isCex;
+        // "interacted" from any derive path is enough
+        if (r.interacted === EAddressInteractionStatus.INTERACTED) {
+          merged.interacted = EAddressInteractionStatus.INTERACTED;
+        } else if (
+          merged.interacted === EAddressInteractionStatus.UNKNOWN &&
+          r.interacted === EAddressInteractionStatus.NOT_INTERACTED
+        ) {
+          merged.interacted = EAddressInteractionStatus.NOT_INTERACTED;
+        }
+        if (!merged.addressLabel && r.addressLabel) {
+          merged.addressLabel = r.addressLabel;
+        }
+        if (!merged.similarAddress && r.similarAddress) {
+          merged.similarAddress = r.similarAddress;
+        }
+        for (const badge of r.badges) {
+          const key = `${badge.type ?? ''}:${badge.label ?? ''}`;
+          if (!seenBadgeIds.has(key)) {
+            seenBadgeIds.add(key);
+            mergedBadges.push(badge);
+          }
+        }
+      }
+    } else {
+      merged = await this.getAddressAccountBadge({
+        networkId,
+        fromAddress,
+        toAddress,
+        checkInteraction,
+        xpub: xpubEntries[0]?.xpub,
+      });
+    }
+
     const {
       isContract,
       interacted,
@@ -278,12 +358,7 @@ class ServiceAccountProfile extends ServiceBase {
       isCex,
       badges,
       similarAddress,
-    } = await this.getAddressAccountBadge({
-      networkId,
-      fromAddress,
-      toAddress,
-      checkInteraction,
-    });
+    } = merged;
     if (
       checkInteractionStatus &&
       fromAddress &&

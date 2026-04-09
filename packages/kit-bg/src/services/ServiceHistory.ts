@@ -908,39 +908,77 @@ class ServiceHistory extends ServiceBase {
   }): Promise<{ supported: boolean; data: ITransferRecipient[] }> {
     const { accountId, networkId, limit = 10 } = params;
 
-    // Get account address for API
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
       });
 
+    // For merge-derive chains (BTC/LTC) one user-facing account owns
+    // multiple xpubs; the /transfer-recipient API is xpub-scoped so we must
+    // call it once per xpub and merge, otherwise the result only reflects
+    // the derive type of the currently-selected address (OK-52897).
+    const xpubEntries =
+      await this.backgroundApi.serviceAccount.getAccountXpubsForAllDeriveTypes({
+        accountId,
+        networkId,
+      });
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const headers =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
 
-    try {
-      const resp = await client.get<{ data: IFetchTransferRecipientsResp }>(
-        '/wallet/v1/account/transfer-recipient',
-        {
-          params: {
-            networkId,
-            accountAddress,
-            limit,
+    const callOnce = async (xpub?: string) => {
+      try {
+        const resp = await client.get<{ data: IFetchTransferRecipientsResp }>(
+          '/wallet/v1/account/transfer-recipient',
+          {
+            params: {
+              networkId,
+              accountAddress,
+              limit,
+              xpub,
+            },
+            headers,
           },
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            ),
-        },
-      );
+        );
+        const { supported, data } = resp.data.data;
+        return { supported: supported ?? true, data: data ?? [] };
+      } catch (error) {
+        console.error('Failed to fetch transfer recipients:', error);
+        return { supported: false, data: [] as ITransferRecipient[] };
+      }
+    };
 
-      const { supported, data } = resp.data.data;
-      return { supported: supported ?? true, data: data ?? [] };
-    } catch (error) {
-      console.error('Failed to fetch transfer recipients:', error);
-      return { supported: false, data: [] };
+    if (xpubEntries.length <= 1) {
+      return callOnce(xpubEntries[0]?.xpub);
     }
+
+    const responses = await Promise.all(
+      xpubEntries.map((entry) => callOnce(entry.xpub)),
+    );
+    // A single derive-path returning supported=true is enough to mark the
+    // whole query as supported; the merged list is deduped by lowercase
+    // address and sorted by most-recent time.
+    const anySupported = responses.some((r) => r.supported);
+    const seen = new Set<string>();
+    const merged: ITransferRecipient[] = [];
+    for (const r of responses) {
+      for (const item of r.data) {
+        const key = item.address.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(item);
+        }
+      }
+    }
+    merged.sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
+    return {
+      supported: anySupported,
+      data: merged.slice(0, limit),
+    };
   }
 
   @backgroundMethod()

@@ -4115,6 +4115,103 @@ class ServiceAccount extends ServiceBase {
     return { networkAccounts, network };
   }
 
+  // For chains with `mergeDeriveAssetsEnabled` (BTC / LTC), a single user-
+  // facing "account" owns multiple xpubs (one per derive type: Legacy /
+  // Nested SegWit / Native SegWit / Taproot). The backend APIs that accept a
+  // single `accountAddress` can only see one derive path worth of data;
+  // callers that need full coverage must call the API once per xpub and
+  // merge the results. This helper centralizes that enumeration.
+  //
+  // Return shape: one entry per derive type. For chains without the merge
+  // setting, a single entry is returned matching the caller's own account.
+  // Empty/unresolved xpubs are filtered out so callers can blindly iterate.
+  @backgroundMethod()
+  async getAccountXpubsForAllDeriveTypes({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<
+    Array<{
+      accountId: string;
+      xpub: string;
+      deriveType: IAccountDeriveTypes;
+    }>
+  > {
+    const { serviceNetwork } = this.backgroundApi;
+    const vaultSettings = await serviceNetwork.getVaultSettings({ networkId });
+
+    if (!vaultSettings.mergeDeriveAssetsEnabled) {
+      const xpub = await this.getAccountXpub({ accountId, networkId });
+      if (!xpub) return [];
+      return [
+        {
+          accountId,
+          xpub,
+          deriveType: 'default' as IAccountDeriveTypes,
+        },
+      ];
+    }
+
+    let dbAccount: IDBAccount | undefined;
+    try {
+      dbAccount = await this.getDBAccountSafe({ accountId });
+    } catch {
+      // account may not exist yet (e.g., during hw address creation)
+    }
+    const indexedAccountId = dbAccount?.indexedAccountId;
+    if (!indexedAccountId) {
+      const xpub = await this.getAccountXpub({ accountId, networkId });
+      if (!xpub) return [];
+      return [
+        {
+          accountId,
+          xpub,
+          deriveType: 'default' as IAccountDeriveTypes,
+        },
+      ];
+    }
+
+    const { networkAccounts } =
+      await this.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes({
+        networkId,
+        indexedAccountId,
+        excludeEmptyAccount: true,
+      });
+
+    const results = await Promise.all(
+      networkAccounts.map(async (item) => {
+        const id = item.account?.id;
+        if (!id) return undefined;
+        try {
+          const xpub = await this.getAccountXpub({
+            accountId: id,
+            networkId,
+          });
+          if (!xpub) return undefined;
+          return {
+            accountId: id,
+            xpub,
+            deriveType: item.deriveType,
+          };
+        } catch {
+          return undefined;
+        }
+      }),
+    );
+
+    return results.filter(
+      (
+        r,
+      ): r is {
+        accountId: string;
+        xpub: string;
+        deriveType: IAccountDeriveTypes;
+      } => !!r,
+    );
+  }
+
   @backgroundMethod()
   async getAccountAddressType({
     accountId,
