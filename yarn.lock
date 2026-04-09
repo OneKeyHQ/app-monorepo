@@ -8271,6 +8271,8 @@ __metadata:
     tsup: "npm:^8.0.0"
     yaml: "npm:^2.8.0"
     zod: "npm:^3.23.0"
+    zod-to-json-schema: "npm:^3.25.2"
+    zod-to-ts: "npm:^2.0.0"
   bin:
     onekey: ./bin/onekey
   languageName: unknown
@@ -48694,6 +48696,25 @@ __metadata:
   version: 2.1.1
   resolution: "zbar.wasm@npm:2.1.1"
   checksum: 10/9d86151bfe18791b3823842555ddfce16a0082187fcb9eb141945d90291f854cc25a23f902d8372d3d3af455e33d3177b6331ece5a435abb6aa60d875fadad19
+  languageName: node
+  linkType: hard
+
+"zod-to-json-schema@npm:^3.25.2":
+  version: 3.25.2
+  resolution: "zod-to-json-schema@npm:3.25.2"
+  peerDependencies:
+    zod: ^3.25.28 || ^4
+  checksum: 10/7035328654113f1a0b8e4c2d34a06f918c93650ef8a50d4fb30ad8f22e47d5762c163af9c82494756b34776bae3c41c26cfc6945105b0eee7dceb528cc07e665
+  languageName: node
+  linkType: hard
+
+"zod-to-ts@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "zod-to-ts@npm:2.0.0"
+  peerDependencies:
+    typescript: ^5.0.0
+    zod: ^3.25.0 || ^4.0.0
+  checksum: 10/e684554efe2e90f99383a67b75476cf0e9ae4148d69f7d6b5ab80f03291a1b902e3a96f823cf65b17af3079521c15581aae62c6bf7c6839bbc247b8ec4037a77
   languageName: node
   linkType: hard
 
