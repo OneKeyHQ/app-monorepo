@@ -47,10 +47,7 @@ import {
   tokenTrendingInputSchema,
   tokenTrendingOutputSchema,
 } from './token-schemas';
-import {
-  transferInputSchema,
-  transferOutputSchema,
-} from './transfer-schema';
+import { transferInputSchema, transferOutputSchema } from './transfer-schema';
 import { versionInputSchema, versionOutputSchema } from './version-schema';
 import {
   walletHistoryInputSchema,
@@ -256,7 +253,8 @@ defineCommand({
 
 defineCommand({
   name: 'security-audit',
-  description: 'Token risk assessment — returns overall risk level with item breakdown',
+  description:
+    'Token risk assessment — returns overall risk level with item breakdown',
   input: securityAuditInputSchema,
   output: securityAuditOutputSchema,
   examples: ['onekey security audit --chain eth --token 0x...'],

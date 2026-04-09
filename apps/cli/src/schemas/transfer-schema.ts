@@ -7,7 +7,9 @@ export const transferInputSchema = z.object({
   amount: humanAmount.describe(
     'Human-readable amount to send. Internally converted to smallest unit for transaction encoding.',
   ),
-  token: ethAddress.optional().describe('ERC-20 contract address. Omit for native token.'),
+  token: ethAddress
+    .optional()
+    .describe('ERC-20 contract address. Omit for native token.'),
   chain: chainId.optional().describe('Target chain. Defaults to last used.'),
   dryRun: z.boolean().optional().describe('Estimate gas without sending'),
   yes: z.boolean().optional().describe('Skip confirmation prompt'),

@@ -4,7 +4,9 @@ import { chainId, tokenId } from './common';
 
 export const balanceInputSchema = z.object({
   chain: chainId.optional().describe('Target chain. Defaults to last used.'),
-  token: tokenId.optional().describe('Specific token to query. Omit for all assets.'),
+  token: tokenId
+    .optional()
+    .describe('Specific token to query. Omit for all assets.'),
 });
 
 export const balanceTokenOutputSchema = z.object({
@@ -13,7 +15,10 @@ export const balanceTokenOutputSchema = z.object({
   token: z.string(),
   contractAddress: z.string(),
   balance: z.string().describe('Human-readable balance'),
-  balanceRaw: z.string().optional().describe('Smallest unit balance (ERC-20 only)'),
+  balanceRaw: z
+    .string()
+    .optional()
+    .describe('Smallest unit balance (ERC-20 only)'),
 });
 
 export const balanceAllOutputSchema = z.object({

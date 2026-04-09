@@ -25,8 +25,13 @@ export const swapQuoteInputSchema = z.object({
   amount: humanAmount.describe(
     'Human-readable amount of source token. Sent directly to swap API as-is, NOT converted.',
   ),
-  toChain: chainId.optional().describe('Destination chain for cross-chain swap'),
-  slippage: z.coerce.number().optional().describe('Slippage tolerance percent (default 1)'),
+  toChain: chainId
+    .optional()
+    .describe('Destination chain for cross-chain swap'),
+  slippage: z.coerce
+    .number()
+    .optional()
+    .describe('Slippage tolerance percent (default 1)'),
   provider: z.string().optional().describe('Preferred swap provider'),
   sort: z.string().optional().describe('Sort mode for quotes'),
 });
@@ -98,7 +103,10 @@ export const swapBuildOutputSchema = z.object({
 // ---- swap execute ----
 export const swapExecuteInputSchema = z.object({
   order: z.string().describe('Order ID from swap build'),
-  approveUnlimited: z.boolean().optional().describe('Approve unlimited allowance'),
+  approveUnlimited: z
+    .boolean()
+    .optional()
+    .describe('Approve unlimited allowance'),
 });
 
 export const swapExecuteOutputSchema = z.object({
@@ -138,7 +146,10 @@ export const swapStatusOutputSchema = z.object({
 
 // ---- swap networks ----
 export const swapNetworksInputSchema = z.object({
-  bridge: z.boolean().optional().describe('Filter for cross-chain networks only'),
+  bridge: z
+    .boolean()
+    .optional()
+    .describe('Filter for cross-chain networks only'),
 });
 
 export const swapNetworksOutputSchema = z.array(

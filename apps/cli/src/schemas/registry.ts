@@ -1,3 +1,5 @@
+import { AppError } from '../errors';
+
 import type { z } from 'zod';
 
 export interface ICommandSchema {
@@ -26,8 +28,10 @@ export function defineCommand<
   examples?: string[];
 } {
   if (schemaRegistry.has(def.name)) {
-    throw new Error(
+    throw new AppError(
+      'SCHEMA_DUPLICATE',
       `Command "${def.name}" is already registered in schema registry`,
+      `Check register-all.ts for duplicate defineCommand("${def.name}") calls`,
     );
   }
   schemaRegistry.set(def.name, {
