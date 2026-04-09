@@ -180,7 +180,7 @@ function FeaturedChangelog({
 
   // TODO: replace fallback string with ETranslations key once added via Lokalise
   const headline =
-    featuredChangelog?.headline ?? `v${versionDisplay} Highlights`;
+    featuredChangelog?.headline ?? `You're going to like this`;
   const { subheadline } = featuredChangelog ?? {};
 
   const ctaText = isPreInstall
