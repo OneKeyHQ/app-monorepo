@@ -187,10 +187,11 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
           const blobRaw = ss.getString(sk.onekey_jotai_atoms_snapshot);
           snapshot = blobRaw ? JSON.parse(blobRaw) : null;
           (globalThis as any).__ONEKEY_LEGACY_SNAPSHOT_CACHE__ = snapshot;
-          // Schedule cleanup after all synchronous atom initializations complete
+          // Clean up after first screen renders; globalAtoms are mostly
+          // synchronous but split-bundle segments may define more later.
           setTimeout(() => {
             delete (globalThis as any).__ONEKEY_LEGACY_SNAPSHOT_CACHE__;
-          }, 0);
+          }, 15_000);
         }
         if (snapshot && name in snapshot) {
           cached = snapshot[name];
@@ -447,12 +448,16 @@ function flushColdStartCache() {
     const { EAppSyncStorageKeys } =
       require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
 
-    // Write the full values map directly — avoids read-modify-write race
-    // between main thread and BG thread. coldStartValuesMap already contains
-    // all tracked atom values (both dirty and previously synced).
-    const snapshot: Record<string, unknown> = {};
-    for (const [key, value] of coldStartValuesMap) {
-      snapshot[key] = value;
+    // Read-modify-write: patch only dirty keys into existing snapshot.
+    // This preserves cached values for scopes not rendered this session.
+    // Safe because all callers (debounce timer + AppState) are on main thread.
+    const raw = coldStartCacheStorage.getString(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+    );
+    const snapshot = raw ? JSON.parse(raw) : {};
+
+    for (const name of coldStartDirtyKeys) {
+      snapshot[name] = coldStartValuesMap.get(name);
     }
 
     coldStartCacheStorage.set(
@@ -560,11 +565,26 @@ export function hydrateContextColdStartCacheForProvider({
         );
       }
     }
-    // Snapshot consumed for this scope — schedule cleanup so it can be GC'd.
-    // Use setTimeout(0) to allow all synchronous hydrations in this tick to complete.
-    setTimeout(() => {
-      delete (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
-    }, 0);
+    // Schedule snapshot cleanup after first screen renders (HomePageReady).
+    // Cannot use setTimeout(0) because split-bundle modules may still need
+    // the snapshot for contextAtomBase hydration after async segment loads.
+    if (!(globalThis as any).__ONEKEY_CTX_SNAPSHOT_CLEANUP_SCHEDULED__) {
+      (globalThis as any).__ONEKEY_CTX_SNAPSHOT_CLEANUP_SCHEDULED__ = true;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { EAppEventBusNames: busNames, appEventBus: bus } =
+          require('@onekeyhq/shared/src/eventBus/appEventBus') as typeof import('@onekeyhq/shared/src/eventBus/appEventBus');
+        bus.once(busNames.HomePageReady, () => {
+          delete (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+          delete (globalThis as any).__ONEKEY_CTX_SNAPSHOT_CLEANUP_SCHEDULED__;
+        });
+      } catch {
+        // Fallback: clean up after 10s if event bus unavailable
+        setTimeout(() => {
+          delete (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+        }, 10_000);
+      }
+    }
   } catch {
     /* best-effort */
   }
