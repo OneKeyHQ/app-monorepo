@@ -218,6 +218,37 @@ if (platformEnv.isNative) {
     };
   }
 
+  // CloseEvent polyfill — required by @nktkas/rews v2 (used by hyperliquid SDK) // cspell:ignore rews
+  // Hermes engine does not expose CloseEvent as a global constructor
+  if (typeof global.CloseEvent === 'undefined' && typeof Event === 'function') {
+    // eslint-disable-next-line no-inner-declarations
+    function CloseEvent(type, init = {}) {
+      const event = new Event(type, init);
+      event.code = init.code ?? 0;
+      event.reason = init.reason ?? '';
+      event.wasClean = init.wasClean ?? false;
+      return event;
+    }
+    global.CloseEvent = CloseEvent;
+  }
+
+  // MessageEvent polyfill — required by @nktkas/rews v2 (used by hyperliquid SDK)
+  // Hermes engine does not expose MessageEvent as a global constructor
+  if (
+    typeof global.MessageEvent === 'undefined' &&
+    typeof Event === 'function'
+  ) {
+    // eslint-disable-next-line no-inner-declarations
+    function MessageEvent(type, init = {}) {
+      const event = new Event(type, init);
+      event.data = init.data ?? null;
+      event.origin = init.origin ?? '';
+      event.lastEventId = init.lastEventId ?? '';
+      return event;
+    }
+    global.MessageEvent = MessageEvent;
+  }
+
   if (
     typeof AbortSignal !== 'undefined' &&
     typeof AbortSignal.timeout !== 'function' &&
