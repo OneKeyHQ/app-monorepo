@@ -111,11 +111,17 @@ async function main() {
       const cat = categorizeModule(relPath);
       categories[cat] = (categories[cat] || 0) + 1;
     }
-    foundForbidden = Array.isArray(allocationReport.violations)
-      ? allocationReport.violations
-      : startupModules.filter((relPath) =>
-          FORBIDDEN_IN_STARTUP.some((forbidden) => relPath.includes(forbidden)),
-        );
+    // Skip forbidden check for background entry — services/vaults are expected
+    foundForbidden =
+      entryName === 'background'
+        ? []
+        : Array.isArray(allocationReport.violations)
+          ? allocationReport.violations
+          : startupModules.filter((relPath) =>
+              FORBIDDEN_IN_STARTUP.some((forbidden) =>
+                relPath.includes(forbidden),
+              ),
+            );
     console.log(`Using allocation report: ${allocationReportPath}`);
   } else {
     const Metro = require('metro');
@@ -157,7 +163,7 @@ async function main() {
     }
 
     foundForbidden = [];
-    if (enableNativeBg) {
+    if (enableNativeBg && entryName !== 'background') {
       for (const [absPath] of allModules) {
         const rel = relativePath(absPath, monorepoRoot);
         if (FORBIDDEN_IN_STARTUP.some((f) => rel.includes(f))) {
@@ -260,7 +266,9 @@ async function main() {
       const allocationReport = JSON.parse(
         fs.readFileSync(allocationReportPath, 'utf-8'),
       );
+      // Skip violations for background entry — services/vaults are expected
       if (
+        entryName !== 'background' &&
         allocationReport.violations &&
         allocationReport.violations.length > 0
       ) {

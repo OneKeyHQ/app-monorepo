@@ -496,22 +496,27 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
 
   // Step 6d: Validate forbidden modules in startup graph (Phase 4)
   // P1-3: STRICT_ALLOCATION=true throws instead of warning
+  // Skip for background entry — BackgroundApi naturally requires services/vaults
+  // at startup via require() getters; Metro statically collects these but they
+  // are runtime-deferred. Only the main entry must exclude them.
   const strictAllocation = process.env.STRICT_ALLOCATION === 'true';
   const startupViolations = [];
-  for (const moduleId of mainModuleIds) {
-    const absPath = moduleIdToAbsPath.get(moduleId);
-    if (!absPath) continue;
-    const relPath = absPath.replace(monorepoRoot, '').replace(/^\//, '');
-    if (forbiddenInStartup.some((fp) => relPath.startsWith(fp))) {
-      startupViolations.push(relPath);
+  if (runtimeTarget !== 'background') {
+    for (const moduleId of mainModuleIds) {
+      const absPath = moduleIdToAbsPath.get(moduleId);
+      if (!absPath) continue;
+      const relPath = absPath.replace(monorepoRoot, '').replace(/^\//, '');
+      if (forbiddenInStartup.some((fp) => relPath.startsWith(fp))) {
+        startupViolations.push(relPath);
+      }
     }
-  }
-  if (startupViolations.length > 0) {
-    const msg = `[segmentSerializer] ${startupViolations.length} forbidden module(s) in startup graph:\n${startupViolations.map((v) => `  - ${v}`).join('\n')}`;
-    if (strictAllocation) {
-      throw new Error(msg);
+    if (startupViolations.length > 0) {
+      const msg = `[segmentSerializer] ${startupViolations.length} forbidden module(s) in startup graph:\n${startupViolations.map((v) => `  - ${v}`).join('\n')}`;
+      if (strictAllocation) {
+        throw new Error(msg);
+      }
+      console.warn(`WARNING: ${msg}`);
     }
-    console.warn(`WARNING: ${msg}`);
   }
 
   // Step 7: Write segment files and build manifest
