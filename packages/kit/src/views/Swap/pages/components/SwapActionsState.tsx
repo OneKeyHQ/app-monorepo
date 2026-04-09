@@ -464,6 +464,80 @@ const SwapActionsState = ({
     swapRecipientAddressInfo?.showAddress,
   ]);
 
+  const recipientFooterComponent = useMemo(() => {
+    if (!isDesktopModalPage || !shouldShowRecipient) {
+      return null;
+    }
+
+    return (
+      <XStack minWidth={0} maxWidth="100%">
+        <XStack
+          gap="$1.5"
+          flexWrap="wrap"
+          justifyContent="flex-start"
+          maxWidth="100%"
+        >
+          <Stack>
+            <Icon name="AddedPeopleOutline" size="$5" color="$iconSubdued" />
+          </Stack>
+          <XStack
+            flexWrap="wrap"
+            justifyContent="flex-start"
+            gap="$1.5"
+            minWidth={0}
+          >
+            <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.swap_page_recipient_send_to,
+              })}
+            </SizableText>
+            <SizableText
+              flexShrink={0}
+              size="$bodyMd"
+              cursor="pointer"
+              textDecorationLine="underline"
+              onPress={onOpenRecipientAddress}
+            >
+              {swapRecipientAddressInfo?.showAddress ??
+                intl.formatMessage({
+                  id: ETranslations.swap_page_recipient_add,
+                })}
+            </SizableText>
+            {swapRecipientAddressInfo?.showAddress ? (
+              <SizableText
+                flexShrink={1}
+                minWidth={0}
+                size="$bodyMd"
+                color="$textSubdued"
+              >
+                {`(${
+                  !swapRecipientAddressInfo?.isExtAccount
+                    ? `${
+                        swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
+                      }-${
+                        swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
+                      }`
+                    : intl.formatMessage({
+                        id: ETranslations.swap_page_recipient_external_account,
+                      })
+                })`}
+              </SizableText>
+            ) : null}
+          </XStack>
+        </XStack>
+      </XStack>
+    );
+  }, [
+    intl,
+    isDesktopModalPage,
+    onOpenRecipientAddress,
+    shouldShowRecipient,
+    swapRecipientAddressInfo?.accountInfo?.accountName,
+    swapRecipientAddressInfo?.accountInfo?.walletName,
+    swapRecipientAddressInfo?.isExtAccount,
+    swapRecipientAddressInfo?.showAddress,
+  ]);
+
   const recipientMetaRowComponent = useMemo(() => {
     if (!shouldShowRecipientInMetaRow) {
       return null;
@@ -597,14 +671,31 @@ const SwapActionsState = ({
         {...(isDesktopModalPage
           ? {
               flexDirection: 'row',
-              justifyContent: shouldShowRecipientInActionRow
-                ? 'space-between'
-                : 'flex-end',
+              justifyContent:
+                incognitoComponent || recipientFooterComponent
+                  ? 'space-between'
+                  : 'flex-end',
+              gap: '$4',
+              minWidth: 0,
+              width: '100%',
               alignItems: 'center',
             }
           : {})}
       >
-        {recipientComponent}
+        {isDesktopModalPage ? (
+          <XStack
+            flex={1}
+            minWidth={0}
+            gap="$6"
+            flexWrap="wrap"
+            alignItems="center"
+          >
+            {incognitoComponent}
+            {recipientFooterComponent}
+          </XStack>
+        ) : (
+          recipientComponent
+        )}
         <Stack gap="$2">
           {/* In desktop modal: show savings above button; otherwise show below */}
           {isDesktopModalPage ? costSavingsComponent : null}
@@ -639,21 +730,30 @@ const SwapActionsState = ({
       </Stack>
     ),
     [
-      onActionHandlerBefore,
+      costSavingsComponent,
+      incognitoComponent,
       isDesktopModalPage,
+      onActionHandlerBefore,
       quoteLoading,
       quoting,
       recipientComponent,
-      shouldShowRecipientInActionRow,
+      recipientFooterComponent,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,
       themeVariant,
-      costSavingsComponent,
     ],
   );
 
   const actionComponent = useMemo(() => {
+    if (isDesktopModalPage) {
+      return (
+        <Stack flex={1} width="100%">
+          {actionRowComponent}
+        </Stack>
+      );
+    }
+
     let metaRow = incognitoComponent;
 
     if (showRecipientInMetaRow && incognitoComponent) {
@@ -693,9 +793,9 @@ const SwapActionsState = ({
   }, [
     actionRowComponent,
     incognitoComponent,
-    showRecipientInMetaRow,
     isDesktopModalPage,
     recipientMetaRowComponent,
+    showRecipientInMetaRow,
   ]);
 
   const actionComponentCoverFooter = useMemo(
