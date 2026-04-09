@@ -25,6 +25,10 @@ import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -82,7 +86,9 @@ export default class ServicePassword extends ServiceBase {
 
   private cachedPrfMasterKeyHex: string | null = null;
 
-  private cachedPrfMasterKeyTimestamp = 0;
+  private cachedPrfMasterKeyTimeOutObject: ReturnType<
+    typeof setTimeout
+  > | null = null;
 
   private readonly PRF_MASTER_KEY_CACHE_DURATION_MS = 5 * 60 * 1000;
 
@@ -207,28 +213,17 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
-    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
-
-    // TODO clear cached sync credential only when app is locked
+    // Clear sync credential caches on lock screen (security invariant).
+    // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+    void this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
     await this.clearCachedPrfMasterKey();
   }
 
-  // PRF master key cache (stored in background memory)
+  // PRF master key cache (stored in background memory, auto-cleared by timer)
   @backgroundMethod()
   async getCachedPrfMasterKey(): Promise<string | null> {
     if (this.skipPrfCacheFlag) {
-      return null;
-    }
-    if (!this.cachedPrfMasterKeyHex) {
-      return null;
-    }
-    const now = Date.now();
-    if (
-      now - this.cachedPrfMasterKeyTimestamp >=
-      this.PRF_MASTER_KEY_CACHE_DURATION_MS
-    ) {
-      await this.clearCachedPrfMasterKey();
       return null;
     }
     return this.cachedPrfMasterKeyHex;
@@ -236,14 +231,22 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async setCachedPrfMasterKey(hex: string): Promise<void> {
+    if (this.cachedPrfMasterKeyTimeOutObject) {
+      clearTimeout(this.cachedPrfMasterKeyTimeOutObject);
+    }
     this.cachedPrfMasterKeyHex = hex;
-    this.cachedPrfMasterKeyTimestamp = Date.now();
+    this.cachedPrfMasterKeyTimeOutObject = setTimeout(() => {
+      void this.clearCachedPrfMasterKey();
+    }, this.PRF_MASTER_KEY_CACHE_DURATION_MS);
   }
 
   @backgroundMethod()
   async clearCachedPrfMasterKey(): Promise<void> {
     this.cachedPrfMasterKeyHex = null;
-    this.cachedPrfMasterKeyTimestamp = 0;
+    if (this.cachedPrfMasterKeyTimeOutObject) {
+      clearTimeout(this.cachedPrfMasterKeyTimeOutObject);
+      this.cachedPrfMasterKeyTimeOutObject = null;
+    }
   }
 
   @backgroundMethod()
@@ -601,7 +604,6 @@ export default class ServicePassword extends ServiceBase {
     let masterPasswordUpdateRollback: (() => Promise<void>) | undefined;
     let keylessDataUpdateRollback: (() => Promise<void>) | undefined;
     try {
-      await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword({ password: newPassword });
       await this.setPasswordSetStatus(true, passwordMode);
@@ -624,16 +626,9 @@ export default class ServicePassword extends ServiceBase {
         oldPassword,
         newPassword,
       });
-      await this.backgroundApi.serviceAddressBook.finishUpdateHash();
       await timerUtils.wait(2000);
       return newPassword;
     } catch (e) {
-      try {
-        await this.backgroundApi.serviceAddressBook.rollback(oldPassword);
-      } catch (rollbackError) {
-        console.error(rollbackError);
-      }
-
       try {
         await this.rollbackPassword(oldPassword);
       } catch (rollbackError) {
@@ -712,12 +707,32 @@ export default class ServicePassword extends ServiceBase {
         } finally {
           this._mergeDuplicateHDWalletsExecuted = true;
         }
+        try {
+          await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
+            { password: verifyingPassword },
+          );
+        } catch (e) {
+          console.error(e);
+        }
+        if (!this._migrateRemoveHashExecuted) {
+          try {
+            await this.backgroundApi.serviceAddressBook.migrateRemoveHash({
+              password: verifyingPassword,
+            });
+          } catch (e) {
+            console.error('Address book migration error', e);
+          } finally {
+            this._migrateRemoveHashExecuted = true;
+          }
+        }
       })();
     }
     return verifyingPassword;
   }
 
   _mergeDuplicateHDWalletsExecuted = false;
+
+  _migrateRemoveHashExecuted = false;
 
   // ui ------------------------------
   promptPasswordVerifyMutex = new Semaphore(1);
@@ -956,7 +971,6 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async lockApp(options?: { manual: boolean }) {
     const { manual = false } = options || {};
-    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
     if (isFirmwareUpdateRunning) {
@@ -972,6 +986,7 @@ export default class ServicePassword extends ServiceBase {
       }));
     }
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
+    appEventBus.emit(EAppEventBusNames.LockApp, undefined);
   }
 
   @backgroundMethod()

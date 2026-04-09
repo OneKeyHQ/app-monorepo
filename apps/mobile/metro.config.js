@@ -5,13 +5,14 @@
  * This config extends '@react-native/metro-config' to support React Native >=0.73
  * For details see: https://github.com/react-native-community/template/blob/main/template/metro.config.js
  */
-const connect = require('connect');
+const path = require('path');
+
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
-const path = require('path');
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
+const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
-const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 // const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
@@ -165,6 +166,27 @@ if (process.env.RN_HARNESS === 'true') {
         }
       }
     }
+    // Replace react-native-mmkv with an in-memory mock during harness tests.
+    // MMKV's createMMKV() calls into JSI synchronously; after an app restart
+    // in the harness the JSI bridge may hang. Tests mock appStorage anyway.
+    if (moduleName === 'react-native-mmkv') {
+      return {
+        type: 'sourceFile',
+        filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),
+      };
+    }
+    // Replace @testing-library/react-native with a lightweight shim that uses
+    // react-test-renderer. @testing-library/react-native imports Node.js built-ins (console, util) that
+    // Metro can't resolve, so we provide renderHook/act/waitFor without them.
+    if (moduleName === '@testing-library/react-native') {
+      return {
+        type: 'sourceFile',
+        filePath: path.resolve(
+          projectRoot,
+          'harness/testing-library-react-native-shim.tsx',
+        ),
+      };
+    }
     // Map lodash-es to lodash (same as Jest moduleNameMapper: '^lodash-es$': 'lodash')
     if (moduleName === 'lodash-es') {
       return prevResolveRequest(context, 'lodash', platform);
@@ -246,7 +268,7 @@ const applyFixImageAssetsMiddleware = (middleware) => {
   return (req, res, next) => {
     console.log('metro-sever: >>>>>', req.url);
     // Android asset path fix
-    const prefixPath = AssetsPaths.find((path) => req.url.startsWith(path));
+    const prefixPath = AssetsPaths.find((p) => req.url.startsWith(p));
     if (prefixPath) {
       req.url = req.url.replace(prefixPath, buildRelativeDirPath(prefixPath));
       console.log(
@@ -282,6 +304,6 @@ config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
 
 module.exports = withRozenite(splitCodePlugin(config, projectRoot), {
   enabled: process.env.WITH_ROZENITE === 'true',
-  // enhanceMetroConfig: (config) => withRozeniteExpoAtlasPlugin(config),
-  enhanceMetroConfig: (config) => config,
+  // enhanceMetroConfig: (cfg) => withRozeniteExpoAtlasPlugin(cfg),
+  enhanceMetroConfig: (cfg) => cfg,
 });

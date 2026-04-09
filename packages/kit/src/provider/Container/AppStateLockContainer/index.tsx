@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { Suspense, useCallback, useEffect, useRef } from 'react';
 
 import { AnimatePresence, Spinner, YStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -91,6 +92,30 @@ export function AppStateLockContainer({
 
   const lockContainerRef = useWebLockCheck(isLocked);
 
+  // When locked, set `inert` on all document.body children that don't contain
+  // the lock screen. This disables focus traps (FocusScope) in portaled Dialogs
+  // at the browser level, allowing the lock screen input to receive focus.
+  useEffect(() => {
+    if (platformEnv.isNative || !isLocked) return;
+
+    const lockEl = lockContainerRef.current;
+    if (!lockEl) return;
+
+    const inertElements: HTMLElement[] = [];
+    for (const child of Array.from(document.body.children)) {
+      if (child instanceof HTMLElement && !child.contains(lockEl)) {
+        child.inert = true;
+        inertElements.push(child);
+      }
+    }
+
+    return () => {
+      for (const el of inertElements) {
+        el.inert = false;
+      }
+    };
+  }, [isLocked, lockContainerRef]);
+
   return (
     <>
       {children}
@@ -101,6 +126,7 @@ export function AppStateLockContainer({
             lockContainerRef={lockContainerRef as any}
             key="unlock-screen"
             animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 1,
             }}

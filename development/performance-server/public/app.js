@@ -31,6 +31,27 @@ const state = {
   timelineSelectedModules: null,
 };
 
+function getInitialSessionIdFromQuery() {
+  try {
+    const params = new URLSearchParams(globalThis.location.search);
+    const sessionId = params.get('sessionId');
+    return sessionId ? sessionId.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function syncSessionIdToQuery(sessionId) {
+  if (!sessionId) return;
+  try {
+    const url = new URL(globalThis.location.href);
+    url.searchParams.set('sessionId', sessionId);
+    globalThis.history.replaceState({}, '', url.toString());
+  } catch {
+    // ignore
+  }
+}
+
 const palette = [
   '#60a5fa',
   '#f97316',
@@ -141,6 +162,7 @@ function renderSessionOptions() {
     select.innerHTML = '<option value="">No sessions</option>';
     return;
   }
+  const requestedSessionId = getInitialSessionIdFromQuery();
   state.sessions.forEach((s) => {
     const opt = document.createElement('option');
     opt.value = s.sessionId;
@@ -151,6 +173,12 @@ function renderSessionOptions() {
     select.appendChild(opt);
   });
   if (state.currentSessionId) {
+    select.value = state.currentSessionId;
+  } else if (
+    requestedSessionId &&
+    state.sessions.some((s) => s.sessionId === requestedSessionId)
+  ) {
+    state.currentSessionId = requestedSessionId;
     select.value = state.currentSessionId;
   } else {
     state.currentSessionId = state.sessions[0].sessionId;
@@ -1009,6 +1037,7 @@ async function loadSession(sessionId) {
       fetchJSON(`/api/sessions/${sessionId}/analysis`),
     ]);
     state.currentSessionId = sessionId;
+    syncSessionIdToQuery(sessionId);
     state.sessionData = sessionData;
     state.analysis = analysis;
     state.slowFunctions.page = 1;

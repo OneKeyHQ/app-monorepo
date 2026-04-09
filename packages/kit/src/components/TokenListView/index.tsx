@@ -84,6 +84,7 @@ type IProps = {
   searchAll?: boolean;
   footerTipText?: string;
   hideValue?: boolean;
+  hideBalanceAndValue?: boolean;
   isTokenSelector?: boolean;
   tokenSelectorSearchKey?: string;
   tokenSelectorSearchTokenState?: {
@@ -138,6 +139,7 @@ function TokenListViewCmp(props: IProps) {
     isTokenSelector,
     footerTipText,
     hideValue,
+    hideBalanceAndValue,
     tokenSelectorSearchKey = '',
     tokenSelectorSearchTokenState = { isSearching: false },
     tokenSelectorSearchTokenList = { tokens: [] },
@@ -599,6 +601,7 @@ function TokenListViewCmp(props: IProps) {
         {limitedTokens.map((item) => (
           <TokenListItem
             hideValue={hideValue}
+            hideBalanceAndValue={hideBalanceAndValue}
             token={item}
             key={item.$key}
             onPress={onPressToken}
@@ -654,6 +657,7 @@ function TokenListViewCmp(props: IProps) {
         <>
           <TokenListItem
             hideValue={hideValue}
+            hideBalanceAndValue={hideBalanceAndValue}
             token={item}
             key={item.$key}
             onPress={onPressToken}

@@ -5,6 +5,8 @@ import {
   PendleRouterContract,
 } from '../consts/addresses';
 
+import networkUtils from './networkUtils';
+
 import type { IEarnPermitCacheKey } from '../../types/earn';
 import type { IEarnText, IEarnToken } from '../../types/staking';
 import type { IToken } from '../../types/token';
@@ -92,16 +94,22 @@ function resolveEarnApproveSpenderAddress({
 
 function resolveEarnApproveType({
   providerName,
+  networkId,
   tokenIsNative,
   approveSpenderAddress,
   backendApproveType,
 }: {
   providerName: string;
+  networkId: string;
   tokenIsNative?: boolean;
   approveSpenderAddress?: string;
   backendApproveType?: EApproveType;
 }) {
   if (tokenIsNative || !approveSpenderAddress) {
+    return undefined;
+  }
+  // ERC20 approve only applies to EVM networks
+  if (!networkUtils.isEvmNetwork({ networkId })) {
     return undefined;
   }
   const providerKey = getEarnProviderEnumKey(providerName);

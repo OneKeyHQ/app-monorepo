@@ -147,6 +147,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         accountId,
         networkId: accountNetworkId,
         filterNetworkId,
+        includeWithdrawOnly: true,
       });
 
       setProtocolData(data);
@@ -404,9 +405,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           }
           return (
             <AprText
+              hideSuffix={isDesktopLayout}
               asset={{
                 aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
                 aprInfo: item?.aprInfo,
+                rewardUnit: item?.provider?.rewardUnit,
               }}
             />
           );

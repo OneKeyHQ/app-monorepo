@@ -50,10 +50,9 @@ export const BorrowCard = () => {
         providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Borrow,
-        borrowReserves: reserves.data ?? undefined,
       });
     },
-    [navigation, market, accountId, reserves.data],
+    [navigation, market, accountId],
   );
 
   const handlePressRow = useCallback(

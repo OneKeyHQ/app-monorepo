@@ -2,6 +2,7 @@
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable no-inner-declarations */
 /* eslint-disable prefer-template */
+/* oxlint-disable import-js/order */
 
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
@@ -25,6 +26,8 @@ const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
 shimArrayToSorted();
 
 require('react-native-url-polyfill/auto');
+const { Base64 } = require('js-base64');
+
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
 const shimsInjectedLog = (str) => console.log(`Shims Injected log: ${str}`);
@@ -116,7 +119,6 @@ Shims Injected:
  */
 // Shim atob and btoa
 // js-base64 lib cannot import by `require` function in React Native 0.72.
-const { Base64 } = require('js-base64');
 
 if (!global.atob) {
   shimsInjectedLog('atob');
@@ -147,21 +149,22 @@ try {
     shimsInjectedLog('FileReader.prototype.readAsArrayBuffer');
     FileReader.prototype.readAsArrayBuffer = function (blob) {
       if (this.readyState === this.LOADING) {
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- polyfill runs before OneKeyLocalError is available
         throw new Error('InvalidStateError');
       }
       this._setReadyState(this.LOADING);
       this._result = null;
       this._error = null;
-      const fr = new FileReader();
-      fr.onloadend = () => {
-        const content = atob(fr.result.split(',').pop().trim());
+      const innerReader = new FileReader();
+      innerReader.onloadend = () => {
+        const content = atob(innerReader.result.split(',').pop().trim());
         const buffer = new ArrayBuffer(content.length);
         const view = new Uint8Array(buffer);
         view.set(Array.from(content).map((c) => c.charCodeAt(0)));
         this._result = buffer;
         this._setReadyState(this.DONE);
       };
-      fr.readAsDataURL(blob);
+      innerReader.readAsDataURL(blob);
     };
   }
 } catch (_error) {
@@ -213,6 +216,37 @@ if (platformEnv.isNative) {
       event.detail = params.detail || null;
       return event;
     };
+  }
+
+  // CloseEvent polyfill — required by @nktkas/rews v2 (used by hyperliquid SDK) // cspell:ignore rews
+  // Hermes engine does not expose CloseEvent as a global constructor
+  if (typeof global.CloseEvent === 'undefined' && typeof Event === 'function') {
+    // eslint-disable-next-line no-inner-declarations
+    function CloseEvent(type, init = {}) {
+      const event = new Event(type, init);
+      event.code = init.code ?? 0;
+      event.reason = init.reason ?? '';
+      event.wasClean = init.wasClean ?? false;
+      return event;
+    }
+    global.CloseEvent = CloseEvent;
+  }
+
+  // MessageEvent polyfill — required by @nktkas/rews v2 (used by hyperliquid SDK)
+  // Hermes engine does not expose MessageEvent as a global constructor
+  if (
+    typeof global.MessageEvent === 'undefined' &&
+    typeof Event === 'function'
+  ) {
+    // eslint-disable-next-line no-inner-declarations
+    function MessageEvent(type, init = {}) {
+      const event = new Event(type, init);
+      event.data = init.data ?? null;
+      event.origin = init.origin ?? '';
+      event.lastEventId = init.lastEventId ?? '';
+      return event;
+    }
+    global.MessageEvent = MessageEvent;
   }
 
   if (

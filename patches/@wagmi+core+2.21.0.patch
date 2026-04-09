@@ -1,0 +1,30 @@
+diff --git a/node_modules/@wagmi/core/dist/esm/connectors/injected.js b/node_modules/@wagmi/core/dist/esm/connectors/injected.js
+index 46846b6..e64e9c9 100644
+--- a/node_modules/@wagmi/core/dist/esm/connectors/injected.js
++++ b/node_modules/@wagmi/core/dist/esm/connectors/injected.js
+@@ -65,7 +65,7 @@ export function injected(parameters = {}) {
+                 }
+             }
+         },
+-        async connect({ chainId, isReconnecting, withCapabilities } = {}) {
++        async connect({ chainId, isReconnecting, withCapabilities, requestOneKeyKeylessAccount } = {}) {
+             const provider = await this.getProvider();
+             if (!provider)
+                 throw new ProviderNotFoundError();
+@@ -77,7 +77,7 @@ export function injected(parameters = {}) {
+                 try {
+                     const permissions = await provider.request({
+                         method: 'wallet_requestPermissions',
+-                        params: [{ eth_accounts: {} }],
++                        params: [{ eth_accounts: {}, requestOneKeyKeylessAccount: requestOneKeyKeylessAccount }],
+                     });
+                     accounts = permissions[0]?.caveats?.[0]?.value?.map((x) => getAddress(x));
+                     // `'wallet_requestPermissions'` can return a different order of accounts than `'eth_accounts'`
+@@ -103,6 +103,7 @@ export function injected(parameters = {}) {
+                 if (!accounts?.length && !isReconnecting) {
+                     const requestedAccounts = await provider.request({
+                         method: 'eth_requestAccounts',
++                        params: [{ requestOneKeyKeylessAccount: requestOneKeyKeylessAccount }],
+                     });
+                     accounts = requestedAccounts.map((x) => getAddress(x));
+                 }

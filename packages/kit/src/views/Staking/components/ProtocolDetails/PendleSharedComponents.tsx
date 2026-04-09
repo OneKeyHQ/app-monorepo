@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type {
   IEarnText,
   IEarnTooltip,
@@ -20,6 +21,7 @@ import type {
 import { CalculationListItem } from '../CalculationList';
 
 import { ActionPopupContent } from './EarnActionIcon';
+import { EarnAmountText } from './EarnAmountText';
 import { EarnSwapRoute } from './EarnSwapRoute';
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
@@ -74,14 +76,19 @@ export const PendleRewardRow: FC<IPendleRewardRowProps> = ({
           </Stack>
         ) : (
           <>
-            <XStack gap="$1" alignItems="center" flexWrap="wrap">
-              <SizableText
+            <XStack
+              gap="$1"
+              alignItems="center"
+              flexWrap="wrap"
+              justifyContent="flex-end"
+            >
+              <EarnAmountText
                 size={reward.description.size || '$bodyMdMedium'}
                 color={reward.description.color ?? '$text'}
                 textAlign="right"
               >
                 {primaryMainText}
-              </SizableText>
+              </EarnAmountText>
               {primarySuffixText ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {primarySuffixText}
@@ -185,7 +192,11 @@ export const PendleAccordionTriggerContent: FC<
     >
       {triggerText}
     </SizableText>
-    <YStack animation="quick" rotate={open && !isDisabled ? '0deg' : '180deg'}>
+    <YStack
+      animation="quick"
+      animateOnly={ANIMATE_ONLY_TRANSFORM}
+      rotate={open && !isDisabled ? '180deg' : '0deg'}
+    >
       <Icon
         name="ChevronDownSmallSolid"
         color={isDisabled ? '$iconDisabled' : '$iconSubdued'}

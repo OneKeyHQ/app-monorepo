@@ -39,7 +39,7 @@ export function useExchangeAppDetection() {
           const config = EXCHANGE_CONFIGS[id];
           try {
             const canOpen = await openUrlUtils.linkingCanOpenURL(
-              config.appOpenUrl,
+              config.detectionUrl ?? config.appOpenUrl,
             );
             results[id] = canOpen;
           } catch (_e) {

@@ -21,7 +21,6 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapProviderSupportReceiveAddressAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
@@ -221,15 +220,20 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         type === ESwapDirectionType.FROM
       ) {
         try {
+          const fromTargetNetworkId =
+            currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '';
+          const fromTargetDeriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              { networkId: fromTargetNetworkId },
+            );
           const accountParams = {
-            deriveType: activeAccount.deriveType || 'default',
+            deriveType: fromTargetDeriveType,
             indexedAccountId: activeAccount.indexedAccount?.id,
             accountId: activeAccount.indexedAccount?.id
               ? undefined
               : activeAccount.account?.id,
             dbAccount: activeAccount.dbAccount,
-            networkId:
-              currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '',
+            networkId: fromTargetNetworkId,
           };
           const fromTokenAccount =
             await backgroundApiProxy.serviceAccount.getNetworkAccount({
@@ -245,15 +249,20 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         type === ESwapDirectionType.TO
       ) {
         try {
+          const toTargetNetworkId =
+            currentSelectNetwork?.networkId ?? toToken?.networkId ?? '';
+          const toTargetDeriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              { networkId: toTargetNetworkId },
+            );
           const accountParams = {
-            deriveType: activeAccount.deriveType || 'default',
+            deriveType: toTargetDeriveType,
             indexedAccountId: activeAccount.indexedAccount?.id,
             accountId: activeAccount.indexedAccount?.id
               ? undefined
               : activeAccount.account?.id,
             dbAccount: activeAccount.dbAccount,
-            networkId:
-              currentSelectNetwork?.networkId ?? toToken?.networkId ?? '',
+            networkId: toTargetNetworkId,
           };
           const toTokenAccount =
             await backgroundApiProxy.serviceAccount.getNetworkAccount({
@@ -383,7 +392,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
 export function useSwapRecipientAddressInfo(enable: boolean) {
   const fromAccountInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
   const getToNetWorkAddressFromAccountId = usePromiseResult(
@@ -446,7 +455,7 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
           swapToAnotherAddressInfo.address) ||
         !getToNetWorkAddressFromAccountId?.result?.accountAddress) &&
       swapToAnotherAddressInfo.networkId ===
-        currentQuoteRes?.toTokenInfo.networkId
+        (toToken?.networkId ?? swapToAddressInfo.networkId)
     ) {
       return {
         accountInfo:

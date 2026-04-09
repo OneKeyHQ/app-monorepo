@@ -11,10 +11,7 @@ import {
   ETabEarnRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
-import type {
-  IBorrowReserveItem,
-  IStakingInfo,
-} from '@onekeyhq/shared/types/staking';
+import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
 import { safePushToEarnRoute } from '../Earn/earnUtils';
 
@@ -153,7 +150,6 @@ export const BorrowNavigation = {
       logoURI?: string;
       providerLogoURI?: string;
       type: EManagePositionType;
-      borrowReserves?: IBorrowReserveItem;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -168,7 +164,6 @@ export const BorrowNavigation = {
         logoURI: params.logoURI,
         providerLogoURI: params.providerLogoURI,
         type: params.type,
-        borrowReserves: params.borrowReserves,
       },
     });
   },

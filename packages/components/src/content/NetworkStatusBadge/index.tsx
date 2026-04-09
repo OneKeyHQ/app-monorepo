@@ -8,10 +8,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Badge } from '../Badge';
 
+const fontVariant: ['tabular-nums'] = ['tabular-nums'];
+
 export type INetworkStatusBadgeProps = {
   connected: boolean;
   indicator?: ReactElement;
   label?: string;
+  monoLabel?: string;
   badgeSize?: ComponentProps<typeof Badge>['badgeSize'];
   minWidth?: ComponentProps<typeof Badge>['minWidth'];
 };
@@ -20,6 +23,7 @@ export function NetworkStatusBadge({
   connected,
   indicator,
   label,
+  monoLabel,
   badgeSize = 'md',
   minWidth,
 }: INetworkStatusBadgeProps) {
@@ -80,13 +84,18 @@ export function NetworkStatusBadge({
       cursor="default"
     >
       {indicatorElement}
-      <Badge.Text
-        size="$bodySmMedium"
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
-      >
-        {badgeLabel}
-      </Badge.Text>
+      <Badge.Text size="$bodySmMedium">{badgeLabel}</Badge.Text>
+      {monoLabel ? (
+        <Badge.Text
+          size="$bodySmMedium"
+          fontFamily="$monoRegular"
+          fontVariant={fontVariant}
+          minWidth={40}
+          textAlign="right"
+        >
+          {monoLabel}
+        </Badge.Text>
+      ) : null}
     </Badge>
   );
 }

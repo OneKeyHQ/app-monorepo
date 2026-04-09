@@ -103,6 +103,7 @@ export type IInputProps = {
 export type IInputRef = {
   focus: () => void;
   blur: () => void;
+  setNativeProps?: (props: Record<string, unknown>) => void;
 };
 
 const SIZE_MAPPINGS = {
@@ -273,6 +274,7 @@ function BaseInput(
     autoScrollTopDelayMs,
     secureTextEntry,
     onSecureTextEntryChange,
+    children: _children,
     ...props
   } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -327,7 +329,7 @@ function BaseInput(
           /*
           const result = await start({
             handlers: [],
-            autoHandleResult: false,
+            autoExecuteParsedAction: false,
           });
           form.setValue('input', result.raw);
           */
@@ -336,7 +338,7 @@ function BaseInput(
           }
           const result = await startScanQrCode?.({
             handlers: [],
-            autoHandleResult: false,
+            autoExecuteParsedAction: false,
           });
           if (result?.raw) {
             onChangeText?.(result.raw || '');
@@ -412,6 +414,10 @@ function BaseInput(
       ),
     measure: (callback: MeasureOnSuccessCallback) =>
       inputRef.current?.measure(callback),
+    // NOTE: setNativeProps is deprecated in Fabric and may be removed in
+    // future React Native versions.
+    setNativeProps: (nativeProps: Record<string, unknown>) =>
+      inputRef.current?.setNativeProps?.(nativeProps),
   }));
 
   const selectionColor = useSelectionColor();
@@ -555,6 +561,7 @@ function BaseInput(
                   testID = '',
                   renderContent,
                   tooltipProps,
+                  ...addOnRest
                 },
                 index,
               ) => {
@@ -583,6 +590,7 @@ function BaseInput(
                         onPress={onPress}
                         tooltipProps={tooltipProps}
                         {...addOnsItemProps}
+                        {...addOnRest}
                       />
                     )}
                   </Group.Item>

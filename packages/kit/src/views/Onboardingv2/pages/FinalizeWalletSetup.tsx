@@ -24,6 +24,14 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -40,13 +48,16 @@ import {
   ERootRoutes,
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -137,6 +148,8 @@ function FinalizeWalletSetupPage({
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
   const isKeylessWallet = route?.params?.isKeylessWallet;
   const keylessDetailsInfo = route?.params?.keylessDetailsInfo;
+  const shouldAutoResetKeylessPinAfterRestore =
+    route?.params?.shouldAutoResetKeylessPinAfterRestore;
 
   const initialStep = EFinalizeWalletSetupSteps.CreatingWallet;
 
@@ -150,12 +163,10 @@ function FinalizeWalletSetupPage({
   const isProcessing = useRef(false);
 
   const animatedProps = useAnimatedProps(() => {
-    // eslint-disable-next-line @cspell/spellchecker
     // oxlint-disable-next-line @cspell/spellchecker
     const strokeDashoffset = pathLength * (1 - progress.value);
 
     return {
-      // eslint-disable-next-line @cspell/spellchecker
       // oxlint-disable-next-line @cspell/spellchecker
       strokeDashoffset,
 
@@ -165,6 +176,7 @@ function FinalizeWalletSetupPage({
   });
 
   const closePageCalled = useRef(false);
+
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
@@ -180,11 +192,19 @@ function FinalizeWalletSetupPage({
     isFirstCreateWallet.current = !isOnboardingDone;
   };
 
+  const {
+    setPendingKeylessAutoConnectWalletId,
+    openKeylessAutoConnectDappModal,
+  } = useKeylessWebFlowAutoConnectDapp();
+
   const handleWalletSetupReadyInner = useCallback(async () => {
     setTimeout(() => {
       closePage();
+      setTimeout(() => {
+        void openKeylessAutoConnectDappModal();
+      }, 600);
     }, 1000);
-  }, [closePage]);
+  }, [closePage, openKeylessAutoConnectDappModal]);
 
   const handleWalletSetupReady = useThrottledCallback(
     handleWalletSetupReadyInner,
@@ -248,6 +268,13 @@ function FinalizeWalletSetupPage({
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
     try {
+      let hdWalletCreatedResult:
+        | {
+            wallet: IDBWallet;
+            indexedAccount: IDBIndexedAccount | undefined;
+            isOverrideWallet: boolean | undefined;
+          }
+        | undefined;
       // **** hd wallet case
       if (mnemonic && !created.current) {
         await withPromptPasswordVerify({
@@ -264,12 +291,68 @@ function FinalizeWalletSetupPage({
               goNextStep(EFinalizeWalletSetupSteps.Ready);
               return;
             }
-            await actions.current.createHDWallet({
+            const shouldRunAutoReset =
+              !!isKeylessWallet && !!shouldAutoResetKeylessPinAfterRestore;
+            hdWalletCreatedResult = await actions.current.createHDWallet({
               mnemonic,
               isWalletBackedUp,
               isKeylessWallet,
               keylessDetailsInfo,
             });
+            if (shouldRunAutoReset) {
+              void (async () => {
+                try {
+                  if (!keylessDetailsInfo?.keylessOwnerId) {
+                    return;
+                  }
+                  const refreshResult =
+                    await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
+                      {
+                        ownerId: keylessDetailsInfo?.keylessOwnerId,
+                        forceRefresh: true,
+                      },
+                    );
+                  if (
+                    !refreshResult?.accessToken ||
+                    !refreshResult?.refreshToken
+                  ) {
+                    return;
+                  }
+                  const [token, refreshToken, pin] = await Promise.all([
+                    refreshResult.accessToken,
+                    refreshResult.refreshToken,
+                    getKeylessOnboardingPin(),
+                  ]);
+                  if (!token || !pin || !refreshToken) {
+                    console.error(
+                      'Skip keyless auto reset pin: missing onboarding token or pin.',
+                    );
+                    return;
+                  }
+
+                  await backgroundApiProxy.serviceKeylessWallet.autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(
+                    {
+                      token,
+                      refreshToken: refreshToken || undefined,
+                      pin,
+                    },
+                  );
+                } catch (autoResetError) {
+                  console.error(
+                    'autoResetKeylessWalletPinAfterRestoreForSameEmailAccount error:',
+                    autoResetError,
+                  );
+                }
+              })();
+            }
+
+            // const { wallet: createdWallet } =
+            //   await actions.current.createHDWallet({
+            //     mnemonic,
+            //     isWalletBackedUp,
+            //     isKeylessWallet,
+            //     keylessDetailsInfo,
+            //   });
             // Track keyless wallet creation success
             if (isKeylessWallet && keylessDetailsInfo) {
               defaultLogger.account.wallet.walletAdded({
@@ -284,6 +367,17 @@ function FinalizeWalletSetupPage({
                       : 'apple',
                 },
               });
+
+              if (
+                platformEnv.isExtension &&
+                accountUtils.isKeylessWallet({
+                  walletId: hdWalletCreatedResult?.wallet.id,
+                })
+              ) {
+                setPendingKeylessAutoConnectWalletId(
+                  hdWalletCreatedResult?.wallet.id,
+                );
+              }
             }
           },
         });
@@ -327,9 +421,11 @@ function FinalizeWalletSetupPage({
     isWalletBackedUp,
     isKeylessWallet,
     keylessDetailsInfo,
+    shouldAutoResetKeylessPinAfterRestore,
     goNextStep,
     connectDevice,
     createHWWallet,
+    setPendingKeylessAutoConnectWalletId,
   ]);
 
   const unmountedRef = useRef(false);
@@ -490,7 +586,7 @@ function FinalizeWalletSetupPage({
               {platformEnv.isNativeAndroid ? svgMask : null}
               <YStack
                 animation="quick"
-                animateOnly={['opacity']}
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 enterStyle={{
                   opacity: 0,
                 }}
@@ -509,6 +605,7 @@ function FinalizeWalletSetupPage({
                     left="50%"
                     x="-50%"
                     y="50%"
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
                     w={87}
                     h={49}
@@ -558,7 +655,7 @@ function FinalizeWalletSetupPage({
                         <YStack
                           key={`icon-${currentStep}`}
                           animation="quick"
-                          animateOnly={['transform', 'opacity']}
+                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                           enterStyle={{
                             y: 4,
                             opacity: 0,
@@ -597,7 +694,7 @@ function FinalizeWalletSetupPage({
                     size="$heading2xl"
                     textAlign="center"
                     animation="quick"
-                    animateOnly={['transform', 'opacity']}
+                    animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                     enterStyle={{
                       y: 8,
                       opacity: 0,

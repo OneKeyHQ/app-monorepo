@@ -1,4 +1,4 @@
-/* eslint max-classes-per-file: "off" */
+/* eslint-disable max-classes-per-file */
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
@@ -119,6 +119,8 @@ export class RequestLimitExceededError extends OneKeyAppError {
       }),
     );
   }
+
+  override className = EOneKeyErrorClassNames.RequestLimitExceededError;
 }
 
 export class SystemDiskFullError extends OneKeyAppError {

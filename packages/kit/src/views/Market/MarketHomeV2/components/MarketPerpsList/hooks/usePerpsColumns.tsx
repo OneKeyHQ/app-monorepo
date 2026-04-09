@@ -24,7 +24,7 @@ import type { IMarketPerpsToken } from './useMarketPerpsTokenList';
 
 export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtXl } = useMedia();
 
   return useMemo(
     () =>
@@ -52,9 +52,9 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         {
           title: intl.formatMessage({ id: ETranslations.global_name }),
           dataIndex: 'name',
-          columnWidth: 200,
+          columnWidth: gtXl ? 340 : 260,
           render: (_: unknown, record: IMarketPerpsToken) => (
-            <XStack alignItems="center" gap="$3">
+            <XStack alignItems="center" gap="$3" minWidth={0} overflow="hidden">
               <Token
                 size="md"
                 borderRadius="$full"
@@ -62,11 +62,13 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                 fallbackIcon="CryptoCoinOutline"
               />
               <Stack flex={1} minWidth={0}>
-                <XStack alignItems="center" gap="$1">
+                <XStack alignItems="center" gap="$1" minWidth={0}>
                   <SizableText
                     size="$bodyLgMedium"
                     numberOfLines={1}
                     maxWidth="$32"
+                    flexShrink={1}
+                    ellipsizeMode="tail"
                     userSelect="none"
                   >
                     {record.displayName}
@@ -201,7 +203,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         },
 
         // Column 7: Funding Rate (only on larger screens)
-        gtLg
+        gtXl
           ? {
               title: intl.formatMessage({
                 id: ETranslations.perp_position_funding,
@@ -230,7 +232,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
             }
           : undefined,
       ].filter(Boolean) as ITableColumn<IMarketPerpsToken>[],
-    [intl, gtLg],
+    [intl, gtXl],
   );
 }
 
@@ -245,19 +247,27 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
         dataIndex: 'tokenInfo',
         columnWidth: '50%',
         render: (_: unknown, record: IMarketPerpsToken) => (
-          <XStack alignItems="center" gap="$3" ml="$3">
+          <XStack
+            alignItems="center"
+            gap="$3"
+            ml="$3"
+            minWidth={0}
+            overflow="hidden"
+          >
             <Token
               size="md"
               borderRadius="$full"
               tokenImageUri={record.tokenImageUrl}
               fallbackIcon="CryptoCoinOutline"
             />
-            <YStack>
-              <XStack alignItems="center" gap="$1">
+            <YStack flex={1} minWidth={0}>
+              <XStack alignItems="center" gap="$1" minWidth={0}>
                 <SizableText
                   size="$bodyLgMedium"
                   numberOfLines={1}
                   maxWidth="$32"
+                  flexShrink={1}
+                  ellipsizeMode="tail"
                   userSelect="none"
                 >
                   {record.displayName}

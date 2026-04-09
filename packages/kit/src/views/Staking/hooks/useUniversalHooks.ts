@@ -5,12 +5,15 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   type EApproveType,
@@ -35,6 +38,60 @@ const createStakeInfoWithOrderId = ({
   ...(stakingInfo as IStakingInfo),
   orderId,
 });
+
+type ITxConfirmResult =
+  | {
+      status: 'success';
+      data: ISendTxOnSuccessData[];
+    }
+  | {
+      status: 'cancel';
+    };
+
+const waitForTxFinalStatus = async ({
+  accountId,
+  networkId,
+  txid,
+  signal,
+  maxAttempts = 24,
+  intervalMs = timerUtils.getTimeDurationMs({ seconds: 5 }),
+}: {
+  accountId: string;
+  networkId: string;
+  txid: string;
+  signal?: AbortSignal;
+  maxAttempts?: number;
+  intervalMs?: number;
+}) => {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (signal?.aborted) {
+      return undefined;
+    }
+
+    const txDetailsResp =
+      await backgroundApiProxy.serviceHistory.fetchTxDetails({
+        accountId,
+        networkId,
+        txid,
+      });
+    const txStatus = txDetailsResp?.data?.status;
+
+    if (
+      txStatus === EOnChainHistoryTxStatus.Success ||
+      txStatus === EOnChainHistoryTxStatus.Failed
+    ) {
+      return txStatus;
+    }
+
+    if (attempt < maxAttempts - 1) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, intervalMs);
+      });
+    }
+  }
+
+  return undefined;
+};
 
 const handleStakeSuccess = async ({
   data,
@@ -89,6 +146,7 @@ export function useUniversalStake({
       inputTokenAddress,
       outputTokenAddress,
       slippage,
+      effectiveApy,
       stakingInfo,
       onSuccess,
       onFail,
@@ -110,6 +168,7 @@ export function useUniversalStake({
       inputTokenAddress?: string;
       outputTokenAddress?: string;
       slippage?: number;
+      effectiveApy?: string | number;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -133,6 +192,7 @@ export function useUniversalStake({
           inputTokenAddress,
           outputTokenAddress,
           slippage,
+          effectiveApy,
           // Stakefish specific param
           validatorPublicKey,
         });
@@ -193,6 +253,52 @@ export function useUniversalWithdraw({
     accountId,
     networkId,
   });
+  const waitForTxConfirmResult = useCallback(
+    async ({
+      encodedTx,
+      stakingInfo,
+      signOnly,
+      useFeeInTx,
+      feeInfoEditable,
+    }: {
+      encodedTx?: IEncodedTx;
+      stakingInfo?: IStakingInfo;
+      signOnly?: boolean;
+      useFeeInTx?: boolean;
+      feeInfoEditable?: boolean;
+    }): Promise<ITxConfirmResult> =>
+      new Promise((resolve, reject) => {
+        let settled = false;
+
+        const resolveOnce = (result: ITxConfirmResult) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          resolve(result);
+        };
+
+        const rejectOnce = (error: unknown) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          reject(error);
+        };
+
+        void navigationToTxConfirm({
+          encodedTx,
+          stakingInfo,
+          signOnly,
+          useFeeInTx,
+          feeInfoEditable,
+          onSuccess: (data) => resolveOnce({ status: 'success', data }),
+          onFail: (error) => rejectOnce(error),
+          onCancel: () => resolveOnce({ status: 'cancel' }),
+        }).catch((error) => rejectOnce(error));
+      }),
+    [navigationToTxConfirm],
+  );
   return useCallback(
     async ({
       amount,
@@ -204,6 +310,7 @@ export function useUniversalWithdraw({
       protocolVault,
       withdrawAll,
       slippage,
+      effectiveApy,
       stakingInfo,
       onSuccess,
       onFail,
@@ -211,7 +318,9 @@ export function useUniversalWithdraw({
       withdrawSignature,
       withdrawMessage,
       useEthenaCooldown,
+      resumeEthenaCooldownUnstake,
       onStepChange,
+      onEthenaCooldownUnstakeReady,
       signal,
     }: {
       amount: string;
@@ -223,6 +332,7 @@ export function useUniversalWithdraw({
       protocolVault?: string;
       withdrawAll: boolean;
       slippage?: number;
+      effectiveApy?: string | number;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -230,7 +340,9 @@ export function useUniversalWithdraw({
       withdrawSignature?: string;
       withdrawMessage?: string;
       useEthenaCooldown?: boolean;
+      resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
+      onEthenaCooldownUnstakeReady?: () => void;
       signal?: AbortSignal;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
@@ -280,10 +392,70 @@ export function useUniversalWithdraw({
             provider,
             inputTokenAddress,
             outputTokenAddress,
+            effectiveApy,
             signature: signHash,
             deadline,
           });
       } else if (useEthenaCooldown) {
+        const openEthenaCooldownUnstakeConfirm = async () => {
+          const unstakeTx =
+            await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
+              amount,
+              identity,
+              networkId,
+              accountId,
+              symbol,
+              provider,
+              inputTokenAddress,
+              outputTokenAddress,
+              protocolVault,
+              withdrawAll,
+              useEthenaCooldown: true,
+              slippage,
+              effectiveApy,
+            });
+          const unstakeEncodedTx =
+            await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+              networkId,
+              accountId,
+              tx: unstakeTx.tx,
+              internalDappType: EInternalDappEnum.Staking,
+              stakingAction: EInternalStakingAction.Withdraw,
+            });
+          const unstakeStakeInfo = createStakeInfoWithOrderId({
+            stakingInfo,
+            orderId: unstakeTx.orderId,
+          });
+
+          let unstakeConfirmResult;
+          try {
+            unstakeConfirmResult = await waitForTxConfirmResult({
+              encodedTx: unstakeEncodedTx,
+              stakingInfo: unstakeStakeInfo,
+            });
+          } catch (error) {
+            onFail?.(error as Error);
+            return;
+          }
+
+          if (unstakeConfirmResult.status !== 'success') {
+            return;
+          }
+
+          onStepChange?.(3);
+          await handleStakeSuccess({
+            data: unstakeConfirmResult.data,
+            stakeInfo: unstakeStakeInfo,
+            networkId,
+            onSuccess,
+          });
+        };
+
+        if (resumeEthenaCooldownUnstake) {
+          await openEthenaCooldownUnstakeConfirm();
+          return;
+        }
+
         // Ethena two-step: 1) swap PT-sUSDe → sUSDe, 2) unstake sUSDe → USDe
         const swapTx =
           await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
@@ -299,6 +471,7 @@ export function useUniversalWithdraw({
             withdrawAll,
             ethenaPath: true,
             slippage,
+            effectiveApy,
           });
         const swapEncodedTx =
           await backgroundApiProxy.serviceStaking.buildInternalDappTx({
@@ -312,63 +485,70 @@ export function useUniversalWithdraw({
           stakingInfo,
           orderId: swapTx.orderId,
         });
-        await navigationToTxConfirm({
-          encodedTx: swapEncodedTx,
-          stakingInfo: swapStakeInfo,
-          onSuccess: async (swapData) => {
-            await handleStakeSuccess({
-              data: swapData,
-              stakeInfo: swapStakeInfo,
-              networkId,
-            });
-            if (signal?.aborted) {
-              return;
-            }
-            onStepChange?.(2);
-            const unstakeTx =
-              await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
-                amount,
-                identity,
-                networkId,
-                accountId,
-                symbol,
-                provider,
-                inputTokenAddress,
-                outputTokenAddress,
-                protocolVault,
-                withdrawAll,
-                useEthenaCooldown: true,
-                slippage,
-              });
-            const unstakeEncodedTx =
-              await backgroundApiProxy.serviceStaking.buildInternalDappTx({
-                networkId,
-                accountId,
-                tx: unstakeTx.tx,
-                internalDappType: EInternalDappEnum.Staking,
-                stakingAction: EInternalStakingAction.Withdraw,
-              });
-            const unstakeStakeInfo = createStakeInfoWithOrderId({
-              stakingInfo,
-              orderId: unstakeTx.orderId,
-            });
-            await navigationToTxConfirm({
-              encodedTx: unstakeEncodedTx,
-              stakingInfo: unstakeStakeInfo,
-              onSuccess: async (data) => {
-                onStepChange?.(3);
-                await handleStakeSuccess({
-                  data,
-                  stakeInfo: unstakeStakeInfo,
-                  networkId,
-                  onSuccess,
-                });
-              },
-              onFail,
-            });
-          },
-          onFail,
+        let swapConfirmResult;
+        try {
+          swapConfirmResult = await waitForTxConfirmResult({
+            encodedTx: swapEncodedTx,
+            stakingInfo: swapStakeInfo,
+          });
+        } catch (error) {
+          onFail?.(error as Error);
+          return;
+        }
+
+        if (swapConfirmResult.status !== 'success') {
+          return;
+        }
+
+        await handleStakeSuccess({
+          data: swapConfirmResult.data,
+          stakeInfo: swapStakeInfo,
+          networkId,
         });
+
+        if (signal?.aborted) {
+          return;
+        }
+
+        onStepChange?.(2);
+
+        const swapTxId =
+          swapConfirmResult.data[0]?.signedTx?.txid ??
+          swapConfirmResult.data[0]?.decodedTx?.txid;
+        if (swapTxId) {
+          const swapStatus = await waitForTxFinalStatus({
+            accountId,
+            networkId,
+            txid: swapTxId,
+            signal,
+          });
+          if (swapStatus !== EOnChainHistoryTxStatus.Success) {
+            if (!signal?.aborted) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_failed,
+                }),
+              });
+            }
+            return;
+          }
+        }
+
+        if (signal?.aborted) {
+          return;
+        }
+
+        onEthenaCooldownUnstakeReady?.();
+
+        // Let the previous confirm modal finish closing before opening
+        // the next step so each tx confirm owns the stack serially.
+        await timerUtils.wait(150);
+
+        if (signal?.aborted) {
+          return;
+        }
+
+        await openEthenaCooldownUnstakeConfirm();
         return;
       } else {
         stakeTx =
@@ -386,6 +566,7 @@ export function useUniversalWithdraw({
             signature: withdrawSignature,
             message: withdrawMessage,
             slippage,
+            effectiveApy,
           });
       }
 
@@ -457,7 +638,7 @@ export function useUniversalWithdraw({
         onFail,
       });
     },
-    [accountId, networkId, navigationToTxConfirm, intl],
+    [accountId, networkId, navigationToTxConfirm, waitForTxConfirmResult, intl],
   );
 }
 

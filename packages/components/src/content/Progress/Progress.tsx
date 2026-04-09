@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
   ThemeableStack,
@@ -9,6 +9,8 @@ import {
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+
+import { ANIMATE_ONLY_TRANSFORM } from '../../utils/animationConstants';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -98,7 +100,7 @@ const ProgressIndicator = ProgressIndicatorFrame.styleable<
         x={x}
         width={context.width}
         {...(!props.unstyled && {
-          animateOnly: ['transform'],
+          animateOnly: ANIMATE_ONLY_TRANSFORM,
           opacity: context.width === 0 ? 0 : 1,
         })}
         {...indicatorProps}
@@ -190,6 +192,14 @@ const Progress = withStaticProperties(
         : undefined;
       const [width, setWidth] = useState(0);
 
+      const handleLayout = useCallback(
+        (e: LayoutChangeEvent) => {
+          setWidth(e.nativeEvent.layout.width);
+          IProgressProps.onLayout?.(e);
+        },
+        [IProgressProps],
+      );
+
       return (
         <ProgressProvider
           scope={__scopeProgress}
@@ -211,10 +221,7 @@ const Progress = withStaticProperties(
               size,
             })}
             {...IProgressProps}
-            onLayout={(e) => {
-              setWidth(e.nativeEvent.layout.width);
-              IProgressProps.onLayout?.(e);
-            }}
+            onLayout={handleLayout}
             ref={forwardedRef}
           />
         </ProgressProvider>

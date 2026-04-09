@@ -15,6 +15,10 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -125,7 +129,11 @@ function ApprovalItem({
         </YStack>
         <XStack gap="$3" alignItems="center">
           <YStack alignItems="flex-end">
-            <SizableText size="$bodyMdMedium">OneKey Bulk Send</SizableText>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.wallet_bulk_send_approval_spender_name,
+              })}
+            </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
               {shortenedSpender}
             </SizableText>
@@ -239,6 +247,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
                     ) : null}
                     <View
                       animation="quick"
+                      animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={open ? '180deg' : '0deg'}
                       transformOrigin="center"
                     >
@@ -258,6 +267,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
             >
               <Accordion.Content
                 animation="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 exitStyle={{ opacity: 0 }}
                 backgroundColor="transparent"
                 padding="$0"

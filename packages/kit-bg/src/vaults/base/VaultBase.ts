@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-/* eslint max-classes-per-file: "off" */
+/* eslint-disable max-classes-per-file */
 
 import qs from 'querystring';
 
@@ -133,6 +133,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
   ISignTransactionParams,
+  ITransferInfo,
   ITransferPayload,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
@@ -154,6 +155,16 @@ if (platformEnv.isExtensionUi) {
 
 export abstract class VaultBaseChainOnly extends VaultContext {
   coreApi: CoreChainApiBase | undefined;
+
+  async getSignatureStatuses(
+    _signatures: string[],
+  ): Promise<
+    ({ err?: unknown; confirmationStatus?: string | null } | null)[] | undefined
+  > {
+    throw new OneKeyLocalError(
+      'getSignatureStatuses is not supported for this vault',
+    );
+  }
 
   async getXpubFromAccount(
     networkAccount: INetworkAccount,
@@ -420,6 +431,24 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   abstract updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
+
+  // Override in chain vaults that need to refresh transaction data (e.g. blockhash)
+  // before signing each transaction in a batch send sequence.
+  async refreshUnsignedTxBeforeBatchSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    return unsignedTx;
+  }
+
+  async buildBulkSendEncodedTxs(_params: {
+    transfersInfo: ITransferInfo[];
+  }): Promise<{
+    encodedTxs: IEncodedTx[];
+    transfersInfoChunks: ITransferInfo[][];
+    ataCount?: number;
+  }> {
+    throw new NotImplemented();
+  }
 
   async broadcastTransaction(
     params: IBroadcastTransactionParams,

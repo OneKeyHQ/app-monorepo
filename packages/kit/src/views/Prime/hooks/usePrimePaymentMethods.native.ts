@@ -23,6 +23,7 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
+import primePaymentUtils from './primePaymentUtils';
 
 import type {
   IPackage,
@@ -188,20 +189,23 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
+        currencyCode,
         pricePerYear: pricePerYear || 0,
-        pricePerYearString: `${new BigNumber(pricePerYear || 0).toFixed(
-          2,
-        )} ${currencyCode}`,
+        pricePerYearString: primePaymentUtils.formatPriceString(
+          pricePerYear || 0,
+          currencyCode,
+        ),
         pricePerMonth: pricePerMonth || 0,
-        pricePerMonthString: `${new BigNumber(pricePerMonth || 0).toFixed(
-          2,
-        )} ${currencyCode}`,
-        priceTotalPerYearString:
+        pricePerMonthString: primePaymentUtils.formatPriceString(
+          pricePerMonth || 0,
+          currencyCode,
+        ),
+        priceTotalPerYearString: primePaymentUtils.formatPriceString(
           subscriptionPeriod === 'P1M'
-            ? `${new BigNumber(pricePerMonth || 0)
-                .times(12)
-                .toFixed(2)} ${currencyCode}`
-            : `${new BigNumber(pricePerYear || 0).toFixed(2)} ${currencyCode}`,
+            ? new BigNumber(pricePerMonth || 0).times(12).toNumber()
+            : pricePerYear || 0,
+          currencyCode,
+        ),
       });
     });
 
@@ -251,6 +255,18 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
             ?.isActive
         ) {
+          // Set subscriptionManageUrl immediately from purchase result,
+          // because the server may not yet have it (RevenueCat webhook delay).
+          setPrimePersistAtom(
+            (prev): IPrimeUserInfo =>
+              perfUtils.buildNewValueIfChanged(prev, {
+                ...prev,
+                subscriptionManageUrl:
+                  makePurchaseResult.customerInfo.managementURL ||
+                  prev.subscriptionManageUrl ||
+                  '',
+              }),
+          );
           await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
 
           // Track successful subscription
@@ -307,7 +323,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [isReady, intl, loginPurchasesSdk],
+    [isReady, intl, loginPurchasesSdk, setPrimePersistAtom],
   );
 
   return {

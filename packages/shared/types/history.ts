@@ -53,6 +53,7 @@ export type IOnChainHistoryTxTransfer = {
   label: string;
   isNative?: boolean;
   isOwn?: boolean; // for UTXO
+  comment?: string; // TON
 };
 
 export type IOnChainHistoryTxUTXOInput = {
@@ -125,6 +126,9 @@ export type IOnChainHistoryTx = {
   destinationTag?: number;
   ledgerIndex?: number;
   lastLedgerSequence?: number;
+
+  // Cosmos / Stellar
+  memo?: string;
 
   // Dynex
   paymentId?: string;
@@ -264,4 +268,26 @@ export interface IServerFetchAccountHistoryDetailResp {
   data: {
     data: IFetchHistoryTxDetailsResp;
   };
+}
+
+// Transfer Recipient API Types
+export interface ITransferRecipient {
+  address: string;
+  networkId?: string;
+  time: number;
+  label?: string;
+  amount?: string;
+  symbol?: string;
+  memo?: string;
+}
+
+export interface IFetchTransferRecipientsParams {
+  networkId: string;
+  accountAddress: string;
+  limit?: number;
+}
+
+export interface IFetchTransferRecipientsResp {
+  supported: boolean;
+  data: ITransferRecipient[];
 }

@@ -68,6 +68,7 @@ import type {
   IAccountToken,
   IFetchTokenDetailItem,
   IToken,
+  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import {
@@ -88,6 +89,8 @@ export type IProps = {
   networkId: string;
   walletId: string;
   tokenInfo: IToken;
+  tokenMap?: Record<string, ITokenFiat>;
+  allowTokenMapAsInitialDetails?: boolean;
   isBlocked?: boolean;
   riskyTokens?: string[];
   isAllNetworks?: boolean;
@@ -214,12 +217,14 @@ function TokenDetailsView() {
               aggregateTokens.push({
                 ...originalToken,
                 accountId: originalToken.accountId ?? tokenAccountId ?? '',
+                networkShortName: tokenNetwork?.shortname ?? '',
               });
             } else {
               aggregateTokens.push({
                 ...aggregateToken,
                 accountId: tokenAccountId ?? '',
                 networkName: tokenNetwork?.name ?? '',
+                networkShortName: tokenNetwork?.shortname ?? '',
                 $key: buildTokenListMapKey({
                   networkId: aggregateToken.networkId ?? '',
                   accountAddress: tokenAccountAddress ?? '',
@@ -506,10 +511,46 @@ function TokenDetailsView() {
   }, [activeTabIndex, tokens, updateTokenMetadata]);
 
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
+  // Build unique tab names for aggregate tokens to avoid
+  // "Tab names must be unique" crash in collapsible-tab-view.
+  // Naming rules:
+  //   1. Use networkName as-is when unique (e.g. "Ethereum", "BNB Chain")
+  //   2. Fallback to networkId if networkName is empty (e.g. "evm--1")
+  //   3. Append networkShortName for duplicates (e.g. "Ethereum(ETH)", "Ethereum(ARB)")
+  //   4. Append numeric suffix as final deduplicate guard (e.g. "Ethereum(ETH) 2")
+  const uniqueTabNames = useMemo(() => {
+    const nameCount = new Map<string, number>();
+    for (const token of tokens) {
+      const baseName = token.networkName || token.networkId || token.$key;
+      nameCount.set(baseName, (nameCount.get(baseName) ?? 0) + 1);
+    }
+    const nameMap = new Map<string, string>();
+    const usedNames = new Set<string>();
+    for (const token of tokens) {
+      const baseName = token.networkName || token.networkId || token.$key;
+      let name = baseName;
+      if ((nameCount.get(baseName) ?? 0) > 1) {
+        const suffix = token.networkShortName || token.networkId || '';
+        name = suffix ? `${baseName}(${suffix})` : baseName;
+      }
+      if (usedNames.has(name)) {
+        let i = 2;
+        while (usedNames.has(`${name} ${i}`)) i += 1;
+        name = `${name} ${i}`;
+      }
+      usedNames.add(name);
+      nameMap.set(token.$key, name);
+    }
+    return nameMap;
+  }, [tokens]);
+
   const tabs = useMemo(() => {
     if (tokens.length > 1) {
       return tokens.map((token) => (
-        <Tabs.Tab key={token.$key} name={token.networkName ?? ''}>
+        <Tabs.Tab
+          key={token.$key}
+          name={uniqueTabNames.get(token.$key) ?? token.$key}
+        >
           <TokenDetailsViews
             inTabList
             isTabView
@@ -517,6 +558,7 @@ function TokenDetailsView() {
             networkId={token.networkId ?? ''}
             walletId={walletId}
             tokenInfo={token}
+            tokenMap={tokenMap}
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={indexedAccountId}
@@ -547,6 +589,8 @@ function TokenDetailsView() {
               deriveInfo={item.deriveInfo}
               deriveType={item.deriveType}
               tokenInfo={tokenInfo}
+              tokenMap={tokenMap}
+              allowTokenMapAsInitialDetails={false}
               isAllNetworks={isAllNetworks}
               listViewContentContainerStyle={listViewContentContainerStyle}
               indexedAccountId={indexedAccountId}
@@ -562,6 +606,7 @@ function TokenDetailsView() {
             networkId={tokenInfo.networkId ?? ''}
             walletId={walletId}
             tokenInfo={tokenInfo}
+            tokenMap={tokenMap}
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={indexedAccountId}
@@ -582,8 +627,10 @@ function TokenDetailsView() {
     refreshAllNetworkState,
     vaultSettings?.mergeDeriveAssetsEnabled,
     tokenInfo,
+    tokenMap,
     result?.networkAccounts,
     intl,
+    uniqueTabNames,
   ]);
 
   const pageWidth = useTabletModalPageWidth();
@@ -597,7 +644,8 @@ function TokenDetailsView() {
           {
             accountId: indexedAccountId ?? accountId,
             aggregateTokenId: tokenInfo.$key,
-            lastActiveTabName: activeToken.networkName ?? '',
+            lastActiveTabName:
+              uniqueTabNames.get(activeToken.$key) ?? activeToken.$key,
           },
         );
 
@@ -636,6 +684,7 @@ function TokenDetailsView() {
       allNetworksState.enabledNetworks,
       intl,
       refreshAllNetworkState,
+      uniqueTabNames,
     ],
   );
 
@@ -671,7 +720,9 @@ function TokenDetailsView() {
                   <TokenDetailsTabToolbar
                     tokens={tokens}
                     onSelected={(token) => {
-                      tabsRef.current?.jumpToTab(token.networkName ?? '');
+                      tabsRef.current?.jumpToTab(
+                        uniqueTabNames.get(token.$key) ?? token.$key,
+                      );
                     }}
                   />
                 )}
@@ -691,6 +742,7 @@ function TokenDetailsView() {
         networkId={tokenInfo.networkId ?? networkId}
         walletId={walletId}
         tokenInfo={tokenInfo}
+        tokenMap={tokenMap}
         isAllNetworks={isAllNetworks}
         indexedAccountId={indexedAccountId}
         listViewContentContainerStyle={listViewContentContainerStyle}
@@ -703,6 +755,7 @@ function TokenDetailsView() {
     vaultSettings?.mergeDeriveAssetsEnabled,
     tokens,
     tokenInfo,
+    tokenMap,
     accountId,
     networkId,
     isAllNetworks,
@@ -712,6 +765,7 @@ function TokenDetailsView() {
     pageWidth,
     handleTabIndexChange,
     lastActiveTabName,
+    uniqueTabNames,
   ]);
 
   const headerTitle = useCallback(() => {

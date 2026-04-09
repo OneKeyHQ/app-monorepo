@@ -9,8 +9,13 @@ import {
   useDownloadPackage,
 } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  EUpdateFileType,
+  getUpdateFileType,
+} from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -28,9 +33,21 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 
   const { downloadPackage } = useDownloadPackage();
 
+  const updateFileType = getUpdateFileType({
+    latestVersion: appUpdateInfo.data?.latestVersion,
+    jsBundleVersion: appUpdateInfo.data?.jsBundleVersion,
+  });
+
+  const shouldOpenStore =
+    updateFileType === EUpdateFileType.appShell &&
+    !!appUpdateInfo.data?.storeUrl;
+
   const handleToUpdate: IPageFooterProps['onConfirm'] = useCallback(() => {
     if (appUpdateInfo.data) {
-      if (appUpdateInfo.data.storeUrl) {
+      defaultLogger.app.appUpdate.changelogUpdateClicked({
+        action: shouldOpenStore ? 'store' : 'download',
+      });
+      if (shouldOpenStore && appUpdateInfo.data.storeUrl) {
         openUrlExternal(appUpdateInfo.data.storeUrl);
       } else if (
         appUpdateInfo.data.downloadUrl ||
@@ -44,13 +61,19 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         });
       }
     }
-  }, [appUpdateInfo.data, downloadPackage, isForceUpdate, navigation]);
+  }, [
+    appUpdateInfo.data,
+    downloadPackage,
+    isForceUpdate,
+    navigation,
+    shouldOpenStore,
+  ]);
   return (
     <Page.Footer>
       <YStack>
         <Page.FooterActions
           onConfirmText={intl.formatMessage({
-            id: appUpdateInfo.data.storeUrl
+            id: shouldOpenStore
               ? ETranslations.update_update_now
               : ETranslations.update_download_and_verify_text,
           })}

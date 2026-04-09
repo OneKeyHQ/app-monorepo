@@ -22,13 +22,14 @@ import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
-import type { ILiquidityFilter } from './types';
+import type { ILiquidityFilter, IMarketCategoryItem } from './types';
 
 const useMarketHomeLayoutProps = () => {
   const { md } = useMedia();
 
   // Load market basic config using the new hook
-  const { formattedMinLiquidity } = useMarketBasicConfig();
+  const { formattedMinLiquidity, spotCategories: apiSpotCategories } =
+    useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
 
   // Track market entry analytics
@@ -58,7 +59,23 @@ const useMarketHomeLayoutProps = () => {
       setLiquidityFilter({ min: formattedMinLiquidity });
     }
   }, [formattedMinLiquidity, liquidityFilter.min]);
-  const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
+  const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('1h');
+
+  const [selectedCategory, setSelectedCategory] = useState('trending');
+
+  const categories: IMarketCategoryItem[] = useMemo(() => {
+    if (apiSpotCategories.length > 0) {
+      return apiSpotCategories.map((c) => ({
+        id: c.type,
+        name: c.name,
+      }));
+    }
+    // Fallback before API responds
+    return [
+      { id: 'trending', name: 'Trending' },
+      { id: 'x_mentioned', name: 'X Mentioned' },
+    ];
+  }, [apiSpotCategories]);
 
   const handleNetworkIdChange = useCallback(
     (networkId: string) => {
@@ -67,7 +84,7 @@ const useMarketHomeLayoutProps = () => {
     [handleNetworkChange, setSelectedNetworkId],
   );
 
-  const mobileProps = useMemo(
+  const layoutProps = useMemo(
     () => ({
       filterBarProps: {
         selectedNetworkId,
@@ -76,6 +93,9 @@ const useMarketHomeLayoutProps = () => {
         onNetworkIdChange: handleNetworkIdChange,
         onTimeRangeChange: setTimeRange,
         onLiquidityFilterChange: setLiquidityFilter,
+        selectedCategory,
+        categories,
+        onCategoryChange: setSelectedCategory,
       },
       selectedNetworkId,
       liquidityFilter,
@@ -87,51 +107,29 @@ const useMarketHomeLayoutProps = () => {
       liquidityFilter,
       handleNetworkIdChange,
       handleTabChange,
-    ],
-  );
-
-  const desktopProps = useMemo(
-    () => ({
-      filterBarProps: {
-        selectedNetworkId,
-        timeRange,
-        liquidityFilter,
-        onNetworkIdChange: handleNetworkIdChange,
-        onTimeRangeChange: setTimeRange,
-        onLiquidityFilterChange: setLiquidityFilter,
-      },
-      selectedNetworkId,
-      liquidityFilter,
-      onTabChange: handleTabChange,
-    }),
-    [
-      selectedNetworkId,
-      timeRange,
-      liquidityFilter,
-      handleNetworkIdChange,
-      handleTabChange,
+      selectedCategory,
+      categories,
     ],
   );
 
   return useMemo(
     () => ({
       md,
-      mobileProps,
-      desktopProps,
+      layoutProps,
     }),
-    [md, mobileProps, desktopProps],
+    [md, layoutProps],
   );
 };
 
 function BaseMarketHomeLayout() {
-  const { md, mobileProps, desktopProps } = useMarketHomeLayoutProps();
+  const { md, layoutProps } = useMarketHomeLayoutProps();
 
   return (
     <LazyPageContainer>
       {md || platformEnv.isNative ? (
-        <MobileLayout {...mobileProps} />
+        <MobileLayout {...layoutProps} />
       ) : (
-        <DesktopLayout {...desktopProps} />
+        <DesktopLayout {...layoutProps} />
       )}
     </LazyPageContainer>
   );
@@ -175,20 +173,36 @@ export function MarketHomeV2() {
 function BaseMarketHomeWithProvider({
   isFocused = true,
   tabsRef,
+  nestedPager = false,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }) {
-  const { mobileProps } = useMarketHomeLayoutProps();
-  return isFocused ? <MobileLayout {...mobileProps} tabsRef={tabsRef} /> : null;
+  const { layoutProps } = useMarketHomeLayoutProps();
+  // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
+  // and let Freeze control inactive-page performance. Unmounting here causes
+  // visible flashes when the outer pager finishes settling.
+  if (!isFocused && !nestedPager) {
+    return null;
+  }
+  return (
+    <MobileLayout
+      {...layoutProps}
+      tabsRef={tabsRef}
+      nestedPager={nestedPager}
+    />
+  );
 }
 
 export function MarketHomeWithProvider({
   isFocused = true,
   tabsRef,
+  nestedPager = false,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -201,7 +215,11 @@ export function MarketHomeWithProvider({
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BaseMarketHomeWithProvider isFocused={isFocused} tabsRef={tabsRef} />
+        <BaseMarketHomeWithProvider
+          isFocused={isFocused}
+          tabsRef={tabsRef}
+          nestedPager={nestedPager}
+        />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

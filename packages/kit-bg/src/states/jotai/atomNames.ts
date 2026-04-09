@@ -44,6 +44,7 @@ export enum EAtomNames {
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
   settingsTronRentalPersistAtom = 'settingsTronRentalPersistAtom',
+  settingsFiatPaySiteWhitelistPersistAtom = 'settingsFiatPaySiteWhitelistPersistAtom',
 
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
@@ -94,9 +95,14 @@ export enum EAtomNames {
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
+  perpsAbstractionModeAtom = 'perpsAbstractionModeAtom',
+  perpsSpotBalancesAtom = 'perpsSpotBalancesAtom',
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
+
+  // translate
+  translateSettingsPersistAtom = 'translateSettingsPersistAtom',
 
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
@@ -104,6 +110,12 @@ export enum EAtomNames {
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
+  marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
+  marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
+
+  // account selector values (async loaded)
+  accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',
+  accountSelectorDeFiMapAtom = 'accountSelectorDeFiMapAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

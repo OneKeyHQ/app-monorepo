@@ -12,6 +12,9 @@ import { YearGrid, YearRangeHeader } from './YearGrid';
 
 import type { DatePickerMode } from './type';
 
+const dualPanelStyle = { flex: 1, flexBasis: 0 } as const;
+const emptyStyle = {} as const;
+
 type IViewMode = 'day' | 'month' | 'year';
 
 function useNavDisabled(calendarIndex: number, minDate?: Date, maxDate?: Date) {
@@ -88,6 +91,9 @@ export function CalendarPanel({
   const isRangeDualPanel = mode === 'range' && isDualPanel;
 
   const [viewMode, setViewMode] = useState<IViewMode>('day');
+  const setViewModeToDay = useCallback(() => setViewMode('day'), []);
+  const setViewModeToMonth = useCallback(() => setViewMode('month'), []);
+  const setViewModeToYear = useCallback(() => setViewMode('year'), []);
 
   const {
     isPrevDisabled,
@@ -123,7 +129,7 @@ export function CalendarPanel({
   const showNextNav = showNav === 'both' || showNav === 'next';
 
   return (
-    <YStack {...(isDualPanel ? { flex: 1, flexBasis: 0 } : {})}>
+    <YStack {...(isDualPanel ? dualPanelStyle : emptyStyle)}>
       {viewMode === 'year' ? (
         <YearRangeHeader />
       ) : (
@@ -144,12 +150,10 @@ export function CalendarPanel({
           isNextYearDisabled={showNextNav ? isNextYearDisabled : undefined}
           onMonthClick={
             viewMode === 'day' && !isRangeDualPanel
-              ? () => setViewMode('month')
+              ? setViewModeToMonth
               : undefined
           }
-          onYearClick={
-            !isRangeDualPanel ? () => setViewMode('year') : undefined
-          }
+          onYearClick={!isRangeDualPanel ? setViewModeToYear : undefined}
           mode={mode}
         />
       )}
@@ -162,16 +166,10 @@ export function CalendarPanel({
         />
       ) : null}
       {viewMode === 'month' ? (
-        <MonthGrid
-          onSelect={() => setViewMode('day')}
-          onMonthSelect={onMonthSelect}
-        />
+        <MonthGrid onSelect={setViewModeToDay} onMonthSelect={onMonthSelect} />
       ) : null}
       {viewMode === 'year' ? (
-        <YearGrid
-          onSelect={() => setViewMode('month')}
-          onYearSelect={onYearSelect}
-        />
+        <YearGrid onSelect={setViewModeToMonth} onYearSelect={onYearSelect} />
       ) : null}
     </YStack>
   );

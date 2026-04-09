@@ -1,5 +1,4 @@
 /* oxlint-disable @cspell/spellchecker */
-/* eslint-disable @cspell/spellchecker */
 
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';

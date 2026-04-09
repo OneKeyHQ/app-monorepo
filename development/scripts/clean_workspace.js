@@ -1,6 +1,6 @@
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 // Function to remove directory recursively
 function removeDir(dir) {
@@ -86,6 +86,7 @@ const dirsToRemove = [
 
   // kit-bg
   './packages/kit-bg/node_modules',
+  './packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js',
 
   // shared
   './packages/shared/node_modules',

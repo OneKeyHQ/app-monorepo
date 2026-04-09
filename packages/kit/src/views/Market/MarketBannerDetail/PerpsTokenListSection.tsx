@@ -3,9 +3,11 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, Table, useMedia } from '@onekeyhq/components';
+import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -21,9 +23,12 @@ export function PerpsTokenListSection({
 }: {
   tokenListId: string;
 }) {
-  const { navigateToPerps } = usePerpsNavigation();
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.MarketBanner,
+  );
   const perpsColumns = usePerpsColumns();
   const { md } = useMedia();
+  const tabBarHeight = useTabBarHeight();
   const intl = useIntl();
 
   const { result: perpsResult, isLoading } = usePromiseResult(
@@ -90,6 +95,9 @@ export function PerpsTokenListSection({
               estimatedItemSize="$14"
               extraData={tokens.length}
               TableEmptyComponent={TableEmptyComponent}
+              contentContainerStyle={{
+                paddingBottom: tabBarHeight,
+              }}
               onRow={(item) => ({
                 onPress: () => navigateToPerps(item.name),
               })}

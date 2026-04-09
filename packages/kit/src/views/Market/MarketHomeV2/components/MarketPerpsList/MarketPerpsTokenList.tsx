@@ -3,6 +3,7 @@ import { memo, useContext, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  ListEndIndicator,
   SizableText,
   Stack,
   Table,
@@ -15,8 +16,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
-import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from './hooks/usePerpsColumns';
@@ -37,19 +38,25 @@ function MarketPerpsTokenListImpl({
   tabName,
   listContainerProps,
 }: IMarketPerpsTokenListProps) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const { navigateToPerps } = usePerpsNavigation();
   const intl = useIntl();
   const { md } = useMedia();
 
   const { perpsCategories } = useMarketBasicConfig();
 
-  // Auto-select first category when categories load
+  const initialCategoryId = useMemo(
+    () => perpsCategories[0]?.categoryId ?? '',
+    [perpsCategories],
+  );
+  const [selectedCategoryId, setSelectedCategoryId] =
+    useState(initialCategoryId);
+
+  // Sync when categories load asynchronously after initial render
   useEffect(() => {
-    if (!selectedCategoryId && perpsCategories.length > 0) {
-      setSelectedCategoryId(perpsCategories[0].categoryId);
+    if (!selectedCategoryId && initialCategoryId) {
+      setSelectedCategoryId(initialCategoryId);
     }
-  }, [perpsCategories, selectedCategoryId]);
+  }, [initialCategoryId, selectedCategoryId]);
 
   const { tokens, isLoading, hasRealTimeData } = useMarketPerpsTokenList({
     selectedCategoryId,
@@ -99,6 +106,13 @@ function MarketPerpsTokenListImpl({
     );
   }, [isLoading, intl]);
 
+  const TableFooterComponent = useMemo(() => {
+    if (!isLoading && tokens.length > 0) {
+      return <ListEndIndicator />;
+    }
+    return null;
+  }, [isLoading, tokens.length]);
+
   const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
 
   // Desktop sticky header: portal the category selector + column header
@@ -113,7 +127,9 @@ function MarketPerpsTokenListImpl({
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
         <YStack bg="$bgApp" px="$4">
-          {CategorySelector}
+          <Stack width="100%" mb="$3">
+            {CategorySelector}
+          </Stack>
           <Table.HeaderRow columns={perpsColumns} />
         </YStack>
       </StickyHeaderPortal>
@@ -172,6 +188,7 @@ function MarketPerpsTokenListImpl({
               estimatedItemSize="$14"
               extraData={hasRealTimeData}
               TableEmptyComponent={TableEmptyComponent}
+              TableFooterComponent={TableFooterComponent}
               onRow={(item) => ({
                 onPress: () => handleTokenPress(item.name),
               })}

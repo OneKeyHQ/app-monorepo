@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -18,7 +17,6 @@ import {
   rootNavigationRef,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -30,6 +28,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -175,7 +177,6 @@ function RecommendCardItem({
 
 function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
-  const currencyInfo = useCurrency();
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
   const [favoriteTokens, setFavoriteTokens] = useState<IFavoriteTokenDisplay[]>(
@@ -239,7 +240,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                       <LeverageBadge leverage={record.maxLeverage} />
                     ) : null}
                   </XStack>
-                  <SizableText size="$bodyMd" color="$textSubdued">
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    maxWidth={200}
+                  >
                     {record.name}
                   </SizableText>
                 </YStack>
@@ -255,7 +261,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               size="$bodyLgMedium"
               formatter="price"
               formatterOptions={{
-                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                currency: '$',
               }}
             >
               {record.price ?? '-'}
@@ -290,10 +296,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               size="$bodyLgMedium"
               formatter="marketCap"
               formatterOptions={{
-                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                currency: '$',
               }}
             >
-              {new BigNumber(record.volume24h).isNaN() ? '-' : record.volume24h}
+              {!record.volume24h ? '--' : record.volume24h}
             </NumberSizeableText>
           ),
         },
@@ -338,12 +344,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                   size="$bodyMd"
                   formatter="marketCap"
                   formatterOptions={{
-                    currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                    currency: '$',
                   }}
                 >
-                  {new BigNumber(record.volume24h).isNaN()
-                    ? '-'
-                    : record.volume24h}
+                  {!record.volume24h ? '--' : record.volume24h}
                 </NumberSizeableText>
               </YStack>
             </XStack>
@@ -363,7 +367,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 size="$bodyLgMedium"
                 formatter="price"
                 formatterOptions={{
-                  currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                  currency: '$',
                 }}
               >
                 {record.price ?? '-'}
@@ -381,7 +385,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         },
       },
     ];
-  }, [intl, currencyInfo?.symbol, tableLayout]);
+  }, [intl, tableLayout]);
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
@@ -719,6 +723,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           });
           return;
         }
+        setPerpPageEnterSource(EPerpPageEnterSource.PopularTrading);
         navigation.switchTab(ETabRoutes.Perp);
         void backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
           coin: record.perpsCoin,

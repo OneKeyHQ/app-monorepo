@@ -38,21 +38,24 @@ export const SellOrBuyContent = memo(
       if (!networkUtils.isAllNetwork({ networkId })) {
         return tokens;
       }
-      let result = tokens.map((token) => ({
-        ...token,
-        fiatValue: getTokenFiatValue({
-          networkId: token.networkId,
-          tokenAddress: token.address.toLowerCase(),
-        })?.fiatValue,
-        balanceParsed: getTokenFiatValue({
-          networkId: token.networkId,
-          tokenAddress: token.address.toLowerCase(),
-        })?.balanceParsed,
-      }));
+      let result: IFiatCryptoToken[];
       if (type === 'sell') {
+        result = tokens.map((token) => {
+          const tokenFiat = getTokenFiatValue({
+            networkId: token.networkId,
+            tokenAddress: token.address.toLowerCase(),
+          });
+          return {
+            ...token,
+            fiatValue: tokenFiat?.fiatValue,
+            balanceParsed: tokenFiat?.balanceParsed,
+          };
+        });
         result = result.filter(
           (o) => o.balanceParsed && Number(o.balanceParsed) !== 0,
         );
+      } else {
+        result = tokens;
       }
       if (account && accountUtils.isOthersAccount({ accountId: account.id })) {
         result = result.filter((o) =>
@@ -62,11 +65,14 @@ export const SellOrBuyContent = memo(
           }),
         );
       }
-      return result.toSorted((a, b) => {
-        const num1 = a.fiatValue ?? '0';
-        const num2 = b.fiatValue ?? '0';
-        return BigNumber(num1).comparedTo(num2) * -1;
-      });
+      if (type === 'sell') {
+        return result.toSorted((a, b) => {
+          const num1 = a.fiatValue ?? '0';
+          const num2 = b.fiatValue ?? '0';
+          return BigNumber(num1).comparedTo(num2) * -1;
+        });
+      }
+      return result;
     }, [tokens, getTokenFiatValue, networkId, type, account]);
 
     const onPress = useCallback(
@@ -106,6 +112,7 @@ export const SellOrBuyContent = memo(
       <NetworkContainer networkIds={networkIds}>
         <TokenList
           items={fiatValueTokens}
+          type={type}
           isLoading={isLoading}
           onPress={onPress}
         />

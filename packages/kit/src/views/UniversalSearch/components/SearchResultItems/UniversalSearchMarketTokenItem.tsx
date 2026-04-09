@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { XStack } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
@@ -12,24 +13,32 @@ import type { IUniversalSearchMarketToken } from '@onekeyhq/shared/types/search'
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
-import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchMarketToken;
   searchStatus: ESearchStatus;
+  getSearchInput: () => string;
 }
 
 export function UniversalSearchMarketTokenItem({
   item,
   searchStatus,
+  getSearchInput,
 }: IUniversalSearchMarketTokenItemProps) {
   const appNavigation = useAppNavigation();
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListAtom();
   const universalSearchActions = useUniversalSearchActions();
-  const { image, coingeckoId, price, symbol, name, lastUpdated } = item.payload;
+  const { image, coingeckoId, price, symbol, name } = item.payload;
 
   const handlePress = useCallback(() => {
+    defaultLogger.universalSearch.search.universalSearchClick({
+      searchText: getSearchInput(),
+      type: item.type,
+      itemId: coingeckoId ?? '',
+      itemTitle: name,
+    });
+
     setTimeout(async () => {
       appNavigation.push(EUniversalSearchPages.MarketDetail, {
         token: coingeckoId,
@@ -55,7 +64,9 @@ export function UniversalSearchMarketTokenItem({
   }, [
     appNavigation,
     coingeckoId,
+    getSearchInput,
     item.type,
+    name,
     searchStatus,
     symbol,
     universalSearchActions,
@@ -77,13 +88,7 @@ export function UniversalSearchMarketTokenItem({
       }}
     >
       <XStack>
-        <BaseMarketTokenPrice
-          price={String(price)}
-          size="$bodyLgMedium"
-          lastUpdated={lastUpdated}
-          tokenName={name}
-          tokenSymbol={symbol}
-        />
+        <Currency size="$bodyLgMedium">{String(price)}</Currency>
       </XStack>
     </ListItem>
   );

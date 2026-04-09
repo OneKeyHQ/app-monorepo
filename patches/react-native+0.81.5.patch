@@ -465,6 +465,61 @@ index 577bebe..ad0f253 100644
  #pragma mark - RCTBackedTextInputDelegate
  
  - (BOOL)textInputShouldBeginEditing
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
+index a99f103..27865c2 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
+@@ -828,6 +828,19 @@ - (UIView *)currentContainerView
+ }
+ 
+ - (void)invalidateLayer
++{
++  // During modal transition, prevent backgroundColor and layer changes from being animated.
++  extern BOOL RNSModalTransitionInProgress;
++  if (RNSModalTransitionInProgress) {
++    [UIView performWithoutAnimation:^{
++      [self _invalidateLayerImpl];
++    }];
++  } else {
++    [self _invalidateLayerImpl];
++  }
++}
++
++- (void)_invalidateLayerImpl
+ {
+   CALayer *layer = self.layer;
+ 
+diff --git a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm b/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
+index 9f50554..23eaaa8 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
+@@ -103,8 +103,24 @@ - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
+     } else {
+       // Note: Changing `frame` when `layer.transform` is not the `identity transform` is undefined behavior.
+       // Therefore, we must use `center` and `bounds`.
+-      self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
+-      self.bounds = CGRect{CGPointZero, frame.size};
++      //
++      // When a modal transition is in progress, Fabric may mount recycled views
++      // whose stale frames differ from the new layout. Without performWithoutAnimation,
++      // UIKit captures the center/bounds change as an implicit animation within the
++      // modal presentation's animation block, causing visible content displacement.
++      extern BOOL RNSModalTransitionInProgress;
++      if (RNSModalTransitionInProgress) {
++        [UIView performWithoutAnimation:^{
++          self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
++          self.bounds = CGRect{CGPointZero, frame.size};
++          // Force immediate layout so that subviews (e.g. RCTParagraphTextView)
++          // also get their frames set within performWithoutAnimation scope.
++          [self layoutIfNeeded];
++        }];
++      } else {
++        self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
++        self.bounds = CGRect{CGPointZero, frame.size};
++      }
+     }
+   }
+ 
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
 index 89b666d..246c9cf 100644
 --- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
@@ -544,3 +599,37 @@ index dbce575..5b03581 100644
  
   private:
    void dispatchTextInputEvent(
+diff --git a/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec b/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec
+index 8852179..040c4f0 100644
+--- a/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec
++++ b/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec
+@@ -25,7 +25,7 @@ Pod::Spec.new do |spec|
+   spec.dependency "DoubleConversion"
+   spec.dependency "glog"
+   spec.dependency "fast_float", "8.0.0"
+-  spec.dependency "fmt", "11.0.2"
++  spec.dependency "fmt", "12.1.0"
+   spec.compiler_flags = '-Wno-documentation -faligned-new'
+   spec.source_files = 'folly/String.cpp',
+                       'folly/Conv.cpp',
+diff --git a/node_modules/react-native/third-party-podspecs/fmt.podspec b/node_modules/react-native/third-party-podspecs/fmt.podspec
+index 2f38990..a40c575 100644
+--- a/node_modules/react-native/third-party-podspecs/fmt.podspec
++++ b/node_modules/react-native/third-party-podspecs/fmt.podspec
+@@ -8,14 +8,14 @@ fmt_git_url = fmt_config[:git]
+ 
+ Pod::Spec.new do |spec|
+   spec.name = "fmt"
+-  spec.version = "11.0.2"
++  spec.version = "12.1.0"
+   spec.license = { :type => "MIT" }
+   spec.homepage = "https://github.com/fmtlib/fmt"
+   spec.summary = "{fmt} is an open-source formatting library for C++. It can be used as a safe and fast alternative to (s)printf and iostreams."
+   spec.authors = "The fmt contributors"
+   spec.source = {
+     :git => fmt_git_url,
+-    :tag => "11.0.2"
++    :tag => "12.1.0"
+   }
+   spec.pod_target_xcconfig = {
+     "CLANG_CXX_LANGUAGE_STANDARD" => rct_cxx_language_standard(),

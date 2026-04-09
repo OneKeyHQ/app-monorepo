@@ -12,12 +12,20 @@ import type {
   StackProps,
   TamaguiElement,
 } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IconButton } from '../../actions/IconButton';
 import { Stack, XStack } from '../../primitives/Stack';
 
 import type { PressableProps, View } from 'react-native';
+
+const enterStyleAnimated = platformEnv.isNativeAndroid
+  ? undefined
+  : {
+      opacity: 0,
+      scale: 0,
+    };
 
 export type ISortableCellProps = StackProps & {
   isEditing?: boolean;
@@ -53,14 +61,8 @@ function BaseSortableCell(
                 icon="MinusCircleSolid"
                 variant="destructive"
                 animation="quick"
-                enterStyle={
-                  platformEnv.isNativeAndroid
-                    ? undefined
-                    : {
-                        opacity: 0,
-                        scale: 0,
-                      }
-                }
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                enterStyle={enterStyleAnimated}
               />
             ) : null}
           </AnimatePresence>
@@ -74,14 +76,8 @@ function BaseSortableCell(
                 icon="MenuOutline"
                 onPressIn={drag}
                 animation="quick"
-                enterStyle={
-                  platformEnv.isNativeAndroid
-                    ? undefined
-                    : {
-                        opacity: 0,
-                        scale: 0,
-                      }
-                }
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                enterStyle={enterStyleAnimated}
               />
             ) : null}
           </AnimatePresence>

@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const { FuseVersion, FuseV1Options } = require('@electron/fuses');
+
+// Electron fuses are configured declaratively via the `electronFuses`
+// property in electron-builder-base.config.js.
 
 exports.default = async function fileOperation(context) {
   // https://www.electron.build/app-builder-lib.typealias.electronplatformname
@@ -37,15 +39,5 @@ exports.default = async function fileOperation(context) {
       fs.rmSync(keccakFilePath, { recursive: true });
     }
     console.log('remove file finish..');
-  }
-
-  if (electronPlatformName === 'darwin' || electronPlatformName === 'win32') {
-    await context.packager.addElectronFuses(context, {
-      version: FuseVersion.V1,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
-      [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableCookieEncryption]: true,
-    });
   }
 };

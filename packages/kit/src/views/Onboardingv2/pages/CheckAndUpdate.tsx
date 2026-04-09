@@ -21,6 +21,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -81,6 +82,7 @@ function CheckAndUpdatePage({
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
+  const hasUpgradeForceRef = useRef(false);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
@@ -427,6 +429,10 @@ function CheckAndUpdatePage({
         if (r.features) {
           deviceFeaturesRef.current = r.features;
         }
+        hasUpgradeForceRef.current =
+          r.updateInfos?.firmware?.hasUpgradeForce ||
+          r.updateInfos?.ble?.hasUpgradeForce ||
+          false;
         if (r.hasUpgrade) {
           setSteps((prev) => {
             const newSteps = [...prev];
@@ -841,7 +847,7 @@ function CheckAndUpdatePage({
                     step.state !== ECheckAndUpdateStepState.Idle ? (
                       <YStack
                         animation="quick"
-                        animateOnly={['opacity', 'transform']}
+                        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                         enterStyle={{
                           opacity: 0,
                           scale: 0.97,
@@ -969,6 +975,7 @@ function CheckAndUpdatePage({
                                 key="spinner"
                                 size="small"
                                 animation="quick"
+                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                                 enterStyle={{ scale: 0.7, opacity: 0 }}
                                 exitStyle={{ scale: 0.7, opacity: 0 }}
                                 scale={0.8}
@@ -977,6 +984,7 @@ function CheckAndUpdatePage({
                             {step.state === ECheckAndUpdateStepState.Error ? (
                               <YStack
                                 animation="quick"
+                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
                                 exitStyle={{ scale: 0.8, opacity: 0 }}
                                 key="error"
@@ -992,6 +1000,7 @@ function CheckAndUpdatePage({
                             step.state === ECheckAndUpdateStepState.Skipped ? (
                               <YStack
                                 animation="quick"
+                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
                                 exitStyle={{ scale: 0.8, opacity: 0 }}
                                 key="warning"
@@ -1006,6 +1015,7 @@ function CheckAndUpdatePage({
                             {step.state === ECheckAndUpdateStepState.Success ? (
                               <YStack
                                 animation="quick"
+                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
                                 exitStyle={{ scale: 0.8, opacity: 0 }}
                                 key="checkmark"
@@ -1130,11 +1140,13 @@ function CheckAndUpdatePage({
                               id: ETranslations.update_update_now,
                             })}
                           </Button>
-                          <Button onPress={handleSkipUpdate}>
-                            {intl.formatMessage({
-                              id: ETranslations.global_skip,
-                            })}
-                          </Button>
+                          {!hasUpgradeForceRef.current ? (
+                            <Button onPress={handleSkipUpdate}>
+                              {intl.formatMessage({
+                                id: ETranslations.global_skip,
+                              })}
+                            </Button>
+                          ) : null}
                         </XStack>
                       </XStack>
                     ) : null}
@@ -1186,7 +1198,7 @@ function CheckAndUpdatePage({
               ) ? (
                 <Button
                   animation="quick"
-                  animateOnly={['opacity', 'transform']}
+                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   variant="primary"
                   size="large"
                   onPress={handleVerifyHardware}

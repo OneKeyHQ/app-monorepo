@@ -403,6 +403,7 @@ class ServiceAllNetwork extends ServiceBase {
       const shouldFilterNotEqualGlobalDeriveTypeAccount =
         !includingNotEqualGlobalDeriveTypeAccount &&
         isAllNetwork &&
+        !accountUtils.isOthersAccount({ accountId }) &&
         !(
           networkUtils
             .getDefaultDeriveTypeVisibleNetworks()

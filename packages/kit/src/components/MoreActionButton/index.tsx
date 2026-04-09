@@ -76,6 +76,7 @@ import { useOnLock } from '../../hooks/useOnLock';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
+import { useBulkSendModeDialog } from '../../views/BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
@@ -155,7 +156,7 @@ function MoreActionContentHeader({
     await closePopover?.();
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoHandleResult: true,
+      autoExecuteParsedAction: true,
       account,
       network,
       tokens: {
@@ -917,7 +918,7 @@ function MoreActionGeneralGrid() {
   const handleScan = useCallback(async () => {
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoHandleResult: true,
+      autoExecuteParsedAction: true,
       account,
       network,
       tokens: {
@@ -981,6 +982,7 @@ const MoreActionWalletGrid = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const navigateToBulkSend = useNavigateToBulkSend();
+  const showBulkSendModeDialog = useBulkSendModeDialog();
   const handleBackup = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListSubModal,
@@ -1034,11 +1036,9 @@ const MoreActionWalletGrid = () => {
         return true;
       }
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeFeatures,
+        screen: EPrimePages.PrimeDashboard,
         params: {
-          showAllFeatures: false,
-          selectedFeature: showFeature,
-          selectedSubscriptionPeriod: 'P1Y',
+          fromFeature: showFeature,
           networkId: network?.id,
         },
       });
@@ -1070,16 +1070,22 @@ const MoreActionWalletGrid = () => {
       return;
     }
 
-    void navigateToBulkSend({
-      networkId: network?.id,
-      accountId: account?.id,
-      indexedAccountId: indexedAccount?.id,
+    showBulkSendModeDialog({
+      onSelect: (mode) => {
+        void navigateToBulkSend({
+          networkId: network?.id,
+          accountId: account?.id,
+          indexedAccountId: indexedAccount?.id,
+          bulkSendMode: mode,
+        });
+      },
     });
   }, [
     network?.id,
     account?.id,
     indexedAccount?.id,
     navigateToBulkSend,
+    showBulkSendModeDialog,
     checkIsPrimeUser,
   ]);
 
@@ -1541,7 +1547,7 @@ function MoreButtonWithDot({
     return (
       <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
         <Stack position="relative">
-          <Icon name="DotGridOutline" size="$5" />
+          <Icon name="DotGridOutline" size="$6" color="$iconSubdued" />
           {desktopDot}
         </Stack>
       </YStack>

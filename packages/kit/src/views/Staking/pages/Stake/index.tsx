@@ -62,6 +62,7 @@ function BasicStakePage() {
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
       providerName: protocolInfo?.provider || '',
+      networkId,
       tokenIsNative: tokenInfo?.token?.isNative,
       approveSpenderAddress,
       backendApproveType: protocolInfo?.approve?.approveType,
@@ -71,6 +72,7 @@ function BasicStakePage() {
     protocolInfo?.approve?.approveType,
     tokenInfo?.token?.isNative,
     approveSpenderAddress,
+    networkId,
   ]);
   const { removePermitCache } = useEarnActions().current;
 
@@ -94,12 +96,14 @@ function BasicStakePage() {
       approveType,
       permitSignature,
       unsignedMessage,
+      effectiveApy,
     }: IApproveConfirmFnParams) => {
       await handleStake({
         amount,
         approveType,
         permitSignature,
         unsignedMessage,
+        effectiveApy,
         symbol,
         provider: providerName,
         stakingInfo: {

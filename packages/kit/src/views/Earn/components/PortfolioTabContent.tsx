@@ -155,19 +155,27 @@ const WrappedActionButtonCmp = ({
       provider: asset.metadata.protocol.providerDetail.code,
     });
   }, [onRefresh, asset.metadata.protocol.providerDetail.code]);
+  const providerName = asset?.metadata?.protocol?.providerDetail?.code;
+  const isMorphoProvider = earnUtils.isMorphoProvider({
+    providerName,
+  });
+  const isPendleProvider = earnUtils.isPendleProvider({
+    providerName,
+  });
 
-  // For staking config lookup, use:
-  // - stakedSymbol for airdrops (the token that was staked to earn rewards)
-  // - asset.token.info.symbol for normal claims (the staked token itself)
+  // Default airdrop claims reuse the source position's symbol/vault, but some
+  // providers expose rewards as their own backend asset (for example Pendle's
+  // Ethena unstake claim), so we normalize those separately below.
   let symbolForConfig = stakedSymbol || asset.token.info.symbol;
   let vaultForConfig = stakedVault || asset.metadata.protocol.vault;
-  if (
-    earnUtils.isMorphoProvider({
-      providerName: asset.metadata.protocol.providerDetail.code,
-    })
-  ) {
+  if (isMorphoProvider) {
     symbolForConfig = 'USDC';
     vaultForConfig = MorphoUSDCVaultAddress;
+  } else if (isPendleProvider) {
+    // Pendle Ethena-unstake rewards have their own protocol identity on the
+    // backend, so don't reuse the original staked position's symbol/vault.
+    symbolForConfig = asset.token.info.symbol;
+    vaultForConfig = asset.metadata.protocol.vault;
   }
 
   const stakeTag = buildLocalTxStatusSyncId({
@@ -212,8 +220,9 @@ const WrappedActionButtonCmp = ({
   });
 
   const onPress = useCallback(() => {
-    // For airdrop assets, also pass the reward token address from asset.token.info.address
+    // Only Morpho reward claims need the backend reward token selector.
     const rewardTokenAddress =
+      isMorphoProvider &&
       'token' in asset &&
       'address' in asset.token.info &&
       asset.token.info.address
@@ -232,6 +241,7 @@ const WrappedActionButtonCmp = ({
     handleAction,
     reward.button,
     asset,
+    isMorphoProvider,
     indexedAccount?.id,
     stakedSymbol,
     rewardSymbol,
@@ -343,26 +353,89 @@ const EarningsField = ({
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
-  return (
-    <FieldWrapper asset={asset}>
-      <YStack jc="center" flex={1} gap="$1">
-        <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
+  const netPnl = asset.metadata?.netPnl;
+  const netPnlFiatValue = asset.metadata?.netPnlFiatValue;
+  const secondLine = useMemo(() => {
+    if (netPnl) {
+      return null;
+    }
+    if (asset?.totalReward) {
+      return (
         <XStack gap="$1">
           <EarnText
             size="$bodySm"
             color="$textSubdued"
-            text={asset?.totalReward?.title}
+            text={asset.totalReward.title}
           />
           <EarnText
             size="$bodySm"
             color="$textSubdued"
-            text={asset?.totalReward?.description}
+            text={asset.totalReward.description}
           />
         </XStack>
+      );
+    }
+    return null;
+  }, [netPnl, asset?.totalReward]);
+
+  if (netPnl) {
+    return (
+      <FieldWrapper asset={asset}>
+        <YStack jc="center" flex={1} gap="$1">
+          <EarnText size="$bodyMdMedium" text={netPnlFiatValue} />
+          <EarnText size="$bodySm" text={netPnl} />
+        </YStack>
+      </FieldWrapper>
+    );
+  }
+
+  return (
+    <FieldWrapper asset={asset}>
+      <YStack jc="center" flex={1} gap="$1">
+        <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
+        {secondLine}
       </YStack>
     </FieldWrapper>
   );
 };
+
+const MobilePnlSection = memo(
+  ({ asset }: { asset: IEarnPortfolioInvestment['assets'][number] }) => {
+    const intl = useIntl();
+    const netPnl = asset.metadata?.netPnl;
+    const netPnlFiatValue = asset.metadata?.netPnlFiatValue;
+    if (netPnl) {
+      return (
+        <XStack ai="center" gap="$1">
+          <EarnText size="$bodySm" text={netPnlFiatValue} />
+          <EarnText size="$bodySm" text={netPnl} />
+        </XStack>
+      );
+    }
+    if (asset.totalReward) {
+      return (
+        <XStack ai="center" gap="$1">
+          <EarnText
+            size="$bodySm"
+            color="$textSubdued"
+            text={asset.totalReward.description}
+          />
+          <EarnText
+            size="$bodySm"
+            color="$textSubdued"
+            text={{
+              text: intl.formatMessage({
+                id: ETranslations.earn_referral_total_earned,
+              }),
+            }}
+          />
+        </XStack>
+      );
+    }
+    return null;
+  },
+);
+MobilePnlSection.displayName = 'MobilePnlSection';
 
 const AssetStatusField = ({
   asset,
@@ -532,10 +605,12 @@ const ProtocolAirdrop = ({
   airdropAssets,
   stakedSymbol,
   stakedVault,
+  isPendle,
 }: {
   airdropAssets: IEarnPortfolioAirdropAsset[];
   stakedSymbol?: string;
   stakedVault?: string;
+  isPendle?: boolean;
 }) => {
   const intl = useIntl();
   const isDesktopLayout = useIsDesktopLayout();
@@ -556,7 +631,9 @@ const ProtocolAirdrop = ({
   }
 
   const title = intl.formatMessage({
-    id: ETranslations.defi_claimable_protocol_rewards,
+    id: isPendle
+      ? ETranslations.defi_unstaking_via_ethena
+      : ETranslations.defi_claimable_protocol_rewards,
   });
   const rowMinHeight = 38;
   const primaryTextSize = '$bodyMdMedium';
@@ -712,7 +789,7 @@ const PortfolioItemComponent = ({
     () =>
       intl.formatMessage({
         id: isPendle
-          ? ETranslations.defi_net_pnl_title
+          ? ETranslations.defi_unrealized_pnl_title
           : ETranslations.earn_24h_earnings,
       }),
     [intl, isPendle],
@@ -872,12 +949,25 @@ const PortfolioItemComponent = ({
                 ? {
                     renderExpandedContent: (asset) => (
                       <YStack gap="$5">
-                        {/* Est. 24h earnings */}
+                        {/* Earnings / Unrealized PnL */}
                         <XStack ai="center" gap="$1">
-                          <EarnText
-                            size="$bodyLgMedium"
-                            text={asset.earnings24h?.title}
-                          />
+                          {asset.metadata?.netPnl ? (
+                            <>
+                              <EarnText
+                                size="$bodyLgMedium"
+                                text={asset.metadata.netPnlFiatValue}
+                              />
+                              <EarnText
+                                size="$bodyMd"
+                                text={asset.metadata.netPnl}
+                              />
+                            </>
+                          ) : (
+                            <EarnText
+                              size="$bodyLgMedium"
+                              text={asset.earnings24h?.title}
+                            />
+                          )}
                           <SizableText size="$bodyMd" color="$textSubdued">
                             {earningsColumnLabel}
                           </SizableText>
@@ -937,24 +1027,7 @@ const PortfolioItemComponent = ({
                           </XStack>
                         ))}
 
-                        {asset.totalReward ? (
-                          <XStack ai="center" gap="$1">
-                            <EarnText
-                              size="$bodySm"
-                              color="$textSubdued"
-                              text={asset.totalReward.description}
-                            />
-                            <EarnText
-                              size="$bodySm"
-                              color="$textSubdued"
-                              text={{
-                                text: intl.formatMessage({
-                                  id: ETranslations.earn_referral_total_earned,
-                                }),
-                              }}
-                            />
-                          </XStack>
-                        ) : null}
+                        <MobilePnlSection asset={asset} />
 
                         {/* Buttons */}
                         <XStack gap="$3">
@@ -1045,6 +1118,7 @@ const PortfolioItemComponent = ({
           airdropAssets={portfolioItem.airdropAssets}
           stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
           stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
+          isPendle={isPendle}
         />
       </YStack>
     </PortfolioPendingTxsProvider>

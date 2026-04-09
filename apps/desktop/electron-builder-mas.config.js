@@ -1,5 +1,9 @@
 // oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
+const {
+  baseFiles,
+  macExcludePrebuilds,
+} = require('./electron-builder-files.config');
 
 module.exports = {
   ...baseElectronBuilderConfig,
@@ -9,6 +13,7 @@ module.exports = {
     'sign': false,
   },
   'mac': {
+    'files': [...baseFiles, ...macExcludePrebuilds],
     'identity': null,
     'icon': 'app/build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
@@ -27,6 +32,7 @@ module.exports = {
     'extendInfo': {
       'CFBundleIconName': 'OneKeyLogo',
       'NSCameraUsageDescription': 'Use Camera to scan QR Code.',
+      'NSMicrophoneUsageDescription': 'Use Microphone to record videos.',
       'NSBluetoothAlwaysUsageDescription':
         'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
       'NSBluetoothPeripheralUsageDescription':
@@ -46,6 +52,7 @@ module.exports = {
       'CFBundleIconName': 'OneKeyLogo',
       'ElectronTeamID': 'BVJ3FU5H2K',
       'ITSAppUsesNonExemptEncryption': false,
+      'NSMicrophoneUsageDescription': 'Use Microphone to record videos.',
       'NSBluetoothAlwaysUsageDescription':
         'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
       'NSBluetoothPeripheralUsageDescription':

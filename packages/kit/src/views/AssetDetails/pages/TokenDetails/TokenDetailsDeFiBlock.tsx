@@ -18,6 +18,8 @@ import { EarnNavigation } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface ITokenDetailsDeFiBlockProps {
   networkId: string;
@@ -28,7 +30,11 @@ interface ITokenDetailsDeFiBlockProps {
 
 // Module-level cache: prevents skeleton flash on remount when scrolling
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const earnResultCache = new Map<string, any>();
+const earnResultCache = new cacheUtils.LRUCache<string, any>({
+  max: 50,
+  ttl: timerUtils.getTimeDurationMs({ minute: 10 }),
+  ttlAutopurge: true,
+});
 
 export function TokenDetailsDeFiBlock({
   networkId,
@@ -59,6 +65,7 @@ export function TokenDetailsDeFiBlock({
         await backgroundApiProxy.serviceStaking.getProtocolList({
           symbol: symbolInfo.symbol,
           filterNetworkId: networkId,
+          includeWithdrawOnly: true,
         });
       if (!Array.isArray(protocolList) || !protocolList.length) {
         earnResultCache.delete(cacheKey);
@@ -68,6 +75,10 @@ export function TokenDetailsDeFiBlock({
         .map((o) => Number(o.provider.aprWithoutFee))
         .filter((n) => n > 0);
       const maxApr = Math.max(0, ...aprItems);
+      if (maxApr === 0) {
+        earnResultCache.delete(cacheKey);
+        return undefined;
+      }
       const blockData =
         await backgroundApiProxy.serviceStaking.getBlockRegion();
       const data = { symbolInfo, maxApr, protocolList, blockData };

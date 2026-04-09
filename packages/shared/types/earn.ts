@@ -139,6 +139,11 @@ export interface IEarnAvailableAssetAprInfo {
   };
 }
 
+export type IEarnAvailableAssetAprRangeInfo = Pick<
+  IEarnAvailableAssetAprInfo,
+  'normal'
+>;
+
 export interface IEarnAvailableAssetBadge {
   tag: string;
   badgeType: string;
@@ -155,6 +160,8 @@ export interface IEarnAvailableAsset {
   protocols: IEarnAvailableAssetProtocol[];
   badges?: IEarnAvailableAssetBadge[];
   aprInfo?: IEarnAvailableAssetAprInfo;
+  minAprInfo?: IEarnAvailableAssetAprRangeInfo;
+  maxAprInfo?: IEarnAvailableAssetAprRangeInfo;
   bgColor?: string;
   icon?: {
     icon: IKeyOfIcons | string;
@@ -170,4 +177,5 @@ export interface IEarnAvailableAssetV2 {
   symbol: string;
   vault?: string;
   ptAddress?: string;
+  enableBatch?: boolean;
 }

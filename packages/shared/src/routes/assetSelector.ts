@@ -46,6 +46,7 @@ export type ITokenSelectorParamList = {
   indexedAccountId?: string;
   activeAccountId?: string;
   activeNetworkId?: string;
+  forceShowActiveAccountTokenList?: boolean;
   tokens?: ITokenData;
   onSelect: (token: IToken) => void | Promise<void>;
   closeAfterSelect?: boolean;
@@ -72,6 +73,8 @@ export type ITokenSelectorParamList = {
   keepDefaultZeroBalanceTokens?: boolean;
   enableNetworkAfterSelect?: boolean;
   exchangeFilter?: IExchangeFilter;
+  hideBalanceAndValue?: boolean;
+  onSwitchNetwork?: () => void | Promise<void>;
 };
 
 export type IAggregateTokenSelectorParams = {
@@ -86,6 +89,7 @@ export type IAggregateTokenSelectorParams = {
   enableNetworkAfterSelect?: boolean;
   hideZeroBalanceTokens?: boolean;
   exchangeFilter?: IExchangeFilter;
+  hideBalanceAndValue?: boolean;
 };
 
 export type IAssetSelectorParamList = {

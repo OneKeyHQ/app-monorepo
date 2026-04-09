@@ -20,7 +20,6 @@ import {
   usePerpsActiveAccountRefreshHookAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
-  usePerpsUserConfigPersistAtom,
   usePerpsWebSocketConnectedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
@@ -48,10 +47,7 @@ import type {
   EPerpsSubscriptionCategory,
   IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
-import {
-  EPerpUserType,
-  ESubscriptionType,
-} from '@onekeyhq/shared/types/hyperliquid/types';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
@@ -75,7 +71,7 @@ function useSyncContextOrderBookOptionsToGlobal() {
   const orderBookTickOptionsRef = useRef(orderBookTickOptions);
   orderBookTickOptionsRef.current = orderBookTickOptions;
 
-  const isFocusedRef = useRef(true);
+  const isFocusedRef = useRef(false);
 
   const updateGlobalOrderBookOptions = useCallback(
     async (
@@ -333,6 +329,8 @@ function useHyperliquidAccountSelect() {
 
   const [{ refreshHook: activeAccountRefreshHook }] =
     usePerpsActiveAccountRefreshHookAtom();
+  const hasBeenFocusedRef = useRef(false);
+  const pendingSelectRef = useRef(false);
 
   const selectPerpsAccount = useCallback(async () => {
     if (!globalDeriveType) {
@@ -344,7 +342,7 @@ function useHyperliquidAccountSelect() {
       'selectPerpsAccount______555_address',
       activeAccount.account?.address,
     );
-    const _account = await actions.current.changeActivePerpsAccount({
+    await actions.current.changeActivePerpsAccount({
       indexedAccountId: activeAccount?.indexedAccount?.id || null,
       accountId: activeAccount?.account?.id || null,
       walletId: activeAccount?.wallet?.id || null,
@@ -365,7 +363,21 @@ function useHyperliquidAccountSelect() {
   const selectPerpsAccountRef = useRef(selectPerpsAccount);
   selectPerpsAccountRef.current = selectPerpsAccount;
 
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
+    if (isFocus && !hasBeenFocusedRef.current) {
+      hasBeenFocusedRef.current = true;
+      if (pendingSelectRef.current) {
+        pendingSelectRef.current = false;
+        void selectPerpsAccountRef.current();
+      }
+    }
+  });
+
   useEffect(() => {
+    if (!hasBeenFocusedRef.current) {
+      pendingSelectRef.current = true;
+      return;
+    }
     void selectPerpsAccount();
   }, [selectPerpsAccount]);
 
@@ -376,6 +388,10 @@ function useHyperliquidAccountSelect() {
       await timerUtils.wait(600);
       if (!perpsAccountAddressRef.current) {
         if (payload?.accounts?.find((item) => item.coinType === COINTYPE_ETH)) {
+          if (!hasBeenFocusedRef.current) {
+            pendingSelectRef.current = true;
+            return;
+          }
           await selectPerpsAccountRef.current();
         }
       }
@@ -388,6 +404,10 @@ function useHyperliquidAccountSelect() {
 
   useUpdateEffect(() => {
     if (!accountIsAutoCreating && !indexedAccountAddressCreationState) {
+      if (!hasBeenFocusedRef.current) {
+        pendingSelectRef.current = true;
+        return;
+      }
       void selectPerpsAccountRef.current();
     }
   }, [accountIsAutoCreating, indexedAccountAddressCreationState]);
@@ -476,16 +496,21 @@ function WebSocketSubscriptionUpdate() {
 
 function useHyperliquidSymbolSelect() {
   const actions = useHyperliquidActions();
-  useEffect(() => {
-    void (async () => {
-      await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-      const currentToken = await perpsActiveAssetAtom.get();
-      await actions.current.changeActiveAsset({
-        coin: currentToken.coin,
-        force: true,
-      });
-    })();
-  }, [actions]);
+  const initDoneRef = useRef(false);
+
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
+    if (isFocus && !initDoneRef.current) {
+      initDoneRef.current = true;
+      void (async () => {
+        await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+        const currentToken = await perpsActiveAssetAtom.get();
+        await actions.current.changeActiveAsset({
+          coin: currentToken.coin,
+          force: true,
+        });
+      })();
+    }
+  });
 }
 
 function useHyperliquidScreenLockHandler() {
@@ -525,8 +550,6 @@ function AutoPauseSubscriptions() {
   const pauseSubscriptionsTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
-
-  const [perpsConfig] = usePerpsUserConfigPersistAtom();
 
   // const isFocusedRoute = useRouteIsFocused();
   // useEffect(() => {
@@ -591,14 +614,10 @@ function AutoPauseSubscriptions() {
   useEffect(() => {
     if (isLocked) {
       void onFocusHandler({ isFocus: false });
-    } else if (
-      perpsConfig?.perpUserConfig?.currentUserType === EPerpUserType.PERP_NATIVE
-    ) {
-      void onFocusHandler({ isFocus: isFocusedRef.current });
     } else {
-      void onFocusHandler({ isFocus: false, pauseDelay: 300 });
+      void onFocusHandler({ isFocus: isFocusedRef.current });
     }
-  }, [isLocked, onFocusHandler, perpsConfig?.perpUserConfig?.currentUserType]);
+  }, [isLocked, onFocusHandler]);
 
   useEffect(() => {
     return () => {

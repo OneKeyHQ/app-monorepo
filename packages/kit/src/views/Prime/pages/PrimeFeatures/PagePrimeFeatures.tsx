@@ -8,7 +8,6 @@ import type {
   IRenderPaginationParams,
 } from '@onekeyhq/components';
 import {
-  Button,
   Divider,
   Image,
   Page,
@@ -17,19 +16,16 @@ import {
   Stack,
   Swiper,
   Theme,
-  Toast,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -120,20 +116,12 @@ export default function PagePrimeFeatures() {
   const selectedFeature = route.params?.selectedFeature;
   const showAllFeatures = route.params?.showAllFeatures;
   const selectedSubscriptionPeriod = route.params?.selectedSubscriptionPeriod;
-  const serverUserInfo = route.params?.serverUserInfo;
   const intl = useIntl();
   const { gtMd } = useMedia();
 
   // const [primePersistData] = usePrimePersistAtom();
   // const [primeMasterPasswordPersistData] = usePrimeMasterPasswordPersistAtom();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
-  const [primeCloudSyncPersistData] = usePrimeCloudSyncPersistAtom();
-
-  const { result: isServerMasterPasswordSet } = usePromiseResult(() => {
-    return backgroundApiProxy.serviceMasterPassword.IsServerMasterPasswordSet({
-      serverUserInfo,
-    });
-  }, [serverUserInfo]);
 
   useEffect(() => {
     if (selectedFeature && !showAllFeatures) {
@@ -155,70 +143,90 @@ export default function PagePrimeFeatures() {
     index: number;
   }>(() => {
     const allFeatures: IFeatureItemInfo[] = [
+      /* Active features */
       {
-        id: EPrimeFeatures.OneKeyCloud,
+        id: EPrimeFeatures.BulkSend,
         banner: (
           <Image
             w="100%"
             h={bannerHeight}
             maxWidth={393}
-            source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
+            source={require('@onekeyhq/kit/assets/prime/bulk_send_banner.png')}
           />
         ),
         title: intl.formatMessage({
-          id: ETranslations.global_onekey_cloud,
+          id: ETranslations.wallet_bulk_send_title,
         }),
         description: intl.formatMessage({
-          id: ETranslations.prime_onekey_cloud_desc,
+          id: ETranslations.prime_bulk_send_desc,
         }),
         details: [
           {
-            icon: 'LinkOutline',
+            icon: 'PeopleOutline',
             title: intl.formatMessage({
-              id: ETranslations.prime_features_onekey_cloud_detail_one_title,
+              id: ETranslations.prime_features_bulk_send_one_title,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_features_onekey_cloud_detail_one_desc,
+              id: ETranslations.prime_features_bulk_send_one_desc,
             }),
           },
           {
-            icon: 'ArchiveBoxOutline',
+            icon: 'GasOutline',
             title: intl.formatMessage({
-              id: ETranslations.prime_features_onekey_cloud_detail_two_title,
+              id: ETranslations.prime_features_bulk_send_two_title,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_features_onekey_cloud_detail_two_desc,
+              id: ETranslations.prime_features_bulk_send_two_desc,
+            }),
+          },
+          {
+            icon: 'UploadOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_three_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_three_desc,
             }),
           },
         ],
-        children:
-          isServerMasterPasswordSet ||
-          primeCloudSyncPersistData?.isCloudSyncEnabled ||
-          isPrimeSubscriptionActive ? (
-            <Stack>
-              <Button
-                mt="$2"
-                variant="tertiary"
-                onPress={() => {
-                  if (platformEnv.isWebDappMode) {
-                    Toast.message({
-                      title: intl.formatMessage({
-                        id: ETranslations.global_web_feature_not_available_go_to_app,
-                      }),
-                    });
-                    return;
-                  }
-                  navigation.navigate(EPrimePages.PrimeCloudSync, {
-                    serverUserInfo,
-                  });
-                }}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.prime_manage_service,
-                })}
-              </Button>
-            </Stack>
-          ) : null,
+      },
+
+      {
+        id: EPrimeFeatures.BulkRevoke,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.global_bulk_revoke,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.global_bulk_revoke_desc,
+        }),
+        details: [
+          {
+            icon: 'GasOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
+            }),
+          },
+          {
+            icon: 'WalletCryptoOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
+            }),
+          },
+        ],
       },
 
       {
@@ -269,91 +277,6 @@ export default function PagePrimeFeatures() {
       },
 
       {
-        id: EPrimeFeatures.BulkRevoke,
-        banner: (
-          <Image
-            w="100%"
-            h={bannerHeight}
-            maxWidth={393}
-            source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
-          />
-        ),
-        title: intl.formatMessage({
-          id: ETranslations.global_bulk_revoke,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.global_bulk_revoke_desc,
-        }),
-        details: [
-          {
-            icon: 'GasOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
-            }),
-          },
-          {
-            icon: 'WalletCryptoOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_one_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
-            }),
-          },
-        ],
-      },
-
-      {
-        id: EPrimeFeatures.BulkSend,
-        banner: (
-          <Image
-            w="100%"
-            h={bannerHeight}
-            maxWidth={393}
-            source={require('@onekeyhq/kit/assets/prime/bulk_send_banner.png')}
-          />
-        ),
-        title: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.prime_bulk_send_desc,
-        }),
-        details: [
-          {
-            icon: 'PeopleOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_send_one_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_send_one_desc,
-            }),
-          },
-          {
-            icon: 'GasOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_send_two_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_send_two_desc,
-            }),
-          },
-          {
-            icon: 'UploadOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_send_three_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_send_three_desc,
-            }),
-          },
-        ],
-      },
-
-      {
         id: EPrimeFeatures.Notifications,
         banner: (
           <Image
@@ -382,6 +305,119 @@ export default function PagePrimeFeatures() {
             }),
             description: intl.formatMessage({
               id: ETranslations.prime_features_increase_notification_limit_one_desc,
+            }),
+          },
+        ],
+      },
+
+      /* Coming soon features */
+      {
+        id: EPrimeFeatures.BlockaidSiteScan,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/dapp_security_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.prime_enhanced_dapp_security_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_enhanced_dapp_security_desc,
+        }),
+        details: [
+          {
+            icon: 'ShieldCheckDoneOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_dapp_security_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_dapp_security_detail_one_desc,
+            }),
+          },
+          {
+            icon: 'ShareOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_dapp_security_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_dapp_security_detail_two_desc,
+            }),
+          },
+        ],
+      },
+      {
+        id: EPrimeFeatures.DAppTranslate,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/ai_translate_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.prime_ai_translate_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_ai_translate_desc,
+        }),
+        details: [
+          {
+            icon: 'AiStarOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_ai_translate_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_ai_translate_detail_one_desc,
+            }),
+          },
+          {
+            icon: 'SwitchHorOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_ai_translate_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_ai_translate_detail_two_desc,
+            }),
+          },
+        ],
+      },
+      {
+        id: EPrimeFeatures.ExtendedHistory,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/extended_history_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.prime_extended_history_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_extended_history_desc,
+        }),
+        details: [
+          {
+            icon: 'CalendarOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_extended_history_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_extended_history_detail_one_desc,
+            }),
+          },
+          {
+            icon: 'SearchOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_extended_history_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_extended_history_detail_two_desc,
             }),
           },
         ],
@@ -443,17 +479,7 @@ export default function PagePrimeFeatures() {
       data,
       index: safeIndex,
     };
-  }, [
-    bannerHeight,
-    intl,
-    isServerMasterPasswordSet,
-    primeCloudSyncPersistData?.isCloudSyncEnabled,
-    isPrimeSubscriptionActive,
-    showAllFeatures,
-    navigation,
-    serverUserInfo,
-    selectedFeature,
-  ]);
+  }, [bannerHeight, intl, showAllFeatures, selectedFeature]);
 
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;

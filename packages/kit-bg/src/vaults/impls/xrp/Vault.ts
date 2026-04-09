@@ -371,8 +371,7 @@ export default class Vault extends VaultBase {
         throw new OneKeyLocalError(accountInfo.error);
       }
       if (accountInfo.result?.error || accountInfo.result?.error_message) {
-        // eslint-disable-next-line no-restricted-syntax
-        throw new Error(
+        throw new OneKeyLocalError(
           accountInfo.result.error_message || accountInfo.result.error,
         );
       }

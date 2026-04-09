@@ -183,7 +183,6 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       hash: tx.getId(),
       version: tx.version,
       inputs: tx.ins.map((i) => ({
-        // eslint-disable-next-line unicorn/no-array-reverse
         // oxlint-disable-next-line unicorn/no-array-reverse
         prev_hash: Buffer.from(i.hash.reverse()).toString('hex'),
         prev_index: i.index,

@@ -13,16 +13,16 @@ const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
 );
 
+const ManagePosition = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
+);
+
 const ProtocolDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),
 );
 
 const ProtocolDetailsV2 = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetailsV2'),
-);
-
-const ManagePosition = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
 );
 
 const BorrowManagePosition = LazyLoad(
@@ -76,6 +76,10 @@ const BorrowReserveDetails = LazyLoad(
 
 const EarnTokenSelectModal = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/EarnTokenSelect'),
+);
+
+const EarnAssetSearchModal = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnAssetSearch'),
 );
 
 export const StakingModalRouter: IModalFlowNavigatorConfig<
@@ -161,6 +165,10 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.EarnTokenSelect,
     component: EarnTokenSelectModal,
+  },
+  {
+    name: EModalStakingRoutes.EarnAssetSearch,
+    component: EarnAssetSearchModal,
   },
   ...(ModalAssetDetailsStack as IModalFlowNavigatorConfig<
     EModalStakingRoutes | EModalAssetDetailRoutes,

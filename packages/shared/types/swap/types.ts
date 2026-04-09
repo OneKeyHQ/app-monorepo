@@ -227,6 +227,7 @@ export interface IFetchTokenDetailParams {
   accountNetworkId?: string;
   xpub?: string;
   withCheckInscription?: boolean;
+  currency?: string;
 }
 
 export interface ISwapAutoSlippageSuggestedValue {
@@ -300,6 +301,7 @@ export interface ISwapApproveTransaction {
 export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
+  incognito?: boolean;
   slippagePercentage: number;
   autoSlippage?: boolean;
   blockNumber?: number;
@@ -363,6 +365,8 @@ export interface IQuoteTip {
   detail?: string;
   showCancelButton?: boolean;
   link?: string;
+  showCheckbox?: boolean;
+  checkboxLabel?: string;
 }
 
 export interface IFetchLimitMarketPrice {
@@ -514,6 +518,7 @@ export interface IFetchSwapQuoteParams {
   toToken: ISwapToken;
   fromTokenAmount?: string;
   receivingAddress?: string;
+  incognito?: boolean;
   userAddress?: string;
   slippagePercentage: number;
   autoSlippage?: boolean;
@@ -743,10 +748,18 @@ export interface ISwapQuoteEventInfo {
   eventId: string;
 }
 
+export interface ISwapQuoteEventError {
+  isStock?: boolean;
+  isMarketOpen?: boolean;
+  errorMessage?: string;
+  eventId?: string;
+}
+
 export type ISwapQuoteEventData =
   | ISwapQuoteEventAutoSlippage
   | ISwapQuoteEventQuoteResult
-  | ISwapQuoteEventInfo;
+  | ISwapQuoteEventInfo
+  | ISwapQuoteEventError;
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
@@ -1045,6 +1058,7 @@ export interface ISpeedSwapConfig {
 
 export interface IFetchSpeedCheckResult {
   errorMessage?: string;
+  isStock?: boolean;
   protocol: string;
   spenderAddress: string;
   info: {

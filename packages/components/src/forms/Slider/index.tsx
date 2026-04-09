@@ -10,6 +10,10 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import type { IBaseSliderProps } from './type';
 import type { LayoutChangeEvent } from 'react-native';
 
+const thumbFocusVisibleStyle = {
+  outlineColor: '$borderActive' as const,
+};
+
 function SliderSegment({
   onPress,
   isActive,
@@ -85,6 +89,18 @@ export const Slider = ({
     onSlideEnd?.();
   }, [onSlideEnd]);
 
+  const sliderValue = useMemo(
+    () => (value !== undefined && value !== null ? [value] : undefined),
+    [value],
+  );
+  const sliderDefaultValue = useMemo(
+    () =>
+      defaultValue !== undefined && defaultValue !== null
+        ? [defaultValue]
+        : undefined,
+    [defaultValue],
+  );
+
   const sliderContent = useMemo(() => {
     return (
       <TMSlider
@@ -95,12 +111,8 @@ export const Slider = ({
         min={min}
         opacity={disabled ? 0.5 : 1}
         disabled={disabled}
-        value={value !== undefined && value !== null ? [value] : undefined}
-        defaultValue={
-          defaultValue !== undefined && defaultValue !== null
-            ? [defaultValue]
-            : undefined
-        }
+        value={sliderValue}
+        defaultValue={sliderDefaultValue}
         onValueChange={handleValueChange}
         // "onSlideStart does not work on the Web Platform"
         // onSlideStart={handleSlideStart}
@@ -123,14 +135,12 @@ export const Slider = ({
           borderWidth="$px"
           borderColor="$borderStrong"
           elevation={1}
-          focusVisibleStyle={{
-            outlineColor: '$borderActive',
-          }}
+          focusVisibleStyle={thumbFocusVisibleStyle}
         />
       </TMSlider>
     );
   }, [
-    defaultValue,
+    sliderDefaultValue,
     disabled,
     handleSlideEnd,
     handleSlideMove,
@@ -139,8 +149,38 @@ export const Slider = ({
     min,
     props,
     segments,
-    value,
+    sliderValue,
   ]);
+  const handleMinPress = useCallback(() => {
+    handleValueChange([min]);
+  }, [handleValueChange, min]);
+
+  const handleMaxPress = useCallback(() => {
+    handleValueChange([max]);
+  }, [handleValueChange, max]);
+
+  const segmentItems = useMemo(
+    () =>
+      segments
+        ? Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => ({
+            index,
+            isActive: value
+              ? ((index + 1) / segments) * (max - min) + min <= value
+              : false,
+            segmentValue: min + ((max - min) * (index + 1)) / segments,
+          }))
+        : [],
+    [segments, value, max, min],
+  );
+
+  const segmentPressHandlers = useMemo(
+    () =>
+      segmentItems.map((item) => () => {
+        handleValueChange([item.segmentValue]);
+      }),
+    [segmentItems, handleValueChange],
+  );
+
   return segments ? (
     <YStack position="relative" onLayout={handleLayout}>
       {sliderContent}
@@ -152,34 +192,18 @@ export const Slider = ({
           justifyContent="space-between"
           top={-layout.height / 2}
         >
-          <SliderSegment
-            key={-1}
-            isActive
-            onPress={() => {
-              handleValueChange([min]);
-            }}
-          />
-          {Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => (
+          <SliderSegment key={-1} isActive onPress={handleMinPress} />
+          {segmentItems.map((item, index) => (
             <SliderSegment
-              key={index}
-              isActive={
-                value
-                  ? ((index + 1) / segments) * (max - min) + min <= value
-                  : false
-              }
-              onPress={() => {
-                handleValueChange([
-                  min + ((max - min) * (index + 1)) / segments,
-                ]);
-              }}
+              key={item.index}
+              isActive={item.isActive}
+              onPress={segmentPressHandlers[index]}
             />
           ))}
           <SliderSegment
             key={segments ?? 1}
             isActive={value === max}
-            onPress={() => {
-              handleValueChange([max]);
-            }}
+            onPress={handleMaxPress}
           />
         </XStack>
       ) : null}

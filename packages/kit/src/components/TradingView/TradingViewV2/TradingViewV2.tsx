@@ -11,7 +11,6 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { useCurrency } from '../../Currency';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
@@ -40,6 +39,7 @@ interface IBaseTradingViewV2Props {
   onPanesCountChange?: (count: number) => void;
   dataSource?: 'websocket' | 'polling';
   accountAddress?: string;
+  onTouchScroll?: (deltaY: number) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -49,7 +49,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
-  const currencyInfo = useCurrency();
 
   const {
     tokenAddress = '',
@@ -59,6 +58,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPanesCountChange,
     dataSource,
     accountAddress,
+    onTouchScroll,
     ...stackStyle
   } = props;
 
@@ -71,29 +71,25 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     accountAddress,
     tokenSymbol: symbol,
     marksTimeRange,
+    onTouchScroll,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
     useHyperLiquidKlineSource(networkId, tokenAddress);
+  const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
+  const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
 
   const additionalParams = useMemo(() => {
-    const useHyperLiquid = isHyperLiquidSource && hyperLiquidSymbol;
     return {
       decimal: decimal?.toString(),
       networkId,
       address: tokenAddress,
-      symbol: useHyperLiquid ? hyperLiquidSymbol : symbol,
-      type: useHyperLiquid ? 'perps' : 'market',
-      storageNamespace: 'market',
+      symbol: chartSymbol,
+      type: 'market',
+      storageNamespace: useHyperLiquid ? 'market-hyperliquid' : 'market',
+      ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
     };
-  }, [
-    decimal,
-    networkId,
-    tokenAddress,
-    isHyperLiquidSource,
-    hyperLiquidSymbol,
-    symbol,
-  ]);
+  }, [chartSymbol, decimal, networkId, tokenAddress, useHyperLiquid]);
 
   const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
     additionalParams,
@@ -111,7 +107,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && !isHyperLiquidSource,
+    enabled: isVisible,
   });
 
   useTradingViewV2WebSocket({
@@ -120,7 +116,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     webRef,
     enabled: isVisible && dataSource === 'websocket' && !isHyperLiquidSource,
     chartType: '1m',
-    currency: currencyInfo.id,
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds
@@ -142,6 +137,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         networkId,
         from: timeRange.min,
         to: timeRange.max,
+        symbol: chartSymbol,
         webRef,
       });
     };
@@ -195,7 +191,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         handleSwapSuccess,
       );
     };
-  }, [isVisible, accountAddress, tokenAddress, networkId, webRef]);
+  }, [isVisible, accountAddress, tokenAddress, networkId, chartSymbol, webRef]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),

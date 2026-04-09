@@ -156,6 +156,11 @@ function TxConfirm() {
 
   useEffect(() => {
     if (accountId && networkId && reactiveUnsignedTxs?.[0]?.uuid) {
+      updateDecodedTxs({
+        decodedTxs: [],
+        isBuildingDecodedTxs: false,
+      });
+      updateDecodedTxsInit(false);
       updateSendTxStatus({
         isInsufficientNativeBalance: false,
         isInsufficientTokenBalance: false,
@@ -166,12 +171,14 @@ function TxConfirm() {
       updateSendFeeStatus({
         status: ESendFeeStatus.Idle,
         errMessage: '',
+        discountPercent: 0,
       });
       txConfirmParamsInit.current = false;
     }
   }, [
     txConfirmParamsInit,
     reactiveUnsignedTxs,
+    updateDecodedTxs,
     updateDecodedTxsInit,
     accountId,
     networkId,
@@ -341,7 +348,11 @@ function TxConfirm() {
       refreshNativeTokenInfo,
     );
     return () => {
-      updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
+      updateSendFeeStatus({
+        status: ESendFeeStatus.Idle,
+        errMessage: '',
+        discountPercent: 0,
+      });
       appEventBus.off(
         EAppEventBusNames.RefreshNativeTokenInfo,
         refreshNativeTokenInfo,
@@ -366,7 +377,10 @@ function TxConfirm() {
   }, [sourceInfo, accountId]);
 
   const renderTxConfirmContent = useCallback(() => {
-    if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit) {
+    if (
+      (isBuildingDecodedTxs || !decodedTxs || decodedTxs.length === 0) &&
+      !decodedTxsInit
+    ) {
       return <SignatureConfirmLoading />;
     }
 

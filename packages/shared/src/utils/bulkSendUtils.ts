@@ -2,6 +2,7 @@ import { EBulkSendMode } from '../../types/bulkSend';
 import { getNetworkIdsMap } from '../config/networkIds';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
+import platformEnv from '../platformEnv';
 
 import networkUtils from './networkUtils';
 
@@ -20,16 +21,61 @@ function getBulkSendSupportedEVMNetworkIds() {
   ];
 }
 
+function getBulkSendExcludedNetworkIds() {
+  const networkIdsMap = getNetworkIdsMap();
+  return [
+    networkIdsMap.lightning,
+    networkIdsMap.tlightning,
+    networkIdsMap.nostr,
+  ].filter(Boolean);
+}
+
+function isBulkSendExcludedNetworkId(networkId?: string) {
+  if (!networkId) {
+    return false;
+  }
+  return getBulkSendExcludedNetworkIds().includes(networkId);
+}
+
 function getBulkSendSupportedNetworkIds() {
   const networkIdsMap = getNetworkIdsMap();
   const supportedEVMNetworkIds = getBulkSendSupportedEVMNetworkIds();
-  return [...supportedEVMNetworkIds, networkIdsMap.trx];
+  const ids = [
+    ...supportedEVMNetworkIds,
+    networkIdsMap.trx,
+    networkIdsMap.sol,
+    networkIdsMap.btc,
+  ];
+  if (platformEnv.isDev) {
+    ids.push(networkIdsMap.sbtc);
+  }
+  return ids;
 }
 
-function fixBulkSendSupportedNetworkId({ networkId }: { networkId: string }) {
+function fixBulkSendSupportedNetworkId({
+  networkId,
+  bulkSendMode,
+}: {
+  networkId: string;
+  bulkSendMode?: EBulkSendMode;
+}) {
   let isSupported = false;
   let fixedNetworkId = networkId;
   const supportedNetworkIds = getBulkSendSupportedNetworkIds();
+
+  // For ManyToOne/ManyToMany, skip network correction except for Lightning Network
+  if (
+    bulkSendMode &&
+    bulkSendMode !== EBulkSendMode.OneToMany &&
+    !isBulkSendExcludedNetworkId(networkId) &&
+    !networkUtils.isAllNetwork({ networkId })
+  ) {
+    return {
+      fixedNetworkId: networkId,
+      isSupported: true,
+    };
+  }
+
   if (supportedNetworkIds.includes(networkId)) {
     isSupported = true;
     return {
@@ -73,7 +119,9 @@ function getBulkSendModeLabel(bulkSendMode: EBulkSendMode) {
 
 export default {
   fixBulkSendSupportedNetworkId,
+  getBulkSendExcludedNetworkIds,
   getBulkSendSupportedEVMNetworkIds,
   getBulkSendSupportedNetworkIds,
   getBulkSendModeLabel,
+  isBulkSendExcludedNetworkId,
 };
