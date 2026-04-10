@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "O valor máximo de troca é {amount} {token}",
   "provider.min_amount_required": "O valor mínimo requer {amount} {token}",
   "provider.network_fee": "Taxa estimada de rede",
+  "provider.popover.onekey_fee_content": "Para garantir um serviço estável, a OneKey normalmente cobra uma taxa de 0,85% ou mais, com todas as taxas e descontos já incluídos no preço cotado. A taxa exata é ajustada dinamicamente com base no contexto da transação e está sujeita à exibição final da interface do usuário.",
   "provider.popover_fee_rate": "Taxa de honorários",
   "provider.popover_order_info_content": "OneKey agrega as melhores ofertas. Aqui está o que você deve saber antes de negociar",
   "provider.popover_wallet": "Carteira",

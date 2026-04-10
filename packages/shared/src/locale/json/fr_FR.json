@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "Le montant maximum d'échange est {amount} {token}",
   "provider.min_amount_required": "Montant minimum requis {amount} {token}",
   "provider.network_fee": "Frais de réseau estimés",
+  "provider.popover.onekey_fee_content": "Pour garantir un service stable, OneKey facture généralement des frais de 0,85 % ou plus, tous les frais et remises étant déjà inclus dans le prix indiqué. Le taux exact est ajusté dynamiquement en fonction du contexte de la transaction et est soumis à l'affichage final de l'interface utilisateur.",
   "provider.popover_fee_rate": "Taux de frais",
   "provider.popover_order_info_content": "OneKey agrège les meilleures offres. Voici ce que vous devriez savoir avant de faire du commerce",
   "provider.popover_wallet": "Portefeuille",
