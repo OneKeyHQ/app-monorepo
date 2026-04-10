@@ -114,6 +114,7 @@ const MarketTokenSelectorRow = memo(
           <Token
             size="xs"
             tokenImageUri={item.tokenImageUri}
+            tokenImageUris={item.tokenImageUris}
             networkImageUri={item.networkLogoUri}
           />
           <YStack flex={1} minWidth={0}>
