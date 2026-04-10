@@ -6,6 +6,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import {
+  useActiveAccount,
+  useIsAccountSelectorSyncLoading,
+} from '../../states/jotai/contexts/accountSelector';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
 import {
@@ -30,17 +36,29 @@ function InPageHeader({
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
 }) {
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({ num: 0 });
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
+    wallet,
+    account,
+  });
+
   const item = useMemo(() => {
     if (
       tabRoute === ETabRoutes.Home &&
       sceneName !== EAccountSelectorSceneName.homeUrlAccount
     ) {
+      if (hasNoUsableWallet && !isSyncLoading) {
+        return null;
+      }
       return <WalletConnectionGroup tabRoute={tabRoute} />;
     }
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return <UrlAccountPageHeader />;
     }
-  }, [sceneName, tabRoute]);
+  }, [sceneName, tabRoute, hasNoUsableWallet, isSyncLoading]);
 
   if (!item) {
     return null;
