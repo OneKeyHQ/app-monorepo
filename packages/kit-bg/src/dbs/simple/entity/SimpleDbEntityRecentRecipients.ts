@@ -164,7 +164,9 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   }: {
     networkId: string;
     limit?: number;
-  }): Promise<{ address: string; updatedAt: number; networkId?: string; memo?: string }[]> {
+  }): Promise<
+    { address: string; updatedAt: number; networkId?: string; memo?: string }[]
+  > {
     const rawData = await this.getRawData();
     const recentRecipients = rawData?.recentRecipients ?? {};
 

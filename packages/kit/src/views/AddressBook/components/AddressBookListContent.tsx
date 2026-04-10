@@ -13,7 +13,6 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -21,6 +20,7 @@ import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountAvatar } from '../../../components/AccountAvatar';
 
