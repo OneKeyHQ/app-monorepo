@@ -33,16 +33,17 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { DefaultLoadingNode } from './DefaultLoadingNode';
-import { type ITickParam } from './tickSizeUtils';
-import { useAggregatedBook } from './useAggregatedBook';
-import { getMidPrice } from './utils';
 import {
   ORDER_BOOK_SIDE_RATIO_GAP,
   ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT,
   getVerticalOrderBookLayout,
 } from '../../layouts/perpLayoutUtils';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
+
+import { DefaultLoadingNode } from './DefaultLoadingNode';
+import { type ITickParam } from './tickSizeUtils';
+import { useAggregatedBook } from './useAggregatedBook';
+import { getMidPrice } from './utils';
 
 import type { IFormattedOBLevel, IOrderBookVariant } from './types';
 import type {
