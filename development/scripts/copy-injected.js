@@ -86,6 +86,12 @@ const srcDir = path.join(
 copyRecursiveSync(srcDir, jsSdkDestDir);
 console.log(`Copied ${srcDir} to ${jsSdkDestDir}`);
 
+// Copy translate inject source to .text-js so WebView can import it as a raw string
+copyFile(
+  './packages/kit/src/components/WebView/translateInject.js',
+  './packages/kit/src/components/WebView/translateInject.text-js',
+);
+
 // Build and copy web-embed
 const webEmbedScript = path.join(__dirname, 'web-embed.js');
 execSync(`node "${webEmbedScript}"`, { stdio: 'inherit' });
