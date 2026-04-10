@@ -3769,6 +3769,7 @@
   "send.unrecognized_hex_data_risky_warning": "无法识别的十六进制数据可能存在风险。仅在您完全信任的情况下继续。",
   "send.verification_failure": "验证失败",
   "send_address_not_transferred_not_checksummed__desc": "在发送之前请验证。地址未用于转账且不在校验和格式中。",
+  "send_tag_out_of_range__msg": "目标标签必须在 {min} 和 {max} 之间",
   "send_token_selector.no_match_found": "未找到符合您搜索的匹配项。",
   "send_token_selector.no_results": "未找到结果",
   "send_token_selector.search_placeholder": "搜索代币名称或合约地址",

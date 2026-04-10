@@ -161,7 +161,7 @@ const SwapToAnotherAddressPage = () => {
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
           <XStack gap="$1.5" alignItems="center">
-            <Icon name="BlockOutline" size="$4" color="$iconSubdued" />
+            <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.swap_page_recipient_modal_do_not,
