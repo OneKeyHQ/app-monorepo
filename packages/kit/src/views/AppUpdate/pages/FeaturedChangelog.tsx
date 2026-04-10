@@ -26,6 +26,8 @@ import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
@@ -62,7 +64,8 @@ function FeaturedChangelog({
           mediaUrl: '',
           mediaType: 'image' as const,
           ctaText: 'Try Now',
-          ctaDeeplink: 'onekey-wallet://market_detail',
+          href: 'onekey-wallet://market_detail',
+          hrefType: 'internal' as const,
         },
         {
           tabLabel: 'Keyless',
@@ -72,7 +75,8 @@ function FeaturedChangelog({
           mediaUrl: '',
           mediaType: 'image' as const,
           ctaText: 'Create Keyless Wallet',
-          ctaDeeplink: 'onekey-wallet://url_account',
+          href: 'onekey-wallet://url_account',
+          hrefType: 'internal' as const,
         },
         {
           tabLabel: 'Energy Subsidy',
@@ -81,7 +85,8 @@ function FeaturedChangelog({
           mediaUrl: '',
           mediaType: 'image' as const,
           ctaText: 'Learn More',
-          ctaDeeplink: 'onekey-wallet://market_detail',
+          href: 'onekey-wallet://market_detail',
+          hrefType: 'internal' as const,
         },
       ]
     : [];
@@ -150,10 +155,18 @@ function FeaturedChangelog({
         // Fallback: no store URL and no download URL — just close
         navigation.popStack();
       }
-    } else if (activeFeature?.ctaDeeplink) {
+    } else if (activeFeature?.href) {
+      // Post-install: dispatch CTA action (same shape as Wallet Banner)
       navigation.popStack();
       setTimeout(() => {
-        handleDeepLinkUrl({ url: activeFeature.ctaDeeplink });
+        if (
+          activeFeature.hrefType === 'external' ||
+          activeFeature.mode === ENotificationPushMessageMode.openInBrowser
+        ) {
+          openUrlExternal(activeFeature.href);
+        } else {
+          handleDeepLinkUrl({ url: activeFeature.href });
+        }
       }, 300);
     } else {
       navigation.popStack();

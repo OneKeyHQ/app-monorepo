@@ -1,11 +1,18 @@
+import type { ENotificationPushMessageMode } from '../../types/notification';
+
 export interface IFeaturedItem {
-  tabLabel: string; // Tab pill text, e.g. "⚡ 0 手续费"
+  tabLabel: string; // Tab pill text, e.g. "Zero Fees"
   title?: string; // Feature title — optional, not shown when empty
   description?: string; // Feature description — optional, not shown when empty
   mediaUrl: string; // Remote image or video URL
-  mediaType: 'image' | 'video';
-  ctaText?: string; // CTA button text, e.g. "立即体验" — optional, falls back to "Done"
-  ctaDeeplink?: string; // Deep link for post-install CTA — optional, no link = just close modal
+  mediaType: 'image' | 'video'; // Auto-detected by backend from uploaded file MIME type
+  ctaText?: string; // CTA button text — optional, falls back to "Done"
+  // CTA action — same pattern as IWalletBanner:
+  href?: string; // URL or deep link
+  hrefType?: 'internal' | 'external';
+  mode?: ENotificationPushMessageMode; // page / dialog / browser / app / dapp / command
+  payload?: string; // JSON payload for complex navigation
+  useSystemBrowser?: boolean;
 }
 
 export interface IFeaturedChangelog {
