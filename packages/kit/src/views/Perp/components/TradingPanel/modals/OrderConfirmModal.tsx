@@ -65,9 +65,10 @@ function OrderConfirmContent({
   const effectiveSide = overrideSide || formData.side;
   const { computedSizeForSide, orderValue } =
     useTradingCalculationsForSide(effectiveSide);
-  const szDecimals = isSpot
-    ? (activeInstrument.universe as any)?.baseSzDecimals ?? 2
-    : (activeInstrument.universe as any)?.szDecimals ?? 2;
+  const szDecimals =
+    activeInstrument.mode === 'spot'
+      ? activeInstrument.universe?.baseSzDecimals ?? 2
+      : activeInstrument.universe?.szDecimals ?? 2;
   const actionColor = getTradingSideTextColor(effectiveSide);
 
   const [onekeyFee, setOnekeyFee] = useState<number | undefined>(undefined);
@@ -154,9 +155,12 @@ function OrderConfirmContent({
     const sizeString = computedSizeForSide.toFixed(szDecimals);
     if (activeInstrument?.coin) {
       // Spot coins use @N format, resolve to display name (e.g. HYPE)
-      const coinDisplay = isSpot && activeInstrument.mode === 'spot'
-        ? getSpotTokenDisplayName((activeInstrument.universe as any)?.baseName || activeInstrument.coin)
-        : parseDexCoin(activeInstrument.coin).displayName;
+      const coinDisplay =
+        activeInstrument.mode === 'spot'
+          ? getSpotTokenDisplayName(
+              activeInstrument.universe?.baseName ?? activeInstrument.coin,
+            )
+          : parseDexCoin(activeInstrument.coin).displayName;
       return `${sizeString} ${coinDisplay}`;
     }
     return sizeString;

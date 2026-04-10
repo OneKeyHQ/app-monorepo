@@ -32,6 +32,7 @@ import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
+  SPOT_ASSET_ID_OFFSET,
   XYZ_ASSET_ID_OFFSET,
   XYZ_DEX_PREFIX,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -1103,7 +1104,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           const quoteName = quoteToken?.name ?? 'USDC';
           return {
             ...item,
-            assetId: 10_000 + item.index,
+            assetId: SPOT_ASSET_ID_OFFSET + item.index,
             baseName,
             quoteName,
             displayName: perpsUtils.getSpotTokenDisplayName(baseName),

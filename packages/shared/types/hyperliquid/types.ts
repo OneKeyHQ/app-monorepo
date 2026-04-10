@@ -177,7 +177,8 @@ export interface ITriggerOrderParams {
 }
 
 export interface ISpotOrderParams {
-  assetId: number; // 10000 + spotIndex
+  // Spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index
+  assetId: number;
   isBuy: boolean;
   sz: string;
   limitPx: string;

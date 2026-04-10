@@ -40,6 +40,9 @@ export const XYZ_DEX_PREFIX = `${DEX_PREFIXES[0]}${DEX_SEPARATOR}`;
 export const XYZ_ASSET_ID_OFFSET = 110_000;
 export const XYZ_ASSET_ID_LENGTH = `${XYZ_ASSET_ID_OFFSET}`.length;
 
+// Hyperliquid spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index
+export const SPOT_ASSET_ID_OFFSET = 10_000;
+
 // Token Selector default values
 export const DEFAULT_PERP_TOKEN_SORT_FIELD = 'volume24h';
 export const DEFAULT_PERP_TOKEN_SORT_DIRECTION = 'desc';
