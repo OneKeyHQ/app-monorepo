@@ -57,13 +57,13 @@ import {
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
-import type { IAccountDeriveTypes } from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
