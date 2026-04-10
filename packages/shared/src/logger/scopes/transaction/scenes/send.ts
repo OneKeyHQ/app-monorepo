@@ -189,6 +189,7 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
+  @LogToLocal()
   public quickSelectTap({
     network,
     tab,
@@ -216,6 +217,7 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
+  @LogToLocal()
   public quickSelectNavigation({
     network,
     tab,
@@ -234,6 +236,7 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
+  @LogToLocal()
   public quickSelectTabSwitch({
     network,
     fromTab,
@@ -255,6 +258,7 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
+  @LogToLocal()
   public quickSelectSearchNoResult({
     network,
     searchKeyLength,
