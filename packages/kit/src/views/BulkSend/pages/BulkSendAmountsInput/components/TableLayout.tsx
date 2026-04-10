@@ -352,11 +352,15 @@ function AmountCard() {
   const handleSpecifiedAmountChange = useCallback(
     (value: string) => {
       if (!tokenInfo) return;
-      const newValues = { ...amountInputValues, specifiedAmount: value };
+      const filteredValue = filterNumericInput(value);
+      const newValues = {
+        ...amountInputValues,
+        specifiedAmount: filteredValue,
+      };
       setAmountInputValues(newValues);
 
       // Check per-transfer minTransferAmount first
-      const valueBN = new BigNumber(value || '0');
+      const valueBN = new BigNumber(filteredValue || '0');
       const minTransferAmountBN = new BigNumber(minTransferAmount);
       if (
         !minTransferAmountBN.isZero() &&
@@ -615,7 +619,7 @@ function AmountCard() {
               currency: settings.currencyInfo.symbol,
             }}
             tokenSelectorTriggerProps={{
-              selectedTokenImageUri: tokenDetails?.info.logoURI,
+              selectedTokenImageUri: tokenInfo.logoURI,
               selectedNetworkImageUri: network?.logoURI,
               selectedTokenSymbol: tokenInfo.symbol,
             }}
