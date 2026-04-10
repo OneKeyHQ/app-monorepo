@@ -972,14 +972,17 @@ class ServiceHistory extends ServiceBase {
     // whole query as supported; the merged list is deduped by lowercase
     // address and sorted by most-recent time.
     const anySupported = responses.some((r) => r.supported);
-    const seen = new Set<string>();
+    const seenIndex = new Map<string, number>();
     const merged: ITransferRecipient[] = [];
     for (const r of responses) {
       for (const item of r.data) {
         const key = item.address.toLowerCase();
-        if (!seen.has(key)) {
-          seen.add(key);
+        const existingIdx = seenIndex.get(key);
+        if (existingIdx === undefined) {
+          seenIndex.set(key, merged.length);
           merged.push(item);
+        } else if (item.time > (merged[existingIdx].time ?? 0)) {
+          merged[existingIdx] = item;
         }
       }
     }
