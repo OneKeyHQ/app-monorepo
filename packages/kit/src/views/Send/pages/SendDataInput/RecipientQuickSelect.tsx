@@ -839,14 +839,6 @@ export default function RecipientQuickSelect({
     addressBook: 0,
   });
 
-  // Key to trigger refresh of recent recipients data
-  const [recentRefreshKey, setRecentRefreshKey] = useState(0);
-
-  // Force refresh recent recipients on mount to clear cached data
-  useEffect(() => {
-    setRecentRefreshKey((prev) => prev + 1);
-  }, []);
-
   // Track which tabs have been visited (once visited, stay mounted to avoid AbortError crashes)
   const [visitedTabs, setVisitedTabs] = useState<
     Record<IRecipientQuickSelectTab, boolean>
@@ -1025,7 +1017,6 @@ export default function RecipientQuickSelect({
                   onSelect?.(params);
                 }}
                 onMatchStatusChange={handleRecentMatchStatus}
-                refreshKey={recentRefreshKey}
               />
             </Stack>
           ) : null}

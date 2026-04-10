@@ -20,7 +20,6 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
-  useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -29,7 +28,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   useInAppNotificationAtom,
-  useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -50,7 +48,6 @@ import SwapApprovingItem from '../../components/SwapApprovingItem';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
-import { useSwapRecipientAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import {
@@ -64,7 +61,6 @@ import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;
   onOpenProviderList?: () => void;
-  onOpenRecipient?: () => void;
   refreshAction: (manual?: boolean) => void;
 }
 
@@ -76,7 +72,6 @@ const SwapQuoteResult = ({
   onOpenProviderList,
   quoteResult,
   refreshAction,
-  onOpenRecipient,
 }: ISwapQuoteResultProps) => {
   const [openResult, setOpenResult] = useState(false);
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -92,18 +87,12 @@ const SwapQuoteResult = ({
   ] = useInAppNotificationAtom();
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
-  const [swapProviderSupportReceiveAddress] =
-    useSwapProviderSupportReceiveAddressAtom();
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
     useSwapLimitPartiallyFillAtom();
-  const [{ swapEnableRecipientAddress }] = useSettingsAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
-  const swapRecipientAddress = useSwapRecipientAddressInfo(
-    swapEnableRecipientAddress,
-  );
 
   const calculateTaxItem = useCallback(
     (
@@ -420,41 +409,6 @@ const SwapQuoteResult = ({
               exitStyle={{ opacity: 0 }}
             >
               <Divider mt="$4" />
-              {swapProviderSupportReceiveAddress &&
-              swapEnableRecipientAddress ? (
-                <SwapCommonInfoItem
-                  title={intl.formatMessage({
-                    id: ETranslations.global_recipient,
-                  })}
-                  isLoading={swapQuoteLoading}
-                  onPress={onOpenRecipient}
-                  valueComponent={
-                    <XStack gap="$1">
-                      {!swapRecipientAddress?.showAddress ? (
-                        <Icon name="AddPeopleOutline" w={18} h={18} />
-                      ) : null}
-                      <SizableText size="$bodyMdMedium">
-                        {swapRecipientAddress?.showAddress ??
-                          intl.formatMessage({
-                            id: ETranslations.swap_page_recipient_edit,
-                          })}
-                      </SizableText>
-                    </XStack>
-                  }
-                  questionMarkContent={
-                    <SizableText
-                      p="$4"
-                      $gtMd={{
-                        size: '$bodyMd',
-                      }}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.swap_review_recipient_popover,
-                      })}
-                    </SizableText>
-                  }
-                />
-              ) : null}
               {quoteResult?.allowanceResult ? (
                 <SwapApproveAllowanceSelectContainer
                   allowanceResult={quoteResult?.allowanceResult}
