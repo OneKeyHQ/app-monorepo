@@ -1,11 +1,12 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Page } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useIntl } from 'react-intl';
 
 interface IFeaturedFooterProps {
   ctaText: string;

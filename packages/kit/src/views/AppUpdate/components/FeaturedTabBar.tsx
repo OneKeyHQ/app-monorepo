@@ -1,7 +1,4 @@
-import { useCallback } from 'react';
-
 import { Button, XStack } from '@onekeyhq/components';
-
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate';
 
 interface IFeaturedTabBarProps {
@@ -15,13 +12,6 @@ function FeaturedTabBar({
   activeIndex,
   onTabPress,
 }: IFeaturedTabBarProps) {
-  const handlePress = useCallback(
-    (index: number) => () => {
-      onTabPress(index);
-    },
-    [onTabPress],
-  );
-
   if (features.length <= 1) {
     return null;
   }
@@ -34,7 +24,7 @@ function FeaturedTabBar({
           size="small"
           variant={index === activeIndex ? 'primary' : 'secondary'}
           borderRadius="$full"
-          onPress={handlePress(index)}
+          onPress={() => onTabPress(index)}
         >
           {feature.tabLabel}
         </Button>

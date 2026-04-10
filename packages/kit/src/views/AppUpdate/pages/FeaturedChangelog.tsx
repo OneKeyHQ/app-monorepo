@@ -37,6 +37,43 @@ import { FeaturedFooter } from '../components/FeaturedFooter';
 import { FeaturedMedia } from '../components/FeaturedMedia';
 import { FeaturedTabBar } from '../components/FeaturedTabBar';
 
+// TODO: Remove __DEV__ mock before release
+const DEV_MOCK_FEATURES: IFeaturedItem[] = __DEV__
+  ? [
+      {
+        tabLabel: 'Zero Fees',
+        title: 'Perps Trading, Zero Fees',
+        description: 'Enjoy zero-fee trading on all perpetual contracts.',
+        mediaUrl: '',
+        mediaType: 'image',
+        ctaText: 'Try Now',
+        href: 'onekey-wallet://market_detail',
+        hrefType: 'internal',
+      },
+      {
+        tabLabel: 'Keyless',
+        title: 'Keyless Wallet',
+        description:
+          'Create a wallet with iCloud or Google — no seed phrase needed.',
+        mediaUrl: '',
+        mediaType: 'image',
+        ctaText: 'Create Keyless Wallet',
+        href: 'onekey-wallet://url_account',
+        hrefType: 'internal',
+      },
+      {
+        tabLabel: 'Energy Subsidy',
+        title: 'Tron Energy Subsidy',
+        description: 'Get energy subsidies for your first Tron transactions.',
+        mediaUrl: '',
+        mediaType: 'image',
+        ctaText: 'Learn More',
+        href: 'onekey-wallet://market_detail',
+        hrefType: 'internal',
+      },
+    ]
+  : [];
+
 function FeaturedChangelog({
   route,
 }: IPageScreenProps<
@@ -52,45 +89,10 @@ function FeaturedChangelog({
   const [activeIndex, setActiveIndex] = useState(0);
   const mountTimeRef = useRef(Date.now());
 
-  // TODO: Remove __DEV__ mock before release
-  const mockFeatures: IFeaturedItem[] = __DEV__
-    ? [
-        {
-          tabLabel: 'Zero Fees',
-          title: 'Perps Trading, Zero Fees',
-          description: 'Enjoy zero-fee trading on all perpetual contracts.',
-          mediaUrl: '',
-          mediaType: 'image' as const,
-          ctaText: 'Try Now',
-          href: 'onekey-wallet://market_detail',
-          hrefType: 'internal' as const,
-        },
-        {
-          tabLabel: 'Keyless',
-          title: 'Keyless Wallet',
-          description:
-            'Create a wallet with iCloud or Google — no seed phrase needed.',
-          mediaUrl: '',
-          mediaType: 'image' as const,
-          ctaText: 'Create Keyless Wallet',
-          href: 'onekey-wallet://url_account',
-          hrefType: 'internal' as const,
-        },
-        {
-          tabLabel: 'Energy Subsidy',
-          title: 'Tron Energy Subsidy',
-          description: 'Get energy subsidies for your first Tron transactions.',
-          mediaUrl: '',
-          mediaType: 'image' as const,
-          ctaText: 'Learn More',
-          href: 'onekey-wallet://market_detail',
-          hrefType: 'internal' as const,
-        },
-      ]
-    : [];
-  const features = appUpdateInfo.featuredChangelog?.features ?? mockFeatures;
+  const features =
+    appUpdateInfo.featuredChangelog?.features ?? DEV_MOCK_FEATURES;
 
-  // #2/#3: Clamp activeIndex when features array changes
+  // Prevent out-of-bounds access when features array shrinks
   const clampedIndex = Math.min(activeIndex, Math.max(features.length - 1, 0));
   useEffect(() => {
     if (clampedIndex !== activeIndex) {
@@ -244,7 +246,6 @@ function FeaturedChangelog({
             />
           </YStack>
 
-          {/* Media fills remaining space, with gradient + text overlay */}
           <Stack flex={1} px="$5" pb={0}>
             <FeaturedMedia feature={activeFeature}>
               {activeFeature.title || activeFeature.description ? (
