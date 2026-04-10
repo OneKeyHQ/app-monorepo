@@ -132,13 +132,6 @@ export const SizeInput = memo(
         const marginBN = new BigNumber(marginValue);
         if (!marginBN.isFinite()) return '';
         const tokenValue = marginBN.multipliedBy(leverageBN).dividedBy(priceBN);
-        console.log('calcTokenFromMargin__debug', {
-          margin: marginValue,
-          leverage: leverageBN.toFixed(),
-          price: priceBN.toFixed(),
-          result: tokenValue.toFixed(),
-          szDecimals,
-        });
         return formatWithPrecision(tokenValue, szDecimals, true);
       },
       [hasValidPrice, priceBN, leverageBN, szDecimals],

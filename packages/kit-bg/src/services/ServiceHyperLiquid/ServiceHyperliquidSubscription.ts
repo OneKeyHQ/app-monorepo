@@ -1154,7 +1154,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_CTX) {
         const coinStr = (data as { coin?: string })?.coin ?? '';
         const isSpotData = coinStr.startsWith('@') || coinStr.includes('/');
-        console.log('ACTIVE_ASSET_CTX__debug', { coinStr, isSpotData });
         if (isSpotData) {
           void this.backgroundApi.serviceHyperliquid.updateActiveSpotAssetCtx(
             data as IWsActiveSpotAssetCtx,
