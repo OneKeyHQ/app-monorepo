@@ -15,9 +15,12 @@ import {
 import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ETranslateDisplayMode, ETranslateEngine } from '../types';
+
+import { useWebTabDataById } from './useWebTabs';
 
 function TranslateSettings() {
   const intl = useIntl();
@@ -281,6 +284,7 @@ export function usePageTranslation(tabId: string) {
   const [settings] = useTranslateSettingsPersistAtom();
   const [isTranslated, setIsTranslated] = useState(false);
   const resolvedTargetLang = useResolvedTargetLang();
+  const { tab } = useWebTabDataById(tabId);
 
   const onNavigate = useCallback(() => {
     setIsTranslated(false);
@@ -291,13 +295,29 @@ export function usePageTranslation(tabId: string) {
     onNavigate,
     settings.engine,
     settings.displayMode,
+    tab?.url,
   );
 
   const handleTranslate = useCallback(() => {
     const willTranslate = !translatingRef.current;
     toggleTranslate(resolvedTargetLang);
     setIsTranslated(willTranslate);
-  }, [toggleTranslate, translatingRef, resolvedTargetLang]);
+
+    defaultLogger.discovery.translation.dappTranslateToggle({
+      action: willTranslate ? 'enable' : 'disable',
+      engine: settings.engine,
+      targetLang: resolvedTargetLang,
+      displayMode: settings.displayMode,
+      dappDomain: tab?.url ?? '',
+    });
+  }, [
+    toggleTranslate,
+    translatingRef,
+    resolvedTargetLang,
+    settings.engine,
+    settings.displayMode,
+    tab?.url,
+  ]);
 
   return {
     isTranslated,

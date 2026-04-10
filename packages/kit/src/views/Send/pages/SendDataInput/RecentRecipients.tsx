@@ -167,10 +167,9 @@ function QuickSelectListItemBase({
             >
               {isEvmNetwork
                 ? 'EVM'
-                : (item.lastTransferNetworkName ??
-                  intl.formatMessage({
+                : intl.formatMessage({
                     id: ETranslations.address_book_title,
-                  }))}
+                  })}
             </SizableText>
           ) : null}
           {showNetworkBadge ? (
@@ -203,7 +202,11 @@ function QuickSelectListItemBase({
           wordWrap="break-word"
         >
           {item.memo || item.note
-            ? `${item.address} · ${item.memo || item.note}`
+            ? `${item.address} · ${accountUtils.shortenAddress({
+                address: item.memo || item.note,
+                leadingLength: 6,
+                trailingLength: 4,
+              })}`
             : item.address}
         </MatchSizeableText>
       }
@@ -369,10 +372,14 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       { initResult: new Map(), undefinedResultIfError: true },
     );
 
-  // Notify parent of match status and count
+  // Notify parent of match status and count.
+  // Report 0 immediately when debouncing so stale pre-search counts
+  // don't flash in the tab label (OK-53017).
   useEffect(() => {
-    // Skip reporting stale counts during debounce gap to prevent badge flickering
-    if (isDebouncing) return;
+    if (isDebouncing) {
+      onMatchStatusChange?.(false, 0);
+      return;
+    }
     onMatchStatusChange?.(
       filteredRecentRecipients.length > 0,
       filteredRecentRecipients.length,
