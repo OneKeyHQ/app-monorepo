@@ -94,7 +94,7 @@ export class PushProviderWebSocket extends PushProviderBase {
       auth: {
         instanceId: this.instanceId,
       },
-      reconnectionDelayMax: 30000,
+      reconnectionDelayMax: 30_000,
     });
     this.socket.on('connect', () => {
       // 获取 socketId
