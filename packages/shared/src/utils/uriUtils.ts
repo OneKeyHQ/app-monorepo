@@ -113,6 +113,11 @@ function parseDappRedirect(
     return { action: EDAppOpenActionEnum.ALLOW };
   }
 
+  if (protocol === 'javascript:') {
+    console.log('====>>>>>>>reject javascript: navigate: ', url);
+    return { action: EDAppOpenActionEnum.DENY };
+  }
+
   const parsedUrl = safeParseURL(url);
   if (process.env.NODE_ENV !== 'production') {
     if (
