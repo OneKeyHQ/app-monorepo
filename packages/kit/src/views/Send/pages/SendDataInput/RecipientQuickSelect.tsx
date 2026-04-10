@@ -394,7 +394,11 @@ function AccountRecipients({
     (item: IAccountWithDeriveInfo) => {
       const account = item?.account;
       if (!account) return;
-      const address = account.address ?? account.addressDetail?.address ?? '';
+      const address =
+        account.addressDetail?.displayAddress ??
+        account.address ??
+        account.addressDetail?.address ??
+        '';
       onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
       onSelect?.({ address });
     },
@@ -632,7 +636,10 @@ function AccountRecipients({
         }
         const { account, walletId, wallet } = item;
         const itemAddress =
-          account.address ?? account.addressDetail?.address ?? '';
+          account.addressDetail?.displayAddress ??
+          account.address ??
+          account.addressDetail?.address ??
+          '';
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
         // Wallet name is already shown in the section header, only show account name
