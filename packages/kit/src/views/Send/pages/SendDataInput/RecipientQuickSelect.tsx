@@ -20,7 +20,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBUtxoAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/addressBooks';
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -163,29 +166,24 @@ type IWalletGroup = {
 const NETWORK_ACCOUNTS_FETCH_CONCURRENCY = 4;
 const WALLET_GROUP_FETCH_CONCURRENCY = 6;
 
-// Collect every address that should match against the search key for a
-// given network account. For BTC with fresh-address mode (OK-52953) the
-// currently-shown address is only one of many rotating receive addresses;
-// the historical entries live on `IDBUtxoAccount.addresses` (path → addr).
-// Without including them a user searching an old receive address gets no
-// hit even though the address belongs to one of their own accounts.
+// Collect every address an account should be searchable by. For BTC with
+// fresh-address mode (OK-52953) the currently-shown address is one of
+// many rotating entries stored in `IDBUtxoAccount.addresses` (relPath →
+// addr); `customAddresses` covers user-added custom receive addresses.
+// Without these a user searching an old receive address gets no hit.
 function collectAccountSearchAddresses(
   account: INetworkAccount | undefined,
 ): string[] {
   if (!account) return [];
-  const seen = new Set<string>();
-  const push = (addr: string | undefined) => {
-    if (addr) seen.add(addr.toLowerCase());
-  };
-  push(account.address);
-  push(account.addressDetail?.address);
-  push(account.addressDetail?.masterAddress);
-  const utxoAddresses = (account as { addresses?: Record<string, string> })
-    .addresses;
-  if (utxoAddresses) {
-    for (const addr of Object.values(utxoAddresses)) push(addr);
-  }
-  return Array.from(seen);
+  const utxo = account as Partial<IDBUtxoAccount>;
+  const candidates = [
+    account.address,
+    account.addressDetail?.address,
+    account.addressDetail?.masterAddress,
+    ...(utxo.addresses ? Object.values(utxo.addresses) : []),
+    ...(utxo.customAddresses ? Object.values(utxo.customAddresses) : []),
+  ].filter((a): a is string => !!a);
+  return Array.from(new Set(candidates.map((a) => a.toLowerCase())));
 }
 
 // Get wallet accounts on the specified network (with derive type info)
