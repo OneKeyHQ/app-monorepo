@@ -20,6 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -269,6 +270,32 @@ export function PrimeBenefitsList({
         }}
       />
 
+      <PrimeBenefitsItem
+        icon="TranslateOutline"
+        title={intl.formatMessage({
+          id: ETranslations.prime_ai_translate_title,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_ai_translate_desc,
+        })}
+        onPress={() => {
+          if (isPrimeSubscriptionActive) {
+            navigation.switchTab(ETabRoutes.Discovery);
+          } else {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.DAppTranslate,
+              entryPoint: 'primePage',
+            });
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.DAppTranslate,
+              selectedSubscriptionPeriod,
+              serverUserInfo,
+            });
+          }
+        }}
+      />
+
       {/* Coming soon features */}
       <PrimeBenefitsItem
         isComingSoon
@@ -287,28 +314,6 @@ export function PrimeBenefitsList({
           navigation.navigate(EPrimePages.PrimeFeatures, {
             showAllFeatures: true,
             selectedFeature: EPrimeFeatures.BlockaidSiteScan,
-            selectedSubscriptionPeriod,
-            serverUserInfo,
-          });
-        }}
-      />
-      <PrimeBenefitsItem
-        isComingSoon
-        icon="TranslateOutline"
-        title={intl.formatMessage({
-          id: ETranslations.prime_ai_translate_title,
-        })}
-        subtitle={intl.formatMessage({
-          id: ETranslations.prime_ai_translate_desc,
-        })}
-        onPress={() => {
-          defaultLogger.prime.subscription.primeEntryClick({
-            featureName: EPrimeFeatures.DAppTranslate,
-            entryPoint: 'primePage',
-          });
-          navigation.navigate(EPrimePages.PrimeFeatures, {
-            showAllFeatures: true,
-            selectedFeature: EPrimeFeatures.DAppTranslate,
             selectedSubscriptionPeriod,
             serverUserInfo,
           });

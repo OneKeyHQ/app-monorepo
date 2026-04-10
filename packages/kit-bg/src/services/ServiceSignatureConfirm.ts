@@ -410,14 +410,17 @@ class ServiceSignatureConfirm extends ServiceBase {
   async updateRecentRecipients({
     networkId,
     address,
+    memo,
   }: {
     networkId: string;
     address: string;
+    memo?: string;
   }) {
     await this.backgroundApi.simpleDb.recentRecipients.updateRecentRecipients({
       networkId,
       address,
       updatedAt: Date.now(),
+      memo,
     });
   }
 
