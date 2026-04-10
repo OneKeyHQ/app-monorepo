@@ -33,11 +33,12 @@ import {
 import { MarketTokenSelectorRow } from './MarketTokenSelectorRow';
 
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
+import type { IMarketTimeRangeValue } from '../../../MarketHomeV2/types';
 
 interface IMarketTokenSelectorListProps {
   networkId: string;
   selectedCategory?: string;
-  timeRange?: string;
+  timeRange?: IMarketTimeRangeValue;
   onItemPress: (item: IMarketToken) => void;
   pollingInterval?: number;
   isWatchlistMode?: boolean;
@@ -143,14 +144,14 @@ const CategoryTokenSelectorList = memo(
   }: {
     networkId: string;
     selectedCategory?: string;
-    timeRange?: string;
+    timeRange?: IMarketTimeRangeValue;
     onItemPress: (item: IMarketToken) => void;
     pollingInterval?: number;
   }) => {
     const { data, isLoading } = useMarketTokenList({
       networkId,
       type: selectedCategory,
-      timeRange: timeRange as any,
+      timeRange,
       pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
     });
 

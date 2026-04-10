@@ -89,12 +89,14 @@ function BaseMarketTokenSelectorContent() {
         name: c.name,
       }));
     }
-    // Fallback before API responds
+    // Fallback before API responds — use i18n keys
     return [
-      { id: 'trending', name: 'Trending' },
-      { id: 'x_mentioned', name: 'X Mentioned' },
+      {
+        id: 'trending',
+        name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
+      },
     ];
-  }, [apiSpotCategories]);
+  }, [apiSpotCategories, intl]);
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
