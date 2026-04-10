@@ -363,15 +363,13 @@ function AccountRecipients({
             isNameMatch: (item) =>
               (item.account?.name ?? '').toLowerCase().includes(searchValue),
             isAddressMatch: (item) => {
-              const addr = item.account?.address?.toLowerCase();
-              const detail = item.account?.addressDetail;
-              const displayAddr = detail?.displayAddress?.toLowerCase();
-              const baseAddr = detail?.baseAddress?.toLowerCase();
-              return (
-                (addr?.includes(searchValue) ?? false) ||
-                (displayAddr?.includes(searchValue) ?? false) ||
-                (baseAddr?.includes(searchValue) ?? false)
-              );
+              // Use displayAddress (the current receive address) for matching.
+              // For BTC with fresh address enabled, this is the fresh address;
+              // the first/base address is intentionally excluded so users
+              // aren't matched to a stale address they shouldn't reuse.
+              const displayAddr =
+                item.account?.addressDetail?.displayAddress?.toLowerCase();
+              return displayAddr?.includes(searchValue) ?? false;
             },
           });
 
