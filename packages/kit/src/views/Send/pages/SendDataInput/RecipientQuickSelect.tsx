@@ -28,6 +28,7 @@ import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -65,6 +66,10 @@ type IRecipientQuickSelectProps = {
     address: string;
     memo?: string;
     note?: string;
+    quickSelectTab?: IRecipientQuickSelectTab;
+    isSearchMode?: boolean;
+    searchKeyLength?: number;
+    matchCount?: number;
   }) => void;
   onMatchStatusChange?: (hasMatches: boolean) => void;
 };
@@ -935,6 +940,8 @@ export default function RecipientQuickSelect({
   // Track the search key at the time of last manual tab switch
   // Only allow auto-switch if user has typed something new
   const lastManualSwitchSearchKeyRef = useRef<string | undefined>(undefined);
+  // Dedup auto-switch analytics to avoid multiple events per search
+  const lastAutoSwitchRef = useRef<string | undefined>(undefined);
 
   // Callbacks for each tab's match status and count
   const handleRecentMatchStatus = useCallback(
@@ -962,11 +969,7 @@ export default function RecipientQuickSelect({
   );
 
   // Report match status to parent: true only if a tab has explicitly reported matches
-  useEffect(() => {
-    const statuses = Object.values(tabMatchStatus);
-    const anyTabHasMatches = statuses.some((status) => status === true);
-    onMatchStatusChange?.(anyTabHasMatches);
-  }, [tabMatchStatus, onMatchStatusChange]);
+  const lastNoResultKeyRef = useRef<string | undefined>(undefined);
 
   // Auto-switch to a tab with matches when current tab has no matches
   useEffect(() => {
@@ -980,6 +983,16 @@ export default function RecipientQuickSelect({
     });
 
     if (nextTab) {
+      const dedupKey = `${trimmedSearchKey}:${activeTab}:${nextTab}`;
+      if (lastAutoSwitchRef.current !== dedupKey) {
+        lastAutoSwitchRef.current = dedupKey;
+        defaultLogger.transaction.send.quickSelectTabSwitch({
+          network: networkId,
+          fromTab: activeTab,
+          toTab: nextTab,
+          isAutoSwitch: true,
+        });
+      }
       setActiveTab(nextTab);
     }
   }, [
@@ -988,6 +1001,7 @@ export default function RecipientQuickSelect({
     activeTab,
     tabMatchStatus,
     setActiveTab,
+    networkId,
     hideTabs,
   ]);
 
@@ -999,49 +1013,61 @@ export default function RecipientQuickSelect({
       return label;
     };
 
-    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
+    const labelMap: Record<IRecipientQuickSelectTab, string> = {
+      recent: intl.formatMessage({ id: ETranslations.global_recents }),
+      account: intl.formatMessage({ id: ETranslations.global_accounts }),
+      addressBook: intl.formatMessage({ id: ETranslations.address_book_title }),
+    };
+    return visibleTabKeys.map((tab) => ({
+      label: formatLabel(labelMap[tab], tab),
+      value: tab,
+    }));
+  }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys]);
 
-    const options: { label: string; value: IRecipientQuickSelectTab }[] = [];
+  // Report match status to parent. Only consider tabs that are actually visible
+  // (Lightning hides account/addressBook; callers can pass hideTabs).
+  useEffect(() => {
+    const visibleStatuses = visibleTabKeys.map((tab) => tabMatchStatus[tab]);
+    const anyTabHasMatches = visibleStatuses.some((status) => status === true);
+    onMatchStatusChange?.(anyTabHasMatches);
 
-    options.push({
-      label: formatLabel(
-        intl.formatMessage({ id: ETranslations.global_recents }),
-        'recent',
-      ),
-      value: 'recent',
-    });
-
-    if (!isLightning) {
-      options.push({
-        label: formatLabel(
-          intl.formatMessage({
-            id: ETranslations.global_accounts,
-          }),
-          'account',
-        ),
-        value: 'account',
-      });
-
-      options.push({
-        label: formatLabel(
-          intl.formatMessage({ id: ETranslations.address_book_title }),
-          'addressBook',
-        ),
-        value: 'addressBook',
+    const allReported = visibleStatuses.every((status) => status !== null);
+    if (
+      isSearchMode &&
+      trimmedSearchKey &&
+      allReported &&
+      !anyTabHasMatches &&
+      lastNoResultKeyRef.current !== trimmedSearchKey
+    ) {
+      lastNoResultKeyRef.current = trimmedSearchKey;
+      defaultLogger.transaction.send.quickSelectSearchNoResult({
+        network: networkId,
+        searchKeyLength: trimmedSearchKey.length,
       });
     }
-
-    return hideTabs?.length
-      ? options.filter((o) => !hideTabs.includes(o.value))
-      : options;
   }, [
-    intl,
+    visibleTabKeys,
+    tabMatchStatus,
+    onMatchStatusChange,
     isSearchMode,
     trimmedSearchKey,
-    tabMatchCounts,
     networkId,
-    hideTabs,
   ]);
+
+  const getSearchContext = useCallback(
+    () => ({
+      isSearchMode: !!(isSearchMode && trimmedSearchKey),
+      searchKeyLength: trimmedSearchKey.length,
+      // Only count tabs that are actually visible — hidden tabs (e.g. swap
+      // passes hideTabs={['recent']}) stay mounted but their counts would
+      // otherwise inflate the analytics matchCount.
+      matchCount: visibleTabKeys.reduce(
+        (sum, tab) => sum + (tabMatchCounts[tab] ?? 0),
+        0,
+      ),
+    }),
+    [isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys],
+  );
 
   return (
     <Animated.View entering={FadeIn.duration(200)}>
@@ -1053,7 +1079,14 @@ export default function RecipientQuickSelect({
           onChange={(value) => {
             // Record the current search key to prevent auto-switch until user types again
             lastManualSwitchSearchKeyRef.current = trimmedSearchKey;
-            setActiveTab(value as IRecipientQuickSelectTab);
+            const toTab = value as IRecipientQuickSelectTab;
+            defaultLogger.transaction.send.quickSelectTabSwitch({
+              network: networkId,
+              fromTab: activeTab,
+              toTab,
+              isAutoSwitch: false,
+            });
+            setActiveTab(toTab);
           }}
         />
         <Stack mx={-20} pb="$3">
@@ -1069,7 +1102,11 @@ export default function RecipientQuickSelect({
                 onSelect={(params) => {
                   // Reset input type to Manual to prevent auto-navigation from Recent tab
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
-                  onSelect?.(params);
+                  onSelect?.({
+                    ...params,
+                    quickSelectTab: 'recent',
+                    ...getSearchContext(),
+                  });
                 }}
                 onMatchStatusChange={handleRecentMatchStatus}
               />
@@ -1083,7 +1120,13 @@ export default function RecipientQuickSelect({
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
-                onSelect={({ address }) => onSelect?.({ address })}
+                onSelect={({ address }) =>
+                  onSelect?.({
+                    address,
+                    quickSelectTab: 'account',
+                    ...getSearchContext(),
+                  })
+                }
                 onMatchStatusChange={handleAccountMatchStatus}
               />
             </Stack>
@@ -1095,7 +1138,13 @@ export default function RecipientQuickSelect({
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
-                onSelect={onSelect}
+                onSelect={(params) =>
+                  onSelect?.({
+                    ...params,
+                    quickSelectTab: 'addressBook',
+                    ...getSearchContext(),
+                  })
+                }
                 onMatchStatusChange={handleAddressBookMatchStatus}
               />
             </Stack>
