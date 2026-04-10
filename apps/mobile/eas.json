@@ -103,20 +103,6 @@
         "credentialsSource": "local"
       }
     },
-    "production-huawei": {
-      "extends": "base",
-      "distribution": "store",
-      "env": {
-        "ENVIRONMENT": "production"
-      },
-      "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleProdRelease",
-        "env": {
-          "ANDROID_CHANNEL": "huawei"
-        }
-      }
-    },
     "simulator": {
       "extends": "base",
       "distribution": "internal",

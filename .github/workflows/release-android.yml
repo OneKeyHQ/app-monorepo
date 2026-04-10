@@ -123,7 +123,6 @@ jobs:
           else
             eas build --profile="${INTERNAL_PROFILE}" --platform android --non-interactive --no-wait --resource-class large
             eas build --profile="${STORE_PROFILE}" --platform android --non-interactive --no-wait --resource-class large --auto-submit
-            # eas build --profile=production-huawei --platform android --non-interactive --no-wait --resource-class large
           fi
 
       - name: Build on EAS
