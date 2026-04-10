@@ -1199,6 +1199,9 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     await perpsAbstractionModeAtom.set(undefined);
     await perpsSpotBalancesAtom.set(undefined);
+    // Also reset the UI-facing spot balances atom so stale balances from
+    // the previous account don't flash before the new SPOT_STATE arrives.
+    await spotBalancesAtom.set({ balances: [], isLoaded: false });
     await perpsActiveAccountAtom.set(perpsAccount);
     return perpsAccount;
   }

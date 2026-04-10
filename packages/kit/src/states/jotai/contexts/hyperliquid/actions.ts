@@ -1360,6 +1360,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const formData = params.formData || get(tradingFormAtom());
       const env = get(tradingFormEnvAtom());
 
+      // Guard: spot order requires a valid assetId from loaded spot meta.
+      // If spot meta failed to load, spotActiveAssetAtom.assetId is undefined
+      // and we must not forward `a: undefined` to the exchange.
+      if (
+        typeof params.assetId !== 'number' ||
+        !Number.isFinite(params.assetId)
+      ) {
+        throw new OneKeyLocalError(
+          'Spot asset metadata not loaded. Please try again.',
+        );
+      }
+
       return withToast({
         asyncFn: async () => {
           set(tradingLoadingAtom(), true);
@@ -1385,6 +1397,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 limitPx: params.price,
                 orderType: formData.type,
                 slippage: params.slippage,
+                szDecimals: env.szDecimals,
               },
             );
           } finally {

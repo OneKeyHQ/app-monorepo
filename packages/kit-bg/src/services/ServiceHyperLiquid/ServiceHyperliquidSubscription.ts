@@ -705,9 +705,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
         // Spot subscription types
+        // Note: ACTIVE_SPOT_ASSET_CTX shares wire type "activeAssetCtx" with perps
+        // and is not registered here — spot ctx events are dispatched as ACTIVE_ASSET_CTX
+        // and routed by coin format (@N / BASE/QUOTE) in the handler.
         ESubscriptionType.SPOT_STATE,
         ESubscriptionType.SPOT_ASSET_CTXS,
-        ESubscriptionType.ACTIVE_SPOT_ASSET_CTX,
       ];
       const removeAllSubscriptionHandlers = () => {
         allTypes.forEach((type) => {
@@ -728,23 +730,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const wsRequester = innerTransport._postRequest as {
         request: (method: string, payload: any) => Promise<void>;
       };
-      // const payload = { type: "activeAssetCtx", ...params };
-      console.log('getWebSocketClient__wsRequester', wsRequester);
-      // Map SDK channel types to Hyperliquid wire types
-      // (some SDK types use different channel names for event dispatch)
-      const getWireType = (type: ESubscriptionType): string => {
-        if (type === ESubscriptionType.ACTIVE_SPOT_ASSET_CTX) {
-          return 'activeAssetCtx'; // spot shares wire type with perps
-        }
-        return type;
-      };
-
       const subscribe = async <T extends ESubscriptionType>(
         type: T,
         params: IPerpsSubscriptionParams[T],
       ) => {
         return wsRequester.request('subscribe', {
-          type: getWireType(type),
+          type,
           ...params,
         });
       };
@@ -753,7 +744,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         params: IPerpsSubscriptionParams[T],
       ) => {
         return wsRequester.request('unsubscribe', {
-          type: getWireType(type),
+          type,
           ...params,
         });
       };
@@ -969,9 +960,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         (subInfo) => subInfo.spec,
       ),
     ];
-    allSpecs.forEach((spec) => {
-      void this._destroySubscription(spec);
-    });
+    // Await all unsubscribes before clearing the active set so that the
+    // server has fully acknowledged the teardown before we forget about them.
+    await Promise.all(
+      allSpecs.map((spec) => this._destroySubscription(spec)),
+    );
     this._activeSubscriptions.clear();
     void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
       return {
@@ -1163,11 +1156,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             data as IWsActiveAssetCtx,
           );
         }
-      } else if (subscriptionType === ESubscriptionType.ACTIVE_SPOT_ASSET_CTX) {
-        // SDK dispatches spot activeAssetCtx on channel "activeSpotAssetCtx"
-        void this.backgroundApi.serviceHyperliquid.updateActiveSpotAssetCtx(
-          data as IWsActiveSpotAssetCtx,
-        );
       } else if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA) {
         void this.backgroundApi.serviceHyperliquid.updateActiveAssetData(
           data as IPerpsActiveAssetDataRaw,
