@@ -27,6 +27,15 @@ import {
   SubtitleBadge,
 } from '../../../components/PerpsBadges';
 
+import {
+  COLUMN_WIDTH_CHANGE,
+  COLUMN_WIDTH_LIQUIDITY,
+  COLUMN_WIDTH_MARKET_CAP,
+  COLUMN_WIDTH_NAME,
+  COLUMN_WIDTH_PRICE,
+  COLUMN_WIDTH_TURNOVER,
+} from './constants';
+
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { GestureResponderEvent } from 'react-native';
 
@@ -95,7 +104,7 @@ const MarketTokenSelectorRow = memo(
       >
         {/* Token info cell */}
         <XStack
-          width={240}
+          width={COLUMN_WIDTH_NAME}
           gap="$1.5"
           alignItems="center"
           justifyContent="flex-start"
@@ -155,7 +164,7 @@ const MarketTokenSelectorRow = memo(
         </XStack>
 
         {/* Price cell */}
-        <XStack width={110} justifyContent="flex-start">
+        <XStack width={COLUMN_WIDTH_PRICE} justifyContent="flex-start">
           <NumberSizeableText
             size="$bodySmMedium"
             formatter={priceFormatter}
@@ -166,7 +175,7 @@ const MarketTokenSelectorRow = memo(
         </XStack>
 
         {/* Change 24h cell */}
-        <XStack width={90} justifyContent="flex-start">
+        <XStack width={COLUMN_WIDTH_CHANGE} justifyContent="flex-start">
           <NumberSizeableText
             size="$bodySm"
             formatter="priceChange"
@@ -178,7 +187,7 @@ const MarketTokenSelectorRow = memo(
         </XStack>
 
         {/* Market cap cell */}
-        <XStack width={100} justifyContent="flex-start">
+        <XStack width={COLUMN_WIDTH_MARKET_CAP} justifyContent="flex-start">
           {item.marketCap ? (
             <NumberSizeableText
               size="$bodySm"
@@ -195,7 +204,7 @@ const MarketTokenSelectorRow = memo(
         </XStack>
 
         {/* Liquidity cell */}
-        <XStack width={100} justifyContent="flex-start">
+        <XStack width={COLUMN_WIDTH_LIQUIDITY} justifyContent="flex-start">
           {item.liquidity ? (
             <NumberSizeableText
               size="$bodySm"
@@ -212,7 +221,7 @@ const MarketTokenSelectorRow = memo(
         </XStack>
 
         {/* Turnover cell */}
-        <XStack width={100} justifyContent="flex-start">
+        <XStack width={COLUMN_WIDTH_TURNOVER} justifyContent="flex-start">
           {item.turnover ? (
             <NumberSizeableText
               size="$bodySm"

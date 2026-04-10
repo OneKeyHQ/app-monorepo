@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IMarketSearchV2Token,
   IMarketWatchListItemV2,
@@ -21,6 +20,16 @@ import type {
 import { useMarketTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
 import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 
+import {
+  COLUMN_WIDTH_CHANGE,
+  COLUMN_WIDTH_LIQUIDITY,
+  COLUMN_WIDTH_MARKET_CAP,
+  COLUMN_WIDTH_NAME,
+  COLUMN_WIDTH_PRICE,
+  COLUMN_WIDTH_TURNOVER,
+  TOKEN_SELECTOR_POLLING_INTERVAL,
+  convertSearchTokenToMarketToken,
+} from './constants';
 import { MarketTokenSelectorRow } from './MarketTokenSelectorRow';
 
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -37,7 +46,53 @@ interface IMarketTokenSelectorListProps {
   searchResults?: (IMarketSearchV2Token & { networkLogoURI: string })[];
 }
 
-const DEFAULT_POLLING_INTERVAL = timerUtils.getTimeDurationMs({ seconds: 15 });
+// Shared ListView renderer to eliminate duplication across list variants
+function TokenSelectorListView({
+  data,
+  isLoading,
+  networkId,
+  onItemPress,
+  emptyMessage,
+}: {
+  data: IMarketToken[];
+  isLoading?: boolean;
+  networkId: string;
+  onItemPress: (item: IMarketToken) => void;
+  emptyMessage?: string;
+}) {
+  if (isLoading && data.length === 0) {
+    return (
+      <YStack flex={1} justifyContent="center" alignItems="center">
+        <Spinner size="large" />
+      </YStack>
+    );
+  }
+
+  if (!isLoading && data.length === 0 && emptyMessage) {
+    return (
+      <YStack flex={1} alignItems="center" justifyContent="center">
+        <Empty illustration="QuestionMark" title={emptyMessage} />
+      </YStack>
+    );
+  }
+
+  return (
+    <ListView
+      estimatedItemSize={40}
+      data={data}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => (
+        <MarketTokenSelectorRow
+          item={item}
+          networkId={networkId}
+          onPress={onItemPress}
+          showAddress
+        />
+      )}
+      contentContainerStyle={{ paddingBottom: 10 }}
+    />
+  );
+}
 
 const WatchlistTokenSelectorList = memo(
   ({
@@ -49,46 +104,28 @@ const WatchlistTokenSelectorList = memo(
     onItemPress: (item: IMarketToken) => void;
     pollingInterval?: number;
   }) => {
+    const intl = useIntl();
     const [{ data: watchListData }] = useMarketWatchListV2Atom();
 
-    const watchlist: IMarketWatchListItemV2[] = useMemo(
-      () => watchListData ?? [],
-      [watchListData],
-    );
-
     const { data, isLoading } = useMarketWatchlistTokenList({
-      watchlist,
-      pollingInterval: pollingInterval ?? DEFAULT_POLLING_INTERVAL,
+      watchlist: (watchListData ?? []) as IMarketWatchListItemV2[],
+      pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
     });
 
-    // Filter out perps items for the market token selector
     const filteredData = useMemo(
       () => data.filter((item) => !item.perpsCoin),
       [data],
     );
 
-    if (isLoading && filteredData.length === 0) {
-      return (
-        <YStack flex={1} justifyContent="center" alignItems="center">
-          <Spinner size="large" />
-        </YStack>
-      );
-    }
-
     return (
-      <ListView
-        estimatedItemSize={40}
+      <TokenSelectorListView
         data={filteredData}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <MarketTokenSelectorRow
-            item={item}
-            networkId={networkId}
-            onPress={onItemPress}
-            showAddress
-          />
-        )}
-        contentContainerStyle={{ paddingBottom: 10 }}
+        isLoading={isLoading}
+        networkId={networkId}
+        onItemPress={onItemPress}
+        emptyMessage={intl.formatMessage({
+          id: ETranslations.market_favorites_empty,
+        })}
       />
     );
   },
@@ -114,65 +151,21 @@ const CategoryTokenSelectorList = memo(
       networkId,
       type: selectedCategory,
       timeRange: timeRange as any,
-      pollingInterval: pollingInterval ?? DEFAULT_POLLING_INTERVAL,
+      pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
     });
 
-    if (isLoading && data.length === 0) {
-      return (
-        <YStack flex={1} justifyContent="center" alignItems="center">
-          <Spinner size="large" />
-        </YStack>
-      );
-    }
-
     return (
-      <ListView
-        estimatedItemSize={40}
+      <TokenSelectorListView
         data={data}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <MarketTokenSelectorRow
-            item={item}
-            networkId={networkId}
-            onPress={onItemPress}
-            showAddress
-          />
-        )}
-        contentContainerStyle={{ paddingBottom: 10 }}
+        isLoading={isLoading}
+        networkId={networkId}
+        onItemPress={onItemPress}
       />
     );
   },
 );
 
 CategoryTokenSelectorList.displayName = 'CategoryTokenSelectorList';
-
-function convertSearchTokenToMarketToken(
-  item: IMarketSearchV2Token & { networkLogoURI: string },
-): IMarketToken {
-  return {
-    id: `${item.network}_${item.address}`,
-    name: item.name,
-    symbol: item.symbol,
-    address: item.address,
-    decimals: item.decimals,
-    price: Number(item.price) || 0,
-    change24h: Number(item.priceChange24hPercent) || 0,
-    marketCap: Number(item.marketCap) || 0,
-    liquidity: Number(item.liquidity) || 0,
-    transactions: 0,
-    uniqueTraders: 0,
-    holders: 0,
-    turnover: Number(item.volume_24h || item.volume24h) || 0,
-    tokenImageUri: item.logoUrl,
-    tokenImageUris: item.logoUrls,
-    networkLogoUri: item.networkLogoURI,
-    networkId: item.network,
-    chainId: item.network,
-    isNative: item.isNative,
-    communityRecognized: item.communityRecognized,
-    stock: item.stock,
-  };
-}
 
 const SearchTokenSelectorList = memo(
   ({
@@ -192,41 +185,15 @@ const SearchTokenSelectorList = memo(
       [searchResults],
     );
 
-    if (searchLoading) {
-      return (
-        <YStack flex={1} justifyContent="center" alignItems="center">
-          <Spinner size="large" />
-        </YStack>
-      );
-    }
-
-    if (data.length === 0) {
-      return (
-        <YStack flex={1} alignItems="center" justifyContent="center">
-          <Empty
-            illustration="QuestionMark"
-            title={intl.formatMessage({
-              id: ETranslations.global_no_results,
-            })}
-          />
-        </YStack>
-      );
-    }
-
     return (
-      <ListView
-        estimatedItemSize={40}
+      <TokenSelectorListView
         data={data}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <MarketTokenSelectorRow
-            item={item}
-            networkId={networkId}
-            onPress={onItemPress}
-            showAddress
-          />
-        )}
-        contentContainerStyle={{ paddingBottom: 10 }}
+        isLoading={searchLoading}
+        networkId={networkId}
+        onItemPress={onItemPress}
+        emptyMessage={intl.formatMessage({
+          id: ETranslations.global_no_results,
+        })}
       />
     );
   },
@@ -298,24 +265,48 @@ const MarketTokenSelectorList = memo(
           borderBottomWidth="$px"
           borderBottomColor="$borderSubdued"
         >
-          <SizableText width={240} size="$bodySm" color="$textSubdued">
+          <SizableText
+            width={COLUMN_WIDTH_NAME}
+            size="$bodySm"
+            color="$textSubdued"
+          >
             {intl.formatMessage({ id: ETranslations.global_name })}
           </SizableText>
-          <SizableText width={110} size="$bodySm" color="$textSubdued">
+          <SizableText
+            width={COLUMN_WIDTH_PRICE}
+            size="$bodySm"
+            color="$textSubdued"
+          >
             {intl.formatMessage({ id: ETranslations.global_price })}
           </SizableText>
-          <SizableText width={90} size="$bodySm" color="$textSubdued">
+          <SizableText
+            width={COLUMN_WIDTH_CHANGE}
+            size="$bodySm"
+            color="$textSubdued"
+          >
             {`${intl.formatMessage({
               id: ETranslations.dexmarket_token_change,
             })}(%)`}
           </SizableText>
-          <SizableText width={100} size="$bodySm" color="$textSubdued">
+          <SizableText
+            width={COLUMN_WIDTH_MARKET_CAP}
+            size="$bodySm"
+            color="$textSubdued"
+          >
             {intl.formatMessage({ id: ETranslations.global_market_cap })}
           </SizableText>
-          <SizableText width={100} size="$bodySm" color="$textSubdued">
+          <SizableText
+            width={COLUMN_WIDTH_LIQUIDITY}
+            size="$bodySm"
+            color="$textSubdued"
+          >
             {intl.formatMessage({ id: ETranslations.global_liquidity })}
           </SizableText>
-          <SizableText width={100} size="$bodySm" color="$textSubdued">
+          <SizableText
+            width={COLUMN_WIDTH_TURNOVER}
+            size="$bodySm"
+            color="$textSubdued"
+          >
             {intl.formatMessage({ id: ETranslations.dexmarket_turnover })}
           </SizableText>
         </XStack>

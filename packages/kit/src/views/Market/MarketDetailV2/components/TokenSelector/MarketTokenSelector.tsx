@@ -22,10 +22,9 @@ import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/c
 import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
@@ -78,8 +77,7 @@ function BaseMarketTokenSelectorContent() {
   const [startListSelect, setStartListSelect] = useState(isWatchlistMode);
   const [selectedCategory, setSelectedCategory] = useState('trending');
 
-  // Default to all networks
-  const allNetworkId = getNetworkIdsMap().onekeyall;
+  const allNetworkId = ALL_NETWORK_ID;
 
   // Get spot categories from API
   const { spotCategories: apiSpotCategories } = useMarketBasicConfig();
