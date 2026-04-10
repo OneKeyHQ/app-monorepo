@@ -282,6 +282,7 @@ function BaseBulkSendAddressesInput() {
       selectedToken
     ) {
       setSelectedTokenDetail(undefined);
+      tokenDetailsRequestIdRef.current += 1;
       setTokenDetailsState({
         initialized: false,
         isRefreshing: true,
@@ -462,6 +463,7 @@ function BaseBulkSendAddressesInput() {
     setDuplicateSenderAddressCount(0);
     setHasUserSelectedAsset(false);
     setSelectedTokenDetail(undefined);
+    setReceiverValidationErrors([]);
     if (isOneToMany && selectedAccountId && selectedNetworkId) {
       void fetchSelectedAccountAddress();
       setTokenDetailsState({ initialized: false, isRefreshing: true });
