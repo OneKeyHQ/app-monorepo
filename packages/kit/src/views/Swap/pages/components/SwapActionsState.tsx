@@ -811,7 +811,7 @@ const SwapActionsState = ({
             </XStack>
           ) : null}
           <XStack width="100%" alignItems="center" gap="$4">
-            <Stack
+            <XStack
               flex={1}
               minWidth={0}
               gap="$6"
@@ -820,7 +820,7 @@ const SwapActionsState = ({
             >
               {incognitoComponent}
               {recipientFooterComponent}
-            </Stack>
+            </XStack>
             <Stack
               flexShrink={0}
               alignItems="stretch"
