@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -31,7 +31,6 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
 import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
@@ -63,7 +62,6 @@ interface ISwapQuoteResultProps {
 }
 
 const SWAP_ACCORDION_VALUE = 'swap_accordion_value';
-
 
 const SwapQuoteResult = ({
   onOpenProviderList,
@@ -235,7 +233,6 @@ const SwapQuoteResult = ({
             isBest={quoteResult?.isBest}
             // isLoading={swapQuoteLoading}
             fromToken={fromToken}
-
             toToken={toToken}
             showLock={!!quoteResult?.allowanceResult}
             onPress={
@@ -323,7 +320,6 @@ const SwapQuoteResult = ({
                   isBest={quoteResult?.isBest}
                   isLoading={swapQuoteLoading}
                   fromToken={fromToken}
-      
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
                   onPress={
