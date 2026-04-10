@@ -956,12 +956,11 @@ class ServiceHistory extends ServiceBase {
       return callOnce(xpubEntries[0]?.xpub, limit);
     }
 
-    // Ask each xpub for just enough rows so the merged result can still
-    // fill `limit` slots even after dedup. Without this we'd waste N×limit
-    // bandwidth only to slice back down to limit at the end.
-    const perCallLimit = Math.max(Math.ceil(limit / xpubEntries.length) + 2, 5);
+    // Each xpub requests the full limit so that addresses concentrated
+    // on a single derive path aren't truncated (e.g. all 20 recent sends
+    // via Native SegWit). The response per xpub is small (~20 addresses).
     const settled = await promiseAllSettledEnhanced(
-      xpubEntries.map((entry) => () => callOnce(entry.xpub, perCallLimit)),
+      xpubEntries.map((entry) => () => callOnce(entry.xpub, limit)),
       { continueOnError: true, concurrency: xpubEntries.length },
     );
     const responses = settled.filter(
