@@ -1,4 +1,8 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  TRON_SCAN_STAKING_URL,
+  TRON_SCAN_VOTE_URL,
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,11 +14,6 @@ import {
 import type { INetworkWalletActionsConfig } from './types';
 
 const networkIds = getNetworkIdsMap();
-
-// Inlined to keep this file out of `@onekeyhq/core/src/chains/*`, which is
-// forbidden in the eager main bundle under the three-bundle architecture.
-const TRON_SCAN_STAKING_URL = 'https://tronscan.io/#/wallet/resources';
-const TRON_SCAN_VOTE_URL = 'https://tronscan.io/#/sr/votes';
 
 const isExtPopupOrSidePanel =
   platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
