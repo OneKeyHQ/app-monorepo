@@ -283,13 +283,6 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     // If configVersion changed, remove all agent credentials
     if (isConfigVersionChanged) {
-      console.log(
-        '[ServiceHyperliquid] configVersion changed:',
-        prevConfigVersion,
-        '->',
-        newConfigVersion,
-        ', removing all agent credentials',
-      );
       defaultLogger.perp.agentLifeCycle.trackReason({
         reason: 'config_version_changed_reset',
         statusDetails: {
@@ -388,12 +381,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   async removeAllAgentCredentialsAndResetStatus() {
     // Remove all agent credentials from local db
-    const removedCount = await localDb.removeAllHyperLiquidAgentCredentials();
-    console.log(
-      '[ServiceHyperliquid] Removed',
-      removedCount,
-      'agent credentials',
-    );
+    await localDb.removeAllHyperLiquidAgentCredentials();
 
     // Clear related caches
     this.fetchExtraAgentsWithCache.clear();
@@ -1721,7 +1709,6 @@ export default class ServiceHyperliquid extends ServiceBase {
                   agentName: agentNameToRemove,
                 },
               );
-              console.log('approveAgentResult::', approveAgentResult);
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_removed_for_slot_recovery',
                 accountAddress,
@@ -1758,11 +1745,10 @@ export default class ServiceHyperliquid extends ServiceBase {
                       (agent) => agent.name === agentNameToRemove,
                     )
                   ) {
-                    console.log('Agent removal confirmed:', agentNameToRemove);
                     break;
                   }
                 } catch (error) {
-                  console.log('Polling request failed:', error);
+                  console.error('Polling request failed:', error);
                 }
 
                 // Wait 500ms before next poll attempt
@@ -1819,7 +1805,6 @@ export default class ServiceHyperliquid extends ServiceBase {
             }
           } catch (error) {
             const requestError = error as IApiRequestError | undefined;
-            console.log('approveAgentError::', requestError);
             const errorResponse = (
               requestError as {
                 response?: { status?: string; response?: string };
@@ -1839,7 +1824,6 @@ export default class ServiceHyperliquid extends ServiceBase {
           await timerUtils.wait(500);
         }
 
-        console.log('approveAgentResult::', approveAgentResult);
         if (
           approveAgentResult &&
           approveAgentResult.status === 'ok' &&
@@ -2104,7 +2088,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         ) {
           statusDetails.builderFeeOk = true;
         }
-        console.log('approveBuilderFeeResult::', approveBuilderFeeResult);
       }
     }
   }

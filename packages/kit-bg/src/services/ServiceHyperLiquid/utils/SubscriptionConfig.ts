@@ -153,11 +153,8 @@ export function calculateRequiredSubscriptions(
 ): ISubscriptionSpec<ESubscriptionType>[] {
   const specs: ISubscriptionSpec<ESubscriptionType>[] = [];
 
-  // Market Data: All Mids (Global)
-  // TODO: verify if 'dex' parameter is supported in sdk/types for IWsAllMidsParameters
-  // The user log shows {"type":"allMids","dex":"ALL_DEXS"}, so we include it.
+  // Market Data: All Mids across all DEXes (main + XYZ)
   const allMidsParams: IWsAllMidsParameters = {
-    // @ts-ignore
     dex: 'ALL_DEXS',
   };
   specs.push(
@@ -286,8 +283,6 @@ export function calculateRequiredSubscriptions(
     const userFillsParams: IEventUserFillsParameters = {
       user: state.currentUser,
       aggregateByTime: true,
-      // @ts-ignore
-      // reversed: true, // not working
     };
     specs.push(
       buildSubscriptionSpec({
@@ -308,27 +303,10 @@ export function calculateRequiredSubscriptions(
       );
     }
 
-    // Legacy or specific per-asset data (Optional, based on need.
-    // Usually WebData3 covers general state, but if specific asset data needed:
-    // User log implies global subscriptions are preferred.)
-    /*
-    if (state.currentSymbol) {
-      const activeAssetDataParams: IEventActiveAssetDataParameters = {
-        user: state.currentUser,
-        coin: state.currentSymbol,
-      };
-      specs.push(
-        buildSubscriptionSpec({
-          type: ESubscriptionType.ACTIVE_ASSET_DATA,
-          params: activeAssetDataParams,
-        }),
-      );
-    }
-    */
-  } else {
-    // WebData3 requires a user address.
-    // If no user, we likely only need market data (handled above).
+    // Note: per-asset ACTIVE_ASSET_DATA is added in the per-asset block above
+    // (perps mode only). Global WebData3 covers the rest of the user state.
   }
+  // else: no user address — only market data subscriptions are needed.
 
   // Spot: global asset contexts (token selector, independent of balance subscription)
   if (state.spotAssetCtxsEnabled) {

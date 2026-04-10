@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 /* spell-checker: disable */
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import { cloneDeep, debounce, isEmpty } from 'lodash';
+import { cloneDeep, debounce } from 'lodash';
 
 import {
   backgroundClass,
@@ -225,9 +225,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ...this.allSubSpecsMap,
         ...requiredSubInfo.requiredSubSpecsMap,
       };
-      if (isEmpty(this.allSubSpecsMap)) {
-        // debugger;
-      }
       this.pendingSubSpecsMap = {
         ...requiredSubInfo.requiredSubSpecsMap,
       };
@@ -235,14 +232,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const newState: ISubscriptionState = { ...this._currentState };
 
       this._applyStateUpdates(newState, requiredSubInfo.params);
-
-      console.log('updateSubscriptions____state', {
-        requiredSubSpecsMap: requiredSubInfo.requiredSubSpecsMap,
-        requiredParams: requiredSubInfo.params,
-        allSubSpecsMap: this.allSubSpecsMap,
-        pendingSubSpecsMap: this.pendingSubSpecsMap,
-        newState,
-      });
 
       this._emitConnectionStatus();
       this._executeSubscriptionChanges();
@@ -313,7 +302,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       // socket is open but no recent data (possible half-open), rebuild subscriptions
       await this._cleanupAllSubscriptions();
       await timerUtils.wait(50);
-      console.log('updateSubscriptions__by__refreshAllPerpsData');
       await this.updateSubscriptions();
     }
 
@@ -361,12 +349,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async resumeSubscriptions(): Promise<void> {
     await this.enableSubscriptionsHandler();
-    console.log('updateSubscriptions__by__resumeSubscriptions');
 
     // Reconnect if socket is CLOSED (iOS closes WebSocket when app is in background)
     const client = await this.getWebSocketClient();
     if (client?.transport?.socket?.readyState === WebSocket.CLOSED) {
-      console.log('resumeSubscriptions__reconnecting_closed_socket');
       await this.disconnect();
       await this.getWebSocketClient();
     }
@@ -421,7 +407,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
     this._currentState.enableLedgerUpdates = true;
-    console.log('updateSubscriptions__by__enableLedgerUpdatesSubscription');
     await this.updateSubscriptions();
   }
 
@@ -584,7 +569,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await timerUtils.wait(600); // wait network status atom update
 
     if (!wasConnected) {
-      console.log('updateSubscriptions__by__socketOpen');
       // resubscribe when reconnecting
       await this.updateSubscriptions();
     }
@@ -614,11 +598,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._lastReadyState = readyState;
       void perpsWebSocketReadyStateAtom.set({ readyState });
     }
-    console.log('hyperliquidWebSocket__event__message', {
-      readyState,
-      args,
-      event,
-    });
   };
 
   private async getWebSocketClient(): Promise<IHyperliquidWsClient> {
@@ -827,23 +806,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         toDestroySubscriptions.push(spec);
       }
     });
-    if (toDestroySubscriptions.length) {
-      console.log('toDestroySubscriptions__info', toDestroySubscriptions);
-    } else {
-      console.log(
-        'toDestroySubscriptions__info__no_to_destroy',
-        toDestroySubscriptions,
-      );
-    }
     toDestroySubscriptions.forEach((spec) => {
-      console.log('destroyUnusedSubscriptions__destroy___2222', spec.key);
       void this._destroySubscription(spec);
     });
   }
 
   private _executeSubscriptionChanges(): void {
-    console.log('_executeSubscriptionChanges___start');
-
     const toCreateSubscriptions: ISubscriptionSpec<ESubscriptionType>[] = [];
     Object.values(this.pendingSubSpecsMap).forEach((spec) => {
       if (!this._activeSubscriptions.has(spec.key)) {
@@ -854,7 +822,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this.destroyUnusedSubscriptions();
 
     toCreateSubscriptions.forEach((spec) => {
-      console.log('destroyUnusedSubscriptions__create', spec.key);
       void this._createSubscription(spec);
     });
     // this.destroyUnusedSubscriptions();
@@ -865,9 +832,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   ): Promise<void> {
     // eslint-disable-next-line no-param-reassign
     spec = cloneDeep(spec);
-    if (spec.key.includes('l2Book')) {
-      // debugger;
-    }
 
     const addSubCache = () => {
       if (!this.allSubSpecsMap[spec.key]) {
@@ -887,7 +851,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     try {
-      console.log('createSubscription', spec.key);
       const sdkSubscription = await this._createSubscriptionDirect(spec);
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
@@ -897,13 +860,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lastActivity: Date.now(),
         isActive: true,
       });
-      if (spec.key.includes('l2Book')) {
-        console.log(
-          'createSubscription__done',
-          sdkSubscription,
-          this._activeSubscriptions,
-        );
-      }
     } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.createSubscription] Failed to create subscription ${spec.type}:`,
@@ -925,7 +881,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           this._activeSubscriptions.delete(spec.key);
         };
         try {
-          console.log('destroyUnusedSubscriptions__destroy', spec.key);
           const client = await this.getWebSocketClient();
           if (!client) {
             return;
@@ -1006,13 +961,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           const userFills = event?.detail as IWsUserFills;
           const isSnapshot = userFills?.isSnapshot;
           const fillsLength = userFills?.fills?.length;
-          console.log(
-            'userFills__handleSubscriptionData',
-            userFills?.user,
-            isSnapshot,
-            fillsLength,
-            userFills,
-          );
           if (userFills?.user && fillsLength > 0 && !isSnapshot) {
             this.hasNewUserFills = true;
           }

@@ -211,35 +211,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
   }
 
-  // @backgroundMethod()
-  // async getOnekeyWalletClient(params: {
-  //   userAddress: IHex;
-  //   userAccountId?: string;
-  // }): Promise<ExchangeClient> {
-  //   const transport = new HttpTransport();
-
-  //   let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
-
-  //   if (params.userAccountId) {
-  //     wallet =
-  //       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
-  //         userAccountId: params.userAccountId,
-  //       });
-  //   } else {
-  //     const proxyWallet =
-  //       await this.backgroundApi.serviceHyperliquidWallet.getProxyWallet({
-  //         userAddress: params.userAddress,
-  //       });
-  //     wallet = proxyWallet.wallet;
-  //   }
-
-  //   return new ExchangeClient({
-  //     transport,
-  //     wallet,
-  //     signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
-  //   });
-  // }
-
   /**
    * Check if agent is ready based on local status only
    */

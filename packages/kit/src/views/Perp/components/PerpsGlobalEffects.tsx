@@ -374,10 +374,6 @@ function useHyperliquidAccountSelect() {
     }
     noop(activeAccountRefreshHook);
     noop(activeAccount.account?.address);
-    console.log(
-      'selectPerpsAccount______555_address',
-      activeAccount.account?.address,
-    );
     await actions.current.changeActivePerpsAccount({
       indexedAccountId: activeAccount?.indexedAccount?.id || null,
       accountId: activeAccount?.account?.id || null,
@@ -738,12 +734,7 @@ function PerpsGlobalEffectsView() {
   );
 }
 
-const PerpsGlobalEffectsMemo = memo(() => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('PerpsGlobalEffectsMemo___mouted');
-  }
-  return <PerpsGlobalEffectsView />;
-});
+const PerpsGlobalEffectsMemo = memo(() => <PerpsGlobalEffectsView />);
 PerpsGlobalEffectsMemo.displayName = 'PerpsGlobalEffectsMemo';
 
 export function PerpsGlobalEffects() {
