@@ -241,7 +241,7 @@ function processQueryResults(
   extraMap: Map<string, IRecipientExtraInfo> | null,
 ): IEnrichedRecentRecipient[] {
   return results
-    .filter((result) => !result.isContract)
+    .filter((result) => !result.isContract && !result.isScam)
     .map((result) => {
       const addressLower = result.input?.toLowerCase() ?? '';
       const extraInfo = extraMap?.get(addressLower);
