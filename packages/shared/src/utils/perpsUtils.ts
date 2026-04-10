@@ -579,7 +579,13 @@ function formatSpotPriceToValid(
 
   const validDecimals = getValidSpotPriceDecimals(marketPrice, szDecimals);
 
-  return price.toFixed(validDecimals).replace(/\.?0+$/, '');
+  // Strip trailing zeros ONLY after the decimal point (e.g. "60.100" → "60.1").
+  // Do NOT strip trailing zeros from integers (e.g. "60000" must stay "60000").
+  const fixed = price.toFixed(validDecimals);
+  if (fixed.includes('.')) {
+    return fixed.replace(/0+$/, '').replace(/\.$/, '');
+  }
+  return fixed;
 }
 
 function formatPriceToSignificantDigits(
