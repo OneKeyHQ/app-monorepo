@@ -178,10 +178,9 @@ function QuickSelectListItemBase({
             >
               {isEvmNetwork
                 ? 'EVM'
-                : (item.lastTransferNetworkName ??
-                  intl.formatMessage({
+                : intl.formatMessage({
                     id: ETranslations.address_book_title,
-                  }))}
+                  })}
             </SizableText>
           ) : null}
           {showNetworkBadge ? (
