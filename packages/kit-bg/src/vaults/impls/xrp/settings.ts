@@ -60,6 +60,7 @@ const settings: IVaultSettings = {
   withMemo: true,
   memoMaxLength: 10,
   numericOnlyMemo: true,
+  supportMemoValidation: true,
 
   cannotSendToSelf: true,
   hasFrozenBalance: true,

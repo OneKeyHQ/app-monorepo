@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -78,31 +78,7 @@ interface ISwapActionsStateProps {
   onSelectPercentageStage?: (stage: number) => void;
 }
 
-function PageFooter({
-  actionComponent,
-  isModalPage,
-  md,
-  onSelectPercentageStage,
-}: {
-  onSelectPercentageStage?: (stage: number) => void;
-  isModalPage: boolean;
-  md: boolean;
-  actionComponent: React.JSX.Element;
-}) {
-  return (
-    <Page.Footer>
-      <Page.FooterActions
-        {...(isModalPage && !md ? { buttonContainerProps: { flex: 1 } } : {})}
-        confirmButton={actionComponent}
-      />
-      {!platformEnv.isNativeIOS ? (
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-      ) : null}
-    </Page.Footer>
-  );
-}
+// cspell:ignore ellipsize
 
 const SwapActionsState = ({
   onPreSwap,
@@ -148,6 +124,7 @@ const SwapActionsState = ({
   }
   const themeVariant = useThemeVariant();
   const quoting = useSwapQuoteEventFetching();
+  const [desktopActionWidth, setDesktopActionWidth] = useState<number>();
 
   const isModalPage = useIsOverlayPage();
   const { gtMd, md } = useMedia();
@@ -172,9 +149,12 @@ const SwapActionsState = ({
       <FormatHyperlinkText
         autoExecuteParsedAction={false}
         onAction={openUrlExternal}
-        size="$bodyLg"
-        color="$text"
+        size="$bodyMd"
+        color="$textSubdued"
         urlTextProps={{
+          color: '$textInfo',
+        }}
+        underlineTextProps={{
           color: '$textInfo',
         }}
       >
@@ -400,6 +380,53 @@ const SwapActionsState = ({
     ],
   );
 
+  const recipientAccountLabel = useMemo(() => {
+    if (!swapRecipientAddressInfo?.showAddress) {
+      return '';
+    }
+
+    if (swapRecipientAddressInfo?.isExtAccount) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_recipient_external_account,
+      });
+    }
+
+    const rawRecipientAccountLabel = [
+      swapRecipientAddressInfo?.accountInfo?.walletName,
+      swapRecipientAddressInfo?.accountInfo?.accountName,
+    ]
+      .filter((item): item is string => Boolean(item))
+      .join('-');
+
+    if (!rawRecipientAccountLabel) {
+      return '';
+    }
+
+    return rawRecipientAccountLabel;
+  }, [
+    intl,
+    swapRecipientAddressInfo?.accountInfo?.accountName,
+    swapRecipientAddressInfo?.accountInfo?.walletName,
+    swapRecipientAddressInfo?.isExtAccount,
+    swapRecipientAddressInfo?.showAddress,
+  ]);
+
+  const recipientSendToLabel = intl.formatMessage({
+    id: ETranslations.swap_page_recipient_send_to,
+  });
+
+  const recipientAddLabel = intl.formatMessage({
+    id: ETranslations.swap_page_recipient_add,
+  });
+
+  const recipientAddressDisplayLabel =
+    swapRecipientAddressInfo?.showAddress ?? recipientAddLabel;
+
+  const recipientAccountDisplayLabel =
+    swapRecipientAddressInfo?.showAddress && recipientAccountLabel
+      ? `(${recipientAccountLabel})`
+      : null;
+
   const recipientComponent = useMemo(() => {
     if (shouldShowRecipientInActionRow) {
       return (
@@ -412,9 +439,7 @@ const SwapActionsState = ({
           </Stack>
           <XStack flex={1} flexWrap="wrap" gap="$1.5" minWidth={0}>
             <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.swap_page_recipient_send_to,
-              })}
+              {recipientSendToLabel}
             </SizableText>
             <SizableText
               flexShrink={0}
@@ -423,29 +448,18 @@ const SwapActionsState = ({
               textDecorationLine="underline"
               onPress={onOpenRecipientAddress}
             >
-              {swapRecipientAddressInfo?.showAddress ??
-                intl.formatMessage({
-                  id: ETranslations.swap_page_recipient_add,
-                })}
+              {recipientAddressDisplayLabel}
             </SizableText>
-            {swapRecipientAddressInfo?.showAddress ? (
+            {recipientAccountDisplayLabel ? (
               <SizableText
                 flexShrink={1}
                 minWidth={0}
                 size="$bodyMd"
                 color="$textSubdued"
+                numberOfLines={1}
+                ellipsizeMode="middle"
               >
-                {`(${
-                  !swapRecipientAddressInfo?.isExtAccount
-                    ? `${
-                        swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
-                      }-${
-                        swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
-                      }`
-                    : intl.formatMessage({
-                        id: ETranslations.swap_page_recipient_external_account,
-                      })
-                })`}
+                {recipientAccountDisplayLabel}
               </SizableText>
             ) : null}
           </XStack>
@@ -454,14 +468,75 @@ const SwapActionsState = ({
     }
     return null;
   }, [
-    intl,
+    recipientAccountDisplayLabel,
+    recipientAddressDisplayLabel,
+    recipientSendToLabel,
     onOpenRecipientAddress,
     isDesktopModalPage,
     shouldShowRecipientInActionRow,
-    swapRecipientAddressInfo?.accountInfo?.accountName,
-    swapRecipientAddressInfo?.accountInfo?.walletName,
-    swapRecipientAddressInfo?.isExtAccount,
-    swapRecipientAddressInfo?.showAddress,
+  ]);
+
+  const recipientFooterComponent = useMemo(() => {
+    if (!isDesktopModalPage || !shouldShowRecipient) {
+      return null;
+    }
+
+    return (
+      <XStack
+        gap="$1.5"
+        flex={1}
+        flexShrink={1}
+        minWidth={0}
+        alignItems="center"
+        overflow="hidden"
+      >
+        <Stack flexShrink={0}>
+          <Icon name="AddedPeopleOutline" size="$5" color="$iconSubdued" />
+        </Stack>
+        <XStack
+          flex={1}
+          minWidth={0}
+          gap="$1.5"
+          alignItems="center"
+          overflow="hidden"
+        >
+          <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
+            {recipientSendToLabel}
+          </SizableText>
+          <SizableText
+            flexShrink={1}
+            minWidth={0}
+            size="$bodyMd"
+            cursor="pointer"
+            textDecorationLine="underline"
+            onPress={onOpenRecipientAddress}
+            numberOfLines={1}
+            ellipsizeMode="middle"
+          >
+            {recipientAddressDisplayLabel}
+          </SizableText>
+          {recipientAccountDisplayLabel ? (
+            <SizableText
+              flexShrink={1}
+              minWidth={0}
+              size="$bodyMd"
+              color="$textSubdued"
+              numberOfLines={1}
+              ellipsizeMode="middle"
+            >
+              {recipientAccountDisplayLabel}
+            </SizableText>
+          ) : null}
+        </XStack>
+      </XStack>
+    );
+  }, [
+    isDesktopModalPage,
+    onOpenRecipientAddress,
+    recipientAccountDisplayLabel,
+    recipientAddressDisplayLabel,
+    recipientSendToLabel,
+    shouldShowRecipient,
   ]);
 
   const recipientMetaRowComponent = useMemo(() => {
@@ -487,9 +562,7 @@ const SwapActionsState = ({
             minWidth={0}
           >
             <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.swap_page_recipient_send_to,
-              })}
+              {recipientSendToLabel}
             </SizableText>
             <SizableText
               flexShrink={0}
@@ -498,29 +571,18 @@ const SwapActionsState = ({
               textDecorationLine="underline"
               onPress={onOpenRecipientAddress}
             >
-              {swapRecipientAddressInfo?.showAddress ??
-                intl.formatMessage({
-                  id: ETranslations.swap_page_recipient_add,
-                })}
+              {recipientAddressDisplayLabel}
             </SizableText>
-            {swapRecipientAddressInfo?.showAddress ? (
+            {recipientAccountDisplayLabel ? (
               <SizableText
                 flexShrink={1}
                 minWidth={0}
                 size="$bodyMd"
                 color="$textSubdued"
+                numberOfLines={1}
+                ellipsizeMode="middle"
               >
-                {`(${
-                  !swapRecipientAddressInfo?.isExtAccount
-                    ? `${
-                        swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
-                      }-${
-                        swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
-                      }`
-                    : intl.formatMessage({
-                        id: ETranslations.swap_page_recipient_external_account,
-                      })
-                })`}
+                {recipientAccountDisplayLabel}
               </SizableText>
             ) : null}
           </XStack>
@@ -528,13 +590,11 @@ const SwapActionsState = ({
       </XStack>
     );
   }, [
-    intl,
     onOpenRecipientAddress,
+    recipientAccountDisplayLabel,
+    recipientAddressDisplayLabel,
+    recipientSendToLabel,
     shouldShowRecipientInMetaRow,
-    swapRecipientAddressInfo?.accountInfo?.accountName,
-    swapRecipientAddressInfo?.accountInfo?.walletName,
-    swapRecipientAddressInfo?.isExtAccount,
-    swapRecipientAddressInfo?.showAddress,
   ]);
 
   const costSavingsComponent = useMemo(() => {
@@ -590,6 +650,60 @@ const SwapActionsState = ({
     intl,
   ]);
 
+  useEffect(() => {
+    if (!costSavingsComponent) {
+      setDesktopActionWidth(undefined);
+    }
+  }, [costSavingsComponent]);
+
+  const onDesktopActionTagLayout = useCallback(
+    (event: { nativeEvent: { layout: { width: number } } }) => {
+      const nextWidth = event?.nativeEvent?.layout?.width;
+
+      if (typeof nextWidth !== 'number' || Number.isNaN(nextWidth)) {
+        return;
+      }
+
+      setDesktopActionWidth((prevWidth) =>
+        prevWidth === nextWidth ? prevWidth : nextWidth,
+      );
+    },
+    [],
+  );
+
+  const desktopActionWidthProps = useMemo(
+    () =>
+      desktopActionWidth
+        ? {
+            width: desktopActionWidth,
+            minWidth: desktopActionWidth,
+          }
+        : undefined,
+    [desktopActionWidth],
+  );
+
+  const actionButtonChildren = useMemo(
+    () =>
+      quoting || quoteLoading ? (
+        <LottieView
+          source={
+            themeVariant === 'light'
+              ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
+              : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+          }
+          autoPlay
+          loop
+          style={{
+            width: 40,
+            height: 24,
+          }}
+        />
+      ) : (
+        swapActionState.label
+      ),
+    [quoteLoading, quoting, swapActionState.label, themeVariant],
+  );
+
   const actionRowComponent = useMemo(
     () => (
       <Stack
@@ -615,23 +729,7 @@ const SwapActionsState = ({
             disabled={swapActionState.disabled || swapActionState.isLoading}
             borderRadius="$full"
           >
-            {quoting || quoteLoading ? (
-              <LottieView
-                source={
-                  themeVariant === 'light'
-                    ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
-                    : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
-                }
-                autoPlay
-                loop
-                style={{
-                  width: 40,
-                  height: 24,
-                }}
-              />
-            ) : (
-              swapActionState.label
-            )}
+            {actionButtonChildren}
           </Button>
           {/* In regular pages and non-desktop modal: show savings below button */}
           {!isDesktopModalPage ? costSavingsComponent : null}
@@ -640,15 +738,12 @@ const SwapActionsState = ({
     ),
     [
       onActionHandlerBefore,
+      actionButtonChildren,
       isDesktopModalPage,
-      quoteLoading,
-      quoting,
       recipientComponent,
       shouldShowRecipientInActionRow,
       swapActionState.disabled,
       swapActionState.isLoading,
-      swapActionState.label,
-      themeVariant,
       costSavingsComponent,
     ],
   );
@@ -698,6 +793,75 @@ const SwapActionsState = ({
     recipientMetaRowComponent,
   ]);
 
+  const desktopFooterComponent = useMemo(
+    () => (
+      <Page.Footer>
+        <Stack p="$5" bg="$bgApp" gap="$2">
+          {costSavingsComponent ? (
+            <XStack width="100%" justifyContent="flex-end">
+              <Stack
+                flexShrink={0}
+                alignItems="stretch"
+                {...desktopActionWidthProps}
+              >
+                <Stack alignItems="center" onLayout={onDesktopActionTagLayout}>
+                  {costSavingsComponent}
+                </Stack>
+              </Stack>
+            </XStack>
+          ) : null}
+          <XStack width="100%" alignItems="center" gap="$4">
+            <Stack
+              flex={1}
+              minWidth={0}
+              gap="$6"
+              alignItems="center"
+              overflow="hidden"
+            >
+              {incognitoComponent}
+              {recipientFooterComponent}
+            </Stack>
+            <Stack
+              flexShrink={0}
+              alignItems="stretch"
+              gap="$2"
+              {...desktopActionWidthProps}
+            >
+              <Button
+                onPress={onActionHandlerBefore}
+                size="medium"
+                variant="primary"
+                disabled={swapActionState.disabled || swapActionState.isLoading}
+                borderRadius="$full"
+                {...(desktopActionWidth ? { width: '100%' } : {})}
+              >
+                {actionButtonChildren}
+              </Button>
+            </Stack>
+          </XStack>
+        </Stack>
+        {!platformEnv.isNativeIOS ? (
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        ) : null}
+      </Page.Footer>
+    ),
+    [
+      actionButtonChildren,
+      costSavingsComponent,
+      desktopActionWidth,
+      desktopActionWidthProps,
+      incognitoComponent,
+      onActionHandlerBefore,
+      onDesktopActionTagLayout,
+      onSelectPercentageStage,
+      recipientFooterComponent,
+      swapActionState.disabled,
+      swapActionState.isLoading,
+    ],
+  );
+
   const actionComponentCoverFooter = useMemo(
     () => (
       <>
@@ -716,16 +880,7 @@ const SwapActionsState = ({
 
   return (
     <>
-      {isDesktopModalPage ? (
-        <PageFooter
-          onSelectPercentageStage={onSelectPercentageStage}
-          actionComponent={actionComponent}
-          isModalPage={isModalPage}
-          md={md}
-        />
-      ) : (
-        actionComponentCoverFooter
-      )}
+      {isDesktopModalPage ? desktopFooterComponent : actionComponentCoverFooter}
     </>
   );
 };
