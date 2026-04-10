@@ -437,8 +437,10 @@ function AccountRecipients({
         rawDeriveType && deriveTypeMap.has(rawDeriveType)
           ? rawDeriveType
           : deriveTypeOptions[0]?.deriveType;
+      // When searching, show all derive types so matches on non-active
+      // derive paths aren't hidden. When not searching, filter by active.
       let filteredAccounts = allAccounts;
-      if (hasMultipleDeriveTypes && activeDeriveType) {
+      if (hasMultipleDeriveTypes && activeDeriveType && !isSearchActive) {
         const filtered = allAccounts.filter(
           (a) => !a.deriveType || a.deriveType === activeDeriveType,
         );
@@ -457,7 +459,7 @@ function AccountRecipients({
         data: filteredAccounts,
       };
     });
-  }, [filteredWalletGroups, walletDeriveType, senderDeriveType, intl]);
+  }, [filteredWalletGroups, walletDeriveType, senderDeriveType, intl, isSearchActive]);
 
   // Count visible accounts (after derive type filtering)
   const accountMatchCount = useMemo(
