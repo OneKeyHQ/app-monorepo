@@ -465,7 +465,7 @@ export function useRecentRecipientsData({
                 lastTransferTime: local.time,
                 lastTransferNetworkName:
                   local.networkName ?? r.lastTransferNetworkName,
-                recipientMemo: local.memo,
+                recipientMemo: local.memo ?? r.recipientMemo,
               };
             }
             return r;
