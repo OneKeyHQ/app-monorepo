@@ -1,10 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
 
 import {
   ActionList,
@@ -12,6 +8,7 @@ import {
   Empty,
   MatchSizeableText,
   SizableText,
+  Spinner,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -82,12 +79,6 @@ function QuickSelectListItemBase({
   networkId: string;
 }) {
   const navigation = useAppNavigation();
-  const [isHovered, setIsHovered] = useState(false);
-
-  // Animated style for hover menu opacity
-  const menuAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(isHovered ? 1 : 0, { duration: 150 }),
-  }));
 
   // Determine display mode based on available info
   const hasName = !!item.name;
@@ -128,7 +119,7 @@ function QuickSelectListItemBase({
   const handleLongPress = useCallback(() => {
     if (!showAddToAddressBook) return;
     ActionList.show({
-      title: item.address,
+      title: primaryText,
       sections: [
         {
           items: [
@@ -143,7 +134,7 @@ function QuickSelectListItemBase({
     });
   }, [
     showAddToAddressBook,
-    item.address,
+    primaryText,
     addToAddressBookLabel,
     handleAddToAddressBook,
   ]);
@@ -155,8 +146,6 @@ function QuickSelectListItemBase({
       wallet={item.wallet}
       onPress={onPress}
       onLongPress={platformEnv.isNative ? handleLongPress : undefined}
-      onHoverIn={() => setIsHovered(true)}
-      onHoverOut={() => setIsHovered(false)}
       testID={`recent-item-${item.address}`}
       primary={
         <XStack gap="$2" alignItems="center">
@@ -194,7 +183,7 @@ function QuickSelectListItemBase({
             <SizableText
               size="$bodySm"
               color="$textDisabled"
-              flexShrink={2}
+              flexShrink={0}
               numberOfLines={1}
             >
               {formatRelativeTime(item.lastTransferTime)}
@@ -208,29 +197,33 @@ function QuickSelectListItemBase({
           color="$textSubdued"
           wordWrap="break-word"
         >
-          {item.memo ? `${item.address} · ${item.memo}` : item.address}
+          {item.memo || item.note
+            ? `${item.address} · ${accountUtils.shortenAddress({
+                address: item.memo || item.note,
+                leadingLength: 6,
+                trailingLength: 4,
+              })}`
+            : item.address}
         </MatchSizeableText>
       }
       trailing={
-        showAddToAddressBook && !platformEnv.isNative ? (
-          <Animated.View style={[{ marginLeft: 8 }, menuAnimatedStyle]}>
-            <ActionList
-              title={item.address}
-              items={[
-                {
-                  label: addToAddressBookLabel,
-                  icon: 'BookOpenOutline',
-                  onPress: handleAddToAddressBook,
-                },
-              ]}
-              renderTrigger={
-                <ListItem.IconButton
-                  icon="DotVerSolid"
-                  testID={`recent-menu-${item.address}`}
-                />
-              }
-            />
-          </Animated.View>
+        showAddToAddressBook ? (
+          <ActionList
+            title={primaryText}
+            items={[
+              {
+                label: addToAddressBookLabel,
+                icon: 'BookOpenOutline',
+                onPress: handleAddToAddressBook,
+              },
+            ]}
+            renderTrigger={
+              <ListItem.IconButton
+                icon="DotVerSolid"
+                testID={`recent-menu-${item.address}`}
+              />
+            }
+          />
         ) : null
       }
     />
@@ -301,11 +294,12 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     [intl.locale, formatDistanceToNowStrict],
   );
 
-  const { recentRecipients, isLoadingRecent } = useRecentRecipientsData({
-    accountId,
-    networkId,
-    refreshKey,
-  });
+  const { recentRecipients, isLoadingRecent, isLoadingMore } =
+    useRecentRecipientsData({
+      accountId,
+      networkId,
+      refreshKey,
+    });
 
   const debouncedSearchKey = useDebounce(rawSearchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -374,10 +368,14 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       { initResult: new Map(), undefinedResultIfError: true },
     );
 
-  // Notify parent of match status and count
+  // Notify parent of match status and count.
+  // Report 0 immediately when debouncing so stale pre-search counts
+  // don't flash in the tab label (OK-53017).
   useEffect(() => {
-    // Skip reporting stale counts during debounce gap to prevent badge flickering
-    if (isDebouncing) return;
+    if (isDebouncing) {
+      onMatchStatusChange?.(false, 0);
+      return;
+    }
     onMatchStatusChange?.(
       filteredRecentRecipients.length > 0,
       filteredRecentRecipients.length,
@@ -468,6 +466,11 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         </SizableText>
       )}
       {renderContent()}
+      {isLoadingMore ? (
+        <XStack justifyContent="center" py="$3">
+          <Spinner size="small" />
+        </XStack>
+      ) : null}
     </Stack>
   );
 }

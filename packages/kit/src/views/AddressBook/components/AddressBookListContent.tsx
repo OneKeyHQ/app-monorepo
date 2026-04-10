@@ -20,6 +20,7 @@ import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountAvatar } from '../../../components/AccountAvatar';
 
@@ -114,7 +115,13 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
             color="$textSubdued"
             match={item.addressMatch}
           >
-            {item.memo ? `${item.address} · ${item.memo}` : item.address}
+            {item.memo || item.note
+              ? `${item.address} · ${accountUtils.shortenAddress({
+                  address: item.memo || item.note,
+                  leadingLength: 6,
+                  trailingLength: 4,
+                })}`
+              : item.address}
           </MatchSizeableText>
         }
       />
