@@ -10,7 +10,7 @@ import {
   TRON_TX_EXPIRATION_TIME,
   tronTokenAddressMainnet,
   tronTokenAddressTestnet,
-} from '@onekeyhq/core/src/chains/tron/constants';
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import type {
   IDecodedTxExtraTron,
   IEncodedTxTron,

@@ -25,7 +25,7 @@ import {
 } from '../../types';
 import { ECoreApiExportedSecretKeyType } from '../../types';
 
-import { TRON_MESSAGE_PREFIX } from './constants';
+import { TRON_MESSAGE_PREFIX } from '@onekeyhq/shared/src/consts/chainConsts';
 
 import type { IEncodedTxTron } from './types';
 import type { ISigner } from '../../base/ChainSigner';

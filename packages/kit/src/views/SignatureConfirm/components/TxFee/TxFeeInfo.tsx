@@ -27,7 +27,7 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import {
   tronTokenAddressMainnet,
   tronTokenAddressTestnet,
-} from '@onekeyhq/core/src/chains/tron/constants';
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
