@@ -76,16 +76,17 @@ export function SpecifiedAmountInput() {
 
   const handleChange = useCallback(
     (value: string) => {
+      const filteredValue = filterNumericInput(value);
       setAmountInputValues({
         ...amountInputValues,
-        specifiedAmount: value,
+        specifiedAmount: filteredValue,
       });
 
       // Reset preview state when input changes
       setPreviewState((prev) => ({ ...prev, specifiedPreviewed: false }));
 
       const minTransferAmountBN = new BigNumber(minTransferAmount);
-      const valueBN = new BigNumber(value || '0');
+      const valueBN = new BigNumber(filteredValue || '0');
       if (
         !minTransferAmountBN.isZero() &&
         !valueBN.isZero() &&
@@ -104,7 +105,7 @@ export function SpecifiedAmountInput() {
 
       const { error } = validateTokenAmount({
         token: tokenInfo,
-        amount: new BigNumber(value || '0')
+        amount: new BigNumber(filteredValue || '0')
           .times(transfersInfo.length)
           .toFixed(),
         maxAmount: isOneToMany ? balance : undefined,
@@ -178,7 +179,7 @@ export function SpecifiedAmountInput() {
           currency: settings.currencyInfo.symbol,
         }}
         tokenSelectorTriggerProps={{
-          selectedTokenImageUri: tokenDetails?.info.logoURI,
+          selectedTokenImageUri: tokenInfo.logoURI,
           selectedNetworkImageUri: network?.logoURI,
           selectedTokenSymbol: tokenSymbol,
           loading: isLoading,
@@ -194,7 +195,6 @@ export function SpecifiedAmountInput() {
 }
 
 export function RangeAmountInput() {
-  const intl = useIntl();
   const {
     tokenDetails,
     tokenInfo,
@@ -431,7 +431,7 @@ export function RangeAmountInput() {
               {minFiatValue}
             </NumberSizeableText>
             <SizableText size="$bodyMdMedium" color="$text">
-              {tokenDetails?.info.symbol}
+              {tokenInfo.symbol}
             </SizableText>
           </XStack>
         </Stack>
@@ -450,9 +450,7 @@ export function RangeAmountInput() {
               flex={1}
               value={localMax}
               onChangeText={handleMaxChange}
-              placeholder={intl.formatMessage({
-                id: ETranslations.global_max,
-              })}
+              placeholder="0"
               keyboardType="decimal-pad"
               containerProps={{
                 width: '100%',
@@ -482,7 +480,7 @@ export function RangeAmountInput() {
               {maxFiatValue}
             </NumberSizeableText>
             <SizableText size="$bodyMdMedium" color="$text">
-              {tokenDetails?.info.symbol}
+              {tokenInfo.symbol}
             </SizableText>
           </XStack>
         </Stack>

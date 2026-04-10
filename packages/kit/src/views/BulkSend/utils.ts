@@ -8,6 +8,7 @@ import type {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   EIntervalMode,
@@ -16,6 +17,7 @@ import {
   type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export const BULK_SEND_INTERVAL_MAX_SECONDS = 600;
 
@@ -31,6 +33,10 @@ export function filterIntegerInput(text: string): string {
 
 // Filter input to only allow numbers and decimal point
 export function filterNumericInput(text: string): string {
+  if (!text) {
+    return '';
+  }
+
   // Remove all characters except digits and decimal point
   let filtered = text.replace(/[^0-9.]/g, '');
   // Ensure only one decimal point
@@ -38,6 +44,12 @@ export function filterNumericInput(text: string): string {
   if (parts.length > 2) {
     filtered = `${parts[0]}.${parts.slice(1).join('')}`;
   }
+
+  // Normalize decimal inputs like ".5" to "0.5"
+  if (filtered.startsWith('.')) {
+    filtered = `0${filtered}`;
+  }
+
   return filtered;
 }
 
@@ -104,6 +116,47 @@ export function calculateTotalAmounts({
     totalTokenAmount: total.isZero() ? '0' : total.toFixed(),
     totalFiatAmount: fiat,
   };
+}
+
+export function isBulkSendTokenDetailsMatched(
+  {
+    networkId,
+    tokenInfo,
+  }: {
+    networkId?: string;
+    tokenInfo?: IToken;
+  },
+  tokenDetails?: ({ info: IToken } & Partial<ITokenFiat>) | undefined,
+): tokenDetails is { info: IToken } & Partial<ITokenFiat> {
+  if (!tokenInfo || !tokenDetails?.info) {
+    return false;
+  }
+
+  const expectedNetworkId = tokenInfo.networkId ?? networkId;
+  const currentNetworkId = tokenDetails.info.networkId ?? networkId;
+
+  if (!expectedNetworkId || !currentNetworkId) {
+    return false;
+  }
+
+  if (expectedNetworkId !== currentNetworkId) {
+    return false;
+  }
+
+  if (tokenInfo.isNative && tokenDetails.info.isNative) {
+    return true;
+  }
+
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId: expectedNetworkId,
+      contractAddress: tokenInfo.address,
+    },
+    token2: {
+      networkId: currentNetworkId,
+      contractAddress: tokenDetails.info.address,
+    },
+  });
 }
 
 // Check if any sender's aggregated transfer amount exceeds their balance.
