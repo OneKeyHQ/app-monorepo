@@ -7,20 +7,28 @@ import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressIn
 import { checkIsScamTx } from '@onekeyhq/shared/src/utils/historyUtils';
 import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
   ITransferRecipient,
+  ITransferRecipientBadge,
 } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const MAX_RECIPIENTS = 20;
 
+type IRecipientBadgeData = Pick<
+  IAddressQueryResult,
+  'isContract' | 'isCex' | 'isScam' | 'addressBadges'
+>;
+
 type IRecipientExtraInfo = {
   address: string;
   time: number;
   networkName?: string;
   memo?: string;
+  badgeData?: IRecipientBadgeData;
 };
 
 function hasPositiveTransferAmount(amount?: string) {
@@ -211,6 +219,28 @@ async function fetchNetworkNames(networkIds: string[]) {
   return networkNameMap;
 }
 
+const TRANSFER_RECIPIENT_BADGE_TYPE_MAP: Record<string, IAddressBadge['type']> =
+  {
+    contract: 'warning',
+    warning: 'warning',
+    critical: 'critical',
+    success: 'success',
+    info: 'info',
+    default: 'default',
+  };
+
+function convertTransferRecipientBadges(
+  badges?: ITransferRecipientBadge[],
+): IAddressBadge[] {
+  if (!badges?.length) return [];
+  return badges.map((b) => ({
+    label: b.title,
+    type: TRANSFER_RECIPIENT_BADGE_TYPE_MAP[b.type] ?? 'default',
+    tip: b.tip,
+    icon: b.icon as IAddressBadge['icon'],
+  }));
+}
+
 async function buildExtraMapFromApiRecipients(
   apiRecipients: ITransferRecipient[],
 ) {
@@ -229,6 +259,17 @@ async function buildExtraMapFromApiRecipients(
         time: r.time,
         networkName: r.networkId ? networkNameMap.get(r.networkId) : undefined,
         memo: r.memo,
+        // Present when the API returns badge fields (isContract / isCex / badges).
+        // Older server versions omit these, so we guard on `isContract`.
+        badgeData:
+          r.isContract !== undefined
+            ? {
+                isContract: r.isContract,
+                isCex: r.isCex,
+                isScam: r.isScam,
+                addressBadges: convertTransferRecipientBadges(r.badges),
+              }
+            : undefined,
       },
     ]),
   );
@@ -274,20 +315,38 @@ async function enrichAddresses(
   if (filteredAddresses.length === 0) return [];
 
   const addressInfoResults = await Promise.all(
-    filteredAddresses.map((recipient) =>
-      backgroundApiProxy.serviceAccountProfile.queryAddress({
+    filteredAddresses.map((recipient) => {
+      const hasBadgeData = !!extraMap?.get(recipient.toLowerCase())?.badgeData;
+      return backgroundApiProxy.serviceAccountProfile.queryAddress({
         networkId,
         address: recipient,
         enableAddressBook: true,
         enableWalletName: true,
         enableAddressDeriveInfo: true,
-        enableAddressContract: true,
+        // Skip individual badge API call when transfer-recipient already
+        // provided badge data (isContract / isCex / badges).
+        enableAddressContract: !hasBadgeData,
         skipValidateAddress: true,
-      }),
-    ),
+      });
+    }),
   );
 
-  return processQueryResults(addressInfoResults, extraMap);
+  const mergedResults = addressInfoResults.map((result) => {
+    const addressLower = result.input?.toLowerCase() ?? '';
+    const badgeData = extraMap?.get(addressLower)?.badgeData;
+    if (badgeData) {
+      return {
+        ...result,
+        isContract: badgeData.isContract,
+        isCex: badgeData.isCex,
+        isScam: badgeData.isScam,
+        addressBadges: badgeData.addressBadges,
+      };
+    }
+    return result;
+  });
+
+  return processQueryResults(mergedResults, extraMap);
 }
 
 function mergeRecipients(
