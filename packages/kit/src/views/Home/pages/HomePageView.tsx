@@ -103,6 +103,29 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
       return children;
     };
 
+function NoWalletContent({ tabBarHeight }: { tabBarHeight: number }) {
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
+  if (isSyncLoading) {
+    return (
+      <Stack flex={1} justifyContent="center" alignItems="center">
+        <Spinner size="large" />
+      </Stack>
+    );
+  }
+  return (
+    <ScrollView
+      h="100%"
+      contentContainerStyle={{
+        justifyContent: 'center',
+        flexGrow: 1,
+        pb: tabBarHeight,
+      }}
+    >
+      {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
+    </ScrollView>
+  );
+}
+
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -595,8 +618,6 @@ export function HomePageView({
     setTabPageHeight(height);
   }, []);
 
-  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
-
   const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
     wallet,
     account,
@@ -607,22 +628,7 @@ export function HomePageView({
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
-    let content = isSyncLoading ? (
-      <Stack flex={1} justifyContent="center" alignItems="center">
-        <Spinner size="large" />
-      </Stack>
-    ) : (
-      <ScrollView
-        h="100%"
-        contentContainerStyle={{
-          justifyContent: 'center',
-          flexGrow: 1,
-          pb: tabBarHeight,
-        }}
-      >
-        {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
-      </ScrollView>
-    );
+    let content = <NoWalletContent tabBarHeight={tabBarHeight} />;
 
     if (!hasNoUsableWallet) {
       content = platformEnv.isNative ? (
@@ -666,7 +672,6 @@ export function HomePageView({
   }, [
     ready,
     hasNoUsableWallet,
-    isSyncLoading,
     tabPageHeight,
     sceneName,
     handleTabPageLayout,

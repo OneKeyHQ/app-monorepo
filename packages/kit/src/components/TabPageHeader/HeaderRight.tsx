@@ -38,7 +38,7 @@ export function SelectorTrigger() {
 
   const hasNoUsableWallet = accountUtils.hasNoUsableWallet({ wallet, account });
 
-  if (hasNoUsableWallet) {
+  if (!platformEnv.isWebDappMode && hasNoUsableWallet) {
     if (isSyncLoading) {
       return <Spinner size="small" />;
     }
