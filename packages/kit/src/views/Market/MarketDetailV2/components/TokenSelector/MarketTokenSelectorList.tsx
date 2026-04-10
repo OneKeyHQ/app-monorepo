@@ -10,12 +10,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
-import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketSearchV2Token,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 
-import { useMarketWatchListV2Atom } from '../../../../../states/jotai/contexts/marketV2';
 import { useMarketTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
 import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 
@@ -232,6 +234,47 @@ const SearchTokenSelectorList = memo(
 
 SearchTokenSelectorList.displayName = 'SearchTokenSelectorList';
 
+function ListContent({
+  searchQuery,
+  searchResults,
+  searchLoading,
+  isWatchlistMode,
+  networkId,
+  onItemPress,
+  pollingInterval,
+  selectedCategory,
+  timeRange,
+}: IMarketTokenSelectorListProps) {
+  if (searchQuery) {
+    return (
+      <SearchTokenSelectorList
+        searchResults={searchResults ?? []}
+        searchLoading={searchLoading}
+        onItemPress={onItemPress}
+        networkId={networkId}
+      />
+    );
+  }
+  if (isWatchlistMode) {
+    return (
+      <WatchlistTokenSelectorList
+        networkId={networkId}
+        onItemPress={onItemPress}
+        pollingInterval={pollingInterval}
+      />
+    );
+  }
+  return (
+    <CategoryTokenSelectorList
+      networkId={networkId}
+      selectedCategory={selectedCategory}
+      timeRange={timeRange}
+      onItemPress={onItemPress}
+      pollingInterval={pollingInterval}
+    />
+  );
+}
+
 const MarketTokenSelectorList = memo(
   ({
     networkId,
@@ -279,28 +322,17 @@ const MarketTokenSelectorList = memo(
 
         {/* Scrollable list */}
         <YStack height={350}>
-          {searchQuery ? (
-            <SearchTokenSelectorList
-              searchResults={searchResults ?? []}
-              searchLoading={searchLoading}
-              onItemPress={onItemPress}
-              networkId={networkId}
-            />
-          ) : isWatchlistMode ? (
-            <WatchlistTokenSelectorList
-              networkId={networkId}
-              onItemPress={onItemPress}
-              pollingInterval={pollingInterval}
-            />
-          ) : (
-            <CategoryTokenSelectorList
-              networkId={networkId}
-              selectedCategory={selectedCategory}
-              timeRange={timeRange}
-              onItemPress={onItemPress}
-              pollingInterval={pollingInterval}
-            />
-          )}
+          <ListContent
+            searchQuery={searchQuery}
+            searchResults={searchResults}
+            searchLoading={searchLoading}
+            isWatchlistMode={isWatchlistMode}
+            networkId={networkId}
+            onItemPress={onItemPress}
+            pollingInterval={pollingInterval}
+            selectedCategory={selectedCategory}
+            timeRange={timeRange}
+          />
         </YStack>
       </YStack>
     );

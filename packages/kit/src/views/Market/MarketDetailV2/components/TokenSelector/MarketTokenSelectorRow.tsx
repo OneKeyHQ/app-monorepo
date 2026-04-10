@@ -147,11 +147,7 @@ const MarketTokenSelectorRow = memo(
                     copyText(item.address);
                   }}
                 >
-                  <Icon
-                    name="Copy3Outline"
-                    size="$3"
-                    color="$iconSubdued"
-                  />
+                  <Icon name="Copy3Outline" size="$3" color="$iconSubdued" />
                 </Stack>
               </XStack>
             ) : null}
