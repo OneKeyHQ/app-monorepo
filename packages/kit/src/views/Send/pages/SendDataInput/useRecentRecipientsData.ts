@@ -431,6 +431,9 @@ export function useRecentRecipientsData({
   >([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastUsedDeriveType, setLastUsedDeriveType] = useState<
+    string | undefined
+  >();
   const loadIdRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -446,35 +449,52 @@ export function useRecentRecipientsData({
     // Phase 1: API + local store in parallel. Local store is always loaded
     // so fresh sends (OK-52728) and non-indexer EVM chains aren't masked.
     const fetchApiRecipients = async () => {
-      if (!accountId) return { extraMap: null, addresses: [] as string[] };
+      if (!accountId)
+        return {
+          extraMap: null,
+          addresses: [] as string[],
+          apiDeriveType: undefined as string | undefined,
+        };
       try {
         const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
-        const { supported, data: apiRecipients } =
-          await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
-            accountId,
-            networkId: apiNetworkId,
-            limit: MAX_RECIPIENTS,
-          });
+        const {
+          supported,
+          data: apiRecipients,
+          lastUsedDeriveType: apiDeriveType,
+        } = await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
+          accountId,
+          networkId: apiNetworkId,
+          limit: MAX_RECIPIENTS,
+        });
         if (supported && apiRecipients.length > 0) {
           return {
             extraMap: await buildExtraMapFromApiRecipients(apiRecipients),
             addresses: apiRecipients.map((r) => r.address),
+            apiDeriveType,
           };
         }
       } catch {
         // Fall through to local strategies.
       }
-      return { extraMap: null, addresses: [] as string[] };
+      return {
+        extraMap: null,
+        addresses: [] as string[],
+        apiDeriveType: undefined as string | undefined,
+      };
     };
 
     let apiEnriched: IEnrichedRecentRecipient[] | null = null;
     const [
-      { extraMap: apiExtraMap, addresses: apiAddresses },
+      { extraMap: apiExtraMap, addresses: apiAddresses, apiDeriveType },
       { addresses: storedAddresses, extraMap: storedExtraMap },
     ] = await Promise.all([
       fetchApiRecipients(),
       loadStoredRecipients(networkId),
     ]);
+
+    if (apiDeriveType) {
+      setLastUsedDeriveType(apiDeriveType);
+    }
 
     if (isStale()) return;
 
@@ -675,5 +695,6 @@ export function useRecentRecipientsData({
     recentRecipients,
     isLoadingRecent,
     isLoadingMore,
+    lastUsedDeriveType,
   };
 }

@@ -905,7 +905,11 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     networkId: string;
     limit?: number;
-  }): Promise<{ supported: boolean; data: ITransferRecipient[] }> {
+  }): Promise<{
+    supported: boolean;
+    data: ITransferRecipient[];
+    lastUsedDeriveType?: string;
+  }> {
     const { accountId, networkId, limit = 10 } = params;
 
     const accountAddress =
@@ -960,11 +964,20 @@ class ServiceHistory extends ServiceBase {
     // on a single derive path aren't truncated (e.g. all 20 recent sends
     // via Native SegWit). The response per xpub is small (~20 addresses).
     const settled = await promiseAllSettledEnhanced(
-      xpubEntries.map((entry) => () => callOnce(entry.xpub, limit)),
+      xpubEntries.map(
+        (entry) => async () => ({
+          deriveType: entry.deriveType,
+          ...(await callOnce(entry.xpub, limit)),
+        }),
+      ),
       { continueOnError: true, concurrency: xpubEntries.length },
     );
     const responses = settled.filter(
-      (r): r is { supported: boolean; data: ITransferRecipient[] } => !!r,
+      (r): r is {
+        deriveType: string;
+        supported: boolean;
+        data: ITransferRecipient[];
+      } => !!r,
     );
 
     // A single derive-path returning supported=true is enough to mark the
@@ -973,8 +986,16 @@ class ServiceHistory extends ServiceBase {
     const anySupported = responses.some((r) => r.supported);
     const seenIndex = new Map<string, number>();
     const merged: ITransferRecipient[] = [];
+    // Track which derive type produced the newest record overall,
+    // so the Accounts tab can default to it (e.g. user last sent via Taproot).
+    let newestTime = 0;
+    let newestDeriveType: string | undefined;
     for (const r of responses) {
       for (const item of r.data) {
+        if (item.time > newestTime) {
+          newestTime = item.time;
+          newestDeriveType = r.deriveType;
+        }
         const key = item.address.toLowerCase();
         const existingIdx = seenIndex.get(key);
         if (existingIdx === undefined) {
@@ -989,6 +1010,7 @@ class ServiceHistory extends ServiceBase {
     return {
       supported: anySupported,
       data: merged.slice(0, limit),
+      lastUsedDeriveType: newestDeriveType,
     };
   }
 

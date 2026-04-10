@@ -48,6 +48,7 @@ interface IRecentRecipientsProps {
   isSearchMode?: boolean;
   compact?: boolean;
   onMatchStatusChange?: (hasMatches: boolean, matchCount: number) => void;
+  onLastUsedDeriveTypeChange?: (deriveType: string | undefined) => void;
   refreshKey?: number;
 }
 
@@ -260,6 +261,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     onSelect,
     compact = false,
     onMatchStatusChange,
+    onLastUsedDeriveTypeChange,
     refreshKey,
   } = props;
 
@@ -294,12 +296,20 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     [intl.locale, formatDistanceToNowStrict],
   );
 
-  const { recentRecipients, isLoadingRecent, isLoadingMore } =
-    useRecentRecipientsData({
-      accountId,
-      networkId,
-      refreshKey,
-    });
+  const {
+    recentRecipients,
+    isLoadingRecent,
+    isLoadingMore,
+    lastUsedDeriveType,
+  } = useRecentRecipientsData({
+    accountId,
+    networkId,
+    refreshKey,
+  });
+
+  useEffect(() => {
+    onLastUsedDeriveTypeChange?.(lastUsedDeriveType);
+  }, [lastUsedDeriveType, onLastUsedDeriveTypeChange]);
 
   const debouncedSearchKey = useDebounce(rawSearchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
