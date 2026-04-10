@@ -17,6 +17,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -95,21 +99,32 @@ function ChainListSearch() {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearchingRef = useRef(false);
 
-  // Load existing networks on mount
-  useEffect(() => {
-    async function loadExistingNetworks() {
-      try {
-        const allNetworks =
-          await backgroundApiProxy.serviceNetwork.getAllNetworks();
-        const ids = new Set(allNetworks.networks.map((n) => n.id));
-        setExistingNetworkIds(ids);
-      } catch {
-        // ignore
-      }
+  const refreshExistingNetworks = useCallback(async () => {
+    try {
+      const allNetworks =
+        await backgroundApiProxy.serviceNetwork.getAllNetworks();
+      const ids = new Set(allNetworks.networks.map((n) => n.id));
+      setExistingNetworkIds(ids);
+    } catch {
+      // ignore
     }
-    void loadExistingNetworks();
-    defaultLogger.setting.page.enterChainlistSearch();
   }, []);
+
+  // Load existing networks on mount + refresh on AddedCustomNetwork event
+  useEffect(() => {
+    void refreshExistingNetworks();
+    defaultLogger.setting.page.enterChainlistSearch();
+    appEventBus.on(
+      EAppEventBusNames.AddedCustomNetwork,
+      refreshExistingNetworks,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.AddedCustomNetwork,
+        refreshExistingNetworks,
+      );
+    };
+  }, [refreshExistingNetworks]);
 
   // Load first page on mount
   useEffect(() => {
