@@ -9,6 +9,12 @@ import type { IDotMapValues } from './types';
 
 const VALID_MNEMONIC_LENGTHS = new Set([12, 15, 18, 21, 24]);
 
+// TODO: this check does not verify the BIP39 checksum (unlike the
+// bip39.validateMnemonic() it replaced). A mnemonic with valid words but an
+// invalid checksum would still render a DotMap. Authoritative validation
+// still happens at wallet import/creation time, so this is cosmetic only,
+// but we should restore checksum verification here without pulling back
+// all 11 wordlist JSON files.
 function validateMnemonic(mnemonic: string): boolean {
   const words = mnemonic.split(' ');
   if (!VALID_MNEMONIC_LENGTHS.has(words.length)) return false;

@@ -76,6 +76,9 @@ let readySignalEmitted = false;
 // Ring buffer size for broadcast sequences (#48).
 // If the producer wraps before the consumer reads a slot, the old message is lost.
 // 4096 slots gives ~4K messages of headroom before overwrite.
+// Sequences run 1..BROADCAST_RING_SIZE — `0` is reserved as an
+// "uninitialized" sentinel so consumers can distinguish a fresh slot
+// from a legitimate broadcast.
 const BROADCAST_RING_SIZE = 4096;
 let jotaiStateBroadcastSequence = 0;
 let appEventBroadcastSequence = 0;
@@ -160,7 +163,7 @@ function broadcastJotaiStateUpdateFromBgToUi(
   }
 
   jotaiStateBroadcastSequence =
-    (jotaiStateBroadcastSequence + 1) % BROADCAST_RING_SIZE;
+    (jotaiStateBroadcastSequence % BROADCAST_RING_SIZE) + 1;
   sharedRPC.write(
     buildBackgroundThreadJotaiStateKey(`${jotaiStateBroadcastSequence}`),
     serializeBackgroundThreadJotaiStateBroadcastPayload(payload),
@@ -178,7 +181,7 @@ function emitAppEventFromBgToUi(payload: {
   }
 
   appEventBroadcastSequence =
-    (appEventBroadcastSequence + 1) % BROADCAST_RING_SIZE;
+    (appEventBroadcastSequence % BROADCAST_RING_SIZE) + 1;
   sharedRPC.write(
     buildBackgroundThreadAppEventKey(`${appEventBroadcastSequence}`),
     serializeBackgroundThreadAppEventBroadcastPayload(payload),
@@ -194,7 +197,7 @@ function sendBridgeMessageFromBgToUi(
     return false;
   }
 
-  bridgeSendSequence = (bridgeSendSequence + 1) % BROADCAST_RING_SIZE;
+  bridgeSendSequence = (bridgeSendSequence % BROADCAST_RING_SIZE) + 1;
   sharedRPC.write(
     buildBackgroundThreadBridgeSendKey(`${bridgeSendSequence}`),
     serializeBackgroundThreadBridgeSendPayload(payload),

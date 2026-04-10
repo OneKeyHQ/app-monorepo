@@ -294,13 +294,17 @@ export function QRCode({
   const isAnimatedCode = useMemo(() => drawType === 'animated', [drawType]);
 
   useEffect(() => {
-    let timerId: ReturnType<typeof setInterval>;
+    let timerId: ReturnType<typeof setInterval> | undefined;
+    let cancelled = false;
     if (isAnimatedCode) {
       if (!valueUr) {
         throw new OneKeyLocalError('valueUr is required for animated QRCode');
       }
       void (async () => {
         const { airGapUrUtils } = await import('@onekeyhq/qr-wallet-sdk');
+        // Guard against unmount/deps-change during the async import so we
+        // don't create an interval that no cleanup will ever reach.
+        if (cancelled) return;
         const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder(
           {
             ur: valueUr,
@@ -318,7 +322,10 @@ export function QRCode({
         }, interval);
       })();
     }
-    return () => clearInterval(timerId);
+    return () => {
+      cancelled = true;
+      if (timerId) clearInterval(timerId);
+    };
   }, [value, interval, isAnimatedCode, valueUr]);
 
   if (!partValue) {

@@ -2,7 +2,7 @@
 /* cspell:ignore debugid */
 require('../../development/env');
 
-const { execSync } = require('child_process');
+const { execSync, spawn } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
@@ -539,6 +539,38 @@ const buildBackgroundBundle = async ({
 };
 
 /**
+ * Run hermesc asynchronously via spawn so that runWithConcurrency can
+ * actually overlap compilations. execSync would block the event loop,
+ * serializing every task regardless of the concurrency limit.
+ */
+const runHermescAsync = ({ outPath, inputPath }) =>
+  new Promise((resolve, reject) => {
+    const child = spawn(
+      HERMES_COMMAND,
+      [
+        '-O',
+        '-emit-binary',
+        '-output-source-map',
+        `-out=${outPath}`,
+        inputPath,
+      ],
+      { stdio: 'inherit' },
+    );
+    child.on('error', reject);
+    child.on('exit', (code, signal) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(
+          new Error(
+            `hermesc failed for ${inputPath} (code=${code}, signal=${signal})`,
+          ),
+        );
+      }
+    });
+  });
+
+/**
  * Run async tasks with a concurrency limit.
  */
 const runWithConcurrency = async (tasks, concurrency) => {
@@ -608,11 +640,13 @@ const buildSegments = async ({
 
     log(`  segment: ${baseName}`);
 
-    // Compile to HBC
-    execSync(
-      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${segHbcPath} ${segJsPath}`,
-      { stdio: 'inherit' },
-    );
+    // Compile to HBC via spawn so concurrent segment compiles actually run
+    // in parallel. execSync here would block the event loop and serialize
+    // all segments regardless of the CONCURRENCY setting.
+    await runHermescAsync({
+      outPath: segHbcPath,
+      inputPath: segJsPath,
+    });
 
     // Compose sourcemaps (if packager map exists)
     const packagerMapPath = segJsPath.replace('.seg.js', '.seg.packager.map');

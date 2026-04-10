@@ -86,11 +86,23 @@ export const useCanDismissSplash =
           );
 
           if (hasCachedStates) {
-            // With cache: wait for home page to be fully rendered
-            appEventBus.on(
-              EAppEventBusNames.HomePageReady,
-              handleHomePageReady,
-            );
+            // HomeOverviewContainer's useEffect fires before this parent
+            // effect (React runs child effects first). When the cache is
+            // warm enough that balanceReady is true on the first render,
+            // the HomePageReady event has already been emitted and set the
+            // global flag. Detect that case and dismiss immediately,
+            // otherwise the splash would stay for the full safety timeout.
+            if ((globalThis as any).__onekeyBalanceDisplayed) {
+              logSplashProvider(
+                'HomePageReady already fired before listener attached, dismiss immediately',
+              );
+              dismiss();
+            } else {
+              appEventBus.on(
+                EAppEventBusNames.HomePageReady,
+                handleHomePageReady,
+              );
+            }
           }
 
           // Always run processPendingInstallTask (for OTA updates),

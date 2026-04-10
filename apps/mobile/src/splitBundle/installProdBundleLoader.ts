@@ -331,15 +331,15 @@ function installLoadBundleAsyncOverride(
         get() {
           return state.wrapper;
         },
-        set(nextLoader: unknown) {
+        set(_nextLoader: unknown) {
           // Expo async-require installs its own URL loader on first require().
-          // Keep our segment loader authoritative in production split-bundle mode.
-          if (
-            typeof nextLoader === 'function' &&
-            nextLoader === state.wrapper
-          ) {
-            state.current = nextLoader as BundleLoaderFn;
-          }
+          // Keep our segment loader authoritative in production split-bundle
+          // mode by silently discarding every write — including self-assignment
+          // of `state.wrapper`. The previous implementation allowed
+          // `nextLoader === state.wrapper` through and set
+          // `state.current = state.wrapper`, which turned `state.wrapper`
+          // into an infinite self-reference and crashed with a stack
+          // overflow on the next invocation.
         },
       });
     }

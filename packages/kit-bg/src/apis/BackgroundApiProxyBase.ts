@@ -368,7 +368,19 @@ export class BackgroundApiProxyBase
       if (transport) {
         // Always set bridge on local BackgroundApi so main-thread
         // callWebEmbedBridgeLocal() can use it directly.
-        void this.connectLocalBackgroundBridge('webEmbed', bridge);
+        void this.connectLocalBackgroundBridge('webEmbed', bridge).catch(
+          (error) => {
+            defaultLogger.app.webembed.connectWebEmbedBridgeSyncError({
+              error: `connectLocalBackgroundBridge(webEmbed) failed: ${String(
+                error,
+              )}`,
+            });
+            console.error(
+              'connectLocalBackgroundBridge(webEmbed) failed',
+              error,
+            );
+          },
+        );
         void Promise.resolve()
           .then(() => {
             defaultLogger.app.webembed.connectWebEmbedBridgeTransportReady();
