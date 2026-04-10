@@ -76,10 +76,8 @@ function extractOutgoingRecipientFromDecodedTx({
 
     const firstSend = assetTransfer.sends?.[0];
     if (firstSend) {
-      // For UTXO chains (BTC/LTC), sends[0].from may be a change/derived
-      // address that differs from the account's main address. The tx-level
-      // owner check (line 54-58) already confirms this is our outgoing tx,
-      // so we only apply the per-send filter when owner is unknown.
+      // UTXO chains: sends[0].from may be a change address; trust the
+      // tx-level owner check and only fall back to per-send filter.
       if (!txOwner) {
         const senderAddress = firstSend.from?.toLowerCase();
         if (senderAddress && ownerAddress && senderAddress !== ownerAddress) {
@@ -312,6 +310,51 @@ function mergeRecipients(
     .slice(0, MAX_RECIPIENTS);
 }
 
+// Local store fallback + freshness overlay for /transfer-recipient, which
+// has indexer lag and skips non-indexer EVM chains (OK-52728).
+async function loadStoredRecipients(networkId: string): Promise<{
+  addresses: string[];
+  extraMap: Map<string, IRecipientExtraInfo> | null;
+}> {
+  try {
+    const storedRecipients =
+      await backgroundApiProxy.serviceSignatureConfirm.getRecentRecipients({
+        networkId,
+      });
+    if (storedRecipients.length === 0) {
+      return { addresses: [], extraMap: null };
+    }
+
+    const uniqueNetworkIds = [
+      ...new Set(
+        storedRecipients
+          .map((r) => r.networkId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const networkNameMap = await fetchNetworkNames(uniqueNetworkIds);
+
+    const extraMap = new Map<string, IRecipientExtraInfo>(
+      storedRecipients.map((r) => [
+        r.address.toLowerCase(),
+        {
+          address: r.address,
+          time: r.updatedAt,
+          networkName: r.networkId
+            ? networkNameMap.get(r.networkId)
+            : undefined,
+        },
+      ]),
+    );
+    return {
+      addresses: storedRecipients.map((r) => r.address),
+      extraMap,
+    };
+  } catch {
+    return { addresses: [], extraMap: null };
+  }
+}
+
 type IUseRecentRecipientsDataParams = {
   accountId?: string;
   networkId: string;
@@ -340,14 +383,12 @@ export function useRecentRecipientsData({
 
     const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
 
-    // Phase 1: Try transfer-recipient API first (authoritative when supported).
-    if (accountId) {
+    // Phase 1: API + local store in parallel. Local store is always loaded
+    // so fresh sends (OK-52728) and non-indexer EVM chains aren't masked.
+    const fetchApiRecipients = async () => {
+      if (!accountId) return { extraMap: null, addresses: [] as string[] };
       try {
-        let apiNetworkId = networkId;
-        if (isEvmNetwork) {
-          apiNetworkId = 'evm--1';
-        }
-
+        const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
         const { supported, data: apiRecipients } =
           await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
             accountId,
@@ -355,68 +396,87 @@ export function useRecentRecipientsData({
             limit: MAX_RECIPIENTS,
           });
         if (supported && apiRecipients.length > 0) {
-          const extraMap = await buildExtraMapFromApiRecipients(apiRecipients);
-          const addresses = apiRecipients.map((r) => r.address);
-          const enriched = await enrichAddresses(
-            addresses,
-            extraMap,
-            networkId,
-          );
-          if (isStale()) return;
-          setRecentRecipients(enriched);
-          setIsLoadingRecent(false);
-          return;
+          return {
+            extraMap: await buildExtraMapFromApiRecipients(apiRecipients),
+            addresses: apiRecipients.map((r) => r.address),
+          };
         }
-
-        // supported but empty — fall through to local strategies.
       } catch {
         // Fall through to local strategies.
       }
-    }
+      return { extraMap: null, addresses: [] as string[] };
+    };
 
-    // API not supported — use progressive local loading.
+    let apiEnriched: IEnrichedRecentRecipient[] | null = null;
+    const [
+      { extraMap: apiExtraMap, addresses: apiAddresses },
+      { addresses: storedAddresses, extraMap: storedExtraMap },
+    ] = await Promise.all([
+      fetchApiRecipients(),
+      loadStoredRecipients(networkId),
+    ]);
+
     if (isStale()) return;
 
-    // Phase 2: Show stored recipients instantly.
-    let storedAddresses: string[] = [];
-    let storedExtraMap: Map<string, IRecipientExtraInfo> | null = null;
+    if (apiAddresses.length > 0) {
+      // Merge before enrichment so each unique address hits queryAddress
+      // only once (OK-52897 — badge calls are expensive).
+      const apiAddressSet = new Set(apiAddresses.map((a) => a.toLowerCase()));
+      const localOnlyAddresses = storedAddresses.filter(
+        (a) => !apiAddressSet.has(a.toLowerCase()),
+      );
 
-    try {
-      const storedRecipients =
-        await backgroundApiProxy.serviceSignatureConfirm.getRecentRecipients({
-          networkId,
-        });
-
-      if (storedRecipients.length > 0) {
-        const uniqueNetworkIds = [
-          ...new Set(
-            storedRecipients
-              .map((r) => r.networkId)
-              .filter((id): id is string => !!id),
-          ),
-        ];
-        const networkNameMap = await fetchNetworkNames(uniqueNetworkIds);
-
-        storedExtraMap = new Map(
-          storedRecipients.map((r) => [
-            r.address.toLowerCase(),
-            {
-              address: r.address,
-              time: r.updatedAt,
-              networkName: r.networkId
-                ? networkNameMap.get(r.networkId)
-                : undefined,
-            },
-          ]),
-        );
-        storedAddresses = storedRecipients.map((r) => r.address);
+      const combinedAddresses = [...apiAddresses, ...localOnlyAddresses];
+      const combinedExtraMap = new Map<string, IRecipientExtraInfo>(
+        apiExtraMap ?? [],
+      );
+      if (storedExtraMap) {
+        for (const [key, value] of storedExtraMap) {
+          if (!combinedExtraMap.has(key)) combinedExtraMap.set(key, value);
+        }
       }
-    } catch {
-      // ignore
+
+      try {
+        const enriched = await enrichAddresses(
+          combinedAddresses,
+          combinedExtraMap,
+          networkId,
+        );
+        if (isStale()) return;
+
+        // Freshness overlay: on re-send the local updatedAt is newer than
+        // the indexer's — bump the entry up and swap the network badge so
+        // the new timestamp doesn't pair with the API's stale network.
+        apiEnriched = enriched
+          .map((r) => {
+            const lower = r.input?.toLowerCase();
+            const local = lower ? storedExtraMap?.get(lower) : undefined;
+            if (local?.time && local.time > (r.lastTransferTime ?? 0)) {
+              return {
+                ...r,
+                lastTransferTime: local.time,
+                lastTransferNetworkName:
+                  local.networkName ?? r.lastTransferNetworkName,
+              };
+            }
+            return r;
+          })
+          .toSorted(
+            (a, b) => (b.lastTransferTime ?? 0) - (a.lastTransferTime ?? 0),
+          )
+          .slice(0, MAX_RECIPIENTS);
+      } catch {
+        // ignore enrichment errors — fall through to local strategies
+      }
     }
 
-    if (isStale()) return;
+    if (apiEnriched) {
+      setRecentRecipients(apiEnriched);
+      setIsLoadingRecent(false);
+      return;
+    }
 
+    // Phase 2: API not supported or empty — show stored recipients instantly.
     if (storedAddresses.length > 0) {
       try {
         const enriched = await enrichAddresses(
