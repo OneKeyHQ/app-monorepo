@@ -44,6 +44,10 @@ function DeFiProtocolDetails() {
   const { protocol, protocolInfo } = route.params;
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const getCategoryLabel = useCallback(
+    (category: string) => getCategoryConfig(category).label,
+    [],
+  );
   const renderProtocolOverview = useCallback(() => {
     return (
       <>
@@ -142,65 +146,69 @@ function DeFiProtocolDetails() {
   const renderProtocolPositions = useCallback(() => {
     return (
       <YStack py="$3">
-        {protocol.positions.map((position, index) => (
-          <Stack key={position.category} px="$5">
-            <XStack alignItems="center" py="$3" ml="$-2" gap="$1">
-              <XStack alignItems="center" gap="$3" flexShrink={1} minWidth={0}>
-                <Badge
-                  bg={getCategoryConfig(position.category).bg}
-                  badgeSize="lg"
+        {protocol.positions.map((position, index) => {
+          const positionCategoryConfig = getCategoryConfig(position.category);
+
+          return (
+            <Stack key={position.groupId} px="$5">
+              <XStack alignItems="center" py="$3" ml="$-2" gap="$1">
+                <XStack
+                  alignItems="center"
+                  gap="$3"
+                  flexShrink={1}
+                  minWidth={0}
                 >
-                  <Badge.Text
-                    textTransform="capitalize"
-                    color={getCategoryConfig(position.category).text}
-                  >
-                    {`${getCategoryConfig(position.category).emoji} ${position.category}`}
-                  </Badge.Text>
-                </Badge>
-                <Stack flexShrink={1} minWidth={0}>
-                  <Popover
-                    placement="top"
-                    title={intl.formatMessage({
-                      id: ETranslations.wallet_defi_position_name_popover_title,
-                    })}
-                    renderTrigger={
-                      <SizableText
-                        size="$bodySm"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                        textDecorationLine="underline"
-                        textDecorationColor="$textSubdued"
-                        textDecorationStyle="dotted"
-                      >
-                        {position.poolName}
-                      </SizableText>
-                    }
-                    renderContent={
-                      <Stack px="$4" py="$2">
-                        <SizableText size="$bodyLg">
-                          {position.poolFullName}
+                  <Badge bg={positionCategoryConfig.bg} badgeSize="lg">
+                    <Badge.Text color={positionCategoryConfig.text}>
+                      {getCategoryLabel(position.category)}
+                    </Badge.Text>
+                  </Badge>
+                  <Stack flexShrink={1} minWidth={0}>
+                    <Popover
+                      placement="top"
+                      title={intl.formatMessage({
+                        id: ETranslations.wallet_defi_position_name_popover_title,
+                      })}
+                      renderTrigger={
+                        <SizableText
+                          size="$bodySm"
+                          color="$textSubdued"
+                          numberOfLines={1}
+                        >
+                          {position.poolName}
                         </SizableText>
-                      </Stack>
-                    }
-                  />
+                      }
+                      renderContent={
+                        <Stack px="$4" py="$2">
+                          <SizableText size="$bodyLg">
+                            {position.poolFullName}
+                          </SizableText>
+                        </Stack>
+                      }
+                    />
+                  </Stack>
+                </XStack>
+                <Stack maxWidth="70%" flexShrink={0} ml="auto">
+                  <NumberSizeableTextWrapper
+                    hideValue
+                    size="$headingMd"
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
+                    numberOfLines={1}
+                    textAlign="right"
+                  >
+                    {position.value}
+                  </NumberSizeableTextWrapper>
                 </Stack>
               </XStack>
-              <Stack maxWidth="70%" flexShrink={0} ml="auto">
-                <NumberSizeableTextWrapper
-                  hideValue
-                  size="$headingMd"
-                  formatter="value"
-                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
-                  numberOfLines={1}
-                  textAlign="right"
-                >
-                  {position.value}
-                </NumberSizeableTextWrapper>
-              </Stack>
-            </XStack>
-            <YStack>
-              {[...position.assets, ...position.debts, ...position.rewards].map(
-                (asset) => (
+              <YStack>
+                {[
+                  ...position.assets,
+                  ...position.debts,
+                  ...position.rewards,
+                ].map((asset) => (
                   <XStack
                     key={asset.address}
                     alignItems="center"
@@ -210,7 +218,11 @@ function DeFiProtocolDetails() {
                     flex={1}
                   >
                     <XStack alignItems="center" gap="$3" flex={1}>
-                      <Token size="md" tokenImageUri={asset.meta?.logoUrl} />
+                      <Token
+                        size="md"
+                        tokenImageUri={asset.meta?.logoUrl}
+                        bg="$bgStrong"
+                      />
                       <YStack flex={1}>
                         <SizableText size="$bodyLgMedium">
                           {asset.symbol}
@@ -261,17 +273,23 @@ function DeFiProtocolDetails() {
                       </XStack>
                     </YStack>
                   </XStack>
-                ),
-              )}
-            </YStack>
-            {index !== protocol.positions.length - 1 ? (
-              <Divider mt="$2" mb="$3" />
-            ) : null}
-          </Stack>
-        ))}
+                ))}
+              </YStack>
+              {index !== protocol.positions.length - 1 ? (
+                <Divider mt="$2" mb="$3" />
+              ) : null}
+            </Stack>
+          );
+        })}
       </YStack>
     );
-  }, [protocol.positions, intl, settings.currencyInfo.symbol, renderAssetType]);
+  }, [
+    getCategoryLabel,
+    protocol.positions,
+    intl,
+    settings.currencyInfo.symbol,
+    renderAssetType,
+  ]);
   return (
     <Page scrollEnabled>
       <Page.Header
