@@ -1,6 +1,12 @@
 import { memo, useMemo } from 'react';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  XStack,
+  YStack,
+  useClipboard,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -48,13 +54,39 @@ function getCoinLabel(item: IBalanceDisplayItem): string {
   return item.type === 'perps' ? `${item.coin} (Perps)` : `${item.coin} (Spot)`;
 }
 
+function ContractAddressCell({
+  contract,
+  size = '$bodyXs',
+}: {
+  contract?: string;
+  size?: '$bodyXs' | '$bodySmMedium';
+}) {
+  const { copyText } = useClipboard();
+  if (!contract) return null;
+  const shortened = `${contract.slice(0, 6)}...${contract.slice(-4)}`;
+  return (
+    <XStack gap="$1" alignItems="center">
+      <SizableText size={size} color="$textSubdued">
+        {shortened}
+      </SizableText>
+      <IconButton
+        size="small"
+        variant="tertiary"
+        icon="Copy3Outline"
+        iconProps={{ size: '$3', color: '$iconSubdued' }}
+        onPress={(e) => {
+          e?.stopPropagation?.();
+          copyText(contract);
+        }}
+      />
+    </XStack>
+  );
+}
+
 function BalanceRowMobile({ item }: IBalanceRowProps) {
   const label = getCoinLabel(item);
   const pnlText = formatPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
-  const contractShort = item.contract
-    ? `${item.contract.slice(0, 6)}...${item.contract.slice(-4)}`
-    : '';
 
   return (
     <ListItem py="$2.5" px="$5">
@@ -62,11 +94,7 @@ function BalanceRowMobile({ item }: IBalanceRowProps) {
         <XStack justifyContent="space-between" alignItems="center">
           <XStack gap="$1.5" alignItems="center">
             <SizableText size="$bodyMdMedium">{label}</SizableText>
-            {contractShort ? (
-              <SizableText size="$bodyXs" color="$textSubdued">
-                {contractShort}
-              </SizableText>
-            ) : null}
+            <ContractAddressCell contract={item.contract} />
           </XStack>
           <SizableText size="$bodyMdMedium">
             {numberFormat(item.usdcValue, balanceCurrencyFormatter)}
@@ -99,9 +127,7 @@ function BalanceRowDesktop({ item, columnConfigs, index }: IBalanceRowProps) {
       available: `${item.available} ${item.coin}`,
       usdcValue: numberFormat(item.usdcValue, balanceCurrencyFormatter),
       pnl: pnlText,
-      contract: item.contract
-        ? `${item.contract.slice(0, 6)}...${item.contract.slice(-4)}`
-        : '',
+      contract: '',
     };
     return columnConfigs.map((col) => ({
       ...col,
@@ -123,12 +149,19 @@ function BalanceRowDesktop({ item, columnConfigs, index }: IBalanceRowProps) {
           alignItems="center"
           justifyContent={calcCellAlign(cell.align)}
         >
-          <SizableText
-            size="$bodySmMedium"
-            color={cell.key === 'pnl' ? pnlColor : undefined}
-          >
-            {cell.cellValue}
-          </SizableText>
+          {cell.key === 'contract' ? (
+            <ContractAddressCell
+              contract={item.contract}
+              size="$bodySmMedium"
+            />
+          ) : (
+            <SizableText
+              size="$bodySmMedium"
+              color={cell.key === 'pnl' ? pnlColor : undefined}
+            >
+              {cell.cellValue}
+            </SizableText>
+          )}
         </XStack>
       ))}
     </XStack>
