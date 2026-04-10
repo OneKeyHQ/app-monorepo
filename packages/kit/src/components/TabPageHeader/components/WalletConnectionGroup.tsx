@@ -93,10 +93,10 @@ export function WalletConnectionGroup({
   });
   const [isFocus, setIsFocus] = useState(false);
 
-  const hasNoUsableWallet = useMemo(
-    () => accountUtils.hasNoUsableWallet({ wallet, account }),
-    [wallet, account],
-  );
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
+    wallet,
+    account,
+  });
 
   const isNonBackedUpWallet = useMemo(() => {
     return wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped;

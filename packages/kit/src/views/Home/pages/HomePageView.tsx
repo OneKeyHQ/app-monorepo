@@ -597,20 +597,14 @@ export function HomePageView({
 
   const isSyncLoading = useIsAccountSelectorSyncLoading(0);
 
-  const hasNoUsableWallet = useMemo(
-    () => accountUtils.hasNoUsableWallet({ wallet, account }),
-    [wallet, account],
-  );
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
+    wallet,
+    account,
+  });
 
   const homePage = useMemo(() => {
     if (!ready) {
-      return (
-        <TabPageHeader
-          sceneName={sceneName}
-          tabRoute={ETabRoutes.Home}
-          hasNoUsableWallet={hasNoUsableWallet}
-        />
-      );
+      return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
     let content = isSyncLoading ? (
@@ -645,11 +639,7 @@ export function HomePageView({
             {platformEnv.isNative ? (
               <Stack h={tabPageHeight} />
             ) : (
-              <TabPageHeader
-                sceneName={sceneName}
-                tabRoute={ETabRoutes.Home}
-                hasNoUsableWallet={hasNoUsableWallet}
-              />
+              <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
             <NetworkAlert />
             {content}
@@ -666,7 +656,6 @@ export function HomePageView({
                 <TabPageHeader
                   sceneName={sceneName}
                   tabRoute={ETabRoutes.Home}
-                  hasNoUsableWallet={hasNoUsableWallet}
                 />
               </YStack>
             ) : null}

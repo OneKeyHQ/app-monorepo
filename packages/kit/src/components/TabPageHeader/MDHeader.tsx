@@ -4,9 +4,13 @@ import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useIsAccountSelectorSyncLoading } from '../../states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useIsAccountSelectorSyncLoading,
+} from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { MoreActionButton } from '../MoreActionButton';
 
@@ -29,7 +33,6 @@ export function MDHeader({
   renderCustomHeaderRightItems,
   headerPx = '$5',
   pageScrollPosition,
-  hasNoUsableWallet,
 }: {
   tabRoute: ETabRoutes;
   sceneName: EAccountSelectorSceneName;
@@ -44,9 +47,15 @@ export function MDHeader({
   }) => ReactNode;
   headerPx?: string;
   pageScrollPosition?: SharedValue<number>;
-  hasNoUsableWallet?: boolean;
 }) {
   const { top } = useSafeAreaInsets();
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({ num: 0 });
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
+    wallet,
+    account,
+  });
 
   const rightActions = useMemo(() => {
     return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (

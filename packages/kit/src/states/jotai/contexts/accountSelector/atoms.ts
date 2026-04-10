@@ -152,11 +152,6 @@ export const {
   }>
 >({});
 
-// Shortcut for the very common `syncLoading?.[num]?.isLoading` read pattern
-// used across 8+ header/trigger components. Centralizing it keeps callers
-// from accidentally reading the full atom (wider re-render surface) and
-// gives a single place to swap in a slot-keyed derived atom if the
-// re-render cost ever matters.
 export function useIsAccountSelectorSyncLoading(num: number): boolean {
   const [syncLoading] = useAccountSelectorSyncLoadingAtom();
   return !!syncLoading?.[num]?.isLoading;

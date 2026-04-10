@@ -6,7 +6,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useIsAccountSelectorSyncLoading } from '../../states/jotai/contexts/accountSelector';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import {
+  useActiveAccount,
+  useIsAccountSelectorSyncLoading,
+} from '../../states/jotai/contexts/accountSelector';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
 import {
@@ -27,13 +32,18 @@ export { DiscoveryHeaderSegment };
 function InPageHeader({
   tabRoute,
   sceneName,
-  hasNoUsableWallet,
 }: {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
-  hasNoUsableWallet?: boolean;
 }) {
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({ num: 0 });
   const isSyncLoading = useIsAccountSelectorSyncLoading(0);
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
+    wallet,
+    account,
+  });
 
   const item = useMemo(() => {
     if (
@@ -67,7 +77,6 @@ function BaseDesktopTabPageHeader({
   selectedHeaderTab,
   customHeaderRightItems,
   customHeaderLeftItems,
-  hasNoUsableWallet,
 }: ITabPageHeaderProp) {
   const renderHeaderLeft = useCallback(
     () => (
@@ -140,11 +149,7 @@ function BaseDesktopTabPageHeader({
             : undefined
         }
       />
-      <InPageHeader
-        tabRoute={tabRoute}
-        sceneName={sceneName}
-        hasNoUsableWallet={hasNoUsableWallet}
-      />
+      <InPageHeader tabRoute={tabRoute} sceneName={sceneName} />
     </>
   );
 }
@@ -161,7 +166,6 @@ export function TabPageHeader({
   hideHeaderLeft = false,
   headerPx,
   pageScrollPosition,
-  hasNoUsableWallet,
 }: ITabPageHeaderProp) {
   const media = useMedia();
 
@@ -193,7 +197,6 @@ export function TabPageHeader({
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
         pageScrollPosition={pageScrollPosition}
-        hasNoUsableWallet={hasNoUsableWallet}
       />
     );
   }
@@ -208,7 +211,6 @@ export function TabPageHeader({
       customHeaderLeftItems={customHeaderLeftItems}
       hideHeaderLeft={hideHeaderLeft}
       renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-      hasNoUsableWallet={hasNoUsableWallet}
     />
   );
 }
