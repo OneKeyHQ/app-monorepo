@@ -169,4 +169,34 @@ export class PageScene extends BaseScene {
   public settingsEnableBTCFreshAddress({ enabled }: { enabled: boolean }) {
     return { enabled };
   }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public enterChainlistSearch() {
+    return {};
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public chainlistSearchPerformed({ keywords }: { keywords: string }) {
+    return { keywords };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public chainlistNetworkSelected({
+    chainId,
+    networkName,
+  }: {
+    chainId: string;
+    networkName: string;
+  }) {
+    return { chainId, networkName };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public chainlistManualAdd() {
+    return {};
+  }
 }

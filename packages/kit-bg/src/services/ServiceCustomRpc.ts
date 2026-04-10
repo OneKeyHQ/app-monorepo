@@ -527,6 +527,33 @@ class ServiceCustomRpc extends ServiceBase {
   }
 
   @backgroundMethod()
+  async searchChainListByKeywords(params: {
+    keywords?: string;
+    page?: number;
+  }): Promise<IChainListItem[]> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const requestParams: Record<string, unknown> = {
+        showTestNet: true,
+      };
+      if (params.keywords) {
+        requestParams.keywords = params.keywords;
+      } else {
+        requestParams.page = params.page ?? 1;
+      }
+      const resp = await client.get<{ data: IChainListItem[] }>(
+        '/wallet/v1/network/chainlist',
+        {
+          params: requestParams,
+        },
+      );
+      return resp.data.data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  @backgroundMethod()
   async searchCustomNetworkByChainList(params: { chainId: string }) {
     try {
       const chainId = new BigNumber(params.chainId).toNumber();

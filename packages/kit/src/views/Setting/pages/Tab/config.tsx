@@ -613,7 +613,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   settingRoute: EModalSettingRoutes.SettingCustomNetwork,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomRPC();
-                    navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
+                    navigation?.push(
+                      EModalSettingRoutes.SettingChainListSearch,
+                    );
                   },
                 },
                 {

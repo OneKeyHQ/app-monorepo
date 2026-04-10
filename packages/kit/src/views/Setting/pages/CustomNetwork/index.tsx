@@ -236,8 +236,15 @@ function AddCustomNetwork() {
       void dappApprove.resolve({ result: network });
       setTimeout(() => {
         onSuccess?.(network);
+        let source: 'manual' | 'chainlist' | 'dapp' = 'manual';
+        if ($sourceInfo?.id) {
+          source = 'dapp';
+        } else if (routeNetworkName) {
+          source = 'chainlist';
+        }
         defaultLogger.account.wallet.customNetworkAdded({
           chainID: String(finalChainId),
+          source,
         });
       }, 500);
       Toast.success({
@@ -258,7 +265,17 @@ function AddCustomNetwork() {
     } finally {
       setIsLoading(false);
     }
-  }, [form, dappApprove, intl, navigation, getChainId, onSuccess, isEditMode]);
+  }, [
+    form,
+    dappApprove,
+    intl,
+    navigation,
+    getChainId,
+    onSuccess,
+    isEditMode,
+    $sourceInfo?.id,
+    routeNetworkName,
+  ]);
 
   const onDelete = useCallback(async () => {
     if (!routeNetworkId) {
