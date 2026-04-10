@@ -1,3 +1,77 @@
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+const DESKTOP_LAYOUT_BASELINE_VIEWPORT = {
+  width: 1512,
+  height: 982,
+} as const;
+
+const DESKTOP_LAYOUT_HEIGHT_LIMITS = {
+  marketContent: {
+    min: 520,
+    max: 860,
+  },
+  bottomPanel: {
+    min: 380,
+    max: 620,
+  },
+} as const;
+
+const DESKTOP_LAYOUT_WIDTH_LIMITS = {
+  orderBook: {
+    min: 280,
+    max: 360,
+  },
+  tradingPanel: {
+    min: 320,
+    max: 420,
+  },
+} as const;
+
+function clampSize(value: number, min: number, max: number) {
+  return Math.round(Math.min(Math.max(value, min), max));
+}
+
+export function getResponsivePerpDesktopLayout(
+  viewportWidth: number,
+  viewportHeight: number,
+) {
+  const widthScale = Math.max(
+    viewportWidth / DESKTOP_LAYOUT_BASELINE_VIEWPORT.width,
+    1,
+  );
+  const heightScale = Math.max(
+    viewportHeight / DESKTOP_LAYOUT_BASELINE_VIEWPORT.height,
+    1,
+  );
+  const baseLayout = PERP_LAYOUT_CONFIG.desktop;
+
+  return {
+    ...baseLayout,
+    marketContentHeight: clampSize(
+      baseLayout.marketContentHeight * heightScale,
+      baseLayout.marketContentHeight,
+      DESKTOP_LAYOUT_HEIGHT_LIMITS.marketContent.max,
+    ),
+    bottomPanelHeight: clampSize(
+      baseLayout.bottomPanelHeight * heightScale,
+      baseLayout.bottomPanelHeight,
+      DESKTOP_LAYOUT_HEIGHT_LIMITS.bottomPanel.max,
+    ),
+    widths: {
+      orderBook: clampSize(
+        baseLayout.widths.orderBook * widthScale,
+        baseLayout.widths.orderBook,
+        DESKTOP_LAYOUT_WIDTH_LIMITS.orderBook.max,
+      ),
+      trading: clampSize(
+        baseLayout.widths.trading * widthScale,
+        baseLayout.widths.trading,
+        DESKTOP_LAYOUT_WIDTH_LIMITS.tradingPanel.max,
+      ),
+    },
+  };
+}
+
 export function calculateMaxLevelsPerSide(containerHeight: number): number {
   // The vertical web order book renders:
   // - Root padding: 1px top + 1px bottom (2px)

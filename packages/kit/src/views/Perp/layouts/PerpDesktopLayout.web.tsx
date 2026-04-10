@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useWindowDimensions } from 'react-native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -26,15 +27,23 @@ import {
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
-import { calculateMaxLevelsPerSide } from './perpLayoutUtils';
+import {
+  calculateMaxLevelsPerSide,
+  getResponsivePerpDesktopLayout,
+} from './perpLayoutUtils';
 
 function PerpDesktopLayout() {
   const intl = useIntl();
   const { gtXl } = useMedia();
+  const { width: viewportWidth, height: viewportHeight } =
+    useWindowDimensions();
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
   const scrollContainerRef = useRef<HTMLElement>(null);
 
-  const layout = PERP_LAYOUT_CONFIG.desktop;
+  const layout = useMemo(
+    () => getResponsivePerpDesktopLayout(viewportWidth, viewportHeight),
+    [viewportHeight, viewportWidth],
+  );
 
   // Reset chartExpanded on mount to stay in sync with iframe state
   useEffect(() => {
@@ -88,6 +97,7 @@ function PerpDesktopLayout() {
   const accountPanel = useMemo(() => {
     return (
       <YStack
+        h={layout.bottomPanelHeight}
         minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
         maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
         w={tradingWidth}
@@ -109,7 +119,7 @@ function PerpDesktopLayout() {
         </YStack>
       </YStack>
     );
-  }, [intl, tradingWidth]);
+  }, [intl, layout.bottomPanelHeight, tradingWidth]);
 
   return (
     <Stack
@@ -119,7 +129,7 @@ function PerpDesktopLayout() {
     >
       <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
-        {!chartExpanded && <FavoritesBar />}
+        {chartExpanded ? null : <FavoritesBar />}
 
         <YStack
           flex={chartExpanded ? 1 : undefined}
