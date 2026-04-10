@@ -25,7 +25,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-
 import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -152,12 +151,11 @@ function FeaturedChangelog({
         }
         navigation.push(EAppUpdateRoutes.DownloadVerify);
       } else {
-        // Fallback: no store URL and no download URL — just close
         navigation.popStack();
       }
     } else if (activeFeature?.href) {
-      // Post-install: dispatch CTA action (same shape as Wallet Banner)
       navigation.popStack();
+      // Wait for popStack animation before dispatching to avoid navigation conflicts
       setTimeout(() => {
         if (
           activeFeature.hrefType === 'external' ||

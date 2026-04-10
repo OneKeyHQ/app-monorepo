@@ -1,17 +1,19 @@
 import type { ENotificationPushMessageMode } from '../../types/notification';
 
 export interface IFeaturedItem {
-  tabLabel: string; // Tab pill text, e.g. "Zero Fees"
-  title?: string; // Feature title — optional, not shown when empty
-  description?: string; // Feature description — optional, not shown when empty
-  mediaUrl: string; // Remote image or video URL
-  mediaType: 'image' | 'video'; // Auto-detected by backend from uploaded file MIME type
-  ctaText?: string; // CTA button text — optional, falls back to "Done"
-  // CTA action — same pattern as IWalletBanner:
-  href?: string; // URL or deep link
+  tabLabel: string;
+  title?: string;
+  description?: string;
+  mediaUrl: string;
+  // Auto-detected by backend from uploaded file MIME type
+  mediaType: 'image' | 'video';
+  // CTA text — falls back to "Done" when absent
+  ctaText?: string;
+  // CTA action — same pattern as IWalletBanner
+  href?: string;
   hrefType?: 'internal' | 'external';
-  mode?: ENotificationPushMessageMode; // page / dialog / browser / app / dapp / command
-  payload?: string; // JSON payload for complex navigation
+  mode?: ENotificationPushMessageMode;
+  payload?: string;
   useSystemBrowser?: boolean;
 }
 
