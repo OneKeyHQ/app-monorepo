@@ -165,6 +165,19 @@ cmd_gradle() {
   DEVICE_ID=$(detect_device)
   echo "$(timestamp) 🔨 Building native APK for device: $DEVICE_ID"
 
+  # Clean stale JS bundle outputs to avoid "Duplicate resources" asset merge errors
+  # caused by previous interrupted builds leaving background.bundle in multiple
+  # registered asset source directories.
+  echo "$(timestamp) 🧹 Cleaning stale bundle outputs before build..."
+  rm -rf \
+    "$MOBILE_DIR/android/app/build/generated/assets/createBundleProdReleaseJsAndAssets" \
+    "$MOBILE_DIR/android/app/build/generated/assets/createBundleProdReleaseJsAndAssets_SentryCollectModules_so.onekey.app.wallet@1.0.0+1_1" \
+    "$MOBILE_DIR/android/app/build/generated/sourcemaps" \
+    "$MOBILE_DIR/android/app/build/intermediates/assets" \
+    "$MOBILE_DIR/android/app/build/intermediates/merged_assets" \
+    "$MOBILE_DIR/android/app/src/main/assets/modules.json" \
+    2>/dev/null || true
+
   cd "$MOBILE_DIR/android"
 
   SENTRY_DISABLE_AUTO_UPLOAD=true \
