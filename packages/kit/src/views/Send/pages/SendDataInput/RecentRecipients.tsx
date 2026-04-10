@@ -202,7 +202,11 @@ function QuickSelectListItemBase({
           wordWrap="break-word"
         >
           {item.memo || item.note
-            ? `${item.address} · ${item.memo || item.note}`
+            ? `${item.address} · ${accountUtils.shortenAddress({
+                address: item.memo || item.note,
+                leadingLength: 6,
+                trailingLength: 4,
+              })}`
             : item.address}
         </MatchSizeableText>
       }

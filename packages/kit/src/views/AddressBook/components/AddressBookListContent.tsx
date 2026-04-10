@@ -13,6 +13,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -115,7 +116,11 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
             match={item.addressMatch}
           >
             {item.memo || item.note
-              ? `${item.address} · ${item.memo || item.note}`
+              ? `${item.address} · ${accountUtils.shortenAddress({
+                  address: item.memo || item.note,
+                  leadingLength: 6,
+                  trailingLength: 4,
+                })}`
               : item.address}
           </MatchSizeableText>
         }
