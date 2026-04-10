@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "จำนวนสูงสุดที่สามารถแลกเปลี่ยนได้คือ {amount} {token}",
   "provider.min_amount_required": "จำนวนขั้นต่ำที่ต้องการคือ {amount} {token}",
   "provider.network_fee": "ค่าธรรมเนียมเครือข่ายที่ประมาณการ",
+  "provider.popover.onekey_fee_content": "เพื่อให้บริการคงที่ OneKey มักจะเรียกเก็บค่าธรรมเนียม 0.85% หรือสูงกว่า โดยค่าธรรมเนียมและส่วนลดทั้งหมดจะรวมอยู่ในราคาที่เสนอแล้ว อัตราที่แน่นอนจะถูกปรับแบบไดนามิกตามบริบทของธุรกรรมและขึ้นอยู่กับการแสดงผล UI สุดท้าย",
   "provider.popover_fee_rate": "อัตราค่าธรรมเนียม",
   "provider.popover_order_info_content": "OneKey รวบรวมข้อเสนอที่ดีที่สุด นี่คือสิ่งที่คุณควรทราบก่อนการซื้อขาย",
   "provider.popover_wallet": "กระเป๋าสตางค์",

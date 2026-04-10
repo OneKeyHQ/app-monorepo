@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "最大交換額は{amount} {token}です",
   "provider.min_amount_required": "最小金額は{amount} {token}が必要です",
   "provider.network_fee": "推定ネットワーク料",
+  "provider.popover.onekey_fee_content": "安定したサービスを確保するために、OneKey は通常 0.85% 以上の手数料を請求します。すべての手数料と割引はすでに見積価格に含まれています。正確な料金は取引の状況に応じて動的に調整され、最終的な UI 表示に従います。",
   "provider.popover_fee_rate": "手数料率",
   "provider.popover_order_info_content": "OneKeyは最高のオファーを集約します。取引を開始する前に知っておくべきこと",
   "provider.popover_wallet": "財布",

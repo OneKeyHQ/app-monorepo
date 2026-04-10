@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "Maximaler Tauschbetrag ist {amount} {token}",
   "provider.min_amount_required": "Mindestbetrag erfordert {amount} {token}",
   "provider.network_fee": "Geschätzte Netzwerkgebühr",
+  "provider.popover.onekey_fee_content": "Um einen stabilen Service zu gewährleisten, erhebt OneKey in der Regel eine Gebühr von 0,85 % oder höher, wobei alle Gebühren und Rabatte bereits im angegebenen Preis enthalten sind. Der genaue Satz wird dynamisch basierend auf dem Transaktionskontext angepasst und unterliegt der endgültigen UI-Anzeige.",
   "provider.popover_fee_rate": "Gebührensatz",
   "provider.popover_order_info_content": "OneKey sammelt die besten Angebote. Hier ist, was Sie wissen sollten, bevor Sie handeln",
   "provider.popover_wallet": "Geldbörse",

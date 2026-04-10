@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "L'importo massimo di scambio è {amount} {token}",
   "provider.min_amount_required": "Importo minimo richiesto {amount} {token}",
   "provider.network_fee": "Costo stimato della rete",
+  "provider.popover.onekey_fee_content": "Per garantire un servizio stabile, OneKey applica generalmente una commissione dello 0,85% o superiore, con tutte le commissioni e gli sconti già inclusi nel prezzo indicato. La tariffa esatta viene regolata dinamicamente in base al contesto della transazione e soggetta alla visualizzazione finale dell'interfaccia utente.",
   "provider.popover_fee_rate": "Tasso di commissione",
   "provider.popover_order_info_content": "OneKey aggrega le migliori offerte. Ecco cosa dovresti sapere prima di fare trading",
   "provider.popover_wallet": "Portafoglio",
