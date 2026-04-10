@@ -363,9 +363,15 @@ function AccountRecipients({
             isNameMatch: (item) =>
               (item.account?.name ?? '').toLowerCase().includes(searchValue),
             isAddressMatch: (item) => {
-              const address =
-                item.account?.address ?? item.account?.addressDetail?.address;
-              return address?.toLowerCase().includes(searchValue) ?? false;
+              const addr = item.account?.address?.toLowerCase();
+              const detail = item.account?.addressDetail;
+              const displayAddr = detail?.displayAddress?.toLowerCase();
+              const baseAddr = detail?.baseAddress?.toLowerCase();
+              return (
+                (addr?.includes(searchValue) ?? false) ||
+                (displayAddr?.includes(searchValue) ?? false) ||
+                (baseAddr?.includes(searchValue) ?? false)
+              );
             },
           });
 
