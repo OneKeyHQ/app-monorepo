@@ -353,7 +353,7 @@ function ReferralLandingPage() {
               onPress={handleMobileWebJoin}
             >
               {intl.formatMessage({
-                id: ETranslations.referral_accept,
+                id: ETranslations.wallet_subsidy_claim,
               })}
             </Button>
           </XStack>

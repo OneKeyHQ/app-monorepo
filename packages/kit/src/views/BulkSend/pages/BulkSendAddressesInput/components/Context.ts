@@ -4,6 +4,8 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import type { ILineError } from './AddressesInput/LineNumberedTextArea';
+
 export type ITokenDetailsState = {
   initialized: boolean;
   isRefreshing: boolean;
@@ -42,6 +44,8 @@ export type IBulkSendAddressesInputContext = {
   setDuplicateSenderAddressCount: (count: number) => void;
   hasUserSelectedAsset: boolean;
   setHasUserSelectedAsset: (value: boolean) => void;
+  receiverValidationErrors: ILineError[];
+  setReceiverValidationErrors: (errors: ILineError[]) => void;
 };
 export const BulkSendAddressesInputContext =
   createContext<IBulkSendAddressesInputContext>({
@@ -72,6 +76,8 @@ export const BulkSendAddressesInputContext =
     setDuplicateSenderAddressCount: () => {},
     hasUserSelectedAsset: false,
     setHasUserSelectedAsset: () => {},
+    receiverValidationErrors: [],
+    setReceiverValidationErrors: () => {},
   });
 
 export const useBulkSendAddressesInputContext = () =>
