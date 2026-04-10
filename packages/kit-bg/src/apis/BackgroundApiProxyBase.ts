@@ -21,20 +21,21 @@ import {
   ensureSerializable,
 } from '@onekeyhq/shared/src/utils/assertUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
-import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
-import { isWebEmbedApiAllowedOrigin } from './backgroundApiPermissions';
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
 
 import type {
   IBackgroundApi,
   IBackgroundApiBridge,
   IBackgroundApiInternalCallMessage,
-  IBackgroundApiWebembedCallMessage,
 } from './IBackgroundApi';
+// NOTE: `waitForDataLoaded`, `timerUtils`, `isWebEmbedApiAllowedOrigin`
+// and `IBackgroundApiWebembedCallMessage` used to be imported here for the
+// now-commented-out `callWebEmbedBridgeLocal` method below. They are left
+// off to keep the lint clean; re-add them alongside the method if it is
+// ever revived.
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -366,21 +367,31 @@ export class BackgroundApiProxyBase
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
       if (transport) {
-        // Always set bridge on local BackgroundApi so main-thread
-        // callWebEmbedBridgeLocal() can use it directly.
-        void this.connectLocalBackgroundBridge('webEmbed', bridge).catch(
-          (error) => {
-            defaultLogger.app.webembed.connectWebEmbedBridgeSyncError({
-              error: `connectLocalBackgroundBridge(webEmbed) failed: ${String(
-                error,
-              )}`,
-            });
-            console.error(
-              'connectLocalBackgroundBridge(webEmbed) failed',
-              error,
-            );
-          },
-        );
+        // NOTE: the block below used to mirror the webEmbed bridge onto the
+        // main-thread local BackgroundApi so that callWebEmbedBridgeLocal()
+        // (further down in this file) could dispatch directly. In dual-thread
+        // mode `ensureLocalBackgroundApi()` is wired to the native-ui stub
+        // (`backgroundApiInit.native-ui.ts`) which returns `null`, so this
+        // call can never succeed and the silent `.catch` just hid a false
+        // alarm on every connect. The real webEmbed path in dual-thread mode
+        // is the reverse RPC via `__onekeyCallWebEmbedBridgeViaMainThread`
+        // (see `webembedApiProxy.callRemoteApi()`), so nothing reads the
+        // local BackgroundApi bridge reference. Left commented-out instead
+        // of deleted in case a future single-thread fallback path revives
+        // `callWebEmbedBridgeLocal`.
+        // void this.connectLocalBackgroundBridge('webEmbed', bridge).catch(
+        //   (error) => {
+        //     defaultLogger.app.webembed.connectWebEmbedBridgeSyncError({
+        //       error: `connectLocalBackgroundBridge(webEmbed) failed: ${String(
+        //         error,
+        //       )}`,
+        //     });
+        //     console.error(
+        //       'connectLocalBackgroundBridge(webEmbed) failed',
+        //       error,
+        //     );
+        //   },
+        // );
         void Promise.resolve()
           .then(() => {
             defaultLogger.app.webembed.connectWebEmbedBridgeTransportReady();
@@ -411,50 +422,72 @@ export class BackgroundApiProxyBase
     this.backgroundApi?.connectWebEmbedBridge(bridge);
   }
 
-  async callWebEmbedBridgeLocal(
-    data: IBackgroundApiWebembedCallMessage,
-  ): Promise<any> {
-    const bg = this.ensureLocalBackgroundApi() as unknown as
-      | import('./BackgroundApiBase').default
-      | undefined;
-
-    defaultLogger.app.webembed.callWebEmbedApiProxyEntry({
-      module: data?.module || '',
-      method: data?.method || '',
-      isWebEmbedApiReady: true,
-      hasWebEmbedBridge: !!bg?.webEmbedBridge,
-    });
-
-    await waitForDataLoaded({
-      data: () => Boolean(bg?.webEmbedBridge),
-      logName: `callWebEmbedBridgeLocal: bridge=${Boolean(bg?.webEmbedBridge)}`,
-      wait: 1000,
-      timeout: timerUtils.getTimeDurationMs({ minute: 3 }),
-    });
-
-    if (!bg?.webEmbedBridge?.request) {
-      throw new OneKeyLocalError('webembed webview bridge not ready (local).');
-    }
-
-    const webviewOrigin = bg.webEmbedBridge.remoteInfo?.origin || '';
-    defaultLogger.app.webembed.callWebEmbedApiProxyBridgeReady({
-      module: data?.module || '',
-      method: data?.method || '',
-      origin: webviewOrigin,
-    });
-
-    if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
-      throw new OneKeyLocalError(
-        `callWebEmbedBridgeLocal not allowed origin: ${webviewOrigin || 'undefined'}`,
-      );
-    }
-
-    const result = await bg.webEmbedBridge.request({
-      scope: '$private',
-      data,
-    });
-    return result;
-  }
+  // NOTE: `callWebEmbedBridgeLocal` was added per the 2026-04-06 dual-thread
+  // plan (see docs/plans/2026-04-06-fix-webembed-dual-thread.md) as a
+  // main-thread local dispatch path for webEmbed calls. The final
+  // implementation instead routes dual-thread webEmbed traffic through the
+  // reverse RPC `__onekeyCallWebEmbedBridgeViaMainThread` exposed from the
+  // main thread, and single-thread traffic through
+  // `serviceDApp.callWebEmbedApiProxy` — see
+  // `packages/kit-bg/src/webembeds/instance/webembedApiProxy.ts`
+  // `callRemoteApi()`. As a result this method has no callers anywhere in
+  // the repo.
+  //
+  // Additionally, in dual-thread mode `ensureLocalBackgroundApi()` resolves
+  // to `backgroundApiInit.native-ui.ts` which returns `null`, so the
+  // `waitForDataLoaded` here would never observe a bridge and would time
+  // out after 3 minutes, silently hanging any future caller.
+  //
+  // Left commented-out rather than deleted so the dispatch shape is still
+  // discoverable if a future single-thread fallback needs to revive it —
+  // when that happens, remember to also re-enable the companion
+  // `connectLocalBackgroundBridge('webEmbed', bridge)` call inside
+  // `connectWebEmbedBridge` above.
+  //
+  // async callWebEmbedBridgeLocal(
+  //   data: IBackgroundApiWebembedCallMessage,
+  // ): Promise<any> {
+  //   const bg = this.ensureLocalBackgroundApi() as unknown as
+  //     | import('./BackgroundApiBase').default
+  //     | undefined;
+  //
+  //   defaultLogger.app.webembed.callWebEmbedApiProxyEntry({
+  //     module: data?.module || '',
+  //     method: data?.method || '',
+  //     isWebEmbedApiReady: true,
+  //     hasWebEmbedBridge: !!bg?.webEmbedBridge,
+  //   });
+  //
+  //   await waitForDataLoaded({
+  //     data: () => Boolean(bg?.webEmbedBridge),
+  //     logName: `callWebEmbedBridgeLocal: bridge=${Boolean(bg?.webEmbedBridge)}`,
+  //     wait: 1000,
+  //     timeout: timerUtils.getTimeDurationMs({ minute: 3 }),
+  //   });
+  //
+  //   if (!bg?.webEmbedBridge?.request) {
+  //     throw new OneKeyLocalError('webembed webview bridge not ready (local).');
+  //   }
+  //
+  //   const webviewOrigin = bg.webEmbedBridge.remoteInfo?.origin || '';
+  //   defaultLogger.app.webembed.callWebEmbedApiProxyBridgeReady({
+  //     module: data?.module || '',
+  //     method: data?.method || '',
+  //     origin: webviewOrigin,
+  //   });
+  //
+  //   if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
+  //     throw new OneKeyLocalError(
+  //       `callWebEmbedBridgeLocal not allowed origin: ${webviewOrigin || 'undefined'}`,
+  //     );
+  //   }
+  //
+  //   const result = await bg.webEmbedBridge.request({
+  //     scope: '$private',
+  //     data,
+  //   });
+  //   return result;
+  // }
 
   bridgeReceiveHandler = (payload: IJsBridgeMessagePayload): unknown => {
     if (

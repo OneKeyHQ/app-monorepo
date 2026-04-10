@@ -20,11 +20,11 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
 } from '@onekeyhq/shared/src/consts/chainConsts';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
