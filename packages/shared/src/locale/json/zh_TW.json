@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "最大交換金額為 {amount} {token}",
   "provider.min_amount_required": "最低金額要求 {amount} {token}",
   "provider.network_fee": "預估網路費用",
+  "provider.popover.onekey_fee_content": "為了提供您穩定的服務，OneKey 通常收取 0.85% 及以上的手續費，費用及優惠已計入目前報價。具體費率會根據交易情境動態調整，以實際介面顯示為準。",
   "provider.popover_fee_rate": "費準",
   "provider.popover_order_info_content": "OneKey 聚合了最好的訂單。在交易之前，您應該了解的事情",
   "provider.popover_wallet": "錢包",

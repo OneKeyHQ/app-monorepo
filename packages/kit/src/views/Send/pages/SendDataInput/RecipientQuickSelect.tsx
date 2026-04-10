@@ -489,7 +489,10 @@ function AccountRecipients({
   );
 
   useEffect(() => {
-    if (isDebouncing) return;
+    if (isDebouncing) {
+      onMatchStatusChange?.(false, 0);
+      return;
+    }
     onMatchStatusChange?.(accountMatchCount > 0, accountMatchCount);
   }, [accountMatchCount, onMatchStatusChange, isDebouncing]);
 
@@ -748,8 +751,10 @@ function AddressBookRecipients({
 
   // Notify parent of match status and count
   useEffect(() => {
-    // Skip reporting stale counts during debounce gap to prevent badge flickering
-    if (isDebouncing) return;
+    if (isDebouncing) {
+      onMatchStatusChange?.(false, 0);
+      return;
+    }
     onMatchStatusChange?.(filteredItems.length > 0, filteredItems.length);
   }, [filteredItems.length, onMatchStatusChange, isDebouncing]);
 

@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -160,37 +159,6 @@ const SwapProTradeInfoGroup = ({
     }
     return '';
   }, [toTokenAmount?.value, swapProQuoteResult?.toAmount, swapProTradeType]);
-  const tradingFeeValue = useMemo(() => {
-    const tradingFee = swapProQuoteResult?.fee?.percentageFee;
-    const tradingFeeBN = new BigNumber(tradingFee || '0');
-    const isFreeOneKeyFee =
-      (tradingFeeBN.isZero() || tradingFeeBN.isNaN()) &&
-      swapProQuoteResult?.toAmount;
-    if (isFreeOneKeyFee) {
-      return {
-        valueComponent: (
-          <Badge badgeSize="sm" badgeType="info">
-            {intl.formatMessage({
-              id: ETranslations.swap_stablecoin_0_fee,
-            })}
-          </Badge>
-        ),
-      };
-    }
-    if (!swapProQuoteResult?.toAmount) {
-      return {
-        value: '-',
-      };
-    }
-
-    return {
-      value: `${tradingFee ?? '0'}%`,
-    };
-  }, [
-    intl,
-    swapProQuoteResult?.fee?.percentageFee,
-    swapProQuoteResult?.toAmount,
-  ]);
 
   const handleTokenSelect = useCallback(
     (token: IToken) => {
@@ -343,19 +311,6 @@ const SwapProTradeInfoGroup = ({
             ? false
             : swapProQuoteFetching
         }
-        containerProps={{
-          py: '$1',
-        }}
-      />
-      <SwapCommonInfoItem
-        title={intl.formatMessage({
-          id: ETranslations.provider_ios_popover_wallet_fee,
-        })}
-        value={tradingFeeValue.value}
-        valueComponent={tradingFeeValue.valueComponent}
-        titleProps={ITEM_TITLE_PROPS}
-        valueProps={ITEM_VALUE_PROPS}
-        isLoading={swapProQuoteFetching}
         containerProps={{
           py: '$1',
         }}
