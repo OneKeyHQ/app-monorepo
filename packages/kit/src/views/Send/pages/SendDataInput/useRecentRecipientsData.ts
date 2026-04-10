@@ -493,11 +493,11 @@ export function useRecentRecipientsData({
       loadStoredRecipients(networkId),
     ]);
 
+    if (isStale()) return;
+
     if (apiDeriveType) {
       setLastUsedDeriveType(apiDeriveType);
     }
-
-    if (isStale()) return;
 
     if (apiAddresses.length > 0) {
       // Merge before enrichment so each unique address hits queryAddress

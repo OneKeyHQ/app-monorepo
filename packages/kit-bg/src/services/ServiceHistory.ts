@@ -57,6 +57,7 @@ import {
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
 
@@ -974,7 +975,7 @@ class ServiceHistory extends ServiceBase {
       (
         r,
       ): r is {
-        deriveType: string;
+        deriveType: IAccountDeriveTypes;
         supported: boolean;
         data: ITransferRecipient[];
       } => !!r,
