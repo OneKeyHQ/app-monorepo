@@ -4595,6 +4595,7 @@ export enum ETranslations {
   verify_backup_password_desc = 'verify_backup_password_desc',
   verify_message_address_form_description = 'verify_message_address_form_description',
   view_format__action = 'view_format__action',
+  view_full_changelog = 'view_full_changelog',
   view_older_backups = 'view_older_backups',
   wallet_address_poisoning_alert = 'wallet.address_poisoning_alert',
   wallet_approval_alert_title_summary = 'wallet.approval_alert_title_summary',
