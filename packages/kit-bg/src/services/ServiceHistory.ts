@@ -964,16 +964,16 @@ class ServiceHistory extends ServiceBase {
     // on a single derive path aren't truncated (e.g. all 20 recent sends
     // via Native SegWit). The response per xpub is small (~20 addresses).
     const settled = await promiseAllSettledEnhanced(
-      xpubEntries.map(
-        (entry) => async () => ({
-          deriveType: entry.deriveType,
-          ...(await callOnce(entry.xpub, limit)),
-        }),
-      ),
+      xpubEntries.map((entry) => async () => ({
+        deriveType: entry.deriveType,
+        ...(await callOnce(entry.xpub, limit)),
+      })),
       { continueOnError: true, concurrency: xpubEntries.length },
     );
     const responses = settled.filter(
-      (r): r is {
+      (
+        r,
+      ): r is {
         deriveType: string;
         supported: boolean;
         data: ITransferRecipient[];
