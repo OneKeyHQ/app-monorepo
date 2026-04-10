@@ -92,6 +92,7 @@ const bundleBuildEnv = {
   ...process.env,
   NODE_ENV: 'production',
   NODE_OPTIONS: process.env.NODE_OPTIONS || '--max-old-space-size=8192',
+  METRO_RUNTIME_TARGET: 'background',
 };
 
 fs.ensureDirSync(path.dirname(bundleOutputPath));
