@@ -112,16 +112,15 @@ async function main() {
       categories[cat] = (categories[cat] || 0) + 1;
     }
     // Skip forbidden check for background entry — services/vaults are expected
-    foundForbidden =
-      entryName === 'background'
-        ? []
-        : Array.isArray(allocationReport.violations)
-          ? allocationReport.violations
-          : startupModules.filter((relPath) =>
-              FORBIDDEN_IN_STARTUP.some((forbidden) =>
-                relPath.includes(forbidden),
-              ),
-            );
+    if (entryName === 'background') {
+      foundForbidden = [];
+    } else if (Array.isArray(allocationReport.violations)) {
+      foundForbidden = allocationReport.violations;
+    } else {
+      foundForbidden = startupModules.filter((relPath) =>
+        FORBIDDEN_IN_STARTUP.some((forbidden) => relPath.includes(forbidden)),
+      );
+    }
     console.log(`Using allocation report: ${allocationReportPath}`);
   } else {
     const Metro = require('metro');
