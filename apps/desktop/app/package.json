@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
-    "@stoprocent/noble": "2.3.10",
+    "@stoprocent/noble": "2.3.16",
     "electron-check-biometric-auth-changed": "1.0.0",
     "passport-desktop": "0.1.2",
     "passport-desktop-win32-x64-msvc": "0.1.2"

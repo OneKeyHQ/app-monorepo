@@ -78,7 +78,7 @@ export function ScanPlugin({
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}
-      variant="secondary"
+      variant="tertiary"
       icon="ScanSolid"
       onPress={disabled ? undefined : onPress}
       testID={testID}

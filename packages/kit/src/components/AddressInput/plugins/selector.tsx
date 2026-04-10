@@ -203,7 +203,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
         })}
         disabled={disabled}
         variant="tertiary"
-        icon="PeopleCircleOutline"
+        icon="PeopleOutline"
         testID={testID}
         onPress={onShowAccountSelector}
       />
@@ -243,7 +243,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
           })}
           disabled={disabled}
           variant="tertiary"
-          icon="PeopleCircleOutline"
+          icon="PeopleOutline"
           testID={testID}
         />
       }

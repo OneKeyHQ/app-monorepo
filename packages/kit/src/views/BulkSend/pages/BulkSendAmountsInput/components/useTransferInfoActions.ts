@@ -12,7 +12,10 @@ import type {
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { getBulkSendMinTransferDisplayAmount } from '../../../utils';
+import {
+  filterNumericInput,
+  getBulkSendMinTransferDisplayAmount,
+} from '../../../utils';
 
 type IUseTransferInfoActionsParams = {
   tokenInfo: IToken;
@@ -132,13 +135,14 @@ export function useTransferInfoActions({
   // Update amount immediately for responsive typing; validation is debounced
   const handleAmountChange = useCallback(
     (index: number, value: string) => {
+      const filteredValue = filterNumericInput(value);
       const newTransfersInfo = [...transfersInfo];
       newTransfersInfo[index] = {
         ...newTransfersInfo[index],
-        amount: value,
+        amount: filteredValue,
       };
       setTransfersInfo(newTransfersInfo);
-      debouncedValidate(index, value);
+      debouncedValidate(index, filteredValue);
     },
     [transfersInfo, setTransfersInfo, debouncedValidate],
   );

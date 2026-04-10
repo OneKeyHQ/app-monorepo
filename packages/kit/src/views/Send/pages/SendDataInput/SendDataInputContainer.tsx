@@ -13,7 +13,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Alert,
-  Button,
   Form,
   Page,
   SizableText,
@@ -29,13 +28,13 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
-import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useValidateMemoField } from '@onekeyhq/kit/src/hooks/useValidateMemoField';
 import type {
   IChainValue,
   IQRCodeHandlerParseResult,
@@ -182,7 +181,6 @@ function SendDataInputContainer() {
     numericOnlyMemo,
     displayNoteForm,
     noteMaxLength,
-    supportsMemoValidation,
   ] = useMemo(() => {
     return [
       vaultSettings?.withMemo,
@@ -191,9 +189,11 @@ function SendDataInputContainer() {
       vaultSettings?.numericOnlyMemo,
       vaultSettings?.withNote,
       vaultSettings?.noteMaxLength,
-      vaultSettings?.supportMemoValidation,
     ];
   }, [vaultSettings]);
+
+  // Algo uses Note instead of Memo; history memos should map to the note field
+  const isNoteOnlyChain = displayNoteForm && !displayMemoForm;
 
   const { result: [tokenDetails] = [] } = usePromiseResult(
     async () => {
@@ -290,11 +290,14 @@ function SendDataInputContainer() {
   const memoValue = form.watch('memo') as string | undefined;
   const noteValue = form.watch('note') as string | undefined;
   const paymentIdValue = form.watch('paymentId') as string | undefined;
+  // Don't include isValidating — async memo validation (XRP vault) would
+  // otherwise make the Next button flicker on every keystroke (OK-52883).
+  // handleNavigateToAmountInput awaits form.trigger() as the final guard, so
+  // it's safe to keep the button enabled while async validation is pending.
   const isNextDisabled = Boolean(
     form.formState.errors.memo ||
     form.formState.errors.paymentId ||
-    form.formState.errors.note ||
-    form.formState.isValidating,
+    form.formState.errors.note,
   );
 
   const toValue = form.watch('to') as IAddressInputValue | undefined;
@@ -516,43 +519,12 @@ function SendDataInputContainer() {
     onCancel,
   ]);
 
-  const validateMemoField = useCallback(
-    async (value: string): Promise<string | undefined> => {
-      if (vaultSettings?.supportMemoValidation) {
-        try {
-          const result = await backgroundApiProxy.serviceSend.validateMemo({
-            networkId: currentAccount.networkId,
-            accountId: currentAccount.accountId,
-            memo: value,
-          });
-          if (!result.isValid) {
-            return result.errorMessage;
-          }
-          return undefined;
-        } catch (error) {
-          console.error('Vault memo validation failed:', error);
-        }
-      }
-
-      const validateErrMsg = numericOnlyMemo
-        ? intl.formatMessage({
-            id: ETranslations.send_field_only_integer,
-          })
-        : undefined;
-      const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
-
-      if (!value || !memoRegExp) return undefined;
-      const result = !memoRegExp.test(value);
-      return result ? validateErrMsg : undefined;
-    },
-    [
-      currentAccount.accountId,
-      currentAccount.networkId,
-      intl,
-      numericOnlyMemo,
-      vaultSettings?.supportMemoValidation,
-    ],
-  );
+  const validateMemoField = useValidateMemoField({
+    networkId: currentAccount.networkId,
+    accountId: currentAccount.accountId,
+    numericOnlyMemo,
+    supportMemoValidation: vaultSettings?.supportMemoValidation,
+  });
 
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
@@ -562,49 +534,45 @@ function SendDataInputContainer() {
     if (isNumericMemo) {
       memoInputLines = memoValue?.length ? 2 : 1;
     }
-    const clearMemoExtension = memoValue ? (
-      <XStack justifyContent="flex-end">
-        <Button
-          size="small"
-          variant="secondary"
-          icon="BroomOutline"
-          onPress={() =>
-            form.setValue('memo', '', {
-              shouldValidate: true,
-            })
-          }
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_clear,
-          })}
-        </Button>
-      </XStack>
-    ) : undefined;
-
     return (
       <>
         <Form.Field
           label={intl.formatMessage({ id: ETranslations.send_tag })}
           optional
           name="memo"
+          labelAddon={
+            memoValue ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                cursor="pointer"
+                hoverStyle={{ color: '$text' }}
+                onPress={() =>
+                  form.setValue('memo', '', {
+                    shouldValidate: true,
+                  })
+                }
+              >
+                {intl.formatMessage({ id: ETranslations.global_clear })}
+              </SizableText>
+            ) : undefined
+          }
           rules={{
-            maxLength: supportsMemoValidation
-              ? undefined
-              : {
-                  value: maxLength,
-                  message: intl.formatMessage(
-                    {
-                      id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
-                    },
-                    {
-                      number: maxLength,
-                    },
-                  ),
+            maxLength: {
+              value: maxLength,
+              message: intl.formatMessage(
+                {
+                  id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
                 },
+                {
+                  number: maxLength,
+                },
+              ),
+            },
             validate: validateMemoField,
           }}
         >
-          <BaseInput
+          <TextArea
             numberOfLines={memoInputLines}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
@@ -613,7 +581,6 @@ function SendDataInputContainer() {
             keyboardType={
               isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
             }
-            extension={clearMemoExtension}
           />
         </Form.Field>
       </>
@@ -626,7 +593,6 @@ function SendDataInputContainer() {
     memoMaxLength,
     memoValue,
     numericOnlyMemo,
-    supportsMemoValidation,
     validateMemoField,
   ]);
 
@@ -802,10 +768,12 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo), {
+      const memoText = normalizeOptionalRecipientText(selectedMemo);
+      const noteText = normalizeOptionalRecipientText(selectedNote);
+      form.setValue('memo', displayMemoForm ? memoText : '', {
         shouldValidate: true,
       });
-      form.setValue('note', normalizeOptionalRecipientText(selectedNote), {
+      form.setValue('note', noteText || (isNoteOnlyChain ? memoText : ''), {
         shouldValidate: true,
       });
 
@@ -840,7 +808,7 @@ function SendDataInputContainer() {
         },
       );
     },
-    [form],
+    [displayMemoForm, isNoteOnlyChain, form],
   );
 
   const shouldStayOnDataStepForQuickSelect = useCallback(
@@ -852,10 +820,12 @@ function SendDataInputContainer() {
       selectedNote?: string;
     }) => {
       const hasSelectedMemo = Boolean(selectedMemo?.trim());
+      const hasSelectedNote = Boolean(selectedNote?.trim());
       const needsMemoInput = vaultSettings?.withMemo && !hasSelectedMemo;
       const needsPaymentId =
         vaultSettings?.withPaymentId && !form.getValues('paymentId');
-      const needsNote = vaultSettings?.withNote && !selectedNote;
+      const needsNote =
+        vaultSettings?.withNote && !hasSelectedNote && !hasSelectedMemo;
       return needsMemoInput || needsPaymentId || needsNote;
     },
     [
@@ -912,6 +882,8 @@ function SendDataInputContainer() {
           addressInputMethod: addressInputChangeType.current,
         });
 
+        const effectiveNote =
+          selectedNote || (isNoteOnlyChain ? selectedMemo?.trim() : undefined);
         pushAmountInput({
           networkId: currentAccount.networkId,
           accountId: currentAccount.accountId,
@@ -920,9 +892,11 @@ function SendDataInputContainer() {
           nfts,
           recipientAddress: resolvedAddress,
           recipientIsContract: queryResult.isContract ?? false,
-          recipientMemo: selectedMemo?.trim() || undefined,
+          recipientMemo: displayMemoForm
+            ? selectedMemo?.trim() || undefined
+            : undefined,
           recipientPaymentId: form.getValues('paymentId') || undefined,
-          recipientNote: selectedNote || undefined,
+          recipientNote: effectiveNote || undefined,
           amount: scannedAmount || sendAmount || undefined,
           isAllNetworks,
           onSuccess,
@@ -943,6 +917,8 @@ function SendDataInputContainer() {
     [
       currentAccount.accountId,
       currentAccount.networkId,
+      displayMemoForm,
+      isNoteOnlyChain,
       fillRecipientFromQuickSelect,
       form,
       enableAllowListValidation,

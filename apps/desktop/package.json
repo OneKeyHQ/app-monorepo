@@ -40,7 +40,7 @@
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
     "@sentry/electron": "5.8.0",
-    "@stoprocent/noble": "2.3.10",
+    "@stoprocent/noble": "2.3.16",
     "adm-zip": "^0.5.10",
     "electron-check-biometric-auth-changed": "1.0.0",
     "electron-context-menu": "^3.5.0",
