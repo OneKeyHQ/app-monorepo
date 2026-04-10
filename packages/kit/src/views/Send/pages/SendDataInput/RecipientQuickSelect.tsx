@@ -20,7 +20,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBUtxoAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/addressBooks';
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -162,6 +165,26 @@ type IWalletGroup = {
 
 const NETWORK_ACCOUNTS_FETCH_CONCURRENCY = 4;
 const WALLET_GROUP_FETCH_CONCURRENCY = 6;
+
+// Collect every address an account should be searchable by. For BTC with
+// fresh-address mode (OK-52953) the currently-shown address is one of
+// many rotating entries stored in `IDBUtxoAccount.addresses` (relPath →
+// addr); `customAddresses` covers user-added custom receive addresses.
+// Without these a user searching an old receive address gets no hit.
+function collectAccountSearchAddresses(
+  account: INetworkAccount | undefined,
+): string[] {
+  if (!account) return [];
+  const utxo = account as Partial<IDBUtxoAccount>;
+  const candidates = [
+    account.address,
+    account.addressDetail?.address,
+    account.addressDetail?.masterAddress,
+    ...(utxo.addresses ? Object.values(utxo.addresses) : []),
+    ...(utxo.customAddresses ? Object.values(utxo.customAddresses) : []),
+  ].filter((a): a is string => !!a);
+  return Array.from(new Set(candidates.map((a) => a.toLowerCase())));
+}
 
 // Get wallet accounts on the specified network (with derive type info)
 async function getWalletNetworkAccounts(
@@ -367,11 +390,10 @@ function AccountRecipients({
             items: accounts,
             isNameMatch: (item) =>
               (item.account?.name ?? '').toLowerCase().includes(searchValue),
-            isAddressMatch: (item) => {
-              const address =
-                item.account?.address ?? item.account?.addressDetail?.address;
-              return address?.toLowerCase().includes(searchValue) ?? false;
-            },
+            isAddressMatch: (item) =>
+              collectAccountSearchAddresses(item.account).some((addr) =>
+                addr.includes(searchValue),
+              ),
           });
 
         if (sortedAccounts.length > 0) {
@@ -839,6 +861,15 @@ export default function RecipientQuickSelect({
     addressBook: 0,
   });
 
+  // Set of tabs that should appear (excludes hideTabs and Lightning hidden tabs)
+  const visibleTabKeys = useMemo<IRecipientQuickSelectTab[]>(() => {
+    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
+    const all: IRecipientQuickSelectTab[] = isLightning
+      ? ['recent']
+      : ['recent', 'account', 'addressBook'];
+    return hideTabs?.length ? all.filter((t) => !hideTabs.includes(t)) : all;
+  }, [hideTabs, networkId]);
+
   // Track which tabs have been visited (once visited, stay mounted to avoid AbortError crashes)
   const [visitedTabs, setVisitedTabs] = useState<
     Record<IRecipientQuickSelectTab, boolean>
@@ -854,6 +885,25 @@ export default function RecipientQuickSelect({
       prev[activeTab] ? prev : { ...prev, [activeTab]: true },
     );
   }, [activeTab]);
+
+  // Pre-mount every visible tab (kept hidden via display:none until active)
+  // so each can fetch its data and report its match count without requiring
+  // the user to click in first. Without this, the addressBook tab label
+  // never showed its (N) count when a BTC chain landed on Accounts by
+  // default, and auto-switch couldn't jump to a non-mounted tab (OK-52952).
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const tab of visibleTabKeys) {
+        if (!next[tab]) {
+          next[tab] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [visibleTabKeys]);
 
   // For multi-derive chains (BTC/LTC), default to Accounts tab so
   // addresses are visible without manual tab switch (OK-52809).

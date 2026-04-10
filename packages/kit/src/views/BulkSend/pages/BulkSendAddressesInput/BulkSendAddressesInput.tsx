@@ -46,6 +46,7 @@ import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
 import { useBulkSendModeDialog } from '../../hooks/useBulkSendModeDialog';
+import { isBulkSendTokenDetailsMatched } from '../../utils';
 
 import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
@@ -54,6 +55,8 @@ import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
 } from './components/Context';
+
+import type { ILineError } from './components/AddressesInput/LineNumberedTextArea';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
@@ -89,6 +92,7 @@ function BaseBulkSendAddressesInput() {
     duplicateSenderAddressCount,
     setDuplicateSenderAddressCount,
     setHasUserSelectedAsset,
+    setReceiverValidationErrors,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
@@ -266,6 +270,7 @@ function BaseBulkSendAddressesInput() {
   const previousValidationDependencyKeyRef = useRef<string | undefined>(
     undefined,
   );
+  const tokenDetailsRequestIdRef = useRef(0);
 
   // Reset token details state when account/network/token changes (OneToMany only)
   /* eslint-disable react-hooks/exhaustive-deps */
@@ -277,6 +282,8 @@ function BaseBulkSendAddressesInput() {
       selectedNetworkId &&
       selectedToken
     ) {
+      setSelectedTokenDetail(undefined);
+      tokenDetailsRequestIdRef.current += 1;
       setTokenDetailsState({
         initialized: false,
         isRefreshing: true,
@@ -303,6 +310,8 @@ function BaseBulkSendAddressesInput() {
         selectedToken &&
         availableWallets?.length
       ) {
+        const requestId = tokenDetailsRequestIdRef.current + 1;
+        tokenDetailsRequestIdRef.current = requestId;
         console.log('addresses input fetchSelectedTokenFiatInfo');
 
         const [checkInscriptionProtectionEnabled, vaultSettings] =
@@ -331,18 +340,36 @@ function BaseBulkSendAddressesInput() {
             },
           );
 
-          if (resp[0]) {
+          if (tokenDetailsRequestIdRef.current !== requestId) {
+            return;
+          }
+
+          if (
+            resp[0] &&
+            isBulkSendTokenDetailsMatched(
+              {
+                networkId: selectedNetworkId,
+                tokenInfo: selectedToken,
+              },
+              resp[0],
+            )
+          ) {
             setSelectedTokenDetail(resp[0]);
           } else {
             setSelectedTokenDetail(undefined);
           }
         } catch (_) {
+          if (tokenDetailsRequestIdRef.current !== requestId) {
+            return;
+          }
           setSelectedTokenDetail(undefined);
         } finally {
-          setTokenDetailsState({
-            initialized: true,
-            isRefreshing: false,
-          });
+          if (tokenDetailsRequestIdRef.current === requestId) {
+            setTokenDetailsState({
+              initialized: true,
+              isRefreshing: false,
+            });
+          }
         }
       }
     },
@@ -436,6 +463,8 @@ function BaseBulkSendAddressesInput() {
     setDuplicateAddressCount(0);
     setDuplicateSenderAddressCount(0);
     setHasUserSelectedAsset(false);
+    setSelectedTokenDetail(undefined);
+    setReceiverValidationErrors([]);
     if (isOneToMany && selectedAccountId && selectedNetworkId) {
       void fetchSelectedAccountAddress();
       setTokenDetailsState({ initialized: false, isRefreshing: true });
@@ -546,7 +575,16 @@ function BaseBulkSendAddressesInput() {
           withCheckInscription: false,
         });
 
-        if (resp[0]) {
+        if (
+          resp[0] &&
+          isBulkSendTokenDetailsMatched(
+            {
+              networkId: selectedNetworkId,
+              tokenInfo: selectedToken,
+            },
+            resp[0],
+          )
+        ) {
           resolvedTokenDetails = resp[0];
           setSelectedTokenDetail(resp[0]);
         }
@@ -760,6 +798,9 @@ function BulkSendAddressesInput() {
     useState(0);
 
   const [hasUserSelectedAsset, setHasUserSelectedAsset] = useState(false);
+  const [receiverValidationErrors, setReceiverValidationErrors] = useState<
+    ILineError[]
+  >([]);
 
   const context = useMemo(
     () => ({
@@ -787,6 +828,8 @@ function BulkSendAddressesInput() {
       setDuplicateSenderAddressCount,
       hasUserSelectedAsset,
       setHasUserSelectedAsset,
+      receiverValidationErrors,
+      setReceiverValidationErrors,
     }),
     [
       selectedAccountId,
@@ -809,6 +852,7 @@ function BulkSendAddressesInput() {
       resolvedSenderAccountIds,
       duplicateSenderAddressCount,
       hasUserSelectedAsset,
+      receiverValidationErrors,
     ],
   );
 
