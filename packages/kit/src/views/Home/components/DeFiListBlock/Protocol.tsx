@@ -2,11 +2,11 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { type GestureResponderEvent, StyleSheet } from 'react-native';
 
 import {
   Accordion,
   Badge,
-  Divider,
   Icon,
   Popover,
   SizableText,
@@ -38,7 +38,8 @@ import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 
 import { RichTable } from '../RichTable';
 
-import type { GestureResponderEvent } from 'react-native';
+const PROTOCOL_CARD_WEB_SHADOW =
+  '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';
 
 function Protocol({
   protocol,
@@ -60,108 +61,110 @@ function Protocol({
         networkId: protocol.networkId,
       })
     ];
+  const getCategoryLabel = useCallback(
+    (category: string) => getCategoryConfig(category).label,
+    [],
+  );
+
+  const renderAssetType = useCallback(
+    (asset: IDeFiAsset & { type: EDeFiAssetType }) => {
+      let type = asset.category;
+      let typeColor = '$blue10';
+
+      if (asset.type === EDeFiAssetType.DEBT) {
+        type = 'Borrowed';
+        typeColor = '$orange10';
+      } else if (asset.type === EDeFiAssetType.REWARD) {
+        type = 'Rewards';
+        typeColor = '$teal10';
+      } else if (asset.type === EDeFiAssetType.ASSET) {
+        type = 'Supplied';
+        typeColor = '$blue10';
+      }
+
+      return (
+        <XStack gap="$1" alignItems="center" justifyContent="flex-end">
+          <Stack
+            width={7}
+            height={7}
+            borderRadius="$full"
+            backgroundColor={typeColor}
+          />
+          <SizableText size="$bodyMdMedium">{type}</SizableText>
+        </XStack>
+      );
+    },
+    [],
+  );
+
+  const renderAssetValue = useCallback(
+    (value: IDeFiAsset['value']) => {
+      const valueBN = new BigNumber(value);
+      const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
+
+      return (
+        <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+          {isValueUnavailable ? (
+            <Stack width="$4" height="$4">
+              <Tooltip
+                renderContent={intl.formatMessage({
+                  id: ETranslations.wallet_price_unavailable,
+                })}
+                renderTrigger={
+                  <Icon name="ErrorOutline" size="$4" color="$iconCritical" />
+                }
+              />
+            </Stack>
+          ) : null}
+          <NumberSizeableTextWrapper
+            hideValue
+            size="$bodyMdMedium"
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            color={isValueUnavailable ? '$text' : undefined}
+          >
+            {isValueUnavailable ? '--' : valueBN.toFixed()}
+          </NumberSizeableTextWrapper>
+        </XStack>
+      );
+    },
+    [intl, settings.currencyInfo.symbol],
+  );
 
   const getColumns = useCallback(
-    (position: {
-      category: string;
-      poolName: string;
-      poolFullName: string;
-    }) => [
+    () => [
       {
-        title: (
-          <XStack gap="$2" alignItems="center">
-            <Badge bg={getCategoryConfig(position.category).bg} badgeSize="sm">
-              <Badge.Text
-                textTransform="capitalize"
-                color={getCategoryConfig(position.category).text}
-              >
-                {`${getCategoryConfig(position.category).emoji} ${position.category}`}
-              </Badge.Text>
-            </Badge>
-            <Popover
-              hoverable
-              placement="top"
-              title={intl.formatMessage({
-                id: ETranslations.wallet_defi_position_name_popover_title,
-              })}
-              renderTrigger={
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  textDecorationLine="underline"
-                  textDecorationColor="$textSubdued"
-                  textDecorationStyle="dotted"
-                >
-                  {position.poolName}
-                </SizableText>
-              }
-              renderContent={
-                <Stack px="$4" py="$2">
-                  <SizableText size="$bodyLgMedium">
-                    {position.poolFullName}
-                  </SizableText>
-                </Stack>
-              }
-            />
-          </XStack>
-        ),
+        title: intl.formatMessage({ id: ETranslations.global_asset }),
         dataIndex: 'symbol',
         render: (symbol: string, record: IDeFiAsset) => (
           <XStack gap="$3" alignItems="center">
-            <Token size="sm" tokenImageUri={record.meta?.logoUrl} />
+            <Token
+              size="sm"
+              tokenImageUri={record.meta?.logoUrl}
+              bg="$bgStrong"
+            />
             <SizableText size="$bodyMdMedium">{symbol}</SizableText>
           </XStack>
         ),
       },
       {
-        title: intl.formatMessage({
-          id: ETranslations.wallet_defi_portfolio_column_type,
-        }),
+        title: 'Type',
         dataIndex: 'category',
-        render: (
-          category: string,
-          record: IDeFiAsset & { type: EDeFiAssetType },
-        ) => {
-          let type = '';
-          let typeColor = '$blue10';
-          // show en value instead of translation id
-          if (record.type === EDeFiAssetType.DEBT) {
-            type = 'Borrowed';
-            typeColor = '$orange10';
-          } else if (record.type === EDeFiAssetType.REWARD) {
-            type = 'Rewards';
-            typeColor = '$teal10';
-          } else if (record.type === EDeFiAssetType.ASSET) {
-            type = 'Supplied';
-            typeColor = '$blue10';
-          } else {
-            type = category;
-          }
-          return (
-            <XStack gap="$1" alignItems="center">
-              <Stack
-                width={7}
-                height={7}
-                borderRadius="$full"
-                backgroundColor={typeColor}
-              />
-              <SizableText size="$bodyMd" textTransform="capitalize">
-                {type}
-              </SizableText>
-            </XStack>
-          );
+        columnProps: {
+          pr: '$2',
         },
+        render: (
+          _category: string,
+          record: IDeFiAsset & { type: EDeFiAssetType },
+        ) => renderAssetType(record),
       },
       {
-        title: intl.formatMessage({
-          id: ETranslations.wallet_defi_portfolio_column_amount,
-        }),
+        title: 'Amount',
         dataIndex: 'amount',
         render: (amount: string) => (
           <NumberSizeableTextWrapper
             hideValue
-            size="$bodyMd"
+            size="$bodyMdMedium"
             formatter="balance"
           >
             {amount}
@@ -169,83 +172,13 @@ function Protocol({
         ),
       },
       {
-        title: intl.formatMessage({ id: ETranslations.global_value }),
+        title: 'USD value',
         dataIndex: 'value',
-        render: (value: string) => {
-          const valueBN = new BigNumber(value);
-          const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
-          return (
-            <XStack alignItems="center" gap="$1">
-              {isValueUnavailable ? (
-                <Stack width="$4" height="$4">
-                  <Tooltip
-                    renderContent={intl.formatMessage({
-                      id: ETranslations.wallet_price_unavailable,
-                    })}
-                    renderTrigger={
-                      <Icon
-                        name="ErrorOutline"
-                        size="$4"
-                        color="$iconCritical"
-                      />
-                    }
-                  />
-                </Stack>
-              ) : null}
-              <NumberSizeableTextWrapper
-                hideValue
-                size="$bodyMd"
-                formatter="value"
-                formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              >
-                {isValueUnavailable ? '--' : valueBN.toFixed()}
-              </NumberSizeableTextWrapper>
-            </XStack>
-          );
-        },
+        render: (value: IDeFiAsset['value']) => renderAssetValue(value),
       },
     ],
-    [settings.currencyInfo.symbol, intl],
+    [intl, renderAssetType, renderAssetValue],
   );
-
-  const renderProtocolPositions = useCallback(() => {
-    return protocol.positions.map((position, index) => {
-      return (
-        <>
-          <Stack key={position.groupId}>
-            <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
-              dataSource={[
-                ...position.assets,
-                ...position.debts,
-                ...position.rewards,
-              ]}
-              columns={getColumns(position)}
-              keyExtractor={(item) => item.address}
-              estimatedItemSize={44}
-              onRow={() => ({
-                onPress: undefined,
-              })}
-              rowProps={{
-                mx: '$2',
-                minHeight: 44,
-                hoverStyle: { bg: '$bgApp' },
-                pressStyle: { bg: '$bgApp' },
-                cursor: 'default',
-              }}
-              headerRowProps={{
-                py: '$2',
-                px: '$3',
-                mx: '$2',
-              }}
-            />
-          </Stack>
-          {index !== protocol.positions.length - 1 ? (
-            <Divider mx="$pagePadding" key={index} my="$2" />
-          ) : null}
-        </>
-      );
-    });
-  }, [protocol.positions, getColumns]);
 
   const handlePressProtocol = useCallback(() => {
     navigation.pushModal(EModalRoutes.MainModal, {
@@ -256,6 +189,129 @@ function Protocol({
       },
     });
   }, [protocol, protocolInfo, navigation]);
+
+  const handleOpenProtocolUrl = useCallback(
+    (event: GestureResponderEvent) => {
+      event.stopPropagation();
+
+      if (!protocolInfo?.protocolUrl) {
+        return;
+      }
+
+      if (platformEnv.isDesktop || platformEnv.isNative) {
+        openUrlInDiscovery({
+          url: protocolInfo.protocolUrl,
+        });
+      } else {
+        openUrlExternal(protocolInfo.protocolUrl);
+      }
+    },
+    [protocolInfo?.protocolUrl],
+  );
+
+  const renderProtocolPositions = useCallback(() => {
+    const columns = getColumns();
+
+    return protocol.positions.map((position, index) => {
+      const positionCategoryConfig = getCategoryConfig(position.category);
+      const positionAssets = [
+        ...position.assets,
+        ...position.debts,
+        ...position.rewards,
+      ];
+
+      return (
+        <YStack key={position.groupId}>
+          <YStack py="$2">
+            <XStack alignItems="center" gap="$3" pl="$3" pr="$5" py="$3">
+              <Badge bg={positionCategoryConfig.bg} badgeSize="sm">
+                <Badge.Text color={positionCategoryConfig.text}>
+                  {getCategoryLabel(position.category)}
+                </Badge.Text>
+              </Badge>
+              <Popover
+                hoverable
+                placement="top"
+                title={intl.formatMessage({
+                  id: ETranslations.wallet_defi_position_name_popover_title,
+                })}
+                renderTrigger={
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    flex={1}
+                    minWidth={0}
+                  >
+                    {position.poolName}
+                  </SizableText>
+                }
+                renderContent={
+                  <Stack px="$4" py="$2">
+                    <SizableText size="$bodyLgMedium">
+                      {position.poolFullName}
+                    </SizableText>
+                  </Stack>
+                }
+              />
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$bodyMdMedium"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+                textAlign="right"
+                numberOfLines={1}
+                maxWidth="45%"
+              >
+                {position.value}
+              </NumberSizeableTextWrapper>
+            </XStack>
+            <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
+              dataSource={positionAssets}
+              columns={columns}
+              keyExtractor={(item, assetIndex) =>
+                `${position.groupId}-${item.address}-${item.type}-${assetIndex}`
+              }
+              estimatedItemSize={48}
+              onRow={() => ({
+                onPress: undefined,
+              })}
+              rowProps={{
+                px: '$5',
+                py: '$2',
+                minHeight: 48,
+                bg: 'transparent',
+                borderRadius: '$0',
+                hoverStyle: { bg: 'transparent' },
+                pressStyle: { bg: 'transparent' },
+                cursor: 'default',
+              }}
+              headerRowProps={{
+                px: '$5',
+                py: '$2',
+                minHeight: 32,
+              }}
+            />
+          </YStack>
+          {index !== protocol.positions.length - 1 ? (
+            <XStack px="$5" py="$2">
+              <Stack
+                flex={1}
+                height={StyleSheet.hairlineWidth}
+                backgroundColor="$borderSubdued"
+              />
+            </XStack>
+          ) : null}
+        </YStack>
+      );
+    });
+  }, [
+    getCategoryLabel,
+    getColumns,
+    intl,
+    protocol.positions,
+    settings.currencyInfo.symbol,
+  ]);
 
   if (!tableLayout) {
     return (
@@ -278,25 +334,20 @@ function Protocol({
               {protocolInfo?.protocolName ?? protocol.protocol}
             </SizableText>
             <XStack alignItems="center" gap="$1" flexWrap="wrap" flex={1}>
-              {protocol.categories.slice(0, 2).map((category) => (
-                <Badge
-                  key={category}
-                  bg={getCategoryConfig(category).bg}
-                  badgeSize="sm"
-                >
-                  <Badge.Text
-                    textTransform="capitalize"
-                    color={getCategoryConfig(category).text}
-                  >
-                    {`${getCategoryConfig(category).emoji} ${category}`}
-                  </Badge.Text>
-                </Badge>
-              ))}
+              {protocol.categories.slice(0, 2).map((category) => {
+                const categoryConfig = getCategoryConfig(category);
+
+                return (
+                  <Badge key={category} bg={categoryConfig.bg} badgeSize="sm">
+                    <Badge.Text color={categoryConfig.text}>
+                      {getCategoryLabel(category)}
+                    </Badge.Text>
+                  </Badge>
+                );
+              })}
               {protocol.categories.length > 2 ? (
                 <Badge badgeType="default" badgeSize="sm">
-                  <Badge.Text textTransform="capitalize">
-                    {`+${protocol.categories.length - 2}`}
-                  </Badge.Text>
+                  <Badge.Text>{`+${protocol.categories.length - 2}`}</Badge.Text>
                 </Badge>
               ) : null}
             </XStack>
@@ -320,113 +371,121 @@ function Protocol({
   }
 
   return (
-    <Accordion
-      key={`${protocol.protocol}-${protocol.networkId}`}
-      collapsible
+    <Stack
+      borderRadius="$3"
+      borderCurve="continuous"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
       overflow="hidden"
-      width="100%"
-      type="single"
-      defaultValue="protocol"
+      bg="$bgApp"
+      $platform-web={{
+        boxShadow: PROTOCOL_CARD_WEB_SHADOW,
+      }}
+      $platform-ios={{
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 0.5 },
+        shadowOpacity: 0.2,
+        shadowRadius: 0.5,
+      }}
+      $theme-dark={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$borderSubdued',
+      }}
     >
-      <Accordion.Item value="protocol">
-        <Accordion.Trigger
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          px="$3"
-          mx="$2"
-          py="$2"
-          bg="transparent"
-          borderWidth={0}
-          borderRadius="$3"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          focusStyle={{ bg: 'transparent' }}
-          cursor="default"
-        >
-          {({ open }: { open: boolean }) => (
-            <>
-              <XStack gap="$3" alignItems="center" flex={1}>
-                <Token
-                  size="md"
-                  tokenImageUri={protocolInfo?.protocolLogo}
-                  isNFT
-                  showNetworkIcon={isAllNetworks}
-                  networkId={protocol.networkId}
-                />
-                <XStack alignItems="center" gap="$1">
-                  <SizableText size="$headingMd">
-                    {protocolInfo?.protocolName ?? protocol.protocol}
-                  </SizableText>
-                  <SizableText size="$headingMd" color="$textSubdued">
-                    ·
-                  </SizableText>
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    size="$headingMd"
-                    color="$textSubdued"
-                    formatter="value"
-                    formatterOptions={{
-                      currency: settings.currencyInfo.symbol,
-                    }}
-                  >
-                    {protocolInfo?.netWorth ?? '0'}
-                  </NumberSizeableTextWrapper>
+      <Accordion
+        key={`${protocol.protocol}-${protocol.networkId}`}
+        collapsible
+        overflow="hidden"
+        width="100%"
+        type="single"
+        defaultValue="protocol"
+      >
+        <Accordion.Item value="protocol">
+          <Accordion.Trigger
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            px="$5"
+            py="$3"
+            bg="$bgSubdued"
+            borderWidth={0}
+            hoverStyle={{ bg: '$bgSubdued' }}
+            pressStyle={{ bg: '$bgSubdued' }}
+            focusStyle={{ bg: '$bgSubdued' }}
+            cursor="pointer"
+          >
+            {({ open }: { open: boolean }) => (
+              <>
+                <XStack gap="$3" alignItems="center" flex={1} minWidth={0}>
+                  <Token
+                    size="md"
+                    tokenImageUri={protocolInfo?.protocolLogo}
+                    isNFT
+                    showNetworkIcon={isAllNetworks}
+                    networkId={protocol.networkId}
+                  />
+                  <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
+                    <SizableText size="$headingMd" numberOfLines={1}>
+                      {protocolInfo?.protocolName ?? protocol.protocol}
+                    </SizableText>
+                    {protocolInfo?.protocolUrl ? (
+                      <XStack
+                        onPress={handleOpenProtocolUrl}
+                        cursor="pointer"
+                        borderRadius="$full"
+                        p="$1"
+                        hoverStyle={{
+                          bg: '$bgHover',
+                        }}
+                        pressStyle={{
+                          bg: '$bgActive',
+                        }}
+                      >
+                        <Icon
+                          name="ArrowTopRightOutline"
+                          size="$5"
+                          color="$iconSubdued"
+                        />
+                      </XStack>
+                    ) : null}
+                  </XStack>
                 </XStack>
-              </XStack>
-              {protocolInfo?.protocolUrl ? (
-                <XStack
-                  onPress={(event: GestureResponderEvent) => {
-                    event.stopPropagation();
-                    if (platformEnv.isDesktop || platformEnv.isNative) {
-                      openUrlInDiscovery({
-                        url: protocolInfo?.protocolUrl,
-                      });
-                    } else {
-                      openUrlExternal(protocolInfo?.protocolUrl);
-                    }
+                <NumberSizeableTextWrapper
+                  hideValue
+                  size="$headingMd"
+                  formatter="value"
+                  formatterOptions={{
+                    currency: settings.currencyInfo.symbol,
                   }}
-                  cursor="pointer"
-                  borderRadius="$full"
-                  p="$1"
-                  hoverStyle={{
-                    bg: '$bgHover',
-                  }}
-                  pressStyle={{
-                    bg: '$bgActive',
-                  }}
+                  numberOfLines={1}
+                  textAlign="right"
+                  minWidth={120}
+                  maxWidth={168}
+                >
+                  {protocolInfo?.netWorth ?? '0'}
+                </NumberSizeableTextWrapper>
+                <View
+                  ml="$2"
+                  animation="quick"
+                  animateOnly={ANIMATE_ONLY_TRANSFORM}
+                  rotate={open ? '180deg' : '0deg'}
+                  transformOrigin="center"
                 >
                   <Icon
-                    name="ArrowTopRightOutline"
-                    size="$5"
+                    name="ChevronDownSmallOutline"
                     color="$iconSubdued"
+                    size="$6"
                   />
-                </XStack>
-              ) : null}
-              <View
-                ml="$2"
-                animation="quick"
-                animateOnly={ANIMATE_ONLY_TRANSFORM}
-                rotate={open ? '180deg' : '0deg'}
-                transformOrigin="center"
-              >
-                <Icon
-                  name="ChevronDownSmallOutline"
-                  color="$iconSubdued"
-                  size="$6"
-                />
-              </View>
-            </>
-          )}
-        </Accordion.Trigger>
-        <Accordion.Content exitStyle={{ opacity: 0 }} py="$2" pl="$11">
-          <YStack px="$pagePadding">
-            <Divider borderColor="$borderSubdued" borderBottomWidth={2} />
-          </YStack>
-          {renderProtocolPositions()}
-        </Accordion.Content>
-      </Accordion.Item>
-    </Accordion>
+                </View>
+              </>
+            )}
+          </Accordion.Trigger>
+          <Accordion.Content exitStyle={{ opacity: 0 }} px="$0" py="$0">
+            {renderProtocolPositions()}
+          </Accordion.Content>
+        </Accordion.Item>
+      </Accordion>
+    </Stack>
   );
 }
 
