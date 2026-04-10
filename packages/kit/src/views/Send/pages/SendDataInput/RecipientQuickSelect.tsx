@@ -367,8 +367,10 @@ function AccountRecipients({
               // For BTC with fresh address enabled, this is the fresh address;
               // the first/base address is intentionally excluded so users
               // aren't matched to a stale address they shouldn't reuse.
-              const displayAddr =
-                item.account?.addressDetail?.displayAddress?.toLowerCase();
+              const displayAddr = (
+                item.account?.addressDetail?.displayAddress ??
+                item.account?.address
+              )?.toLowerCase();
               return displayAddr?.includes(searchValue) ?? false;
             },
           });
@@ -459,7 +461,13 @@ function AccountRecipients({
         data: filteredAccounts,
       };
     });
-  }, [filteredWalletGroups, walletDeriveType, senderDeriveType, intl, isSearchActive]);
+  }, [
+    filteredWalletGroups,
+    walletDeriveType,
+    senderDeriveType,
+    intl,
+    isSearchActive,
+  ]);
 
   // Count visible accounts (after derive type filtering)
   const accountMatchCount = useMemo(
