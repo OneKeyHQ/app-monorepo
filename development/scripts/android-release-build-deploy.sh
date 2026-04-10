@@ -22,6 +22,11 @@ set -e
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MOBILE_DIR="$REPO_ROOT/apps/mobile"
 PACKAGE_NAME="so.onekey.app.wallet"
+SCRIPT_START_TIME=$(date +%s)
+
+timestamp() {
+  echo "⏱  [$(date '+%H:%M:%S')]"
+}
 
 # --- Detect connected device/emulator ---
 detect_device() {
@@ -38,7 +43,7 @@ detect_device() {
 
 # --- Build HBC bundles ---
 cmd_build() {
-  echo "📦 Building HBC bundles (union build + hermesc)..."
+  echo "$(timestamp) 📦 Building HBC bundles (union build + hermesc)..."
   cd "$MOBILE_DIR"
   rm -rf out-dir-bundle out-dir-bundle-zip
 
@@ -48,7 +53,7 @@ cmd_build() {
   node --max-old-space-size=8192 build-bundle.js --platform android
 
   echo ""
-  echo "✅ Build complete:"
+  echo "$(timestamp) ✅ Build complete:"
   ls -lh out-dir-bundle/android/dist/common.jsbundle.hbc \
          out-dir-bundle/android/dist/main.jsbundle.hbc \
          out-dir-bundle/android/dist/background.bundle 2>/dev/null
@@ -61,7 +66,7 @@ cmd_build() {
 cmd_deploy() {
   local DEVICE_ID
   DEVICE_ID=$(detect_device)
-  echo "📱 Deploying to device: $DEVICE_ID"
+  echo "$(timestamp) 📱 Deploying to device: $DEVICE_ID"
 
   cd "$MOBILE_DIR"
   local APK="android/app/build/outputs/apk/prod/release/app-prod-release.apk"
@@ -151,14 +156,14 @@ cmd_deploy() {
   adb -s "$DEVICE_ID" shell monkey -p "$PACKAGE_NAME" -c android.intent.category.LAUNCHER 1
 
   echo ""
-  echo "✅ Deployed and launched on $DEVICE_ID"
+  echo "$(timestamp) ✅ Deployed and launched on $DEVICE_ID"
 }
 
 # --- Build native APK with Gradle ---
 cmd_gradle() {
   local DEVICE_ID
   DEVICE_ID=$(detect_device)
-  echo "🔨 Building native APK for device: $DEVICE_ID"
+  echo "$(timestamp) 🔨 Building native APK for device: $DEVICE_ID"
 
   cd "$MOBILE_DIR/android"
 
@@ -170,7 +175,7 @@ cmd_gradle() {
     -PmemoryMax=8192m
 
   echo ""
-  echo "✅ Native build complete"
+  echo "$(timestamp) ✅ Native build complete"
   ls -lh app/build/outputs/apk/prod/release/app-prod-release.apk
 }
 
@@ -213,3 +218,9 @@ case "$COMMAND" in
     exit 1
     ;;
 esac
+
+if [ "$COMMAND" != "logs" ]; then
+  TOTAL_TIME=$(( $(date +%s) - SCRIPT_START_TIME ))
+  echo ""
+  echo "$(timestamp) Total time: $((TOTAL_TIME / 60))m $((TOTAL_TIME % 60))s"
+fi

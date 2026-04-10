@@ -21,6 +21,11 @@ set -e
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MOBILE_DIR="$REPO_ROOT/apps/mobile"
+SCRIPT_START_TIME=$(date +%s)
+
+timestamp() {
+  echo "⏱  [$(date '+%H:%M:%S')]"
+}
 
 # --- Detect booted simulator ---
 detect_simulator() {
@@ -46,7 +51,7 @@ sys.exit(1)
 
 # --- Build HBC bundles ---
 cmd_build() {
-  echo "📦 Building HBC bundles (union build + hermesc)..."
+  echo "$(timestamp) 📦 Building HBC bundles (union build + hermesc)..."
   cd "$MOBILE_DIR"
   rm -rf out-dir-bundle out-dir-bundle-zip
 
@@ -56,7 +61,7 @@ cmd_build() {
   node --max-old-space-size=8192 build-bundle.js --platform ios
 
   echo ""
-  echo "✅ Build complete:"
+  echo "$(timestamp) ✅ Build complete:"
   ls -lh out-dir-bundle/ios/dist/common.jsbundle.hbc \
          out-dir-bundle/ios/dist/main.jsbundle.hbc \
          out-dir-bundle/ios/dist/background.bundle 2>/dev/null
@@ -69,7 +74,7 @@ cmd_build() {
 cmd_deploy() {
   local SIM_ID
   SIM_ID=$(detect_simulator)
-  echo "📱 Deploying to simulator: $SIM_ID"
+  echo "$(timestamp) 📱 Deploying to simulator: $SIM_ID"
 
   cd "$MOBILE_DIR"
   local APP="ios/build/Build/Products/Release-iphonesimulator/OneKeyWallet.app"
@@ -108,14 +113,14 @@ cmd_deploy() {
   xcrun simctl launch "$SIM_ID" so.onekey.wallet
 
   echo ""
-  echo "✅ Deployed and launched on $SIM_ID"
+  echo "$(timestamp) ✅ Deployed and launched on $SIM_ID"
 }
 
 # --- Build native .app with xcodebuild ---
 cmd_xcode() {
   local SIM_ID
   SIM_ID=$(detect_simulator)
-  echo "🔨 Building native .app for simulator: $SIM_ID"
+  echo "$(timestamp) 🔨 Building native .app for simulator: $SIM_ID"
 
   cd "$MOBILE_DIR"
 
@@ -134,7 +139,7 @@ cmd_xcode() {
     build
 
   echo ""
-  echo "✅ Native build complete"
+  echo "$(timestamp) ✅ Native build complete"
 }
 
 # --- Read logs ---
@@ -189,3 +194,9 @@ case "$COMMAND" in
     exit 1
     ;;
 esac
+
+if [ "$COMMAND" != "logs" ]; then
+  TOTAL_TIME=$(( $(date +%s) - SCRIPT_START_TIME ))
+  echo ""
+  echo "$(timestamp) Total time: $((TOTAL_TIME / 60))m $((TOTAL_TIME % 60))s"
+fi
