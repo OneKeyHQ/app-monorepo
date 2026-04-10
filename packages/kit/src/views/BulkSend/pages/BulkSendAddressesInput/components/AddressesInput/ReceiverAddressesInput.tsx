@@ -6,17 +6,22 @@ import { useIntl } from 'react-intl';
 
 import {
   Form,
+  type IFieldErrorProps,
   SizableText,
   YStack,
   useFormContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
@@ -37,6 +42,19 @@ type IReceiverAddressesInputProps = {
   maxLines?: number;
 };
 
+type IParsedAllowlistMessage =
+  | {
+      key: string;
+      lineNumber: number;
+    }
+  | {
+      key: string;
+      message: string;
+    };
+
+const BULK_SEND_ALLOWLIST_ERROR_ID =
+  ETranslations.wallet_bulk_send_error_address_not_in_allowlist;
+
 function buildReceiverSelectorAccountItem(
   activeAccount: IAccountSelectorActiveAccountInfo,
 ): IBulkSendSelectorAccountItem | undefined {
@@ -56,6 +74,124 @@ function buildReceiverSelectorAccountItem(
     indexedAccountId: activeAccount.indexedAccount?.id,
   };
 }
+
+function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
+  const form = useFormContext();
+  const navigation = useAppNavigation();
+  const {
+    selectedAccountId,
+    selectedNetworkId,
+    receiverValidationErrors,
+    setReceiverValidationErrors,
+  } = useBulkSendAddressesInputContext();
+
+  const handleAddressBookSaved = useCallback(() => {
+    setReceiverValidationErrors([]);
+    void form.trigger('receiverAddresses');
+  }, [form, setReceiverValidationErrors]);
+
+  const handleOpenAddressBook = useCallback(
+    async (lineNumber?: number) => {
+      const receiverAddresses =
+        (form.getValues('receiverAddresses') as string | undefined) ?? '';
+      const lines = receiverAddresses.split('\n');
+      const targetLine =
+        typeof lineNumber === 'number' ? lines[lineNumber - 1]?.trim() : '';
+      const address = targetLine?.split(',')[0]?.trim();
+
+      if (!address || !selectedNetworkId) {
+        return;
+      }
+
+      const { addressBookId, isAllowListed } =
+        await backgroundApiProxy.serviceAccountProfile.queryAddress({
+          accountId: selectedAccountId,
+          networkId: selectedNetworkId,
+          address,
+          enableAddressBook: true,
+          enableWalletName: true,
+          skipValidateAddress: true,
+        });
+
+      if (isAllowListed) {
+        return;
+      }
+
+      navigation.pushModal(EModalRoutes.AddressBookModal, {
+        screen: EModalAddressBookRoutes.EditItemModal,
+        params: {
+          id: addressBookId,
+          address,
+          networkId: selectedNetworkId,
+          isAllowListed: true,
+          onSaveSuccess: handleAddressBookSaved,
+        },
+      });
+    },
+    [
+      form,
+      handleAddressBookSaved,
+      navigation,
+      selectedAccountId,
+      selectedNetworkId,
+    ],
+  );
+
+  const parsedMessages = useMemo<IParsedAllowlistMessage[]>(() => {
+    const blockingAllowlistErrors = receiverValidationErrors.filter(
+      (item) =>
+        item.translationId === ETranslations.send_address_not_allowlist_error &&
+        item.lineNumber > 0,
+    );
+
+    if (blockingAllowlistErrors.length > 0) {
+      return blockingAllowlistErrors.map((item) => ({
+        key: `${item.lineNumber}`,
+        lineNumber: item.lineNumber,
+      }));
+    }
+
+    if (!error?.message) {
+      return [];
+    }
+
+    return [
+      {
+        key: 'fallback',
+        message: error.message,
+      },
+    ];
+  }, [error?.message, receiverValidationErrors]);
+
+  return (
+    <YStack gap="$1">
+      {parsedMessages.map((item) =>
+        'lineNumber' in item ? (
+          <HyperlinkText
+            key={item.key}
+            color="$textCritical"
+            size="$bodyMd"
+            translationId={ETranslations.send_address_not_allowlist_error}
+            autoExecuteParsedAction={false}
+            onAction={(actionId) => {
+              if (actionId === 'to_add_address_page') {
+                void handleOpenAddressBook(item.lineNumber);
+              }
+            }}
+          />
+        ) : (
+          <SizableText key={item.key} color="$textCritical" size="$bodyMd">
+            {item.message}
+          </SizableText>
+        ),
+      )}
+    </YStack>
+  );
+}
+
+const renderBulkSendReceiverAllowlistErrorMessage = (
+  props: IFieldErrorProps,
+) => <BulkSendReceiverAllowlistErrorMessage {...props} />;
 
 function useReceiverSelectorAccountItems() {
   const selectorAccountItemsRef = useRef<
@@ -85,8 +221,12 @@ function useReceiverSelectorAccountItems() {
 // ManyToOne: single-line receiver input
 function SingleLineReceiverInput() {
   const intl = useIntl();
-  const { selectedAccountId, selectedNetworkId, setDuplicateAddressCount } =
-    useBulkSendAddressesInputContext();
+  const {
+    selectedAccountId,
+    selectedNetworkId,
+    setDuplicateAddressCount,
+    setReceiverValidationErrors,
+  } = useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const validationSeqRef = useRef(0);
@@ -99,6 +239,7 @@ function SingleLineReceiverInput() {
 
       if (!value) {
         setDuplicateAddressCount(0);
+        setReceiverValidationErrors([]);
         return intl.formatMessage({
           id: ETranslations.wallet_bulk_send_error_receiver_required,
         });
@@ -114,6 +255,7 @@ function SingleLineReceiverInput() {
         });
 
       if (!result.isValid) {
+        setReceiverValidationErrors([]);
         let networkName = network?.name ?? '';
         if (networkId && networkId !== network?.id) {
           try {
@@ -198,12 +340,22 @@ function SingleLineReceiverInput() {
           }
         }
         if (!isAllowed) {
+          setReceiverValidationErrors([
+            {
+              lineNumber: 1,
+              message: intl.formatMessage({
+                id: BULK_SEND_ALLOWLIST_ERROR_ID,
+              }),
+              translationId: ETranslations.send_address_not_allowlist_error,
+            },
+          ]);
           return intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_address_not_in_allowlist,
+            id: BULK_SEND_ALLOWLIST_ERROR_ID,
           });
         }
       }
 
+      setReceiverValidationErrors([]);
       return true;
     },
     [
@@ -213,6 +365,7 @@ function SingleLineReceiverInput() {
       network?.id,
       isEnableTransferAllowList,
       setDuplicateAddressCount,
+      setReceiverValidationErrors,
       selectorAccountItemsRef,
     ],
   );
@@ -225,6 +378,7 @@ function SingleLineReceiverInput() {
       label={intl.formatMessage({
         id: ETranslations.wallet_bulk_send_section_receiving_address,
       })}
+      renderErrorMessage={renderBulkSendReceiverAllowlistErrorMessage}
       rules={{
         validate: debouncedValidate,
       }}
@@ -252,8 +406,12 @@ function SingleLineReceiverInput() {
 // ManyToMany: multi-line, address-only, with count matching validation
 function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
   const intl = useIntl();
-  const { selectedAccountId, selectedNetworkId, selectedToken } =
-    useBulkSendAddressesInputContext();
+  const {
+    selectedAccountId,
+    selectedNetworkId,
+    selectedToken,
+    setReceiverValidationErrors,
+  } = useBulkSendAddressesInputContext();
   const { selectorAccountItemsRef, handleActiveAccountChange } =
     useReceiverSelectorAccountItems();
 
@@ -274,6 +432,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     checkAllowlist: true,
     selectedAccountId,
     selectorAccountItemsRef,
+    onErrorsChange: setReceiverValidationErrors,
   });
 
   const validate = useCallback(
@@ -352,6 +511,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
         description={intl.formatMessage({
           id: ETranslations.wallet_bulk_send_label_receiving_desc,
         })}
+        renderErrorMessage={renderBulkSendReceiverAllowlistErrorMessage}
         rules={{
           required: true,
           validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
@@ -391,6 +551,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     selectedNetworkId,
     selectedToken,
     setDuplicateAddressCount,
+    setReceiverValidationErrors,
   } = useBulkSendAddressesInputContext();
   const { selectorAccountItemsRef, handleActiveAccountChange } =
     useReceiverSelectorAccountItems();
@@ -407,6 +568,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     duplicateWarningMode: true,
     onDuplicateAddressCountChange: setDuplicateAddressCount,
     selectorAccountItemsRef,
+    onErrorsChange: setReceiverValidationErrors,
   });
 
   const validate = useCallback(
@@ -442,6 +604,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
         label={intl.formatMessage({
           id: ETranslations.wallet_bulk_send_label_receiving_addresses,
         })}
+        renderErrorMessage={renderBulkSendReceiverAllowlistErrorMessage}
         rules={{
           required: true,
           validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
