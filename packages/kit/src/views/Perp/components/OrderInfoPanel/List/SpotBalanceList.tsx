@@ -63,10 +63,13 @@ function SpotBalanceList({
   const [spotUniverses, setSpotUniverses] = useState<
     { name: string; baseName: string; quoteName: string }[]
   >([]);
+  const [tokenContractMap, setTokenContractMap] = useState<
+    Record<string, string>
+  >({});
   useEffect(() => {
     void backgroundApiProxy.serviceHyperliquid
       .getSpotMeta()
-      .then(({ universes }) => {
+      .then(({ universes, tokens }) => {
         setSpotUniverses(
           universes.map((u) => ({
             name: u.name,
@@ -74,6 +77,13 @@ function SpotBalanceList({
             quoteName: u.quoteName,
           })),
         );
+        const contractMap: Record<string, string> = {};
+        for (const t of tokens ?? []) {
+          if (t.evmContract?.address) {
+            contractMap[t.name] = t.evmContract.address;
+          }
+        }
+        setTokenContractMap(contractMap);
       });
   }, []);
 
@@ -143,6 +153,7 @@ function SpotBalanceList({
         usdcValue: usdcValueBN.toFixed(2),
         pnl,
         pnlPercent,
+        contract: tokenContractMap[b.coin],
         needsSuffix,
         usdcValueNum: usdcValueBN.toNumber(),
       });
@@ -168,7 +179,7 @@ function SpotBalanceList({
       if (valueDiff !== 0) return valueDiff;
       return new BigNumber(b.total).comparedTo(new BigNumber(a.total));
     });
-  }, [balances, accountSummary, tokenPriceLookup]);
+  }, [balances, accountSummary, tokenPriceLookup, tokenContractMap]);
 
   // Filter out zero-balance tokens
   const filteredBalances = useMemo(

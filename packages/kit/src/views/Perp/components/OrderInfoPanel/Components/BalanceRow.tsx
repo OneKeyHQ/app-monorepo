@@ -52,12 +52,22 @@ function BalanceRowMobile({ item }: IBalanceRowProps) {
   const label = getCoinLabel(item);
   const pnlText = formatPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
+  const contractShort = item.contract
+    ? `${item.contract.slice(0, 6)}...${item.contract.slice(-4)}`
+    : '';
 
   return (
     <ListItem py="$2.5" px="$5">
       <YStack flex={1} gap="$0.5">
         <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMdMedium">{label}</SizableText>
+          <XStack gap="$1.5" alignItems="center">
+            <SizableText size="$bodyMdMedium">{label}</SizableText>
+            {contractShort ? (
+              <SizableText size="$bodyXs" color="$textSubdued">
+                {contractShort}
+              </SizableText>
+            ) : null}
+          </XStack>
           <SizableText size="$bodyMdMedium">
             {numberFormat(item.usdcValue, balanceCurrencyFormatter)}
           </SizableText>

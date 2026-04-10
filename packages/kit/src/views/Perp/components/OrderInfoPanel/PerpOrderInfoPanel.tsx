@@ -96,7 +96,7 @@ function PerpOrderInfoPanel() {
     <Tabs.Container
       ref={tabsRef as any}
       headerHeight={80}
-      initialTabName="Positions"
+      initialTabName="Balances"
       disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
         if (tab.tabName === 'Account') {
@@ -118,6 +118,9 @@ function PerpOrderInfoPanel() {
         />
       )}
     >
+      <Tabs.Tab name="Balances">
+        <SpotBalanceList />
+      </Tabs.Tab>
       <Tabs.Tab name="Positions">
         <PerpPositionsList handleViewTpslOrders={handleViewTpslOrders} />
       </Tabs.Tab>
@@ -126,9 +129,6 @@ function PerpOrderInfoPanel() {
       </Tabs.Tab>
       <Tabs.Tab name="Trades History">
         <PerpTradesHistoryList useTabsList />
-      </Tabs.Tab>
-      <Tabs.Tab name="Balances">
-        <SpotBalanceList />
       </Tabs.Tab>
       <Tabs.Tab name="Account">
         <PerpAccountList useTabsList />
