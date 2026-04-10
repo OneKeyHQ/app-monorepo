@@ -46,6 +46,7 @@ Supports Bitcoin, Ethereum, Solana, Tron, BNB Smart Chain, and more.
 
 - [DeepWiki — Full Codebase Documentation](https://deepwiki.com/OneKeyHQ/app-monorepo)
 - [Bug Bounty Rules](docs/BUG_RULES.md)
+- [Build Guide](BUILD.md)
 - [Security Policy](SECURITY.md)
 
 ## 🗂 Project Structure
