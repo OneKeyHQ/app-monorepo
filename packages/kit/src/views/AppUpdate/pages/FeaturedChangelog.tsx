@@ -11,7 +11,6 @@ import {
   Skeleton,
   Stack,
   YStack,
-  useTheme,
 } from '@onekeyhq/components';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -46,9 +45,17 @@ function FeaturedChangelog({
 >) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const theme = useTheme();
   const { isPreInstall = false, isForceUpdate: isForceUpdateParam } =
     route.params || {};
+
+  const renderHeaderTitle = useCallback(
+    () => (
+      <SizableText size="$headingLg" color="$textInfo">
+        New
+      </SizableText>
+    ),
+    [],
+  );
 
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -200,7 +207,7 @@ function FeaturedChangelog({
   if (!activeFeature) {
     return (
       <Page>
-        <Page.Header title="New" headerTintColor={theme.textInfo.val} />
+        <Page.Header headerTitle={renderHeaderTitle} />
         <Page.Body>
           <YStack flex={1} px="$5" pt="$5">
             <Skeleton.Heading3Xl w="60%" mb="$4" />
@@ -217,7 +224,7 @@ function FeaturedChangelog({
 
   return (
     <Page onClose={handleClose}>
-      <Page.Header title="New" headerTintColor={theme.textInfo.val} />
+      <Page.Header headerTitle={renderHeaderTitle} />
       <Page.Body>
         <YStack flex={1}>
           <YStack px="$5" pt={0} pb="$3">
