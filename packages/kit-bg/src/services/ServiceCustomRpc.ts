@@ -33,6 +33,15 @@ import ServiceBase from './ServiceBase';
 class ServiceCustomRpc extends ServiceBase {
   private semaphore = new Semaphore(1);
 
+  private chainListCache: {
+    data: Map<number, IChainListItem[]>;
+    fetchedAt: number;
+  } = { data: new Map(), fetchedAt: 0 };
+
+  private readonly chainListCacheTTL = timerUtils.getTimeDurationMs({
+    minute: 15,
+  });
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -526,28 +535,53 @@ class ServiceCustomRpc extends ServiceBase {
     return usedNetworks;
   }
 
+  private isChainListCacheValid() {
+    return (
+      this.chainListCache.fetchedAt > 0 &&
+      Date.now() - this.chainListCache.fetchedAt < this.chainListCacheTTL
+    );
+  }
+
   @backgroundMethod()
   async searchChainListByKeywords(params: {
     keywords?: string;
     page?: number;
   }): Promise<IChainListItem[]> {
+    // Keyword search: always hit API, no cache
+    if (params.keywords) {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Wallet);
+        const resp = await client.get<{ data: IChainListItem[] }>(
+          '/wallet/v1/network/chainlist',
+          { params: { keywords: params.keywords, showTestNet: true } },
+        );
+        return resp.data.data || [];
+      } catch {
+        return [];
+      }
+    }
+
+    // Default list: use in-memory cache per page (TTL 15min)
+    const page = params.page ?? 1;
+    if (this.isChainListCacheValid() && this.chainListCache.data.has(page)) {
+      return this.chainListCache.data.get(page) ?? [];
+    }
+
     try {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const requestParams: Record<string, unknown> = {
-        showTestNet: true,
-      };
-      if (params.keywords) {
-        requestParams.keywords = params.keywords;
-      } else {
-        requestParams.page = params.page ?? 1;
-      }
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
-        {
-          params: requestParams,
-        },
+        { params: { page, showTestNet: true } },
       );
-      return resp.data.data || [];
+      const result = resp.data.data || [];
+
+      // Reset cache if expired
+      if (!this.isChainListCacheValid()) {
+        this.chainListCache = { data: new Map(), fetchedAt: Date.now() };
+      }
+      this.chainListCache.data.set(page, result);
+
+      return result;
     } catch {
       return [];
     }
