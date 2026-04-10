@@ -1,5 +1,16 @@
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
+export const ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT = 36;
+export const ORDER_BOOK_SIDE_RATIO_GAP = 4;
+
+const ORDER_BOOK_VERTICAL_PADDING = 2;
+const ORDER_BOOK_VERTICAL_HEADER_HEIGHT = 24;
+const ORDER_BOOK_VERTICAL_ROW_GAP = 1;
+const ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN = 22;
+const ORDER_BOOK_VERTICAL_ROW_HEIGHT_MAX = 23;
+const ORDER_BOOK_VERTICAL_LEVELS_MIN = 3;
+const ORDER_BOOK_VERTICAL_LEVELS_DEFAULT = 11;
+
 const DESKTOP_LAYOUT_BASELINE_VIEWPORT = {
   width: 1512,
   height: 982,
@@ -72,32 +83,63 @@ export function getResponsivePerpDesktopLayout(
   };
 }
 
-export function calculateMaxLevelsPerSide(containerHeight: number): number {
-  // The vertical web order book renders:
-  // - Root padding: 1px top + 1px bottom (2px)
-  // - Table header (Price/Size/Total): 24px
-  // - Spread row: 24px + 1px marginTop (25px)
-  // - Each level row: 24px + 1px marginTop (25px)
-  //
-  // Total height: baseHeight(51px) + 2 * levelsPerSide * 25px
-  const baseHeight = 2 + 24 + 25;
-  const levelRowStep = 25;
+function getOrderBookRowHeight(
+  bookBodyHeight: number,
+  levelsPerSide: number,
+): number {
+  return bookBodyHeight / (2 * levelsPerSide + 1) - ORDER_BOOK_VERTICAL_ROW_GAP;
+}
 
-  if (containerHeight <= 0) return 11;
-  if (containerHeight <= baseHeight) return 3;
+export function getVerticalOrderBookLayout(
+  containerHeight: number,
+  maxLevelsPerSide: number,
+) {
+  const availableHeight =
+    containerHeight - ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT;
+  const bookBodyHeight =
+    availableHeight -
+    ORDER_BOOK_VERTICAL_PADDING -
+    ORDER_BOOK_VERTICAL_HEADER_HEIGHT;
+
+  if (bookBodyHeight <= 0) {
+    return {
+      levelsPerSide: Math.max(
+        ORDER_BOOK_VERTICAL_LEVELS_MIN,
+        Math.min(maxLevelsPerSide, ORDER_BOOK_VERTICAL_LEVELS_DEFAULT),
+      ),
+      rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN,
+    };
+  }
 
   let levelsPerSide = Math.floor(
-    (containerHeight - baseHeight) / (2 * levelRowStep),
+    (bookBodyHeight / (ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN + 1) - 1) / 2,
   );
-  levelsPerSide = Math.max(3, Math.min(levelsPerSide, 50));
+  levelsPerSide = Math.max(
+    ORDER_BOOK_VERTICAL_LEVELS_MIN,
+    Math.min(levelsPerSide, maxLevelsPerSide),
+  );
 
-  // If we have a noticeable gap, prefer one extra level and accept a tiny clip
-  // instead of showing empty space.
-  const usedHeight = baseHeight + 2 * levelsPerSide * levelRowStep;
-  const blank = containerHeight - usedHeight;
-  if (blank > levelRowStep / 2 && levelsPerSide < 50) {
+  while (
+    levelsPerSide < maxLevelsPerSide &&
+    getOrderBookRowHeight(bookBodyHeight, levelsPerSide) >
+      ORDER_BOOK_VERTICAL_ROW_HEIGHT_MAX
+  ) {
     levelsPerSide += 1;
   }
 
-  return levelsPerSide;
+  while (
+    levelsPerSide > ORDER_BOOK_VERTICAL_LEVELS_MIN &&
+    getOrderBookRowHeight(bookBodyHeight, levelsPerSide) <
+      ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN
+  ) {
+    levelsPerSide -= 1;
+  }
+
+  return {
+    levelsPerSide,
+    rowHeight: Math.max(
+      ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN,
+      getOrderBookRowHeight(bookBodyHeight, levelsPerSide),
+    ),
+  };
 }
