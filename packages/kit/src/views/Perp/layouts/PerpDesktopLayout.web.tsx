@@ -119,7 +119,7 @@ function PerpDesktopLayout() {
     >
       <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
-        <FavoritesBar />
+        {!chartExpanded && <FavoritesBar />}
 
         <YStack
           flex={chartExpanded ? 1 : undefined}
