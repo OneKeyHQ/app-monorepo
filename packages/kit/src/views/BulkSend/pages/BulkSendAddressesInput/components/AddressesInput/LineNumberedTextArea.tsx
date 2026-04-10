@@ -44,6 +44,7 @@ export type ILineError = {
   lineNumber: number;
   message: string;
   type?: ELineAnnotationType;
+  translationId?: ETranslations;
 };
 
 export type ILineNumberedTextAreaProps = {
