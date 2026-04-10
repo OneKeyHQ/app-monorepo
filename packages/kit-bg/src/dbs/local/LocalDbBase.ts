@@ -1644,7 +1644,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     const buildSyncItemsDuration = Date.now() - buildSyncItemsStartTime;
     if (buildSyncItemsDuration > 600) {
-      void this.backgroundApi.serviceApp.showToast({
+      void this.backgroundApi.serviceApp.showToastIfDevMode({
         method: 'error',
         title: `buildExistingSyncItemsInfo took too long: ${buildSyncItemsDuration}ms`,
       });

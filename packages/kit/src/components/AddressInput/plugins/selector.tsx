@@ -111,11 +111,11 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       activeAccountFromSelector?.account?.address &&
       accountSelectorOpen.current
     ) {
+      onActiveAccountChange?.(activeAccountFromSelector);
       onChange?.({
         text: activeAccountFromSelector?.account?.address,
         inputType: EInputAddressChangeType.AccountSelector,
       });
-      onActiveAccountChange?.(activeAccountFromSelector);
       accountSelectorOpen.current = false;
     }
   }, [
@@ -203,7 +203,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
         })}
         disabled={disabled}
         variant="tertiary"
-        icon="PeopleCircleOutline"
+        icon="PeopleOutline"
         testID={testID}
         onPress={onShowAccountSelector}
       />
@@ -243,7 +243,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
           })}
           disabled={disabled}
           variant="tertiary"
-          icon="PeopleCircleOutline"
+          icon="PeopleOutline"
           testID={testID}
         />
       }

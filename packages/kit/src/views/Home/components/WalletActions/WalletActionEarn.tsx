@@ -41,6 +41,7 @@ export function WalletActionEarn(props: {
       await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol: symbolInfo?.symbol,
         filterNetworkId: networkId,
+        includeWithdrawOnly: true,
       });
     if (!Array.isArray(protocolList) || !protocolList.length) {
       return undefined;

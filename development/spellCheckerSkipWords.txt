@@ -1426,4 +1426,8 @@ prefs
 Prefs
 oxlintrc
 crosschain
+prebuilds
 Blockaid
+posthog
+Posthog
+autocapture

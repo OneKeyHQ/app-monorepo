@@ -12,7 +12,6 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { CodeCell } from '../components/CodeCell';
 import { CopyLinkSplitButton } from '../components/CopyLinkSplitButton';
-import { NoteCell } from '../components/NoteCell';
 import { EInviteCodeListTableColumn, SORTABLE_COLUMNS } from '../const';
 
 import type { ISortableColumn } from './useSortableData';
@@ -23,7 +22,7 @@ export function useTableColumns(
     column: ISortableColumn,
     order: 'asc' | 'desc' | undefined,
   ) => void,
-  onNoteUpdated?: () => void,
+  onCodeUpdated?: (shouldRefreshSummary?: boolean) => Promise<void> | void,
 ) {
   const intl = useIntl();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -31,11 +30,6 @@ export function useTableColumns(
 
   // Calculate column widths
   const columnWidths = useMemo(() => {
-    const noteWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_code_list_note }).length *
-        10,
-      160,
-    );
     const salesWidth = Math.max(
       intl.formatMessage({ id: ETranslations.referral_code_list_sales })
         .length * 10,
@@ -52,7 +46,7 @@ export function useTableColumns(
       135,
     );
     const createdAtWidth = 145;
-    const codeWidth = 130;
+    const codeWidth = 200;
     const inviteUrlWidth = Math.max(
       intl.formatMessage({ id: ETranslations.browser_copy_link }).length * 10 +
         40,
@@ -60,7 +54,6 @@ export function useTableColumns(
     );
 
     return {
-      noteWidth,
       salesWidth,
       walletsWidth,
       rewardsWidth,
@@ -74,7 +67,6 @@ export function useTableColumns(
   const totalFixedWidth = useMemo(() => {
     return (
       columnWidths.codeWidth +
-      columnWidths.noteWidth +
       columnWidths.salesWidth +
       columnWidths.walletsWidth +
       columnWidths.rewardsWidth +
@@ -95,21 +87,14 @@ export function useTableColumns(
         title: intl.formatMessage({ id: ETranslations.referral_your_code }),
         dataIndex: EInviteCodeListTableColumn.CODE,
         columnWidth: columnWidths.codeWidth,
-        render: (text: string) => <CodeCell code={text} />,
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.referral_code_list_note,
-        }),
-        dataIndex: EInviteCodeListTableColumn.NOTE,
-        ...(shouldUseFlex
-          ? { columnProps: { flex: 1 } }
-          : { columnWidth: columnWidths.noteWidth }),
+        columnProps: { overflow: 'hidden' },
         render: (_text: string, record: IInviteCodeListItem) => (
-          <NoteCell
+          <CodeCell
             code={record.code}
             note={record.note}
-            onNoteUpdated={onNoteUpdated}
+            isPrimary={record.isPrimary}
+            isCustomCode={record.isCustomCode}
+            onUpdated={onCodeUpdated}
           />
         ),
       },
@@ -185,14 +170,13 @@ export function useTableColumns(
     [
       intl,
       columnWidths.codeWidth,
-      columnWidths.noteWidth,
       columnWidths.salesWidth,
       columnWidths.walletsWidth,
       columnWidths.rewardsWidth,
       columnWidths.createdAtWidth,
       columnWidths.inviteUrlWidth,
       shouldUseFlex,
-      onNoteUpdated,
+      onCodeUpdated,
       currencySymbol,
     ],
   );

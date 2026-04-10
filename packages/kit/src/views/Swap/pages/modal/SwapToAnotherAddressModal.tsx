@@ -32,11 +32,15 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQuickSelect';
+import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataInput/recipientSelectionUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import type { IRecipientQuickSelectTab } from '../../../Send/pages/SendDataInput/recipientQuickSelectTabUtils';
 import type { RouteProp } from '@react-navigation/core';
 import type { SubmitHandler } from 'react-hook-form';
+
+const SWAP_HIDDEN_TABS: IRecipientQuickSelectTab[] = ['recent'];
 
 interface IFormType {
   address: IAddressInputValue;
@@ -86,11 +90,14 @@ const SwapToAnotherAddressPage = () => {
 
   const handleQuickSelectRecipient = useCallback(
     ({ address: selectedAddress }: { address: string }) => {
-      if (selectedAddress) {
-        form.setValue('address', {
-          raw: selectedAddress,
-        } as IAddressInputValue);
+      if (!selectedAddress) return;
+      const currentTo = form.getValues('address');
+      if (shouldSkipResolvedRecipientUpdate({ currentTo, selectedAddress })) {
+        return;
       }
+      form.setValue('address', {
+        raw: selectedAddress,
+      } as IAddressInputValue);
     },
     [form],
   );
@@ -154,7 +161,7 @@ const SwapToAnotherAddressPage = () => {
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
           <XStack gap="$1.5" alignItems="center">
-            <Icon name="BlockOutline" size="$4" color="$iconSubdued" />
+            <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.swap_page_recipient_modal_do_not,
@@ -164,9 +171,10 @@ const SwapToAnotherAddressPage = () => {
           <RecipientQuickSelect
             accountId={accountInfo?.account?.id ?? ''}
             networkId={networkId}
+            senderDeriveType={activeAccount?.deriveType}
             searchKey={toAddressRaw}
             isSearchMode={!!toAddressRaw?.trim()}
-            hideTabs={['recent']}
+            hideTabs={SWAP_HIDDEN_TABS}
             onMatchStatusChange={setHasQuickSelectMatches}
             onSelect={handleQuickSelectRecipient}
           />

@@ -1,10 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
 
 import {
   ActionList,
@@ -12,6 +8,7 @@ import {
   Empty,
   MatchSizeableText,
   SizableText,
+  Spinner,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -82,12 +79,6 @@ function QuickSelectListItemBase({
   networkId: string;
 }) {
   const navigation = useAppNavigation();
-  const [isHovered, setIsHovered] = useState(false);
-
-  // Animated style for hover menu opacity
-  const menuAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(isHovered ? 1 : 0, { duration: 150 }),
-  }));
 
   // Determine display mode based on available info
   const hasName = !!item.name;
@@ -106,7 +97,10 @@ function QuickSelectListItemBase({
     isEvmNetwork && !hasName && !!item.lastTransferNetworkName;
 
   // Only show menu for items NOT already in address book
-  const showAddToAddressBook = !item.isAddressBook;
+  // Lightning Network doesn't support address book
+  const isLightningNetwork =
+    networkUtils.isLightningNetworkByNetworkId(networkId);
+  const showAddToAddressBook = !item.isAddressBook && !isLightningNetwork;
 
   const addToAddressBookLabel = intl.formatMessage({
     id: ETranslations.add_to_address_book__action,
@@ -125,7 +119,7 @@ function QuickSelectListItemBase({
   const handleLongPress = useCallback(() => {
     if (!showAddToAddressBook) return;
     ActionList.show({
-      title: item.address,
+      title: primaryText,
       sections: [
         {
           items: [
@@ -140,7 +134,7 @@ function QuickSelectListItemBase({
     });
   }, [
     showAddToAddressBook,
-    item.address,
+    primaryText,
     addToAddressBookLabel,
     handleAddToAddressBook,
   ]);
@@ -152,8 +146,6 @@ function QuickSelectListItemBase({
       wallet={item.wallet}
       onPress={onPress}
       onLongPress={platformEnv.isNative ? handleLongPress : undefined}
-      onHoverIn={() => setIsHovered(true)}
-      onHoverOut={() => setIsHovered(false)}
       testID={`recent-item-${item.address}`}
       primary={
         <XStack gap="$2" alignItems="center">
@@ -196,7 +188,7 @@ function QuickSelectListItemBase({
             <SizableText
               size="$bodySm"
               color="$textDisabled"
-              flexShrink={2}
+              flexShrink={0}
               numberOfLines={1}
             >
               {formatRelativeTime(item.lastTransferTime)}
@@ -210,29 +202,29 @@ function QuickSelectListItemBase({
           color="$textSubdued"
           wordWrap="break-word"
         >
-          {item.memo ? `${item.address} · ${item.memo}` : item.address}
+          {item.memo || item.note
+            ? `${item.address} · ${item.memo || item.note}`
+            : item.address}
         </MatchSizeableText>
       }
       trailing={
-        showAddToAddressBook && !platformEnv.isNative ? (
-          <Animated.View style={[{ marginLeft: 8 }, menuAnimatedStyle]}>
-            <ActionList
-              title={item.address}
-              items={[
-                {
-                  label: addToAddressBookLabel,
-                  icon: 'BookOpenOutline',
-                  onPress: handleAddToAddressBook,
-                },
-              ]}
-              renderTrigger={
-                <ListItem.IconButton
-                  icon="DotVerSolid"
-                  testID={`recent-menu-${item.address}`}
-                />
-              }
-            />
-          </Animated.View>
+        showAddToAddressBook ? (
+          <ActionList
+            title={primaryText}
+            items={[
+              {
+                label: addToAddressBookLabel,
+                icon: 'BookOpenOutline',
+                onPress: handleAddToAddressBook,
+              },
+            ]}
+            renderTrigger={
+              <ListItem.IconButton
+                icon="DotVerSolid"
+                testID={`recent-menu-${item.address}`}
+              />
+            }
+          />
         ) : null
       }
     />
@@ -303,11 +295,12 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     [intl.locale, formatDistanceToNowStrict],
   );
 
-  const { recentRecipients, isLoadingRecent } = useRecentRecipientsData({
-    accountId,
-    networkId,
-    refreshKey,
-  });
+  const { recentRecipients, isLoadingRecent, isLoadingMore } =
+    useRecentRecipientsData({
+      accountId,
+      networkId,
+      refreshKey,
+    });
 
   const debouncedSearchKey = useDebounce(rawSearchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -329,7 +322,9 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         (recipient.addressBookName?.toLowerCase().includes(trimmedSearchKey) ??
           false),
       isAddressMatch: (recipient) =>
-        recipient.input?.toLowerCase().includes(trimmedSearchKey) ?? false,
+        (recipient.input?.toLowerCase().includes(trimmedSearchKey) ?? false) ||
+        (recipient.validAddress?.toLowerCase().includes(trimmedSearchKey) ??
+          false),
     }).sorted;
   }, [isSearchActive, recentRecipients, trimmedSearchKey]);
 
@@ -389,37 +384,41 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       return <QuickSelectListSkeleton />;
     }
     if (filteredRecentRecipients.length > 0) {
-      return filteredRecentRecipients.map((recipient) => (
-        <QuickSelectListItem
-          key={recipient.input}
-          item={{
-            id: recipient.input ?? '',
-            name:
-              recipient.addressBookName ?? recipient.walletAccountName ?? '',
-            address: recipient.input ?? '',
-            memo: recipient.addressMemo || recipient.recipientMemo,
-            note: recipient.addressNote,
-            lastTransferTime: recipient.lastTransferTime,
-            lastTransferNetworkName: recipient.lastTransferNetworkName,
-            isAddressBook: recipient.isAddressBook,
-            walletName: recipient.walletName,
-            walletId: recipient.walletId,
-            wallet: recipient.walletId
-              ? recentWalletMap.get(recipient.walletId)
-              : undefined,
-          }}
-          intl={intl}
-          networkId={networkId}
-          formatRelativeTime={formatCompactTime}
-          onPress={() => {
-            onSelect?.({
-              address: recipient.input ?? '',
+      return filteredRecentRecipients.map((recipient) => {
+        const canonicalAddress =
+          recipient.validAddress ?? recipient.input ?? '';
+        return (
+          <QuickSelectListItem
+            key={canonicalAddress}
+            item={{
+              id: canonicalAddress,
+              name:
+                recipient.addressBookName ?? recipient.walletAccountName ?? '',
+              address: canonicalAddress,
               memo: recipient.addressMemo || recipient.recipientMemo,
               note: recipient.addressNote,
-            });
-          }}
-        />
-      ));
+              lastTransferTime: recipient.lastTransferTime,
+              lastTransferNetworkName: recipient.lastTransferNetworkName,
+              isAddressBook: recipient.isAddressBook,
+              walletName: recipient.walletName,
+              walletId: recipient.walletId,
+              wallet: recipient.walletId
+                ? recentWalletMap.get(recipient.walletId)
+                : undefined,
+            }}
+            intl={intl}
+            networkId={networkId}
+            formatRelativeTime={formatCompactTime}
+            onPress={() => {
+              onSelect?.({
+                address: canonicalAddress,
+                memo: recipient.addressMemo || recipient.recipientMemo,
+                note: recipient.addressNote,
+              });
+            }}
+          />
+        );
+      });
     }
     if (isSearchActive) {
       return (
@@ -464,6 +463,11 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         </SizableText>
       )}
       {renderContent()}
+      {isLoadingMore ? (
+        <XStack justifyContent="center" py="$3">
+          <Spinner size="small" />
+        </XStack>
+      ) : null}
     </Stack>
   );
 }

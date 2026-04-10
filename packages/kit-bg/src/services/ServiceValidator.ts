@@ -2,7 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { InvalidAddress, NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -143,8 +143,19 @@ class ServiceValidator extends ServiceBase {
   }): Promise<IAddressValidation> {
     noopObject(networkId);
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    const validation = await vault.validateAddress(address);
-    return validation;
+    try {
+      const validation = await vault.validateAddress(address);
+      return validation;
+    } catch (error) {
+      if (error instanceof InvalidAddress) {
+        return {
+          isValid: false,
+          normalizedAddress: '',
+          displayAddress: '',
+        };
+      }
+      throw error;
+    }
   }
 
   @backgroundMethod()

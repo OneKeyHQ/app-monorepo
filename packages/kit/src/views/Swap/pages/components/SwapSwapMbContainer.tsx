@@ -135,7 +135,6 @@ const SwapSwapMbContainer = ({
           refreshAction={refreshAction}
           onOpenProviderList={onOpenProviderList}
           quoteResult={quoteResult}
-          onOpenRecipient={onToAnotherAddressModal}
         />
         {alerts.states.length > 0 &&
         !quoteLoading &&

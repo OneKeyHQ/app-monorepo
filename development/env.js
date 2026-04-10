@@ -1,16 +1,19 @@
+const fs = require('fs');
 const path = require('path');
 
 const dateFns = require('date-fns');
 const dotenv = require('dotenv');
 
+const envPaths = [
+  // priority: high -> low
+  path.resolve(__dirname, '../.env.version'),
+  path.resolve(__dirname, '../.env.expo'),
+  path.resolve(__dirname, '../.env'),
+].filter((p) => fs.existsSync(p));
+
 const results = [
   dotenv.config({
-    path: [
-      // priority: high -> low
-      path.resolve(__dirname, '../.env.version'),
-      path.resolve(__dirname, '../.env.expo'),
-      path.resolve(__dirname, '../.env'),
-    ],
+    path: envPaths,
   }),
 ];
 

@@ -34,6 +34,7 @@ import {
   usePerpTokenSelectorTabsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortField,
@@ -544,6 +545,7 @@ function MobileTokenSelectorModal({
             initialNumToRender={15}
             decelerationRate="normal"
             showsVerticalScrollIndicator
+            nestedScrollEnabled={platformEnv.isNativeAndroid}
             contentContainerStyle={{
               paddingBottom: 10,
             }}

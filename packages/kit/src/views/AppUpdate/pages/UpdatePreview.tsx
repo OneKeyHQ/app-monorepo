@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,6 +18,7 @@ import {
   displayAppUpdateVersion,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAppUpdateRoutes,
@@ -72,6 +73,17 @@ function UpdatePreview({
     : isForceUpdateParam;
   const changeLog = updateInfo?.changeLog;
   usePreventRemove(!!isForceUpdate, () => {});
+
+  const hasLoggedRef = useRef(false);
+  useEffect(() => {
+    if (updateInfo?.latestVersion && !hasLoggedRef.current) {
+      hasLoggedRef.current = true;
+      defaultLogger.app.appUpdate.changelogViewed({
+        toVersion: updateInfo.latestVersion,
+        isForceUpdate: !!isForceUpdate,
+      });
+    }
+  }, [updateInfo?.latestVersion, isForceUpdate]);
 
   const headerProps = useMemo(() => {
     const props: { title: string; headerLeft?: () => ReactNode } = {

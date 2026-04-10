@@ -83,12 +83,17 @@ function PrimeBenefitsItem({
           userSelect="none"
           flex={1}
           primary={
-            <XStack>
-              <SizableText textAlign="left" size="$bodyLgMedium">
+            <XStack alignItems="center">
+              <SizableText
+                textAlign="left"
+                size="$bodyLgMedium"
+                flexShrink={1}
+                numberOfLines={1}
+              >
                 {title}
               </SizableText>
               {isComingSoon ? (
-                <Badge ml="$2" badgeSize="sm">
+                <Badge ml="$2" badgeSize="sm" flexShrink={0}>
                   <Badge.Text>
                     {intl.formatMessage({
                       id: ETranslations.id_prime_soon,

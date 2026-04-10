@@ -13,6 +13,107 @@ export type IMediaType = 'camera' | 'microphone' | 'screen';
 
 export type IDesktopAppState = 'active' | 'background' | 'blur';
 
+export type IDesktopEventUnSubscribe = () => void;
+
+// Type for the legacy desktopApi exposed via contextBridge in preload.ts
+export type INobleBleApi = {
+  enumerate: () => Promise<{ id: string; name: string }[]>;
+  getDevice: (uuid: string) => Promise<{ id: string; name: string } | null>;
+  connect: (uuid: string) => Promise<void>;
+  disconnect: (uuid: string) => Promise<void>;
+  subscribe: (uuid: string) => Promise<void>;
+  unsubscribe: (uuid: string) => Promise<void>;
+  write: (uuid: string, data: string) => Promise<void>;
+  cancelPairing: () => Promise<void>;
+  onNotification: (
+    callback: (deviceId: string, data: string) => void,
+  ) => () => void;
+  onDeviceDisconnected: (
+    callback: (device: { id: string; name: string }) => void,
+  ) => () => void;
+  checkAvailability: () => Promise<{
+    available: boolean;
+    state: string;
+    unsupported: boolean;
+    initialized: boolean;
+  }>;
+};
+
+export type IDesktopApiLegacy = {
+  on: (
+    channel: string,
+    func: (...args: any[]) => any,
+  ) => IDesktopEventUnSubscribe | undefined;
+  arch: string;
+  platform: string;
+  systemVersion: string;
+  logDirectory: string;
+  deskChannel: string;
+  isMas: boolean;
+  isDev: boolean;
+  channel?: string;
+  ready: () => void;
+  onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
+  isFocused: () => boolean;
+  addIpcEventListener: (
+    event: string,
+    listener: (...args: any[]) => void,
+  ) => () => void;
+  /** @deprecated Use the unsubscribe function returned by addIpcEventListener instead. */
+  removeIpcEventListener: (
+    event: string,
+    listener: (...args: any[]) => void,
+  ) => void;
+  touchUpdateResource: (params: {
+    resourceUrl: string;
+    dialogTitle: string;
+    buttonLabel: string;
+  }) => void;
+  openPrivacyPanel: () => void;
+  startServer: (
+    port: number,
+    cb: (data: string, success: boolean) => void,
+  ) => void;
+  serverListener: (
+    cb: (request: {
+      requestId: string;
+      postData: any;
+      type: string;
+      url: string;
+    }) => void,
+  ) => void;
+  serverRespond: (
+    requestId: string,
+    code: number,
+    type: string,
+    body: string,
+  ) => void;
+  stopServer: () => void;
+  setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
+  testCrash: () => void;
+  nobleBle: INobleBleApi;
+  getCpuUsage: () => Promise<{ usage: number }>;
+  getMemoryUsage: () => Promise<{
+    private: number;
+    residentSet: number | undefined;
+    blink: { allocated: string; total: string };
+  }>;
+  appVersion: string;
+  markBootSuccess: () => void;
+  setConsecutiveBootFailCount: (count: number) => void;
+  recoveryExportLogs: () => Promise<{ error?: string }>;
+  recoveryTryAgain: () => Promise<void>;
+  recoveryAutoRepair: () => Promise<{ error?: string }>;
+};
+
+export type IDesktopApiBridge = {
+  call: (module: string, method: string, ...params: any[]) => Promise<any>;
+};
+
+export type IDesktopGlobals = {
+  sdkConnectSrc?: string;
+};
+
 export type IDesktopMainProcessDevOnlyApiParams = {
   module: string;
   method: string;

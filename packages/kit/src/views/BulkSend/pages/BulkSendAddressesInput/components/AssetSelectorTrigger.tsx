@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,10 +11,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
+import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -26,11 +27,11 @@ type IResolvedSelectorAccount = {
 };
 
 function AssetSelectorTrigger({
-  senderAddresses,
+  getSenderAddresses,
   activeAccountId,
   activeIndexedAccountId,
 }: {
-  senderAddresses?: string;
+  getSenderAddresses: () => string;
   activeAccountId?: string;
   activeIndexedAccountId?: string;
 }) {
@@ -47,14 +48,21 @@ function AssetSelectorTrigger({
     setSelectedNetworkId,
     bulkSendMode,
     resolvedSenderAccountIds,
+    hasUserSelectedAsset,
+    setHasUserSelectedAsset,
   } = useBulkSendAddressesInputContext();
   const navigation = useAppNavigation();
 
   const openChainSelector = useConfigurableChainSelector();
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const displayNetworkId = selectedToken?.networkId ?? selectedNetworkId;
 
   const { network } = useAccountData({
-    networkId: selectedNetworkId,
+    networkId: displayNetworkId,
+    options: {
+      checkIsFocused: false,
+      undefinedResultIfReRun: true,
+    },
   });
 
   const title = useMemo(() => {
@@ -67,13 +75,34 @@ function AssetSelectorTrigger({
       : intl.formatMessage({ id: ETranslations.token_selector_title });
   }, [selectedToken, media.gtMd, intl]);
 
+  const avatarElement = useMemo(
+    () => (
+      <Token
+        key={displayNetworkId}
+        tokenImageUri={selectedToken?.logoURI}
+        size="lg"
+        showNetworkIcon
+        networkId={displayNetworkId}
+      />
+    ),
+    [displayNetworkId, selectedToken?.logoURI],
+  );
+
   const {
     result: { availableNetworkIds, unavailableNetworkIds },
   } = usePromiseResult(
     async () => {
       if (!isOneToMany) {
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getAllNetworks({
+            excludeAllNetworkItem: true,
+          });
         return {
-          availableNetworkIds: [],
+          availableNetworkIds: networks
+            .filter(
+              (item) => !bulkSendUtils.isBulkSendExcludedNetworkId(item.id),
+            )
+            .map((item) => item.id),
           unavailableNetworkIds: [],
         };
       }
@@ -187,7 +216,7 @@ function AssetSelectorTrigger({
     async (
       networkId: string,
     ): Promise<IResolvedSelectorAccount | undefined> => {
-      const nonEmptyLines = (senderAddresses ?? '')
+      const nonEmptyLines = getSenderAddresses()
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean);
@@ -216,7 +245,7 @@ function AssetSelectorTrigger({
       return undefined;
     },
     [
-      senderAddresses,
+      getSenderAddresses,
       resolvedSenderAccountIds,
       resolveAccountContextForAddress,
     ],
@@ -260,9 +289,54 @@ function AssetSelectorTrigger({
     [activeAccountId, activeIndexedAccountId],
   );
 
-  const handleSelectAsset = useCallback(() => {
+  // Pre-compute whether the selected network supports multiple tokens,
+  // so handleSelectAsset can decide synchronously without an IPC hop.
+  const { result: hasMultipleTokens } = usePromiseResult(
+    async () => {
+      if (!selectedNetworkId) return false;
+      const vaultSettings =
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: selectedNetworkId,
+        });
+      return !vaultSettings.isSingleToken;
+    },
+    [selectedNetworkId],
+    { initResult: false },
+  );
+
+  const buildTokenSelectHandler = useCallback(
+    ({
+      accountId,
+      indexedAccountId,
+      networkId,
+    }: {
+      accountId: string;
+      indexedAccountId?: string;
+      networkId: string;
+    }) =>
+      (token: IToken) => {
+        const nextNetworkId = token.networkId ?? networkId;
+        setSelectedToken(token);
+        setSelectedAccountId(accountId);
+        setSelectedIndexedAccountId(indexedAccountId);
+        setSelectedNetworkId(nextNetworkId);
+        setHasUserSelectedAsset(true);
+        navigation.popStack();
+      },
+    [
+      navigation,
+      setSelectedToken,
+      setSelectedAccountId,
+      setSelectedIndexedAccountId,
+      setSelectedNetworkId,
+      setHasUserSelectedAsset,
+    ],
+  );
+
+  const openChainSelectorWithConfig = useCallback(() => {
     openChainSelector({
-      networkIds: isOneToMany ? availableNetworkIds : undefined,
+      networkIds:
+        availableNetworkIds.length > 0 ? availableNetworkIds : undefined,
       disableNetworkIds: isOneToMany ? unavailableNetworkIds : undefined,
       defaultNetworkId: selectedNetworkId,
       showNetworkValues: isOneToMany,
@@ -323,10 +397,11 @@ function AssetSelectorTrigger({
               });
 
             if (nativeToken) {
-              setSelectedToken(nativeToken);
-              setSelectedAccountId(accountId);
-              setSelectedNetworkId(_network.id);
-              navigation.popStack();
+              buildTokenSelectHandler({
+                accountId,
+                indexedAccountId,
+                networkId: _network.id,
+              })(nativeToken);
               return;
             }
           }
@@ -339,13 +414,11 @@ function AssetSelectorTrigger({
             forceShowActiveAccountTokenList: true,
             indexedAccountId: indexedAccountId ?? '',
             hideBalanceAndValue: !isOneToMany,
-            onSelect: (token: IToken) => {
-              setSelectedToken(token);
-              setSelectedAccountId(accountId);
-              setSelectedIndexedAccountId(indexedAccountId);
-              setSelectedNetworkId(_network.id);
-              navigation.popStack();
-            },
+            onSelect: buildTokenSelectHandler({
+              accountId,
+              indexedAccountId,
+              networkId: _network.id,
+            }),
           });
         } else {
           navigation.popStack();
@@ -353,10 +426,11 @@ function AssetSelectorTrigger({
           setSelectedIndexedAccountId(undefined);
           setSelectedNetworkId(_network.id);
           setSelectedToken(undefined);
+          setHasUserSelectedAsset(false);
         }
       },
       excludeAllNetworkItem: true,
-      grouped: false,
+      grouped: !isOneToMany,
       closeAfterSelect: false,
     });
   }, [
@@ -368,12 +442,62 @@ function AssetSelectorTrigger({
     selectedNetworkId,
     selectedAccountId,
     selectedIndexedAccountId,
+    buildTokenSelectHandler,
     navigation,
     setSelectedToken,
     setSelectedAccountId,
     setSelectedIndexedAccountId,
     setSelectedNetworkId,
+    setHasUserSelectedAsset,
     unavailableNetworkIds,
+  ]);
+
+  const handleSwitchNetwork = useCallback(async () => {
+    navigation.popStack();
+    await timerUtils.wait(300);
+    openChainSelectorWithConfig();
+  }, [navigation, openChainSelectorWithConfig]);
+
+  const handleSelectAsset = useCallback(() => {
+    if (
+      selectedNetworkId &&
+      selectedAccountId &&
+      hasMultipleTokens &&
+      hasUserSelectedAsset
+    ) {
+      navigation.pushModal(EModalRoutes.ChainSelectorModal, {
+        screen: EChainSelectorPages.TokenSelector,
+        params: {
+          accountId: selectedAccountId,
+          networkId: selectedNetworkId,
+          activeAccountId: selectedAccountId,
+          activeNetworkId: selectedNetworkId,
+          forceShowActiveAccountTokenList: true,
+          indexedAccountId: selectedIndexedAccountId ?? '',
+          hideBalanceAndValue: !isOneToMany,
+          onSelect: buildTokenSelectHandler({
+            accountId: selectedAccountId,
+            indexedAccountId: selectedIndexedAccountId,
+            networkId: selectedNetworkId,
+          }),
+          onSwitchNetwork: handleSwitchNetwork,
+        },
+      });
+      return;
+    }
+
+    openChainSelectorWithConfig();
+  }, [
+    selectedNetworkId,
+    selectedAccountId,
+    selectedIndexedAccountId,
+    hasMultipleTokens,
+    hasUserSelectedAsset,
+    navigation,
+    isOneToMany,
+    buildTokenSelectHandler,
+    handleSwitchNetwork,
+    openChainSelectorWithConfig,
   ]);
 
   return (
@@ -387,17 +511,9 @@ function AssetSelectorTrigger({
       )}
       <ListItem
         drillIn={media.md}
-        renderAvatar={() => (
-          <Token
-            tokenImageUri={selectedToken?.logoURI}
-            size="lg"
-            showNetworkIcon
-            networkImageUri={network?.logoURI}
-            networkId={network?.id}
-          />
-        )}
+        renderAvatar={avatarElement}
         title={title}
-        subtitle={network?.name}
+        subtitle={selectedToken?.networkName ?? network?.name}
         bg="$bgSubdued"
         mx="$0"
         hoverStyle={{
@@ -427,4 +543,4 @@ function AssetSelectorTrigger({
   );
 }
 
-export default AssetSelectorTrigger;
+export default memo(AssetSelectorTrigger);

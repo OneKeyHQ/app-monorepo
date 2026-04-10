@@ -36,6 +36,7 @@ import {
   EModalRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
@@ -53,10 +54,14 @@ import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 import {
+  DEFAULT_INTERVAL_SETTINGS,
   calculateIsAmountValid,
   calculateTotalAmounts,
+  checkSenderInsufficientBalance,
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
+  isBulkSendTokenDetailsMatched,
+  validateIntervalSettings,
   validateRangeInput,
 } from '../../utils';
 
@@ -105,9 +110,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     senderBalancesFailed,
     senderAccountIdMap,
     minTransferAmount,
+    hasDuplicateSenders,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const shouldHideMaxMode = !isOneToMany && hasDuplicateSenders;
 
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -221,8 +228,12 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       // Mobile non-OneToMany: navigate to interval page first
       const shouldShowInterval = !media.gtMd && !isOneToMany;
       // Desktop: pass interval settings directly to review
+      // OneToMany uses smart contract batch, interval not applicable
+      const effectiveIntervalSettings = isOneToMany
+        ? { mode: EIntervalMode.None, minSeconds: '', maxSeconds: '' }
+        : intervalSettings;
       const reviewParams = media.gtMd
-        ? { ...params, intervalSettings }
+        ? { ...params, intervalSettings: effectiveIntervalSettings }
         : params;
       const intervalInputParams = {
         ...params,
@@ -554,7 +565,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       return !isAmountValid;
     }
 
-    return !isAmountValid || isInsufficientBalance;
+    // Desktop non-OneToMany: also check interval validity (inline editing has no confirm gate)
+    const hasIntervalError =
+      !isOneToMany && !!validateIntervalSettings(intervalSettings);
+
+    return !isAmountValid || isInsufficientBalance || hasIntervalError;
   }, [
     tokenDetailsState.initialized,
     tokenDetailsState.isRefreshing,
@@ -572,6 +587,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     media.gtMd,
     isInPreviewMode,
     amountInputMode,
+    intervalSettings,
   ]);
 
   const confirmButtonText = useMemo(() => {
@@ -752,7 +768,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
                 previewTotalFiatAmount={currentModeData.totalFiatAmount}
                 rangePreviewAmounts={previewState.rangePreviewAmounts}
                 onMaxPress={
-                  amountInputMode === EAmountInputMode.Specified
+                  amountInputMode === EAmountInputMode.Specified &&
+                  !shouldHideMaxMode
                     ? handleMaxPress
                     : undefined
                 }
@@ -784,6 +801,7 @@ function BulkSendAmountsInputContent({
   tokenDetails: initialTokenDetails,
   bulkSendMode,
   isInModal,
+  hasDuplicateSenders: _hasDuplicateSendersProp,
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
   const hasCustomAmounts = useMemo(
@@ -794,10 +812,24 @@ function BulkSendAmountsInputContent({
     [receivers, senders],
   );
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const sanitizedInitialTokenDetails = useMemo(
+    () =>
+      isBulkSendTokenDetailsMatched(
+        {
+          networkId,
+          tokenInfo,
+        },
+        initialTokenDetails,
+      )
+        ? initialTokenDetails
+        : undefined,
+    [networkId, tokenInfo, initialTokenDetails],
+  );
 
   const [tokenDetails, setTokenDetails] = useState<
     ({ info: IToken } & ITokenFiat) | undefined
-  >(initialTokenDetails);
+  >(sanitizedInitialTokenDetails);
+  const tokenDetailsRequestIdRef = useRef(0);
   const [tokenDetailsState, setTokenDetailsState] = useState<{
     initialized: boolean;
     isRefreshing: boolean;
@@ -835,6 +867,20 @@ function BulkSendAmountsInputContent({
 
   const [transfersInfo, setTransfersInfo] = useState<ITransferInfo[]>([]);
 
+  // Dynamically compute whether there are duplicate sender addresses
+  const hasDuplicateSenders = useMemo(() => {
+    if (bulkSendMode !== EBulkSendMode.ManyToMany) return false;
+    const senderAddresses = transfersInfo.map((t) => t.from);
+    return new Set(senderAddresses).size !== senderAddresses.length;
+  }, [bulkSendMode, transfersInfo]);
+
+  // Auto-exit Max mode when duplicate senders appear
+  useEffect(() => {
+    if (hasDuplicateSenders && isMaxMode) {
+      setIsMaxMode(false);
+    }
+  }, [hasDuplicateSenders, isMaxMode, setIsMaxMode]);
+
   const [previewState, setPreviewState] = useState<IPreviewState>({
     specifiedPreviewed: false,
     rangePreviewed: false,
@@ -858,6 +904,24 @@ function BulkSendAmountsInputContent({
     [EAmountInputMode.Range]: { ...defaultModeData },
     [EAmountInputMode.Custom]: { ...defaultModeData },
   });
+
+  const matchedTokenDetails = useMemo(
+    () =>
+      isBulkSendTokenDetailsMatched(
+        {
+          networkId,
+          tokenInfo,
+        },
+        tokenDetails,
+      )
+        ? tokenDetails
+        : undefined,
+    [networkId, tokenInfo, tokenDetails],
+  );
+
+  useEffect(() => {
+    setTokenDetails(sanitizedInitialTokenDetails);
+  }, [sanitizedInitialTokenDetails]);
 
   const updateCurrentModeData = useCallback(
     (data: Partial<IMobileModeData>) => {
@@ -885,10 +949,20 @@ function BulkSendAmountsInputContent({
   const [senderBalancesFailed, setSenderBalancesFailed] = useState<Set<string>>(
     new Set(),
   );
+  const buildSenderBalanceAddressKey = useCallback(
+    (address: string) => {
+      const trimmedAddress = address.trim();
+      if (networkUtils.isEvmNetwork({ networkId })) {
+        return trimmedAddress.toLowerCase();
+      }
+      return trimmedAddress;
+    },
+    [networkId],
+  );
 
   // Recalculate mobile mode totals when transfersInfo or token price changes
   useEffect(() => {
-    if (!tokenDetails) return;
+    if (!matchedTokenDetails) return;
 
     setMobileModeData((prev) => {
       const modeData = prev[amountInputMode];
@@ -907,21 +981,14 @@ function BulkSendAmountsInputContent({
         totalFiatAmount: modeTotalFiat,
       } = calculateTotalAmounts({
         transfersInfo: resolvedModeTransfersInfo,
-        tokenPrice: tokenDetails.price,
+        tokenPrice: matchedTokenDetails.price,
       });
       const modeIsInsufficient = isOneToMany
-        ? new BigNumber(modeTotalToken).gt(tokenDetails.balanceParsed)
+        ? new BigNumber(modeTotalToken).gt(matchedTokenDetails.balanceParsed)
         : !isMaxMode &&
-          modeData.transfersInfo.some((transfer) => {
-            const balance = senderBalances[transfer.from];
-            if (
-              balance === undefined ||
-              !transfer.amount ||
-              transfer.amount === ''
-            ) {
-              return false;
-            }
-            return new BigNumber(transfer.amount).gt(balance);
+          checkSenderInsufficientBalance({
+            transfersInfo: modeData.transfersInfo,
+            senderBalances,
           });
 
       if (
@@ -949,8 +1016,8 @@ function BulkSendAmountsInputContent({
     isOneToMany,
     isMaxMode,
     senderBalances,
-    tokenDetails?.price,
-    tokenDetails?.balanceParsed,
+    matchedTokenDetails?.price,
+    matchedTokenDetails?.balanceParsed,
   ]);
 
   const isAmountValid = useMemo(
@@ -988,11 +1055,9 @@ function BulkSendAmountsInputContent({
 
   const [isInsufficientBalance, setIsInsufficientBalance] = useState(false);
 
-  const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
-    mode: EIntervalMode.None,
-    minSeconds: '',
-    maxSeconds: '',
-  });
+  const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>(
+    DEFAULT_INTERVAL_SETTINGS,
+  );
 
   // Per-sender accountId map (address -> accountId) from route params
   const senderAccountIdMap = useMemo(() => {
@@ -1005,7 +1070,7 @@ function BulkSendAmountsInputContent({
 
   const validateSpecifiedAmountValue = useCallback(
     (specifiedAmount: string): IAmountInputError => {
-      const balance = tokenDetails?.balanceParsed ?? '0';
+      const balance = matchedTokenDetails?.balanceParsed ?? '0';
       const minTransferAmountBN = new BigNumber(minTransferAmount);
       const valueBN = new BigNumber(specifiedAmount || '0');
 
@@ -1056,7 +1121,7 @@ function BulkSendAmountsInputContent({
       isOneToMany,
       minTransferAmount,
       minTransferDisplayAmount,
-      tokenDetails?.balanceParsed,
+      matchedTokenDetails?.balanceParsed,
       tokenInfo,
       transfersInfo.length,
     ],
@@ -1068,7 +1133,7 @@ function BulkSendAmountsInputContent({
     // doesn't exceed any sender's balance.
     let balance: string | undefined;
     if (isOneToMany) {
-      balance = tokenDetails?.balanceParsed ?? '0';
+      balance = matchedTokenDetails?.balanceParsed ?? '0';
     } else {
       const balanceValues = Object.values(senderBalances);
       if (balanceValues.length > 0) {
@@ -1093,7 +1158,7 @@ function BulkSendAmountsInputContent({
     isOneToMany,
     minTransferAmount,
     senderBalances,
-    tokenDetails?.balanceParsed,
+    matchedTokenDetails?.balanceParsed,
     tokenInfo.decimals,
     tokenInfo.symbol,
   ]);
@@ -1156,19 +1221,19 @@ function BulkSendAmountsInputContent({
     () =>
       calculateTotalAmounts({
         transfersInfo: displaySummaryTransfersInfo,
-        tokenPrice: tokenDetails?.price,
+        tokenPrice: matchedTokenDetails?.price,
       }),
-    [displaySummaryTransfersInfo, tokenDetails?.price],
+    [displaySummaryTransfersInfo, matchedTokenDetails?.price],
   );
 
   useEffect(() => {
-    if (bulkSendMode === EBulkSendMode.OneToMany && tokenDetails) {
+    if (bulkSendMode === EBulkSendMode.OneToMany && matchedTokenDetails) {
       const totalTokenAmountBN = new BigNumber(totalTokenAmount ?? '0');
       setIsInsufficientBalance(
-        totalTokenAmountBN.gt(tokenDetails.balanceParsed),
+        totalTokenAmountBN.gt(matchedTokenDetails.balanceParsed),
       );
     }
-  }, [tokenDetails, totalTokenAmount, bulkSendMode]);
+  }, [matchedTokenDetails, totalTokenAmount, bulkSendMode]);
 
   usePromiseResult(
     async () => {
@@ -1178,6 +1243,8 @@ function BulkSendAmountsInputContent({
         networkId &&
         tokenInfo
       ) {
+        const requestId = tokenDetailsRequestIdRef.current + 1;
+        tokenDetailsRequestIdRef.current = requestId;
         setTokenDetailsState((prev) => ({
           ...prev,
           isRefreshing: true,
@@ -1208,7 +1275,20 @@ function BulkSendAmountsInputContent({
             },
           );
 
-          if (resp[0]) {
+          if (tokenDetailsRequestIdRef.current !== requestId) {
+            return;
+          }
+
+          if (
+            resp[0] &&
+            isBulkSendTokenDetailsMatched(
+              {
+                networkId,
+                tokenInfo,
+              },
+              resp[0],
+            )
+          ) {
             setTokenDetails(resp[0]);
             setTokenDetailsState({
               initialized: true,
@@ -1218,12 +1298,17 @@ function BulkSendAmountsInputContent({
             setTokenDetails(undefined);
           }
         } catch (_) {
+          if (tokenDetailsRequestIdRef.current !== requestId) {
+            return;
+          }
           setTokenDetails(undefined);
         } finally {
-          setTokenDetailsState({
-            initialized: true,
-            isRefreshing: false,
-          });
+          if (tokenDetailsRequestIdRef.current === requestId) {
+            setTokenDetailsState({
+              initialized: true,
+              isRefreshing: false,
+            });
+          }
         }
       }
     },
@@ -1246,23 +1331,35 @@ function BulkSendAmountsInputContent({
 
       setSenderBalancesLoading(true);
 
-      const balanceMap: Record<string, string> = {};
-      const failedSet = new Set<string>();
-      const limit = pLimit(5);
+      const fetchSenderBalancesLegacy = async () => {
+        const vaultSettings =
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          });
+        const balanceMap: Record<string, string> = {};
+        const failedSet = new Set<string>();
+        const limit = pLimit(5);
 
-      try {
         await Promise.all(
           sendersWithAccountId.map((sender) =>
             limit(async () => {
               if (!sender.accountId) return;
               try {
+                const withCheckInscription =
+                  vaultSettings.hasFrozenBalance &&
+                  (await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                    {
+                      networkId,
+                      accountId: sender.accountId,
+                    },
+                  ));
                 const resp =
                   await backgroundApiProxy.serviceToken.fetchTokensDetails({
                     accountId: sender.accountId,
                     networkId,
                     contractList: [tokenInfo.address],
                     withFrozenBalance: true,
-                    withCheckInscription: false,
+                    withCheckInscription,
                   });
                 if (resp[0]) {
                   balanceMap[sender.address] = resp[0].balanceParsed;
@@ -1275,13 +1372,120 @@ function BulkSendAmountsInputContent({
             }),
           ),
         );
-      } finally {
+
+        return {
+          balanceMap,
+          failedSet,
+        };
+      };
+
+      try {
+        const isCustomNetwork =
+          await backgroundApiProxy.serviceNetwork.isCustomNetwork({
+            networkId,
+          });
+
+        if (isCustomNetwork) {
+          const { balanceMap, failedSet } = await fetchSenderBalancesLegacy();
+          setSenderBalances(balanceMap);
+          setSenderBalancesFailed(failedSet);
+          return;
+        }
+
+        const senderGroups = new Map<
+          string,
+          {
+            queryAddress: string;
+            originalAddresses: Set<string>;
+          }
+        >();
+
+        sendersWithAccountId.forEach((sender) => {
+          const addressKey = buildSenderBalanceAddressKey(sender.address);
+          const existingGroup = senderGroups.get(addressKey);
+          if (existingGroup) {
+            existingGroup.originalAddresses.add(sender.address);
+            return;
+          }
+          senderGroups.set(addressKey, {
+            queryAddress: sender.address.trim(),
+            originalAddresses: new Set([sender.address]),
+          });
+        });
+
+        const balanceMap: Record<string, string> = {};
+        const failedSet = new Set<string>();
+        const batchBalancesByKey = new Map<string, string>();
+        const batchAccountId =
+          sendersWithAccountId.find((sender) => sender.accountId)?.accountId ??
+          accountId ??
+          '';
+        const resp =
+          await backgroundApiProxy.serviceToken.fetchTokensDetailsBatch({
+            accountId: batchAccountId,
+            networkId,
+            contractList: [tokenInfo.address],
+            queries: Array.from(senderGroups.values()).map((group) => ({
+              accountAddress: group.queryAddress,
+            })),
+          });
+
+        resp.forEach((item) => {
+          const addressKey = buildSenderBalanceAddressKey(item.accountAddress);
+          if (!senderGroups.has(addressKey)) {
+            return;
+          }
+          if (batchBalancesByKey.has(addressKey)) {
+            return;
+          }
+          const matchedToken = item.tokens.find((token) =>
+            isBulkSendTokenDetailsMatched(
+              {
+                networkId,
+                tokenInfo,
+              },
+              token,
+            ),
+          );
+          if (matchedToken?.balanceParsed !== undefined) {
+            batchBalancesByKey.set(addressKey, matchedToken.balanceParsed);
+          }
+        });
+
+        senderGroups.forEach(({ originalAddresses }, addressKey) => {
+          const balance = batchBalancesByKey.get(addressKey);
+          if (balance === undefined) {
+            originalAddresses.forEach((address) => {
+              failedSet.add(address);
+            });
+            return;
+          }
+          originalAddresses.forEach((address) => {
+            balanceMap[address] = balance;
+          });
+        });
+
         setSenderBalances(balanceMap);
         setSenderBalancesFailed(failedSet);
+      } catch (_e) {
+        const allAddresses = new Set<string>();
+        sendersWithAccountId.forEach((sender) => {
+          allAddresses.add(sender.address);
+        });
+        setSenderBalances({});
+        setSenderBalancesFailed(allAddresses);
+      } finally {
         setSenderBalancesLoading(false);
       }
     },
-    [networkId, tokenInfo, bulkSendMode, senders],
+    [
+      networkId,
+      tokenInfo,
+      bulkSendMode,
+      senders,
+      accountId,
+      buildSenderBalanceAddressKey,
+    ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
@@ -1289,6 +1493,7 @@ function BulkSendAmountsInputContent({
   );
 
   // Per-sender balance validation for ManyToOne/ManyToMany
+  // Aggregates amounts for duplicate senders before comparing to balance
   useEffect(() => {
     if (bulkSendMode === EBulkSendMode.OneToMany) return;
     if (isMaxMode) {
@@ -1297,19 +1502,9 @@ function BulkSendAmountsInputContent({
     }
     if (Object.keys(senderBalances).length === 0) return;
 
-    let anyInsufficient = false;
-
-    for (const transfer of transfersInfo) {
-      const balance = senderBalances[transfer.from];
-      if (balance !== undefined && transfer.amount && transfer.amount !== '') {
-        if (new BigNumber(transfer.amount).gt(balance)) {
-          anyInsufficient = true;
-          break;
-        }
-      }
-    }
-
-    setIsInsufficientBalance(anyInsufficient);
+    setIsInsufficientBalance(
+      checkSenderInsufficientBalance({ transfersInfo, senderBalances }),
+    );
   }, [bulkSendMode, isMaxMode, senderBalances, transfersInfo]);
 
   useEffect(() => {
@@ -1451,7 +1646,7 @@ function BulkSendAmountsInputContent({
       networkId,
       hasCustomAmounts,
       tokenInfo,
-      tokenDetails,
+      tokenDetails: matchedTokenDetails,
       setTokenDetails,
       tokenDetailsState,
       setTokenDetailsState,
@@ -1488,12 +1683,13 @@ function BulkSendAmountsInputContent({
       senderBalancesFailed,
       setSenderBalancesFailed,
       senderAccountIdMap,
+      hasDuplicateSenders,
     }),
     [
       networkId,
       accountId,
       hasCustomAmounts,
-      tokenDetails,
+      matchedTokenDetails,
       tokenDetailsState,
       bulkSendMode,
       isMaxMode,
@@ -1519,6 +1715,7 @@ function BulkSendAmountsInputContent({
       senderBalancesLoading,
       senderBalancesFailed,
       senderAccountIdMap,
+      hasDuplicateSenders,
     ],
   );
 

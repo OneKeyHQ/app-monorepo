@@ -2,12 +2,18 @@ import type { Contexts } from '@sentry/core';
 import type { Systeminformation } from 'systeminformation';
 
 export const cspRules = [
-  // Default to only own resources
-  "default-src 'self' 'unsafe-inline' onekey.243096.com dev.243096.com onekey-asset.com",
-  // Allow all API calls (Can't be restricted bc of custom backends)
+  "default-src 'self'",
+  "script-src 'self'",
+  // inline styles required by React/Tamagui runtime
+  "style-src 'self' 'unsafe-inline'",
+  // Wallet connects to arbitrary blockchain RPCs, so connect-src must remain open.
+  // Webviews (DApp browser) use a separate session with their own CSP.
   'connect-src *',
-  // Allow images from trezor.io
-  "img-src 'self' onekey.243096.com devs.243096.com onekey.so *.onekey.so onekey-asset.com",
+  "img-src 'self' data: https://onekey.243096.com https://devs.243096.com https://onekey.so https://*.onekey.so https://onekey-asset.com",
+  "font-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
 ];
 
 export type IDesktopSystemInfo = {
@@ -30,6 +36,7 @@ export type IDesktopIAPGetProductsResult = {
 export const ipcMessageKeys = {
   IS_DEV: 'IS_DEV',
   LOG_DIRECTORY: 'LOG_DIRECTORY',
+  GET_PLATFORM_INFO: 'GET_PLATFORM_INFO',
 
   // Updater
   UPDATE_AVAILABLE: 'update/available',
