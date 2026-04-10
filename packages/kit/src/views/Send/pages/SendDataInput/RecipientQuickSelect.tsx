@@ -861,6 +861,15 @@ export default function RecipientQuickSelect({
     addressBook: 0,
   });
 
+  // Set of tabs that should appear (excludes hideTabs and Lightning hidden tabs)
+  const visibleTabKeys = useMemo<IRecipientQuickSelectTab[]>(() => {
+    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
+    const all: IRecipientQuickSelectTab[] = isLightning
+      ? ['recent']
+      : ['recent', 'account', 'addressBook'];
+    return hideTabs?.length ? all.filter((t) => !hideTabs.includes(t)) : all;
+  }, [hideTabs, networkId]);
+
   // Track which tabs have been visited (once visited, stay mounted to avoid AbortError crashes)
   const [visitedTabs, setVisitedTabs] = useState<
     Record<IRecipientQuickSelectTab, boolean>
@@ -876,6 +885,25 @@ export default function RecipientQuickSelect({
       prev[activeTab] ? prev : { ...prev, [activeTab]: true },
     );
   }, [activeTab]);
+
+  // Pre-mount every visible tab (kept hidden via display:none until active)
+  // so each can fetch its data and report its match count without requiring
+  // the user to click in first. Without this, the addressBook tab label
+  // never showed its (N) count when a BTC chain landed on Accounts by
+  // default, and auto-switch couldn't jump to a non-mounted tab (OK-52952).
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const tab of visibleTabKeys) {
+        if (!next[tab]) {
+          next[tab] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [visibleTabKeys]);
 
   // For multi-derive chains (BTC/LTC), default to Accounts tab so
   // addresses are visible without manual tab switch (OK-52809).
