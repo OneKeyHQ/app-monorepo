@@ -6,7 +6,10 @@
     "base": {
       "node": "24.13.0",
       "env": {
-        "EAS_USE_CACHE": "1"
+        "EAS_USE_CACHE": "1",
+        "ENABLE_NATIVE_BACKGROUND_THREAD": "true",
+        "SPLIT_BUNDLE": "1",
+        "SPLIT_BUNDLE_SEGMENTS": "true"
       },
       "android": {
         "image": "ubuntu-24.04-jdk-17-ndk-r27b",
