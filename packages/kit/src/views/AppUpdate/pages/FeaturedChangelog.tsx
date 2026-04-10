@@ -48,15 +48,6 @@ function FeaturedChangelog({
   const { isPreInstall = false, isForceUpdate: isForceUpdateParam } =
     route.params || {};
 
-  const renderHeaderTitle = useCallback(
-    () => (
-      <SizableText size="$headingLg" color="$textInfo">
-        New
-      </SizableText>
-    ),
-    [],
-  );
-
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const [activeIndex, setActiveIndex] = useState(0);
   const mountTimeRef = useRef(Date.now());
@@ -204,10 +195,16 @@ function FeaturedChangelog({
     : (activeFeature?.ctaText ??
       intl.formatMessage({ id: ETranslations.global_done }));
 
+  const headerTitle = intl.formatMessage({
+    id: isPreInstall
+      ? ETranslations.settings_update_available
+      : ETranslations.settings_whats_new,
+  });
+
   if (!activeFeature) {
     return (
       <Page>
-        <Page.Header headerTitle={renderHeaderTitle} />
+        <Page.Header title={headerTitle} />
         <Page.Body>
           <YStack flex={1} px="$5" pt="$5">
             <Skeleton.Heading3Xl w="60%" mb="$4" />
@@ -224,7 +221,7 @@ function FeaturedChangelog({
 
   return (
     <Page onClose={handleClose}>
-      <Page.Header headerTitle={renderHeaderTitle} />
+      <Page.Header title={headerTitle} />
       <Page.Body>
         <YStack flex={1}>
           <YStack px="$5" pt={0} pb="$3">
