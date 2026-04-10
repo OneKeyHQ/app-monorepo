@@ -36,8 +36,11 @@ import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataI
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import type { IRecipientQuickSelectTab } from '../../../Send/pages/SendDataInput/recipientQuickSelectTabUtils';
 import type { RouteProp } from '@react-navigation/core';
 import type { SubmitHandler } from 'react-hook-form';
+
+const SWAP_HIDDEN_TABS: IRecipientQuickSelectTab[] = ['recent'];
 
 interface IFormType {
   address: IAddressInputValue;
@@ -158,7 +161,7 @@ const SwapToAnotherAddressPage = () => {
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
           <XStack gap="$1.5" alignItems="center">
-            <Icon name="BlockOutline" size="$4" color="$iconSubdued" />
+            <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.swap_page_recipient_modal_do_not,
@@ -168,9 +171,10 @@ const SwapToAnotherAddressPage = () => {
           <RecipientQuickSelect
             accountId={accountInfo?.account?.id ?? ''}
             networkId={networkId}
+            senderDeriveType={activeAccount?.deriveType}
             searchKey={toAddressRaw}
             isSearchMode={!!toAddressRaw?.trim()}
-            hideTabs={['recent']}
+            hideTabs={SWAP_HIDDEN_TABS}
             onMatchStatusChange={setHasQuickSelectMatches}
             onSelect={handleQuickSelectRecipient}
           />

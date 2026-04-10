@@ -94,6 +94,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     paymentAmount,
     paymentToken,
     sellAmount,
+    resetAmounts,
     setSellAmount,
     setPaymentAmount,
     setPaymentToken,
@@ -106,8 +107,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const tokenSellInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
   const sellAmountRef = useRef(sellAmount);
-  // Initialize analytics hook
-  const swapAnalytics = useSwapAnalytics();
+  const hasInitializedMarketTokenRef = useRef(false);
+  const {
+    logSwapAction,
+    resetAnalytics,
+    setAmountEnterType,
+    setSlippageSetting,
+  } = useSwapAnalytics();
+  const resetSwapAmounts = resetAmounts as () => void;
   const intl = useIntl();
   if (paymentAmount !== paymentAmountRef.current) {
     paymentAmountRef.current = paymentAmount;
@@ -214,9 +221,21 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }, [tradeType, balanceToken?.decimals, setPaymentAmount, setSellAmount]);
 
   useEffect(() => {
+    if (!hasInitializedMarketTokenRef.current) {
+      hasInitializedMarketTokenRef.current = true;
+      return;
+    }
+
+    resetSwapAmounts();
+    resetAnalytics();
     tokenBuyInputRef.current?.setValue('');
     tokenSellInputRef.current?.setValue('');
-  }, [currentMarketToken?.networkId, currentMarketToken?.contractAddress]);
+  }, [
+    currentMarketToken?.networkId,
+    currentMarketToken?.contractAddress,
+    resetSwapAmounts,
+    resetAnalytics,
+  ]);
 
   return (
     <YStack gap="$4">
@@ -243,7 +262,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
-          onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
+          onAmountEnterTypeChange={setAmountEnterType}
           disableNativeToken={disableNativeToken}
         />
         <TokenInputSection
@@ -256,7 +275,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
-          onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
+          onAmountEnterTypeChange={setAmountEnterType}
         />
 
         {/* Rate display */}
@@ -300,7 +319,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         networkId={networkId}
         disabled={!!speedCheckError || isLoading}
         onSwapAction={() =>
-          swapAnalytics.logSwapAction({
+          logSwapAction({
             tradeType,
             networkId,
             paymentToken,
@@ -316,9 +335,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
           onSlippageChange={(item) => {
             setSlippage(item.value);
-            swapAnalytics.setSlippageSetting(
-              item.key === ESwapSlippageSegmentKey.CUSTOM,
-            );
+            setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);
           }}
         />
       )}

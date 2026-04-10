@@ -71,7 +71,7 @@ function SingleLineSenderInput() {
   } = useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
-  const [senderSelectorAccountItems, setSenderSelectorAccountItems] = useState<
+  const senderSelectorAccountItemsRef = useRef<
     Record<string, IBulkSendSenderSelectorAccountItem>
   >({});
 
@@ -122,7 +122,7 @@ function SingleLineSenderInput() {
 
       const trimmedAddress = _value.trim();
       const fallbackAccountItem =
-        senderSelectorAccountItems[
+        senderSelectorAccountItemsRef.current[
           buildSenderSelectorAddressKey(trimmedAddress)
         ];
 
@@ -299,7 +299,7 @@ function SingleLineSenderInput() {
       network?.name,
       network?.id,
       selectedNetworkId,
-      senderSelectorAccountItems,
+      senderSelectorAccountItemsRef,
       setSelectedAccountId,
       setSelectedIndexedAccountId,
     ],
@@ -360,18 +360,16 @@ function SingleLineSenderInput() {
 
       const selectorAccountItem = buildSenderSelectorAccountItem(activeAccount);
       if (selectorAccountItem) {
-        setSenderSelectorAccountItems((prev) => ({
-          ...prev,
-          [buildSenderSelectorAddressKey(selectorAccountItem.address)]:
-            selectorAccountItem,
-        }));
+        senderSelectorAccountItemsRef.current[
+          buildSenderSelectorAddressKey(selectorAccountItem.address)
+        ] = selectorAccountItem;
         void backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
       }
     },
     [
       setSelectedAccountId,
       setSelectedIndexedAccountId,
-      setSenderSelectorAccountItems,
+      senderSelectorAccountItemsRef,
     ],
   );
 
@@ -464,7 +462,7 @@ function MultiLineSenderInput({
     selectedAccountId,
     setResolvedSenderAccountIds,
   } = useBulkSendAddressesInputContext();
-  const [senderSelectorAccountItems, setSenderSelectorAccountItems] = useState<
+  const senderSelectorAccountItemsRef = useRef<
     Record<string, IBulkSendSenderSelectorAccountItem>
   >({});
 
@@ -480,22 +478,20 @@ function MultiLineSenderInput({
     onResolvedAccountIds: setResolvedSenderAccountIds,
     duplicateWarningMode,
     onDuplicateAddressCountChange,
-    senderSelectorAccountItems,
+    selectorAccountItemsRef: senderSelectorAccountItemsRef,
   });
 
   const handleActiveAccountChange = useCallback(
     (activeAccount: IAccountSelectorActiveAccountInfo) => {
       const selectorAccountItem = buildSenderSelectorAccountItem(activeAccount);
       if (selectorAccountItem) {
-        setSenderSelectorAccountItems((prev) => ({
-          ...prev,
-          [buildSenderSelectorAddressKey(selectorAccountItem.address)]:
-            selectorAccountItem,
-        }));
+        senderSelectorAccountItemsRef.current[
+          buildSenderSelectorAddressKey(selectorAccountItem.address)
+        ] = selectorAccountItem;
         void backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
       }
     },
-    [],
+    [senderSelectorAccountItemsRef],
   );
 
   const validate = useCallback(
@@ -554,6 +550,7 @@ function MultiLineSenderInput({
         accountSelector={{
           num: 0,
           clearNotMatch: true,
+          accountSelectorOnly: true,
         }}
         placeholder={intl.formatMessage({
           id: allowAmounts

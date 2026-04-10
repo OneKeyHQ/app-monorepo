@@ -13,7 +13,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Alert,
-  Button,
   Form,
   Page,
   SizableText,
@@ -29,13 +28,13 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
-import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useValidateMemoField } from '@onekeyhq/kit/src/hooks/useValidateMemoField';
 import type {
   IChainValue,
   IQRCodeHandlerParseResult,
@@ -56,6 +55,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
@@ -181,7 +181,6 @@ function SendDataInputContainer() {
     numericOnlyMemo,
     displayNoteForm,
     noteMaxLength,
-    supportsMemoValidation,
   ] = useMemo(() => {
     return [
       vaultSettings?.withMemo,
@@ -190,9 +189,11 @@ function SendDataInputContainer() {
       vaultSettings?.numericOnlyMemo,
       vaultSettings?.withNote,
       vaultSettings?.noteMaxLength,
-      vaultSettings?.supportMemoValidation,
     ];
   }, [vaultSettings]);
+
+  // Algo uses Note instead of Memo; history memos should map to the note field
+  const isNoteOnlyChain = displayNoteForm && !displayMemoForm;
 
   const { result: [tokenDetails] = [] } = usePromiseResult(
     async () => {
@@ -289,11 +290,14 @@ function SendDataInputContainer() {
   const memoValue = form.watch('memo') as string | undefined;
   const noteValue = form.watch('note') as string | undefined;
   const paymentIdValue = form.watch('paymentId') as string | undefined;
+  // Don't include isValidating — async memo validation (XRP vault) would
+  // otherwise make the Next button flicker on every keystroke (OK-52883).
+  // handleNavigateToAmountInput awaits form.trigger() as the final guard, so
+  // it's safe to keep the button enabled while async validation is pending.
   const isNextDisabled = Boolean(
     form.formState.errors.memo ||
     form.formState.errors.paymentId ||
-    form.formState.errors.note ||
-    form.formState.isValidating,
+    form.formState.errors.note,
   );
 
   const toValue = form.watch('to') as IAddressInputValue | undefined;
@@ -377,12 +381,44 @@ function SendDataInputContainer() {
       // Reuse the matching amount-input route for the active modal stack.
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
 
-      // For Lightning invoices, decode the invoice to extract embedded amount
-      let invoiceAmount: string | undefined;
-      let isInvoiceAmountLocked = false;
       const isLightning = networkUtils.isLightningNetworkByNetworkId(
         currentAccount.networkId,
       );
+
+      // For LNURL / Lightning Address, skip amount page — LnurlPayRequestModal
+      // handles amount input, comment, and metadata display (OK-52507, OK-52671).
+      // Must check before invoice decode to avoid passing LNURL to decodedInvoice.
+      const rawInput = (toVal?.raw ?? '').trim();
+      if (isLightning && account && isReusableLightningRecipient(rawInput)) {
+        const transfersInfo: ITransferInfo[] = [
+          {
+            from: account.address,
+            to: rawInput,
+            amount: '0',
+            tokenInfo: tokenInfo ?? undefined,
+          },
+        ];
+        await signatureConfirm.navigationToTxConfirm({
+          transfersInfo,
+          sameModal: true,
+          onSuccess,
+          onFail,
+          onCancel,
+          transferPayload: {
+            amountToSend: '0',
+            isMaxSend: false,
+            isNFT: false,
+            originalRecipient: rawInput,
+            isToContract: false,
+          },
+          isInternalTransfer: true,
+        });
+        return;
+      }
+
+      // For Lightning invoices, decode the invoice to extract embedded amount
+      let invoiceAmount: string | undefined;
+      let isInvoiceAmountLocked = false;
       if (isLightning && toResolved) {
         try {
           const isZeroAmount =
@@ -483,43 +519,12 @@ function SendDataInputContainer() {
     onCancel,
   ]);
 
-  const validateMemoField = useCallback(
-    async (value: string): Promise<string | undefined> => {
-      if (vaultSettings?.supportMemoValidation) {
-        try {
-          const result = await backgroundApiProxy.serviceSend.validateMemo({
-            networkId: currentAccount.networkId,
-            accountId: currentAccount.accountId,
-            memo: value,
-          });
-          if (!result.isValid) {
-            return result.errorMessage;
-          }
-          return undefined;
-        } catch (error) {
-          console.error('Vault memo validation failed:', error);
-        }
-      }
-
-      const validateErrMsg = numericOnlyMemo
-        ? intl.formatMessage({
-            id: ETranslations.send_field_only_integer,
-          })
-        : undefined;
-      const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
-
-      if (!value || !memoRegExp) return undefined;
-      const result = !memoRegExp.test(value);
-      return result ? validateErrMsg : undefined;
-    },
-    [
-      currentAccount.accountId,
-      currentAccount.networkId,
-      intl,
-      numericOnlyMemo,
-      vaultSettings?.supportMemoValidation,
-    ],
-  );
+  const validateMemoField = useValidateMemoField({
+    networkId: currentAccount.networkId,
+    accountId: currentAccount.accountId,
+    numericOnlyMemo,
+    supportMemoValidation: vaultSettings?.supportMemoValidation,
+  });
 
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
@@ -529,49 +534,45 @@ function SendDataInputContainer() {
     if (isNumericMemo) {
       memoInputLines = memoValue?.length ? 2 : 1;
     }
-    const clearMemoExtension = memoValue ? (
-      <XStack justifyContent="flex-end">
-        <Button
-          size="small"
-          variant="secondary"
-          icon="BroomOutline"
-          onPress={() =>
-            form.setValue('memo', '', {
-              shouldValidate: true,
-            })
-          }
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_clear,
-          })}
-        </Button>
-      </XStack>
-    ) : undefined;
-
     return (
       <>
         <Form.Field
           label={intl.formatMessage({ id: ETranslations.send_tag })}
           optional
           name="memo"
+          labelAddon={
+            memoValue ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                cursor="pointer"
+                hoverStyle={{ color: '$text' }}
+                onPress={() =>
+                  form.setValue('memo', '', {
+                    shouldValidate: true,
+                  })
+                }
+              >
+                {intl.formatMessage({ id: ETranslations.global_clear })}
+              </SizableText>
+            ) : undefined
+          }
           rules={{
-            maxLength: supportsMemoValidation
-              ? undefined
-              : {
-                  value: maxLength,
-                  message: intl.formatMessage(
-                    {
-                      id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
-                    },
-                    {
-                      number: maxLength,
-                    },
-                  ),
+            maxLength: {
+              value: maxLength,
+              message: intl.formatMessage(
+                {
+                  id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
                 },
+                {
+                  number: maxLength,
+                },
+              ),
+            },
             validate: validateMemoField,
           }}
         >
-          <BaseInput
+          <TextArea
             numberOfLines={memoInputLines}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
@@ -580,7 +581,6 @@ function SendDataInputContainer() {
             keyboardType={
               isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
             }
-            extension={clearMemoExtension}
           />
         </Form.Field>
       </>
@@ -593,7 +593,6 @@ function SendDataInputContainer() {
     memoMaxLength,
     memoValue,
     numericOnlyMemo,
-    supportsMemoValidation,
     validateMemoField,
   ]);
 
@@ -769,8 +768,14 @@ function SendDataInputContainer() {
       selectedMemo?: string;
       selectedNote?: string;
     }) => {
-      form.setValue('memo', normalizeOptionalRecipientText(selectedMemo));
-      form.setValue('note', normalizeOptionalRecipientText(selectedNote));
+      const memoText = normalizeOptionalRecipientText(selectedMemo);
+      const noteText = normalizeOptionalRecipientText(selectedNote);
+      form.setValue('memo', displayMemoForm ? memoText : '', {
+        shouldValidate: true,
+      });
+      form.setValue('note', noteText || (isNoteOnlyChain ? memoText : ''), {
+        shouldValidate: true,
+      });
 
       const currentTo = form.getValues('to') as IAddressInputValue | undefined;
       // Skip resetting when the same address is already resolved,
@@ -803,7 +808,7 @@ function SendDataInputContainer() {
         },
       );
     },
-    [form],
+    [displayMemoForm, isNoteOnlyChain, form],
   );
 
   const shouldStayOnDataStepForQuickSelect = useCallback(
@@ -815,10 +820,12 @@ function SendDataInputContainer() {
       selectedNote?: string;
     }) => {
       const hasSelectedMemo = Boolean(selectedMemo?.trim());
+      const hasSelectedNote = Boolean(selectedNote?.trim());
       const needsMemoInput = vaultSettings?.withMemo && !hasSelectedMemo;
       const needsPaymentId =
         vaultSettings?.withPaymentId && !form.getValues('paymentId');
-      const needsNote = vaultSettings?.withNote && !selectedNote;
+      const needsNote =
+        vaultSettings?.withNote && !hasSelectedNote && !hasSelectedMemo;
       return needsMemoInput || needsPaymentId || needsNote;
     },
     [
@@ -875,6 +882,8 @@ function SendDataInputContainer() {
           addressInputMethod: addressInputChangeType.current,
         });
 
+        const effectiveNote =
+          selectedNote || (isNoteOnlyChain ? selectedMemo?.trim() : undefined);
         pushAmountInput({
           networkId: currentAccount.networkId,
           accountId: currentAccount.accountId,
@@ -883,9 +892,11 @@ function SendDataInputContainer() {
           nfts,
           recipientAddress: resolvedAddress,
           recipientIsContract: queryResult.isContract ?? false,
-          recipientMemo: selectedMemo?.trim() || undefined,
+          recipientMemo: displayMemoForm
+            ? selectedMemo?.trim() || undefined
+            : undefined,
           recipientPaymentId: form.getValues('paymentId') || undefined,
-          recipientNote: selectedNote || undefined,
+          recipientNote: effectiveNote || undefined,
           amount: scannedAmount || sendAmount || undefined,
           isAllNetworks,
           onSuccess,
@@ -906,6 +917,8 @@ function SendDataInputContainer() {
     [
       currentAccount.accountId,
       currentAccount.networkId,
+      displayMemoForm,
+      isNoteOnlyChain,
       fillRecipientFromQuickSelect,
       form,
       enableAllowListValidation,
@@ -997,7 +1010,11 @@ function SendDataInputContainer() {
             ? ETranslations.send_title
             : ETranslations.select_address__title,
         })}
-        headerRight={renderAddressSecurityHeaderRightButton}
+        headerRight={
+          enableAllowListValidation
+            ? renderAddressSecurityHeaderRightButton
+            : undefined
+        }
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
@@ -1106,23 +1123,18 @@ function SendDataInputContainer() {
               />
             ) : null}
             {renderDataInput()}
-            {/* Lightning Network uses invoices/LNURL, not addresses — hide quick select */}
-            {networkUtils.isLightningNetworkByNetworkId(
-              currentAccount.networkId,
-            ) ? null : (
-              <RecipientQuickSelect
-                accountId={currentAccount.accountId}
-                networkId={currentAccount.networkId}
-                senderDeriveType={senderDeriveType}
-                searchKey={toAddressRaw}
-                isSearchMode={!!toAddressRaw?.trim()}
-                activeTab={quickSelectActiveTab}
-                onActiveTabChange={setQuickSelectActiveTab}
-                onInputTypeChange={handleAddressInputChangeType}
-                onMatchStatusChange={setHasQuickSelectMatches}
-                onSelect={handleQuickSelectRecipient}
-              />
-            )}
+            <RecipientQuickSelect
+              accountId={currentAccount.accountId}
+              networkId={currentAccount.networkId}
+              senderDeriveType={senderDeriveType}
+              searchKey={toAddressRaw}
+              isSearchMode={!!toAddressRaw?.trim()}
+              activeTab={quickSelectActiveTab}
+              onActiveTabChange={setQuickSelectActiveTab}
+              onInputTypeChange={handleAddressInputChangeType}
+              onMatchStatusChange={setHasQuickSelectMatches}
+              onSelect={handleQuickSelectRecipient}
+            />
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>

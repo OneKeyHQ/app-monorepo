@@ -21,6 +21,22 @@ function getBulkSendSupportedEVMNetworkIds() {
   ];
 }
 
+function getBulkSendExcludedNetworkIds() {
+  const networkIdsMap = getNetworkIdsMap();
+  return [
+    networkIdsMap.lightning,
+    networkIdsMap.tlightning,
+    networkIdsMap.nostr,
+  ].filter(Boolean);
+}
+
+function isBulkSendExcludedNetworkId(networkId?: string) {
+  if (!networkId) {
+    return false;
+  }
+  return getBulkSendExcludedNetworkIds().includes(networkId);
+}
+
 function getBulkSendSupportedNetworkIds() {
   const networkIdsMap = getNetworkIdsMap();
   const supportedEVMNetworkIds = getBulkSendSupportedEVMNetworkIds();
@@ -51,7 +67,7 @@ function fixBulkSendSupportedNetworkId({
   if (
     bulkSendMode &&
     bulkSendMode !== EBulkSendMode.OneToMany &&
-    !networkUtils.isLightningNetworkByNetworkId(networkId) &&
+    !isBulkSendExcludedNetworkId(networkId) &&
     !networkUtils.isAllNetwork({ networkId })
   ) {
     return {
@@ -103,7 +119,9 @@ function getBulkSendModeLabel(bulkSendMode: EBulkSendMode) {
 
 export default {
   fixBulkSendSupportedNetworkId,
+  getBulkSendExcludedNetworkIds,
   getBulkSendSupportedEVMNetworkIds,
   getBulkSendSupportedNetworkIds,
   getBulkSendModeLabel,
+  isBulkSendExcludedNetworkId,
 };
