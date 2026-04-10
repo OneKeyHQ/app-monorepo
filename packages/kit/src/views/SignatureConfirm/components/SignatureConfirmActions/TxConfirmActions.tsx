@@ -424,7 +424,6 @@ function TxConfirmActions(props: IProps) {
           address: addressToSave,
           memo:
             transferPayload?.memo ||
-            transferPayload?.note ||
             (transferPayload?.paymentId
               ? String(transferPayload.paymentId)
               : undefined),
