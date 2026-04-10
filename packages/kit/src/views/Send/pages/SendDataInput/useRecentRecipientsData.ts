@@ -76,10 +76,8 @@ function extractOutgoingRecipientFromDecodedTx({
 
     const firstSend = assetTransfer.sends?.[0];
     if (firstSend) {
-      // For UTXO chains (BTC/LTC), sends[0].from may be a change/derived
-      // address that differs from the account's main address. The tx-level
-      // owner check (line 54-58) already confirms this is our outgoing tx,
-      // so we only apply the per-send filter when owner is unknown.
+      // UTXO chains: sends[0].from may be a change address; trust the
+      // tx-level owner check and only fall back to per-send filter.
       if (!txOwner) {
         const senderAddress = firstSend.from?.toLowerCase();
         if (senderAddress && ownerAddress && senderAddress !== ownerAddress) {
@@ -312,15 +310,8 @@ function mergeRecipients(
     .slice(0, MAX_RECIPIENTS);
 }
 
-// Load recipients from the local store (SimpleDbEntityRecentRecipients),
-// which is updated every time a send flow completes via
-// ServiceSignatureConfirm.updateRecentRecipients. Used both as the Phase 2
-// source when the transfer-recipient API is unsupported/empty AND as a
-// freshness overlay on top of the Phase 1 API result — a tx the user just
-// sent is in the local store instantly, while the indexer backing
-// /transfer-recipient has lag (minutes) and non-indexer EVM chains are
-// not covered at all. Without this overlay OK-52728 reproduces: the user
-// sends a tx and still sees the API's stale cross-chain history.
+// Local store fallback + freshness overlay for /transfer-recipient, which
+// has indexer lag and skips non-indexer EVM chains (OK-52728).
 async function loadStoredRecipients(networkId: string): Promise<{
   addresses: string[];
   extraMap: Map<string, IRecipientExtraInfo> | null;
@@ -392,16 +383,10 @@ export function useRecentRecipientsData({
 
     const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
 
-    // Phase 1: fetch /transfer-recipient and local store in parallel. The
-    // local store is always loaded so fresh sends (OK-52728) and non-indexer
-    // EVM chains are not masked by the API result even when Phase 1
-    // succeeds.
-    let apiEnriched: IEnrichedRecentRecipient[] | null = null;
-    let apiExtraMap: Map<string, IRecipientExtraInfo> | null = null;
-    let apiAddresses: string[] = [];
-
-    const apiPromise = (async () => {
-      if (!accountId) return;
+    // Phase 1: API + local store in parallel. Local store is always loaded
+    // so fresh sends (OK-52728) and non-indexer EVM chains aren't masked.
+    const fetchApiRecipients = async () => {
+      if (!accountId) return { extraMap: null, addresses: [] as string[] };
       try {
         const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
         const { supported, data: apiRecipients } =
@@ -411,48 +396,35 @@ export function useRecentRecipientsData({
             limit: MAX_RECIPIENTS,
           });
         if (supported && apiRecipients.length > 0) {
-          apiExtraMap = await buildExtraMapFromApiRecipients(apiRecipients);
-          apiAddresses = apiRecipients.map((r) => r.address);
+          return {
+            extraMap: await buildExtraMapFromApiRecipients(apiRecipients),
+            addresses: apiRecipients.map((r) => r.address),
+          };
         }
       } catch {
         // Fall through to local strategies.
       }
-    })();
+      return { extraMap: null, addresses: [] as string[] };
+    };
 
-    const [, { addresses: storedAddresses, extraMap: storedExtraMap }] =
-      await Promise.all([apiPromise, loadStoredRecipients(networkId)]);
+    let apiEnriched: IEnrichedRecentRecipient[] | null = null;
+    const [
+      { extraMap: apiExtraMap, addresses: apiAddresses },
+      { addresses: storedAddresses, extraMap: storedExtraMap },
+    ] = await Promise.all([
+      fetchApiRecipients(),
+      loadStoredRecipients(networkId),
+    ]);
 
     if (isStale()) return;
 
     if (apiAddresses.length > 0) {
-      // Merge API addresses with local-only addresses BEFORE enrichment so
-      // queryAddress / /badges is called exactly once per unique address
-      // instead of twice (OK-52897 — badge calls are the expensive part).
+      // Merge before enrichment so each unique address hits queryAddress
+      // only once (OK-52897 — badge calls are expensive).
       const apiAddressSet = new Set(apiAddresses.map((a) => a.toLowerCase()));
       const localOnlyAddresses = storedAddresses.filter(
         (a) => !apiAddressSet.has(a.toLowerCase()),
       );
-
-      // The stored entries for addresses already in the API are used as a
-      // "freshness overlay": when a user re-sends to an existing recipient,
-      // the local updatedAt is newer than the indexer's and the entry
-      // should bump to the top. Keep a lookup of local time + network name
-      // so both fields get applied consistently — otherwise the UI shows
-      // the new timestamp with the API's stale network badge.
-      const localOverlayByAddress = new Map<
-        string,
-        { time: number; networkName?: string }
-      >();
-      for (const addr of storedAddresses) {
-        const lower = addr.toLowerCase();
-        const extra = storedExtraMap?.get(lower);
-        if (extra?.time) {
-          localOverlayByAddress.set(lower, {
-            time: extra.time,
-            networkName: extra.networkName,
-          });
-        }
-      }
 
       const combinedAddresses = [...apiAddresses, ...localOnlyAddresses];
       const combinedExtraMap = new Map<string, IRecipientExtraInfo>(
@@ -472,16 +444,14 @@ export function useRecentRecipientsData({
         );
         if (isStale()) return;
 
-        // Apply freshness overlay: for addresses present in both sources,
-        // pick the newer timestamp so a re-send bubbles the entry up, and
-        // overwrite the network name to match the path the user actually
-        // sent from — otherwise the UI would show the new time with the
-        // API's stale network badge.
+        // Freshness overlay: on re-send the local updatedAt is newer than
+        // the indexer's — bump the entry up and swap the network badge so
+        // the new timestamp doesn't pair with the API's stale network.
         apiEnriched = enriched
           .map((r) => {
             const lower = r.input?.toLowerCase();
-            const local = lower ? localOverlayByAddress.get(lower) : undefined;
-            if (local && local.time > (r.lastTransferTime ?? 0)) {
+            const local = lower ? storedExtraMap?.get(lower) : undefined;
+            if (local?.time && local.time > (r.lastTransferTime ?? 0)) {
               return {
                 ...r,
                 lastTransferTime: local.time,
