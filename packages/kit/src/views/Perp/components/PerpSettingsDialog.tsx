@@ -225,7 +225,9 @@ function PerpSettingsPopoverContent({
           mx="$0"
           px="$2.5"
           titleProps={{ size: '$bodyMdMedium' }}
-          title="Perps Guide"
+          title={intl.formatMessage({
+            id: ETranslations.perp_guide_title,
+          })}
           onPress={() => {
             closePopover();
             showGuide();
