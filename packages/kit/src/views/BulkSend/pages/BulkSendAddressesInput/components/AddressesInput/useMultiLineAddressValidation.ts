@@ -43,6 +43,7 @@ type IUseMultiLineAddressValidationParams = {
   selectorAccountItemsRef?: MutableRefObject<
     Record<string, IBulkSendSelectorAccountItem>
   >;
+  onErrorsChange?: (errors: ILineError[]) => void;
 };
 
 function useMultiLineAddressValidation(
@@ -63,6 +64,7 @@ function useMultiLineAddressValidation(
     onDuplicateAddressCountChange,
     duplicateWarningMode = false,
     selectorAccountItemsRef,
+    onErrorsChange,
   } = params;
 
   const intl = useIntl();
@@ -72,9 +74,11 @@ function useMultiLineAddressValidation(
   const onDuplicateAddressCountChangeRef = useRef(
     onDuplicateAddressCountChange,
   );
+  const onErrorsChangeRef = useRef(onErrorsChange);
   const validationSeqRef = useRef(0);
   onResolvedAccountIdsRef.current = onResolvedAccountIds;
   onDuplicateAddressCountChangeRef.current = onDuplicateAddressCountChange;
+  onErrorsChangeRef.current = onErrorsChange;
 
   const { result: vaultSettings } = usePromiseResult(
     async () =>
@@ -313,6 +317,7 @@ function useMultiLineAddressValidation(
 
       if (!value) {
         setErrors([]);
+        onErrorsChangeRef.current?.([]);
         onDuplicateAddressCountChangeRef.current?.(0);
         if (resolveAccountId) {
           onResolvedAccountIdsRef.current?.({});
@@ -336,6 +341,7 @@ function useMultiLineAddressValidation(
         });
         onDuplicateAddressCountChangeRef.current?.(0);
         setErrors(lineErrors);
+        onErrorsChangeRef.current?.(lineErrors);
         return lineErrors[0].message;
       }
 
@@ -650,6 +656,7 @@ function useMultiLineAddressValidation(
                 message: intl.formatMessage({
                   id: ETranslations.wallet_bulk_send_error_address_not_in_allowlist,
                 }),
+                translationId: ETranslations.send_address_not_allowlist_error,
               });
             }
           }
@@ -668,6 +675,7 @@ function useMultiLineAddressValidation(
       }
 
       setErrors(lineErrors);
+      onErrorsChangeRef.current?.(lineErrors);
       onDuplicateAddressCountChangeRef.current?.(
         duplicateWarningMode ? duplicateAddressCount : 0,
       );

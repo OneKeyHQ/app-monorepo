@@ -4,25 +4,34 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-
-import type { IToken } from '../types';
+import type {
+  ISwapToken,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
 
 interface IUsePaymentTokenPriceResult {
   price?: BigNumber;
+  tokenKey?: string;
   isLoading: boolean | undefined;
   refetch: () => void;
 }
 
+type IPaymentTokenPriceResult = {
+  tokenDetail?: ISwapToken;
+  tokenKey: string;
+};
+
 export function usePaymentTokenPrice(
-  paymentToken?: IToken,
+  paymentToken?: ISwapTokenBase,
   networkId?: string,
 ): IUsePaymentTokenPriceResult {
+  const paymentTokenKey = `${networkId ?? ''}:${paymentToken?.contractAddress ?? ''}`;
   const {
-    result: tokenDetail,
+    result: paymentTokenPriceResult,
     isLoading,
     run: refetch,
   } = usePromiseResult(
-    async () => {
+    async (): Promise<IPaymentTokenPriceResult | undefined> => {
       if (!networkId) {
         return undefined;
       }
@@ -34,25 +43,30 @@ export function usePaymentTokenPrice(
         },
       );
 
-      return detail?.[0];
+      return {
+        tokenDetail: detail?.[0],
+        tokenKey: paymentTokenKey,
+      };
     },
-    [paymentToken?.contractAddress, networkId],
+    [paymentToken?.contractAddress, networkId, paymentTokenKey],
     {
       watchLoading: true,
       pollingInterval: 5000, // 5 seconds
+      undefinedResultIfReRun: true,
     },
   );
 
   const price = useMemo(() => {
-    if (!tokenDetail?.price) {
+    if (!paymentTokenPriceResult?.tokenDetail?.price) {
       return undefined;
     }
-    const priceBN = new BigNumber(tokenDetail.price);
+    const priceBN = new BigNumber(paymentTokenPriceResult.tokenDetail.price);
     return priceBN.isNaN() ? undefined : priceBN;
-  }, [tokenDetail?.price]);
+  }, [paymentTokenPriceResult?.tokenDetail?.price]);
 
   return {
     price,
+    tokenKey: paymentTokenPriceResult?.tokenKey,
     isLoading,
     refetch,
   };

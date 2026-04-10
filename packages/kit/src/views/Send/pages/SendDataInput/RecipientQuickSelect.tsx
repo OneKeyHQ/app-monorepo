@@ -20,7 +20,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBUtxoAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/addressBooks';
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -163,6 +166,26 @@ type IWalletGroup = {
 const NETWORK_ACCOUNTS_FETCH_CONCURRENCY = 4;
 const WALLET_GROUP_FETCH_CONCURRENCY = 6;
 
+// Collect every address an account should be searchable by. For BTC with
+// fresh-address mode (OK-52953) the currently-shown address is one of
+// many rotating entries stored in `IDBUtxoAccount.addresses` (relPath →
+// addr); `customAddresses` covers user-added custom receive addresses.
+// Without these a user searching an old receive address gets no hit.
+function collectAccountSearchAddresses(
+  account: INetworkAccount | undefined,
+): string[] {
+  if (!account) return [];
+  const utxo = account as Partial<IDBUtxoAccount>;
+  const candidates = [
+    account.address,
+    account.addressDetail?.address,
+    account.addressDetail?.masterAddress,
+    ...(utxo.addresses ? Object.values(utxo.addresses) : []),
+    ...(utxo.customAddresses ? Object.values(utxo.customAddresses) : []),
+  ].filter((a): a is string => !!a);
+  return Array.from(new Set(candidates.map((a) => a.toLowerCase())));
+}
+
 // Get wallet accounts on the specified network (with derive type info)
 async function getWalletNetworkAccounts(
   wallet: IDBWallet,
@@ -265,12 +288,16 @@ function AccountRecipients({
             // accounts so users can switch derive type via header menu.
             // For other chains, filter by sender's derive type to avoid
             // showing duplicates (e.g. bip44 + ledger-live on EVM).
-            if (senderDeriveType && !showAllDeriveTypes) {
-              const filtered = accounts.filter(
-                (a) => !a.deriveType || a.deriveType === senderDeriveType,
-              );
-              if (filtered.length > 0) {
-                accounts = filtered;
+            if (!showAllDeriveTypes) {
+              const targetDeriveType =
+                senderDeriveType ?? accounts[0]?.deriveType;
+              if (targetDeriveType) {
+                const filtered = accounts.filter(
+                  (a) => !a.deriveType || a.deriveType === targetDeriveType,
+                );
+                if (filtered.length > 0) {
+                  accounts = filtered;
+                }
               }
             }
             if (accounts.length === 0) {
@@ -288,10 +315,11 @@ function AccountRecipients({
           };
 
         for (const wallet of wallets) {
-          // Skip watch-only, deprecated, and deleted (mocked) wallets
-          // Keep HD, Hardware, External, Imported, QR wallets
+          // Skip watch-only, external, deprecated, and deleted (mocked) wallets
+          // Keep HD, Hardware, Imported, QR wallets
           const shouldSkip =
             accountUtils.isWatchingWallet({ walletId: wallet.id }) ||
+            accountUtils.isExternalWallet({ walletId: wallet.id }) ||
             wallet.deprecated ||
             wallet.isMocked;
 
@@ -362,11 +390,10 @@ function AccountRecipients({
             items: accounts,
             isNameMatch: (item) =>
               (item.account?.name ?? '').toLowerCase().includes(searchValue),
-            isAddressMatch: (item) => {
-              const address =
-                item.account?.address ?? item.account?.addressDetail?.address;
-              return address?.toLowerCase().includes(searchValue) ?? false;
-            },
+            isAddressMatch: (item) =>
+              collectAccountSearchAddresses(item.account).some((addr) =>
+                addr.includes(searchValue),
+              ),
           });
 
         if (sortedAccounts.length > 0) {
@@ -569,6 +596,8 @@ function AccountRecipients({
               <Button
                 size="small"
                 variant="tertiary"
+                flexShrink={1}
+                textEllipsis
                 onPress={() => toggleCollapse(item.walletId)}
                 iconAfter={
                   isCollapsed
@@ -597,6 +626,7 @@ function AccountRecipients({
                       size="small"
                       variant="tertiary"
                       iconAfter="ChevronDownSmallSolid"
+                      flexShrink={0}
                     >
                       {activeLabel ?? ''}
                     </Button>
@@ -807,11 +837,10 @@ export default function RecipientQuickSelect({
   senderDeriveType,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
+  const isRecentHidden = hideTabs?.includes('recent') ?? false;
   // Use controlled state from parent if provided, otherwise use local state
   const [localActiveTab, setLocalActiveTab] =
-    useState<IRecipientQuickSelectTab>(
-      hideTabs?.includes('recent') ? 'account' : 'recent',
-    );
+    useState<IRecipientQuickSelectTab>(isRecentHidden ? 'account' : 'recent');
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
 
@@ -832,19 +861,20 @@ export default function RecipientQuickSelect({
     addressBook: 0,
   });
 
-  // Key to trigger refresh of recent recipients data
-  const [recentRefreshKey, setRecentRefreshKey] = useState(0);
-
-  // Force refresh recent recipients on mount to clear cached data
-  useEffect(() => {
-    setRecentRefreshKey((prev) => prev + 1);
-  }, []);
+  // Set of tabs that should appear (excludes hideTabs and Lightning hidden tabs)
+  const visibleTabKeys = useMemo<IRecipientQuickSelectTab[]>(() => {
+    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
+    const all: IRecipientQuickSelectTab[] = isLightning
+      ? ['recent']
+      : ['recent', 'account', 'addressBook'];
+    return hideTabs?.length ? all.filter((t) => !hideTabs.includes(t)) : all;
+  }, [hideTabs, networkId]);
 
   // Track which tabs have been visited (once visited, stay mounted to avoid AbortError crashes)
   const [visitedTabs, setVisitedTabs] = useState<
     Record<IRecipientQuickSelectTab, boolean>
   >({
-    recent: true, // Default tab starts as visited
+    recent: !isRecentHidden,
     account: false,
     addressBook: false,
   });
@@ -855,6 +885,25 @@ export default function RecipientQuickSelect({
       prev[activeTab] ? prev : { ...prev, [activeTab]: true },
     );
   }, [activeTab]);
+
+  // Pre-mount every visible tab (kept hidden via display:none until active)
+  // so each can fetch its data and report its match count without requiring
+  // the user to click in first. Without this, the addressBook tab label
+  // never showed its (N) count when a BTC chain landed on Accounts by
+  // default, and auto-switch couldn't jump to a non-mounted tab (OK-52952).
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const tab of visibleTabKeys) {
+        if (!next[tab]) {
+          next[tab] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [visibleTabKeys]);
 
   // For multi-derive chains (BTC/LTC), default to Accounts tab so
   // addresses are visible without manual tab switch (OK-52809).
@@ -922,12 +971,20 @@ export default function RecipientQuickSelect({
       activeTab,
       tabMatchStatus,
       lastManualSwitchSearchKey: lastManualSwitchSearchKeyRef.current,
+      hideTabs,
     });
 
     if (nextTab) {
       setActiveTab(nextTab);
     }
-  }, [isSearchMode, trimmedSearchKey, activeTab, tabMatchStatus, setActiveTab]);
+  }, [
+    isSearchMode,
+    trimmedSearchKey,
+    activeTab,
+    tabMatchStatus,
+    setActiveTab,
+    hideTabs,
+  ]);
 
   const tabOptions = useMemo(() => {
     const formatLabel = (label: string, tab: IRecipientQuickSelectTab) => {
@@ -996,7 +1053,7 @@ export default function RecipientQuickSelect({
         />
         <Stack mx={-20} pb="$3">
           {/* Render active tab, or visited tabs (hidden with display:none to avoid unmount crashes) */}
-          {activeTab === 'recent' || visitedTabs.recent ? (
+          {!isRecentHidden && (activeTab === 'recent' || visitedTabs.recent) ? (
             <Stack display={activeTab === 'recent' ? 'flex' : 'none'}>
               <RecentRecipients
                 compact
@@ -1010,7 +1067,6 @@ export default function RecipientQuickSelect({
                   onSelect?.(params);
                 }}
                 onMatchStatusChange={handleRecentMatchStatus}
-                refreshKey={recentRefreshKey}
               />
             </Stack>
           ) : null}

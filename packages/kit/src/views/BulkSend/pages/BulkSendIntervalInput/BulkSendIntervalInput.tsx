@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
@@ -18,7 +18,10 @@ import {
   IntervalSettingsContent,
 } from '../../components/IntervalSettingsContent';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
-import { validateIntervalSettings } from '../../utils';
+import {
+  DEFAULT_INTERVAL_SETTINGS,
+  validateIntervalSettings,
+} from '../../utils';
 
 type IBulkSendIntervalInputRouteParams =
   IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendIntervalInput];
@@ -42,9 +45,13 @@ function BulkSendIntervalInputContent({
   const navigation = useAppNavigation();
 
   const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
-    mode: initialIntervalSettings?.mode ?? EIntervalMode.None,
-    minSeconds: initialIntervalSettings?.minSeconds ?? '',
-    maxSeconds: initialIntervalSettings?.maxSeconds ?? '',
+    mode: initialIntervalSettings?.mode ?? DEFAULT_INTERVAL_SETTINGS.mode,
+    minSeconds:
+      initialIntervalSettings?.minSeconds ??
+      DEFAULT_INTERVAL_SETTINGS.minSeconds,
+    maxSeconds:
+      initialIntervalSettings?.maxSeconds ??
+      DEFAULT_INTERVAL_SETTINGS.maxSeconds,
   });
   const [showValidationError, setShowValidationError] = useState(false);
 
@@ -112,12 +119,14 @@ function BulkSendIntervalInputContent({
         />
       </Page.Body>
       <Page.Footer>
-        <Page.FooterActions
-          onConfirmText={INTERVAL_SETTINGS_REVIEW_TEXT}
-          confirmButtonProps={{
-            onPress: handleConfirm,
-          }}
-        />
+        <YStack $md={{ pb: '$5' }}>
+          <Page.FooterActions
+            onConfirmText={INTERVAL_SETTINGS_REVIEW_TEXT}
+            confirmButtonProps={{
+              onPress: handleConfirm,
+            }}
+          />
+        </YStack>
       </Page.Footer>
     </Page>
   );
