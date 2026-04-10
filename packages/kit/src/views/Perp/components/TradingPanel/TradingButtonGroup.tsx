@@ -17,7 +17,10 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useActiveTradeInstrumentAtom,
+  useTradingFormAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountStatusAtom,
@@ -71,14 +74,17 @@ function SideButtonInternal({
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
   const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
 
   const { handleConfirm } = useOrderConfirm();
   const { midPriceBN } = useTradingPrice();
 
-  const szDecimals = useMemo(
-    () => activeAsset?.universe?.szDecimals ?? 2,
-    [activeAsset?.universe?.szDecimals],
-  );
+  const szDecimals = useMemo(() => {
+    if (isSpot && activeTradeInstrument.mode === 'spot') {
+      return activeTradeInstrument.universe?.baseSzDecimals ?? 2;
+    }
+    return activeAsset?.universe?.szDecimals ?? 2;
+  }, [isSpot, activeTradeInstrument, activeAsset?.universe?.szDecimals]);
 
   const calculations = useTradingCalculationsForSide(side);
   const {
@@ -143,14 +149,21 @@ function SideButtonInternal({
     const sizeValue = computedSizeForSide
       .decimalPlaces(szDecimals, BigNumber.ROUND_DOWN)
       .toFixed(szDecimals);
-    const symbol = activeAsset?.coin || '';
-    const displayName = symbol ? parseDexCoin(symbol).displayName : '';
+    const displayName = (() => {
+      if (isSpot && activeTradeInstrument.mode === 'spot') {
+        return activeTradeInstrument.universe?.displayName ?? '';
+      }
+      const symbol = activeAsset?.coin || '';
+      return symbol ? parseDexCoin(symbol).displayName : '';
+    })();
     return `${sizeValue} ${displayName}`;
   }, [
     orderValue,
     tradingPreferences.sizeInputUnit,
     computedSizeForSide,
     szDecimals,
+    isSpot,
+    activeTradeInstrument,
     activeAsset?.coin,
   ]);
 
@@ -310,9 +323,14 @@ function SideButtonInternal({
             .dividedBy(effectivePriceBN)
             .decimalPlaces(szDecimals, BigNumber.ROUND_UP);
           if (tradingPreferences.sizeInputUnit === 'token') {
-            const coinSymbol = activeAsset?.coin
-              ? parseDexCoin(activeAsset.coin).displayName
-              : '';
+            const coinSymbol = (() => {
+              if (isSpot && activeTradeInstrument.mode === 'spot') {
+                return activeTradeInstrument.universe?.displayName ?? '';
+              }
+              return activeAsset?.coin
+                ? parseDexCoin(activeAsset.coin).displayName
+                : '';
+            })();
             minAmount = `${minSize.toFixed(szDecimals)} ${coinSymbol}`;
           } else if (tradingPreferences.sizeInputUnit === 'margin') {
             const leverageBN = new BigNumber(leverage || 1);

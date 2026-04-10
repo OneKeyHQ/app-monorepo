@@ -1194,7 +1194,7 @@ function PerpTradingForm({
         sliderPercent={tradingComputed.sizePercent}
         onRequestManualMode={switchToManual}
         isMobile={isMobile}
-        leverage={formData.leverage ?? 1}
+        leverage={isSpot ? 1 : formData.leverage ?? 1}
       />
 
       <YStack px="$1" {...(isMobile && { pt: '$2', pb: '$2', mt: '$0' })}>
