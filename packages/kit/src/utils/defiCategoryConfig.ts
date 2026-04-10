@@ -2,28 +2,43 @@ import type { ColorTokens } from '@onekeyhq/components';
 
 const CATEGORY_CONFIG: Record<
   string,
-  { bg: ColorTokens; text: ColorTokens; emoji: string }
+  { bg: ColorTokens; text: ColorTokens; label: string }
 > = {
-  yield: { bg: '$blue4', text: '$blue12', emoji: '📈' },
-  liquidity: { bg: '$cyan4', text: '$cyan12', emoji: '💧' },
-  lending: { bg: '$green4', text: '$green12', emoji: '🏦' },
-  supplied: { bg: '$lime4', text: '$lime12', emoji: '📥' },
-  deposit: { bg: '$jade4', text: '$jade12', emoji: '🏧' },
-  borrowed: { bg: '$orange4', text: '$orange12', emoji: '📤' },
-  locked: { bg: '$amber4', text: '$amber12', emoji: '🔒' },
-  rewards: { bg: '$teal4', text: '$teal12', emoji: '🎁' },
-  staking: { bg: '$purple4', text: '$purple12', emoji: '⛏️' },
-  farming: { bg: '$pink4', text: '$pink12', emoji: '🌾' },
+  yield: { bg: '$lime4', text: '$lime12', label: 'Yield' },
+  liquidity: { bg: '$green4', text: '$green12', label: 'Liquidity Pool' },
+  lending: { bg: '$green4', text: '$green12', label: 'Lending' },
+  supplied: { bg: '$lime4', text: '$lime12', label: 'Supplied' },
+  deposit: { bg: '$jade4', text: '$jade12', label: 'Deposit' },
+  borrowed: { bg: '$orange4', text: '$orange12', label: 'Borrowed' },
+  locked: { bg: '$amber4', text: '$amber12', label: 'Locked' },
+  rewards: { bg: '$teal4', text: '$teal12', label: 'Rewards' },
+  staking: { bg: '$purple4', text: '$purple12', label: 'Staking' },
+  farming: { bg: '$pink4', text: '$pink12', label: 'Farming' },
 };
 
 const DEFAULT_CATEGORY_CONFIG = {
   bg: '$neutral4',
   text: '$neutral12',
-  emoji: '📊',
+  label: '',
 } as const;
 
+function formatCategoryLabel(category: string) {
+  return category
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function getCategoryConfig(category: string) {
-  return CATEGORY_CONFIG[category.toLowerCase()] ?? DEFAULT_CATEGORY_CONFIG;
+  const categoryConfig = CATEGORY_CONFIG[category.toLowerCase()];
+
+  if (categoryConfig) {
+    return categoryConfig;
+  }
+
+  return {
+    ...DEFAULT_CATEGORY_CONFIG,
+    label: formatCategoryLabel(category),
+  };
 }
 
 export { CATEGORY_CONFIG, DEFAULT_CATEGORY_CONFIG, getCategoryConfig };

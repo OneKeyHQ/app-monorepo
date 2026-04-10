@@ -951,7 +951,7 @@ function DeFiListBlock({
   const renderContent = useCallback(() => {
     return (
       <>
-        <YStack gap={tableLayout ? '$8' : '$0'} flex={1}>
+        <YStack gap={tableLayout ? '$5' : '$0'} flex={1}>
           {filteredProtocols.map((protocol) => (
             <Protocol
               key={`${protocol.networkId}-${protocol.protocol}`}
