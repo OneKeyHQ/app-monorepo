@@ -875,15 +875,6 @@ export default function RecipientQuickSelect({
     return hideTabs?.length ? all.filter((t) => !hideTabs.includes(t)) : all;
   }, [hideTabs, networkId]);
 
-  // Set of tabs that should appear (excludes hideTabs and Lightning hidden tabs)
-  const visibleTabKeys = useMemo<IRecipientQuickSelectTab[]>(() => {
-    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
-    const all: IRecipientQuickSelectTab[] = isLightning
-      ? ['recent']
-      : ['recent', 'account', 'addressBook'];
-    return hideTabs?.length ? all.filter((t) => !hideTabs.includes(t)) : all;
-  }, [hideTabs, networkId]);
-
   // Track which tabs have been visited (once visited, stay mounted to avoid AbortError crashes)
   const [visitedTabs, setVisitedTabs] = useState<
     Record<IRecipientQuickSelectTab, boolean>
