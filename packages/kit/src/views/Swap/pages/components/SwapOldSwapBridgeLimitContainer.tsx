@@ -154,7 +154,6 @@ const SwapOldSwapBridgeLimitContainer = ({
           showDesktopProviderPanel ? undefined : onOpenProviderList
         }
         quoteResult={quoteResult}
-        onOpenRecipient={onToAnotherAddressModal}
       />
       {alerts.states.length > 0 &&
       !quoteLoading &&
@@ -215,7 +214,6 @@ const SwapOldSwapBridgeLimitContainer = ({
           refreshAction={refreshAction}
           onOpenProviderList={undefined}
           quoteResult={quoteResult}
-          onOpenRecipient={onToAnotherAddressModal}
         />
         {alerts.states.length > 0 &&
         !quoteLoading &&
@@ -320,7 +318,6 @@ const SwapOldSwapBridgeLimitContainer = ({
               refreshAction={refreshAction}
               onOpenProviderList={undefined}
               quoteResult={quoteResult}
-              onOpenRecipient={onToAnotherAddressModal}
             />
             {alerts.states.length > 0 &&
             !quoteLoading &&
