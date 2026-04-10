@@ -371,6 +371,7 @@ const SwapSettingsDialogContent = () => {
                 title: intl.formatMessage({
                   id: ETranslations.swap_settings_manage_swap,
                 }),
+                disableDrag: true,
                 renderContent: (
                   <ProviderManageContainer
                     onSaved={() => {
@@ -393,6 +394,7 @@ const SwapSettingsDialogContent = () => {
                 title: intl.formatMessage({
                   id: ETranslations.swap_settings_manage_bridge,
                 }),
+                disableDrag: true,
                 renderContent: (
                   <ProviderManageContainer
                     onSaved={() => {

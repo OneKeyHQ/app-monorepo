@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  Badge,
   LinearGradient,
   Page,
   SizableText,
@@ -199,10 +198,9 @@ function FeaturedChangelog({
   if (!activeFeature) {
     return (
       <Page>
-        <Page.Header headerShown={false} />
+        <Page.Header title="New" />
         <Page.Body>
           <YStack flex={1} px="$5" pt="$5">
-            <Skeleton width={48} height={20} borderRadius="$1" mb="$2.5" />
             <Skeleton.Heading3Xl w="60%" mb="$4" />
             <Skeleton width="100%" flex={1} borderRadius="$4" />
           </YStack>
@@ -217,16 +215,10 @@ function FeaturedChangelog({
 
   return (
     <Page onClose={handleClose}>
-      <Page.Header headerShown={false} />
+      <Page.Header title="New" />
       <Page.Body>
         <YStack flex={1}>
-          {/* Top section: badge, title, subtitle, tabs */}
           <YStack px="$5" pt="$5" pb="$3">
-            <Stack mb="$2.5" alignSelf="flex-start">
-              <Badge badgeType="info" badgeSize="sm">
-                New
-              </Badge>
-            </Stack>
             <SizableText
               size="$heading3xl"
               mb={subheadline ? '$1' : '$4'}

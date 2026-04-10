@@ -50,6 +50,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   });
   const [hasInitialReady, setHasInitialReady] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
   const reviewDialogRequestIdRef = useRef(0);
 
@@ -184,6 +185,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       decimals: tokenDetail?.decimals || 0,
       logoURI: tokenDetail?.logoUrl || '',
       price: tokenDetail?.price || '',
+      isNative: !!tokenDetail?.isNative,
     },
     tradeToken: {
       networkId: paymentToken?.networkId || '',
@@ -191,9 +193,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       symbol: paymentToken?.symbol || '',
       decimals: paymentToken?.decimals || 0,
       logoURI: paymentToken?.logoURI || '',
+      price: paymentToken?.price || '',
       isNative: paymentToken?.isNative || false,
     },
-    defaultTradeTokens: defaultTokens,
     provider,
     tradeType: tradeType || ESwapDirection.BUY,
     fromTokenAmount:
@@ -384,12 +386,13 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   const openReviewDialog = useCallback(
     async (isWrap?: boolean) => {
-      if (isActionLoading) {
+      if (isActionLoading || isReviewOpening) {
         return;
       }
 
       const requestId = reviewDialogRequestIdRef.current + 1;
       reviewDialogRequestIdRef.current = requestId;
+      setIsReviewOpening(true);
 
       try {
         const nextReviewState = await prepareMarketSwapReview({
@@ -446,24 +449,31 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
                   id: ETranslations.global_unknown_error,
                 }),
         });
+      } finally {
+        if (reviewDialogRequestIdRef.current === requestId) {
+          setIsReviewOpening(false);
+        }
       }
     },
     [
       inPageDialog,
       intl,
       isActionLoading,
+      isReviewOpening,
       prepareMarketSwapReview,
       reviewAdapter,
     ],
   );
 
-  const handleSwap = useCallback(() => {
-    void openReviewDialog(false);
-  }, [openReviewDialog]);
+  const handleSwap = useCallback(
+    () => openReviewDialog(false),
+    [openReviewDialog],
+  );
 
-  const handleWrappedSwap = useCallback(() => {
-    void openReviewDialog(true);
-  }, [openReviewDialog]);
+  const handleWrappedSwap = useCallback(
+    () => openReviewDialog(true),
+    [openReviewDialog],
+  );
 
   useEffect(() => {
     return () => {
@@ -516,7 +526,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
-      isLoading={isActionLoading}
+      isLoading={isActionLoading || isReviewOpening}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       slippageAutoValue={speedConfig?.slippage}

@@ -3375,7 +3375,7 @@
   "referral.apply_referral_code_code": "邀请码",
   "referral.apply_referral_code_code_desc": "绑定后，所有从此钱包派生的地址将与此邀请码关联，并且无法更改",
   "referral.apply_referral_code_select_wallet": "选择钱包",
-  "referral.avoid_exchange_address": "请勿使用交易存款地址。",
+  "referral.avoid_exchange_address": "请勿使用交易所存款地址。",
   "referral.choose_how_to_bind": "选择如何绑定邀请码",
   "referral.code_created": "邀请码已创建",
   "referral.code_created_desc": "分享给你的朋友并开始赚取",

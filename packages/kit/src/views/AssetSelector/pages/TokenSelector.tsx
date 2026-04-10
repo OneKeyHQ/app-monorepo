@@ -359,11 +359,7 @@ function TokenSelector() {
           isCustomNetwork={network.isCustomNetwork}
           networkName={network.name}
         />
-        <SizableText
-          size="$bodyMdMedium"
-          numberOfLines={1}
-          maxWidth="$16"
-        >
+        <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth="$16">
           {network.shortname}
         </SizableText>
         <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />

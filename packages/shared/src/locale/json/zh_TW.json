@@ -3375,7 +3375,7 @@
   "referral.apply_referral_code_code": "邀請碼",
   "referral.apply_referral_code_code_desc": "綁定後，從此錢包衍生的所有地址將與此邀請碼相關聯，並且無法更改",
   "referral.apply_referral_code_select_wallet": "選擇錢包",
-  "referral.avoid_exchange_address": "請勿使用交易所存款地址。",
+  "referral.avoid_exchange_address": "請勿使用交易所充值地址。",
   "referral.choose_how_to_bind": "選擇如何綁定邀請碼",
   "referral.code_created": "邀請碼已建立",
   "referral.code_created_desc": "分享給您的朋友並開始賺取",
