@@ -343,6 +343,7 @@ async function loadStoredRecipients(networkId: string): Promise<{
           networkName: r.networkId
             ? networkNameMap.get(r.networkId)
             : undefined,
+          memo: r.memo,
         },
       ]),
     );
