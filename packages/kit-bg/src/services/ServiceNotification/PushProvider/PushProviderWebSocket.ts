@@ -6,6 +6,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   INotificationPushMessageAckParams,
@@ -83,12 +84,17 @@ export class PushProviderWebSocket extends PushProviderBase {
       'PushProviderWebSocket endpoint',
       endpoint,
     );
+    const env = endpoint.includes('onekeytest') ? 'test' : 'prod';
     // TODO init timeout
     this.socket = io(endpoint, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
+      extraHeaders: {
+        'x-onekey-client-sticky-key': `${platformEnv.appPlatform ?? 'unknown'}:${env}:${this.instanceId}`,
+      },
       auth: {
         instanceId: this.instanceId,
       },
+      reconnectionDelayMax: 30_000,
     });
     this.socket.on('connect', () => {
       // 获取 socketId
