@@ -372,10 +372,14 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       { initResult: new Map(), undefinedResultIfError: true },
     );
 
-  // Notify parent of match status and count
+  // Notify parent of match status and count.
+  // Report 0 immediately when debouncing so stale pre-search counts
+  // don't flash in the tab label (OK-53017).
   useEffect(() => {
-    // Skip reporting stale counts during debounce gap to prevent badge flickering
-    if (isDebouncing) return;
+    if (isDebouncing) {
+      onMatchStatusChange?.(false, 0);
+      return;
+    }
     onMatchStatusChange?.(
       filteredRecentRecipients.length > 0,
       filteredRecentRecipients.length,

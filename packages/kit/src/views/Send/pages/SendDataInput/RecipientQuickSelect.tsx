@@ -489,7 +489,10 @@ function AccountRecipients({
   );
 
   useEffect(() => {
-    if (isDebouncing) return;
+    if (isDebouncing) {
+      onMatchStatusChange?.(false, 0);
+      return;
+    }
     onMatchStatusChange?.(accountMatchCount > 0, accountMatchCount);
   }, [accountMatchCount, onMatchStatusChange, isDebouncing]);
 
@@ -748,8 +751,10 @@ function AddressBookRecipients({
 
   // Notify parent of match status and count
   useEffect(() => {
-    // Skip reporting stale counts during debounce gap to prevent badge flickering
-    if (isDebouncing) return;
+    if (isDebouncing) {
+      onMatchStatusChange?.(false, 0);
+      return;
+    }
     onMatchStatusChange?.(filteredItems.length > 0, filteredItems.length);
   }, [filteredItems.length, onMatchStatusChange, isDebouncing]);
 
@@ -935,14 +940,6 @@ export default function RecipientQuickSelect({
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
-
-  // Reset match counts when the debounced search key changes so stale
-  // pre-search counts (e.g. 19) don't flash before children report the
-  // filtered count (e.g. 1). See OK-53017.
-  useEffect(() => {
-    setTabMatchCounts({ recent: 0, account: 0, addressBook: 0 });
-    setTabMatchStatus({ recent: null, account: null, addressBook: null });
-  }, [trimmedSearchKey]);
 
   // Track the search key at the time of last manual tab switch
   // Only allow auto-switch if user has typed something new
