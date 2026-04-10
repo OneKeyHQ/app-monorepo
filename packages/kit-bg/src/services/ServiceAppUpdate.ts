@@ -12,6 +12,7 @@ import {
   EPendingInstallTaskType,
   EUpdateStrategy,
   isFirstLaunchAfterUpdated,
+  normalizeFeaturedChangelog,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -381,7 +382,7 @@ class ServiceAppUpdate extends ServiceBase {
               signature: normalizeOptionalString(data.jsBundle.signature),
             }
           : undefined,
-        featuredChangelog: data.featuredChangelog,
+        featuredChangelog: normalizeFeaturedChangelog(data.featuredChangelog),
       };
       // Security: Validate updateStrategy is a known enum value
       if (

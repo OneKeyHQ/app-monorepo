@@ -28,13 +28,13 @@ export const AppUpdateRouter: IModalFlowNavigatorConfig<
   IAppUpdatePagesParamList
 >[] = [
   {
-    name: EAppUpdateRoutes.FeaturedChangelog,
-    component: FeaturedChangelogPage,
-  },
-  {
     name: EAppUpdateRoutes.UpdatePreview,
     component: UpdatePreview,
     rewrite: '/preview',
+  },
+  {
+    name: EAppUpdateRoutes.FeaturedChangelog,
+    component: FeaturedChangelogPage,
   },
   {
     name: EAppUpdateRoutes.WhatsNew,

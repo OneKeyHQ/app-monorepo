@@ -690,12 +690,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         ? navigation.pushFullModal
         : navigation.pushModal;
 
-      // TODO: Remove __DEV__ mock before release
-      const hasFeatured = __DEV__
-        ? true
-        : hasFeaturedChangelog(currentInfo.featuredChangelog);
-
-      if (hasFeatured) {
+      if (hasFeaturedChangelog(currentInfo.featuredChangelog)) {
         pushModal(EModalRoutes.AppUpdateModal, {
           screen: EAppUpdateRoutes.FeaturedChangelog,
           params: { isPreInstall: false },
@@ -726,14 +721,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         if (hasFeaturedChangelog(currentAppUpdateInfo.featuredChangelog)) {
           pushModal(EModalRoutes.AppUpdateModal, {
             screen: EAppUpdateRoutes.FeaturedChangelog,
-            params: {
-              isPreInstall: true,
-              latestVersion:
-                params?.latestVersion ?? currentAppUpdateInfo.latestVersion,
-              isForceUpdate:
-                params?.isForceUpdate ??
-                isForceUpdateStrategy(appUpdateInfo.updateStrategy),
-            },
+            params: { isPreInstall: true },
           });
         } else {
           pushModal(EModalRoutes.AppUpdateModal, {

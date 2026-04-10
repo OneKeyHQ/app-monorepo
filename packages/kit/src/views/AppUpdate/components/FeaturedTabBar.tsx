@@ -20,7 +20,7 @@ function FeaturedTabBar({
     <XStack gap="$2" flexWrap="wrap" mb="$3">
       {features.map((feature, index) => (
         <Button
-          key={index}
+          key={feature.tabLabel}
           size="small"
           variant={index === activeIndex ? 'primary' : 'secondary'}
           borderRadius="$full"

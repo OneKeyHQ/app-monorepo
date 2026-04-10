@@ -14,6 +14,7 @@ export {
   type IFeaturedItem,
   type IFeaturedChangelog,
   hasFeaturedChangelog,
+  normalizeFeaturedChangelog,
 } from './featuredChangelog';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';

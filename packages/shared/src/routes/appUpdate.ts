@@ -14,8 +14,6 @@ export type IAppUpdatePagesParamList = {
   };
   [EAppUpdateRoutes.FeaturedChangelog]: {
     isPreInstall?: boolean;
-    latestVersion?: string;
-    isForceUpdate?: boolean;
   };
   [EAppUpdateRoutes.DownloadVerify]: undefined;
   [EAppUpdateRoutes.WhatsNew]: undefined;

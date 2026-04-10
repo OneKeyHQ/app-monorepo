@@ -27,52 +27,31 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import {
   isForceUpdateStrategy,
   useDownloadPackage,
 } from '../../../components/UpdateReminder/hooks';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import { FeaturedFooter } from '../components/FeaturedFooter';
 import { FeaturedMedia } from '../components/FeaturedMedia';
 import { FeaturedTabBar } from '../components/FeaturedTabBar';
 
-// TODO: Remove __DEV__ mock before release
-const DEV_MOCK_FEATURES: IFeaturedItem[] = __DEV__
-  ? [
-      {
-        tabLabel: 'Zero Fees',
-        title: 'Perps Trading, Zero Fees',
-        description: 'Enjoy zero-fee trading on all perpetual contracts.',
-        mediaUrl: '',
-        mediaType: 'image',
-        ctaText: 'Try Now',
-        href: 'onekey-wallet://market_detail',
-        hrefType: 'internal',
-      },
-      {
-        tabLabel: 'Keyless',
-        title: 'Keyless Wallet',
-        description:
-          'Create a wallet with iCloud or Google — no seed phrase needed.',
-        mediaUrl: '',
-        mediaType: 'image',
-        ctaText: 'Create Keyless Wallet',
-        href: 'onekey-wallet://url_account',
-        hrefType: 'internal',
-      },
-      {
-        tabLabel: 'Energy Subsidy',
-        title: 'Tron Energy Subsidy',
-        description: 'Get energy subsidies for your first Tron transactions.',
-        mediaUrl: '',
-        mediaType: 'image',
-        ctaText: 'Learn More',
-        href: 'onekey-wallet://market_detail',
-        hrefType: 'internal',
-      },
-    ]
-  : [];
+const ALLOWED_HREF_SCHEMES = new Set([
+  'https:',
+  'http:',
+  'onekey-wallet:',
+  'onekey:',
+]);
+
+function isAllowedHref(href: string | undefined): href is string {
+  if (!href) return false;
+  try {
+    return ALLOWED_HREF_SCHEMES.has(new URL(href).protocol);
+  } catch {
+    return false;
+  }
+}
 
 function FeaturedChangelog({
   route,
@@ -82,15 +61,13 @@ function FeaturedChangelog({
 >) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { isPreInstall = false, isForceUpdate: isForceUpdateParam } =
-    route.params || {};
+  const { isPreInstall = false } = route.params || {};
 
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const [activeIndex, setActiveIndex] = useState(0);
   const mountTimeRef = useRef(Date.now());
 
-  const features =
-    appUpdateInfo.featuredChangelog?.features ?? DEV_MOCK_FEATURES;
+  const features = appUpdateInfo.featuredChangelog?.features ?? [];
 
   // Prevent out-of-bounds access when features array shrinks
   const clampedIndex = Math.min(activeIndex, Math.max(features.length - 1, 0));
@@ -102,26 +79,30 @@ function FeaturedChangelog({
 
   const activeFeature: IFeaturedItem | undefined = features[clampedIndex];
 
-  const isForceUpdate = appUpdateInfo
-    ? isForceUpdateStrategy(appUpdateInfo.updateStrategy)
-    : isForceUpdateParam;
+  const isForceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy);
 
   // Prevent back navigation when force update + pre-install
   usePreventRemove(!!isForceUpdate && !!isPreInstall, () => {});
 
-  // Log duration on unmount
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Log duration on unmount and clear any pending refresh timer
   useEffect(() => {
     const mountTime = mountTimeRef.current;
     return () => {
       defaultLogger.app.appUpdate.whatsNewClosed({
         durationMs: Date.now() - mountTime,
       });
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
     };
   }, []);
 
   const handleClose = useCallback(() => {
     if (!isPreInstall) {
-      setTimeout(() => {
+      refreshTimeoutRef.current = setTimeout(() => {
         void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
       }, 250);
     }
@@ -142,6 +123,10 @@ function FeaturedChangelog({
   const shouldOpenStore =
     isPreInstall && updateFileType === EUpdateFileType.appShell && !!storeUrl;
 
+  const activeFeatureHref = activeFeature?.href;
+  const activeFeatureHrefType = activeFeature?.hrefType;
+  const activeFeatureMode = activeFeature?.mode;
+
   const handleCtaPress = useCallback(() => {
     if (isPreInstall) {
       if (shouldOpenStore && storeUrl) {
@@ -154,22 +139,26 @@ function FeaturedChangelog({
       } else {
         navigation.popStack();
       }
-    } else if (activeFeature?.href) {
-      navigation.popStack();
-      // Wait for popStack animation before dispatching to avoid navigation conflicts
-      setTimeout(() => {
-        if (
-          activeFeature.hrefType === 'external' ||
-          activeFeature.mode === ENotificationPushMessageMode.openInBrowser
-        ) {
-          openUrlExternal(activeFeature.href);
-        } else {
-          handleDeepLinkUrl({ url: activeFeature.href });
-        }
-      }, 300);
-    } else {
-      navigation.popStack();
+      return;
     }
+
+    if (!isAllowedHref(activeFeatureHref)) {
+      navigation.popStack();
+      return;
+    }
+
+    navigation.popStack();
+    // Wait for popStack animation before dispatching to avoid navigation conflicts
+    setTimeout(() => {
+      if (
+        activeFeatureHrefType === 'external' ||
+        activeFeatureMode === ENotificationPushMessageMode.openInBrowser
+      ) {
+        openUrlExternal(activeFeatureHref);
+      } else {
+        handleDeepLinkUrl({ url: activeFeatureHref });
+      }
+    }, 300);
   }, [
     isPreInstall,
     shouldOpenStore,
@@ -179,7 +168,9 @@ function FeaturedChangelog({
     status,
     downloadPackage,
     navigation,
-    activeFeature,
+    activeFeatureHref,
+    activeFeatureHrefType,
+    activeFeatureMode,
   ]);
 
   const featuredChangelog = appUpdateInfo.featuredChangelog;
