@@ -109,7 +109,7 @@ const WatchlistTokenSelectorList = memo(
     const [{ data: watchListData }] = useMarketWatchListV2Atom();
 
     const { data, isLoading } = useMarketWatchlistTokenList({
-      watchlist: (watchListData ?? []) as IMarketWatchListItemV2[],
+      watchlist: watchListData ?? [],
       pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
     });
 
