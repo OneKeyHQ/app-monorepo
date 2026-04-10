@@ -92,6 +92,7 @@ function BaseBulkSendAddressesInput() {
     duplicateSenderAddressCount,
     setDuplicateSenderAddressCount,
     setHasUserSelectedAsset,
+    setReceiverValidationErrors,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
