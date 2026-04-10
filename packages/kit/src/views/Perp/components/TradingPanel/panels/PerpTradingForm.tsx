@@ -1194,6 +1194,8 @@ function PerpTradingForm({
         sliderPercent={tradingComputed.sizePercent}
         onRequestManualMode={switchToManual}
         isMobile={isMobile}
+        // Spot has no leverage concept — bypass formData.leverage (perps state)
+        // to avoid stale perps leverage affecting spot size calculations.
         leverage={isSpot ? 1 : formData.leverage ?? 1}
       />
 
