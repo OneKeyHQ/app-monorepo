@@ -12,6 +12,7 @@ import {
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
+import { initPosthog } from '@onekeyhq/shared/src/modules3rdParty/posthog';
 import { setUser as setSentryUser } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -36,6 +37,10 @@ const LastActivityTracker = () => {
         ).endpoint,
         enableAnalyticsInDev:
           devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
+      });
+      initPosthog({
+        enableTestEndpoint:
+          devSettings.enabled && devSettings.settings?.enableTestEndpoint,
       });
       setSentryUser({
         id: instanceId,

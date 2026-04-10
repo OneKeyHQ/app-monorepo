@@ -225,22 +225,26 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   }
   if (result) {
     return (
-      <XStack gap="$2" mb="$1" flex={1} flexWrap="wrap">
+      <XStack gap="$2" mb="$1" flex={1} flexWrap="wrap" overflow="hidden">
         {result.walletAccountName ? (
-          <Badge badgeType="success" badgeSize="sm">
-            <XStack gap="$1.5" alignItems="center">
+          <Badge badgeType="success" badgeSize="sm" maxWidth="100%">
+            <XStack gap="$1.5" alignItems="center" maxWidth="100%">
               {result.walletId ? (
                 <WalletAvatarById walletId={result.walletId} size="$4" />
               ) : null}
-              <Badge.Text>{result.walletAccountName}</Badge.Text>
+              <Badge.Text numberOfLines={1}>
+                {result.walletAccountName}
+              </Badge.Text>
             </XStack>
           </Badge>
         ) : null}
         {result.addressBookName ? (
-          <Badge badgeType="success" badgeSize="sm">
-            <XStack gap="$1.5" alignItems="center">
+          <Badge badgeType="success" badgeSize="sm" maxWidth="100%">
+            <XStack gap="$1.5" alignItems="center" maxWidth="100%">
               <Icon name="BookOpenOutline" size="$4" color="$textSuccess" />
-              <Badge.Text>{result.addressBookName}</Badge.Text>
+              <Badge.Text numberOfLines={1}>
+                {result.addressBookName}
+              </Badge.Text>
             </XStack>
           </Badge>
         ) : null}
@@ -256,21 +260,17 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
         {/* Label badges (OKX, CEX, etc.) stay inside the input.
             Interaction badges (Transferred, First transfer) are rendered
             below the input by AddressInputWarnings. */}
-        <XStack gap="$1" flexWrap="wrap" flexShrink={1}>
-          {result.addressBadges
-            ?.filter(
-              (badge) => badge.type === 'default' || badge.type === 'info',
-            )
-            .map((badge) => (
-              <AddressBadge
-                key={badge.label}
-                title={badge.label}
-                badgeType={badge.type}
-                content={badge.tip}
-                icon={badge.icon}
-              />
-            ))}
-        </XStack>
+        {result.addressBadges
+          ?.filter((badge) => badge.type === 'default' || badge.type === 'info')
+          .map((badge) => (
+            <AddressBadge
+              key={badge.label}
+              title={badge.label}
+              badgeType={badge.type}
+              content={badge.tip}
+              icon={badge.icon}
+            />
+          ))}
       </XStack>
     );
   }
@@ -692,8 +692,9 @@ export function AddressInput(props: IAddressInputProps) {
         justifyContent="space-between"
         flexWrap="nowrap"
         alignItems={isRecipientLayout ? 'flex-end' : 'center'}
+        gap="$2"
       >
-        <XStack gap="$2" flex={1}>
+        <XStack gap="$2" flex={1} minWidth={0}>
           <AddressInputBadgeGroup
             loading={loading}
             result={queryResult}
