@@ -113,6 +113,12 @@ function parseDappRedirect(
     return { action: EDAppOpenActionEnum.ALLOW };
   }
 
+  // eslint-disable-next-line no-script-url
+  if (protocol === 'javascript:') {
+    console.log('====>>>>>>>reject javascript: navigate: ', url);
+    return { action: EDAppOpenActionEnum.DENY };
+  }
+
   const parsedUrl = safeParseURL(url);
   if (process.env.NODE_ENV !== 'production') {
     if (
