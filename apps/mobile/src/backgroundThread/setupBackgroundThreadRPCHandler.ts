@@ -297,9 +297,7 @@ async function handleRequest(callId: string) {
 
   try {
     let result: unknown;
-    logBgRpcTrace(
-      `exec-start callId=${callId}, request=${requestLabel}`,
-    );
+    logBgRpcTrace(`exec-start callId=${callId}, request=${requestLabel}`);
     switch (request.type) {
       case 'service-call':
       case 'bridge-call':
@@ -329,9 +327,7 @@ async function handleRequest(callId: string) {
           result,
         }),
       );
-      logBgRpcTrace(
-        `write-ok callId=${callId}, request=${requestLabel}`,
-      );
+      logBgRpcTrace(`write-ok callId=${callId}, request=${requestLabel}`);
     } catch (writeError) {
       logBgRpcTrace(
         `write-fail callId=${callId}, request=${requestLabel}, error=${
