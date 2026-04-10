@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "최대 스왑 금액은 {amount} {token}입니다",
   "provider.min_amount_required": "최소 금액은 {amount} {token}이 필요합니다",
   "provider.network_fee": "예상 네트워크 비용",
+  "provider.popover.onekey_fee_content": "안정적인 서비스를 보장하기 위해 OneKey는 일반적으로 0.85% 이상의 수수료를 부과하며, 모든 수수료와 할인이 이미 견적 가격에 포함되어 있습니다. 정확한 요율은 거래 상황에 따라 동적으로 조정되며 최종 UI 디스플레이에 따라 결정됩니다.",
   "provider.popover_fee_rate": "수수료율",
   "provider.popover_order_info_content": "OneKey는 최고의 제안을 모아놓습니다. 거래를 시작하기 전에 알아야 할 사항들이 있습니다",
   "provider.popover_wallet": "지갑",

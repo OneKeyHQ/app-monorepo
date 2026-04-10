@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "最大交易金额为 {amount} {token}",
   "provider.min_amount_required": "最低金额要求 {amount} {token}",
   "provider.network_fee": "预计网络费用",
+  "provider.popover.onekey_fee_content": "为了给您提供稳定的服务，OneKey 通常收取 0.85% 及以上的手续费，费用及优惠已计入当前报价。具体费率会根据交易场景动态调整，以实际界面显示为准。",
   "provider.popover_fee_rate": "费率",
   "provider.popover_order_info_content": "OneKey 聚合了最好的订单。在交易前，您应该了解以下内容",
   "provider.popover_wallet": "钱包",
