@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "Jumlah maksimal penukaran adalah {amount} {token}",
   "provider.min_amount_required": "Jumlah minimum yang dibutuhkan {amount} {token}",
   "provider.network_fee": "Biaya jaringan Est.",
+  "provider.popover.onekey_fee_content": "Untuk memastikan layanan yang stabil, OneKey biasanya mengenakan biaya sebesar 0,85% atau lebih tinggi, dengan semua biaya dan diskon sudah termasuk dalam harga yang dikutip. Tarif yang tepat disesuaikan secara dinamis berdasarkan konteks transaksi dan tunduk pada tampilan UI akhir.",
   "provider.popover_fee_rate": "Tarif biaya",
   "provider.popover_order_info_content": "OneKey mengumpulkan penawaran terbaik. Berikut ini yang harus Anda ketahui sebelum melakukan perdagangan",
   "provider.popover_wallet": "Dompet",

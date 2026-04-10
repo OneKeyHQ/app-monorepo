@@ -3292,6 +3292,7 @@
   "provider.max_amount_required": "Số lượng tối đa có thể đổi là {amount} {token}",
   "provider.min_amount_required": "Số tiền tối thiểu yêu cầu {amount} {token}",
   "provider.network_fee": "Phí mạng ước tính",
+  "provider.popover.onekey_fee_content": "Để đảm bảo dịch vụ ổn định, OneKey thường tính phí 0,85% hoặc cao hơn, với tất cả các khoản phí và chiết khấu đã được bao gồm trong giá báo. Tỷ lệ chính xác được điều chỉnh động dựa trên ngữ cảnh giao dịch và phụ thuộc vào hiển thị cuối cùng trên giao diện người dùng.",
   "provider.popover_fee_rate": "Tỷ lệ phí",
   "provider.popover_order_info_content": "OneKey tổng hợp những ưu đãi tốt nhất. Đây là những điều bạn nên biết trước khi giao dịch",
   "provider.popover_wallet": "Cái ví",
