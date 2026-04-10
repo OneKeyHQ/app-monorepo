@@ -1,8 +1,9 @@
+import type { PropsWithChildren } from 'react';
+
+import { StyleSheet } from 'react-native';
+
 import { Image, Skeleton, Stack, Video } from '@onekeyhq/components';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
-
-import type { PropsWithChildren } from 'react';
-import { StyleSheet } from 'react-native';
 
 interface IFeaturedMediaProps extends PropsWithChildren {
   feature: IFeaturedItem;
