@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { cloneDeep, isString } from 'lodash';
+import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import {
@@ -22,6 +22,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -53,6 +54,41 @@ class ServicePrime extends ServiceBase {
 
   async getPrimeClient() {
     return this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+  }
+
+  @backgroundMethod()
+  async apiTranslate({
+    texts,
+    sourceLang,
+    targetLang,
+    engine = ETranslateEngine.standard,
+  }: {
+    texts: string[];
+    sourceLang: string;
+    targetLang: string;
+    engine?: ETranslateEngine;
+  }) {
+    const client = await this.getPrimeClient();
+    // API limit: max 4 texts per translate request
+    const batches = chunk(texts, 4);
+    const results = await Promise.all(
+      batches.map((batch) =>
+        client
+          .post<IApiClientResponse<{ translations: string[] }>>(
+            '/prime/v1/translate/dapp',
+            {
+              texts: batch,
+              source_lang: sourceLang,
+              target_lang: targetLang,
+              engine,
+              category: 'dapp_browser',
+            },
+          )
+          .then((res) => res?.data?.data?.translations ?? batch)
+          .catch(() => batch),
+      ),
+    );
+    return { translations: results.flat() };
   }
 
   @backgroundMethod()
