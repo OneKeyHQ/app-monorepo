@@ -218,7 +218,7 @@ function FeaturedChangelog({
       <Page.Header title="New" />
       <Page.Body>
         <YStack flex={1}>
-          <YStack px="$5" pt="$5" pb="$3">
+          <YStack px="$5" pt={0} pb="$3">
             <SizableText
               size="$heading3xl"
               mb={subheadline ? '$1' : '$4'}
