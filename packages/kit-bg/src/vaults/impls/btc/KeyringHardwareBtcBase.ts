@@ -35,6 +35,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
+import { resolvePsbtTaprootOwnedOutputs } from './resolvePsbtTaprootOwnedOutputs';
+
 import type VaultBtc from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
@@ -257,33 +259,37 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       });
     }
 
-    for (let i = 0, len = psbt.txOutputs.length; i < len; i += 1) {
-      const output = psbt.txOutputs[i];
+    const psbtOwnedOutputs = await resolvePsbtTaprootOwnedOutputs({
+      network: btcNetwork,
+      outputAddresses: psbt.txOutputs.map((output) => output.address),
+      encodedTx: unsignedTx.encodedTx as IEncodedTxBtc,
+      dbAccount,
+      coreApi: checkIsDefined(this.coreApi),
+      vault: this.vault as VaultBtc,
+    });
+
+    Object.entries(psbtOwnedOutputs).forEach(([index, ownedOutput]) => {
       try {
-        // If the address is the change address
-        if (output.address === dbAccount.address && len > 1) {
-          psbt.updateOutput(i, {
-            tapInternalKey: Buffer.from(
-              checkIsDefined(dbAccount.pub),
-              'hex',
-            ).subarray(1, 33),
-            tapBip32Derivation: [
-              {
-                masterFingerprint: Buffer.from(fingerprint, 'hex'),
-                pubkey: Buffer.from(
-                  checkIsDefined(dbAccount.pub),
-                  'hex',
-                ).subarray(1, 33),
-                path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
-                leafHashes: [],
-              },
-            ],
-          });
-        }
+        const taprootPubkey = Buffer.from(ownedOutput.pubkey, 'hex').subarray(
+          1,
+          33,
+        );
+
+        psbt.updateOutput(Number(index), {
+          tapInternalKey: taprootPubkey,
+          tapBip32Derivation: [
+            {
+              masterFingerprint: Buffer.from(fingerprint, 'hex'),
+              pubkey: taprootPubkey,
+              path: ownedOutput.fullPath,
+              leafHashes: [],
+            },
+          ],
+        });
       } catch (err) {
         //
       }
-    }
+    });
 
     const response = await convertDeviceResponse(() =>
       sdk.btcSignPsbt(connectId, deviceId, {
