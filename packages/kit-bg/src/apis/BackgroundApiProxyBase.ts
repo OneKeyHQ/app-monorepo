@@ -55,6 +55,8 @@ export class BackgroundApiProxyBase
 
   private readonly backgroundApiFactory?: () => IBackgroundApi;
 
+  private backgroundApiFactoryInvoked = false;
+
   private getNativeBackgroundThreadTransport() {
     type INativeBackgroundThreadTransport = {
       callServiceRequest: (
@@ -100,8 +102,17 @@ export class BackgroundApiProxyBase
   }
 
   private ensureLocalBackgroundApi() {
-    if (!this.backgroundApi && this.backgroundApiFactory) {
+    // Invoke the factory at most once. In dual-thread native, the factory
+    // is the `native-ui` stub that returns `null`; without this guard,
+    // every call into the local dispatch path would re-run the factory
+    // (since `!null` is still truthy) and replay its `console.log`.
+    if (
+      !this.backgroundApi &&
+      !this.backgroundApiFactoryInvoked &&
+      this.backgroundApiFactory
+    ) {
       this.backgroundApi = this.backgroundApiFactory();
+      this.backgroundApiFactoryInvoked = true;
     }
 
     return this.backgroundApi;
