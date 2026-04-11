@@ -83,6 +83,7 @@ const dirsToRemove = [
   // kit
   './packages/kit/node_modules',
   './packages/kit/src/components/WebView/injectedNative.text-js',
+  './packages/kit/src/components/WebView/translateInject.text-js',
 
   // kit-bg
   './packages/kit-bg/node_modules',

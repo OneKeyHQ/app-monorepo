@@ -20,6 +20,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
@@ -63,6 +64,15 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+
+// XRPL destination tag is a 32-bit unsigned integer.
+// Spec: https://xrpl.org/docs/references/protocol/transactions/common-fields#common-fields
+//   "DestinationTag ... UInt32 ... Arbitrary tag that identifies the reason
+//    for the payment to the destination, or a hosted recipient to pay."
+// Uint32 range: 0 – 4_294_967_295 (2^32 − 1). Values outside this range are
+// rejected by the XRPL network at submission time; we catch them client-side
+// so users get an actionable error in the form instead of a rippled failure.
+const XRP_DESTINATION_TAG_MAX = 4_294_967_295;
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -416,6 +426,38 @@ export default class Vault extends VaultBase {
     }
 
     return true;
+  }
+
+  override async validateMemo(
+    memo: string,
+  ): Promise<{ isValid: boolean; errorMessage?: string }> {
+    if (!memo) return { isValid: true };
+
+    // Strict digit-only check first — Number() would otherwise silently
+    // coerce "0x10", "1e2", "+123", whitespace-padded strings, etc., and
+    // callers that skip the form-layer regex (e.g. bulk imports) would
+    // happily store an entry that later becomes a wrong destinationTag.
+    if (!/^[0-9]+$/.test(memo)) {
+      return {
+        isValid: false,
+        errorMessage: appLocale.intl.formatMessage({
+          id: ETranslations.send_field_only_integer,
+        }),
+      };
+    }
+
+    const tag = Number(memo);
+    if (tag > XRP_DESTINATION_TAG_MAX) {
+      return {
+        isValid: false,
+        errorMessage: appLocale.intl.formatMessage(
+          { id: ETranslations.send_tag_out_of_range__msg },
+          { min: 0, max: XRP_DESTINATION_TAG_MAX },
+        ),
+      };
+    }
+
+    return { isValid: true };
   }
 
   override async getCustomRpcEndpointStatus(

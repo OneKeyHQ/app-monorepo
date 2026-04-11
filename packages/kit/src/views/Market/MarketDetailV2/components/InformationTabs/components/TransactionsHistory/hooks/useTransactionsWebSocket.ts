@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
 import type { IWsTxsData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
   EAppEventBusNames,
@@ -19,24 +20,97 @@ interface IUseTransactionsWebSocketProps {
   onNewTransaction?: (transaction: IMarketTokenTransaction) => void;
 }
 
+interface IMarketWSDataUpdatePayload {
+  channel: string;
+  messageType?: string;
+  data: unknown;
+  originalData?: unknown;
+}
+
+function formatTransactionAmount(
+  amount?: string | number,
+  decimals?: number,
+): string {
+  return BigNumber(amount || '0')
+    .div(BigNumber(10).pow(decimals || 0))
+    .toFixed();
+}
+
+function formatTransactionPrice(
+  price?: string | number,
+  nearestPrice?: string | number,
+): string {
+  return BigNumber(price || nearestPrice || '0').toFixed();
+}
+
+function matchesTransactionToken(
+  transactionData: IWsTxsData,
+  tokenAddress: string,
+): boolean {
+  const txFromAddress = transactionData.from?.address;
+  const txToAddress = transactionData.to?.address;
+
+  if (!txFromAddress || !txToAddress) {
+    return true;
+  }
+
+  return (
+    equalsIgnoreCase(txFromAddress, tokenAddress) ||
+    equalsIgnoreCase(txToAddress, tokenAddress)
+  );
+}
+
+function mapTransactionAsset(
+  asset: IWsTxsData['from'] | IWsTxsData['to'],
+): IMarketTokenTransaction['from'] {
+  return {
+    symbol: asset?.symbol || '',
+    amount: formatTransactionAmount(asset?.amount, asset?.decimals),
+    address: asset?.address || '',
+    price: formatTransactionPrice(asset?.price, asset?.nearestPrice),
+  };
+}
+
+function mapTransactionUpdate(
+  transactionData: IWsTxsData,
+): IMarketTokenTransaction {
+  return {
+    pairAddress: transactionData.poolId || '',
+    hash: transactionData.txHash || '',
+    owner: transactionData.owner || '',
+    type: transactionData.side === 'sell' ? 'sell' : 'buy',
+    timestamp: transactionData.blockUnixTime || Date.now() / 1000,
+    url: '',
+    poolLogoUrl: transactionData.poolLogoUrl,
+    volumeUSD: transactionData.volumeUSD,
+    from: mapTransactionAsset(transactionData.from),
+    to: mapTransactionAsset(transactionData.to),
+  };
+}
+
 export function useTransactionsWebSocket({
   networkId,
   tokenAddress,
   enabled = true,
   currency = 'usd',
   onNewTransaction,
-}: IUseTransactionsWebSocketProps) {
-  // Subscribe to token transactions using existing WebSocket connection
+}: IUseTransactionsWebSocketProps): void {
+  const { markSubscriptionActivity } = useMarketWSSubscriptionRecovery({
+    enabled,
+    networkId,
+    tokenAddress,
+    currency,
+    channel: 'tokenTxs',
+  });
+
   useEffect(() => {
     if (!enabled || !networkId || !tokenAddress) {
       return;
     }
 
-    const subscribeToTransactions = async () => {
+    async function subscribeToTransactions(): Promise<void> {
       try {
         await backgroundApiProxy.serviceMarketWS.connect();
-
-        // Use existing WebSocket connection, no need to connect again
         await backgroundApiProxy.serviceMarketWS.subscribeTokenTxs({
           networkId,
           tokenAddress,
@@ -45,13 +119,12 @@ export function useTransactionsWebSocket({
       } catch (error) {
         console.error('Failed to subscribe to token transactions:', error);
       }
-    };
+    }
 
     void subscribeToTransactions();
 
     return () => {
-      // Clean up token transactions subscription
-      const cleanup = async () => {
+      async function unsubscribeFromTransactions(): Promise<void> {
         try {
           await backgroundApiProxy.serviceMarketWS.unsubscribeTokenTxs({
             networkId,
@@ -64,103 +137,46 @@ export function useTransactionsWebSocket({
             error,
           );
         }
-      };
+      }
 
-      void cleanup();
+      void unsubscribeFromTransactions();
     };
   }, [networkId, tokenAddress, enabled, currency]);
 
   const handleTransactionUpdate = useCallback(
-    (payload: {
-      channel: string;
-      messageType?: string;
-      data: any;
-      originalData?: any;
-    }) => {
-      // Only process transaction messages for our specific token (ignore network matching)
-      if (payload.channel === 'tokenTxs') {
-        // Convert the received data to IMarketTokenTransaction format
-        const transactionData = payload.data as IWsTxsData;
-
-        // Filter transactions: only show if one of the tokens matches current token
-        // Skip filtering if addresses are empty (will be determined by other means)
-        const txFromAddress = transactionData.from?.address;
-        const txToAddress = transactionData.to?.address;
-        if (txFromAddress && txToAddress) {
-          // Both addresses present, check if at least one matches
-          const fromMatches = equalsIgnoreCase(txFromAddress, tokenAddress);
-          const toMatches = equalsIgnoreCase(txToAddress, tokenAddress);
-          if (!fromMatches && !toMatches) {
-            return;
-          }
-        }
-
-        if (transactionData && typeof transactionData === 'object') {
-          const fromData = transactionData.from;
-          const toData = transactionData.to;
-
-          // Map the received data to the expected transaction format
-          const transaction: IMarketTokenTransaction = {
-            pairAddress: transactionData.poolId || '',
-            hash: transactionData.txHash || '',
-            owner: transactionData.owner || '',
-            type: (() => {
-              // OKX provides the correct transaction type from current token's perspective
-              // Use OKX side directly as it's already calculated correctly
-              const side = transactionData.side;
-              return side === 'sell' ? 'sell' : 'buy';
-            })(),
-            timestamp: transactionData.blockUnixTime || Date.now() / 1000,
-            url: '', // URL not provided in data, could be constructed from txHash
-            poolLogoUrl: transactionData.poolLogoUrl,
-            volumeUSD: transactionData.volumeUSD,
-            from: {
-              symbol: fromData?.symbol || '',
-              amount: BigNumber(fromData?.amount || '0')
-                .div(BigNumber(10).pow(fromData?.decimals || 0))
-                .toFixed(),
-              address: fromData?.address || '',
-              price: BigNumber(
-                fromData?.price || fromData?.nearestPrice || '0',
-              ).toFixed(),
-            },
-            to: {
-              symbol: toData?.symbol || '',
-              amount: BigNumber(toData?.amount || '0')
-                .div(BigNumber(10).pow(toData?.decimals || 0))
-                .toFixed(),
-              address: toData?.address || '',
-              price: BigNumber(
-                toData?.price || toData?.nearestPrice || '0',
-              ).toFixed(),
-            },
-          };
-
-          void backgroundApiProxy.serviceMarketWS.clearDataCount({
-            address: tokenAddress,
-            type: 'tokenTxs',
-          });
-
-          onNewTransaction?.(transaction);
-        }
+    function handleTransactionUpdate(
+      payload: IMarketWSDataUpdatePayload,
+    ): void {
+      if (payload.channel !== 'tokenTxs') {
+        return;
       }
+
+      if (!payload.data || typeof payload.data !== 'object') {
+        return;
+      }
+
+      const transactionData = payload.data as IWsTxsData;
+      if (!matchesTransactionToken(transactionData, tokenAddress)) {
+        return;
+      }
+
+      markSubscriptionActivity();
+
+      void backgroundApiProxy.serviceMarketWS.clearDataCount({
+        address: tokenAddress,
+        type: 'tokenTxs',
+      });
+
+      onNewTransaction?.(mapTransactionUpdate(transactionData));
     },
-    [onNewTransaction, tokenAddress],
+    [markSubscriptionActivity, onNewTransaction, tokenAddress],
   );
 
-  // Listen for transaction data updates via the app event bus
   useEffect(() => {
     if (!enabled || !onNewTransaction) {
-      appEventBus.off(
-        EAppEventBusNames.MarketWSDataUpdate,
-        handleTransactionUpdate,
-      );
       return;
     }
-    appEventBus.off(
-      EAppEventBusNames.MarketWSDataUpdate,
-      handleTransactionUpdate,
-    );
+
     appEventBus.on(
       EAppEventBusNames.MarketWSDataUpdate,
       handleTransactionUpdate,
@@ -172,11 +188,5 @@ export function useTransactionsWebSocket({
         handleTransactionUpdate,
       );
     };
-  }, [
-    networkId,
-    tokenAddress,
-    enabled,
-    onNewTransaction,
-    handleTransactionUpdate,
-  ]);
+  }, [enabled, onNewTransaction, handleTransactionUpdate]);
 }

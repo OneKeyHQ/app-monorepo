@@ -313,7 +313,7 @@ function InvitedByFriendActions({
         loading={isBinding}
         disabled={isBinding}
       >
-        {intl.formatMessage({ id: ETranslations.referral_accept })}
+        {intl.formatMessage({ id: ETranslations.wallet_subsidy_claim })}
       </Button>
     </XStack>
   );

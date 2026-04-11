@@ -569,29 +569,6 @@ const SwapProviderListPanel = ({
 
         {/* Right Column - Feature List */}
         <YStack width="50%" justifyContent="center" gap="$6">
-          <XStack alignItems="flex-start" gap="$3">
-            <Icon
-              name="DollarSolid"
-              size="$7"
-              color="$iconSuccess"
-              flexShrink={0}
-            />
-            <YStack flex={1} gap="$1">
-              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_zero_fee,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_zero_fee_desc,
-                })}
-              </SizableText>
-            </YStack>
-          </XStack>
-
-          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
-
           {/* MEV Shield */}
           <XStack alignItems="flex-start" gap="$3">
             <Icon
