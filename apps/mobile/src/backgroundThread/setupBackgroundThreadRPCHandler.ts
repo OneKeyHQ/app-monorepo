@@ -67,12 +67,18 @@ type IBackgroundThreadRequestExecutor = (
 
 const HANDLER_RETRY_MS = 50;
 const MAX_HANDLER_RETRY_COUNT = 600;
+// Periodic heartbeat that re-emits the ready signal so the main thread
+// transport can auto-recover if it got stuck in `remote-broken` state
+// (e.g. after a slow service call tripped the 30s request timeout while
+// the background runtime itself was still healthy).
+const HEARTBEAT_INTERVAL_MS = 10_000;
 
 let requestExecutor: IBackgroundThreadRequestExecutor | undefined;
 let handlerRetryCount = 0;
 let handlerRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let handlerInstalled = false;
 let readySignalEmitted = false;
+let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 // Ring buffer size for broadcast sequences (#48).
 // If the producer wraps before the consumer reads a slot, the old message is lost.
 // 4096 slots gives ~4K messages of headroom before overwrite.
@@ -152,6 +158,23 @@ function emitBackgroundRuntimeFailedSignal(error: unknown) {
     ),
     { allowRepeat: true },
   );
+}
+
+function startBackgroundRuntimeHeartbeat() {
+  if (heartbeatTimer) {
+    return;
+  }
+  heartbeatTimer = setInterval(() => {
+    // Only heartbeat AFTER the initial ready signal has been emitted
+    // and the request executor is wired up — this guarantees the
+    // heartbeat never races ahead of the genuine ready signal.
+    if (!readySignalEmitted || !requestExecutor) {
+      return;
+    }
+    emitBackgroundRuntimeSignal(serializeBackgroundThreadRuntimePayload(), {
+      allowRepeat: true,
+    });
+  }, HEARTBEAT_INTERVAL_MS);
 }
 
 function broadcastJotaiStateUpdateFromBgToUi(
@@ -542,6 +565,7 @@ export function setupBackgroundThreadRPCHandler() {
     callWebEmbedBridgeViaMainThread;
 
   ensureBackgroundRequestHandlerInstalled();
+  startBackgroundRuntimeHeartbeat();
 }
 
 setupBackgroundThreadRPCHandler();
