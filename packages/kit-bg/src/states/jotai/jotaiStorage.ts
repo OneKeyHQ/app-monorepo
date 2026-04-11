@@ -122,8 +122,16 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
-    // Always write via safe store wrapper (null/undefined → empty string)
-    this.store.set(key as any, JSON.stringify(newValue) ?? '');
+    // Explicit undefined write → route to removeItem. Persisting an empty
+    // string here would cause the next getItem to hit JSON.parse('') and
+    // log a false "MMKV parse failed" error, and would silently convert
+    // "cleared key" into "parse-error → initialValue".
+    if (newValue === undefined) {
+      await this.removeItem(key);
+      return;
+    }
+
+    this.store.set(key as any, JSON.stringify(newValue));
 
     if (!this.migrated) {
       // Migration not done — also write to AsyncStorage so it stays
