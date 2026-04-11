@@ -249,10 +249,9 @@ describe('usePromiseResult', () => {
       const { result, rerender } = renderHook<
         ReturnType<typeof usePromiseResult<string>>,
         { swrKey: string }
-      >(
-        ({ swrKey }) => usePromiseResult(method, [swrKey], { swrKey }),
-        { initialProps: { swrKey: 'wallet-A' } },
-      );
+      >(({ swrKey }) => usePromiseResult(method, [swrKey], { swrKey }), {
+        initialProps: { swrKey: 'wallet-A' },
+      });
 
       expect(result.current.result).toBe('data-A');
 
@@ -295,10 +294,9 @@ describe('usePromiseResult', () => {
       const { result, rerender } = renderHook<
         ReturnType<typeof usePromiseResult<string>>,
         { swrKey: string }
-      >(
-        ({ swrKey }) => usePromiseResult(method, [swrKey], { swrKey }),
-        { initialProps: { swrKey: 'wallet-A' } },
-      );
+      >(({ swrKey }) => usePromiseResult(method, [swrKey], { swrKey }), {
+        initialProps: { swrKey: 'wallet-A' },
+      });
 
       expect(result.current.result).toBe('data-A');
 
