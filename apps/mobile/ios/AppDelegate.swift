@@ -79,6 +79,17 @@ private enum BackgroundThreadBridge {
 /// Captured at static-init time so `hostDidStart` can measure elapsed.
 private let appLaunchCFTime = CFAbsoluteTimeGetCurrent()
 
+/// Tracks which bundle `bundleURL()` returned as RN's initial bundle, so
+/// `handleHostDidStart` can decide whether the main entry bundle still needs
+/// to be loaded. In single-bundle Release builds (no `common.jsbundle`) the
+/// initial bundle is already `main.jsbundle` and loading it again would
+/// double-evaluate module side effects.
+private enum InitialBundleKind {
+  case none
+  case common
+  case main
+}
+
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
   var window: UIWindow?
@@ -216,6 +227,8 @@ public class AppDelegate: ExpoAppDelegate {
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
+  private var initialBundleKind: InitialBundleKind = .none
+
   private func isNativeBackgroundThreadEnabled() -> Bool {
 #if DEBUG
     if let envValue = ProcessInfo.processInfo.environment["ENABLE_NATIVE_BACKGROUND_THREAD"]?.lowercased() {
@@ -294,6 +307,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA common path=\(bundlePath), exists=\(exists)")
 
       if exists {
+        initialBundleKind = .common
         if isFileURL, let fileURL = URL(string: bundlePath) {
           NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA common file URL=\(fileURL.absoluteString)")
           return fileURL
@@ -314,6 +328,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA main path=\(bundlePath), exists=\(exists)")
 
       if exists {
+        initialBundleKind = .main
         if isFileURL, let fileURL = URL(string: bundlePath) {
           NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA main file URL=\(fileURL.absoluteString)")
           return fileURL
@@ -331,6 +346,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     let candidates: [(String, String)] = [("common", "jsbundle"), ("main", "jsbundle")]
     for (name, ext) in candidates {
       if let url = Bundle.main.url(forResource: name, withExtension: ext) {
+        initialBundleKind = (name == "common") ? .common : .main
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
         NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback \(name).\(ext)=\(url.absoluteString)")
         NitroModuleBridge.logInfo("SplitBundle", "bundleURL: \(url.lastPathComponent) (\(fileSize / 1024)KB)")
@@ -338,6 +354,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       }
     }
 
+    initialBundleKind = .none
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): no bundle found (common.jsbundle / main.jsbundle)")
     return nil
 #endif
@@ -379,6 +396,14 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
 
 #if !DEBUG
+    // Skip entry bundle loading when RN's initial bundle is already main.jsbundle
+    // (single-bundle Release: no common.jsbundle shipped, or legacy OTA pushed a
+    // monolithic main.jsbundle). Re-evaluating the same file would double-run module
+    // side effects (timers, subscriptions, global init). Only proceed when the
+    // initial bundle was common.jsbundle, which is the split-bundle mode contract.
+    if initialBundleKind != .common {
+      NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: initial bundle kind=\(initialBundleKind), skip main entry load to avoid double-evaluation")
+    } else {
     // Defer entry bundle loading to the next run-loop tick.
     //
     // Why: hostDidStart: fires synchronously on the main thread while Expo modules
@@ -405,6 +430,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       } else {
         NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: no main entry bundle found")
       }
+    }
     }
 #endif
 
