@@ -120,6 +120,26 @@ export function usePromiseResult<T>(
   const [result, setResult] = useState<T | undefined>(
     effectiveInitResult as any,
   );
+
+  // When `swrKey` identifies cross-account/wallet scope (e.g. walletId or
+  // networkId baked into the key), switching scope would leave `result`
+  // holding the previous scope's data until the async revalidation lands,
+  // causing a flash of wrong-identity data. Sync state during render so
+  // the new scope's cached value (or its initResult) becomes visible
+  // immediately. `useState` initializer only runs on mount, so we cannot
+  // rely on `effectiveInitResult` alone.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevSwrKey, setPrevSwrKey] = useState(swrKey);
+  if (swrKey !== prevSwrKey) {
+    setPrevSwrKey(swrKey);
+    if (swrKey !== undefined) {
+      setResult(
+        (swrCacheEntry !== undefined
+          ? swrCacheEntry.data
+          : options.initResult) as any,
+      );
+    }
+  }
   const isEmptyResultRef = useRef<boolean>(true);
 
   if (platformEnv.isNative) {

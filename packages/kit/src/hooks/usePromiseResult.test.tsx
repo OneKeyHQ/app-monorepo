@@ -237,5 +237,75 @@ describe('usePromiseResult', () => {
         expect(result.current.result).toBe('fresh-value');
       });
     });
+
+    it('syncs result to new swrKey cached value immediately when key changes', () => {
+      swrCacheUtils.set('wallet-A', 'data-A');
+      swrCacheUtils.set('wallet-B', 'data-B');
+
+      // Pending promise — never resolves in this test, so we can assert
+      // the synchronous cache swap without an async revalidation winning.
+      const method = jest.fn(() => new Promise<string>(() => {}));
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { swrKey: string }
+      >(
+        ({ swrKey }) => usePromiseResult(method, [swrKey], { swrKey }),
+        { initialProps: { swrKey: 'wallet-A' } },
+      );
+
+      expect(result.current.result).toBe('data-A');
+
+      rerender({ swrKey: 'wallet-B' });
+
+      // Must be synchronous: no await, no waitFor.
+      expect(result.current.result).toBe('data-B');
+    });
+
+    it('falls back to initResult when new swrKey has no cached entry', () => {
+      swrCacheUtils.set('wallet-A', 'data-A');
+
+      const method = jest.fn(() => new Promise<string>(() => {}));
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { swrKey: string }
+      >(
+        ({ swrKey }) =>
+          usePromiseResult(method, [swrKey], {
+            initResult: 'init-value',
+            swrKey,
+          }),
+        { initialProps: { swrKey: 'wallet-A' } },
+      );
+
+      expect(result.current.result).toBe('data-A');
+
+      rerender({ swrKey: 'wallet-B' });
+
+      // New key has no cache → fall back to initResult, NOT previous scope's data.
+      expect(result.current.result).toBe('init-value');
+    });
+
+    it('resets to undefined when new swrKey has neither cache nor initResult', () => {
+      swrCacheUtils.set('wallet-A', 'data-A');
+
+      const method = jest.fn(() => new Promise<string>(() => {}));
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { swrKey: string }
+      >(
+        ({ swrKey }) => usePromiseResult(method, [swrKey], { swrKey }),
+        { initialProps: { swrKey: 'wallet-A' } },
+      );
+
+      expect(result.current.result).toBe('data-A');
+
+      rerender({ swrKey: 'wallet-B' });
+
+      // No cache, no initResult → must not keep showing previous scope.
+      expect(result.current.result).toBeUndefined();
+    });
   });
 });
