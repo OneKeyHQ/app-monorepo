@@ -157,7 +157,7 @@ function QuickSelectListItemBase({
           >
             {primaryText}
           </SizableText>
-          {item.isAddressBook ? (
+          {item.isAddressBook && isEvmNetwork ? (
             <SizableText
               size="$bodySm"
               color="$textSubdued"
@@ -165,11 +165,7 @@ function QuickSelectListItemBase({
               maxWidth="$32"
               numberOfLines={1}
             >
-              {isEvmNetwork
-                ? 'EVM'
-                : intl.formatMessage({
-                    id: ETranslations.address_book_title,
-                  })}
+              EVM
             </SizableText>
           ) : null}
           {showNetworkBadge ? (
