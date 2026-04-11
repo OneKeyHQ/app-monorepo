@@ -17,9 +17,46 @@ import { SwapPanelWrap } from './SwapPanelWrap';
 const showDialogMock = jest.fn();
 const prepareMarketSwapReviewMock = jest.fn();
 const useSpeedSwapActionsMock = jest.fn();
+const swapPanelContentMock = jest.fn();
+const mockSetPaymentToken = jest.fn();
 let mockSpeedCheckLoading = false;
 let mockCheckTokenAllowanceLoading = false;
 let mockSwapApprovingMatchLoading = false;
+const mockFiatToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xpay',
+  symbol: 'USDC',
+  decimals: 6,
+  price: '1',
+  isNative: false,
+};
+const mockNativeToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xnative',
+  symbol: 'ETH',
+  decimals: 18,
+  price: '2000',
+  isNative: true,
+};
+const mockTokenDetailBase = {
+  address: '0xmarket',
+  symbol: 'BTC',
+  decimals: 8,
+  logoUrl: 'logo',
+  price: '100',
+  isNative: false,
+  supportSwap: {
+    enable: true,
+  },
+};
+let mockTokenDetail: typeof mockTokenDetailBase & {
+  stock?: {
+    source?: string;
+  };
+} = { ...mockTokenDetailBase };
+let mockPaymentToken = { ...mockFiatToken };
+let mockTradeType = 'buy';
+let mockDefaultTokens = [{ ...mockFiatToken }];
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -56,39 +93,23 @@ jest.mock('../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => ({
     networkId: 'evm--1',
     isReady: true,
-    tokenDetail: {
-      address: '0xmarket',
-      symbol: 'BTC',
-      decimals: 8,
-      logoUrl: 'logo',
-      price: '100',
-      isNative: false,
-      supportSwap: {
-        enable: true,
-      },
-    },
+    tokenDetail: mockTokenDetail,
   }),
 }));
 
 jest.mock('./hooks/useSwapPanel', () => ({
   useSwapPanel: () => ({
     networkId: 'evm--1',
-    setPaymentToken: jest.fn(),
-    paymentToken: {
-      networkId: 'evm--1',
-      contractAddress: '0xpay',
-      symbol: 'USDC',
-      decimals: 6,
-      price: '1',
-      isNative: false,
-    },
+    setPaymentToken: mockSetPaymentToken,
+    resetAmounts: jest.fn(),
+    paymentToken: mockPaymentToken,
     paymentAmount: {
       toFixed: () => '1',
     },
     sellAmount: {
       toFixed: () => '1',
     },
-    tradeType: 'buy',
+    tradeType: mockTradeType,
     setSlippage: jest.fn(),
     slippage: 1,
   }),
@@ -103,16 +124,7 @@ jest.mock('./hooks/useSpeedSwapInit', () => ({
     },
     supportSpeedSwap: true,
     onlySupportCrossChain: false,
-    defaultTokens: [
-      {
-        networkId: 'evm--1',
-        contractAddress: '0xpay',
-        symbol: 'USDC',
-        decimals: 6,
-        price: '1',
-        isNative: false,
-      },
-    ],
+    defaultTokens: mockDefaultTokens,
     provider: 'onekey',
     swapMevNetConfig: [],
   }),
@@ -176,22 +188,36 @@ jest.mock('./MarketSwapReviewDialog', () => ({
 }));
 
 jest.mock('./SwapPanelContent', () => ({
-  SwapPanelContent: ({
-    onSwap,
-    onWrappedSwap,
-  }: {
+  SwapPanelContent: (props: {
+    isLoading: boolean;
     onSwap: () => void;
     onWrappedSwap: () => void;
-  }) => (
-    <div>
-      <button data-testid="swap-action" onClick={onSwap} type="button">
-        swap
-      </button>
-      <button data-testid="wrap-action" onClick={onWrappedSwap} type="button">
-        wrap
-      </button>
-    </div>
-  ),
+    disableNativeToken?: boolean;
+  }) => {
+    const { isLoading, onSwap, onWrappedSwap } = props;
+
+    return (
+      <div>
+        {swapPanelContentMock(props)}
+        <button
+          data-testid="swap-action"
+          disabled={isLoading}
+          onClick={onSwap}
+          type="button"
+        >
+          swap
+        </button>
+        <button
+          data-testid="wrap-action"
+          disabled={isLoading}
+          onClick={onWrappedSwap}
+          type="button"
+        >
+          wrap
+        </button>
+      </div>
+    );
+  },
 }));
 
 describe('SwapPanelWrap', () => {
@@ -199,10 +225,16 @@ describe('SwapPanelWrap', () => {
     showDialogMock.mockReset();
     prepareMarketSwapReviewMock.mockReset();
     useSpeedSwapActionsMock.mockReset();
+    swapPanelContentMock.mockReset();
+    mockSetPaymentToken.mockReset();
     (Toast.error as jest.Mock).mockReset();
     mockSpeedCheckLoading = false;
     mockCheckTokenAllowanceLoading = false;
     mockSwapApprovingMatchLoading = false;
+    mockTokenDetail = { ...mockTokenDetailBase };
+    mockPaymentToken = { ...mockFiatToken };
+    mockTradeType = 'buy';
+    mockDefaultTokens = [{ ...mockFiatToken }];
     showDialogMock.mockReturnValue({
       close: jest.fn(),
     });
@@ -251,15 +283,61 @@ describe('SwapPanelWrap', () => {
     expect(showDialogMock).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps only the latest review-open request when users click quickly', async () => {
-    let resolveFirstReview:
-      | ((value: {
-          steps: unknown[];
-          preSwapData: Record<string, never>;
-          quoteResult: undefined;
-        }) => void)
-      | undefined;
-    let resolveSecondReview:
+  it('disables native token for Ondo buy mode and switches away from native payment token', async () => {
+    mockTokenDetail = {
+      ...mockTokenDetailBase,
+      stock: {
+        source: 'coingecko',
+      },
+    };
+    mockPaymentToken = { ...mockNativeToken };
+    mockDefaultTokens = [{ ...mockNativeToken }, { ...mockFiatToken }];
+
+    render(<SwapPanelWrap />);
+
+    await waitFor(() => {
+      expect(swapPanelContentMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          disableNativeToken: true,
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockSetPaymentToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contractAddress: mockFiatToken.contractAddress,
+          isNative: false,
+        }),
+      );
+    });
+  });
+
+  it('keeps native token enabled for xStock buy mode', async () => {
+    mockTokenDetail = {
+      ...mockTokenDetailBase,
+      stock: {
+        source: 'xstocks',
+      },
+    };
+    mockPaymentToken = { ...mockNativeToken };
+    mockDefaultTokens = [{ ...mockNativeToken }, { ...mockFiatToken }];
+
+    render(<SwapPanelWrap />);
+
+    await waitFor(() => {
+      expect(swapPanelContentMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          disableNativeToken: false,
+        }),
+      );
+    });
+
+    expect(mockSetPaymentToken).not.toHaveBeenCalled();
+  });
+
+  it('keeps the action button loading while opening the review and prevents duplicate requests', async () => {
+    let resolveReview:
       | ((value: {
           steps: unknown[];
           preSwapData: Record<string, never>;
@@ -267,30 +345,32 @@ describe('SwapPanelWrap', () => {
         }) => void)
       | undefined;
 
-    prepareMarketSwapReviewMock
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveFirstReview = resolve;
-          }),
-      )
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveSecondReview = resolve;
-          }),
-      );
+    prepareMarketSwapReviewMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveReview = resolve;
+        }),
+    );
 
     render(<SwapPanelWrap />);
 
     fireEvent.click(screen.getByTestId('swap-action'));
+
+    await waitFor(() => {
+      expect(swapPanelContentMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          isLoading: true,
+        }),
+      );
+    });
+
     fireEvent.click(screen.getByTestId('swap-action'));
 
-    expect(prepareMarketSwapReviewMock).toHaveBeenCalledTimes(2);
+    expect(prepareMarketSwapReviewMock).toHaveBeenCalledTimes(1);
     expect(showDialogMock).not.toHaveBeenCalled();
 
     await act(async () => {
-      resolveSecondReview?.({
+      resolveReview?.({
         steps: [],
         preSwapData: {},
         quoteResult: undefined,
@@ -300,18 +380,11 @@ describe('SwapPanelWrap', () => {
     await waitFor(() => {
       expect(showDialogMock).toHaveBeenCalledTimes(1);
     });
-
-    await act(async () => {
-      resolveFirstReview?.({
-        steps: [],
-        preSwapData: {},
-        quoteResult: undefined,
-      });
-    });
-
-    await waitFor(() => {
-      expect(showDialogMock).toHaveBeenCalledTimes(1);
-    });
+    expect(swapPanelContentMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        isLoading: false,
+      }),
+    );
   });
 
   it('does not open the preview while action state is still loading', () => {

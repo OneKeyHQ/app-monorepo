@@ -331,7 +331,7 @@ export function ActionButton({
         console.warn('Analytics logging failed:', analyticsError);
       }
 
-      onPress?.(event);
+      void onPress?.(event);
     },
     [
       supportSpeedSwap,
