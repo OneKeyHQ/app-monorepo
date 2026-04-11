@@ -24,12 +24,10 @@ export { atom };
 export type IJotaiContextStore = ReturnType<typeof createStore>;
 type IContextAtomOptions =
   | {
-      name?: string;
       coldStartCache?: false | undefined;
       coldStartCacheKey?: never;
     }
   | {
-      name?: string;
       coldStartCache: true;
       coldStartCacheKey: IContextAtomColdStartCacheKey;
     };
@@ -120,7 +118,6 @@ export function createJotaiContext<TContextConfig = undefined>() {
     return contextAtomBase({
       useContextAtom,
       initialValue,
-      name: options?.name,
       coldStartCache: options?.coldStartCache,
       coldStartCacheKey: options?.coldStartCacheKey,
       useColdStartScopeKey,

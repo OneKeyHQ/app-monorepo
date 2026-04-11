@@ -569,12 +569,10 @@ export function contextAtomBase<Value>({
   initialValue,
   useContextAtom,
   useColdStartScopeKey,
-  name,
   coldStartCache,
   coldStartCacheKey,
 }: {
   initialValue: Value;
-  name?: string;
   coldStartCache?: boolean;
   coldStartCacheKey?: IContextAtomColdStartCacheKey;
   useColdStartScopeKey?: () => string | undefined;
@@ -588,29 +586,15 @@ export function contextAtomBase<Value>({
     );
   }
 
-  const snapshotKey = name;
   const activeColdStartCacheKey =
     coldStartCache && coldStartCacheKey ? coldStartCacheKey : undefined;
 
-  // ── Jotai Cold Start SSR — Phase 2: Hydration ──
-  // Read cached value from the pre-loaded snapshot (Phase 1) and use it as
-  // the atom's initial value. This lets the first React render display cached
-  // data (token list, balance) immediately, like SSR hydration.
-  let resolvedInitialValue = initialValue;
-  if (snapshotKey) {
-    const ctxSnapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
-    if (ctxSnapshot && snapshotKey in ctxSnapshot) {
-      const cached = ctxSnapshot[snapshotKey];
-      if (cached !== undefined && cached !== null) {
-        resolvedInitialValue =
-          typeof initialValue === 'object' && typeof cached === 'object'
-            ? { ...initialValue, ...cached }
-            : cached;
-      }
-    }
-  }
-
-  const atomBuilder = memoizee(() => atom(resolvedInitialValue));
+  // Hydration of context atoms is scoped (per-provider store) and happens in
+  // hydrateContextColdStartCacheForProvider, keyed by
+  // `${coldStartScopeKey}::${coldStartCacheKey}`. Module-load-time hydration
+  // via a bare atom name would never match those scoped keys and therefore
+  // does not apply to contextAtoms.
+  const atomBuilder = memoizee(() => atom(initialValue));
 
   // coldStartCache: wrap use() to auto-track value changes
   const wrappedUse = activeColdStartCacheKey
@@ -640,9 +624,10 @@ export function contextAtomBase<Value>({
       }
     : () => useContextAtom(atomBuilder());
 
-  const registryKey = activeColdStartCacheKey || snapshotKey;
-  if (registryKey) {
-    contextAtomSnapshotRegistry.set(registryKey, { atom: atomBuilder });
+  if (activeColdStartCacheKey) {
+    contextAtomSnapshotRegistry.set(activeColdStartCacheKey, {
+      atom: atomBuilder,
+    });
   }
 
   if (activeColdStartCacheKey) {

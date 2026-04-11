@@ -25,12 +25,13 @@ require('@onekeyhq/shared/src/polyfills');
 // Pattern analogous to SSR hydration:
 //   "Server" = previous session that saved atom values to MMKV
 //   "Transfer" = MMKV cold-start cache (synchronous, survives app restart)
-//   "Hydration" = contextAtomBase reads snapshot at module-load time
+//   "Hydration" = hydrateContextColdStartCacheForProvider seeds scoped atoms
+//                  on provider mount from the snapshot on globalThis
 //   "First Paint" = React renders cached data immediately (no skeleton)
 //   "Revalidation" = BG thread fetches fresh data, atoms update in-place
 //
 // This block pre-reads the snapshot from MMKV into globalThis before any
-// module evaluates, so contextAtomBase can use it as initial atom values.
+// module evaluates, so the scoped hydrator can use it as initial atom values.
 // Without this, atoms start empty → skeleton → wait for network → ~2s slower.
 try {
   const { coldStartCacheStorage: _coldStartCache } =
