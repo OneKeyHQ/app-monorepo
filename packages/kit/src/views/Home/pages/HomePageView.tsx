@@ -103,7 +103,7 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
       return children;
     };
 
-function NoWalletContent({ tabBarHeight }: { tabBarHeight: number }) {
+function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
   const isSyncLoading = useIsAccountSelectorSyncLoading(0);
   if (isSyncLoading) {
     return (
