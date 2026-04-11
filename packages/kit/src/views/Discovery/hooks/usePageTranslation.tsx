@@ -9,15 +9,18 @@ import {
   SegmentControl,
   Select,
   SizableText,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ETranslateDisplayMode, ETranslateEngine } from '../types';
+
+import { useWebTabDataById } from './useWebTabs';
 
 function TranslateSettings() {
   const intl = useIntl();
@@ -30,7 +33,7 @@ function TranslateSettings() {
     [setSettings],
   );
 
-  const isCustomLanguage = settings.targetLanguage !== 'auto';
+  const isCustomMode = settings.targetLanguage !== 'auto';
 
   const customLanguageOptions = useMemo(
     () =>
@@ -117,13 +120,17 @@ function TranslateSettings() {
         </SizableText>
         <SegmentControl
           fullWidth
-          value={isCustomLanguage ? 'custom' : 'auto'}
+          value={isCustomMode ? 'custom' : 'auto'}
           options={targetLanguageOptions}
-          onChange={(v) =>
-            updateSetting('targetLanguage', v === 'auto' ? 'auto' : intl.locale)
-          }
+          onChange={(v) => {
+            if (v === 'auto') {
+              updateSetting('targetLanguage', 'auto');
+            } else {
+              updateSetting('targetLanguage', intl.locale);
+            }
+          }}
         />
-        {isCustomLanguage ? (
+        {isCustomMode ? (
           <Select
             title={intl.formatMessage({
               id: ETranslations.browser_translate_target_language,
@@ -153,19 +160,19 @@ function TranslateSettings() {
   );
 }
 
-function useTargetLanguageLabel() {
+function useResolvedTargetLang() {
   const intl = useIntl();
   const [settings] = useTranslateSettingsPersistAtom();
+  return settings.targetLanguage === 'auto'
+    ? intl.locale
+    : settings.targetLanguage;
+}
 
-  return useMemo(() => {
-    const localeValue =
-      settings.targetLanguage === 'auto'
-        ? intl.locale
-        : settings.targetLanguage;
-    return (
-      LOCALES_OPTION.find((o) => o.value === localeValue)?.label ?? localeValue
-    );
-  }, [intl.locale, settings.targetLanguage]);
+function useTargetLanguageLabel() {
+  const resolvedLang = useResolvedTargetLang();
+  return (
+    LOCALES_OPTION.find((o) => o.value === resolvedLang)?.label ?? resolvedLang
+  );
 }
 
 export function TranslatePopoverContent({
@@ -273,13 +280,47 @@ export function TranslatePopoverTrigger({
   );
 }
 
-export function usePageTranslation(_tabId: string) {
-  const handleTranslate = useCallback(() => {
-    Toast.message({ title: 'Not yet implemented' });
+export function usePageTranslation(tabId: string) {
+  const [settings] = useTranslateSettingsPersistAtom();
+  const [isTranslated, setIsTranslated] = useState(false);
+  const resolvedTargetLang = useResolvedTargetLang();
+  const { tab } = useWebTabDataById(tabId);
+
+  const onNavigate = useCallback(() => {
+    setIsTranslated(false);
   }, []);
 
+  const { toggleTranslate, translatingRef } = useWebViewTranslate(
+    tabId,
+    onNavigate,
+    settings.engine,
+    settings.displayMode,
+    tab?.url,
+  );
+
+  const handleTranslate = useCallback(() => {
+    const willTranslate = !translatingRef.current;
+    toggleTranslate(resolvedTargetLang);
+    setIsTranslated(willTranslate);
+
+    defaultLogger.discovery.translation.dappTranslateToggle({
+      action: willTranslate ? 'enable' : 'disable',
+      engine: settings.engine,
+      targetLang: resolvedTargetLang,
+      displayMode: settings.displayMode,
+      dappDomain: tab?.url ?? '',
+    });
+  }, [
+    toggleTranslate,
+    translatingRef,
+    resolvedTargetLang,
+    settings.engine,
+    settings.displayMode,
+    tab?.url,
+  ]);
+
   return {
-    isTranslated: false,
+    isTranslated,
     handleTranslate,
   };
 }

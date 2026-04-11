@@ -947,6 +947,48 @@ class ProviderApiPrivate extends ProviderApiBase {
     appEventBus.emit(EAppEventBusNames.ShowRookieShare, { data });
     return { success: true };
   }
+
+  @providerApiMethod()
+  async wallet_requestClipboardPermission(
+    request: IJsBridgeMessagePayload,
+    params: { type: 'read' | 'write'; text?: string } = {} as {
+      type: 'read' | 'write';
+    },
+  ) {
+    if (!params?.type || !['read', 'write'].includes(params.type)) {
+      throw new OneKeyLocalError('Invalid clipboard permission request');
+    }
+
+    if (params.type === 'write' && params.text === undefined) {
+      throw new OneKeyLocalError('Clipboard write requires text parameter');
+    }
+
+    // Sanitize request before passing to modal to prevent clipboard text
+    // from being logged by ServiceDApp.openModal's dappOpenModal logger
+    const sanitizedRequest = {
+      ...request,
+      scope: request.scope || this.providerName,
+      data: request.data
+        ? {
+            ...(request.data as Record<string, unknown>),
+            params: { type: params.type },
+          }
+        : request.data,
+    };
+
+    // Modal performs clipboard operations in the UI process (where
+    // expo-clipboard is available), then resolves with the result.
+    // This avoids importing expo-clipboard in kit-bg, which runs in
+    // a service worker on extensions and has no clipboard API access.
+    const modalResult =
+      await this.backgroundApi.serviceDApp.openClipboardPermissionModal(
+        sanitizedRequest as IJsBridgeMessagePayload,
+        params.type,
+        params.text,
+      );
+
+    return modalResult;
+  }
 }
 
 export default ProviderApiPrivate;

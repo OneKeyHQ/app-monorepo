@@ -64,13 +64,12 @@ export function useBulkSendModeDialog() {
   const showBulkSendModeDialog = useCallback(
     ({ onSelect }: { onSelect: (mode: EBulkSendMode) => void }) => {
       const dialog = Dialog.show({
-        icon: 'ChevronDoubleUpOutline',
         title: intl.formatMessage({
           id: ETranslations.wallet_bulk_send_select_mode_title,
         }),
         showFooter: false,
         renderContent: (
-          <YStack mx="$-5">
+          <YStack mx="$-5" mt="$-1" mb="$-3" $md={{ pb: '$3', mb: '$0' }}>
             {bulkSendModeOptions.map((option) => (
               <ListItem
                 key={option.mode}

@@ -107,7 +107,7 @@ function TxActionSwapInfo(props: IProps) {
       return (
         <XStack alignItems="center" gap="$1">
           <SizableText {...textStyle}>{fee.percentageFee}%</SizableText>
-          <SwapServiceFeeOverview onekeyFee={fee.percentageFee} />
+          <SwapServiceFeeOverview />
         </XStack>
       );
     }
@@ -120,7 +120,7 @@ function TxActionSwapInfo(props: IProps) {
         <SizableText textDecorationLine="line-through" {...textStyle}>
           {swapServiceFeeDefault}%
         </SizableText>
-        <SwapServiceFeeOverview onekeyFee={fee.percentageFee} />
+        <SwapServiceFeeOverview />
       </XStack>
     );
   }, [fee]);

@@ -20,7 +20,6 @@ interface ISwapProviderInfoItemProps {
   fromToken?: ISwapToken;
   isBest?: boolean;
   toToken?: ISwapToken;
-  onekeyFee?: number;
   providerIcon: string;
   providerName: string;
   showLock?: boolean;
@@ -28,11 +27,7 @@ interface ISwapProviderInfoItemProps {
   isLoading?: boolean;
 }
 
-const SwapProviderInfoItemTitleContent = ({
-  onekeyFee,
-}: {
-  onekeyFee?: number;
-}) => {
+const SwapProviderInfoItemTitleContent = () => {
   const intl = useIntl();
 
   return (
@@ -47,7 +42,7 @@ const SwapProviderInfoItemTitleContent = ({
           id: ETranslations.swap_page_provider_provider,
         })}
       </SizableText>
-      <SwapServiceFeeOverview onekeyFee={onekeyFee} />
+      <SwapServiceFeeOverview />
     </XStack>
   );
 };
@@ -59,7 +54,6 @@ export const SwapProviderInfoItemTitleContentMemo = memo(
 const SwapProviderInfoItem = ({
   fromToken,
   isBest,
-  onekeyFee,
   toToken,
   providerIcon,
   providerName,
@@ -70,7 +64,7 @@ const SwapProviderInfoItem = ({
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" alignItems="center">
-      <SwapProviderInfoItemTitleContentMemo onekeyFee={onekeyFee} />
+      <SwapProviderInfoItemTitleContentMemo />
       {isLoading ? (
         <Stack py="$1">
           <Skeleton h="$3" w="$24" />

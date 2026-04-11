@@ -67,6 +67,7 @@ function EditItemPage() {
           }),
         });
         appEventBus.emit(EAppEventBusNames.AddressBookUpdate, undefined);
+        addressBookParams?.onSaveSuccess?.();
         navigation.pop();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
@@ -74,7 +75,7 @@ function EditItemPage() {
         setIsSubmitLoading(false);
       }
     },
-    [intl, navigation],
+    [addressBookParams, intl, navigation],
   );
 
   const onRemove = useCallback(
