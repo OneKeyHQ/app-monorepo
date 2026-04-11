@@ -182,6 +182,7 @@ function collectAccountSearchAddresses(
   if (!account) return [];
   const utxo = account as Partial<IDBUtxoAccount>;
   const candidates = [
+    account.addressDetail?.displayAddress,
     account.address,
     account.addressDetail?.address,
     account.addressDetail?.masterAddress,
@@ -420,7 +421,11 @@ function AccountRecipients({
     (item: IAccountWithDeriveInfo) => {
       const account = item?.account;
       if (!account) return;
-      const address = account.address ?? account.addressDetail?.address ?? '';
+      const address =
+        account.addressDetail?.displayAddress ??
+        account.address ??
+        account.addressDetail?.address ??
+        '';
       onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
       onSelect?.({ address });
     },
@@ -465,8 +470,10 @@ function AccountRecipients({
         rawDeriveType && deriveTypeMap.has(rawDeriveType)
           ? rawDeriveType
           : deriveTypeOptions[0]?.deriveType;
+      // When searching, show all derive types so matches on non-active
+      // derive paths aren't hidden. When not searching, filter by active.
       let filteredAccounts = allAccounts;
-      if (hasMultipleDeriveTypes && activeDeriveType) {
+      if (hasMultipleDeriveTypes && activeDeriveType && !isSearchActive) {
         const filtered = allAccounts.filter(
           (a) => !a.deriveType || a.deriveType === activeDeriveType,
         );
@@ -485,7 +492,13 @@ function AccountRecipients({
         data: filteredAccounts,
       };
     });
-  }, [filteredWalletGroups, walletDeriveType, senderDeriveType, intl]);
+  }, [
+    filteredWalletGroups,
+    walletDeriveType,
+    senderDeriveType,
+    intl,
+    isSearchActive,
+  ]);
 
   // Count visible accounts (after derive type filtering)
   const accountMatchCount = useMemo(
@@ -656,7 +669,10 @@ function AccountRecipients({
         }
         const { account, walletId, wallet } = item;
         const itemAddress =
-          account.address ?? account.addressDetail?.address ?? '';
+          account.addressDetail?.displayAddress ??
+          account.address ??
+          account.addressDetail?.address ??
+          '';
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
         // Wallet name is already shown in the section header, only show account name
