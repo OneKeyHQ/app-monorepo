@@ -7,77 +7,121 @@ import {
   Popover,
   SearchBar,
   SizableText,
-  Stack,
   XStack,
   YStack,
   usePopoverContext,
-  useTheme,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
-import {
-  MarketNormalTokenList,
-  MarketWatchlistTokenList,
-} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import { MarketTokenListNetworkSelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
+import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import {
-  TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS,
-  TOKEN_SELECTOR_POLLING_INTERVAL,
-} from './constants';
-import { MarketSearchTokenTable } from './MarketSearchTokenTable';
+import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
-import { useLiveTokenOverride } from './useLiveTokenOverride';
+
+// Reuse perps-style underline tab
+const SelectorTabItem = memo(
+  ({
+    id,
+    name,
+    isFocused,
+    onPress,
+  }: {
+    id: string;
+    name: string;
+    isFocused: boolean;
+    onPress: (id: string) => void;
+  }) => {
+    const handlePress = useCallback(() => onPress(id), [id, onPress]);
+    return (
+      <XStack
+        py="$3"
+        ml="$4"
+        mr="$2"
+        borderBottomWidth={isFocused ? '$0.5' : '$0'}
+        borderBottomColor="$borderActive"
+        onPress={handlePress}
+        cursor="default"
+      >
+        <SizableText
+          size="$headingXs"
+          color={isFocused ? '$text' : '$textSubdued'}
+        >
+          {name}
+        </SizableText>
+      </XStack>
+    );
+  },
+);
+SelectorTabItem.displayName = 'SelectorTabItem';
 
 function BaseMarketTokenSelectorContent() {
   const intl = useIntl();
-  const theme = useTheme();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
 
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
-  const { isWatchlistMode, spotNetworkId } = selectorConfig;
+  const { isWatchlistMode } = selectorConfig;
 
-  const [selectedNetworkId, setSelectedNetworkId] = useState<
-    string | undefined
-  >(isWatchlistMode ? undefined : spotNetworkId || undefined);
   const [startListSelect, setStartListSelect] = useState(isWatchlistMode);
+  const [selectedCategory, setSelectedCategory] = useState('trending');
+
+  const allNetworkId = ALL_NETWORK_ID;
+
+  // Get spot categories from API
+  const { spotCategories: apiSpotCategories } = useMarketBasicConfig();
+
+  const categories: IMarketCategoryItem[] = useMemo(() => {
+    if (apiSpotCategories.length > 0) {
+      return apiSpotCategories.map((c) => ({
+        id: c.type,
+        name: c.name,
+      }));
+    }
+    // Fallback before API responds — use i18n keys
+    return [
+      {
+        id: 'trending',
+        name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
+      },
+    ];
+  }, [apiSpotCategories, intl]);
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
   const { searchLoading, searchTokenList } =
     useSwapProTokenSearch(searchValueDebounce);
 
-  const liveTokenOverride = useLiveTokenOverride();
-
-  const handleNetworkIdChange = useCallback(
-    (nextNetworkId: string) => {
+  const handleCategoryChange = useCallback(
+    (categoryId: string) => {
       setStartListSelect(false);
-      setSelectedNetworkId(nextNetworkId);
+      setSelectedCategory(categoryId);
       setSelectorConfig((prev) => ({
         ...prev,
         isWatchlistMode: false,
-        spotNetworkId: nextNetworkId,
       }));
     },
     [setSelectorConfig],
   );
 
-  const handleStartListSelect = useCallback(() => {
-    setStartListSelect(true);
-    setSelectedNetworkId(undefined);
-    setSelectorConfig((prev) => ({ ...prev, isWatchlistMode: true }));
-  }, [setSelectorConfig]);
+  const handleStartListSelect = useCallback(
+    (_id: string) => {
+      setStartListSelect(true);
+      setSelectorConfig((prev) => ({ ...prev, isWatchlistMode: true }));
+    },
+    [setSelectorConfig],
+  );
 
   const navigateToTokenDetail = useCallback(
     (token: {
@@ -108,59 +152,66 @@ function BaseMarketTokenSelectorContent() {
   );
 
   return (
-    <YStack p="$3" gap="$1" height={600}>
-      <Stack px="$2" pb="$2">
-        <SearchBar
-          autoFocus
-          placeholder={intl.formatMessage({
-            id: ETranslations.global_search_asset,
-          })}
-          value={searchValue}
-          onChangeText={setSearchValue}
-        />
-      </Stack>
-
-      {searchValueDebounce ? (
-        <MarketSearchTokenTable
-          isLoading={searchLoading}
-          items={searchTokenList}
-          onPress={handleSelectToken}
-          rowBg="$bg"
-        />
-      ) : (
-        <>
-          <MarketTokenListNetworkSelector
-            selectedNetworkId={selectedNetworkId}
-            onSelectNetworkId={handleNetworkIdChange}
-            placement="bottom-start"
-            startListSelect={startListSelect}
-            onStartListSelect={handleStartListSelect}
-            borderColor="$neutral3"
-            gradientBgColor={theme.bg.val}
+    <YStack>
+      <YStack gap="$1">
+        <XStack px="$2" pt="$2">
+          <SearchBar
+            containerProps={{
+              borderRadius: '$2',
+              mx: '$2',
+              mt: '$2',
+              flex: 1,
+            }}
+            autoFocus
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search_asset,
+            })}
+            value={searchValue}
+            onChangeText={setSearchValue}
           />
+        </XStack>
 
-          <Stack flex={1} display={startListSelect ? 'flex' : 'none'}>
-            <MarketWatchlistTokenList
-              onItemPress={handleSelectToken}
-              hidePerps
-              hiddenDesktopColumns={TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS}
-              liveTokenOverride={liveTokenOverride}
-              pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
-              rowBg="$bg"
+        {/* Tabs - hidden during search */}
+        {searchValueDebounce ? null : (
+          <XStack
+            borderBottomWidth="$px"
+            borderBottomColor="$borderSubdued"
+            bg="$bg"
+            px="$0"
+          >
+            <SelectorTabItem
+              id="favorites"
+              name={intl.formatMessage({
+                id: ETranslations.global_favorites,
+              })}
+              isFocused={startListSelect}
+              onPress={handleStartListSelect}
             />
-          </Stack>
-          <Stack flex={1} display={startListSelect ? 'none' : 'flex'}>
-            <MarketNormalTokenList
-              onItemPress={handleSelectToken}
-              networkId={selectedNetworkId}
-              hiddenDesktopColumns={TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS}
-              liveTokenOverride={liveTokenOverride}
-              pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
-              rowBg="$bg"
-            />
-          </Stack>
-        </>
-      )}
+            {categories.map((item) => (
+              <SelectorTabItem
+                key={item.id}
+                id={item.id}
+                name={item.name}
+                isFocused={!startListSelect && item.id === selectedCategory}
+                onPress={handleCategoryChange}
+              />
+            ))}
+          </XStack>
+        )}
+
+        {/* List content */}
+        <MarketTokenSelectorList
+          networkId={allNetworkId}
+          selectedCategory={selectedCategory}
+          timeRange="1h"
+          onItemPress={handleSelectToken}
+          pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
+          isWatchlistMode={!searchValueDebounce && startListSelect}
+          searchQuery={searchValueDebounce}
+          searchLoading={searchLoading}
+          searchResults={searchTokenList}
+        />
+      </YStack>
     </YStack>
   );
 }
