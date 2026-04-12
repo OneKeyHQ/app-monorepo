@@ -28,10 +28,7 @@ const distDir = path.resolve(__dirname, '..', 'dist');
 // Main is UI-only — it should not contain background implementation code.
 const FORBIDDEN_IN_MAIN = [
   'packages/kit-bg/src/vaults/',
-  'packages/kit-bg/src/services/ServiceSwap',
-  'packages/kit-bg/src/services/ServiceNotification',
-  'packages/kit-bg/src/services/ServiceCloudBackup',
-  'packages/kit-bg/src/services/ServiceWalletConnect',
+  'packages/kit-bg/src/services/',
   'packages/core/src/chains/',
 ];
 
