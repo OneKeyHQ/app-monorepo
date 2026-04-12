@@ -119,13 +119,18 @@ export function usePopularTickers(): IPopularTickerItem[] {
 
     if (!assetCtxsByDex.length || !universe?.length) return [];
 
-    // After the mode === 'spot' early return above, universe is IPerpsUniverse[][]
+    // After the mode === 'spot' early return above, universe is IPerpsUniverse[][].
+    // Guard: during mode transition, universe may still hold stale spot data
+    // (flat ISpotUniverse[]) while mode has already switched to 'perp'.
+    if (!Array.isArray(universe[0])) return [];
+
     const perpUniverse = universe as IPerpsUniverse[][];
     const scored: IPopularTickerItem[] = [];
 
     for (let dexIndex = 0; dexIndex < perpUniverse.length; dexIndex += 1) {
       const assets = perpUniverse[dexIndex] ?? [];
       const ctxs = assetCtxsByDex[dexIndex] ?? [];
+      if (!Array.isArray(assets)) continue;
 
       for (const asset of assets) {
         // XYZ DEX assets have offset IDs; array is indexed from 0
