@@ -46,18 +46,25 @@ export function usePopularTickers(): IPopularTickerItem[] {
 
   // Fetch the full universe independently — must not read from the
   // search-filtered atom, otherwise popular tickers disappear during search.
-  const { result: universe } = usePromiseResult(
-    async (): Promise<IPerpsUniverse[][] | ISpotUniverse[]> => {
+  // Tag result with mode so we never use stale data from a previous mode
+  // (usePromiseResult keeps the old result until the new promise resolves).
+  const { result: taggedUniverse } = usePromiseResult(
+    async (): Promise<
+      | { mode: 'spot'; data: ISpotUniverse[] }
+      | { mode: 'perp'; data: IPerpsUniverse[][] }
+    > => {
       if (mode === 'spot') {
-        let { universes } = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        let { universes } =
+          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
 
         if (!universes?.length) {
           await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
-          const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+          const res =
+            await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
           universes = res.universes;
         }
 
-        return universes ?? [];
+        return { mode: 'spot', data: universes ?? [] };
       }
 
       let { universesByDex } =
@@ -74,15 +81,18 @@ export function usePopularTickers(): IPopularTickerItem[] {
         universesByDex = res.universesByDex;
       }
 
-      return universesByDex ?? [];
+      return { mode: 'perp', data: universesByDex ?? [] };
     },
     [mode],
     { checkIsFocused: false },
   );
 
   return useMemo(() => {
-    if (mode === 'spot') {
-      const spotUniverses = universe as ISpotUniverse[] | undefined;
+    // Skip if data is from a stale mode (async promise not yet resolved for current mode)
+    if (!taggedUniverse || taggedUniverse.mode !== mode) return [];
+
+    if (mode === 'spot' && taggedUniverse.mode === 'spot') {
+      const spotUniverses = taggedUniverse.data;
       if (!spotUniverses?.length) {
         return [];
       }
@@ -117,14 +127,8 @@ export function usePopularTickers(): IPopularTickerItem[] {
 
     const { assetCtxsByDex } = allAssetCtxs;
 
-    if (!assetCtxsByDex.length || !universe?.length) return [];
-
-    // After the mode === 'spot' early return above, universe is IPerpsUniverse[][].
-    // Guard: during mode transition, universe may still hold stale spot data
-    // (flat ISpotUniverse[]) while mode has already switched to 'perp'.
-    if (!Array.isArray(universe[0])) return [];
-
-    const perpUniverse = universe as IPerpsUniverse[][];
+    const perpUniverse = taggedUniverse.data;
+    if (!assetCtxsByDex.length || !perpUniverse?.length) return [];
     const scored: IPopularTickerItem[] = [];
 
     for (let dexIndex = 0; dexIndex < perpUniverse.length; dexIndex += 1) {
@@ -164,5 +168,5 @@ export function usePopularTickers(): IPopularTickerItem[] {
 
     scored.sort((a, b) => b.hotScore - a.hotScore);
     return scored.slice(0, POPULAR_TICKER_COUNT);
-  }, [allAssetCtxs, mode, spotPriceMap, universe]);
+  }, [allAssetCtxs, mode, spotPriceMap, taggedUniverse]);
 }
