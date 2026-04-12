@@ -286,6 +286,51 @@ describe('usePromiseResult', () => {
       expect(result.current.result).toBe('init-value');
     });
 
+    it('resets to initResult when swrKey transitions from defined to undefined', () => {
+      swrCacheUtils.set('wallet-A', 'data-A');
+
+      const method = jest.fn(() => new Promise<string>(() => {}));
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { swrKey: string | undefined }
+      >(
+        ({ swrKey }) =>
+          usePromiseResult(method, [swrKey], {
+            initResult: 'init-value',
+            swrKey,
+          }),
+        { initialProps: { swrKey: 'wallet-A' as string | undefined } },
+      );
+
+      expect(result.current.result).toBe('data-A');
+
+      rerender({ swrKey: undefined });
+
+      // key→undefined: no cache to read, must reset to initResult.
+      expect(result.current.result).toBe('init-value');
+    });
+
+    it('resets to undefined when swrKey transitions to undefined without initResult', () => {
+      swrCacheUtils.set('wallet-A', 'data-A');
+
+      const method = jest.fn(() => new Promise<string>(() => {}));
+
+      const { result, rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { swrKey: string | undefined }
+      >(({ swrKey }) => usePromiseResult(method, [swrKey], { swrKey }), {
+        initialProps: { swrKey: 'wallet-A' as string | undefined },
+      });
+
+      expect(result.current.result).toBe('data-A');
+
+      rerender({ swrKey: undefined });
+
+      // key→undefined, no initResult → must not keep previous scope's data.
+      expect(result.current.result).toBeUndefined();
+    });
+
     it('resets to undefined when new swrKey has neither cache nor initResult', () => {
       swrCacheUtils.set('wallet-A', 'data-A');
 

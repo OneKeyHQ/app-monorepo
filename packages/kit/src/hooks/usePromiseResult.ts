@@ -138,6 +138,9 @@ export function usePromiseResult<T>(
           ? swrCacheEntry.data
           : options.initResult) as any,
       );
+    } else {
+      // key→undefined: no cache to read, reset to default
+      setResult(options.initResult as any);
     }
   }
   const isEmptyResultRef = useRef<boolean>(true);
