@@ -952,6 +952,7 @@ export default function RecipientQuickSelect({
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
+  const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
 
   // Track the search key at the time of last manual tab switch
   // Only allow auto-switch if user has typed something new
@@ -1051,6 +1052,7 @@ export default function RecipientQuickSelect({
     if (
       isSearchMode &&
       trimmedSearchKey &&
+      !isDebouncing &&
       allReported &&
       !anyTabHasMatches &&
       lastNoResultKeyRef.current !== trimmedSearchKey
@@ -1066,6 +1068,7 @@ export default function RecipientQuickSelect({
     tabMatchStatus,
     onMatchStatusChange,
     isSearchMode,
+    isDebouncing,
     trimmedSearchKey,
     networkId,
   ]);
@@ -1074,13 +1077,13 @@ export default function RecipientQuickSelect({
     () => ({
       isSearchMode: !!(isSearchMode && trimmedSearchKey),
       searchKeyLength: trimmedSearchKey.length,
-      // Only count tabs that are actually visible — hidden tabs (e.g. swap
-      // passes hideTabs={['recent']}) stay mounted but their counts would
-      // otherwise inflate the analytics matchCount.
-      matchCount: visibleTabKeys.reduce(
-        (sum, tab) => sum + (tabMatchCounts[tab] ?? 0),
-        0,
-      ),
+      matchCount:
+        isSearchMode && trimmedSearchKey
+          ? visibleTabKeys.reduce(
+              (sum, tab) => sum + (tabMatchCounts[tab] ?? 0),
+              0,
+            )
+          : 0,
     }),
     [isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys],
   );
