@@ -1,4 +1,56 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+import { useMemo } from 'react';
+
+import type {
+  ITabNavigatorConfig,
+  ITabNavigatorExtraConfig,
+} from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+
+import { homeRouters } from '../../views/Home/router';
+
+import type { INativeTabBarIcon } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
+
+// [ONBOARDING-DEV] Only wallet icon kept for placeholder Home tab
+const nativeTabIcons = {
+  wallet: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/wallet-4.svg')
+      : require('@onekeyhq/components/svg/outline/wallet-4.svg'),
+};
+
+type IGetTabRouterParams = {
+  freezeOnBlur?: boolean;
+};
+
+// [ONBOARDING-DEV] Simplified: only Home tab for onboarding dev mode
+export const useTabRouterConfig = (params?: IGetTabRouterParams) =>
+  useMemo(
+    () =>
+      [
+        {
+          name: ETabRoutes.Home,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'Wallet4Solid' : 'Wallet4Outline',
+          nativeTabBarIcon: nativeTabIcons.wallet,
+          translationId: ETranslations.global_wallet,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/',
+          exact: true,
+          children: homeRouters,
+          trackId: 'global-wallet',
+        },
+      ] as ITabNavigatorConfig<ETabRoutes>[],
+    [params?.freezeOnBlur],
+  );
+
+// [ONBOARDING-DEV] disabled
+export const tabExtraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
+  undefined;
+
+/* [ONBOARDING-DEV] Original content below:
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return (original eslint-disable header preserved as line comment to avoid block comment nesting)
 import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
@@ -280,3 +332,4 @@ export const tabExtraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
     name: ETabRoutes.MultiTabBrowser,
     children: multiTabBrowserRouters,
   };
+*/

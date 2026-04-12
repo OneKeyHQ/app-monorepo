@@ -773,7 +773,12 @@ export function Bootstrap() {
 
   useEffect(() => {
     if (devSettings.enabled) {
-      performance.start(true, !!devSettings.settings?.showPerformanceMonitor);
+      // [ONBOARDING-DEV] force-off native FPS/RAM overlay while Dev Settings
+      // is hidden on this branch; revert to `!!devSettings.settings?.showPerformanceMonitor`
+      const showMonitorView = platformEnv.isNative
+        ? false
+        : !!devSettings.settings?.showPerformanceMonitor;
+      performance.start(true, showMonitorView);
     }
     return () => {
       performance.stop();
@@ -814,15 +819,15 @@ export function Bootstrap() {
   }, []);
 
   useFetchCurrencyList();
-  useFetchMarketBasicConfig();
-  useFetchPerpConfig();
+  // [ONBOARDING-DEV] useFetchMarketBasicConfig();
+  // [ONBOARDING-DEV] useFetchPerpConfig();
   useAboutVersion();
   useDesktopEvents();
-  useLaunchEvents();
-  useCheckUpdateOnDesktop();
-  useIntercomInit();
-  useClearStorageOnExtension();
-  useRemindDevelopmentBuildExtension();
-  useTabletDetailView();
+  // [ONBOARDING-DEV] useLaunchEvents();
+  // [ONBOARDING-DEV] useCheckUpdateOnDesktop();
+  // [ONBOARDING-DEV] useIntercomInit();
+  // [ONBOARDING-DEV] useClearStorageOnExtension();
+  // [ONBOARDING-DEV] useRemindDevelopmentBuildExtension();
+  // [ONBOARDING-DEV] useTabletDetailView();
   return null;
 }

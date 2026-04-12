@@ -25,18 +25,18 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceSetting.refreshLocaleMessages(),
         this.backgroundApi.walletConnect.initializeOnStart(),
         this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
-        this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
-        this.backgroundApi.serviceSetting.fetchReviewControl(),
+        // [ONBOARDING-DEV] this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
+        // [ONBOARDING-DEV] this.backgroundApi.serviceSetting.fetchReviewControl(),
         this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
         this.backgroundApi.serviceNotification.init(),
-        this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
+        // [ONBOARDING-DEV] this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
       ]);
     } catch (error) {
       console.error(error);
     }
 
     // wait for local messages to be loaded
-    void this.backgroundApi.serviceContextMenu.init();
+    // [ONBOARDING-DEV] void this.backgroundApi.serviceContextMenu.init();
     if (platformEnv.isExtension) {
       try {
         await this.backgroundApi.serviceDevSetting.initAnalytics();
@@ -44,7 +44,7 @@ class ServiceBootstrap extends ServiceBase {
         console.error(error);
       }
     }
-    void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
+    // [ONBOARDING-DEV] void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
     void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
     void this.backgroundApi.simpleDb.recentRecipients.migrateFromOldStorage();
     void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
@@ -52,16 +52,16 @@ class ServiceBootstrap extends ServiceBase {
     void this.backgroundApi.serviceAccount.migrateHardwareLtcXPub();
     void this.backgroundApi.serviceSetting.migrateBTCFreshAddressSetting();
     void this.backgroundApi.serviceHardware.removeDeviceHomeScreen();
-    void systemTimeUtils.startServerTimeInterval();
-    void this.backgroundApi.serviceIpTable.init();
+    // [ONBOARDING-DEV] void systemTimeUtils.startServerTimeInterval();
+    // [ONBOARDING-DEV] void this.backgroundApi.serviceIpTable.init();
     void this.backgroundApi.serviceCloudBackupV2.init();
     // Restore persisted whitelist first, then fetch fresh data from server.
     // Sequencing prevents the stale persisted data from overwriting a newer fetch result.
-    void this.backgroundApi.serviceSetting
-      .restoreFiatPaySiteWhitelistFromPersist()
-      .then(() =>
-        this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
-      );
+    // [ONBOARDING-DEV] void this.backgroundApi.serviceSetting
+    //   .restoreFiatPaySiteWhitelistFromPersist()
+    //   .then(() =>
+    //     this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
+    //   );
   }
 }
 
