@@ -40,8 +40,11 @@ function useTickerBarIsLoading() {
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = tradingMode === 'spot';
   if (isSpot) {
-    // Spot: loaded when spotAssetCtx is available
-    return !isReady || hasError || !spotAssetCtx?.ctx;
+    // Spot: only loading if spot ctx hasn't arrived yet.
+    // Don't gate on isReady (perps WS connection state) — spot data
+    // flows through the same WS but isReady can be temporarily false
+    // during mode transitions while the spot subscription is active.
+    return !spotAssetCtx?.ctx;
   }
   const { markPrice } = assetCtx?.ctx || {
     markPrice: '0',

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, startTransition, useCallback, useEffect, useRef } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isEqual, noop } from 'lodash';
@@ -167,6 +167,14 @@ function useTradeRouteViewStateSync() {
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
 
+  // Throttle ALL_DEXS_ASSET_CTXS writes to 1s (leading + trailing).
+  // This fires every ~500ms and forces all visible token-selector rows to
+  // re-render via usePerpsAssetCtx → usePerpsAllAssetCtxsAtom. Throttling
+  // halves the ongoing rate; startTransition ensures these background updates
+  // yield to user interactions (e.g. opening the token selector).
+  const assetCtxsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const assetCtxsDirtyRef = useRef<IWsAllDexsAssetCtxs | null>(null);
+
   useEffect(() => {
     const handleDataUpdate = (payload: unknown) => {
       const eventPayload = payload as {
@@ -201,9 +209,26 @@ function useHyperliquidEventBusListener() {
           }
 
           case ESubscriptionType.ALL_DEXS_ASSET_CTXS: {
-            void actions.current.updateAllDexsAssetCtxs(
-              data as IWsAllDexsAssetCtxs,
-            );
+            assetCtxsDirtyRef.current = data as IWsAllDexsAssetCtxs;
+            if (!assetCtxsTimerRef.current) {
+              // Leading edge: flush immediately as a low-priority transition
+              const pending = assetCtxsDirtyRef.current;
+              assetCtxsDirtyRef.current = null;
+              startTransition(() => {
+                void actions.current.updateAllDexsAssetCtxs(pending);
+              });
+              // Trailing edge: one more flush after 1s if new data arrived
+              assetCtxsTimerRef.current = setTimeout(() => {
+                assetCtxsTimerRef.current = null;
+                if (assetCtxsDirtyRef.current) {
+                  const trailing = assetCtxsDirtyRef.current;
+                  assetCtxsDirtyRef.current = null;
+                  startTransition(() => {
+                    void actions.current.updateAllDexsAssetCtxs(trailing);
+                  });
+                }
+              }, 1000);
+            }
             break;
           }
 
@@ -276,6 +301,10 @@ function useHyperliquidEventBusListener() {
     );
 
     return () => {
+      if (assetCtxsTimerRef.current) {
+        clearTimeout(assetCtxsTimerRef.current);
+        assetCtxsTimerRef.current = null;
+      }
       appEventBus.off(
         EAppEventBusNames.HyperliquidDataUpdate,
         handleDataUpdate,
