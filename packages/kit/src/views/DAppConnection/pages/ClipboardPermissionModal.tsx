@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
-import { Checkbox, Page, SizableText, Stack } from '@onekeyhq/components';
+import { Page, SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
@@ -56,7 +56,6 @@ function ClipboardPermissionModal() {
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
   const intl = useIntl();
-  const [remember, setRemember] = useState(false);
 
   const isRead = clipboardType === 'read';
 
@@ -85,13 +84,13 @@ function ClipboardPermissionModal() {
       }
 
       void dappApprove.resolve({
-        result: { allowed: true, remember, content },
+        result: { allowed: true, content },
         close: () => {
           close?.({ flag: EDAppModalPageStatus.Confirmed });
         },
       });
     },
-    [dappApprove, remember, isRead, textToWrite],
+    [dappApprove, isRead, textToWrite],
   );
 
   return (
@@ -125,15 +124,6 @@ function ClipboardPermissionModal() {
           </DAppRequestLayout>
         </Page.Body>
         <Page.Footer>
-          <Stack px="$5" pb="$2">
-            <Checkbox
-              label={intl.formatMessage({
-                id: ETranslations.clipboard_remember__action,
-              })}
-              value={remember}
-              onChange={(checked) => setRemember(!!checked)}
-            />
-          </Stack>
           <DAppRequestFooter
             continueOperate={continueOperate}
             setContinueOperate={(checked) => {
