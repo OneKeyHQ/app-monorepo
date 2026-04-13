@@ -21,6 +21,7 @@ import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils'
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
+import { PerpMarketDetailButton } from '../MarketDetail/PerpMarketDetailDialog';
 import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
@@ -185,6 +186,7 @@ export function PerpTickerBarMobile() {
       <XStack pt="$0.5" gap="$3" alignItems="center">
         <PerpsActivityCenterAction size="small" copyAsUrl />
         <PerpCandleChartButtonMobile />
+        <PerpMarketDetailButton />
         <PerpSettingsButton
           testID="perp-mobile-settings-button"
           showGuideEntry
