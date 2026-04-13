@@ -28,11 +28,19 @@ function logSplashProvider(message: string) {
   }
 }
 
-/** Check if jotai was hydrated from MMKV snapshot (SSR-style).
- *  When snapshot exists, React renders cached data immediately —
- *  HomePageReady fires on first render and splash dismisses fast. */
-function hasJotaiCacheFromMmkv(): boolean {
-  return Boolean((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__);
+/** Check if jotai was hydrated from MMKV snapshot WITH balance data.
+ *  When balance cache exists, React renders cached balance on first render,
+ *  HomePageReady fires immediately, and splash dismisses fast.
+ *  Without balance cache, waiting for HomePageReady would stall splash
+ *  until a network fetch completes — so we dismiss immediately instead. */
+function hasBalanceCacheInSnapshot(): boolean {
+  const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
+    | Record<string, unknown>
+    | undefined;
+  if (!snapshot) return false;
+  return Object.keys(snapshot).some(
+    (k) => k.includes('ctx:accountWorthAtom') && snapshot[k] != null,
+  );
 }
 
 export const useCanDismissSplash =
@@ -41,7 +49,7 @@ export const useCanDismissSplash =
         // When MMKV cache was used, wait for HomePageReady signal instead
         // of dismissing immediately. This keeps splash visible while React
         // renders behind it, achieving a single-frame visual transition.
-        const hasCachedStates = hasJotaiCacheFromMmkv();
+        const hasCachedStates = hasBalanceCacheInSnapshot();
 
         const [canDismissSplash, setCanDismissSplash] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);

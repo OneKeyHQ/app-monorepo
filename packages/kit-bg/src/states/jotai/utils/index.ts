@@ -4,6 +4,10 @@ import { atom, useAtom } from 'jotai';
 
 import type { IContextAtomColdStartCacheKey } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
@@ -405,6 +409,12 @@ function getScopedColdStartSnapshotValue({
 const coldStartValuesMap = new Map<string, unknown>();
 
 /** Keys that changed since last MMKV flush */
+function coldStartLog(msg: string) {
+  try {
+    NativeLogger.write(LogLevel.Info, `[ColdStartCache] ${msg}`);
+  } catch { /* noop */ }
+}
+
 const coldStartDirtyKeys = new Set<string>();
 
 /** Debounce timer for batched MMKV writes */
@@ -412,9 +422,7 @@ let coldStartSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 function flushColdStartCache() {
   if (coldStartDirtyKeys.size === 0) return;
-  if (__DEV__) {
-    console.log(`[ColdStartCache] flush: ${coldStartDirtyKeys.size} dirty keys: ${[...coldStartDirtyKeys].join(', ')}`);
-  }
+  coldStartLog(`flush: ${coldStartDirtyKeys.size} dirty keys: ${[...coldStartDirtyKeys].join(', ')}`);
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { coldStartCacheStorage } =
@@ -447,9 +455,7 @@ function flushColdStartCache() {
 
 function scheduleColdStartSave(name: string) {
   coldStartDirtyKeys.add(name);
-  if (__DEV__) {
-    console.log(`[ColdStartCache] scheduleSave: ${name}, dirty=${coldStartDirtyKeys.size}`);
-  }
+  coldStartLog(`scheduleSave: ${name}, dirty=${coldStartDirtyKeys.size}`);
   // Restart timer on each change so we save the FINAL value, not an
   // intermediate one (e.g., All Networks token list arrives progressively).
   if (coldStartSaveTimer) {
@@ -620,10 +626,12 @@ export function contextAtomBase<Value>({
         const currentValue = result[0];
         if (!coldStartValuesMap.has(scopedCacheKey)) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
+          coldStartLog(`init: ${scopedCacheKey}`);
           return result;
         }
         if (coldStartValuesMap.get(scopedCacheKey) !== currentValue) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
+          coldStartLog(`changed: ${scopedCacheKey}`);
           scheduleColdStartSave(scopedCacheKey);
         }
         return result;
