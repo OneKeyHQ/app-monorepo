@@ -19,6 +19,15 @@ type ISwapToAddressState = {
   networkId?: string;
 };
 
+type IHookProps = {
+  accountId?: string;
+  address?: string;
+  clearRecipientAddressOnHide?: boolean;
+  networkId?: string;
+  swapToAnotherAccountSwitchOn: boolean;
+  visible: boolean;
+};
+
 const mockQueryAddressWithFallback: jest.MockedFunction<
   (params: IQueryCheckAddressArgs) => Promise<IAddressQueryResult>
 > = jest.fn();
@@ -125,15 +134,11 @@ describe('useSwapIncognitoRecipientInput', () => {
     const pendingValidation = createDeferred<IAddressQueryResult>();
     mockQueryAddressWithFallback.mockReturnValueOnce(pendingValidation.promise);
 
-    const { result, rerender } = renderHook(
-      (props: {
-        accountId?: string;
-        address?: string;
-        clearRecipientAddressOnHide?: boolean;
-        networkId?: string;
-        swapToAnotherAccountSwitchOn: boolean;
-        visible: boolean;
-      }) => useSwapIncognitoRecipientInput(props),
+    const { result, rerender } = renderHook<
+      ReturnType<typeof useSwapIncognitoRecipientInput>,
+      IHookProps
+    >(
+      (props: IHookProps) => useSwapIncognitoRecipientInput(props),
       {
         initialProps: {
           visible: true,
@@ -198,15 +203,11 @@ describe('useSwapIncognitoRecipientInput', () => {
         validStatus: 'valid',
       });
 
-    const { result, rerender } = renderHook(
-      (props: {
-        accountId?: string;
-        address?: string;
-        clearRecipientAddressOnHide?: boolean;
-        networkId?: string;
-        swapToAnotherAccountSwitchOn: boolean;
-        visible: boolean;
-      }) => useSwapIncognitoRecipientInput(props),
+    const { result, rerender } = renderHook<
+      ReturnType<typeof useSwapIncognitoRecipientInput>,
+      IHookProps
+    >(
+      (props: IHookProps) => useSwapIncognitoRecipientInput(props),
       {
         initialProps: {
           visible: true,
@@ -266,15 +267,11 @@ describe('useSwapIncognitoRecipientInput', () => {
       validStatus: 'valid',
     });
 
-    const { result, rerender } = renderHook(
-      (props: {
-        accountId?: string;
-        address?: string;
-        clearRecipientAddressOnHide?: boolean;
-        networkId?: string;
-        swapToAnotherAccountSwitchOn: boolean;
-        visible: boolean;
-      }) => useSwapIncognitoRecipientInput(props),
+    const { result, rerender } = renderHook<
+      ReturnType<typeof useSwapIncognitoRecipientInput>,
+      IHookProps
+    >(
+      (props: IHookProps) => useSwapIncognitoRecipientInput(props),
       {
         initialProps: {
           visible: true,
@@ -321,15 +318,11 @@ describe('useSwapIncognitoRecipientInput', () => {
       validStatus: 'valid',
     });
 
-    const { result, rerender } = renderHook(
-      (props: {
-        accountId?: string;
-        address?: string;
-        clearRecipientAddressOnHide?: boolean;
-        networkId?: string;
-        swapToAnotherAccountSwitchOn: boolean;
-        visible: boolean;
-      }) => useSwapIncognitoRecipientInput(props),
+    const { result, rerender } = renderHook<
+      ReturnType<typeof useSwapIncognitoRecipientInput>,
+      IHookProps
+    >(
+      (props: IHookProps) => useSwapIncognitoRecipientInput(props),
       {
         initialProps: {
           visible: true,
