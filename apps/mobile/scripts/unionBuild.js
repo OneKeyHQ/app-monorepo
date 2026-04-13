@@ -1482,7 +1482,25 @@ async function main() {
       ]),
     });
 
-    // Common bundle: shared eager modules + polyfills/runtime + manifest
+    // ── Common bundle ──────────────────────────────────────────────────
+    // Contains shared eager modules + polyfills/runtime + merged manifest.
+    // Loaded into BOTH main and background Hermes runtimes via sequential
+    // loading (common.bundle first, then the runtime-specific bundle).
+    //
+    // Async require path strategy:
+    //   Common code runs in both runtimes, so its import() paths must
+    //   work everywhere. We use the MERGED segment map (main ∪ background)
+    //   instead of per-runtime variants. Shared segments (like locale JSON)
+    //   get a simple segment key — no {"main":…,"background":…} branching.
+    //   Both runtimes resolve the same key via the merged manifest.
+    //
+    //   For modules that are eager in main/background (not in a segment),
+    //   externalModulePaths covers both runtimes' eager sets so the
+    //   rewriter marks them as null (already loaded).
+    const commonModuleToSegment = new Map([
+      ...mainSerializedModuleToSegment,
+      ...backgroundSerializedModuleToSegment,
+    ]);
     const commonBundleResult = await writeBundle({
       cacheKey: 'main',
       bundleOutput: args.commonBundleOutput,
@@ -1498,13 +1516,15 @@ async function main() {
       graph: mainGraph,
       prepend: mainPrepend,
       bundleOptions: commonBundleOptions,
-      moduleToSegment: mainSerializedModuleToSegment,
+      moduleToSegment: commonModuleToSegment,
       moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
-      externalModulePaths: new Set(),
-      runtimeVariants: {
-        main: mainRuntimeAsyncPaths,
-        background: backgroundRuntimeAsyncPaths,
-      },
+      externalModulePaths: new Set([
+        ...runtimeOwnership.mainStartupAbsPaths,
+        ...runtimeOwnership.bgStartupAbsPaths,
+      ]),
+      // No runtimeVariants — common code uses the merged segment map
+      // directly. Both runtimes share the same manifest and can load
+      // any shared segment by key.
     });
 
     // Main bundle: main-only eager modules + entry require
