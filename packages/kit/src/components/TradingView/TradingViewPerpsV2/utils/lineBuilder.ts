@@ -202,6 +202,10 @@ function getTpSlKind(order: IPerpsFrontendOrder): ITVLineKind | null {
   return inferTpSlKindFromTriggerOrder(order);
 }
 
+function isTriggerTpSlOrder(orderType: string): boolean {
+  return orderType.startsWith('Trigger');
+}
+
 /**
  * Build a TP (Take Profit) or SL (Stop Loss) line from a trigger order.
  * Uses triggerPx as the line price.
@@ -228,13 +232,14 @@ export function buildTpSlLine(
   }
   const isTp = kind === 'tp';
   const isMarket = order.orderType.includes('Market');
+  const isTriggerOrder = isTriggerTpSlOrder(order.orderType);
   const formattedCondition = formatTriggerCondition(order.triggerCondition);
 
   // Build label text
   // Market: "TP Price > 93723" or "SL Price > 95000"
   // Limit: "Take Profit Limit 92,206 Price < 89000" or "Stop Limit 92,206 Price > 96502"
   let labelText: string;
-  if (isMarket) {
+  if (isMarket || isTriggerOrder) {
     const prefix = isTp ? 'TP' : 'SL';
     labelText = `${prefix} ${formattedCondition}`;
   } else {
