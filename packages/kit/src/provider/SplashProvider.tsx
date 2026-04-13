@@ -28,23 +28,11 @@ function logSplashProvider(message: string) {
   }
 }
 
-/** Check if jotai was hydrated from MMKV snapshot WITH balance data.
- *  Only return true when the snapshot actually contains accountWorthAtom,
- *  which means the home screen can render cached balance immediately.
- *  Without balance cache, waiting for HomePageReady would stall splash
- *  until a network fetch completes (or the 10s safety timer fires).
- *
- *  Snapshot keys are scoped: "store:homeAccountOverview::ctx:accountWorthAtom",
- *  so we search for any key ending with "::ctx:accountWorthAtom". */
+/** Check if jotai was hydrated from MMKV snapshot (SSR-style).
+ *  When snapshot exists, React renders cached data immediately —
+ *  HomePageReady fires on first render and splash dismisses fast. */
 function hasJotaiCacheFromMmkv(): boolean {
-  const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
-    | Record<string, unknown>
-    | undefined;
-  if (!snapshot) return false;
-  const suffix = '::ctx:accountWorthAtom';
-  return Object.keys(snapshot).some(
-    (k) => k.endsWith(suffix) && snapshot[k] != null,
-  );
+  return Boolean((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__);
 }
 
 export const useCanDismissSplash =
