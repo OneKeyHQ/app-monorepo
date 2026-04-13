@@ -23,6 +23,44 @@ import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
 
 import type { SharedValue } from 'react-native-reanimated';
 
+function HomeWalletConnectionRow({
+  headerPx,
+  selectedHeaderTab,
+  sceneName,
+  tabRoute,
+  customHeaderLeftItems,
+}: {
+  headerPx: string;
+  selectedHeaderTab?: ETranslations;
+  sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
+  customHeaderLeftItems?: ReactNode;
+}) {
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({ num: 0 });
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
+    wallet,
+    account,
+  });
+
+  if (hasNoUsableWallet && !isSyncLoading) {
+    return null;
+  }
+
+  return (
+    <XStack alignItems="center" px={headerPx} h={44}>
+      <HeaderLeft
+        selectedHeaderTab={selectedHeaderTab}
+        sceneName={sceneName}
+        tabRoute={tabRoute}
+        customHeaderLeftItems={customHeaderLeftItems}
+      />
+    </XStack>
+  );
+}
+
 export function MDHeader({
   tabRoute,
   sceneName,
@@ -49,13 +87,6 @@ export function MDHeader({
   pageScrollPosition?: SharedValue<number>;
 }) {
   const { top } = useSafeAreaInsets();
-  const {
-    activeAccount: { wallet, account },
-  } = useActiveAccount({ num: 0 });
-  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
-    wallet,
-    account,
-  });
 
   const rightActions = useMemo(() => {
     return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
@@ -93,8 +124,6 @@ export function MDHeader({
     tabRoute === ETabRoutes.Home &&
     sceneName !== EAccountSelectorSceneName.homeUrlAccount;
 
-  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
-
   return (
     <>
       <Page.Header headerShown={false} />
@@ -125,16 +154,13 @@ export function MDHeader({
                 <MoreActionButton />
               </XStack>
               {/* Row 2: Wallet connection (account + network + address) */}
-              {hasNoUsableWallet && !isSyncLoading ? null : (
-                <XStack alignItems="center" px={headerPx} h={44}>
-                  <HeaderLeft
-                    selectedHeaderTab={selectedHeaderTab}
-                    sceneName={sceneName}
-                    tabRoute={tabRoute}
-                    customHeaderLeftItems={customHeaderLeftItems}
-                  />
-                </XStack>
-              )}
+              <HomeWalletConnectionRow
+                headerPx={headerPx}
+                selectedHeaderTab={selectedHeaderTab}
+                sceneName={sceneName}
+                tabRoute={tabRoute}
+                customHeaderLeftItems={customHeaderLeftItems}
+              />
             </>
           ) : (
             <>
