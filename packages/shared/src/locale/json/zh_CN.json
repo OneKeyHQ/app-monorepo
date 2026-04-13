@@ -2903,6 +2903,7 @@
   "perp.withdraw_fee_mgs": "此费用由 Hyperliquid 收取。OneKey 不对提现收取任何费用",
   "perp.you_will_get": "您将获得",
   "perp__deposit_no_second_confirmation__desc": "点击按钮后将一步完成授权和存款，无需二次确认",
+  "perp_guide_title": "合约指南",
   "perp_order_trigger_limit": "限价止盈止损",
   "perp_order_trigger_market": "市价止盈止损",
   "perp_portfolio_account_health": "账户健康度",

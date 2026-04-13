@@ -2903,6 +2903,7 @@
   "perp.withdraw_fee_mgs": "Эта комиссия взимается Hyperliquid. OneKey не взимает никаких комиссий за вывод средств.",
   "perp.you_will_get": "Вы получите",
   "perp__deposit_no_second_confirmation__desc": "Зачисление средств будет произведено немедленно без дополнительного подтверждения.",
+  "perp_guide_title": "Perps Guide",
   "perp_order_trigger_limit": "Стоп-лимит",
   "perp_order_trigger_market": "Стоп-маркет",
   "perp_portfolio_account_health": "Состояние счёта",

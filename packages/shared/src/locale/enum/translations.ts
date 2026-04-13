@@ -2908,6 +2908,7 @@ export enum ETranslations {
   perp_withdraw_fee_mgs = 'perp.withdraw_fee_mgs',
   perp_you_will_get = 'perp.you_will_get',
   perp__deposit_no_second_confirmation__desc = 'perp__deposit_no_second_confirmation__desc',
+  perp_guide_title = 'perp_guide_title',
   perp_order_trigger_limit = 'perp_order_trigger_limit',
   perp_order_trigger_market = 'perp_order_trigger_market',
   perp_portfolio_account_health = 'perp_portfolio_account_health',

@@ -2903,6 +2903,7 @@
   "perp.withdraw_fee_mgs": "この手数料はHyperliquidによって請求されます。OneKeyは出金に対していかなる手数料も課しません。",
   "perp.you_will_get": "あなたは受け取ります",
   "perp__deposit_no_second_confirmation__desc": "入金は確認なしですぐに行われます",
+  "perp_guide_title": "Perps Guide",
   "perp_order_trigger_limit": "逆指値指値",
   "perp_order_trigger_market": "逆指値成行",
   "perp_portfolio_account_health": "アカウントの健全性",

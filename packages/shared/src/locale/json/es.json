@@ -2903,6 +2903,7 @@
   "perp.withdraw_fee_mgs": "Esta tarifa la cobra Hyperliquid. OneKey no impone ninguna comisión por los retiros.",
   "perp.you_will_get": "Recibirás",
   "perp__deposit_no_second_confirmation__desc": "El depósito se realizará de inmediato sin confirmación adicional.",
+  "perp_guide_title": "Perps Guide",
   "perp_order_trigger_limit": "Límite stop",
   "perp_order_trigger_market": "Stop de mercado",
   "perp_portfolio_account_health": "Salud de la cuenta",

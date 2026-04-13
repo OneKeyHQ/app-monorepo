@@ -23,6 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
+import { useShowGuide } from '../hooks/useShowGuide';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
 import { showPerpFeeTierDialog } from './TradingPanel/components/PerpFeeTierPopover';
@@ -117,15 +118,18 @@ function DevAbstractionModeSelector() {
 interface IPerpSettingsPopoverContentProps {
   closePopover: () => void;
   showFeeTierEntry?: boolean;
+  showGuideEntry?: boolean;
 }
 
 function PerpSettingsPopoverContent({
   closePopover,
   showFeeTierEntry = false,
+  showGuideEntry = false,
 }: IPerpSettingsPopoverContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const intl = useIntl();
+  const { showGuide } = useShowGuide();
 
   return (
     <YStack py="$3" px="$2">
@@ -216,6 +220,24 @@ function PerpSettingsPopoverContent({
         </ListItem>
       ) : null}
 
+      {showGuideEntry ? (
+        <ListItem
+          mx="$0"
+          px="$2.5"
+          titleProps={{ size: '$bodyMdMedium' }}
+          title={intl.formatMessage({
+            id: ETranslations.perp_guide_title,
+          })}
+          onPress={() => {
+            closePopover();
+            showGuide();
+          }}
+          cursor="default"
+        >
+          <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
+        </ListItem>
+      ) : null}
+
       <DevAbstractionModeSelector />
     </YStack>
   );
@@ -224,11 +246,13 @@ function PerpSettingsPopoverContent({
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
   showFeeTierEntry?: boolean;
+  showGuideEntry?: boolean;
 }
 
 export function PerpSettingsPopover({
   renderTrigger,
   showFeeTierEntry = false,
+  showGuideEntry = false,
 }: IPerpSettingsPopoverProps) {
   const intl = useIntl();
 
@@ -243,6 +267,7 @@ export function PerpSettingsPopover({
           <PerpSettingsPopoverContent
             closePopover={closePopover}
             showFeeTierEntry={showFeeTierEntry}
+            showGuideEntry={showGuideEntry}
           />
         )}
         floatingPanelProps={{

@@ -27,8 +27,6 @@ import {
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
-import { calculateMaxLevelsPerSide } from './perpLayoutUtils';
-
 function PerpDesktopLayout() {
   const intl = useIntl();
   const { gtXl } = useMedia();
@@ -47,14 +45,6 @@ function PerpDesktopLayout() {
   const showOrderBook =
     gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
   const tradingWidth = layout.widths.trading;
-  const orderBookMaxLevelsPerSide = useMemo(
-    () =>
-      calculateMaxLevelsPerSide(
-        layout.marketContentHeight - layout.panelHeaderHeight,
-      ),
-    [layout.marketContentHeight, layout.panelHeaderHeight],
-  );
-
   const toggleOrderBook = useCallback(() => {
     setLayoutState((prev) => ({
       ...prev,
@@ -124,7 +114,7 @@ function PerpDesktopLayout() {
     >
       <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
-        {!chartExpanded && <FavoritesBar />}
+        {chartExpanded ? null : <FavoritesBar />}
 
         <YStack
           flex={chartExpanded ? 1 : undefined}
@@ -200,9 +190,7 @@ function PerpDesktopLayout() {
                       </SizableText>
                     </XStack>
                     <YStack flex={1} overflow="hidden">
-                      <PerpOrderBook
-                        maxLevelsPerSide={orderBookMaxLevelsPerSide}
-                      />
+                      <PerpOrderBook />
                     </YStack>
                   </YStack>
                 ) : null}
