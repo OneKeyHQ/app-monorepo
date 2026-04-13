@@ -124,7 +124,10 @@ defineCommand({
   description: 'Authenticate with a mnemonic or OneKey App Bot Wallet',
   input: authLoginInputSchema,
   output: authLoginOutputSchema,
-  examples: ['onekey auth login --mnemonic', 'onekey auth login --app-transfer'],
+  examples: [
+    'onekey auth login --mnemonic',
+    'onekey auth login --app-transfer',
+  ],
 });
 
 defineCommand({
