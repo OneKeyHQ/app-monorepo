@@ -34,7 +34,7 @@ export const PriceInput = memo(
     placeholder,
     ifOnDialog = false,
     isMobile = false,
-    isSpot = false,
+    isSpot: _isSpot = false,
   }: IPriceInputProps) => {
     const intl = useIntl();
     const handleInputChange = useCallback(

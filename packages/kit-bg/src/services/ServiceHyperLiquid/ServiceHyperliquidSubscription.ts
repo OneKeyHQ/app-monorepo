@@ -845,7 +845,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     try {
-      const sdkSubscription = await this._createSubscriptionDirect(spec);
+      const _sdkSubscription = await this._createSubscriptionDirect(spec);
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
         type: spec.type,
