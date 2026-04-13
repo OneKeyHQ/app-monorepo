@@ -1,7 +1,4 @@
-import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex } from '@noble/hashes/utils';
 import { isNil, isNumber } from 'lodash';
-import { LRUCache } from 'lru-cache';
 import WebViewCleaner from 'react-native-webview-cleaner';
 
 import type {
@@ -51,16 +48,6 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
-  private signedMessageCache: LRUCache<string, boolean>;
-
-  constructor({ backgroundApi }: { backgroundApi: any }) {
-    super({ backgroundApi });
-    this.signedMessageCache = new LRUCache<string, boolean>({
-      max: 100,
-      ttl: timerUtils.getTimeDurationMs({ minute: 60 }),
-    });
-  }
-
   @backgroundMethod()
   async fetchHistoryData(page = 1, pageSize = 15) {
     const start = (page - 1) * pageSize;
@@ -506,42 +493,6 @@ class ServiceDiscovery extends ServiceBase {
       });
     }
     return this.getBrowserBookmarks();
-  }
-
-  @backgroundMethod()
-  async postSignTypedDataMessage(params: {
-    networkId: string;
-    accountId: string;
-    origin: string;
-    typedData: string;
-  }) {
-    const { networkId, accountId, origin, typedData } = params;
-
-    const cacheKey = bytesToHex(
-      sha256(`${networkId}__${accountId}__${origin}__${typedData}`),
-    );
-
-    if (this.signedMessageCache.has(cacheKey)) {
-      return;
-    }
-
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    try {
-      await client.post('/wallet/v1/network/sign-typed-data', {
-        accountAddress,
-        networkId,
-        data: JSON.parse(typedData),
-        origin,
-      });
-      this.signedMessageCache.set(cacheKey, true);
-    } catch {
-      // ignore error
-    }
   }
 }
 
