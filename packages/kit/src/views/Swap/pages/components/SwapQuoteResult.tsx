@@ -235,6 +235,7 @@ const SwapQuoteResult = ({
             fromToken={fromToken}
             toToken={toToken}
             showLock={!!quoteResult?.allowanceResult}
+            percentageFee={quoteResult?.fee?.percentageFee}
             onPress={
               quoteResult?.info.provider &&
               swapQuoteList?.length > 1 &&
@@ -322,6 +323,7 @@ const SwapQuoteResult = ({
                   fromToken={fromToken}
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
+                  percentageFee={quoteResult?.fee?.percentageFee}
                   onPress={
                     quoteResult?.info.provider && onOpenProviderList
                       ? () => {
