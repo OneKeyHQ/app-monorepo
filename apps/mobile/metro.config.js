@@ -132,7 +132,8 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   }
   // Strip Developer/Gallery from production union builds
   if (
-    process.env.UNION_BUILD === 'true' &&
+    (process.env.UNION_BUILD === 'true' ||
+      process.env.SPLIT_BUNDLE_SEGMENTS === 'true') &&
     context.originModulePath &&
     (moduleName.includes('/Developer/router') ||
       moduleName.includes('/Developer/pages/Gallery'))
