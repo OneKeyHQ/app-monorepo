@@ -12,7 +12,10 @@ import type {
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useSpeedSwapActions } from './useSpeedSwapActions';
+import {
+  buildMarketReviewTokens,
+  useSpeedSwapActions,
+} from './useSpeedSwapActions';
 import { ESwapDirection } from './useTradeType';
 
 type IFetchSwapTokenDetailsParams = {
@@ -763,5 +766,43 @@ describe('useSpeedSwapActions', () => {
     });
 
     expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+  });
+});
+
+describe('buildMarketReviewTokens', () => {
+  it('applies the live payment token price to the buy review from token', () => {
+    const reviewTokens = buildMarketReviewTokens({
+      tradeType: ESwapDirection.BUY,
+      fromToken: {
+        ...usdcToken,
+        price: '0',
+      } as ISwapToken,
+      toToken: {
+        ...tonMarketToken,
+        price: '5',
+      },
+      tradeTokenPrice: new BigNumber(2),
+    });
+
+    expect(reviewTokens.fromToken.price).toBe('2');
+    expect(reviewTokens.toToken.price).toBe('5');
+  });
+
+  it('applies the live payment token price to the sell review to token', () => {
+    const reviewTokens = buildMarketReviewTokens({
+      tradeType: ESwapDirection.SELL,
+      fromToken: {
+        ...tonMarketToken,
+        price: '5',
+      },
+      toToken: {
+        ...usdcToken,
+        price: '0',
+      } as ISwapToken,
+      tradeTokenPrice: new BigNumber(2),
+    });
+
+    expect(reviewTokens.fromToken.price).toBe('5');
+    expect(reviewTokens.toToken.price).toBe('2');
   });
 });
