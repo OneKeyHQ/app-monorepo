@@ -1071,24 +1071,22 @@ export default class ServiceHyperliquid extends ServiceBase {
     const meta = result[0];
     if (meta?.tokens && meta?.universe) {
       const tokens = meta.tokens;
-      const universes: ISpotUniverse[] = meta.universe.map(
-        (item) => {
-          const baseTokenIdx = item.tokens[0];
-          const quoteTokenIdx = item.tokens[1];
-          const baseToken = tokens[baseTokenIdx];
-          const quoteToken = tokens[quoteTokenIdx];
-          const baseName = baseToken?.name ?? '';
-          const quoteName = quoteToken?.name ?? 'USDC';
-          return {
-            ...item,
-            assetId: SPOT_ASSET_ID_OFFSET + item.index,
-            baseName,
-            quoteName,
-            displayName: perpsUtils.getSpotTokenDisplayName(baseName),
-            baseSzDecimals: baseToken?.szDecimals ?? 0,
-          };
-        },
-      );
+      const universes: ISpotUniverse[] = meta.universe.map((item) => {
+        const baseTokenIdx = item.tokens[0];
+        const quoteTokenIdx = item.tokens[1];
+        const baseToken = tokens[baseTokenIdx];
+        const quoteToken = tokens[quoteTokenIdx];
+        const baseName = baseToken?.name ?? '';
+        const quoteName = quoteToken?.name ?? 'USDC';
+        return {
+          ...item,
+          assetId: SPOT_ASSET_ID_OFFSET + item.index,
+          baseName,
+          quoteName,
+          displayName: perpsUtils.getSpotTokenDisplayName(baseName),
+          baseSzDecimals: baseToken?.szDecimals ?? 0,
+        };
+      });
       await this.backgroundApi.simpleDb.perp.setSpotMeta({
         tokens,
         universes,
@@ -1344,27 +1342,29 @@ export default class ServiceHyperliquid extends ServiceBase {
         }),
       );
 
-      // TODO reset exchange client if account not exists, or address not exists
-      await this.exchangeService.setup({
-        userAddress: accountAddress,
-        userAccountId: selectedAccount.accountId ?? undefined,
-      });
-
       if (!accountAddress) {
         throw new OneKeyLocalError(
           'Check perps account status ERROR: Account address is required',
         );
       }
 
+      // Run exchange client setup and activation check in parallel —
+      // setup is local-only, userRole uses the info client (independent).
       let isActivated = false;
       if (hyperLiquidCache?.activatedUser?.[accountAddress] === true) {
         isActivated = true;
       }
-      if (!isActivated) {
-        const userRole = await infoClient.userRole({
-          user: accountAddress,
-        });
-        isActivated = userRole.role !== 'missing';
+      const [, userRoleResult] = await Promise.all([
+        this.exchangeService.setup({
+          userAddress: accountAddress,
+          userAccountId: selectedAccount.accountId ?? undefined,
+        }),
+        !isActivated
+          ? infoClient.userRole({ user: accountAddress })
+          : Promise.resolve(null),
+      ]);
+      if (!isActivated && userRoleResult) {
+        isActivated = userRoleResult.role !== 'missing';
       }
       if (!isActivated) {
         statusDetails.activatedOk = false;
@@ -1388,19 +1388,21 @@ export default class ServiceHyperliquid extends ServiceBase {
         // So account value displays correctly before enable trading
         void this.fetchUserAbstraction(accountAddress);
 
-        // Builder fee must be approved before agent setup
-        await this.checkBuilderFeeStatus({
-          accountAddress,
-          accountId: selectedAccount.accountId,
-          isEnableTradingTrigger,
-          statusDetails,
-        });
-
-        const isRebateBound =
-          await this.checkInternalRebateBindingStatusWithCache({
+        // Builder fee check and rebate binding check are independent — run in parallel.
+        // Both must complete before checkAgentStatus (builder fee must be approved,
+        // and credentials may be cleared based on rebate result).
+        const [, isRebateBound] = await Promise.all([
+          this.checkBuilderFeeStatus({
+            accountAddress,
+            accountId: selectedAccount.accountId,
+            isEnableTradingTrigger,
+            statusDetails,
+          }),
+          this.checkInternalRebateBindingStatusWithCache({
             accountId: selectedAccount.accountId,
             accountAddress,
-          });
+          }),
+        ]);
 
         // Clear local credentials to force new agent creation for rebate binding
         if (!isRebateBound) {
