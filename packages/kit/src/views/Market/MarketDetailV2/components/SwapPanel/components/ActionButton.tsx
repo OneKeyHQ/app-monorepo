@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
+import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import type { IToken } from '../types';
@@ -39,6 +40,7 @@ export interface IActionButtonProps extends IButtonProps {
   supportSpeedSwap?: boolean;
   amount: string;
   token?: IToken;
+  paymentToken?: IToken;
   balance?: BigNumber;
   networkId?: string;
   isWrapped?: boolean;
@@ -57,6 +59,7 @@ export function ActionButton({
   disabled,
   onPress,
   isWrapped,
+  paymentToken,
   actionOtherToken,
   networkId,
   onlySupportCrossChain,
@@ -75,6 +78,10 @@ export function ActionButton({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
+  const { price: paymentTokenPrice } = usePaymentTokenPrice(
+    tradeType === ESwapDirection.BUY ? paymentToken : undefined,
+    networkId,
+  );
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
     tradeType === ESwapDirection.BUY
@@ -90,8 +97,28 @@ export function ActionButton({
       return undefined;
     }
 
-    return amountBN.multipliedBy(new BigNumber(token?.price || '0')).toNumber();
-  }, [token?.price, amount, isValidAmount, amountBN]);
+    if (tradeType === ESwapDirection.BUY) {
+      const buyPrice = paymentTokenPrice ?? new BigNumber(token?.price || '0');
+      if (!buyPrice.isFinite() || buyPrice.isNaN() || !buyPrice.gt(0)) {
+        return undefined;
+      }
+      return amountBN.multipliedBy(buyPrice).toNumber();
+    }
+
+    const sellPrice = new BigNumber(token?.price || '0');
+    if (!sellPrice.isFinite() || sellPrice.isNaN() || !sellPrice.gt(0)) {
+      return undefined;
+    }
+
+    return amountBN.multipliedBy(sellPrice).toNumber();
+  }, [
+    tradeType,
+    paymentTokenPrice,
+    token?.price,
+    amount,
+    isValidAmount,
+    amountBN,
+  ]);
 
   const handleJumpToSwapAction = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
