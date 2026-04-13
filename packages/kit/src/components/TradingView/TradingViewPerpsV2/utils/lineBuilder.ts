@@ -164,6 +164,44 @@ function formatTriggerCondition(triggerCondition: string | undefined): string {
   return triggerCondition.replace(/\babove\b/i, '>').replace(/\bbelow\b/i, '<');
 }
 
+function inferTpSlKindFromTriggerOrder(
+  order: IPerpsFrontendOrder,
+): ITVLineKind | null {
+  if (!order.isPositionTpsl || !order.orderType.startsWith('Trigger')) {
+    return null;
+  }
+
+  const normalizedCondition = order.triggerCondition.toLowerCase();
+  const isAbove = normalizedCondition.includes('above');
+  const isBelow = normalizedCondition.includes('below');
+
+  if (!isAbove && !isBelow) {
+    return null;
+  }
+
+  if (order.side === 'A') {
+    return isAbove ? 'tp' : 'sl';
+  }
+
+  if (order.side === 'B') {
+    return isBelow ? 'tp' : 'sl';
+  }
+
+  return null;
+}
+
+function getTpSlKind(order: IPerpsFrontendOrder): ITVLineKind | null {
+  if (order.orderType.startsWith('Take Profit')) {
+    return 'tp';
+  }
+
+  if (order.orderType.startsWith('Stop')) {
+    return 'sl';
+  }
+
+  return inferTpSlKindFromTriggerOrder(order);
+}
+
 /**
  * Build a TP (Take Profit) or SL (Stop Loss) line from a trigger order.
  * Uses triggerPx as the line price.
@@ -184,8 +222,11 @@ export function buildTpSlLine(
   }
 
   const side: ITVLineSide = order.side === 'B' ? 'long' : 'short';
-  const isTp = order.orderType.startsWith('Take Profit');
-  const kind: ITVLineKind = isTp ? 'tp' : 'sl';
+  const kind = getTpSlKind(order);
+  if (!kind) {
+    return null;
+  }
+  const isTp = kind === 'tp';
   const isMarket = order.orderType.includes('Market');
   const formattedCondition = formatTriggerCondition(order.triggerCondition);
 
@@ -218,7 +259,11 @@ export function buildTpSlLine(
 }
 
 function isTpSlOrder(orderType: string): boolean {
-  return orderType.startsWith('Take Profit') || orderType.startsWith('Stop');
+  return (
+    orderType.startsWith('Take Profit') ||
+    orderType.startsWith('Stop') ||
+    orderType.startsWith('Trigger')
+  );
 }
 
 export function buildAllLinesForSymbol(
