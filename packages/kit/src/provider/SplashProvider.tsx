@@ -45,12 +45,35 @@ function hasBalanceCacheInSnapshot(): boolean {
   );
 }
 
+/**
+ * Splash dismiss strategy — three paths:
+ *
+ * ┌─────────────────────────────────────────────────────────────────────┐
+ * │ Path 1: Balance cache exists (hasCachedStates=true)                │
+ * │   MMKV snapshot contains accountWorthAtom → jotai hydrates cached  │
+ * │   balance into atoms → React renders real balance on first frame   │
+ * │   → HomePageReady fires immediately → splash dismisses instantly.  │
+ * │   This is the SSR hydration fast-path.                             │
+ * │                                                                    │
+ * │ Path 2: No balance cache, but OTA pending task exists              │
+ * │   A downloaded bundle update needs to be applied before the app    │
+ * │   can render correctly. Wait for background thread to process it   │
+ * │   (PendingInstallTaskProcessFinished event), then dismiss.         │
+ * │   Pending task presence is checked locally via MMKV (no RPC).      │
+ * │                                                                    │
+ * │ Path 3: No balance cache, no pending task                          │
+ * │   Nothing to wait for — dismiss splash immediately (0ms).          │
+ * │   Typical for fresh installs or first launch after update.         │
+ * │                                                                    │
+ * │ In all paths, processPendingInstallTask runs as fire-and-forget    │
+ * │ in the background — it never blocks splash dismissal.              │
+ * │                                                                    │
+ * │ Safety: 10s timeout guarantees splash dismissal if any path stalls.│
+ * └─────────────────────────────────────────────────────────────────────┘
+ */
 export const useCanDismissSplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
-        // When MMKV cache was used, wait for HomePageReady signal instead
-        // of dismissing immediately. This keeps splash visible while React
-        // renders behind it, achieving a single-frame visual transition.
         const hasCachedStates = hasBalanceCacheInSnapshot();
 
         const [canDismissSplash, setCanDismissSplash] = useState(false);
