@@ -331,6 +331,86 @@ describe('unionBuildHelpers', () => {
     expect(ownership.bgStartupAbsPaths.has(sharedPath)).toBe(true);
   });
 
+  it('promotes sync deps of shared modules to shared even if only in one graph', () => {
+    // defiUtils is shared (in both graphs, same signature).
+    // cryptoLib is a sync dep of defiUtils but only in the bg graph.
+    // cryptoLib should be promoted to shared so it ends up in common bundle.
+    const defiUtilsPath = '/repo/packages/shared/src/utils/defiUtils.ts';
+    const cryptoLibPath = '/repo/node_modules/@some/crypto-lib/index.js';
+
+    const defiUtilsModule = createModuleData({
+      code: 'module.exports = "defi";',
+      dependencies: [
+        { key: './cryptoLib', absolutePath: cryptoLibPath },
+      ],
+    });
+    const cryptoLibModule = createModuleData({
+      code: 'module.exports = "crypto";',
+    });
+
+    const ownership = buildRuntimeOwnership({
+      mainGraph: {
+        dependencies: new Map([
+          [defiUtilsPath, defiUtilsModule],
+          // cryptoLib NOT in main graph
+        ]),
+      },
+      bgGraph: {
+        dependencies: new Map([
+          [defiUtilsPath, defiUtilsModule],
+          [cryptoLibPath, cryptoLibModule],
+        ]),
+      },
+      mainReachable: new Set([defiUtilsPath]),
+      bgReachable: new Set([defiUtilsPath, cryptoLibPath]),
+      mainStartupAbsPaths: new Set([defiUtilsPath]),
+      bgStartupAbsPaths: new Set([defiUtilsPath, cryptoLibPath]),
+    });
+
+    // defiUtils is shared (identical in both graphs, in both startup sets)
+    expect(ownership.sharedStartupAbsPaths.has(defiUtilsPath)).toBe(true);
+    // cryptoLib should be promoted to shared via sync dep expansion
+    expect(ownership.sharedStartupAbsPaths.has(cryptoLibPath)).toBe(true);
+    // cryptoLib should NOT remain in bg-only
+    expect(ownership.bgStartupAbsPaths.has(cryptoLibPath)).toBe(false);
+  });
+
+  it('does not promote async deps of shared modules to shared', () => {
+    const sharedModPath = '/repo/packages/shared/src/locale/localeJsonMap.ts';
+    const asyncDepPath = '/repo/packages/shared/src/locale/json/zh_CN.json';
+
+    const sharedMod = createModuleData({
+      code: 'module.exports = {};',
+      dependencies: [
+        { key: './zh_CN.json', absolutePath: asyncDepPath, asyncType: 'async' },
+      ],
+    });
+    const asyncDep = createModuleData({ code: '{}' });
+
+    const ownership = buildRuntimeOwnership({
+      mainGraph: {
+        dependencies: new Map([
+          [sharedModPath, sharedMod],
+          [asyncDepPath, asyncDep],
+        ]),
+      },
+      bgGraph: {
+        dependencies: new Map([
+          [sharedModPath, sharedMod],
+          [asyncDepPath, asyncDep],
+        ]),
+      },
+      mainReachable: new Set([sharedModPath, asyncDepPath]),
+      bgReachable: new Set([sharedModPath, asyncDepPath]),
+      mainStartupAbsPaths: new Set([sharedModPath]),
+      bgStartupAbsPaths: new Set([sharedModPath]),
+    });
+
+    expect(ownership.sharedStartupAbsPaths.has(sharedModPath)).toBe(true);
+    // Async dep should NOT be promoted — it stays as a segment
+    expect(ownership.sharedStartupAbsPaths.has(asyncDepPath)).toBe(false);
+  });
+
   it('pairs serialized modules with graph paths without reverse id lookup', () => {
     const alphaPath = '/repo/src/alpha.js';
     const betaPath = '/repo/src/beta.js';
