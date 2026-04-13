@@ -7,7 +7,10 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import type { IQueryCheckAddressArgs } from '@onekeyhq/shared/types/address';
 
-import { useSwapIncognitoRecipientInput } from './useSwapIncognitoRecipientInput';
+import {
+  shouldBlockSwapActionForIncognitoRecipientInput,
+  useSwapIncognitoRecipientInput,
+} from './useSwapIncognitoRecipientInput';
 
 type ISettingsState = {
   swapToAnotherAccountSwitchOn: boolean;
@@ -372,5 +375,31 @@ describe('useSwapIncognitoRecipientInput', () => {
     await waitFor(() => {
       expect(result.current.inputText).toBe('');
     });
+  });
+});
+
+describe('shouldBlockSwapActionForIncognitoRecipientInput', () => {
+  it('blocks review while the recipient input is still unresolved', () => {
+    expect(
+      shouldBlockSwapActionForIncognitoRecipientInput({
+        enabled: true,
+        inputText: '0xrecipient',
+        loading: false,
+        queryResult: {},
+      }),
+    ).toBe(true);
+  });
+
+  it('allows review after the recipient input is validated', () => {
+    expect(
+      shouldBlockSwapActionForIncognitoRecipientInput({
+        enabled: true,
+        inputText: '0xrecipient',
+        loading: false,
+        queryResult: {
+          validStatus: 'valid',
+        },
+      }),
+    ).toBe(false);
   });
 });

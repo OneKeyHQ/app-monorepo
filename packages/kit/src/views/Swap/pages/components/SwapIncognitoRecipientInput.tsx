@@ -10,11 +10,10 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
+import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { useSwapIncognitoRecipientInput } from '../../hooks/useSwapIncognitoRecipientInput';
 
 import type {
   LayoutChangeEvent,
@@ -24,12 +23,12 @@ import type {
 
 type ISwapIncognitoRecipientInputProps = {
   visible: boolean;
-  clearRecipientAddressOnHide?: boolean;
-  networkId?: string;
-  accountId?: string;
-  address?: string;
-  swapToAnotherAccountSwitchOn: boolean;
+  errorMessage?: string;
+  inputText: string;
+  loading: boolean;
   onOpenRecipientAddress: () => void;
+  onInputChange: (text: string) => void;
+  queryResult: IAddressQueryResult;
 };
 
 function useSwapRecipientInputHeight() {
@@ -70,29 +69,14 @@ function useSwapRecipientInputHeight() {
 
 export function SwapIncognitoRecipientInput({
   visible,
-  clearRecipientAddressOnHide,
-  networkId,
-  accountId,
-  address,
-  swapToAnotherAccountSwitchOn,
+  errorMessage,
+  inputText,
+  loading,
   onOpenRecipientAddress,
+  onInputChange,
+  queryResult,
 }: ISwapIncognitoRecipientInputProps) {
   const intl = useIntl();
-  const {
-    enabled,
-    errorMessage,
-    inputText,
-    loading,
-    onInputChange,
-    queryResult,
-  } = useSwapIncognitoRecipientInput({
-    visible,
-    clearRecipientAddressOnHide,
-    networkId,
-    accountId,
-    address,
-    swapToAnotherAccountSwitchOn,
-  });
   const { height, onContentSizeChange, onLayout } =
     useSwapRecipientInputHeight();
 
@@ -142,7 +126,7 @@ export function SwapIncognitoRecipientInput({
     queryResult.walletAccountName,
   ]);
 
-  if (!enabled) {
+  if (!visible) {
     return null;
   }
 

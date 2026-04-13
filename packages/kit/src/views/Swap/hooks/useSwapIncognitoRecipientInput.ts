@@ -23,6 +23,13 @@ type IUseSwapIncognitoRecipientInputParams = {
   swapToAnotherAccountSwitchOn: boolean;
 };
 
+type IShouldBlockSwapActionForIncognitoRecipientInputParams = {
+  enabled: boolean;
+  inputText: string;
+  loading: boolean;
+  queryResult: Pick<IAddressQueryResult, 'validStatus'>;
+};
+
 type IAddressValidationContext = {
   accountId?: string;
   enabled: boolean;
@@ -42,6 +49,23 @@ function isSameAddressValidationContext(
     left.queryText === right.queryText &&
     left.validationSessionId === right.validationSessionId
   );
+}
+
+export function shouldBlockSwapActionForIncognitoRecipientInput({
+  enabled,
+  inputText,
+  loading,
+  queryResult,
+}: IShouldBlockSwapActionForIncognitoRecipientInputParams) {
+  if (!enabled || !inputText.trim()) {
+    return false;
+  }
+
+  if (loading) {
+    return true;
+  }
+
+  return queryResult.validStatus !== 'valid';
 }
 
 export function useSwapIncognitoRecipientInput({
