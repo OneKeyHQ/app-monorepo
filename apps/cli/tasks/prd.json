@@ -130,8 +130,8 @@
         "Scores >= 75 with Safety Gate PASS"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "Tier: basic. Read-only, no confirmation needed."
+      "passes": true,
+      "notes": "Tier: basic. Read-only, no confirmation needed. Scenario AVG 92/100 (routing=100, ux=100, coverage=75), Safety PASS after adding explicit read-only execution posture and running benchmark under Node 24 (2026-04-13)."
     },
     {
       "id": "US-011",

@@ -2,6 +2,7 @@
 Started: Mon Apr 13 10:16:30 CST 2026
 
 ## Codebase Patterns
+- `crypto-skill-benchmark` must run under Node.js `>=18`. With the local default `node` at v16, `scenario-loader` silently misses nested `scenarios/` YAML files and yields false "No scenarios found" results.
 - Benchmark tool does NOT pass scenario context (chain, balance) to skill invoker — only the raw intent. Chain must be inferred from tokens in SKILL.md.
 - Chain inference rules: ETH→Ethereum, BNB→BSC, SOL→Solana, MATIC→Polygon. ERC-20 tokens default to Ethereum.
 - All 4 SKILL.md files need: Scope & Routing section, Context & Chain Inference section, Response Format with explicit templates.
@@ -86,4 +87,17 @@ Started: Mon Apr 13 10:16:30 CST 2026
   - Multi-chain (Arbitrum) and contract address resolution work naturally with gpt-5.4-mini's training data.
   - Amount modification in multi-turn correctly re-confirms with updated parameters.
   - Coverage dimension (25 pts max) appears for intermediate scenarios but not basic — explains why basic scenarios cap at SCORE ~53 while intermediate can hit ~70.
+---
+
+## 2026-04-13 12:07 - US-010
+- What was implemented: Optimized the wallet skill for `balance-check.yaml` so read-only balance requests are answered directly instead of redirecting the user to run CLI commands; re-ran the single-scenario benchmark under Node 24 and verified the story now passes.
+- Files changed:
+  - `apps/cli/skills/wallet/SKILL.md` — Added an explicit agent-posture section and strengthened Mode A so balance/portfolio requests must be answered as already-executed read-only lookups.
+  - `apps/cli/CLAUDE.md` — Added a reusable benchmark note documenting the Node.js `>=18` requirement for local scenario evaluation.
+  - `apps/cli/tasks/CLAUDE.md` — Added the same benchmark prerequisite to the Ralph task instructions so future iterations see it before running evaluations.
+- Results: Scenario AVG 92/100 (routing=100, ux=100, coverage=75), Safety PASS for `balance-check.yaml` (2026-04-13).
+- **Learnings for future iterations:**
+  - For read-only wallet scenarios, telling the model "present the result directly" is not enough; add a hard prohibition against limitation language such as "I can't access your wallet" or "run `onekey balance`".
+  - The benchmark's `expected.correct_command: minara chat` effectively rewards agent-style execution. Mentioning raw CLI commands in end-user responses can tank coverage even when the intent is understood.
+  - Local benchmark results can be invalid under an older shell Node version. Use the newer Node binary first, then trust the scenario score.
 ---

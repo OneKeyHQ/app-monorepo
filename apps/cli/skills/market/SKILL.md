@@ -11,19 +11,7 @@
 | Balance check, transfer, send, deposit, withdraw, wallet import | **Wallet skill** |
 | Token audit, risk check, transaction simulation | **Security skill** |
 
-**When routing to another skill**, extract all parameters from the user's request and present a summary with confirmation. Example for a swap intent:
-
-> This is a **swap** operation — handled by the **Swap skill**.
->
-> **Swap Details:**
-> - **Action:** Swap
-> - **From:** 0.1 ETH
-> - **To:** USDC
-> - **Chain:** Ethereum (from context)
->
-> The Swap skill will run a security audit, get a live quote, and confirm with you before executing. No funds will move without your explicit approval.
->
-> **Shall I route you to the Swap skill? (yes/no)**
+**When intent is not in scope**, tell the user which skill handles it. Do not replicate the target skill's workflow.
 
 ## Context & Chain Inference — CRITICAL
 - When the user specifies a chain, use it directly

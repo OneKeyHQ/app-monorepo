@@ -102,3 +102,4 @@ If there are still stories with `passes: false`, end your response normally (ano
 - Commit frequently
 - Keep CI green
 - Read the Codebase Patterns section in progress.txt before starting
+- Run `crypto-skill-benchmark` with Node.js `>=18`. On this machine the default `node` may be `v16`, which causes scenario discovery to miss nested `scenarios/` YAML files and produce false "No scenarios found" results.

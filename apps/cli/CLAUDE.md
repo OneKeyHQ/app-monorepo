@@ -29,3 +29,7 @@ apps/cli/bin/onekey <command>
 # Or if installed globally
 onekey <command>
 ```
+
+## Benchmarking Notes
+
+- `crypto-skill-benchmark` requires Node.js `>=18`. If the default shell `node` is older, switch to a newer Node before running evaluations or scenario loading will silently miss nested `scenarios/` files.
