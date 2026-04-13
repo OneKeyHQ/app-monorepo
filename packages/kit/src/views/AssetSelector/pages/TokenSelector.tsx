@@ -338,9 +338,14 @@ function TokenSelector() {
     [debounceUpdateSearchKey, intl, searchPlaceholder],
   );
 
-  const headerRight = useMemo(() => {
-    if (!onSwitchNetwork || !network?.name) return undefined;
-    return () => (
+  const shouldShowHeaderRight = !!onSwitchNetwork && !!network?.name;
+
+  const headerRight = useCallback(() => {
+    if (!network || !onSwitchNetwork) {
+      return null;
+    }
+
+    return (
       <XStack
         alignItems="center"
         gap="$1.5"
@@ -365,13 +370,7 @@ function TokenSelector() {
         <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
       </XStack>
     );
-  }, [
-    onSwitchNetwork,
-    network?.name,
-    network?.shortname,
-    network?.logoURI,
-    network?.isCustomNetwork,
-  ]);
+  }, [onSwitchNetwork, network]);
 
   const searchTokensBySearchKey = useCallback(
     async (keywords: string) => {
@@ -503,7 +502,7 @@ function TokenSelector() {
           })
         }
         headerSearchBarOptions={headerSearchBarOptions}
-        headerRight={headerRight}
+        headerRight={shouldShowHeaderRight ? headerRight : undefined}
       />
       <Page.Body>
         <TokenListView

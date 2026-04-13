@@ -1,5 +1,3 @@
-import type { IInviteCodeListItem } from '@onekeyhq/shared/src/referralCode/type';
-
 /**
  * Column data index enum for InviteCodeListTable
  */
@@ -21,19 +19,6 @@ export const SORTABLE_COLUMNS = [
   EInviteCodeListTableColumn.CUMULATIVE_REWARDS,
   EInviteCodeListTableColumn.CREATED_AT,
 ] as const;
-
-/**
- * Shared layout constants for the fixed code column.
- */
-export const INVITE_CODE_COLUMN_NOTE_WIDTH = 150;
-export const INVITE_CODE_COLUMN_CODE_CHAR_WIDTH = 9;
-export const INVITE_CODE_COLUMN_HEADER_CHAR_WIDTH = 10;
-export const INVITE_CODE_COLUMN_EXTRA_WIDTH = 70;
-export const INVITE_CODE_COLUMN_MIN_CODE_LENGTH = 8;
-
-export type IInviteCodeListTableItem = IInviteCodeListItem & {
-  displayCode?: string;
-};
 
 /**
  * Type for sortable columns

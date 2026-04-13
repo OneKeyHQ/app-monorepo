@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   IconButton,
@@ -27,20 +26,15 @@ import {
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
-import { getResponsivePerpDesktopLayout } from './perpLayoutUtils';
+import { calculateMaxLevelsPerSide } from './perpLayoutUtils';
 
 function PerpDesktopLayout() {
   const intl = useIntl();
   const { gtXl } = useMedia();
-  const { width: viewportWidth, height: viewportHeight } =
-    useWindowDimensions();
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
   const scrollContainerRef = useRef<HTMLElement>(null);
 
-  const layout = useMemo(
-    () => getResponsivePerpDesktopLayout(viewportWidth, viewportHeight),
-    [viewportHeight, viewportWidth],
-  );
+  const layout = PERP_LAYOUT_CONFIG.desktop;
 
   // Reset chartExpanded on mount to stay in sync with iframe state
   useEffect(() => {
@@ -54,6 +48,14 @@ function PerpDesktopLayout() {
   const showOrderBook =
     gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
   const tradingWidth = layout.widths.trading;
+  const orderBookMaxLevelsPerSide = useMemo(
+    () =>
+      calculateMaxLevelsPerSide(
+        layout.marketContentHeight - layout.panelHeaderHeight,
+      ),
+    [layout.marketContentHeight, layout.panelHeaderHeight],
+  );
+
   const toggleOrderBook = useCallback(() => {
     setLayoutState((prev) => ({
       ...prev,
@@ -86,7 +88,6 @@ function PerpDesktopLayout() {
   const accountPanel = useMemo(() => {
     return (
       <YStack
-        h={layout.bottomPanelHeight}
         minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
         maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
         w={tradingWidth}
@@ -108,7 +109,7 @@ function PerpDesktopLayout() {
         </YStack>
       </YStack>
     );
-  }, [intl, layout.bottomPanelHeight, tradingWidth]);
+  }, [intl, tradingWidth]);
 
   return (
     <Stack
@@ -118,7 +119,7 @@ function PerpDesktopLayout() {
     >
       <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
-        {chartExpanded ? null : <FavoritesBar />}
+        {!chartExpanded && <FavoritesBar />}
 
         <YStack
           flex={chartExpanded ? 1 : undefined}
@@ -194,7 +195,9 @@ function PerpDesktopLayout() {
                       </SizableText>
                     </XStack>
                     <YStack flex={1} overflow="hidden">
-                      <PerpOrderBook />
+                      <PerpOrderBook
+                        maxLevelsPerSide={orderBookMaxLevelsPerSide}
+                      />
                     </YStack>
                   </YStack>
                 ) : null}

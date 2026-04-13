@@ -14,7 +14,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -238,9 +237,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     return result?.mergeDeriveAssetsEnabled;
   }, [balanceToken?.networkId]);
 
-  const disableNativeToken =
-    isOndoStockSource(tokenDetail?.stock?.source) &&
-    tradeType === ESwapDirection.BUY;
+  const isStockToken = !!tokenDetail?.stock;
 
   const filterDefaultTokens = useMemo(() => {
     if (defaultTokens?.length === 1) {
@@ -295,9 +292,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   );
 
   // Initialize paymentToken: prefer saved preference, fallback to first default
-  // Exclude native tokens when the current BUY flow requires it
+  // For stock tokens in BUY mode, exclude native tokens from selection
   useEffect(() => {
-    const candidates = disableNativeToken
+    const isStockBuyMode = isStockToken && tradeType === ESwapDirection.BUY;
+    const candidates = isStockBuyMode
       ? filterDefaultTokens.filter((t) => !t.isNative)
       : filterDefaultTokens;
 
@@ -314,7 +312,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       return;
     }
     // Stock BUY mode: auto-switch away from native token
-    if (disableNativeToken && paymentToken?.isNative && candidates.length > 0) {
+    if (isStockBuyMode && paymentToken?.isNative && candidates.length > 0) {
       setPaymentToken(candidates[0]);
       return;
     }
@@ -343,7 +341,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     setPaymentToken,
     filterDefaultTokens,
     savedPreference,
-    disableNativeToken,
+    isStockToken,
+    tradeType,
   ]);
 
   useEffect(() => {
@@ -536,7 +535,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
       speedCheckError={speedCheckError}
-      disableNativeToken={disableNativeToken}
+      disableNativeToken={Boolean(
+        isStockToken && tradeType === ESwapDirection.BUY,
+      )}
     />
   );
 }

@@ -20,17 +20,19 @@ interface ISwapProviderInfoItemProps {
   fromToken?: ISwapToken;
   isBest?: boolean;
   toToken?: ISwapToken;
+  onekeyFee?: number;
   providerIcon: string;
   providerName: string;
   showLock?: boolean;
   onPress?: () => void;
   isLoading?: boolean;
-  percentageFee?: number;
 }
 
 const SwapProviderInfoItemTitleContent = ({
-  percentageFee,
-}: Pick<ISwapProviderInfoItemProps, 'percentageFee'>) => {
+  onekeyFee,
+}: {
+  onekeyFee?: number;
+}) => {
   const intl = useIntl();
 
   return (
@@ -45,7 +47,7 @@ const SwapProviderInfoItemTitleContent = ({
           id: ETranslations.swap_page_provider_provider,
         })}
       </SizableText>
-      <SwapServiceFeeOverview percentageFee={percentageFee} />
+      <SwapServiceFeeOverview onekeyFee={onekeyFee} />
     </XStack>
   );
 };
@@ -57,18 +59,18 @@ export const SwapProviderInfoItemTitleContentMemo = memo(
 const SwapProviderInfoItem = ({
   fromToken,
   isBest,
+  onekeyFee,
   toToken,
   providerIcon,
   providerName,
   showLock: _showLock,
   onPress,
   isLoading,
-  percentageFee,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" alignItems="center">
-      <SwapProviderInfoItemTitleContentMemo percentageFee={percentageFee} />
+      <SwapProviderInfoItemTitleContentMemo onekeyFee={onekeyFee} />
       {isLoading ? (
         <Stack py="$1">
           <Skeleton h="$3" w="$24" />

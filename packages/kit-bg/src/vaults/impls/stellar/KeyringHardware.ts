@@ -113,29 +113,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  private async getSorobanDataXDR(
-    decodeTx: InstanceType<typeof sdkStellar.StellarSdk.Transaction>,
-  ) {
-    const sorobanData = decodeTx
-      .toEnvelope?.()
-      ?.v1?.()
-      ?.tx?.()
-      ?.ext?.()
-      ?.value?.();
-
-    if (!sorobanData) {
-      return undefined;
-    }
-    return sorobanData.toXDR();
-  }
-
-  private _encodeXdrArrayToHex(items: { toXDR(): Buffer }[]): string {
-    const buffers = items.map((item) => item.toXDR());
-    const countBuf = Buffer.alloc(4);
-    countBuf.writeUInt32BE(items.length, 0);
-    return Buffer.concat([countBuf, ...buffers]).toString('hex');
-  }
-
   private _convertAsset(
     asset: InstanceType<typeof sdkStellar.StellarSdk.Asset>,
   ) {
@@ -218,32 +195,13 @@ export class KeyringHardware extends KeyringHardwareBase {
         }
         case 'pathPaymentStrictReceive': {
           stellarOperations.push({
-            type: 'pathPaymentStrictReceive',
+            type: 'pathPayment',
             source: operation.source,
             sendAsset: this._convertAsset(operation.sendAsset),
-            sendMax: new BigNumber(operation.sendMax)
-              .shiftedBy(network.decimals)
-              .toFixed(),
+            sendMax: operation.sendMax,
             destination: operation.destination,
             destAsset: this._convertAsset(operation.destAsset),
             destAmount: new BigNumber(operation.destAmount)
-              .shiftedBy(network.decimals)
-              .toFixed(),
-            path: operation.path?.map((item) => this._convertAsset(item)),
-          });
-          break;
-        }
-        case 'pathPaymentStrictSend': {
-          stellarOperations.push({
-            type: 'pathPaymentStrictSend',
-            source: operation.source,
-            sendAsset: this._convertAsset(operation.sendAsset),
-            sendAmount: new BigNumber(operation.sendAmount)
-              .shiftedBy(network.decimals)
-              .toFixed(),
-            destination: operation.destination,
-            destAsset: this._convertAsset(operation.destAsset),
-            destMin: new BigNumber(operation.destMin)
               .shiftedBy(network.decimals)
               .toFixed(),
             path: operation.path?.map((item) => this._convertAsset(item)),
@@ -400,32 +358,10 @@ export class KeyringHardware extends KeyringHardwareBase {
           break;
         }
         case 'invokeHostFunction': {
-          const hostFunction = operation.func;
-          if (hostFunction.switch().name !== 'hostFunctionTypeInvokeContract') {
-            throw new OneKeyInternalError(
-              'Only invokeContract host function is supported for hardware signing',
-            );
-          }
-          const invokeContract = hostFunction.invokeContract();
-          const contractAddress = sdkStellar.StellarSdk.StrKey.encodeContract(
-            invokeContract.contractAddress().contractId() as unknown as Buffer,
-          );
-          const functionName = invokeContract.functionName().toString('utf8');
-          const callArgsXDRHex = this._encodeXdrArrayToHex(
-            invokeContract.args(),
-          );
-          const sorobanAuthXDRHex = this._encodeXdrArrayToHex(
-            operation.auth ?? [],
-          );
-          stellarOperations.push({
-            type: 'invokeHostFunctionOneKey',
-            source: operation.source,
-            contract: contractAddress,
-            functionName,
-            callArgsXDRHex,
-            sorobanAuthXDRHex,
+          throw new NotImplemented({
+            key: ETranslations.hardware_unknown_message_error,
+            // message: 'invokeContractFunction operation not supported',
           });
-          break;
         }
         default:
           throw new NotImplemented({
@@ -493,27 +429,22 @@ export class KeyringHardware extends KeyringHardwareBase {
       default:
         throw new OneKeyInternalError('Invalid memo type');
     }
-    const sorobanDataXDR = await this.getSorobanDataXDR(decodeTx);
-
     const result = await convertDeviceResponse(async () =>
       sdk.stellarSignTransaction(connectId, deviceId, {
         path,
         networkPassphrase: encodedTx.networkPassphrase,
         transaction: {
           source,
-          fee: new BigNumber(fee).toNumber(),
+          fee: Number(fee),
           sequence,
           timebounds: timeBounds
             ? {
-                minTime: new BigNumber(timeBounds?.minTime).toNumber(),
-                maxTime: new BigNumber(timeBounds?.maxTime).toNumber(),
+                minTime: Number(timeBounds?.minTime),
+                maxTime: Number(timeBounds?.maxTime),
               }
             : undefined,
           memo: hwMemo,
           operations: stellarOperations,
-          ...(sorobanDataXDR
-            ? { sorobanDataXDR: sorobanDataXDR.toString('hex') }
-            : {}),
         },
         ...deviceCommonParams,
       }),

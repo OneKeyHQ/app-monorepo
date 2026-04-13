@@ -36,6 +36,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
+import { useShowGuide } from '../../../hooks/useShowGuide';
 import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
 import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
@@ -147,6 +148,19 @@ function DepositButton() {
   );
 }
 
+function MobileGuideButton() {
+  const { showGuide } = useShowGuide();
+  return (
+    <IconButton
+      icon="BookOpenOutline"
+      size="small"
+      variant="tertiary"
+      cursor="default"
+      onPress={showGuide}
+    />
+  );
+}
+
 export function PerpsHeaderRight() {
   const { gtMd } = useMedia();
   const content = (
@@ -165,7 +179,7 @@ export function PerpsHeaderRight() {
             </>
           );
         }
-        return null;
+        return <MobileGuideButton />;
       })()}
     </XStack>
   );

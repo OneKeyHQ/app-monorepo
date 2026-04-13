@@ -112,8 +112,8 @@ module.exports = async () => {
       // CLI integration/smoke tests require a built binary and must not run in unit-test CI.
       '\\.integration\\.test\\.ts$',
       '-smoke\\.test\\.ts$',
-      '\\.claude/worktrees/',
-      '\\.worktree/',
+      '<rootDir>/\\.claude/worktrees/',
+      '<rootDir>/\\.worktree/',
       'packages/core/src/chains/ada',
       'packages/core/src/chains/algo',
       'packages/core/src/chains/apt',

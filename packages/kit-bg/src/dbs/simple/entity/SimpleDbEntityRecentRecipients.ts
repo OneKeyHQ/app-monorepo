@@ -8,7 +8,6 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 export interface IRecentRecipientData {
   updatedAt: number;
   networkId?: string; // The network where the last transfer occurred
-  memo?: string; // Blockchain memo (Cosmos, XRP destination tag, etc.)
 }
 
 export interface IRecentRecipientsDBStruct {
@@ -164,9 +163,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   }: {
     networkId: string;
     limit?: number;
-  }): Promise<
-    { address: string; updatedAt: number; networkId?: string; memo?: string }[]
-  > {
+  }): Promise<{ address: string; updatedAt: number; networkId?: string }[]> {
     const rawData = await this.getRawData();
     const recentRecipients = rawData?.recentRecipients ?? {};
 
@@ -184,7 +181,6 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
       address,
       updatedAt: data.updatedAt,
       networkId: data.networkId,
-      memo: data.memo,
     }));
   }
 
@@ -193,12 +189,10 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
     networkId,
     address,
     updatedAt,
-    memo,
   }: {
     networkId: string;
     address: string;
     updatedAt: number;
-    memo?: string;
   }) {
     // For EVM networks, use 'evm' as the key to share recipients across all EVM chains
     const storageKey =
@@ -217,7 +211,6 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
       networkRecipients[normalizedAddress] = {
         updatedAt,
         networkId, // Store the actual network where transfer occurred
-        memo,
       };
 
       // Get all recipients for this network sorted by updatedAt

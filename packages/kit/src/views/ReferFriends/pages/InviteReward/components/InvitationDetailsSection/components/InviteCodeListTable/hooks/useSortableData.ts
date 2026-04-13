@@ -10,9 +10,7 @@ export type ISortableColumn =
   | EInviteCodeListTableColumn.CUMULATIVE_REWARDS
   | EInviteCodeListTableColumn.CREATED_AT;
 
-export function useSortableData<T extends IInviteCodeListItem>(
-  items: T[] | undefined,
-) {
+export function useSortableData(items: IInviteCodeListItem[] | undefined) {
   const [sortBy, setSortBy] = useState<ISortableColumn | undefined>(undefined);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     undefined,

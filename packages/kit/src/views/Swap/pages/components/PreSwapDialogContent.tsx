@@ -417,10 +417,6 @@ const PreSwapDialogContent = ({
                   quoteShowTip={showPreSwapTipInfo}
                   onConfirm={tipOnConfirm}
                   onCancel={tipOnCancel}
-                  fromToken={preSwapData?.fromToken}
-                  toToken={preSwapData?.toToken}
-                  fromAmount={fromAmount}
-                  toAmount={toAmount}
                 />
               ) : (
                 <>

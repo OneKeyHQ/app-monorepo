@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
-import { Spinner, useMedia } from '@onekeyhq/components';
+import { useMedia } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
@@ -11,10 +11,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  useActiveAccount,
-  useIsAccountSelectorSyncLoading,
-} from '../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 import { AllNetworksManagerTrigger } from '../AccountSelector';
@@ -32,18 +29,8 @@ export function MoreAction() {
 
 export function SelectorTrigger() {
   const {
-    activeAccount: { network, wallet, account },
+    activeAccount: { network, wallet },
   } = useActiveAccount({ num: 0 });
-  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
-
-  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({ wallet, account });
-
-  if (!platformEnv.isWebDappMode && hasNoUsableWallet) {
-    if (isSyncLoading) {
-      return <Spinner size="small" />;
-    }
-    return null;
-  }
 
   if (
     network?.isAllNetworks &&

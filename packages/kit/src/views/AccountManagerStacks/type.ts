@@ -3,6 +3,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IBotWalletStatus } from '@onekeyhq/shared/types/botWallet';
 
 import type { AvatarImageProps } from 'tamagui';
 
@@ -33,4 +34,6 @@ export type IWalletProps = {
 
 export type IAccountSelectorWalletInfo = IDBWallet & {
   badge?: number | string;
+  botStatus?: IBotWalletStatus;
+  botWallets?: IAccountSelectorWalletInfo[];
 };

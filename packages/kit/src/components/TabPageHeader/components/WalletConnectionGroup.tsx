@@ -2,7 +2,7 @@ import { type ReactNode, memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Spinner, XStack, useMedia } from '@onekeyhq/components';
+import { SizableText, XStack, useMedia } from '@onekeyhq/components';
 import {
   AccountSelectorActiveAccountHome,
   AccountSelectorTriggerHome,
@@ -19,10 +19,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import {
-  useActiveAccount,
-  useIsAccountSelectorSyncLoading,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { AllNetworksManagerTrigger } from '../../AccountSelector/AllNetworksManagerTrigger';
 
 function AccountSelectorTriggerWithSpotlight({
@@ -87,16 +84,11 @@ export function WalletConnectionGroup({
   const { md } = useMedia();
   const isMobileLayout = md || platformEnv.isNative;
   const {
-    activeAccount: { wallet, network, account },
+    activeAccount: { wallet, network },
   } = useActiveAccount({
     num: 0,
   });
   const [isFocus, setIsFocus] = useState(false);
-
-  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
-    wallet,
-    account,
-  });
 
   const isNonBackedUpWallet = useMemo(() => {
     return wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped;
@@ -152,19 +144,6 @@ export function WalletConnectionGroup({
       wallet?.id,
     ],
   );
-
-  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
-
-  if (
-    !platformEnv.isWebDappMode &&
-    hasNoUsableWallet &&
-    tabRoute === ETabRoutes.Home
-  ) {
-    if (isSyncLoading) {
-      return <Spinner size="small" />;
-    }
-    return null;
-  }
 
   if (isMobileLayout) {
     return (

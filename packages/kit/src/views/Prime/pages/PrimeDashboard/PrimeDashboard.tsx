@@ -18,6 +18,7 @@ import {
   XStack,
   YStack,
   useSafeAreaInsets,
+  useScrollView,
   useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -68,6 +69,63 @@ const FooterGradient = memo(() => {
 });
 
 FooterGradient.displayName = 'FooterGradient';
+
+function PrimeBenefitsScrollContainer({
+  fromFeature,
+  selectedSubscriptionPeriod,
+  networkId,
+  serverUserInfo,
+}: {
+  fromFeature: EPrimeFeatures | undefined;
+  selectedSubscriptionPeriod: ISubscriptionPeriod;
+  networkId: string | undefined;
+  serverUserInfo: IPrimeServerUserInfo | undefined;
+}) {
+  const { scrollViewRef } = useScrollView();
+  const hasScrolledRef = useRef(false);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(
+    () => () => {
+      if (scrollTimerRef.current) {
+        clearTimeout(scrollTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  return (
+    <Stack
+      onLayout={
+        fromFeature
+          ? (e) => {
+              if (!hasScrolledRef.current) {
+                const layout = e?.nativeEvent?.layout;
+                if (!layout) return;
+                hasScrolledRef.current = true;
+                const layoutY = layout.y ?? 0;
+                scrollTimerRef.current = setTimeout(() => {
+                  if (typeof scrollViewRef?.current?.scrollTo === 'function') {
+                    scrollViewRef.current.scrollTo({
+                      y: Math.max(0, layoutY - 120),
+                      animated: true,
+                    });
+                  }
+                }, 300);
+              }
+            }
+          : undefined
+      }
+    >
+      <PrimeBenefitsList
+        selectedSubscriptionPeriod={selectedSubscriptionPeriod}
+        networkId={networkId}
+        serverUserInfo={serverUserInfo}
+        fromFeature={fromFeature}
+      />
+    </Stack>
+  );
+}
 
 function PrimeBanner({ isPrimeActive = false }: { isPrimeActive?: boolean }) {
   const intl = useIntl();
@@ -528,7 +586,8 @@ export default function PrimeDashboard({
             ) : null}
 
             {isPurchaseReady ? (
-              <PrimeBenefitsList
+              <PrimeBenefitsScrollContainer
+                fromFeature={fromFeature}
                 selectedSubscriptionPeriod={selectedSubscriptionPeriod}
                 networkId={route.params?.networkId}
                 serverUserInfo={serverUserInfo}

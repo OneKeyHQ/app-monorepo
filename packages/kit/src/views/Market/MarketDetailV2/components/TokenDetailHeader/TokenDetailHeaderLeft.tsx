@@ -76,8 +76,7 @@ export function TokenDetailHeaderLeft({
     <MarketStarV2
       chainId={networkId}
       contractAddress={address}
-      size="small"
-      customIconSize="$4"
+      size="medium"
       from={EWatchlistFrom.Detail}
       tokenSymbol={symbol}
       isNative={isNative}

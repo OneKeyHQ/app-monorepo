@@ -343,7 +343,6 @@ async function loadStoredRecipients(networkId: string): Promise<{
           networkName: r.networkId
             ? networkNameMap.get(r.networkId)
             : undefined,
-          memo: r.memo,
         },
       ]),
     );
@@ -375,7 +374,8 @@ export function useRecentRecipientsData({
   const loadIdRef = useRef(0);
 
   const load = useCallback(async () => {
-    const currentLoadId = (loadIdRef.current += 1);
+    loadIdRef.current += 1;
+    const currentLoadId = loadIdRef.current;
     const isStale = () => loadIdRef.current !== currentLoadId;
 
     setIsLoadingRecent(true);
@@ -433,14 +433,7 @@ export function useRecentRecipientsData({
       );
       if (storedExtraMap) {
         for (const [key, value] of storedExtraMap) {
-          if (!combinedExtraMap.has(key)) {
-            combinedExtraMap.set(key, value);
-          } else if (value.memo) {
-            const existing = combinedExtraMap.get(key)!;
-            if (!existing.memo) {
-              existing.memo = value.memo;
-            }
-          }
+          if (!combinedExtraMap.has(key)) combinedExtraMap.set(key, value);
         }
       }
 
@@ -465,7 +458,6 @@ export function useRecentRecipientsData({
                 lastTransferTime: local.time,
                 lastTransferNetworkName:
                   local.networkName ?? r.lastTransferNetworkName,
-                recipientMemo: local.memo ?? r.recipientMemo,
               };
             }
             return r;

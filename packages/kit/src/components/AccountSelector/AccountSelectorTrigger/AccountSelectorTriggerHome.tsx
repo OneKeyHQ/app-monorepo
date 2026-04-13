@@ -1,11 +1,4 @@
-import { Spinner } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-
-import {
-  useActiveAccount,
-  useIsAccountSelectorSyncLoading,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
 
@@ -23,23 +16,12 @@ export function AccountSelectorTriggerHome({
   hideAddress?: boolean;
 }) {
   const {
-    activeAccount: { network, vaultSettings, wallet, account },
+    activeAccount: { network, vaultSettings },
   } = useActiveAccount({
     num,
   });
   const resolvedLinkNetworkId =
     linkNetworkId ?? (!network?.isAllNetworks ? network?.id : undefined);
-  const isSyncLoading = useIsAccountSelectorSyncLoading(num);
-
-  if (
-    !platformEnv.isWebDappMode &&
-    accountUtils.hasNoUsableWallet({ wallet, account })
-  ) {
-    if (isSyncLoading) {
-      return <Spinner size="small" />;
-    }
-    return null;
-  }
 
   return (
     <AccountSelectorTriggerBase

@@ -72,7 +72,6 @@ import {
   accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
   accountSelectorStorageReadyAtom,
-  accountSelectorSyncLoadingAtom,
   accountSelectorUpdateMetaAtom,
   activeAccountsAtom,
   contextAtomMethod,
@@ -1365,27 +1364,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) => {
       // TODO add home scene check
       const num = 0;
-      set(accountSelectorSyncLoadingAtom(), {
-        ...get(accountSelectorSyncLoadingAtom()),
-        [num]: { isLoading: true },
+      await serviceAccount.removeWallet({
+        walletId,
+        isRemoveToMocked,
       });
-      try {
-        await serviceAccount.removeWallet({
-          walletId,
-          isRemoveToMocked,
-        });
-        set(accountSelectorEditModeAtom(), false);
+      set(accountSelectorEditModeAtom(), false);
 
-        await this.autoSelectNextAccount.call(set, {
-          num,
-          triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
-        });
-      } finally {
-        set(accountSelectorSyncLoadingAtom(), {
-          ...get(accountSelectorSyncLoadingAtom()),
-          [num]: { isLoading: false },
-        });
-      }
+      await this.autoSelectNextAccount.call(set, {
+        num,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+      });
     },
   );
 

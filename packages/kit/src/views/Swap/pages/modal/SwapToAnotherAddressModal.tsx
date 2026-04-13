@@ -24,7 +24,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -90,40 +89,17 @@ const SwapToAnotherAddressPage = () => {
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
 
   const handleQuickSelectRecipient = useCallback(
-    ({
-      address: selectedAddress,
-      quickSelectTab,
-      isSearchMode: selectIsSearchMode,
-      searchKeyLength: selectSearchKeyLength,
-      matchCount: selectMatchCount,
-    }: {
-      address: string;
-      quickSelectTab?: 'recent' | 'account' | 'addressBook';
-      isSearchMode?: boolean;
-      searchKeyLength?: number;
-      matchCount?: number;
-    }) => {
+    ({ address: selectedAddress }: { address: string }) => {
       if (!selectedAddress) return;
       const currentTo = form.getValues('address');
       if (shouldSkipResolvedRecipientUpdate({ currentTo, selectedAddress })) {
         return;
       }
-      if (quickSelectTab) {
-        defaultLogger.transaction.send.quickSelectTap({
-          network: networkId,
-          tab: quickSelectTab,
-          recipientType:
-            quickSelectTab === 'account' ? 'walletAccount' : 'addressBook',
-          isSearchMode: selectIsSearchMode ?? false,
-          searchKeyLength: selectSearchKeyLength ?? 0,
-          matchCount: selectMatchCount ?? 0,
-        });
-      }
       form.setValue('address', {
         raw: selectedAddress,
       } as IAddressInputValue);
     },
-    [form, networkId],
+    [form],
   );
 
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(

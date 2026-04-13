@@ -157,7 +157,7 @@ function QuickSelectListItemBase({
           >
             {primaryText}
           </SizableText>
-          {item.isAddressBook && isEvmNetwork ? (
+          {item.isAddressBook ? (
             <SizableText
               size="$bodySm"
               color="$textSubdued"
@@ -165,7 +165,12 @@ function QuickSelectListItemBase({
               maxWidth="$32"
               numberOfLines={1}
             >
-              EVM
+              {isEvmNetwork
+                ? 'EVM'
+                : (item.lastTransferNetworkName ??
+                  intl.formatMessage({
+                    id: ETranslations.address_book_title,
+                  }))}
             </SizableText>
           ) : null}
           {showNetworkBadge ? (
@@ -198,11 +203,7 @@ function QuickSelectListItemBase({
           wordWrap="break-word"
         >
           {item.memo || item.note
-            ? `${item.address} · ${accountUtils.shortenAddress({
-                address: item.memo || item.note,
-                leadingLength: 6,
-                trailingLength: 4,
-              })}`
+            ? `${item.address} · ${item.memo || item.note}`
             : item.address}
         </MatchSizeableText>
       }
@@ -368,14 +369,10 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       { initResult: new Map(), undefinedResultIfError: true },
     );
 
-  // Notify parent of match status and count.
-  // Report 0 immediately when debouncing so stale pre-search counts
-  // don't flash in the tab label (OK-53017).
+  // Notify parent of match status and count
   useEffect(() => {
-    if (isDebouncing) {
-      onMatchStatusChange?.(false, 0);
-      return;
-    }
+    // Skip reporting stale counts during debounce gap to prevent badge flickering
+    if (isDebouncing) return;
     onMatchStatusChange?.(
       filteredRecentRecipients.length > 0,
       filteredRecentRecipients.length,
@@ -398,7 +395,8 @@ function RecentRecipients(props: IRecentRecipientsProps) {
               name:
                 recipient.addressBookName ?? recipient.walletAccountName ?? '',
               address: canonicalAddress,
-              memo: recipient.recipientMemo,
+              memo: recipient.addressMemo || recipient.recipientMemo,
+              note: recipient.addressNote,
               lastTransferTime: recipient.lastTransferTime,
               lastTransferNetworkName: recipient.lastTransferNetworkName,
               isAddressBook: recipient.isAddressBook,
@@ -414,7 +412,8 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             onPress={() => {
               onSelect?.({
                 address: canonicalAddress,
-                memo: recipient.recipientMemo,
+                memo: recipient.addressMemo || recipient.recipientMemo,
+                note: recipient.addressNote,
               });
             }}
           />

@@ -11,7 +11,6 @@ import {
   Keyboard,
   Page,
   ScrollView,
-  Spinner,
   Stack,
   Tabs,
   YStack,
@@ -47,10 +46,7 @@ import {
   useAccountOverviewActions,
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
-import {
-  useActiveAccount,
-  useIsAccountSelectorSyncLoading,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
@@ -102,29 +98,6 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
   : ({ children }: IAndroidScrollContainerProps) => {
       return children;
     };
-
-function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
-  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
-  if (isSyncLoading) {
-    return (
-      <Stack flex={1} justifyContent="center" alignItems="center">
-        <Spinner size="large" />
-      </Stack>
-    );
-  }
-  return (
-    <ScrollView
-      h="100%"
-      contentContainerStyle={{
-        justifyContent: 'center',
-        flexGrow: 1,
-        pb: tabBarHeight,
-      }}
-    >
-      {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
-    </ScrollView>
-  );
-}
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -618,19 +591,25 @@ export function HomePageView({
     setTabPageHeight(height);
   }, []);
 
-  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
-    wallet,
-    account,
-  });
-
   const homePage = useMemo(() => {
     if (!ready) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
-    let content = <NoWalletContent tabBarHeight={tabBarHeight} />;
+    let content = (
+      <ScrollView
+        h="100%"
+        contentContainerStyle={{
+          justifyContent: 'center',
+          flexGrow: 1,
+          pb: tabBarHeight,
+        }}
+      >
+        {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
+      </ScrollView>
+    );
 
-    if (!hasNoUsableWallet) {
+    if (wallet) {
       content = platformEnv.isNative ? (
         <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
       ) : (
@@ -671,7 +650,7 @@ export function HomePageView({
     );
   }, [
     ready,
-    hasNoUsableWallet,
+    wallet,
     tabPageHeight,
     sceneName,
     handleTabPageLayout,

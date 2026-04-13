@@ -4,6 +4,8 @@ import { ERROR_CODES, EXIT_CODES, getExitCode } from '../errors/error-codes';
 describe('error-codes', () => {
   it('maps PARAM_ prefix to exit code 2', () => {
     expect(getExitCode('PARAM_INVALID_ADDRESS')).toBe(EXIT_CODES.PARAM);
+    expect(getExitCode('PARAM_INVALID_COMMAND')).toBe(EXIT_CODES.PARAM);
+    expect(getExitCode('PARAM_REQUIRES_TTY')).toBe(EXIT_CODES.PARAM);
   });
 
   it('maps BIZ_ prefix to exit code 1', () => {
@@ -12,6 +14,8 @@ describe('error-codes', () => {
 
   it('maps NET_ prefix to exit code 3', () => {
     expect(getExitCode('NET_RPC_TIMEOUT')).toBe(EXIT_CODES.NET);
+    expect(getExitCode('NET_TRANSFER_TIMEOUT')).toBe(EXIT_CODES.NET);
+    expect(getExitCode('NET_TRANSFER_UNREACHABLE')).toBe(EXIT_CODES.NET);
   });
 
   it('maps AUTH_ prefix to exit code 4', () => {
@@ -28,7 +32,36 @@ describe('error-codes', () => {
 
   it('maps new SEC_ error codes to exit code 5', () => {
     expect(getExitCode('SEC_HIGH_RISK_TOKEN')).toBe(EXIT_CODES.SEC);
+    expect(getExitCode('SEC_STORAGE_BACKEND_UNAVAILABLE')).toBe(EXIT_CODES.SEC);
+    expect(getExitCode('SEC_STORAGE_ACCESS_DENIED')).toBe(EXIT_CODES.SEC);
+    expect(getExitCode('SEC_STORAGE_ERROR')).toBe(EXIT_CODES.SEC);
     expect(ERROR_CODES.SEC_HIGH_RISK_TOKEN.exitCode).toBe(EXIT_CODES.SEC);
+    expect(ERROR_CODES.SEC_STORAGE_BACKEND_UNAVAILABLE.exitCode).toBe(
+      EXIT_CODES.SEC,
+    );
+    expect(ERROR_CODES.SEC_STORAGE_ACCESS_DENIED.exitCode).toBe(EXIT_CODES.SEC);
+    expect(ERROR_CODES.SEC_STORAGE_ERROR.exitCode).toBe(EXIT_CODES.SEC);
+  });
+
+  it('maps new AUTH_ session error codes to exit code 4', () => {
+    expect(getExitCode('AUTH_SESSION_INVALID')).toBe(EXIT_CODES.AUTH);
+    expect(getExitCode('AUTH_SESSION_PERSIST_FAILED')).toBe(EXIT_CODES.AUTH);
+    expect(getExitCode('AUTH_TRANSFER_TIMEOUT')).toBe(EXIT_CODES.AUTH);
+    expect(getExitCode('AUTH_TRANSFER_CANCELLED')).toBe(EXIT_CODES.AUTH);
+    expect(getExitCode('AUTH_TRANSFER_INVALID_PAIRING')).toBe(EXIT_CODES.AUTH);
+    expect(getExitCode('AUTH_TRANSFER_INVALID_PAYLOAD')).toBe(EXIT_CODES.AUTH);
+    expect(ERROR_CODES.AUTH_SESSION_INVALID.exitCode).toBe(EXIT_CODES.AUTH);
+    expect(ERROR_CODES.AUTH_SESSION_PERSIST_FAILED.exitCode).toBe(
+      EXIT_CODES.AUTH,
+    );
+    expect(ERROR_CODES.AUTH_TRANSFER_TIMEOUT.exitCode).toBe(EXIT_CODES.AUTH);
+    expect(ERROR_CODES.AUTH_TRANSFER_CANCELLED.exitCode).toBe(EXIT_CODES.AUTH);
+    expect(ERROR_CODES.AUTH_TRANSFER_INVALID_PAIRING.exitCode).toBe(
+      EXIT_CODES.AUTH,
+    );
+    expect(ERROR_CODES.AUTH_TRANSFER_INVALID_PAYLOAD.exitCode).toBe(
+      EXIT_CODES.AUTH,
+    );
   });
 
   it('maps new BIZ_ swap/token error codes to exit code 1', () => {

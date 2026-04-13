@@ -13,13 +13,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { INVITE_CODE_COLUMN_NOTE_WIDTH } from '../const';
-
 import { EditCodeDialogContent } from './EditCodeDialogContent';
 
 interface ICodeCellProps {
   code: string;
-  displayCode?: string;
   note: string;
   isPrimary: boolean;
   isCustomCode: boolean;
@@ -28,7 +25,6 @@ interface ICodeCellProps {
 
 export function CodeCell({
   code,
-  displayCode,
   note,
   isPrimary,
   isCustomCode,
@@ -64,7 +60,7 @@ export function CodeCell({
     <YStack gap="$1">
       <XStack gap="$2" ai="center">
         <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-          {displayCode ?? code}
+          {code}
         </SizableText>
         <IconButton
           variant="tertiary"
@@ -88,7 +84,7 @@ export function CodeCell({
         pressStyle={{ opacity: 0.5 }}
       >
         <SizableText
-          width={INVITE_CODE_COLUMN_NOTE_WIDTH}
+          width={150}
           size="$bodyMdMedium"
           color={note ? '$textSubdued' : '$textPlaceholder'}
           numberOfLines={1}

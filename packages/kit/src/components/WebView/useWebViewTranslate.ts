@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETranslateDisplayMode,
@@ -65,7 +64,6 @@ function handleTranslateRequest(
   tabId: string,
   data: ITranslateRequest,
   engine: ETranslateEngine,
-  onSuccess?: () => void,
 ): void {
   const handler = async () => {
     try {
@@ -75,7 +73,6 @@ function handleTranslateRequest(
         engine,
       );
       sendTranslationResponse(tabId, data.id, translations, data.sessionId);
-      onSuccess?.();
     } catch (err) {
       console.error('[Translate] API error:', err);
       sendTranslationResponse(tabId, data.id, data.texts, data.sessionId);
@@ -111,19 +108,10 @@ export function useWebViewTranslate(
   onNavigate?: () => void,
   engine: ETranslateEngine = ETranslateEngine.standard,
   displayMode: ETranslateDisplayMode = ETranslateDisplayMode.replace,
-  dappUrl?: string,
 ) {
   const translatingRef = useRef(false);
   const desktopCleanupRef = useRef<(() => void) | null>(null);
   const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasLoggedSuccessRef = useRef(false);
-  const activeSessionIdRef = useRef<string | null>(null);
-  const engineRef = useRef(engine);
-  const displayModeRef = useRef(displayMode);
-  const dappUrlRef = useRef(dappUrl);
-  engineRef.current = engine;
-  displayModeRef.current = displayMode;
-  dappUrlRef.current = dappUrl;
 
   useEffect(() => () => unregisterTranslateHandler(tabId), [tabId]);
 
@@ -131,7 +119,6 @@ export function useWebViewTranslate(
   useEffect(() => {
     onTabNavigation(tabId, () => {
       translatingRef.current = false;
-      activeSessionIdRef.current = null;
       unregisterTranslateHandler(tabId);
       if (startTimerRef.current) {
         clearTimeout(startTimerRef.current);
@@ -148,27 +135,6 @@ export function useWebViewTranslate(
       if (startTimerRef.current) {
         clearTimeout(startTimerRef.current);
         startTimerRef.current = null;
-      }
-    },
-    [],
-  );
-
-  // Stable callback — reads current values from refs to avoid cascading callback recreations.
-  // sessionId guard prevents stale in-flight requests from consuming the new session's dedup slot.
-  const logTranslateSuccess = useCallback(
-    (targetLang: string, sessionId?: string) => {
-      if (
-        !hasLoggedSuccessRef.current &&
-        sessionId &&
-        sessionId === activeSessionIdRef.current
-      ) {
-        hasLoggedSuccessRef.current = true;
-        defaultLogger.prime.usage.dappTranslateSuccess({
-          engine: engineRef.current,
-          targetLang,
-          displayMode: displayModeRef.current,
-          dappDomain: dappUrlRef.current ?? '',
-        });
       }
     },
     [],
@@ -192,9 +158,7 @@ export function useWebViewTranslate(
             event.message.slice(TRANSLATE_CONSOLE_PREFIX.length),
           ) as ITranslateRequest;
           if (data.type === TRANSLATE_REQUEST_TYPE) {
-            handleTranslateRequest(tabId, data, engine, () =>
-              logTranslateSuccess(data.targetLang, data.sessionId),
-            );
+            handleTranslateRequest(tabId, data, engine);
           }
         } catch {
           // ignore parse errors
@@ -210,7 +174,7 @@ export function useWebViewTranslate(
       );
       desktopCleanupRef.current = null;
     };
-  }, [tabId, engine, logTranslateSuccess]);
+  }, [tabId, engine]);
 
   const ensureInjected = useCallback(() => {
     // Re-injection is needed after page navigation clears the old context;
@@ -221,13 +185,8 @@ export function useWebViewTranslate(
 
   const startTranslate = useCallback(
     (targetLang = 'zh') => {
-      const sid = generateSessionId();
-      activeSessionIdRef.current = sid;
-      hasLoggedSuccessRef.current = false;
       registerTranslateHandler(tabId, (data) =>
-        handleTranslateRequest(tabId, data, engine, () =>
-          logTranslateSuccess(data.targetLang, data.sessionId),
-        ),
+        handleTranslateRequest(tabId, data, engine),
       );
       ensureInjected();
       if (startTimerRef.current) {
@@ -236,6 +195,7 @@ export function useWebViewTranslate(
       translatingRef.current = true;
       startTimerRef.current = setTimeout(() => {
         startTimerRef.current = null;
+        const sid = generateSessionId();
         injectScript(
           tabId,
           createMessageInjectedScript({
@@ -248,7 +208,7 @@ export function useWebViewTranslate(
         );
       }, 50);
     },
-    [tabId, ensureInjected, engine, displayMode, logTranslateSuccess],
+    [tabId, ensureInjected, engine, displayMode],
   );
 
   const stopTranslate = useCallback(() => {
@@ -265,7 +225,6 @@ export function useWebViewTranslate(
     );
     unregisterTranslateHandler(tabId);
     desktopCleanupRef.current?.();
-    activeSessionIdRef.current = null;
     translatingRef.current = false;
   }, [tabId]);
 
@@ -283,7 +242,6 @@ export function useWebViewTranslate(
     );
     unregisterTranslateHandler(tabId);
     desktopCleanupRef.current?.();
-    activeSessionIdRef.current = null;
     translatingRef.current = false;
   }, [tabId]);
 

@@ -2,14 +2,16 @@ import { useIntl } from 'react-intl';
 
 import { Icon, Popover, SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { swapServiceFeeDefault } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+
+import { ProtocolFeeComparisonList } from './ProtocolFeeComparisonList';
 
 export function SwapServiceFeeOverview({
-  percentageFee,
+  onekeyFee,
 }: {
-  percentageFee?: number;
+  onekeyFee: number | undefined;
 }) {
   const intl = useIntl();
+  const serviceFee = onekeyFee ?? 0.3;
   return (
     <Popover
       title={intl.formatMessage({
@@ -24,22 +26,26 @@ export function SwapServiceFeeOverview({
         />
       }
       renderContent={
-        <Stack gap="$1" p="$4">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage(
-              {
-                id: ETranslations.provider_popover_onekey_fee_content,
-              },
-              {
-                number: `${percentageFee ?? swapServiceFeeDefault}%`,
-              },
-            )}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.provider_ios_popover_onekey_fee_content_2,
-            })}
-          </SizableText>
+        <Stack gap="$4" p="$4">
+          <Stack gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.provider_ios_popover_onekey_fee_content,
+                },
+                { num: `${serviceFee}%` },
+              )}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.provider_ios_popover_onekey_fee_content_2,
+                },
+                { num: `${serviceFee}%` },
+              )}
+            </SizableText>
+          </Stack>
+          <ProtocolFeeComparisonList serviceFee={serviceFee} />
         </Stack>
       }
     />
