@@ -829,6 +829,12 @@ async function writeBundle({
   moduleIdToAbsPath,
   externalModulePaths,
   runtimeVariants,
+  // Additional serialized entries from other graphs, used ONLY for
+  // expandSyncDependencyClosure so that sync deps reachable from another
+  // runtime's graph are pulled into this bundle. The extra entries are NOT
+  // candidates for moduleFilter (they won't seed initialIncludedAbsPaths)
+  // but they ARE available for sync-dep expansion and code emission.
+  additionalSerializedEntries,
 }) {
   const { serializedEntries, pre } = getSerializedBundleParts({
     cacheKey,
@@ -838,6 +844,22 @@ async function writeBundle({
     bundleOptions,
     moduleIdToAbsPath,
   });
+
+  // Merge primary + additional entries for sync closure expansion.
+  // Use a Map to deduplicate by absolutePath (primary takes precedence).
+  const mergedSerializedEntries = additionalSerializedEntries
+    ? (() => {
+        const byPath = new Map();
+        for (const entry of additionalSerializedEntries) {
+          byPath.set(entry.absolutePath, entry);
+        }
+        // Primary entries overwrite additional ones
+        for (const entry of serializedEntries) {
+          byPath.set(entry.absolutePath, entry);
+        }
+        return [...byPath.values()];
+      })()
+    : serializedEntries;
 
   const initialIncludedAbsPaths = new Set();
   const includedModulePaths = new Set();
@@ -859,7 +881,7 @@ async function writeBundle({
   }
 
   const selectedAbsPaths = expandSyncDependencyClosure({
-    serializedEntries,
+    serializedEntries: mergedSerializedEntries,
     initialIncludedAbsPaths,
     externalAbsPaths: externalModulePaths,
   });
@@ -868,7 +890,9 @@ async function writeBundle({
   const selectedGraphModules = [];
   const selectedStartupModuleIds = new Set();
 
-  for (const serializedEntry of serializedEntries) {
+  // Emit code from mergedSerializedEntries (not just primary) so that
+  // sync deps pulled in from the other graph are included in the output.
+  for (const serializedEntry of mergedSerializedEntries) {
     const { absolutePath, moduleCode, moduleData, moduleId } = serializedEntry;
     if (!selectedAbsPaths.has(absolutePath)) {
       continue;
@@ -1525,6 +1549,11 @@ async function main() {
       // No runtimeVariants — common code uses the merged segment map
       // directly. Both runtimes share the same manifest and can load
       // any shared segment by key.
+      //
+      // Additional entries from the background graph so that sync deps
+      // only present in the bg graph (e.g. a crypto lib used by defiUtils)
+      // are pulled into the common bundle via expandSyncDependencyClosure.
+      additionalSerializedEntries: backgroundSerializedEntries,
     });
 
     // Main bundle: main-only eager modules + entry require
