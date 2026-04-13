@@ -27,7 +27,10 @@ import {
   useSwapToAnotherAccountAddressAtom,
 } from '../../../states/jotai/contexts/swap';
 
-import { shouldUseSwapCustomRecipientAddress } from './useSwapAccount.utils';
+import {
+  shouldShowSwapRecipientAddressInfo,
+  shouldUseSwapCustomRecipientAddress,
+} from './useSwapAccount.utils';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
@@ -394,44 +397,17 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
 }
 
 export function useSwapRecipientAddressInfo(enable: boolean) {
-  const fromAccountInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
-  const getToNetWorkAddressFromAccountId = usePromiseResult(
-    async () => {
-      if (!enable) {
-        return null;
-      }
-      if (
-        swapToAddressInfo.networkId &&
-        !networkUtils.isAllNetwork({
-          networkId: swapToAddressInfo.networkId,
-        }) &&
-        fromAccountInfo.accountInfo?.account?.id &&
-        fromAccountInfo.accountInfo?.indexedAccount?.id
-      ) {
-        const accountInfos =
-          await backgroundApiProxy.serviceStaking.getEarnAccount({
-            accountId: fromAccountInfo.accountInfo?.account?.id,
-            networkId: swapToAddressInfo.networkId,
-            indexedAccountId: fromAccountInfo.accountInfo?.indexedAccount?.id,
-          });
-        return accountInfos;
-      }
-    },
-    [
-      enable,
-      swapToAddressInfo.networkId,
-      fromAccountInfo.accountInfo?.account?.id,
-      fromAccountInfo.accountInfo?.indexedAccount?.id,
-    ],
-    {},
-  );
 
   const getToAddressAccountInfos = usePromiseResult(
     async () => {
+      if (!enable) {
+        return undefined;
+      }
+
       if (
         swapToAnotherAddressInfo.networkId &&
         swapToAnotherAddressInfo.address
@@ -446,41 +422,44 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
         }
       }
     },
-    [swapToAnotherAddressInfo.address, swapToAnotherAddressInfo.networkId],
+    [
+      enable,
+      swapToAnotherAddressInfo.address,
+      swapToAnotherAddressInfo.networkId,
+    ],
     {},
   );
+
   if (
-    swapToAddressInfo.address === swapToAnotherAddressInfo.address &&
-    swapToAnotherAccountSwitchOn
+    enable &&
+    shouldShowSwapRecipientAddressInfo({
+      swapToAnotherAccountSwitchOn,
+      selectedRecipientAddress: swapToAnotherAddressInfo.address,
+      selectedRecipientNetworkId: swapToAnotherAddressInfo.networkId,
+      toTokenNetworkId: toToken?.networkId,
+      toAddressNetworkId: swapToAddressInfo.networkId,
+    })
   ) {
-    if (
-      ((getToNetWorkAddressFromAccountId?.result?.accountAddress &&
-        getToNetWorkAddressFromAccountId?.result?.accountAddress !==
-          swapToAnotherAddressInfo.address) ||
-        !getToNetWorkAddressFromAccountId?.result?.accountAddress) &&
-      swapToAnotherAddressInfo.networkId ===
-        (toToken?.networkId ?? swapToAddressInfo.networkId)
-    ) {
-      return {
-        accountInfo:
-          swapToAnotherAddressInfo.accountInfo?.account?.address ===
-          swapToAnotherAddressInfo.address
-            ? {
-                walletName: swapToAnotherAddressInfo.accountInfo?.wallet?.name,
-                accountName: swapToAnotherAddressInfo.accountInfo?.accountName,
-                accountId: swapToAnotherAddressInfo.accountInfo?.account?.id,
-              }
-            : getToAddressAccountInfos.result,
-        showAddress: accountUtils.shortenAddress({
-          address: swapToAnotherAddressInfo.address,
-          leadingLength: 6,
-          trailingLength: 6,
-        }),
-        isExtAccount:
-          swapToAnotherAddressInfo.accountInfo?.account?.address !==
-            swapToAnotherAddressInfo.address &&
-          !getToAddressAccountInfos.result,
-      };
-    }
+    const isRecipientExternalAccount =
+      swapToAnotherAddressInfo.accountInfo?.account?.address !==
+        swapToAnotherAddressInfo.address && !getToAddressAccountInfos.result;
+
+    return {
+      accountInfo:
+        swapToAnotherAddressInfo.accountInfo?.account?.address ===
+        swapToAnotherAddressInfo.address
+          ? {
+              walletName: swapToAnotherAddressInfo.accountInfo?.wallet?.name,
+              accountName: swapToAnotherAddressInfo.accountInfo?.accountName,
+              accountId: swapToAnotherAddressInfo.accountInfo?.account?.id,
+            }
+          : getToAddressAccountInfos.result,
+      showAddress: accountUtils.shortenAddress({
+        address: swapToAnotherAddressInfo.address,
+        leadingLength: 6,
+        trailingLength: 6,
+      }),
+      isExtAccount: isRecipientExternalAccount,
+    };
   }
 }
