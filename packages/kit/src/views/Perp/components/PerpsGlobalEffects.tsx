@@ -4,7 +4,6 @@ import { memo, startTransition, useCallback, useEffect, useRef } from 'react';
 import { isEqual, noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
-import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import {
   useAccountIsAutoCreatingAtom,
   useAppIsLockedAtom,
@@ -745,9 +744,7 @@ function PerpsGlobalEffectsView() {
 
   return (
     <>
-      <DelayedRender delay={600}>
-        <WebSocketSubscriptionUpdate />
-      </DelayedRender>
+      <WebSocketSubscriptionUpdate />
       <AutoPauseSubscriptions />
     </>
   );

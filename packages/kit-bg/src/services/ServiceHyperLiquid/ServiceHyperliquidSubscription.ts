@@ -214,29 +214,35 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     return { requiredSubSpecsMap, params };
   }
 
+  private _hasInitialSubscription = false;
+
+  private async _updateSubscriptionsCore() {
+    const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+    if (!requiredSubInfo) {
+      return;
+    }
+
+    this.allSubSpecsMap = {
+      ...this.allSubSpecsMap,
+      ...requiredSubInfo.requiredSubSpecsMap,
+    };
+    this.pendingSubSpecsMap = {
+      ...requiredSubInfo.requiredSubSpecsMap,
+    };
+
+    const newState: ISubscriptionState = { ...this._currentState };
+
+    this._applyStateUpdates(newState, requiredSubInfo.params);
+
+    this._emitConnectionStatus();
+    this._executeSubscriptionChanges();
+
+    this._currentState = newState;
+  }
+
   _updateSubscriptionsDebounced = debounce(
     async () => {
-      const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
-      if (!requiredSubInfo) {
-        return;
-      }
-
-      this.allSubSpecsMap = {
-        ...this.allSubSpecsMap,
-        ...requiredSubInfo.requiredSubSpecsMap,
-      };
-      this.pendingSubSpecsMap = {
-        ...requiredSubInfo.requiredSubSpecsMap,
-      };
-
-      const newState: ISubscriptionState = { ...this._currentState };
-
-      this._applyStateUpdates(newState, requiredSubInfo.params);
-
-      this._emitConnectionStatus();
-      this._executeSubscriptionChanges();
-
-      this._currentState = newState;
+      await this._updateSubscriptionsCore();
     },
     300,
     {
@@ -247,6 +253,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
+    // Skip debounce on first subscription to speed up initial load
+    if (!this._hasInitialSubscription) {
+      this._hasInitialSubscription = true;
+      await this._updateSubscriptionsCore();
+      return;
+    }
     await this._updateSubscriptionsDebounced();
   }
 
@@ -446,6 +458,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._stopPingLoop();
     await this._closeClient();
     this._currentState.isConnected = false;
+    // Reset so the first post-reconnect updateSubscriptions() skips debounce
+    // for fast recovery (critical for iOS foreground resume).
+    this._hasInitialSubscription = false;
     this._emitConnectionStatus();
   }
 
@@ -896,9 +911,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ];
     // Await all unsubscribes before clearing the active set so that the
     // server has fully acknowledged the teardown before we forget about them.
-    await Promise.all(
-      allSpecs.map((spec) => this._destroySubscription(spec)),
-    );
+    await Promise.all(allSpecs.map((spec) => this._destroySubscription(spec)));
     this._activeSubscriptions.clear();
     void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
       return {
