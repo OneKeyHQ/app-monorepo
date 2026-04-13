@@ -654,9 +654,32 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
     }
   }
 
-  return bundleToString({
+  // Step 11: Generate source map for main bundle (needed by Sentry / EAS)
+  const mainGraphModules = [];
+  // Include prepend modules (polyfills, require runtime, etc.)
+  for (const preModule of prepend) {
+    mainGraphModules.push(preModule);
+  }
+  // Include main (non-segment) modules
+  for (const moduleId of mainModuleIds) {
+    const absPath = moduleIdToAbsPath.get(moduleId);
+    if (!absPath) continue;
+    const modData = graph.dependencies.get(absPath);
+    if (modData) {
+      mainGraphModules.push(modData);
+    }
+  }
+  const mainSourceMap = await sourceMapStringNonBlocking(mainGraphModules, {
+    excludeSource: false,
+    processModuleFilter: () => true,
+    shouldAddToIgnoreList: () => false,
+    getSourceUrl: (module) => module.path,
+  });
+
+  const bundleResult = bundleToString({
     pre: preWithManifest,
     post,
     modules: mainModules,
   });
+  return { code: bundleResult.code, metadata: bundleResult.metadata, map: mainSourceMap };
 };

@@ -155,6 +155,8 @@ module.exports = (config, projectRoot) => {
         bundleOptions?.serializerOptions?.output === 'static';
       if (isStaticOutput) {
         const code = typeof bundle === 'string' ? bundle : bundle.code;
+        const map =
+          typeof bundle === 'object' && bundle.map ? bundle.map : undefined;
         const platform = graph.transformOptions?.platform || 'android';
 
         // Collect Metro assets (images, fonts, etc.) so EAS can copy them into the app
@@ -167,16 +169,27 @@ module.exports = (config, projectRoot) => {
           publicPath: '/assets/',
         });
 
+        const artifacts = [
+          {
+            type: 'js',
+            source: code,
+            filename: 'index.bundle',
+            originFilename: entryPoint,
+            metadata: {},
+          },
+        ];
+        if (map) {
+          artifacts.push({
+            type: 'map',
+            source: map,
+            filename: 'index.bundle.map',
+            originFilename: entryPoint,
+            metadata: {},
+          });
+        }
+
         return {
-          artifacts: [
-            {
-              type: 'js',
-              source: code,
-              filename: 'index.bundle',
-              originFilename: entryPoint,
-              metadata: {},
-            },
-          ],
+          artifacts,
           assets: metroAssets,
         };
       }
