@@ -1500,10 +1500,7 @@ async function main() {
       bundleOptions: commonBundleOptions,
       moduleToSegment: mainSerializedModuleToSegment,
       moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
-      externalModulePaths: new Set([
-        ...runtimeOwnership.mainStartupAbsPaths,
-        ...runtimeOwnership.bgStartupAbsPaths,
-      ]),
+      externalModulePaths: new Set(),
       runtimeVariants: {
         main: mainRuntimeAsyncPaths,
         background: backgroundRuntimeAsyncPaths,

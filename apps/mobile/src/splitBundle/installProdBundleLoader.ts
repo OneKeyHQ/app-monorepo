@@ -236,10 +236,15 @@ function resolveBundlePathRequest(request: BundlePathRequest): string | null {
   const resolved = hasRuntimeValue ? request[currentRuntime] : request.shared;
 
   if (resolved === undefined) {
-    throw new SegmentLoadError(
-      '*',
-      `No async bundle path for runtime '${currentRuntime}'`,
+    // Module is not available in this runtime (e.g., main-only module
+    // accessed from background runtime via shared common bundle code).
+    // Return null to skip loading — the subsequent require() will fail
+    // gracefully via React error boundary instead of crashing the process.
+    NativeLogger.write(
+      LogLevel.Warn,
+      `[SplitBundle] No async bundle path for runtime '${currentRuntime}', available: [${Object.keys(request).join(', ')}]`,
     );
+    return null;
   }
 
   return resolved;

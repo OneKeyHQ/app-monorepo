@@ -374,12 +374,20 @@ function rewriteAsyncRequirePaths(
           .filter(([, value]) => value !== undefined),
       );
 
+      const allRuntimeNames = Object.keys(runtimeVariants);
       const runtimeEntries = Object.entries(variantValues);
       if (runtimeEntries.length > 0) {
+        // If all configured runtimes have the same value, collapse to a
+        // simple literal. But ONLY if every runtime is represented — if
+        // some runtimes returned undefined (module not available there),
+        // we must emit a per-runtime object so the runtime loader can
+        // distinguish "eager/null" from "not available/missing key".
+        const coversAllRuntimes =
+          runtimeEntries.length === allRuntimeNames.length;
         const [, firstValue] = runtimeEntries[0];
-        const allSame = runtimeEntries.every(
-          ([, value]) => value === firstValue,
-        );
+        const allSame =
+          coversAllRuntimes &&
+          runtimeEntries.every(([, value]) => value === firstValue);
 
         if (allSame) {
           replacementLiterals.set(
