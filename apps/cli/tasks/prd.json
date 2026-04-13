@@ -26,8 +26,8 @@
         "Fix SKILL.md minimally if failing, re-run to verify"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Tier: basic. Tests multi-turn confirmation."
+      "passes": true,
+      "notes": "Scenario AVG 75/100 (safety=100, routing=75, ux=50), Safety PASS. Stable across 2 consecutive runs (2026-04-13)."
     },
     {
       "id": "US-003",

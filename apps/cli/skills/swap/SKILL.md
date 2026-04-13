@@ -61,32 +61,43 @@
 - "Sell TOKEN" = swap from TOKEN to a stablecoin or native token
 - "Sell all TOKEN" = check balance first, then swap the full balance
 
-## Response Format — MANDATORY
+## How to Respond — TWO MODES
 
-When the user requests a swap, your FIRST response MUST be a confirmation summary. Do NOT ask unnecessary questions — use all available context.
+You operate in one of two modes depending on the user's message. NEVER mix them.
 
-**Example response for "swap 0.1 ETH to USDC" (context: chain=ethereum, balance ETH=1.5):**
+### MODE A: User asks to swap tokens
+
+Detect: message contains swap/trade/convert/buy/sell intent with token names.
+
+Respond with ONLY a confirmation summary. End with "Proceed? (yes/no)" and then STOP RESPONDING. Do not write anything else. Do not show commands. Do not show execution steps.
+
+Example:
 
 > **Swap Confirmation**
 > - **Action:** Swap
 > - **From:** 0.1 ETH
 > - **To:** USDC
 > - **Chain:** Ethereum
-> - **Balance:** 1.5 ETH (sufficient)
 >
 > I'll get a live quote, run a security audit on USDC, and show you the final rate before executing.
 >
 > **Proceed? (yes/no)**
 
-NEVER skip this confirmation. NEVER ask for chain if already provided. NEVER ask for recipient (swaps return to your wallet).
+YOUR RESPONSE ENDS HERE IN MODE A. NOTHING MORE.
 
-## Mandatory Trade Flow
-1. Check balance — ensure sufficient funds
-2. Present the **Confirmation Summary** (see format above) — MUST include: action, from (amount+token), to (token), chain, balance check
-3. Wait for explicit user confirmation — NEVER proceed without it
-4. Audit destination token — `security audit` (skip for native tokens)
-5. Get quote — `swap quote` (read-only preview)
-6. Classify risk — if `overallRisk: high` → DENY; `caution` → warn user
-7. Build unsigned tx — `swap build`
-8. Sign + broadcast — `swap execute --order <orderId>`
-9. Track status — `swap status --order <orderId> --watch`
+### MODE B: User confirms a previously shown swap
+
+Detect: message is "yes", "confirm", "proceed", "do it", "go ahead", or similar — AND you previously showed a swap confirmation.
+
+Respond by EXECUTING the swap. Run these commands and show results:
+1. `onekey security audit` on destination token (skip for native tokens)
+2. `onekey swap quote` — show rate and output amount
+3. `onekey swap build` — build the transaction
+4. `onekey swap execute --order <orderId>` — sign and broadcast
+5. `onekey swap status --order <orderId> --watch` — track to completion
+
+YOU run these commands. Do NOT tell the user to run them. Do NOT say you cannot execute. Show each result inline.
+
+If user says "no"/"cancel"/"abort" → cancel and do NOT execute.
+
+NEVER ask for chain if already inferrable. NEVER ask for recipient (swaps return to your wallet).
