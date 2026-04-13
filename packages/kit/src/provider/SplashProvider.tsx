@@ -9,6 +9,8 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { appStorage } from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -76,31 +78,32 @@ export const useCanDismissSplash =
             setCanDismissSplash(true);
           };
 
-          const handlePendingInstallTaskFinished = () => {
-            logSplashProvider('pending install task finished event received');
-            if (!hasCachedStates) {
-              // No cache: dismiss on pending task finish (original behavior)
-              dismiss();
-            }
-          };
-
           const handleHomePageReady = () => {
             logSplashProvider('HomePageReady event received');
             dismiss();
           };
 
-          appEventBus.on(
-            EAppEventBusNames.PendingInstallTaskProcessFinished,
-            handlePendingInstallTaskFinished,
+          const handlePendingInstallTaskFinished = () => {
+            logSplashProvider('pending install task finished event received');
+            dismiss();
+          };
+
+          // ── Determine dismiss strategy ──
+          // 1. Balance cache → wait HomePageReady (instant with hydration)
+          // 2. Pending OTA task → wait for background RPC to finish
+          // 3. Neither → dismiss immediately, no need to wait
+          const hasPendingTask = Boolean(
+            appStorage.syncStorage.getString(
+              EAppSyncStorageKeys.onekey_pending_install_task,
+            ),
+          );
+          logSplashProvider(
+            `hasCachedStates=${hasCachedStates}, hasPendingTask=${hasPendingTask}`,
           );
 
           if (hasCachedStates) {
-            // HomeOverviewContainer's useEffect fires before this parent
-            // effect (React runs child effects first). When the cache is
-            // warm enough that balanceReady is true on the first render,
-            // the HomePageReady event has already been emitted and set the
-            // global flag. Detect that case and dismiss immediately,
-            // otherwise the splash would stay for the full safety timeout.
+            // SSR hydration path: cached balance renders instantly,
+            // HomePageReady fires on first render frame.
             if ((globalThis as any).__onekeyBalanceDisplayed) {
               logSplashProvider(
                 'HomePageReady already fired before listener attached, dismiss immediately',
@@ -112,39 +115,41 @@ export const useCanDismissSplash =
                 handleHomePageReady,
               );
             }
+          } else if (hasPendingTask) {
+            // OTA install pending: must wait for background to apply it.
+            appEventBus.on(
+              EAppEventBusNames.PendingInstallTaskProcessFinished,
+              handlePendingInstallTaskFinished,
+            );
+          } else {
+            // No cache, no pending task: dismiss immediately.
+            logSplashProvider('no cache and no pending task, dismiss immediately');
+            dismiss();
           }
 
-          // Always run processPendingInstallTask (for OTA updates),
-          // but don't block splash when we have cached states.
-          const launchCallback = async () => {
+          // Fire-and-forget: run pending task in background without blocking splash.
+          void (async () => {
             try {
-              logSplashProvider('launch callback start');
+              logSplashProvider('processPendingInstallTask start');
               await backgroundApiProxy.servicePendingInstallTask.processPendingInstallTask();
-              logSplashProvider('launch callback resolved');
+              logSplashProvider('processPendingInstallTask resolved');
             } catch (error) {
-              defaultLogger.app.appUpdate.log(
-                `SplashProvider: launch callback failed: ${(error as Error)?.message}`,
-              );
               logSplashProvider(
-                `launch callback failed: ${(error as Error)?.message ?? 'unknown'}`,
+                `processPendingInstallTask failed: ${(error as Error)?.message ?? 'unknown'}`,
               );
-              if (!hasCachedStates) {
-                dismiss();
-              }
             }
-          };
-          void launchCallback();
+          })();
 
           return () => {
             logSplashProvider('effect cleanup');
             clearTimeout(safetyTimer);
             appEventBus.off(
-              EAppEventBusNames.PendingInstallTaskProcessFinished,
-              handlePendingInstallTaskFinished,
-            );
-            appEventBus.off(
               EAppEventBusNames.HomePageReady,
               handleHomePageReady,
+            );
+            appEventBus.off(
+              EAppEventBusNames.PendingInstallTaskProcessFinished,
+              handlePendingInstallTaskFinished,
             );
           };
         }, [hasCachedStates]);
