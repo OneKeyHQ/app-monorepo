@@ -171,7 +171,7 @@ function inferTpSlKindFromTriggerOrder(
     return null;
   }
 
-  const normalizedCondition = order.triggerCondition.toLowerCase();
+  const normalizedCondition = (order.triggerCondition || '').toLowerCase();
   const isAbove = normalizedCondition.includes('above');
   const isBelow = normalizedCondition.includes('below');
 
