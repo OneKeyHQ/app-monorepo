@@ -1,0 +1,33 @@
+diff --git a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
+index b997680..eb10a82 100644
+--- a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
++++ b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
+@@ -417,19 +417,16 @@ class BackgroundThreadManager private constructor() {
+             return
+         }
+ 
+-        context.runOnJSQueueThread {
+-            try {
+-                if (context.hasCatalystInstance()) {
+-                    context.catalystInstance.registerSegment(segmentId, path)
+-                    BTLogger.info("Segment registered in background runtime: id=$segmentId, path=$path")
+-                    onComplete(null)
+-                } else {
+-                    onComplete(IllegalStateException("Background CatalystInstance not available for segment registration"))
+-                }
+-            } catch (e: Exception) {
+-                BTLogger.error("Failed to register segment in background runtime: ${e.message}")
+-                onComplete(e)
++        // Use ReactContext.registerSegment which works in both bridge
++        // and bridgeless modes.
++        try {
++            context.registerSegment(segmentId, path) {
++                BTLogger.info("Segment registered in background runtime: id=$segmentId, path=$path")
++                onComplete(null)
+             }
++        } catch (e: Exception) {
++            BTLogger.error("Failed to register segment in background runtime: ${e.message}")
++            onComplete(e)
+         }
+     }
+ 

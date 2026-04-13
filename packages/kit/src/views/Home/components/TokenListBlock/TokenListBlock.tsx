@@ -1530,6 +1530,7 @@ function TokenListBlock({
 
       refreshTokenListMap({
         tokens: mergeTokenListMap,
+        split: true,
       });
 
       refreshSmallBalanceTokenList(smallBalanceTokenList);

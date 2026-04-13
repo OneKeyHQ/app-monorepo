@@ -24,10 +24,6 @@ import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
-import {
-  tronTokenAddressMainnet,
-  tronTokenAddressTestnet,
-} from '@onekeyhq/core/src/chains/tron/constants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -51,6 +47,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  tronTokenAddressMainnet,
+  tronTokenAddressTestnet,
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,

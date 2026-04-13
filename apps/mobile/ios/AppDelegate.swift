@@ -24,11 +24,76 @@ private enum NitroModuleBridge {
     guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return nil }
     return cls.perform(NSSelectorFromString("currentBundleMainJSBundle"))?.takeUnretainedValue() as? String
   }
+
+  static func currentBundleBackgroundJSBundle() -> String? {
+    guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return nil }
+    let selector = NSSelectorFromString("currentBundleBackgroundJSBundle")
+    guard cls.responds(to: selector) else { return nil }
+    return cls.perform(selector)?.takeUnretainedValue() as? String
+  }
+
+  static func currentBundleCommonJSBundle() -> String? {
+    guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return nil }
+    let selector = NSSelectorFromString("currentBundleCommonJSBundle")
+    guard cls.responds(to: selector) else { return nil }
+    return cls.perform(selector)?.takeUnretainedValue() as? String
+  }
+}
+
+private enum BackgroundThreadBridge {
+  private static let managerClassNames = [
+    "BackgroundThread.BackgroundThreadManager",
+    "BackgroundThreadManager"
+  ]
+
+  private static func managerClass() -> NSObject.Type? {
+    managerClassNames.compactMap {
+      NSClassFromString($0) as? NSObject.Type
+    }.first
+  }
+
+  private static func sharedManager() -> NSObject? {
+    guard let cls = managerClass() else { return nil }
+    return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
+  }
+
+  static func installSharedBridgeInMainRuntime(_ host: AnyObject) {
+    guard let cls = managerClass() else {
+      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip installSharedBridgeInMainRuntime")
+      return
+    }
+
+    cls.perform(NSSelectorFromString("installSharedBridgeInMainRuntime:"), with: host)
+  }
+
+  static func startBackgroundRunner(entryURL: String) {
+    guard let manager = sharedManager() else {
+      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip startBackgroundRunnerWithEntryURL")
+      return
+    }
+
+    manager.perform(NSSelectorFromString("startBackgroundRunnerWithEntryURL:"), with: entryURL)
+  }
+}
+
+/// Captured at static-init time so `hostDidStart` can measure elapsed.
+private let appLaunchCFTime = CFAbsoluteTimeGetCurrent()
+
+/// Tracks which bundle `bundleURL()` returned as RN's initial bundle, so
+/// `handleHostDidStart` can decide whether the main entry bundle still needs
+/// to be loaded. In single-bundle Release builds (no `common.jsbundle`) the
+/// initial bundle is already `main.jsbundle` and loading it again would
+/// double-evaluate module side effects.
+private enum InitialBundleKind {
+  case none
+  case common
+  case main
 }
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
   var window: UIWindow?
+  @objc var reactHost: AnyObject?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
@@ -162,6 +227,64 @@ public class AppDelegate: ExpoAppDelegate {
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
+  private var initialBundleKind: InitialBundleKind = .none
+
+  private func isNativeBackgroundThreadEnabled() -> Bool {
+#if DEBUG
+    if let envValue = ProcessInfo.processInfo.environment["ENABLE_NATIVE_BACKGROUND_THREAD"]?.lowercased() {
+      return ["1", "true", "yes", "on"].contains(envValue)
+    }
+#endif
+
+    if let enabled = Bundle.main.object(forInfoDictionaryKey: "ENABLE_NATIVE_BACKGROUND_THREAD") as? NSNumber {
+      return enabled.boolValue
+    }
+    if let enabled = Bundle.main.object(forInfoDictionaryKey: "ENABLE_NATIVE_BACKGROUND_THREAD") as? String {
+      return ["1", "true", "yes", "on"].contains(enabled.lowercased())
+    }
+
+    return false
+  }
+
+  private func backgroundDebugBundleURLString() -> String? {
+    if let mainMetroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry"),
+       var components = URLComponents(url: mainMetroURL, resolvingAgainstBaseURL: false) {
+      components.port = 8082
+      components.path = "/background.bundle"
+      return components.url?.absoluteString
+    }
+
+    let packagerHost = RCTBundleURLProvider.sharedSettings().packagerServerHost()
+    if !packagerHost.isEmpty {
+      return "http://\(packagerHost):8082/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+    }
+
+    return nil
+  }
+
+  private func backgroundBundleEntryURL() -> String {
+#if DEBUG
+    let debugURL = backgroundDebugBundleURLString() ??
+      "http://localhost:8082/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+    NitroModuleBridge.logInfo("BackgroundThread", "backgroundBundleEntryURL(DEBUG): \(debugURL)")
+    return debugURL
+#else
+    if let bundlePath = NitroModuleBridge.currentBundleBackgroundJSBundle(), !bundlePath.isEmpty {
+      let isFileURL = bundlePath.hasPrefix("file://")
+      let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
+      let exists = FileManager.default.fileExists(atPath: bundleFilePath)
+      NitroModuleBridge.logInfo("BundleUpdate", "backgroundBundleEntryURL(RELEASE): otaPath=\(bundlePath), exists=\(exists)")
+
+      if exists {
+        return bundlePath
+      }
+    }
+
+    NitroModuleBridge.logInfo("BundleUpdate", "backgroundBundleEntryURL(RELEASE): fallback background.bundle")
+    return "background.bundle"
+#endif
+  }
+
   override func sourceURL(for bridge: RCTBridge) -> URL? {
     // needed to return the correct URL for expo-dev-client.
     bridge.bundleURL ?? bundleURL()
@@ -173,28 +296,163 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(DEBUG): metroURL=\(metroURL?.absoluteString ?? "nil")")
     return metroURL
 #else
-    // Check for updated bundle via dynamic bridge (avoids Nitro module import)
+    // In split-bundle mode the initial bundle is common.jsbundle (polyfills + shared modules).
+    // The entry-specific main.jsbundle is loaded later in handleHostDidStart via SplitBundleLoader.
+
+    // Check for OTA-updated common bundle first
+    if let bundlePath = NitroModuleBridge.currentBundleCommonJSBundle(), !bundlePath.isEmpty {
+      let isFileURL = bundlePath.hasPrefix("file://")
+      let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
+      let exists = FileManager.default.fileExists(atPath: bundleFilePath)
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA common path=\(bundlePath), exists=\(exists)")
+
+      if exists {
+        initialBundleKind = .common
+        if isFileURL, let fileURL = URL(string: bundlePath) {
+          NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA common file URL=\(fileURL.absoluteString)")
+          return fileURL
+        }
+        let fileURL = URL(fileURLWithPath: bundlePath)
+        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA common file path=\(fileURL.absoluteString)")
+        return fileURL
+      }
+
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA common path not found, will fallback")
+    }
+
+    // Fallback: check for OTA main bundle path (legacy single-bundle OTA)
     if let bundlePath = NitroModuleBridge.currentBundleMainJSBundle(), !bundlePath.isEmpty {
       let isFileURL = bundlePath.hasPrefix("file://")
       let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
       let exists = FileManager.default.fileExists(atPath: bundleFilePath)
-      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): otaPath=\(bundlePath), exists=\(exists)")
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA main path=\(bundlePath), exists=\(exists)")
 
       if exists {
+        initialBundleKind = .main
         if isFileURL, let fileURL = URL(string: bundlePath) {
-          NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA file URL=\(fileURL.absoluteString)")
+          NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA main file URL=\(fileURL.absoluteString)")
           return fileURL
         }
         let fileURL = URL(fileURLWithPath: bundlePath)
-        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA file path=\(fileURL.absoluteString)")
+        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA main file path=\(fileURL.absoluteString)")
         return fileURL
       }
 
-      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA path not found, will fallback")
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA main path not found, will fallback")
     }
-    let fallbackURL = Bundle.main.url(forResource: "main", withExtension: "jsbundle")
-    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback main.jsbundle=\(fallbackURL?.absoluteString ?? "nil")")
-    return fallbackURL
+
+    // Three-bundle mode: initial bundle is common.jsbundle (polyfills + shared modules).
+    // Single-bundle mode: fall back to main.jsbundle (standard react-native bundle output).
+    let candidates: [(String, String)] = [("common", "jsbundle"), ("main", "jsbundle")]
+    for (name, ext) in candidates {
+      if let url = Bundle.main.url(forResource: name, withExtension: ext) {
+        initialBundleKind = (name == "common") ? .common : .main
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
+        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback \(name).\(ext)=\(url.absoluteString)")
+        NitroModuleBridge.logInfo("SplitBundle", "bundleURL: \(url.lastPathComponent) (\(fileSize / 1024)KB)")
+        return url
+      }
+    }
+
+    initialBundleKind = .none
+    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): no bundle found (common.jsbundle / main.jsbundle)")
+    return nil
+#endif
+  }
+
+  /// Resolves the filesystem path for the main entry bundle (main.jsbundle).
+  /// Returns nil in DEBUG (single bundle from Metro) or if the file cannot be found.
+  private func resolveMainEntryBundlePath() -> String? {
+#if DEBUG
+    return nil
+#else
+    // Check OTA path first
+    if let bundlePath = NitroModuleBridge.currentBundleMainJSBundle(), !bundlePath.isEmpty {
+      let isFileURL = bundlePath.hasPrefix("file://")
+      let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
+      if FileManager.default.fileExists(atPath: bundleFilePath) {
+        NitroModuleBridge.logInfo("BundleUpdate", "resolveMainEntryBundlePath: OTA path=\(bundleFilePath)")
+        return bundleFilePath
+      }
+    }
+
+    // Fallback to built-in main.jsbundle
+    if let url = Bundle.main.url(forResource: "main", withExtension: "jsbundle") {
+      NitroModuleBridge.logInfo("BundleUpdate", "resolveMainEntryBundlePath: builtin=\(url.path)")
+      return url.path
+    }
+
+    NitroModuleBridge.logInfo("BundleUpdate", "resolveMainEntryBundlePath: not found")
+    return nil
+#endif
+  }
+
+  @objc(hostDidStart:)
+  func handleHostDidStart(_ host: AnyObject) {
+    let hostDidStartAt = CFAbsoluteTimeGetCurrent()
+    let sinceAppLaunch = (hostDidStartAt - appLaunchCFTime) * 1000
+    NitroModuleBridge.logInfo("StartupTiming", "hostDidStart fired at +\(String(format: "%.0f", sinceAppLaunch))ms from app launch (common bundle loaded)")
+
+    (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
+
+#if !DEBUG
+    // Skip entry bundle loading when RN's initial bundle is already main.jsbundle
+    // (single-bundle Release: no common.jsbundle shipped, or legacy OTA pushed a
+    // monolithic main.jsbundle). Re-evaluating the same file would double-run module
+    // side effects (timers, subscriptions, global init). Only proceed when the
+    // initial bundle was common.jsbundle, which is the split-bundle mode contract.
+    if initialBundleKind != .common {
+      NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: initial bundle kind=\(initialBundleKind), skip main entry load to avoid double-evaluation")
+    } else {
+    // Defer entry bundle loading to the next run-loop tick.
+    //
+    // Why: hostDidStart: fires synchronously on the main thread while Expo modules
+    // are still being registered (EXNativeModulesProxy registerExpoModulesInBridge:).
+    // If we evaluate main.jsbundle immediately, the JS thread may call a legacy
+    // TurboModule's getConstants() which dispatch_sync's back to the main thread —
+    // but the main thread is blocked on Expo registration → deadlock → SIGABRT.
+    //
+    // By deferring to DispatchQueue.main.async, the main thread finishes Expo
+    // registration first, so any dispatch_sync from JS → main succeeds.
+    DispatchQueue.main.async { [weak host] in
+      guard let host = host else { return }
+      let deferredAt = CFAbsoluteTimeGetCurrent()
+      let deferDelay = (deferredAt - hostDidStartAt) * 1000
+      NitroModuleBridge.logInfo("StartupTiming", "main entry deferred dispatch fired at +\(String(format: "%.0f", (deferredAt - appLaunchCFTime) * 1000))ms (defer delay: \(String(format: "%.1f", deferDelay))ms)")
+
+      let entryLoadStart = CFAbsoluteTimeGetCurrent()
+      if let entryPath = self.resolveMainEntryBundlePath() {
+        NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: loading main entry bundle at \(entryPath)")
+        SplitBundleLoader.loadEntryBundle(entryPath, inHost: host)
+        let elapsed = (CFAbsoluteTimeGetCurrent() - entryLoadStart) * 1000
+        let totalFromLaunch = (CFAbsoluteTimeGetCurrent() - appLaunchCFTime) * 1000
+        NitroModuleBridge.logInfo("StartupTiming", "main entry evaluated in \(String(format: "%.0f", elapsed))ms, total from launch: +\(String(format: "%.0f", totalFromLaunch))ms")
+      } else {
+        NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: no main entry bundle found")
+      }
+    }
+    }
+#endif
+
+    guard isNativeBackgroundThreadEnabled() else {
+      NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: background thread disabled by ENABLE_NATIVE_BACKGROUND_THREAD")
+      return
+    }
+
+    BackgroundThreadBridge.installSharedBridgeInMainRuntime(host)
+
+#if DEBUG
+    // Dev: pass the Metro URL directly (single bundle served by the dev server).
+    let entryURL = backgroundBundleEntryURL()
+    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (debug) entryURL=\(entryURL)")
+    BackgroundThreadBridge.startBackgroundRunner(entryURL: entryURL)
+#else
+    // Release split-bundle: pass empty string so BackgroundRunnerReactNativeDelegate
+    // uses the default two-step strategy (common.jsbundle first, then background.bundle).
+    // Passing any non-empty path would bypass common.jsbundle loading.
+    let bgStartAt = CFAbsoluteTimeGetCurrent()
+    NitroModuleBridge.logInfo("StartupTiming", "background thread start at +\(String(format: "%.0f", (bgStartAt - appLaunchCFTime) * 1000))ms from app launch")
+    BackgroundThreadBridge.startBackgroundRunner(entryURL: "")
 #endif
   }
 }

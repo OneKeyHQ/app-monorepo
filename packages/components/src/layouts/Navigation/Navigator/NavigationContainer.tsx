@@ -14,9 +14,6 @@ import {
   DefaultTheme,
   NavigationContainer as RNNavigationContainer,
 } from '@react-navigation/native';
-import { useMMKVDevTools } from '@rozenite/mmkv-plugin';
-import { useNetworkActivityDevTools } from '@rozenite/network-activity-plugin';
-import { useReactNavigationDevTools } from '@rozenite/react-navigation-plugin';
 
 import { useSplitMainView } from '@onekeyhq/components/src/hooks/useSplitView';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
@@ -87,10 +84,21 @@ const useUpdateRootViewBackgroundColor = (
 };
 
 const useNativeDevTools =
-  platformEnv.isNative && platformEnv.isDev
+  __DEV__ && platformEnv.isNative
     ? ({ ref }: { ref: RefObject<NavigationContainerRef<any>> }) => {
+        const {
+          useReactNavigationDevTools,
+        } = require('@rozenite/react-navigation-plugin');
+        const {
+          useNetworkActivityDevTools,
+        } = require('@rozenite/network-activity-plugin');
+        const { useMMKVDevTools } = require('@rozenite/mmkv-plugin');
+
+        // oxlint-disable-next-line typescript-eslint/no-unsafe-call
         useReactNavigationDevTools({ ref });
+        // oxlint-disable-next-line typescript-eslint/no-unsafe-call
         useNetworkActivityDevTools();
+        // oxlint-disable-next-line typescript-eslint/no-unsafe-call
         useMMKVDevTools({
           storages: [mmkvStorageInstance],
         });

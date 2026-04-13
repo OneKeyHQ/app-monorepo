@@ -179,10 +179,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         //   selectedAccount,
         //   activeAccount,
         // });
-        set(activeAccountsAtom(), (v) => ({
-          ...v,
+        const newActiveAccounts = {
+          ...get(activeAccountsAtom()),
           [num]: activeAccount,
-        }));
+        };
+        set(activeAccountsAtom(), newActiveAccounts);
+        // contextAtom snapshot saving is now automatic via coldStartCache.
         return activeAccount;
       }),
   );

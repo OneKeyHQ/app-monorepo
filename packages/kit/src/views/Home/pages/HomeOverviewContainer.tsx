@@ -54,9 +54,9 @@ const BALANCE_REUSE_GRACE_MS = 180;
 
 function HomeOverviewContainer() {
   const num = 0;
-  const {
-    activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
-  } = useActiveAccount({ num });
+  const { activeAccount } = useActiveAccount({ num });
+  const { account, network, wallet, deriveInfoItems, vaultSettings } =
+    activeAccount;
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
   const handleResourceDetailsOnPress = useCallback(() => {
     if (resourceDialogInstance.current) return;
@@ -616,13 +616,40 @@ function HomeOverviewContainer() {
 
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
+  // Track when balance is first displayed
+  const balanceReady =
+    !showSkeleton &&
+    renderedBalanceString !== null &&
+    renderedBalanceString !== undefined;
+  useEffect(() => {
+    if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
+      (globalThis as any).__onekeyBalanceDisplayed = true;
+      appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { NativeLogger: NL, LogLevel: LL } =
+          require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+        const jsEntry: number =
+          (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+        if (jsEntry) {
+          NL.write(
+            LL.Info,
+            `[StartupTiming] Balance displayed (+${Date.now() - jsEntry}ms)`,
+          );
+        }
+      } catch {
+        /* NativeLogger may not be available */
+      }
+    }
+  }, [balanceReady]);
+
   return (
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />
         ) : (
-          <XStack alignItems="center" gap="$3">
+          <XStack alignItems="center" gap="$3" h={48}>
             <XStack
               flexShrink={1}
               borderRadius="$3"

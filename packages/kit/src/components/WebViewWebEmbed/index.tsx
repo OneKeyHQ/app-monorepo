@@ -62,16 +62,28 @@ export function WebViewWebEmbed({
 
   useEffect(() => {
     async function getApiKey() {
-      const devSettings =
-        await backgroundApiProxy.serviceDevSetting.getDevSetting();
-      let apiKey = REVENUECAT_API_KEY_WEB;
-      if (devSettings?.settings?.usePrimeSandboxPayment) {
-        apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
+      try {
+        const devSettings =
+          await backgroundApiProxy.serviceDevSetting.getDevSetting();
+        let apiKey = REVENUECAT_API_KEY_WEB;
+        if (devSettings?.settings?.usePrimeSandboxPayment) {
+          apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
+        }
+        if (!apiKey) {
+          defaultLogger.app.webembed.webEmbedRevenuecatApiKey({
+            hasKey: false,
+            error: 'No REVENUECAT api key found',
+          });
+          throw new OneKeyLocalError('No REVENUECAT api key found');
+        }
+        defaultLogger.app.webembed.webEmbedRevenuecatApiKey({ hasKey: true });
+        setRevenuecatApiKey(apiKey);
+      } catch (error) {
+        defaultLogger.app.webembed.webEmbedRevenuecatApiKey({
+          hasKey: false,
+          error: String(error),
+        });
       }
-      if (!apiKey) {
-        throw new OneKeyLocalError('No REVENUECAT api key found');
-      }
-      setRevenuecatApiKey(apiKey);
     }
     void getApiKey();
   }, []);
@@ -79,6 +91,12 @@ export function WebViewWebEmbed({
   const webEmbedAppSettings = useMemo<
     IWebEmbedOnekeyAppSettings | undefined
   >(() => {
+    defaultLogger.app.webembed.webEmbedAppSettingsResolved({
+      hasSettings: true,
+      hasTheme: !!themeVariant,
+      hasLocale: !!localeVariant,
+      hasApiKey: !!revenuecatApiKey,
+    });
     if (!themeVariant || !localeVariant || !revenuecatApiKey) {
       return undefined;
     }
@@ -121,6 +139,9 @@ export function WebViewWebEmbed({
 
   const nativeWebviewSource = useMemo(() => {
     if (remoteUrl) {
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        remoteUrl,
+      });
       return undefined;
     }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
@@ -131,16 +152,23 @@ export function WebViewWebEmbed({
     }
     // Android
     if (platformEnv.isNativeAndroid) {
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        nativeUri: 'file:///android_asset/web-embed/index.html',
+      });
       return {
         uri: 'file:///android_asset/web-embed/index.html',
       };
     }
     // iOS
     if (platformEnv.isNativeIOS) {
+      defaultLogger.app.webembed.webEmbedWebViewSource({
+        nativeUri: 'web-embed/index.html',
+      });
       return {
         uri: 'web-embed/index.html',
       };
     }
+    defaultLogger.app.webembed.webEmbedWebViewSource({});
     return undefined;
   }, [remoteUrl]);
 
@@ -298,10 +326,17 @@ export function WebViewWebEmbed({
   ]);
 
   useEffect(() => {
+    const jsBridge = webviewRef?.current?.jsBridge;
+    defaultLogger.app.webembed.webEmbedBridgeEffect({
+      isNative: !!platformEnv.isNative,
+      hasBridge: !!jsBridge,
+      hasWebview: !!webview,
+      hasSettings: !!webEmbedAppSettings,
+      bridgeGlobalOnMessageEnabled: jsBridge?.globalOnMessageEnabled,
+    });
     if (!platformEnv.isNative) {
       return;
     }
-    const jsBridge = webviewRef?.current?.jsBridge;
     if (!jsBridge) {
       return;
     }
@@ -315,6 +350,9 @@ export function WebViewWebEmbed({
     backgroundApiProxy.connectWebEmbedBridge(
       jsBridge as unknown as JsBridgeBase,
     );
+    return () => {
+      backgroundApiProxy.connectWebEmbedBridge(null);
+    };
   }, [webviewRef, webview, webEmbedAppSettings]);
 
   const webviewUrlOrUri = useMemo(() => {

@@ -200,7 +200,6 @@ runs:
         # echo "ENABLE_ANALYZER=1" >> ${TARGET_ENV_FILE}
         # echo "ENABLE_ANALYZER_HTML_REPORT=1" >> ${TARGET_ENV_FILE}
         echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> ${TARGET_ENV_FILE}
-        echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> ${TARGET_ENV_FILE}

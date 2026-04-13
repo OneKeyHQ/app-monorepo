@@ -75,6 +75,7 @@ const baseResolve = ({
       '../module-resolver/react-native-keyboard-controller-mock',
     ),
     'react-native-aes-crypto': false,
+    'react-native-cloud-fs': false,
     'react-native/Libraries/Components/View/ViewStylePropTypes$':
       'react-native-web/dist/exports/View/ViewStylePropTypes',
     'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$':

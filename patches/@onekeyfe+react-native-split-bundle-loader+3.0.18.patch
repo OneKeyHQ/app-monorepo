@@ -1,0 +1,63 @@
+diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt b/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt
+index 809df1a..5a20204 100644
+--- a/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt
++++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt
+@@ -132,54 +132,21 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+                 return
+             }
+ 
+-            // #19: Try CatalystInstance first (bridge mode), fall back to
+-            // ReactHost registerSegment if available (bridgeless / new arch).
++            // Use ReactContext.registerSegment which works in both bridge
++            // and bridgeless modes. In bridge mode it delegates to
++            // CatalystInstance; in bridgeless mode it delegates to ReactHost.
+             val reactContext = reactApplicationContext
+             val segStart = System.nanoTime()
+-            if (reactContext.hasCatalystInstance()) {
+-                reactContext.catalystInstance.registerSegment(segId, absolutePath)
++            reactContext.registerSegment(segId, absolutePath) {
+                 val segMs = (System.nanoTime() - segStart) / 1_000_000.0
+                 SBLLogger.info("[SplitBundle] segment $segmentKey (id=$segId) registered in ${String.format("%.1f", segMs)}ms")
+                 promise.resolve(null)
+-            } else {
+-                // Bridgeless: try ReactHost via reflection
+-                val registered = tryRegisterViaBridgeless(segId, absolutePath)
+-                val segMs = (System.nanoTime() - segStart) / 1_000_000.0
+-                if (registered) {
+-                    SBLLogger.info("[SplitBundle] segment $segmentKey (id=$segId) registered via bridgeless in ${String.format("%.1f", segMs)}ms")
+-                    promise.resolve(null)
+-                } else {
+-                    promise.reject(
+-                        "SPLIT_BUNDLE_NO_INSTANCE",
+-                        "Neither CatalystInstance nor ReactHost available"
+-                    )
+-                }
+             }
+         } catch (e: Exception) {
+             promise.reject("SPLIT_BUNDLE_LOAD_ERROR", e.message, e)
+         }
+     }
+ 
+-    // -----------------------------------------------------------------------
+-    // Bridgeless support (#19)
+-    // -----------------------------------------------------------------------
+-
+-    private fun tryRegisterViaBridgeless(segmentId: Int, path: String): Boolean {
+-        return try {
+-            val appContext = reactApplicationContext.applicationContext
+-            val appClass = appContext.javaClass
+-            val hostMethod = appClass.getMethod("getReactHost")
+-            val host = hostMethod.invoke(appContext) ?: return false
+-            val registerMethod = host.javaClass.getMethod(
+-                "registerSegment", Int::class.java, String::class.java
+-            )
+-            registerMethod.invoke(host, segmentId, path)
+-            true
+-        } catch (_: Exception) {
+-            false
+-        }
+-    }
+-
+     // -----------------------------------------------------------------------
+     // Path resolution helpers
+     // -----------------------------------------------------------------------

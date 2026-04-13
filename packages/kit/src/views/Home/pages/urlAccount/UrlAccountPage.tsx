@@ -13,6 +13,8 @@ import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useJotaiContextRootStore } from '@onekeyhq/kit/src/states/jotai/utils/useJotaiContextRootStore';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,6 +33,16 @@ import { UrlAccountAutoReplaceHistory } from './UrlAccountAutoReplaceHistory';
 import { getPrevUrlAccount, urlAccountNavigation } from './urlAccountUtils';
 
 const sceneName = EAccountSelectorSceneName.homeUrlAccount;
+
+function useUrlAccountOverviewContextStoreInitData() {
+  const data = useMemo(
+    () => ({
+      storeName: EJotaiContextStoreNames.urlAccountOverview,
+    }),
+    [],
+  );
+  return data;
+}
 
 function UrlAccountPage() {
   return (
@@ -245,8 +257,10 @@ export function UrlAccountPageContainer() {
   useEffect(() => {
     defaultLogger.app.router.pageMounted('UrlAccountPageContainer');
   }, []);
+  const data = useUrlAccountOverviewContextStoreInitData();
+  const store = useJotaiContextRootStore(data);
   return (
-    <ProviderJotaiContextAccountOverview>
+    <ProviderJotaiContextAccountOverview store={store}>
       <AccountSelectorProviderMirror
         config={{
           sceneName,
@@ -264,8 +278,10 @@ export function UrlAccountLanding() {
   useDebugComponentRemountLog({
     name: 'URLAccountMount:  UrlAccountLanding',
   });
+  const data = useUrlAccountOverviewContextStoreInitData();
+  const store = useJotaiContextRootStore(data);
   return (
-    <ProviderJotaiContextAccountOverview>
+    <ProviderJotaiContextAccountOverview store={store}>
       <AccountSelectorProviderMirror
         config={{
           sceneName,
