@@ -169,7 +169,7 @@ function OrderConfirmContent({
     szDecimals,
     activeInstrument?.coin,
     activeInstrument.mode,
-    activeInstrument.universe?.baseName,
+    activeInstrument.universe,
   ]);
 
   const priceDisplay = useMemo(() => {
