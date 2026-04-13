@@ -28,6 +28,7 @@ import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -65,6 +66,10 @@ type IRecipientQuickSelectProps = {
     address: string;
     memo?: string;
     note?: string;
+    quickSelectTab?: IRecipientQuickSelectTab;
+    isSearchMode?: boolean;
+    searchKeyLength?: number;
+    matchCount?: number;
   }) => void;
   onMatchStatusChange?: (hasMatches: boolean) => void;
 };
@@ -96,17 +101,6 @@ const QuickSelectListItem = memo(
     // Use name if available, otherwise show truncated address as primary
     const displayName =
       item.name || accountUtils.shortenAddress({ address: item.address });
-    const secondaryAddress = item.displayAddress ?? item.address;
-    const secondaryText =
-      secondaryAddress && (item.memo || item.note)
-        ? `${secondaryAddress} · ${item.memo || item.note}`
-        : secondaryAddress;
-    const secondary = secondaryText ? (
-      <MatchSizeableText size="$bodyMd" color="$textSubdued">
-        {secondaryText}
-      </MatchSizeableText>
-    ) : undefined;
-
     return (
       <QuickSelectListItemFrame
         address={item.address}
@@ -132,7 +126,21 @@ const QuickSelectListItem = memo(
             ) : null}
           </XStack>
         }
-        secondary={secondary}
+        secondary={(() => {
+          const showAddr = item.displayAddress ?? item.address;
+          if (!showAddr) return undefined;
+          return (
+            <MatchSizeableText size="$bodyMd" color="$textSubdued">
+              {item.memo || item.note
+                ? `${showAddr} · ${accountUtils.shortenAddress({
+                    address: item.memo || item.note,
+                    leadingLength: 6,
+                    trailingLength: 4,
+                  })}`
+                : showAddr}
+            </MatchSizeableText>
+          );
+        })()}
       />
     );
   },
@@ -178,6 +186,7 @@ function collectAccountSearchAddresses(
   if (!account) return [];
   const utxo = account as Partial<IDBUtxoAccount>;
   const candidates = [
+    account.addressDetail?.displayAddress,
     account.address,
     account.addressDetail?.address,
     account.addressDetail?.masterAddress,
@@ -416,7 +425,11 @@ function AccountRecipients({
     (item: IAccountWithDeriveInfo) => {
       const account = item?.account;
       if (!account) return;
-      const address = account.address ?? account.addressDetail?.address ?? '';
+      const address =
+        account.addressDetail?.displayAddress ??
+        account.address ??
+        account.addressDetail?.address ??
+        '';
       onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
       onSelect?.({ address });
     },
@@ -461,8 +474,10 @@ function AccountRecipients({
         rawDeriveType && deriveTypeMap.has(rawDeriveType)
           ? rawDeriveType
           : deriveTypeOptions[0]?.deriveType;
+      // When searching, show all derive types so matches on non-active
+      // derive paths aren't hidden. When not searching, filter by active.
       let filteredAccounts = allAccounts;
-      if (hasMultipleDeriveTypes && activeDeriveType) {
+      if (hasMultipleDeriveTypes && activeDeriveType && !isSearchActive) {
         const filtered = allAccounts.filter(
           (a) => !a.deriveType || a.deriveType === activeDeriveType,
         );
@@ -481,7 +496,13 @@ function AccountRecipients({
         data: filteredAccounts,
       };
     });
-  }, [filteredWalletGroups, walletDeriveType, senderDeriveType, intl]);
+  }, [
+    filteredWalletGroups,
+    walletDeriveType,
+    senderDeriveType,
+    intl,
+    isSearchActive,
+  ]);
 
   // Count visible accounts (after derive type filtering)
   const accountMatchCount = useMemo(
@@ -490,7 +511,10 @@ function AccountRecipients({
   );
 
   useEffect(() => {
-    if (isDebouncing) return;
+    if (isDebouncing) {
+      onMatchStatusChange?.(false, 0);
+      return;
+    }
     onMatchStatusChange?.(accountMatchCount > 0, accountMatchCount);
   }, [accountMatchCount, onMatchStatusChange, isDebouncing]);
 
@@ -649,7 +673,10 @@ function AccountRecipients({
         }
         const { account, walletId, wallet } = item;
         const itemAddress =
-          account.address ?? account.addressDetail?.address ?? '';
+          account.addressDetail?.displayAddress ??
+          account.address ??
+          account.addressDetail?.address ??
+          '';
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
         // Wallet name is already shown in the section header, only show account name
@@ -749,8 +776,10 @@ function AddressBookRecipients({
 
   // Notify parent of match status and count
   useEffect(() => {
-    // Skip reporting stale counts during debounce gap to prevent badge flickering
-    if (isDebouncing) return;
+    if (isDebouncing) {
+      onMatchStatusChange?.(false, 0);
+      return;
+    }
     onMatchStatusChange?.(filteredItems.length > 0, filteredItems.length);
   }, [filteredItems.length, onMatchStatusChange, isDebouncing]);
 
@@ -927,10 +956,13 @@ export default function RecipientQuickSelect({
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
+  const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
 
   // Track the search key at the time of last manual tab switch
   // Only allow auto-switch if user has typed something new
   const lastManualSwitchSearchKeyRef = useRef<string | undefined>(undefined);
+  // Dedup auto-switch analytics to avoid multiple events per search
+  const lastAutoSwitchRef = useRef<string | undefined>(undefined);
 
   // Callbacks for each tab's match status and count
   const handleRecentMatchStatus = useCallback(
@@ -958,11 +990,7 @@ export default function RecipientQuickSelect({
   );
 
   // Report match status to parent: true only if a tab has explicitly reported matches
-  useEffect(() => {
-    const statuses = Object.values(tabMatchStatus);
-    const anyTabHasMatches = statuses.some((status) => status === true);
-    onMatchStatusChange?.(anyTabHasMatches);
-  }, [tabMatchStatus, onMatchStatusChange]);
+  const lastNoResultKeyRef = useRef<string | undefined>(undefined);
 
   // Auto-switch to a tab with matches when current tab has no matches
   useEffect(() => {
@@ -976,6 +1004,16 @@ export default function RecipientQuickSelect({
     });
 
     if (nextTab) {
+      const dedupKey = `${trimmedSearchKey}:${activeTab}:${nextTab}`;
+      if (lastAutoSwitchRef.current !== dedupKey) {
+        lastAutoSwitchRef.current = dedupKey;
+        defaultLogger.transaction.send.quickSelectTabSwitch({
+          network: networkId,
+          fromTab: activeTab,
+          toTab: nextTab,
+          isAutoSwitch: true,
+        });
+      }
       setActiveTab(nextTab);
     }
   }, [
@@ -984,6 +1022,7 @@ export default function RecipientQuickSelect({
     activeTab,
     tabMatchStatus,
     setActiveTab,
+    networkId,
     hideTabs,
   ]);
 
@@ -995,49 +1034,63 @@ export default function RecipientQuickSelect({
       return label;
     };
 
-    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
+    const labelMap: Record<IRecipientQuickSelectTab, string> = {
+      recent: intl.formatMessage({ id: ETranslations.global_recents }),
+      account: intl.formatMessage({ id: ETranslations.global_accounts }),
+      addressBook: intl.formatMessage({ id: ETranslations.address_book_title }),
+    };
+    return visibleTabKeys.map((tab) => ({
+      label: formatLabel(labelMap[tab], tab),
+      value: tab,
+    }));
+  }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys]);
 
-    const options: { label: string; value: IRecipientQuickSelectTab }[] = [];
+  // Report match status to parent. Only consider tabs that are actually visible
+  // (Lightning hides account/addressBook; callers can pass hideTabs).
+  useEffect(() => {
+    const visibleStatuses = visibleTabKeys.map((tab) => tabMatchStatus[tab]);
+    const anyTabHasMatches = visibleStatuses.some((status) => status === true);
+    onMatchStatusChange?.(anyTabHasMatches);
 
-    options.push({
-      label: formatLabel(
-        intl.formatMessage({ id: ETranslations.global_recents }),
-        'recent',
-      ),
-      value: 'recent',
-    });
-
-    if (!isLightning) {
-      options.push({
-        label: formatLabel(
-          intl.formatMessage({
-            id: ETranslations.global_accounts,
-          }),
-          'account',
-        ),
-        value: 'account',
-      });
-
-      options.push({
-        label: formatLabel(
-          intl.formatMessage({ id: ETranslations.address_book_title }),
-          'addressBook',
-        ),
-        value: 'addressBook',
+    const allReported = visibleStatuses.every((status) => status !== null);
+    if (
+      isSearchMode &&
+      trimmedSearchKey &&
+      !isDebouncing &&
+      allReported &&
+      !anyTabHasMatches &&
+      lastNoResultKeyRef.current !== trimmedSearchKey
+    ) {
+      lastNoResultKeyRef.current = trimmedSearchKey;
+      defaultLogger.transaction.send.quickSelectSearchNoResult({
+        network: networkId,
+        searchKeyLength: trimmedSearchKey.length,
       });
     }
-
-    return hideTabs?.length
-      ? options.filter((o) => !hideTabs.includes(o.value))
-      : options;
   }, [
-    intl,
+    visibleTabKeys,
+    tabMatchStatus,
+    onMatchStatusChange,
     isSearchMode,
+    isDebouncing,
     trimmedSearchKey,
-    tabMatchCounts,
     networkId,
-    hideTabs,
   ]);
+
+  const getSearchContext = useCallback(
+    () => ({
+      isSearchMode: !!(isSearchMode && trimmedSearchKey),
+      searchKeyLength: trimmedSearchKey.length,
+      matchCount:
+        isSearchMode && trimmedSearchKey
+          ? visibleTabKeys.reduce(
+              (sum, tab) => sum + (tabMatchCounts[tab] ?? 0),
+              0,
+            )
+          : 0,
+    }),
+    [isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys],
+  );
 
   return (
     <Animated.View entering={FadeIn.duration(200)}>
@@ -1049,7 +1102,14 @@ export default function RecipientQuickSelect({
           onChange={(value) => {
             // Record the current search key to prevent auto-switch until user types again
             lastManualSwitchSearchKeyRef.current = trimmedSearchKey;
-            setActiveTab(value as IRecipientQuickSelectTab);
+            const toTab = value as IRecipientQuickSelectTab;
+            defaultLogger.transaction.send.quickSelectTabSwitch({
+              network: networkId,
+              fromTab: activeTab,
+              toTab,
+              isAutoSwitch: false,
+            });
+            setActiveTab(toTab);
           }}
         />
         <Stack mx={-20} pb="$3">
@@ -1065,7 +1125,11 @@ export default function RecipientQuickSelect({
                 onSelect={(params) => {
                   // Reset input type to Manual to prevent auto-navigation from Recent tab
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
-                  onSelect?.(params);
+                  onSelect?.({
+                    ...params,
+                    quickSelectTab: 'recent',
+                    ...getSearchContext(),
+                  });
                 }}
                 onMatchStatusChange={handleRecentMatchStatus}
               />
@@ -1079,7 +1143,13 @@ export default function RecipientQuickSelect({
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
-                onSelect={({ address }) => onSelect?.({ address })}
+                onSelect={({ address }) =>
+                  onSelect?.({
+                    address,
+                    quickSelectTab: 'account',
+                    ...getSearchContext(),
+                  })
+                }
                 onMatchStatusChange={handleAccountMatchStatus}
               />
             </Stack>
@@ -1091,7 +1161,13 @@ export default function RecipientQuickSelect({
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
-                onSelect={onSelect}
+                onSelect={(params) =>
+                  onSelect?.({
+                    ...params,
+                    quickSelectTab: 'addressBook',
+                    ...getSearchContext(),
+                  })
+                }
                 onMatchStatusChange={handleAddressBookMatchStatus}
               />
             </Stack>
