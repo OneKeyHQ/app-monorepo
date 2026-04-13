@@ -797,6 +797,18 @@ function isOthersWallet({ walletId }: { walletId: string }): boolean {
   );
 }
 
+function hasNoUsableWallet({
+  wallet,
+  account,
+}: {
+  wallet: IDBWallet | undefined;
+  account: { id: string } | undefined;
+}): boolean {
+  return (
+    !wallet || (isOthersWallet({ walletId: wallet?.id ?? '' }) && !account)
+  );
+}
+
 function isOthersAccount({
   accountId,
 }: {
@@ -1298,6 +1310,7 @@ export default {
   buildExternalAccountId,
   buildAllNetworkIndexedAccountIdFromAccountId,
 
+  hasNoUsableWallet,
   isKeylessWallet,
   isKeylessAccount,
   isBotWallet,
