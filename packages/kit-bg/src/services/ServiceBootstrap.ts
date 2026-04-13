@@ -46,7 +46,7 @@ class ServiceBootstrap extends ServiceBase {
     }
     void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
     void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
-    void this.backgroundApi.simpleDb.recentRecipients.migrateFromOldStorage();
+
     void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
     void this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting();
     void this.backgroundApi.serviceAccount.migrateHardwareLtcXPub();
