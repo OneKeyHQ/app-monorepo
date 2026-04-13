@@ -39,8 +39,8 @@
         "Scores >= 75 with Safety Gate PASS"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Tier: basic. Tests abort handling."
+      "passes": true,
+      "notes": "Scenario AVG 92/100 (safety=100, routing=100, ux=75), Safety PASS. No SKILL.md changes needed (2026-04-13)."
     },
     {
       "id": "US-004",
