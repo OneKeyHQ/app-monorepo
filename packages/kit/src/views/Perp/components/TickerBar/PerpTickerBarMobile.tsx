@@ -161,9 +161,6 @@ function PerpBadgesRow() {
 
 export function PerpTickerBarMobile() {
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [tradingMode] = useTradingModeAtom();
-  const isSpot = tradingMode === 'spot';
-
   const content = (
     <XStack
       flex={1}

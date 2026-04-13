@@ -12,7 +12,6 @@ import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
-  formatSpotPairDisplayName,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
   isSpotInstrument,
