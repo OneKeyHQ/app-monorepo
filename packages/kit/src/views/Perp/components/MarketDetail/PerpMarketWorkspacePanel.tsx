@@ -102,15 +102,18 @@ export function PerpMarketWorkspacePanel({
 
         {activeView === 'info' ? (
           <PerpMarketDetailContent
+            key={`info-${assetCoin || 'unknown'}`}
             coin={assetCoin}
             displayName={displayName}
             tabKeys={PERP_MARKET_INFO_TAB_KEYS}
             initialTab="overview"
+            combineInfoData
           />
         ) : null}
 
         {activeView === 'tradingData' ? (
           <PerpMarketDetailContent
+            key={`trading-${assetCoin || 'unknown'}`}
             coin={assetCoin}
             displayName={displayName}
             tabKeys={PERP_MARKET_TRADING_DATA_TAB_KEYS}

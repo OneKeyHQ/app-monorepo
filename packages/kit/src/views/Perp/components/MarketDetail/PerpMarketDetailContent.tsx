@@ -5,17 +5,25 @@ import { useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
+  Button,
+  DashText,
   Divider,
+  Icon,
+  IconButton,
   ScrollView,
   SizableText,
   Spinner,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFormattedAssetCtx } from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -27,6 +35,7 @@ import {
   usePerpMarketOverview,
   usePerpPredictedFundings,
   usePerpRecentTrades,
+  usePerpResolvedMarketDetail,
 } from '../../hooks/usePerpMarketDetail';
 
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
@@ -115,6 +124,44 @@ function formatTimestamp(value?: number | null) {
   });
 }
 
+function formatMarketDate(value?: Date | string | number | null) {
+  if (!value) {
+    return '--';
+  }
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return '--';
+  }
+  return formatDate(parsedDate, {
+    hideSeconds: true,
+  });
+}
+
+function formatTokenAmount(
+  value?: string | number | null,
+  suffix?: string | null,
+) {
+  const formatted = formatPlainNumber(
+    value === null || value === undefined ? undefined : String(value),
+  );
+  if (formatted === '--') {
+    return formatted;
+  }
+  return suffix ? `${formatted} ${suffix.toUpperCase()}` : formatted;
+}
+
+function sanitizeDescriptionText(value?: string | null) {
+  if (!value) {
+    return '';
+  }
+
+  return value
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function formatChartPercent(value: number) {
   const digits = Math.abs(value) >= 1 ? 2 : 4;
   return `${value.toFixed(digits)}%`;
@@ -157,6 +204,89 @@ function DetailStatItem({ label, value }: { label: string; value: string }) {
         {label}
       </SizableText>
       <SizableText size="$bodyMdMedium">{value}</SizableText>
+    </YStack>
+  );
+}
+
+function LinkChip({
+  label,
+  url,
+  iconAfter,
+}: {
+  label: string;
+  url?: string | null;
+  iconAfter?: string;
+}) {
+  if (!url) {
+    return null;
+  }
+
+  return (
+    <Button
+      size="small"
+      variant="secondary"
+      iconAfter={iconAfter as any}
+      onPress={() => openUrlExternal(url)}
+    >
+      {label}
+    </Button>
+  );
+}
+
+function DetailListSection({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<{ label: string; value: string; tooltip?: string }>;
+}) {
+  const visibleRows = rows.filter((item) => item.value && item.value !== '--');
+
+  if (!visibleRows.length) {
+    return null;
+  }
+
+  return (
+    <YStack gap="$3">
+      <SizableText size="$headingSm">{title}</SizableText>
+      <YStack gap="$2.5">
+        {visibleRows.map((item) => (
+          <XStack
+            key={item.label}
+            alignItems="flex-start"
+            justifyContent="space-between"
+            gap="$3"
+          >
+            {item.tooltip ? (
+              <Tooltip
+                placement="top"
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    color="$textSubdued"
+                    cursor="help"
+                    flex={1}
+                  >
+                    {item.label}
+                  </DashText>
+                }
+                renderContent={
+                  <SizableText size="$bodySm">{item.tooltip}</SizableText>
+                }
+              />
+            ) : (
+              <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+                {item.label}
+              </SizableText>
+            )}
+            <SizableText size="$bodyMd" textAlign="right" flex={1}>
+              {item.value}
+            </SizableText>
+          </XStack>
+        ))}
+      </YStack>
     </YStack>
   );
 }
@@ -330,6 +460,7 @@ export function PerpMarketDetailContent({
   paddingBottom = '$4',
   maxHeight,
   combineTradingData = false,
+  combineInfoData = false,
 }: {
   coin?: string;
   displayName?: string;
@@ -340,6 +471,7 @@ export function PerpMarketDetailContent({
   paddingBottom?: number | string;
   maxHeight?: number;
   combineTradingData?: boolean;
+  combineInfoData?: boolean;
 }) {
   const resolvedInitialTab =
     (initialTab && tabKeys.includes(initialTab) ? initialTab : tabKeys[0]) ??
@@ -348,6 +480,8 @@ export function PerpMarketDetailContent({
     useState<IPerpMarketDetailTab>(resolvedInitialTab);
   const [fundingRange, setFundingRange] =
     useState<IPerpFundingHistoryRange>('24h');
+  const [isInfoDescriptionExpanded, setIsInfoDescriptionExpanded] =
+    useState(false);
 
   useEffect(() => {
     if (!tabKeys.includes(activeTab)) {
@@ -355,15 +489,35 @@ export function PerpMarketDetailContent({
     }
   }, [activeTab, resolvedInitialTab, tabKeys]);
 
+  useEffect(() => {
+    setIsInfoDescriptionExpanded(false);
+  }, [coin, displayName]);
+
   const overview = usePerpMarketOverview(coin);
   const fundingHistory = usePerpFundingHistory(coin, fundingRange);
   const recentTrades = usePerpRecentTrades(coin);
   const contractInfo = usePerpContractInfo(coin);
   const predictedFundings = usePerpPredictedFundings(coin);
   const annotation = usePerpAnnotation(coin);
+  const resolvedMarketDetail = usePerpResolvedMarketDetail({
+    coin: combineInfoData ? coin : undefined,
+    displayName: combineInfoData ? displayName : undefined,
+  });
+  const fundingHistoryResult = useMemo(
+    () => fundingHistory.result ?? [],
+    [fundingHistory.result],
+  );
+  const recentTradesResult = useMemo(
+    () => recentTrades.result ?? [],
+    [recentTrades.result],
+  );
+  const predictedFundingsResult = useMemo(
+    () => predictedFundings.result ?? [],
+    [predictedFundings.result],
+  );
 
   const tradeStats = useMemo(() => {
-    const trades = recentTrades.result ?? [];
+    const trades = recentTradesResult;
     return trades.reduce(
       (acc, trade) => {
         const notional = new BigNumber(trade.px || 0).multipliedBy(
@@ -381,7 +535,7 @@ export function PerpMarketDetailContent({
         sell: new BigNumber(0),
       },
     );
-  }, [recentTrades.result]);
+  }, [recentTradesResult]);
 
   const buySellPercentage = useMemo(() => {
     const total = tradeStats.buy.plus(tradeStats.sell);
@@ -400,38 +554,48 @@ export function PerpMarketDetailContent({
       })
     | undefined;
 
+  const marketDetail = resolvedMarketDetail.result?.detail;
+
+  const aboutText = useMemo(
+    () =>
+      sanitizeDescriptionText(marketDetail?.about) ||
+      sanitizeDescriptionText(annotation.result?.description) ||
+      '',
+    [annotation.result?.description, marketDetail?.about],
+  );
+
   const fundingHistoryItems = useMemo(
-    () => fundingHistory.result.slice(-8).reverse(),
-    [fundingHistory.result],
+    () => fundingHistoryResult.slice(-8).reverse(),
+    [fundingHistoryResult],
   );
 
   const recentTradeItems = useMemo(
-    () => recentTrades.result.slice(0, 16),
-    [recentTrades.result],
+    () => recentTradesResult.slice(0, 16),
+    [recentTradesResult],
   );
 
   const fundingChartData = useMemo<IMarketTokenChart>(() => {
-    return [...fundingHistory.result]
+    return [...fundingHistoryResult]
       .toSorted((a, b) => a.time - b.time)
       .map((item): [number, number] => [
         Math.floor(item.time / 1000),
         new BigNumber(item.fundingRate || 0).multipliedBy(100).toNumber(),
       ])
       .filter((item) => Number.isFinite(item[1]));
-  }, [fundingHistory.result]);
+  }, [fundingHistoryResult]);
 
   const premiumChartData = useMemo<IMarketTokenChart>(() => {
-    return [...fundingHistory.result]
+    return [...fundingHistoryResult]
       .toSorted((a, b) => a.time - b.time)
       .map((item): [number, number] => [
         Math.floor(item.time / 1000),
         new BigNumber(item.premium || 0).multipliedBy(100).toNumber(),
       ])
       .filter((item) => Number.isFinite(item[1]));
-  }, [fundingHistory.result]);
+  }, [fundingHistoryResult]);
 
   const tradeBucketData = useMemo(() => {
-    const sortedTrades = [...recentTrades.result].toSorted(
+    const sortedTrades = [...recentTradesResult].toSorted(
       (a, b) => a.time - b.time,
     );
     if (sortedTrades.length === 0) {
@@ -474,7 +638,7 @@ export function PerpMarketDetailContent({
         value.total.toNumber(),
       ]),
     };
-  }, [recentTrades.result]);
+  }, [recentTradesResult]);
 
   const baselineOptions = useMemo(
     (): BaselineSeriesPartialOptions => ({
@@ -488,6 +652,310 @@ export function PerpMarketDetailContent({
     }),
     [],
   );
+
+  const renderTradingSnapshotCards = () => (
+    <XStack flexWrap="wrap" gap="$3">
+      <DetailStatItem
+        label="Mark Price"
+        value={`$${overviewCtx?.markPrice || marketDetail?.stats.currentPrice || '--'}`}
+      />
+      <DetailStatItem
+        label="24h Change"
+        value={formatPercent(
+          overviewCtx?.change24hPercent ??
+            marketDetail?.stats.performance.priceChangePercentage24h,
+          2,
+        )}
+      />
+      <DetailStatItem
+        label="Funding Rate"
+        value={formatFundingRate(overviewCtx?.fundingRate)}
+      />
+      <DetailStatItem
+        label="Open Interest"
+        value={formatPlainNumber(overviewCtx?.openInterest)}
+      />
+      <DetailStatItem
+        label="OI Notional"
+        value={formatUsdValue(overview.result?.openInterestNotional)}
+      />
+      <DetailStatItem
+        label="Premium"
+        value={formatPercent(
+          overview.result?.premium
+            ? new BigNumber(overview.result.premium)
+                .multipliedBy(100)
+                .toNumber()
+            : null,
+          4,
+        )}
+      />
+    </XStack>
+  );
+
+  const renderInfoCombined = () => {
+    const isInitialLoading =
+      overview.isLoading &&
+      contractInfo.isLoading &&
+      annotation.isLoading &&
+      resolvedMarketDetail.isLoading;
+
+    if (isInitialLoading) {
+      return <SectionLoading />;
+    }
+
+    if (
+      !overview.result &&
+      !contractInfo.result &&
+      !annotation.result &&
+      !marketDetail
+    ) {
+      return <EmptyState text="Market information is unavailable." />;
+    }
+
+    const marketReferenceRows = marketDetail
+      ? [
+          {
+            label: 'Market Cap Rank',
+            value: marketDetail.stats.marketCapRank
+              ? `#${marketDetail.stats.marketCapRank}`
+              : '--',
+            tooltip: '按市值计算的市场排名。',
+          },
+          {
+            label: 'Market Cap',
+            value: formatUsdValue(String(marketDetail.stats.marketCap)),
+            tooltip: '当前价格乘以流通供应量。',
+          },
+          {
+            label: 'FDV',
+            value: formatUsdValue(String(marketDetail.stats.fdv)),
+            tooltip: '按完全稀释供应量估算的总市值。',
+          },
+          {
+            label: '24h Volume',
+            value: formatUsdValue(String(marketDetail.stats.volume24h)),
+            tooltip: '过去 24 小时的成交额。',
+          },
+          {
+            label: 'Circulating Supply',
+            value: formatTokenAmount(
+              marketDetail.stats.circulatingSupply,
+              marketDetail.symbol,
+            ),
+            tooltip: '当前市场中可流通的代币数量。',
+          },
+          {
+            label: 'Total Supply',
+            value: formatTokenAmount(
+              marketDetail.stats.totalSupply,
+              marketDetail.symbol,
+            ),
+            tooltip: '当前已发行的代币总量。',
+          },
+          {
+            label: 'Max Supply',
+            value: formatTokenAmount(
+              marketDetail.stats.maxSupply,
+              marketDetail.symbol,
+            ),
+            tooltip: '协议定义的最大供应量上限。',
+          },
+          {
+            label: 'ATH',
+            value: `${formatUsdValue(String(marketDetail.stats.ath.value))} (${formatMarketDate(marketDetail.stats.ath.time)})`,
+            tooltip: '历史最高成交价格。',
+          },
+          {
+            label: 'ATL',
+            value: `${formatUsdValue(String(marketDetail.stats.atl.value))} (${formatMarketDate(marketDetail.stats.atl.time)})`,
+            tooltip: '历史最低成交价格。',
+          },
+          {
+            label: '24h High',
+            value: formatUsdValue(String(marketDetail.stats.high24h)),
+            tooltip: '过去 24 小时的最高价格。',
+          },
+          {
+            label: '24h Low',
+            value: formatUsdValue(String(marketDetail.stats.low24h)),
+            tooltip: '过去 24 小时的最低价格。',
+          },
+          {
+            label: 'Last Updated',
+            value: formatMarketDate(marketDetail.stats.lastUpdated),
+            tooltip: '第三方资料最近一次更新时间。',
+          },
+        ]
+      : [];
+
+    const officialLinks = marketDetail
+      ? [
+          { label: '官网', url: marketDetail.links.homePageUrl },
+          { label: '白皮书', url: marketDetail.links.whitepaper },
+          ...(marketDetail.explorers?.slice(0, 2).map((item) => ({
+            label: item.name,
+            url: item.url,
+          })) ?? []),
+        ].filter((item) => Boolean(item.url))
+      : [];
+
+    const socialLinks = marketDetail
+      ? [
+          { label: 'X', url: marketDetail.links.twitterUrl, icon: 'Xbrand' },
+          {
+            label: 'Telegram',
+            url: marketDetail.links.telegramUrl,
+            icon: 'TelegramBrand',
+          },
+          {
+            label: 'Discord',
+            url: marketDetail.links.discordUrl,
+            icon: 'DiscordBrand',
+          },
+        ].filter((item) => Boolean(item.url))
+      : [];
+
+    const showDescriptionToggle = aboutText.length > 320;
+
+    return (
+      <XStack
+        flexWrap="wrap"
+        gap="$6"
+        pt="$4"
+        alignItems="flex-start"
+        $gtMd={{ flexWrap: 'nowrap', gap: '$6' } as any}
+      >
+        <YStack flex={1} flexBasis={0} minWidth={0} gap="$4.5" width="100%">
+          <YStack gap="$2.5">
+            <XStack alignItems="center" gap="$2.5">
+              <Token
+                size="sm"
+                tokenImageUri={
+                  marketDetail?.image ||
+                  getHyperliquidTokenImageUrl(
+                    displayName || marketDetail?.symbol || coin || '',
+                  )
+                }
+              />
+              <SizableText size="$headingLg">
+                {displayName ||
+                  marketDetail?.symbol?.toUpperCase() ||
+                  coin ||
+                  '--'}
+              </SizableText>
+              {marketDetail?.name ? (
+                <SizableText size="$bodyLg" color="$textSubdued">
+                  {marketDetail.name}
+                </SizableText>
+              ) : null}
+            </XStack>
+
+            {aboutText ? (
+              <YStack gap="$2.5">
+                <Tooltip
+                  placement="top"
+                  renderTrigger={
+                    <DashText
+                      size="$bodySm"
+                      dashColor="$textDisabled"
+                      dashThickness={0.5}
+                      color="$textSubdued"
+                      cursor="help"
+                      alignSelf="flex-start"
+                    >
+                      原始资料
+                    </DashText>
+                  }
+                  renderContent={
+                    <SizableText size="$bodySm">
+                      当前展示第三方原始资料，暂未接入自动翻译。
+                    </SizableText>
+                  }
+                />
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  lineHeight="$6"
+                  numberOfLines={isInfoDescriptionExpanded ? undefined : 7}
+                >
+                  {aboutText}
+                </SizableText>
+                {showDescriptionToggle ? (
+                  <XStack
+                    alignItems="center"
+                    gap="$1"
+                    alignSelf="flex-start"
+                    onPress={() =>
+                      setIsInfoDescriptionExpanded((prev) => !prev)
+                    }
+                    cursor="default"
+                  >
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {isInfoDescriptionExpanded ? '收起' : '展开'}
+                    </SizableText>
+                    <Icon
+                      name={
+                        isInfoDescriptionExpanded
+                          ? 'ChevronTopSmallOutline'
+                          : 'ChevronDownSmallOutline'
+                      }
+                      size="$4"
+                      color="$iconSubdued"
+                    />
+                  </XStack>
+                ) : null}
+              </YStack>
+            ) : null}
+          </YStack>
+
+          {marketReferenceRows.length ? (
+            <DetailListSection title="币种信息" rows={marketReferenceRows} />
+          ) : (
+            <YStack gap="$2">
+              <SizableText size="$headingSm">币种信息</SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                暂无可用的现货参考信息。
+              </SizableText>
+            </YStack>
+          )}
+        </YStack>
+
+        <YStack flex={1} flexBasis={0} width="100%" minWidth={0} gap="$5">
+          {officialLinks.length ? (
+            <YStack gap="$2.5">
+              <SizableText size="$headingSm">官方链接</SizableText>
+              <XStack flexWrap="wrap" gap="$2">
+                {officialLinks.map((item) => (
+                  <LinkChip
+                    key={`${item.label}-${item.url}`}
+                    {...item}
+                    iconAfter="OpenOutline"
+                  />
+                ))}
+              </XStack>
+            </YStack>
+          ) : null}
+
+          {socialLinks.length ? (
+            <YStack gap="$2.5">
+              <SizableText size="$headingSm">社交媒体</SizableText>
+              <XStack flexWrap="wrap" gap="$2">
+                {socialLinks.map((item) => (
+                  <IconButton
+                    key={`${item.label}-${item.url}`}
+                    title={item.label}
+                    icon={item.icon as any}
+                    onPress={() => openUrlExternal(item.url)}
+                  />
+                ))}
+              </XStack>
+            </YStack>
+          ) : null}
+        </YStack>
+      </XStack>
+    );
+  };
 
   const renderOverviewTab = () => {
     if (overview.isLoading) {
@@ -561,7 +1029,7 @@ export function PerpMarketDetailContent({
   };
 
   const renderFundingTab = () => {
-    if (fundingHistory.isLoading && fundingHistory.result.length === 0) {
+    if (fundingHistory.isLoading && fundingHistoryResult.length === 0) {
       return <SectionLoading />;
     }
 
@@ -644,7 +1112,7 @@ export function PerpMarketDetailContent({
 
         <YStack gap="$2">
           <SizableText size="$bodyMdMedium">Predicted Funding</SizableText>
-          {predictedFundings.result.length === 0 ? (
+          {predictedFundingsResult.length === 0 ? (
             <EmptyState text="Predicted funding is unavailable." />
           ) : (
             <YStack
@@ -653,7 +1121,7 @@ export function PerpMarketDetailContent({
               borderRadius="$3"
               overflow="hidden"
             >
-              {predictedFundings.result.map((item, index) => (
+              {predictedFundingsResult.map((item, index) => (
                 <YStack key={item.exchange}>
                   <XStack
                     px="$3.5"
@@ -677,7 +1145,7 @@ export function PerpMarketDetailContent({
                       {formatTimestamp(item.nextFundingTime)}
                     </SizableText>
                   </XStack>
-                  {index !== predictedFundings.result.length - 1 ? (
+                  {index !== predictedFundingsResult.length - 1 ? (
                     <Divider />
                   ) : null}
                 </YStack>
@@ -690,7 +1158,7 @@ export function PerpMarketDetailContent({
   };
 
   const renderTradesTab = () => {
-    if (recentTrades.isLoading && recentTrades.result.length === 0) {
+    if (recentTrades.isLoading && recentTradesResult.length === 0) {
       return <SectionLoading />;
     }
 
@@ -793,15 +1261,17 @@ export function PerpMarketDetailContent({
   const renderTradingDataCombined = () => {
     if (
       fundingHistory.isLoading &&
-      fundingHistory.result.length === 0 &&
+      fundingHistoryResult.length === 0 &&
       recentTrades.isLoading &&
-      recentTrades.result.length === 0
+      recentTradesResult.length === 0
     ) {
       return <SectionLoading />;
     }
 
     return (
       <YStack gap="$4">
+        {renderTradingSnapshotCards()}
+
         <XStack gap="$2">
           {FUNDING_RANGE_ITEMS.map((item) => (
             <RangeButton
@@ -926,7 +1396,7 @@ export function PerpMarketDetailContent({
 
         <YStack gap="$2">
           <SizableText size="$bodyMdMedium">Predicted Funding</SizableText>
-          {predictedFundings.result.length === 0 ? (
+          {predictedFundingsResult.length === 0 ? (
             <EmptyState text="Predicted funding is unavailable." />
           ) : (
             <YStack
@@ -935,7 +1405,7 @@ export function PerpMarketDetailContent({
               borderRadius="$3"
               overflow="hidden"
             >
-              {predictedFundings.result.map((item, index) => (
+              {predictedFundingsResult.map((item, index) => (
                 <YStack key={item.exchange}>
                   <XStack
                     px="$3.5"
@@ -959,7 +1429,7 @@ export function PerpMarketDetailContent({
                       {formatTimestamp(item.nextFundingTime)}
                     </SizableText>
                   </XStack>
-                  {index !== predictedFundings.result.length - 1 ? (
+                  {index !== predictedFundingsResult.length - 1 ? (
                     <Divider />
                   ) : null}
                 </YStack>
@@ -1153,7 +1623,7 @@ export function PerpMarketDetailContent({
 
   return (
     <YStack flex={1} minHeight={0} gap="$4">
-      {!combineTradingData && tabKeys.length > 1 ? (
+      {!combineTradingData && !combineInfoData && tabKeys.length > 1 ? (
         <XStack px={paddingX} pt={paddingTop} flexWrap="wrap" gap="$2">
           {tabKeys.map((item) => (
             <TabButton
@@ -1174,19 +1644,20 @@ export function PerpMarketDetailContent({
       >
         <Stack px={paddingX} pb={paddingBottom} pr="$1">
           {combineTradingData ? renderTradingDataCombined() : null}
-          {!combineTradingData && activeTab === 'overview'
+          {combineInfoData ? renderInfoCombined() : null}
+          {!combineTradingData && !combineInfoData && activeTab === 'overview'
             ? renderOverviewTab()
             : null}
-          {!combineTradingData && activeTab === 'funding'
+          {!combineTradingData && !combineInfoData && activeTab === 'funding'
             ? renderFundingTab()
             : null}
-          {!combineTradingData && activeTab === 'trades'
+          {!combineTradingData && !combineInfoData && activeTab === 'trades'
             ? renderTradesTab()
             : null}
-          {!combineTradingData && activeTab === 'contract'
+          {!combineTradingData && !combineInfoData && activeTab === 'contract'
             ? renderContractTab()
             : null}
-          {!combineTradingData && activeTab === 'about'
+          {!combineTradingData && !combineInfoData && activeTab === 'about'
             ? renderAboutTab()
             : null}
         </Stack>
