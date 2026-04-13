@@ -312,10 +312,13 @@ function mergeRecipients(
 
 // Local store fallback + freshness overlay for /transfer-recipient, which
 // has indexer lag and skips non-indexer EVM chains (OK-52728).
-async function loadStoredRecipients(
-  networkId: string,
-  accountId: string,
-): Promise<{
+async function loadStoredRecipients({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}): Promise<{
   addresses: string[];
   extraMap: Map<string, IRecipientExtraInfo> | null;
 }> {
@@ -419,7 +422,7 @@ export function useRecentRecipientsData({
     ] = await Promise.all([
       fetchApiRecipients(),
       accountId
-        ? loadStoredRecipients(networkId, accountId)
+        ? loadStoredRecipients({ networkId, accountId })
         : { addresses: [] as string[], extraMap: null },
     ]);
 
