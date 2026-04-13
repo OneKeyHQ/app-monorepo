@@ -99,6 +99,30 @@ function buildRuntimeOwnership({
         bgStartupCandidates.has(absolutePath),
     ),
   );
+
+  // Expand shared startup set with sync dependencies.
+  // A shared module (e.g., defiUtils.ts) may sync-depend on a module that
+  // only exists in one graph (e.g., a crypto lib only in the bg graph).
+  // That dep must also be in the common bundle, so promote it to shared.
+  // We follow sync deps in BOTH graphs to cover all transitive deps.
+  const pendingShared = [...sharedStartupAbsPaths];
+  while (pendingShared.length > 0) {
+    const current = pendingShared.pop();
+    // Check sync deps in both graphs
+    for (const graph of [mainGraph, bgGraph]) {
+      const mod = graph.dependencies.get(current);
+      if (!mod) continue;
+      for (const [, dep] of mod.dependencies) {
+        if (dep.data?.data?.asyncType === 'async') continue;
+        const depPath = dep.absolutePath;
+        if (sharedStartupAbsPaths.has(depPath)) continue;
+        // Promote this sync dep to shared
+        sharedStartupAbsPaths.add(depPath);
+        pendingShared.push(depPath);
+      }
+    }
+  }
+
   const mainStartupOnlyAbsPaths = new Set(
     [...mainStartupCandidates].filter(
       (absolutePath) => !sharedStartupAbsPaths.has(absolutePath),
