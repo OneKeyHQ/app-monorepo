@@ -253,10 +253,16 @@ const SwapActionsState = ({
     ],
   );
 
+  const clearRecipientAddressOnHide = useMemo(
+    () => swapIncognitoMode && !shouldShowRecipient,
+    [shouldShowRecipient, swapIncognitoMode],
+  );
+
   const incognitoRecipientInputComponent = useMemo(
     () => (
       <SwapIncognitoRecipientInput
         visible={shouldShowIncognitoRecipientInput}
+        clearRecipientAddressOnHide={clearRecipientAddressOnHide}
         networkId={toToken?.networkId ?? swapToAddressInfo.networkId}
         accountId={
           swapToAddressInfo.activeAccount?.account?.id ??
@@ -268,6 +274,7 @@ const SwapActionsState = ({
       />
     ),
     [
+      clearRecipientAddressOnHide,
       onOpenRecipientAddress,
       shouldShowIncognitoRecipientInput,
       swapToAnotherAccountAddress.address,

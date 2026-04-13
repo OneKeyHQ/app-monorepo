@@ -24,6 +24,7 @@ import type {
 
 type ISwapIncognitoRecipientInputProps = {
   visible: boolean;
+  clearRecipientAddressOnHide?: boolean;
   networkId?: string;
   accountId?: string;
   address?: string;
@@ -69,6 +70,7 @@ function useSwapRecipientInputHeight() {
 
 export function SwapIncognitoRecipientInput({
   visible,
+  clearRecipientAddressOnHide,
   networkId,
   accountId,
   address,
@@ -85,6 +87,7 @@ export function SwapIncognitoRecipientInput({
     queryResult,
   } = useSwapIncognitoRecipientInput({
     visible,
+    clearRecipientAddressOnHide,
     networkId,
     accountId,
     address,

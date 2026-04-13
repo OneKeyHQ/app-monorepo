@@ -16,6 +16,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 type IUseSwapIncognitoRecipientInputParams = {
   visible: boolean;
+  clearRecipientAddressOnHide?: boolean;
   networkId?: string;
   accountId?: string;
   address?: string;
@@ -45,6 +46,7 @@ function isSameAddressValidationContext(
 
 export function useSwapIncognitoRecipientInput({
   visible,
+  clearRecipientAddressOnHide,
   networkId,
   accountId,
   address,
@@ -211,6 +213,7 @@ export function useSwapIncognitoRecipientInput({
       };
       resetValidationState({
         clearInput: true,
+        clearRecipientAddress: clearRecipientAddressOnHide,
       });
       return;
     }
@@ -233,7 +236,13 @@ export function useSwapIncognitoRecipientInput({
     resetValidationState({
       clearRecipientAddress: true,
     });
-  }, [accountId, enabled, networkId, resetValidationState]);
+  }, [
+    accountId,
+    clearRecipientAddressOnHide,
+    enabled,
+    networkId,
+    resetValidationState,
+  ]);
 
   useEffect(() => {
     if (!enabled) {

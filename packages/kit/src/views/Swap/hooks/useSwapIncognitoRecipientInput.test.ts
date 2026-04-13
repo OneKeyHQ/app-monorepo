@@ -129,6 +129,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       (props: {
         accountId?: string;
         address?: string;
+        clearRecipientAddressOnHide?: boolean;
         networkId?: string;
         swapToAnotherAccountSwitchOn: boolean;
         visible: boolean;
@@ -136,6 +137,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       {
         initialProps: {
           visible: true,
+          clearRecipientAddressOnHide: true,
           networkId: 'evm--1',
           accountId: 'account-1',
           address: undefined,
@@ -160,6 +162,7 @@ describe('useSwapIncognitoRecipientInput', () => {
 
     rerender({
       visible: false,
+      clearRecipientAddressOnHide: true,
       networkId: 'evm--1',
       accountId: 'account-1',
       address: undefined,
@@ -199,6 +202,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       (props: {
         accountId?: string;
         address?: string;
+        clearRecipientAddressOnHide?: boolean;
         networkId?: string;
         swapToAnotherAccountSwitchOn: boolean;
         visible: boolean;
@@ -206,6 +210,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       {
         initialProps: {
           visible: true,
+          clearRecipientAddressOnHide: false,
           networkId: 'evm--1',
           accountId: 'account-1',
           address: undefined,
@@ -227,6 +232,7 @@ describe('useSwapIncognitoRecipientInput', () => {
 
     rerender({
       visible: true,
+      clearRecipientAddressOnHide: false,
       networkId: 'evm--10',
       accountId: 'account-2',
       address: undefined,
@@ -251,5 +257,115 @@ describe('useSwapIncognitoRecipientInput', () => {
       expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(true);
       expect(mockSwapToAddressState.address).toBe('0xresolved-2');
     });
+  });
+
+  it('clears the confirmed recipient when the input is hidden without a fallback recipient UI', async () => {
+    mockQueryAddressWithFallback.mockResolvedValueOnce({
+      input: '0xrecipient',
+      resolveAddress: '0xresolved-recipient',
+      validStatus: 'valid',
+    });
+
+    const { result, rerender } = renderHook(
+      (props: {
+        accountId?: string;
+        address?: string;
+        clearRecipientAddressOnHide?: boolean;
+        networkId?: string;
+        swapToAnotherAccountSwitchOn: boolean;
+        visible: boolean;
+      }) => useSwapIncognitoRecipientInput(props),
+      {
+        initialProps: {
+          visible: true,
+          clearRecipientAddressOnHide: true,
+          networkId: 'evm--1',
+          accountId: 'account-1',
+          address: undefined,
+          swapToAnotherAccountSwitchOn: false,
+        },
+      },
+    );
+
+    act(() => {
+      result.current.onInputChange('0xrecipient');
+    });
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(true);
+      expect(mockSwapToAddressState.address).toBe('0xresolved-recipient');
+    });
+
+    rerender({
+      visible: false,
+      clearRecipientAddressOnHide: true,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: mockSwapToAddressState.address,
+      swapToAnotherAccountSwitchOn: true,
+    });
+
+    await flushAsync();
+
+    expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(false);
+    expect(mockSwapToAddressState.address).toBeUndefined();
+    expect(result.current.inputText).toBe('');
+  });
+
+  it('preserves the confirmed recipient when the input is hidden but another recipient UI remains available', async () => {
+    mockQueryAddressWithFallback.mockResolvedValueOnce({
+      input: '0xrecipient',
+      resolveAddress: '0xresolved-recipient',
+      validStatus: 'valid',
+    });
+
+    const { result, rerender } = renderHook(
+      (props: {
+        accountId?: string;
+        address?: string;
+        clearRecipientAddressOnHide?: boolean;
+        networkId?: string;
+        swapToAnotherAccountSwitchOn: boolean;
+        visible: boolean;
+      }) => useSwapIncognitoRecipientInput(props),
+      {
+        initialProps: {
+          visible: true,
+          clearRecipientAddressOnHide: false,
+          networkId: 'evm--1',
+          accountId: 'account-1',
+          address: undefined,
+          swapToAnotherAccountSwitchOn: false,
+        },
+      },
+    );
+
+    act(() => {
+      result.current.onInputChange('0xrecipient');
+    });
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(true);
+      expect(mockSwapToAddressState.address).toBe('0xresolved-recipient');
+    });
+
+    rerender({
+      visible: false,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: mockSwapToAddressState.address,
+      swapToAnotherAccountSwitchOn: true,
+    });
+
+    await flushAsync();
+
+    expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(true);
+    expect(mockSwapToAddressState.address).toBe('0xresolved-recipient');
+    expect(result.current.inputText).toBe('');
   });
 });
