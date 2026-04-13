@@ -32,4 +32,6 @@ onekey <command>
 
 ## Benchmarking Notes
 
-- `crypto-skill-benchmark` requires Node.js `>=18`. If the default shell `node` is older, switch to a newer Node before running evaluations or scenario loading will silently miss nested `scenarios/` files.
+- `crypto-skill-benchmark` requires Node.js `>=18`. In this workspace, entering the benchmark repo may resolve `node` to `v16` even if other directories use a newer version.
+- When running evaluations, explicitly prefix the newer runtime, for example: `export PATH=/Users/leon/.nvm/versions/node/v24.11.1/bin:$PATH && npm run dev -- evaluate ...`
+- If the benchmark prints `No scenarios found` for an existing YAML file, verify `node -v` inside the benchmark repo before changing any skill docs.

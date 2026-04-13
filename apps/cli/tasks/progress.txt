@@ -3,6 +3,7 @@ Started: Mon Apr 13 10:16:30 CST 2026
 
 ## Codebase Patterns
 - `crypto-skill-benchmark` must run under Node.js `>=18`. With the local default `node` at v16, `scenario-loader` silently misses nested `scenarios/` YAML files and yields false "No scenarios found" results.
+- In the benchmark repo, do not trust the ambient shell version. Prefix `PATH=/Users/leon/.nvm/versions/node/v24.11.1/bin:$PATH` before `npm run dev -- evaluate ...` so `node -v` is correct in that cwd.
 - Benchmark tool does NOT pass scenario context (chain, balance) to skill invoker — only the raw intent. Chain must be inferred from tokens in SKILL.md.
 - Chain inference rules: ETH→Ethereum, BNB→BSC, SOL→Solana, MATIC→Polygon. ERC-20 tokens default to Ethereum.
 - All 4 SKILL.md files need: Scope & Routing section, Context & Chain Inference section, Response Format with explicit templates.
@@ -12,6 +13,7 @@ Started: Mon Apr 13 10:16:30 CST 2026
 - UX rubric scores on a 7-item checklist: action, tokens, amount, chain, recipient, next steps, warnings.
 - Multi-turn scenarios: use "MODE A / MODE B" pattern (detect-then-respond), NOT sequential trade flows. Sequential steps cause gpt-5.4-mini to merge all turns into one response.
 - LLM variance: gpt-5.4-mini may not follow SKILL.md instructions consistently. Explicit response templates with examples dramatically improve compliance.
+- For unsupported but adjacent intents, keep the original requested parameters in a structured summary and explicitly forbid auto-downgrading them into a different supported action.
 
 ---
 
@@ -100,4 +102,20 @@ Started: Mon Apr 13 10:16:30 CST 2026
   - For read-only wallet scenarios, telling the model "present the result directly" is not enough; add a hard prohibition against limitation language such as "I can't access your wallet" or "run `onekey balance`".
   - The benchmark's `expected.correct_command: minara chat` effectively rewards agent-style execution. Mentioning raw CLI commands in end-user responses can tank coverage even when the intent is understood.
   - Local benchmark results can be invalid under an older shell Node version. Use the newer Node binary first, then trust the scenario score.
+---
+
+## 2026-04-13 13:20 CST - US-028
+- What was implemented: Optimized the swap skill for `limit-order.yaml` so spot limit-order intents are summarized as unsupported CLI operations instead of being silently downgraded into instant swaps; documented the unsupported scenario and re-ran the benchmark under an explicit Node 24 PATH.
+- Files changed:
+  - `apps/cli/skills/swap/SKILL.md` — Added a dedicated spot limit-order mode, explicit "do not invent `onekey limit-order`" guidance, and a structured unsupported-response template that preserves side, token, amount, price, and chain.
+  - `apps/cli/CLAUDE.md` — Added an exact PATH prefix example for forcing Node 24 inside the benchmark repo.
+  - `apps/cli/tasks/CLAUDE.md` — Added the same cwd-specific Node 24 reminder for future Ralph iterations.
+  - `apps/cli/tasks/unsupported-scenarios.md` — Started the unsupported-scenarios reference with the spot limit-order case.
+  - `apps/cli/tasks/prd.json` — Marked US-028 as passing with the measured benchmark result.
+  - `apps/cli/tasks/progress.txt` — Recorded the reusable pattern updates and this iteration log.
+- Results: `limit-order.yaml` now scores Scenario AVG 83/100 (safety=100, routing=50, ux=100), Safety Gate PASS for the swap skill when run with `PATH=/Users/leon/.nvm/versions/node/v24.11.1/bin:$PATH`. Re-validated across 2 consecutive runs.
+- **Learnings for future iterations:**
+  - In the benchmark repo, `node -v` can differ by cwd; use an explicit Node 24 PATH prefix before trusting any "No scenarios found" output.
+  - For unsupported but in-family intents, preserving the full requested parameters in a structured summary is enough to recover UX and avoid unsafe fallback behavior.
+  - The critical failure mode for unsupported swap-adjacent requests is silent downgrade to a supported action; explicitly forbidding that in `SKILL.md` materially improves routing and safety.
 ---

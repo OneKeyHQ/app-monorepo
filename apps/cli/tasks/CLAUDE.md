@@ -96,6 +96,17 @@ If ALL stories are complete and passing, reply with:
 
 If there are still stories with `passes: false`, end your response normally (another iteration will pick up the next story).
 
+## Skill Grouping Rule
+
+**Complete ALL scenarios for one skill before moving to the next skill.** The execution order is:
+
+1. **Swap skill** — all swap scenarios (US-001 through US-009, US-028, US-029), then US-SWAP-FINAL (full eval)
+2. **Wallet skill** — all wallet scenarios (US-010 through US-016), then US-WALLET-FINAL (full eval)
+3. **Market skill** — all market scenarios (US-017 through US-027), then US-MARKET-FINAL (full eval)
+4. **Cleanup** — US-030 (unsupported docs), US-031 (full regression)
+
+Each `*-FINAL` story is a milestone gate: run the full benchmark for that skill (`--tier basic --tier intermediate`) and record the overall score breakdown in progress.txt. Do NOT proceed to the next skill group until the FINAL gate passes.
+
 ## Important
 
 - Work on ONE story per iteration
@@ -103,3 +114,5 @@ If there are still stories with `passes: false`, end your response normally (ano
 - Keep CI green
 - Read the Codebase Patterns section in progress.txt before starting
 - Run `crypto-skill-benchmark` with Node.js `>=18`. On this machine the default `node` may be `v16`, which causes scenario discovery to miss nested `scenarios/` YAML files and produce false "No scenarios found" results.
+- In practice, use an explicit PATH prefix when inside the benchmark repo: `export PATH=/Users/leon/.nvm/versions/node/v24.11.1/bin:$PATH && npm run dev -- evaluate ...`
+- If a known scenario file still reports `No scenarios found`, check `node -v` from the benchmark repo before assuming the skill failed.

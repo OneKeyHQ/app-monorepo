@@ -40,6 +40,7 @@ PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
 ARCHIVE_DIR="$SCRIPT_DIR/archive"
 LAST_BRANCH_FILE="$SCRIPT_DIR/.last-branch"
 PROMPT_FILE="$SCRIPT_DIR/CLAUDE.md"
+LOG_DIR="$SCRIPT_DIR/logs"
 
 # Archive previous run if branch changed
 if [ -f "$PRD_FILE" ] && [ -f "$LAST_BRANCH_FILE" ]; then
@@ -81,6 +82,8 @@ if [ ! -f "$PROGRESS_FILE" ]; then
   echo "---" >> "$PROGRESS_FILE"
 fi
 
+mkdir -p "$LOG_DIR"
+
 echo "Starting Ralph - Tool: $TOOL - Max iterations: $MAX_ITERATIONS"
 
 for i in $(seq 1 $MAX_ITERATIONS); do
@@ -97,6 +100,9 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     OUTPUT=$(claude --dangerously-skip-permissions --print < "$PROMPT_FILE" 2>&1 | tee /dev/stderr) || true
   else
     LAST_MESSAGE_FILE="$(mktemp)"
+    LOG_FILE="$LOG_DIR/$(date +%Y%m%d-%H%M%S)-${TOOL}-iter-${i}.log"
+
+    set +e
     codex exec \
       -C "$SCRIPT_DIR" \
       --add-dir "$REPO_ROOT" \
@@ -105,9 +111,20 @@ for i in $(seq 1 $MAX_ITERATIONS); do
       --dangerously-bypass-approvals-and-sandbox \
       --color never \
       -o "$LAST_MESSAGE_FILE" \
-      < "$PROMPT_FILE" 2>&1 | tee /dev/stderr || true
+      < "$PROMPT_FILE" > "$LOG_FILE" 2>&1
+    CODEX_EXIT_CODE=$?
+    set -e
+
     OUTPUT="$(cat "$LAST_MESSAGE_FILE" 2>/dev/null || true)"
     rm -f "$LAST_MESSAGE_FILE"
+
+    if [[ -n "$OUTPUT" && "$OUTPUT" != "<promise>COMPLETE</promise>" ]]; then
+      echo "$OUTPUT"
+    fi
+
+    if [[ "$CODEX_EXIT_CODE" -ne 0 ]]; then
+      echo "Codex exited with status $CODEX_EXIT_CODE. Log: $LOG_FILE"
+    fi
   fi
 
   # Check for completion signal

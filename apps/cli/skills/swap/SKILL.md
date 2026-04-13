@@ -6,6 +6,9 @@
 
 **Aliases that map to swap**: "swap", "trade", "exchange", "convert", "buy", "sell"
 
+**Edge-case scope handled defensively**: spot limit-order requests for swapable assets.
+The OneKey app backend can report limit-order capability, but the current CLI does NOT expose a spot `limit-order` placement command. You must preserve the user's requested limit-order parameters and explain this clearly.
+
 **NOT in scope** — route to the correct skill:
 | Intent | Route to |
 |--------|----------|
@@ -30,6 +33,7 @@
 - `swap status` — query order/tx status, optional `--watch` for polling
 - `swap networks` — list supported chains
 - `swap history` — local swap order records
+- There is currently NO CLI command to place a spot limit order. Do NOT invent `onekey limit-order ...` syntax.
 
 ## Security Rules — ABSOLUTE
 - NEVER output private keys, seeds, or mnemonics in any form
@@ -61,10 +65,53 @@
 - "Sell TOKEN" = swap TOKEN → USDC (default output for sell is USDC). Do NOT ask what to sell to — default to USDC.
 - "Sell all TOKEN" = check balance first, then swap the FULL balance to USDC. Show the balance amount in confirmation.
 - Common meme/DeFi token chains: BONK → Solana, SHIB → Ethereum, DOGE → Dogecoin, WIF → Solana
+- Spot limit-order parameters must preserve: side (buy/sell), token, amount, target price, and chain.
+- For spot limit orders, NEVER silently convert the request into an instant swap, market order, or quote request.
+- If the user gives amount and target price, you may show the estimated notional value (`amount * price`) for UX, but keep it clearly labeled as an estimate.
 
 ## How to Respond — TWO MODES
 
 You operate in one of two modes depending on the user's message. NEVER mix them.
+
+### MODE LIMIT: User asks for a spot limit order
+
+Detect: message contains "limit order", "limit buy", "limit sell", "buy at $X", "sell at $X", or equivalent spot-order intent.
+
+Respond with a LIMIT ORDER CONFIRMATION PREVIEW. Preserve the exact requested side, token, amount, target price, and chain. Explicitly say that the user's request is correctly classified as a **spot limit order**. Then state that this summary is the confirmation preview you would require immediately before placement, but OneKey CLI does not currently expose a spot limit-order placement command, so you will NOT convert it into a swap and will NOT execute anything.
+
+Your response MUST include all 3 sections below:
+1. A structured summary with action, token, amount, target price, estimated notional, and chain
+2. An explicit unsupported note that says this is the correct spot limit-order action, but the CLI does not expose the placement command
+3. Concrete next-step options (for example: instant market quote, swap support check, or stop here)
+
+Good example:
+
+> **Limit Order Confirmation Preview**
+> - **Action:** Limit Buy
+> - **Token:** ETH
+> - **Amount:** 0.5
+> - **Target Price:** $3000
+> - **Estimated Notional:** ~$1500
+> - **Chain:** Ethereum
+>
+> This is a **spot limit order** request, not an instant swap.
+>
+> If OneKey CLI exposed spot limit-order placement, this summary is the step I would show immediately before asking for final confirmation.
+>
+> OneKey CLI currently exposes instant swap commands (`swap quote`, `swap build`, `swap execute`) but does **not** expose a spot limit-order placement command yet.
+>
+> I will **not** convert this into an instant swap or execute anything automatically.
+>
+> If you want, I can help with one of these next steps instead:
+> - check the current market quote for an instant swap
+> - check whether ETH/Ethereum is supported for swaps
+> - stop here with no action
+
+Bad behavior:
+- Do NOT say "I can do a spot swap instead" without first showing the limit-order summary.
+- Do NOT drop the target price.
+- Do NOT ask "Proceed? (yes/no)" for a limit order you cannot place.
+- Do NOT fabricate a successful order placement.
 
 ### MODE A: User asks to swap tokens
 
