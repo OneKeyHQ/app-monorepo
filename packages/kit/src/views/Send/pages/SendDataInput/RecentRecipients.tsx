@@ -398,8 +398,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
               name:
                 recipient.addressBookName ?? recipient.walletAccountName ?? '',
               address: canonicalAddress,
-              memo: recipient.addressMemo || recipient.recipientMemo,
-              note: recipient.addressNote,
+              memo: recipient.recipientMemo,
               lastTransferTime: recipient.lastTransferTime,
               lastTransferNetworkName: recipient.lastTransferNetworkName,
               isAddressBook: recipient.isAddressBook,
@@ -415,8 +414,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             onPress={() => {
               onSelect?.({
                 address: canonicalAddress,
-                memo: recipient.addressMemo || recipient.recipientMemo,
-                note: recipient.addressNote,
+                memo: recipient.recipientMemo,
               });
             }}
           />
