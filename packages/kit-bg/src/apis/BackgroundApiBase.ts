@@ -30,6 +30,7 @@ import {
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
 import { updateInterceptorRequestHelper } from '../init/updateInterceptorRequestHelper';
+import { updateInterceptorRequestHelperWithIpTable } from '../init/updateInterceptorRequestHelperWithIpTable';
 import { createBackgroundProviders } from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
@@ -60,6 +61,7 @@ import type {
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 updateInterceptorRequestHelper();
+updateInterceptorRequestHelperWithIpTable();
 
 function summarizeSetAtomValuePayload(value: unknown) {
   if (value === undefined) {
