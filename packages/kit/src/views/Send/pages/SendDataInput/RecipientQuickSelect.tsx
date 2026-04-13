@@ -132,7 +132,11 @@ const QuickSelectListItem = memo(
           return (
             <MatchSizeableText size="$bodyMd" color="$textSubdued">
               {item.memo || item.note
-                ? `${showAddr} · ${item.memo || item.note}`
+                ? `${showAddr} · ${accountUtils.shortenAddress({
+                    address: item.memo || item.note,
+                    leadingLength: 6,
+                    trailingLength: 4,
+                  })}`
                 : showAddr}
             </MatchSizeableText>
           );
