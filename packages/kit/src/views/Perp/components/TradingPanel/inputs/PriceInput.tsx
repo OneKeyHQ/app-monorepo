@@ -3,7 +3,10 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { validatePriceInput } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  validatePriceInput,
+  validateSpotPriceInput,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { TradingFormInput } from './TradingFormInput';
 
@@ -34,7 +37,7 @@ export const PriceInput = memo(
     placeholder,
     ifOnDialog = false,
     isMobile = false,
-    isSpot: _isSpot = false,
+    isSpot = false,
   }: IPriceInputProps) => {
     const intl = useIntl();
     const handleInputChange = useCallback(
@@ -48,9 +51,11 @@ export const PriceInput = memo(
     const validator = useCallback(
       (text: string) => {
         const processedText = text.replace(/。/g, '.');
-        return validatePriceInput(processedText, szDecimals);
+        return isSpot
+          ? validateSpotPriceInput(processedText, szDecimals)
+          : validatePriceInput(processedText, szDecimals);
       },
-      [szDecimals],
+      [isSpot, szDecimals],
     );
 
     const actions = useMemo(

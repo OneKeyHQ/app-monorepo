@@ -9,7 +9,10 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderPrice } from './useOrderPrice';
@@ -137,6 +140,12 @@ export function useOrderConfirm(
           return;
         }
         effectivePrice = midPrice;
+      } else if (activeTradeInstrument.mode === 'spot') {
+        const szDec = activeTradeInstrument.universe?.baseSzDecimals ?? 0;
+        effectivePrice = formatSpotPriceToValid(
+          orderPrice.price.toFixed(),
+          szDec,
+        );
       } else {
         effectivePrice = formatPriceToSignificantDigits(orderPrice.price);
       }

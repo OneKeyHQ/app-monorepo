@@ -504,6 +504,42 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
   return intLen + dec.length <= MAX_SIGNIFICANT_FIGURES;
 }
 
+// Spot variant: max decimals = MAX_DECIMALS_SPOT - szDecimals (vs PERP's 6).
+function validateSpotPriceInput(input: string, szDecimals = 0): boolean {
+  if (!input) return true;
+
+  const text = input.replace(/。/g, '.');
+  if (text === '00') return false;
+
+  if (text.length > 1 && text[0] === '0' && text[1] !== '.') {
+    return false;
+  }
+
+  const maxDecimals = MAX_DECIMALS_SPOT - szDecimals;
+
+  if (!/^[0-9]*\.?[0-9]*$/.test(text) || text.split('.').length > 2)
+    return false;
+  if (maxDecimals <= 0) return !/\./.test(text);
+
+  const [int = '0', dec = ''] = text.split('.');
+  if (int.length > MAX_PRICE_INTEGER_DIGITS) return false;
+  const hasDecimal = text.includes('.');
+
+  if (dec.length > maxDecimals) return false;
+
+  const intLen = int.replace(/^0+/, '').length;
+  const isZeroInt = intLen === 0;
+
+  if (intLen >= MAX_SIGNIFICANT_FIGURES) return !hasDecimal;
+
+  if (isZeroInt) {
+    const leadingZeros = dec.match(/^0*/)?.[0].length || 0;
+    return dec.length - leadingZeros <= MAX_SIGNIFICANT_FIGURES;
+  }
+
+  return intLen + dec.length <= MAX_SIGNIFICANT_FIGURES;
+}
+
 /**
  * Format price to display with significant digits and precision constraints
  *
@@ -1635,6 +1671,7 @@ export {
   validateSizeInput,
   formatPercentage,
   validatePriceInput,
+  validateSpotPriceInput,
   formatPriceToSignificantDigits,
   calculateProfitLoss,
   findMarginTier,
@@ -1677,6 +1714,7 @@ export default {
   validateSizeInput,
   formatPercentage,
   validatePriceInput,
+  validateSpotPriceInput,
   formatPriceToSignificantDigits,
   calculateProfitLoss,
   findMarginTier,
