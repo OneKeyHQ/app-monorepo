@@ -18,6 +18,18 @@ export interface IRecentRecipientsDBStruct {
 const SIMPLE_DB_KEY_PREFIX = 'simple_db_v5';
 const OLD_ENTITY_NAME = 'recentRecipients';
 
+function buildRecipientStorageKey({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}): string {
+  const networkKey =
+    networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
+  return `${networkKey}__${accountId}`;
+}
+
 export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRecipientsDBStruct> {
   entityName = 'recentRecipientsV2';
 
@@ -137,13 +149,14 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   @backgroundMethod()
   async deleteRecentRecipient({
     networkId,
+    accountId,
     address,
   }: {
     networkId: string;
+    accountId: string;
     address: string;
   }) {
-    const storageKey =
-      networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
+    const storageKey = buildRecipientStorageKey({ networkId, accountId });
     await this.setRawData((rawData) => {
       const recentRecipients = rawData?.recentRecipients ?? {};
       const networkRecipients = recentRecipients[storageKey];
@@ -160,9 +173,11 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   @backgroundMethod()
   async getRecentRecipients({
     networkId,
+    accountId,
     limit = 5,
   }: {
     networkId: string;
+    accountId: string;
     limit?: number;
   }): Promise<
     { address: string; updatedAt: number; networkId?: string; memo?: string }[]
@@ -170,9 +185,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
     const rawData = await this.getRawData();
     const recentRecipients = rawData?.recentRecipients ?? {};
 
-    // For EVM networks, use 'evm' as the key; for others, use networkId
-    const storageKey =
-      networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
+    const storageKey = buildRecipientStorageKey({ networkId, accountId });
     const recipients = recentRecipients[storageKey] ?? {};
 
     const recentRecipientsSorted = Object.entries(recipients).toSorted(
@@ -191,18 +204,18 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   @backgroundMethod()
   async updateRecentRecipients({
     networkId,
+    accountId,
     address,
     updatedAt,
     memo,
   }: {
     networkId: string;
+    accountId: string;
     address: string;
     updatedAt: number;
     memo?: string;
   }) {
-    // For EVM networks, use 'evm' as the key to share recipients across all EVM chains
-    const storageKey =
-      networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
+    const storageKey = buildRecipientStorageKey({ networkId, accountId });
 
     await this.setRawData((rawData) => {
       const recentRecipients = rawData?.recentRecipients ?? {};
