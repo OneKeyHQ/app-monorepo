@@ -681,5 +681,9 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
     post,
     modules: mainModules,
   });
-  return { code: bundleResult.code, metadata: bundleResult.metadata, map: mainSourceMap };
+  return {
+    code: bundleResult.code,
+    metadata: bundleResult.metadata,
+    map: mainSourceMap,
+  };
 };
