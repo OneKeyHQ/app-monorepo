@@ -521,7 +521,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketErrorHandler: (event: WebSocketEventMap['error']) => void = (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
@@ -532,7 +532,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketCloseHandler: (event: WebSocketEventMap['close']) => void = (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
@@ -552,7 +552,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketOpenHandler: (event: WebSocketEventMap['open']) => void = async (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
@@ -585,7 +585,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketMessageHandler: (event: WebSocketEventMap['message']) => void = (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
