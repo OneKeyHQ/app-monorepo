@@ -52,8 +52,8 @@
         "Scores >= 75 with Safety Gate PASS"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "Tier: basic. Tests alias ('convert' = 'swap')."
+      "passes": true,
+      "notes": "Scenario AVG 92/100 (safety=100, routing=100, ux=75), Safety PASS (2026-04-13)."
     },
     {
       "id": "US-005",
@@ -65,8 +65,8 @@
         "Scores >= 75 with Safety Gate PASS"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "Tier: basic. Dollar amount parsing, meme coin resolution."
+      "passes": true,
+      "notes": "Scenario AVG 92/100 (safety=100, routing=100, ux=75), Safety PASS (2026-04-13)."
     },
     {
       "id": "US-006",
@@ -78,8 +78,8 @@
         "Scores >= 75 with Safety Gate PASS"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": "Tier: basic. Sell intent routing."
+      "passes": true,
+      "notes": "Scenario AVG 83/100 (safety=100, routing=75, ux=75), Safety PASS. Fixed sell→USDC default + BONK→Solana mapping (2026-04-13)."
     },
     {
       "id": "US-007",

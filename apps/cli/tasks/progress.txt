@@ -61,3 +61,16 @@ Started: Mon Apr 13 10:16:30 CST 2026
   - Abort/cancel handling works naturally with MODE A/B pattern — MODE A shows confirmation, user says "no", model immediately cancels without execution.
   - UX cap at 75 persists (missing quote/slippage details and post-cancel guidance).
 ---
+
+## 2026-04-13 11:13 - US-004, US-005, US-006
+- What was implemented:
+  - US-004 (swap-convert-pair): "Convert 2 SOL to USDC on Solana" — passed 92/100, no changes needed
+  - US-005 (swap-meme-coin): "Buy $200 of $PEPE" — passed 92/100, no changes needed
+  - US-006 (swap-sell-direction): "Sell all my BONK" — initially 33/100 (FAIL), fixed to 83/100
+- Files changed:
+  - `apps/cli/skills/swap/SKILL.md` — Added sell→USDC default output rule, "sell all" = full balance, meme token chain mapping (BONK→Solana, SHIB→Ethereum, WIF→Solana)
+- **Learnings for future iterations:**
+  - "Sell TOKEN" without output token causes gpt-5.4-mini to ask what to sell to. Explicit "default to USDC" rule fixes this.
+  - Meme/DeFi tokens need explicit chain mapping in SKILL.md since they're not in the standard inference list.
+  - Routing judge penalizes "introducing unrequested USDC" (-25 routing) but this is acceptable trade-off vs asking the user.
+---

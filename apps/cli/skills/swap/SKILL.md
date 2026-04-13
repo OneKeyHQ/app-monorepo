@@ -58,8 +58,9 @@
 - Cross-chain swaps use `--to-chain` parameter
 - Provider sorting: `--sort` controls quote ranking strategy
 - "Buy $X of TOKEN" = swap from a stablecoin or native token worth $X into TOKEN
-- "Sell TOKEN" = swap from TOKEN to a stablecoin or native token
-- "Sell all TOKEN" = check balance first, then swap the full balance
+- "Sell TOKEN" = swap TOKEN → USDC (default output for sell is USDC). Do NOT ask what to sell to — default to USDC.
+- "Sell all TOKEN" = check balance first, then swap the FULL balance to USDC. Show the balance amount in confirmation.
+- Common meme/DeFi token chains: BONK → Solana, SHIB → Ethereum, DOGE → Dogecoin, WIF → Solana
 
 ## How to Respond — TWO MODES
 
