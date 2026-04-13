@@ -84,11 +84,6 @@ import {
   spotBalancesAtom,
   spotPairDisplayMapAtom,
 } from '../../states/jotai/atoms';
-import type {
-  ISpotActiveAssetCtxAtom,
-  ISpotAssetCtxEntry,
-} from '../../states/jotai/atoms/spot';
-
 import ServiceBase from '../ServiceBase';
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
@@ -109,6 +104,10 @@ import type {
   IPerpsDepositToken,
   IPerpsDepositTokensAtom,
 } from '../../states/jotai/atoms';
+import type {
+  ISpotActiveAssetCtxAtom,
+  ISpotAssetCtxEntry,
+} from '../../states/jotai/atoms/spot';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 import type { IHyperliquidMaxBuilderFee } from '../ServiceWebviewPerp';
 import type {
