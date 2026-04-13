@@ -21,7 +21,6 @@ import {
 import type { ITabContainerRef } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -648,17 +647,9 @@ function MobileBrowser() {
 
 function BaseMobileBrowser() {
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <LazyPageContainer>
-        <MobileBrowser />
-      </LazyPageContainer>
-    </AccountSelectorProviderMirror>
+    <LazyPageContainer>
+      <MobileBrowser />
+    </LazyPageContainer>
   );
 }
 
