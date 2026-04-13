@@ -52,11 +52,13 @@ function MobileTradingViewTouchBridge({
   networkId,
   tokenSymbol,
   dataSource,
+  pageWidth,
 }: {
   tokenAddress: string;
   networkId: string;
   tokenSymbol: string;
   dataSource: 'websocket' | 'polling';
+  pageWidth?: number;
 }) {
   const handleTouchScroll = useMobileTabTouchScrollBridge();
 
@@ -66,6 +68,7 @@ function MobileTradingViewTouchBridge({
       networkId={networkId}
       tokenSymbol={tokenSymbol}
       dataSource={dataSource}
+      pageWidth={pageWidth}
       onTouchScroll={handleTouchScroll}
     />
   );
@@ -279,6 +282,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                       dataSource={
                         websocketConfig?.kline ? 'websocket' : 'polling'
                       }
+                      pageWidth={effectivePageWidth}
                     />
                   );
                 }
@@ -290,6 +294,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                     dataSource={
                       websocketConfig?.kline ? 'websocket' : 'polling'
                     }
+                    pageWidth={effectivePageWidth}
                   />
                 );
               })()}
@@ -311,6 +316,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       </YStack>
     );
   }, [
+    effectivePageWidth,
     handleHeaderHorizontalSwipe,
     networkId,
     tokenAddress,
@@ -434,7 +440,12 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       />
       <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
         {tabNames.map((_, index) => (
-          <YStack key={index} h={height} w={effectivePageWidth}>
+          <YStack
+            key={index}
+            h={height}
+            overflow="hidden"
+            w={effectivePageWidth}
+          >
             {renderItem({ index })}
           </YStack>
         ))}
