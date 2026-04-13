@@ -4298,6 +4298,8 @@ export enum ETranslations {
   token_selector_title = 'token_selector.title',
   token_selector_unverified_token_warning = 'token_selector.unverified_token_warning',
   touch_id_unlock_desc = 'touch_id_unlock_desc',
+  trade_enter_receiver_address_optional = 'trade.enter_receiver_address_optional',
+  trade_incognito_tooltips_new = 'trade.incognito_tooltips_new',
   trade_slip_huge_checkbox = 'trade.slip_huge_checkbox',
   trade_incognito_description = 'trade_incognito.description',
   trade_incognito_incognito_mode = 'trade_incognito.incognito_mode',
