@@ -70,6 +70,7 @@ import {
 } from '../../hooks/useSwapState';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
 
+import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
 interface ISwapActionsStateProps {
@@ -138,7 +139,7 @@ const SwapActionsState = ({
   const incognitoTooltipDescription = useMemo(
     () =>
       `${intl.formatMessage({
-        id: ETranslations.trade_incognito_description,
+        id: ETranslations.trade_incognito_tooltips_new,
       })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
         id: ETranslations.trade_incognito_read_more,
       })}</underline></url>`,
@@ -219,16 +220,62 @@ const SwapActionsState = ({
   const shouldShowRecipient = useMemo(
     () =>
       !!(
+        !swapIncognitoMode &&
         swapEnableRecipientAddress &&
         swapProviderSupportReceiveAddress &&
         fromToken &&
         toToken
       ),
     [
+      swapIncognitoMode,
       swapEnableRecipientAddress,
       swapProviderSupportReceiveAddress,
       fromToken,
       toToken,
+    ],
+  );
+
+  const shouldShowIncognitoRecipientInput = useMemo(
+    () =>
+      !!(
+        swapIncognitoMode &&
+        swapProviderSupportReceiveAddress &&
+        fromToken &&
+        toToken &&
+        swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+      ),
+    [
+      fromToken,
+      swapIncognitoMode,
+      swapProviderSupportReceiveAddress,
+      swapTypeSwitch,
+      toToken,
+    ],
+  );
+
+  const incognitoRecipientInputComponent = useMemo(
+    () => (
+      <SwapIncognitoRecipientInput
+        visible={shouldShowIncognitoRecipientInput}
+        networkId={toToken?.networkId ?? swapToAddressInfo.networkId}
+        accountId={
+          swapToAddressInfo.activeAccount?.account?.id ??
+          swapToAddressInfo.accountInfo?.account?.id
+        }
+        address={swapToAnotherAccountAddress.address}
+        swapToAnotherAccountSwitchOn={swapToAnotherAccountSwitchOn}
+        onOpenRecipientAddress={onOpenRecipientAddress}
+      />
+    ),
+    [
+      onOpenRecipientAddress,
+      shouldShowIncognitoRecipientInput,
+      swapToAnotherAccountAddress.address,
+      swapToAnotherAccountSwitchOn,
+      swapToAddressInfo.accountInfo?.account?.id,
+      swapToAddressInfo.activeAccount?.account?.id,
+      swapToAddressInfo.networkId,
+      toToken?.networkId,
     ],
   );
 
@@ -782,11 +829,13 @@ const SwapActionsState = ({
           : {})}
       >
         {metaRow}
+        {incognitoRecipientInputComponent}
         {actionRowComponent}
       </Stack>
     );
   }, [
     actionRowComponent,
+    incognitoRecipientInputComponent,
     incognitoComponent,
     showRecipientInMetaRow,
     isDesktopModalPage,
@@ -880,7 +929,14 @@ const SwapActionsState = ({
 
   return (
     <>
-      {isDesktopModalPage ? desktopFooterComponent : actionComponentCoverFooter}
+      {isDesktopModalPage ? (
+        <>
+          {incognitoRecipientInputComponent}
+          {desktopFooterComponent}
+        </>
+      ) : (
+        actionComponentCoverFooter
+      )}
     </>
   );
 };
