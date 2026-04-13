@@ -444,6 +444,7 @@ export function useRecentRecipientsData({
     setIsLoadingRecent(true);
     setIsLoadingMore(false);
     setRecentRecipients([]);
+    setLastUsedDeriveType(undefined);
 
     const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
 
