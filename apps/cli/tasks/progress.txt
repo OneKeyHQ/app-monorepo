@@ -28,3 +28,13 @@ Started: Mon Apr 13 10:16:30 CST 2026
   - UX score caps at 75 without quote/slippage/fee data (which requires actual CLI execution). This is acceptable for single-turn scenarios.
   - Routing table format in markdown (Intent → Skill) is recognized by static analysis.
 ---
+
+## 2026-04-13 10:55 - US-001 (re-validation)
+- What was implemented: Re-validated swap-basic.yaml under single-skill model (swap skill only, not all 4 skills)
+- No SKILL.md changes needed — prior optimizations held up
+- Results: Scenario AVG 92/100 (safety=100, routing=100, ux=75), Safety Gate PASS, SCORE=53/100
+- **Learnings for future iterations:**
+  - SCORE (53/100) is lower than Scenario AVG (92/100) because benchmark dimensions only sum to 55 max (safety:30 + routing:15 + ux:10). The remaining 45 points likely come from dimensions that require more scenarios to activate.
+  - Single-skill evaluation produces identical scenario scores to multi-skill — SKILL.md quality is what matters.
+  - Static analysis warns about missing YAML frontmatter and sub-skills — potential improvement area for overall SCORE but not for acceptance criteria.
+---
