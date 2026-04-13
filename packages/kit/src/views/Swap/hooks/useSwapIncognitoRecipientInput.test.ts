@@ -335,4 +335,42 @@ describe('useSwapIncognitoRecipientInput', () => {
     expect(mockSwapToAddressState.address).toBe('0xresolved-recipient');
     expect(result.current.inputText).toBe('');
   });
+
+  it('clears the input when the recipient is reset externally after the synced address is revalidated', async () => {
+    mockQueryAddressWithFallback.mockResolvedValueOnce({
+      input: '0xresolved-recipient',
+      resolveAddress: '0xresolved-recipient',
+      validStatus: 'valid',
+    });
+
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: '0xresolved-recipient',
+      swapToAnotherAccountSwitchOn: true,
+    });
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(true);
+      expect(mockSwapToAddressState.address).toBe('0xresolved-recipient');
+      expect(result.current.inputText).toBe('0xresolved-recipient');
+    });
+
+    rerender({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+    });
+
+    await waitFor(() => {
+      expect(result.current.inputText).toBe('');
+    });
+  });
 });

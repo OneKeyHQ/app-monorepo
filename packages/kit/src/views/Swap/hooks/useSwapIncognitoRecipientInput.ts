@@ -249,12 +249,14 @@ export function useSwapIncognitoRecipientInput({
       return;
     }
 
+    const nextText = swapToAnotherAccountSwitchOn && address ? address : '';
+
     if (skipExternalSyncRef.current) {
       skipExternalSyncRef.current = false;
-      return;
+      if (textRef.current === nextText) {
+        return;
+      }
     }
-
-    const nextText = swapToAnotherAccountSwitchOn && address ? address : '';
 
     if (textRef.current === nextText) {
       return;
