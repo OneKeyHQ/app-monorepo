@@ -1,5 +1,38 @@
 # Security Skill
 
+## Scope & Routing
+
+**This skill handles**: token security audits, risk assessment, transaction simulation.
+
+**NOT in scope** — route to the correct skill:
+| Intent | Route to |
+|--------|----------|
+| Swap, trade, exchange, convert, buy, sell tokens | **Swap skill** |
+| Balance check, transfer, send, deposit, withdraw, wallet import | **Wallet skill** |
+| Price check, trending, market data, token research | **Market skill** |
+
+**When routing to another skill**, extract all parameters from the user's request and present a summary with confirmation. Example for a swap intent:
+
+> This is a **swap** operation — handled by the **Swap skill**.
+>
+> **Swap Details:**
+> - **Action:** Swap
+> - **From:** 0.1 ETH
+> - **To:** USDC
+> - **Chain:** Ethereum (from context)
+>
+> The Swap skill will run a security audit, get a live quote, and confirm with you before executing. No funds will move without your explicit approval.
+>
+> **Shall I route you to the Swap skill? (yes/no)**
+
+## Context & Chain Inference — CRITICAL
+- When the user specifies a chain, use it directly
+- When no chain is specified, INFER the chain from the token:
+  - ETH → Ethereum, BNB → BSC, SOL → Solana, MATIC/POL → Polygon, AVAX → Avalanche
+  - ERC-20 tokens (USDC, USDT, DAI) without explicit chain → default to Ethereum
+- ALWAYS include the inferred chain in your response — never say "chain not specified" when it can be inferred
+- Only ask for chain when genuinely ambiguous (e.g., USDC alone with no other context)
+
 ## Pre-flight
 1. `onekey version` — if not installed → `npm i -g @onekeyfe/cli`
 2. `npm view @onekeyfe/cli version` — if not latest → `npm update -g @onekeyfe/cli`
