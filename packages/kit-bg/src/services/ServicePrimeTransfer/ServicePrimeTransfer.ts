@@ -1386,6 +1386,9 @@ class ServicePrimeTransfer extends ServiceBase {
           shouldSendDecryptedCredentialsToCli,
       });
       if (shouldSendDecryptedCredentialsToCli) {
+        // CLI bot-wallet import intentionally relies on the pairing-session
+        // E2EE payload and skips an extra receiver-side passcode prompt.
+        // Keep the decrypted credential only for this constrained CLI path.
         transferData.privateData.decryptedCredentialsHex = undefined;
       } else {
         transferData.privateData.decryptedCredentialsHex =
