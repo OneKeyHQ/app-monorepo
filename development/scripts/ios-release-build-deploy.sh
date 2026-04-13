@@ -58,6 +58,8 @@ cmd_build() {
   SENTRY_DISABLE_AUTO_UPLOAD=true \
   ENABLE_NATIVE_BACKGROUND_THREAD=true \
   UNION_BUILD=true \
+  SPLIT_BUNDLE=1 \
+  SPLIT_BUNDLE_SEGMENTS=true \
   node --max-old-space-size=8192 build-bundle.js --platform ios
 
   echo ""
@@ -127,6 +129,8 @@ cmd_xcode() {
   SENTRY_DISABLE_AUTO_UPLOAD=true \
   ENABLE_NATIVE_BACKGROUND_THREAD=true \
   UNION_BUILD=true \
+  SPLIT_BUNDLE=1 \
+  SPLIT_BUNDLE_SEGMENTS=true \
   COMPILER_INDEX_STORE_ENABLE=NO \
   xcodebuild \
     -workspace ios/OneKeyWallet.xcworkspace \

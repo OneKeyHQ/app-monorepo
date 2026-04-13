@@ -28,10 +28,18 @@ function logSplashProvider(message: string) {
   }
 }
 
-/** Check if jotai was hydrated from MMKV snapshot (not first install). */
+/** Check if jotai was hydrated from MMKV snapshot WITH balance data.
+ *  Only return true when the snapshot actually contains accountWorthAtom,
+ *  which means the home screen can render cached balance immediately.
+ *  Without balance cache, waiting for HomePageReady would stall splash
+ *  until a network fetch completes (or the 10s safety timer fires). */
 function hasJotaiCacheFromMmkv(): boolean {
-  // Set by index.ts when MMKV snapshot is pre-read
-  return Boolean((globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__);
+  const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
+    | Record<string, unknown>
+    | undefined;
+  if (!snapshot) return false;
+  // Only treat as "cached" when balance data is present
+  return 'ctx:accountWorthAtom' in snapshot;
 }
 
 export const useCanDismissSplash =

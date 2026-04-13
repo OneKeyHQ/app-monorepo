@@ -50,6 +50,8 @@ cmd_build() {
   SENTRY_DISABLE_AUTO_UPLOAD=true \
   ENABLE_NATIVE_BACKGROUND_THREAD=true \
   UNION_BUILD=true \
+  SPLIT_BUNDLE=1 \
+  SPLIT_BUNDLE_SEGMENTS=true \
   node --max-old-space-size=8192 build-bundle.js --platform android
 
   echo ""
@@ -183,6 +185,8 @@ cmd_gradle() {
   SENTRY_DISABLE_AUTO_UPLOAD=true \
   ENABLE_NATIVE_BACKGROUND_THREAD=true \
   UNION_BUILD=true \
+  SPLIT_BUNDLE=1 \
+  SPLIT_BUNDLE_SEGMENTS=true \
   ./gradlew :app:assembleProdRelease \
     --no-daemon \
     -PmemoryMax=8192m
