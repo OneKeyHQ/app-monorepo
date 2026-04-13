@@ -35,6 +35,10 @@ function makeSession(
 let tempDir: string;
 let sessionPath: string;
 
+function getPermissionMode(path: string): number {
+  return Number.parseInt(statSync(path).mode.toString(8).slice(-3), 8);
+}
+
 beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'auth-session-store-'));
   sessionPath = join(tempDir, 'auth-session.json');
@@ -113,7 +117,7 @@ describe('AuthSessionStore', () => {
 
     await store.save(makeSession());
 
-    expect(statSync(tempDir).mode & 0o777).toBe(0o700);
-    expect(statSync(sessionPath).mode & 0o777).toBe(0o600);
+    expect(getPermissionMode(tempDir)).toBe(0o700);
+    expect(getPermissionMode(sessionPath)).toBe(0o600);
   });
 });
