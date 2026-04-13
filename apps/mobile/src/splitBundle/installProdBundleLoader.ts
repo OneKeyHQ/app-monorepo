@@ -122,6 +122,10 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
         // both sync and async import() edges — the serializer classifies it
         // as eager but the async require path is not rewritten inside segment
         // files). Resolve silently: the module is already available.
+        NativeLogger.write(
+          LogLevel.Warn,
+          `[SplitBundle] segment not in manifest: key="${segmentKey}", runtime=${getRuntimeKind()}, manifestSize=${Object.keys(getSegmentManifest().segments).length}`,
+        );
         loadedSegments.add(segmentKey);
         segmentStates.set(segmentKey, 'ready');
         return;
