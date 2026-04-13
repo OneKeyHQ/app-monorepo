@@ -172,6 +172,11 @@ log('bundle generated at', bundleOutputPath);
 // ---------------------------------------------------------------------------
 const { getSegmentsDir } = require('../plugins/segmentPaths');
 
+// Segments must live alongside the bundle in the assets directory, NOT in
+// --assets-dest which on Android points to the res/ (resources) directory.
+// res/ requires .xml extensions and would reject .seg.hbc files.
+const segmentsBaseDir = path.dirname(bundleOutputPath);
+
 const compileAndCopySegments = (runtimeTarget, outputSubdir) => {
   const segmentsInputDir = getSegmentsDir(runtimeTarget);
   if (!fs.existsSync(segmentsInputDir)) {
@@ -187,7 +192,7 @@ const compileAndCopySegments = (runtimeTarget, outputSubdir) => {
     return;
   }
 
-  const segmentsOutputDir = path.join(assetsDestPath, outputSubdir);
+  const segmentsOutputDir = path.join(segmentsBaseDir, outputSubdir);
   fs.ensureDirSync(segmentsOutputDir);
   log(
     `compiling ${segFiles.length} ${runtimeTarget} segment(s) → ${segmentsOutputDir}`,

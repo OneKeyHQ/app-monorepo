@@ -292,49 +292,22 @@ def registerBackgroundReleaseBundleTask(variant, appProjectRootDir) {
         )
     }
 
-    // Compile segment files produced by the Metro segmentSerializer to HBC.
-    // Main segments are created during createBundleXxxJsAndAssets (dist/segments/),
-    // background segments during createBackgroundBundleXxx (dist/segments-background/).
+    // Segment HBC files are compiled by build-release-background-bundle.js
+    // and placed alongside the bundle in mainBundleAssetsDir (segments/ and
+    // segments-background/ subdirectories). They are included in APK assets
+    // automatically by the merge task.
     def mainSegmentsOutputDir = file("$buildDir/generated/assets/${mainBundleTaskName}/segments")
     def bgSegmentsOutputDir = file("$buildDir/generated/assets/${mainBundleTaskName}/segments-background")
 
-    def buildSegmentsTaskName = "buildSegments${targetName}"
-    def buildSegmentsTask = tasks.register(buildSegmentsTaskName) {
-        dependsOn(backgroundBundleTask)
-
-        doLast {
-            // Compile main-runtime segments
-            exec {
-                workingDir appProjectRootDir
-                commandLine(
-                    "node",
-                    "scripts/build-release-segments.js",
-                    "--runtime-target", "main",
-                    "--output-dir", mainSegmentsOutputDir.absolutePath,
-                )
-            }
-            // Compile background-runtime segments
-            exec {
-                workingDir appProjectRootDir
-                commandLine(
-                    "node",
-                    "scripts/build-release-segments.js",
-                    "--runtime-target", "background",
-                    "--output-dir", bgSegmentsOutputDir.absolutePath,
-                )
-            }
-        }
-    }
-
     tasks.named("merge${targetName}Assets").configure {
-        dependsOn(buildSegmentsTask)
+        dependsOn(backgroundBundleTask)
     }
     tasks.named("merge${targetName}Resources").configure {
         dependsOn(backgroundBundleTask)
     }
 
     def syncBackgroundBundleTask = tasks.register(syncBackgroundBundleTaskName) {
-        dependsOn(buildSegmentsTask)
+        dependsOn(backgroundBundleTask)
         dependsOn(tasks.named(mergeAssetsTaskName))
 
         doLast {
@@ -360,7 +333,6 @@ def registerBackgroundReleaseBundleTask(variant, appProjectRootDir) {
                 from(backgroundBundleOutputFile)
                 into(sentryInjectedAssetsDir)
             }
-            // Also copy segments into sentry-injected assets dir
             if (mainSegmentsOutputDir.exists()) {
                 copy {
                     from(mainSegmentsOutputDir)
