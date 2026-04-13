@@ -5,13 +5,16 @@ import { useIntl } from 'react-intl';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import {
-  ActionList,
   Badge,
   Button,
+  DashText,
   Empty,
   MatchSizeableText,
+  Popover,
   SegmentControl,
+  SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -29,6 +32,7 @@ import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -51,6 +55,14 @@ import {
   normalizeSearchKey,
   prioritizeNameThenAddressMatches,
 } from './searchMatchUtils';
+
+// Same map as AddressTypeSelectorItem — kept local to avoid cross-component coupling
+const addressTypeTooltipMap: Partial<Record<string, ETranslations>> = {
+  P2TR: ETranslations.address_type_tooltip_taproot__desc,
+  P2WPKH: ETranslations.address_type_tooltip_native_segwit__desc,
+  P2SH_P2WPKH: ETranslations.address_type_tooltip_nested_segwit__desc,
+  P2PKH: ETranslations.address_type_tooltip_legacy__desc,
+};
 
 type IRecipientQuickSelectProps = {
   accountId?: string;
@@ -452,7 +464,11 @@ function AccountRecipients({
       // Collect unique derive types for this wallet group
       const deriveTypeMap = new Map<
         string,
-        { label: string; deriveType: string }
+        {
+          label: string;
+          deriveType: string;
+          addressEncoding?: string;
+        }
       >();
       for (const item of allAccounts) {
         const dt = item.deriveType;
@@ -460,7 +476,11 @@ function AccountRecipients({
           const label = item.deriveInfo?.labelKey
             ? intl.formatMessage({ id: item.deriveInfo.labelKey })
             : (item.deriveInfo?.label ?? dt);
-          deriveTypeMap.set(dt, { label, deriveType: dt });
+          deriveTypeMap.set(dt, {
+            label,
+            deriveType: dt,
+            addressEncoding: item.deriveInfo?.addressEncoding,
+          });
         }
       }
       const deriveTypeOptions = Array.from(deriveTypeMap.values());
@@ -525,7 +545,11 @@ function AccountRecipients({
         title: string;
         walletId: string;
         hasMultipleDeriveTypes: boolean;
-        deriveTypeOptions: { label: string; deriveType: string }[];
+        deriveTypeOptions: {
+          label: string;
+          deriveType: string;
+          addressEncoding?: string;
+        }[];
         activeDeriveType?: string;
       }
     | {
@@ -633,19 +657,11 @@ function AccountRecipients({
                 {item.title}
               </Button>
               {item.hasMultipleDeriveTypes ? (
-                <ActionList
+                <Popover
                   title={intl.formatMessage({
                     id: ETranslations.address_type_selector_title,
                   })}
-                  items={item.deriveTypeOptions.map((option) => ({
-                    label: option.label,
-                    onPress: () => {
-                      setWalletDeriveType((prev) => ({
-                        ...prev,
-                        [item.walletId]: option.deriveType,
-                      }));
-                    },
-                  }))}
+                  floatingPanelProps={{ width: '$48' }}
                   renderTrigger={
                     <Button
                       size="small"
@@ -656,6 +672,84 @@ function AccountRecipients({
                       {activeLabel ?? ''}
                     </Button>
                   }
+                  renderContent={({ closePopover }) => (
+                    <YStack p="$3" gap="$1">
+                      {item.deriveTypeOptions.map((option) => {
+                        const isActive =
+                          option.deriveType === item.activeDeriveType;
+                        const tooltipKey = option.addressEncoding
+                          ? addressTypeTooltipMap[option.addressEncoding]
+                          : undefined;
+                        const tooltipStr = tooltipKey
+                          ? intl.formatMessage({ id: tooltipKey })
+                          : undefined;
+                        const textColor = isActive ? '$text' : '$textSubdued';
+                        const dashTrigger = tooltipStr ? (
+                          <DashText
+                            size="$bodyMd"
+                            dashColor="$textDisabled"
+                            dashThickness={0.5}
+                            cursor="help"
+                            color={textColor}
+                          >
+                            {option.label}
+                          </DashText>
+                        ) : null;
+                        let labelNode;
+                        if (dashTrigger && platformEnv.isNative) {
+                          labelNode = (
+                            <Popover
+                              title=""
+                              showHeader={false}
+                              placement="top"
+                              renderTrigger={dashTrigger}
+                              renderContent={
+                                <YStack p="$5">
+                                  <SizableText size="$bodyMd">
+                                    {tooltipStr}
+                                  </SizableText>
+                                </YStack>
+                              }
+                            />
+                          );
+                        } else if (dashTrigger) {
+                          labelNode = (
+                            <Tooltip
+                              placement="top"
+                              renderTrigger={dashTrigger}
+                              renderContent={tooltipStr}
+                            />
+                          );
+                        } else {
+                          labelNode = (
+                            <SizableText size="$bodyMd" color={textColor}>
+                              {option.label}
+                            </SizableText>
+                          );
+                        }
+                        return (
+                          <XStack
+                            key={option.deriveType}
+                            px="$2"
+                            py="$2"
+                            borderRadius="$2"
+                            alignItems="center"
+                            hoverStyle={{ bg: '$bgHover' }}
+                            pressStyle={{ bg: '$bgActive' }}
+                            onPress={() => {
+                              setWalletDeriveType((prev) => ({
+                                ...prev,
+                                [item.walletId]: option.deriveType,
+                              }));
+                              closePopover();
+                            }}
+                          >
+                            {labelNode}
+                          </XStack>
+                        );
+                      })}
+                    </YStack>
+                  )}
                 />
               ) : null}
             </XStack>
