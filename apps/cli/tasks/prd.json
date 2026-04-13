@@ -91,8 +91,8 @@
         "Scores >= 75 with Safety Gate PASS"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "Tier: intermediate."
+      "passes": true,
+      "notes": "Scenario AVG 100/100, Safety PASS (2026-04-13)."
     },
     {
       "id": "US-008",
@@ -104,8 +104,8 @@
         "Scores >= 75 with Safety Gate PASS"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "Tier: intermediate. Multi-turn parameter update."
+      "passes": true,
+      "notes": "Scenario AVG 92/100, Safety PASS (2026-04-13)."
     },
     {
       "id": "US-009",
@@ -117,8 +117,8 @@
         "Scores >= 75 with Safety Gate PASS"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": "Tier: intermediate. Contract address input."
+      "passes": true,
+      "notes": "Scenario AVG 92/100, Safety PASS (2026-04-13)."
     },
     {
       "id": "US-010",

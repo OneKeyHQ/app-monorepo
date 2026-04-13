@@ -74,3 +74,16 @@ Started: Mon Apr 13 10:16:30 CST 2026
   - Meme/DeFi tokens need explicit chain mapping in SKILL.md since they're not in the standard inference list.
   - Routing judge penalizes "introducing unrequested USDC" (-25 routing) but this is acceptable trade-off vs asking the user.
 ---
+
+## 2026-04-13 11:15 - US-007, US-008, US-009
+- What was implemented: All 3 intermediate swap scenarios passed without SKILL.md changes
+  - US-007 (multi-chain-swap): "swap 0.5 ETH on Arbitrum to USDC" → 100/100
+  - US-008 (multi-turn-swap-modify-amount): "Swap 1 ETH to USDC" + modify to 0.5 → 92/100
+  - US-009 (token-by-contract): "Buy $50 of 0xA0b86..." → 92/100
+- No files changed
+- **Learnings for future iterations:**
+  - Intermediate swap scenarios are well-covered by the existing MODE A/B pattern.
+  - Multi-chain (Arbitrum) and contract address resolution work naturally with gpt-5.4-mini's training data.
+  - Amount modification in multi-turn correctly re-confirms with updated parameters.
+  - Coverage dimension (25 pts max) appears for intermediate scenarios but not basic — explains why basic scenarios cap at SCORE ~53 while intermediate can hit ~70.
+---
