@@ -9,7 +9,6 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { appStorage } from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -115,11 +114,19 @@ export const useCanDismissSplash =
           // 1. Balance cache → wait HomePageReady (instant with hydration)
           // 2. Pending OTA task → wait for background RPC to finish
           // 3. Neither → dismiss immediately, no need to wait
-          const hasPendingTask = Boolean(
-            appStorage.syncStorage.getString(
-              EAppSyncStorageKeys.onekey_pending_install_task,
-            ),
-          );
+          let hasPendingTask = false;
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { syncStorage } =
+              require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+            hasPendingTask = Boolean(
+              syncStorage.getString(
+                EAppSyncStorageKeys.onekey_pending_install_task,
+              ),
+            );
+          } catch {
+            // syncStorage not available — treat as no pending task
+          }
           logSplashProvider(
             `hasCachedStates=${hasCachedStates}, hasPendingTask=${hasPendingTask}`,
           );
