@@ -3,6 +3,7 @@ import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/con
 import {
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
+  parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 export function useActiveTradeDisplay() {
@@ -20,11 +21,14 @@ export function useActiveTradeDisplay() {
     };
   }
 
+  const coin = tradeInstrument.coin || perpsAsset.coin;
+  const parsed = parseDexCoin(coin);
+
   return {
     mode: 'perp' as const,
-    coin: tradeInstrument.coin || perpsAsset.coin,
-    displayName: tradeInstrument.coin || perpsAsset.coin,
-    baseName: tradeInstrument.coin || perpsAsset.coin,
+    coin,
+    displayName: parsed.displayName,
+    baseName: parsed.displayName,
     assetId: tradeInstrument.assetId ?? perpsAsset.assetId,
   };
 }

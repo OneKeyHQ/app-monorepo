@@ -10,9 +10,8 @@ import type {
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
-// #region Active Asset
 export interface ISpotActiveAssetAtom {
-  coin: string; // e.g. "@107" or "PURR/USDC"
+  coin: string;
   assetId: number | undefined;
   universe: ISpotUniverse | undefined;
 }
@@ -41,9 +40,7 @@ export const {
   name: EAtomNames.spotActiveAssetCtxAtom,
   initialValue: undefined,
 });
-// #endregion
 
-// #region Balances
 export interface ISpotBalancesAtom {
   balances: ISpotBalance[];
   isLoaded: boolean;
@@ -56,9 +53,7 @@ export const { target: spotBalancesAtom, use: useSpotBalancesAtom } =
       isLoaded: false,
     },
   });
-// #endregion
 
-// #region Token Selector
 export const {
   target: spotTokenSelectorConfigPersistAtom,
   use: useSpotTokenSelectorConfigPersistAtom,
@@ -85,9 +80,7 @@ export const {
     favorites: [],
   },
 });
-// #endregion
 
-// #region Open Orders
 export interface ISpotActiveOpenOrdersAtom {
   accountAddress: string | undefined;
   openOrders: IPerpsFrontendOrder[];
@@ -102,11 +95,7 @@ export const {
     openOrders: [],
   },
 });
-// #endregion
 
-// #region Spot Pair Display Map
-// Maps pair names (@107, PURR/USDC) to display base names (HYPE, PURR)
-// Built once during refreshSpotMeta, used by trade history/orders to show readable names
 export type ISpotPairDisplayMap = Record<string, string>;
 export const {
   target: spotPairDisplayMapAtom,
@@ -115,25 +104,20 @@ export const {
   name: EAtomNames.spotPairDisplayMapAtom,
   initialValue: {},
 });
-// #endregion
 
-// #region Spot Asset Prices
 export interface ISpotAssetCtxEntry {
   markPx: string;
   prevDayPx?: string;
   dayNtlVlm?: string;
   circulatingSupply?: string;
 }
-// coin → context mapping, used by Balance tab (price/PNL) and Token selector (24h change, volume)
 export type ISpotAssetCtxsMap = Record<string, ISpotAssetCtxEntry>;
 export const { target: spotAssetCtxsMapAtom, use: useSpotAssetCtxsMapAtom } =
   globalAtom<ISpotAssetCtxsMap>({
     name: EAtomNames.spotAssetCtxsMapAtom,
     initialValue: {},
   });
-// #endregion
 
-// #region Trades History
 export type ISpotTradesHistoryDataAtom = ITradesHistoryData;
 export const {
   target: spotTradesHistoryDataAtom,
@@ -147,4 +131,3 @@ export const {
     accountAddress: undefined,
   },
 });
-// #endregion

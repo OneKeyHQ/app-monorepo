@@ -82,8 +82,8 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 2,
   },
-  // ACTIVE_SPOT_ASSET_CTX shares wire type "activeAssetCtx" with perps.
-  // Not used directly — spot mode reuses ACTIVE_ASSET_CTX with coin format detection in WS handler.
+  // Shares wire type "activeAssetCtx" with perps — spot mode reuses
+  // ACTIVE_ASSET_CTX and relies on coin format detection in the WS handler
   [ESubscriptionType.ACTIVE_SPOT_ASSET_CTX]: {
     eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 2,
@@ -103,13 +103,10 @@ export interface ISubscriptionState {
   isConnected: boolean;
   l2BookOptions?: IL2BookOptions | null;
   enableLedgerUpdates?: boolean;
-  // Spot balance subscription (Balances tab)
   spotEnabled?: boolean;
-  // Spot asset contexts subscription (Token selector Spot tab)
   spotAssetCtxsEnabled?: boolean;
-  // Active spot pair for BBO/ACTIVE_ASSET_CTX subscriptions (e.g. "@107")
   currentSpotSymbol?: string;
-  // Trading mode — per-asset subscriptions are exclusive based on this
+  // Per-asset subscriptions are mutually exclusive based on this
   tradingMode?: 'perp' | 'spot';
 }
 
@@ -153,7 +150,6 @@ export function calculateRequiredSubscriptions(
 ): ISubscriptionSpec<ESubscriptionType>[] {
   const specs: ISubscriptionSpec<ESubscriptionType>[] = [];
 
-  // Market Data: All Mids across all DEXes (main + XYZ)
   const allMidsParams: IWsAllMidsParameters = {
     dex: 'ALL_DEXS',
   };
@@ -174,11 +170,9 @@ export function calculateRequiredSubscriptions(
     }),
   );
 
-  // Per-asset subscriptions are MUTUALLY EXCLUSIVE — only one mode active at a time
-  // to avoid duplicate BBO/ctx data and unnecessary bandwidth
+  // Per-asset subscriptions are mutually exclusive — avoids duplicate BBO/ctx data
   if (state.tradingMode === 'spot' && state.currentSpotSymbol) {
-    // Spot mode: reuse ACTIVE_ASSET_CTX with spot coin
-    // (wire protocol is the same "activeAssetCtx", server returns spot data for @N coins)
+    // Wire protocol is the same "activeAssetCtx"; server returns spot data for @N coins
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.ACTIVE_ASSET_CTX,
@@ -204,7 +198,6 @@ export function calculateRequiredSubscriptions(
       );
     }
   } else if (state.currentSymbol) {
-    // Perps mode: subscribe to perps asset context + BBO + asset data + order book
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.ACTIVE_ASSET_CTX,
@@ -303,12 +296,8 @@ export function calculateRequiredSubscriptions(
       );
     }
 
-    // Note: per-asset ACTIVE_ASSET_DATA is added in the per-asset block above
-    // (perps mode only). Global WebData3 covers the rest of the user state.
   }
-  // else: no user address — only market data subscriptions are needed.
 
-  // Spot: global asset contexts (token selector, independent of balance subscription)
   if (state.spotAssetCtxsEnabled) {
     specs.push(
       buildSubscriptionSpec({

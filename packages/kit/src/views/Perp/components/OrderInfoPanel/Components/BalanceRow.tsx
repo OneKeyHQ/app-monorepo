@@ -66,7 +66,7 @@ function ContractAddressCell({
   const shortened = `${contract.slice(0, 6)}...${contract.slice(-4)}`;
   return (
     <XStack gap="$1" alignItems="center">
-      <SizableText size={size} color="$textSubdued">
+      <SizableText size={size} color="$textSubdued" fontFamily="$monoRegular">
         {shortened}
       </SizableText>
       <IconButton

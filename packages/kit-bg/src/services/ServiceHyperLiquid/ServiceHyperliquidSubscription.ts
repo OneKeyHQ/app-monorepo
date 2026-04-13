@@ -512,14 +512,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = socket?.readyState;
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
-    console.log('hyperliquidWebSocket__event__error', {
-      readyState,
-      code: (event as any)?.code,
-      message: (event as any)?.message,
-      reason: (event as any)?.reason,
-      args,
-      event,
-    });
+    // WS error event — readyState tracked via perpsWebSocketReadyStateAtom
   };
 
   socketCloseHandler: (event: WebSocketEventMap['close']) => void = (
@@ -530,14 +523,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = socket?.readyState;
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
-    console.log('hyperliquidWebSocket__event__close', {
-      readyState,
-      code: event.code,
-      reason: event.reason,
-      wasClean: event.wasClean,
-      args,
-      event,
-    });
+    // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
     this._activeSubscriptions.clear();
     this._stopPingLoop();
     void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
@@ -557,11 +543,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = socket?.readyState;
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
-    console.log('hyperliquidWebSocket__event__open', {
-      readyState,
-      args,
-      event,
-    });
+    // WS open event — readyState tracked via perpsWebSocketReadyStateAtom
 
     const prevNetworkStatus = await perpsNetworkStatusAtom.get();
     const wasConnected = prevNetworkStatus?.connected;
@@ -683,10 +665,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.ALL_DEXS_ASSET_CTXS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
-        // Spot subscription types
-        // Note: ACTIVE_SPOT_ASSET_CTX shares wire type "activeAssetCtx" with perps
-        // and is not registered here — spot ctx events are dispatched as ACTIVE_ASSET_CTX
-        // and routed by coin format (@N / BASE/QUOTE) in the handler.
+        ESubscriptionType.ACTIVE_SPOT_ASSET_CTX,
         ESubscriptionType.SPOT_STATE,
         ESubscriptionType.SPOT_ASSET_CTXS,
       ];
@@ -987,7 +966,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
         // Cache allMids in background for spot balance USD calculation
         hyperLiquidCache.allMids = data as IWsAllMids;
-        // Extract @N spot prices from allMids (always available, serves Balance tab)
         const allMidsData = data as { mids?: Record<string, string> };
         if (allMidsData?.mids) {
           void this.backgroundApi.serviceHyperliquid.extractSpotPricesFromAllMids(
@@ -1084,9 +1062,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.SPOT_ASSET_CTXS) {
-        // Writes directly to spotAssetCtxsMapAtom — no eventBus needed
         void this.backgroundApi.serviceHyperliquid.updateSpotAssetCtxsMap(
           data as IWsSpotAssetCtxs,
+        );
+        this._updateNetworkLiveness();
+        return;
+      }
+
+      if (subscriptionType === ESubscriptionType.ACTIVE_SPOT_ASSET_CTX) {
+        void this.backgroundApi.serviceHyperliquid.updateActiveSpotAssetCtx(
+          data as IWsActiveSpotAssetCtx,
         );
         this._updateNetworkLiveness();
         return;
@@ -1096,6 +1081,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         const coinStr = (data as { coin?: string })?.coin ?? '';
         const isSpotData = coinStr.startsWith('@') || coinStr.includes('/');
         if (isSpotData) {
+          // Fallback: some server versions may still send spot data on "activeAssetCtx"
           void this.backgroundApi.serviceHyperliquid.updateActiveSpotAssetCtx(
             data as IWsActiveSpotAssetCtx,
           );

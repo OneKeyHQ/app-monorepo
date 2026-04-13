@@ -14,6 +14,7 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { BalanceRow } from '../Components/BalanceRow';
 
@@ -143,10 +144,11 @@ function SpotBalanceList({
         pnlPercent = pnlBN.dividedBy(entryNtlBN).multipliedBy(100).toNumber();
       }
 
-      const needsSuffix = b.coin === 'USDC' && hasPerpsUsdc;
+      const displayCoin = getSpotTokenDisplayName(b.coin);
+      const needsSuffix = displayCoin === 'USDC' && hasPerpsUsdc;
 
       items.push({
-        coin: b.coin,
+        coin: displayCoin,
         type: 'spot',
         total: b.total,
         available: availableBN.toFixed(),

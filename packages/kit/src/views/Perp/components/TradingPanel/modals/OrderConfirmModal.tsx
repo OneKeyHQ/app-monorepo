@@ -321,6 +321,23 @@ function OrderConfirmContent({
           <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
         </XStack>
 
+        {/* Order Value */}
+        {orderValue.isFinite() && orderValue.gt(0) ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_order_value,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {numberFormat(orderValue.toFixed(2), {
+                formatter: 'value',
+                formatterOptions: { currency: '$' },
+              })}
+            </SizableText>
+          </XStack>
+        ) : null}
+
         {/* Price (standard orders only — trigger orders show trigger/execution price above) */}
         {!isTriggerMode ? (
           <XStack justifyContent="space-between" alignItems="center">
@@ -333,7 +350,7 @@ function OrderConfirmContent({
           </XStack>
         ) : null}
 
-        {/* Liquidation Price — perps only */}
+        {/* Liquidation Price */}
         {isSpot ? null : (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">

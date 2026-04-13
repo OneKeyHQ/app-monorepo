@@ -250,10 +250,10 @@ function TickerBar24hVolume() {
   const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const volume24h =
-    tradingMode === 'spot'
-      ? spotAssetCtx?.ctx?.volume24h || '0'
-      : assetCtx?.ctx?.volume24h || '0';
+  const isSpot = tradingMode === 'spot';
+  const volume24h = isSpot
+    ? spotAssetCtx?.ctx?.volume24h || '0'
+    : assetCtx?.ctx?.volume24h || '0';
   const formattedVolume24h = formatDisplayNumber(
     NUMBER_FORMATTER.marketCap(volume24h.toString()),
   );
@@ -687,7 +687,7 @@ function PerpTickerBarDesktop() {
         </XStack>
       </XStack>
 
-      {/* Right: Market Data -- hide perps-only items for spot */}
+      {/* Right: Market Data */}
       <ScrollView
         cursor="default"
         horizontal

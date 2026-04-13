@@ -32,6 +32,7 @@ import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
+  CACHE_TIME_QUANTIZE_MS,
   SPOT_ASSET_ID_OFFSET,
   XYZ_ASSET_ID_OFFSET,
   XYZ_DEX_PREFIX,
@@ -120,10 +121,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
 
-  // Throttled spot price atom writer — both updateSpotAssetCtxsMap and
-  // extractSpotPricesFromAllMids feed into this to limit re-renders
-  // Authoritative spot price cache — avoids async atom reads in the hot path.
-  // Written to atom on a throttled schedule.
+  // Avoids async atom reads in the hot path — written to atom on a throttled schedule
   private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
 
   private _spotPriceDirty = false;
@@ -131,7 +129,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _flushSpotPrices(map: Record<string, ISpotAssetCtxEntry>) {
-    // Field-level merge into cache: allMids only sets markPx, spotAssetCtxs sets full entry
+    // allMids only sets markPx, spotAssetCtxs sets full entry — merge so neither overwrites the other
     for (const [key, entry] of Object.entries(map)) {
       const existing = this._spotPriceCache[key];
       if (existing) {
@@ -143,10 +141,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     this._spotPriceDirty = true;
 
     if (!this._spotPriceFlushTimer) {
-      // Leading edge: flush immediately
       void spotAssetCtxsMapAtom.set({ ...this._spotPriceCache });
       this._spotPriceDirty = false;
-      // Then throttle subsequent flushes
       this._spotPriceFlushTimer = setTimeout(() => {
         this._spotPriceFlushTimer = null;
         if (this._spotPriceDirty) {
@@ -157,16 +153,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
-  // Cached spot symbol mappings — rebuilt on refreshSpotMeta(),
-  // reused by WS handlers and future trading logic without hitting SimpleDb
+  // Cached in-memory so WS handlers don't need async SimpleDb reads on the hot path
   private _spotMappings: {
-    // pair name (@107, PURR/USDC) → base token name (HYPE, PURR)
     pairToBaseName: Record<string, string>;
-    // base token name → spot asset ID (10000 + index)
     baseNameToAssetId: Record<string, number>;
-    // base token name → size decimals for order sizing
     baseNameToSzDecimals: Record<string, number>;
-    // base token name → pair name (for subscription coin params)
     baseNameToPairName: Record<string, string>;
   } = {
     pairToBaseName: {},
@@ -433,14 +424,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this._updatePerpsConfigByServerWithCache();
   }
 
-  // TODO: Change maxAge back to { hour: 1 } before production release
   _updatePerpsConfigByServerWithCache = cacheUtils.memoizee(
     async () => {
       return this.updatePerpsConfigByServer();
     },
     {
       max: 20,
-      maxAge: 0,
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
       promise: true,
     },
   );
@@ -506,7 +496,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       return current.fills;
     }
 
-    const now = Date.now();
+    // Quantize to 10-second boundary so near-simultaneous callers
+    // produce identical memoizee keys and share a single request.
+    const now =
+      Math.floor(Date.now() / CACHE_TIME_QUANTIZE_MS) * CACHE_TIME_QUANTIZE_MS;
     const historyDuration = timerUtils.getTimeDurationMs({ year: 2 });
     const twoYearsAgo = now - historyDuration;
 
@@ -706,8 +699,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     // to a brief flash of empty state while waiting for the new WS update.
   }
 
-  // Called from spotAssetCtxs WS — provides full context for token selector
-  // Key is pair name (@107, PURR/USDC) matching universe.name
   async updateSpotAssetCtxsMap(data: IWsSpotAssetCtxs) {
     if (!Array.isArray(data) || data.length === 0) return;
 
@@ -725,7 +716,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     this._flushSpotPrices(map);
   }
 
-  // Called from allMids WS — updates only markPx, keyed by pair name (@107, PURR/USDC)
   async extractSpotPricesFromAllMids(mids: Record<string, string>) {
     const map: Record<string, ISpotAssetCtxEntry> = {};
     for (const [coin, price] of Object.entries(mids)) {
@@ -917,7 +907,6 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     const balances = spotStateData?.spotState?.balances || [];
 
-    // Write to standalone spot balances atom (spot trading UI)
     await spotBalancesAtom.set({ balances, isLoaded: true });
 
     // Calculate total USD value from spot balances
@@ -1035,7 +1024,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       baseNameToPairName,
     };
 
-    // Write display map atom so UI can resolve @N → display name synchronously
+    // UI needs synchronous @N → display name resolution (no async SimpleDb lookup)
     const displayMap: Record<string, string> = {};
     for (const u of universes) {
       displayMap[u.name] = perpsUtils.getSpotTokenDisplayName(u.baseName);
@@ -1043,7 +1032,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     void spotPairDisplayMapAtom.set(displayMap);
   }
 
-  // Lazily rebuild from SimpleDb if service was restarted without refreshSpotMeta
+  // Service may restart without refreshSpotMeta — rebuild from SimpleDb on first access
   private async _ensureSpotMappings() {
     if (Object.keys(this._spotMappings.pairToBaseName).length > 0) return;
     const { universes } = await this.backgroundApi.simpleDb.perp.getSpotMeta();
@@ -1104,7 +1093,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         tokens,
         universes,
       });
-      // Rebuild cached mappings from fresh data
       this._rebuildSpotMappings(universes);
     }
   }
@@ -1446,26 +1434,6 @@ export default class ServiceHyperliquid extends ServiceBase {
             agentCredential,
           });
 
-          void (async () => {
-            const cacheKey = [
-              agentCredential.userAddress.toLowerCase(),
-              agentCredential.agentAddress.toLowerCase(),
-              agentCredential.agentName,
-            ].join('-');
-            if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
-              const { referralCode } =
-                await this.backgroundApi.simpleDb.perp.getPerpData();
-              try {
-                // referrer code can be approved by agent
-                await this.exchangeService.setReferrerCode({
-                  code: referralCode || HYPERLIQUID_REFERRAL_CODE,
-                });
-              } finally {
-                hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
-              }
-            }
-          })();
-
           statusDetails.internalRebateBoundOk = true;
           statusDetails.referralCodeOk = true;
 
@@ -1509,6 +1477,30 @@ export default class ServiceHyperliquid extends ServiceBase {
           }),
         );
       }, 0);
+    }
+
+    // Deferred: bind referral code after loading resolves.
+    // Non-blocking, non-critical — avoids bandwidth contention during critical path.
+    if (agentCredential) {
+      void (async () => {
+        const cacheKey = [
+          agentCredential.userAddress.toLowerCase(),
+          agentCredential.agentAddress.toLowerCase(),
+          agentCredential.agentName,
+        ].join('-');
+        if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
+          const { referralCode } =
+            await this.backgroundApi.simpleDb.perp.getPerpData();
+          try {
+            // referrer code can be approved by agent
+            await this.exchangeService.setReferrerCode({
+              code: referralCode || HYPERLIQUID_REFERRAL_CODE,
+            });
+          } finally {
+            hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
+          }
+        }
+      })();
     }
   }
 

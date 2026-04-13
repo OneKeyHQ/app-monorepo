@@ -695,7 +695,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         b: params.isBuy,
         p: price,
         s: params.sz,
-        r: false, // spot orders never use reduceOnly
+        r: false,
         t: isMarket
           ? { limit: { tif: params.tif || 'Ioc' } }
           : { limit: { tif: params.tif || 'Gtc' } },

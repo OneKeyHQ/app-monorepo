@@ -44,10 +44,9 @@ export function usePopularTickers(): IPopularTickerItem[] {
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
   const mode = activeTradeInstrument.mode;
 
-  // Fetch the full universe independently — must not read from the
-  // search-filtered atom, otherwise popular tickers disappear during search.
-  // Tag result with mode so we never use stale data from a previous mode
-  // (usePromiseResult keeps the old result until the new promise resolves).
+  // Must not read from search-filtered atom — popular tickers would disappear
+  // during search. Tagged with mode because usePromiseResult keeps the old
+  // result until the new promise resolves.
   const { result: taggedUniverse } = usePromiseResult(
     async (): Promise<
       | { mode: 'spot'; data: ISpotUniverse[] }
@@ -88,7 +87,6 @@ export function usePopularTickers(): IPopularTickerItem[] {
   );
 
   return useMemo(() => {
-    // Skip if data is from a stale mode (async promise not yet resolved for current mode)
     if (!taggedUniverse || taggedUniverse.mode !== mode) return [];
 
     if (mode === 'spot' && taggedUniverse.mode === 'spot') {
