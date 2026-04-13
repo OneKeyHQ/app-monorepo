@@ -677,7 +677,11 @@ function PerpTickerBarDesktop() {
     >
       <XStack gap="$4" alignItems="center">
         <XStack gap="$2" alignItems="center">
-          <FavoriteButton coin={activeAsset.coin} iconSize="$4" isSpot={isSpot} />
+          <FavoriteButton
+            coin={activeAsset.coin}
+            iconSize="$4"
+            isSpot={isSpot}
+          />
           <PerpTokenSelector />
         </XStack>
 

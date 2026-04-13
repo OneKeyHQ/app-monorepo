@@ -117,7 +117,9 @@ function MobilePerpMarketHeader() {
 
   const openInterestDisplay = useMemo(() => {
     if (isSpot) {
-      const marketCap = (Number(circulatingSupply || 0) * Number(markPrice || 0)).toString();
+      const marketCap = (
+        Number(circulatingSupply || 0) * Number(markPrice || 0)
+      ).toString();
       const formatted = numberFormat(marketCap, {
         formatter: 'marketCap',
       });

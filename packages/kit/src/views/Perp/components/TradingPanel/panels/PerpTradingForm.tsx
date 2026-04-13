@@ -1196,7 +1196,7 @@ function PerpTradingForm({
         isMobile={isMobile}
         // Spot has no leverage concept — bypass formData.leverage (perps state)
         // to avoid stale perps leverage affecting spot size calculations.
-        leverage={isSpot ? 1 : formData.leverage ?? 1}
+        leverage={isSpot ? 1 : (formData.leverage ?? 1)}
       />
 
       <YStack px="$1" {...(isMobile && { pt: '$2', pb: '$2', mt: '$0' })}>

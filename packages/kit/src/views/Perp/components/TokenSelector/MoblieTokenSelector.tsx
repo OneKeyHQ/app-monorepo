@@ -1,4 +1,5 @@
 import {
+  type ReactNode,
   memo,
   startTransition,
   useCallback,
@@ -74,7 +75,10 @@ import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
-import { SPOT_DEX_INDEX, type ITokenSelectorListItem } from './PerpTokenSelector';
+import {
+  type ITokenSelectorListItem,
+  SPOT_DEX_INDEX,
+} from './PerpTokenSelector';
 import type { LayoutChangeEvent } from 'react-native';
 
 const TabItem = memo(
@@ -138,8 +142,7 @@ function MobileTokenSelectorModal({
         await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
       if (!universes?.length) {
         await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
-        const res =
-          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
         universes = res.universes;
       }
       if (!cancelled) {
@@ -209,8 +212,7 @@ function MobileTokenSelectorModal({
     const field = selectorConfig?.field;
     const direction = selectorConfig?.direction;
     const last = lastSortRef.current;
-    const sortChanged =
-      last?.field !== field || last?.direction !== direction;
+    const sortChanged = last?.field !== field || last?.direction !== direction;
     // Also refresh when snapshot is empty (first WS data arrival after mount)
     const snapshotEmpty = !ctxSnapshotRef.current?.some(
       (arr) => arr?.length > 0,
@@ -343,7 +345,9 @@ function MobileTokenSelectorModal({
       },
     );
 
-    const mapEntry = (entry: (typeof combinedEntries)[0]): ITokenSelectorListItem => ({
+    const mapEntry = (
+      entry: (typeof combinedEntries)[0],
+    ): ITokenSelectorListItem => ({
       dexIndex: entry.dexIndex,
       index: entry.index,
       assetId: entry.assetId,
@@ -364,7 +368,13 @@ function MobileTokenSelectorModal({
         ),
       )
       .map(mapEntry);
-  }, [assetsByDex, computeSortValues, sortCompare, selectorConfig?.field, tokenSearchAliases]);
+  }, [
+    assetsByDex,
+    computeSortValues,
+    sortCompare,
+    selectorConfig?.field,
+    tokenSearchAliases,
+  ]);
 
   // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
   // sort config changes. spotPriceMap WS updates never touch the perp list.
@@ -427,7 +437,12 @@ function MobileTokenSelectorModal({
     }
 
     return entries.map((e) => e.item);
-  }, [spotUniverses, spotPriceMap, selectorConfig?.field, selectorConfig?.direction]);
+  }, [
+    spotUniverses,
+    spotPriceMap,
+    selectorConfig?.field,
+    selectorConfig?.direction,
+  ]);
 
   // Layer 2: filter — cheap O(n) filter; never runs sort.
   // Tab switches and favorites changes only reach here, not the sort layer.
@@ -461,22 +476,28 @@ function MobileTokenSelectorModal({
     if (dynamicTab) {
       const tokenSet = new Set(dynamicTab.tokens);
       const matchingIds = new Set<string>();
-      (assetsByDex as IPerpsUniverse[][] || []).forEach(
-        (assets, dexIndex) => {
-          assets?.forEach((asset) => {
-            if (tokenSet.has(asset.name)) {
-              matchingIds.add(`${dexIndex}-${asset.assetId}`);
-            }
-          });
-        },
-      );
+      (assetsByDex || []).forEach((assets, dexIndex) => {
+        assets?.forEach((asset) => {
+          if (tokenSet.has(asset.name)) {
+            matchingIds.add(`${dexIndex}-${asset.assetId}`);
+          }
+        });
+      });
       return perpSortedList.filter((item) =>
         matchingIds.has(`${item.dexIndex}-${item.assetId}`),
       );
     }
 
     return perpSortedList;
-  }, [activeTab, assetsByDex, dynamicTabs, favoriteItems, perpSortedList, spotSortedList, searchQuery]);
+  }, [
+    activeTab,
+    assetsByDex,
+    dynamicTabs,
+    favoriteItems,
+    perpSortedList,
+    spotSortedList,
+    searchQuery,
+  ]);
 
   // Show all server-configured dynamic tabs regardless of search results.
   // Filtering by search-filtered assetsByDex would hide tabs during search.
@@ -547,6 +568,32 @@ function MobileTokenSelectorModal({
   } else {
     iconName = 'ChevronGrabberVerOutline';
   }
+
+  let listEmptyComponent: ReactNode;
+  if (activeTab === 'spot' && spotLoading) {
+    listEmptyComponent = (
+      <YStack p="$5" alignItems="center">
+        <Spinner size="small" />
+      </YStack>
+    );
+  } else if (activeTab === 'favorites' && !searchQuery && isFavoritesReady) {
+    listEmptyComponent = <FavoritesEmptyState isMobile />;
+  } else {
+    listEmptyComponent = (
+      <XStack p="$5" justifyContent="center">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {searchQuery
+            ? intl.formatMessage({
+                id: ETranslations.perp_token_selector_empty,
+              })
+            : intl.formatMessage({
+                id: ETranslations.dexmarket_details_nodata,
+              })}
+        </SizableText>
+      </XStack>
+    );
+  }
+
   return (
     <Page>
       <Page.Header
@@ -678,27 +725,7 @@ function MobileTokenSelectorModal({
               }}
               data={mockedListData}
               renderItem={renderItem}
-              ListEmptyComponent={
-                activeTab === 'spot' && spotLoading ? (
-                  <YStack p="$5" alignItems="center">
-                    <Spinner size="small" />
-                  </YStack>
-                ) : activeTab === 'favorites' && !searchQuery && isFavoritesReady ? (
-                  <FavoritesEmptyState isMobile />
-                ) : (
-                  <XStack p="$5" justifyContent="center">
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      {searchQuery
-                        ? intl.formatMessage({
-                            id: ETranslations.perp_token_selector_empty,
-                          })
-                        : intl.formatMessage({
-                            id: ETranslations.dexmarket_details_nodata,
-                          })}
-                    </SizableText>
-                  </XStack>
-                )
-              }
+              ListEmptyComponent={listEmptyComponent}
             />
           ) : null}
         </YStack>

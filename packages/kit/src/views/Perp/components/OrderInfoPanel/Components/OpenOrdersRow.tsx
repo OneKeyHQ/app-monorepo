@@ -148,7 +148,7 @@ const OpenOrdersRow = memo(
         orderType,
         typeColor,
       };
-    }, [coin, side, originalOrderType, reduceOnly, intl]);
+    }, [coin, side, originalOrderType, reduceOnly, intl, spotDisplayMap]);
     const handleSwitchInstrument = useCallback(() => {
       void actions.current.switchTradeInstrument({
         mode: assetInfo.isSpot ? 'spot' : 'perp',

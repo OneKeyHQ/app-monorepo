@@ -69,12 +69,14 @@ function MobilePerpMarket() {
   }, [navigation]);
 
   const renderHeaderTitle = useCallback(() => {
-    const pairLabel =
-      mode === 'spot'
-        ? displayName || '--'
-        : displayName
-          ? `${displayName}USDC`
-          : '--';
+    let pairLabel: string;
+    if (mode === 'spot') {
+      pairLabel = displayName || '--';
+    } else if (displayName) {
+      pairLabel = `${displayName}USDC`;
+    } else {
+      pairLabel = '--';
+    }
     return (
       <XStack alignItems="center" gap="$2">
         <NavBackButton

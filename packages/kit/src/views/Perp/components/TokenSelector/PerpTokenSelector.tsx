@@ -247,8 +247,7 @@ function BasePerpTokenSelectorContent({
         await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
       if (!universes?.length) {
         await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
-        const res =
-          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
         universes = res.universes;
       }
       if (!cancelled) {
@@ -446,7 +445,9 @@ function BasePerpTokenSelectorContent({
       },
     );
 
-    const mapEntry = (entry: (typeof combinedEntries)[0]): ITokenSelectorListItem => ({
+    const mapEntry = (
+      entry: (typeof combinedEntries)[0],
+    ): ITokenSelectorListItem => ({
       dexIndex: entry.dexIndex,
       index: entry.index,
       assetId: entry.assetId,
@@ -467,7 +468,13 @@ function BasePerpTokenSelectorContent({
         ),
       )
       .map(mapEntry);
-  }, [assetsByDex, computeSortValues, sortCompare, selectorConfig?.field, tokenSearchAliases]);
+  }, [
+    assetsByDex,
+    computeSortValues,
+    sortCompare,
+    selectorConfig?.field,
+    tokenSearchAliases,
+  ]);
 
   // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
   // sort config changes. spotPriceMap WS updates never touch the perp list.
@@ -531,7 +538,12 @@ function BasePerpTokenSelectorContent({
     }
 
     return entries.map((e) => e.item);
-  }, [spotUniverses, spotPriceMap, selectorConfig?.field, selectorConfig?.direction]);
+  }, [
+    spotUniverses,
+    spotPriceMap,
+    selectorConfig?.field,
+    selectorConfig?.direction,
+  ]);
 
   // Layer 2: filter — cheap O(n); no sort computation.
   // Tab switches, search, and favorites changes only reach here.
@@ -567,15 +579,13 @@ function BasePerpTokenSelectorContent({
     if (dynamicTab) {
       const tokenSet = new Set(dynamicTab.tokens);
       const matchingIds = new Set<string>();
-      (assetsByDex as IPerpsUniverse[][] || []).forEach(
-        (assets, dexIndex) => {
-          assets?.forEach((asset) => {
-            if (tokenSet.has(asset.name)) {
-              matchingIds.add(`${dexIndex}-${asset.assetId}`);
-            }
-          });
-        },
-      );
+      (assetsByDex || []).forEach((assets, dexIndex) => {
+        assets?.forEach((asset) => {
+          if (tokenSet.has(asset.name)) {
+            matchingIds.add(`${dexIndex}-${asset.assetId}`);
+          }
+        });
+      });
       return perpSortedList.filter((item) =>
         matchingIds.has(`${item.dexIndex}-${item.assetId}`),
       );
@@ -628,29 +638,31 @@ function BasePerpTokenSelectorContent({
     !searchQuery &&
     isFavoritesReady;
 
-  const listEmptyComponent = useMemo(
-    () =>
-      activeTab === 'spot' && spotLoading ? (
+  const listEmptyComponent = useMemo(() => {
+    if (activeTab === 'spot' && spotLoading) {
+      return (
         <YStack p="$4" alignItems="center">
           <Spinner size="small" />
         </YStack>
-      ) : showFavoritesEmpty ? (
-        <FavoritesEmptyState />
-      ) : (
-        <XStack p="$4" justifyContent="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {searchQuery
-              ? intl.formatMessage({
-                  id: ETranslations.perp_token_selector_empty,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.perp_token_selector_loading,
-                })}
-          </SizableText>
-        </XStack>
-      ),
-    [activeTab, spotLoading, showFavoritesEmpty, searchQuery, intl],
-  );
+      );
+    }
+    if (showFavoritesEmpty) {
+      return <FavoritesEmptyState />;
+    }
+    return (
+      <XStack p="$4" justifyContent="center">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {searchQuery
+            ? intl.formatMessage({
+                id: ETranslations.perp_token_selector_empty,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_token_selector_loading,
+              })}
+        </SizableText>
+      </XStack>
+    );
+  }, [activeTab, spotLoading, showFavoritesEmpty, searchQuery, intl]);
 
   const content = (
     <YStack>

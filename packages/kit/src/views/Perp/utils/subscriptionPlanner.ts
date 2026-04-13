@@ -24,7 +24,8 @@ export function planTradeSubscriptions(params: {
   const spotEnabled =
     hasAccount && (isSpot || viewState.infoPanelTab === 'Balances');
   const spotAssetCtxsEnabled =
-    isSpot || (viewState.tokenSelectorOpen && viewState.tokenSelectorTab === 'spot');
+    isSpot ||
+    (viewState.tokenSelectorOpen && viewState.tokenSelectorTab === 'spot');
   const enableLedgerUpdates =
     hasAccount && viewState.infoPanelTab === 'Account';
 
