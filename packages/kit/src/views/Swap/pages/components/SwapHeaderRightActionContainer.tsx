@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type { ColorTokens, IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -13,12 +14,15 @@ import {
   EPageType,
   HeightTransition,
   Icon,
+  ScrollView,
   SegmentControl,
   SizableText,
   Stack,
   Switch,
   XStack,
   YStack,
+  useKeyboardHeight,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
@@ -131,6 +135,10 @@ const SwapSettingsSlippageItem = ({
     <XStack gap="$2">{rightTrigger}</XStack>
   </XStack>
 );
+
+const SWAP_SETTINGS_DIALOG_TOP_SAFE_GAP = 16;
+const SWAP_SETTINGS_DIALOG_CHROME_HEIGHT = 220;
+const SWAP_SETTINGS_DIALOG_MIN_CONTENT_HEIGHT = 120;
 
 const SwapSlippageCustomContent = ({
   swapSlippage,
@@ -260,9 +268,26 @@ const SwapSettingsDialogContent = () => {
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const keyboardHeight = useKeyboardHeight();
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
+  const dialogContentMaxHeight = useMemo(() => {
+    if (!platformEnv.isNative || keyboardHeight <= 0) {
+      return undefined;
+    }
+
+    const availableHeight =
+      windowHeight -
+      keyboardHeight -
+      safeAreaTop -
+      SWAP_SETTINGS_DIALOG_TOP_SAFE_GAP -
+      SWAP_SETTINGS_DIALOG_CHROME_HEIGHT;
+
+    return Math.max(availableHeight, SWAP_SETTINGS_DIALOG_MIN_CONTENT_HEIGHT);
+  }, [keyboardHeight, safeAreaTop, windowHeight]);
   const rightTrigger = useMemo(
     () => (
       <SegmentControl
@@ -309,108 +334,117 @@ const SwapSettingsDialogContent = () => {
   );
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   return (
-    <YStack gap="$5">
-      {swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro ? (
-        <>
-          <HeightTransition>
-            <YStack gap="$5">
-              <SwapSettingsSlippageItem
-                title={intl.formatMessage({
-                  id: ETranslations.swap_page_provider_slippage_tolerance,
-                })}
-                rightTrigger={rightTrigger}
-              />
-              {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
-                <SwapSlippageCustomContent swapSlippage={slippageItem} />
-              ) : null}
-            </YStack>
-          </HeightTransition>
-          <Divider />
+    <ScrollView
+      mx="$-5"
+      px="$5"
+      pb="$5"
+      maxHeight={dialogContentMaxHeight}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <YStack gap="$5">
+        {swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro ? (
+          <>
+            <HeightTransition>
+              <YStack gap="$5">
+                <SwapSettingsSlippageItem
+                  title={intl.formatMessage({
+                    id: ETranslations.swap_page_provider_slippage_tolerance,
+                  })}
+                  rightTrigger={rightTrigger}
+                />
+                {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
+                  <SwapSlippageCustomContent swapSlippage={slippageItem} />
+                ) : null}
+              </YStack>
+            </HeightTransition>
+            <Divider />
+            <SwapSettingsCommonItem
+              title={intl.formatMessage({
+                id: ETranslations.swap_page_settings_simple_mode,
+              })}
+              content={intl.formatMessage({
+                id: ETranslations.swap_page_settings_simple_mode_content,
+              })}
+              badgeContent="Beta"
+              value={swapBatchApproveAndSwap}
+              onChange={(v) => {
+                setPersistSettings((s) => ({
+                  ...s,
+                  swapBatchApproveAndSwap: v,
+                }));
+              }}
+            />
+          </>
+        ) : null}
+        {focusSwapPro ? null : (
           <SwapSettingsCommonItem
             title={intl.formatMessage({
-              id: ETranslations.swap_page_settings_simple_mode,
+              id: ETranslations.swap_page_settings_recipient_title,
             })}
             content={intl.formatMessage({
-              id: ETranslations.swap_page_settings_simple_mode_content,
+              id: ETranslations.swap_page_settings_recipient_content,
             })}
-            badgeContent="Beta"
-            value={swapBatchApproveAndSwap}
+            value={swapEnableRecipientAddress}
             onChange={(v) => {
-              setPersistSettings((s) => ({
-                ...s,
-                swapBatchApproveAndSwap: v,
-              }));
+              setNoPersistSettings((s) =>
+                buildSwapRecipientAddressSettingsUpdate(s, v),
+              );
             }}
           />
-        </>
-      ) : null}
-      {focusSwapPro ? null : (
-        <SwapSettingsCommonItem
-          title={intl.formatMessage({
-            id: ETranslations.swap_page_settings_recipient_title,
-          })}
-          content={intl.formatMessage({
-            id: ETranslations.swap_page_settings_recipient_content,
-          })}
-          value={swapEnableRecipientAddress}
-          onChange={(v) => {
-            setNoPersistSettings((s) =>
-              buildSwapRecipientAddressSettingsUpdate(s, v),
-            );
-          }}
-        />
-      )}
-      {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
-        <>
-          <SwapProviderSettingItem
-            title={intl.formatMessage({
-              id: ETranslations.swap_settings_manage_swap,
-            })}
-            onPress={() => {
-              dialogRef.current = Dialog.show({
-                title: intl.formatMessage({
-                  id: ETranslations.swap_settings_manage_swap,
-                }),
-                disableDrag: true,
-                renderContent: (
-                  <ProviderManageContainer
-                    onSaved={() => {
-                      void dialogRef.current?.close();
-                    }}
-                    isBridge={false}
-                  />
-                ),
-                showConfirmButton: false,
-                showCancelButton: false,
-              });
-            }}
-          />
-          <SwapProviderSettingItem
-            title={intl.formatMessage({
-              id: ETranslations.swap_settings_manage_bridge,
-            })}
-            onPress={() => {
-              dialogRef.current = Dialog.show({
-                title: intl.formatMessage({
-                  id: ETranslations.swap_settings_manage_bridge,
-                }),
-                disableDrag: true,
-                renderContent: (
-                  <ProviderManageContainer
-                    onSaved={() => {
-                      void dialogRef.current?.close();
-                    }}
-                    isBridge
-                  />
-                ),
-                showConfirmButton: false,
-                showCancelButton: false,
-              });
-            }}
-          />
-        </>
-      ) : null}
-    </YStack>
+        )}
+        {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
+          <>
+            <SwapProviderSettingItem
+              title={intl.formatMessage({
+                id: ETranslations.swap_settings_manage_swap,
+              })}
+              onPress={() => {
+                dialogRef.current = Dialog.show({
+                  title: intl.formatMessage({
+                    id: ETranslations.swap_settings_manage_swap,
+                  }),
+                  disableDrag: true,
+                  renderContent: (
+                    <ProviderManageContainer
+                      onSaved={() => {
+                        void dialogRef.current?.close();
+                      }}
+                      isBridge={false}
+                    />
+                  ),
+                  showConfirmButton: false,
+                  showCancelButton: false,
+                });
+              }}
+            />
+            <SwapProviderSettingItem
+              title={intl.formatMessage({
+                id: ETranslations.swap_settings_manage_bridge,
+              })}
+              onPress={() => {
+                dialogRef.current = Dialog.show({
+                  title: intl.formatMessage({
+                    id: ETranslations.swap_settings_manage_bridge,
+                  }),
+                  disableDrag: true,
+                  renderContent: (
+                    <ProviderManageContainer
+                      onSaved={() => {
+                        void dialogRef.current?.close();
+                      }}
+                      isBridge
+                    />
+                  ),
+                  showConfirmButton: false,
+                  showCancelButton: false,
+                });
+              }}
+            />
+          </>
+        ) : null}
+      </YStack>
+    </ScrollView>
   );
 };
 

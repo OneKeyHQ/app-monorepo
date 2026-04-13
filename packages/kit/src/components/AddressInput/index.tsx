@@ -19,7 +19,6 @@ import {
   XStack,
   useFormContext,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type {
@@ -53,6 +52,11 @@ import { useIsEnableTransferAllowList } from './hooks';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
+import {
+  getAddressQueryResolvedAddress,
+  getAddressValidateTranslationId,
+  queryAddressWithFallback,
+} from './utils';
 
 import type { IScanPluginProps } from './plugins/scan';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
@@ -505,15 +509,9 @@ export function AddressInput(props: IAddressInputProps) {
           inputTypeRef.current = undefined;
         }
 
-        const result =
-          await backgroundApiProxy.serviceAccountProfile.queryAddress(params);
+        const result = await queryAddressWithFallback(params);
         if (result.input === textRef.current) {
           setQueryResult(result);
-        }
-      } catch {
-        // Treat unexpected validation errors as an unknown address state.
-        if (params.address === textRef.current) {
-          setQueryResult({ input: params.address, validStatus: 'unknown' });
         }
       } finally {
         setLoading(false);
@@ -596,39 +594,21 @@ export function AddressInput(props: IAddressInputProps) {
     ignoreSimilarAddressInAddressBook,
   ]);
 
-  const getValidateMessage = useCallback(
-    (status?: Exclude<IAddressValidateStatus, 'valid'>) => {
-      if (!status) return;
-      const message: Record<
-        Exclude<IAddressValidateStatus, 'valid'>,
-        ETranslations
-      > = {
-        'unknown': ETranslations.send_check_request_error,
-        'prohibit-send-to-self': ETranslations.send_cannot_send_to_self,
-        'invalid': ETranslations.send_address_invalid,
-        'address-not-allowlist': ETranslations.send_address_not_allowlist_error,
-      } as const;
-      return message[status];
-    },
-    [],
-  );
-
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
     if (queryResult.validStatus === 'valid') {
       clearErrors(name);
       onChange?.({
         raw: queryResult.input,
-        resolved:
-          queryResult.resolveAddress ??
-          queryResult.validAddress ??
-          queryResult.input?.trim(),
+        resolved: getAddressQueryResolvedAddress(queryResult),
         pending: false,
         isContract: queryResult.isContract,
         similarAddress: queryResult.similarAddress,
       });
     } else {
-      const translationId = getValidateMessage(queryResult.validStatus);
+      const translationId = getAddressValidateTranslationId(
+        queryResult.validStatus,
+      );
       onChange?.({
         raw: queryResult.input,
         pending: false,
@@ -643,15 +623,7 @@ export function AddressInput(props: IAddressInputProps) {
         similarAddress: queryResult.similarAddress,
       });
     }
-  }, [
-    queryResult,
-    intl,
-    clearErrors,
-    setError,
-    name,
-    onChange,
-    getValidateMessage,
-  ]);
+  }, [queryResult, intl, clearErrors, setError, name, onChange]);
 
   const handleClear = useCallback(() => {
     onChangeText({ text: '', inputType: EInputAddressChangeType.Manual });
