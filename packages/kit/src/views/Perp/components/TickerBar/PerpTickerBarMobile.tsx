@@ -1,11 +1,10 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
   DebugRenderTracker,
-  Divider,
   IconButton,
   Popover,
   SizableText,
@@ -16,9 +15,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
-  usePerpsActiveAccountMmrAtom,
   usePerpsActiveAccountStatusAtom,
-  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -29,123 +26,8 @@ import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
-import { PerpsAccountNumberValue } from '../TradingPanel/components/PerpsAccountNumberValue';
 
 const MOBILE_TICKER_SUBTITLE_MAX_WIDTH = 64;
-
-const PerpTickerBarMMRInfoMobileView = memo(
-  ({
-    mmrPercent,
-    crossMaintenanceMarginUsed,
-  }: {
-    mmrPercent: string;
-    crossMaintenanceMarginUsed: string;
-  }) => {
-    const intl = useIntl();
-    const color = useMemo(() => {
-      const pct = parseFloat(mmrPercent);
-      if (pct <= 40) return '$green11';
-      if (pct <= 70) return '$yellow11';
-      return '$red11';
-    }, [mmrPercent]);
-    return (
-      <Popover
-        title={intl.formatMessage({
-          id: ETranslations.perp_account_panel_account_maintenance_margin,
-        })}
-        renderTrigger={
-          <DebugRenderTracker name="PerpTickerBarMMRInfoMobileViewTrigger">
-            <XStack
-              borderRadius="$full"
-              alignItems="center"
-              gap="$1"
-              px="$2"
-              borderColor={color}
-              borderWidth="$px"
-            >
-              <SizableText lineHeight={18} fontSize={10} color={color}>
-                {mmrPercent}%
-              </SizableText>
-            </XStack>
-          </DebugRenderTracker>
-        }
-        renderContent={
-          <DebugRenderTracker name="PerpTickerBarMMRInfoMobileViewContent">
-            <YStack
-              bg="$bg"
-              justifyContent="center"
-              w="100%"
-              px="$5"
-              pt="$2"
-              pb="$5"
-              gap="$5"
-            >
-              <XStack alignItems="center" justifyContent="space-between">
-                <YStack w="50%">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_account_panel_account_maintenance_margin,
-                    })}
-                  </SizableText>
-
-                  <PerpsAccountNumberValue
-                    value={crossMaintenanceMarginUsed}
-                    skeletonWidth={70}
-                    textSize="$bodyMdMedium"
-                  />
-                </YStack>
-                <YStack w="50%">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_account_cross_margin_ration,
-                    })}
-                  </SizableText>
-                  <SizableText size="$bodyMdMedium" color={color}>
-                    {mmrPercent}%
-                  </SizableText>
-                </YStack>
-              </XStack>
-
-              <Divider />
-              <YStack gap="$2">
-                <SizableText size="$bodySmMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_account_panel_account_maintenance_margin_tooltip,
-                  })}
-                </SizableText>
-                <SizableText size="$bodySmMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_account_cross_margin_ration_tip,
-                  })}
-                </SizableText>
-              </YStack>
-            </YStack>
-          </DebugRenderTracker>
-        }
-      />
-    );
-  },
-);
-PerpTickerBarMMRInfoMobileView.displayName = 'PerpTickerBarMMRInfoMobileView';
-
-function PerpTickerBarMMRInfoMobile() {
-  const [{ mmrPercent }] = usePerpsActiveAccountMmrAtom();
-  //   const mmr = 0.3724
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-
-  if (!mmrPercent) {
-    return null;
-  }
-
-  return (
-    <PerpTickerBarMMRInfoMobileView
-      mmrPercent={mmrPercent}
-      crossMaintenanceMarginUsed={
-        accountSummary?.crossMaintenanceMarginUsed ?? ''
-      }
-    />
-  );
-}
 
 function PerpCandleChartButtonMobile() {
   const navigation = useAppNavigation();
@@ -292,12 +174,12 @@ export function PerpTickerBarMobile() {
       </YStack>
 
       <XStack pt="$0.5" gap="$3" alignItems="center">
-        <PerpTickerBarMMRInfoMobile />
         <PerpsActivityCenterAction size="small" copyAsUrl />
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID="perp-mobile-settings-button"
           showFeeTierEntry={!perpsAccountStatus.accountNotSupport}
+          showGuideEntry
         />
       </XStack>
     </XStack>
