@@ -22,10 +22,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
-  usePerpsAllAssetsFilteredAtom,
-  usePerpsTokenSearchAliasesAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import {
   usePerpTokenFavoritesPersistAtom,
   useSpotAssetCtxsMapAtom,
   useSpotTokenFavoritesPersistAtom,
@@ -39,13 +35,9 @@ import {
   formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
-  getTokenSubtitle,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type {
-  IPerpsUniverse,
-  ISpotUniverse,
-} from '@onekeyhq/shared/types/hyperliquid';
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 
@@ -53,6 +45,10 @@ interface IPerpTokenSelectorRowProps {
   mockedToken: {
     index: number;
     dexIndex: number;
+    assetId?: number;
+    tokenName?: string;
+    tokenMaxLeverage?: number;
+    tokenSubtitle?: string;
     spotUniverse?: ISpotUniverse;
   };
   onPress: (name: string) => void;
@@ -842,14 +838,11 @@ const PerpTokenSelectorRowPerps = memo(
     isOnModal,
     skipMarkRequired,
   }: IPerpTokenSelectorRowProps) => {
-    const [filteredAssets] = usePerpsAllAssetsFilteredAtom();
-    const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
-    const tokensByDex = filteredAssets.assetsByDex || [];
-    const assets: IPerpsUniverse[] = tokensByDex[mockedToken.dexIndex] || [];
-    const token: IPerpsUniverse | undefined = assets[mockedToken.index];
-    const tokenName = token?.name ?? '';
-    const tokenAssetId = token?.assetId ?? -1;
-    const tokenMaxLeverage = token?.maxLeverage ?? 0;
+    // Static token data is pre-computed in the parent list and passed via mockedToken.
+    // This avoids subscribing to usePerpsAllAssetsFilteredAtom (150+ subscriptions).
+    const tokenName = mockedToken.tokenName ?? '';
+    const tokenAssetId = mockedToken.assetId ?? -1;
+    const tokenMaxLeverage = mockedToken.tokenMaxLeverage ?? 0;
 
     const { assetCtx, isLoading } = usePerpsAssetCtx({
       assetId: tokenAssetId,
@@ -864,10 +857,7 @@ const PerpTokenSelectorRowPerps = memo(
     );
 
     const parsed = useMemo(() => parseDexCoin(tokenName), [tokenName]);
-    const subtitle = useMemo(
-      () => getTokenSubtitle(tokenName, tokenSearchAliases),
-      [tokenName, tokenSearchAliases],
-    );
+    const subtitle = mockedToken.tokenSubtitle;
 
     const contextValue: ITokenSelectorRowContextValue = useMemo(
       () => ({
@@ -903,7 +893,7 @@ const PerpTokenSelectorRowPerps = memo(
       ],
     );
 
-    if (!token || token.isDelisted || !assetCtx) {
+    if (!tokenName || !assetCtx) {
       return null;
     }
 

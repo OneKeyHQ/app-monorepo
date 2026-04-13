@@ -32,6 +32,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
+  usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpTokenSelectorConfigPersistAtom,
@@ -44,6 +45,7 @@ import {
   SPOT_MIN_VOLUME_STRICT,
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
+  getTokenSubtitle,
   isSpotInstrument,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -182,6 +184,7 @@ function MobileTokenSelectorModal({
 
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
+  const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const { favoriteItems, isReady: isFavoritesReady } = usePerpsFavorites();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
@@ -340,13 +343,18 @@ function MobileTokenSelectorModal({
       },
     );
 
+    const mapEntry = (entry: (typeof combinedEntries)[0]): ITokenSelectorListItem => ({
+      dexIndex: entry.dexIndex,
+      index: entry.index,
+      assetId: entry.assetId,
+      tokenName: entry.asset.name,
+      tokenMaxLeverage: entry.asset.maxLeverage,
+      tokenSubtitle: getTokenSubtitle(entry.asset.name, tokenSearchAliases),
+    });
+
     const sortField = selectorConfig?.field ?? '';
     if (!sortField) {
-      return combinedEntries.map((entry) => ({
-        dexIndex: entry.dexIndex,
-        index: entry.index,
-        assetId: entry.assetId,
-      }));
+      return combinedEntries.map(mapEntry);
     }
     return combinedEntries
       .toSorted((a, b) =>
@@ -355,12 +363,8 @@ function MobileTokenSelectorModal({
           { asset: b.asset, sortValues: b.sortValues },
         ),
       )
-      .map((entry) => ({
-        dexIndex: entry.dexIndex,
-        index: entry.index,
-        assetId: entry.assetId,
-      }));
-  }, [assetsByDex, computeSortValues, sortCompare, selectorConfig?.field]);
+      .map(mapEntry);
+  }, [assetsByDex, computeSortValues, sortCompare, selectorConfig?.field, tokenSearchAliases]);
 
   // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
   // sort config changes. spotPriceMap WS updates never touch the perp list.
@@ -660,7 +664,6 @@ function MobileTokenSelectorModal({
         <YStack flex={1} mt="$2">
           {isListReady ? (
             <ListView
-              key={`${activeTab}-${selectorConfig?.field ?? ''}-${selectorConfig?.direction ?? ''}`}
               useFlashList
               ref={listRef}
               keyExtractor={keyExtractor}

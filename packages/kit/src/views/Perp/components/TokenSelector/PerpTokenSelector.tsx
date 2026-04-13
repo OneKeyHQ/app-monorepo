@@ -35,6 +35,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
+  usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import {
@@ -52,6 +53,7 @@ import {
   formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
+  getTokenSubtitle,
   isSpotInstrument,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -84,6 +86,10 @@ export type ITokenSelectorListItem = {
   dexIndex: number;
   index: number;
   assetId?: number;
+  // Perp-specific: pre-computed static token data so rows don't subscribe to universe atom
+  tokenName?: string;
+  tokenMaxLeverage?: number;
+  tokenSubtitle?: string;
   // Spot-specific: carries display name for rendering since spot uses @N identifiers
   spotUniverse?: ISpotUniverse;
 };
@@ -212,6 +218,7 @@ function BasePerpTokenSelectorContent({
 
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
+  const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
@@ -439,13 +446,18 @@ function BasePerpTokenSelectorContent({
       },
     );
 
+    const mapEntry = (entry: (typeof combinedEntries)[0]): ITokenSelectorListItem => ({
+      dexIndex: entry.dexIndex,
+      index: entry.index,
+      assetId: entry.assetId,
+      tokenName: entry.asset.name,
+      tokenMaxLeverage: entry.asset.maxLeverage,
+      tokenSubtitle: getTokenSubtitle(entry.asset.name, tokenSearchAliases),
+    });
+
     const sortField = selectorConfig?.field ?? '';
     if (!sortField) {
-      return combinedEntries.map((entry) => ({
-        dexIndex: entry.dexIndex,
-        index: entry.index,
-        assetId: entry.assetId,
-      }));
+      return combinedEntries.map(mapEntry);
     }
     return combinedEntries
       .toSorted((a, b) =>
@@ -454,12 +466,8 @@ function BasePerpTokenSelectorContent({
           { asset: b.asset, sortValues: b.sortValues },
         ),
       )
-      .map((entry) => ({
-        dexIndex: entry.dexIndex,
-        index: entry.index,
-        assetId: entry.assetId,
-      }));
-  }, [assetsByDex, computeSortValues, sortCompare, selectorConfig?.field]);
+      .map(mapEntry);
+  }, [assetsByDex, computeSortValues, sortCompare, selectorConfig?.field, tokenSearchAliases]);
 
   // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
   // sort config changes. spotPriceMap WS updates never touch the perp list.
@@ -706,7 +714,6 @@ function BasePerpTokenSelectorContent({
               <FavoritesEmptyState />
             ) : (
               <ListView
-                key={activeTab}
                 useFlashList
                 ref={listRef}
                 keyExtractor={keyExtractor}
