@@ -1614,9 +1614,7 @@ const SPOT_MIN_VOLUME_STRICT = 10;
 function filterSpotTokensStrict(
   tokens: Array<{ dayNtlVlm: number; midPx: boolean }>,
 ): Array<{ dayNtlVlm: number; midPx: boolean }> {
-  return tokens.filter(
-    (t) => t.dayNtlVlm >= SPOT_MIN_VOLUME_STRICT && t.midPx,
-  );
+  return tokens.filter((t) => t.dayNtlVlm >= SPOT_MIN_VOLUME_STRICT && t.midPx);
 }
 
 export {

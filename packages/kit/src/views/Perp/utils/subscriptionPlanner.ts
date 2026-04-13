@@ -1,8 +1,8 @@
-import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import type {
   IActiveTradeInstrument,
   ITradeRouteViewState,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 
 export interface ITradeSubscriptionPlan {
   enableLedgerUpdates: boolean;

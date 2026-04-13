@@ -53,8 +53,8 @@ import {
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
+import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
   type ITradeSide,
@@ -160,7 +160,7 @@ function PerpTradingForm({
             coin: spotActiveAsset?.coin ?? activeTradeInstrument.coin,
             assetId: spotActiveAsset?.assetId,
             universe: {
-              ...(spotUniverse ?? {}),
+              ...spotUniverse,
               szDecimals: sizeSzDecimals,
             },
           } as typeof activeAsset)

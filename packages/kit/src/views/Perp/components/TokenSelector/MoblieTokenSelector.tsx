@@ -23,11 +23,11 @@ import {
   YStack,
   usePageMounted,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   ScrollableFilterBar,
   useScrollableFilterBar,
 } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -73,12 +73,12 @@ import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorPr
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
-import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
-
 import {
   type ITokenSelectorListItem,
   SPOT_DEX_INDEX,
 } from './PerpTokenSelector';
+import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 const TabItem = memo(
