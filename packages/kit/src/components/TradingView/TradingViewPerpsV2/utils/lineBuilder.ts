@@ -171,10 +171,15 @@ function formatTriggerCondition(triggerCondition: string | undefined): string {
 export function buildTpSlLine(
   order: IPerpsFrontendOrder,
   szDecimals: number,
+  positionSize?: string,
 ): ITVLine | null {
-  const sz = parseSize(order.sz);
+  const orderSize = parseSize(order.sz);
+  const resolvedSize =
+    order.isPositionTpsl && orderSize === 0
+      ? parseSize(positionSize)
+      : orderSize;
   // TP/SL orders use triggerPx as the line price
-  if (sz === 0 || !parseValidPrice(order.triggerPx)) {
+  if (resolvedSize === 0 || !parseValidPrice(order.triggerPx)) {
     return null;
   }
 
@@ -203,7 +208,7 @@ export function buildTpSlLine(
     symbol: order.coin,
     kind,
     price: toChartPriceString(order.triggerPx),
-    qty: formatWithPrecision(sz, szDecimals),
+    qty: formatWithPrecision(resolvedSize, szDecimals),
     side,
     label: { left: labelText },
     editable: false, // TP/SL orders are not draggable
@@ -235,12 +240,17 @@ export function buildAllLinesForSymbol(
   }
 
   // Build order lines (Limit, TP, SL)
+  const currentPosition = positions.find((p) => p.position.coin === symbol);
+  const currentPositionSize = currentPosition
+    ? new BigNumber(currentPosition.position.szi || '0').abs().toFixed()
+    : undefined;
+
   for (const order of orders.filter((o) => o.coin === symbol)) {
     let line: ITVLine | null = null;
     if (order.orderType === 'Limit') {
       line = buildOrderLine(order, szDecimals);
     } else if (isTpSlOrder(order.orderType)) {
-      line = buildTpSlLine(order, szDecimals);
+      line = buildTpSlLine(order, szDecimals, currentPositionSize);
     }
     if (line) lines.push(line);
   }
