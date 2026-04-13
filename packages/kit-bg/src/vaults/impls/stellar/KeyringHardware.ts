@@ -408,7 +408,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           }
           const invokeContract = hostFunction.invokeContract();
           const contractAddress = sdkStellar.StellarSdk.StrKey.encodeContract(
-            Buffer.from(invokeContract.contractAddress().contractId()),
+            invokeContract.contractAddress().contractId() as unknown as Buffer,
           );
           const functionName = invokeContract.functionName().toString('utf8');
           const callArgsXDRHex = this._encodeXdrArrayToHex(
