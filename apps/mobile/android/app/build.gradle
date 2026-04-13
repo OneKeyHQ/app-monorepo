@@ -357,8 +357,161 @@ def registerBackgroundReleaseBundleTask(variant, appProjectRootDir) {
 }
 
 def backgroundBundleProjectRootDir = new File(projectRoot)
+def useUnionBuild = System.getenv("UNION_BUILD") == "true"
+
 android.applicationVariants.configureEach { variant ->
-    registerBackgroundReleaseBundleTask(variant, backgroundBundleProjectRootDir)
+    if (useUnionBuild) {
+        registerUnionBuildTask(variant, backgroundBundleProjectRootDir)
+    } else {
+        registerBackgroundReleaseBundleTask(variant, backgroundBundleProjectRootDir)
+    }
+}
+
+/**
+ * When UNION_BUILD=true, replace the standard two-step bundling
+ * (separate main + background Metro processes) with a single union
+ * build that shares module IDs and dependency graphs across runtimes.
+ *
+ * This runs `node build-bundle.js --platform android` which calls
+ * scripts/unionBuild.js under the hood, producing:
+ *   - common.jsbundle.hbc  (shared polyfills + modules)
+ *   - main.jsbundle.hbc    (main-only modules)
+ *   - background.bundle    (background-only modules)
+ *   - segments/             (main-runtime segments)
+ *   - segments-background/  (background-runtime segments)
+ *
+ * The outputs are then copied into Gradle's expected asset directories
+ * so the APK packaging picks them up.
+ */
+def registerUnionBuildTask(variant, appProjectRootDir) {
+    if (!variant.buildType?.name?.equalsIgnoreCase("release")) {
+        return
+    }
+
+    def variantName = variant.name
+    def targetName = capitalizeVariantName(variantName)
+    def mainBundleTaskName = "createBundle${targetName}JsAndAssets"
+    def mergeAssetsTaskName = "merge${targetName}Assets"
+    def compressAssetsTaskName = "compress${targetName}Assets"
+    def injectSentryAssetsTaskName = "injectSentryDebugMetaPropertiesIntoAssets${targetName}"
+
+    def mainBundleAssetsDir = file("$buildDir/generated/assets/${mainBundleTaskName}")
+    def mergedAssetsDir = file("$buildDir/intermediates/assets/${variantName}/${mergeAssetsTaskName}")
+    def sentryInjectedAssetsDir = file("$buildDir/intermediates/assets/${variantName}/${injectSentryAssetsTaskName}")
+
+    // Union build output directory (build-bundle.js writes here)
+    def unionOutputDir = file("${appProjectRootDir}/out-dir-bundle/android/dist")
+
+    def unionBuildTaskName = "unionBuild${targetName}JsBundle"
+    def unionBuildTask = tasks.register(unionBuildTaskName, Exec) {
+        // The union build replaces BOTH the main bundle task and the
+        // background bundle task, so it must run after the main task
+        // completes (the main task is still needed for Hermes/codegen
+        // but we overwrite its JS output).
+        dependsOn(tasks.named(mainBundleTaskName))
+        workingDir appProjectRootDir
+
+        doFirst {
+            // Clean previous union output
+            delete unionOutputDir
+        }
+
+        commandLine(
+            "node",
+            "--max-old-space-size=8192",
+            "build-bundle.js",
+            "--platform",
+            "android",
+        )
+
+        environment "NODE_ENV", "production"
+        environment "SENTRY_DISABLE_AUTO_UPLOAD", "true"
+    }
+
+    def syncUnionBuildTaskName = "syncUnionBuild${targetName}Assets"
+    def syncUnionBuildTask = tasks.register(syncUnionBuildTaskName) {
+        dependsOn(unionBuildTask)
+        dependsOn(tasks.named(mergeAssetsTaskName))
+
+        doLast {
+            // Copy union build output into Gradle's generated assets dir
+            // (overwriting what the standard bundle task produced)
+
+            // common.bundle (shared polyfills + modules, loaded first)
+            def commonBundle = file("${unionOutputDir}/common.jsbundle.hbc")
+            if (commonBundle.exists()) {
+                copy {
+                    from commonBundle
+                    into mainBundleAssetsDir
+                    rename { "common.bundle" }
+                }
+            }
+
+            // index.android.bundle (main-only modules)
+            def mainBundle = file("${unionOutputDir}/main.jsbundle.hbc")
+            if (mainBundle.exists()) {
+                copy {
+                    from mainBundle
+                    into mainBundleAssetsDir
+                    rename { "index.android.bundle" }
+                }
+            }
+
+            // background.bundle
+            def bgBundle = file("${unionOutputDir}/background.bundle")
+            if (bgBundle.exists()) {
+                copy {
+                    from bgBundle
+                    into mainBundleAssetsDir
+                }
+            }
+
+            // segments/ and segments-background/
+            def segmentsDir = file("${unionOutputDir}/segments")
+            if (segmentsDir.exists()) {
+                copy {
+                    from segmentsDir
+                    into file("${mainBundleAssetsDir}/segments")
+                }
+            }
+            def segmentsBgDir = file("${unionOutputDir}/segments-background")
+            if (segmentsBgDir.exists()) {
+                copy {
+                    from segmentsBgDir
+                    into file("${mainBundleAssetsDir}/segments-background")
+                }
+            }
+
+            // Also sync into merged assets and Sentry-injected assets dirs
+            // so downstream tasks see the correct bundles.
+            [mergedAssetsDir, sentryInjectedAssetsDir].each { destDir ->
+                destDir.mkdirs()
+                if (commonBundle.exists()) {
+                    copy { from commonBundle; into destDir; rename { "common.bundle" } }
+                }
+                if (mainBundle.exists()) {
+                    copy { from mainBundle; into destDir; rename { "index.android.bundle" } }
+                }
+                if (bgBundle.exists()) {
+                    copy { from bgBundle; into destDir }
+                }
+                if (segmentsDir.exists()) {
+                    copy { from segmentsDir; into file("${destDir}/segments") }
+                }
+                if (segmentsBgDir.exists()) {
+                    copy { from segmentsBgDir; into file("${destDir}/segments-background") }
+                }
+            }
+        }
+    }
+
+    // Wire the union build into the Gradle lifecycle
+    tasks.matching { it.name == injectSentryAssetsTaskName }.configureEach {
+        dependsOn(syncUnionBuildTask)
+    }
+    tasks.named(compressAssetsTaskName).configure {
+        dependsOn(syncUnionBuildTask)
+    }
 }
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
