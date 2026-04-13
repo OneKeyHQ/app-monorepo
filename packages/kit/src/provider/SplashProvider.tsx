@@ -32,14 +32,19 @@ function logSplashProvider(message: string) {
  *  Only return true when the snapshot actually contains accountWorthAtom,
  *  which means the home screen can render cached balance immediately.
  *  Without balance cache, waiting for HomePageReady would stall splash
- *  until a network fetch completes (or the 10s safety timer fires). */
+ *  until a network fetch completes (or the 10s safety timer fires).
+ *
+ *  Snapshot keys are scoped: "store:homeAccountOverview::ctx:accountWorthAtom",
+ *  so we search for any key ending with "::ctx:accountWorthAtom". */
 function hasJotaiCacheFromMmkv(): boolean {
   const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
     | Record<string, unknown>
     | undefined;
   if (!snapshot) return false;
-  // Only treat as "cached" when balance data is present
-  return 'ctx:accountWorthAtom' in snapshot;
+  const suffix = '::ctx:accountWorthAtom';
+  return Object.keys(snapshot).some(
+    (k) => k.endsWith(suffix) && snapshot[k] != null,
+  );
 }
 
 export const useCanDismissSplash =

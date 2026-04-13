@@ -412,6 +412,9 @@ let coldStartSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 function flushColdStartCache() {
   if (coldStartDirtyKeys.size === 0) return;
+  if (__DEV__) {
+    console.log(`[ColdStartCache] flush: ${coldStartDirtyKeys.size} dirty keys: ${[...coldStartDirtyKeys].join(', ')}`);
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { coldStartCacheStorage } =
@@ -444,6 +447,9 @@ function flushColdStartCache() {
 
 function scheduleColdStartSave(name: string) {
   coldStartDirtyKeys.add(name);
+  if (__DEV__) {
+    console.log(`[ColdStartCache] scheduleSave: ${name}, dirty=${coldStartDirtyKeys.size}`);
+  }
   // Restart timer on each change so we save the FINAL value, not an
   // intermediate one (e.g., All Networks token list arrives progressively).
   if (coldStartSaveTimer) {
