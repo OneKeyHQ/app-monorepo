@@ -5,8 +5,8 @@ import { useIntl } from 'react-intl';
 import {
   Divider,
   Icon,
-  Input,
   ScrollView,
+  SearchBar,
   SizableText,
   XStack,
   YStack,
@@ -121,22 +121,13 @@ export function PerpGuideContent({ onClose }: { onClose?: () => void }) {
   return (
     <YStack flex={1}>
       <YStack px="$3" pt="$2" pb="$1">
-        <Input
+        <SearchBar
           placeholder={intl.formatMessage({
             id: ETranslations.perp_guide_search_placeholder,
           })}
-          leftIconName="SearchOutline"
           value={searchQuery}
           onChangeText={setSearchQuery}
           onSubmitEditing={handleSearchSubmit}
-          returnKeyType="search"
-          size="medium"
-          addOns={[
-            {
-              iconName: 'ArrowRightOutline',
-              onPress: handleSearchSubmit,
-            },
-          ]}
         />
       </YStack>
       <ScrollView flex={1}>
