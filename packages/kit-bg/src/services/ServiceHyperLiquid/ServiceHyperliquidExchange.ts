@@ -39,6 +39,7 @@ import {
   mapTriggerOrderType,
   parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IApiErrorResponse,
   IApiRequestResult,
@@ -678,6 +679,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async placeSpotOrder(params: ISpotOrderParams): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
+    if (
+      typeof params.assetId !== 'number' ||
+      params.assetId < SPOT_ASSET_ID_OFFSET
+    ) {
+      throw new OneKeyLocalError(
+        `placeSpotOrder: invalid spot assetId ${params.assetId}, must be >= ${SPOT_ASSET_ID_OFFSET}`,
+      );
+    }
     try {
       const isMarket = params.orderType === 'market';
 
