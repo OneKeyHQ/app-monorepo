@@ -2903,6 +2903,7 @@
   "perp.withdraw_fee_mgs": "Khoản phí này do Hyperliquid thu. OneKey không áp dụng bất kỳ khoản phí nào cho việc rút tiền.",
   "perp.you_will_get": "Bạn sẽ nhận được",
   "perp__deposit_no_second_confirmation__desc": "Giao dịch chuyển khoản sẽ được thực hiện ngay lập tức mà không cần xác nhận thêm.",
+  "perp_guide_title": "Perps Guide",
   "perp_order_trigger_limit": "Dừng Giới Hạn",
   "perp_order_trigger_market": "Dừng thị trường",
   "perp_portfolio_account_health": "Sức khỏe tài khoản",

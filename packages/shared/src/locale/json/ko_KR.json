@@ -2903,6 +2903,7 @@
   "perp.withdraw_fee_mgs": "이 수수료는 Hyperliquid에서 부과합니다. OneKey는 출금에 대해 어떠한 수수료도 부과하지 않습니다.",
   "perp.you_will_get": "당신은 받게 됩니다",
   "perp__deposit_no_second_confirmation__desc": "입금은 추가 확인 절차 없이 즉시 진행됩니다.",
+  "perp_guide_title": "Perps Guide",
   "perp_order_trigger_limit": "Stop Limit",
   "perp_order_trigger_market": "Stop Market",
   "perp_portfolio_account_health": "계정 건강도",

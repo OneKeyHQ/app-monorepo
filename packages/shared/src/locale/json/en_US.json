@@ -2903,6 +2903,7 @@
   "perp.withdraw_fee_mgs": "This fee is charged by Hyperliquid. OneKey does not impose any fees on withdrawals.",
   "perp.you_will_get": "You will get",
   "perp__deposit_no_second_confirmation__desc": "Deposit will proceed immediately without further confirmation",
+  "perp_guide_title": "Perps Guide",
   "perp_order_trigger_limit": "Stop Limit",
   "perp_order_trigger_market": "Stop Market",
   "perp_portfolio_account_health": "Account Health",

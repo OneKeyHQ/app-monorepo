@@ -2903,6 +2903,7 @@
   "perp.withdraw_fee_mgs": "এই ফিটি Hyperliquid দ্বারা ধার্য করা হয়। OneKey উত্তোলনে কোনো ফি আরোপ করে না।",
   "perp.you_will_get": "আপনি পাবেন",
   "perp__deposit_no_second_confirmation__desc": "আর কোনও নিশ্চিতকরণ ছাড়াই জমা অবিলম্বে এগিয়ে যাবে",
+  "perp_guide_title": "Perps Guide",
   "perp_order_trigger_limit": "স্টপ লিমিট",
   "perp_order_trigger_market": "স্টপ মার্কেট",
   "perp_portfolio_account_health": "অ্যাকাউন্ট স্বাস্থ্য",

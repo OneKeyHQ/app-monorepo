@@ -2903,6 +2903,7 @@
   "perp.withdraw_fee_mgs": "Questa commissione è addebitata da Hyperliquid. OneKey non applica alcuna commissione sui prelievi.",
   "perp.you_will_get": "Riceverai",
   "perp__deposit_no_second_confirmation__desc": "Il deposito verrà effettuato immediatamente senza ulteriore conferma",
+  "perp_guide_title": "Perps Guide",
   "perp_order_trigger_limit": "Stop Limit",
   "perp_order_trigger_market": "Stop Market",
   "perp_portfolio_account_health": "Salute del conto",
