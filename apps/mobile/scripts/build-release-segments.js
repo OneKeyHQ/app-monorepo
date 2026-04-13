@@ -75,9 +75,13 @@ for (const segFile of segFiles) {
   const segJsPath = path.join(segmentsInputDir, segFile);
   const segHbcPath = path.join(outputDir, `${baseName}.seg.hbc`);
 
-  execFileSync(HERMES_COMMAND, ['-O', '-emit-binary', '-out', segHbcPath, segJsPath], {
-    stdio: 'inherit',
-  });
+  execFileSync(
+    HERMES_COMMAND,
+    ['-O', '-emit-binary', '-out', segHbcPath, segJsPath],
+    {
+      stdio: 'inherit',
+    },
+  );
   log(`  ${baseName} → ${path.basename(segHbcPath)}`);
 }
 
