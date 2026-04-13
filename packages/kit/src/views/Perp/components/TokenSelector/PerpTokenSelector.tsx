@@ -229,15 +229,29 @@ function BasePerpTokenSelectorContent({
     [intl],
   );
 
-  // Spot data
+  // Spot data — try cache first, fallback to refresh if empty
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
   const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
+  const [spotLoading, setSpotLoading] = useState(true);
   useEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid
-      .getSpotMeta()
-      .then(({ universes }) => {
-        setSpotUniverses(universes);
-      });
+    let cancelled = false;
+    void (async () => {
+      let { universes } =
+        await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+      if (!universes?.length) {
+        await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+        const res =
+          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        universes = res.universes;
+      }
+      if (!cancelled) {
+        setSpotUniverses(universes ?? []);
+        setSpotLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
@@ -404,90 +418,9 @@ function BasePerpTokenSelectorContent({
     [selectorConfig?.direction, selectorConfig?.field],
   );
 
-  const activeTabData = useMemo(() => {
-    // Spot tab: render from spot universe data
-    if (activeTab === 'spot') {
-      let filtered = spotUniverses;
-      const sortField = selectorConfig?.field ?? '';
-      const sortDirection = selectorConfig?.direction ?? 'desc';
-
-      // Apply search filter — match raw name, display name, and formatted display name
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        filtered = filtered.filter((u) => {
-          const displayBase = getSpotTokenDisplayName(u.baseName);
-          const pairDisplay = formatSpotPairDisplayName(
-            u.baseName,
-            u.quoteName,
-          );
-          return (
-            u.baseName.toLowerCase().includes(q) ||
-            displayBase.toLowerCase().includes(q) ||
-            pairDisplay.toLowerCase().includes(q)
-          );
-        });
-      }
-
-      const entries = filtered
-        .map((u, index) => {
-          // Use pair name (@107 or PURR/USDC) as key
-          const ctx = spotPriceMap[u.name];
-          const markPrice = Number(ctx?.markPx || 0);
-          const prevDayPx = Number(ctx?.prevDayPx || 0);
-          const change24hPercent =
-            prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
-          const volume24h = Number(ctx?.dayNtlVlm || 0);
-          const circulatingSupply = Number(ctx?.circulatingSupply || 0);
-          const marketCap = circulatingSupply * markPrice;
-          return {
-            item: {
-              dexIndex: SPOT_DEX_INDEX,
-              index,
-              assetId: u.assetId,
-              spotUniverse: u,
-            } as ITokenSelectorListItem,
-            name: u.baseName,
-            markPrice,
-            change24hPercent,
-            volume24h,
-            marketCap,
-          };
-        })
-        .filter((e) => e.volume24h >= SPOT_MIN_VOLUME_STRICT);
-
-      if (sortField) {
-        entries.sort((a, b) => {
-          let cmp = 0;
-          switch (sortField) {
-            case 'name':
-              cmp = a.name.localeCompare(b.name, undefined, {
-                sensitivity: 'base',
-              });
-              break;
-            case 'markPrice':
-              cmp = a.markPrice - b.markPrice;
-              break;
-            case 'change24hPercent':
-              cmp = a.change24hPercent - b.change24hPercent;
-              break;
-            case 'volume24h':
-              cmp = a.volume24h - b.volume24h;
-              break;
-            case 'openInterest':
-              // Reuse openInterest field for marketCap sort in spot tab
-              cmp = a.marketCap - b.marketCap;
-              break;
-            default:
-              break;
-          }
-          return sortDirection === 'asc' ? cmp : -cmp;
-        });
-      }
-
-      return entries.map((e) => e.item);
-    }
-
-    // Perps tabs: existing logic
+  // Layer 1a: perp sort — only reruns when sort config or perp assets change.
+  // Never reruns on tab switch, spot WS updates, search, or favorites changes.
+  const perpSortedList = useMemo((): ITokenSelectorListItem[] => {
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] =
       ctxSnapshotRef.current || [];
@@ -501,44 +434,123 @@ function BasePerpTokenSelectorContent({
               ? asset.assetId - XYZ_ASSET_ID_OFFSET
               : asset.assetId;
           const sortValues = computeSortValues(ctxs?.[normalizedAssetId]);
-          return {
-            dexIndex,
-            index,
-            asset,
-            assetId: asset.assetId,
-            sortValues,
-          };
+          return { dexIndex, index, asset, assetId: asset.assetId, sortValues };
         });
       },
     );
 
     const sortField = selectorConfig?.field ?? '';
-    let result: ITokenSelectorListItem[];
     if (!sortField) {
-      result = combinedEntries.map((entry) => ({
+      return combinedEntries.map((entry) => ({
         dexIndex: entry.dexIndex,
         index: entry.index,
         assetId: entry.assetId,
       }));
-    } else {
-      const sorted = combinedEntries.toSorted((a, b) =>
+    }
+    return combinedEntries
+      .toSorted((a, b) =>
         sortCompare(
           { asset: a.asset, sortValues: a.sortValues },
           { asset: b.asset, sortValues: b.sortValues },
         ),
-      );
-      result = sorted.map((entry) => ({
+      )
+      .map((entry) => ({
         dexIndex: entry.dexIndex,
         index: entry.index,
         assetId: entry.assetId,
       }));
+  }, [assetsByDex, computeSortValues, sortCompare, selectorConfig?.field]);
+
+  // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
+  // sort config changes. spotPriceMap WS updates never touch the perp list.
+  const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
+    const sortField = selectorConfig?.field ?? '';
+    const sortDirection = selectorConfig?.direction ?? 'desc';
+
+    const entries = spotUniverses
+      .map((u, index) => {
+        const ctx = spotPriceMap[u.name];
+        const markPrice = Number(ctx?.markPx || 0);
+        const prevDayPx = Number(ctx?.prevDayPx || 0);
+        const change24hPercent =
+          prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+        const volume24h = Number(ctx?.dayNtlVlm || 0);
+        const circulatingSupply = Number(ctx?.circulatingSupply || 0);
+        const marketCap = circulatingSupply * markPrice;
+        return {
+          item: {
+            dexIndex: SPOT_DEX_INDEX,
+            index,
+            assetId: u.assetId,
+            spotUniverse: u,
+          } as ITokenSelectorListItem,
+          name: u.baseName,
+          markPrice,
+          change24hPercent,
+          volume24h,
+          marketCap,
+        };
+      })
+      .filter((e) => e.volume24h >= SPOT_MIN_VOLUME_STRICT);
+
+    if (sortField) {
+      entries.sort((a, b) => {
+        let cmp = 0;
+        switch (sortField) {
+          case 'name':
+            cmp = a.name.localeCompare(b.name, undefined, {
+              sensitivity: 'base',
+            });
+            break;
+          case 'markPrice':
+            cmp = a.markPrice - b.markPrice;
+            break;
+          case 'change24hPercent':
+            cmp = a.change24hPercent - b.change24hPercent;
+            break;
+          case 'volume24h':
+            cmp = a.volume24h - b.volume24h;
+            break;
+          case 'openInterest':
+            // Reuse openInterest field for marketCap sort in spot tab
+            cmp = a.marketCap - b.marketCap;
+            break;
+          default:
+            break;
+        }
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    return entries.map((e) => e.item);
+  }, [spotUniverses, spotPriceMap, selectorConfig?.field, selectorConfig?.direction]);
+
+  // Layer 2: filter — cheap O(n); no sort computation.
+  // Tab switches, search, and favorites changes only reach here.
+  // perpSortedList reference is stable unless sort config changes, so ListView
+  // bails out of re-rendering rows when spot WS updates trigger a component render.
+  const activeTabData = useMemo(() => {
+    if (activeTab === 'spot') {
+      if (!searchQuery) return spotSortedList;
+      const q = searchQuery.toLowerCase();
+      return spotSortedList.filter((item) => {
+        const u = item.spotUniverse;
+        if (!u) return false;
+        const displayBase = getSpotTokenDisplayName(u.baseName);
+        const pairDisplay = formatSpotPairDisplayName(u.baseName, u.quoteName);
+        return (
+          u.baseName.toLowerCase().includes(q) ||
+          displayBase.toLowerCase().includes(q) ||
+          pairDisplay.toLowerCase().includes(q)
+        );
+      });
     }
 
     if (activeTab === 'favorites') {
       const favoriteAssetIds = new Set(
         favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
       );
-      return result.filter((item) =>
+      return perpSortedList.filter((item) =>
         favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
       );
     }
@@ -546,29 +558,30 @@ function BasePerpTokenSelectorContent({
     const dynamicTab = dynamicTabs.find((t) => t.tabId === activeTab);
     if (dynamicTab) {
       const tokenSet = new Set(dynamicTab.tokens);
-      const matchingIds = new Set(
-        combinedEntries
-          .filter((entry) => tokenSet.has(entry.asset.name))
-          .map((entry) => `${entry.dexIndex}-${entry.assetId}`),
+      const matchingIds = new Set<string>();
+      (assetsByDex as IPerpsUniverse[][] || []).forEach(
+        (assets, dexIndex) => {
+          assets?.forEach((asset) => {
+            if (tokenSet.has(asset.name)) {
+              matchingIds.add(`${dexIndex}-${asset.assetId}`);
+            }
+          });
+        },
       );
-      return result.filter((item) =>
+      return perpSortedList.filter((item) =>
         matchingIds.has(`${item.dexIndex}-${item.assetId}`),
       );
     }
 
-    return result;
+    return perpSortedList;
   }, [
+    activeTab,
     assetsByDex,
-    computeSortValues,
     dynamicTabs,
     favoriteItems,
-    sortCompare,
-    selectorConfig?.field,
-    selectorConfig?.direction,
-    activeTab,
-    spotPriceMap,
+    perpSortedList,
+    spotSortedList,
     searchQuery,
-    spotUniverses,
   ]);
 
   // Always show all dynamic tabs — filtering them by search would hide tabs mid-search.
@@ -609,7 +622,11 @@ function BasePerpTokenSelectorContent({
 
   const listEmptyComponent = useMemo(
     () =>
-      showFavoritesEmpty ? (
+      activeTab === 'spot' && spotLoading ? (
+        <YStack p="$4" alignItems="center">
+          <Spinner size="small" />
+        </YStack>
+      ) : showFavoritesEmpty ? (
         <FavoritesEmptyState />
       ) : (
         <XStack p="$4" justifyContent="center">
@@ -624,7 +641,7 @@ function BasePerpTokenSelectorContent({
           </SizableText>
         </XStack>
       ),
-    [showFavoritesEmpty, searchQuery, intl],
+    [activeTab, spotLoading, showFavoritesEmpty, searchQuery, intl],
   );
 
   const content = (
@@ -695,7 +712,7 @@ function BasePerpTokenSelectorContent({
                 keyExtractor={keyExtractor}
                 estimatedItemSize={40}
                 windowSize={3}
-                initialNumToRender={10}
+                initialNumToRender={5}
                 data={activeTabData}
                 renderItem={renderItem}
                 ListEmptyComponent={listEmptyComponent}

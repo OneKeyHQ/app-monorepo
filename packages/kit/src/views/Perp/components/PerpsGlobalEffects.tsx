@@ -167,11 +167,9 @@ function useTradeRouteViewStateSync() {
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
 
-  // Throttle ALL_DEXS_ASSET_CTXS writes to 1s (leading + trailing).
-  // This fires every ~500ms and forces all visible token-selector rows to
-  // re-render via usePerpsAssetCtx → usePerpsAllAssetCtxsAtom. Throttling
-  // halves the ongoing rate; startTransition ensures these background updates
-  // yield to user interactions (e.g. opening the token selector).
+  // Throttle ALL_DEXS_ASSET_CTXS to 1s (leading + trailing) — fires every
+  // ~500ms and causes token-selector row re-renders; startTransition yields
+  // to user interactions.
   const assetCtxsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assetCtxsDirtyRef = useRef<IWsAllDexsAssetCtxs | null>(null);
 
@@ -211,13 +209,11 @@ function useHyperliquidEventBusListener() {
           case ESubscriptionType.ALL_DEXS_ASSET_CTXS: {
             assetCtxsDirtyRef.current = data as IWsAllDexsAssetCtxs;
             if (!assetCtxsTimerRef.current) {
-              // Leading edge: flush immediately as a low-priority transition
               const pending = assetCtxsDirtyRef.current;
               assetCtxsDirtyRef.current = null;
               startTransition(() => {
                 void actions.current.updateAllDexsAssetCtxs(pending);
               });
-              // Trailing edge: one more flush after 1s if new data arrived
               assetCtxsTimerRef.current = setTimeout(() => {
                 assetCtxsTimerRef.current = null;
                 if (assetCtxsDirtyRef.current) {
@@ -509,8 +505,7 @@ function WebSocketSubscriptionUpdate() {
   const isLoadingRef = useRef(isLoading);
   isLoadingRef.current = isLoading;
 
-  // Extract primitive values from objects to avoid re-running effect on
-  // every new object reference when the actual values haven't changed
+  // Primitives as deps — avoids re-running on same-value object changes
   const instrumentCoin = activeTradeInstrument?.coin;
   const instrumentMode = activeTradeInstrument.mode;
   const instrumentAssetId = activeTradeInstrument?.assetId;
@@ -523,7 +518,7 @@ function WebSocketSubscriptionUpdate() {
   const infoPanelTab = tradeRouteViewState.infoPanelTab;
   const accountAddress = activePerpsAccount?.accountAddress;
 
-  // Keep refs for objects needed inside the effect body (not as triggers)
+  // Refs for reading inside effect body without triggering it
   const activeTradeInstrumentRef = useRef(activeTradeInstrument);
   activeTradeInstrumentRef.current = activeTradeInstrument;
   const activeOrderBookOptionsRef = useRef(activeOrderBookOptions);
@@ -663,11 +658,6 @@ function AutoPauseSubscriptions() {
   const pauseSubscriptionsTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
-
-  // const isFocusedRoute = useRouteIsFocused();
-  // useEffect(() => {
-  //   //
-  // }, [isFocusedRoute]);
 
   const onFocusHandler = useCallback(
     async ({

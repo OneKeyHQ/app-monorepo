@@ -21,6 +21,7 @@ import {
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
   spotActiveOpenOrdersAtom,
+  spotAssetCtxsMapAtom,
   spotBalancesAtom,
   tradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -36,6 +37,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
+  formatSpotAssetCtx,
   getTriggerEffectivePrice,
   inferTpsl,
   isSpotInstrument,
@@ -568,11 +570,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     };
   }
 
-  /**
-   * Compare two IActiveTradeInstrument values by their meaningful fields.
-   * Used to skip redundant atom writes that would create new object
-   * references and trigger downstream re-renders.
-   */
+  /** Skip redundant atom writes to avoid downstream re-renders. */
   private static _isTradeInstrumentEqual(
     a: IActiveTradeInstrument,
     b: IActiveTradeInstrument,
@@ -640,10 +638,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     try {
       const stored =
         await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
-      console.log(
-        'orderBookTickOptionsAtom__ensureOrderBookTickOptionsLoaded',
-        stored,
-      );
       set(orderBookTickOptionsAtom(), stored);
     } catch (error) {
       console.error('Failed to load order book tick options:', error);
@@ -692,7 +686,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         next[symbol] = option;
       }
 
-      console.log('orderBookTickOptionsAtom__setOrderBookTickOption', next);
       set(orderBookTickOptionsAtom(), next);
 
       try {
@@ -795,7 +788,29 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       await this.clearActiveAssetData.call(set);
       await tradingModeAtom.set('spot');
-      await spotActiveAssetCtxAtom.set(undefined);
+
+      // Seed ticker bar from cached data to avoid skeleton flash
+      const ctxsMap = await spotAssetCtxsMapAtom.get();
+      const cached = ctxsMap[coin];
+      if (cached) {
+        await spotActiveAssetCtxAtom.set({
+          coin,
+          assetId: spotUniverse?.assetId,
+          ctx: formatSpotAssetCtx({
+            markPx: cached.markPx,
+            midPx: null,
+            prevDayPx: cached.prevDayPx ?? '0',
+            dayNtlVlm: cached.dayNtlVlm ?? '0',
+            circulatingSupply: cached.circulatingSupply ?? '0',
+            totalSupply: '0',
+            dayBaseVlm: '0',
+            coin,
+          }),
+        });
+      } else {
+        await spotActiveAssetCtxAtom.set(undefined);
+      }
+
       await spotActiveAssetAtom.set({
         coin,
         assetId: spotUniverse?.assetId,
@@ -864,8 +879,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   setTradeRouteViewState = contextAtomMethod(
     (get, set, patch: Partial<ITradeRouteViewState>) => {
       const current = get(tradeRouteViewStateAtom());
-      // Skip atom write when all patched values are identical to current
-      // to avoid creating a new object reference that triggers re-renders
+      // Avoid new object reference when nothing actually changed
       const keys = Object.keys(patch) as Array<keyof ITradeRouteViewState>;
       const hasChange = keys.some((k) => current[k] !== patch[k]);
       if (!hasChange) {
@@ -904,7 +918,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       await backgroundApiProxy.serviceHyperliquidSubscription.connect();
     }
     try {
-      console.log('updateSubscriptions__by__atomActions');
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
     } catch (error) {
       console.error(
@@ -1360,9 +1373,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const formData = params.formData || get(tradingFormAtom());
       const env = get(tradingFormEnvAtom());
 
-      // Guard: spot order requires a valid assetId from loaded spot meta.
-      // If spot meta failed to load, spotActiveAssetAtom.assetId is undefined
-      // and we must not forward `a: undefined` to the exchange.
+      // If spot meta failed to load, assetId is undefined —
+      // we must not forward that to the exchange.
       if (
         typeof params.assetId !== 'number' ||
         !Number.isFinite(params.assetId)

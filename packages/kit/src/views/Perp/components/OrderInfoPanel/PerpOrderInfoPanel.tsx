@@ -107,7 +107,7 @@ function PerpOrderInfoPanel() {
         <Tabs.TabBar
           {...props}
           renderItem={({ name, isFocused, onPress }) => (
-            <TabBarItem name={name} isFocused={isFocused} onPress={onPress} />
+            <TabBarItem key={name} name={name} isFocused={isFocused} onPress={onPress} />
           )}
           containerStyle={{
             borderRadius: 0,
