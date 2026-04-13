@@ -10,6 +10,14 @@ type IShouldUseSwapCustomRecipientAddressParams = {
   isAllNetwork: boolean;
 };
 
+type IShouldShowSwapRecipientAddressInfoParams = {
+  swapToAnotherAccountSwitchOn: boolean;
+  selectedRecipientAddress?: string;
+  selectedRecipientNetworkId?: string;
+  toAddressNetworkId?: string;
+  toTokenNetworkId?: string;
+};
+
 export function shouldUseSwapCustomRecipientAddress({
   type,
   swapToAnotherAccountSwitchOn,
@@ -35,5 +43,25 @@ export function shouldUseSwapCustomRecipientAddress({
     isAllNetwork ||
     activeNetworkId === selectedRecipientNetworkId ||
     tokenNetworkId === selectedRecipientNetworkId
+  );
+}
+
+export function shouldShowSwapRecipientAddressInfo({
+  swapToAnotherAccountSwitchOn,
+  selectedRecipientAddress,
+  selectedRecipientNetworkId,
+  toAddressNetworkId,
+  toTokenNetworkId,
+}: IShouldShowSwapRecipientAddressInfoParams) {
+  if (
+    !swapToAnotherAccountSwitchOn ||
+    !selectedRecipientAddress ||
+    !selectedRecipientNetworkId
+  ) {
+    return false;
+  }
+
+  return (
+    selectedRecipientNetworkId === (toTokenNetworkId ?? toAddressNetworkId)
   );
 }

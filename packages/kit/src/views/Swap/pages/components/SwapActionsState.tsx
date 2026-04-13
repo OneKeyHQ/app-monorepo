@@ -842,6 +842,19 @@ const SwapActionsState = ({
     recipientMetaRowComponent,
   ]);
 
+  const desktopModalRecipientSection = useMemo(() => {
+    if (!incognitoComponent && !incognitoRecipientInputComponent) {
+      return null;
+    }
+
+    return (
+      <Stack gap="$4">
+        {incognitoComponent}
+        {incognitoRecipientInputComponent}
+      </Stack>
+    );
+  }, [incognitoComponent, incognitoRecipientInputComponent]);
+
   const desktopFooterComponent = useMemo(
     () => (
       <Page.Footer>
@@ -867,7 +880,6 @@ const SwapActionsState = ({
               alignItems="center"
               overflow="hidden"
             >
-              {incognitoComponent}
               {recipientFooterComponent}
             </XStack>
             <Stack
@@ -901,7 +913,6 @@ const SwapActionsState = ({
       costSavingsComponent,
       desktopActionWidth,
       desktopActionWidthProps,
-      incognitoComponent,
       onActionHandlerBefore,
       onDesktopActionTagLayout,
       onSelectPercentageStage,
@@ -931,7 +942,7 @@ const SwapActionsState = ({
     <>
       {isDesktopModalPage ? (
         <>
-          {incognitoRecipientInputComponent}
+          {desktopModalRecipientSection}
           {desktopFooterComponent}
         </>
       ) : (
