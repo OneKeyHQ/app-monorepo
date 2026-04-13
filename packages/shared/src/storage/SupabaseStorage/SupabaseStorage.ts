@@ -1,6 +1,7 @@
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import platformEnv from '../../platformEnv';
 import cacheUtils from '../../utils/cacheUtils';
+import timerUtils from '../../utils/timerUtils';
 import appStorage from '../appStorage';
 import secureStorageInstance from '../instance/secureStorageInstance';
 
@@ -51,13 +52,25 @@ export class SupabaseStorage {
 
   private readonly cacheSourceId = buildCacheSourceId();
 
-  private readonly inflightGetItemRequests = new Map<
-    string,
-    Promise<string | null>
-  >();
+  private readonly getItemWithCache = cacheUtils.memoizee(
+    async (key: string) => {
+      // eslint-disable-next-line no-param-reassign
+      key = withPrefixedKey(key);
+
+      if (await shouldUseSecureStorage()) {
+        return (await secureStorageInstance.getSecureItem(key)) ?? null;
+      }
+      return (await appStorage.getItem(key)) ?? null;
+    },
+    {
+      promise: true,
+      primitive: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
 
   private clearLocalCache() {
-    this.inflightGetItemRequests.clear();
+    this.getItemWithCache.clear();
   }
 
   clearCache({ syncRemote = true }: { syncRemote?: boolean } = {}) {
@@ -71,30 +84,13 @@ export class SupabaseStorage {
   }
 
   async getItem(key: string): Promise<string | null> {
-    const prefixedKey = withPrefixedKey(key);
-    const inflightRequest = this.inflightGetItemRequests.get(prefixedKey);
-    if (inflightRequest) {
-      return inflightRequest;
-    }
-
-    const requestPromise: Promise<string | null> = (async () => {
-      if (await shouldUseSecureStorage()) {
-        return (await secureStorageInstance.getSecureItem(prefixedKey)) ?? null;
-      }
-      return (await appStorage.getItem(prefixedKey)) ?? null;
-    })().finally(() => {
-      if (this.inflightGetItemRequests.get(prefixedKey) === requestPromise) {
-        this.inflightGetItemRequests.delete(prefixedKey);
-      }
-    });
-
-    this.inflightGetItemRequests.set(prefixedKey, requestPromise);
-    return requestPromise;
+    return this.getItemWithCache(key);
   }
 
   async setItem(key: string, value: string) {
     // eslint-disable-next-line no-param-reassign
     key = withPrefixedKey(key);
+    this.clearCache({ syncRemote: false });
 
     if (await shouldUseSecureStorage()) {
       const result = await secureStorageInstance.setSecureItem(key, value);
@@ -109,6 +105,7 @@ export class SupabaseStorage {
   async removeItem(key: string) {
     // eslint-disable-next-line no-param-reassign
     key = withPrefixedKey(key);
+    this.clearCache({ syncRemote: false });
 
     if (await shouldUseSecureStorage()) {
       const result = await secureStorageInstance.removeSecureItem(key);

@@ -3542,26 +3542,11 @@ class ServiceAccount extends ServiceBase {
       };
     }
 
-    const parentCredential = await localDb.getCredential(parentKeylessWalletId);
-    const parentMnemonic = await mnemonicFromEntropy(
-      parentCredential.credential,
+    const { rs, walletHashAndXfp } = await this.buildBotWalletCreationMaterial({
+      parentKeylessWalletId,
       password,
-    );
-    const botMnemonic = deriveBotMnemonic(parentMnemonic, metadata.index);
-    const { mnemonic: realMnemonic } = await this.validateMnemonic(
-      await this.backgroundApi.servicePassword.encodeSensitiveText({
-        text: botMnemonic,
-      }),
-    );
-    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
-      realMnemonic,
+      index: metadata.index,
     });
-    let rs: string | undefined;
-    try {
-      rs = await revealableSeedFromMnemonic(realMnemonic, password);
-    } catch {
-      throw new InvalidMnemonic();
-    }
 
     const result = await localDb.createHDWallet({
       password,
@@ -3577,6 +3562,52 @@ class ServiceAccount extends ServiceBase {
     await simpleDb.botWallet.setMetadata(botWalletId, metadata);
 
     return result;
+  }
+
+  private async buildBotWalletCreationMaterial({
+    parentKeylessWalletId,
+    password,
+    index,
+  }: {
+    parentKeylessWalletId: string;
+    password: string;
+    index: number;
+  }): Promise<{
+    rs: IBip39RevealableSeedEncryptHex;
+    walletHashAndXfp: {
+      hash: string;
+      xfp: string;
+    };
+  }> {
+    const parentCredential = await localDb.getCredential(parentKeylessWalletId);
+    let parentMnemonic: string | undefined;
+    let realMnemonic: string | undefined;
+
+    try {
+      parentMnemonic = await mnemonicFromEntropy(
+        parentCredential.credential,
+        password,
+      );
+      realMnemonic = deriveBotMnemonic(parentMnemonic, index);
+
+      const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
+        realMnemonic,
+      });
+
+      let rs: IBip39RevealableSeedEncryptHex;
+      try {
+        rs = await revealableSeedFromMnemonic(realMnemonic, password);
+      } catch {
+        throw new InvalidMnemonic();
+      }
+
+      return { rs, walletHashAndXfp };
+    } finally {
+      // JS strings cannot be wiped reliably, so drop references as soon as
+      // the non-sensitive derivation artifacts have been produced.
+      parentMnemonic = undefined;
+      realMnemonic = undefined;
+    }
   }
 
   private scheduleWalletUpdateForBotMetadata(): void {

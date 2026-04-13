@@ -190,4 +190,13 @@ describe('Bot Wallet ID Parsing', () => {
       idSuffix: 'LedgerLive',
     });
   });
+
+  test('rejects bot wallet ids with non-digit suffixes', () => {
+    expect(accountUtils.parseBotWalletId('hd-bot--hd-keyless-parent--1x')).toBe(
+      undefined,
+    );
+    expect(accountUtils.parseBotWalletId('hd-bot--hd-keyless-parent--+1')).toBe(
+      undefined,
+    );
+  });
 });

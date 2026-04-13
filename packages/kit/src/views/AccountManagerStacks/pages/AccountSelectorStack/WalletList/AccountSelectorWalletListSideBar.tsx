@@ -41,7 +41,10 @@ import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute
 
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
-import { buildGroupedAccountSelectorWallets } from './walletListUtils';
+import {
+  buildGroupedAccountSelectorWallets,
+  getWalletChildrenLength,
+} from './walletListUtils';
 
 import type { IAccountSelectorWalletInfo } from '../../../type';
 
@@ -337,8 +340,7 @@ export function AccountSelectorWalletListSideBar({
   const getHiddenWalletsLength = useCallback(
     (wallet: IAccountSelectorWalletInfo): number => {
       noop(reloadWalletsHook);
-      let _hiddenWalletsLength =
-        wallet?.hiddenWallets?.length || wallet?.botWallets?.length || 0;
+      let _hiddenWalletsLength = getWalletChildrenLength(wallet);
 
       if (shouldShowCreateHiddenWalletButtonFn({ wallet })) {
         _hiddenWalletsLength += 1; // show create hidden wallet button

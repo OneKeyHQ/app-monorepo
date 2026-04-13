@@ -1,9 +1,11 @@
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -102,5 +104,16 @@ describe('AuthSessionStore', () => {
     await expect(store.save(makeSession())).rejects.toMatchObject({
       code: 'AUTH_SESSION_PERSIST_FAILED',
     });
+  });
+
+  it('tightens auth session directory and file permissions on save', async () => {
+    chmodSync(tempDir, 0o755);
+    writeFileSync(sessionPath, 'legacy', { encoding: 'utf-8', mode: 0o644 });
+    const store = new AuthSessionStore(sessionPath);
+
+    await store.save(makeSession());
+
+    expect(statSync(tempDir).mode & 0o777).toBe(0o700);
+    expect(statSync(sessionPath).mode & 0o777).toBe(0o600);
   });
 });

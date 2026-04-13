@@ -57,8 +57,12 @@ function parseBotWalletId(walletId: string): IBotWalletParsedId | undefined {
     return undefined;
   }
   const parentId = rest.slice(0, lastSep);
-  const index = Number.parseInt(rest.slice(lastSep + 2), 10);
-  if (!parentId || Number.isNaN(index) || index < 0) {
+  const indexStr = rest.slice(lastSep + 2);
+  if (!parentId || !/^\d+$/.test(indexStr)) {
+    return undefined;
+  }
+  const index = Number.parseInt(indexStr, 10);
+  if (!Number.isSafeInteger(index)) {
     return undefined;
   }
   return { parentId, index };

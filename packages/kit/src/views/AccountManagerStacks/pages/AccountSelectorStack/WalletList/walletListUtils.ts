@@ -46,6 +46,12 @@ function buildWalletListItemInfo({
   };
 }
 
+export function getWalletChildrenLength(
+  wallet: Pick<IAccountSelectorWalletInfo, 'hiddenWallets' | 'botWallets'>,
+): number {
+  return (wallet.hiddenWallets?.length ?? 0) + (wallet.botWallets?.length ?? 0);
+}
+
 export function buildGroupedAccountSelectorWallets(
   entries: IBuildWalletListEntry[],
 ): IAccountSelectorWalletInfo[] {

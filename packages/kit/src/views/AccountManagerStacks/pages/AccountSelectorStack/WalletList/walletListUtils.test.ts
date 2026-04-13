@@ -1,7 +1,10 @@
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { BOT_WALLET_STATUS_DEACTIVATED } from '@onekeyhq/shared/src/consts/dbConsts';
 
-import { buildGroupedAccountSelectorWallets } from './walletListUtils';
+import {
+  buildGroupedAccountSelectorWallets,
+  getWalletChildrenLength,
+} from './walletListUtils';
 
 function createWallet({
   id,
@@ -116,5 +119,27 @@ describe('walletListUtils', () => {
     expect(wallets).toHaveLength(1);
     expect(wallets[0].id).toBe('hd-bot--hd-keyless-parent-1--0');
     expect(wallets[0].botStatus).toBe(BOT_WALLET_STATUS_DEACTIVATED);
+  });
+
+  it('counts hidden and bot wallets together', () => {
+    expect(
+      getWalletChildrenLength({
+        hiddenWallets: [createWallet({ id: 'hidden-1', name: 'Hidden' })],
+        botWallets: [
+          {
+            ...createWallet({
+              id: 'hd-bot--hd-keyless-parent-1--0',
+              name: 'Bot #1',
+            }),
+          },
+          {
+            ...createWallet({
+              id: 'hd-bot--hd-keyless-parent-1--1',
+              name: 'Bot #2',
+            }),
+          },
+        ],
+      }),
+    ).toBe(3);
   });
 });

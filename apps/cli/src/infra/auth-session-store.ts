@@ -16,6 +16,8 @@ const DEFAULT_AUTH_SESSION_PATH = join(
   '.onekey',
   'auth-session.json',
 );
+const AUTH_SESSION_DIR_MODE = 0o700;
+const AUTH_SESSION_FILE_MODE = 0o600;
 
 export const AUTH_SESSION_SCHEMA_VERSION = 1;
 
@@ -158,13 +160,22 @@ export class AuthSessionStore {
     }
 
     const path = this.sessionPath;
+    const sessionDir = dirname(path);
     const tempPath = tmpPath(path);
     const payload = `${JSON.stringify(toRawSession(metadata), null, 2)}\n`;
 
     try {
-      await fs.mkdir(dirname(path), { recursive: true });
-      await fs.writeFile(tempPath, payload, 'utf-8');
+      await fs.mkdir(sessionDir, {
+        recursive: true,
+        mode: AUTH_SESSION_DIR_MODE,
+      });
+      await fs.chmod(sessionDir, AUTH_SESSION_DIR_MODE);
+      await fs.writeFile(tempPath, payload, {
+        encoding: 'utf-8',
+        mode: AUTH_SESSION_FILE_MODE,
+      });
       await fs.rename(tempPath, path);
+      await fs.chmod(path, AUTH_SESSION_FILE_MODE);
     } catch (error) {
       await fs.rm(tempPath, { force: true }).catch(() => undefined);
       throw new AppError(
