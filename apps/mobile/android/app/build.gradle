@@ -292,15 +292,49 @@ def registerBackgroundReleaseBundleTask(variant, appProjectRootDir) {
         )
     }
 
-    tasks.named("merge${targetName}Assets").configure {
+    // Compile segment files produced by the Metro segmentSerializer to HBC.
+    // Main segments are created during createBundleXxxJsAndAssets (dist/segments/),
+    // background segments during createBackgroundBundleXxx (dist/segments-background/).
+    def mainSegmentsOutputDir = file("$buildDir/generated/assets/${mainBundleTaskName}/segments")
+    def bgSegmentsOutputDir = file("$buildDir/generated/assets/${mainBundleTaskName}/segments-background")
+
+    def buildSegmentsTaskName = "buildSegments${targetName}"
+    def buildSegmentsTask = tasks.register(buildSegmentsTaskName) {
         dependsOn(backgroundBundleTask)
+
+        doLast {
+            // Compile main-runtime segments
+            exec {
+                workingDir appProjectRootDir
+                commandLine(
+                    "node",
+                    "scripts/build-release-segments.js",
+                    "--runtime-target", "main",
+                    "--output-dir", mainSegmentsOutputDir.absolutePath,
+                )
+            }
+            // Compile background-runtime segments
+            exec {
+                workingDir appProjectRootDir
+                commandLine(
+                    "node",
+                    "scripts/build-release-segments.js",
+                    "--runtime-target", "background",
+                    "--output-dir", bgSegmentsOutputDir.absolutePath,
+                )
+            }
+        }
+    }
+
+    tasks.named("merge${targetName}Assets").configure {
+        dependsOn(buildSegmentsTask)
     }
     tasks.named("merge${targetName}Resources").configure {
         dependsOn(backgroundBundleTask)
     }
 
     def syncBackgroundBundleTask = tasks.register(syncBackgroundBundleTaskName) {
-        dependsOn(backgroundBundleTask)
+        dependsOn(buildSegmentsTask)
         dependsOn(tasks.named(mergeAssetsTaskName))
 
         doLast {
@@ -308,10 +342,36 @@ def registerBackgroundReleaseBundleTask(variant, appProjectRootDir) {
                 from(backgroundBundleOutputFile)
                 into(mergedAssetsDir)
             }
+            // Copy segment directories into merged assets
+            if (mainSegmentsOutputDir.exists()) {
+                copy {
+                    from(mainSegmentsOutputDir)
+                    into(file("${mergedAssetsDir}/segments"))
+                }
+            }
+            if (bgSegmentsOutputDir.exists()) {
+                copy {
+                    from(bgSegmentsOutputDir)
+                    into(file("${mergedAssetsDir}/segments-background"))
+                }
+            }
             sentryInjectedAssetsDir.mkdirs()
             copy {
                 from(backgroundBundleOutputFile)
                 into(sentryInjectedAssetsDir)
+            }
+            // Also copy segments into sentry-injected assets dir
+            if (mainSegmentsOutputDir.exists()) {
+                copy {
+                    from(mainSegmentsOutputDir)
+                    into(file("${sentryInjectedAssetsDir}/segments"))
+                }
+            }
+            if (bgSegmentsOutputDir.exists()) {
+                copy {
+                    from(bgSegmentsOutputDir)
+                    into(file("${sentryInjectedAssetsDir}/segments-background"))
+                }
             }
         }
     }

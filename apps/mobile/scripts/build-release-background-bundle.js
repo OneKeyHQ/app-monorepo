@@ -163,3 +163,49 @@ if (sourceMapOutputPath) {
 }
 
 log('bundle generated at', bundleOutputPath);
+
+// ---------------------------------------------------------------------------
+// Compile segment files produced by Metro's segmentSerializer to HBC and
+// copy them into the assets directory so they ship inside the app bundle.
+// This handles BOTH main-runtime and background-runtime segments because the
+// background bundle task runs AFTER the main bundle task on every platform.
+// ---------------------------------------------------------------------------
+const { getSegmentsDir } = require('../plugins/segmentPaths');
+
+const compileAndCopySegments = (runtimeTarget, outputSubdir) => {
+  const segmentsInputDir = getSegmentsDir(runtimeTarget);
+  if (!fs.existsSync(segmentsInputDir)) {
+    log(`no ${runtimeTarget} segments dir at ${segmentsInputDir}, skipping`);
+    return;
+  }
+
+  const segFiles = fs
+    .readdirSync(segmentsInputDir)
+    .filter((f) => f.endsWith('.seg.js'));
+  if (segFiles.length === 0) {
+    log(`no ${runtimeTarget} .seg.js files, skipping`);
+    return;
+  }
+
+  const segmentsOutputDir = path.join(assetsDestPath, outputSubdir);
+  fs.ensureDirSync(segmentsOutputDir);
+  log(
+    `compiling ${segFiles.length} ${runtimeTarget} segment(s) → ${segmentsOutputDir}`,
+  );
+
+  for (const segFile of segFiles) {
+    const baseName = segFile.replace('.seg.js', '');
+    const segJsPath = path.join(segmentsInputDir, segFile);
+    const segHbcPath = path.join(segmentsOutputDir, `${baseName}.seg.hbc`);
+
+    runCommand(
+      HERMES_COMMAND,
+      ['-O', '-emit-binary', '-out', segHbcPath, segJsPath],
+      process.env,
+    );
+    log(`  ${baseName} → ${outputSubdir}/${baseName}.seg.hbc`);
+  }
+};
+
+compileAndCopySegments('main', 'segments');
+compileAndCopySegments('background', 'segments-background');
