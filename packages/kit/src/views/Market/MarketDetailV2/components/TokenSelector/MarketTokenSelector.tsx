@@ -192,9 +192,9 @@ function BaseMarketTokenSelectorContent() {
                 key={item.id}
                 id={item.id}
                 name={item.name}
-                isFocused={
-                  startListSelect ? false : item.id === selectedCategory
-                }
+                isFocused={Boolean(
+                  !startListSelect && item.id === selectedCategory,
+                )}
                 onPress={handleCategoryChange}
               />
             ))}
@@ -208,7 +208,7 @@ function BaseMarketTokenSelectorContent() {
           timeRange="1h"
           onItemPress={handleSelectToken}
           pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
-          isWatchlistMode={searchValueDebounce ? undefined : startListSelect}
+          isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
           searchQuery={searchValueDebounce}
           searchLoading={searchLoading}
           searchResults={searchTokenList}

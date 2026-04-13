@@ -25,9 +25,12 @@ interface ISwapProviderInfoItemProps {
   showLock?: boolean;
   onPress?: () => void;
   isLoading?: boolean;
+  percentageFee?: number;
 }
 
-const SwapProviderInfoItemTitleContent = () => {
+const SwapProviderInfoItemTitleContent = ({
+  percentageFee,
+}: Pick<ISwapProviderInfoItemProps, 'percentageFee'>) => {
   const intl = useIntl();
 
   return (
@@ -42,7 +45,7 @@ const SwapProviderInfoItemTitleContent = () => {
           id: ETranslations.swap_page_provider_provider,
         })}
       </SizableText>
-      <SwapServiceFeeOverview />
+      <SwapServiceFeeOverview percentageFee={percentageFee} />
     </XStack>
   );
 };
@@ -60,11 +63,12 @@ const SwapProviderInfoItem = ({
   showLock: _showLock,
   onPress,
   isLoading,
+  percentageFee,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" alignItems="center">
-      <SwapProviderInfoItemTitleContentMemo />
+      <SwapProviderInfoItemTitleContentMemo percentageFee={percentageFee} />
       {isLoading ? (
         <Stack py="$1">
           <Skeleton h="$3" w="$24" />

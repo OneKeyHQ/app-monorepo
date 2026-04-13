@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   EParseTxComponentType,
   type IParseMessageResp,
@@ -101,12 +100,6 @@ function MessageConfirm() {
     isRiskSignMethod,
   } = useRiskDetection({ origin: sourceInfo?.origin ?? '', unsignedMessage });
 
-  const isSignTypedDataV3orV4Method =
-    unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
-    unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
-
-  const typedData = JSON.stringify(unsignedMessage);
-
   const { result, isLoading } = usePromiseResult(
     async () => {
       const accountAddress =
@@ -115,37 +108,16 @@ function MessageConfirm() {
           accountId,
         });
 
-      const requests:
-        | [Promise<IParseMessageResp | null>, Promise<void>]
-        | [Promise<IParseMessageResp | null>] = isSignTypedDataV3orV4Method
-        ? [
-            backgroundApiProxy.serviceSignatureConfirm.parseMessage({
-              networkId,
-              accountId,
-              accountAddress,
-              message: unsignedMessage.message,
-              swapInfo,
-            }),
-            backgroundApiProxy.serviceDiscovery.postSignTypedDataMessage({
-              networkId,
-              accountId,
-              origin: sourceInfo?.origin ?? '',
-              typedData,
-            }),
-          ]
-        : [
-            backgroundApiProxy.serviceSignatureConfirm.parseMessage({
-              networkId,
-              accountId,
-              accountAddress,
-              message: unsignedMessage.message,
-              swapInfo,
-            }),
-          ];
-
       const resp = await promiseAllSettledEnhanced(
-        // @ts-ignore
-        requests,
+        [
+          backgroundApiProxy.serviceSignatureConfirm.parseMessage({
+            networkId,
+            accountId,
+            accountAddress,
+            message: unsignedMessage.message,
+            swapInfo,
+          }),
+        ],
         {
           continueOnError: true,
         },
@@ -191,15 +163,7 @@ function MessageConfirm() {
         isConfirmationRequired: m?.isConfirmationRequired,
       };
     },
-    [
-      networkId,
-      accountId,
-      isSignTypedDataV3orV4Method,
-      unsignedMessage.message,
-      swapInfo,
-      sourceInfo?.origin,
-      typedData,
-    ],
+    [networkId, accountId, unsignedMessage.message, swapInfo],
     {
       watchLoading: true,
     },

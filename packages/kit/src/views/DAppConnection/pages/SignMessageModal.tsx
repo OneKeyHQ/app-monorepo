@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -144,23 +144,6 @@ function SignMessageModal() {
   const isSignTypedDataV3orV4Method =
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
-
-  useEffect(() => {
-    if (isSignTypedDataV3orV4Method) {
-      void backgroundApiProxy.serviceDiscovery.postSignTypedDataMessage({
-        networkId,
-        accountId,
-        origin: $sourceInfo?.origin ?? '',
-        typedData: unsignedMessage.message,
-      });
-    }
-  }, [
-    isSignTypedDataV3orV4Method,
-    $sourceInfo?.origin,
-    accountId,
-    networkId,
-    unsignedMessage.message,
-  ]);
 
   const subtitle = useMemo(() => {
     if (!currentNetwork?.name) {

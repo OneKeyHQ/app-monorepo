@@ -383,7 +383,7 @@ export function PerpOrderBook({
   }, [formData.hasTpsl, shouldShowEnableTradingButton]);
 
   const desktopMaxLevelsPerSide = useMemo(
-    () => propMaxLevelsPerSide ?? 11,
+    () => propMaxLevelsPerSide ?? 18,
     [propMaxLevelsPerSide],
   );
 
