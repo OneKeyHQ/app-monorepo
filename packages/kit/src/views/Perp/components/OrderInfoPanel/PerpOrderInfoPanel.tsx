@@ -28,7 +28,7 @@ const tabNameToTranslationKey: Record<string, string> = {
   'Open Orders': ETranslations.perp_open_orders_title,
   'Trades History': ETranslations.perp_trades_history_title,
   'Account': ETranslations.perp_account_history,
-  'Balances': 'Balances',
+  'Balances': 'Balances', // TODO: add i18n key (ETranslations)
 };
 
 function TabBarItem({
@@ -107,7 +107,12 @@ function PerpOrderInfoPanel() {
         <Tabs.TabBar
           {...props}
           renderItem={({ name, isFocused, onPress }) => (
-            <TabBarItem key={name} name={name} isFocused={isFocused} onPress={onPress} />
+            <TabBarItem
+              key={name}
+              name={name}
+              isFocused={isFocused}
+              onPress={onPress}
+            />
           )}
           containerStyle={{
             borderRadius: 0,

@@ -4,7 +4,6 @@ import type {
   ISpotFormattedAssetCtx,
   ISpotTokenSelectorConfig,
   ISpotUniverse,
-  ITradesHistoryData,
 } from '@onekeyhq/shared/types/hyperliquid';
 
 import { EAtomNames } from '../atomNames';
@@ -117,17 +116,3 @@ export const { target: spotAssetCtxsMapAtom, use: useSpotAssetCtxsMapAtom } =
     name: EAtomNames.spotAssetCtxsMapAtom,
     initialValue: {},
   });
-
-export type ISpotTradesHistoryDataAtom = ITradesHistoryData;
-export const {
-  target: spotTradesHistoryDataAtom,
-  use: useSpotTradesHistoryDataAtom,
-} = globalAtom<ISpotTradesHistoryDataAtom>({
-  name: EAtomNames.spotTradesHistoryDataAtom,
-  initialValue: {
-    fills: [],
-    isLoaded: false,
-    latestTime: 0,
-    accountAddress: undefined,
-  },
-});

@@ -106,7 +106,6 @@ export enum EAtomNames {
   spotBalancesAtom = 'spotBalancesAtom',
   spotTokenSelectorConfigPersistAtom = 'spotTokenSelectorConfigPersistAtom',
   spotTokenFavoritesPersistAtom = 'spotTokenFavoritesPersistAtom',
-  spotTradesHistoryDataAtom = 'spotTradesHistoryDataAtom',
   spotAssetCtxsMapAtom = 'spotAssetCtxsMapAtom',
   spotActiveOpenOrdersAtom = 'spotActiveOpenOrdersAtom',
   spotPairDisplayMapAtom = 'spotPairDisplayMapAtom',

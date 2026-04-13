@@ -54,11 +54,12 @@ export function usePerpTradesHistory() {
 
   useEffect(() => {
     noop(refreshHook);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (isFocusedRef.current) {
         void backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
       }
     }, 300);
+    return () => clearTimeout(timer);
   }, [refreshHook]);
 
   // Spot and perps fills both come from the same USER_FILLS WS subscription
