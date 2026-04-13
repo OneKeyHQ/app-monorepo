@@ -14,6 +14,13 @@ module.exports = (config, projectRoot) => {
     const { fileToIdMap } = require('./map');
     const useSegments = process.env.SPLIT_BUNDLE_SEGMENTS === 'true';
     const workspaceRoot = path.resolve(projectRoot, '../..');
+    const getAssets = require(
+      path.resolve(
+        __dirname,
+        '../../../node_modules',
+        'metro/src/DeltaBundler/Serializers/getAssets',
+      ),
+    ).default;
     // 1. Watch all files within the monorepo
     config.watchFolders = [workspaceRoot];
     // 2. Let Metro know where to resolve packages and in what order
@@ -125,15 +132,54 @@ module.exports = (config, projectRoot) => {
       beforeCustomSerializer(entryPoint, prepend, graph, bundleOptions);
       // Use segment serializer for production named segments when enabled.
       // Both main and background runtimes produce segments (Phase 3).
+      let bundle;
       if (useSegments && !bundleOptions.dev) {
-        return segmentSerializer(entryPoint, prepend, graph, bundleOptions);
+        bundle = await segmentSerializer(
+          entryPoint,
+          prepend,
+          graph,
+          bundleOptions,
+        );
+      } else {
+        bundle = await dynamicImports(
+          entryPoint,
+          prepend,
+          graph,
+          bundleOptions,
+        );
       }
-      const bundle = await dynamicImports(
-        entryPoint,
-        prepend,
-        graph,
-        bundleOptions,
-      );
+
+      // EAS export:embed sets serializerOptions.output='static' and expects
+      // { artifacts: [...], assets: [...] } instead of bundleToString's { code, metadata }.
+      const isStaticOutput =
+        bundleOptions?.serializerOptions?.output === 'static';
+      if (isStaticOutput) {
+        const code = typeof bundle === 'string' ? bundle : bundle.code;
+        const platform = graph.transformOptions?.platform || 'android';
+
+        // Collect Metro assets (images, fonts, etc.) so EAS can copy them into the app
+        const metroAssets = await getAssets(graph.dependencies, {
+          processModuleFilter:
+            bundleOptions.processModuleFilter || (() => true),
+          assetPlugins: config.transformer?.assetPlugins || [],
+          platform,
+          projectRoot,
+          publicPath: '/assets/',
+        });
+
+        return {
+          artifacts: [
+            {
+              type: 'js',
+              source: code,
+              filename: 'index.bundle',
+              originFilename: entryPoint,
+              metadata: {},
+            },
+          ],
+          assets: metroAssets,
+        };
+      }
 
       return bundle;
     };
