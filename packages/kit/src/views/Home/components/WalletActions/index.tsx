@@ -82,47 +82,41 @@ function WalletActionSend({
 
     // For multi-token networks, warn if native token balance is zero.
     // User won't be able to pay gas fees for any token transfer.
-    if (!vaultSettings?.isSingleToken && account?.id) {
-      try {
-        const nativeToken =
-          await backgroundApiProxy.serviceToken.getNativeToken({
-            networkId: network.id,
-            accountId: account.id,
-          });
-        const balance = Number(nativeToken?.balanceParsed ?? 0);
-        if (nativeToken && balance <= 0) {
-          const confirmed = await new Promise<boolean>((resolve) => {
-            Dialog.show({
-              icon: 'WalletOutline',
-              title: intl.formatMessage(
-                {
-                  id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
-                },
-                {
-                  symbol: nativeToken.symbol ?? '',
-                  amount: '',
-                },
-              ),
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_continue,
-              }),
-              showCancelButton: true,
-              onCancelText: intl.formatMessage({
-                id: ETranslations.global_cancel,
-              }),
-              onConfirm: async ({ close }) => {
-                await close?.();
-                resolve(true);
+    if (!vaultSettings?.isSingleToken) {
+      const nativeToken = allTokens.tokens.find(
+        (t) => t.isNative && !t.networkId?.startsWith('onekeyall'),
+      );
+      const balance = Number(nativeToken?.balanceParsed ?? '0');
+      if (nativeToken && balance <= 0) {
+        const confirmed = await new Promise<boolean>((resolve) => {
+          Dialog.show({
+            icon: 'WalletOutline',
+            title: intl.formatMessage(
+              {
+                id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
               },
-              onCancel: () => {
-                resolve(false);
+              {
+                symbol: nativeToken.symbol ?? '',
+                amount: '',
               },
-            });
+            ),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_continue,
+            }),
+            showCancelButton: true,
+            onCancelText: intl.formatMessage({
+              id: ETranslations.global_cancel,
+            }),
+            onConfirm: async ({ close }) => {
+              await close?.();
+              resolve(true);
+            },
+            onCancel: () => {
+              resolve(false);
+            },
           });
-          if (!confirmed) return;
-        }
-      } catch {
-        // ignore — proceed to send flow
+        });
+        if (!confirmed) return;
       }
     }
 
