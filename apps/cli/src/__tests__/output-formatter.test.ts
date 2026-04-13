@@ -95,5 +95,12 @@ describe('OutputFormatter', () => {
       expect(stderrData).toContain('bad');
       expect(stdoutData).toBe('');
     });
+
+    it('writes raw stdout output without envelopes', () => {
+      const formatter = new OutputFormatter('human');
+      formatter.raw('plain text');
+      expect(stdoutData).toBe('plain text\n');
+      expect(stderrData).toBe('');
+    });
   });
 });

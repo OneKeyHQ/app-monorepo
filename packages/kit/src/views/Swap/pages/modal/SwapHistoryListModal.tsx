@@ -183,40 +183,6 @@ const SwapHistoryListModal = ({
           >
             <XStack gap="$3" alignItems="flex-start" flex={1} minWidth={0}>
               <Icon
-                name="DollarSolid"
-                size="$5"
-                color="$textSubdued"
-                flexShrink={0}
-              />
-              <YStack gap="$1" flex={1} minWidth={0}>
-                <SizableText size="$bodyMdMedium" color="$text">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_provider_panel_feature_zero_fee,
-                  })}
-                </SizableText>
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_provider_panel_feature_zero_fee_desc,
-                  })}
-                </SizableText>
-              </YStack>
-            </XStack>
-            <Icon
-              name="CheckRadioSolid"
-              size="$5"
-              color="$iconSuccess"
-              flexShrink={0}
-            />
-          </XStack>
-
-          <XStack
-            px="$1"
-            alignItems="flex-start"
-            justifyContent="space-between"
-            gap="$2"
-          >
-            <XStack gap="$3" alignItems="flex-start" flex={1} minWidth={0}>
-              <Icon
                 name="Shield2CheckSolid"
                 size="$5"
                 color="$textSubdued"

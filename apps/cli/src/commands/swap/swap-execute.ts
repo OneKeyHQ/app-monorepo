@@ -1,5 +1,4 @@
 import { loadPending, secureCache, updatePendingStatus } from '../../core';
-import { requireAuthenticatedSession } from '../../core/auth/auth-gate';
 import { resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
@@ -477,7 +476,6 @@ export function registerSwapExecuteCommand(parent: Command): void {
           }
 
           // Get wallet address early — needed for allowance check and address validation
-          await requireAuthenticatedSession();
           const signer = (await getSignerByImpl(chainConfig.impl)) as EvmSigner;
           const addressInfo = await signer.getAddress(chainConfig.networkId);
           const fromAddress = addressInfo.address;

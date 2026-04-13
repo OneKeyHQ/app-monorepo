@@ -220,6 +220,29 @@ describe('onekey CLI (integration)', () => {
     expect(output).toContain('Log out of the current auth session');
   });
 
+  it('includes auth subcommands in schema discovery output', () => {
+    const output = run('schema', '--list');
+    const parsed = JSON.parse(output) as string[];
+
+    expect(parsed).toEqual(
+      expect.arrayContaining(['auth-login', 'auth-status', 'auth-logout']),
+    );
+  });
+
+  it('prints the auth login schema', () => {
+    const output = run('schema', 'auth-login');
+    const parsed = JSON.parse(output) as {
+      name: string;
+      input: { properties: Record<string, unknown> };
+      output: { anyOf?: unknown[] };
+    };
+
+    expect(parsed.name).toBe('auth-login');
+    expect(parsed.input.properties.mnemonic).toBeDefined();
+    expect(parsed.input.properties.appTransfer).toBeDefined();
+    expect(parsed.output.anyOf).toHaveLength(2);
+  });
+
   it('shows mnemonic auth copy for the legacy import alias', () => {
     const output = run('import', '--help');
     expect(output).toContain('Authenticate with a BIP39 mnemonic wallet');

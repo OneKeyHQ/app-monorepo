@@ -1,9 +1,29 @@
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class SendScene extends BaseScene {
+  private _sendFlowId: string | undefined;
+
+  private _addressInputMethod: string | undefined;
+
+  get sendFlowId() {
+    return this._sendFlowId;
+  }
+
+  startNewFlow() {
+    this._sendFlowId = generateUUID();
+    this._addressInputMethod = undefined;
+    return this._sendFlowId;
+  }
+
+  clearFlow() {
+    this._sendFlowId = undefined;
+    this._addressInputMethod = undefined;
+  }
+
   @LogToLocal()
   public coinControlSelected({
     network,
@@ -62,7 +82,9 @@ export class SendScene extends BaseScene {
     tokenSymbol: string | undefined;
     tokenAddress: string | undefined;
   }) {
+    this.startNewFlow();
     return {
+      sendFlowId: this._sendFlowId,
       network,
       tokenType,
       tokenSymbol,
@@ -81,6 +103,7 @@ export class SendScene extends BaseScene {
     tokenAddress: string | undefined;
   }) {
     return {
+      sendFlowId: this._sendFlowId,
       tokenType,
       tokenSymbol,
       tokenAddress,
@@ -93,7 +116,9 @@ export class SendScene extends BaseScene {
   }: {
     addressInputMethod: string | undefined;
   }) {
+    this._addressInputMethod = addressInputMethod;
     return {
+      sendFlowId: this._sendFlowId,
       addressInputMethod,
     };
   }
@@ -110,6 +135,7 @@ export class SendScene extends BaseScene {
     feeFiatValue,
     txnParseType,
     txnOrigin,
+    addressInputMethod,
     tronIsResourceRentalNeeded,
     tronIsResourceRentalEnabled,
     tronIsSwapTrxEnabled,
@@ -128,6 +154,7 @@ export class SendScene extends BaseScene {
     tokenAddress: string | undefined;
     feeToken: string | undefined;
     feeFiatValue: string | undefined;
+    addressInputMethod?: string | undefined;
     tronIsResourceRentalNeeded: boolean | undefined;
     tronIsResourceRentalEnabled: boolean | undefined;
     tronIsSwapTrxEnabled: boolean | undefined;
@@ -136,7 +163,8 @@ export class SendScene extends BaseScene {
     tronUseRedemptionCode: boolean | undefined;
     tronIsCreditAutoClaimed: boolean | undefined;
   }) {
-    return {
+    const result = {
+      sendFlowId: this._sendFlowId,
       network,
       txnType,
       txnParseType,
@@ -147,6 +175,7 @@ export class SendScene extends BaseScene {
       tokenAddress,
       feeToken,
       feeFiatValue,
+      addressInputMethod: addressInputMethod ?? this._addressInputMethod,
       tronIsResourceRentalNeeded,
       tronIsResourceRentalEnabled,
       tronIsSwapTrxEnabled,
@@ -154,6 +183,93 @@ export class SendScene extends BaseScene {
       tronUseCredit,
       tronUseRedemptionCode,
       tronIsCreditAutoClaimed,
+    };
+    this.clearFlow();
+    return result;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public quickSelectTap({
+    network,
+    tab,
+    recipientType,
+    isSearchMode,
+    searchKeyLength,
+    matchCount,
+  }: {
+    network: string | undefined;
+    tab: 'recent' | 'account' | 'addressBook';
+    recipientType: 'walletAccount' | 'addressBook' | 'recentRecipient';
+    isSearchMode: boolean;
+    searchKeyLength: number;
+    matchCount: number;
+  }) {
+    return {
+      sendFlowId: this._sendFlowId,
+      network,
+      tab,
+      recipientType,
+      isSearchMode,
+      searchKeyLength,
+      matchCount,
+    };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public quickSelectNavigation({
+    network,
+    tab,
+    skippedToAmount,
+  }: {
+    network: string | undefined;
+    tab: 'recent' | 'account' | 'addressBook';
+    skippedToAmount: boolean;
+  }) {
+    return {
+      sendFlowId: this._sendFlowId,
+      network,
+      tab,
+      skippedToAmount,
+    };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public quickSelectTabSwitch({
+    network,
+    fromTab,
+    toTab,
+    isAutoSwitch,
+  }: {
+    network: string | undefined;
+    fromTab: 'recent' | 'account' | 'addressBook';
+    toTab: 'recent' | 'account' | 'addressBook';
+    isAutoSwitch: boolean;
+  }) {
+    return {
+      sendFlowId: this._sendFlowId,
+      network,
+      fromTab,
+      toTab,
+      isAutoSwitch,
+    };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public quickSelectSearchNoResult({
+    network,
+    searchKeyLength,
+  }: {
+    network: string | undefined;
+    searchKeyLength: number;
+  }) {
+    return {
+      sendFlowId: this._sendFlowId,
+      network,
+      searchKeyLength,
     };
   }
 
