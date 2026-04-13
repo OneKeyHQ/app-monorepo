@@ -1,6 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
 import type {
   IAddressValidateStatus,
   IQueryCheckAddressArgs,

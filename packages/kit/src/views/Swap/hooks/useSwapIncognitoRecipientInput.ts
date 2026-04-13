@@ -22,6 +22,23 @@ type IUseSwapIncognitoRecipientInputParams = {
   swapToAnotherAccountSwitchOn: boolean;
 };
 
+type IAddressValidationContext = {
+  accountId?: string;
+  networkId?: string;
+  queryText: string;
+};
+
+function isSameAddressValidationContext(
+  left: IAddressValidationContext,
+  right: IAddressValidationContext,
+) {
+  return (
+    left.accountId === right.accountId &&
+    left.networkId === right.networkId &&
+    left.queryText === right.queryText
+  );
+}
+
 export function useSwapIncognitoRecipientInput({
   visible,
   networkId,
@@ -37,8 +54,26 @@ export function useSwapIncognitoRecipientInput({
   const [loading, setLoading] = useState(false);
   const textRef = useRef('');
   const skipExternalSyncRef = useRef(false);
+  const validationContextRef = useRef<IAddressValidationContext>({
+    accountId,
+    networkId,
+    queryText: '',
+  });
+  const validationScopeRef = useRef<{
+    accountId?: string;
+    networkId?: string;
+  }>({
+    accountId,
+    networkId,
+  });
 
   const enabled = visible && !!networkId;
+
+  validationContextRef.current = {
+    accountId,
+    networkId,
+    queryText: inputText.trim(),
+  };
 
   const syncRecipientAddress = useCallback(
     (nextAddress?: string) => {
@@ -61,6 +96,30 @@ export function useSwapIncognitoRecipientInput({
     },
     [networkId, setSettings, setSwapToAddress],
   );
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    const prevScope = validationScopeRef.current;
+    const nextScope = {
+      accountId,
+      networkId,
+    };
+
+    validationScopeRef.current = nextScope;
+
+    if (
+      prevScope.accountId === nextScope.accountId &&
+      prevScope.networkId === nextScope.networkId
+    ) {
+      return;
+    }
+
+    setQueryResult({});
+    syncRecipientAddress(undefined);
+  }, [accountId, enabled, networkId, syncRecipientAddress]);
 
   useEffect(() => {
     if (!enabled) {
@@ -96,6 +155,11 @@ export function useSwapIncognitoRecipientInput({
 
     setLoading(true);
     try {
+      const requestContext = {
+        accountId,
+        networkId,
+        queryText: currentText,
+      };
       const result = await queryAddressWithFallback({
         address: currentText,
         networkId,
@@ -107,9 +171,27 @@ export function useSwapIncognitoRecipientInput({
         enableAllowListValidation: true,
       });
 
-      if (result.input === textRef.current) {
-        setQueryResult(result);
+      if (
+        !isSameAddressValidationContext(
+          requestContext,
+          validationContextRef.current,
+        )
+      ) {
+        return;
       }
+
+      setQueryResult(result);
+
+      if (result.validStatus === 'valid') {
+        const resolvedAddress = getAddressQueryResolvedAddress(result);
+
+        if (resolvedAddress) {
+          syncRecipientAddress(resolvedAddress);
+        }
+        return;
+      }
+
+      syncRecipientAddress(undefined);
     } finally {
       setLoading(false);
     }
@@ -122,18 +204,6 @@ export function useSwapIncognitoRecipientInput({
 
     void queryAddress(inputText.trim());
   }, [enabled, inputText, queryAddress]);
-
-  useEffect(() => {
-    if (!enabled || queryResult.validStatus !== 'valid') {
-      return;
-    }
-
-    const resolvedAddress = getAddressQueryResolvedAddress(queryResult);
-
-    if (resolvedAddress) {
-      syncRecipientAddress(resolvedAddress);
-    }
-  }, [enabled, queryResult, syncRecipientAddress]);
 
   const handleInputChange = useCallback(
     (text: string) => {
@@ -153,6 +223,10 @@ export function useSwapIncognitoRecipientInput({
 
   const errorMessage = useMemo(() => {
     if (!inputText.trim() || loading || queryResult.validStatus === 'valid') {
+      return undefined;
+    }
+
+    if (!queryResult.validStatus) {
       return undefined;
     }
 
