@@ -88,6 +88,7 @@ import type {
   ISpotActiveAssetCtxAtom,
   ISpotAssetCtxEntry,
 } from '../../states/jotai/atoms/spot';
+
 import ServiceBase from '../ServiceBase';
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
