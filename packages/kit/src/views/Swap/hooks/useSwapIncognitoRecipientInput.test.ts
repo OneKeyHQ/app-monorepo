@@ -73,6 +73,12 @@ async function flushAsync() {
   });
 }
 
+function renderUseSwapIncognitoRecipientInput(initialProps: IHookProps) {
+  return renderHook(useSwapIncognitoRecipientInput, {
+    initialProps,
+  });
+}
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -134,22 +140,14 @@ describe('useSwapIncognitoRecipientInput', () => {
     const pendingValidation = createDeferred<IAddressQueryResult>();
     mockQueryAddressWithFallback.mockReturnValueOnce(pendingValidation.promise);
 
-    const { result, rerender } = renderHook<
-      ReturnType<typeof useSwapIncognitoRecipientInput>,
-      IHookProps
-    >(
-      (props: IHookProps) => useSwapIncognitoRecipientInput(props),
-      {
-        initialProps: {
-          visible: true,
-          clearRecipientAddressOnHide: true,
-          networkId: 'evm--1',
-          accountId: 'account-1',
-          address: undefined,
-          swapToAnotherAccountSwitchOn: false,
-        },
-      },
-    );
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: true,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+    });
 
     act(() => {
       result.current.onInputChange('0xrecipient');
@@ -203,22 +201,14 @@ describe('useSwapIncognitoRecipientInput', () => {
         validStatus: 'valid',
       });
 
-    const { result, rerender } = renderHook<
-      ReturnType<typeof useSwapIncognitoRecipientInput>,
-      IHookProps
-    >(
-      (props: IHookProps) => useSwapIncognitoRecipientInput(props),
-      {
-        initialProps: {
-          visible: true,
-          clearRecipientAddressOnHide: false,
-          networkId: 'evm--1',
-          accountId: 'account-1',
-          address: undefined,
-          swapToAnotherAccountSwitchOn: false,
-        },
-      },
-    );
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+    });
 
     act(() => {
       result.current.onInputChange('0xrecipient');
@@ -267,22 +257,14 @@ describe('useSwapIncognitoRecipientInput', () => {
       validStatus: 'valid',
     });
 
-    const { result, rerender } = renderHook<
-      ReturnType<typeof useSwapIncognitoRecipientInput>,
-      IHookProps
-    >(
-      (props: IHookProps) => useSwapIncognitoRecipientInput(props),
-      {
-        initialProps: {
-          visible: true,
-          clearRecipientAddressOnHide: true,
-          networkId: 'evm--1',
-          accountId: 'account-1',
-          address: undefined,
-          swapToAnotherAccountSwitchOn: false,
-        },
-      },
-    );
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: true,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+    });
 
     act(() => {
       result.current.onInputChange('0xrecipient');
@@ -318,22 +300,14 @@ describe('useSwapIncognitoRecipientInput', () => {
       validStatus: 'valid',
     });
 
-    const { result, rerender } = renderHook<
-      ReturnType<typeof useSwapIncognitoRecipientInput>,
-      IHookProps
-    >(
-      (props: IHookProps) => useSwapIncognitoRecipientInput(props),
-      {
-        initialProps: {
-          visible: true,
-          clearRecipientAddressOnHide: false,
-          networkId: 'evm--1',
-          accountId: 'account-1',
-          address: undefined,
-          swapToAnotherAccountSwitchOn: false,
-        },
-      },
-    );
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+    });
 
     act(() => {
       result.current.onInputChange('0xrecipient');
