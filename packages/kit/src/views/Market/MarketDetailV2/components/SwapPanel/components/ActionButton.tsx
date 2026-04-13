@@ -8,6 +8,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -71,6 +72,7 @@ export function ActionButton({
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { tokenDetail } = useTokenDetail();
+  const currencyInfo = useCurrency();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const { createAddress } = useAccountSelectorCreateAddress();
@@ -176,10 +178,10 @@ export function ActionButton({
     return {
       formatter: 'value',
       formatterOptions: {
-        currency: '$',
+        currency: currencyInfo.symbol,
       },
     };
-  }, []);
+  }, [currencyInfo.symbol]);
 
   const shouldCreateAddress = usePromiseResult(async () => {
     let result = false;
