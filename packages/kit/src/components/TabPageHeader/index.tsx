@@ -28,11 +28,7 @@ import type { ITabPageHeaderProp } from './type';
 
 export { DiscoveryHeaderSegment };
 
-function HomeWalletConnectionInPage({
-  tabRoute,
-}: {
-  tabRoute: ETabRoutes;
-}) {
+function HomeWalletConnectionInPage({ tabRoute }: { tabRoute: ETabRoutes }) {
   const {
     activeAccount: { wallet, account },
   } = useActiveAccount({ num: 0 });
