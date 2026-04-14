@@ -730,6 +730,18 @@ function SideButtonInternal({
 const SideButton = memo(SideButtonInternal);
 
 function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
+  const [tradingMode] = useTradingModeAtom();
+  const [formData] = useTradingFormAtom();
+  const isSpot = tradingMode === 'spot';
+
+  if (isSpot) {
+    return (
+      <YStack {...(!isMobile && { mt: '$4' })}>
+        <SideButton side={formData.side} isMobile={isMobile} />
+      </YStack>
+    );
+  }
+
   return isMobile ? (
     <YStack gap="$3">
       <SideButton side="long" isMobile={isMobile} />

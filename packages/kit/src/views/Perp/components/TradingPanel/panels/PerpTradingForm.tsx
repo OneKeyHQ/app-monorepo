@@ -68,6 +68,7 @@ import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
+import { TradeSideToggle } from '../selectors/TradeSideToggle';
 
 interface IPerpTradingFormProps {
   isSubmitting?: boolean;
@@ -412,6 +413,7 @@ function PerpTradingForm({
 
   const availableToTrade = useMemo(() => {
     if (isSpot) {
+      // For spot, availableToTrade is used by env/slider calculations (needs USD-like value)
       const availableValue =
         formData.side === 'long'
           ? spotAvailableQuoteBN
@@ -436,6 +438,37 @@ function PerpTradingForm({
     spotAvailableBaseBN,
     spotAvailableQuoteBN,
   ]);
+
+  // Spot: display raw token balance with symbol
+  const spotAvailableDisplay = useMemo(() => {
+    if (!isSpot) return '';
+    if (formData.side === 'long') {
+      return `${spotAvailableQuoteBN.toFixed(2, BigNumber.ROUND_DOWN)} ${spotUniverse?.quoteName ?? ''}`;
+    }
+    return `${spotAvailableBaseBN.toFixed(sizeSzDecimals, BigNumber.ROUND_DOWN)} ${spotUniverse?.baseName ?? ''}`;
+  }, [
+    isSpot,
+    formData.side,
+    spotAvailableQuoteBN,
+    spotAvailableBaseBN,
+    spotUniverse?.quoteName,
+    spotUniverse?.baseName,
+    sizeSzDecimals,
+  ]);
+
+  const handleSideChange = useCallback(
+    (newSide: 'long' | 'short') => {
+      if (newSide !== formData.side) {
+        updateForm({
+          side: newSide,
+          size: '',
+          sizePercent: 0,
+          sizeInputMode: EPerpsSizeInputMode.MANUAL,
+        });
+      }
+    },
+    [formData.side, updateForm],
+  );
 
   const switchToManual = useCallback(() => {
     if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
@@ -1132,6 +1165,15 @@ function PerpTradingForm({
         </>
       )}
 
+      {isSpot ? (
+        <TradeSideToggle
+          value={formData.side}
+          onChange={handleSideChange}
+          isMobile={isMobile}
+          isSpot
+        />
+      ) : null}
+
       <YStack
         gap="$2.5"
         {...(!isMobile && {
@@ -1149,10 +1191,16 @@ function PerpTradingForm({
             })}
           </SizableText>
           <XStack alignItems="center" gap="$1">
-            <PerpsAccountNumberValue
-              value={availableToTrade}
-              skeletonWidth={60}
-            />
+            {isSpot ? (
+              <SizableText size="$bodySmMedium">
+                {spotAvailableDisplay}
+              </SizableText>
+            ) : (
+              <PerpsAccountNumberValue
+                value={availableToTrade}
+                skeletonWidth={60}
+              />
+            )}
             <MobileDepositButton />
           </XStack>
         </XStack>
