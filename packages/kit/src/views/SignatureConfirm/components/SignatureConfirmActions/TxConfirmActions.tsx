@@ -421,6 +421,7 @@ function TxConfirmActions(props: IProps) {
       if (addressToSave) {
         void backgroundApiProxy.serviceSignatureConfirm.updateRecentRecipients({
           networkId,
+          accountId,
           address: addressToSave,
           memo:
             transferPayload?.memo ||

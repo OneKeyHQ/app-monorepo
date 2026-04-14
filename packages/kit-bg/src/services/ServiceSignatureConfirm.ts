@@ -409,15 +409,18 @@ class ServiceSignatureConfirm extends ServiceBase {
   @backgroundMethod()
   async updateRecentRecipients({
     networkId,
+    accountId,
     address,
     memo,
   }: {
     networkId: string;
+    accountId: string;
     address: string;
     memo?: string;
   }) {
     await this.backgroundApi.simpleDb.recentRecipients.updateRecentRecipients({
       networkId,
+      accountId,
       address,
       updatedAt: Date.now(),
       memo,
@@ -427,13 +430,16 @@ class ServiceSignatureConfirm extends ServiceBase {
   @backgroundMethod()
   async getRecentRecipients({
     networkId,
+    accountId,
     limit,
   }: {
     networkId: string;
+    accountId: string;
     limit?: number;
   }) {
     return this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
       networkId,
+      accountId,
       limit,
     });
   }
