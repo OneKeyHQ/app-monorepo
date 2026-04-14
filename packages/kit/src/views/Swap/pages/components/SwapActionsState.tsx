@@ -180,7 +180,7 @@ const SwapActionsState = ({
   const shouldShowRecipient = useMemo(
     () =>
       !!(
-        !swapIncognitoMode &&
+        (swapTypeSwitch === ESwapTabSwitchType.LIMIT || !swapIncognitoMode) &&
         swapEnableRecipientAddress &&
         swapProviderSupportReceiveAddress &&
         fromToken &&
@@ -191,6 +191,7 @@ const SwapActionsState = ({
       swapEnableRecipientAddress,
       swapProviderSupportReceiveAddress,
       fromToken,
+      swapTypeSwitch,
       toToken,
     ],
   );
