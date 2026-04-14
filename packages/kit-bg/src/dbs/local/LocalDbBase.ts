@@ -3914,7 +3914,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   accountId: account.id,
                   walletId,
                   walletType: wallet.type,
-                  walletDeviceId: wallet.associatedDeviceInfo?.deviceId,
+                  walletDeviceId: wallet.associatedDeviceInfo?.connectId,
                   order,
                 });
               }
