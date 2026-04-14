@@ -184,18 +184,6 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         }),
         value: stock.underlyingAssetName ?? STAT_FALLBACK_VALUE,
       },
-      {
-        key: 'sharesPerToken',
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_shares_per_token,
-        }),
-        tooltip: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_shares_per_token_desc,
-        }),
-        value: stock.sharesPerToken
-          ? `${stock.sharesPerToken} ${stock.underlyingAssetTicker ?? ''}`.trim()
-          : STAT_FALLBACK_VALUE,
-      },
     ];
   }, [intl, stock]);
 

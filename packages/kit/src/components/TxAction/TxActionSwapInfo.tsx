@@ -103,11 +103,16 @@ function TxActionSwapInfo(props: IProps) {
       return null;
     }
 
-    if (new BigNumber(fee.percentageFee).gte(swapServiceFeeDefault)) {
+    const originPercentageFee = fee.percentOriginFee ?? swapServiceFeeDefault;
+
+    if (new BigNumber(fee.percentageFee).gte(originPercentageFee)) {
       return (
         <XStack alignItems="center" gap="$1">
           <SizableText {...textStyle}>{fee.percentageFee}%</SizableText>
-          <SwapServiceFeeOverview percentageFee={fee.percentageFee} />
+          <SwapServiceFeeOverview
+            percentageFee={fee.percentageFee}
+            percentOriginFee={fee.percentOriginFee}
+          />
         </XStack>
       );
     }
@@ -118,9 +123,12 @@ function TxActionSwapInfo(props: IProps) {
           {fee.percentageFee}%
         </SizableText>
         <SizableText textDecorationLine="line-through" {...textStyle}>
-          {swapServiceFeeDefault}%
+          {originPercentageFee}%
         </SizableText>
-        <SwapServiceFeeOverview percentageFee={fee.percentageFee} />
+        <SwapServiceFeeOverview
+          percentageFee={fee.percentageFee}
+          percentOriginFee={fee.percentOriginFee}
+        />
       </XStack>
     );
   }, [fee]);

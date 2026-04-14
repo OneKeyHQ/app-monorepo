@@ -3,6 +3,15 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -19,11 +28,16 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import {
+  EModalFiatCryptoRoutes,
+  EModalReceiveRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
+
+import { useSupportNetworkId } from '../../../FiatCrypto/hooks';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
@@ -61,6 +75,8 @@ function WalletActionSend({
   const [map] = useAllTokenListMapAtom();
   const [tokenListState] = useTokenListStateAtom();
 
+  const { result: isBuySupported } = useSupportNetworkId('buy', network?.id);
+
   const vaultSettings = usePromiseResult(async () => {
     const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
       networkId: network?.id ?? '',
@@ -72,12 +88,173 @@ function WalletActionSend({
   const handleOnSend = useCallback(async () => {
     if (!network) return;
 
+    const sendFlowId = defaultLogger.transaction.send.startNewFlow();
+
     defaultLogger.wallet.walletActions.actionSend({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
       isSoftwareWalletOnlyUser,
     });
+
+    // For multi-token networks, warn if native token balance is zero.
+    // User won't be able to pay gas fees for any token transfer.
+    if (
+      vaultSettings &&
+      !vaultSettings.isSingleToken &&
+      !vaultSettings.allowZeroFee &&
+      !network?.isAllNetworks
+    ) {
+      const nativeToken = allTokens.tokens.find(
+        (t) => t.isNative && !t.networkId?.startsWith('onekeyall'),
+      );
+      const tokenFiat = nativeToken ? map[nativeToken.$key] : undefined;
+      const balance = Number(tokenFiat?.balanceParsed ?? '0');
+      if (nativeToken && balance <= 0) {
+        const symbol = nativeToken.symbol ?? '';
+        const logZeroGas = (
+          action: 'shown' | 'receive' | 'buy' | 'continue',
+        ) => {
+          defaultLogger.wallet.walletActions.zeroNativeBalanceDialog({
+            action,
+            networkId: network.id,
+            tokenSymbol: symbol,
+            walletType: wallet?.type ?? '',
+            sendFlowId,
+          });
+        };
+        logZeroGas('shown');
+        const confirmed = await new Promise<boolean>((resolve) => {
+          let resolved = false;
+          const safeResolve = (value: boolean) => {
+            if (!resolved) {
+              resolved = true;
+              resolve(value);
+            }
+          };
+          const dialogRef = Dialog.show({
+            icon: 'GasOutline',
+            title: intl.formatMessage(
+              {
+                id: ETranslations.insufficient_native_for_network_fees__msg,
+              },
+              { symbol },
+            ),
+            renderContent: (
+              <YStack gap="$4">
+                <XStack gap="$2.5">
+                  <Stack
+                    flex={1}
+                    flexBasis={0}
+                    alignItems="center"
+                    justifyContent="center"
+                    bg="$bgStrong"
+                    borderRadius="$4"
+                    pt="$4"
+                    pb="$3"
+                    px="$1"
+                    hoverStyle={{ bg: '$bgStrongHover' }}
+                    pressStyle={{ bg: '$bgStrongActive' }}
+                    onPress={() => {
+                      logZeroGas('receive');
+                      void dialogRef.close();
+                      safeResolve(false);
+                      navigation.pushModal(EModalRoutes.ReceiveModal, {
+                        screen: EModalReceiveRoutes.ReceiveSelector,
+                      });
+                    }}
+                  >
+                    <Icon name="ArrowBottomOutline" size="$6" color="$icon" />
+                    <SizableText size="$bodyMdMedium">
+                      {intl.formatMessage({
+                        id: ETranslations.global_receive,
+                      })}
+                    </SizableText>
+                  </Stack>
+                  {isBuySupported ? (
+                    <Stack
+                      flex={1}
+                      flexBasis={0}
+                      alignItems="center"
+                      justifyContent="center"
+                      bg="$bgStrong"
+                      borderRadius="$4"
+                      pt="$4"
+                      pb="$3"
+                      px="$1"
+                      hoverStyle={{ bg: '$bgStrongHover' }}
+                      pressStyle={{ bg: '$bgStrongActive' }}
+                      onPress={async () => {
+                        logZeroGas('buy');
+                        void dialogRef.close();
+                        safeResolve(false);
+                        try {
+                          const { url } =
+                            await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl(
+                              {
+                                networkId: network.id,
+                                tokenAddress: '',
+                                accountId: account?.id ?? '',
+                                type: 'buy',
+                              },
+                            );
+                          if (url) {
+                            openFiatCryptoUrl(url);
+                          }
+                        } catch {
+                          navigation.pushModal(EModalRoutes.FiatCryptoModal, {
+                            screen: EModalFiatCryptoRoutes.BuyModal,
+                            params: {
+                              networkId: network.id,
+                              accountId: account?.id ?? '',
+                              tokens: allTokens.tokens,
+                              map,
+                            },
+                          });
+                        }
+                      }}
+                    >
+                      <Icon
+                        name="CurrencyDollarOutline"
+                        size="$6"
+                        color="$icon"
+                      />
+                      <SizableText size="$bodyMdMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.global_buy,
+                        })}
+                      </SizableText>
+                    </Stack>
+                  ) : null}
+                </XStack>
+                <Button
+                  variant="tertiary"
+                  size="large"
+                  mx="$0"
+                  py="$2"
+                  onPress={() => {
+                    logZeroGas('continue');
+                    // Dialog.close may fire onClose synchronously, so resolve
+                    // first — otherwise onClose's safeResolve(false) wins.
+                    safeResolve(true);
+                    void dialogRef.close();
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_continue,
+                  })}
+                </Button>
+              </YStack>
+            ),
+            showFooter: false,
+            onClose: () => {
+              safeResolve(false);
+            },
+          });
+        });
+        if (!confirmed) return;
+      }
+    }
 
     if (vaultSettings?.isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
@@ -215,7 +392,7 @@ function WalletActionSend({
     wallet?.type,
     wallet?.id,
     account?.id,
-    vaultSettings?.isSingleToken,
+    vaultSettings,
     navigation,
     intl,
     allTokens.tokens,
@@ -225,6 +402,7 @@ function WalletActionSend({
     deriveInfoItems.length,
     indexedAccount?.id,
     isSoftwareWalletOnlyUser,
+    isBuySupported,
   ]);
 
   return (

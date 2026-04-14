@@ -39,6 +39,7 @@ interface IHeaderLeftToolBarInputProps {
   isLoading?: boolean;
   isTranslated?: boolean;
   onTranslate?: () => void;
+  onTestAITranslateError?: (testFlag: string) => void;
 }
 
 function HeaderLeftToolBarInput({
@@ -53,9 +54,17 @@ function HeaderLeftToolBarInput({
   isLoading,
   isTranslated,
   onTranslate,
+  onTestAITranslateError,
 }: IHeaderLeftToolBarInputProps) {
   const intl = useIntl();
   const [translateIsOpen, setTranslateIsOpen] = useState(false);
+  const [translateShowSettings, setTranslateShowSettings] = useState(false);
+  const handleTranslateOpenChange = useCallback((isOpen: boolean) => {
+    if (!isOpen) {
+      setTranslateShowSettings(false);
+    }
+    setTranslateIsOpen(isOpen);
+  }, []);
   const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [internalValue, setInternalValue] = useState('');
@@ -241,13 +250,16 @@ function HeaderLeftToolBarInput({
             id: ETranslations.browser_translate_settings_title,
           })}
           open={translateIsOpen}
-          onOpenChange={setTranslateIsOpen}
+          onOpenChange={handleTranslateOpenChange}
           renderTrigger={<Stack />}
           renderContent={({ closePopover }) => (
             <TranslatePopoverContent
               isTranslated={!!isTranslated}
               onTranslate={onTranslate ?? (() => {})}
+              onTestAITranslateError={onTestAITranslateError}
               closePopover={closePopover}
+              showSettings={translateShowSettings}
+              onShowSettingsChange={setTranslateShowSettings}
             />
           )}
         />
