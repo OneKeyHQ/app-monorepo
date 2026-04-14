@@ -322,15 +322,11 @@ export async function resolveBulkSendSenderSelection({
     }),
   );
 
-  const currentWalletCandidates = currentWalletId
-    ? sortedCandidates.filter(
-        (candidate) => candidate.walletId === currentWalletId,
-      )
-    : [];
-  const candidatesToResolve =
-    currentWalletCandidates.length > 0
-      ? currentWalletCandidates
-      : sortedCandidates;
+  // Always use sortedCandidates — the ranking system already sorts
+  // current-wallet candidates to rank 0 (tried first), while still
+  // allowing fallback to other wallets when all current-wallet
+  // candidates are unusable (e.g., watching accounts).
+  const candidatesToResolve = sortedCandidates;
   const preferredCandidate = candidatesToResolve[0];
   let sawWatchingCandidate = false;
   let sawNonWatchingCandidate = false;
