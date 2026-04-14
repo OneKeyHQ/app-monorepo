@@ -515,7 +515,7 @@ function validateSpotPriceInput(input: string, szDecimals = 0): boolean {
     return false;
   }
 
-  const maxDecimals = MAX_DECIMALS_SPOT - szDecimals;
+  const maxDecimals = Math.max(0, MAX_DECIMALS_SPOT - szDecimals);
 
   if (!/^[0-9]*\.?[0-9]*$/.test(text) || text.split('.').length > 2)
     return false;
@@ -568,7 +568,7 @@ function getValidSpotPriceDecimals(
     return 2;
   }
 
-  const maxDecimals = MAX_DECIMALS_SPOT - szDecimals;
+  const maxDecimals = Math.max(0, MAX_DECIMALS_SPOT - szDecimals);
 
   if (price.isInteger()) {
     return 0;
