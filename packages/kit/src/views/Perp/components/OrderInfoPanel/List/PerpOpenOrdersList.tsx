@@ -164,8 +164,8 @@ function PerpOpenOrdersList({
         flex: 1,
         fixed: true,
         ...(openOrders.length > 0 && {
-            onPress: () => showCancelAllOrdersDialog(),
-          }),
+          onPress: () => showCancelAllOrdersDialog(),
+        }),
       },
     ],
     [intl, openOrders.length],
