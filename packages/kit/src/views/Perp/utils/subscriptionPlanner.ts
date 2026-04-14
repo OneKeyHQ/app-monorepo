@@ -21,8 +21,9 @@ export function planTradeSubscriptions(params: {
   const instrumentCoin = activeInstrument?.coin ?? '';
   const isSpot = activeInstrument?.mode === 'spot';
 
-  const spotEnabled =
-    hasAccount && (isSpot || viewState.infoPanelTab === 'Balances');
+  // Always subscribe to SPOT_STATE when account exists — total account value
+  // (perps + spot) depends on spotTotalUsd from this subscription.
+  const spotEnabled = hasAccount;
   const spotAssetCtxsEnabled =
     isSpot ||
     (viewState.tokenSelectorOpen && viewState.tokenSelectorTab === 'spot');
