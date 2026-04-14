@@ -257,9 +257,7 @@ export async function buildBulkSendSenderCandidates({
       const deviceUsbId = item.walletDeviceUsbId;
       const isConnected =
         (deviceId ? (connectedDeviceIds?.has(deviceId) ?? false) : false) ||
-        (deviceUsbId
-          ? (connectedDeviceIds?.has(deviceUsbId) ?? false)
-          : false);
+        (deviceUsbId ? (connectedDeviceIds?.has(deviceUsbId) ?? false) : false);
 
       return {
         walletName: item.walletName,
