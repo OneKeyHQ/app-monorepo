@@ -347,21 +347,12 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     // BTC/LTC merge-derive: fan out /badges per xpub and merge (OK-52897).
-    // queryAddress callers expect badge lookup to degrade to defaults on
-    // failure, never throw, so swallow xpub lookup errors.
-    let xpubEntries: Awaited<
-      ReturnType<typeof serviceAccount.getAccountXpubsForAllDeriveTypes>
-    > = [];
-    if (accountId) {
-      try {
-        xpubEntries = await serviceAccount.getAccountXpubsForAllDeriveTypes({
+    const xpubEntries = accountId
+      ? await serviceAccount.safeGetAccountXpubsForAllDeriveTypes({
           accountId,
           networkId,
-        });
-      } catch {
-        //
-      }
-    }
+        })
+      : [];
 
     let merged: IAccountBadgeResult;
     if (xpubEntries.length > 1) {

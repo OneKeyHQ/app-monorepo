@@ -924,10 +924,12 @@ class ServiceHistory extends ServiceBase {
     // call it once per xpub and merge, otherwise the result only reflects
     // the derive type of the currently-selected address (OK-52897).
     const xpubEntries =
-      await this.backgroundApi.serviceAccount.getAccountXpubsForAllDeriveTypes({
-        accountId,
-        networkId,
-      });
+      await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+        {
+          accountId,
+          networkId,
+        },
+      );
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const headers =

@@ -4693,6 +4693,23 @@ class ServiceAccount extends ServiceBase {
     return this.getAccountXpubsForAllDeriveTypesWithMemo(params);
   }
 
+  // Swallows errors so callers (ServiceAccountProfile.checkAccountBadges,
+  // ServiceHistory.fetchTransferRecipients) can degrade to a single-xpub
+  // call instead of failing their entire pipeline.
+  @backgroundMethod()
+  async safeGetAccountXpubsForAllDeriveTypes(params: {
+    accountId: string;
+    networkId: string;
+  }): Promise<
+    Awaited<ReturnType<ServiceAccount['getAccountXpubsForAllDeriveTypes']>>
+  > {
+    try {
+      return await this.getAccountXpubsForAllDeriveTypes(params);
+    } catch {
+      return [];
+    }
+  }
+
   @backgroundMethod()
   async getAccountAddressType({
     accountId,
