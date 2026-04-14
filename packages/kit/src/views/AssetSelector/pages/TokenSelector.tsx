@@ -340,31 +340,33 @@ function TokenSelector() {
 
   const headerRight = useMemo(() => {
     if (!onSwitchNetwork || !network?.name) return undefined;
-    return () => (
-      <XStack
-        alignItems="center"
-        gap="$1.5"
-        px="$2"
-        py="$1"
-        mr="$-2"
-        borderRadius="$full"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        onPress={onSwitchNetwork}
-        userSelect="none"
-      >
-        <NetworkAvatarBase
-          logoURI={network.logoURI}
-          size="$5"
-          isCustomNetwork={network.isCustomNetwork}
-          networkName={network.name}
-        />
-        <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth="$16">
-          {network.shortname}
-        </SizableText>
-        <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
-      </XStack>
-    );
+    return function TokenSelectorHeaderRight() {
+      return (
+        <XStack
+          alignItems="center"
+          gap="$1.5"
+          px="$2"
+          py="$1"
+          mr="$-2"
+          borderRadius="$full"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          onPress={onSwitchNetwork}
+          userSelect="none"
+        >
+          <NetworkAvatarBase
+            logoURI={network.logoURI}
+            size="$5"
+            isCustomNetwork={network.isCustomNetwork}
+            networkName={network.name}
+          />
+          <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth="$16">
+            {network.shortname}
+          </SizableText>
+          <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
+        </XStack>
+      );
+    };
   }, [
     onSwitchNetwork,
     network?.name,

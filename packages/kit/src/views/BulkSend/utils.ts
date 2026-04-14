@@ -126,7 +126,7 @@ export function isBulkSendTokenDetailsMatched(
     networkId?: string;
     tokenInfo?: IToken;
   },
-  tokenDetails?: ({ info: IToken } & Partial<ITokenFiat>) | undefined,
+  tokenDetails?: { info: IToken } & Partial<ITokenFiat>,
 ): tokenDetails is { info: IToken } & Partial<ITokenFiat> {
   if (!tokenInfo || !tokenDetails?.info) {
     return false;

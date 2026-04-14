@@ -1,6 +1,7 @@
 /** @type {import('jest').Config} */
 module.exports = {
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/src/__tests__/jest.setup.ts'],
   transform: {
     '^.+\\.[jt]sx?$': [
       '@swc/jest',
