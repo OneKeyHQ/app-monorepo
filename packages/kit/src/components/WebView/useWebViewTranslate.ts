@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -28,6 +29,24 @@ import type { ITranslateRequest } from './translateBridge';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebView } from 'react-native-webview';
 
+type ITranslateResult = Array<string | null>;
+
+type ITranslateRequestOptions = {
+  onSuccess?: () => void;
+  onTranslateUnavailable?: (payload: {
+    code: number;
+    sessionId?: string;
+    targetLang: string;
+  }) => void;
+  testFlag?: string;
+};
+
+type ITranslateResponsePayload = {
+  translations?: ITranslateResult;
+  sessionId?: string;
+  abort?: boolean;
+};
+
 function injectScript(tabId: string, script: string) {
   const ref = getWebviewWrapperRef(tabId);
   if (!ref) return;
@@ -51,27 +70,39 @@ async function translateTexts(
   texts: string[],
   targetLang: string,
   engine: ETranslateEngine,
-): Promise<string[]> {
-  const result = await backgroundApiProxy.servicePrime.apiTranslate({
+  testFlag?: string,
+): Promise<ITranslateResult> {
+  const result = (await backgroundApiProxy.servicePrime.apiTranslate({
     texts,
     sourceLang: 'auto',
     targetLang,
     engine,
-  });
-  return result?.translations ?? texts;
+    testFlag,
+  })) as
+    | {
+        translations?: ITranslateResult;
+      }
+    | undefined;
+  const translations = result?.translations;
+  return Array.isArray(translations) ? translations : texts;
+}
+
+function isAITranslateUnavailableError(error: unknown): error is IOneKeyError {
+  const code = Number((error as IOneKeyError | undefined)?.code);
+  return code === 90_104 || code === 90_105;
 }
 
 function sendTranslationResponse(
   tabId: string,
   requestId: string,
-  translations: string[],
-  sessionId?: string,
+  { translations, sessionId, abort }: ITranslateResponsePayload,
 ) {
   const responseScript = createMessageInjectedScript({
     type: TRANSLATE_RESPONSE_TYPE,
     id: requestId,
     translations,
     sessionId,
+    abort,
   });
   injectScript(tabId, responseScript);
 }
@@ -80,7 +111,11 @@ function handleTranslateRequest(
   tabId: string,
   data: ITranslateRequest,
   engine: ETranslateEngine,
-  onSuccess?: () => void,
+  {
+    onSuccess,
+    onTranslateUnavailable,
+    testFlag,
+  }: ITranslateRequestOptions = {},
 ): void {
   const handler = async () => {
     try {
@@ -88,12 +123,34 @@ function handleTranslateRequest(
         data.texts,
         data.targetLang,
         engine,
+        testFlag,
       );
-      sendTranslationResponse(tabId, data.id, translations, data.sessionId);
+      sendTranslationResponse(tabId, data.id, {
+        translations,
+        sessionId: data.sessionId,
+      });
       onSuccess?.();
     } catch (err) {
       console.error('[Translate] API error:', err);
-      sendTranslationResponse(tabId, data.id, data.texts, data.sessionId);
+      if (
+        engine === ETranslateEngine.ai &&
+        isAITranslateUnavailableError(err)
+      ) {
+        sendTranslationResponse(tabId, data.id, {
+          sessionId: data.sessionId,
+          abort: true,
+        });
+        onTranslateUnavailable?.({
+          code: Number(err.code),
+          sessionId: data.sessionId,
+          targetLang: data.targetLang,
+        });
+        return;
+      }
+      sendTranslationResponse(tabId, data.id, {
+        translations: data.texts,
+        sessionId: data.sessionId,
+      });
     }
   };
   void handler();
@@ -112,26 +169,32 @@ export function useWebViewTranslate(
   engine: ETranslateEngine = ETranslateEngine.standard,
   displayMode: ETranslateDisplayMode = ETranslateDisplayMode.replace,
   dappUrl?: string,
+  onAITranslateUnavailable?: (payload: {
+    code: number;
+    targetLang: string;
+  }) => void,
 ) {
   const translatingRef = useRef(false);
   const desktopCleanupRef = useRef<(() => void) | null>(null);
   const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoggedSuccessRef = useRef(false);
   const activeSessionIdRef = useRef<string | null>(null);
+  const activeEngineRef = useRef(engine);
   const engineRef = useRef(engine);
   const displayModeRef = useRef(displayMode);
   const dappUrlRef = useRef(dappUrl);
+  const handledUnavailableSessionRef = useRef<string | null>(null);
   engineRef.current = engine;
   displayModeRef.current = displayMode;
   dappUrlRef.current = dappUrl;
 
   useEffect(() => () => unregisterTranslateHandler(tabId), [tabId]);
 
-  // Unregister handler on navigation so new pages can't trigger translate without user action
   useEffect(() => {
     onTabNavigation(tabId, () => {
       translatingRef.current = false;
       activeSessionIdRef.current = null;
+      handledUnavailableSessionRef.current = null;
       unregisterTranslateHandler(tabId);
       if (startTimerRef.current) {
         clearTimeout(startTimerRef.current);
@@ -153,8 +216,6 @@ export function useWebViewTranslate(
     [],
   );
 
-  // Stable callback — reads current values from refs to avoid cascading callback recreations.
-  // sessionId guard prevents stale in-flight requests from consuming the new session's dedup slot.
   const logTranslateSuccess = useCallback(
     (targetLang: string, sessionId?: string) => {
       if (
@@ -164,7 +225,7 @@ export function useWebViewTranslate(
       ) {
         hasLoggedSuccessRef.current = true;
         defaultLogger.prime.usage.dappTranslateSuccess({
-          engine: engineRef.current,
+          engine: activeEngineRef.current,
           targetLang,
           displayMode: displayModeRef.current,
           dappDomain: dappUrlRef.current ?? '',
@@ -172,83 +233,6 @@ export function useWebViewTranslate(
       }
     },
     [],
-  );
-
-  const setupDesktopListener = useCallback(() => {
-    if (!platformEnv.isDesktop) return;
-    desktopCleanupRef.current?.();
-
-    const ref = getWebviewWrapperRef(tabId);
-    if (!ref?.innerRef) return;
-
-    const webview = ref.innerRef as IElectronWebView;
-    const handleConsoleMessage = (event: { message: string }) => {
-      if (
-        typeof event.message === 'string' &&
-        event.message.startsWith(TRANSLATE_CONSOLE_PREFIX)
-      ) {
-        try {
-          const data = JSON.parse(
-            event.message.slice(TRANSLATE_CONSOLE_PREFIX.length),
-          ) as ITranslateRequest;
-          if (data.type === TRANSLATE_REQUEST_TYPE) {
-            handleTranslateRequest(tabId, data, engine, () =>
-              logTranslateSuccess(data.targetLang, data.sessionId),
-            );
-          }
-        } catch {
-          // ignore parse errors
-        }
-      }
-    };
-
-    webview.addEventListener('console-message', handleConsoleMessage as never);
-    desktopCleanupRef.current = () => {
-      webview.removeEventListener(
-        'console-message',
-        handleConsoleMessage as never,
-      );
-      desktopCleanupRef.current = null;
-    };
-  }, [tabId, engine, logTranslateSuccess]);
-
-  const ensureInjected = useCallback(() => {
-    // Re-injection is needed after page navigation clears the old context;
-    // the script has an idempotency guard for same-page calls.
-    injectScript(tabId, translateInjectScript);
-    setupDesktopListener();
-  }, [tabId, setupDesktopListener]);
-
-  const startTranslate = useCallback(
-    (targetLang = 'zh') => {
-      const sid = generateSessionId();
-      activeSessionIdRef.current = sid;
-      hasLoggedSuccessRef.current = false;
-      registerTranslateHandler(tabId, (data) =>
-        handleTranslateRequest(tabId, data, engine, () =>
-          logTranslateSuccess(data.targetLang, data.sessionId),
-        ),
-      );
-      ensureInjected();
-      if (startTimerRef.current) {
-        clearTimeout(startTimerRef.current);
-      }
-      translatingRef.current = true;
-      startTimerRef.current = setTimeout(() => {
-        startTimerRef.current = null;
-        injectScript(
-          tabId,
-          createMessageInjectedScript({
-            type: TRANSLATE_COMMAND_TYPE,
-            command: 'start',
-            targetLang,
-            displayMode,
-            sessionId: sid,
-          }),
-        );
-      }, 50);
-    },
-    [tabId, ensureInjected, engine, displayMode, logTranslateSuccess],
   );
 
   const stopTranslate = useCallback(() => {
@@ -265,6 +249,7 @@ export function useWebViewTranslate(
     );
     unregisterTranslateHandler(tabId);
     desktopCleanupRef.current?.();
+    handledUnavailableSessionRef.current = null;
     activeSessionIdRef.current = null;
     translatingRef.current = false;
   }, [tabId]);
@@ -283,9 +268,151 @@ export function useWebViewTranslate(
     );
     unregisterTranslateHandler(tabId);
     desktopCleanupRef.current?.();
+    handledUnavailableSessionRef.current = null;
     activeSessionIdRef.current = null;
     translatingRef.current = false;
   }, [tabId]);
+
+  const handleTranslateUnavailable = useCallback(
+    ({
+      code,
+      sessionId,
+      targetLang,
+    }: {
+      code: number;
+      sessionId?: string;
+      targetLang: string;
+    }) => {
+      if (
+        !sessionId ||
+        sessionId !== activeSessionIdRef.current ||
+        handledUnavailableSessionRef.current === sessionId
+      ) {
+        return;
+      }
+
+      handledUnavailableSessionRef.current = sessionId;
+      restoreOriginal();
+      onAITranslateUnavailable?.({
+        code,
+        targetLang,
+      });
+    },
+    [onAITranslateUnavailable, restoreOriginal],
+  );
+
+  const setupDesktopListener = useCallback(
+    (
+      selectedEngine: ETranslateEngine = engineRef.current,
+      testFlag?: string,
+    ) => {
+      if (!platformEnv.isDesktop) return;
+      desktopCleanupRef.current?.();
+
+      const ref = getWebviewWrapperRef(tabId);
+      if (!ref?.innerRef) return;
+
+      const webview = ref.innerRef as IElectronWebView;
+      const handleConsoleMessage = (event: { message: string }) => {
+        if (
+          typeof event.message === 'string' &&
+          event.message.startsWith(TRANSLATE_CONSOLE_PREFIX)
+        ) {
+          try {
+            const data = JSON.parse(
+              event.message.slice(TRANSLATE_CONSOLE_PREFIX.length),
+            ) as ITranslateRequest;
+            if (data.type === TRANSLATE_REQUEST_TYPE) {
+              handleTranslateRequest(tabId, data, selectedEngine, {
+                onSuccess: () =>
+                  logTranslateSuccess(data.targetLang, data.sessionId),
+                onTranslateUnavailable: handleTranslateUnavailable,
+                testFlag,
+              });
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+      };
+
+      webview.addEventListener(
+        'console-message',
+        handleConsoleMessage as never,
+      );
+      desktopCleanupRef.current = () => {
+        webview.removeEventListener(
+          'console-message',
+          handleConsoleMessage as never,
+        );
+        desktopCleanupRef.current = null;
+      };
+    },
+    [tabId, logTranslateSuccess, handleTranslateUnavailable],
+  );
+
+  const ensureInjected = useCallback(
+    (
+      selectedEngine: ETranslateEngine = engineRef.current,
+      testFlag?: string,
+    ) => {
+      injectScript(tabId, translateInjectScript);
+      setupDesktopListener(selectedEngine, testFlag);
+    },
+    [tabId, setupDesktopListener],
+  );
+
+  const startTranslate = useCallback(
+    (
+      targetLang = 'zh',
+      selectedEngine: ETranslateEngine = engineRef.current,
+      testFlag?: string,
+    ) => {
+      if (translatingRef.current) {
+        restoreOriginal();
+      }
+
+      const sid = generateSessionId();
+      activeSessionIdRef.current = sid;
+      activeEngineRef.current = selectedEngine;
+      handledUnavailableSessionRef.current = null;
+      hasLoggedSuccessRef.current = false;
+
+      registerTranslateHandler(tabId, (data) =>
+        handleTranslateRequest(tabId, data, selectedEngine, {
+          onSuccess: () => logTranslateSuccess(data.targetLang, data.sessionId),
+          onTranslateUnavailable: handleTranslateUnavailable,
+          testFlag,
+        }),
+      );
+
+      ensureInjected(selectedEngine, testFlag);
+      if (startTimerRef.current) {
+        clearTimeout(startTimerRef.current);
+      }
+      translatingRef.current = true;
+      startTimerRef.current = setTimeout(() => {
+        startTimerRef.current = null;
+        injectScript(
+          tabId,
+          createMessageInjectedScript({
+            type: TRANSLATE_COMMAND_TYPE,
+            command: 'start',
+            targetLang,
+            displayMode: displayModeRef.current,
+            sessionId: sid,
+          }),
+        );
+      }, 50);
+    },
+    [
+      tabId,
+      ensureInjected,
+      handleTranslateUnavailable,
+      logTranslateSuccess,
+      restoreOriginal,
+    ],
+  );
 
   const toggleTranslate = useCallback(
     (targetLang = 'zh') => {
