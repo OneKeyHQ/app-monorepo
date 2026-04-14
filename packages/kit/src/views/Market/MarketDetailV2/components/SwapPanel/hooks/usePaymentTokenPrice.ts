@@ -25,21 +25,23 @@ export function usePaymentTokenPrice(
   paymentToken?: ISwapTokenBase,
   networkId?: string,
 ): IUsePaymentTokenPriceResult {
-  const paymentTokenKey = `${networkId ?? ''}:${paymentToken?.contractAddress ?? ''}`;
+  const hasPaymentToken = Boolean(paymentToken);
+  const paymentContractAddress = paymentToken?.contractAddress ?? '';
+  const paymentTokenKey = `${networkId ?? ''}:${paymentContractAddress}`;
   const {
     result: paymentTokenPriceResult,
     isLoading,
     run: refetch,
   } = usePromiseResult(
     async (): Promise<IPaymentTokenPriceResult | undefined> => {
-      if (!networkId) {
+      if (!networkId || !hasPaymentToken) {
         return undefined;
       }
 
       const detail = await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails(
         {
           networkId,
-          contractAddress: paymentToken?.contractAddress ?? '',
+          contractAddress: paymentContractAddress,
         },
       );
 
@@ -48,7 +50,7 @@ export function usePaymentTokenPrice(
         tokenKey: paymentTokenKey,
       };
     },
-    [paymentToken?.contractAddress, networkId, paymentTokenKey],
+    [hasPaymentToken, networkId, paymentContractAddress, paymentTokenKey],
     {
       watchLoading: true,
       pollingInterval: 5000, // 5 seconds

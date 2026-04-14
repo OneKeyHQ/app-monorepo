@@ -8,6 +8,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -29,6 +30,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
+import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import type { IToken } from '../types';
@@ -39,6 +41,7 @@ export interface IActionButtonProps extends IButtonProps {
   supportSpeedSwap?: boolean;
   amount: string;
   token?: IToken;
+  paymentToken?: IToken;
   balance?: BigNumber;
   networkId?: string;
   isWrapped?: boolean;
@@ -57,6 +60,7 @@ export function ActionButton({
   disabled,
   onPress,
   isWrapped,
+  paymentToken,
   actionOtherToken,
   networkId,
   onlySupportCrossChain,
@@ -68,6 +72,7 @@ export function ActionButton({
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { tokenDetail } = useTokenDetail();
+  const currencyInfo = useCurrency();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const { createAddress } = useAccountSelectorCreateAddress();
@@ -75,6 +80,10 @@ export function ActionButton({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
+  const { price: paymentTokenPrice } = usePaymentTokenPrice(
+    tradeType === ESwapDirection.BUY ? paymentToken : undefined,
+    networkId,
+  );
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
     tradeType === ESwapDirection.BUY
@@ -90,8 +99,28 @@ export function ActionButton({
       return undefined;
     }
 
-    return amountBN.multipliedBy(new BigNumber(token?.price || '0')).toNumber();
-  }, [token?.price, amount, isValidAmount, amountBN]);
+    if (tradeType === ESwapDirection.BUY) {
+      const buyPrice = paymentTokenPrice ?? new BigNumber(token?.price || '0');
+      if (!buyPrice.isFinite() || buyPrice.isNaN() || !buyPrice.gt(0)) {
+        return undefined;
+      }
+      return amountBN.multipliedBy(buyPrice).toNumber();
+    }
+
+    const sellPrice = new BigNumber(token?.price || '0');
+    if (!sellPrice.isFinite() || sellPrice.isNaN() || !sellPrice.gt(0)) {
+      return undefined;
+    }
+
+    return amountBN.multipliedBy(sellPrice).toNumber();
+  }, [
+    tradeType,
+    paymentTokenPrice,
+    token?.price,
+    amount,
+    isValidAmount,
+    amountBN,
+  ]);
 
   const handleJumpToSwapAction = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -149,10 +178,10 @@ export function ActionButton({
     return {
       formatter: 'value',
       formatterOptions: {
-        currency: '$',
+        currency: currencyInfo.symbol,
       },
     };
-  }, []);
+  }, [currencyInfo.symbol]);
 
   const shouldCreateAddress = usePromiseResult(async () => {
     let result = false;

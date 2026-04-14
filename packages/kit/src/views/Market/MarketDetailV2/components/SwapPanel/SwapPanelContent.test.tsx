@@ -89,14 +89,9 @@ jest.mock('./components/SlippageSetting', () => ({
 }));
 
 jest.mock('./components/ActionButton', () => ({
-  ActionButton: ({
-    disabled,
-    onPress,
-  }: {
-    onPress: () => void;
-    disabled?: boolean;
-  }) => {
-    actionButtonMock({ disabled, onPress });
+  ActionButton: (props: { onPress: () => void; disabled?: boolean }) => {
+    const { disabled, onPress } = props;
+    actionButtonMock(props);
     return (
       <button
         data-testid="action-button"
@@ -189,6 +184,12 @@ describe('SwapPanelContent', () => {
     const props = createProps();
 
     render(<SwapPanelContent {...props} />);
+
+    expect(actionButtonMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentToken: props.swapPanel.paymentToken,
+      }),
+    );
 
     fireEvent.click(screen.getByTestId('action-button'));
 
