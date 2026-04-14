@@ -45,7 +45,12 @@ type ICreateOrEditContentProps = {
   title?: string;
   item: IAddressItem;
   isSubmitLoading?: boolean;
-  disabledAddressEdit?: boolean;
+  // Lock every field that is part of the entry's routing identity (network,
+  // address, memo, note). `name` stays editable. Routing fields are immutable
+  // post-create because the cloud sync layer keys items by (networkImpl +
+  // address) and chains like XRP/Cosmos/Algorand treat memo/note as part of
+  // the destination.
+  lockRoutingFields?: boolean;
   onSubmit: (item: IAddressItem) => Promise<void>;
   onRemove?: (item: IAddressItem) => void;
   nameHistoryInfo?: {
@@ -80,7 +85,7 @@ export function CreateOrEditContent({
   onRemove,
   nameHistoryInfo,
   isSubmitLoading,
-  disabledAddressEdit,
+  lockRoutingFields,
 }: ICreateOrEditContentProps) {
   const intl = useIntl();
 
@@ -182,10 +187,17 @@ export function CreateOrEditContent({
           placeholder={intl.formatMessage({
             id: ETranslations.global_Note,
           })}
+          editable={!lockRoutingFields}
         />
       </Form.Field>
     );
-  }, [intl, media.gtMd, vaultSettings?.noteMaxLength, vaultSettings?.withNote]);
+  }, [
+    intl,
+    lockRoutingFields,
+    media.gtMd,
+    vaultSettings?.noteMaxLength,
+    vaultSettings?.withNote,
+  ]);
 
   const validateMemoField = useValidateMemoField({
     networkId,
@@ -228,11 +240,13 @@ export function CreateOrEditContent({
           keyboardType={
             isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
           }
+          editable={!lockRoutingFields}
         />
       </Form.Field>
     );
   }, [
     intl,
+    lockRoutingFields,
     media.gtMd,
     validateMemoField,
     vaultSettings?.memoMaxLength,
@@ -261,7 +275,10 @@ export function CreateOrEditContent({
               ) : null
             }
           >
-            <ChainSelectorInput networkIds={addressBookEnabledNetworkIds} />
+            <ChainSelectorInput
+              networkIds={addressBookEnabledNetworkIds}
+              disabled={lockRoutingFields}
+            />
           </Form.Field>
           <Form.Field
             label={intl.formatMessage({
@@ -362,7 +379,7 @@ export function CreateOrEditContent({
               placeholder={intl.formatMessage({
                 id: ETranslations.address_book_add_address_address,
               })}
-              editable={!disabledAddressEdit}
+              editable={!lockRoutingFields}
               autoError={false}
               testID="address-form-address"
               enableNameResolve
