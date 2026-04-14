@@ -327,9 +327,10 @@ class ServiceAccountProfile extends ServiceBase {
     toAddress: string;
     result: IAddressQueryResult;
   }): Promise<void> {
+    const { serviceAccount } = this.backgroundApi;
     let fromAddress: string | undefined;
     if (accountId) {
-      const acc = await this.backgroundApi.serviceAccount.getAccount({
+      const acc = await serviceAccount.getAccount({
         networkId,
         accountId,
       });
@@ -345,18 +346,22 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
 
-    // For merge-derive chains (BTC/LTC) one user-facing account owns
-    // multiple xpubs; the /badges API is xpub-scoped so we must call it
-    // once per xpub and merge, otherwise the result only reflects the
-    // derive type of the currently-selected address (OK-52897).
-    const xpubEntries = accountId
-      ? await this.backgroundApi.serviceAccount.getAccountXpubsForAllDeriveTypes(
-          {
-            accountId,
-            networkId,
-          },
-        )
-      : [];
+    // BTC/LTC merge-derive: fan out /badges per xpub and merge (OK-52897).
+    // queryAddress callers expect badge lookup to degrade to defaults on
+    // failure, never throw, so swallow xpub lookup errors.
+    let xpubEntries: Awaited<
+      ReturnType<typeof serviceAccount.getAccountXpubsForAllDeriveTypes>
+    > = [];
+    if (accountId) {
+      try {
+        xpubEntries = await serviceAccount.getAccountXpubsForAllDeriveTypes({
+          accountId,
+          networkId,
+        });
+      } catch {
+        //
+      }
+    }
 
     let merged: IAccountBadgeResult;
     if (xpubEntries.length > 1) {
