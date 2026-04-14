@@ -726,10 +726,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       );
       return response;
     } catch (error) {
-      if (error instanceof OneKeyLocalError) {
-        throw error;
-      }
-      throw new OneKeyLocalError('Failed to place spot order');
+      throw new OneKeyLocalError(
+        `Failed to place spot order: ${String(error)}`,
+      );
     }
   }
 
