@@ -29,19 +29,31 @@ function logSplashProvider(message: string) {
   }
 }
 
-/** Check if jotai was hydrated from MMKV snapshot WITH balance data.
- *  When balance cache exists, React renders cached balance on first render,
- *  HomePageReady fires immediately, and splash dismisses fast.
- *  Without balance cache, waiting for HomePageReady would stall splash
- *  until a network fetch completes — so we dismiss immediately instead. */
+/** Check if jotai was hydrated from MMKV snapshot WITH displayable balance data.
+ *  Targets `lastConfirmedOverviewBalanceAtom` because that is the actual data
+ *  source `HomeOverviewContainer` reads to produce `displayBalanceString` —
+ *  if its `latest`/`byOwner` is populated, hydration produces a balance on the
+ *  first render frame, `HomePageReady` fires immediately, and splash dismisses
+ *  fast. `accountWorthAtom` is NOT a reliable signal: a Home reset writes
+ *  `{ worth: {}, initialized: false }` into it, ColdStartCache persists that
+ *  empty placeholder, and we would falsely wait `HomePageReady` for 10s.
+ *  Without displayable cache, dismiss immediately instead of waiting. */
 function hasBalanceCacheInSnapshot(): boolean {
   const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
     | Record<string, unknown>
     | undefined;
   if (!snapshot) return false;
-  return Object.keys(snapshot).some(
-    (k) => k.includes('ctx:accountWorthAtom') && snapshot[k] != null,
-  );
+  return Object.keys(snapshot).some((k) => {
+    if (!k.includes('ctx:lastConfirmedOverviewBalanceAtom')) return false;
+    const v = snapshot[k] as {
+      latest?: string;
+      byOwner?: Record<string, string>;
+    } | null;
+    if (!v) return false;
+    if (typeof v.latest === 'string' && v.latest.length > 0) return true;
+    if (v.byOwner && Object.keys(v.byOwner).length > 0) return true;
+    return false;
+  });
 }
 
 /**
@@ -49,10 +61,10 @@ function hasBalanceCacheInSnapshot(): boolean {
  *
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │ Path 1: Balance cache exists (hasCachedStates=true)                │
- * │   MMKV snapshot contains accountWorthAtom → jotai hydrates cached  │
- * │   balance into atoms → React renders real balance on first frame   │
- * │   → HomePageReady fires immediately → splash dismisses instantly.  │
- * │   This is the SSR hydration fast-path.                             │
+ * │   MMKV snapshot has lastConfirmedOverviewBalanceAtom with non-empty│
+ * │   latest/byOwner → jotai hydrates → React reads it to render real  │
+ * │   balance on first frame → HomePageReady fires immediately →       │
+ * │   splash dismisses instantly. This is the SSR hydration fast-path. │
  * │                                                                    │
  * │ Path 2: No balance cache, but OTA pending task exists              │
  * │   A downloaded bundle update needs to be applied before the app    │
@@ -141,7 +153,9 @@ export const useCanDismissSplash =
             );
           } else {
             // No cache, no pending task: dismiss immediately.
-            logSplashProvider('no cache and no pending task, dismiss immediately');
+            logSplashProvider(
+              'no cache and no pending task, dismiss immediately',
+            );
             dismiss();
           }
 

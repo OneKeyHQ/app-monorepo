@@ -23,10 +23,17 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   return { __esModule: true, default: env };
 });
 
+jest.mock('@onekeyhq/shared/src/utils/pendingTaskUtils', () => {
+  const fn = jest.fn(() => false);
+  (globalThis as any).__mockHasPendingInstallTask = fn;
+  return { __esModule: true, hasPendingInstallTask: fn };
+});
+
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
   const listeners = new Map<string, Set<(payload: unknown) => void>>();
   const EAppEventBusNames = {
     PendingInstallTaskProcessFinished: 'PendingInstallTaskProcessFinished',
+    HomePageReady: 'HomePageReady',
   };
   type IMockAppEventBus = {
     on: jest.Mock<IMockAppEventBus, [string, (payload: unknown) => void]>;
@@ -126,6 +133,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   g.__resetMockAppEventBus?.();
   g.__lastCanDismissSplash = undefined;
+  delete g.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  delete g.__onekeyBalanceDisplayed;
+  g.__mockHasPendingInstallTask?.mockReturnValue(false);
   const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
   platformEnvMock.version = '1.0.0';
   platformEnvMock.bundleVersion = '1';
@@ -137,6 +147,7 @@ beforeEach(() => {
 describe('useCanDismissSplash', () => {
   test('runs pending task processing once and waits for the finish event', async () => {
     const { useCanDismissSplash } = freshSplash();
+    g.__mockHasPendingInstallTask.mockReturnValue(true);
     const { result } = renderHook(() => useCanDismissSplash());
 
     await flushMicrotasks();
@@ -181,6 +192,7 @@ describe('useCanDismissSplash', () => {
   test('safety timer allows hiding splash when event is missing', async () => {
     jest.useFakeTimers();
     const { useCanDismissSplash } = freshSplash();
+    g.__mockHasPendingInstallTask.mockReturnValue(true);
     svc.processPendingInstallTask.mockReturnValue(new Promise(() => {}));
     const { result } = renderHook(() => useCanDismissSplash());
 
@@ -226,6 +238,7 @@ describe('useCanDismissSplash', () => {
 describe('SplashProvider', () => {
   test('renders children immediately while splash is still waiting to hide', async () => {
     const { SplashProvider } = freshSplash();
+    g.__mockHasPendingInstallTask.mockReturnValue(true);
 
     render(
       React.createElement(
@@ -241,5 +254,146 @@ describe('SplashProvider', () => {
     await flushMicrotasks();
 
     expect(g.__lastCanDismissSplash).toBe(false);
+  });
+});
+
+describe('useCanDismissSplash — balance cache snapshot detection', () => {
+  test('no snapshot → dismisses immediately (Path 3)', async () => {
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(true);
+    expect(g.__mockAppEventBus.on).not.toHaveBeenCalledWith(
+      g.__mockAppEventBusNames.HomePageReady,
+      expect.any(Function),
+    );
+  });
+
+  test('snapshot has only accountWorthAtom → dismisses immediately (regression: stale-cache placeholder must not gate splash)', async () => {
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:accountWorthAtom': {
+        worth: {},
+        createAtNetworkWorth: '0',
+        initialized: false,
+        accountId: 'hd-1--0000/0',
+      },
+    };
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(true);
+    expect(g.__mockAppEventBus.on).not.toHaveBeenCalledWith(
+      g.__mockAppEventBusNames.HomePageReady,
+      expect.any(Function),
+    );
+  });
+
+  test('snapshot has empty lastConfirmedOverviewBalanceAtom → dismisses immediately', async () => {
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
+        latest: '',
+        byOwner: {},
+      },
+    };
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(true);
+  });
+
+  test('snapshot has lastConfirmedOverviewBalance.latest populated → waits for HomePageReady', async () => {
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
+        latest: '$2.31',
+        byOwner: {},
+      },
+    };
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(false);
+    expect(g.__mockAppEventBus.on).toHaveBeenCalledWith(
+      g.__mockAppEventBusNames.HomePageReady,
+      expect.any(Function),
+    );
+
+    act(() => {
+      g.__mockAppEventBus.emit(
+        g.__mockAppEventBusNames.HomePageReady,
+        undefined,
+      );
+    });
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(true);
+  });
+
+  test('snapshot has lastConfirmedOverviewBalance.byOwner populated → waits for HomePageReady', async () => {
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
+        latest: '',
+        byOwner: { 'hd-1--0000/0__onekeyall--0': '$2.31' },
+      },
+    };
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(false);
+    expect(g.__mockAppEventBus.on).toHaveBeenCalledWith(
+      g.__mockAppEventBusNames.HomePageReady,
+      expect.any(Function),
+    );
+  });
+
+  test('snapshot has both lastConfirmedOverviewBalance and accountWorthAtom (mixed) → uses lastConfirmed signal, waits', async () => {
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:accountWorthAtom': {
+        worth: {},
+        createAtNetworkWorth: '0',
+        initialized: false,
+        accountId: 'hd-1--0000/0',
+      },
+      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
+        latest: '$2.31',
+        byOwner: { 'hd-1--0000/0__onekeyall--0': '$2.31' },
+      },
+    };
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(false);
+  });
+
+  test('balance already displayed before listener attaches → dismisses immediately even with cache', async () => {
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
+        latest: '$2.31',
+        byOwner: {},
+      },
+    };
+    g.__onekeyBalanceDisplayed = true;
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(true);
+    expect(g.__mockAppEventBus.on).not.toHaveBeenCalledWith(
+      g.__mockAppEventBusNames.HomePageReady,
+      expect.any(Function),
+    );
   });
 });
