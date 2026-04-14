@@ -273,6 +273,27 @@ export class SendScene extends BaseScene {
     };
   }
 
+  @LogToServer()
+  public insufficientFeeOnConfirm({
+    network,
+    tokenSymbol,
+    fillUpAmount,
+    feeType,
+  }: {
+    network: string | undefined;
+    tokenSymbol: string | undefined;
+    fillUpAmount: string | undefined;
+    feeType: 'native' | 'token';
+  }) {
+    return {
+      sendFlowId: this._sendFlowId,
+      network,
+      tokenSymbol,
+      fillUpAmount,
+      feeType,
+    };
+  }
+
   @LogToLocal()
   public rawTxFetchFailed({
     network,
