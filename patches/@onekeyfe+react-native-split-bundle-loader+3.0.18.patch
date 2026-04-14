@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt b/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt
-index 809df1a..5a20204 100644
+index 809df1a..0345d52 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt
 @@ -132,54 +132,21 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
@@ -61,3 +61,88 @@ index 809df1a..5a20204 100644
      // -----------------------------------------------------------------------
      // Path resolution helpers
      // -----------------------------------------------------------------------
+@@ -206,14 +173,27 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+             val otaRoot = File(otaBundlePath).parentFile
+             if (otaRoot != null) {
+                 val candidate = File(otaRoot, relativePath)
+-                if (candidate.exists() && isPathWithinRoot(otaRoot, candidate)) {
++                val exists = candidate.exists()
++                val withinRoot = isPathWithinRoot(otaRoot, candidate)
++                SBLLogger.info("[resolveSeg] rel=$relativePath ota root=${otaRoot.absolutePath} cand=${candidate.absolutePath} exists=$exists withinRoot=$withinRoot")
++                if (exists && withinRoot) {
+                     return candidate.absolutePath
+                 }
++            } else {
++                SBLLogger.info("[resolveSeg] rel=$relativePath otaBundlePath=$otaBundlePath parentFile=null")
+             }
++        } else {
++            SBLLogger.info("[resolveSeg] rel=$relativePath otaBundlePath=(empty) — skipping OTA")
+         }
+ 
+         // 2. Try builtin: extract from assets if needed
+-        return extractBuiltinSegmentIfNeeded(relativePath, expectedSha256)
++        val result = extractBuiltinSegmentIfNeeded(relativePath, expectedSha256)
++        if (result == null) {
++            SBLLogger.warn("[resolveSeg] rel=$relativePath → null (builtin extract failed)")
++        } else {
++            SBLLogger.info("[resolveSeg] rel=$relativePath → builtin $result")
++        }
++        return result
+     }
+ 
+     /**
+@@ -272,12 +252,15 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+                 }
+                 // Atomic rename prevents partial file observation
+                 if (tempFile.renameTo(extractedFile)) {
++                    SBLLogger.info("[extractBuiltin] extracted $relativePath → ${extractedFile.absolutePath} (${extractedFile.length()} bytes)")
+                     extractedFile.absolutePath
+                 } else {
++                    SBLLogger.warn("[extractBuiltin] rename failed for $relativePath: ${tempFile.absolutePath} → ${extractedFile.absolutePath}")
+                     tempFile.delete()
+                     null
+                 }
+-            } catch (_: IOException) {
++            } catch (e: IOException) {
++                SBLLogger.warn("[extractBuiltin] IOException for $relativePath: ${e.javaClass.simpleName}: ${e.message}")
+                 null
+             }
+         } finally {
+diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
+index 4bc4493..046e3c4 100644
+--- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
++++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
+@@ -132,20 +132,29 @@ + (nullable NSString *)resolveAbsolutePath:(NSString *)relativePath
+     if (otaPath) {
+         NSString *otaRoot = [otaPath stringByDeletingLastPathComponent];
+         NSString *candidate = [[otaRoot stringByAppendingPathComponent:relativePath] stringByStandardizingPath];
+-        if ([candidate hasPrefix:otaRoot] &&
+-            [[NSFileManager defaultManager] fileExistsAtPath:candidate]) {
++        BOOL otaPrefixOk = [candidate hasPrefix:otaRoot];
++        BOOL otaExists = [[NSFileManager defaultManager] fileExistsAtPath:candidate];
++        [SBLLogger info:[NSString stringWithFormat:@"[resolveAbs] rel=%@ ota root=%@ cand=%@ prefixOk=%d exists=%d",
++                         relativePath, otaRoot, candidate, otaPrefixOk, otaExists]];
++        if (otaPrefixOk && otaExists) {
+             return candidate;
+         }
++    } else {
++        [SBLLogger info:[NSString stringWithFormat:@"[resolveAbs] rel=%@ otaPath=(nil) — skipping OTA", relativePath]];
+     }
+ 
+     // 2. Fallback to builtin resource path
+     NSString *builtinRoot = [[NSBundle mainBundle] resourcePath];
+     NSString *candidate = [[builtinRoot stringByAppendingPathComponent:relativePath] stringByStandardizingPath];
+-    if ([candidate hasPrefix:builtinRoot] &&
+-        [[NSFileManager defaultManager] fileExistsAtPath:candidate]) {
++    BOOL builtinPrefixOk = [candidate hasPrefix:builtinRoot];
++    BOOL builtinExists = [[NSFileManager defaultManager] fileExistsAtPath:candidate];
++    [SBLLogger info:[NSString stringWithFormat:@"[resolveAbs] rel=%@ builtin root=%@ cand=%@ prefixOk=%d exists=%d",
++                     relativePath, builtinRoot, candidate, builtinPrefixOk, builtinExists]];
++    if (builtinPrefixOk && builtinExists) {
+         return candidate;
+     }
+ 
++    [SBLLogger warn:[NSString stringWithFormat:@"[resolveAbs] rel=%@ → nil (not found in OTA nor builtin)", relativePath]];
+     return nil;
+ }
+ 
