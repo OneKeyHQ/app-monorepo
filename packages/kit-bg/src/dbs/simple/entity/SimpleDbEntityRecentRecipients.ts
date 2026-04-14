@@ -1,5 +1,3 @@
-import { isString } from 'lodash';
-
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -15,119 +13,22 @@ export interface IRecentRecipientsDBStruct {
   recentRecipients: Record<string, Record<string, IRecentRecipientData>>; // { storageKey: { recipient address: { updatedAt, networkId } } }
 }
 
-const SIMPLE_DB_KEY_PREFIX = 'simple_db_v5';
-const OLD_ENTITY_NAME = 'recentRecipients';
+function buildRecipientStorageKey({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}): string {
+  const networkKey =
+    networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
+  return `${networkKey}__${accountId}`;
+}
 
 export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRecipientsDBStruct> {
-  entityName = 'recentRecipientsV2';
+  entityName = 'recentRecipients';
 
   override enableCache = false;
-
-  async migrateFromOldStorage(): Promise<void> {
-    try {
-      // Read from old storage key
-      const oldKey = `${SIMPLE_DB_KEY_PREFIX}:${OLD_ENTITY_NAME}`;
-      const oldDataStr = await this.appStorage.getItem(oldKey);
-
-      if (!oldDataStr) {
-        return;
-      }
-
-      let oldData: IRecentRecipientsDBStruct | undefined;
-      if (isString(oldDataStr)) {
-        try {
-          const parsed = JSON.parse(oldDataStr) as {
-            data?: IRecentRecipientsDBStruct;
-          };
-          oldData = parsed?.data;
-        } catch {
-          // Corrupted old data, just remove it
-          await this.appStorage.removeItem(oldKey);
-          return;
-        }
-      } else {
-        const parsedObj = oldDataStr as unknown as {
-          data?: IRecentRecipientsDBStruct;
-        };
-        oldData = parsedObj?.data;
-      }
-
-      if (!oldData?.recentRecipients) {
-        await this.appStorage.removeItem(oldKey);
-        return;
-      }
-
-      await this.setRawData((currentData) => {
-        // Start from existing v2 data (may already have entries from new sends)
-        const migratedRecipients: Record<
-          string,
-          Record<string, IRecentRecipientData>
-        > = { ...currentData?.recentRecipients };
-        const evmRecipients: Record<string, IRecentRecipientData> = {
-          ...migratedRecipients.evm,
-        };
-
-        for (const [storageKey, recipients] of Object.entries(
-          oldData.recentRecipients,
-        )) {
-          // Check if this is an EVM network key (e.g., 'evm--1', 'evm--56')
-          const isEvmKey =
-            storageKey === 'evm' || storageKey.startsWith('evm--');
-
-          if (isEvmKey) {
-            // Merge into shared EVM recipients, keep newer entries
-            for (const [address, data] of Object.entries(recipients)) {
-              // Normalize to lowercase to match updateRecentRecipients behavior
-              const normalizedAddr = address.toLowerCase();
-              const existing = evmRecipients[normalizedAddr];
-              if (!existing || data.updatedAt > existing.updatedAt) {
-                evmRecipients[normalizedAddr] = {
-                  ...data,
-                  networkId: data.networkId || storageKey,
-                };
-              }
-            }
-          } else {
-            // Non-EVM: merge with existing, keep newer entries
-            const existingNetwork = migratedRecipients[storageKey] ?? {};
-            for (const [address, data] of Object.entries(recipients)) {
-              const existing = existingNetwork[address];
-              if (!existing || data.updatedAt > existing.updatedAt) {
-                existingNetwork[address] = data;
-              }
-            }
-            const sortedNonEvmRecipients = Object.entries(existingNetwork)
-              .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
-              .slice(0, 10);
-            migratedRecipients[storageKey] = Object.fromEntries(
-              sortedNonEvmRecipients,
-            );
-          }
-        }
-
-        // Add merged EVM recipients, sort and keep only top 10
-        if (Object.keys(evmRecipients).length > 0) {
-          const sortedEvmRecipients = Object.entries(evmRecipients)
-            .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
-            .slice(0, 10);
-          migratedRecipients.evm = Object.fromEntries(sortedEvmRecipients);
-        }
-
-        return { recentRecipients: migratedRecipients };
-      });
-
-      // Remove old storage key after successful migration
-      await this.appStorage.removeItem(oldKey);
-    } catch (e) {
-      console.error('Recent recipients migration error', e);
-    }
-  }
-
-  @backgroundMethod()
-  async getRecentRecipientsMap() {
-    const rawData = await this.getRawData();
-    return rawData?.recentRecipients ?? {};
-  }
 
   @backgroundMethod()
   async clearRecentRecipients() {
@@ -137,13 +38,14 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   @backgroundMethod()
   async deleteRecentRecipient({
     networkId,
+    accountId,
     address,
   }: {
     networkId: string;
+    accountId: string;
     address: string;
   }) {
-    const storageKey =
-      networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
+    const storageKey = buildRecipientStorageKey({ networkId, accountId });
     await this.setRawData((rawData) => {
       const recentRecipients = rawData?.recentRecipients ?? {};
       const networkRecipients = recentRecipients[storageKey];
@@ -160,9 +62,11 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   @backgroundMethod()
   async getRecentRecipients({
     networkId,
+    accountId,
     limit = 5,
   }: {
     networkId: string;
+    accountId: string;
     limit?: number;
   }): Promise<
     { address: string; updatedAt: number; networkId?: string; memo?: string }[]
@@ -170,9 +74,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
     const rawData = await this.getRawData();
     const recentRecipients = rawData?.recentRecipients ?? {};
 
-    // For EVM networks, use 'evm' as the key; for others, use networkId
-    const storageKey =
-      networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
+    const storageKey = buildRecipientStorageKey({ networkId, accountId });
     const recipients = recentRecipients[storageKey] ?? {};
 
     const recentRecipientsSorted = Object.entries(recipients).toSorted(
@@ -191,18 +93,18 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   @backgroundMethod()
   async updateRecentRecipients({
     networkId,
+    accountId,
     address,
     updatedAt,
     memo,
   }: {
     networkId: string;
+    accountId: string;
     address: string;
     updatedAt: number;
     memo?: string;
   }) {
-    // For EVM networks, use 'evm' as the key to share recipients across all EVM chains
-    const storageKey =
-      networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
+    const storageKey = buildRecipientStorageKey({ networkId, accountId });
 
     await this.setRawData((rawData) => {
       const recentRecipients = rawData?.recentRecipients ?? {};
