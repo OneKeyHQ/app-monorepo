@@ -1591,6 +1591,25 @@ function formatSpotAssetCtx(
   };
 }
 
+/** Lightweight price entry formatter for spot price map entries (markPx + prevDayPx). */
+function formatSpotPriceEntry(spotEntry?: {
+  markPx?: string;
+  prevDayPx?: string;
+}): { change24hPercent: number; markPrice: string } {
+  const markPrice = spotEntry?.markPx ?? '0';
+  const markPriceNumber = Number(markPrice);
+  const prevDayPriceNumber = Number(spotEntry?.prevDayPx ?? '0');
+  const change24hPercent =
+    Number.isFinite(prevDayPriceNumber) && prevDayPriceNumber > 0
+      ? ((markPriceNumber - prevDayPriceNumber) / prevDayPriceNumber) * 100
+      : 0;
+
+  return {
+    change24hPercent: Number.isFinite(change24hPercent) ? change24hPercent : 0,
+    markPrice,
+  };
+}
+
 // ── Spot Token Utils ──
 
 const SPOT_TOKEN_DISPLAY_MAP: Record<string, string> = {
@@ -1689,6 +1708,7 @@ export {
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
   formatSpotAssetCtx,
+  formatSpotPriceEntry,
   isSpotInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
@@ -1737,6 +1757,7 @@ export default {
   getPerpsValueColor,
   formatChartUsdPrice,
   formatSpotAssetCtx,
+  formatSpotPriceEntry,
   isSpotInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,

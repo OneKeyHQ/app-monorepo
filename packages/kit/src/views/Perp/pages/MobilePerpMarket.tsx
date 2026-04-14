@@ -104,6 +104,7 @@ function MobilePerpMarket() {
           <SizableText size="$headingLg">{pairLabel}</SizableText>
           <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
             <SizableText color="$textSubdued" fontSize={11}>
+              {/* TODO: add i18n key for 'Spot' (ETranslations) */}
               {mode === 'spot'
                 ? 'Spot'
                 : intl.formatMessage({

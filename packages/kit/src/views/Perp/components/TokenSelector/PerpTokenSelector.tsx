@@ -195,7 +195,7 @@ function TokenListHeader({ isSpot }: { isSpot?: boolean }) {
           />
           <SortableHeaderCell
             field="openInterest"
-            label="Market Cap"
+            label="Market Cap" // TODO: add i18n key (ETranslations)
             width={200}
           />
         </>
@@ -231,7 +231,7 @@ function BasePerpTokenSelectorContent({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
-      spot: 'Spot',
+      spot: 'Spot', // TODO: add i18n key (ETranslations)
     }),
     [intl],
   );

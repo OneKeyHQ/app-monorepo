@@ -163,13 +163,12 @@ function PerpOpenOrdersList({
         align: 'right',
         flex: 1,
         fixed: true,
-        ...(!isSpot &&
-          openOrders.length > 0 && {
+        ...(openOrders.length > 0 && {
             onPress: () => showCancelAllOrdersDialog(),
           }),
       },
     ],
-    [intl, isSpot, openOrders.length],
+    [intl, openOrders.length],
   );
 
   const handleCancelOrder = useCallback(

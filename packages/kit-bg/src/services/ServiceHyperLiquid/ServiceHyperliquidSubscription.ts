@@ -428,7 +428,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     spotAssetCtxsEnabled: boolean;
     spotEnabled: boolean;
   }): Promise<void> {
-    this._currentState.enableLedgerUpdates = params.enableLedgerUpdates;
+    // enableLedgerUpdates is a one-way toggle (set true by enableLedgerUpdatesSubscription
+    // when user visits Account tab). Never reset to false — planTradeSubscriptions cannot
+    // reliably compute this since infoPanelTab is not synced to real tab state.
+    this._currentState.enableLedgerUpdates =
+      params.enableLedgerUpdates || this._currentState.enableLedgerUpdates;
     this._currentState.spotAssetCtxsEnabled = params.spotAssetCtxsEnabled;
     this._currentState.spotEnabled = params.spotEnabled;
   }
