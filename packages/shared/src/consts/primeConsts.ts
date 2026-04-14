@@ -18,6 +18,7 @@ export const REVENUECAT_API_KEY_WEB_SANDBOX =
 export enum EPrimeCloudSyncDataType {
   Lock = 'Lock', // cloud only for password verification
   Wallet = 'Wallet',
+  BotWallet = 'BotWallet',
   IndexedAccount = 'IndexedAccount',
   Account = 'Account',
   BrowserBookmark = 'BrowserBookmark',

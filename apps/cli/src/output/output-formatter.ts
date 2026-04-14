@@ -13,6 +13,11 @@ export class OutputFormatter {
   // eslint-disable-next-line no-useless-constructor, no-empty-function
   constructor(private mode: IOutputMode) {}
 
+  raw(message: string, stream: 'stdout' | 'stderr' = 'stdout'): void {
+    const target = stream === 'stderr' ? process.stderr : process.stdout;
+    target.write(message.endsWith('\n') ? message : `${message}\n`);
+  }
+
   success<T>(data: T, metadata?: Partial<IOutputMetadata>): void {
     if (this.mode === 'quiet') {
       if (data && typeof data === 'object') {
