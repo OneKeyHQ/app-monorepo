@@ -39,7 +39,9 @@ type IUseMultiLineAddressValidationParams = {
   checkAllowlist: boolean;
   selectedAccountId?: string;
   resolveAccountId?: boolean;
-  onResolvedAccountIds?: (ids: Record<number, string>) => void;
+  onResolvedAccountIds?: (
+    ids: Record<number, { accountId: string; indexedAccountId?: string }>,
+  ) => void;
   onDuplicateAddressCountChange?: (count: number) => void;
   duplicateWarningMode?: boolean;
   currentWalletId?: string;
@@ -213,7 +215,9 @@ function useMultiLineAddressValidation(
     async (
       address: string,
       networkId: string,
-    ): Promise<{ accountId: string } | { error: string }> => {
+    ): Promise<
+      { accountId: string; indexedAccountId?: string } | { error: string }
+    > => {
       const trimmedAddress = address.trim();
       const fallbackAccountItem =
         selectorAccountItemsRef?.current[
@@ -245,6 +249,7 @@ function useMultiLineAddressValidation(
 
             return {
               accountId: fallbackResult.accountId,
+              indexedAccountId: fallbackResult.indexedAccountId,
             };
           }
 
@@ -270,7 +275,10 @@ function useMultiLineAddressValidation(
           };
         }
 
-        return { accountId: selection.accountId };
+        return {
+          accountId: selection.accountId,
+          indexedAccountId: selection.indexedAccountId,
+        };
       } catch (_) {
         const fallbackResult = await resolveBulkSendSenderFallbackSelection({
           fallbackAccountItem,
@@ -289,6 +297,7 @@ function useMultiLineAddressValidation(
 
           return {
             accountId: fallbackResult.accountId,
+            indexedAccountId: fallbackResult.indexedAccountId,
           };
         }
 
@@ -447,7 +456,10 @@ function useMultiLineAddressValidation(
       }
 
       // Phase 2: Concurrent address validation with rate limiting and duplicate detection
-      const resolvedIds: Record<number, string> = {};
+      const resolvedIds: Record<
+        number,
+        { accountId: string; indexedAccountId?: string }
+      > = {};
 
       if (addressesToValidate.length > 0) {
         const limit = pLimit(10);
@@ -545,7 +557,10 @@ function useMultiLineAddressValidation(
               for (let i = 0; i <= index; i += 1) {
                 if (lines[i].trim()) {
                   if (i === index) {
-                    resolvedIds[nonEmptyIndex] = result.accountId;
+                    resolvedIds[nonEmptyIndex] = {
+                      accountId: result.accountId,
+                      indexedAccountId: result.indexedAccountId,
+                    };
                   }
                   nonEmptyIndex += 1;
                 }

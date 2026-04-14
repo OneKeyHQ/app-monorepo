@@ -56,6 +56,7 @@ import {
   useBulkSendAddressesInputContext,
 } from './components/Context';
 
+import type { IResolvedSenderAccount } from './components/Context';
 import type { ILineError } from './components/AddressesInput/LineNumberedTextArea';
 
 function BaseBulkSendAddressesInput() {
@@ -525,7 +526,7 @@ function BaseBulkSendAddressesInput() {
             !isOneToMany && amount !== undefined
               ? new BigNumber(amount.trim()).toFixed()
               : undefined,
-          accountId: resolvedSenderAccountIds[currentIndex],
+          accountId: resolvedSenderAccountIds[currentIndex]?.accountId,
         };
       });
 
@@ -792,7 +793,7 @@ function BulkSendAddressesInputProvider() {
   >(undefined);
 
   const [resolvedSenderAccountIds, setResolvedSenderAccountIds] = useState<
-    Record<number, string>
+    Record<number, IResolvedSenderAccount>
   >({});
 
   const [duplicateSenderAddressCount, setDuplicateSenderAddressCount] =
@@ -805,7 +806,11 @@ function BulkSendAddressesInputProvider() {
 
   const context = useMemo(
     () => ({
-      currentWalletId: activeAccount?.wallet?.id,
+      currentWalletId: selectedAccountId
+        ? accountUtils.getWalletIdFromAccountId({
+            accountId: selectedAccountId,
+          })
+        : activeAccount?.wallet?.id,
       selectedAccountId,
       setSelectedAccountId,
       selectedNetworkId,
