@@ -2248,15 +2248,26 @@ class ServicePrimeTransfer extends ServiceBase {
           throw new OneKeyLocalError('Mnemonic is required');
         }
         // serviceAccount.createAddressIfNotExists
-        const { wallet: newWalletData } = await serviceAccount.createHDWallet({
-          mnemonic: await servicePassword.encodeSensitiveText({
-            text: mnemonicFromRs,
-          }),
-          name: wallet.name,
-          avatarInfo: wallet.avatarInfo,
-          isWalletBackedUp: wallet.backuped,
-        });
+        const { wallet: newWalletData, isOverrideWallet } =
+          await serviceAccount.createHDWallet({
+            mnemonic: await servicePassword.encodeSensitiveText({
+              text: mnemonicFromRs,
+            }),
+            name: wallet.name,
+            avatarInfo: wallet.avatarInfo,
+            isWalletBackedUp: wallet.backuped,
+            skipAddHDNextIndexedAccount: true,
+            applyRestoreSyncPolicy: true,
+          });
         newWallet = newWalletData;
+        if (isOverrideWallet && newWallet?.id) {
+          await serviceAccount.setWalletNameAndAvatar({
+            walletId: newWallet.id,
+            name: wallet.name,
+            avatar: wallet.avatarInfo,
+            applyRestoreSyncPolicy: true,
+          });
+        }
       } catch (e) {
         console.error('startImport error', e);
         errorsInfo.push({
@@ -2329,6 +2340,7 @@ class ServicePrimeTransfer extends ServiceBase {
               saveToDb: true,
               showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
               autoHandleExitError: false,
+              applyRestoreSyncPolicy: true,
             };
             // params.customNetworks = [];
             // params.includingDefaultNetworks = true;
@@ -2363,6 +2375,7 @@ class ServicePrimeTransfer extends ServiceBase {
               indexedAccountId,
               name: indexedAccountNames[index],
               skipEventEmit: true,
+              applyRestoreSyncPolicy: true,
             });
           }
         } catch (e) {
@@ -2424,6 +2437,7 @@ class ServicePrimeTransfer extends ServiceBase {
           privateKey,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
       if (addedAccounts?.length && addedAccounts?.[0]?.id) {
         try {
@@ -2520,6 +2534,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: watchingAccount.pub,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -2534,6 +2549,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: watchingAccountUtxo.xpub,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -2548,6 +2564,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: watchingAccountUtxo.xpubSegwit,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -2562,6 +2579,7 @@ class ServicePrimeTransfer extends ServiceBase {
           input: watchingAccount.address,
           networkId,
           skipEventEmit: true,
+          applyRestoreSyncPolicy: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
