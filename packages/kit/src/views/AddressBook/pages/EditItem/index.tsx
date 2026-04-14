@@ -153,6 +153,7 @@ function EditItemPage() {
           : ETranslations.address_book_edit_address_title,
       })}
       disabledAddressEdit={!isCreateMode}
+      disabledMemoEdit={!isCreateMode}
       item={item}
       onSubmit={onSubmit}
       onRemove={isCreateMode ? undefined : onRemove}

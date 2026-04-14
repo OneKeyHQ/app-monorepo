@@ -46,6 +46,7 @@ type ICreateOrEditContentProps = {
   item: IAddressItem;
   isSubmitLoading?: boolean;
   disabledAddressEdit?: boolean;
+  disabledMemoEdit?: boolean;
   onSubmit: (item: IAddressItem) => Promise<void>;
   onRemove?: (item: IAddressItem) => void;
   nameHistoryInfo?: {
@@ -81,6 +82,7 @@ export function CreateOrEditContent({
   nameHistoryInfo,
   isSubmitLoading,
   disabledAddressEdit,
+  disabledMemoEdit,
 }: ICreateOrEditContentProps) {
   const intl = useIntl();
 
@@ -228,10 +230,12 @@ export function CreateOrEditContent({
           keyboardType={
             isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
           }
+          editable={!disabledMemoEdit}
         />
       </Form.Field>
     );
   }, [
+    disabledMemoEdit,
     intl,
     media.gtMd,
     validateMemoField,
