@@ -4301,7 +4301,7 @@
   "token_selector.unverified_token_warning": "下方的代幣未經驗證。請謹慎處理。",
   "touch_id_unlock_desc": "OneKey 正在嘗試解鎖。",
   "trade.enter_receiver_address_optional": "輸入接收地址（可選）",
-  "trade.incognito_tooltips_new": "隱私模式可在兌換或跨鏈時，隐藏發送地址與接收地址之間的關聯。閱讀更多。",
+  "trade.incognito_tooltips_new": "隱私模式可在兌換或跨鏈時，隱藏發送與接收地址在鏈上的關聯。",
   "trade.slip_huge_checkbox": "我確認並希望繼續",
   "trade_incognito.description": "交易代幣時，發送和接收地址之間沒有直接的鏈上關聯，建議使用兩個不同的地址。",
   "trade_incognito.incognito_mode": "隱私模式",

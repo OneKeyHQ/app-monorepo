@@ -4301,7 +4301,7 @@
   "token_selector.unverified_token_warning": "Unverified Token below. Proceed with caution.",
   "touch_id_unlock_desc": "OneKey is trying to Unlock.",
   "trade.enter_receiver_address_optional": "Enter receiver address (optional)",
-  "trade.incognito_tooltips_new": "Incognito Mode can hide the direct on-chain link between sender and recipient addresses during swaps or bridges. Learn more.",
+  "trade.incognito_tooltips_new": "Incognito Mode can hide the direct on-chain link between sender and recipient addresses during swaps or bridges.",
   "trade.slip_huge_checkbox": "I acknowledge and want to proceed",
   "trade_incognito.description": "Swap and bridge tokens without a direct on-chain link between your sending and receiving address, two different addresses are recommended,",
   "trade_incognito.incognito_mode": "Incognito mode",

@@ -4301,7 +4301,7 @@
   "token_selector.unverified_token_warning": "未確認のトークンが以下にあります。注意して進めてください。",
   "touch_id_unlock_desc": "OneKey がロック解除を試行しています。",
   "trade.enter_receiver_address_optional": "受取人のアドレスを入力（オプション）",
-  "trade.incognito_tooltips_new": "インコグニートモードは、スワップやブリッジ中に送信者と受取人のアドレス間の直接的なオンチェーンリンクを隠すことができます。詳細はこちら。",
+  "trade.incognito_tooltips_new": "インコグニートモードを使用すると、スワップやブリッジの際に、送信者アドレスと受信者アドレス間の直接的なオンチェーンリンクを隠すことができます。",
   "trade.slip_huge_checkbox": "承認して続行します",
   "trade_incognito.description": "送信先と受信先のアドレス間に直接的なオンチェーンリンクを持たずにトークンをスワップおよびブリッジします。異なる2つのアドレスを推奨します。",
   "trade_incognito.incognito_mode": "シークレットモード",

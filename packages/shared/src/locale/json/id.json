@@ -4301,7 +4301,7 @@
   "token_selector.unverified_token_warning": "Token yang belum diverifikasi di bawah ini. Lanjutkan dengan hati-hati.",
   "touch_id_unlock_desc": "OneKey sedang mencoba untuk Membuka Kunci.",
   "trade.enter_receiver_address_optional": "Masukkan alamat penerima (opsional)",
-  "trade.incognito_tooltips_new": "Mode Incognito dapat menyembunyikan tautan langsung di rantai antara alamat pengirim dan penerima selama swap atau jembatan. Pelajari lebih lanjut.",
+  "trade.incognito_tooltips_new": "Mode Penyamaran dapat menyembunyikan tautan on-chain langsung antara alamat pengirim dan penerima selama pertukaran atau jembatan.",
   "trade.slip_huge_checkbox": "Saya mengakui dan ingin melanjutkan",
   "trade_incognito.description": "Swap dan bridge token tanpa tautan langsung on-chain antara alamat pengirim dan penerima Anda, dua alamat yang berbeda direkomendasikan,",
   "trade_incognito.incognito_mode": "Mode incognito",

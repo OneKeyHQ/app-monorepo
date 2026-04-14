@@ -4301,7 +4301,7 @@
   "token_selector.unverified_token_warning": "Token chưa được xác minh dưới đây. Tiến hành cẩn thận.",
   "touch_id_unlock_desc": "OneKey đang cố gắng mở khóa.",
   "trade.enter_receiver_address_optional": "Nhập địa chỉ người nhận (tùy chọn)",
-  "trade.incognito_tooltips_new": "Chế độ Ẩn danh có thể ẩn liên kết trực tiếp trên chuỗi giữa địa chỉ người gửi và người nhận trong quá trình hoán đổi hoặc cầu nối. Tìm hiểu thêm.",
+  "trade.incognito_tooltips_new": "Chế độ ẩn danh có thể che giấu liên kết trực tiếp trên chuỗi giữa địa chỉ người gửi và người nhận trong quá trình trao đổi hoặc kết nối.",
   "trade.slip_huge_checkbox": "Tôi xác nhận và muốn tiếp tục",
   "trade_incognito.description": "Hoán đổi và cầu nối token mà không có liên kết trực tiếp trên chuỗi giữa địa chỉ gửi và nhận của bạn, hai địa chỉ khác nhau được khuyến nghị,",
   "trade_incognito.incognito_mode": "Chế độ ẩn danh",

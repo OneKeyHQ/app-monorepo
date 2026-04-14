@@ -4301,7 +4301,7 @@
   "token_selector.unverified_token_warning": "Token no verificado a continuación. Proceda con precaución.",
   "touch_id_unlock_desc": "OneKey está intentando desbloquear.",
   "trade.enter_receiver_address_optional": "Ingrese la dirección del receptor (opcional)",
-  "trade.incognito_tooltips_new": "El modo de incógnito puede ocultar el enlace directo en la cadena entre las direcciones del remitente y del destinatario durante intercambios o puentes. Aprende más.",
+  "trade.incognito_tooltips_new": "El modo incógnito puede ocultar el enlace directo en la cadena de bloques entre las direcciones del remitente y del destinatario durante los intercambios o puentes.",
   "trade.slip_huge_checkbox": "Reconozco y quiero proceder",
   "trade_incognito.description": "Intercambia y conecta tokens sin un enlace directo en la cadena entre tu dirección de envío y recepción, se recomiendan dos direcciones diferentes.",
   "trade_incognito.incognito_mode": "Modo incógnito",

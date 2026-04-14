@@ -4301,7 +4301,7 @@
   "token_selector.unverified_token_warning": "Unbestätigtes Token unten. Vorsichtshalber fortfahren.",
   "touch_id_unlock_desc": "OneKey versucht, die Sperre aufzuheben.",
   "trade.enter_receiver_address_optional": "Empfängeradresse eingeben (optional)",
-  "trade.incognito_tooltips_new": "Der Inkognito-Modus kann die direkte On-Chain-Verbindung zwischen Absender- und Empfängeradressen während Swaps oder Bridges verbergen. Mehr erfahren.",
+  "trade.incognito_tooltips_new": "Der Inkognito-Modus kann die direkte On-Chain-Verbindung zwischen Absender- und Empfängeradresse bei Swaps oder Bridges verbergen.",
   "trade.slip_huge_checkbox": "Ich bestätige und möchte fortfahren",
   "trade_incognito.description": "Tauschen und überbrücken Sie Token, ohne eine direkte On-Chain-Verbindung zwischen Ihrer Sende- und Empfangsadresse. Zwei verschiedene Adressen werden empfohlen.",
   "trade_incognito.incognito_mode": "Inkognito-Modus",

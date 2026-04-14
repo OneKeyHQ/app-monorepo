@@ -4301,7 +4301,7 @@
   "token_selector.unverified_token_warning": "Token non vérifié ci-dessous. Procédez avec prudence.",
   "touch_id_unlock_desc": "OneKey essaie de déverrouiller.",
   "trade.enter_receiver_address_optional": "Entrez l'adresse du destinataire (facultatif)",
-  "trade.incognito_tooltips_new": "Le mode incognito peut masquer le lien direct sur la chaîne entre les adresses de l'expéditeur et du destinataire lors des échanges ou des ponts. En savoir plus.",
+  "trade.incognito_tooltips_new": "Le mode Incognito permet de masquer le lien direct sur la chaîne entre les adresses de l'expéditeur et du destinataire lors des échanges ou des ponts.",
   "trade.slip_huge_checkbox": "Je reconnais et je veux continuer",
   "trade_incognito.description": "Échangez et transférez des tokens sans lien direct sur la chaîne entre votre adresse d'envoi et de réception, deux adresses différentes sont recommandées,",
   "trade_incognito.incognito_mode": "Mode incognito",
