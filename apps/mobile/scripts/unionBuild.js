@@ -1375,14 +1375,14 @@ async function main() {
         moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
         absPathToSegment: backgroundAbsPathToSegment,
       });
-    const mainRuntimeAsyncPaths = {
+    const _mainRuntimeAsyncPaths = {
       absPathToSegment: mainAbsPathToSegment,
       eagerAbsPaths: new Set([
         ...runtimeOwnership.sharedStartupAbsPaths,
         ...runtimeOwnership.mainStartupAbsPaths,
       ]),
     };
-    const backgroundRuntimeAsyncPaths = {
+    const _backgroundRuntimeAsyncPaths = {
       absPathToSegment: backgroundAbsPathToSegment,
       eagerAbsPaths: new Set([
         ...runtimeOwnership.sharedStartupAbsPaths,

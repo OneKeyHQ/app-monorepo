@@ -111,14 +111,17 @@ function buildRuntimeOwnership({
     // Check sync deps in both graphs
     for (const graph of [mainGraph, bgGraph]) {
       const mod = graph.dependencies.get(current);
-      if (!mod) continue;
-      for (const [, dep] of mod.dependencies) {
-        if (dep.data?.data?.asyncType === 'async') continue;
-        const depPath = dep.absolutePath;
-        if (sharedStartupAbsPaths.has(depPath)) continue;
-        // Promote this sync dep to shared
-        sharedStartupAbsPaths.add(depPath);
-        pendingShared.push(depPath);
+      if (mod) {
+        for (const [, dep] of mod.dependencies) {
+          if (
+            dep.data?.data?.asyncType !== 'async' &&
+            !sharedStartupAbsPaths.has(dep.absolutePath)
+          ) {
+            // Promote this sync dep to shared
+            sharedStartupAbsPaths.add(dep.absolutePath);
+            pendingShared.push(dep.absolutePath);
+          }
+        }
       }
     }
   }
