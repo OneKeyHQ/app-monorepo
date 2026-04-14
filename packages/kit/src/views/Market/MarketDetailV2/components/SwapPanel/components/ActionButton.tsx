@@ -268,7 +268,12 @@ export function ActionButton({
     !noAccount,
   );
 
-  if (!hasAmount && !hasClickedWithoutAmount) {
+  if (
+    !hasAmount &&
+    !hasClickedWithoutAmount &&
+    !shouldCreateAddress?.result &&
+    !createAddressLoading
+  ) {
     shouldUseColoredStyle = true;
     buttonText = `${actionText} ${truncatedTokenDetailSymbol}`.trim();
     isButtonDisabled = false;
@@ -319,7 +324,12 @@ export function ActionButton({
         return;
       }
       setHasClickedWithoutAmount(true);
-      if (!hasAmount && !hasClickedWithoutAmount) {
+      if (
+        !hasAmount &&
+        !hasClickedWithoutAmount &&
+        !shouldCreateAddress?.result &&
+        !createAddressLoading
+      ) {
         return;
       }
       if (noAccount) {
@@ -367,6 +377,7 @@ export function ActionButton({
       hasAmount,
       hasClickedWithoutAmount,
       noAccount,
+      createAddressLoading,
       shouldCreateAddress?.result,
       onPress,
       handleJumpToSwapAction,
