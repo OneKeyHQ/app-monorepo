@@ -234,8 +234,10 @@ function WalletActionSend({
                   py="$2"
                   onPress={() => {
                     logZeroGas('continue');
-                    void dialogRef.close();
+                    // Dialog.close may fire onClose synchronously, so resolve
+                    // first — otherwise onClose's safeResolve(false) wins.
                     safeResolve(true);
+                    void dialogRef.close();
                   }}
                 >
                   {intl.formatMessage({
