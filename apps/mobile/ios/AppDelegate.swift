@@ -102,6 +102,11 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    let didFinishLaunchingStartAt = CFAbsoluteTimeGetCurrent()
+    NitroModuleBridge.logInfo(
+      "StartupTiming",
+      "ios.app.did_finish_launching.start: +\(String(format: "%.0f", (didFinishLaunchingStartAt - appLaunchCFTime) * 1000))ms from launch"
+    )
     // === Recovery Check ===
     let defaults = UserDefaults.standard
 
@@ -164,11 +169,29 @@ public class AppDelegate: ExpoAppDelegate {
     store?.setValue(launchOptions, forKey: "launchOptions")
 
     // JPUSHService Register
+    let tBeforeJPush = CFAbsoluteTimeGetCurrent()
     let entity = JPUSHRegisterEntity()
     entity.types = 0
     JPUSHService.setDebugMode()
     JPUSHService.register(forRemoteNotificationConfig: entity, delegate: self)
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let tAfterJPush = CFAbsoluteTimeGetCurrent()
+    NitroModuleBridge.logInfo(
+      "StartupTiming",
+      "ios.app.jpush_register: \(String(format: "%.0f", (tAfterJPush - tBeforeJPush) * 1000))ms"
+    )
+
+    let tBeforeSuper = CFAbsoluteTimeGetCurrent()
+    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let tAfterSuper = CFAbsoluteTimeGetCurrent()
+    NitroModuleBridge.logInfo(
+      "StartupTiming",
+      "ios.app.super_did_finish_launching: \(String(format: "%.0f", (tAfterSuper - tBeforeSuper) * 1000))ms (Expo/RN init)"
+    )
+    NitroModuleBridge.logInfo(
+      "StartupTiming",
+      "ios.app.did_finish_launching.done: \(String(format: "%.0f", (tAfterSuper - didFinishLaunchingStartAt) * 1000))ms (+\(String(format: "%.0f", (tAfterSuper - appLaunchCFTime) * 1000))ms from launch)"
+    )
+    return result
   }
 
   // Reset crash counter on graceful exit so normal close is not mistaken for a crash.
@@ -391,7 +414,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   func handleHostDidStart(_ host: AnyObject) {
     let hostDidStartAt = CFAbsoluteTimeGetCurrent()
     let sinceAppLaunch = (hostDidStartAt - appLaunchCFTime) * 1000
-    NitroModuleBridge.logInfo("StartupTiming", "hostDidStart fired at +\(String(format: "%.0f", sinceAppLaunch))ms from app launch (common bundle loaded)")
+    NitroModuleBridge.logInfo("StartupTiming", "main_host.did_start: +\(String(format: "%.0f", sinceAppLaunch))ms from launch (ios, common bundle loaded)")
 
     (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
 
@@ -418,7 +441,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       guard let host = host else { return }
       let deferredAt = CFAbsoluteTimeGetCurrent()
       let deferDelay = (deferredAt - hostDidStartAt) * 1000
-      NitroModuleBridge.logInfo("StartupTiming", "main entry deferred dispatch fired at +\(String(format: "%.0f", (deferredAt - appLaunchCFTime) * 1000))ms (defer delay: \(String(format: "%.1f", deferDelay))ms)")
+      NitroModuleBridge.logInfo("StartupTiming", "ios.main_entry.deferred: +\(String(format: "%.0f", (deferredAt - appLaunchCFTime) * 1000))ms from launch (defer delay: \(String(format: "%.1f", deferDelay))ms)")
 
       let entryLoadStart = CFAbsoluteTimeGetCurrent()
       if let entryPath = self.resolveMainEntryBundlePath() {
@@ -426,7 +449,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
         SplitBundleLoader.loadEntryBundle(entryPath, inHost: host)
         let elapsed = (CFAbsoluteTimeGetCurrent() - entryLoadStart) * 1000
         let totalFromLaunch = (CFAbsoluteTimeGetCurrent() - appLaunchCFTime) * 1000
-        NitroModuleBridge.logInfo("StartupTiming", "main entry evaluated in \(String(format: "%.0f", elapsed))ms, total from launch: +\(String(format: "%.0f", totalFromLaunch))ms")
+        NitroModuleBridge.logInfo("StartupTiming", "ios.main_entry.evaluated: \(String(format: "%.0f", elapsed))ms (+\(String(format: "%.0f", totalFromLaunch))ms from launch)")
       } else {
         NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: no main entry bundle found")
       }
@@ -445,13 +468,15 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     // Dev: pass the Metro URL directly (single bundle served by the dev server).
     let entryURL = backgroundBundleEntryURL()
     NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (debug) entryURL=\(entryURL)")
+    let bgStartAtDebug = CFAbsoluteTimeGetCurrent()
+    NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAtDebug - appLaunchCFTime) * 1000))ms from launch (ios, debug)")
     BackgroundThreadBridge.startBackgroundRunner(entryURL: entryURL)
 #else
     // Release split-bundle: pass empty string so BackgroundRunnerReactNativeDelegate
     // uses the default two-step strategy (common.jsbundle first, then background.bundle).
     // Passing any non-empty path would bypass common.jsbundle loading.
     let bgStartAt = CFAbsoluteTimeGetCurrent()
-    NitroModuleBridge.logInfo("StartupTiming", "background thread start at +\(String(format: "%.0f", (bgStartAt - appLaunchCFTime) * 1000))ms from app launch")
+    NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAt - appLaunchCFTime) * 1000))ms from launch (ios)")
     BackgroundThreadBridge.startBackgroundRunner(entryURL: "")
 #endif
   }

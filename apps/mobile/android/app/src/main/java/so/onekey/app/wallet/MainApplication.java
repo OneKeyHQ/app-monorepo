@@ -40,6 +40,10 @@ public class MainApplication extends Application implements ReactApplication {
 
   public static boolean shouldShowRecovery = false;
 
+  // Anchored at the first line of onCreate(); used by MainActivity and the
+  // ReactContext listener to compute "+Xms from app launch" deltas.
+  public static long appLaunchMs = 0L;
+
   private final ReactNativeHost mReactNativeHost =
     new ReactNativeHostWrapper(this, new CustomReactNativeHost(this) {
       @Override
@@ -159,6 +163,10 @@ public class MainApplication extends Application implements ReactApplication {
       reactHost.addReactInstanceEventListener(new ReactInstanceEventListener() {
         @Override
         public void onReactContextInitialized(ReactContext context) {
+          OneKeyLog.info(
+            "StartupTiming",
+            "main_host.did_start: +" + (System.currentTimeMillis() - appLaunchMs) + "ms from launch (android)"
+          );
           if (!(context instanceof ReactApplicationContext)) {
             OneKeyLog.warn(
               "BackgroundThread",
@@ -170,6 +178,7 @@ public class MainApplication extends Application implements ReactApplication {
           ReactApplicationContext reactApplicationContext =
             (ReactApplicationContext) context;
           BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
+          long tBeforeBgStart = System.currentTimeMillis();
           manager.setReactPackages(new PackageList(MainApplication.this).getPackages());
           manager.installSharedBridgeInMainRuntime(reactApplicationContext);
 
@@ -179,6 +188,10 @@ public class MainApplication extends Application implements ReactApplication {
             "onReactContextInitialized: start background runner with entryURL=" + entryUrl
           );
           manager.startBackgroundRunnerWithEntryURL(reactApplicationContext, entryUrl);
+          OneKeyLog.info(
+            "StartupTiming",
+            "bg_runner.start: " + (System.currentTimeMillis() - tBeforeBgStart) + "ms (+" + (System.currentTimeMillis() - appLaunchMs) + "ms from launch) (android)"
+          );
         }
       });
     }
@@ -198,6 +211,21 @@ public class MainApplication extends Application implements ReactApplication {
 
   @Override
   public void onCreate() {
+    appLaunchMs = System.currentTimeMillis();
+    OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
+
+    // Log zygote→onCreate delay (API 24+, minSdk=24). This is the window
+    // between process fork and our first Java code running: ART/dex2oat,
+    // class loading, Application allocation.
+    try {
+      long processStartUptime = android.os.Process.getStartUptimeMillis();
+      long nowUptime = android.os.SystemClock.uptimeMillis();
+      OneKeyLog.info(
+        "StartupTiming",
+        "android.zygote_to_app_on_create: " + (nowUptime - processStartUptime) + "ms"
+      );
+    } catch (Throwable ignored) {}
+
     // Recovery check
     SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
 
@@ -220,7 +248,13 @@ public class MainApplication extends Application implements ReactApplication {
     boolean isHarnessMode = new java.io.File(getFilesDir(), "harness_mode").exists();
     shouldShowRecovery = !isHarnessMode && newCount >= 3;
 
+    long tBeforeSuper = System.currentTimeMillis();
     super.onCreate();
+    long tAfterSuper = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.app.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms"
+    );
 
     // SoLoader and new architecture entry point must be initialized before
     // the recovery early-return because MainActivity extends ReactActivity,
@@ -231,9 +265,19 @@ public class MainApplication extends Application implements ReactApplication {
     } catch (IOException e) {
         throw new RuntimeException(e);
     }
+    long tAfterSoLoader = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.app.so_loader_init: " + (tAfterSoLoader - tAfterSuper) + "ms"
+    );
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
     }
+    long tAfterNewArch = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.app.new_arch_load: " + (tAfterNewArch - tAfterSoLoader) + "ms (+" + (tAfterNewArch - appLaunchMs) + "ms from launch)"
+    );
 
     OneKeyLog.info("BootRecovery", "boot_fail_count: " + oldCount + " -> " + newCount + ", shouldShowRecovery: " + shouldShowRecovery);
 
@@ -267,9 +311,31 @@ public class MainApplication extends Application implements ReactApplication {
     // if (!BuildConfig.NO_FLIPPER) {
     //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     // }
+    long tBeforeBg = System.currentTimeMillis();
     setupBackgroundThreadBootstrap();
+    long tAfterBg = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.app.bg_bootstrap: " + (tAfterBg - tBeforeBg) + "ms"
+    );
+
     ApplicationLifecycleDispatcher.onApplicationCreate(this);
+    long tAfterExpo = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.app.expo_lifecycle: " + (tAfterExpo - tAfterBg) + "ms"
+    );
+
     JPushModule.registerActivityLifecycle(this);
+    long tDone = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.app.jpush_register: " + (tDone - tAfterExpo) + "ms"
+    );
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.app.on_create.done: " + (tDone - appLaunchMs) + "ms (+" + (tDone - appLaunchMs) + "ms from launch)"
+    );
   }
 
   @Override

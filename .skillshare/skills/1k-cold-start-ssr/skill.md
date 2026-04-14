@@ -1,6 +1,6 @@
 ---
 name: 1k-cold-start-ssr
-description: "Jotai Cold Start SSR — cold start optimization via MMKV snapshot hydration for OneKey native app. Use when debugging startup performance regressions, analyzing cold start timeline, or modifying the snapshot hydration pipeline. Triggers on: cold start, startup optimization, SSR hydration, Balance displayed regression, MMKV snapshot, contextAtomBase, flushColdStartCache, __ONEKEY_CTX_ATOM_SNAPSHOT__."
+description: "Jotai Cold Start SSR + unified startup timing schema — cold start optimization via MMKV snapshot hydration and the cross-platform `[StartupTiming]` log taxonomy for OneKey native app. Use when debugging startup performance regressions, analyzing cold start timeline, comparing iOS vs Android startup phases, or modifying the snapshot hydration pipeline. Triggers on: cold start, startup optimization, 启动时间, SSR hydration, Balance displayed regression, MMKV snapshot, contextAtomBase, flushColdStartCache, __ONEKEY_CTX_ATOM_SNAPSHOT__, StartupTiming, main_host.did_start, bg_runner.start, ios.main_entry.evaluated, android.app.on_create, android.activity.on_create."
 disable-model-invocation: true
 ---
 
@@ -224,62 +224,176 @@ const effectiveInitResult =
 
 ### Step 1: Collect NativeLogger Timeline
 
-NativeLogger writes to `Library/Caches/logs/app-latest.log` on device/simulator.
+NativeLogger writes to `app-latest.log`:
+- **iOS (simulator):** `~/Library/Developer/CoreSimulator/Devices/*/Containers/Data/Application/*/Library/Caches/logs/app-latest.log`
+- **iOS (device):** Xcode → Window → Devices and Simulators → select device → OneKey → "Download Container" → inspect `AppData.xcappdata/AppData/Library/Caches/logs/app-latest.log`
+- **Android:** `adb shell run-as so.onekey.app.wallet cat files/logs/app-latest.log > app-latest.log`
 
 ```bash
-# Find the log file
-find ~/Library/Developer/CoreSimulator/Devices \
+# iOS simulator: find latest log
+LOG=$(find ~/Library/Developer/CoreSimulator/Devices \
   -path "*/Containers/Data/Application/*" \
-  -name "app-latest.log" 2>/dev/null
+  -name "app-latest.log" 2>/dev/null | xargs ls -t | head -1)
 
-# Extract startup milestones for the latest session
-grep -E "StartupTiming|BgTransport.*(→|transport)|SplitBundle.*hostDidStart|\
-Balance displayed|OneKey started|initCritical|JotaiBgSync.*resolving|\
-HomePageReady|MMKV context|segment loader" "$LOG" | tail -40
+# Extract the startup timeline — the unified StartupTiming tag + a few
+# adjacent signals (BgTransport, initCritical, Balance displayed, snapshot).
+grep -E "StartupTiming|BgTransport.*(→|transport)|Balance displayed|\
+OneKey started|initCritical|JotaiBgSync.*resolving|HomePageReady|\
+MMKV context|BackgroundEntry" "$LOG" | tail -60
 ```
 
-### Step 2: Expected Timeline (baseline ~1550ms)
+### Step 2: Unified Timing Schema
+
+All native + JS startup timing lines carry tag `[StartupTiming]` with message format:
+```
+<label>: <duration>ms [(+<cumulative>ms from launch)] [context]
+```
+
+**Zero point (app launch):**
+- iOS: `appLaunchCFTime` (module-load time in `AppDelegate.swift`)
+- Android: `MainApplication.appLaunchMs` (first line of `MainApplication.onCreate()`)
+
+**Shared labels** (appear on both platforms — use these for cross-platform comparisons):
+
+| Label | Meaning | Where |
+|---|---|---|
+| `main_host.did_start` | Main RN host ready (bundle loaded, context initialized) | iOS: `hostDidStart:` callback / Android: `onReactContextInitialized` |
+| `bg_runner.start` | Background thread runner kicked off | Right after main host ready |
+
+**Android-only native labels:**
+
+| Label | Meaning |
+|---|---|
+| `android.app.on_create.start` | Zero anchor |
+| `android.zygote_to_app_on_create` | Invisible gap: zygote fork + ART init + dex2oat |
+| `android.app.super_on_create` | `Application.super.onCreate()` duration |
+| `android.app.so_loader_init` | `SoLoader.init()` duration |
+| `android.app.new_arch_load` | `DefaultNewArchitectureEntryPoint.load()` duration |
+| `android.app.bg_bootstrap` | `setupBackgroundThreadBootstrap` (just attaches listener, <1ms) |
+| `android.app.expo_lifecycle` | `ApplicationLifecycleDispatcher.onApplicationCreate` — Expo modules |
+| `android.app.jpush_register` | JPush registration |
+| `android.app.on_create.done` | `Application.onCreate` total |
+| `android.activity.on_create.{start,done}` | `MainActivity.onCreate` bracket |
+| `android.activity.super_on_create` | ReactActivity init (inside `super.onCreate`) |
+
+**iOS-only native labels:**
+
+| Label | Meaning |
+|---|---|
+| `ios.app.did_finish_launching.start` | Zero anchor (first line inside `didFinishLaunching`) |
+| `ios.app.jpush_register` | JPush registration |
+| `ios.app.super_did_finish_launching` | `super.application(...)` — the big Expo/RN init block |
+| `ios.app.did_finish_launching.done` | `didFinishLaunching` total |
+| `ios.main_entry.deferred` | Deferred dispatch fired (before main.jsbundle eval) |
+| `ios.main_entry.evaluated` | `main.jsbundle` native-side eval duration |
+
+**JS-side labels (platform-agnostic):**
+
+| Label | File | Meaning |
+|---|---|---|
+| `MMKV contextAtom snapshot pre-read` | `apps/mobile/index.ts` | Phase 1 done — snapshot on `globalThis` |
+| `segment loader installed` | `apps/mobile/index.ts` | Prod split-bundle loader ready |
+| `BG transport setup` (misleading label) | `apps/mobile/index.ts` | Actually main thread's `require('./App')` chain total |
+| `main entry evaluated` | `apps/mobile/index.ts` | Main JS bundle top-level done |
+| `Balance displayed` | Home page first paint | **Target TTI metric** |
+| `[BackgroundEntry] polyfills loaded` | `apps/mobile/background.ts` | BG thread polyfills done |
+| `[BackgroundEntry] backgroundApiProxy ready` | `apps/mobile/background.ts` | BG thread main module ready |
+| `[BackgroundEntry] entry JS executed` | `apps/mobile/background.ts` | BG thread bundle done |
+
+### Step 3: Expected Timelines
+
+**iOS baseline (~1550ms to `Balance displayed`):**
 
 ```
-+0ms     [App] OneKey started
-+3ms     BG thread start
-+100ms   main entry deferred dispatch
-+102ms   main entry evaluated (native → JS handoff)
++0ms     ios.app.did_finish_launching.start
++10ms    ios.app.jpush_register: ~5ms
++12ms    ios.app.super_did_finish_launching starts (Expo/RN init)
++100ms   ios.main_entry.deferred
++102ms   ios.main_entry.evaluated (native → JS handoff)
 +455ms   MMKV contextAtom snapshot pre-read: 7 keys     ← Phase 1
 +455ms   segment loader installed
 +496ms   MMKV per-key ready (JotaiBgSync)
-+1175ms  BG hostDidStart (apiProxy import: ~700ms)
-+1261ms  BG transport → ready
-+1300ms  initCriticalDone (localDb + locale: ~39ms)
-+1550ms  Balance displayed                               ← Target metric
++820ms   main_host.did_start (common bundle loaded)
++823ms   bg_runner.start
++1175ms  BackgroundEntry backgroundApiProxy ready
++1261ms  BgTransport transport → ready
++1300ms  initCriticalDone (localDb + locale ~39ms)
++1550ms  Balance displayed                              ← Target metric
 ```
 
-### Step 3: Common Regression Patterns
+**Android baseline (~2100-2400ms to `Balance displayed`):**
+
+```
++0ms     android.app.on_create.start
++Xms     android.zygote_to_app_on_create: 100-300ms (zygote + ART; not inside our 0-reference but contextual)
++Xms     android.app.super_on_create / so_loader_init / new_arch_load
++~150ms  android.app.on_create.done
++~170ms  android.activity.on_create.start
++~220ms  android.activity.on_create.done
++~300ms  (RN host spinning up)
++~820ms  main_host.did_start (JS bundle loaded)
++~970ms  __ONEKEY_MAIN_ENTRY_START__ (JS entry begins)
++~1120ms MMKV contextAtom snapshot pre-read: N keys     ← Phase 1
++~1700ms main entry evaluated (require('./App') chain done)
++~1920ms BgTransport transport → ready
++~2100ms Balance displayed                              ← Target metric
+```
+
+> Android is consistently 500-800ms slower than iOS at equivalent phases due to bigger
+> `require('./App')` overhead on Hermes-Android + heavier Expo module registration. Compare
+> `main_host.did_start` across platforms to isolate JS parse time from native overhead.
+
+### Step 4: Common Regression Patterns
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
-| Balance displayed 2x+ slower | Phase 2 hydration broken — atoms start empty, wait for network | Check `contextAtomBase` reads `__ONEKEY_CTX_ATOM_SNAPSHOT__` |
+| `Balance displayed` 2x+ slower (JS-side drift) | Phase 2 hydration broken — atoms start empty, wait for network | Check `contextAtomBase` reads `__ONEKEY_CTX_ATOM_SNAPSHOT__` |
 | Snapshot pre-read shows 0 keys | Phase 3 save broken — previous session didn't flush | Check `flushColdStartCache`, AppState listener |
 | Snapshot pre-read missing entirely | Phase 1 not executing or MMKV not available | Check `index.ts` entry, `coldStartCacheStorage` instance |
-| Balance displayed OK but layout shift | Cached data shape mismatch — partial hydration | Check `resolvedInitialValue` merge logic |
+| `main_host.did_start` regresses | Native/bundle load slower — common bundle growth, or Hermes/TurboModule init slower | Check `common.jsbundle` size; check `android.app.*` / `ios.app.super_did_finish_launching` for where |
+| `main_host.did_start` OK but `Balance displayed` slow | JS `require('./App')` or React mount got slower | Check `main entry evaluated` delta, new synchronous `require` in App tree |
+| Android-only slow, iOS OK | `android.app.*` phase regression (SoLoader, new-arch load, Expo lifecycle) | Compare phase durations against baseline |
+| `ios.main_entry.deferred → evaluated` huge gap | main.jsbundle grew, or dispatch scheduling pressure | Re-check bundle composition, `unionBuild.js` output |
+| `Balance displayed` OK but layout shift | Cached data shape mismatch — partial hydration | Check `resolvedInitialValue` merge logic |
 | Memory growth over sessions | Snapshot blob growing unbounded | Check snapshot key count, consider LRU eviction |
 
-### Step 4: Verify SSR Pipeline
+### Step 5: Verify SSR Pipeline
 
 ```bash
 # 1. Check Phase 1 executed
 grep "MMKV contextAtom snapshot pre-read" "$LOG"
-# Expected: "7 keys (+XXXms)"
+# Expected: "N keys (+XXXms)"
 
-# 2. Check Phase 2 hydration (no explicit log, but if Balance displayed
-#    is fast (~1550ms), hydration is working)
+# 2. Check Phase 2 hydration (no explicit log; if Balance displayed is
+#    within baseline, hydration is working)
 
-# 3. Check Phase 3 save (look for cold start cache flush after balance)
+# 3. Check Phase 3 save (cold start cache flush after balance)
 grep "ColdStartCache" "$LOG"
 
 # 4. Check cleanup timing
 grep "HomePageReady" "$LOG"
+
+# 5. Cross-platform comparison: line up the shared milestones
+grep -E "StartupTiming.*(main_host\.did_start|bg_runner\.start)" "$LOG"
+
+# 6. Pull a single-session timing table (sorted)
+grep 'StartupTiming' "$LOG" | awk -F'\\] ' '{print $NF}' | head -40
 ```
+
+### Step 6: Parse for Tracking / Regression Dashboard
+
+Since all native + JS timing lines share the `[StartupTiming]` tag with a consistent
+`<label>: <detail> (+<cumulative>ms from launch)` shape, a minimal parser is:
+
+```bash
+# Extract label → cumulative_ms pairs
+grep 'StartupTiming' "$LOG" \
+  | sed -E 's/.*\[StartupTiming\] ([a-z0-9_.]+).*\+([0-9]+)ms from launch.*/\1\t\2/' \
+  | grep -v 'StartupTiming'  # drop lines without cumulative
+```
+
+Feed into a time-series store (Sentry, internal dashboard, etc.) keyed by label
+to spot per-phase regressions over builds.
 
 ## Critical Rules
 

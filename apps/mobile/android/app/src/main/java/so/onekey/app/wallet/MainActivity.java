@@ -31,6 +31,11 @@ public class MainActivity extends ReactActivity {
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    long tActivityStart = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.activity.on_create.start: +" + (tActivityStart - MainApplication.appLaunchMs) + "ms from launch"
+    );
     // Install AndroidX SplashScreen before super.onCreate() to fix MIUI/HyperOS crashes
     // where system's replaceUmiTheme method fails with NullPointerException
     // Added defensive error handling for OPPO and other vendor-specific crashes
@@ -62,7 +67,13 @@ public class MainActivity extends ReactActivity {
         // If AndroidX splash screen fails, we'll rely on the Expo splash screen as fallback
       }
     }
+    long tBeforeSuper = System.currentTimeMillis();
     super.onCreate(null);
+    long tAfterSuper = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.activity.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms (ReactActivity init)"
+    );
 
     if (MainApplication.shouldShowRecovery) {
         startActivity(new Intent(this, RecoveryActivity.class));
@@ -85,6 +96,12 @@ public class MainActivity extends ReactActivity {
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
     EventBus.getDefault().register(this);
+
+    long tActivityDone = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.activity.on_create.done: " + (tActivityDone - tActivityStart) + "ms (+" + (tActivityDone - MainApplication.appLaunchMs) + "ms from launch)"
+    );
   }
 
   @Override
