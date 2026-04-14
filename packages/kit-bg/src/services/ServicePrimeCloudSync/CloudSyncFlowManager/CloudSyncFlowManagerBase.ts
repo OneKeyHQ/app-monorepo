@@ -320,7 +320,7 @@ export abstract class CloudSyncFlowManagerBase<
   async buildExistingSyncItemsInfo({
     tx,
     targets,
-    useCreateGenesisTime,
+    useCreateGenesisTime: shouldUseCreateGenesisTime,
     buildSyncItemDataTime,
     onExistingSyncItemsInfo,
   }: {
@@ -426,11 +426,9 @@ export abstract class CloudSyncFlowManagerBase<
           const newSyncItem = await this.buildSyncItem({
             syncCredential,
             target,
-            // eslint-disable-next-line react-hooks/rules-of-hooks
-            // oxlint-disable-next-line eslint-plugin-react-hooks/rules-of-hooks
             dataTime: await (async () => {
-              if (useCreateGenesisTime) {
-                if (await useCreateGenesisTime({ target })) {
+              if (shouldUseCreateGenesisTime) {
+                if (await shouldUseCreateGenesisTime({ target })) {
                   console.log(
                     'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
                     PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
@@ -500,6 +498,7 @@ export abstract class CloudSyncFlowManagerBase<
       }
 
       if (
+        existingSyncItem &&
         decryptedSyncItem?.rawDataJson &&
         decryptedSyncItem?.rawDataJson.dataType === this.dataType &&
         decryptedSyncItem?.rawDataJson.payload
@@ -574,13 +573,11 @@ export abstract class CloudSyncFlowManagerBase<
         const newSyncItem = await this.buildSyncItem({
           syncCredential,
           target,
-          // eslint-disable-next-line react-hooks/rules-of-hooks
-          // oxlint-disable-next-line eslint-plugin-react-hooks/rules-of-hooks
           dataTime:
             dataTime ??
             (await (async () => {
-              if (useCreateGenesisTime) {
-                if (await useCreateGenesisTime({ target })) {
+              if (shouldUseCreateGenesisTime) {
+                if (await shouldUseCreateGenesisTime({ target })) {
                   console.log(
                     'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
                     PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
