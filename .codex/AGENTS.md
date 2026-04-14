@@ -220,6 +220,8 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 - Test setup in `jest-setup.js`
 - Tests located in `@tests/` directories within packages
 - Mobile tests use `jest-expo` preset
+- Do not add or expand unit tests for `packages/kit` presentation-only UI changes by default. These UI-layer tests usually add little value here.
+- For `packages/kit` bug fixes, prefer validating underlying logic, data flow, or manual regression paths instead of adding render-focused unit tests unless the user explicitly asks for them.
 
 ## Security Considerations - ABSOLUTE REQUIREMENTS
 
