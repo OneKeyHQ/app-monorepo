@@ -1,10 +1,9 @@
 import { useCallback, useRef } from 'react';
 
-import { type ScrollView as ScrollViewNative } from 'react-native';
-
 import {
   EPageType,
-  ScrollView,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -26,6 +25,8 @@ import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 import SwapTipsContainer from './SwapTipsContainer';
+
+import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapSwapMbContainerProps {
   pageType: EPageType;
@@ -82,7 +83,8 @@ const SwapSwapMbContainer = ({
   supportNetworksList,
 }: ISwapSwapMbContainerProps) => {
   const tabBarHeight = useScrollContentTabBarOffset();
-  const scrollViewRef = useRef<ScrollViewNative>(null);
+  const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
+  const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const onSearchClickCallback = useCallback(() => {
     onSelectToken(ESwapDirectionType.FROM);
     scrollViewRef.current?.scrollTo({
@@ -101,12 +103,13 @@ const SwapSwapMbContainer = ({
     [onTokenPress],
   );
   return (
-    <ScrollView
+    <Keyboard.AwareScrollView
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: tabBarHeight }}
+      bottomOffset={bottomOffset}
     >
       <SwapTipsContainer pageType={swapTipsPageType} />
       <YStack
@@ -156,7 +159,7 @@ const SwapSwapMbContainer = ({
           />
         ) : null}
       </YStack>
-    </ScrollView>
+    </Keyboard.AwareScrollView>
   );
 };
 
