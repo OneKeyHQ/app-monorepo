@@ -185,6 +185,18 @@ const SwapProTradeInfoGroup = ({
     ],
   );
 
+  const selectorTrigger = useMemo(
+    () => (
+      <DeriveTypeSelectorTriggerIconRenderer
+        autoShowLabel={false}
+        onPress={() => {}}
+        iconProps={{ size: '$4' }}
+        labelProps={{ pl: '$1' }}
+      />
+    ),
+    [],
+  );
+
   return (
     <YStack>
       <SwapCommonInfoItem
@@ -217,18 +229,7 @@ const SwapProTradeInfoGroup = ({
                 walletId={activeAccount?.wallet?.id ?? ''}
                 activeDeriveType={activeAccount?.deriveType}
                 activeDeriveInfo={activeAccount?.deriveInfo}
-                renderSelectorTrigger={
-                  <DeriveTypeSelectorTriggerIconRenderer
-                    autoShowLabel={false}
-                    onPress={() => {}}
-                    iconProps={{
-                      size: '$4',
-                    }}
-                    labelProps={{
-                      pl: '$1',
-                    }}
-                  />
-                }
+                renderSelectorTrigger={selectorTrigger}
               />
             ) : null}
           </XStack>
