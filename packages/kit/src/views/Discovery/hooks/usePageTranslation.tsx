@@ -3,22 +3,30 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   IconButton,
   Popover,
   SegmentControl,
   Select,
   SizableText,
+  Stack,
   Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { ETranslateDisplayMode, ETranslateEngine } from '../types';
 
@@ -133,7 +141,15 @@ function TranslateSettings({
             if (v === 'auto') {
               updateSetting('targetLanguage', 'auto');
             } else {
-              updateSetting('targetLanguage', intl.locale);
+              const hasLocaleOption = customLanguageOptions.some(
+                (o) => o.value === intl.locale,
+              );
+              updateSetting(
+                'targetLanguage',
+                hasLocaleOption
+                  ? intl.locale
+                  : (customLanguageOptions[0]?.value ?? intl.locale),
+              );
             }
           }}
         />
@@ -214,20 +230,45 @@ export function TranslatePopoverContent({
   onTranslate,
   onTestAITranslateError,
   closePopover,
+  showSettings,
+  onShowSettingsChange,
 }: {
   isTranslated: boolean;
   onTranslate: () => void;
   onTestAITranslateError?: (testFlag: string) => void;
   closePopover: () => void;
+  showSettings: boolean;
+  onShowSettingsChange: (show: boolean) => void;
 }) {
   const intl = useIntl();
-  const [showSettings, setShowSettings] = useState(false);
+  const { user } = useOneKeyAuth();
+  const navigation = useAppNavigation();
+  const isPrimeUser = useMemo(
+    () => !!(user?.primeSubscription?.isActive && user?.onekeyUserId),
+    [user?.primeSubscription?.isActive, user?.onekeyUserId],
+  );
+  const themeVariant = useThemeVariant();
   const targetLanguageLabel = useTargetLanguageLabel();
 
-  const handleAction = useCallback(() => {
+  const handleAction = useCallback(async () => {
+    if (!isTranslated && !isPrimeUser) {
+      closePopover();
+      await timerUtils.wait(150);
+      defaultLogger.prime.subscription.primeEntryClick({
+        featureName: EPrimeFeatures.DAppTranslate,
+        entryPoint: 'browserTranslate',
+      });
+      navigation.pushFullModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeDashboard,
+        params: {
+          fromFeature: EPrimeFeatures.DAppTranslate,
+        },
+      });
+      return;
+    }
     onTranslate();
     closePopover();
-  }, [onTranslate, closePopover]);
+  }, [onTranslate, closePopover, isTranslated, isPrimeUser, navigation]);
 
   const handleTestAITranslateError = useCallback(
     (testFlag: string) => {
@@ -250,7 +291,7 @@ export function TranslatePopoverContent({
           size="small"
           icon="ChevronLeftOutline"
           alignSelf="flex-start"
-          onPress={() => setShowSettings(false)}
+          onPress={() => onShowSettingsChange(false)}
         >
           {intl.formatMessage({
             id: ETranslations.wallet_bulk_send_btn_back,
@@ -277,16 +318,36 @@ export function TranslatePopoverContent({
           icon="SettingsOutline"
           variant="tertiary"
           size="small"
-          onPress={() => setShowSettings(true)}
+          onPress={() => onShowSettingsChange(true)}
         />
       </XStack>
-      <Button variant="primary" size="medium" onPress={handleAction}>
-        {intl.formatMessage({
-          id: isTranslated
-            ? ETranslations.browser_restore_original
-            : ETranslations.browser_translate_start,
-        })}
-      </Button>
+      <Stack overflow="visible">
+        <Button variant="primary" size="medium" onPress={handleAction}>
+          {intl.formatMessage({
+            id: isTranslated
+              ? ETranslations.browser_restore_original
+              : ETranslations.browser_translate_start,
+          })}
+        </Button>
+        {!isTranslated && !isPrimeUser ? (
+          <Stack position="absolute" right={-4} top={-8}>
+            <Badge
+              badgeSize="sm"
+              badgeType="default"
+              bg={themeVariant === 'light' ? '#F1F1F1' : '#3A3A3A'}
+              borderRadius="$full"
+              borderWidth="$px"
+              borderColor="$bgApp"
+            >
+              <Badge.Text size="$bodySmMedium">
+                {intl.formatMessage({
+                  id: ETranslations.prime_status_prime,
+                })}
+              </Badge.Text>
+            </Badge>
+          </Stack>
+        ) : null}
+      </Stack>
     </YStack>
   );
 }
@@ -307,6 +368,18 @@ export function TranslatePopoverTrigger({
   onOpenChange?: (open: boolean) => void;
 }) {
   const intl = useIntl();
+  const [showSettings, setShowSettings] = useState(false);
+
+  const handleOpenChange = useCallback(
+    (isOpen: boolean) => {
+      if (!isOpen) {
+        setShowSettings(false);
+      }
+      onOpenChange?.(isOpen);
+    },
+    [onOpenChange],
+  );
+
   return (
     <Popover
       title={intl.formatMessage({
@@ -314,7 +387,7 @@ export function TranslatePopoverTrigger({
       })}
       placement={placement}
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       renderTrigger={
         <IconButton
           variant="tertiary"
@@ -329,6 +402,8 @@ export function TranslatePopoverTrigger({
           onTranslate={onTranslate}
           onTestAITranslateError={onTestAITranslateError}
           closePopover={closePopover}
+          showSettings={showSettings}
+          onShowSettingsChange={setShowSettings}
         />
       )}
     />
