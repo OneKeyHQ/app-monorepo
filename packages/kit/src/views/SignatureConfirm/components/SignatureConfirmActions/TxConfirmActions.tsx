@@ -41,6 +41,11 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
@@ -49,6 +54,7 @@ import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
@@ -60,6 +66,78 @@ import {
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
+
+const GAS_ACCOUNT_REESTIMATE_CODES = new Set([40201, 40202, 40209, 90201]);
+const GAS_ACCOUNT_FALLBACK_CODES = new Set([
+  40213, 40218, 40219, 90200, 90205,
+]);
+const GAS_ACCOUNT_HINT_ONLY_CODES = new Set([
+  40203, 40214, 40215, 40216, 40217, 90207, 90208, 90209,
+]);
+
+function getGasAccountErrorCode(error: unknown) {
+  const e = error as
+    | (IOneKeyError & {
+        data?: {
+          code?: number;
+          data?: {
+            code?: number;
+          };
+        };
+      })
+    | undefined;
+
+  if (typeof e?.code === 'number') {
+    return e.code;
+  }
+  if (typeof e?.data?.code === 'number') {
+    return e.data.code;
+  }
+  if (typeof e?.data?.data?.code === 'number') {
+    return e.data.data.code;
+  }
+
+  return undefined;
+}
+
+function muteHandledErrorToast(error: unknown) {
+  const e = error as IOneKeyError | undefined;
+  if (e) {
+    e.autoToast = false;
+  }
+}
+
+function getGasAccountErrorMessage(code: number) {
+  switch (code) {
+    case 40201:
+    case 40202:
+    case 90201:
+      return 'Gas sponsor quote expired. Refreshing fee estimate.';
+    case 40209:
+      return 'Gas sponsor nonce changed. Refreshing fee estimate.';
+    case 40213:
+    case 40218:
+    case 40219:
+    case 90200:
+    case 90205:
+      return 'Gas sponsor unavailable. Switched to network fee.';
+    case 40203:
+      return 'Transaction may already have been submitted. Check activity.';
+    case 40214:
+      return 'A gas sponsor request is already in progress. Please try again shortly.';
+    case 40215:
+    case 90207:
+      return 'Too many gas sponsor requests. Please try again shortly.';
+    case 40216:
+    case 90208:
+      return 'Gas sponsor limit reached for today.';
+    case 40217:
+    case 90209:
+      return 'Gas sponsor is busy right now. Please try again later.';
+    default:
+      return undefined;
+  }
+}
 
 type IProps = {
   accountId: string;
@@ -110,8 +188,16 @@ function TxConfirmActions(props: IProps) {
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const [{ isBuildingDecodedTxs, decodedTxs }] = useDecodedTxsAtom();
-  const { updateSendTxStatus, updateUnsignedTxs } =
-    useSignatureConfirmActions().current;
+  const {
+    updateGasAccountTemporarilyDisabled,
+    resetGasAccountTemporarilyDisabled,
+    updateGasAccountUiState,
+    resetGasAccountUiState,
+    updateSendFeeStatus,
+    updateSendTxStatus,
+    updateTxFeeInfoInit,
+    updateUnsignedTxs,
+  } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
   const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
@@ -140,6 +226,77 @@ function TxConfirmActions(props: IProps) {
 
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
     usePreCheckFeeInfo();
+
+  const handleGasAccountSubmitError = useCallback(
+    (error: unknown) => {
+      if (gasAccountUiState.selectedPayer !== 'gasAccount') {
+        return false;
+      }
+
+      const code = getGasAccountErrorCode(error);
+      if (!code) {
+        return false;
+      }
+
+      const message =
+        getGasAccountErrorMessage(code) ??
+        (error as Error | undefined)?.message ??
+        'Failed to submit transaction.';
+
+      if (GAS_ACCOUNT_REESTIMATE_CODES.has(code)) {
+        muteHandledErrorToast(error);
+        resetGasAccountTemporarilyDisabled();
+        resetGasAccountUiState();
+        updateTxFeeInfoInit(false);
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Loading,
+          errMessage: '',
+          discountPercent: 0,
+        });
+        Toast.warning({ title: message });
+        appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+        return true;
+      }
+
+      if (GAS_ACCOUNT_FALLBACK_CODES.has(code)) {
+        muteHandledErrorToast(error);
+        updateGasAccountTemporarilyDisabled(true);
+        resetGasAccountUiState();
+        updateGasAccountUiState({
+          payer: 'user',
+          gasAccountEligible: false,
+          selectedPayer: 'user',
+          idempotencyKey: '',
+        });
+        updateTxFeeInfoInit(false);
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Loading,
+          errMessage: '',
+          discountPercent: 0,
+        });
+        Toast.warning({ title: message });
+        appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+        return true;
+      }
+
+      if (GAS_ACCOUNT_HINT_ONLY_CODES.has(code)) {
+        muteHandledErrorToast(error);
+        Toast.warning({ title: message });
+        return true;
+      }
+
+      return false;
+    },
+    [
+      gasAccountUiState.selectedPayer,
+      resetGasAccountTemporarilyDisabled,
+      resetGasAccountUiState,
+      updateGasAccountTemporarilyDisabled,
+      updateGasAccountUiState,
+      updateSendFeeStatus,
+      updateTxFeeInfoInit,
+    ],
+  );
 
   const submitTxs = useCallback(async () => {
     const { serviceSend, serviceAccount } = backgroundApiProxy;
@@ -454,6 +611,11 @@ function TxConfirmActions(props: IProps) {
         navigation.pop();
       }
     } catch (e: any) {
+      if (handleGasAccountSubmitError(e)) {
+        updateSendTxStatus({ isSubmitting: false });
+        isSubmitted.current = false;
+        return;
+      }
       if (accountUtils.isQrAccount({ accountId })) {
         navigation.popStack();
       }
@@ -494,6 +656,7 @@ function TxConfirmActions(props: IProps) {
     showFeeInfoOverflowConfirm,
     signOnly,
     transferPayload,
+    handleGasAccountSubmitError,
     intl,
     onSuccess,
     isQueueMode,

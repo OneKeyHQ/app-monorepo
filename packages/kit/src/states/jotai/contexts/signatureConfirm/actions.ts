@@ -34,6 +34,7 @@ import {
   defaultTronResourceRentalInfo,
   extraFeeInfoAtom,
   gasAccountUiStateAtom,
+  gasAccountTemporarilyDisabledAtom,
   isSinglePresetAtom,
   megafuelEligibleAtom,
   nativeTokenInfoAtom,
@@ -350,6 +351,16 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     set(gasAccountUiStateAtom(), { ...defaultGasAccountUiState });
   });
 
+  updateGasAccountTemporarilyDisabled = contextAtomMethod(
+    (_, set, disabled: boolean) => {
+      set(gasAccountTemporarilyDisabledAtom(), disabled);
+    },
+  );
+
+  resetGasAccountTemporarilyDisabled = contextAtomMethod((_, set) => {
+    set(gasAccountTemporarilyDisabledAtom(), false);
+  });
+
   updateDecodedTxsInit = contextAtomMethod(
     (_, set, decodedTxsInit: boolean) => {
       set(decodedTxsInitAtom(), decodedTxsInit);
@@ -374,6 +385,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     set(payWithTokenInfoAtom(), { ...defaultPayWithTokenInfo });
     set(megafuelEligibleAtom(), { ...defaultMegafuelEligible });
     set(gasAccountUiStateAtom(), { ...defaultGasAccountUiState });
+    set(gasAccountTemporarilyDisabledAtom(), false);
     set(txFeeInfoInitAtom(), false);
   });
 

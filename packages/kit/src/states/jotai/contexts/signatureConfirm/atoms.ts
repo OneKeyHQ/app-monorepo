@@ -223,6 +223,11 @@ export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
     idempotencyKey: string;
   }>({ ...defaultGasAccountUiState });
 
+export const {
+  atom: gasAccountTemporarilyDisabledAtom,
+  use: useGasAccountTemporarilyDisabledAtom,
+} = contextAtom<boolean>(false);
+
 export const defaultPayWithTokenInfo = {
   enabled: false,
   address: '',

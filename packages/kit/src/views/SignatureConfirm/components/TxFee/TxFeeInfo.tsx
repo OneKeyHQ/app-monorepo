@@ -35,6 +35,7 @@ import {
   useCustomFeeAtom,
   useDecodedTxsAtom,
   useExtraFeeInfoAtom,
+  useGasAccountTemporarilyDisabledAtom,
   useGasAccountUiStateAtom,
   useIsSinglePresetAtom,
   useMegafuelEligibleAtom,
@@ -134,6 +135,8 @@ function TxFeeInfo(props: IProps) {
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tokenTransferAmount] = useTokenTransferAmountAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
+  const [gasAccountTemporarilyDisabled] =
+    useGasAccountTemporarilyDisabledAtom();
   const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const currentTxUuid = unsignedTxs[0]?.uuid;
@@ -161,6 +164,7 @@ function TxFeeInfo(props: IProps) {
     resetPayWithTokenInfo,
     updateMegafuelEligible,
     resetMegafuelEligible,
+    resetGasAccountTemporarilyDisabled,
     updateGasAccountUiState,
     resetGasAccountUiState,
     updateTxFeeInfoInit,
@@ -375,7 +379,7 @@ function TxFeeInfo(props: IProps) {
           accountAddress,
           transfersInfo: unsignedTxs[0].transfersInfo,
           lockedUserNonce,
-          gasAccountEnabled: true,
+          gasAccountEnabled: !gasAccountTemporarilyDisabled,
         });
         if (getStaleResult()) {
           return staleResult;
@@ -414,9 +418,18 @@ function TxFeeInfo(props: IProps) {
           resetMegafuelEligible();
         }
 
-        if (isCustomRpcEnabled) {
+        if (isCustomRpcEnabled || gasAccountTemporarilyDisabled) {
           resetGasAccountUiState();
+          if (gasAccountTemporarilyDisabled) {
+            updateGasAccountUiState({
+              payer: 'user',
+              gasAccountEligible: false,
+              selectedPayer: 'user',
+              idempotencyKey: '',
+            });
+          }
         } else if (r.gasAccountEligible && r.gasAccountQuote) {
+          resetGasAccountTemporarilyDisabled();
           const nextSelectedPayer =
             r.megafuelEligible?.sponsorable || r.payer !== 'gasAccount'
               ? 'user'
@@ -550,6 +563,8 @@ function TxFeeInfo(props: IProps) {
       network?.isTestnet,
       networkId,
       unsignedTxs,
+      gasAccountTemporarilyDisabled,
+      resetGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
       resetMegafuelEligible,
       resetPayWithTokenInfo,
