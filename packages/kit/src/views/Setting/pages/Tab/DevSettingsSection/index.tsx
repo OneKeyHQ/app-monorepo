@@ -72,7 +72,6 @@ import {
   isBgApiSerializableCheckingDisabled,
   toggleBgApiSerializableChecking,
 } from '@onekeyhq/shared/src/utils/assertUtils';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   isWebInDappMode,
   switchWebDappMode,
@@ -82,6 +81,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
+import {
+  cacheDevOnlyPassword,
+  clearCachedDevOnlyPassword,
+  getCachedDevOnlyPassword,
+} from '../../../utils/devOnlyPassword';
 
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
@@ -105,12 +109,6 @@ import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
-let correctDevOnlyPwd = '';
-
-if (process.env.NODE_ENV !== 'production') {
-  correctDevOnlyPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
-}
-
 export function showDevOnlyPasswordDialog({
   title,
   description,
@@ -130,7 +128,9 @@ export function showDevOnlyPasswordDialog({
       ...confirmButtonProps,
     },
     renderContent: (
-      <Dialog.Form formProps={{ values: { password: correctDevOnlyPwd } }}>
+      <Dialog.Form
+        formProps={{ values: { password: getCachedDevOnlyPassword() } }}
+      >
         <Dialog.FormField
           name="password"
           rules={{
@@ -149,8 +149,10 @@ export function showDevOnlyPasswordDialog({
           password: string;
         };
         if (!isCorrectDevOnlyPassword(password)) {
+          clearCachedDevOnlyPassword(password);
           return;
         }
+        cacheDevOnlyPassword(password);
         const params: IBackgroundMethodWithDevOnlyPassword = {
           $$devOnlyPassword: password,
         };
