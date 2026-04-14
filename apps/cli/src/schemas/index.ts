@@ -13,6 +13,16 @@ export {
   tokenId,
 } from './common';
 
+// Auth
+export {
+  authLoginInputSchema,
+  authLoginOutputSchema,
+  authLogoutInputSchema,
+  authLogoutOutputSchema,
+  authStatusInputSchema,
+  authStatusOutputSchema,
+} from './auth-schema';
+
 // Transfer
 export {
   transferDryRunOutputSchema,

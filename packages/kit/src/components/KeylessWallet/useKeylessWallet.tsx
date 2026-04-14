@@ -1245,7 +1245,7 @@ export function useVerifyKeylessPinChecking() {
         }
       };
 
-      const activeWallet = (await getCurrentActiveWallet()) ?? options.wallet;
+      const activeWallet = options.wallet || (await getCurrentActiveWallet());
       if (activeWallet?.isKeyless) {
         const ownerId = activeWallet?.keylessDetailsInfo?.keylessOwnerId;
         if (!ownerId) {
