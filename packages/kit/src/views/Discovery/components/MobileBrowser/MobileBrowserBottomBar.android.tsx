@@ -67,6 +67,7 @@ function MobileBrowserBottomBar({
     disabledGoForward,
     isTranslated,
     handleTranslate,
+    handleTranslateTestAIError,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
   // Replicate TabCountButton's press logic for RNGH
@@ -349,6 +350,7 @@ function MobileBrowserBottomBar({
           <TranslatePopoverTrigger
             isTranslated={isTranslated}
             onTranslate={handleTranslate}
+            onTestAITranslateError={handleTranslateTestAIError}
           />
         </View>
       </GestureDetector>
