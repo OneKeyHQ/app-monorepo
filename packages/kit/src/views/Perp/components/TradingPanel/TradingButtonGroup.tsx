@@ -185,7 +185,9 @@ function SideButtonInternal({
         id: ETranslations.perp_trading_button_no_enough_margin,
       });
     if (isSpot) {
-      return side === 'long' ? 'Buy' : 'Sell';
+      return side === 'long'
+        ? intl.formatMessage({ id: ETranslations.global_buy })
+        : intl.formatMessage({ id: ETranslations.global_sell });
     }
     return side === 'long'
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
