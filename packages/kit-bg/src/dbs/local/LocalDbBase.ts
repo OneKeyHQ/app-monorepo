@@ -2101,11 +2101,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       keylessDetailsInfo,
       skipAddHDNextIndexedAccount,
     } = params;
+    const { overrideWalletId } = params;
+    const shouldConsumeNextHD = !overrideWalletId;
+    // Bot wallets reuse the parent-derived wallet id, but still need a unique
+    // walletNo for sorting and fallback ordering.
+    const shouldConsumeNextWalletNo =
+      !overrideWalletId ||
+      accountUtils.isBotWallet({ walletId: overrideWalletId });
     const context = await this.getContext({ verifyPassword: password });
     let walletId = accountUtils.buildHdWalletId({
       nextHD: context.nextHD,
     });
-    if (isKeylessWallet) {
+    if (overrideWalletId) {
+      walletId = overrideWalletId;
+    } else if (isKeylessWallet) {
       if (!walletXfp) {
         throw new OneKeyLocalError('walletXfp is required for keyless wallet');
       }
@@ -2257,16 +2266,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             addedHdAccountIndex = nextIndex;
           }
 
-          // increase nextHD
-          console.log('increase nextHD');
-          await this.txUpdateContext({
-            tx,
-            updater: (ctx) => {
-              ctx.nextHD += 1;
-              ctx.nextWalletNo += 1;
-              return ctx;
-            },
-          });
+          if (shouldConsumeNextHD || shouldConsumeNextWalletNo) {
+            console.log('increase wallet counters');
+            await this.txUpdateContext({
+              tx,
+              updater: (ctx) => {
+                if (shouldConsumeNextHD) {
+                  ctx.nextHD += 1;
+                }
+                if (shouldConsumeNextWalletNo) {
+                  ctx.nextWalletNo += 1;
+                }
+                return ctx;
+              },
+            });
+          }
         },
       });
     });

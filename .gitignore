@@ -27,6 +27,7 @@ __generated__
 dist
 build-electron
 .next
+.zed
 build
 *.tsbuildinfo
 yarn-error.log
@@ -90,7 +91,7 @@ coverage/
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
 
-# Ignore tamagui config file 
+# Ignore tamagui config file
 .tamagui
 
 # Ignore copy inject files
@@ -136,3 +137,7 @@ debug.log
 .gstack/
 
 docs/superpowers/**/*
+# bmad
+/_bmad/
+/_bmad-output/
+/.skillshare/skills/bmad-*

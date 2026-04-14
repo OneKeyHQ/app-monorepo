@@ -92,6 +92,21 @@ function isAITranslateUnavailableError(error: unknown): error is IOneKeyError {
   return code === 90_104 || code === 90_105;
 }
 
+function sendTranslationResponse(
+  tabId: string,
+  requestId: string,
+  { translations, sessionId, abort }: ITranslateResponsePayload,
+) {
+  const responseScript = createMessageInjectedScript({
+    type: TRANSLATE_RESPONSE_TYPE,
+    id: requestId,
+    translations,
+    sessionId,
+    abort,
+  });
+  injectScript(tabId, responseScript);
+}
+
 function handleTranslateRequest(
   tabId: string,
   data: ITranslateRequest,
@@ -146,21 +161,6 @@ let sessionCounter = 0;
 function generateSessionId(): string {
   sessionCounter += 1;
   return `s${Date.now().toString(36)}${sessionCounter.toString(36)}`;
-}
-
-function sendTranslationResponse(
-  tabId: string,
-  requestId: string,
-  { translations, sessionId, abort }: ITranslateResponsePayload,
-) {
-  const responseScript = createMessageInjectedScript({
-    type: TRANSLATE_RESPONSE_TYPE,
-    id: requestId,
-    translations,
-    sessionId,
-    abort,
-  });
-  injectScript(tabId, responseScript);
 }
 
 export function useWebViewTranslate(
