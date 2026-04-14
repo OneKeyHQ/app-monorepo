@@ -574,7 +574,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }),
       });
 
-      appEventBus.emit(EAppEventBusNames.ConfirmAccountSelected, undefined);
+      appEventBus.emit(EAppEventBusNames.ConfirmAccountSelected, {
+        num,
+        indexedAccountId: indexedAccount?.id,
+        othersWalletAccountId: othersWalletAccount?.id,
+      });
     },
   );
 
