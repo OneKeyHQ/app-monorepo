@@ -197,7 +197,40 @@ describe('useCanDismissSplash', () => {
     const { result } = renderHook(() => useCanDismissSplash());
 
     await act(async () => {
-      jest.advanceTimersByTime(10_000);
+      jest.advanceTimersByTime(5_000);
+      await Promise.resolve();
+    });
+
+    expect(result.current).toBe(true);
+    jest.useRealTimers();
+  });
+
+  test('safety timer fires even when hasCachedStates flips after mount (regression: timer decoupled from deps)', async () => {
+    jest.useFakeTimers();
+    const { useCanDismissSplash } = freshSplash();
+    // Path 1: cache present → waits for HomePageReady (never comes).
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
+        latest: '$2.31',
+        byOwner: {},
+      },
+    };
+    const { result, rerender } = renderHook(() => useCanDismissSplash());
+
+    // Flip hasCachedStates between renders — previously this cancelled the
+    // safety timer and left splash stuck forever.
+    delete g.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    rerender();
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
+        latest: '$2.31',
+        byOwner: {},
+      },
+    };
+    rerender();
+
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
       await Promise.resolve();
     });
 

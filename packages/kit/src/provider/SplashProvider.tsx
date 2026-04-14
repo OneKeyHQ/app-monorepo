@@ -13,7 +13,7 @@ import { hasPendingInstallTask } from '@onekeyhq/shared/src/utils/pendingTaskUti
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-const SPLASH_SAFETY_TIMEOUT = 10_000;
+const SPLASH_SAFETY_TIMEOUT = 5_000;
 const jsEntryStart: number =
   (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
@@ -79,7 +79,7 @@ function hasBalanceCacheInSnapshot(): boolean {
  * │ In all paths, processPendingInstallTask runs as fire-and-forget    │
  * │ in the background — it never blocks splash dismissal.              │
  * │                                                                    │
- * │ Safety: 10s timeout guarantees splash dismissal if any path stalls.│
+ * │ Safety: 5s timeout guarantees splash dismissal if any path stalls. │
  * └─────────────────────────────────────────────────────────────────────┘
  */
 export const useCanDismissSplash =
@@ -90,6 +90,21 @@ export const useCanDismissSplash =
         const [canDismissSplash, setCanDismissSplash] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);
 
+        // Unconditional safety timer: mounts once and guarantees dismissal
+        // regardless of which path (cached/pending/none) is taken, or whether
+        // `hasCachedStates` changes mid-session (which would cancel the main
+        // effect's cleanup and leave a stale, cleared timer otherwise).
+        useEffect(() => {
+          const timer = setTimeout(() => {
+            defaultLogger.app.appUpdate.log(
+              `SplashProvider: safety timer fired after ${SPLASH_SAFETY_TIMEOUT}ms, forcing splash hide`,
+            );
+            logSplashProvider('safety timer fired');
+            setCanDismissSplash(true);
+          }, SPLASH_SAFETY_TIMEOUT);
+          return () => clearTimeout(timer);
+        }, []);
+
         useEffect(() => {
           if (hasLaunchCallbackStartedRef.current) {
             return;
@@ -99,16 +114,7 @@ export const useCanDismissSplash =
             `effect started, hasCachedStates=${hasCachedStates}`,
           );
 
-          const safetyTimer = setTimeout(() => {
-            defaultLogger.app.appUpdate.log(
-              `SplashProvider: safety timer fired after ${SPLASH_SAFETY_TIMEOUT}ms, forcing splash hide`,
-            );
-            logSplashProvider('safety timer fired');
-            setCanDismissSplash(true);
-          }, SPLASH_SAFETY_TIMEOUT);
-
           const dismiss = () => {
-            clearTimeout(safetyTimer);
             setCanDismissSplash(true);
           };
 
@@ -174,7 +180,6 @@ export const useCanDismissSplash =
 
           return () => {
             logSplashProvider('effect cleanup');
-            clearTimeout(safetyTimer);
             appEventBus.off(
               EAppEventBusNames.HomePageReady,
               handleHomePageReady,
