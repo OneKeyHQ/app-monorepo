@@ -753,11 +753,12 @@ function BaseBulkSendAddressesInput() {
   );
 }
 
-function BulkSendAddressesInput() {
+function BulkSendAddressesInputProvider() {
   const route = useAppRoute<
     IModalBulkSendParamList,
     EModalBulkSendRoutes.BulkSendAddressesInput
   >();
+  const { activeAccount } = useActiveAccount({ num: 0 });
 
   const [selectedAccountId, setSelectedAccountId] = useState<
     string | undefined
@@ -804,6 +805,7 @@ function BulkSendAddressesInput() {
 
   const context = useMemo(
     () => ({
+      currentWalletId: activeAccount?.wallet?.id,
       selectedAccountId,
       setSelectedAccountId,
       selectedNetworkId,
@@ -832,6 +834,7 @@ function BulkSendAddressesInput() {
       setReceiverValidationErrors,
     }),
     [
+      activeAccount?.wallet?.id,
       selectedAccountId,
       selectedNetworkId,
       selectedToken,
@@ -857,6 +860,14 @@ function BulkSendAddressesInput() {
   );
 
   return (
+    <BulkSendAddressesInputContext.Provider value={context}>
+      <BaseBulkSendAddressesInput />
+    </BulkSendAddressesInputContext.Provider>
+  );
+}
+
+function BulkSendAddressesInput() {
+  return (
     <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.home,
@@ -864,9 +875,7 @@ function BulkSendAddressesInput() {
       }}
       enabledNum={[0]}
     >
-      <BulkSendAddressesInputContext.Provider value={context}>
-        <BaseBulkSendAddressesInput />
-      </BulkSendAddressesInputContext.Provider>
+      <BulkSendAddressesInputProvider />
     </AccountSelectorProviderMirror>
   );
 }

@@ -12,6 +12,7 @@ export type ITokenDetailsState = {
 };
 
 export type IBulkSendAddressesInputContext = {
+  currentWalletId: string | undefined;
   selectedAccountId: string | undefined;
   setSelectedAccountId: (accountId: string | undefined) => void;
   selectedNetworkId: string | undefined;
@@ -49,6 +50,7 @@ export type IBulkSendAddressesInputContext = {
 };
 export const BulkSendAddressesInputContext =
   createContext<IBulkSendAddressesInputContext>({
+    currentWalletId: undefined,
     selectedAccountId: undefined,
     setSelectedAccountId: () => {},
     selectedNetworkId: undefined,

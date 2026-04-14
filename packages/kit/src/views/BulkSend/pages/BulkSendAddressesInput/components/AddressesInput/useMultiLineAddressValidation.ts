@@ -25,6 +25,8 @@ import {
   type IBulkSendSelectorAccountItem,
   buildBulkSendSelectorAddressKey,
   resolveBulkSendSelectorFallbackAccount,
+  resolveBulkSendSenderFallbackSelection,
+  resolveBulkSendSenderSelection,
 } from './senderSelectorAccountUtils';
 
 type IUseMultiLineAddressValidationParams = {
@@ -40,6 +42,8 @@ type IUseMultiLineAddressValidationParams = {
   onResolvedAccountIds?: (ids: Record<number, string>) => void;
   onDuplicateAddressCountChange?: (count: number) => void;
   duplicateWarningMode?: boolean;
+  currentWalletId?: string;
+  connectedDeviceIds?: Set<string>;
   selectorAccountItemsRef?: MutableRefObject<
     Record<string, IBulkSendSelectorAccountItem>
   >;
@@ -63,6 +67,8 @@ function useMultiLineAddressValidation(
     onResolvedAccountIds,
     onDuplicateAddressCountChange,
     duplicateWarningMode = false,
+    currentWalletId,
+    connectedDeviceIds,
     selectorAccountItemsRef,
     onErrorsChange,
   } = params;
@@ -222,9 +228,11 @@ function useMultiLineAddressValidation(
           });
 
         if (walletAccountItems.length === 0) {
-          const fallbackResult = await resolveBulkSendSelectorFallbackAccount({
+          const fallbackResult = await resolveBulkSendSenderFallbackSelection({
             fallbackAccountItem,
+            currentWalletId,
             networkId,
+            connectedDeviceIds,
           });
           if (fallbackResult) {
             if (fallbackResult.type === 'error') {
@@ -247,43 +255,28 @@ function useMultiLineAddressValidation(
           };
         }
 
-        for (const item of walletAccountItems) {
-          if (accountUtils.isWatchingAccount({ accountId: item.accountId })) {
-            continue;
-          }
+        const selection = await resolveBulkSendSenderSelection({
+          walletAccountItems,
+          currentWalletId,
+          networkId,
+          connectedDeviceIds,
+        });
 
-          if (
-            accountUtils.isHdAccount({ accountId: item.accountId }) ||
-            accountUtils.isHwAccount({ accountId: item.accountId })
-          ) {
-            const networkAccounts =
-              await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-                {
-                  indexedAccountId: item.accountId,
-                  networkIds: [networkId],
-                },
-              );
-            if (networkAccounts[0]?.account) {
-              return { accountId: networkAccounts[0].account.id };
-            }
-          } else if (
-            accountUtils.isExternalAccount({ accountId: item.accountId }) ||
-            accountUtils.isImportedAccount({ accountId: item.accountId })
-          ) {
-            return { accountId: item.accountId };
-          }
+        if (selection.type === 'error') {
+          return {
+            error: intl.formatMessage({
+              id: selection.errorMessageId,
+            }),
+          };
         }
 
-        // All matched accounts are watching accounts
-        return {
-          error: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_watching_account,
-          }),
-        };
+        return { accountId: selection.accountId };
       } catch (_) {
-        const fallbackResult = await resolveBulkSendSelectorFallbackAccount({
+        const fallbackResult = await resolveBulkSendSenderFallbackSelection({
           fallbackAccountItem,
+          currentWalletId,
           networkId,
+          connectedDeviceIds,
         });
         if (fallbackResult) {
           if (fallbackResult.type === 'error') {
@@ -306,7 +299,7 @@ function useMultiLineAddressValidation(
         };
       }
     },
-    [intl, selectorAccountItemsRef],
+    [intl, currentWalletId, connectedDeviceIds, selectorAccountItemsRef],
   );
 
   const handleValidateAddresses = useCallback(
