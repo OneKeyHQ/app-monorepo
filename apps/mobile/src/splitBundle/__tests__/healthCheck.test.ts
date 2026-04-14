@@ -134,8 +134,11 @@ describe('splitBundle healthCheck', () => {
   });
 
   it('reportSplitBundleHealth never throws even if the logger is broken', () => {
+    const {
+      OneKeyLocalError,
+    } = require('@onekeyhq/shared/src/errors/errors/localError');
     mockNativeLoggerWrite.mockImplementation(() => {
-      throw new Error('logger dead');
+      throw new OneKeyLocalError('logger dead');
     });
     const { health } = getModules();
     expect(() => health.reportSplitBundleHealth()).not.toThrow();

@@ -344,7 +344,7 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
   });
 
   test('snapshot has latest but empty byOwner → dismisses immediately (first frame cannot use latest)', async () => {
-    // Regression guard for the old over-eager behaviour: `latest` alone
+    // Regression guard for the old over-eager behavior: `latest` alone
     // cannot satisfy HomeOverviewContainer's first-frame render (the
     // `canReuseLatestDisplayedBalance` branch depends on runtime atoms
     // that aren't hydrated yet), so splash must NOT wait 5s for a

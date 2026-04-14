@@ -66,33 +66,33 @@ function hasBalanceCacheInSnapshot(): boolean {
 
   // (1) byOwner must be non-empty — it is the only source of
   //     currentConfirmedBalance on the first render frame.
-  let byOwner: Record<string, unknown> | undefined;
-  for (const key of Object.keys(snapshot)) {
-    if (!key.includes('ctx:lastConfirmedOverviewBalanceAtom')) continue;
-    const value = snapshot[key] as { byOwner?: Record<string, unknown> } | null;
-    if (value?.byOwner && Object.keys(value.byOwner).length > 0) {
-      byOwner = value.byOwner;
-    }
-    break;
-  }
+  const balanceKey = Object.keys(snapshot).find((key) =>
+    key.includes('ctx:lastConfirmedOverviewBalanceAtom'),
+  );
+  const balanceValue = balanceKey
+    ? (snapshot[balanceKey] as { byOwner?: Record<string, unknown> } | null)
+    : null;
+  const byOwner =
+    balanceValue?.byOwner && Object.keys(balanceValue.byOwner).length > 0
+      ? balanceValue.byOwner
+      : undefined;
   if (!byOwner) return false;
 
   // (2) The Home account selector's activeAccounts must already be
   //     hydrated at num=0, which is what `HomeOverviewContainer` reads
   //     to compute `currentOverviewOwnerKey` on mount.
-  let homeActive:
-    | { account?: { id?: string }; network?: { id?: string } }
-    | undefined;
-  for (const key of Object.keys(snapshot)) {
-    if (!key.includes('accountSelector@home')) continue;
-    if (!key.includes('ctx:activeAccountsAtom')) continue;
-    const value = snapshot[key] as Record<
-      number,
-      { account?: { id?: string }; network?: { id?: string } } | undefined
-    > | null;
-    homeActive = value?.[0];
-    break;
-  }
+  const activeKey = Object.keys(snapshot).find(
+    (key) =>
+      key.includes('accountSelector@home') &&
+      key.includes('ctx:activeAccountsAtom'),
+  );
+  const activeValue = activeKey
+    ? (snapshot[activeKey] as Record<
+        number,
+        { account?: { id?: string }; network?: { id?: string } } | undefined
+      > | null)
+    : null;
+  const homeActive = activeValue?.[0];
   const accountId = homeActive?.account?.id;
   const networkId = homeActive?.network?.id;
   if (!accountId || !networkId) return false;

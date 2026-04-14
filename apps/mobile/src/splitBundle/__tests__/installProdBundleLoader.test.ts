@@ -138,8 +138,11 @@ describe('installProdBundleLoader', () => {
   });
 
   it('still resolves the eager fallback even if the diagnostic log throws', async () => {
+    const {
+      OneKeyLocalError,
+    } = require('@onekeyhq/shared/src/errors/errors/localError');
     mockNativeLoggerWrite.mockImplementation(() => {
-      throw new Error('logger is dead');
+      throw new OneKeyLocalError('logger is dead');
     });
     const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
       getLoader();

@@ -5,7 +5,6 @@ const chunkModuleIdToHashMap = require('__CHUNK_MODULE_ID_TO_HASH_MAP__');
 const asyncRequire = require('metro-runtime/src/modules/asyncRequire');
 const { NativeModules } = require('react-native');
 
-
 const fetchHttpModule = async (hash) => {
   const url = `http://__METRO_HOST_IP__:8081/async-thunks?hash=${hash}`;
   const response = await fetch(url);

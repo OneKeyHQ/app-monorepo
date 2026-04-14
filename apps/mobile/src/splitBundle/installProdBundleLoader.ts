@@ -433,8 +433,10 @@ export function installProdBundleLoader(
   );
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
-    const { scheduleSplitBundleHealthCheck } = require('./healthCheck');
-    scheduleSplitBundleHealthCheck();
+    const healthCheckModule = require('./healthCheck') as {
+      scheduleSplitBundleHealthCheck: () => void;
+    };
+    healthCheckModule.scheduleSplitBundleHealthCheck();
   } catch {
     /* health check is best-effort — must not block loader install */
   }

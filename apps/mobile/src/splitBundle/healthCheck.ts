@@ -3,7 +3,7 @@
  *
  * Runs once shortly after the loader is installed and emits a
  * `[SplitBundleHealth]` diagnostic line with enough context to
- * retro-diagnose any async-require misrouting in production:
+ * retro-diagnose any async-require mis-routing in production:
  *   - active runtime kind
  *   - segment manifest size
  *   - segments already loaded by the time the probe runs
