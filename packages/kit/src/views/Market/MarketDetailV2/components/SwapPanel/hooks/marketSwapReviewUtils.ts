@@ -15,6 +15,9 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+const WRAPPED_PROVIDER_NAME = 'Wrap Contract';
+const WRAPPED_INSTANT_RATE = '1';
+
 export function assertMarketReviewQuoteResult(
   quoteResult?: IFetchQuoteResult,
 ): IFetchQuoteResult {
@@ -203,13 +206,14 @@ export function buildWrappedMarketQuoteResult({
     protocol: EProtocolOfExchange.SWAP,
     info: {
       provider: 'wrapped',
-      providerName: 'wrapped',
+      providerName: WRAPPED_PROVIDER_NAME,
       providerLogo,
     },
     fromTokenInfo: fromToken,
     toTokenInfo: toToken,
     fromAmount: amount,
     toAmount: amount,
+    instantRate: WRAPPED_INSTANT_RATE,
     isWrapped: true,
     fee: {
       percentageFee: 0,
