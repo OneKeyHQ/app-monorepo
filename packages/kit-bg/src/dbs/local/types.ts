@@ -190,6 +190,7 @@ export type IDBCreateHDWalletParams = {
   isKeylessWallet?: boolean;
   keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   skipAddHDNextIndexedAccount?: boolean;
+  overrideWalletId?: string;
 };
 export type IDBCreateKeylessWalletParams = {
   password: string;

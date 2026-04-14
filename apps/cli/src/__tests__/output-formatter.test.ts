@@ -70,6 +70,22 @@ describe('OutputFormatter', () => {
       formatter.success({ balance: '1.5', chain: 'eth' });
       expect(stdoutData.trim()).toBe('1.5');
     });
+
+    it('keeps error output plain text even when details are present', () => {
+      const formatter = new OutputFormatter('quiet');
+      formatter.error({
+        code: 'AUTH_TRANSFER_TIMEOUT',
+        message: 'timeout',
+        suggestion: 'retry',
+        details: {
+          status: 'timeout',
+          next_action: 'retry_app_transfer',
+        },
+      });
+
+      expect(stderrData.trim()).toBe('AUTH_TRANSFER_TIMEOUT: timeout');
+      expect(stdoutData).toBe('');
+    });
   });
 
   describe('human mode', () => {
@@ -78,6 +94,13 @@ describe('OutputFormatter', () => {
       formatter.error({ code: 'ERR', message: 'bad', suggestion: 'fix' });
       expect(stderrData).toContain('bad');
       expect(stdoutData).toBe('');
+    });
+
+    it('writes raw stdout output without envelopes', () => {
+      const formatter = new OutputFormatter('human');
+      formatter.raw('plain text');
+      expect(stdoutData).toBe('plain text\n');
+      expect(stderrData).toBe('');
     });
   });
 });

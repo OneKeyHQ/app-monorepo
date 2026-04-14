@@ -61,7 +61,7 @@ function matchesTransactionToken(
 }
 
 function mapTransactionAsset(
-  asset: IWsTxsData['from'] | IWsTxsData['to'],
+  asset: IWsTxsData['from'],
 ): IMarketTokenTransaction['from'] {
   return {
     symbol: asset?.symbol || '',
@@ -144,9 +144,7 @@ export function useTransactionsWebSocket({
   }, [networkId, tokenAddress, enabled, currency]);
 
   const handleTransactionUpdate = useCallback(
-    function handleTransactionUpdate(
-      payload: IMarketWSDataUpdatePayload,
-    ): void {
+    (payload: IMarketWSDataUpdatePayload): void => {
       if (payload.channel !== 'tokenTxs') {
         return;
       }
