@@ -1,5 +1,11 @@
 import * as Loader from '@onekeyfe/cardano-coin-selection-asmjs';
 
+import {
+  extractStakeKeyHashFromBaseAddressWithWasm,
+  parseRawTxBodyStakeInfoWithWasm,
+  parseRawTxInputsWithWasm,
+} from './parseRawTxWithWasm';
+
 import type { IGetCardanoApi } from './types';
 
 const getCardanoApi: IGetCardanoApi = async () => ({
@@ -13,6 +19,10 @@ const getCardanoApi: IGetCardanoApi = async () => ({
   dAppGetUtxos: Loader.dAppUtils.getUtxos,
   dAppConvertCborTxToEncodeTx: Loader.dAppUtils.convertCborTxToEncodeTx,
   dAppSignData: Loader.dAppUtils.signData,
+  parseRawTxInputs: parseRawTxInputsWithWasm,
+  parseRawTxBodyStakeInfo: parseRawTxBodyStakeInfoWithWasm,
+  extractStakeKeyHashFromBaseAddress:
+    extractStakeKeyHashFromBaseAddressWithWasm,
 });
 
 export default {

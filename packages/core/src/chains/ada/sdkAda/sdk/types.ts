@@ -7,6 +7,17 @@ export interface IAdaSdk {
   ensureSDKReady: IEnsureSDKReady;
 }
 
+export type IParsedRawTxInput = {
+  prev_hash: string;
+  prev_index: number;
+};
+
+export type IParsedRawTxBodyStakeInfo = {
+  hasCertificates: boolean;
+  hasWithdrawals: boolean;
+  requiredSignerHashes: string[];
+};
+
 export interface IAdaSdkApi {
   composeTxPlan: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.composeTxPlan;
   signTransaction: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.signTransaction;
@@ -18,4 +29,10 @@ export interface IAdaSdkApi {
   dAppGetUtxos: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.getUtxos;
   dAppConvertCborTxToEncodeTx: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.convertCborTxToEncodeTx;
   dAppSignData: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.signData;
+  // Tx body parsers (backed by CardanoWasm directly, not onekey-coin-selection):
+  parseRawTxInputs: (rawTxHex: string) => Promise<IParsedRawTxInput[]>;
+  parseRawTxBodyStakeInfo: (
+    rawTxHex: string,
+  ) => Promise<IParsedRawTxBodyStakeInfo>;
+  extractStakeKeyHashFromBaseAddress: (addr: string) => Promise<string | null>;
 }

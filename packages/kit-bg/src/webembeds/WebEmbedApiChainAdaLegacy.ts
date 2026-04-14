@@ -1,3 +1,8 @@
+import {
+  extractStakeKeyHashFromBaseAddressWithWasm,
+  parseRawTxBodyStakeInfoWithWasm,
+  parseRawTxInputsWithWasm,
+} from '@onekeyhq/core/src/chains/ada/sdkAda/sdk/parseRawTxWithWasm';
 import type { IAdaSdkApi } from '@onekeyhq/core/src/chains/ada/sdkAda/sdk/types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -85,6 +90,18 @@ class WebEmbedApiChainAdaLegacy implements IAdaSdkApi {
   async dAppSignData(...args: Parameters<IAdaDappSignData>) {
     const cardanoApi = await getCardanoApi();
     return cardanoApi.dAppUtils.signData(...args);
+  }
+
+  async parseRawTxInputs(rawTxHex: string) {
+    return parseRawTxInputsWithWasm(rawTxHex);
+  }
+
+  async parseRawTxBodyStakeInfo(rawTxHex: string) {
+    return parseRawTxBodyStakeInfoWithWasm(rawTxHex);
+  }
+
+  async extractStakeKeyHashFromBaseAddress(addr: string) {
+    return extractStakeKeyHashFromBaseAddressWithWasm(addr);
   }
 }
 
