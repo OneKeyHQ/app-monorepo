@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,22 +9,29 @@ import {
   SegmentControl,
   Select,
   SizableText,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ETranslateDisplayMode, ETranslateEngine } from '../types';
 
-import { useWebTabDataById } from './useWebTabs';
+import { useActiveTabId, useWebTabDataById } from './useWebTabs';
 
-function TranslateSettings() {
+function TranslateSettings({
+  onTestAITranslateError,
+}: {
+  onTestAITranslateError?: (testFlag: string) => void;
+}) {
   const intl = useIntl();
   const [settings, setSettings] = useTranslateSettingsPersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const updateSetting = useCallback(
     <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) => {
@@ -156,6 +163,33 @@ function TranslateSettings() {
           }
         />
       </YStack>
+      {devSettings.enabled && onTestAITranslateError ? (
+        <YStack gap="$2">
+          <SizableText size="$headingSm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_test,
+            })}
+          </SizableText>
+          <XStack gap="$2">
+            <Button
+              flex={1}
+              size="small"
+              variant="secondary"
+              onPress={() => onTestAITranslateError('limit')}
+            >
+              90104 Rate limit
+            </Button>
+            <Button
+              flex={1}
+              size="small"
+              variant="secondary"
+              onPress={() => onTestAITranslateError('error')}
+            >
+              90105 Service error
+            </Button>
+          </XStack>
+        </YStack>
+      ) : null}
     </YStack>
   );
 }
@@ -178,10 +212,12 @@ function useTargetLanguageLabel() {
 export function TranslatePopoverContent({
   isTranslated,
   onTranslate,
+  onTestAITranslateError,
   closePopover,
 }: {
   isTranslated: boolean;
   onTranslate: () => void;
+  onTestAITranslateError?: (testFlag: string) => void;
   closePopover: () => void;
 }) {
   const intl = useIntl();
@@ -192,6 +228,14 @@ export function TranslatePopoverContent({
     onTranslate();
     closePopover();
   }, [onTranslate, closePopover]);
+
+  const handleTestAITranslateError = useCallback(
+    (testFlag: string) => {
+      onTestAITranslateError?.(testFlag);
+      closePopover();
+    },
+    [closePopover, onTestAITranslateError],
+  );
 
   if (showSettings) {
     return (
@@ -212,7 +256,9 @@ export function TranslatePopoverContent({
             id: ETranslations.wallet_bulk_send_btn_back,
           })}
         </Button>
-        <TranslateSettings />
+        <TranslateSettings
+          onTestAITranslateError={handleTestAITranslateError}
+        />
       </YStack>
     );
   }
@@ -248,12 +294,14 @@ export function TranslatePopoverContent({
 export function TranslatePopoverTrigger({
   isTranslated,
   onTranslate,
+  onTestAITranslateError,
   placement = 'top',
   open,
   onOpenChange,
 }: {
   isTranslated: boolean;
   onTranslate: () => void;
+  onTestAITranslateError?: (testFlag: string) => void;
   placement?: 'top' | 'bottom-end';
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -279,6 +327,7 @@ export function TranslatePopoverTrigger({
         <TranslatePopoverContent
           isTranslated={isTranslated}
           onTranslate={onTranslate}
+          onTestAITranslateError={onTestAITranslateError}
           closePopover={closePopover}
         />
       )}
@@ -287,22 +336,85 @@ export function TranslatePopoverTrigger({
 }
 
 export function usePageTranslation(tabId: string) {
-  const [settings] = useTranslateSettingsPersistAtom();
+  const intl = useIntl();
+  const [settings, setSettings] = useTranslateSettingsPersistAtom();
   const [isTranslated, setIsTranslated] = useState(false);
   const resolvedTargetLang = useResolvedTargetLang();
+  const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(tabId);
+  const activeTabIdRef = useRef(activeTabId);
+  const currentTabUrlRef = useRef(tab?.url);
+  const pageContextVersionRef = useRef(0);
+  activeTabIdRef.current = activeTabId;
+  currentTabUrlRef.current = tab?.url;
 
   const onNavigate = useCallback(() => {
+    pageContextVersionRef.current += 1;
     setIsTranslated(false);
   }, []);
 
-  const { toggleTranslate, translatingRef } = useWebViewTranslate(
-    tabId,
-    onNavigate,
-    settings.engine,
-    settings.displayMode,
-    tab?.url,
-  );
+  const { startTranslate, toggleTranslate, translatingRef } =
+    useWebViewTranslate(
+      tabId,
+      onNavigate,
+      settings.engine,
+      settings.displayMode,
+      tab?.url,
+      ({ targetLang }) => {
+        setIsTranslated(false);
+
+        const failedPageUrl = tab?.url;
+        const failedPageContextVersion = pageContextVersionRef.current;
+        const toast = Toast.message({
+          toastId: 'discovery-ai-translate-unavailable',
+          duration: 10_000,
+          title: intl.formatMessage({
+            id: ETranslations.prime_ai_translate_unavailable_toast_title,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.prime_ai_translate_unavailable_toast_desc,
+          }),
+          actionsAlign: 'left',
+          actions: [
+            <Button
+              key="switch"
+              variant="primary"
+              size="small"
+              onPressIn={() => {
+                const isOriginalPageStillActive =
+                  pageContextVersionRef.current === failedPageContextVersion &&
+                  activeTabIdRef.current === tabId &&
+                  currentTabUrlRef.current === failedPageUrl;
+
+                void toast?.close();
+                if (!isOriginalPageStillActive) {
+                  return;
+                }
+
+                setSettings((prev) => ({
+                  ...prev,
+                  engine: ETranslateEngine.standard,
+                }));
+                startTranslate(targetLang, ETranslateEngine.standard);
+                setIsTranslated(true);
+
+                defaultLogger.discovery.translation.dappTranslateToggle({
+                  action: 'enable',
+                  engine: ETranslateEngine.standard,
+                  targetLang,
+                  displayMode: settings.displayMode,
+                  dappDomain: tab?.url ?? '',
+                });
+              }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.prime_ai_translate_unavailable_toast_action,
+              })}
+            </Button>,
+          ],
+        });
+      },
+    );
 
   const handleTranslate = useCallback(() => {
     const willTranslate = !translatingRef.current;
@@ -325,8 +437,17 @@ export function usePageTranslation(tabId: string) {
     tab?.url,
   ]);
 
+  const handleTranslateTestAIError = useCallback(
+    (testFlag: string) => {
+      startTranslate(resolvedTargetLang, ETranslateEngine.ai, testFlag);
+      setIsTranslated(true);
+    },
+    [resolvedTargetLang, startTranslate],
+  );
+
   return {
     isTranslated,
     handleTranslate,
+    handleTranslateTestAIError,
   };
 }

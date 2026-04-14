@@ -369,13 +369,10 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     );
 
   // Notify parent of match status and count.
-  // Report 0 immediately when debouncing so stale pre-search counts
-  // don't flash in the tab label (OK-53017).
+  // Skip during debounce — parent resets tabMatchStatus to null on
+  // searchKey change, so allReported stays false until we re-report.
   useEffect(() => {
-    if (isDebouncing) {
-      onMatchStatusChange?.(false, 0);
-      return;
-    }
+    if (isDebouncing) return;
     onMatchStatusChange?.(
       filteredRecentRecipients.length > 0,
       filteredRecentRecipients.length,
