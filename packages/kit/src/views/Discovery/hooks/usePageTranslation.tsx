@@ -296,11 +296,15 @@ export function TranslatePopoverTrigger({
   onTranslate,
   onTestAITranslateError,
   placement = 'top',
+  open,
+  onOpenChange,
 }: {
   isTranslated: boolean;
   onTranslate: () => void;
   onTestAITranslateError?: (testFlag: string) => void;
   placement?: 'top' | 'bottom-end';
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const intl = useIntl();
   return (
@@ -309,6 +313,8 @@ export function TranslatePopoverTrigger({
         id: ETranslations.browser_translate_settings_title,
       })}
       placement={placement}
+      open={open}
+      onOpenChange={onOpenChange}
       renderTrigger={
         <IconButton
           variant="tertiary"

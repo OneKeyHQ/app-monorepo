@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -238,6 +238,12 @@ function MobileBrowserBottomBar({
     onGoBackHomePage,
   ]);
 
+  const [translatePopoverOpen, setTranslatePopoverOpen] = useState(false);
+
+  const handleShowTranslate = useCallback(() => {
+    setTranslatePopoverOpen(true);
+  }, []);
+
   // RNGH Gesture.Tap() for each button
   const goBackGesture = useMemo(
     () =>
@@ -295,7 +301,15 @@ function MobileBrowserBottomBar({
     [displayHomePage, handleShowOptions],
   );
 
-  const translateGesture = useMemo(() => Gesture.Tap(), []);
+  const translateGesture = useMemo(
+    () =>
+      Gesture.Tap().onEnd(() => {
+        'worklet';
+
+        runOnJS(handleShowTranslate)();
+      }),
+    [handleShowTranslate],
+  );
 
   return (
     <Stack
@@ -351,6 +365,8 @@ function MobileBrowserBottomBar({
             isTranslated={isTranslated}
             onTranslate={handleTranslate}
             onTestAITranslateError={handleTranslateTestAIError}
+            open={translatePopoverOpen}
+            onOpenChange={setTranslatePopoverOpen}
           />
         </View>
       </GestureDetector>
