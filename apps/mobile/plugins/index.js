@@ -70,6 +70,10 @@ module.exports = (config, projectRoot) => {
           '__CHUNK_MODULE_ID_TO_HASH_MAP__',
           path.join(__dirname, './chunkModuleIdToHashMap.js'),
         )
+        .replace(
+          '__ASYNC_REQUIRE_CORE__',
+          path.join(__dirname, './asyncRequireCore.js'),
+        )
         .replace('__NODE_ENV__', process.env.NODE_ENV),
       'utf8',
     );
