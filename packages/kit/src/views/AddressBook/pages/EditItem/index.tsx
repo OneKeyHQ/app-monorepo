@@ -155,6 +155,7 @@ function EditItemPage() {
       disabledAddressEdit={!isCreateMode}
       disabledMemoEdit={!isCreateMode}
       disabledNoteEdit={!isCreateMode}
+      disabledNetworkEdit={!isCreateMode}
       item={item}
       onSubmit={onSubmit}
       onRemove={isCreateMode ? undefined : onRemove}

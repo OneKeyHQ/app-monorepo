@@ -48,6 +48,7 @@ type ICreateOrEditContentProps = {
   disabledAddressEdit?: boolean;
   disabledMemoEdit?: boolean;
   disabledNoteEdit?: boolean;
+  disabledNetworkEdit?: boolean;
   onSubmit: (item: IAddressItem) => Promise<void>;
   onRemove?: (item: IAddressItem) => void;
   nameHistoryInfo?: {
@@ -85,6 +86,7 @@ export function CreateOrEditContent({
   disabledAddressEdit,
   disabledMemoEdit,
   disabledNoteEdit,
+  disabledNetworkEdit,
 }: ICreateOrEditContentProps) {
   const intl = useIntl();
 
@@ -274,7 +276,10 @@ export function CreateOrEditContent({
               ) : null
             }
           >
-            <ChainSelectorInput networkIds={addressBookEnabledNetworkIds} />
+            <ChainSelectorInput
+              networkIds={addressBookEnabledNetworkIds}
+              disabled={disabledNetworkEdit}
+            />
           </Form.Field>
           <Form.Field
             label={intl.formatMessage({
