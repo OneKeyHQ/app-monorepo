@@ -36,7 +36,8 @@ function DesktopBrowserNavigationBar({
 }) {
   const navigation = useAppNavigation();
   const { tab } = useWebTabDataById(id);
-  const { isTranslated, handleTranslate } = usePageTranslation(id);
+  const { isTranslated, handleTranslate, handleTranslateTestAIError } =
+    usePageTranslation(id);
   const isActive = activeTabId === id;
   const { setPinnedTab, setWebTabData } = useBrowserTabActions().current;
   const {
@@ -189,6 +190,7 @@ function DesktopBrowserNavigationBar({
           onSearch={handleSearch}
           isTranslated={isTranslated}
           onTranslate={handleTranslate}
+          onTestAITranslateError={handleTranslateTestAIError}
         />
       </Freeze>
     );
