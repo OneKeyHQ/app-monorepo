@@ -339,10 +339,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         address: isAllNetwork
           ? accountForAllNet?.addressDetail?.address
           : activeAccount.account?.address,
-        // Always prefer the swap direction's token network. Falling back to
-        // activeAccount.network leaks the wrong chain (e.g. EVM) into the
-        // recipient picker when the TO-side account selector mirror has not
-        // yet caught up to a non-EVM target like Aptos / Solana / Cosmos.
+        // The TO-side account selector mirror lags the toToken on first open,
+        // so trust the token's network rather than the (possibly stale) slot.
         networkId: tokenNetworkId || activeAccount.network?.id,
         activeAccount: {
           ...activeAccount,
