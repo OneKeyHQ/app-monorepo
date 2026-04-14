@@ -83,7 +83,7 @@ export function useSwapIncognitoRecipientInput({
   const [queryResult, setQueryResult] = useState<IAddressQueryResult>({});
   const [loading, setLoading] = useState(false);
   const textRef = useRef('');
-  const skipExternalSyncRef = useRef(false);
+  const skipExternalSyncRef = useRef<string | null>(null);
   const validationSessionIdRef = useRef(0);
   const validationContextRef = useRef<IAddressValidationContext>({
     accountId,
@@ -112,7 +112,7 @@ export function useSwapIncognitoRecipientInput({
 
   const syncRecipientAddress = useCallback(
     (nextAddress?: string) => {
-      skipExternalSyncRef.current = true;
+      skipExternalSyncRef.current = nextAddress ?? '';
 
       setSettings((settings) => ({
         ...settings,
@@ -274,10 +274,11 @@ export function useSwapIncognitoRecipientInput({
     }
 
     const nextText = swapToAnotherAccountSwitchOn && address ? address : '';
+    const skipExternalSyncText = skipExternalSyncRef.current;
 
-    if (skipExternalSyncRef.current) {
-      skipExternalSyncRef.current = false;
-      if (textRef.current === nextText) {
+    if (skipExternalSyncText !== null) {
+      skipExternalSyncRef.current = null;
+      if (skipExternalSyncText === nextText) {
         return;
       }
     }
