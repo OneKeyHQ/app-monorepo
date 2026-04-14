@@ -53,8 +53,8 @@ import {
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
+import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
   type ITradeSide,
@@ -160,7 +160,7 @@ function PerpTradingForm({
             coin: spotActiveAsset?.coin ?? activeTradeInstrument.coin,
             assetId: spotActiveAsset?.assetId,
             universe: {
-              ...(spotUniverse ?? {}),
+              ...spotUniverse,
               szDecimals: sizeSzDecimals,
             },
           } as typeof activeAsset)
@@ -424,7 +424,7 @@ function PerpTradingForm({
     if (!available) return '0';
     const longValue = Number(available[0] ?? 0);
     const shortValue = Number(available[1] ?? 0);
-    return new BigNumber(Math.max(longValue, shortValue)).toFixed(
+    return new BigNumber(Math.min(longValue, shortValue)).toFixed(
       2,
       BigNumber.ROUND_DOWN,
     );
@@ -1196,7 +1196,7 @@ function PerpTradingForm({
         isMobile={isMobile}
         // Spot has no leverage concept — bypass formData.leverage (perps state)
         // to avoid stale perps leverage affecting spot size calculations.
-        leverage={isSpot ? 1 : formData.leverage ?? 1}
+        leverage={isSpot ? 1 : (formData.leverage ?? 1)}
       />
 
       <YStack px="$1" {...(isMobile && { pt: '$2', pb: '$2', mt: '$0' })}>

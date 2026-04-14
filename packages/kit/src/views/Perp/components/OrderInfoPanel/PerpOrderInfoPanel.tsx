@@ -96,7 +96,7 @@ function PerpOrderInfoPanel() {
     <Tabs.Container
       ref={tabsRef as any}
       headerHeight={80}
-      initialTabName="Balances"
+      initialTabName="Positions"
       disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
         if (tab.tabName === 'Account') {

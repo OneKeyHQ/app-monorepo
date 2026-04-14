@@ -8268,6 +8268,7 @@ __metadata:
     axios: "npm:1.15.0"
     chalk: "npm:^4.1.2"
     commander: "npm:^12.0.0"
+    qrcode: "npm:^1.5.0"
     tsup: "npm:^8.0.0"
     yaml: "npm:^2.8.0"
     zod: "npm:^3.23.0"

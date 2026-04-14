@@ -49,7 +49,8 @@ export function usePerpsFavorites(options?: {
   const { result: universe } = usePromiseResult(
     async (): Promise<IPerpsUniverse[][] | ISpotUniverse[]> => {
       if (favoritesMode === 'spot') {
-        let { universes } = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        let { universes } =
+          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
 
         if (!universes?.length) {
           await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
@@ -111,20 +112,18 @@ export function usePerpsFavorites(options?: {
       for (let dexIndex = 0; dexIndex < perpsUniverses.length; dexIndex += 1) {
         const assets = perpsUniverses[dexIndex] || [];
         const asset = assets.find((item) => item.name === favCoin);
-        if (!asset) {
-          continue;
+        if (asset) {
+          const parsed = parseDexCoin(asset.name);
+          items.push({
+            mode: 'perp',
+            coinName: asset.name,
+            displayName: parsed.displayName,
+            imageTokenName: parsed.displayName,
+            assetId: asset.assetId,
+            dexIndex,
+          });
+          break;
         }
-
-        const parsed = parseDexCoin(asset.name);
-        items.push({
-          mode: 'perp',
-          coinName: asset.name,
-          displayName: parsed.displayName,
-          imageTokenName: parsed.displayName,
-          assetId: asset.assetId,
-          dexIndex,
-        });
-        break;
       }
     });
 

@@ -24,10 +24,9 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   ): Promise<boolean> {
     const { wallet } = target;
 
-    console.log('isSupportSync', wallet.id);
-
     return (
-      accountUtils.isHdWallet({ walletId: wallet.id }) ||
+      (accountUtils.isHdWallet({ walletId: wallet.id }) &&
+        !accountUtils.isBotWallet({ walletId: wallet.id })) ||
       accountUtils.isQrWallet({ walletId: wallet.id }) ||
       accountUtils.isHwWallet({ walletId: wallet.id }) // hw and hidden wallet
     );
@@ -63,7 +62,6 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       type: walletType,
       passphraseState = '',
     } = wallet;
-
     return {
       name: wallet.name,
       avatar: wallet.avatarInfo,

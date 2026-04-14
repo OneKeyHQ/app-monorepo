@@ -1,8 +1,8 @@
-import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import type {
   IActiveTradeInstrument,
   ITradeRouteViewState,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 
 export interface ITradeSubscriptionPlan {
   enableLedgerUpdates: boolean;
@@ -21,10 +21,12 @@ export function planTradeSubscriptions(params: {
   const instrumentCoin = activeInstrument?.coin ?? '';
   const isSpot = activeInstrument?.mode === 'spot';
 
-  const spotEnabled =
-    hasAccount && (isSpot || viewState.infoPanelTab === 'Balances');
+  // Always subscribe to SPOT_STATE when account exists — total account value
+  // (perps + spot) depends on spotTotalUsd from this subscription.
+  const spotEnabled = hasAccount;
   const spotAssetCtxsEnabled =
-    isSpot || (viewState.tokenSelectorOpen && viewState.tokenSelectorTab === 'spot');
+    isSpot ||
+    (viewState.tokenSelectorOpen && viewState.tokenSelectorTab === 'spot');
   const enableLedgerUpdates =
     hasAccount && viewState.infoPanelTab === 'Account';
 

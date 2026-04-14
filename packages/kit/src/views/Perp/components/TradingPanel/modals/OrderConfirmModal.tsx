@@ -67,8 +67,8 @@ function OrderConfirmContent({
     useTradingCalculationsForSide(effectiveSide);
   const szDecimals =
     activeInstrument.mode === 'spot'
-      ? activeInstrument.universe?.baseSzDecimals ?? 2
-      : activeInstrument.universe?.szDecimals ?? 2;
+      ? (activeInstrument.universe?.baseSzDecimals ?? 2)
+      : (activeInstrument.universe?.szDecimals ?? 2);
   const actionColor = getTradingSideTextColor(effectiveSide);
 
   const [onekeyFee, setOnekeyFee] = useState<number | undefined>(undefined);
@@ -164,7 +164,13 @@ function OrderConfirmContent({
       return `${sizeString} ${coinDisplay}`;
     }
     return sizeString;
-  }, [computedSizeForSide, szDecimals, activeInstrument?.coin]);
+  }, [
+    computedSizeForSide,
+    szDecimals,
+    activeInstrument?.coin,
+    activeInstrument.mode,
+    activeInstrument.universe,
+  ]);
 
   const priceDisplay = useMemo(() => {
     if (formData.type === 'market' || !formData.price) {

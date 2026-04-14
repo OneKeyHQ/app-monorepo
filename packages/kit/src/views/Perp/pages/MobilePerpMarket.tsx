@@ -29,12 +29,12 @@ import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useMobileTabTouchScrollBridge } from '../../../hooks/useMobileTabTouchScrollBridge';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { PerpCandles } from '../components/PerpCandles';
 import PerpMarketFooter from '../components/PerpMarketFooter';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
 import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow';
+import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
@@ -69,12 +69,14 @@ function MobilePerpMarket() {
   }, [navigation]);
 
   const renderHeaderTitle = useCallback(() => {
-    const pairLabel =
-      mode === 'spot'
-        ? displayName || '--'
-        : displayName
-          ? `${displayName}USDC`
-          : '--';
+    let pairLabel: string;
+    if (mode === 'spot') {
+      pairLabel = displayName || '--';
+    } else if (displayName) {
+      pairLabel = `${displayName}USDC`;
+    } else {
+      pairLabel = '--';
+    }
     return (
       <XStack alignItems="center" gap="$2">
         <NavBackButton
@@ -102,6 +104,7 @@ function MobilePerpMarket() {
           <SizableText size="$headingLg">{pairLabel}</SizableText>
           <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
             <SizableText color="$textSubdued" fontSize={11}>
+              {/* TODO: add i18n key for 'Spot' (ETranslations) */}
               {mode === 'spot'
                 ? 'Spot'
                 : intl.formatMessage({

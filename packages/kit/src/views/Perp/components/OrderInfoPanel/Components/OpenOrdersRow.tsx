@@ -12,7 +12,6 @@ import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
-  formatSpotPairDisplayName,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
   isSpotInstrument,
@@ -148,7 +147,7 @@ const OpenOrdersRow = memo(
         orderType,
         typeColor,
       };
-    }, [coin, side, originalOrderType, reduceOnly, intl]);
+    }, [coin, side, originalOrderType, reduceOnly, intl, spotDisplayMap]);
     const handleSwitchInstrument = useCallback(() => {
       void actions.current.switchTradeInstrument({
         mode: assetInfo.isSpot ? 'spot' : 'perp',

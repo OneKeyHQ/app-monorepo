@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { Page, XStack, YStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
@@ -28,13 +28,7 @@ import type { ITabPageHeaderProp } from './type';
 
 export { DiscoveryHeaderSegment };
 
-function InPageHeader({
-  tabRoute,
-  sceneName,
-}: {
-  sceneName: EAccountSelectorSceneName;
-  tabRoute: ETabRoutes;
-}) {
+function HomeWalletConnectionInPage({ tabRoute }: { tabRoute: ETabRoutes }) {
   const {
     activeAccount: { wallet, account },
   } = useActiveAccount({ num: 0 });
@@ -44,30 +38,40 @@ function InPageHeader({
     account,
   });
 
-  const item = useMemo(() => {
-    if (
-      tabRoute === ETabRoutes.Home &&
-      sceneName !== EAccountSelectorSceneName.homeUrlAccount
-    ) {
-      if (hasNoUsableWallet && !isSyncLoading) {
-        return null;
-      }
-      return <WalletConnectionGroup tabRoute={tabRoute} />;
-    }
-    if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return <UrlAccountPageHeader />;
-    }
-  }, [sceneName, tabRoute, hasNoUsableWallet, isSyncLoading]);
-
-  if (!item) {
+  if (hasNoUsableWallet && !isSyncLoading) {
     return null;
   }
 
   return (
     <XStack px="$pagePadding" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
-      {item}
+      <WalletConnectionGroup tabRoute={tabRoute} />
     </XStack>
   );
+}
+
+function InPageHeader({
+  tabRoute,
+  sceneName,
+}: {
+  sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
+}) {
+  if (
+    tabRoute === ETabRoutes.Home &&
+    sceneName !== EAccountSelectorSceneName.homeUrlAccount
+  ) {
+    return <HomeWalletConnectionInPage tabRoute={tabRoute} />;
+  }
+
+  if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+    return (
+      <XStack px="$pagePadding" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
+        <UrlAccountPageHeader />
+      </XStack>
+    );
+  }
+
+  return null;
 }
 
 function BaseDesktopTabPageHeader({

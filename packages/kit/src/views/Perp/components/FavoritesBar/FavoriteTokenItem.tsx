@@ -19,6 +19,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perpsUtils, {
   formatPriceToSignificantDigits,
+  formatSpotPriceEntry,
   getHyperliquidTokenImageUrl,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
@@ -75,24 +76,6 @@ interface IFavoriteTokenItemProps {
   mode: 'perp' | 'spot';
   onPress: () => void;
   displayMode?: IPerpFavoritesDisplayMode;
-}
-
-function formatSpotPriceEntry(spotEntry?: {
-  markPx?: string;
-  prevDayPx?: string;
-}) {
-  const markPrice = spotEntry?.markPx ?? '0';
-  const markPriceNumber = Number(markPrice);
-  const prevDayPriceNumber = Number(spotEntry?.prevDayPx ?? '0');
-  const change24hPercent =
-    Number.isFinite(prevDayPriceNumber) && prevDayPriceNumber > 0
-      ? ((markPriceNumber - prevDayPriceNumber) / prevDayPriceNumber) * 100
-      : 0;
-
-  return {
-    change24hPercent: Number.isFinite(change24hPercent) ? change24hPercent : 0,
-    markPrice,
-  };
 }
 
 const CtxPriceDisplay = memo(

@@ -58,8 +58,7 @@ export function usePopularTickers(): IPopularTickerItem[] {
 
         if (!universes?.length) {
           await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
-          const res =
-            await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+          const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
           universes = res.universes;
         }
 
@@ -100,9 +99,13 @@ export function usePopularTickers(): IPopularTickerItem[] {
           const ctx = spotPriceMap[asset.name];
           const volume24h = new BigNumber(ctx?.dayNtlVlm ?? '0');
           const markPrice = new BigNumber(ctx?.markPx ?? '0');
-          const circulatingSupply = new BigNumber(ctx?.circulatingSupply ?? '0');
+          const circulatingSupply = new BigNumber(
+            ctx?.circulatingSupply ?? '0',
+          );
           const hotScore = volume24h.toNumber();
-          const marketCap = circulatingSupply.multipliedBy(markPrice).toNumber();
+          const marketCap = circulatingSupply
+            .multipliedBy(markPrice)
+            .toNumber();
 
           return {
             mode: 'spot' as const,
@@ -119,8 +122,12 @@ export function usePopularTickers(): IPopularTickerItem[] {
         })
         .filter((item) => item.hotScore > 0 || item.marketCap > 0);
 
-      scored.sort((a, b) => b.hotScore - a.hotScore || b.marketCap - a.marketCap);
-      return scored.slice(0, POPULAR_TICKER_COUNT).map(({ marketCap, ...item }) => item);
+      scored.sort(
+        (a, b) => b.hotScore - a.hotScore || b.marketCap - a.marketCap,
+      );
+      return scored
+        .slice(0, POPULAR_TICKER_COUNT)
+        .map(({ marketCap, ...item }) => item);
     }
 
     const { assetCtxsByDex } = allAssetCtxs;
@@ -132,32 +139,34 @@ export function usePopularTickers(): IPopularTickerItem[] {
     for (let dexIndex = 0; dexIndex < perpUniverse.length; dexIndex += 1) {
       const assets = perpUniverse[dexIndex] ?? [];
       const ctxs = assetCtxsByDex[dexIndex] ?? [];
-      if (!Array.isArray(assets)) continue;
+      if (Array.isArray(assets)) {
+        for (const asset of assets) {
+          // XYZ DEX assets have offset IDs; array is indexed from 0
+          const ctxIndex =
+            dexIndex === 1
+              ? asset.assetId - XYZ_ASSET_ID_OFFSET
+              : asset.assetId;
+          const ctx = ctxs[ctxIndex] ?? null;
+          if (ctx) {
+            const volume = new BigNumber(ctx.dayNtlVlm ?? '0');
+            const oi = new BigNumber(ctx.openInterest ?? '0');
+            const price = new BigNumber(ctx.markPx ?? '0');
+            const denominator = oi.multipliedBy(price);
 
-      for (const asset of assets) {
-        // XYZ DEX assets have offset IDs; array is indexed from 0
-        const ctxIndex =
-          dexIndex === 1 ? asset.assetId - XYZ_ASSET_ID_OFFSET : asset.assetId;
-        const ctx = ctxs[ctxIndex] ?? null;
-        if (ctx) {
-          const volume = new BigNumber(ctx.dayNtlVlm ?? '0');
-          const oi = new BigNumber(ctx.openInterest ?? '0');
-          const price = new BigNumber(ctx.markPx ?? '0');
-          const denominator = oi.multipliedBy(price);
-
-          if (!denominator.isZero() && denominator.isFinite()) {
-            const hotScore = volume.dividedBy(denominator).toNumber();
-            if (Number.isFinite(hotScore) && hotScore > 0) {
-              const parsed = parseDexCoin(asset.name);
-              scored.push({
-                mode: 'perp',
-                coinName: asset.name,
-                displayName: parsed.displayName,
-                imageTokenName: parsed.displayName,
-                assetId: asset.assetId,
-                dexIndex,
-                hotScore,
-              });
+            if (!denominator.isZero() && denominator.isFinite()) {
+              const hotScore = volume.dividedBy(denominator).toNumber();
+              if (Number.isFinite(hotScore) && hotScore > 0) {
+                const parsed = parseDexCoin(asset.name);
+                scored.push({
+                  mode: 'perp',
+                  coinName: asset.name,
+                  displayName: parsed.displayName,
+                  imageTokenName: parsed.displayName,
+                  assetId: asset.assetId,
+                  dexIndex,
+                  hotScore,
+                });
+              }
             }
           }
         }

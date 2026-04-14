@@ -51,11 +51,6 @@ function MobileHeader() {
   const isReady = connectionState.isConnected && !hasError;
   const isSpot = activeTradeInstrument.mode === 'spot';
 
-  if (isSpot) {
-    return null;
-  }
-
-  // After the isSpot early return above, we know this is perps-only
   const { fundingRate, markPrice } = assetCtx?.ctx || {
     fundingRate: '0',
     markPrice: '0',
@@ -73,6 +68,10 @@ function MobileHeader() {
     }
     return fundingRateNumber >= 0 ? '$green11' : '$red11';
   }, [fundingRateNumber, hasFundingValue]);
+
+  if (isSpot) {
+    return null;
+  }
 
   const fundingDisplay = hasFundingValue
     ? `${(fundingRateNumber * 100).toFixed(4)}%`

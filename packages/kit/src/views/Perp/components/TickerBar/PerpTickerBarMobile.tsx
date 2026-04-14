@@ -104,6 +104,7 @@ function PerpBadgesRow() {
     <XStack alignItems="center" gap="$1.5">
       <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
         <SizableText color="$textSubdued" fontSize={10}>
+          {/* TODO: add i18n key for 'Spot' (ETranslations) */}
           {isSpot
             ? 'Spot'
             : intl.formatMessage({
@@ -161,9 +162,6 @@ function PerpBadgesRow() {
 
 export function PerpTickerBarMobile() {
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [tradingMode] = useTradingModeAtom();
-  const isSpot = tradingMode === 'spot';
-
   const content = (
     <XStack
       flex={1}

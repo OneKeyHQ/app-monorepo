@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   validatePriceInput,
+  validateSpotPriceInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { TradingFormInput } from './TradingFormInput';
@@ -50,7 +51,9 @@ export const PriceInput = memo(
     const validator = useCallback(
       (text: string) => {
         const processedText = text.replace(/。/g, '.');
-        return validatePriceInput(processedText, szDecimals);
+        return isSpot
+          ? validateSpotPriceInput(processedText, szDecimals)
+          : validatePriceInput(processedText, szDecimals);
       },
       [isSpot, szDecimals],
     );

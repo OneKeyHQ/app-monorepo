@@ -125,7 +125,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     isConnected: false,
     l2BookOptions: undefined,
     enableLedgerUpdates: false,
-    spotEnabled: false,
+    spotEnabled: true, // default true — SPOT_STATE needed for total account value from first connection
     spotAssetCtxsEnabled: false,
     currentSpotSymbol: undefined,
     tradingMode: 'perp',
@@ -428,7 +428,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     spotAssetCtxsEnabled: boolean;
     spotEnabled: boolean;
   }): Promise<void> {
-    this._currentState.enableLedgerUpdates = params.enableLedgerUpdates;
+    // enableLedgerUpdates is a one-way toggle (set true by enableLedgerUpdatesSubscription
+    // when user visits Account tab). Never reset to false — planTradeSubscriptions cannot
+    // reliably compute this since infoPanelTab is not synced to real tab state.
+    this._currentState.enableLedgerUpdates =
+      params.enableLedgerUpdates || this._currentState.enableLedgerUpdates;
     this._currentState.spotAssetCtxsEnabled = params.spotAssetCtxsEnabled;
     this._currentState.spotEnabled = params.spotEnabled;
   }
@@ -521,7 +525,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketErrorHandler: (event: WebSocketEventMap['error']) => void = (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
@@ -532,7 +536,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketCloseHandler: (event: WebSocketEventMap['close']) => void = (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
@@ -552,7 +556,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketOpenHandler: (event: WebSocketEventMap['open']) => void = async (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
@@ -585,7 +589,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketMessageHandler: (event: WebSocketEventMap['message']) => void = (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
@@ -845,7 +849,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     try {
-      const sdkSubscription = await this._createSubscriptionDirect(spec);
+      const _sdkSubscription = await this._createSubscriptionDirect(spec);
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
         type: spec.type,

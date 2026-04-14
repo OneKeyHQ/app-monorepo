@@ -9,7 +9,9 @@ import {
   useSpotActiveAssetCtxAtom,
   useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
+import perpsUtils, {
+  formatSpotPriceEntry,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PriceChangeDisplay } from '../FavoritesBar/FavoriteTokenItem';
 
@@ -20,24 +22,6 @@ interface IFooterTickerItemProps {
   assetId: number;
   mode: 'perp' | 'spot';
   onPress: () => void;
-}
-
-function formatSpotPriceEntry(spotEntry?: {
-  markPx?: string;
-  prevDayPx?: string;
-}) {
-  const markPrice = spotEntry?.markPx ?? '0';
-  const markPriceNumber = Number(markPrice);
-  const prevDayPriceNumber = Number(spotEntry?.prevDayPx ?? '0');
-  const change24hPercent =
-    Number.isFinite(prevDayPriceNumber) && prevDayPriceNumber > 0
-      ? ((markPriceNumber - prevDayPriceNumber) / prevDayPriceNumber) * 100
-      : 0;
-
-  return {
-    change24hPercent: Number.isFinite(change24hPercent) ? change24hPercent : 0,
-    markPrice,
-  };
 }
 
 // Price display for non-active tokens (reads from batch asset ctxs)

@@ -1,4 +1,8 @@
 export { registerBalanceCommand } from './balance';
+export {
+  handleAuthCommandDiscoveryFallback,
+  registerAuthCommands,
+} from './auth';
 export { registerWalletHistoryCommand } from './wallet-history';
 export { registerImportCommand } from './import';
 export { registerLogoutCommand } from './logout';
