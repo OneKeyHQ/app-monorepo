@@ -13,7 +13,7 @@ import { hasPendingInstallTask } from '@onekeyhq/shared/src/utils/pendingTaskUti
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-const SPLASH_SAFETY_TIMEOUT = 5_000;
+const SPLASH_SAFETY_TIMEOUT = 5000;
 const jsEntryStart: number =
   (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
@@ -69,9 +69,7 @@ function hasBalanceCacheInSnapshot(): boolean {
   let byOwner: Record<string, unknown> | undefined;
   for (const key of Object.keys(snapshot)) {
     if (!key.includes('ctx:lastConfirmedOverviewBalanceAtom')) continue;
-    const value = snapshot[key] as
-      | { byOwner?: Record<string, unknown> }
-      | null;
+    const value = snapshot[key] as { byOwner?: Record<string, unknown> } | null;
     if (value?.byOwner && Object.keys(value.byOwner).length > 0) {
       byOwner = value.byOwner;
     }
@@ -88,13 +86,10 @@ function hasBalanceCacheInSnapshot(): boolean {
   for (const key of Object.keys(snapshot)) {
     if (!key.includes('accountSelector@home')) continue;
     if (!key.includes('ctx:activeAccountsAtom')) continue;
-    const value = snapshot[key] as
-      | Record<
-          number,
-          | { account?: { id?: string }; network?: { id?: string } }
-          | undefined
-        >
-      | null;
+    const value = snapshot[key] as Record<
+      number,
+      { account?: { id?: string }; network?: { id?: string } } | undefined
+    > | null;
     homeActive = value?.[0];
     break;
   }

@@ -340,9 +340,7 @@ describe('unionBuildHelpers', () => {
 
     const defiUtilsModule = createModuleData({
       code: 'module.exports = "defi";',
-      dependencies: [
-        { key: './cryptoLib', absolutePath: cryptoLibPath },
-      ],
+      dependencies: [{ key: './cryptoLib', absolutePath: cryptoLibPath }],
     });
     const cryptoLibModule = createModuleData({
       code: 'module.exports = "crypto";',

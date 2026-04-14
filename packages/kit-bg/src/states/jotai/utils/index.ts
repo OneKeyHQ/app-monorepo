@@ -412,7 +412,9 @@ const coldStartValuesMap = new Map<string, unknown>();
 function coldStartLog(msg: string) {
   try {
     NativeLogger.write(LogLevel.Info, `[ColdStartCache] ${msg}`);
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 const coldStartDirtyKeys = new Set<string>();
@@ -422,7 +424,9 @@ let coldStartSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 function flushColdStartCache() {
   if (coldStartDirtyKeys.size === 0) return;
-  coldStartLog(`flush: ${coldStartDirtyKeys.size} dirty keys: ${[...coldStartDirtyKeys].join(', ')}`);
+  coldStartLog(
+    `flush: ${coldStartDirtyKeys.size} dirty keys: ${[...coldStartDirtyKeys].join(', ')}`,
+  );
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { coldStartCacheStorage } =

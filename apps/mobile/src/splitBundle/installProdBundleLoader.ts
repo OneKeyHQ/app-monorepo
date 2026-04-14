@@ -59,7 +59,10 @@ const eagerFallbackWarned = new Set<string>();
  * Log a diagnostic without letting it propagate — used in the eager
  * fallback path, which must never fail the async require.
  */
-function safeNativeLog(level: (typeof LogLevel)[keyof typeof LogLevel], message: string) {
+function safeNativeLog(
+  level: (typeof LogLevel)[keyof typeof LogLevel],
+  message: string,
+) {
   try {
     NativeLogger.write(level, message);
   } catch {
@@ -155,9 +158,9 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
         if (segmentKey.startsWith(SEG_PREFIX)) {
           throw new SegmentLoadError(
             segmentKey,
-            `segment missing from manifest (runtime=${getRuntimeKind()}, manifestSize=${Object.keys(
-              getSegmentManifest().segments,
-            ).length})`,
+            `segment missing from manifest (runtime=${getRuntimeKind()}, manifestSize=${
+              Object.keys(getSegmentManifest().segments).length
+            })`,
           );
         }
 

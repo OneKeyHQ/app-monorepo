@@ -121,7 +121,9 @@ describe('splitBundle healthCheck', () => {
 
     health.reportSplitBundleHealth();
 
-    const lines = mockNativeLoggerWrite.mock.calls.map(([, msg]) => String(msg));
+    const lines = mockNativeLoggerWrite.mock.calls.map(([, msg]) =>
+      String(msg),
+    );
     const healthLines = lines.filter((line) =>
       line.startsWith('[SplitBundleHealth]'),
     );

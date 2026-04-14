@@ -14,9 +14,8 @@ import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
  */
 export function updateInterceptorRequestHelperWithIpTable() {
   requestHelper.getIpTableConfig = async () => {
-    const { default: simpleDb } = await import(
-      '@onekeyhq/kit-bg/src/dbs/simple/simpleDb'
-    );
+    const { default: simpleDb } =
+      await import('@onekeyhq/kit-bg/src/dbs/simple/simpleDb');
     if (!simpleDb) {
       return null;
     }

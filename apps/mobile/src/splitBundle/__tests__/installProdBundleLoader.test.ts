@@ -141,11 +141,8 @@ describe('installProdBundleLoader', () => {
     mockNativeLoggerWrite.mockImplementation(() => {
       throw new Error('logger is dead');
     });
-    const {
-      installProdBundleLoader,
-      loadSegment,
-      isSegmentLoaded,
-    } = getLoader();
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader();
     installProdBundleLoader(createMockNativeLoader());
     const eagerKey = '/packages/whatever/index.bundle?modulesOnly=true';
     await expect(loadSegment(eagerKey)).resolves.toBe(undefined);

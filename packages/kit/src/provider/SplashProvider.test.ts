@@ -197,7 +197,7 @@ describe('useCanDismissSplash', () => {
     const { result } = renderHook(() => useCanDismissSplash());
 
     await act(async () => {
-      jest.advanceTimersByTime(5_000);
+      jest.advanceTimersByTime(5000);
       await Promise.resolve();
     });
 
@@ -233,7 +233,7 @@ describe('useCanDismissSplash', () => {
     rerender();
 
     await act(async () => {
-      jest.advanceTimersByTime(5_000);
+      jest.advanceTimersByTime(5000);
       await Promise.resolve();
     });
 

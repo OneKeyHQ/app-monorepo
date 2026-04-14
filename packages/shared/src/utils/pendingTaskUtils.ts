@@ -8,9 +8,7 @@ import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 export function hasPendingInstallTask(): boolean {
   try {
     return Boolean(
-      syncStorage.getString(
-        EAppSyncStorageKeys.onekey_pending_install_task,
-      ),
+      syncStorage.getString(EAppSyncStorageKeys.onekey_pending_install_task),
     );
   } catch {
     return false;
