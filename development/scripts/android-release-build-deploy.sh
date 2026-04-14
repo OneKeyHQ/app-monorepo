@@ -147,6 +147,13 @@ cmd_deploy() {
       adb -s "$DEVICE_ID" push out-dir-bundle/android/dist/assets/ "/data/local/tmp/bundle_assets/"
       adb -s "$DEVICE_ID" shell "run-as $PACKAGE_NAME cp -r /data/local/tmp/bundle_assets/* files/bundle/"
       adb -s "$DEVICE_ID" shell "rm -rf /data/local/tmp/bundle_assets"
+
+      # Push module-id-map.json (post-mortem helper)
+      if [ -f out-dir-bundle/android/dist/module-id-map.json ]; then
+        adb -s "$DEVICE_ID" push out-dir-bundle/android/dist/module-id-map.json "/data/local/tmp/module-id-map.json"
+        adb -s "$DEVICE_ID" shell "run-as $PACKAGE_NAME cp /data/local/tmp/module-id-map.json files/bundle/module-id-map.json"
+        adb -s "$DEVICE_ID" shell "rm -f /data/local/tmp/module-id-map.json"
+      fi
     fi
   fi
 

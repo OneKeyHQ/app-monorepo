@@ -12,6 +12,8 @@ const {
   SEGMENTS_INPUT_DIR,
   getSegmentsDir,
   getManifestPath,
+  getMergedModuleIdMapPath,
+  getModuleIdMapPath,
 } = require('./plugins/segmentPaths');
 
 const mobileDirPath = __dirname;
@@ -82,6 +84,49 @@ const cleanBundleOutput = async () => {
       force: true,
     },
   );
+  fs.rmSync(getModuleIdMapPath('main'), { force: true });
+  fs.rmSync(getModuleIdMapPath('background'), { force: true });
+  fs.rmSync(getMergedModuleIdMapPath(), { force: true });
+};
+
+/**
+ * Copy the merged moduleId → relativePath map produced by unionBuild.js (or
+ * synthesize one from per-runtime maps when running the legacy two-step
+ * path) into the per-platform dist directory so the platform packager can
+ * pick it up alongside the bundles. The file is intentionally kept small
+ * (~1MB) so it is safe to ship inside the APK / .app for crash post-mortem.
+ */
+const copyModuleIdMapToPlatformDist = (platformDistDir) => {
+  const mergedPath = getMergedModuleIdMapPath();
+  let mapJson;
+  if (fs.existsSync(mergedPath)) {
+    mapJson = fs.readFileSync(mergedPath, 'utf8');
+  } else {
+    // Legacy two-step builds — merge per-runtime maps if they exist.
+    const runtimeMaps = {};
+    for (const runtime of ['main', 'background']) {
+      const p = getModuleIdMapPath(runtime);
+      if (fs.existsSync(p)) {
+        runtimeMaps[runtime] = JSON.parse(fs.readFileSync(p, 'utf8'));
+      }
+    }
+    if (Object.keys(runtimeMaps).length === 0) {
+      log('module-id map not found, skipping copy');
+      return;
+    }
+    const merged = { common: {}, main: {}, background: {}, segments: {} };
+    for (const [runtime, data] of Object.entries(runtimeMaps)) {
+      Object.assign(merged[runtime], data.eager || {});
+      for (const [segKey, segEntry] of Object.entries(data.segments || {})) {
+        merged.segments[segKey] = segEntry;
+      }
+    }
+    mapJson = JSON.stringify(merged);
+  }
+  fs.ensureDirSync(platformDistDir);
+  const destPath = path.join(platformDistDir, 'module-id-map.json');
+  fs.writeFileSync(destPath, mapJson);
+  log(`module-id map → ${destPath}`);
 };
 
 const ensureBundleOutputPath = async () => {
@@ -987,6 +1032,7 @@ const buildIOSBundle = async () => {
   execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${webEmbedIOSPath}/`, {
     stdio: 'inherit',
   });
+  copyModuleIdMapToPlatformDist(distPath);
   generateMetadataJson(distPath, {
     requiresBackgroundBundle: 'true',
     backgroundProtocolVersion,
@@ -1280,6 +1326,7 @@ const buildAndroidBundle = async () => {
   execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${webEmbedAndroidPath}/`, {
     stdio: 'inherit',
   });
+  copyModuleIdMapToPlatformDist(distPath);
 
   log('build android bundle compress dist to zip');
   generateMetadataJson(distPath, {

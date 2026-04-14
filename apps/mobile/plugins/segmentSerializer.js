@@ -25,7 +25,11 @@ const {
 } = require('../bundle-groups.config');
 
 const { fileToIdMap } = require('./map');
-const { getSegmentsDir, getManifestPath } = require('./segmentPaths');
+const {
+  getSegmentsDir,
+  getManifestPath,
+  getModuleIdMapPath,
+} = require('./segmentPaths');
 const {
   deriveSegmentKey,
   allocateSegmentIds,
@@ -628,6 +632,40 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
   );
   await fs.writeFile(reportPath, JSON.stringify(allocationReport, null, 2));
   console.log(`info Writing allocation report → ${reportPath}`);
+
+  // Step 9c: Emit moduleId → relativePath map for crash post-mortem.
+  // The runtime stack trace only carries numeric module IDs; this side-car
+  // file lets a human resolve `Requiring unknown module "8192"` back to the
+  // owning source file directly from APK / .app assets.
+  const moduleIdMap = {
+    runtimeTarget,
+    eager: {},
+    segments: {},
+  };
+  for (const moduleId of mainModuleIds) {
+    const absPath = moduleIdToAbsPath.get(moduleId);
+    if (!absPath) continue;
+    moduleIdMap.eager[moduleId] = absPath
+      .replace(monorepoRoot, '')
+      .replace(/^\//, '');
+  }
+  for (const [segmentKey, modIds] of segmentModules) {
+    const entry = manifest.segments[segmentKey];
+    const segMods = {};
+    for (const modId of modIds) {
+      const absPath = moduleIdToAbsPath.get(modId);
+      if (!absPath) continue;
+      segMods[modId] = absPath.replace(monorepoRoot, '').replace(/^\//, '');
+    }
+    moduleIdMap.segments[segmentKey] = {
+      id: entry ? entry.id : undefined,
+      runtime: entry ? entry.runtime : undefined,
+      modules: segMods,
+    };
+  }
+  const moduleIdMapPath = getModuleIdMapPath(runtimeTarget);
+  await fs.writeFile(moduleIdMapPath, JSON.stringify(moduleIdMap));
+  console.log(`info Writing module-id map → ${moduleIdMapPath}`);
 
   // Step 10: Rewrite asyncRequire paths for production (#49)
   // In production mode, replace dev server URLs with segment keys.

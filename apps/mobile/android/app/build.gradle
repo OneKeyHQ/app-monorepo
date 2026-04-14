@@ -482,6 +482,17 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
                 }
             }
 
+            // module-id-map.json — maps numeric Metro moduleIds back to source
+            // file paths so a runtime "Requiring unknown module" crash can be
+            // diagnosed straight from the installed APK.
+            def moduleIdMap = file("${unionOutputDir}/module-id-map.json")
+            if (moduleIdMap.exists()) {
+                copy {
+                    from moduleIdMap
+                    into mainBundleAssetsDir
+                }
+            }
+
             // Also sync into merged assets and Sentry-injected assets dirs
             // so downstream tasks see the correct bundles.
             [mergedAssetsDir, sentryInjectedAssetsDir].each { destDir ->
@@ -500,6 +511,9 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
                 }
                 if (segmentsBgDir.exists()) {
                     copy { from segmentsBgDir; into file("${destDir}/segments-background") }
+                }
+                if (moduleIdMap.exists()) {
+                    copy { from moduleIdMap; into destDir }
                 }
             }
         }

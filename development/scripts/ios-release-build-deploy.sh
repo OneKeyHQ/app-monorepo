@@ -99,6 +99,9 @@ cmd_deploy() {
   rsync -a --delete out-dir-bundle/ios/dist/segments/ "$APP/segments/"
   rsync -a --delete out-dir-bundle/ios/dist/segments-background/ "$APP/segments-background/"
   rsync -a out-dir-bundle/ios/dist/assets/ "$APP/"
+  if [ -f out-dir-bundle/ios/dist/module-id-map.json ]; then
+    cp out-dir-bundle/ios/dist/module-id-map.json "$APP/module-id-map.json"
+  fi
 
   echo "   Re-signing..."
   codesign --force --sign - --timestamp=none \

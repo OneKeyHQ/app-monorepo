@@ -42,7 +42,11 @@ const {
 } = require('../bundle-groups.config');
 const { computeReachable } = require('../plugins/entryReachability');
 const { fileToIdMap } = require('../plugins/map');
-const { getSegmentsDir, getManifestPath } = require('../plugins/segmentPaths');
+const {
+  getSegmentsDir,
+  getManifestPath,
+  getMergedModuleIdMapPath,
+} = require('../plugins/segmentPaths');
 const {
   deriveSegmentKey,
   allocateSegmentIds,
@@ -1696,6 +1700,119 @@ async function main() {
         null,
         2,
       ),
+    );
+
+    // Emit merged moduleId → relativePath map. Shipped with the APK / .app
+    // assets so a runtime crash like `Requiring unknown module "8192"` can be
+    // resolved back to the owning source file directly from the installed
+    // app, without needing to archive every JS bundle in CI.
+    const toRelPath = (absPath) =>
+      absPath ? absPath.replace(monorepoRoot, '').replace(/^\//, '') : '';
+    const buildAbsToId = (moduleIdToAbsPath) => {
+      const out = new Map();
+      for (const [id, absPath] of moduleIdToAbsPath) {
+        if (absPath) out.set(absPath, id);
+      }
+      return out;
+    };
+    const mainAbsToId = buildAbsToId(mainModuleIndex.moduleIdToAbsPath);
+    const bgAbsToId = buildAbsToId(backgroundModuleIndex.moduleIdToAbsPath);
+    const moduleIdsToObject = (moduleIds, moduleIdToAbsPath) => {
+      const obj = {};
+      for (const id of moduleIds) {
+        const absPath = moduleIdToAbsPath.get(id);
+        if (absPath) obj[id] = toRelPath(absPath);
+      }
+      return obj;
+    };
+    const moduleIdMap = {
+      common: moduleIdsToObject(
+        commonBundleResult.startupModuleIds,
+        mainModuleIndex.moduleIdToAbsPath,
+      ),
+      main: moduleIdsToObject(
+        mainBundleResult.startupModuleIds,
+        mainModuleIndex.moduleIdToAbsPath,
+      ),
+      background: moduleIdsToObject(
+        backgroundBundleResult.startupModuleIds,
+        backgroundModuleIndex.moduleIdToAbsPath,
+      ),
+      segments: {},
+    };
+    const segmentEntries = new Map();
+    for (const [segKey, entry] of Object.entries(mergedManifest.segments)) {
+      segmentEntries.set(segKey, entry);
+    }
+    const segmentRuntimeOf = (entry) => {
+      if (!entry) return undefined;
+      if (entry.runtime) return entry.runtime;
+      if (entry.variants) {
+        const runtimes = Object.keys(entry.variants);
+        if (runtimes.length === 1) return runtimes[0];
+        return 'shared';
+      }
+      return undefined;
+    };
+    const segmentIdOf = (entry) => {
+      if (!entry) return undefined;
+      if (typeof entry.id === 'number') return entry.id;
+      if (entry.variants) {
+        const first = Object.values(entry.variants).find(
+          (v) => v && typeof v.id === 'number',
+        );
+        return first ? first.id : undefined;
+      }
+      return undefined;
+    };
+    const collectSegmentModules = (segKey, entry) => {
+      const runtime = segmentRuntimeOf(entry);
+      const out = {};
+      const addFrom = (absPaths, absToId, idToAbs) => {
+        if (!absPaths) return;
+        for (const absPath of absPaths) {
+          const id = absToId.get(absPath);
+          if (id !== undefined && idToAbs.get(id)) {
+            out[id] = toRelPath(absPath);
+          }
+        }
+      };
+      // For shared segments take main's view as canonical (matches the IDs
+      // baked into common.bundle); fall back to background where needed.
+      if (runtime === 'background') {
+        addFrom(
+          reportSegmentModules.background.get(segKey),
+          bgAbsToId,
+          backgroundModuleIndex.moduleIdToAbsPath,
+        );
+      } else {
+        addFrom(
+          reportSegmentModules.main.get(segKey),
+          mainAbsToId,
+          mainModuleIndex.moduleIdToAbsPath,
+        );
+        if (Object.keys(out).length === 0) {
+          addFrom(
+            reportSegmentModules.background.get(segKey),
+            bgAbsToId,
+            backgroundModuleIndex.moduleIdToAbsPath,
+          );
+        }
+      }
+      return out;
+    };
+    for (const [segKey, entry] of segmentEntries) {
+      moduleIdMap.segments[segKey] = {
+        id: segmentIdOf(entry),
+        runtime: segmentRuntimeOf(entry),
+        modules: collectSegmentModules(segKey, entry),
+      };
+    }
+    const mergedMapPath = getMergedModuleIdMapPath();
+    await fs.ensureDir(path.dirname(mergedMapPath));
+    await fs.writeFile(mergedMapPath, JSON.stringify(moduleIdMap));
+    console.log(
+      `[unionBuild] Wrote module-id map (${Object.keys(moduleIdMap.common).length} common / ${Object.keys(moduleIdMap.main).length} main / ${Object.keys(moduleIdMap.background).length} background / ${Object.keys(moduleIdMap.segments).length} segments) → ${mergedMapPath}`,
     );
 
     const reportDir = path.resolve(mobileDirPath, 'out-dir-analysis');
