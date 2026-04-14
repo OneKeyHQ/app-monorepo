@@ -4304,27 +4304,36 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
             // add imported account credential
             if (walletId === WALLET_TYPE_IMPORTED) {
-              if (addedIds.length !== 1) {
-                throw new OneKeyLocalError(
-                  'Only one can be imported at a time into a private key account.',
-                );
+              const shouldReuseExistingImportedCredential =
+                applyRestoreSyncPolicy &&
+                existsAccounts.length > 0 &&
+                addedIds.length === 0;
+
+              // Restore can keep an existing imported account record, so its
+              // credential row should be reused instead of being inserted again.
+              if (!shouldReuseExistingImportedCredential) {
+                if (addedIds.length !== 1) {
+                  throw new OneKeyLocalError(
+                    'Only one can be imported at a time into a private key account.',
+                  );
+                }
+                if (!importedCredential) {
+                  throw new OneKeyLocalError(
+                    'importedCredential is required for imported account',
+                  );
+                }
+                await this.txAddRecords({
+                  tx,
+                  name: ELocalDBStoreNames.Credential,
+                  records: [
+                    {
+                      id: addedIds[0],
+                      credential: importedCredential,
+                    },
+                  ],
+                  skipIfExists: true,
+                });
               }
-              if (!importedCredential) {
-                throw new OneKeyLocalError(
-                  'importedCredential is required for imported account',
-                );
-              }
-              await this.txAddRecords({
-                tx,
-                name: ELocalDBStoreNames.Credential,
-                records: [
-                  {
-                    id: addedIds[0],
-                    credential: importedCredential,
-                  },
-                ],
-                skipIfExists: true,
-              });
             }
 
             const isOverrideAccounts = removed > 0 && actualAdded === 0;
