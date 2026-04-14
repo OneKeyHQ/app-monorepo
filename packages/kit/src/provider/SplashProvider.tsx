@@ -29,31 +29,85 @@ function logSplashProvider(message: string) {
   }
 }
 
-/** Check if jotai was hydrated from MMKV snapshot WITH displayable balance data.
- *  Targets `lastConfirmedOverviewBalanceAtom` because that is the actual data
- *  source `HomeOverviewContainer` reads to produce `displayBalanceString` —
- *  if its `latest`/`byOwner` is populated, hydration produces a balance on the
- *  first render frame, `HomePageReady` fires immediately, and splash dismisses
- *  fast. `accountWorthAtom` is NOT a reliable signal: a Home reset writes
- *  `{ worth: {}, initialized: false }` into it, ColdStartCache persists that
- *  empty placeholder, and we would falsely wait `HomePageReady` for 10s.
- *  Without displayable cache, dismiss immediately instead of waiting. */
+/** Check if jotai was hydrated with EXACTLY the data `HomeOverviewContainer`
+ *  needs to render a balance on its first frame. Only a first-frame-ready
+ *  render lets `HomePageReady` fire before the 5s safety timer, so this
+ *  check has to mirror HomeOverviewContainer's first-frame data path — not
+ *  merely "there is some balance-shaped cache lying around".
+ *
+ *  HomeOverviewContainer first-frame path (see `HomeOverviewContainer.tsx`):
+ *    ownerKey = `${account.id}__${network.id}`            (`buildOverviewOwnerKey`)
+ *    currentConfirmedBalance = lastConfirmedOverviewBalance.byOwner[ownerKey]
+ *    balanceReady ← currentConfirmedBalance is truthy
+ *  The `latest` field and the `canReuseLatestDisplayedBalance` branch both
+ *  require runtime atoms (`overviewTokenCacheState` / `overviewDeFiDataState`)
+ *  that are not yet hydrated on frame 1, so they cannot satisfy `balanceReady`.
+ *
+ *  For the fast path to pay off the snapshot must provide, simultaneously:
+ *    (1) `lastConfirmedOverviewBalanceAtom.byOwner` is non-empty
+ *    (2) `accountSelector@home::activeAccountsAtom[0]` is hydrated with
+ *         a concrete `{ account.id, network.id }` pair
+ *    (3) `byOwner[`${account.id}__${network.id}`]` is a non-empty string
+ *        (exact ownerKey hit — otherwise HomeOverviewContainer won't read
+ *        it on the first frame)
+ *
+ *  `accountWorthAtom` deliberately stays out of the check: a Home reset can
+ *  persist `{ worth: {}, initialized: false }` into it, making it look
+ *  "populated" while contributing nothing to the first-frame render.
+ *
+ *  Missing any of (1)(2)(3) → fall back to path 3 (no cache, dismiss
+ *  immediately) rather than waiting 5s for `HomePageReady` that will never
+ *  fire. */
 function hasBalanceCacheInSnapshot(): boolean {
   const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
     | Record<string, unknown>
     | undefined;
   if (!snapshot) return false;
-  return Object.keys(snapshot).some((k) => {
-    if (!k.includes('ctx:lastConfirmedOverviewBalanceAtom')) return false;
-    const v = snapshot[k] as {
-      latest?: string;
-      byOwner?: Record<string, string>;
-    } | null;
-    if (!v) return false;
-    if (typeof v.latest === 'string' && v.latest.length > 0) return true;
-    if (v.byOwner && Object.keys(v.byOwner).length > 0) return true;
-    return false;
-  });
+
+  // (1) byOwner must be non-empty — it is the only source of
+  //     currentConfirmedBalance on the first render frame.
+  let byOwner: Record<string, unknown> | undefined;
+  for (const key of Object.keys(snapshot)) {
+    if (!key.includes('ctx:lastConfirmedOverviewBalanceAtom')) continue;
+    const value = snapshot[key] as
+      | { byOwner?: Record<string, unknown> }
+      | null;
+    if (value?.byOwner && Object.keys(value.byOwner).length > 0) {
+      byOwner = value.byOwner;
+    }
+    break;
+  }
+  if (!byOwner) return false;
+
+  // (2) The Home account selector's activeAccounts must already be
+  //     hydrated at num=0, which is what `HomeOverviewContainer` reads
+  //     to compute `currentOverviewOwnerKey` on mount.
+  let homeActive:
+    | { account?: { id?: string }; network?: { id?: string } }
+    | undefined;
+  for (const key of Object.keys(snapshot)) {
+    if (!key.includes('accountSelector@home')) continue;
+    if (!key.includes('ctx:activeAccountsAtom')) continue;
+    const value = snapshot[key] as
+      | Record<
+          number,
+          | { account?: { id?: string }; network?: { id?: string } }
+          | undefined
+        >
+      | null;
+    homeActive = value?.[0];
+    break;
+  }
+  const accountId = homeActive?.account?.id;
+  const networkId = homeActive?.network?.id;
+  if (!accountId || !networkId) return false;
+
+  // (3) The ownerKey HomeOverviewContainer will compute must land in
+  //     byOwner with a real balance string — mirrors buildOverviewOwnerKey
+  //     in kit/src/states/jotai/contexts/accountOverview/atoms.ts.
+  const ownerKey = `${accountId}__${networkId}`;
+  const balance = byOwner[ownerKey];
+  return typeof balance === 'string' && balance.length > 0;
 }
 
 /**
