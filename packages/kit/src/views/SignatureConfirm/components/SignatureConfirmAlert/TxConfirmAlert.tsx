@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { flatMap, map } from 'lodash';
@@ -28,6 +28,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -59,6 +60,34 @@ function TxConfirmAlert(props: IProps) {
   const [customRpcStatus] = useCustomRpcStatusAtom();
   const { updateCustomRpcStatus, clearCustomRpcStatus } =
     useSignatureConfirmActions().current;
+
+  const insufficientFeeLoggedRef = useRef(false);
+  useEffect(() => {
+    const isInsufficient =
+      sendTxStatus.isInsufficientNativeBalance ||
+      sendTxStatus.isInsufficientTokenBalance;
+    if (isInsufficient && !insufficientFeeLoggedRef.current) {
+      insufficientFeeLoggedRef.current = true;
+      defaultLogger.transaction.send.insufficientFeeOnConfirm({
+        network: networkId,
+        tokenSymbol: sendTxStatus.isInsufficientTokenBalance
+          ? (payWithTokenInfo.symbol ?? network?.symbol)
+          : network?.symbol,
+        fillUpAmount: sendTxStatus.isInsufficientTokenBalance
+          ? sendTxStatus.fillUpTokenBalance
+          : sendTxStatus.fillUpNativeBalance,
+        feeType: sendTxStatus.isInsufficientTokenBalance ? 'token' : 'native',
+      });
+    }
+  }, [
+    sendTxStatus.isInsufficientNativeBalance,
+    sendTxStatus.isInsufficientTokenBalance,
+    sendTxStatus.fillUpNativeBalance,
+    sendTxStatus.fillUpTokenBalance,
+    networkId,
+    network?.symbol,
+    payWithTokenInfo.symbol,
+  ]);
 
   const renderDecodedTxsAlert = useCallback(() => {
     const alerts = flatMap(

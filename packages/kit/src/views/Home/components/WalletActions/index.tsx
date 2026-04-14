@@ -88,6 +88,8 @@ function WalletActionSend({
   const handleOnSend = useCallback(async () => {
     if (!network) return;
 
+    const sendFlowId = defaultLogger.transaction.send.startNewFlow();
+
     defaultLogger.wallet.walletActions.actionSend({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
@@ -118,6 +120,7 @@ function WalletActionSend({
             networkId: network.id,
             tokenSymbol: symbol,
             walletType: wallet?.type ?? '',
+            sendFlowId,
           });
         };
         logZeroGas('shown');

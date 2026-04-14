@@ -151,13 +151,15 @@ export class WalletActionsScene extends BaseScene {
     networkId,
     tokenSymbol,
     walletType,
+    sendFlowId,
   }: {
     action: 'shown' | 'receive' | 'buy' | 'continue';
     networkId: string;
     tokenSymbol: string;
     walletType: string;
+    sendFlowId?: string;
   }) {
-    return { action, networkId, tokenSymbol, walletType };
+    return { action, networkId, tokenSymbol, walletType, sendFlowId };
   }
 
   @LogToServer()
