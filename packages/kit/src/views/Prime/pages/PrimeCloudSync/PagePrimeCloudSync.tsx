@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
@@ -28,6 +29,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,7 +39,7 @@ import {
   EOnboardingV2OneKeyIDLoginMode,
   EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -217,6 +219,7 @@ function AppDataSection() {
   const navigation = useAppNavigation();
   const media = useMedia();
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const { loginOneKeyId } = useOneKeyAuth();
 
   // Fetch keyless wallet existence + info in one call to avoid loading flash
   const { result: keylessWalletResult, isLoading: kwLoading } =
@@ -303,6 +306,29 @@ function AppDataSection() {
   const reloadServerUserInfo = useCallback(async () => {
     await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
   }, []);
+
+  const ensureOneKeyIdSyncActionAllowed = useCallback(async () => {
+    const isPrimeLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+    if (!isPrimeLoggedIn) {
+      try {
+        await loginOneKeyId();
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
+      return false;
+    }
+
+    const isPrimeSubscriptionActive =
+      await backgroundApiProxy.servicePrime.isPrimeSubscriptionActive();
+    if (!isPrimeSubscriptionActive) {
+      navigation.push(EPrimePages.PrimeDashboard, {
+        fromFeature: EPrimeFeatures.OneKeyCloud,
+      });
+      return false;
+    }
+
+    return true;
+  }, [loginOneKeyId, navigation]);
 
   useEffect(() => {
     if (!hasConflictingCloudSyncModes) {
@@ -402,6 +428,12 @@ function AppDataSection() {
       if (isSubmittingRef.current) return;
       try {
         isSubmittingRef.current = true;
+        if (value) {
+          const isAllowed = await ensureOneKeyIdSyncActionAllowed();
+          if (!isAllowed) {
+            return;
+          }
+        }
         if (value && shouldChangePasswordAutoLock) {
           await new Promise<void>((resolve, reject) => {
             Dialog.show({
@@ -433,7 +465,7 @@ function AppDataSection() {
         isSubmittingRef.current = false;
       }
     },
-    [intl, shouldChangePasswordAutoLock],
+    [ensureOneKeyIdSyncActionAllowed, intl, shouldChangePasswordAutoLock],
   );
 
   // Toggle Keyless sync (Scenario 2 → 3 or 3 → 2)
@@ -453,6 +485,10 @@ function AppDataSection() {
   const handleManualSyncOneKeyId = useCallback(async () => {
     if (!config.isCloudSyncEnabled) return;
     if (manualSyncingRef.current) return;
+    const isAllowed = await ensureOneKeyIdSyncActionAllowed();
+    if (!isAllowed) {
+      return;
+    }
     manualSyncingRef.current = true;
     try {
       await backgroundApiProxy.servicePrimeCloudSync.ensureOneKeyIdCloudSyncAvailableForManualSync();
@@ -484,7 +520,7 @@ function AppDataSection() {
     } finally {
       manualSyncingRef.current = false;
     }
-  }, [config.isCloudSyncEnabled, intl]);
+  }, [config.isCloudSyncEnabled, ensureOneKeyIdSyncActionAllowed, intl]);
 
   // "Sync now" when KW removed (Scenario 5) — show toast instead of syncing
   const handleSyncNowKwRemoved = useCallback(() => {
