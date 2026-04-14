@@ -97,7 +97,12 @@ function WalletActionSend({
 
     // For multi-token networks, warn if native token balance is zero.
     // User won't be able to pay gas fees for any token transfer.
-    if (!vaultSettings?.isSingleToken && !vaultSettings?.allowZeroFee) {
+    if (
+      vaultSettings &&
+      !vaultSettings.isSingleToken &&
+      !vaultSettings.allowZeroFee &&
+      !network?.isAllNetworks
+    ) {
       const nativeToken = allTokens.tokens.find(
         (t) => t.isNative && !t.networkId?.startsWith('onekeyall'),
       );
@@ -382,8 +387,7 @@ function WalletActionSend({
     wallet?.type,
     wallet?.id,
     account?.id,
-    vaultSettings?.isSingleToken,
-    vaultSettings?.allowZeroFee,
+    vaultSettings,
     navigation,
     intl,
     allTokens.tokens,
