@@ -4578,6 +4578,138 @@ class ServiceAccount extends ServiceBase {
     return { networkAccounts, network };
   }
 
+  // For chains with `mergeDeriveAssetsEnabled` (BTC / LTC), a single user-
+  // facing "account" owns multiple xpubs (one per derive type: Legacy /
+  // Nested SegWit / Native SegWit / Taproot). The backend APIs that accept a
+  // single `accountAddress` can only see one derive path worth of data;
+  // callers that need full coverage must call the API once per xpub and
+  // merge the results. This helper centralizes that enumeration.
+  //
+  // Return shape: one entry per derive type. For chains without the merge
+  // setting, a single entry is returned matching the caller's own account.
+  // Empty/unresolved xpubs are filtered out so callers can blindly iterate.
+  //
+  // Memoized for 5 seconds to avoid re-enumerating on every recipient in
+  // the Send page (queryAddress → checkAccountBadges fires this per recipient
+  // and the xpub set is stable within a session). See OK-52897.
+  getAccountXpubsForAllDeriveTypesWithMemo = memoizee(
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId: string;
+      networkId: string;
+    }): Promise<
+      Array<{
+        accountId: string;
+        xpub: string;
+        deriveType: IAccountDeriveTypes;
+      }>
+    > => {
+      const { serviceNetwork } = this.backgroundApi;
+      const vaultSettings = await serviceNetwork.getVaultSettings({
+        networkId,
+      });
+
+      const fallbackToSingleEntry = async (id: string) => {
+        const xpub = await this.getAccountXpub({ accountId: id, networkId });
+        if (!xpub) return [];
+        return [
+          {
+            accountId: id,
+            xpub,
+            deriveType: 'default' as IAccountDeriveTypes,
+          },
+        ];
+      };
+
+      if (!vaultSettings.mergeDeriveAssetsEnabled) {
+        return fallbackToSingleEntry(accountId);
+      }
+
+      let dbAccount: IDBAccount | undefined;
+      try {
+        dbAccount = await this.getDBAccountSafe({ accountId });
+      } catch {
+        // account may not exist yet (e.g., during hw address creation)
+      }
+      const indexedAccountId = dbAccount?.indexedAccountId;
+      if (!indexedAccountId) {
+        return fallbackToSingleEntry(accountId);
+      }
+
+      const { networkAccounts } =
+        await this.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes({
+          networkId,
+          indexedAccountId,
+          excludeEmptyAccount: true,
+        });
+
+      const results = await Promise.all(
+        networkAccounts.map(async (item) => {
+          const id = item.account?.id;
+          if (!id) return undefined;
+          try {
+            const xpub = await this.getAccountXpub({
+              accountId: id,
+              networkId,
+            });
+            if (!xpub) return undefined;
+            return {
+              accountId: id,
+              xpub,
+              deriveType: item.deriveType,
+            };
+          } catch {
+            return undefined;
+          }
+        }),
+      );
+
+      return results.filter(
+        (
+          r,
+        ): r is {
+          accountId: string;
+          xpub: string;
+          deriveType: IAccountDeriveTypes;
+        } => !!r,
+      );
+    },
+    {
+      primitive: true,
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      promise: true,
+      normalizer: (args) => `${args[0].accountId}:${args[0].networkId}`,
+    },
+  );
+
+  @backgroundMethod()
+  async getAccountXpubsForAllDeriveTypes(params: {
+    accountId: string;
+    networkId: string;
+  }) {
+    return this.getAccountXpubsForAllDeriveTypesWithMemo(params);
+  }
+
+  // Swallows errors so callers (ServiceAccountProfile.checkAccountBadges,
+  // ServiceHistory.fetchTransferRecipients) can degrade to a single-xpub
+  // call instead of failing their entire pipeline.
+  @backgroundMethod()
+  async safeGetAccountXpubsForAllDeriveTypes(params: {
+    accountId: string;
+    networkId: string;
+  }): Promise<
+    Awaited<ReturnType<ServiceAccount['getAccountXpubsForAllDeriveTypes']>>
+  > {
+    try {
+      return await this.getAccountXpubsForAllDeriveTypes(params);
+    } catch {
+      return [];
+    }
+  }
+
   @backgroundMethod()
   async getAccountAddressType({
     accountId,
