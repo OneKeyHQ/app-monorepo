@@ -125,7 +125,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     isConnected: false,
     l2BookOptions: undefined,
     enableLedgerUpdates: false,
-    spotEnabled: false,
+    spotEnabled: true, // default true — SPOT_STATE needed for total account value from first connection
     spotAssetCtxsEnabled: false,
     currentSpotSymbol: undefined,
     tradingMode: 'perp',
