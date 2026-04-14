@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "このアドレスに送信",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "{0}を送信するには、少なくとも{1} {2}のアカウント残高が必要です。",
   "send.stellar_activation_minimum_hint": "アカウントの有効化には最低1XLMが必要です。",
+  "send.stellar_contract_token_no_memo_hint": "メモはStellarコントラクトトークンではサポートされていません。",
   "send.stellar_recipient_account_not_activated": "受信者アカウントはステラネットワーク上で有効化されていません。このアドレスに最低1XLMを送金して初期化してください。",
   "send.str_minimum_balance_is_str": "送信に失敗しました。{token}の最低残高は{amount}です。",
   "send.str_minimum_transfer": "最小転送量は{0}です。",
