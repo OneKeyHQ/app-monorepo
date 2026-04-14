@@ -185,7 +185,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       symbol: tokenDetail?.symbol || '',
       decimals: tokenDetail?.decimals || 0,
       logoURI: tokenDetail?.logoUrl || '',
-      price: tokenDetail?.price || '',
+      price: tokenDetail?.priceConverted || tokenDetail?.price || '',
       isNative: !!tokenDetail?.isNative,
     },
     tradeToken: {

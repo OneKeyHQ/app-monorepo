@@ -314,6 +314,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         onPress={isWrapped ? onWrappedSwap : onSwap}
         amount={currentInputAmount.toFixed()}
         token={balanceToken}
+        paymentToken={paymentToken}
         balance={balance}
         isWrapped={isWrapped}
         networkId={networkId}
