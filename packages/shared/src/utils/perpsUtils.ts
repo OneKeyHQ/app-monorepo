@@ -1612,6 +1612,7 @@ function formatSpotPriceEntry(spotEntry?: {
 
 // ── Spot Token Utils ──
 
+/* cspell:disable -- HL spot token internal names (UBTC, HPENGU, FXRP, etc.) */
 const SPOT_TOKEN_DISPLAY_MAP: Record<string, string> = {
   UBTC: 'BTC',
   UETH: 'ETH',
@@ -1647,6 +1648,7 @@ const SPOT_TOKEN_DISPLAY_MAP: Record<string, string> = {
   HBNB: 'BNB',
   HSEI: 'SEI',
 };
+/* cspell:enable */
 
 function getSpotTokenDisplayName(rawName: string): string {
   return SPOT_TOKEN_DISPLAY_MAP[rawName] ?? rawName;
