@@ -28,6 +28,7 @@ interface IBalanceRowProps {
   columnConfigs: IColumnConfig[];
   isMobile?: boolean;
   index: number;
+  onChangeAsset?: () => void;
 }
 
 function formatPnlText(pnl?: string, pnlPercent?: number): string {
@@ -83,17 +84,24 @@ function ContractAddressCell({
   );
 }
 
-function BalanceRowMobile({ item }: IBalanceRowProps) {
+function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
   const label = getCoinLabel(item);
   const pnlText = formatPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
+  const isAssetClickable = !!item.isAssetClickable;
 
   return (
     <ListItem py="$2.5" px="$5">
       <YStack flex={1} gap="$0.5">
         <XStack justifyContent="space-between" alignItems="center">
           <XStack gap="$1.5" alignItems="center">
-            <SizableText size="$bodyMdMedium">{label}</SizableText>
+            <SizableText
+              size="$bodyMdMedium"
+              color={isAssetClickable ? '$green11' : undefined}
+              onPress={onChangeAsset}
+            >
+              {label}
+            </SizableText>
             <ContractAddressCell contract={item.contract} />
           </XStack>
           <SizableText size="$bodyMdMedium">
@@ -115,10 +123,16 @@ function BalanceRowMobile({ item }: IBalanceRowProps) {
   );
 }
 
-function BalanceRowDesktop({ item, columnConfigs, index }: IBalanceRowProps) {
+function BalanceRowDesktop({
+  item,
+  columnConfigs,
+  index,
+  onChangeAsset,
+}: IBalanceRowProps) {
   const label = getCoinLabel(item);
   const pnlText = formatPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
+  const isAssetClickable = !!item.isAssetClickable;
 
   const cells = useMemo(() => {
     const cellValues: Record<string, string> = {
@@ -135,10 +149,44 @@ function BalanceRowDesktop({ item, columnConfigs, index }: IBalanceRowProps) {
     }));
   }, [item, label, pnlText, columnConfigs]);
 
+  const renderCellContent = (cell: (typeof cells)[number]) => {
+    if (cell.key === 'contract') {
+      return (
+        <ContractAddressCell contract={item.contract} size="$bodySmMedium" />
+      );
+    }
+
+    if (cell.key === 'coin') {
+      return (
+        <SizableText
+          size="$bodySmMedium"
+          fontWeight={600}
+          color={isAssetClickable ? '$green11' : undefined}
+          onPress={onChangeAsset}
+          cursor={isAssetClickable ? 'pointer' : 'default'}
+          hoverStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
+          pressStyle={isAssetClickable ? { fontWeight: 600 } : undefined}
+        >
+          {cell.cellValue}
+        </SizableText>
+      );
+    }
+
+    return (
+      <SizableText
+        size="$bodySmMedium"
+        color={cell.key === 'pnl' ? pnlColor : undefined}
+      >
+        {cell.cellValue}
+      </SizableText>
+    );
+  };
+
   return (
     <XStack
-      py="$2"
+      py="$1.5"
       px="$5"
+      minHeight={48}
       bg={index % 2 === 0 ? '$bgApp' : '$bg'}
       hoverStyle={{ bg: '$bgHover' }}
     >
@@ -149,19 +197,7 @@ function BalanceRowDesktop({ item, columnConfigs, index }: IBalanceRowProps) {
           alignItems="center"
           justifyContent={calcCellAlign(cell.align)}
         >
-          {cell.key === 'contract' ? (
-            <ContractAddressCell
-              contract={item.contract}
-              size="$bodySmMedium"
-            />
-          ) : (
-            <SizableText
-              size="$bodySmMedium"
-              color={cell.key === 'pnl' ? pnlColor : undefined}
-            >
-              {cell.cellValue}
-            </SizableText>
-          )}
+          {renderCellContent(cell)}
         </XStack>
       ))}
     </XStack>
