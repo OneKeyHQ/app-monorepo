@@ -1,13 +1,13 @@
 /**
- * Layer 1 unit tests: eager async imports must bypass Metro's asyncRequire
- * (and therefore __loadBundleAsync) entirely, and instead resolve
- * synchronously from the already-loaded module registry.
+ * Unit tests for the split-bundle async-require wrapper.
  *
- * The injected `syncRequire` must match Metro's asyncRequire return shape
- * — i.e. `require.importAll(moduleID)`, which wraps CJS/JSON exports as
- * `{...keys, default: exports}`.  Tests below model that contract with a
- * mocked syncRequire that returns a namespace-shaped object so any
- * downstream consumer expecting `.default` keeps working.
+ * Contract: for eager modules (no chunk-map entry) we must still yield a
+ * microtask and delegate to Metro's asyncRequire.  Converting this path
+ * to a fully synchronous require breaks async/await generators around
+ * `await import(...)` — the Hermes GC handle stack grows without bound
+ * under circular dynamic imports and crashes in `GCScope::_newChunkAndPHV`.
+ * The `installProdBundleLoader` eager-fallback path is responsible for
+ * short-circuiting the `__loadBundleAsync` call gracefully.
  */
 
 const { createWrappedAsyncRequire } = require('../asyncRequireCore');
@@ -15,26 +15,23 @@ const { createWrappedAsyncRequire } = require('../asyncRequireCore');
 function makeDeps({ chunkModuleIdToHashMap = {} } = {}) {
   const asyncRequire = jest.fn(async (id) => ({ asyncModule: id }));
   const requireEnsure = jest.fn().mockResolvedValue(undefined);
-  const syncRequire = jest.fn((id) => ({ syncModule: id }));
   return {
     chunkModuleIdToHashMap,
     asyncRequire,
     requireEnsure,
-    syncRequire,
   };
 }
 
-describe('asyncRequireTpl.createWrappedAsyncRequire', () => {
-  it('returns syncRequire(moduleId) for eager modules (no chunk entry)', async () => {
+describe('asyncRequireCore.createWrappedAsyncRequire', () => {
+  it('delegates to Metro asyncRequire after a microtask for eager modules', async () => {
     const deps = makeDeps();
     const wrapped = createWrappedAsyncRequire(deps);
 
-    const result = await wrapped(42, ['/some/path']);
+    const result = await wrapped(42, ['/pkg/foo']);
 
-    expect(result).toEqual({ syncModule: 42 });
-    expect(deps.syncRequire).toHaveBeenCalledWith(42);
-    expect(deps.asyncRequire).not.toHaveBeenCalled();
+    expect(deps.asyncRequire).toHaveBeenCalledWith(42, ['/pkg/foo']);
     expect(deps.requireEnsure).not.toHaveBeenCalled();
+    expect(result).toEqual({ asyncModule: 42 });
   });
 
   it('goes through requireEnsure + asyncRequire for a split chunk entry', async () => {
@@ -47,7 +44,6 @@ describe('asyncRequireTpl.createWrappedAsyncRequire', () => {
 
     expect(deps.requireEnsure).toHaveBeenCalledWith(100);
     expect(deps.asyncRequire).toHaveBeenCalledWith(100, ['/path']);
-    expect(deps.syncRequire).not.toHaveBeenCalled();
     expect(result).toEqual({ asyncModule: 100 });
   });
 
@@ -65,43 +61,25 @@ describe('asyncRequireTpl.createWrappedAsyncRequire', () => {
     expect(deps.asyncRequire).toHaveBeenCalledTimes(1);
   });
 
-  it('never calls __loadBundleAsync-backed asyncRequire for eager modules', async () => {
-    // The real-world bug: btc/sdkBtc stayed in the eager bundle but
-    // Metro's asyncRequire still hit __loadBundleAsync with a URL the
-    // segment manifest has no entry for.  This test guards the shape of
-    // that fix: chunk-map miss → synchronous require, period.
+  it('preserves async semantics by yielding a microtask on the eager path', async () => {
+    // Regression guard against the Hermes GCScope crash we saw when the
+    // eager path was switched to a fully synchronous require.  Modules
+    // whose factories do `await import(...)` in a circular graph rely on
+    // the microtask yield to unwind; collapsing that into a sync call
+    // sent the runtime into unbounded generator recursion.
+    const order = [];
     const deps = makeDeps();
-    const wrapped = createWrappedAsyncRequire(deps);
-    await wrapped('@onekeyhq/core/src/chains/btc/sdkBtc', []);
-    expect(deps.asyncRequire).not.toHaveBeenCalled();
-  });
-
-  it('propagates syncRequire errors', async () => {
-    const deps = makeDeps();
-    deps.syncRequire = jest.fn(() => {
-      throw new Error('module not installed');
+    deps.asyncRequire = jest.fn(async (id) => {
+      order.push('asyncRequire');
+      return { asyncModule: id };
     });
     const wrapped = createWrappedAsyncRequire(deps);
-    await expect(wrapped(1, [])).rejects.toThrow('module not installed');
-  });
 
-  it('returns whatever syncRequire returns verbatim (importAll namespace shape)', async () => {
-    // Regression guard: the eager fast-path must preserve Metro's
-    // asyncRequire contract, which resolves with `require.importAll(id)`.
-    // For non-ESModule exports (CJS, JSON) importAll returns a namespace
-    // object that includes a `default` key pointing at the raw exports.
-    // If we strip that `default`, consumers like AppIntlProvider break
-    // silently and block the whole React tree from rendering.
-    const rawJson = { key1: 'value1', key2: 'value2' };
-    const namespace = { ...rawJson, default: rawJson };
-    const deps = makeDeps();
-    deps.syncRequire = jest.fn(() => namespace);
-    const wrapped = createWrappedAsyncRequire(deps);
-
-    const result = await wrapped(777, ['/pkg/x.json']);
-
-    expect(result).toBe(namespace);
-    expect(result).toHaveProperty('default', rawJson);
-    expect(result.key1).toBe('value1');
+    const promise = wrapped(1, []);
+    // asyncRequire must NOT have been called synchronously before the
+    // promise gets a chance to suspend.
+    expect(order).toEqual([]);
+    await promise;
+    expect(order).toEqual(['asyncRequire']);
   });
 });

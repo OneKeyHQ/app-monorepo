@@ -10,7 +10,6 @@
  * @property {Record<string | number, unknown>} chunkModuleIdToHashMap
  * @property {(chunkId: string | number) => Promise<void>} requireEnsure
  * @property {(moduleId: string | number, paths: string[]) => Promise<unknown>} asyncRequire
- * @property {(moduleId: string | number) => unknown} syncRequire
  */
 
 /**
@@ -18,29 +17,26 @@
  *
  * Contract:
  *   - If the module has no entry in `chunkModuleIdToHashMap` → it is eager
- *     (already installed in the main/common bundle). Skip Metro's
- *     asyncRequire (which would call __loadBundleAsync with a URL-style
- *     key the segment manifest has no entry for) and return the
- *     synchronous require result directly.
- *   - If the entry is an array of chunk ids → ensure each, then delegate
- *     to Metro's asyncRequire for the final module resolution.
+ *     (already installed in the main/common bundle). Yield one microtask
+ *     and delegate to Metro's asyncRequire; the installProdBundleLoader
+ *     eager-fallback path then short-circuits the __loadBundleAsync call
+ *     gracefully. Converting the wait to a fully synchronous `require`
+ *     is NOT safe: async-compiled generators around `await import(...)`
+ *     assume asynchronous resolution for circular-dependency breakage,
+ *     so a sync short-circuit drops the runtime into deep recursion and
+ *     Hermes crashes its GCScope handle stack.
+ *   - If the entry is an array of chunk ids → ensure each, then delegate.
  *   - Otherwise → ensure the module's chunk, then delegate.
  *
  * @param {WrappedAsyncRequireDeps} deps
  */
 function createWrappedAsyncRequire(deps) {
-  const {
-    chunkModuleIdToHashMap,
-    requireEnsure,
-    asyncRequire,
-    syncRequire,
-  } = deps;
+  const { chunkModuleIdToHashMap, requireEnsure, asyncRequire } = deps;
   return async function wrappedAsyncRequire(moduleId, paths) {
     const chunkEntry = chunkModuleIdToHashMap[moduleId];
     if (!chunkEntry) {
-      return syncRequire(moduleId);
-    }
-    if (Array.isArray(chunkEntry)) {
+      await Promise.resolve();
+    } else if (Array.isArray(chunkEntry)) {
       await Promise.all(chunkEntry.map((v) => requireEnsure(v)));
     } else {
       await requireEnsure(moduleId);
