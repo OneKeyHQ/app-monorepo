@@ -56,8 +56,8 @@ import {
   useBulkSendAddressesInputContext,
 } from './components/Context';
 
-import type { IResolvedSenderAccount } from './components/Context';
 import type { ILineError } from './components/AddressesInput/LineNumberedTextArea';
+import type { IResolvedSenderAccount } from './components/Context';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
