@@ -67,14 +67,24 @@ export type IBackgroundThreadBridgeStatePayload = {
   globalOnMessageEnabled: boolean;
 };
 
+export type IBackgroundThreadResponseErrorPayload = {
+  name: string;
+  message: string;
+  stack?: string;
+  // Preserve OneKeyError metadata across RPC so toast/i18n/dedup keep working.
+  autoToast?: boolean;
+  className?: string;
+  code?: string | number;
+  key?: string;
+  requestId?: string;
+  httpStatusCode?: number;
+  constructorName?: string;
+};
+
 export type IBackgroundThreadResponsePayload = {
   ok: boolean;
   result?: unknown;
-  error?: {
-    name: string;
-    message: string;
-    stack?: string;
-  };
+  error?: IBackgroundThreadResponseErrorPayload;
 };
 
 export const BACKGROUND_THREAD_REQUEST_KEY_PREFIX = 'onekey:bg:req:';

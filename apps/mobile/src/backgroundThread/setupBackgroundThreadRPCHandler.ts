@@ -110,14 +110,60 @@ let handleWebEmbedBridgeResponse: (
 ) => void = () => {};
 
 function buildErrorPayload(error: unknown) {
-  const runtimeError = error as Error;
+  const runtimeError = error as Error & {
+    autoToast?: unknown;
+    className?: unknown;
+    code?: unknown;
+    key?: unknown;
+    requestId?: unknown;
+    httpStatusCode?: unknown;
+    constructorName?: unknown;
+  };
+  const errorPayload: {
+    name: string;
+    message: string;
+    stack?: string;
+    autoToast?: boolean;
+    className?: string;
+    code?: string | number;
+    key?: string;
+    requestId?: string;
+    httpStatusCode?: number;
+    constructorName?: string;
+  } = {
+    name: runtimeError?.name || 'BackgroundThreadError',
+    message: runtimeError?.message || 'Unknown background thread error',
+  };
+  if (typeof runtimeError?.stack === 'string') {
+    errorPayload.stack = runtimeError.stack;
+  }
+  if (typeof runtimeError?.autoToast === 'boolean') {
+    errorPayload.autoToast = runtimeError.autoToast;
+  }
+  if (typeof runtimeError?.className === 'string') {
+    errorPayload.className = runtimeError.className;
+  }
+  if (
+    typeof runtimeError?.code === 'string' ||
+    typeof runtimeError?.code === 'number'
+  ) {
+    errorPayload.code = runtimeError.code;
+  }
+  if (typeof runtimeError?.key === 'string') {
+    errorPayload.key = runtimeError.key;
+  }
+  if (typeof runtimeError?.requestId === 'string') {
+    errorPayload.requestId = runtimeError.requestId;
+  }
+  if (typeof runtimeError?.httpStatusCode === 'number') {
+    errorPayload.httpStatusCode = runtimeError.httpStatusCode;
+  }
+  if (typeof runtimeError?.constructorName === 'string') {
+    errorPayload.constructorName = runtimeError.constructorName;
+  }
   return {
     ok: false,
-    error: {
-      name: runtimeError?.name || 'BackgroundThreadError',
-      message: runtimeError?.message || 'Unknown background thread error',
-      stack: runtimeError?.stack,
-    },
+    error: errorPayload,
   } as const;
 }
 
