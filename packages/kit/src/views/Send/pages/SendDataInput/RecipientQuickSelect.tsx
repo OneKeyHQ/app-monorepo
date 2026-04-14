@@ -77,6 +77,7 @@ type IRecipientQuickSelectProps = {
 type IAccountRecipientsProps = {
   networkId: string;
   senderDeriveType?: string;
+  lastUsedDeriveType?: string;
   searchKey?: string;
   isSearchMode?: boolean;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
@@ -255,6 +256,7 @@ async function getWalletNetworkAccounts(
 function AccountRecipients({
   networkId,
   senderDeriveType,
+  lastUsedDeriveType: lastUsedDeriveTypeProp,
   searchKey,
   isSearchMode,
   onInputTypeChange,
@@ -467,7 +469,10 @@ function AccountRecipients({
 
       // Filter accounts by selected derive type (for multi-derive chains)
       const walletId = group?.walletId ?? '';
-      const rawDeriveType = walletDeriveType[walletId] ?? senderDeriveType;
+      const rawDeriveType =
+        walletDeriveType[walletId] ??
+        lastUsedDeriveTypeProp ??
+        senderDeriveType;
       // Validate against available options; fall back to first option if not found
       const activeDeriveType =
         rawDeriveType && deriveTypeMap.has(rawDeriveType)
@@ -498,6 +503,7 @@ function AccountRecipients({
   }, [
     filteredWalletGroups,
     walletDeriveType,
+    lastUsedDeriveTypeProp,
     senderDeriveType,
     intl,
     isSearchActive,
@@ -867,6 +873,12 @@ export default function RecipientQuickSelect({
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
 
+  // Last-used derive type from transfer-recipient API (for BTC/LTC).
+  // Bubbled up from RecentRecipients → useRecentRecipientsData.
+  const [lastUsedDeriveType, setLastUsedDeriveType] = useState<
+    string | undefined
+  >();
+
   // Track match status for each tab (null = not yet reported by component)
   const [tabMatchStatus, setTabMatchStatus] =
     useState<IRecipientTabMatchStatus>({
@@ -927,24 +939,6 @@ export default function RecipientQuickSelect({
       return changed ? next : prev;
     });
   }, [visibleTabKeys]);
-
-  // For multi-derive chains (BTC/LTC), default to Accounts tab so
-  // addresses are visible without manual tab switch (OK-52809).
-  useEffect(() => {
-    if (!networkId) return;
-    let cancelled = false;
-    void backgroundApiProxy.serviceNetwork
-      .getVaultSettings({ networkId })
-      .then((settings) => {
-        if (!cancelled && settings?.mergeDeriveAssetsEnabled) {
-          setActiveTab('account');
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [networkId, setActiveTab]);
 
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);
@@ -1136,6 +1130,7 @@ export default function RecipientQuickSelect({
                   });
                 }}
                 onMatchStatusChange={handleRecentMatchStatus}
+                onLastUsedDeriveTypeChange={setLastUsedDeriveType}
               />
             </Stack>
           ) : null}
@@ -1144,6 +1139,7 @@ export default function RecipientQuickSelect({
               <AccountRecipients
                 networkId={networkId}
                 senderDeriveType={senderDeriveType}
+                lastUsedDeriveType={lastUsedDeriveType}
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
