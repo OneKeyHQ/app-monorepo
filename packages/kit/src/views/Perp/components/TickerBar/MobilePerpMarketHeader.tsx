@@ -6,12 +6,14 @@ import { useIntl } from 'react-intl';
 import {
   DashText,
   Icon,
+  IconButton,
   NumberSizeableText,
   Popover,
   SizableText,
   Skeleton,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useConnectionStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -19,9 +21,11 @@ import {
   usePerpsActiveAssetCtxAtom,
   useSpotActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 
 function StatRow({
@@ -47,10 +51,13 @@ function StatRow({
 
 function MobilePerpMarketHeader() {
   const intl = useIntl();
+  const { copyText } = useClipboard();
   const { mode } = useActiveTradeDisplay();
   const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [spotAsset] = useSpotActiveAssetAtom();
+  const { tokenContractMap } = useSpotMetaMaps();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const hasError = connectionState.reconnectCount > 3;
   const isReady = connectionState.isConnected && !hasError;
@@ -148,6 +155,13 @@ function MobilePerpMarketHeader() {
     }
     return `$${formatted}`;
   }, [circulatingSupply, isSpot, markPrice, openInterest]);
+
+  const spotContract =
+    tokenContractMap[spotAsset?.universe?.baseName ?? ''] ||
+    tokenContractMap[spotAsset?.coin ?? ''];
+  const spotContractDisplay = spotContract
+    ? `${spotContract.slice(0, 6)}...${spotContract.slice(-4)}`
+    : '--';
 
   return (
     <YStack bg="$bgApp" px="$5" pt="$3" gap="$2">
@@ -260,6 +274,42 @@ function MobilePerpMarketHeader() {
               {openInterestDisplay}
             </SizableText>
           </StatRow>
+
+          {isSpot ? (
+            <StatRow
+              label={intl.formatMessage({
+                id: ETranslations.global_contract,
+              })}
+              skeletonWidth={120}
+              showSkeleton={showSkeleton}
+            >
+              <XStack
+                flex={1}
+                justifyContent="flex-end"
+                alignItems="center"
+                gap="$1"
+              >
+                <SizableText
+                  size="$bodySmMedium"
+                  color="$text"
+                  fontFamily="$monoRegular"
+                >
+                  {spotContractDisplay}
+                </SizableText>
+                {spotContract ? (
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    icon="Copy3Outline"
+                    iconSize="$3"
+                    onPress={() => {
+                      copyText(spotContract);
+                    }}
+                  />
+                ) : null}
+              </XStack>
+            </StatRow>
+          ) : null}
 
           {isSpot ? null : (
             <StatRow

@@ -5,7 +5,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
@@ -14,14 +13,17 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { BalanceRow } from '../Components/BalanceRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
 export interface IBalanceDisplayItem {
   coin: string;
+  rawCoin: string;
   type: 'spot' | 'perps';
   total: string;
   available: string;
@@ -30,6 +32,8 @@ export interface IBalanceDisplayItem {
   pnlPercent?: number;
   contract?: string;
   usdcValueNum: number;
+  spotUniverse?: ISpotUniverse;
+  isAssetClickable?: boolean;
   // True when the same coin appears in both spot and perps (e.g. USDC)
   needsSuffix: boolean;
 }
@@ -53,40 +57,13 @@ function SpotBalanceList({
   const [currentUser] = usePerpsActiveAccountAtom();
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
+  const { spotUniverses, universeByBaseName, tokenContractMap } =
+    useSpotMetaMaps();
   const [currentListPage, setCurrentListPage] = useState(1);
 
   useEffect(() => {
     setCurrentListPage(1);
   }, [currentUser?.accountAddress]);
-
-  // Build baseName → markPx lookup
-  // priceMap is keyed by pair name (@107, PURR/USDC), but balances use token names (HYPE, PURR)
-  const [spotUniverses, setSpotUniverses] = useState<
-    { name: string; baseName: string; quoteName: string }[]
-  >([]);
-  const [tokenContractMap, setTokenContractMap] = useState<
-    Record<string, string>
-  >({});
-  useEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid
-      .getSpotMeta()
-      .then(({ universes, tokens }) => {
-        setSpotUniverses(
-          universes.map((u) => ({
-            name: u.name,
-            baseName: u.baseName,
-            quoteName: u.quoteName,
-          })),
-        );
-        const contractMap: Record<string, string> = {};
-        for (const t of tokens ?? []) {
-          if (t.evmContract?.address) {
-            contractMap[t.name] = t.evmContract.address;
-          }
-        }
-        setTokenContractMap(contractMap);
-      });
-  }, []);
 
   const tokenPriceLookup = useMemo(() => {
     const lookup: Record<string, string> = {};
@@ -146,9 +123,12 @@ function SpotBalanceList({
 
       const displayCoin = getSpotTokenDisplayName(b.coin);
       const needsSuffix = displayCoin === 'USDC' && hasPerpsUsdc;
+      const spotUniverse = universeByBaseName[b.coin];
+      const isAssetClickable = b.coin !== 'USDC' && !!spotUniverse;
 
       items.push({
         coin: displayCoin,
+        rawCoin: b.coin,
         type: 'spot',
         total: b.total,
         available: availableBN.toFixed(),
@@ -156,6 +136,8 @@ function SpotBalanceList({
         pnl,
         pnlPercent,
         contract: tokenContractMap[b.coin],
+        spotUniverse,
+        isAssetClickable,
         needsSuffix,
         usdcValueNum: usdcValueBN.toNumber(),
       });
@@ -166,10 +148,12 @@ function SpotBalanceList({
       if (perpsUsdcBN.isGreaterThan(0)) {
         items.push({
           coin: 'USDC',
+          rawCoin: 'USDC',
           type: 'perps',
           total: perpsUsdcBN.toFixed(),
           available: accountSummary.withdrawable || '0',
           usdcValue: perpsUsdcBN.toFixed(2),
+          isAssetClickable: false,
           needsSuffix: spotCoinNames.has('USDC'),
           usdcValueNum: perpsUsdcBN.toNumber(),
         });
@@ -181,7 +165,13 @@ function SpotBalanceList({
       if (valueDiff !== 0) return valueDiff;
       return new BigNumber(b.total).comparedTo(new BigNumber(a.total));
     });
-  }, [balances, accountSummary, tokenPriceLookup, tokenContractMap]);
+  }, [
+    balances,
+    accountSummary,
+    tokenPriceLookup,
+    tokenContractMap,
+    universeByBaseName,
+  ]);
 
   // Filter out zero-balance tokens
   const filteredBalances = useMemo(
@@ -254,9 +244,19 @@ function SpotBalanceList({
         isMobile={isMobile}
         columnConfigs={columnsConfig}
         index={index}
+        onChangeAsset={
+          item.isAssetClickable
+            ? () => {
+                void actions.current.changeActiveSpotAsset({
+                  coin: item.rawCoin,
+                  spotUniverse: item.spotUniverse,
+                });
+              }
+            : undefined
+        }
       />
     ),
-    [isMobile, columnsConfig],
+    [actions, isMobile, columnsConfig],
   );
 
   return (
