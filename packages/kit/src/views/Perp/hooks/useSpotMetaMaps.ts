@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 export function useSpotMetaMaps() {
   const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);

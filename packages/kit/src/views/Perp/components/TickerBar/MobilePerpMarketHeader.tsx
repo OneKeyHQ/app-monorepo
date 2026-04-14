@@ -25,8 +25,8 @@ import { useSpotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
+import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 
 function StatRow({
   label,

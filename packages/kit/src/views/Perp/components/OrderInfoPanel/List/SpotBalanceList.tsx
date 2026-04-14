@@ -13,8 +13,8 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { BalanceRow } from '../Components/BalanceRow';
