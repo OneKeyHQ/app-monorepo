@@ -245,10 +245,10 @@ function SpotBalanceList({
         columnConfigs={columnsConfig}
         index={index}
         onChangeAsset={
-          item.isAssetClickable
+          item.isAssetClickable && item.spotUniverse
             ? () => {
                 void actions.current.changeActiveSpotAsset({
-                  coin: item.rawCoin,
+                  coin: item.spotUniverse!.name,
                   spotUniverse: item.spotUniverse,
                 });
               }
