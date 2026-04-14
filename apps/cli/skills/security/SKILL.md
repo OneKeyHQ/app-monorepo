@@ -1,34 +1,29 @@
+---
+name: security
+description: Use when handling token audits, transaction simulation, approval-risk checks, or security-sensitive trade screening in OneKey CLI.
+version: 0.2.0
+---
+Before any operation, read `references/common.md` for safety, chain, and scam rules.
+
 # Security Skill
 
-## Pre-flight
-1. `onekey version` — if not installed → `npm i -g @onekeyfe/cli`
-2. `npm view @onekeyfe/cli version` — if not latest → `npm update -g @onekeyfe/cli`
+## Domain Rules
+- This skill owns `security-audit`, `security-simulate`, approval-risk review, suspicious-token review, and security-sensitive preflight checks.
+- Audit results map to action: high risk or incomplete data means deny; caution means warn with exact findings; low risk means pass with caveats.
+- Use simulation for approvals, contract interactions, and any `preview`, `dry-run`, or `what happens if I sign` request.
+- Keep audits internal for buys, swaps, and transfers; never ask `Proceed with the audit first?`.
+- Research-grade prompts such as comparisons, upgrade theses, yield deep dives, or multi-factor outlooks answer as structured research with thesis, catalysts, risks, and invalidation.
+- Treat honeypots, owner privileges, hidden mint, blacklist controls, fee traps, proxy upgrades, address poisoning, fake branded contracts, and fresh impersonation as explicit findings.
+- Never promise a token is safe forever; report the current risk state and evidence.
 
-## Interface Discovery
-- Run `onekey schema <cmd>` for exact input/output JSON Schema
-- Run `onekey schema --list` for all available commands
-- Read `apps/cli/cli-api.d.ts` for full API type surface
-- Run `onekey <cmd> --help` for human-readable usage
+## Domain Routing
+| Intent | Handling |
+|---|---|
+| Audits, simulations, approvals, suspicious-token review, and scam-sensitive preflight checks | Keep in this skill. |
+| Other intents (wallet reads, market reads, swaps, sends) | Defer to Cross-Domain Fallback in `references/common.md`. |
 
-## Commands
-- `security audit` — token risk assessment (returns overallRisk: high | caution | low)
-- `security simulate` — preview transaction effects before signing
-
-## Security Rules — ABSOLUTE
-- NEVER output private keys, seeds, or mnemonics
-- Fail-safe principle: if audit fails for ANY reason → treat as DENY (not a pass)
-- Native tokens (ETH, BNB, MATIC) are inherently safe, skip audit
-
-## Risk Classification → Agent Action
-| overallRisk | Action |
-|-------------|--------|
-| `high` | DENY the operation. Do not proceed. |
-| `caution` | WARN user with specific cautionItems. Proceed only with explicit confirmation. |
-| `low` | Proceed normally. |
-| audit fails/errors | DENY (fail-safe). |
-
-## Domain Knowledge
-- `security audit` checks: honeypot detection, ownership renounced, mint authority, blacklist functions, tax rates, proxy contracts
-- `security simulate` previews balance changes, approvals, and contract interactions without broadcasting
-- Always audit BEFORE any fund-moving operation (transfer, swap build/execute)
-- Simulation is optional but recommended for complex DeFi interactions
+## Fast Patterns
+- `is this token safe 0x...` -> run an audit and answer with risk level plus reasons.
+- `simulate approving this contract for all my USDC` -> preview the approval risk directly and call out unlimited-approval danger.
+- `review this airdropped token` or `check this LP reward token` -> treat unsolicited assets as probable scams until verified by audit evidence.
+- `swap 500 USDC to WETH at 0x...` or `swap 1 ETH to USDT at 0x1234...` -> stop as contract mismatch or scam-token risk, not as a venue question.

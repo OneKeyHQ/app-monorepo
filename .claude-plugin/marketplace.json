@@ -18,7 +18,7 @@
         "path": "apps/cli"
       },
       "description": "4 OneKey wallet skills — wallet (balance, transfer, history), swap (quote, execute, status), market (search, price, trending, kline), and security (token audit, risk classification)",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": { "name": "OneKey" },
       "homepage": "https://onekey.so",
       "repository": "https://github.com/OneKeyHQ/app-monorepo",

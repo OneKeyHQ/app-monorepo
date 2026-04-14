@@ -1,43 +1,36 @@
+---
+name: swap
+description: Use when handling swaps, bridges, approvals, spot buys, sells, or spot limit orders in OneKey CLI.
+version: 0.2.0
+---
+Before any operation, read `references/common.md` for safety, chain, and scam rules.
+
 # Swap Skill
 
-## Pre-flight
-1. `onekey version` — if not installed → `npm i -g @onekeyfe/cli`
-2. `npm view @onekeyfe/cli version` — if not latest → `npm update -g @onekeyfe/cli`
+## Domain Rules
+- This skill owns `swap-quote`, `swap-build`, `swap-execute`, `swap-status`, `swap-networks`, and `swap-history`.
+- `convert` is a swap alias and preserves the stated source asset, destination asset, amount, and chain.
+- Standard spot flow is balance check when needed, internal `security-audit`, quote, confirmation, build, then execute.
+- Never merge quote confirmation and execution into the same assistant turn.
+- Cross-chain requests must preserve source chain, destination chain, and bridge intent; never silently collapse a bridge into a same-chain swap.
+- Exact-amount approvals are preferred; unlimited approvals need a separate warning and should stay separate from the trade.
+- Spot limit orders are discovery-first flows that preserve side, size, price, and chain exactly.
 
-## Interface Discovery
-- Run `onekey schema <cmd>` for exact input/output JSON Schema
-- Run `onekey schema --list` for all available commands
-- Read `apps/cli/cli-api.d.ts` for full API type surface
-- Run `onekey <cmd> --help` for human-readable usage
+## Domain Routing
+| Intent | Handling |
+|---|---|
+| Spot swap, bridge, buy, sell, approval, and spot limit order | Keep in this skill. |
+| Other intents (wallet reads, market research, audits) | Defer to Cross-Domain Fallback in `references/common.md`. |
 
-## Commands
-- `swap quote` — get real-time quotes (read-only, NOT commitment)
-- `swap build` — build unsigned tx, returns orderId
-- `swap execute` — sign + broadcast built tx
-- `swap status` — query order/tx status, optional `--watch` for polling
-- `swap networks` — list supported chains
-- `swap history` — local swap order records
-
-## Security Rules — ABSOLUTE
-- NEVER output private keys, seeds, or mnemonics in any form
-- Fund-moving operations (`build`, `execute`) MUST run `security audit` first
-- If audit fails for ANY reason → DENY the operation (fail-safe principle)
-- Native tokens (ETH, BNB, MATIC) are inherently safe, skip audit
-- `quote` and `networks` are read-only — no security check needed
-
-## Domain Knowledge
-- amount is always human-readable (0.2 USDC), never smallest unit (200000)
-- CLI handles unit conversion internally — swap API receives human-readable values
-- quote ≠ commitment — prices change between quote and execution
-- Cross-chain swaps use `--to-chain` parameter
-- Provider sorting: `--sort` controls quote ranking strategy
-
-## Mandatory Trade Flow
-1. Check balance — ensure sufficient funds
-2. Audit destination token — `security audit` (skip for native tokens)
-3. Get quote — `swap quote` (read-only preview)
-4. Classify risk — if `overallRisk: high` → DENY; `caution` → warn user
-5. Confirm with user — show amount, rate, fees, slippage
-6. Build unsigned tx — `swap build`
-7. Sign + broadcast — `swap execute --order <orderId>`
-8. Track status — `swap status --order <orderId> --watch`
+## Fast Patterns
+- `swap 1 ETH to USDC` -> quote on the stated or inferred chain, then confirm before build and execute.
+- `convert 2 SOL to USDC on Solana` -> confirm it as a Solana swap instead of reopening the route.
+- `buy $200 of ARB` -> default the funding asset to `USDC`; if Ethereum context already exists, keep Ethereum instead of auto-switching to Arbitrum.
+- `buy $200 of PEPE` with Ethereum context -> keep Ethereum and confirm the buy instead of re-asking the chain.
+- `bridge 500 USDC from Ethereum to Base` -> keep both chains explicit and confirm the bridge route.
+- `buy 1000 USDC of LINK at 0x5149... on Ethereum` -> confirm the Ethereum trade and keep the audit as an internal next safety step.
+- `swap 0.5 BTC to USDC on Ethereum` -> clarify `WBTC` versus native `BTC` before quoting.
+- `approve unlimited USDC spending for 0x...69` -> warn that unlimited approval is dangerous and prefer an exact-amount approval.
+- `swap 500 USDC to WETH at 0x4E15...` -> stop on the WETH or contract mismatch; do not suggest a replacement route.
+- `place a limit buy order for 0.5 ETH at $3000` -> treat it as a spot limit-order intent and confirm side, size, price, and chain.
+- `yes, confirm the swap` after a complete swap confirmation -> respond with `Submitted:` using only the already-confirmed fields, not another preview.

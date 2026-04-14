@@ -1,37 +1,36 @@
-# Market & Token Discovery Skill
+---
+name: market
+description: Use when handling token search, price, trending, kline, trades, liquidity, or market research in OneKey CLI.
+version: 0.2.0
+---
+Before any operation, read `references/common.md` for safety, chain, and scam rules.
 
-## Pre-flight
-1. `onekey version` — if not installed → `npm i -g @onekeyfe/cli`
-2. `npm view @onekeyfe/cli version` — if not latest → `npm update -g @onekeyfe/cli`
+# Market Skill
 
-## Interface Discovery
-- Run `onekey schema <cmd>` for exact input/output JSON Schema
-- Run `onekey schema --list` for all available commands
-- Read `apps/cli/cli-api.d.ts` for full API type surface
-- Run `onekey <cmd> --help` for human-readable usage
+## Domain Rules
+- This skill owns token search, token info, price, trending, trades, liquidity, kline, fear-greed, BTC metrics, quick analysis, and deep market research.
+- Price, trending, BTC metrics, fear-greed, kline, trades, liquidity, and token lookup are read-only and answer with the result first.
+- Single-asset price checks must answer in quote form like `BTC: <$price>` plus 24h change; never say live quote access is unavailable.
+- Search by ticker, token name, or contract should identify the asset before offering follow-up detail; stock tickers like `AAPL` need stock-versus-tokenized-asset clarification.
+- Quick analysis should give directional bias, main catalyst, main risk, and one optional next step.
+- Deep research should structure thesis, catalysts, risks, and invalidation.
+- Research stays read-only; if the user adds execution, finish the analysis first, show confirmation only on the first trade turn, and allow only a later `yes` to change the status to `Submitted:` or `Preview ready:`.
+- If a named token and supplied contract already disagree on the stated chain, stop with `contract mismatch`; do not reopen the chain question.
+- Never convert research into guaranteed outcome claims.
 
-## Commands
-- `token search` — search by keyword, symbol, or address
-- `token info` — detailed metadata and market data
-- `token price` — price with multi-timeframe changes
-- `token trending` — top trending tokens
-- `token trades` — buy/sell activity and volume
-- `token liquidity` — top holders and distribution
-- `market price` — single token price
-- `market prices` — batch pricing (chain:address pairs)
-- `market kline` — candlestick OHLCV data
+## Domain Routing
+| Intent | Handling |
+|---|---|
+| Price, discovery, charts, order-flow reads, BTC metrics, sentiment, quick ask, and deep research | Keep in this skill. |
+| Other intents (wallet reads, swaps, sends, audits) | Defer to Cross-Domain Fallback in `references/common.md`. |
 
-## Domain Knowledge
-- Kline intervals: lowercase = minutes (1m, 5m, 15m, 30m), uppercase = hours/days (1H, 4H, 1D, 1W)
-- Token identification: pass contract address or symbol, CLI resolves via search
-- Chain identifiers: use aliases (eth, bsc, polygon, sol), not networkId (evm--1)
-- Price data freshness: on-chain DEX data may lag CEX prices
-- `market prices` uses `chain:address` format for batch queries
-
-## Workflow: Token Research (Due Diligence)
-1. `token search` — find the token
-2. `token info` — check fundamentals (holders, liquidity, supply)
-3. `security audit` — risk assessment (cross-ref security skill)
-4. `token price` — current pricing and momentum
-5. `token trades` — buy/sell activity patterns
-6. `token liquidity` — concentration risk from top holders
+## Fast Patterns
+- `what's the BTC price` -> answer `BTC: <$price>` plus 24h change first and never use placeholders or `can't fetch live quote`.
+- `what tokens are trending right now` -> answer with a short trending list directly; do not say the CLI or market data tool is unavailable.
+- `what is DOGE` or `search DOGE` -> identify Dogecoin first, then offer price, chart, liquidity, or chain-specific follow-up.
+- `show ETH liquidity`, `show recent trades for PEPE`, and `show BTC 1d kline` -> return the requested market view directly.
+- `what are BTC hashrate and dominance right now` -> answer with two concrete readings, then one-line interpretation.
+- `what's the crypto fear and greed index` -> answer `Fear & Greed: <value>/100 (<label>).` plus one-line interpretation; never give only a definition.
+- `give me a quick ETH analysis right now` -> provide bias, main catalyst, main risk, and one optional next step.
+- `compare ETH and SOL for the next 6 months` or deeper ETH-vs-SOL research -> treat as research, not a refusal or a quick guess.
+- `what's your take on SOL right now` followed by `ok buy $300 worth` -> keep the first turn read-only, then stage a Solana `USDC -> SOL` buy using the known balance, and only a later `yes` may switch the status to `Submitted:`.

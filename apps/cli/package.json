@@ -11,6 +11,7 @@
     "bin/"
   ],
   "scripts": {
+    "prebuild": "bash skills/sync-refs.sh",
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "yarn test:unit && yarn test:integration:cli",
