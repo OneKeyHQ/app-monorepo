@@ -639,6 +639,7 @@ export interface IQuoteResultFeeOtherFeeInfo {
 }
 export interface IFetchQuoteFee {
   percentageFee: number; // oneKey fee percentage
+  percentOriginFee?: number;
   protocolFees?: number;
   estimatedFeeFiatValue?: number;
   otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
