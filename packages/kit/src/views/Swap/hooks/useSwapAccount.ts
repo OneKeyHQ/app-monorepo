@@ -339,10 +339,9 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         address: isAllNetwork
           ? accountForAllNet?.addressDetail?.address
           : activeAccount.account?.address,
-        networkId:
-          isAllNetwork && tokenNetworkId
-            ? tokenNetworkId
-            : activeAccount.network?.id,
+        // The TO-side account selector mirror lags the toToken on first open,
+        // so trust the token's network rather than the (possibly stale) slot.
+        networkId: tokenNetworkId || activeAccount.network?.id,
         activeAccount: {
           ...activeAccount,
           ...(activeAccount.account
