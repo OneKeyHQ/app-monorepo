@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 
 import { Page, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -145,4 +146,18 @@ function MobileBrowser() {
   );
 }
 
-export default memo(withBrowserProvider(MobileBrowser));
+function MobileBrowserWithProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <MobileBrowser />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default memo(withBrowserProvider(MobileBrowserWithProvider));

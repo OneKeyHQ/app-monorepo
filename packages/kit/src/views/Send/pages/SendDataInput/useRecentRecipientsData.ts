@@ -375,7 +375,8 @@ export function useRecentRecipientsData({
   const loadIdRef = useRef(0);
 
   const load = useCallback(async () => {
-    const currentLoadId = (loadIdRef.current += 1);
+    loadIdRef.current += 1;
+    const currentLoadId = loadIdRef.current;
     const isStale = () => loadIdRef.current !== currentLoadId;
 
     setIsLoadingRecent(true);

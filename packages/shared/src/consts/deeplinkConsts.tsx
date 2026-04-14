@@ -32,6 +32,7 @@ export type IEOneKeyDeepLinkParams = {
     code?: string;
     server?: string;
     transferType?: EPrimeTransferDataType;
+    botWalletId?: string;
     defaultTab?: 'qr-code' | 'enter-link';
   };
 };
