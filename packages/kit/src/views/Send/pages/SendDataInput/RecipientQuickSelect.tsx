@@ -60,6 +60,7 @@ type IRecipientQuickSelectProps = {
   isSearchMode?: boolean;
   activeTab?: IRecipientQuickSelectTab;
   hideTabs?: IRecipientQuickSelectTab[];
+  keylessWalletsOnly?: boolean;
   onActiveTabChange?: (tab: IRecipientQuickSelectTab) => void;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
   onSelect?: (params: {
@@ -80,6 +81,7 @@ type IAccountRecipientsProps = {
   lastUsedDeriveType?: string;
   searchKey?: string;
   isSearchMode?: boolean;
+  keylessWalletsOnly?: boolean;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
   onSelect?: (params: { address: string }) => void;
   onMatchStatusChange?: (hasMatches: boolean, matchCount: number) => void;
@@ -259,6 +261,7 @@ function AccountRecipients({
   lastUsedDeriveType: lastUsedDeriveTypeProp,
   searchKey,
   isSearchMode,
+  keylessWalletsOnly,
   onInputTypeChange,
   onSelect,
   onMatchStatusChange,
@@ -332,7 +335,9 @@ function AccountRecipients({
             accountUtils.isWatchingWallet({ walletId: wallet.id }) ||
             accountUtils.isExternalWallet({ walletId: wallet.id }) ||
             wallet.deprecated ||
-            wallet.isMocked;
+            wallet.isMocked ||
+            (keylessWalletsOnly &&
+              !accountUtils.isKeylessWallet({ walletId: wallet.id }));
 
           if (shouldSkip) {
             // eslint-disable-next-line no-continue
@@ -366,7 +371,7 @@ function AccountRecipients({
         );
         return groups.filter((group): group is IWalletGroup => !!group);
       },
-      [networkId, senderDeriveType],
+      [networkId, senderDeriveType, keylessWalletsOnly],
       { initResult: [], watchLoading: true, undefinedResultIfError: true },
     );
 
@@ -863,6 +868,7 @@ export default function RecipientQuickSelect({
   onInputTypeChange,
   onMatchStatusChange,
   hideTabs,
+  keylessWalletsOnly,
   senderDeriveType,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
@@ -1142,6 +1148,7 @@ export default function RecipientQuickSelect({
                 lastUsedDeriveType={lastUsedDeriveType}
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
+                keylessWalletsOnly={keylessWalletsOnly}
                 onInputTypeChange={onInputTypeChange}
                 onSelect={({ address }) =>
                   onSelect?.({
