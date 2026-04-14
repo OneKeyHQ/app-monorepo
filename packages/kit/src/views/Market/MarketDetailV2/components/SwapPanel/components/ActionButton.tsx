@@ -268,7 +268,12 @@ export function ActionButton({
     !noAccount,
   );
 
-  if (!hasAmount && !hasClickedWithoutAmount) {
+  if (
+    !hasAmount &&
+    !hasClickedWithoutAmount &&
+    !shouldCreateAddress?.result &&
+    !createAddressLoading
+  ) {
     shouldUseColoredStyle = true;
     buttonText = `${actionText} ${truncatedTokenDetailSymbol}`.trim();
     isButtonDisabled = false;
