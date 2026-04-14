@@ -11,7 +11,13 @@ export type ITokenDetailsState = {
   isRefreshing: boolean;
 };
 
+export type IResolvedSenderAccount = {
+  accountId: string;
+  indexedAccountId?: string;
+};
+
 export type IBulkSendAddressesInputContext = {
+  currentWalletId: string | undefined;
   selectedAccountId: string | undefined;
   setSelectedAccountId: (accountId: string | undefined) => void;
   selectedNetworkId: string | undefined;
@@ -36,9 +42,11 @@ export type IBulkSendAddressesInputContext = {
   setDuplicateAddressCount: (count: number) => void;
   selectedDeriveType: IAccountDeriveTypes | undefined;
   setSelectedDeriveType: (deriveType: IAccountDeriveTypes | undefined) => void;
-  // Per-sender resolved accountIds (ManyToOne/ManyToMany)
-  resolvedSenderAccountIds: Record<number, string>;
-  setResolvedSenderAccountIds: (ids: Record<number, string>) => void;
+  // Per-sender resolved accounts (ManyToOne/ManyToMany)
+  resolvedSenderAccountIds: Record<number, IResolvedSenderAccount>;
+  setResolvedSenderAccountIds: (
+    ids: Record<number, IResolvedSenderAccount>,
+  ) => void;
   // Track duplicate sender addresses (ManyToMany only)
   duplicateSenderAddressCount: number;
   setDuplicateSenderAddressCount: (count: number) => void;
@@ -49,6 +57,7 @@ export type IBulkSendAddressesInputContext = {
 };
 export const BulkSendAddressesInputContext =
   createContext<IBulkSendAddressesInputContext>({
+    currentWalletId: undefined,
     selectedAccountId: undefined,
     setSelectedAccountId: () => {},
     selectedNetworkId: undefined,
