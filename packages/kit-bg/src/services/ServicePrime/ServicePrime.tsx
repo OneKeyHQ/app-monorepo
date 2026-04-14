@@ -11,6 +11,7 @@ import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/cons
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   OneKeyLocalError,
+  OneKeyServerApiError,
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
 import {
@@ -62,31 +63,68 @@ class ServicePrime extends ServiceBase {
     sourceLang,
     targetLang,
     engine = ETranslateEngine.standard,
+    testFlag,
   }: {
     texts: string[];
     sourceLang: string;
     targetLang: string;
     engine?: ETranslateEngine;
-  }) {
+    testFlag?: string;
+  }): Promise<{ translations: Array<string | null> }> {
     const client = await this.getPrimeClient();
     // API limit: max 4 texts per translate request
     const batches = chunk(texts, 4);
-    const results = await Promise.all(
-      batches.map((batch) =>
-        client
-          .post<IApiClientResponse<{ translations: string[] }>>(
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const results: Array<Array<string | null>> = await Promise.all(
+      batches.map(async (batch): Promise<Array<string | null>> => {
+        try {
+          const res = await client.post<{
+            code: number;
+            message: string;
+            data?: {
+              translations?: Array<string | null>;
+            };
+          }>(
             '/prime/v1/translate/dapp',
             {
               texts: batch,
               source_lang: sourceLang,
               target_lang: targetLang,
               engine,
+              test_flag: testFlag,
               category: 'dapp_browser',
             },
-          )
-          .then((res) => res?.data?.data?.translations ?? batch)
-          .catch(() => batch),
-      ),
+            requestConfig,
+          );
+
+          if (res.data.code !== 0) {
+            throw new OneKeyServerApiError({
+              autoToast: false,
+              disableFallbackMessage: true,
+              message: res.data.message || 'OneKeyServer Unknown Error',
+              code: res.data.code,
+              httpStatusCode: res.status,
+              data: res.data,
+            });
+          }
+
+          const translations = res?.data?.data?.translations;
+
+          return Array.isArray(translations) ? translations : batch;
+        } catch (error) {
+          const errorCode = Number((error as OneKeyError | undefined)?.code);
+          if ([90_104, 90_105].includes(errorCode)) {
+            throw error;
+          }
+
+          console.error('[Prime Translate] batch error:', error);
+          return batch;
+        }
+      }),
     );
     return { translations: results.flat() };
   }
