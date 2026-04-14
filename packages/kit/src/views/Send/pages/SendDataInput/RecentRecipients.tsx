@@ -48,6 +48,7 @@ interface IRecentRecipientsProps {
   isSearchMode?: boolean;
   compact?: boolean;
   onMatchStatusChange?: (hasMatches: boolean, matchCount: number) => void;
+  onLastUsedDeriveTypeChange?: (deriveType: string | undefined) => void;
   refreshKey?: number;
 }
 
@@ -260,6 +261,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     onSelect,
     compact = false,
     onMatchStatusChange,
+    onLastUsedDeriveTypeChange,
     refreshKey,
   } = props;
 
@@ -294,12 +296,20 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     [intl.locale, formatDistanceToNowStrict],
   );
 
-  const { recentRecipients, isLoadingRecent, isLoadingMore } =
-    useRecentRecipientsData({
-      accountId,
-      networkId,
-      refreshKey,
-    });
+  const {
+    recentRecipients,
+    isLoadingRecent,
+    isLoadingMore,
+    lastUsedDeriveType,
+  } = useRecentRecipientsData({
+    accountId,
+    networkId,
+    refreshKey,
+  });
+
+  useEffect(() => {
+    onLastUsedDeriveTypeChange?.(lastUsedDeriveType);
+  }, [lastUsedDeriveType, onLastUsedDeriveTypeChange]);
 
   const debouncedSearchKey = useDebounce(rawSearchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -369,13 +379,10 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     );
 
   // Notify parent of match status and count.
-  // Report 0 immediately when debouncing so stale pre-search counts
-  // don't flash in the tab label (OK-53017).
+  // Skip during debounce — parent resets tabMatchStatus to null on
+  // searchKey change, so allReported stays false until we re-report.
   useEffect(() => {
-    if (isDebouncing) {
-      onMatchStatusChange?.(false, 0);
-      return;
-    }
+    if (isDebouncing) return;
     onMatchStatusChange?.(
       filteredRecentRecipients.length > 0,
       filteredRecentRecipients.length,

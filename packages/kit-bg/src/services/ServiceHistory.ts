@@ -63,6 +63,7 @@ import ServiceBase from './ServiceBase';
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
@@ -905,42 +906,115 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     networkId: string;
     limit?: number;
-  }): Promise<{ supported: boolean; data: ITransferRecipient[] }> {
+  }): Promise<{
+    supported: boolean;
+    data: ITransferRecipient[];
+    lastUsedDeriveType?: string;
+  }> {
     const { accountId, networkId, limit = 10 } = params;
 
-    // Get account address for API
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
       });
 
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-
-    try {
-      const resp = await client.get<{ data: IFetchTransferRecipientsResp }>(
-        '/wallet/v1/account/transfer-recipient',
+    // For merge-derive chains (BTC/LTC) one user-facing account owns
+    // multiple xpubs; the /transfer-recipient API is xpub-scoped so we must
+    // call it once per xpub and merge, otherwise the result only reflects
+    // the derive type of the currently-selected address (OK-52897).
+    const xpubEntries =
+      await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
         {
-          params: {
-            networkId,
-            accountAddress,
-            limit,
-          },
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            ),
+          accountId,
+          networkId,
         },
       );
 
-      const { supported, data } = resp.data.data;
-      return { supported: supported ?? true, data: data ?? [] };
-    } catch (error) {
-      console.error('Failed to fetch transfer recipients:', error);
-      return { supported: false, data: [] };
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const headers =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+
+    const callOnce = async (xpub: string | undefined, perCallLimit: number) => {
+      try {
+        const resp = await client.get<{ data: IFetchTransferRecipientsResp }>(
+          '/wallet/v1/account/transfer-recipient',
+          {
+            params: {
+              networkId,
+              accountAddress,
+              limit: perCallLimit,
+              xpub,
+            },
+            headers,
+          },
+        );
+        const { supported, data } = resp.data.data;
+        return { supported: supported ?? true, data: data ?? [] };
+      } catch (error) {
+        console.error('Failed to fetch transfer recipients:', error);
+        return { supported: false, data: [] as ITransferRecipient[] };
+      }
+    };
+
+    if (xpubEntries.length <= 1) {
+      return callOnce(xpubEntries[0]?.xpub, limit);
     }
+
+    // Each xpub requests the full limit so that addresses concentrated
+    // on a single derive path aren't truncated (e.g. all 20 recent sends
+    // via Native SegWit). The response per xpub is small (~20 addresses).
+    const settled = await promiseAllSettledEnhanced(
+      xpubEntries.map((entry) => async () => ({
+        deriveType: entry.deriveType,
+        ...(await callOnce(entry.xpub, limit)),
+      })),
+      { continueOnError: true, concurrency: xpubEntries.length },
+    );
+    const responses = settled.filter(
+      (
+        r,
+      ): r is {
+        deriveType: IAccountDeriveTypes;
+        supported: boolean;
+        data: ITransferRecipient[];
+      } => !!r,
+    );
+
+    // A single derive-path returning supported=true is enough to mark the
+    // whole query as supported; the merged list is deduped by lowercase
+    // address and sorted by most-recent time.
+    const anySupported = responses.some((r) => r.supported);
+    const seenIndex = new Map<string, number>();
+    const merged: ITransferRecipient[] = [];
+    // Track which derive type produced the newest record overall,
+    // so the Accounts tab can default to it (e.g. user last sent via Taproot).
+    let newestTime = 0;
+    let newestDeriveType: string | undefined;
+    for (const r of responses) {
+      for (const item of r.data) {
+        if (item.time > newestTime) {
+          newestTime = item.time;
+          newestDeriveType = r.deriveType;
+        }
+        const key = item.address.toLowerCase();
+        const existingIdx = seenIndex.get(key);
+        if (existingIdx === undefined) {
+          seenIndex.set(key, merged.length);
+          merged.push(item);
+        } else if (item.time > (merged[existingIdx].time ?? 0)) {
+          merged[existingIdx] = item;
+        }
+      }
+    }
+    merged.sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
+    return {
+      supported: anySupported,
+      data: merged.slice(0, limit),
+      lastUsedDeriveType: newestDeriveType,
+    };
   }
 
   @backgroundMethod()
