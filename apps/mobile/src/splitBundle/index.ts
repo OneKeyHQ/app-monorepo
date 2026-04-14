@@ -4,8 +4,16 @@ export {
   retrySegment,
   getSegmentState,
   isSegmentLoaded,
+  getEagerFallbackKeys,
+  getSegmentLoadStats,
   setNativeLoader,
 } from './installProdBundleLoader';
+export {
+  buildSplitBundleHealthReport,
+  reportSplitBundleHealth,
+  scheduleSplitBundleHealthCheck,
+} from './healthCheck';
+export type { ISplitBundleHealthReport } from './healthCheck';
 export {
   getSegmentManifest,
   getSegmentEntry,

@@ -416,6 +416,9 @@ function installLoadBundleAsyncOverride(
  * injected by our custom serializer.
  *
  * Must be called early in the entry point, BEFORE any async imports execute.
+ *
+ * Also arms the startup health probe — imported lazily to keep the hot
+ * path free of a diagnostics-only dependency.
  */
 export function installProdBundleLoader(
   loader: ISplitBundleNativeLoader,
@@ -425,4 +428,11 @@ export function installProdBundleLoader(
     globalThis as LoadBundleAsyncGlobal,
     loadBundleRequest,
   );
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    const { scheduleSplitBundleHealthCheck } = require('./healthCheck');
+    scheduleSplitBundleHealthCheck();
+  } catch {
+    /* health check is best-effort — must not block loader install */
+  }
 }
