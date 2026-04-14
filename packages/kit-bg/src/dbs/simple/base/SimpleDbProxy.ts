@@ -12,6 +12,7 @@ import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanu
 import type { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
 import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
+import type { SimpleDbEntityBotWallet } from '../entity/SimpleDbEntityBotWallet';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -222,6 +223,8 @@ export class SimpleDbProxy
   ) as SimpleDbEntityEarnOrders;
 
   localNFTs = this._createProxyService('localNFTs') as SimpleDbEntityLocalNFTs;
+
+  botWallet = this._createProxyService('botWallet') as SimpleDbEntityBotWallet;
 
   babylonSync = this._createProxyService(
     'babylonSync',

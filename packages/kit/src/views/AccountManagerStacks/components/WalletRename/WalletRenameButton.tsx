@@ -78,11 +78,18 @@ export function WalletRenameButton({
                 disabledMaxLengthLabel: true,
                 onSubmit: async (name) => {
                   if (wallet?.id && name) {
-                    await serviceAccount.setWalletNameAndAvatar({
-                      walletId: wallet?.id,
-                      name,
-                      shouldCheckDuplicate: true,
-                    });
+                    if (accountUtils.isBotWallet({ walletId: wallet.id })) {
+                      await serviceAccount.renameBotWallet({
+                        walletId: wallet.id,
+                        name,
+                      });
+                    } else {
+                      await serviceAccount.setWalletNameAndAvatar({
+                        walletId: wallet?.id,
+                        name,
+                        shouldCheckDuplicate: true,
+                      });
+                    }
                   }
                 },
               });

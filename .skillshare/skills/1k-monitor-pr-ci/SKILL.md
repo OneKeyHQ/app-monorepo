@@ -62,10 +62,10 @@ Each iteration (`[Check N/30]`):
 
    ```bash
    # 1. CI check status
-   gh pr checks <PR_NUMBER>
+   gh pr checks <PR_NUMBER> --json bucket,name,state,link,startedAt,completedAt,workflow
 
    # 2. PR-level reviews and general comments
-   gh pr view <PR_NUMBER> --json reviews,comments,reviewDecision
+   gh pr view <PR_NUMBER> --json state,reviews,comments,reviewDecision,url
 
    # 3. Inline review comments (e.g. from Devin, human reviewers)
    gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments \
@@ -158,20 +158,36 @@ If `release-ready-merge-gate` is failing, treat it as an expected merge blocker 
 
 For each failed check:
 
-1. Get failure log:
+1. Identify the actionable failed check from the latest poll result.
+   - Use the current iteration's `gh pr checks --json ...` output, not stale output from a previous iteration.
+   - Preserve the failed check's `name` and `link`.
+   - A rerun can expose a different failure later in the same check after an earlier error is fixed. For example, `lint (24.x)` may fail first on formatting, then fail again on package-version consistency. If the same check name fails again after a push, treat it as a new Step 2 item and continue fixing until no normal failed checks remain.
+
+2. Derive `RUN_ID` from the failed check `link`.
+   - Example links:
+     - `https://github.com/{owner}/{repo}/actions/runs/<RUN_ID>/job/<JOB_ID>`
+     - `https://github.com/{owner}/{repo}/runs/<RUN_ID>`
+   - Extract `<RUN_ID>` from the URL and use that exact run when fetching logs.
+
+3. Get failure log:
    ```bash
    gh run view <RUN_ID> --log-failed 2>&1 | tail -100
    ```
 
-2. Analyze the failure and determine the cause.
+4. Analyze the failure and determine the cause.
 
-3. **Fixable** (lint error, type error, test failure from our changes):
+5. **Fixable** (lint error, type error, test failure from our changes):
    - Fix the code
    - Commit: `fix: resolve CI <check-name> failure`
    - Push to PR branch
    - Wait 30s, return to Step 1
 
-4. **Not fixable** (infra issue, flaky test, unrelated failure):
+6. **Potentially unrelated or pre-existing** (repo-wide package/version consistency failure, failure in files untouched by the PR, or issue that appears to predate the PR):
+   - Do a quick verification against `origin/x` or inspect whether the failing condition already exists outside the PR diff.
+   - If the same failure already exists on base, report it as a pre-existing blocker instead of pretending it was fixed by the PR work.
+   - Ask the user whether to fix the blocker in this PR anyway or leave it as an unrelated issue.
+
+7. **Not fixable** (infra issue, flaky test, unrelated failure the user does not want fixed here):
    - Report failure details to user
    - Suggest actions (re-run, skip, manual fix)
    - Ask user how to proceed
@@ -314,6 +330,7 @@ If `release-ready-merge-gate` is still failing, do not use this final report. Us
 ## Important Notes
 
 - CI failures: auto-fix without asking
+- Do not stop after fixing the first CI error if the rerun exposes another normal failed check later. Continue Step 2 on every new failed-check result until all normal CI checks pass.
 - Review comments: **auto-fix without asking** — display a brief summary of what will be done, then proceed immediately
 - **Disagree/Won't fix**: ALWAYS ask user before replying or resolving — this is the ONLY case that requires user input
 - Never force-push or amend commits
