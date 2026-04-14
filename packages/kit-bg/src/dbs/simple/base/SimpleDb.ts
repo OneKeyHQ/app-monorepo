@@ -360,6 +360,15 @@ export class SimpleDb {
     return value;
   }
 
+  get botWallet() {
+    const SimpleDbEntityBotWallet = (
+      require('../entity/SimpleDbEntityBotWallet') as unknown as typeof import('../entity/SimpleDbEntityBotWallet')
+    ).SimpleDbEntityBotWallet;
+    const value = new SimpleDbEntityBotWallet();
+    Object.defineProperty(this, 'botWallet', { value });
+    return value;
+  }
+
   get babylonSync() {
     const SimpleDbEntityBabylonSync = (
       require('../entity/SimpleDbEntityBabylonSync') as unknown as typeof import('../entity/SimpleDbEntityBabylonSync')

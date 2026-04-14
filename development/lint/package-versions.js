@@ -5,7 +5,6 @@ const { exit } = require('process');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
-
 console.log(`[${getTimestamp()}] Package versions check started...`);
 
 const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
@@ -13,13 +12,18 @@ const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
 // Find all workspace package.json files (excluding node_modules and git worktrees)
 function findPackageJsonFiles(rootDir) {
   const result = execSync(
-    `find "${rootDir}" -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/.worktree/*" -not -path "*/.claude/worktrees/*"`,
+    `find "${rootDir}" -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/.claude/worktrees/*"`,
     { encoding: 'utf-8' },
   );
   return result
     .trim()
     .split('\n')
-    .filter((line) => line.length > 0);
+    .filter((line) => line.length > 0)
+    .filter((line) => {
+      const relativePath = path.relative(rootDir, line);
+
+      return !relativePath.startsWith('.worktree/');
+    });
 }
 
 // Extract all dependencies from a package.json

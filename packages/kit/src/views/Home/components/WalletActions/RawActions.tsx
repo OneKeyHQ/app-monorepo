@@ -27,6 +27,7 @@ export type IActionItemsProps = {
   label?: string | ReactNode;
   showButtonStyle?: boolean;
   hiddenIfDisabled?: boolean;
+  allowPressWhenDisabled?: boolean;
   verticalContainerProps?: IStackProps;
 } & Partial<Omit<IButtonProps, 'type'> & Omit<IIconButtonProps, 'type'>>;
 
@@ -35,9 +36,14 @@ function ActionItem({
   label,
   verticalContainerProps,
   showButtonStyle = false,
+  allowPressWhenDisabled = false,
   onPress,
+  disabled,
   ...rest
 }: IActionItemsProps) {
+  const visualDisabled = !!disabled;
+  const effectiveDisabled = visualDisabled && !allowPressWhenDisabled;
+
   if (showButtonStyle) {
     return (
       <Button
@@ -48,6 +54,8 @@ function ActionItem({
           pr: '$0.5',
         })}
         onPress={onPress}
+        disabled={effectiveDisabled}
+        opacity={allowPressWhenDisabled && visualDisabled ? 0.4 : undefined}
         {...rest}
       >
         {label}
@@ -78,7 +86,7 @@ function ActionItem({
           outlineWidth: 2,
         }}
         $gtSm={{ display: 'none' }}
-        {...(rest.disabled && { opacity: 0.4 })}
+        {...(visualDisabled && { opacity: 0.4 })}
         {...verticalContainerProps}
         onPress={onPress}
         {...rest}
@@ -87,14 +95,14 @@ function ActionItem({
           <Icon
             name={icon}
             size="$6"
-            color={rest.disabled ? '$iconDisabled' : '$icon'}
+            color={visualDisabled ? '$iconDisabled' : '$icon'}
           />
         </Stack>
         <SizableText
           my="$1"
           textAlign="center"
           size="$bodySm"
-          color={rest.disabled ? '$textDisabled' : '$text'}
+          color={visualDisabled ? '$textDisabled' : '$text'}
         >
           {label}
         </SizableText>
@@ -108,6 +116,8 @@ function ActionItem({
         display="none"
         $gtSm={{ display: 'flex' }}
         onPress={onPress}
+        disabled={effectiveDisabled}
+        opacity={allowPressWhenDisabled && visualDisabled ? 0.4 : undefined}
         {...rest}
       >
         {label}

@@ -32,11 +32,16 @@ export function stripDebugOutput(raw: string): string {
   //     _isExtensionBackgroundServiceWorker: false,
   //     _isExtensionBackgroundHtml: false
   //   }
-  // Remove it as a whole, then strip deprecation warnings.
+  // Remove it as a whole, then strip runtime warnings unrelated to CLI output.
   const cleaned = raw
     .replace(/isExtensionBackgroundServiceWorker\s*\{[\s\S]*?\}/g, '')
     .split('\n')
-    .filter((line) => !line.includes('DeprecationWarning'))
+    .filter(
+      (line) =>
+        !line.includes('DeprecationWarning') &&
+        !line.includes('--localstorage-file') &&
+        !line.includes('--trace-warnings'),
+    )
     .join('\n')
     .trim();
   return cleaned;

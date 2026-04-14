@@ -32,7 +32,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   // No need to manually save token here
   @backgroundMethod()
   async saveAuthToken(_authToken: string) {
-    supabaseStorageInstance.getItemWithCache.clear();
+    supabaseStorageInstance.clearCache();
     // Supabase storage instance automatically saves token, no manual save needed
   }
 }
