@@ -4,6 +4,8 @@ const chunkModuleIdToHashMap = require('__CHUNK_MODULE_ID_TO_HASH_MAP__');
 const asyncRequire = require('metro-runtime/src/modules/asyncRequire');
 const { NativeModules } = require('react-native');
 
+const { createWrappedAsyncRequire } = require('./asyncRequireCore');
+
 const fetchHttpModule = async (hash) => {
   const url = `http://__METRO_HOST_IP__:8081/async-thunks?hash=${hash}`;
   const response = await fetch(url);
@@ -39,17 +41,12 @@ const requireEnsure = async (chunkId) => {
   }
 };
 
-const wrapAsyncRequire = async (moduleId, paths) => {
-  const hashMap = chunkModuleIdToHashMap[moduleId];
-  if (!hashMap) {
-    await Promise.resolve();
-  } else if (Array.isArray(hashMap)) {
-    // TODO the reserved
-    await Promise.all(hashMap.map((v) => requireEnsure(v)));
-  } else {
-    await requireEnsure(moduleId);
-  }
-  return asyncRequire(moduleId, paths);
-};
+const wrapAsyncRequire = createWrappedAsyncRequire({
+  chunkModuleIdToHashMap,
+  requireEnsure,
+  asyncRequire,
+  // eslint-disable-next-line no-undef
+  syncRequire: (id) => require(id),
+});
 
 module.exports = wrapAsyncRequire;
