@@ -4,9 +4,12 @@ import { useIntl } from 'react-intl';
 
 import { ActionList, IconButton } from '@onekeyhq/components';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -106,23 +109,67 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       hideNonBackedUpWallet,
     });
 
-  useEffect(() => {
-    if (
-      activeAccountFromSelector?.account?.address &&
-      accountSelectorOpen.current
-    ) {
-      onActiveAccountChange?.(activeAccountFromSelector);
+  const handleActiveAccountSelected = useCallback(
+    (activeAccount: IAccountSelectorActiveAccountInfo | undefined) => {
+      if (!activeAccount?.account?.address || !accountSelectorOpen.current) {
+        return;
+      }
+
+      onActiveAccountChange?.(activeAccount);
       onChange?.({
-        text: activeAccountFromSelector?.account?.address,
+        text: activeAccount.account.address,
         inputType: EInputAddressChangeType.AccountSelector,
       });
       accountSelectorOpen.current = false;
-    }
+    },
+    [onActiveAccountChange, onChange],
+  );
+
+  useEffect(() => {
+    handleActiveAccountSelected(activeAccountFromSelector);
+  }, [activeAccountFromSelector, handleActiveAccountSelected]);
+
+  useEffect(() => {
+    const handleConfirmAccountSelected = (payload: {
+      num: number;
+      indexedAccountId?: string;
+      othersWalletAccountId?: string;
+    }) => {
+      if (
+        payload.num !== accountSelectorNum ||
+        !activeAccountFromSelector ||
+        !accountSelectorOpen.current
+      ) {
+        return;
+      }
+
+      const isSameIndexedAccount =
+        payload.indexedAccountId &&
+        payload.indexedAccountId ===
+          activeAccountFromSelector.indexedAccount?.id;
+      const isSameOthersWalletAccount =
+        payload.othersWalletAccountId &&
+        payload.othersWalletAccountId === activeAccountFromSelector.account?.id;
+
+      if (isSameIndexedAccount || isSameOthersWalletAccount) {
+        handleActiveAccountSelected(activeAccountFromSelector);
+      }
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.ConfirmAccountSelected,
+      handleConfirmAccountSelected,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.ConfirmAccountSelected,
+        handleConfirmAccountSelected,
+      );
+    };
   }, [
+    accountSelectorNum,
     activeAccountFromSelector,
-    onChange,
-    onExtraDataChange,
-    onActiveAccountChange,
+    handleActiveAccountSelected,
   ]);
 
   const onContacts = useCallback(() => {
