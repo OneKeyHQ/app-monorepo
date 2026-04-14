@@ -510,10 +510,7 @@ function AccountRecipients({
   );
 
   useEffect(() => {
-    if (isDebouncing) {
-      onMatchStatusChange?.(false, 0);
-      return;
-    }
+    if (isDebouncing) return;
     onMatchStatusChange?.(accountMatchCount > 0, accountMatchCount);
   }, [accountMatchCount, onMatchStatusChange, isDebouncing]);
 
@@ -775,10 +772,7 @@ function AddressBookRecipients({
 
   // Notify parent of match status and count
   useEffect(() => {
-    if (isDebouncing) {
-      onMatchStatusChange?.(false, 0);
-      return;
-    }
+    if (isDebouncing) return;
     onMatchStatusChange?.(filteredItems.length > 0, filteredItems.length);
   }, [filteredItems.length, onMatchStatusChange, isDebouncing]);
 
@@ -956,6 +950,17 @@ export default function RecipientQuickSelect({
   const debouncedSearchKey = useDebounce(searchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
+
+  // When the raw searchKey changes, reset tabMatchStatus to null so that
+  // the noResult check waits for children to re-report with the new key.
+  // This prevents a race where parent's debounce settles before children's,
+  // causing a false noResult event from stale tabMatchStatus. (OK-53073)
+  const prevSearchKeyRef = useRef(searchKey);
+  if (prevSearchKeyRef.current !== searchKey) {
+    prevSearchKeyRef.current = searchKey;
+    setTabMatchStatus({ recent: null, account: null, addressBook: null });
+    setTabMatchCounts({ recent: 0, account: 0, addressBook: 0 });
+  }
 
   // Track the search key at the time of last manual tab switch
   // Only allow auto-switch if user has typed something new
