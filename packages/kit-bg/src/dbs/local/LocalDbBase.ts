@@ -3869,6 +3869,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId: string;
       walletType: IDBWalletType;
       walletDeviceId?: string;
+      walletDeviceUsbId?: string;
     }>
   > {
     try {
@@ -3887,6 +3888,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           walletId: string;
           walletType: IDBWalletType;
           walletDeviceId?: string;
+          walletDeviceUsbId?: string;
           order: number;
         }[] = [];
         const wallets = map(info, 'wallets');
@@ -3915,6 +3917,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   walletId,
                   walletType: wallet.type,
                   walletDeviceId: wallet.associatedDeviceInfo?.connectId,
+                  walletDeviceUsbId:
+                    wallet.associatedDeviceInfo?.usbConnectId,
                   order,
                 });
               }

@@ -30,6 +30,7 @@ type IBulkSendWalletAccountItem = {
   walletId?: string;
   walletType?: IDBWalletType;
   walletDeviceId?: string;
+  walletDeviceUsbId?: string;
 };
 
 function getBulkSendWalletType(accountId: string): IDBWalletType | undefined {
@@ -253,9 +254,12 @@ export async function buildBulkSendSenderCandidates({
       }
 
       const deviceId = item.walletDeviceId;
-      const isConnected = deviceId
-        ? (connectedDeviceIds?.has(deviceId) ?? false)
-        : false;
+      const deviceUsbId = item.walletDeviceUsbId;
+      const isConnected =
+        (deviceId ? (connectedDeviceIds?.has(deviceId) ?? false) : false) ||
+        (deviceUsbId
+          ? (connectedDeviceIds?.has(deviceUsbId) ?? false)
+          : false);
 
       return {
         walletName: item.walletName,
