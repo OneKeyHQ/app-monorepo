@@ -25,6 +25,7 @@ export function MarketFilterBar({
         categories={categories}
         selectedCategoryId={selectedCategory}
         onSelectCategory={onCategoryChange}
+        triggerOnPressDown
       />
     </YStack>
   );
