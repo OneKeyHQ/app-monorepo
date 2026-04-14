@@ -259,13 +259,31 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   }, [defaultTokens, networkId, tokenDetail]);
 
   // --- Token preference persistence (simpledb) ---
-  const { result: savedPreference } = usePromiseResult(async () => {
-    const effectiveNetworkId = networkId || '';
-    if (!effectiveNetworkId) return undefined;
-    return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
-      networkId: effectiveNetworkId,
-    });
-  }, [networkId]);
+  const { result: savedPreference, isLoading: savedPreferenceLoading } =
+    usePromiseResult(
+      async () => {
+        const effectiveNetworkId = networkId || '';
+        if (!effectiveNetworkId) return undefined;
+        return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
+          networkId: effectiveNetworkId,
+        });
+      },
+      [networkId],
+      { revalidateOnFocus: true, watchLoading: true },
+    );
+
+  const findPreferredToken = useCallback(
+    (tokens: IToken[]): IToken | undefined => {
+      if (!savedPreference || tokens.length === 0) return undefined;
+      return tokens.find((token) =>
+        equalTokenNoCaseSensitive({
+          token1: token,
+          token2: savedPreference,
+        }),
+      );
+    },
+    [savedPreference],
+  );
 
   const saveTokenPreference = useCallback(
     (token: IToken) => {
@@ -301,15 +319,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       ? filterDefaultTokens.filter((t) => !t.isNative)
       : filterDefaultTokens;
 
+    if (savedPreferenceLoading !== false) {
+      return;
+    }
+
     if (candidates.length > 0 && !paymentToken?.networkId) {
-      const preferred = savedPreference
-        ? candidates.find(
-            (t) =>
-              t.networkId === savedPreference.networkId &&
-              t.contractAddress.toLowerCase() ===
-                savedPreference.contractAddress.toLowerCase(),
-          )
-        : undefined;
+      const preferred = findPreferredToken(candidates);
       setPaymentToken(preferred || candidates[0]);
       return;
     }
@@ -326,14 +341,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           token.contractAddress !== paymentToken?.contractAddress,
       )
     ) {
-      const preferred = savedPreference
-        ? candidates.find(
-            (t) =>
-              t.networkId === savedPreference.networkId &&
-              t.contractAddress.toLowerCase() ===
-                savedPreference.contractAddress.toLowerCase(),
-          )
-        : undefined;
+      const preferred = findPreferredToken(candidates);
       setPaymentToken(preferred || candidates[0]);
     }
   }, [
@@ -342,8 +350,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     paymentToken?.isNative,
     setPaymentToken,
     filterDefaultTokens,
-    savedPreference,
     disableNativeToken,
+    findPreferredToken,
+    savedPreferenceLoading,
   ]);
 
   useEffect(() => {
