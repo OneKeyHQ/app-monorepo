@@ -88,7 +88,11 @@ export type IEventBusPayloadShowToast = {
   diagnosticText?: string;
 };
 export interface IAppEventBusPayload {
-  [EAppEventBusNames.ConfirmAccountSelected]: undefined;
+  [EAppEventBusNames.ConfirmAccountSelected]: {
+    num: number;
+    indexedAccountId?: string;
+    othersWalletAccountId?: string;
+  };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
