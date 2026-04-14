@@ -61,6 +61,11 @@ function TxConfirmAlert(props: IProps) {
   const { updateCustomRpcStatus, clearCustomRpcStatus } =
     useSignatureConfirmActions().current;
 
+  // Single source of truth for the token-fee alert gate so logging and
+  // rendering can't drift (pay-with-token disabled → native alert).
+  const isTokenFeeAlert =
+    payWithTokenInfo.enabled && sendTxStatus.isInsufficientTokenBalance;
+
   const insufficientFeeLoggedRef = useRef(false);
   useEffect(() => {
     const isInsufficient =
@@ -70,16 +75,17 @@ function TxConfirmAlert(props: IProps) {
       insufficientFeeLoggedRef.current = true;
       defaultLogger.transaction.send.insufficientFeeOnConfirm({
         network: networkId,
-        tokenSymbol: sendTxStatus.isInsufficientTokenBalance
+        tokenSymbol: isTokenFeeAlert
           ? (payWithTokenInfo.symbol ?? network?.symbol)
           : network?.symbol,
-        fillUpAmount: sendTxStatus.isInsufficientTokenBalance
+        fillUpAmount: isTokenFeeAlert
           ? sendTxStatus.fillUpTokenBalance
           : sendTxStatus.fillUpNativeBalance,
-        feeType: sendTxStatus.isInsufficientTokenBalance ? 'token' : 'native',
+        feeType: isTokenFeeAlert ? 'token' : 'native',
       });
     }
   }, [
+    isTokenFeeAlert,
     sendTxStatus.isInsufficientNativeBalance,
     sendTxStatus.isInsufficientTokenBalance,
     sendTxStatus.fillUpNativeBalance,
@@ -134,7 +140,7 @@ function TxConfirmAlert(props: IProps) {
       return null;
     }
 
-    if (payWithTokenInfo.enabled && sendTxStatus.isInsufficientTokenBalance) {
+    if (isTokenFeeAlert) {
       const payToken: IToken | undefined =
         transferPayload?.tokenInfo?.address === payWithTokenInfo.address
           ? transferPayload.tokenInfo
@@ -235,13 +241,13 @@ function TxConfirmAlert(props: IProps) {
       />
     );
   }, [
+    isTokenFeeAlert,
     sendTxStatus.isInsufficientNativeBalance,
     sendTxStatus.isInsufficientTokenBalance,
     sendTxStatus.fillUpNativeBalance,
     sendTxStatus.isBaseOnEstimateMaxFee,
     sendTxStatus.maxFeeNative,
     sendTxStatus.fillUpTokenBalance,
-    payWithTokenInfo.enabled,
     payWithTokenInfo.symbol,
     payWithTokenInfo.address,
     transferPayload?.tokenInfo,
