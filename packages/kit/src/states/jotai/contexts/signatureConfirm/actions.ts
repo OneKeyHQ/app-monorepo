@@ -9,6 +9,8 @@ import type {
   EFeeType,
   ESendFeeStatus,
   IFeeInfoUnit,
+  IGasAccountQuote,
+  IGasPayer,
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
@@ -24,12 +26,14 @@ import {
   customRpcStatusAtom,
   decodedTxsAtom,
   decodedTxsInitAtom,
+  defaultGasAccountUiState,
   defaultMegafuelEligible,
   defaultPayWithTokenInfo,
   defaultSendFeeStatus,
   defaultSendSelectedFee,
   defaultTronResourceRentalInfo,
   extraFeeInfoAtom,
+  gasAccountUiStateAtom,
   isSinglePresetAtom,
   megafuelEligibleAtom,
   nativeTokenInfoAtom,
@@ -322,6 +326,30 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     set(megafuelEligibleAtom(), { ...defaultMegafuelEligible });
   });
 
+  updateGasAccountUiState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        payer?: IGasPayer;
+        gasAccountEligible?: boolean;
+        gasAccountQuote?: IGasAccountQuote;
+        selectedPayer?: 'user' | 'gasAccount';
+        lockedUserNonce?: number;
+        idempotencyKey?: string;
+      },
+    ) => {
+      set(gasAccountUiStateAtom(), {
+        ...get(gasAccountUiStateAtom()),
+        ...omitBy(payload, isUndefined),
+      });
+    },
+  );
+
+  resetGasAccountUiState = contextAtomMethod((_, set) => {
+    set(gasAccountUiStateAtom(), { ...defaultGasAccountUiState });
+  });
+
   updateDecodedTxsInit = contextAtomMethod(
     (_, set, decodedTxsInit: boolean) => {
       set(decodedTxsInitAtom(), decodedTxsInit);
@@ -345,6 +373,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     });
     set(payWithTokenInfoAtom(), { ...defaultPayWithTokenInfo });
     set(megafuelEligibleAtom(), { ...defaultMegafuelEligible });
+    set(gasAccountUiStateAtom(), { ...defaultGasAccountUiState });
     set(txFeeInfoInitAtom(), false);
   });
 
@@ -394,6 +423,8 @@ export function useSignatureConfirmActions() {
   const updateTokenTransferAmount = actions.updateTokenTransferAmount.use();
   const updateMegafuelEligible = actions.updateMegafuelEligible.use();
   const resetMegafuelEligible = actions.resetMegafuelEligible.use();
+  const updateGasAccountUiState = actions.updateGasAccountUiState.use();
+  const resetGasAccountUiState = actions.resetGasAccountUiState.use();
   const updateDecodedTxsInit = actions.updateDecodedTxsInit.use();
   const updateTxFeeInfoInit = actions.updateTxFeeInfoInit.use();
   const resetTxFeeState = actions.resetTxFeeState.use();
@@ -425,6 +456,8 @@ export function useSignatureConfirmActions() {
     updateTokenTransferAmount,
     updateMegafuelEligible,
     resetMegafuelEligible,
+    updateGasAccountUiState,
+    resetGasAccountUiState,
     updateDecodedTxsInit,
     updateTxFeeInfoInit,
     resetTxFeeState,

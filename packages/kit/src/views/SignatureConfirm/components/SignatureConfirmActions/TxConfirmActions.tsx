@@ -18,6 +18,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useShouldRejectDappAction from '@onekeyhq/kit/src/hooks/useShouldRejectDappAction';
@@ -25,6 +26,7 @@ import {
   useCustomRpcStatusAtom,
   useDecodedTxsAtom,
   useDecodedTxsInitAtom,
+  useGasAccountUiStateAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
   usePreCheckTxStatusAtom,
@@ -100,6 +102,7 @@ function TxConfirmActions(props: IProps) {
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
+  const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
@@ -116,6 +119,7 @@ function TxConfirmActions(props: IProps) {
   const [decodedTxsInit] = useDecodedTxsInitAtom();
   const [customRpcStatus] = useCustomRpcStatusAtom();
   const [settings] = useSettingsPersistAtom();
+  const [gasAccountNow, setGasAccountNow] = useState(Date.now());
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
@@ -255,7 +259,10 @@ function TxConfirmActions(props: IProps) {
     }
 
     // fee info pre-check
-    if (sendSelectedFeeInfo) {
+    if (
+      sendSelectedFeeInfo &&
+      gasAccountUiState.selectedPayer !== 'gasAccount'
+    ) {
       const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
         accountId,
         networkId,
@@ -317,6 +324,7 @@ function TxConfirmActions(props: IProps) {
           transferPayload,
           successfullySentTxs: successfullySentTxs.current,
           tronResourceRentalInfo,
+          gasAccountUiState,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
 
@@ -471,6 +479,7 @@ function TxConfirmActions(props: IProps) {
     vaultSettings?.replaceTxEnabled,
     vaultSettings?.afterSendTxActionEnabled,
     sendSelectedFeeInfo,
+    gasAccountUiState,
     unsignedTx?.isInternalTransfer,
     toAddress,
     nativeTokenTransferAmountToUpdate.isMaxSend,
@@ -553,6 +562,40 @@ function TxConfirmActions(props: IProps) {
     return false;
   }, [decodedTxs]);
 
+  const isGasAccountQuoteExpired = useMemo(() => {
+    if (gasAccountUiState.selectedPayer !== 'gasAccount') {
+      return false;
+    }
+
+    const expiresAt = gasAccountUiState.gasAccountQuote?.expiresAt;
+    if (!expiresAt) {
+      return true;
+    }
+
+    const numericValue = Number(expiresAt);
+    let expiresAtMs = new Date(expiresAt).getTime();
+    if (Number.isFinite(numericValue)) {
+      expiresAtMs =
+        numericValue > 10 ** 12 ? numericValue : numericValue * 1000;
+    }
+    if (!Number.isFinite(expiresAtMs)) {
+      return true;
+    }
+
+    return expiresAtMs <= gasAccountNow;
+  }, [
+    gasAccountNow,
+    gasAccountUiState.gasAccountQuote?.expiresAt,
+    gasAccountUiState.selectedPayer,
+  ]);
+
+  useInterval(
+    () => {
+      setGasAccountNow(Date.now());
+    },
+    gasAccountUiState.selectedPayer === 'gasAccount' ? 1000 : null,
+  );
+
   const isConfirmInitializing = useMemo(
     () => !txFeeInfoInit || !decodedTxsInit || isBuildingDecodedTxs,
     [txFeeInfoInit, decodedTxsInit, isBuildingDecodedTxs],
@@ -573,6 +616,7 @@ function TxConfirmActions(props: IProps) {
     if (isBuildingDecodedTxs) return true;
 
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
+    if (isGasAccountQuoteExpired) return true;
     if (preCheckTxStatus.errorMessage) return true;
     if (txAdvancedSettings.dataChanged) return true;
     // Disable if custom RPC is unavailable AND user hasn't chosen to use OneKey RPC
@@ -594,6 +638,7 @@ function TxConfirmActions(props: IProps) {
     isBuildingDecodedTxs,
     sendSelectedFeeInfo,
     sendFeeStatus.errMessage,
+    isGasAccountQuoteExpired,
     preCheckTxStatus.errorMessage,
     txAdvancedSettings.dataChanged,
     customRpcStatus?.isCustomRpcUnavailable,

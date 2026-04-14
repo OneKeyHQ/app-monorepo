@@ -1,6 +1,8 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IFeeInfoUnit,
+  IGasAccountQuote,
+  IGasPayer,
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
@@ -201,6 +203,25 @@ export const { atom: megafuelEligibleAtom, use: useMegafuelEligibleAtom } =
     sponsorable: boolean;
     sponsorName: string;
   }>({ ...defaultMegafuelEligible });
+
+export const defaultGasAccountUiState = {
+  payer: undefined as IGasPayer | undefined,
+  gasAccountEligible: false,
+  gasAccountQuote: undefined as IGasAccountQuote | undefined,
+  selectedPayer: 'user' as const,
+  lockedUserNonce: undefined as number | undefined,
+  idempotencyKey: '',
+};
+
+export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
+  contextAtom<{
+    payer?: IGasPayer;
+    gasAccountEligible: boolean;
+    gasAccountQuote?: IGasAccountQuote;
+    selectedPayer: 'user' | 'gasAccount';
+    lockedUserNonce?: number;
+    idempotencyKey: string;
+  }>({ ...defaultGasAccountUiState });
 
 export const defaultPayWithTokenInfo = {
   enabled: false,
