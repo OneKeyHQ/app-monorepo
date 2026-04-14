@@ -296,9 +296,7 @@ export function PrimeBenefitsList({
         }}
       />
 
-      {/* Coming soon features */}
       <PrimeBenefitsItem
-        isComingSoon
         icon="ShieldCheckDoneOutline"
         title={intl.formatMessage({
           id: ETranslations.prime_enhanced_dapp_security_title,
@@ -307,18 +305,24 @@ export function PrimeBenefitsList({
           id: ETranslations.prime_enhanced_dapp_security_desc,
         })}
         onPress={() => {
-          defaultLogger.prime.subscription.primeEntryClick({
-            featureName: EPrimeFeatures.BlockaidSiteScan,
-            entryPoint: 'primePage',
-          });
-          navigation.navigate(EPrimePages.PrimeFeatures, {
-            showAllFeatures: true,
-            selectedFeature: EPrimeFeatures.BlockaidSiteScan,
-            selectedSubscriptionPeriod,
-            serverUserInfo,
-          });
+          if (isPrimeSubscriptionActive) {
+            navigation.switchTab(ETabRoutes.Discovery);
+          } else {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.BlockaidSiteScan,
+              entryPoint: 'primePage',
+            });
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.BlockaidSiteScan,
+              selectedSubscriptionPeriod,
+              serverUserInfo,
+            });
+          }
         }}
       />
+
+      {/* Coming soon features */}
       <PrimeBenefitsItem
         isComingSoon
         icon="CalendarOutline"
