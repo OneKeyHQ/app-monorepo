@@ -24,9 +24,21 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 
 import { getRuntimeKind } from './runtimeInfo';
-import { getSegmentEntry, isSegmentAllowedInRuntime } from './segmentManifest';
+import {
+  getSegmentEntry,
+  getSegmentManifest,
+  isSegmentAllowedInRuntime,
+} from './segmentManifest';
 
 import type { ISplitBundleNativeLoader, SegmentLoadState } from './types';
+
+// Prefix reserved for keys produced by the split-bundle serializer.
+// Anything NOT starting with this is a Metro default async-require
+// identifier (e.g. `/packages/foo/index.bundle?modulesOnly=true`) for a
+// module the serializer chose to keep in the eager bundle — in that case
+// the module is already available synchronously and we should resolve
+// without hitting the native loader.
+const SEG_PREFIX = 'seg:';
 
 // ---------------------------------------------------------------------------
 // State
@@ -39,6 +51,21 @@ const inflightSegments = new Map<string, Promise<void>>();
 // Module-level set tracking segments currently being resolved in any call chain.
 // Used for cross-inflight cycle detection.
 const globalLoading = new Set<string>();
+// Tracks eager-fallback keys we've already warned about so we don't spam
+// the log when the same async-require is invoked repeatedly.
+const eagerFallbackWarned = new Set<string>();
+
+/**
+ * Log a diagnostic without letting it propagate — used in the eager
+ * fallback path, which must never fail the async require.
+ */
+function safeNativeLog(level: (typeof LogLevel)[keyof typeof LogLevel], message: string) {
+  try {
+    NativeLogger.write(level, message);
+  } catch {
+    /* intentionally silent: log must not break caller */
+  }
+}
 
 let nativeLoader: ISplitBundleNativeLoader | null = null;
 
@@ -118,16 +145,34 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       // Lookup manifest
       const entry = getSegmentEntry(segmentKey);
       if (!entry) {
-        // Module may already be in the eager bundle (e.g. a module that has
-        // both sync and async import() edges — the serializer classifies it
-        // as eager but the async require path is not rewritten inside segment
-        // files). Resolve silently: the module is already available.
-        NativeLogger.write(
-          LogLevel.Warn,
-          `[SplitBundle] segment not in manifest: key="${segmentKey}", runtime=${getRuntimeKind()}, manifestSize=${Object.keys(getSegmentManifest().segments).length}`,
-        );
+        // Prefix-based routing so we can tell a real miss apart from an
+        // eager fallback. `seg:xxx` identifiers are emitted by our
+        // serializer — if one of those is missing, the manifest is broken
+        // and callers must see a hard error. Any other identifier comes
+        // from Metro's default async require template for a module we
+        // chose to keep in the eager bundle; the module is already
+        // available synchronously and we short-circuit.
+        if (segmentKey.startsWith(SEG_PREFIX)) {
+          throw new SegmentLoadError(
+            segmentKey,
+            `segment missing from manifest (runtime=${getRuntimeKind()}, manifestSize=${Object.keys(
+              getSegmentManifest().segments,
+            ).length})`,
+          );
+        }
+
+        // Pure eager-fallback: mark ready first, diagnostic log strictly
+        // after — so a logger failure can never turn a success into an
+        // error. Warn once per unique key.
         loadedSegments.add(segmentKey);
         segmentStates.set(segmentKey, 'ready');
+        if (!eagerFallbackWarned.has(segmentKey)) {
+          eagerFallbackWarned.add(segmentKey);
+          safeNativeLog(
+            LogLevel.Warning,
+            `[SplitBundle] eager fallback: key="${segmentKey}" runtime=${getRuntimeKind()}`,
+          );
+        }
         return;
       }
 
@@ -240,8 +285,8 @@ function resolveBundlePathRequest(request: BundlePathRequest): string | null {
     // accessed from background runtime via shared common bundle code).
     // Return null to skip loading — the subsequent require() will fail
     // gracefully via React error boundary instead of crashing the process.
-    NativeLogger.write(
-      LogLevel.Warn,
+    safeNativeLog(
+      LogLevel.Warning,
       `[SplitBundle] No async bundle path for runtime '${currentRuntime}', available: [${Object.keys(request).join(', ')}]`,
     );
     return null;
@@ -287,6 +332,15 @@ export function isSegmentLoaded(segmentKey: string): boolean {
  */
 export function getSegmentLoadStats() {
   return { ...segmentStats };
+}
+
+/**
+ * Keys that were satisfied by the eager-fallback path (no matching segment
+ * in the manifest — module assumed to live in the main/common bundle).
+ * Exposed for health checks / diagnostics.
+ */
+export function getEagerFallbackKeys(): string[] {
+  return Array.from(eagerFallbackWarned);
 }
 
 // ---------------------------------------------------------------------------

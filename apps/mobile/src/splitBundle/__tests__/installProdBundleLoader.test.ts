@@ -8,11 +8,21 @@ type LoadBundleAsyncGlobal = typeof globalThis & {
   ) => Promise<void>;
 };
 
+const mockNativeLoggerWrite = jest.fn();
+
 beforeEach(() => {
   jest.resetModules();
+  mockNativeLoggerWrite.mockReset();
   jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     defaultLogger: { app: { bootstrap: { initDeferredStep: jest.fn() } } },
   }));
+  jest.mock(
+    '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger',
+    () => ({
+      LogLevel: { Debug: 0, Info: 1, Warning: 2, Error: 3 },
+      NativeLogger: { write: mockNativeLoggerWrite },
+    }),
+  );
   (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
   (globalThis as any).__SEGMENT_MANIFEST__ = {
     segments: {
@@ -85,14 +95,61 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves silently when segment is not in manifest (assumed eager)', async () => {
+  it('rejects when a seg: key is missing from the manifest (hard error)', async () => {
     const mock = createMockNativeLoader();
     const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
       getLoader();
     installProdBundleLoader(mock);
-    await expect(loadSegment('seg:nonexistent')).resolves.toBe(undefined);
-    expect(isSegmentLoaded('seg:nonexistent')).toBe(true);
+    await expect(loadSegment('seg:nonexistent')).rejects.toThrow(
+      /segment missing from manifest/,
+    );
+    expect(isSegmentLoaded('seg:nonexistent')).toBe(false);
     expect(mock.loadSegment).not.toHaveBeenCalled();
+  });
+
+  it('resolves silently for Metro URL-style async-require keys (eager fallback)', async () => {
+    const mock = createMockNativeLoader();
+    const {
+      installProdBundleLoader,
+      loadSegment,
+      isSegmentLoaded,
+      getEagerFallbackKeys,
+    } = getLoader();
+    installProdBundleLoader(mock);
+    const eagerKey =
+      '/packages/core/src/chains/btc/sdkBtc/index.bundle?modulesOnly=true&runModule=false';
+    await expect(loadSegment(eagerKey)).resolves.toBe(undefined);
+    expect(isSegmentLoaded(eagerKey)).toBe(true);
+    expect(mock.loadSegment).not.toHaveBeenCalled();
+    expect(getEagerFallbackKeys()).toContain(eagerKey);
+  });
+
+  it('only warns once per eager-fallback key even on repeated loads', async () => {
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(createMockNativeLoader());
+    const eagerKey = '/packages/foo/index.bundle?modulesOnly=true';
+    await loadSegment(eagerKey);
+    await loadSegment(eagerKey);
+    await loadSegment(eagerKey);
+    const warnCalls = mockNativeLoggerWrite.mock.calls.filter(([, msg]) =>
+      /eager fallback/.test(String(msg)),
+    );
+    expect(warnCalls).toHaveLength(1);
+  });
+
+  it('still resolves the eager fallback even if the diagnostic log throws', async () => {
+    mockNativeLoggerWrite.mockImplementation(() => {
+      throw new Error('logger is dead');
+    });
+    const {
+      installProdBundleLoader,
+      loadSegment,
+      isSegmentLoaded,
+    } = getLoader();
+    installProdBundleLoader(createMockNativeLoader());
+    const eagerKey = '/packages/whatever/index.bundle?modulesOnly=true';
+    await expect(loadSegment(eagerKey)).resolves.toBe(undefined);
+    expect(isSegmentLoaded(eagerKey)).toBe(true);
   });
 
   it('rejects when runtime access control denies', async () => {
