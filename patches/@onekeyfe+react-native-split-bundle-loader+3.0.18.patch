@@ -109,12 +109,16 @@ index 809df1a..0345d52 100644
              }
          } finally {
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
-index 4bc4493..046e3c4 100644
+index 4bc4493..04917d6 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
-@@ -132,20 +132,29 @@ + (nullable NSString *)resolveAbsolutePath:(NSString *)relativePath
+@@ -130,22 +130,32 @@ + (nullable NSString *)resolveAbsolutePath:(NSString *)relativePath
+     // 1. Try OTA bundle root first
+     NSString *otaPath = [SplitBundleLoader otaBundlePath];
      if (otaPath) {
-         NSString *otaRoot = [otaPath stringByDeletingLastPathComponent];
+-        NSString *otaRoot = [otaPath stringByDeletingLastPathComponent];
++        // Standardize root so hasPrefix matches candidate (iOS resolves /private/var → /var).
++        NSString *otaRoot = [[otaPath stringByDeletingLastPathComponent] stringByStandardizingPath];
          NSString *candidate = [[otaRoot stringByAppendingPathComponent:relativePath] stringByStandardizingPath];
 -        if ([candidate hasPrefix:otaRoot] &&
 -            [[NSFileManager defaultManager] fileExistsAtPath:candidate]) {
@@ -130,7 +134,8 @@ index 4bc4493..046e3c4 100644
      }
  
      // 2. Fallback to builtin resource path
-     NSString *builtinRoot = [[NSBundle mainBundle] resourcePath];
+-    NSString *builtinRoot = [[NSBundle mainBundle] resourcePath];
++    NSString *builtinRoot = [[[NSBundle mainBundle] resourcePath] stringByStandardizingPath];
      NSString *candidate = [[builtinRoot stringByAppendingPathComponent:relativePath] stringByStandardizingPath];
 -    if ([candidate hasPrefix:builtinRoot] &&
 -        [[NSFileManager defaultManager] fileExistsAtPath:candidate]) {
