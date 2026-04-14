@@ -47,6 +47,7 @@ type ICreateOrEditContentProps = {
   isSubmitLoading?: boolean;
   disabledAddressEdit?: boolean;
   disabledMemoEdit?: boolean;
+  disabledNoteEdit?: boolean;
   onSubmit: (item: IAddressItem) => Promise<void>;
   onRemove?: (item: IAddressItem) => void;
   nameHistoryInfo?: {
@@ -83,6 +84,7 @@ export function CreateOrEditContent({
   isSubmitLoading,
   disabledAddressEdit,
   disabledMemoEdit,
+  disabledNoteEdit,
 }: ICreateOrEditContentProps) {
   const intl = useIntl();
 
@@ -184,10 +186,17 @@ export function CreateOrEditContent({
           placeholder={intl.formatMessage({
             id: ETranslations.global_Note,
           })}
+          editable={!disabledNoteEdit}
         />
       </Form.Field>
     );
-  }, [intl, media.gtMd, vaultSettings?.noteMaxLength, vaultSettings?.withNote]);
+  }, [
+    disabledNoteEdit,
+    intl,
+    media.gtMd,
+    vaultSettings?.noteMaxLength,
+    vaultSettings?.withNote,
+  ]);
 
   const validateMemoField = useValidateMemoField({
     networkId,
