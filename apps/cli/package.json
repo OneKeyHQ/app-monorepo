@@ -13,7 +13,9 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "npx jest",
+    "test": "yarn test:unit && yarn test:integration:cli",
+    "test:unit": "npx jest",
+    "test:integration:cli": "yarn build && npx jest --runInBand --runTestsByPath src/__tests__/cli.integration.test.ts --testPathIgnorePatterns='-smoke\\.test\\.ts$'",
     "typecheck": "npx tsc --noEmit",
     "prepublishOnly": "yarn build",
     "version:patch": "node scripts/bump-version.js patch",
@@ -29,6 +31,7 @@
     "axios": "1.15.0",
     "chalk": "^4.1.2",
     "commander": "^12.0.0",
+    "qrcode": "^1.5.0",
     "tsup": "^8.0.0",
     "yaml": "^2.8.0",
     "zod": "^3.23.0",

@@ -36,6 +36,7 @@ export function PrimeTransferHome({
   autoConnectCustomServer,
   defaultTab,
   transferType,
+  botWalletId,
 }: {
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
@@ -43,6 +44,7 @@ export function PrimeTransferHome({
   autoConnectCustomServer?: string;
   defaultTab?: 'qr-code' | 'enter-link';
   transferType?: EPrimeTransferDataType;
+  botWalletId?: string;
 }) {
   const intl = useIntl();
   const TRANSFER_OPTIONS = useMemo(
@@ -62,8 +64,10 @@ export function PrimeTransferHome({
     [intl],
   );
 
+  const isBotWalletExport = !!botWalletId;
+
   const [value, setValue] = useState<ITransferMethod>(
-    defaultTab || (autoConnect ? ENTER_LINK : QR_CODE),
+    defaultTab || (autoConnect || isBotWalletExport ? ENTER_LINK : QR_CODE),
   );
 
   const qrcodeViewRef = useRef<React.ReactNode | null>(null);
@@ -75,22 +79,27 @@ export function PrimeTransferHome({
     }
   }, [refreshQrcodeView, value]);
 
+  const pageTitle = (() => {
+    if (isBotWalletExport) {
+      return 'Export Bot Wallet';
+    }
+    if (transferType === EPrimeTransferDataType.keylessWallet) {
+      return 'Transfer Keyless Wallet';
+    }
+    return intl.formatMessage({
+      id: ETranslations.transfer_establish_connection,
+    });
+  })();
+
   return (
     <>
-      <Page.Header
-        title={
-          transferType === EPrimeTransferDataType.keylessWallet
-            ? 'Transfer Keyless Wallet'
-            : intl.formatMessage({
-                id: ETranslations.transfer_establish_connection,
-              })
-        }
-      />
+      <Page.Header title={pageTitle} />
 
-      <PrimeTransferServerStatusBar />
+      {isBotWalletExport ? null : <PrimeTransferServerStatusBar />}
 
       <Stack px="$4" gap="$5" mt="$2">
-        {transferType === EPrimeTransferDataType.keylessWallet ? null : (
+        {transferType === EPrimeTransferDataType.keylessWallet ||
+        isBotWalletExport ? null : (
           <SegmentControl
             fullWidth
             value={value}

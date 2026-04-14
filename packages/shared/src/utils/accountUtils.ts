@@ -7,6 +7,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
+  BOT_WALLET_ID_PREFIX,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
@@ -41,7 +42,57 @@ import bufferUtils from './bufferUtils';
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
+import type { IBotWalletParsedId } from '../../types/botWallet';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
+
+const HD_WALLET_HASH_SALT = '4863FBE1-7B9B-4006-91D0-24212CCCC375';
+
+function parseBotWalletId(walletId: string): IBotWalletParsedId | undefined {
+  if (!walletId.startsWith(BOT_WALLET_ID_PREFIX)) {
+    return undefined;
+  }
+  const rest = walletId.slice(BOT_WALLET_ID_PREFIX.length);
+  const lastSep = rest.lastIndexOf('--');
+  if (lastSep < 0) {
+    return undefined;
+  }
+  const parentId = rest.slice(0, lastSep);
+  const indexStr = rest.slice(lastSep + 2);
+  if (!parentId || !/^\d+$/.test(indexStr)) {
+    return undefined;
+  }
+  const index = Number.parseInt(indexStr, 10);
+  if (!Number.isSafeInteger(index)) {
+    return undefined;
+  }
+  return { parentId, index };
+}
+
+function extractBotWalletIdPrefix(value: string): string | undefined {
+  if (!value.startsWith(BOT_WALLET_ID_PREFIX)) {
+    return undefined;
+  }
+
+  let searchFrom = value.length;
+  while (searchFrom > BOT_WALLET_ID_PREFIX.length) {
+    const separatorIndex = value.lastIndexOf(
+      SEPERATOR,
+      searchFrom - SEPERATOR.length,
+    );
+    if (separatorIndex < BOT_WALLET_ID_PREFIX.length) {
+      return undefined;
+    }
+
+    const candidate = value.slice(0, separatorIndex);
+    if (parseBotWalletId(candidate)) {
+      return candidate;
+    }
+
+    searchFrom = separatorIndex;
+  }
+
+  return undefined;
+}
 
 function getWalletIdFromAccountId({
   accountId,
@@ -54,6 +105,10 @@ function getWalletIdFromAccountId({
   hw-da2fb055-f3c8-4b55-922e-a04a6fea29cf--m/44'/0'/0'
   hw-f5f9b539-2879-4811-bac2-8d143b08adef-mg2PbFeAMoms9Z7f5by1mscDP3RABHbrLUJ--m/49'/0'/0'
   */
+  const botWalletId = extractBotWalletIdPrefix(accountId);
+  if (botWalletId) {
+    return botWalletId;
+  }
   return accountId.split(SEPERATOR)[0] || '';
 }
 
@@ -506,6 +561,30 @@ function parseAccountId({ accountId }: { accountId: string }): {
   usedPath: string | undefined;
   idSuffix: string | undefined;
 } {
+  const botWalletId = extractBotWalletIdPrefix(accountId);
+  if (botWalletId) {
+    const tail = accountId.startsWith(`${botWalletId}${SEPERATOR}`)
+      ? accountId.slice(botWalletId.length + SEPERATOR.length)
+      : undefined;
+    let usedPath: string | undefined;
+    let idSuffix: string | undefined;
+
+    if (tail) {
+      const nextSeparatorIndex = tail.indexOf(SEPERATOR);
+      if (nextSeparatorIndex >= 0) {
+        usedPath = tail.slice(0, nextSeparatorIndex);
+        idSuffix = tail.slice(nextSeparatorIndex + SEPERATOR.length);
+      } else {
+        usedPath = tail;
+      }
+    }
+
+    return {
+      walletId: botWalletId,
+      usedPath,
+      idSuffix,
+    };
+  }
   const arr = accountId.split(SEPERATOR);
   return {
     walletId: arr[0],
@@ -522,11 +601,13 @@ function parseIndexedAccountId({
   walletId: string;
   index: number;
 } {
-  const arr = indexedAccountId.split(SEPERATOR);
-  const index = Number(arr[arr.length - 1]);
-  const walletIdArr = arr.slice(0, -1);
+  const lastSeparatorIndex = indexedAccountId.lastIndexOf(SEPERATOR);
+  const walletId = indexedAccountId.slice(0, lastSeparatorIndex);
+  const index = Number(
+    indexedAccountId.slice(lastSeparatorIndex + SEPERATOR.length),
+  );
   return {
-    walletId: walletIdArr.join(''),
+    walletId,
     index,
   };
 }
@@ -1030,6 +1111,13 @@ function buildKeylessWalletId({
   return `${WALLET_TYPE_HD}-keyless-${sharePackSetId}`;
 }
 
+function buildHdWalletHash({ mnemonic }: { mnemonic: string }): string {
+  const text = `${mnemonic}--${HD_WALLET_HASH_SALT}`;
+  return bufferUtils.bytesToHex(
+    appCrypto.hash.sha256Sync(bufferUtils.toBuffer(text, 'utf8')),
+  );
+}
+
 async function buildKeylessWalletIdV2({
   ownerId,
   xfp,
@@ -1070,6 +1158,33 @@ function getKeylessWalletPackSetId({ walletId }: { walletId: string }): string {
   }
   return packSetId;
 }
+
+// ---- Bot Wallet ID utilities ----
+
+function buildBotWalletId({
+  parentKeylessWalletId,
+  index,
+}: {
+  parentKeylessWalletId: string;
+  index: number;
+}): string {
+  return `${BOT_WALLET_ID_PREFIX}${parentKeylessWalletId}--${index}`;
+}
+
+function isBotWallet({
+  walletId,
+}: {
+  walletId: string | undefined | null;
+}): boolean {
+  return Boolean(walletId && walletId.startsWith(BOT_WALLET_ID_PREFIX));
+}
+
+function isBotAccount({ accountId }: { accountId: string }): boolean {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isBotWallet({ walletId });
+}
+
+// ---- End Bot Wallet ID utilities ----
 
 function buildKeylessDevicePackKey({
   packSetId,
@@ -1179,6 +1294,7 @@ export default {
   buildKeylessRefreshTokenKey,
   buildKeylessTokenKey,
   buildKeylessWalletId,
+  buildHdWalletHash,
   buildKeylessWalletIdV2,
   buildAccountValueKey,
   parseAccountValueKey,
@@ -1198,8 +1314,13 @@ export default {
   buildExternalAccountId,
   buildAllNetworkIndexedAccountIdFromAccountId,
 
+  hasNoUsableWallet,
   isKeylessWallet,
   isKeylessAccount,
+  isBotWallet,
+  isBotAccount,
+  buildBotWalletId,
+  parseBotWalletId,
   hashKeylessSocialUserId,
   isHdWallet,
   isQrWallet,
@@ -1222,7 +1343,6 @@ export default {
   isAllNetworkMockAddress,
   isAccountCompatibleWithNetwork,
   isOthersWallet,
-  hasNoUsableWallet,
   isOthersAccount,
   isUrlAccountFn,
   isTonMnemonicCredentialId,

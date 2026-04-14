@@ -101,6 +101,19 @@ const QuickSelectListItem = memo(
     // Use name if available, otherwise show truncated address as primary
     const displayName =
       item.name || accountUtils.shortenAddress({ address: item.address });
+    const showAddr = item.displayAddress ?? item.address;
+    const secondary = showAddr ? (
+      <MatchSizeableText size="$bodyMd" color="$textSubdued">
+        {item.memo || item.note
+          ? `${showAddr} · ${accountUtils.shortenAddress({
+              address: item.memo || item.note,
+              leadingLength: 6,
+              trailingLength: 4,
+            })}`
+          : showAddr}
+      </MatchSizeableText>
+    ) : undefined;
+
     return (
       <QuickSelectListItemFrame
         address={item.address}
@@ -126,21 +139,7 @@ const QuickSelectListItem = memo(
             ) : null}
           </XStack>
         }
-        secondary={(() => {
-          const showAddr = item.displayAddress ?? item.address;
-          if (!showAddr) return undefined;
-          return (
-            <MatchSizeableText size="$bodyMd" color="$textSubdued">
-              {item.memo || item.note
-                ? `${showAddr} · ${accountUtils.shortenAddress({
-                    address: item.memo || item.note,
-                    leadingLength: 6,
-                    trailingLength: 4,
-                  })}`
-                : showAddr}
-            </MatchSizeableText>
-          );
-        })()}
+        secondary={secondary}
       />
     );
   },

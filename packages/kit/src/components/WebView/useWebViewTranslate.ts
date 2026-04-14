@@ -61,6 +61,21 @@ async function translateTexts(
   return result?.translations ?? texts;
 }
 
+function sendTranslationResponse(
+  tabId: string,
+  requestId: string,
+  translations: string[],
+  sessionId?: string,
+) {
+  const responseScript = createMessageInjectedScript({
+    type: TRANSLATE_RESPONSE_TYPE,
+    id: requestId,
+    translations,
+    sessionId,
+  });
+  injectScript(tabId, responseScript);
+}
+
 function handleTranslateRequest(
   tabId: string,
   data: ITranslateRequest,
@@ -89,21 +104,6 @@ let sessionCounter = 0;
 function generateSessionId(): string {
   sessionCounter += 1;
   return `s${Date.now().toString(36)}${sessionCounter.toString(36)}`;
-}
-
-function sendTranslationResponse(
-  tabId: string,
-  requestId: string,
-  translations: string[],
-  sessionId?: string,
-) {
-  const responseScript = createMessageInjectedScript({
-    type: TRANSLATE_RESPONSE_TYPE,
-    id: requestId,
-    translations,
-    sessionId,
-  });
-  injectScript(tabId, responseScript);
 }
 
 export function useWebViewTranslate(

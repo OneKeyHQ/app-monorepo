@@ -10,10 +10,12 @@ import {
   SizableText,
   Stack,
   Tooltip,
+  XStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { getBotWalletNameBadges } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -21,6 +23,7 @@ import {
   useAccountSelectorStatusAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { BOT_WALLET_STATUS_DEACTIVATED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -51,11 +54,13 @@ function WalletListItemBaseView({
   onLongPress,
   avatarView,
   name,
+  nameMetaView,
   ...rest
 }: ComponentProps<typeof Stack> & {
   selected: boolean;
   avatarView: React.ReactNode;
   name: string | undefined;
+  nameMetaView?: React.ReactNode;
 }) {
   const media = useMedia();
 
@@ -105,6 +110,7 @@ function WalletListItemBaseView({
       >
         {name}
       </SizableText>
+      {nameMetaView}
     </Stack>
   );
 
@@ -196,6 +202,7 @@ export function WalletListItem({
   ...rest
 }: IWalletListItemProps) {
   const isKeylessWallet = wallet?.isKeyless;
+  const isBotWalletItem = accountUtils.isBotWallet({ walletId: wallet?.id });
 
   // Determine wallet avatar status
   const getWalletStatus = (): IWalletAvatarProps['status'] => {
@@ -208,6 +215,9 @@ export function WalletListItem({
     wallet,
     status: getWalletStatus(),
     badge,
+    bottomRightBadgeView: isBotWalletItem ? (
+      <Icon name="BotIllus" size="$3.5" />
+    ) : undefined,
     firmwareTypeBadge: wallet?.firmwareTypeAtCreated,
   };
   const [accountSelectorStatus] = useAccountSelectorStatusAtom();
@@ -228,8 +238,13 @@ export function WalletListItem({
     onLongPress = () => undefined;
   }
   const hiddenWallets = wallet?.hiddenWallets;
+  const botWallets = wallet?.botWallets;
   const isHwOrQrWallet = accountUtils.isHwOrQrWallet({ walletId: wallet?.id });
   const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
+  const botNameBadges = getBotWalletNameBadges({
+    isBotWallet: isBotWalletItem,
+    isBotWalletDeactivated: wallet?.botStatus === BOT_WALLET_STATUS_DEACTIVATED,
+  });
   const [settings, setSettings] = useSettingsPersistAtom();
 
   useEffect(() => {
@@ -260,18 +275,63 @@ export function WalletListItem({
         walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null
       }
       name={i18nWalletName}
+      nameMetaView={
+        botNameBadges.length ? (
+          <XStack
+            mt="$1"
+            gap="$1"
+            justifyContent="center"
+            flexWrap="wrap"
+            width="100%"
+          >
+            {botNameBadges.map((badgeItem) => (
+              <Stack
+                key={badgeItem.key}
+                px="$1.5"
+                py="$0.5"
+                borderRadius="$1"
+                backgroundColor={
+                  badgeItem.tone === 'caution'
+                    ? '$bgCautionSubdued'
+                    : '$bgSubdued'
+                }
+              >
+                <SizableText
+                  size="$bodyXs"
+                  color={
+                    badgeItem.tone === 'caution'
+                      ? '$textCaution'
+                      : '$textSubdued'
+                  }
+                >
+                  {badgeItem.label}
+                </SizableText>
+              </Stack>
+            ))}
+          </XStack>
+        ) : null
+      }
       {...rest}
     />
   );
 
-  if (isHwOrQrWallet && !isHiddenWallet) {
-    const shouldShowCreateHiddenWalletButton =
-      shouldShowCreateHiddenWalletButtonFn?.({
-        wallet,
-      });
+  const shouldShowCreateHiddenWalletButton =
+    shouldShowCreateHiddenWalletButtonFn?.({
+      wallet,
+    });
+  let childWallets: IAccountSelectorWalletInfo[] = [];
+  if (isHwOrQrWallet) {
+    childWallets = hiddenWallets ?? [];
+  } else if (isKeylessWallet) {
+    childWallets = botWallets ?? [];
+  }
+  const shouldRenderGroupedWallets =
+    !isHiddenWallet &&
+    (childWallets.length > 0 || shouldShowCreateHiddenWalletButton);
 
+  if (shouldRenderGroupedWallets) {
     const shouldShowBorder =
-      hiddenWallets?.length || shouldShowCreateHiddenWalletButton;
+      childWallets.length > 0 || shouldShowCreateHiddenWalletButton;
 
     return (
       <Stack
@@ -283,21 +343,23 @@ export function WalletListItem({
         bg="$bgSubdued"
       >
         {content}
-        {(hiddenWallets || []).map((hiddenWallet, index) => (
+        {childWallets.map((childWallet, index) => (
           <WalletListItem
             key={index}
-            wallet={hiddenWallet}
+            wallet={childWallet}
             focusedWallet={focusedWallet}
             onWalletPress={onWalletPress}
             onWalletLongPress={onWalletLongPress}
             // Hidden wallets should never show connection status
             isConnected={false}
             {...(media.md && {
-              badge: Number(index) + 1,
+              badge: isHwOrQrWallet ? Number(index) + 1 : undefined,
             })}
           />
         ))}
-        {!isHiddenWallet && shouldShowCreateHiddenWalletButton ? (
+        {isHwOrQrWallet &&
+        !isHiddenWallet &&
+        shouldShowCreateHiddenWalletButton ? (
           <HiddenWalletAddButton wallet={wallet} isEditMode={isEditMode} />
         ) : null}
       </Stack>
