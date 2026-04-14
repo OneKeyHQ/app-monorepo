@@ -205,7 +205,11 @@ export function SwapIncognitoRecipientInput({
               opacity={0}
               pointerEvents="none"
             >
-              <RNText onLayout={onNativeMeasureLayout} style={nativeTextStyle}>
+              <RNText
+                onLayout={onNativeMeasureLayout}
+                style={nativeTextStyle}
+                textBreakStrategy="simple"
+              >
                 {inputText || ' '}
               </RNText>
             </Stack>
