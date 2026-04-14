@@ -2,6 +2,12 @@
  * Layer 1 unit tests: eager async imports must bypass Metro's asyncRequire
  * (and therefore __loadBundleAsync) entirely, and instead resolve
  * synchronously from the already-loaded module registry.
+ *
+ * The injected `syncRequire` must match Metro's asyncRequire return shape
+ * — i.e. `require.importAll(moduleID)`, which wraps CJS/JSON exports as
+ * `{...keys, default: exports}`.  Tests below model that contract with a
+ * mocked syncRequire that returns a namespace-shaped object so any
+ * downstream consumer expecting `.default` keeps working.
  */
 
 const { createWrappedAsyncRequire } = require('../asyncRequireCore');
@@ -77,5 +83,25 @@ describe('asyncRequireTpl.createWrappedAsyncRequire', () => {
     });
     const wrapped = createWrappedAsyncRequire(deps);
     await expect(wrapped(1, [])).rejects.toThrow('module not installed');
+  });
+
+  it('returns whatever syncRequire returns verbatim (importAll namespace shape)', async () => {
+    // Regression guard: the eager fast-path must preserve Metro's
+    // asyncRequire contract, which resolves with `require.importAll(id)`.
+    // For non-ESModule exports (CJS, JSON) importAll returns a namespace
+    // object that includes a `default` key pointing at the raw exports.
+    // If we strip that `default`, consumers like AppIntlProvider break
+    // silently and block the whole React tree from rendering.
+    const rawJson = { key1: 'value1', key2: 'value2' };
+    const namespace = { ...rawJson, default: rawJson };
+    const deps = makeDeps();
+    deps.syncRequire = jest.fn(() => namespace);
+    const wrapped = createWrappedAsyncRequire(deps);
+
+    const result = await wrapped(777, ['/pkg/x.json']);
+
+    expect(result).toBe(namespace);
+    expect(result).toHaveProperty('default', rawJson);
+    expect(result.key1).toBe('value1');
   });
 });

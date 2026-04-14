@@ -45,8 +45,13 @@ const wrapAsyncRequire = createWrappedAsyncRequire({
   chunkModuleIdToHashMap,
   requireEnsure,
   asyncRequire,
+  // Match Metro's asyncRequire return shape exactly — it resolves with
+  // `require.importAll(moduleID)`, which wraps non-ESModule (CJS, JSON)
+  // exports as `{...keys, default: exports}`. Using plain `require` here
+  // drops that `default` key and breaks any consumer of a dynamically
+  // imported JSON/CJS module (e.g. locale JSON in AppIntlProvider).
   // eslint-disable-next-line no-undef
-  syncRequire: (id) => require(id),
+  syncRequire: (id) => require.importAll(id),
 });
 
 module.exports = wrapAsyncRequire;
