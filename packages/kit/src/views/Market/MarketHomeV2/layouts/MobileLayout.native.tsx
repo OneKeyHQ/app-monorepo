@@ -77,6 +77,7 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
 }
 
 const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 85;
+const MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT = 120;
 
 function MarketHomeTabBar({
   watchlistTabName,
@@ -95,8 +96,16 @@ function MarketHomeTabBar({
       return undefined;
     }
 
+    if (showWatchlistSubHeader && ctx.isWatchlistEmpty) {
+      return 0;
+    }
+
+    if (showSpotSubHeader) {
+      return MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT;
+    }
+
     return MARKET_ANDROID_SECONDARY_HEADER_HEIGHT;
-  }, []);
+  }, [ctx.isWatchlistEmpty, showSpotSubHeader, showWatchlistSubHeader]);
 
   const renderWatchlistSubHeaderContent = useCallback(
     () => (
