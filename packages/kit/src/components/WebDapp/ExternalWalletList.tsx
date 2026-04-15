@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import semver from 'semver';
 
 import {
   Badge,
   Button,
   Dialog,
+  Divider,
   Icon,
   Image,
   SizableText,
@@ -20,6 +22,7 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import {
   EKeylessWebPrivateRpcMethod,
   type IKeylessWebOpenSidePanelPayload,
+  KEYLESS_WEB_LEGACY_EXTENSION_VERSION_MAX,
   KEYLESS_WEB_OPEN_SIDE_PANEL_EVENT,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -44,6 +47,19 @@ const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
 const KEYLESS_STORE_URL_TARGET = 'onekey-extension-install-store-target';
 const KEYLESS_PROVIDER_LOADING_DURATION_MS = 2000;
 let keylessStoreWindowRef: Window | null = null;
+
+const KEYLESS_SOCIAL_PROVIDERS = [
+  {
+    provider: EOAuthSocialLoginProvider.Google,
+    iconName: 'GoogleIllus',
+    platformLabel: 'Google',
+  },
+  {
+    provider: EOAuthSocialLoginProvider.Apple,
+    iconName: 'AppleBrand',
+    platformLabel: 'Apple',
+  },
+] as const;
 
 type IOneKeyPrivateProvider = {
   request?: <T = unknown>(args: {
@@ -119,7 +135,8 @@ function WalletItemView({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         py="$3"
-        px="$5"
+        pl="$3"
+        pr="$5"
         cursor="pointer"
         hoverStyle={{
           bg: '$bgStrong',
@@ -196,7 +213,6 @@ function WalletItem({
   );
 }
 
-// OneKey wallet item - always shown first with Recommended badge
 function OneKeyWalletItem({ networkType }: { networkType?: string }) {
   const intl = useIntl();
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
@@ -221,7 +237,8 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         py="$3"
-        px="$5"
+        pl="$3"
+        pr="$5"
         cursor="pointer"
         hoverStyle={{
           bg: '$bgStrong',
@@ -291,6 +308,29 @@ function KeylessProviderButtons() {
     undefined,
   );
   const { startKeylessWebFlow } = useKeylessWebFlow();
+  const { result: isLegacyExtension } = usePromiseResult(
+    async () => {
+      if (!platformEnv.isWebDappMode || !isOneKeyInstalled) {
+        return false;
+      }
+      const response = await getOneKeyPrivateProvider()
+        ?.request?.<{ walletInfo?: { version?: string } }>({
+          method: 'wallet_getConnectWalletInfo',
+        })
+        .catch(() => undefined);
+      const version = response?.walletInfo?.version;
+      if (!version) {
+        return false;
+      }
+      try {
+        return semver.lte(version, KEYLESS_WEB_LEGACY_EXTENSION_VERSION_MAX);
+      } catch {
+        return false;
+      }
+    },
+    [isOneKeyInstalled],
+    { initResult: false },
+  );
 
   const clearProviderLoading = useCallback(
     (provider?: EOAuthSocialLoginProvider) => {
@@ -330,7 +370,9 @@ function KeylessProviderButtons() {
   const showInstallOneKeyDialog = useCallback(
     (provider: EOAuthSocialLoginProvider) => {
       Dialog.show({
-        title: '安装 OneKey 插件后继续',
+        title: intl.formatMessage({
+          id: ETranslations.install_extension_first,
+        }),
         description: (
           <FormatHyperlinkText
             size="$bodyMd"
@@ -346,9 +388,9 @@ function KeylessProviderButtons() {
               globalThis.location.reload();
             }}
           >
-            {
-              '如果你已经安装插件，请<action>reload<underline>点击此处</underline></action>刷新页面'
-            }
+            {intl.formatMessage({
+              id: ETranslations.install_extension_first_desc,
+            })}
           </FormatHyperlinkText>
         ),
         onConfirmText: intl.formatMessage({
@@ -388,8 +430,6 @@ function KeylessProviderButtons() {
       if (!isOneKeyInstalled) {
         showInstallOneKeyDialog(provider);
       } else {
-        console.log('startKeylessWebFlow: OneKey Extension is installed');
-
         const oneKeyPrivateProvider = getOneKeyPrivateProvider();
         const keylessStatus = await oneKeyPrivateProvider
           ?.request?.<{
@@ -447,89 +487,76 @@ function KeylessProviderButtons() {
     return null;
   }
 
+  if (isLegacyExtension) {
+    return null;
+  }
+
   return (
-    <Stack px="$1.5" pb="$3" alignItems="center">
-      <YStack w="100%" maxWidth={520} gap="$2">
-        <Button
-          bg="$gray3"
-          hoverStyle={{ bg: '$gray4' }}
-          pressStyle={{ bg: '$gray5' }}
-          size="large"
-          alignSelf="stretch"
-          childrenAsText={false}
-          cursor={loadingProvider ? 'not-allowed' : 'pointer'}
-          disabled={!!loadingProvider}
-          onPress={
-            loadingProvider
-              ? undefined
-              : () => {
-                  void handleKeylessProviderPress(
-                    EOAuthSocialLoginProvider.Google,
-                  );
-                }
-          }
+    <YStack gap="$2">
+      <XStack gap="$2">
+        {KEYLESS_SOCIAL_PROVIDERS.map(
+          ({ provider, iconName, platformLabel }) => (
+            <Button
+              key={provider}
+              flex={1}
+              bg="$gray3"
+              hoverStyle={{ bg: '$gray4' }}
+              pressStyle={{ bg: '$gray5' }}
+              size="large"
+              childrenAsText={false}
+              cursor={loadingProvider ? 'not-allowed' : 'pointer'}
+              disabled={!!loadingProvider}
+              onPress={
+                loadingProvider
+                  ? undefined
+                  : () => {
+                      void handleKeylessProviderPress(provider);
+                    }
+              }
+            >
+              <XStack gap="$2" alignItems="center">
+                <Stack
+                  w="$5"
+                  h="$5"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  {loadingProvider === provider ? (
+                    <Spinner size="small" />
+                  ) : (
+                    <Icon name={iconName} size="$5" />
+                  )}
+                </Stack>
+                <SizableText size="$bodyLgMedium">
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.continue_with_social_platform,
+                    },
+                    { platform: platformLabel },
+                  )}
+                </SizableText>
+              </XStack>
+            </Button>
+          ),
+        )}
+      </XStack>
+      <XStack gap="$2" py="$4" alignItems="center" w="100%">
+        <Divider flex={1} borderColor="$borderDisabled" />
+        <SizableText
+          size="$bodySmMedium"
+          color="$textDisabled"
+          userSelect="none"
         >
-          <XStack gap="$2" alignItems="center">
-            <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
-              {loadingProvider === EOAuthSocialLoginProvider.Google ? (
-                <Spinner size="small" />
-              ) : (
-                <Icon name="GoogleIllus" size="$5" />
-              )}
-            </Stack>
-            <SizableText size="$bodyLgMedium">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.continue_with_social_platform,
-                },
-                { platform: 'Google' },
-              )}
-            </SizableText>
-          </XStack>
-        </Button>
-        <Button
-          bg="$gray3"
-          hoverStyle={{ bg: '$gray4' }}
-          pressStyle={{ bg: '$gray5' }}
-          size="large"
-          alignSelf="stretch"
-          childrenAsText={false}
-          cursor={loadingProvider ? 'not-allowed' : 'pointer'}
-          disabled={!!loadingProvider}
-          onPress={
-            loadingProvider
-              ? undefined
-              : () => {
-                  void handleKeylessProviderPress(
-                    EOAuthSocialLoginProvider.Apple,
-                  );
-                }
-          }
-        >
-          <XStack gap="$2" alignItems="center">
-            <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
-              {loadingProvider === EOAuthSocialLoginProvider.Apple ? (
-                <Spinner size="small" />
-              ) : (
-                <Icon name="AppleBrand" size="$5" />
-              )}
-            </Stack>
-            <SizableText size="$bodyLgMedium">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.continue_with_social_platform,
-                },
-                { platform: 'Apple' },
-              )}
-            </SizableText>
-          </XStack>
-        </Button>
-      </YStack>
-    </Stack>
+          {intl.formatMessage({
+            id: ETranslations.global_or,
+          })}
+        </SizableText>
+        <Divider flex={1} borderColor="$borderDisabled" />
+      </XStack>
+    </YStack>
   );
 }
 
-// Reusable WalletConnect component
 function WalletConnectItem({ impl }: { impl?: string }) {
   return (
     <WalletItem
@@ -616,15 +643,12 @@ function ExternalWalletList({ impl }: { impl?: string }) {
     ));
 
   return (
-    <Stack px="$5" py="$4">
+    <Stack px="$5" pt="$2" pb="$4">
       <KeylessProviderButtons />
       <XStack flexWrap="wrap" mx="$-1.5">
-        {/* OneKey - always first with Recommended badge */}
         <OneKeyWalletItem networkType={networkLabel} />
-        {/* detected wallets - filter out injected wallets and OneKey wallets */}
         {walletItems}
         {fallbackWalletItems}
-        {/* WalletConnect - put at the end */}
         <WalletConnectItem impl={impl} />
       </XStack>
     </Stack>
