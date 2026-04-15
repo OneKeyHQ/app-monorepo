@@ -41,4 +41,14 @@ function getCategoryConfig(category: string) {
   };
 }
 
-export { CATEGORY_CONFIG, DEFAULT_CATEGORY_CONFIG, getCategoryConfig };
+function getCategoryLabel(category: string) {
+  return getCategoryConfig(category).label;
+}
+
+export {
+  CATEGORY_CONFIG,
+  DEFAULT_CATEGORY_CONFIG,
+  formatCategoryLabel,
+  getCategoryConfig,
+  getCategoryLabel,
+};
