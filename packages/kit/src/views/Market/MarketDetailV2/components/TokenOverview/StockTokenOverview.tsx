@@ -19,9 +19,9 @@ export function StockTokenOverview() {
 
   return (
     <Stack gap="$2" px="$5" pt="$5" pb="$3">
-      <XStack alignItems="center" gap="$3" mb="$3">
+      <XStack alignItems="flex-start" gap="$3" mb="$3">
         <Token size="lg" tokenImageUri={tokenDetail.logoUrl} />
-        <Stack flex={1}>
+        <Stack flexShrink={1}>
           <SizableText size="$headingLg" color="$text" fontWeight="600">
             {tokenDetail.symbol}
           </SizableText>
