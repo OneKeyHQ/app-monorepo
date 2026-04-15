@@ -21,7 +21,6 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   type IProtocolPositionSection,
-  buildProtocolLogoUris,
   buildProtocolPositionItems,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -150,10 +149,6 @@ function DeFiProtocolDetails() {
     () => buildProtocolPositionItems(protocol),
     [protocol],
   );
-  const protocolLogoUris = useMemo(
-    () => buildProtocolLogoUris(protocolInfo),
-    [protocolInfo],
-  );
 
   return (
     <Page scrollEnabled>
@@ -168,7 +163,12 @@ function DeFiProtocolDetails() {
           p="$5"
         >
           <XStack alignItems="center" gap="$3" flex={1} minWidth={0}>
-            <Token size="xl" tokenImageUris={protocolLogoUris} isNFT />
+            <Token
+              size="xl"
+              tokenImageUri={protocolInfo.protocolLogo}
+              showNetworkIcon
+              networkId={protocol.networkId}
+            />
             <YStack flex={1} minWidth={0}>
               <SizableText size="$heading2xl" numberOfLines={1}>
                 {protocolInfo.protocolName}
