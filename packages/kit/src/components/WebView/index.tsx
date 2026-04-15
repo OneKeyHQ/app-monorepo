@@ -94,6 +94,18 @@ const WebView: FC<IWebViewProps> = ({
 }) => {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
+      // eslint-disable-next-line no-console
+      console.log('[Bitrefill:DEBUG][WebView.receiveHandler] got payload', {
+        origin: payload?.origin,
+        scope: payload?.scope,
+        type: payload?.type,
+        internal: payload?.internal,
+        hasCustomHandler: Boolean(customReceiveHandler),
+        dataPreview:
+          typeof payload?.data === 'string'
+            ? payload.data.slice(0, 200)
+            : payload?.data,
+      });
       await customReceiveHandler?.(payload, hostBridge);
 
       const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
