@@ -60,6 +60,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -475,6 +476,51 @@ function SendDataInputContainer() {
             isNFT: false,
             originalRecipient: toResolved,
             isToContract: false,
+          },
+          isInternalTransfer: true,
+        });
+        return;
+      }
+
+      // ERC-721 NFTs are 1-of-1 so there is nothing to enter on the amount
+      // page — skip straight to confirm with a fixed quantity of 1 (OK-53248).
+      const nftItem = nfts?.[0];
+      if (
+        isNFT &&
+        nftItem &&
+        nftItem.collectionType !== ENFTType.ERC1155 &&
+        account
+      ) {
+        const transfersInfo: ITransferInfo[] = [
+          {
+            from: account.address,
+            to: toResolved,
+            amount: '1',
+            nftInfo: {
+              nftId: nftItem.itemId,
+              nftAddress: nftItem.collectionAddress,
+              nftType: nftItem.collectionType,
+            },
+            memo: nextMemoValue || undefined,
+            paymentId: nextPaymentIdValue || undefined,
+            note: nextNoteValue || undefined,
+          },
+        ];
+        await signatureConfirm.navigationToTxConfirm({
+          transfersInfo,
+          sameModal: true,
+          onSuccess,
+          onFail,
+          onCancel,
+          transferPayload: {
+            amountToSend: '1',
+            isMaxSend: false,
+            isNFT: true,
+            originalRecipient: toResolved,
+            isToContract: !!toVal?.isContract,
+            memo: nextMemoValue || undefined,
+            paymentId: nextPaymentIdValue || undefined,
+            note: nextNoteValue || undefined,
           },
           isInternalTransfer: true,
         });

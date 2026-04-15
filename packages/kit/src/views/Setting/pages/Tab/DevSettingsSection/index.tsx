@@ -1598,6 +1598,15 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      <SectionFieldItem
+                        icon="WalletOutline"
+                        name="enableBotWalletFeature"
+                        title="启用 BotWallet 功能"
+                        subtitle="开启后，Keyless 钱包更多菜单显示 BotWallets 管理入口"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
                       <SectionPressItem
                         icon="ServerOutline"
                         title="Add ServerNetwork Test Data"

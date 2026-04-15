@@ -30,53 +30,60 @@ const LeverageBadge = memo(({ leverage }: { leverage: number }) => (
 ));
 LeverageBadge.displayName = 'LeverageBadge';
 
-const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => {
-  const normalizedSubtitle = truncatePerpsSubtitle(subtitle);
-  const isTruncated = normalizedSubtitle !== subtitle;
+const SubtitleBadge = memo(
+  ({ subtitle, noTruncate }: { subtitle: string; noTruncate?: boolean }) => {
+    const normalizedSubtitle = truncatePerpsSubtitle(subtitle);
+    const isTruncated = normalizedSubtitle !== subtitle;
+    const displayText = noTruncate ? subtitle : normalizedSubtitle;
 
-  const badgeElement = useMemo(
-    () => (
-      <XStack
-        borderRadius="$1"
-        bg="$bgStrong"
-        justifyContent="center"
-        alignItems="center"
-        px="$1.5"
-        minWidth={0}
-        maxWidth="$24"
-        flexShrink={1}
-        overflow="hidden"
-      >
-        <SizableText
-          fontSize={10}
-          color="$textSubdued"
-          lineHeight={16}
-          numberOfLines={1}
-          ellipsizeMode="tail"
+    const badgeElement = useMemo(
+      () => (
+        <XStack
+          borderRadius="$1"
+          bg="$bgStrong"
+          justifyContent="center"
+          alignItems="center"
+          px="$1.5"
+          minWidth={0}
+          {...(!noTruncate && {
+            maxWidth: '$24',
+            overflow: 'hidden',
+          })}
+          flexShrink={1}
         >
-          {normalizedSubtitle}
-        </SizableText>
-      </XStack>
-    ),
-    [normalizedSubtitle],
-  );
+          <SizableText
+            fontSize={10}
+            color="$textSubdued"
+            lineHeight={16}
+            {...(!noTruncate && {
+              numberOfLines: 1,
+              ellipsizeMode: 'tail',
+            })}
+          >
+            {displayText}
+          </SizableText>
+        </XStack>
+      ),
+      [displayText, noTruncate],
+    );
 
-  if (platformEnv.isNative || !isTruncated) {
-    return badgeElement;
-  }
+    if (platformEnv.isNative || !isTruncated || noTruncate) {
+      return badgeElement;
+    }
 
-  return (
-    <Tooltip
-      renderTrigger={
-        <Stack minWidth={0} flexShrink={1}>
-          {badgeElement}
-        </Stack>
-      }
-      renderContent={subtitle}
-      placement="top"
-    />
-  );
-});
+    return (
+      <Tooltip
+        renderTrigger={
+          <Stack minWidth={0} flexShrink={1}>
+            {badgeElement}
+          </Stack>
+        }
+        renderContent={subtitle}
+        placement="top"
+      />
+    );
+  },
+);
 SubtitleBadge.displayName = 'SubtitleBadge';
 
 const StockIsOpenBadge = memo(({ stock }: { stock: IMarketStockInfo }) => {
