@@ -296,16 +296,17 @@ export default class ServiceSwap extends ServiceBase {
     if (!isAllNetworkFetchAccountTokens) {
       await this.cancelFetchTokenList();
     }
+    const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
     const params: IFetchTokenListParams = {
       protocol:
         protocol === ESwapTabSwitchType.LIMIT
           ? EProtocolOfExchange.LIMIT
           : EProtocolOfExchange.SWAP,
-      networkId: networkId ?? getNetworkIdsMap().onekeyall,
+      networkId: targetNetworkId,
       keywords,
       limit,
       accountAddress: !networkUtils.isAllNetwork({
-        networkId: networkId ?? getNetworkIdsMap().onekeyall,
+        networkId: targetNetworkId,
       })
         ? accountAddress
         : undefined,
@@ -324,12 +325,17 @@ export default class ServiceSwap extends ServiceBase {
             accountId,
             networkId,
           });
-        if (accountAddressForAccountId === accountAddress) {
+        if (equalsIgnoreCase(accountAddressForAccountId, accountAddress)) {
           params.accountXpub =
             await this.backgroundApi.serviceAccount.getAccountXpub({
               accountId,
               networkId,
             });
+        } else {
+          // Drop stale addresses during network-switch races. The token list
+          // endpoint treats accountAddress as optional and should not receive
+          // another network's address.
+          params.accountAddress = undefined;
         }
       } catch (e) {
         console.error(e);

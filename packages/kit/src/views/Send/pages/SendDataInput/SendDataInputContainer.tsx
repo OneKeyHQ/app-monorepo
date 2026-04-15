@@ -528,6 +528,7 @@ function SendDataInputContainer() {
     accountId: currentAccount.accountId,
     numericOnlyMemo,
     supportMemoValidation: vaultSettings?.supportMemoValidation,
+    tokenAddress: tokenInfo?.address,
   });
 
   const renderMemoForm = useCallback(() => {
