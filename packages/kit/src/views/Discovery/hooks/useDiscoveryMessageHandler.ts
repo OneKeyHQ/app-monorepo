@@ -79,6 +79,8 @@ export function useDiscoveryMessageHandler() {
           });
         }
 
+        if (!isMountedRef.current) return;
+
         const amount = await parseOnChainAmount(result, selectedToken);
 
         if (!isMountedRef.current) return;
@@ -95,7 +97,10 @@ export function useDiscoveryMessageHandler() {
             amount,
           },
         });
-      } catch (_error) {
+      } catch (error) {
+        // TODO(logging): replace with debugLogger once a bitrefill log scope is added
+        // eslint-disable-next-line no-console
+        console.error('[Bitrefill] payment_intent handler failed:', error);
         // TODO(i18n): replace with ETranslations.bitrefill_payment_failed once the key lands upstream
         Toast.error({
           title: 'Unable to open payment. Please retry from Bitrefill.',

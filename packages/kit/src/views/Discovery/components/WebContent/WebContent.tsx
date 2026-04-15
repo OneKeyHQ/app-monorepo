@@ -51,7 +51,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id],
+    [id, customReceiveHandler],
   );
 
   return webview;
