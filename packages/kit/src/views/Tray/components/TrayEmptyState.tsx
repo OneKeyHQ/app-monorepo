@@ -1,4 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import { SizableText, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IEmptyStateType =
   | 'loading'
@@ -7,35 +10,34 @@ type IEmptyStateType =
   | 'noContent'
   | 'offline';
 
-// TODO: i18n — replace with ETranslations keys when available
-const MESSAGES: Record<
+const STATE_CONFIG: Record<
   IEmptyStateType,
-  { icon: string; title: string; subtitle: string }
+  { icon: string; title: ETranslations; subtitle: ETranslations }
 > = {
   loading: {
     icon: '⏳',
-    title: 'Loading...',
-    subtitle: 'Connecting to OneKey',
+    title: ETranslations.tray_loading_title,
+    subtitle: ETranslations.tray_loading_desc,
   },
   locked: {
     icon: '🔒',
-    title: 'App is Locked',
-    subtitle: 'Click to unlock OneKey',
+    title: ETranslations.tray_locked_title,
+    subtitle: ETranslations.tray_locked_desc,
   },
   noWallet: {
     icon: '👋',
-    title: 'No Wallet',
-    subtitle: 'Create or import a wallet to get started',
+    title: ETranslations.tray_no_wallet_title,
+    subtitle: ETranslations.tray_no_wallet_desc,
   },
   noContent: {
     icon: '📊',
-    title: 'No Data Yet',
-    subtitle: 'Add tokens to your watchlist to see them here',
+    title: ETranslations.tray_no_content_title,
+    subtitle: ETranslations.tray_no_content_desc,
   },
   offline: {
     icon: '📡',
-    title: 'Network Unavailable',
-    subtitle: 'Showing cached data',
+    title: ETranslations.tray_offline_title,
+    subtitle: ETranslations.tray_offline_desc,
   },
 };
 
@@ -46,7 +48,8 @@ export function TrayEmptyState({
   type: IEmptyStateType;
   onPress?: () => void;
 }) {
-  const message = MESSAGES[type];
+  const intl = useIntl();
+  const config = STATE_CONFIG[type];
   return (
     <Stack
       flex={1}
@@ -58,7 +61,7 @@ export function TrayEmptyState({
       hoverStyle={onPress ? { backgroundColor: '$bgHover' } : undefined}
     >
       <SizableText fontSize={32} marginBottom="$3">
-        {message.icon}
+        {config.icon}
       </SizableText>
       <SizableText
         fontSize="$headingSm"
@@ -66,10 +69,10 @@ export function TrayEmptyState({
         marginBottom="$1.5"
         textAlign="center"
       >
-        {message.title}
+        {intl.formatMessage({ id: config.title })}
       </SizableText>
       <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
-        {message.subtitle}
+        {intl.formatMessage({ id: config.subtitle })}
       </SizableText>
     </Stack>
   );

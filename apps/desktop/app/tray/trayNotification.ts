@@ -2,6 +2,8 @@ import { Notification } from 'electron';
 
 import type { IPendingTx } from '@onekeyhq/shared/src/types/desktop/tray';
 
+import { ElectronTranslations, i18nText } from '../i18n';
+
 let previousPendingTxs: IPendingTx[] = [];
 let notificationClickHandler: ((txId: string) => void) | null = null;
 
@@ -29,7 +31,7 @@ export function diffAndNotify(currentTxs: IPendingTx[]): void {
 
     if (!currentTx && prevTx.status === 'pending') {
       showNotification(
-        'Transaction Confirmed',
+        i18nText(ElectronTranslations.tray_notification_tx_confirmed_title),
         `${prevTx.amount} → ${truncateAddress(prevTx.to)}`,
         prevTx.id,
       );
@@ -41,7 +43,7 @@ export function diffAndNotify(currentTxs: IPendingTx[]): void {
       prevTx.status !== 'failed'
     ) {
       showNotification(
-        'Transaction Failed',
+        i18nText(ElectronTranslations.tray_notification_tx_failed_title),
         `${prevTx.amount} → ${truncateAddress(prevTx.to)}`,
         prevTx.id,
       );

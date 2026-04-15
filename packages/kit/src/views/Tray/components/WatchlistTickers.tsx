@@ -1,11 +1,16 @@
+import { useIntl } from 'react-intl';
+
 import { Image, SizableText, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
 
 function TickerRow({
   ticker,
+  perpsBadgeText,
   onPress,
 }: {
   ticker: ITrayWatchlistItem;
+  perpsBadgeText: string;
   onPress: () => void;
 }) {
   const isPositive = ticker.change24h >= 0;
@@ -58,7 +63,7 @@ function TickerRow({
               marginLeft="$1"
             >
               <SizableText fontSize={10} color="$textInfo">
-                Perps
+                {perpsBadgeText}
               </SizableText>
             </Stack>
           ) : null}
@@ -87,12 +92,16 @@ export function WatchlistTickers({
   tickers: ITrayWatchlistItem[];
   onTickerPress: (ticker: ITrayWatchlistItem) => void;
 }) {
+  const intl = useIntl();
+  const perpsBadgeText = intl.formatMessage({
+    id: ETranslations.tray_perps_badge,
+  });
+
   if (!tickers || tickers.length === 0) {
     return (
       <Stack padding="$4">
         <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
-          {/* TODO: i18n tray.add_favorites */}
-          Add favorites in the app
+          {intl.formatMessage({ id: ETranslations.tray_add_favorites_desc })}
         </SizableText>
       </Stack>
     );
@@ -107,13 +116,13 @@ export function WatchlistTickers({
         paddingTop="$3"
         paddingBottom="$1"
       >
-        {/* TODO: i18n tray.watchlist */}
-        Watchlist
+        {intl.formatMessage({ id: ETranslations.tray_watchlist_title })}
       </SizableText>
       {tickers.map((ticker, idx) => (
         <TickerRow
           key={`${ticker.type}-${ticker.symbol}-${idx}`}
           ticker={ticker}
+          perpsBadgeText={perpsBadgeText}
           onPress={() => onTickerPress(ticker)}
         />
       ))}

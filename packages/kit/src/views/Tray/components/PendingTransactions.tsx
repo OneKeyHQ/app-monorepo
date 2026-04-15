@@ -1,21 +1,28 @@
-import { SizableText, Stack } from '@onekeyhq/components';
-import type { IPendingTx } from '@onekeyhq/shared/src/types/desktop/tray';
+import { useIntl } from 'react-intl';
 
-// TODO: i18n — replace with ETranslations keys when available
-// Keys: tray.tx_send / tray.tx_swap / tray.tx_contract / tray.tx_approve
-const TX_TYPE_LABELS: Record<string, string> = {
-  send: 'Send',
-  swap: 'Swap',
-  contract: 'Contract Call',
-  approve: 'Approve',
+import { SizableText, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPendingTx } from '@onekeyhq/shared/src/types/desktop/tray';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+const TX_TYPE_TRANSLATION_KEY: Record<string, ETranslations> = {
+  send: ETranslations.tray_tx_type_send,
+  swap: ETranslations.tray_tx_type_swap,
+  contract: ETranslations.tray_tx_type_contract_call,
+  approve: ETranslations.tray_tx_type_approve,
 };
 
-function truncateAddress(address: string): string {
-  if (address.length <= 12) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-function TxRow({ tx, onPress }: { tx: IPendingTx; onPress: () => void }) {
+function TxRow({
+  tx,
+  typeLabel,
+  pendingLabel,
+  onPress,
+}: {
+  tx: IPendingTx;
+  typeLabel: string;
+  pendingLabel: string;
+  onPress: () => void;
+}) {
   return (
     <Stack
       flexDirection="row"
@@ -28,10 +35,10 @@ function TxRow({ tx, onPress }: { tx: IPendingTx; onPress: () => void }) {
     >
       <Stack flex={1}>
         <SizableText fontSize="$bodyMd" color="$text">
-          {TX_TYPE_LABELS[tx.type] || tx.type}
+          {typeLabel}
         </SizableText>
         <SizableText fontSize="$bodySm" color="$textSubdued">
-          → {truncateAddress(tx.to)}
+          → {accountUtils.shortenAddress({ address: tx.to })}
         </SizableText>
       </Stack>
       <Stack alignItems="flex-end">
@@ -39,7 +46,7 @@ function TxRow({ tx, onPress }: { tx: IPendingTx; onPress: () => void }) {
           {tx.amount}
         </SizableText>
         <SizableText fontSize="$bodySm" color="$textWarning">
-          {tx.confirmations || 'Pending'}
+          {tx.confirmations || pendingLabel}
         </SizableText>
       </Stack>
     </Stack>
@@ -53,12 +60,18 @@ export function PendingTransactions({
   transactions: IPendingTx[];
   onTxPress: (txId: string) => void;
 }) {
+  const intl = useIntl();
+  const pendingLabel = intl.formatMessage({
+    id: ETranslations.tray_pending_status,
+  });
+
   if (!transactions || transactions.length === 0) {
     return (
       <Stack padding="$4">
         <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
-          {/* TODO: i18n tray.no_pending_transactions */}
-          No pending transactions
+          {intl.formatMessage({
+            id: ETranslations.tray_no_pending_transactions_desc,
+          })}
         </SizableText>
       </Stack>
     );
@@ -76,21 +89,31 @@ export function PendingTransactions({
         paddingTop="$3"
         paddingBottom="$1"
       >
-        {/* TODO: i18n tray.pending_transactions */}
-        Pending Transactions
+        {intl.formatMessage({
+          id: ETranslations.tray_pending_transactions_title,
+        })}
       </SizableText>
-      {displayTxs.map((tx) => (
-        <TxRow key={tx.id} tx={tx} onPress={() => onTxPress(tx.id)} />
-      ))}
+      {displayTxs.map((tx) => {
+        const keyId = TX_TYPE_TRANSLATION_KEY[tx.type];
+        const typeLabel = keyId ? intl.formatMessage({ id: keyId }) : tx.type;
+        return (
+          <TxRow
+            key={tx.id}
+            tx={tx}
+            typeLabel={typeLabel}
+            pendingLabel={pendingLabel}
+            onPress={() => onTxPress(tx.id)}
+          />
+        );
+      })}
       {hasMore ? (
         <Stack padding="$3" onPress={() => onTxPress('')} cursor="pointer">
-          {/* TODO: i18n tray.view_all */}
           <SizableText
             fontSize="$bodySm"
             color="$textInteractive"
             textAlign="center"
           >
-            View all →
+            {intl.formatMessage({ id: ETranslations.tray_view_all })} →
           </SizableText>
         </Stack>
       ) : null}
