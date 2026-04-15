@@ -73,6 +73,7 @@ export const extractStakeKeyHashFromBaseAddressWithWasm = async (
     // witness. Script stakes are controlled by a script and we can't
     // compare against a single hash.
     if (stakeCred.kind() !== Wasm.CredKind.Key) return null;
+    // spell-checker:disable-next-line
     const stakeKey = stakeCred.to_keyhash();
     if (!stakeKey) return null;
     return stakeKey.to_hex();
