@@ -313,11 +313,11 @@ function KeylessProviderButtons() {
       if (!platformEnv.isWebDappMode || !isOneKeyInstalled) {
         return false;
       }
-      const response = await getOneKeyPrivateProvider()?.request?.<{
-        walletInfo?: { version?: string };
-      }>({
-        method: 'wallet_getConnectWalletInfo',
-      });
+      const response = await getOneKeyPrivateProvider()
+        ?.request?.<{ walletInfo?: { version?: string } }>({
+          method: 'wallet_getConnectWalletInfo',
+        })
+        .catch(() => undefined);
       const version = response?.walletInfo?.version;
       if (!version) {
         return false;
