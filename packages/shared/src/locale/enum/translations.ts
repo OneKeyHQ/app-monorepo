@@ -2219,6 +2219,7 @@ export enum ETranslations {
   history_switch_account_dialog_title = 'history.switch_account_dialog_title',
   homescreen_format_supported = 'homescreen.format_supported',
   hw_banner_description = 'hw_banner_description',
+  hypertracker_third_party_public_data_reference_only__desc = 'hypertracker_third_party_public_data_reference_only__desc',
   i_have_done_these_steps = 'i_have_done_these_steps',
   id_delete_double_check = 'id.delete_double_check',
   id_delete_onekey_id = 'id.delete_onekey_id',

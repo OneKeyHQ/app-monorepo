@@ -390,6 +390,7 @@ export interface IAppEventBusPayload {
     subType: ESubscriptionType;
     data: unknown;
   };
+  [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';
