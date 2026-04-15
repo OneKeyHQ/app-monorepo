@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
+import { ONEKEY_EIP6963_RDNS } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -61,7 +61,7 @@ function isOneKeyExtensionConnection(connectionInfo: IExternalConnectionInfo) {
   const injectedName = connectionInfo.evmInjected?.name?.toLowerCase() ?? '';
 
   return (
-    eip6963Rdns.includes(ANDROID_PACKAGE_NAME) ||
+    eip6963Rdns === ONEKEY_EIP6963_RDNS ||
     eip6963Name === 'onekey wallet' ||
     injectedName === 'onekey wallet'
   );

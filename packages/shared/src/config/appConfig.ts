@@ -103,6 +103,9 @@ export const APP_STORE_DOWNLOAD_LINK = APP_STORE_BASE_LINK;
 export const APP_STORE_DOWNLOAD_WEB_LINK =
   'https://apps.apple.com/app/id1609559473';
 export const ANDROID_PACKAGE_NAME = 'so.onekey.app.wallet';
+// EIP-6963 rdns advertised by the OneKey browser extension.
+// Keep this separate from the Android package name even if the value matches.
+export const ONEKEY_EIP6963_RDNS = 'so.onekey.app.wallet';
 export const PLAY_STORE_LINK = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE_NAME}`;
 
 export const ONEKEY_KEY_TAG_PURCHASE_URL =
