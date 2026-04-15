@@ -967,15 +967,33 @@ describe('useSpeedSwapActions', () => {
     expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
   });
 
-  it('adds the unknown token value tip to the prepared market review when the receive fiat value is zero', async () => {
+  it('adds the unknown token value tip from quote semantics even when the review display token still has a price', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue([]);
+    mockFetchBuildSpeedSwapTx.mockResolvedValue({
+      result: {
+        protocol: EProtocolOfExchange.SWAP,
+        info: {
+          provider: 'onekey',
+          providerName: 'OneKey',
+        },
+        fromTokenInfo: usdcToken,
+        toTokenInfo: {
+          ...btcToken,
+          price: '0',
+        },
+        fromAmount: '100',
+        toAmount: '2',
+        gasLimit: 21_000,
+        routesData: [{ subRoutes: [[{}]] }],
+      },
+    } as IFetchBuildTxResponse);
 
     const { result } = renderHook(() =>
       useSpeedSwapActions(
         createHookProps({
           marketToken: {
             ...btcToken,
-            price: '0',
+            price: '100000',
           },
           tradeToken: {
             ...usdcToken,

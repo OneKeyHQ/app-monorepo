@@ -1042,7 +1042,7 @@ export function useSpeedSwapActions(props: {
     ) => {
       const reviewQuoteResult = attachMarketUnknownTokenValueTip({
         quoteResult: snapshot.quoteResult,
-        toTokenPrice: snapshot.swapInfo.receiver.token.price,
+        toTokenPrice: snapshot.quoteResult.toTokenInfo.price,
         quoteTip: {
           title: intl.formatMessage({
             id: ETranslations.trade_unknown_token_value,
