@@ -58,6 +58,13 @@ function HeaderLeftToolBarInput({
 }: IHeaderLeftToolBarInputProps) {
   const intl = useIntl();
   const [translateIsOpen, setTranslateIsOpen] = useState(false);
+  const [translateShowSettings, setTranslateShowSettings] = useState(false);
+  const handleTranslateOpenChange = useCallback((isOpen: boolean) => {
+    if (!isOpen) {
+      setTranslateShowSettings(false);
+    }
+    setTranslateIsOpen(isOpen);
+  }, []);
   const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [internalValue, setInternalValue] = useState('');
@@ -243,7 +250,7 @@ function HeaderLeftToolBarInput({
             id: ETranslations.browser_translate_settings_title,
           })}
           open={translateIsOpen}
-          onOpenChange={setTranslateIsOpen}
+          onOpenChange={handleTranslateOpenChange}
           renderTrigger={<Stack />}
           renderContent={({ closePopover }) => (
             <TranslatePopoverContent
@@ -251,6 +258,8 @@ function HeaderLeftToolBarInput({
               onTranslate={onTranslate ?? (() => {})}
               onTestAITranslateError={onTestAITranslateError}
               closePopover={closePopover}
+              showSettings={translateShowSettings}
+              onShowSettingsChange={setTranslateShowSettings}
             />
           )}
         />

@@ -7,20 +7,28 @@ import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressIn
 import { checkIsScamTx } from '@onekeyhq/shared/src/utils/historyUtils';
 import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
   ITransferRecipient,
+  ITransferRecipientBadge,
 } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const MAX_RECIPIENTS = 20;
 
+type IRecipientBadgeData = Pick<
+  IAddressQueryResult,
+  'isContract' | 'isCex' | 'isScam' | 'addressBadges'
+>;
+
 type IRecipientExtraInfo = {
   address: string;
   time: number;
   networkName?: string;
   memo?: string;
+  badgeData?: IRecipientBadgeData;
 };
 
 function hasPositiveTransferAmount(amount?: string) {
@@ -211,6 +219,28 @@ async function fetchNetworkNames(networkIds: string[]) {
   return networkNameMap;
 }
 
+const TRANSFER_RECIPIENT_BADGE_TYPE_MAP: Record<string, IAddressBadge['type']> =
+  {
+    contract: 'warning',
+    warning: 'warning',
+    critical: 'critical',
+    success: 'success',
+    info: 'info',
+    default: 'default',
+  };
+
+function convertTransferRecipientBadges(
+  badges?: ITransferRecipientBadge[],
+): IAddressBadge[] {
+  if (!badges?.length) return [];
+  return badges.map((b) => ({
+    label: b.title,
+    type: TRANSFER_RECIPIENT_BADGE_TYPE_MAP[b.type] ?? 'default',
+    tip: b.tip,
+    icon: b.icon as IAddressBadge['icon'],
+  }));
+}
+
 async function buildExtraMapFromApiRecipients(
   apiRecipients: ITransferRecipient[],
 ) {
@@ -229,6 +259,17 @@ async function buildExtraMapFromApiRecipients(
         time: r.time,
         networkName: r.networkId ? networkNameMap.get(r.networkId) : undefined,
         memo: r.memo,
+        // Present when the API returns badge fields (isContract / isCex / badges).
+        // Older server versions omit these, so we guard on `isContract`.
+        badgeData:
+          r.isContract !== undefined
+            ? {
+                isContract: r.isContract,
+                isCex: r.isCex,
+                isScam: r.isScam,
+                addressBadges: convertTransferRecipientBadges(r.badges),
+              }
+            : undefined,
       },
     ]),
   );
@@ -274,20 +315,38 @@ async function enrichAddresses(
   if (filteredAddresses.length === 0) return [];
 
   const addressInfoResults = await Promise.all(
-    filteredAddresses.map((recipient) =>
-      backgroundApiProxy.serviceAccountProfile.queryAddress({
+    filteredAddresses.map((recipient) => {
+      const hasBadgeData = !!extraMap?.get(recipient.toLowerCase())?.badgeData;
+      return backgroundApiProxy.serviceAccountProfile.queryAddress({
         networkId,
         address: recipient,
         enableAddressBook: true,
         enableWalletName: true,
         enableAddressDeriveInfo: true,
-        enableAddressContract: true,
+        // Skip individual badge API call when transfer-recipient already
+        // provided badge data (isContract / isCex / badges).
+        enableAddressContract: !hasBadgeData,
         skipValidateAddress: true,
-      }),
-    ),
+      });
+    }),
   );
 
-  return processQueryResults(addressInfoResults, extraMap);
+  const mergedResults = addressInfoResults.map((result) => {
+    const addressLower = result.input?.toLowerCase() ?? '';
+    const badgeData = extraMap?.get(addressLower)?.badgeData;
+    if (badgeData) {
+      return {
+        ...result,
+        isContract: badgeData.isContract,
+        isCex: badgeData.isCex,
+        isScam: badgeData.isScam,
+        addressBadges: badgeData.addressBadges,
+      };
+    }
+    return result;
+  });
+
+  return processQueryResults(mergedResults, extraMap);
 }
 
 function mergeRecipients(
@@ -379,6 +438,9 @@ export function useRecentRecipientsData({
   >([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastUsedDeriveType, setLastUsedDeriveType] = useState<
+    string | undefined
+  >();
   const loadIdRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -389,113 +451,59 @@ export function useRecentRecipientsData({
     setIsLoadingRecent(true);
     setIsLoadingMore(false);
     setRecentRecipients([]);
+    setLastUsedDeriveType(undefined);
 
-    const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
-
-    // Phase 1: API + local store in parallel. Local store is always loaded
-    // so fresh sends (OK-52728) and non-indexer EVM chains aren't masked.
-    const fetchApiRecipients = async () => {
-      if (!accountId) return { extraMap: null, addresses: [] as string[] };
-      try {
-        const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
-        const { supported, data: apiRecipients } =
-          await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
-            accountId,
-            networkId: apiNetworkId,
-            limit: MAX_RECIPIENTS,
-          });
-        if (supported && apiRecipients.length > 0) {
-          return {
-            extraMap: await buildExtraMapFromApiRecipients(apiRecipients),
-            addresses: apiRecipients.map((r) => r.address),
-          };
-        }
-      } catch {
-        // Fall through to local strategies.
-      }
-      return { extraMap: null, addresses: [] as string[] };
-    };
-
-    let apiEnriched: IEnrichedRecentRecipient[] | null = null;
-    const [
-      { extraMap: apiExtraMap, addresses: apiAddresses },
-      { addresses: storedAddresses, extraMap: storedExtraMap },
-    ] = await Promise.all([
-      fetchApiRecipients(),
-      accountId
-        ? loadStoredRecipients({ networkId, accountId })
-        : { addresses: [] as string[], extraMap: null },
-    ]);
-
-    if (isStale()) return;
-
-    if (apiAddresses.length > 0) {
-      // Merge before enrichment so each unique address hits queryAddress
-      // only once (OK-52897 — badge calls are expensive).
-      const apiAddressSet = new Set(apiAddresses.map((a) => a.toLowerCase()));
-      const localOnlyAddresses = storedAddresses.filter(
-        (a) => !apiAddressSet.has(a.toLowerCase()),
-      );
-
-      const combinedAddresses = [...apiAddresses, ...localOnlyAddresses];
-      const combinedExtraMap = new Map<string, IRecipientExtraInfo>(
-        apiExtraMap ?? [],
-      );
-      if (storedExtraMap) {
-        for (const [key, value] of storedExtraMap) {
-          if (!combinedExtraMap.has(key)) {
-            combinedExtraMap.set(key, value);
-          } else if (value.memo) {
-            const existing = combinedExtraMap.get(key)!;
-            if (!existing.memo) {
-              existing.memo = value.memo;
-            }
-          }
-        }
-      }
-
-      try {
-        const enriched = await enrichAddresses(
-          combinedAddresses,
-          combinedExtraMap,
-          networkId,
-        );
-        if (isStale()) return;
-
-        // Freshness overlay: on re-send the local updatedAt is newer than
-        // the indexer's — bump the entry up and swap the network badge so
-        // the new timestamp doesn't pair with the API's stale network.
-        apiEnriched = enriched
-          .map((r) => {
-            const lower = r.input?.toLowerCase();
-            const local = lower ? storedExtraMap?.get(lower) : undefined;
-            if (local?.time && local.time > (r.lastTransferTime ?? 0)) {
-              return {
-                ...r,
-                lastTransferTime: local.time,
-                lastTransferNetworkName:
-                  local.networkName ?? r.lastTransferNetworkName,
-                recipientMemo: local.memo ?? r.recipientMemo,
-              };
-            }
-            return r;
-          })
-          .toSorted(
-            (a, b) => (b.lastTransferTime ?? 0) - (a.lastTransferTime ?? 0),
-          )
-          .slice(0, MAX_RECIPIENTS);
-      } catch {
-        // ignore enrichment errors — fall through to local strategies
-      }
-    }
-
-    if (apiEnriched) {
-      setRecentRecipients(apiEnriched);
+    if (!accountId) {
       setIsLoadingRecent(false);
       return;
     }
 
-    // Phase 2: API not supported or empty — show stored recipients instantly.
+    const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
+
+    // Phase 1: try the indexer API. When the API is supported, it is the
+    // single source of truth — we do not fall back to local storage or
+    // chain history to avoid mixing sources (OK-53284). If the API is
+    // not supported for this chain (or the call fails), drop to the
+    // local fallback below.
+    const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
+    try {
+      const {
+        supported,
+        data: apiRecipients,
+        lastUsedDeriveType: apiDeriveType,
+      } = await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
+        accountId,
+        networkId: apiNetworkId,
+        limit: MAX_RECIPIENTS,
+      });
+      if (isStale()) return;
+
+      if (supported) {
+        if (apiDeriveType) setLastUsedDeriveType(apiDeriveType);
+
+        const apiExtraMap = await buildExtraMapFromApiRecipients(apiRecipients);
+        if (isStale()) return;
+
+        const enriched = await enrichAddresses(
+          apiRecipients.map((r) => r.address),
+          apiExtraMap,
+          networkId,
+        );
+        if (isStale()) return;
+
+        setRecentRecipients(enriched);
+        setIsLoadingRecent(false);
+        return;
+      }
+    } catch {
+      // API call failed — fall through to local fallback.
+    }
+
+    // Phase 2: indexer API not supported — show stored recipients.
+    const { addresses: storedAddresses, extraMap: storedExtraMap } =
+      await loadStoredRecipients({ networkId, accountId });
+    if (isStale()) return;
+
     if (storedAddresses.length > 0) {
       try {
         const enriched = await enrichAddresses(
@@ -513,13 +521,7 @@ export function useRecentRecipientsData({
       }
     }
 
-    // Phase 3: Load from chain history and merge new entries.
-    if (!accountId) {
-      setIsLoadingRecent(false);
-      setIsLoadingMore(false);
-      return;
-    }
-
+    // Phase 3: merge in anything new from local chain history.
     try {
       let historyAddresses: string[] = [];
       let historyExtraMap: Map<string, IRecipientExtraInfo> | null = null;
@@ -626,5 +628,6 @@ export function useRecentRecipientsData({
     recentRecipients,
     isLoadingRecent,
     isLoadingMore,
+    lastUsedDeriveType,
   };
 }

@@ -60,6 +60,7 @@ type IRecipientQuickSelectProps = {
   isSearchMode?: boolean;
   activeTab?: IRecipientQuickSelectTab;
   hideTabs?: IRecipientQuickSelectTab[];
+  keylessWalletsOnly?: boolean;
   onActiveTabChange?: (tab: IRecipientQuickSelectTab) => void;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
   onSelect?: (params: {
@@ -77,8 +78,10 @@ type IRecipientQuickSelectProps = {
 type IAccountRecipientsProps = {
   networkId: string;
   senderDeriveType?: string;
+  lastUsedDeriveType?: string;
   searchKey?: string;
   isSearchMode?: boolean;
+  keylessWalletsOnly?: boolean;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
   onSelect?: (params: { address: string }) => void;
   onMatchStatusChange?: (hasMatches: boolean, matchCount: number) => void;
@@ -255,8 +258,10 @@ async function getWalletNetworkAccounts(
 function AccountRecipients({
   networkId,
   senderDeriveType,
+  lastUsedDeriveType: lastUsedDeriveTypeProp,
   searchKey,
   isSearchMode,
+  keylessWalletsOnly,
   onInputTypeChange,
   onSelect,
   onMatchStatusChange,
@@ -330,7 +335,9 @@ function AccountRecipients({
             accountUtils.isWatchingWallet({ walletId: wallet.id }) ||
             accountUtils.isExternalWallet({ walletId: wallet.id }) ||
             wallet.deprecated ||
-            wallet.isMocked;
+            wallet.isMocked ||
+            (keylessWalletsOnly &&
+              !accountUtils.isKeylessWallet({ walletId: wallet.id }));
 
           if (shouldSkip) {
             // eslint-disable-next-line no-continue
@@ -364,7 +371,7 @@ function AccountRecipients({
         );
         return groups.filter((group): group is IWalletGroup => !!group);
       },
-      [networkId, senderDeriveType],
+      [networkId, senderDeriveType, keylessWalletsOnly],
       { initResult: [], watchLoading: true, undefinedResultIfError: true },
     );
 
@@ -467,7 +474,10 @@ function AccountRecipients({
 
       // Filter accounts by selected derive type (for multi-derive chains)
       const walletId = group?.walletId ?? '';
-      const rawDeriveType = walletDeriveType[walletId] ?? senderDeriveType;
+      const rawDeriveType =
+        walletDeriveType[walletId] ??
+        lastUsedDeriveTypeProp ??
+        senderDeriveType;
       // Validate against available options; fall back to first option if not found
       const activeDeriveType =
         rawDeriveType && deriveTypeMap.has(rawDeriveType)
@@ -498,6 +508,7 @@ function AccountRecipients({
   }, [
     filteredWalletGroups,
     walletDeriveType,
+    lastUsedDeriveTypeProp,
     senderDeriveType,
     intl,
     isSearchActive,
@@ -857,6 +868,7 @@ export default function RecipientQuickSelect({
   onInputTypeChange,
   onMatchStatusChange,
   hideTabs,
+  keylessWalletsOnly,
   senderDeriveType,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
@@ -866,6 +878,12 @@ export default function RecipientQuickSelect({
     useState<IRecipientQuickSelectTab>(isRecentHidden ? 'account' : 'recent');
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
+
+  // Last-used derive type from transfer-recipient API (for BTC/LTC).
+  // Bubbled up from RecentRecipients → useRecentRecipientsData.
+  const [lastUsedDeriveType, setLastUsedDeriveType] = useState<
+    string | undefined
+  >();
 
   // Track match status for each tab (null = not yet reported by component)
   const [tabMatchStatus, setTabMatchStatus] =
@@ -927,24 +945,6 @@ export default function RecipientQuickSelect({
       return changed ? next : prev;
     });
   }, [visibleTabKeys]);
-
-  // For multi-derive chains (BTC/LTC), default to Accounts tab so
-  // addresses are visible without manual tab switch (OK-52809).
-  useEffect(() => {
-    if (!networkId) return;
-    let cancelled = false;
-    void backgroundApiProxy.serviceNetwork
-      .getVaultSettings({ networkId })
-      .then((settings) => {
-        if (!cancelled && settings?.mergeDeriveAssetsEnabled) {
-          setActiveTab('account');
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [networkId, setActiveTab]);
 
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);
@@ -1136,6 +1136,7 @@ export default function RecipientQuickSelect({
                   });
                 }}
                 onMatchStatusChange={handleRecentMatchStatus}
+                onLastUsedDeriveTypeChange={setLastUsedDeriveType}
               />
             </Stack>
           ) : null}
@@ -1144,8 +1145,10 @@ export default function RecipientQuickSelect({
               <AccountRecipients
                 networkId={networkId}
                 senderDeriveType={senderDeriveType}
+                lastUsedDeriveType={lastUsedDeriveType}
                 searchKey={searchKey}
                 isSearchMode={isSearchMode}
+                keylessWalletsOnly={keylessWalletsOnly}
                 onInputTypeChange={onInputTypeChange}
                 onSelect={({ address }) =>
                   onSelect?.({

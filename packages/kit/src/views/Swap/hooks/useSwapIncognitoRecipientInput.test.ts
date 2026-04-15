@@ -191,7 +191,51 @@ describe('useSwapIncognitoRecipientInput', () => {
     expect(result.current.inputText).toBe('');
   });
 
-  it('revalidates the current input when the validation scope changes', async () => {
+  it('clears the current input when the recipient network changes', async () => {
+    mockQueryAddressWithFallback.mockResolvedValueOnce({
+      input: '0xrecipient',
+      resolveAddress: '0xresolved-1',
+      validStatus: 'valid',
+    });
+
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+    });
+
+    act(() => {
+      result.current.onInputChange('0xrecipient');
+    });
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(true);
+      expect(mockSwapToAddressState.address).toBe('0xresolved-1');
+    });
+
+    rerender({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'aptos--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+    });
+
+    expect(result.current.inputText).toBe('');
+    expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(false);
+    expect(mockSwapToAddressState.address).toBeUndefined();
+
+    await flushDebounce();
+    expect(mockQueryAddressWithFallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('revalidates the current input when only the validation account changes', async () => {
     mockQueryAddressWithFallback
       .mockResolvedValueOnce({
         input: '0xrecipient',
@@ -227,7 +271,7 @@ describe('useSwapIncognitoRecipientInput', () => {
     rerender({
       visible: true,
       clearRecipientAddressOnHide: false,
-      networkId: 'evm--10',
+      networkId: 'evm--1',
       accountId: 'account-2',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
@@ -245,7 +289,7 @@ describe('useSwapIncognitoRecipientInput', () => {
         expect.objectContaining({
           accountId: 'account-2',
           address: '0xrecipient',
-          networkId: 'evm--10',
+          networkId: 'evm--1',
         }),
       );
       expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(true);
