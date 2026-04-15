@@ -26,6 +26,10 @@ const getCardanoApi = memoizee(
       hwSignTransaction: AdaLib.trezorUtils.signTransaction,
       txToOneKey: AdaLib.onekeyUtils.txToOneKey,
       hasSetTagWithBody: AdaLib.onekeyUtils.hasSetTagWithBody,
+      parseRawTxInputs: AdaLib.onekeyUtils.parseRawTxInputs,
+      parseRawTxBodyStakeInfo: AdaLib.onekeyUtils.parseRawTxBodyStakeInfo,
+      extractStakeKeyHashFromBaseAddress:
+        AdaLib.onekeyUtils.extractStakeKeyHashFromBaseAddress,
       dAppUtils: AdaLib.dAppUtils,
     };
   },
@@ -85,6 +89,21 @@ class WebEmbedApiChainAdaLegacy implements IAdaSdkApi {
   async dAppSignData(...args: Parameters<IAdaDappSignData>) {
     const cardanoApi = await getCardanoApi();
     return cardanoApi.dAppUtils.signData(...args);
+  }
+
+  async parseRawTxInputs(rawTxHex: string) {
+    const cardanoApi = await getCardanoApi();
+    return cardanoApi.parseRawTxInputs(rawTxHex);
+  }
+
+  async parseRawTxBodyStakeInfo(rawTxHex: string) {
+    const cardanoApi = await getCardanoApi();
+    return cardanoApi.parseRawTxBodyStakeInfo(rawTxHex);
+  }
+
+  async extractStakeKeyHashFromBaseAddress(addr: string) {
+    const cardanoApi = await getCardanoApi();
+    return cardanoApi.extractStakeKeyHashFromBaseAddress(addr);
   }
 }
 

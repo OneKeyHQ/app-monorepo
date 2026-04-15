@@ -3760,6 +3760,7 @@ export enum ETranslations {
   send_send_to_this_address = 'send.send_to_this_address',
   send_sending_str_requires_an_account_balance_of_at_least_str_str = 'send.sending_str_requires_an_account_balance_of_at_least_str_str',
   send_stellar_activation_minimum_hint = 'send.stellar_activation_minimum_hint',
+  send_stellar_contract_token_no_memo_hint = 'send.stellar_contract_token_no_memo_hint',
   send_stellar_recipient_account_not_activated = 'send.stellar_recipient_account_not_activated',
   send_str_minimum_balance_is_str = 'send.str_minimum_balance_is_str',
   send_str_minimum_transfer = 'send.str_minimum_transfer',
