@@ -8,7 +8,10 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes/signatureConfirm';
 
-import { BITREFILL_EMBED_ORIGIN } from '../utils/bitrefillUtils';
+import {
+  BITREFILL_BRIDGE_METHOD,
+  BITREFILL_EMBED_ORIGIN,
+} from '../utils/bitrefillUtils';
 import {
   isBitrefillOrigin,
   parseBitrefillPaymentIntent,
@@ -40,17 +43,38 @@ export function useDiscoveryMessageHandler() {
 
   const customReceiveHandler = useCallback(
     async (payload: IJsBridgeMessagePayload) => {
+      if (!isBitrefillOrigin(payload.origin)) return;
+
+      // Bitrefill raw window.postMessage does not flow through JSBridge. The
+      // webview page is injected with a bridge script (see BITREFILL_BRIDGE_SCRIPT)
+      // that re-emits each postMessage as $private/wallet_bitrefillEvent, which
+      // arrives here as a JSBridge REQUEST. Unwrap params[0] to get the original
+      // Bitrefill event payload.
+      const data = payload.data as
+        | { method?: string; params?: unknown[] }
+        | undefined;
+      let rawEvent: unknown = null;
+      if (data?.method === BITREFILL_BRIDGE_METHOD) {
+        rawEvent = Array.isArray(data.params) ? data.params[0] : null;
+      } else {
+        // Future-proof: if a platform ever delivers the raw postMessage directly
+        // (e.g. web iframe path), try to parse it too.
+        rawEvent = data;
+      }
+
       // eslint-disable-next-line no-console
       console.log(
         `[Bitrefill:DEBUG][customReceiveHandler] entered ${JSON.stringify({
           origin: payload?.origin,
-          isBitrefill: isBitrefillOrigin(payload?.origin),
+          bridged: data?.method === BITREFILL_BRIDGE_METHOD,
+          rawEventPreview:
+            typeof rawEvent === 'object' && rawEvent
+              ? { event: (rawEvent as { event?: string }).event }
+              : null,
         })}`,
       );
 
-      if (!isBitrefillOrigin(payload.origin)) return;
-
-      const message = parseBitrefillPaymentIntent(payload.data);
+      const message = parseBitrefillPaymentIntent(rawEvent);
       // eslint-disable-next-line no-console
       console.log(
         `[Bitrefill:DEBUG][customReceiveHandler] after parse ${JSON.stringify({

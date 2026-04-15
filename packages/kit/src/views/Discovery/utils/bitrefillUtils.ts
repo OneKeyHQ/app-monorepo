@@ -29,3 +29,43 @@ export function getBitrefillEmbedUrl(): string {
   });
   return `${BITREFILL_EMBED_ORIGIN}/?${params.toString()}`;
 }
+
+/**
+ * Bitrefill embed widget communicates with its host via raw window.postMessage,
+ * which does not flow through OneKey's JSBridge. We inject a small listener
+ * inside the webview page that forwards these raw postMessages as $private
+ * JSBridge REQUESTs, so they reach our customReceiveHandler on the host side.
+ */
+export const BITREFILL_BRIDGE_METHOD = 'wallet_bitrefillEvent';
+
+export const BITREFILL_BRIDGE_SCRIPT = `
+(function() {
+  try {
+    if (window.__onekeyBitrefillBridgeInstalled) return;
+    window.__onekeyBitrefillBridgeInstalled = true;
+    window.addEventListener('message', function(e) {
+      try {
+        if (e.origin !== '${BITREFILL_EMBED_ORIGIN}') return;
+        var data = e.data;
+        if (!data || typeof data !== 'object' || !data.event) return;
+        var api = window.$onekey && window.$onekey.$private;
+        if (!api || typeof api.request !== 'function') return;
+        api.request({
+          method: '${BITREFILL_BRIDGE_METHOD}',
+          params: [data],
+        }).catch(function(){});
+      } catch (_e) {}
+    });
+  } catch (_e) {}
+})();
+true;
+`;
+
+export function isBitrefillEmbedUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
+  try {
+    return new URL(url).origin === BITREFILL_EMBED_ORIGIN;
+  } catch {
+    return false;
+  }
+}

@@ -17,6 +17,10 @@ import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
+import {
+  BITREFILL_BRIDGE_SCRIPT,
+  isBitrefillEmbedUrl,
+} from '../../utils/bitrefillUtils';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
@@ -88,6 +92,22 @@ function WebContent({
       return;
     }
     changeNavigationInfo({ ...nativeEvent });
+    // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
+    if (isBitrefillEmbedUrl(nativeEvent.url)) {
+      const webview = webviewRefs[id]?.innerRef as ReactNativeWebview | undefined;
+      try {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Bitrefill:DEBUG][WebContent.native] injecting bridge ${JSON.stringify(
+            { id, url: nativeEvent.url },
+          )}`,
+        );
+        webview?.injectJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('[Bitrefill] failed to inject bridge script', error);
+      }
+    }
   };
 
   const onNavigationStateChange = useCallback(

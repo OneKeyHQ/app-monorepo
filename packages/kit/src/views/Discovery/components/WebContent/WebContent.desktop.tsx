@@ -13,6 +13,10 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
+import {
+  BITREFILL_BRIDGE_SCRIPT,
+  isBitrefillEmbedUrl,
+} from '../../utils/bitrefillUtils';
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
 
@@ -123,7 +127,26 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       // @ts-expect-error
       ref.__domReady = true;
     }
-  }, [id]);
+    // Inject Bitrefill bridge once per page load. Raw window.postMessage from
+    // the Bitrefill embed doesn't flow through JSBridge; this script re-emits
+    // those messages as $private/wallet_bitrefillEvent so useDiscoveryMessageHandler
+    // can receive them.
+    if (isBitrefillEmbedUrl(url)) {
+      const webview = ref?.innerRef as IElectronWebView | undefined;
+      try {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Bitrefill:DEBUG][WebContent.desktop] injecting bridge ${JSON.stringify(
+            { id, url },
+          )}`,
+        );
+        webview?.executeJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('[Bitrefill] failed to inject bridge script', error);
+      }
+    }
+  }, [id, url]);
 
   const webview = useMemo(
     () => {
