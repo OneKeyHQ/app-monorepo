@@ -41,57 +41,26 @@ export const BITREFILL_BRIDGE_METHOD = 'wallet_bitrefillEvent';
 export const BITREFILL_BRIDGE_SCRIPT = `
 (function() {
   try {
-    var hasApi = !!(window.$onekey && window.$onekey.$private && typeof window.$onekey.$private.request === 'function');
-    function ping(stage, payload) {
-      try {
-        if (hasApi) {
-          window.$onekey.$private.request({
-            method: 'wallet_bitrefillDebug',
-            params: [{ stage: stage, payload: payload }],
-          }).catch(function(){});
-        }
-      } catch (_e) {}
-    }
-
-    if (window.__onekeyBitrefillBridgeInstalled) {
-      ping('install:skipped', { reason: 'already installed' });
-      return;
-    }
+    if (window.__onekeyBitrefillBridgeInstalled) return;
     window.__onekeyBitrefillBridgeInstalled = true;
-
-    ping('install:start', { hasApi: hasApi, loc: location.href });
 
     window.addEventListener('message', function(e) {
       try {
-        var data = e.data;
-        // Bitrefill widget posts JSON-stringified payloads, not objects.
-        if (typeof data === 'string') {
-          try {
-            data = JSON.parse(data);
-          } catch (_parseErr) {
-            data = null;
-          }
-        }
-        ping('message:received', {
-          origin: e.origin,
-          rawType: typeof e.data,
-          hasData: !!data && typeof data === 'object',
-          event: (data && typeof data === 'object') ? data.event : null,
-        });
         if (e.origin !== '${BITREFILL_EMBED_ORIGIN}') return;
-        if (!data || typeof data !== 'object' || !data.event) return;
+        var data = e.data;
+        // Bitrefill may post JSON-stringified payloads.
+        if (typeof data === 'string') {
+          try { data = JSON.parse(data); } catch (_parseErr) { return; }
+        }
+        if (!data || typeof data !== 'object') return;
         var api = window.$onekey && window.$onekey.$private;
         if (!api || typeof api.request !== 'function') return;
         api.request({
           method: '${BITREFILL_BRIDGE_METHOD}',
           params: [data],
         }).catch(function(){});
-      } catch (_e) {
-        ping('message:error', { message: String(_e && _e.message) });
-      }
+      } catch (_e) {}
     });
-
-    ping('install:done', null);
   } catch (_e) {}
 })();
 true;

@@ -94,18 +94,13 @@ function WebContent({
     changeNavigationInfo({ ...nativeEvent });
     // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
     if (isBitrefillEmbedUrl(nativeEvent.url)) {
-      const webview = webviewRefs[id]?.innerRef as ReactNativeWebview | undefined;
+      const webview = webviewRefs[id]?.innerRef as
+        | ReactNativeWebview
+        | undefined;
       try {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[Bitrefill:DEBUG][WebContent.native] injecting bridge ${JSON.stringify(
-            { id, url: nativeEvent.url },
-          )}`,
-        );
         webview?.injectJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('[Bitrefill] failed to inject bridge script', error);
+      } catch {
+        // best-effort injection
       }
     }
   };

@@ -121,53 +121,41 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     },
     [getWebTabById, id, setWebTabData],
   );
+  // Keep a ref to the latest url so onDomReady can read it without depending
+  // on `url`. Making `url` a dep of onDomReady invalidates the `webview`
+  // useMemo below, forces React to replace the <WebView> element, and lets
+  // Electron rebuild the webview instance — which wipes in-flight DApp
+  // state (e.g. the Bitrefill checkout page would redirect back to
+  // payment-method mid-flow).
+  const latestUrlRef = useRef(url);
+  useEffect(() => {
+    latestUrlRef.current = url;
+  }, [url]);
+
   const onDomReady = useCallback(() => {
     const ref = webviewRefs[id];
     if (ref) {
       // @ts-expect-error
       ref.__domReady = true;
     }
-    // Inject Bitrefill bridge once per page load. Raw window.postMessage from
-    // the Bitrefill embed doesn't flow through JSBridge; this script re-emits
-    // those messages as $private/wallet_bitrefillEvent so useDiscoveryMessageHandler
-    // can receive them.
-    if (isBitrefillEmbedUrl(url)) {
-      const webview = ref?.innerRef as IElectronWebView | undefined;
-      // eslint-disable-next-line no-console
-      console.log(
-        `[Bitrefill:DEBUG][WebContent.desktop] injecting bridge ${JSON.stringify(
-          { id, url, hasExecute: typeof webview?.executeJavaScript },
-        )}`,
-      );
+    // Inject the Bitrefill bridge on every dom-ready so raw window.postMessage
+    // events from embed.bitrefill.com are re-emitted as $private JSBridge
+    // requests reaching useDiscoveryMessageHandler.
+    const currentUrl = latestUrlRef.current;
+    if (isBitrefillEmbedUrl(currentUrl)) {
+      const webviewEl = ref?.innerRef as IElectronWebView | undefined;
       try {
-        const result = webview?.executeJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
+        const result = webviewEl?.executeJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
         if (result && typeof (result as Promise<unknown>).then === 'function') {
-          (result as Promise<unknown>)
-            .then((value) => {
-              // eslint-disable-next-line no-console
-              console.log(
-                `[Bitrefill:DEBUG][WebContent.desktop] inject ok ${JSON.stringify(
-                  { value },
-                )}`,
-              );
-            })
-            .catch((err: unknown) => {
-              // eslint-disable-next-line no-console
-              console.error(
-                '[Bitrefill:DEBUG][WebContent.desktop] inject rejected',
-                err,
-              );
-            });
+          (result as Promise<unknown>).catch(() => {
+            // best-effort injection
+          });
         }
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(
-          '[Bitrefill:DEBUG][WebContent.desktop] inject threw',
-          error,
-        );
+      } catch {
+        // best-effort injection
       }
     }
-  }, [id, url]);
+  }, [id]);
 
   const webview = useMemo(
     () => {
