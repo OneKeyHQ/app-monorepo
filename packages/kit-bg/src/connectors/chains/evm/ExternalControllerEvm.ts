@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
+import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -52,8 +53,6 @@ import type {
   IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
 
-const ONEKEY_EIP6963_RDNS_PATTERNS = ['so.onekey.app.wallet'];
-
 function isOneKeyExtensionConnection(connectionInfo: IExternalConnectionInfo) {
   const eip6963Rdns =
     connectionInfo.evmEIP6963?.info?.rdns?.toLowerCase() ?? '';
@@ -62,9 +61,7 @@ function isOneKeyExtensionConnection(connectionInfo: IExternalConnectionInfo) {
   const injectedName = connectionInfo.evmInjected?.name?.toLowerCase() ?? '';
 
   return (
-    ONEKEY_EIP6963_RDNS_PATTERNS.some((pattern) =>
-      eip6963Rdns.includes(pattern),
-    ) ||
+    eip6963Rdns.includes(ANDROID_PACKAGE_NAME) ||
     eip6963Name === 'onekey wallet' ||
     injectedName === 'onekey wallet'
   );

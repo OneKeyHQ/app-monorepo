@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
+import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 import {
   getEIP6963Providers,
   subscribeEIP6963Providers,
@@ -8,15 +9,13 @@ import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWal
 
 import type { EIP6963ProviderDetail } from 'mipd';
 
-const ONE_KEY_RDNS_PATTERNS = ['so.onekey.app.wallet'];
-
 function findOneKeyProvider(providers: readonly EIP6963ProviderDetail[]) {
   return providers.find((provider) => {
     if (!provider?.info) return false;
     const rdns = provider.info.rdns?.toLowerCase() ?? '';
     const name = provider.info.name?.toLowerCase() ?? '';
     return (
-      ONE_KEY_RDNS_PATTERNS.some((pattern) => rdns.includes(pattern)) ||
+      rdns.includes(ANDROID_PACKAGE_NAME) ||
       name.includes('onekey')
     );
   });
