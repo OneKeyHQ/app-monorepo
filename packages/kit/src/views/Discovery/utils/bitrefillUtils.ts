@@ -63,13 +63,22 @@ export const BITREFILL_BRIDGE_SCRIPT = `
 
     window.addEventListener('message', function(e) {
       try {
+        var data = e.data;
+        // Bitrefill widget posts JSON-stringified payloads, not objects.
+        if (typeof data === 'string') {
+          try {
+            data = JSON.parse(data);
+          } catch (_parseErr) {
+            data = null;
+          }
+        }
         ping('message:received', {
           origin: e.origin,
-          hasData: typeof e.data === 'object' && e.data !== null,
-          event: (e.data && typeof e.data === 'object') ? e.data.event : null,
+          rawType: typeof e.data,
+          hasData: !!data && typeof data === 'object',
+          event: (data && typeof data === 'object') ? data.event : null,
         });
         if (e.origin !== '${BITREFILL_EMBED_ORIGIN}') return;
-        var data = e.data;
         if (!data || typeof data !== 'object' || !data.event) return;
         var api = window.$onekey && window.$onekey.$private;
         if (!api || typeof api.request !== 'function') return;
