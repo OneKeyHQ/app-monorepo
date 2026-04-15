@@ -323,7 +323,7 @@ const ProtocolDesktopLayout = memo(
                           color={position.categoryConfig.text}
                           textTransform="capitalize"
                         >
-                          {position.category}
+                          {position.categoryLabel}
                         </Badge.Text>
                       </Badge>
                       {position.poolName ? (
@@ -429,6 +429,9 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     () =>
       buildProtocolPositionItems(protocol).map((position) => ({
         ...position,
+        categoryLabel: position.categoryTitleId
+          ? intl.formatMessage({ id: position.categoryTitleId })
+          : position.categoryLabel,
         sections: position.sections.map((section) => ({
           ...section,
           title: section.titleId
