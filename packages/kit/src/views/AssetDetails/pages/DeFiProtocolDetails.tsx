@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 
 import { type RouteProp, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -20,9 +20,9 @@ import {
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
-  getCategoryConfig,
-  getCategoryLabel,
-} from '@onekeyhq/kit/src/utils/defiCategoryConfig';
+  type IProtocolPositionSection,
+  buildProtocolPositionItems,
+} from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,7 +34,97 @@ import {
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { EDeFiAssetType, type IDeFiAsset } from '@onekeyhq/shared/types/defi';
+
+function ProtocolDetailAssetValue({
+  value,
+  currencySymbol,
+  priceUnavailableLabel,
+}: {
+  value: number;
+  currencySymbol: string;
+  priceUnavailableLabel: string;
+}) {
+  const valueBN = new BigNumber(value);
+  const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
+
+  return (
+    <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+      {isValueUnavailable ? (
+        <Stack width="$4" height="$4">
+          <Tooltip
+            renderContent={priceUnavailableLabel}
+            renderTrigger={
+              <Icon name="ErrorOutline" size="$4" color="$iconCritical" />
+            }
+          />
+        </Stack>
+      ) : null}
+      <NumberSizeableTextWrapper
+        hideValue
+        size="$bodyLg"
+        formatter="value"
+        formatterOptions={{ currency: currencySymbol }}
+        color={isValueUnavailable ? '$text' : undefined}
+      >
+        {isValueUnavailable ? '--' : valueBN.toFixed()}
+      </NumberSizeableTextWrapper>
+    </XStack>
+  );
+}
+
+function ProtocolDetailSection({
+  section,
+  currencySymbol,
+  priceUnavailableLabel,
+}: {
+  section: IProtocolPositionSection;
+  currencySymbol: string;
+  priceUnavailableLabel: string;
+}) {
+  return (
+    <YStack bg="$bgSubdued" borderRadius="$2" px="$3" py="$2" gap="$1">
+      <SizableText size="$headingXs" color="$text">
+        {section.title}
+      </SizableText>
+      {section.assets.map((asset, assetIndex) => (
+        <XStack
+          key={`${section.key}-${asset.address}-${assetIndex}`}
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$3"
+          py="$1"
+        >
+          <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
+            <Token
+              size="sm"
+              tokenImageUri={asset.meta?.logoUrl}
+              bg="$bgStrong"
+            />
+            <SizableText size="$headingSm" numberOfLines={1}>
+              {asset.symbol}
+            </SizableText>
+          </XStack>
+          <YStack alignItems="flex-end" maxWidth="55%">
+            <ProtocolDetailAssetValue
+              value={asset.value}
+              currencySymbol={currencySymbol}
+              priceUnavailableLabel={priceUnavailableLabel}
+            />
+            <NumberSizeableTextWrapper
+              hideValue
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="balance"
+              textAlign="right"
+            >
+              {asset.amount}
+            </NumberSizeableTextWrapper>
+          </YStack>
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
 
 function DeFiProtocolDetails() {
   const route =
@@ -47,25 +137,41 @@ function DeFiProtocolDetails() {
   const { protocol, protocolInfo } = route.params;
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
-  const renderProtocolOverview = useCallback(() => {
-    return (
-      <>
+
+  const positionNamePopoverTitle = intl.formatMessage({
+    id: ETranslations.wallet_defi_position_name_popover_title,
+  });
+  const priceUnavailableLabel = intl.formatMessage({
+    id: ETranslations.wallet_price_unavailable,
+  });
+
+  const positions = useMemo(
+    () => buildProtocolPositionItems(protocol),
+    [protocol],
+  );
+
+  return (
+    <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.earn_portfolio_details })}
+      />
+      <Page.Body>
         <XStack
           alignItems="center"
           justifyContent="space-between"
           gap="$3"
           p="$5"
         >
-          <XStack alignItems="center" gap="$3">
+          <XStack alignItems="center" gap="$3" flex={1} minWidth={0}>
             <Token
               size="xl"
-              tokenImageUri={protocolInfo?.protocolLogo}
+              tokenImageUri={protocolInfo.protocolLogo}
               showNetworkIcon
               networkId={protocol.networkId}
             />
-            <YStack>
+            <YStack flex={1} minWidth={0}>
               <SizableText size="$heading2xl" numberOfLines={1}>
-                {protocolInfo?.protocolName ?? ''}
+                {protocolInfo.protocolName}
               </SizableText>
               <NumberSizeableTextWrapper
                 hideValue
@@ -74,11 +180,11 @@ function DeFiProtocolDetails() {
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 color="$textSubdued"
               >
-                {protocolInfo?.netWorth ?? '0'}
+                {protocolInfo.netWorth}
               </NumberSizeableTextWrapper>
             </YStack>
           </XStack>
-          {protocolInfo?.protocolUrl ? (
+          {protocolInfo.protocolUrl ? (
             <IconButton
               title={intl.formatMessage({
                 id: ETranslations.global_view_in_blockchain_explorer,
@@ -89,88 +195,33 @@ function DeFiProtocolDetails() {
               onPress={() => {
                 if (platformEnv.isDesktop || platformEnv.isNative) {
                   openUrlInDiscovery({
-                    url: protocolInfo?.protocolUrl,
+                    url: protocolInfo.protocolUrl,
                   });
                 } else {
-                  openUrlExternal(protocolInfo?.protocolUrl);
+                  openUrlExternal(protocolInfo.protocolUrl);
                 }
               }}
             />
           ) : null}
         </XStack>
         <Divider />
-      </>
-    );
-  }, [
-    protocolInfo?.netWorth,
-    settings.currencyInfo.symbol,
-    protocol.networkId,
-    intl,
-    protocolInfo?.protocolUrl,
-    protocolInfo?.protocolLogo,
-    protocolInfo?.protocolName,
-  ]);
-
-  const renderAssetType = useCallback(
-    (asset: IDeFiAsset & { type: EDeFiAssetType }) => {
-      let type = asset.category;
-      let typeColor = '$blue10';
-      if (asset.type === EDeFiAssetType.DEBT) {
-        type = 'Borrowed';
-        typeColor = '$orange10';
-      } else if (asset.type === EDeFiAssetType.REWARD) {
-        type = 'Rewards';
-        typeColor = '$teal10';
-      } else if (asset.type === EDeFiAssetType.ASSET) {
-        type = 'Supplied';
-        typeColor = '$blue10';
-      }
-
-      return (
-        <XStack alignItems="center" gap="$1">
-          <Stack
-            width={7}
-            height={7}
-            backgroundColor={typeColor}
-            borderRadius="$full"
-          />
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {type}
-          </SizableText>
-        </XStack>
-      );
-    },
-    [],
-  );
-  const renderProtocolPositions = useCallback(() => {
-    return (
-      <YStack py="$3">
-        {protocol.positions.map((position, index) => {
-          const positionCategoryConfig = getCategoryConfig(position.category);
-
-          return (
+        <YStack py="$3">
+          {positions.map((position, index) => (
             <Stack key={position.groupId} px="$5">
-              <XStack alignItems="center" py="$3" ml="$-2" gap="$1">
-                <XStack
-                  alignItems="center"
-                  gap="$3"
-                  flexShrink={1}
-                  minWidth={0}
-                >
-                  <Badge bg={positionCategoryConfig.bg} badgeSize="lg">
-                    <Badge.Text color={positionCategoryConfig.text}>
-                      {getCategoryLabel(position.category)}
-                    </Badge.Text>
-                  </Badge>
-                  <Stack flexShrink={1} minWidth={0}>
+              <XStack alignItems="center" py="$3" gap="$2">
+                <Badge bg={position.categoryConfig.bg} badgeSize="lg">
+                  <Badge.Text color={position.categoryConfig.text}>
+                    {position.categoryLabel}
+                  </Badge.Text>
+                </Badge>
+                {position.poolName ? (
+                  <Stack flex={1} minWidth={0}>
                     <Popover
                       placement="top"
-                      title={intl.formatMessage({
-                        id: ETranslations.wallet_defi_position_name_popover_title,
-                      })}
+                      title={positionNamePopoverTitle}
                       renderTrigger={
                         <SizableText
-                          size="$bodySm"
+                          size="$headingSm"
                           color="$textSubdued"
                           numberOfLines={1}
                         >
@@ -179,14 +230,16 @@ function DeFiProtocolDetails() {
                       }
                       renderContent={
                         <Stack px="$4" py="$2">
-                          <SizableText size="$bodyLg">
-                            {position.poolFullName}
+                          <SizableText size="$bodyLgMedium">
+                            {position.poolFullName || position.poolName}
                           </SizableText>
                         </Stack>
                       }
                     />
                   </Stack>
-                </XStack>
+                ) : (
+                  <Stack flex={1} />
+                )}
                 <Stack maxWidth="70%" flexShrink={0} ml="auto">
                   <NumberSizeableTextWrapper
                     hideValue
@@ -202,95 +255,22 @@ function DeFiProtocolDetails() {
                   </NumberSizeableTextWrapper>
                 </Stack>
               </XStack>
-              <YStack>
-                {[
-                  ...position.assets,
-                  ...position.debts,
-                  ...position.rewards,
-                ].map((asset) => (
-                  <XStack
-                    key={asset.address}
-                    alignItems="center"
-                    gap="$3"
-                    justifyContent="space-between"
-                    py="$2"
-                    flex={1}
-                  >
-                    <XStack alignItems="center" gap="$3" flex={1}>
-                      <Token
-                        size="md"
-                        tokenImageUri={asset.meta?.logoUrl}
-                        bg="$bgStrong"
-                      />
-                      <YStack flex={1}>
-                        <SizableText size="$bodyLgMedium">
-                          {asset.symbol}
-                        </SizableText>
-                        {renderAssetType(asset)}
-                      </YStack>
-                    </XStack>
-                    <YStack flex={1} alignItems="flex-end">
-                      <NumberSizeableTextWrapper
-                        hideValue
-                        size="$bodyLgMedium"
-                        formatter="balance"
-                      >
-                        {asset.amount}
-                      </NumberSizeableTextWrapper>
-                      <XStack alignItems="center" gap="$1">
-                        {new BigNumber(asset.value).isNaN() ||
-                        new BigNumber(asset.value).isZero() ? (
-                          <Stack width="$4" height="$4">
-                            <Tooltip
-                              renderContent={intl.formatMessage({
-                                id: ETranslations.wallet_price_unavailable,
-                              })}
-                              renderTrigger={
-                                <Icon
-                                  name="ErrorOutline"
-                                  size="$4"
-                                  color="$iconCritical"
-                                />
-                              }
-                            />
-                          </Stack>
-                        ) : null}
-                        <NumberSizeableTextWrapper
-                          hideValue
-                          size="$bodyMd"
-                          formatter="value"
-                          formatterOptions={{
-                            currency: settings.currencyInfo.symbol,
-                          }}
-                          color="$textSubdued"
-                        >
-                          {new BigNumber(asset.value).isNaN() ||
-                          new BigNumber(asset.value).isZero()
-                            ? '--'
-                            : new BigNumber(asset.value).toFixed()}
-                        </NumberSizeableTextWrapper>
-                      </XStack>
-                    </YStack>
-                  </XStack>
+              <YStack gap="$2">
+                {position.sections.map((section) => (
+                  <ProtocolDetailSection
+                    key={section.key}
+                    section={section}
+                    currencySymbol={settings.currencyInfo.symbol}
+                    priceUnavailableLabel={priceUnavailableLabel}
+                  />
                 ))}
               </YStack>
-              {index !== protocol.positions.length - 1 ? (
+              {index !== positions.length - 1 ? (
                 <Divider mt="$2" mb="$3" />
               ) : null}
             </Stack>
-          );
-        })}
-      </YStack>
-    );
-  }, [protocol.positions, intl, settings.currencyInfo.symbol, renderAssetType]);
-  return (
-    <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_portfolio_details })}
-      />
-      <Page.Body>
-        {renderProtocolOverview()}
-        {renderProtocolPositions()}
+          ))}
+        </YStack>
       </Page.Body>
     </Page>
   );
