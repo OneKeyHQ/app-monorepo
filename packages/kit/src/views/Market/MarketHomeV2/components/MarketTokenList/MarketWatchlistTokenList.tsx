@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Tabs, Toast, useMedia } from '@onekeyhq/components';
+import { ActionList, Tabs, Toast } from '@onekeyhq/components';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
@@ -68,12 +68,10 @@ function MarketWatchlistTokenList({
   rowBg,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
-  const { gtMd } = useMedia();
-
   // Get watchlist from atom if not provided externally
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
-  const recommendMaxSize = !platformEnv.isNative && gtMd ? 6 : 8;
+  const recommendMaxSize = platformEnv.isExtensionUiPopup ? 6 : 8;
 
   const actions = useWatchListV2Actions();
 
