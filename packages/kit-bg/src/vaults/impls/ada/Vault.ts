@@ -718,9 +718,11 @@ export default class Vault extends VaultBase {
   async buildTxCborToEncodeTx({
     txHex,
     isSignOnly,
+    partialSign,
   }: {
     txHex: string;
     isSignOnly: boolean;
+    partialSign?: boolean;
   }): Promise<IEncodedTxAda> {
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
     const changeAddress = getChangeAddress(dbAccount);
@@ -764,6 +766,7 @@ export default class Vault extends VaultBase {
     return {
       ...encodeTx,
       changeAddress,
+      partialSign,
     };
   }
 

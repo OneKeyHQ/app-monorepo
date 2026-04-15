@@ -13,6 +13,10 @@ const getCardanoApi: IGetCardanoApi = async () => ({
   dAppGetUtxos: Loader.dAppUtils.getUtxos,
   dAppConvertCborTxToEncodeTx: Loader.dAppUtils.convertCborTxToEncodeTx,
   dAppSignData: Loader.dAppUtils.signData,
+  parseRawTxInputs: Loader.onekeyUtils.parseRawTxInputs,
+  parseRawTxBodyStakeInfo: Loader.onekeyUtils.parseRawTxBodyStakeInfo,
+  extractStakeKeyHashFromBaseAddress:
+    Loader.onekeyUtils.extractStakeKeyHashFromBaseAddress,
 });
 
 export default {
