@@ -302,46 +302,100 @@ All native + JS startup timing lines carry tag `[StartupTiming]` with message fo
 
 ### Step 3: Expected Timelines
 
-**iOS baseline (~1550ms to `Balance displayed`):**
+> All numbers below are **measured** on `codex/feat-split-background-thread`
+> (commits `18c67990d7` + `ee1877d289`) on real devices, not estimates. Update
+> when the build pipeline or App require-tree changes materially.
+
+#### Android baseline — total ~2.4–3.2s tap-to-Balance (5-run sample)
+
+Native phase anchors at `android.app.on_create.start` (first line of
+`MainApplication.onCreate`). The tap → process-fork → zygote/ART/dex2oat
+window happens **before** the anchor and is reported by
+`android.zygote_to_app_on_create` for context, not added to "+from launch".
 
 ```
-+0ms     ios.app.did_finish_launching.start
-+10ms    ios.app.jpush_register: ~5ms
-+12ms    ios.app.super_did_finish_launching starts (Expo/RN init)
-+100ms   ios.main_entry.deferred
-+102ms   ios.main_entry.evaluated (native → JS handoff)
-+455ms   MMKV contextAtom snapshot pre-read: 7 keys     ← Phase 1
-+455ms   segment loader installed
-+496ms   MMKV per-key ready (JotaiBgSync)
-+820ms   main_host.did_start (common bundle loaded)
-+823ms   bg_runner.start
-+1175ms  BackgroundEntry backgroundApiProxy ready
-+1261ms  BgTransport transport → ready
-+1300ms  initCriticalDone (localDb + locale ~39ms)
-+1550ms  Balance displayed                              ← Target metric
+                                                               cold      warm
+                                                               ----      ----
+android.zygote_to_app_on_create                                147ms    88-91ms     (pre-anchor, OS overhead)
+android.app.on_create.start: +0ms                              ── anchor ──
+  android.app.super_on_create                                    1ms     1-3ms
+  android.app.so_loader_init                                    14ms     8-19ms
+  android.app.new_arch_load                                     94ms    71-94ms     ⚠ biggest in Application
+  android.app.bg_bootstrap                                       2ms     2-3ms
+  android.app.expo_lifecycle                                     0ms     0-1ms
+  android.app.jpush_register                                     0ms     0ms
+android.app.on_create.done                       +146ms    +110-141ms
+                                                  (gap)     ~14-17ms      Activity stack-up
+android.activity.on_create.start                 +160ms    +125-155ms
+  android.activity.super_on_create               87ms      45-47ms      ⚠ biggest in MainActivity
+android.activity.on_create.done                  +251ms    +172-204ms
+                                                  (gap)     ~60-130ms     RN host instantiates ReactContext
+main_host.did_start                              +379ms    +312-333ms    ← native runtime ready
+bg_runner.start                                  +382ms    +315-338ms
+
+── JS phase begins (separate clock from __ONEKEY_MAIN_ENTRY_START__) ──
+[BackgroundEntry] polyfills loaded                +116ms (from JS entry)
+MMKV contextAtom snapshot pre-read: 10 keys       +121ms (Phase 1)
+segment loader installed                          +122ms
+[StartupTiming] BG transport setup                +1821ms      ← actually require('./App') chain
+main entry evaluated                              +1822ms
+[BackgroundEntry] backgroundApiProxy ready        +2028ms
+Balance displayed                                 +2073-2693ms ← target TTI
 ```
 
-**Android baseline (~2100-2400ms to `Balance displayed`):**
+**Android phase budget:**
+| Phase | Cold | Warm | Notes |
+|---|---|---|---|
+| Pre-anchor (zygote→onCreate) | ~150ms | ~90ms | OS, not optimizable |
+| Application.onCreate | ~146ms | ~110-141ms | `new_arch_load` is 70-90% of this |
+| MainActivity.onCreate | ~91ms | ~47ms | `super.onCreate` is ~95% |
+| ReactContext init gap | ~130ms | ~110ms | RN host + common bundle |
+| **Native subtotal (anchor → main_host.did_start)** | **~380ms** | **~315-340ms** | |
+| JS entry → Balance | ~2700ms | ~2100ms | `require('./App')` is ~85% |
+| **TTI from anchor** | **~3.1s** | **~2.4-2.5s** | |
+| Add pre-anchor for visual estimate | +150ms | +90ms | |
+
+#### iOS baseline — total ~?s tap-to-Balance (TBD, awaiting fixed build)
+
+> ⚠ The first iOS instrumented build (commit `18c67990d7`) had a Swift
+> lazy-init bug: `appLaunchCFTime` was a module-level `let` that only
+> initialized on first read (now in `didFinishLaunching`), collapsing every
+> "+from launch" to ~0ms. Fixed in `ee1877d289` by moving the anchor to
+> `AppDelegate.appLaunchCFTime` (`static let`) and force-evaluating it inside
+> `AppDelegate.init()`. Re-baseline iOS once the new build is on a device.
+
+Approximate iOS timeline shape (deltas between phases are reliable from the
+buggy build; absolute "+from launch" needs the fixed build):
 
 ```
-+0ms     android.app.on_create.start
-+Xms     android.zygote_to_app_on_create: 100-300ms (zygote + ART; not inside our 0-reference but contextual)
-+Xms     android.app.super_on_create / so_loader_init / new_arch_load
-+~150ms  android.app.on_create.done
-+~170ms  android.activity.on_create.start
-+~220ms  android.activity.on_create.done
-+~300ms  (RN host spinning up)
-+~820ms  main_host.did_start (JS bundle loaded)
-+~970ms  __ONEKEY_MAIN_ENTRY_START__ (JS entry begins)
-+~1120ms MMKV contextAtom snapshot pre-read: N keys     ← Phase 1
-+~1700ms main entry evaluated (require('./App') chain done)
-+~1920ms BgTransport transport → ready
-+~2100ms Balance displayed                              ← Target metric
+ios.app.did_finish_launching.start                +Xms (was 0 due to lazy bug)
+  main_host.did_start (common bundle loaded)      +X+14ms
+  bg_runner.start                                  +X+14ms
+  ios.app.jpush_register                            2ms
+  ios.app.super_did_finish_launching                0ms     ← RN init happens in factory.startReactNative, not super
+ios.app.did_finish_launching.done                +X+22ms
+ios.main_entry.deferred                          +X+34ms   (defer delay ~21ms)
+ios.main_entry.evaluated                         +X+41ms   (just dispatch — async load)
+
+── JS phase ──
+[BackgroundEntry] polyfills loaded                +51ms (from JS entry)
+[StartupTiming] BG transport setup                +844ms       ← ~1ms/2 of Android
+[StartupTiming] main entry evaluated              +844ms
+[BackgroundEntry] backgroundApiProxy ready        +767ms
+Balance displayed                                 +1077-1127ms (warm) ← target TTI
 ```
 
-> Android is consistently 500-800ms slower than iOS at equivalent phases due to bigger
-> `require('./App')` overhead on Hermes-Android + heavier Expo module registration. Compare
-> `main_host.did_start` across platforms to isolate JS parse time from native overhead.
+**iOS vs Android (warm restart medians, JS side):**
+| Metric | iOS | Android | Ratio |
+|---|---|---|---|
+| Balance displayed (from JS entry) | ~1100ms | ~2200ms | 2.0× |
+| BG transport setup (`require('./App')` chain) | ~790ms | ~1700ms | 2.2× |
+| backgroundApiProxy ready (BG thread) | ~720ms | ~1500ms | 2.1× |
+| `[BackgroundEntry] polyfills loaded` | ~51ms | ~115ms | 2.3× |
+
+**Conclusion:** Hermes-iOS executes the same JS bundle ~2× faster than
+Hermes-Android on this device. JS parse time is the dominant cost on both
+platforms (75-85% of total cold start), much larger than any native phase.
 
 ### Step 4: Common Regression Patterns
 
