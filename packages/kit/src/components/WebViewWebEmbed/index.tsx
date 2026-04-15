@@ -343,6 +343,7 @@ export function WebViewWebEmbed({
       width={debugViewSize.width}
       height={debugViewSize.height}
       borderWidth={debugViewSize.borderWidth}
+      overflow="hidden"
       top={top}
       left="5%"
       position="absolute"
