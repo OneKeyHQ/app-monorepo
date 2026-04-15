@@ -41,20 +41,24 @@ export function useDiscoveryMessageHandler() {
   const customReceiveHandler = useCallback(
     async (payload: IJsBridgeMessagePayload) => {
       // eslint-disable-next-line no-console
-      console.log('[Bitrefill:DEBUG][customReceiveHandler] entered', {
-        origin: payload?.origin,
-        isBitrefill: isBitrefillOrigin(payload?.origin),
-      });
+      console.log(
+        `[Bitrefill:DEBUG][customReceiveHandler] entered ${JSON.stringify({
+          origin: payload?.origin,
+          isBitrefill: isBitrefillOrigin(payload?.origin),
+        })}`,
+      );
 
       if (!isBitrefillOrigin(payload.origin)) return;
 
       const message = parseBitrefillPaymentIntent(payload.data);
       // eslint-disable-next-line no-console
-      console.log('[Bitrefill:DEBUG][customReceiveHandler] after parse', {
-        hasMessage: Boolean(message),
-        event: message?.event,
-        paymentUri: message?.paymentUri,
-      });
+      console.log(
+        `[Bitrefill:DEBUG][customReceiveHandler] after parse ${JSON.stringify({
+          hasMessage: Boolean(message),
+          event: message?.event,
+          paymentUri: message?.paymentUri,
+        })}`,
+      );
       if (!message) {
         // Non-payment_intent Bitrefill events (invoice_created/update/complete) — ignore silently
         return;
@@ -84,16 +88,23 @@ export function useDiscoveryMessageHandler() {
             dappRequest,
           );
         // eslint-disable-next-line no-console
-        console.log('[Bitrefill:DEBUG] connected accounts pre-modal', {
-          count: accountsInfo?.length ?? 0,
-          first: accountsInfo?.[0]?.accountInfo,
-        });
+        console.log(
+          `[Bitrefill:DEBUG] connected accounts pre-modal ${JSON.stringify({
+            count: accountsInfo?.length ?? 0,
+            first: accountsInfo?.[0]?.accountInfo,
+          })}`,
+        );
 
         // 3. If not connected, prompt the user
         if (!accountsInfo || accountsInfo.length === 0) {
           try {
             // eslint-disable-next-line no-console
-            console.log('[Bitrefill:DEBUG] opening connection modal');
+            console.log(
+              `[Bitrefill:DEBUG] opening connection modal ${JSON.stringify({
+                origin: BITREFILL_EMBED_ORIGIN,
+                scope: BITREFILL_DAPP_SCOPE,
+              })}`,
+            );
             await backgroundApiProxy.serviceDApp.openConnectionModal(
               dappRequest,
             );
@@ -102,8 +113,9 @@ export function useDiscoveryMessageHandler() {
           } catch (connectErr) {
             // eslint-disable-next-line no-console
             console.log(
-              '[Bitrefill:DEBUG] connection modal rejected',
-              connectErr,
+              `[Bitrefill:DEBUG] connection modal rejected ${JSON.stringify({
+                message: (connectErr as Error)?.message,
+              })}`,
             );
             // User denied connection modal
             // TODO(i18n): replace with ETranslations.bitrefill_connect_required
