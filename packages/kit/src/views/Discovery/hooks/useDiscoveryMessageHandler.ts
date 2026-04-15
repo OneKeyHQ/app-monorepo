@@ -3,32 +3,33 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { parseOnChainAmount } from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode';
-import type { IChainValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
-import {
-  EModalRoutes,
-  EModalSignatureConfirmRoutes,
-} from '@onekeyhq/shared/src/routes';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes/signatureConfirm';
 
+import { BITREFILL_EMBED_ORIGIN } from '../utils/bitrefillUtils';
 import {
   isBitrefillOrigin,
   parseBitrefillPaymentIntent,
 } from '../utils/bitrefillHandler';
 
+import type { IChainValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+
+const BITREFILL_DAPP_SCOPE = IInjectedProviderNames.ethereum;
 
 /**
  * Hook to handle Discovery WebView messages.
- * Filters for Bitrefill payment_intent events and pushes the Send modal
- * with pre-filled data so the user can confirm the transaction.
+ * Filters for Bitrefill payment_intent events, ensures a DApp wallet connection
+ * exists (prompting if needed), switches to the target network if required,
+ * then opens the Send modal with pre-filled data.
+ *
+ * This mirrors the eth_switchEthereumChain pattern in ProviderApiEthereum.ts.
  */
 export function useDiscoveryMessageHandler() {
   const navigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-
   const isMountedRef = useRef(true);
   useEffect(
     () => () => {
@@ -47,50 +48,112 @@ export function useDiscoveryMessageHandler() {
         return;
       }
 
+      // Mock request object for serviceDApp methods (they need origin + scope)
+      const dappRequest: IJsBridgeMessagePayload = {
+        origin: BITREFILL_EMBED_ORIGIN,
+        scope: BITREFILL_DAPP_SCOPE,
+      };
+
       try {
+        // 1. Parse paymentUri to get target network + address + amount
         const result =
           await backgroundApiProxy.serviceScanQRCode.handlePaymentUri({
             uri: message.paymentUri,
           });
-
         const chainValue = result.data as IChainValue;
-        const network = chainValue.network;
-        if (!network) {
+        const targetNetwork = chainValue.network;
+        if (!targetNetwork) {
           throw new OneKeyError('paymentUri missing network context');
         }
 
-        const accountId = activeAccount.account?.id;
-        if (!accountId) {
-          throw new OneKeyError('No active account');
+        // 2. Check existing DApp connection
+        let accountsInfo =
+          await backgroundApiProxy.serviceDApp.dAppGetConnectedAccountsInfo(
+            dappRequest,
+          );
+
+        // 3. If not connected, prompt the user
+        if (!accountsInfo || accountsInfo.length === 0) {
+          try {
+            await backgroundApiProxy.serviceDApp.openConnectionModal(
+              dappRequest,
+            );
+          } catch {
+            // User denied connection modal
+            // TODO(i18n): replace with ETranslations.bitrefill_connect_required
+            Toast.error({
+              title: 'Please connect a wallet to continue the payment.',
+            });
+            return;
+          }
+          // Re-query after connection
+          accountsInfo =
+            await backgroundApiProxy.serviceDApp.dAppGetConnectedAccountsInfo(
+              dappRequest,
+            );
+          if (!accountsInfo || accountsInfo.length === 0) {
+            throw new OneKeyError('No account after connection');
+          }
         }
 
-        let selectedToken: IToken | null = null;
+        // 4. Switch network if mismatch
+        const currentNetworkId = accountsInfo[0]?.accountInfo?.networkId;
+        if (currentNetworkId !== targetNetwork.id) {
+          await backgroundApiProxy.serviceDApp.switchConnectedNetwork({
+            origin: BITREFILL_EMBED_ORIGIN,
+            scope: BITREFILL_DAPP_SCOPE,
+            oldNetworkId: currentNetworkId,
+            newNetworkId: targetNetwork.id,
+          });
+          // Re-query after network switch
+          accountsInfo =
+            await backgroundApiProxy.serviceDApp.dAppGetConnectedAccountsInfo(
+              dappRequest,
+            );
+          if (!accountsInfo || accountsInfo.length === 0) {
+            throw new OneKeyError('No account after network switch');
+          }
+        }
+
+        // 5. Resolve final account + network
+        const finalAccountId = accountsInfo[0]?.accountInfo?.accountId;
+        const finalNetworkId = accountsInfo[0]?.accountInfo?.networkId;
+        if (!finalAccountId || !finalNetworkId) {
+          throw new OneKeyError('Invalid connected account info');
+        }
+
+        if (!isMountedRef.current) return;
+
+        // 6. Resolve token (ERC-20 or native)
+        let selectedToken = null;
         if (chainValue.tokenAddress) {
           selectedToken = await backgroundApiProxy.serviceToken.getToken({
-            networkId: network.id,
-            accountId,
+            networkId: finalNetworkId,
+            accountId: finalAccountId,
             tokenIdOnNetwork: chainValue.tokenAddress,
           });
         }
         if (!selectedToken) {
           selectedToken = await backgroundApiProxy.serviceToken.getNativeToken({
-            networkId: network.id,
-            accountId,
+            networkId: finalNetworkId,
+            accountId: finalAccountId,
           });
         }
 
         if (!isMountedRef.current) return;
 
+        // 7. Parse amount and push Send modal
         const amount = await parseOnChainAmount(result, selectedToken);
 
         if (!isMountedRef.current) return;
+
         navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
           screen: EModalSignatureConfirmRoutes.TxDataInput,
           params: {
-            accountId,
-            networkId: network.id,
-            activeAccountId: accountId,
-            activeNetworkId: selectedToken?.networkId || network.id,
+            accountId: finalAccountId,
+            networkId: finalNetworkId,
+            activeAccountId: finalAccountId,
+            activeNetworkId: selectedToken?.networkId || finalNetworkId,
             isNFT: false,
             token: selectedToken,
             address: chainValue.address,
@@ -98,7 +161,7 @@ export function useDiscoveryMessageHandler() {
           },
         });
       } catch (error) {
-        // TODO(logging): replace with debugLogger once a bitrefill log scope is added
+        // TODO(logging): replace with defaultLogger.discovery.bitrefill once a scope exists
         // eslint-disable-next-line no-console
         console.error('[Bitrefill] payment_intent handler failed:', error);
         // TODO(i18n): replace with ETranslations.bitrefill_payment_failed once the key lands upstream
@@ -107,7 +170,7 @@ export function useDiscoveryMessageHandler() {
         });
       }
     },
-    [activeAccount.account?.id, navigation],
+    [navigation],
   );
 
   return { customReceiveHandler };
