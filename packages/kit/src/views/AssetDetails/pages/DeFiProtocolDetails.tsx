@@ -149,6 +149,9 @@ function DeFiProtocolDetails() {
     () =>
       buildProtocolPositionItems(protocol).map((position) => ({
         ...position,
+        categoryLabel: position.categoryTitleId
+          ? intl.formatMessage({ id: position.categoryTitleId })
+          : position.categoryLabel,
         sections: position.sections.map((section) => ({
           ...section,
           title: section.titleId
@@ -223,7 +226,7 @@ function DeFiProtocolDetails() {
                     color={position.categoryConfig.text}
                     textTransform="capitalize"
                   >
-                    {position.category}
+                    {position.categoryLabel}
                   </Badge.Text>
                 </Badge>
                 {position.poolName ? (
