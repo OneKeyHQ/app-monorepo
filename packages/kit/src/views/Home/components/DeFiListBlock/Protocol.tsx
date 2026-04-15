@@ -26,7 +26,6 @@ import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/conte
 import {
   type IProtocolPositionItem,
   type IProtocolPositionSection,
-  buildProtocolLogoUris,
   buildProtocolPositionItems,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -152,13 +151,13 @@ const ProtocolListLayout = memo(
   ({
     protocol,
     protocolInfo,
-    protocolLogoUris,
+    isAllNetworks,
     currencySymbol,
     onPressProtocol,
   }: {
     protocol: IDeFiProtocol;
     protocolInfo?: IProtocolSummary;
-    protocolLogoUris: string[];
+    isAllNetworks?: boolean;
     currencySymbol: string;
     onPressProtocol: () => void;
   }) => {
@@ -171,7 +170,12 @@ const ProtocolListLayout = memo(
         onPress={onPressProtocol}
         drillIn
       >
-        <Token size="lg" tokenImageUris={protocolLogoUris} isNFT />
+        <Token
+          size="lg"
+          tokenImageUri={protocolInfo?.protocolLogo}
+          showNetworkIcon={isAllNetworks}
+          networkId={protocol.networkId}
+        />
         <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
           {protocolInfo?.protocolName ?? protocol.protocol}
         </SizableText>
@@ -196,7 +200,6 @@ const ProtocolDesktopLayout = memo(
   ({
     protocol,
     protocolInfo,
-    protocolLogoUris,
     isAllNetworks,
     currencySymbol,
     positionCountText,
@@ -206,7 +209,6 @@ const ProtocolDesktopLayout = memo(
   }: {
     protocol: IDeFiProtocol;
     protocolInfo?: IProtocolSummary;
-    protocolLogoUris: string[];
     isAllNetworks?: boolean;
     currencySymbol: string;
     positionCountText: string;
@@ -263,8 +265,7 @@ const ProtocolDesktopLayout = memo(
                   <XStack gap="$3" alignItems="center" flex={1} minWidth={0}>
                     <Token
                       size="md"
-                      tokenImageUris={protocolLogoUris}
-                      isNFT
+                      tokenImageUri={protocolInfo?.protocolLogo}
                       showNetworkIcon={isAllNetworks}
                       networkId={protocol.networkId}
                     />
@@ -404,10 +405,6 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     ];
 
   const currencySymbol = settings.currencyInfo.symbol;
-  const protocolLogoUris = useMemo(
-    () => buildProtocolLogoUris(protocolInfo),
-    [protocolInfo],
-  );
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
@@ -425,7 +422,6 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
       })}`,
     [intl, positionCount],
   );
-
   const positions = useMemo<IProtocolPositionItem[]>(
     () => buildProtocolPositionItems(protocol),
     [protocol],
@@ -452,7 +448,6 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     positionNamePopoverTitle,
     positions,
     priceUnavailableLabel,
-    protocolLogoUris,
     protocolInfo,
   };
 }
@@ -465,7 +460,7 @@ function Protocol({ protocol, tableLayout, isAllNetworks }: IProtocolProps) {
       <ProtocolListLayout
         protocol={protocol}
         protocolInfo={viewModel.protocolInfo}
-        protocolLogoUris={viewModel.protocolLogoUris}
+        isAllNetworks={isAllNetworks}
         currencySymbol={viewModel.currencySymbol}
         onPressProtocol={viewModel.onPressProtocol}
       />
@@ -476,7 +471,6 @@ function Protocol({ protocol, tableLayout, isAllNetworks }: IProtocolProps) {
     <ProtocolDesktopLayout
       protocol={protocol}
       protocolInfo={viewModel.protocolInfo}
-      protocolLogoUris={viewModel.protocolLogoUris}
       isAllNetworks={isAllNetworks}
       currencySymbol={viewModel.currencySymbol}
       positionCountText={viewModel.positionCountText}
