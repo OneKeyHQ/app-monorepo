@@ -7,7 +7,6 @@ import { useThrottledCallback } from 'use-debounce';
 import {
   Button,
   Divider,
-  Icon,
   Skeleton,
   XStack,
   YStack,
@@ -1020,11 +1019,6 @@ function DeFiListBlock({
         title={intl.formatMessage({ id: ETranslations.global_earn })}
         subTitle={renderSubTitle()}
         subTitleProps={tableLayout ? undefined : { color: '$text' }}
-        headerActions={
-          !tableLayout ? (
-            <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
-          ) : undefined
-        }
         headerContainerProps={{ px: '$pagePadding' }}
         plainContentContainer
         content={
@@ -1044,11 +1038,6 @@ function DeFiListBlock({
       title={intl.formatMessage({ id: ETranslations.global_earn })}
       subTitle={renderSubTitle()}
       subTitleProps={tableLayout ? undefined : { color: '$text' }}
-      headerActions={
-        !tableLayout ? (
-          <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
-        ) : undefined
-      }
       headerContainerProps={{ px: '$pagePadding' }}
       contentContainerProps={tableLayout ? { px: '$pagePadding' } : undefined}
       content={renderContent()}
