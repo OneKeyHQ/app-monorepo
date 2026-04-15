@@ -32,6 +32,8 @@ interface ITokenTagsPopoverProps {
   hideCommunityInTrigger?: boolean;
   /** Custom trigger element. Overrides default trigger rendering. */
   customTrigger?: ReactNode;
+  /** Disable truncation for subtitle badge. Defaults to false. */
+  noTruncateSubtitle?: boolean;
 }
 
 function TokenTagsPopover({
@@ -40,6 +42,7 @@ function TokenTagsPopover({
   showAllInTrigger = false,
   hideCommunityInTrigger = false,
   customTrigger,
+  noTruncateSubtitle = false,
 }: ITokenTagsPopoverProps) {
   const intl = useIntl();
 
@@ -82,7 +85,10 @@ function TokenTagsPopover({
         <Icon name="BadgeRecognizedSolid" size="$4" color="$iconSuccess" />
       ) : null}
       {showAllInTrigger && hasSubtitle ? (
-        <SubtitleBadge subtitle={stock.subtitle ?? ''} />
+        <SubtitleBadge
+          subtitle={stock.subtitle ?? ''}
+          noTruncate={noTruncateSubtitle}
+        />
       ) : null}
       {showAllInTrigger && hasStockStatus ? (
         <StockIsOpenBadge stock={stock} />
