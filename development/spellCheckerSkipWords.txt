@@ -963,6 +963,9 @@ xprvt
 xpub
 xpub2blake2b224
 xpubkey
+xpubs
+Xpub
+Xpubs
 xpvt
 xrp
 Xrp
@@ -1431,3 +1434,4 @@ Blockaid
 posthog
 Posthog
 autocapture
+ellipsize

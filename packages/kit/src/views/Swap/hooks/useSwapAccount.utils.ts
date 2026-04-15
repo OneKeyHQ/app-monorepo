@@ -1,3 +1,4 @@
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 type IShouldUseSwapCustomRecipientAddressParams = {
@@ -8,6 +9,21 @@ type IShouldUseSwapCustomRecipientAddressParams = {
   activeNetworkId?: string;
   tokenNetworkId?: string;
   isAllNetwork: boolean;
+};
+
+type IShouldShowSwapRecipientAddressInfoParams = {
+  swapToAnotherAccountSwitchOn: boolean;
+  selectedRecipientAddress?: string;
+  selectedRecipientNetworkId?: string;
+  toAddressNetworkId?: string;
+  toTokenNetworkId?: string;
+};
+
+type IShouldUseSwapAddressForTokenFetchParams = {
+  address?: string;
+  activeNetworkId?: string;
+  resolvedAddressNetworkId?: string;
+  targetNetworkId?: string;
 };
 
 export function shouldUseSwapCustomRecipientAddress({
@@ -35,5 +51,45 @@ export function shouldUseSwapCustomRecipientAddress({
     isAllNetwork ||
     activeNetworkId === selectedRecipientNetworkId ||
     tokenNetworkId === selectedRecipientNetworkId
+  );
+}
+
+export function shouldShowSwapRecipientAddressInfo({
+  swapToAnotherAccountSwitchOn,
+  selectedRecipientAddress,
+  selectedRecipientNetworkId,
+  toAddressNetworkId,
+  toTokenNetworkId,
+}: IShouldShowSwapRecipientAddressInfoParams) {
+  if (
+    !swapToAnotherAccountSwitchOn ||
+    !selectedRecipientAddress ||
+    !selectedRecipientNetworkId
+  ) {
+    return false;
+  }
+
+  return (
+    selectedRecipientNetworkId === (toTokenNetworkId ?? toAddressNetworkId)
+  );
+}
+
+export function shouldUseSwapAddressForTokenFetch({
+  address,
+  activeNetworkId,
+  resolvedAddressNetworkId,
+  targetNetworkId,
+}: IShouldUseSwapAddressForTokenFetchParams) {
+  if (!address || !resolvedAddressNetworkId || !targetNetworkId) {
+    return false;
+  }
+
+  if (networkUtils.isAllNetwork({ networkId: activeNetworkId })) {
+    return resolvedAddressNetworkId === targetNetworkId;
+  }
+
+  return (
+    activeNetworkId === targetNetworkId &&
+    resolvedAddressNetworkId === targetNetworkId
   );
 }

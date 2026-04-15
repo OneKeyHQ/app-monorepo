@@ -14,6 +14,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,7 +40,13 @@ interface ISwapPanelWrapProps {
 }
 
 export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
-  const { networkId, tokenDetail, isReady } = useTokenDetail();
+  const {
+    networkId,
+    tokenAddress,
+    isNative: currentMarketTokenIsNative,
+    tokenDetail,
+    isReady,
+  } = useTokenDetail();
   const intl = useIntl();
   const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(
@@ -184,7 +191,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       symbol: tokenDetail?.symbol || '',
       decimals: tokenDetail?.decimals || 0,
       logoURI: tokenDetail?.logoUrl || '',
-      price: tokenDetail?.price || '',
+      price: tokenDetail?.priceConverted || tokenDetail?.price || '',
       isNative: !!tokenDetail?.isNative,
     },
     tradeToken: {
@@ -237,32 +244,96 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     return result?.mergeDeriveAssetsEnabled;
   }, [balanceToken?.networkId]);
 
-  const isStockToken = !!tokenDetail?.stock;
+  const disableNativeToken =
+    isOndoStockSource(tokenDetail?.stock?.source) &&
+    tradeType === ESwapDirection.BUY;
+
+  const currentMarketTokenForFilter = useMemo(() => {
+    const effectiveNetworkId = networkId || '';
+    if (!effectiveNetworkId) {
+      return undefined;
+    }
+
+    // Token detail is intentionally cleared during token switches to avoid
+    // showing stale data. Use the route identity first so native tokens like
+    // SOL are not mis-filtered while async detail is still loading.
+    if (tokenAddress || currentMarketTokenIsNative) {
+      return {
+        networkId: effectiveNetworkId,
+        contractAddress: tokenAddress || '',
+        symbol: tokenDetail?.symbol || '',
+        isNative: currentMarketTokenIsNative,
+      };
+    }
+
+    const hasTokenDetailIdentity =
+      !!tokenDetail?.address ||
+      !!tokenDetail?.symbol ||
+      tokenDetail?.isNative !== undefined;
+
+    if (!hasTokenDetailIdentity) {
+      return undefined;
+    }
+
+    return {
+      networkId: effectiveNetworkId,
+      contractAddress: tokenDetail?.address || '',
+      symbol: tokenDetail?.symbol || '',
+      isNative: tokenDetail?.isNative,
+    };
+  }, [
+    currentMarketTokenIsNative,
+    networkId,
+    tokenAddress,
+    tokenDetail?.address,
+    tokenDetail?.isNative,
+    tokenDetail?.symbol,
+  ]);
 
   const filterDefaultTokens = useMemo(() => {
     if (defaultTokens?.length === 1) {
       return [...defaultTokens];
     }
+
+    if (!currentMarketTokenForFilter) {
+      return [...defaultTokens];
+    }
+
     return defaultTokens.filter(
       (token) =>
         !equalTokenNoCaseSensitive({
           token1: token,
-          token2: {
-            networkId: networkId || '',
-            contractAddress: tokenDetail?.address || '',
-          },
+          token2: currentMarketTokenForFilter,
         }),
     );
-  }, [defaultTokens, networkId, tokenDetail]);
+  }, [currentMarketTokenForFilter, defaultTokens]);
 
   // --- Token preference persistence (simpledb) ---
-  const { result: savedPreference } = usePromiseResult(async () => {
-    const effectiveNetworkId = networkId || '';
-    if (!effectiveNetworkId) return undefined;
-    return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
-      networkId: effectiveNetworkId,
-    });
-  }, [networkId]);
+  const { result: savedPreference, isLoading: savedPreferenceLoading } =
+    usePromiseResult(
+      async () => {
+        const effectiveNetworkId = networkId || '';
+        if (!effectiveNetworkId) return undefined;
+        return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
+          networkId: effectiveNetworkId,
+        });
+      },
+      [networkId],
+      { revalidateOnFocus: true, watchLoading: true },
+    );
+
+  const findPreferredToken = useCallback(
+    (tokens: IToken[]): IToken | undefined => {
+      if (!savedPreference || tokens.length === 0) return undefined;
+      return tokens.find((token) =>
+        equalTokenNoCaseSensitive({
+          token1: token,
+          token2: savedPreference,
+        }),
+      );
+    },
+    [savedPreference],
+  );
 
   const saveTokenPreference = useCallback(
     (token: IToken) => {
@@ -292,27 +363,23 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   );
 
   // Initialize paymentToken: prefer saved preference, fallback to first default
-  // For stock tokens in BUY mode, exclude native tokens from selection
+  // Exclude native tokens when the current BUY flow requires it
   useEffect(() => {
-    const isStockBuyMode = isStockToken && tradeType === ESwapDirection.BUY;
-    const candidates = isStockBuyMode
+    const candidates = disableNativeToken
       ? filterDefaultTokens.filter((t) => !t.isNative)
       : filterDefaultTokens;
 
+    if (savedPreferenceLoading !== false) {
+      return;
+    }
+
     if (candidates.length > 0 && !paymentToken?.networkId) {
-      const preferred = savedPreference
-        ? candidates.find(
-            (t) =>
-              t.networkId === savedPreference.networkId &&
-              t.contractAddress.toLowerCase() ===
-                savedPreference.contractAddress.toLowerCase(),
-          )
-        : undefined;
+      const preferred = findPreferredToken(candidates);
       setPaymentToken(preferred || candidates[0]);
       return;
     }
     // Stock BUY mode: auto-switch away from native token
-    if (isStockBuyMode && paymentToken?.isNative && candidates.length > 0) {
+    if (disableNativeToken && paymentToken?.isNative && candidates.length > 0) {
       setPaymentToken(candidates[0]);
       return;
     }
@@ -324,25 +391,18 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           token.contractAddress !== paymentToken?.contractAddress,
       )
     ) {
-      const preferred = savedPreference
-        ? candidates.find(
-            (t) =>
-              t.networkId === savedPreference.networkId &&
-              t.contractAddress.toLowerCase() ===
-                savedPreference.contractAddress.toLowerCase(),
-          )
-        : undefined;
+      const preferred = findPreferredToken(candidates);
       setPaymentToken(preferred || candidates[0]);
     }
   }, [
+    disableNativeToken,
     paymentToken?.networkId,
     paymentToken?.contractAddress,
     paymentToken?.isNative,
     setPaymentToken,
     filterDefaultTokens,
-    savedPreference,
-    isStockToken,
-    tradeType,
+    findPreferredToken,
+    savedPreferenceLoading,
   ]);
 
   useEffect(() => {
@@ -535,9 +595,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
       speedCheckError={speedCheckError}
-      disableNativeToken={Boolean(
-        isStockToken && tradeType === ESwapDirection.BUY,
-      )}
+      disableNativeToken={disableNativeToken}
     />
   );
 }

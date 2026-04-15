@@ -60,6 +60,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -94,6 +95,10 @@ type IQuickSelectRecipient = {
   address: string;
   memo?: string;
   note?: string;
+  quickSelectTab?: 'recent' | 'account' | 'addressBook';
+  isSearchMode?: boolean;
+  searchKeyLength?: number;
+  matchCount?: number;
 };
 
 type ISendInputFlowParamList = IModalSendParamList &
@@ -477,6 +482,51 @@ function SendDataInputContainer() {
         return;
       }
 
+      // ERC-721 NFTs are 1-of-1 so there is nothing to enter on the amount
+      // page — skip straight to confirm with a fixed quantity of 1 (OK-53248).
+      const nftItem = nfts?.[0];
+      if (
+        isNFT &&
+        nftItem &&
+        nftItem.collectionType !== ENFTType.ERC1155 &&
+        account
+      ) {
+        const transfersInfo: ITransferInfo[] = [
+          {
+            from: account.address,
+            to: toResolved,
+            amount: '1',
+            nftInfo: {
+              nftId: nftItem.itemId,
+              nftAddress: nftItem.collectionAddress,
+              nftType: nftItem.collectionType,
+            },
+            memo: nextMemoValue || undefined,
+            paymentId: nextPaymentIdValue || undefined,
+            note: nextNoteValue || undefined,
+          },
+        ];
+        await signatureConfirm.navigationToTxConfirm({
+          transfersInfo,
+          sameModal: true,
+          onSuccess,
+          onFail,
+          onCancel,
+          transferPayload: {
+            amountToSend: '1',
+            isMaxSend: false,
+            isNFT: true,
+            originalRecipient: toResolved,
+            isToContract: !!toVal?.isContract,
+            memo: nextMemoValue || undefined,
+            paymentId: nextPaymentIdValue || undefined,
+            note: nextNoteValue || undefined,
+          },
+          isInternalTransfer: true,
+        });
+        return;
+      }
+
       pushAmountInput({
         networkId: currentAccount.networkId,
         accountId: currentAccount.accountId,
@@ -524,6 +574,7 @@ function SendDataInputContainer() {
     accountId: currentAccount.accountId,
     numericOnlyMemo,
     supportMemoValidation: vaultSettings?.supportMemoValidation,
+    tokenAddress: tokenInfo?.address,
   });
 
   const renderMemoForm = useCallback(() => {
@@ -940,6 +991,10 @@ function SendDataInputContainer() {
       address: selectedAddress,
       memo: selectedMemo,
       note: selectedNote,
+      quickSelectTab,
+      isSearchMode: selectIsSearchMode,
+      searchKeyLength: selectSearchKeyLength,
+      matchCount: selectMatchCount,
     }: IQuickSelectRecipient) => {
       const isFromAccount =
         addressInputChangeType.current ===
@@ -947,15 +1002,37 @@ function SendDataInputContainer() {
       const isFromAddressBook =
         addressInputChangeType.current === EInputAddressChangeType.AddressBook;
 
+      let recipientType: 'walletAccount' | 'addressBook' | 'recentRecipient' =
+        'recentRecipient';
+      if (isFromAccount) recipientType = 'walletAccount';
+      else if (isFromAddressBook) recipientType = 'addressBook';
+
+      if (quickSelectTab) {
+        defaultLogger.transaction.send.quickSelectTap({
+          network: currentAccount.networkId,
+          tab: quickSelectTab,
+          recipientType,
+          isSearchMode: selectIsSearchMode ?? false,
+          searchKeyLength: selectSearchKeyLength ?? 0,
+          matchCount: selectMatchCount ?? 0,
+        });
+      }
+
       if (isFromAccount || isFromAddressBook) {
-        if (
-          shouldStayOnDataStepForQuickSelect({
-            selectedMemo,
-            selectedNote,
-          })
-        ) {
-          // Chain still needs memo/paymentId/note input, so keep
-          // the user on the data step instead of skipping ahead.
+        const willSkip = !shouldStayOnDataStepForQuickSelect({
+          selectedMemo,
+          selectedNote,
+        });
+
+        if (quickSelectTab) {
+          defaultLogger.transaction.send.quickSelectNavigation({
+            network: currentAccount.networkId,
+            tab: quickSelectTab,
+            skippedToAmount: willSkip,
+          });
+        }
+
+        if (!willSkip) {
           fillRecipientFromQuickSelect({
             selectedAddress,
             selectedMemo,
@@ -981,6 +1058,13 @@ function SendDataInputContainer() {
 
       // For recent recipients / paste / manual: fill the input
       // and let the user review before proceeding.
+      if (quickSelectTab) {
+        defaultLogger.transaction.send.quickSelectNavigation({
+          network: currentAccount.networkId,
+          tab: quickSelectTab,
+          skippedToAmount: false,
+        });
+      }
       fillRecipientFromQuickSelect({
         selectedAddress,
         selectedMemo,
@@ -988,6 +1072,7 @@ function SendDataInputContainer() {
       });
     },
     [
+      currentAccount.networkId,
       fillRecipientFromQuickSelect,
       navigateQuickSelectRecipientToAmount,
       shouldStayOnDataStepForQuickSelect,

@@ -14,14 +14,17 @@ export function buildSwapIncognitoSettingsUpdate<
     return {
       ...settings,
       swapIncognitoMode: true,
-      swapEnableRecipientAddress: true,
     };
   }
 
   return {
     ...settings,
     swapIncognitoMode: false,
-    swapEnableRecipientAddress: true,
+    ...(settings.swapEnableRecipientAddress
+      ? {}
+      : {
+          swapToAnotherAccountSwitchOn: false,
+        }),
   };
 }
 
@@ -38,7 +41,10 @@ export function buildSwapRecipientAddressSettingsUpdate<
   return {
     ...settings,
     swapEnableRecipientAddress: false,
-    swapToAnotherAccountSwitchOn: false,
-    swapIncognitoMode: false,
+    ...(settings.swapIncognitoMode
+      ? {}
+      : {
+          swapToAnotherAccountSwitchOn: false,
+        }),
   };
 }

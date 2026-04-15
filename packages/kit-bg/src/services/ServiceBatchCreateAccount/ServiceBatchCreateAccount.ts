@@ -82,6 +82,7 @@ export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   hwRootFingerprintInfo?: {
     rootFingerprint: number | undefined;
   };
+  applyRestoreSyncPolicy?: boolean;
 };
 
 export type IBatchBuildAccountsNormalFlowParams =
@@ -102,6 +103,7 @@ type IAdvancedModeFlowParamsBase = {
   };
   saveToDb: boolean;
   progressTotalCount?: number;
+  applyRestoreSyncPolicy?: boolean;
 };
 export type IBatchBuildAccountsAdvancedFlowParams =
   IBatchBuildAccountsBaseParams & IAdvancedModeFlowParamsBase;
@@ -1222,6 +1224,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     errorMessage,
     indexedAccountNames,
     hwRootFingerprintInfo,
+    applyRestoreSyncPolicy,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1320,6 +1323,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             account: accountForCreate,
             indexedAccountNames,
             skipEventEmit: !shouldEmitEvent,
+            applyRestoreSyncPolicy,
           });
           if (this.progressInfo) {
             this.progressInfo.createdCount += 1;

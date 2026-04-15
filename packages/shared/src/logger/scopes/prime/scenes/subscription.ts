@@ -20,7 +20,8 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'moreActions'
       | 'approvalPopup'
       | 'primePage'
-      | 'walletEdit';
+      | 'walletEdit'
+      | 'browserTranslate';
   }) {
     return {
       featureName,

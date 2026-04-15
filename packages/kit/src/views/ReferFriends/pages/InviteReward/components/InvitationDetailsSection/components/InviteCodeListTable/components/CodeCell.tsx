@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,10 +13,18 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import {
+  INVITE_CODE_COLUMN_CODE_CHAR_WIDTH,
+  INVITE_CODE_COLUMN_NOTE_WIDTH,
+} from '../const';
+
 import { EditCodeDialogContent } from './EditCodeDialogContent';
+import { MarqueeText } from './MarqueeText';
 
 interface ICodeCellProps {
   code: string;
+  displayCode?: string;
+  codeViewportWidth: number;
   note: string;
   isPrimary: boolean;
   isCustomCode: boolean;
@@ -25,6 +33,8 @@ interface ICodeCellProps {
 
 export function CodeCell({
   code,
+  displayCode,
+  codeViewportWidth,
   note,
   isPrimary,
   isCustomCode,
@@ -56,12 +66,32 @@ export function CodeCell({
     });
   }, [code, note, isPrimary, isCustomCode, onUpdated, intl]);
 
+  const codeText = displayCode ?? code;
+  const needsMarquee =
+    codeText.length * INVITE_CODE_COLUMN_CODE_CHAR_WIDTH > codeViewportWidth;
+
+  const codeElement = useMemo(() => {
+    if (needsMarquee) {
+      return (
+        <MarqueeText
+          containerWidth={codeViewportWidth}
+          textProps={{ size: '$bodyMdMedium', color: '$text' }}
+        >
+          {codeText}
+        </MarqueeText>
+      );
+    }
+    return (
+      <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+        {codeText}
+      </SizableText>
+    );
+  }, [needsMarquee, codeText, codeViewportWidth]);
+
   return (
     <YStack gap="$1">
       <XStack gap="$2" ai="center">
-        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-          {code}
-        </SizableText>
+        {codeElement}
         <IconButton
           variant="tertiary"
           size="small"
@@ -84,7 +114,7 @@ export function CodeCell({
         pressStyle={{ opacity: 0.5 }}
       >
         <SizableText
-          width={150}
+          width={INVITE_CODE_COLUMN_NOTE_WIDTH}
           size="$bodyMdMedium"
           color={note ? '$textSubdued' : '$textPlaceholder'}
           numberOfLines={1}

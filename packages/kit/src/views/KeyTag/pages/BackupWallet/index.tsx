@@ -16,10 +16,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletListView } from '@onekeyhq/kit/src/components/WalletListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const ListFooterComponent = ({ walletCount }: { walletCount: number }) => {
@@ -64,10 +64,11 @@ const BackupWallet = () => {
   const navigation = useAppNavigation();
   const walletList = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets();
-    const hdWalletList = wallets.filter(
-      (wallet) =>
-        accountUtils.isHdWallet({ walletId: wallet.id }) &&
-        !accountUtils.isKeylessWallet({ walletId: wallet.id }),
+    const hdWalletList = wallets.filter((wallet) =>
+      shouldShowMnemonicBackupEntryForWallet({
+        walletId: wallet.id,
+        isKeylessWallet: wallet.isKeyless,
+      }),
     );
     return hdWalletList;
   }, []).result;

@@ -271,6 +271,13 @@ export interface IServerFetchAccountHistoryDetailResp {
 }
 
 // Transfer Recipient API Types
+export interface ITransferRecipientBadge {
+  type: string;
+  title: string;
+  tip?: string;
+  icon?: string;
+}
+
 export interface ITransferRecipient {
   address: string;
   networkId?: string;
@@ -279,6 +286,10 @@ export interface ITransferRecipient {
   amount?: string;
   symbol?: string;
   memo?: string;
+  isContract?: boolean;
+  isCex?: boolean;
+  isScam?: boolean;
+  badges?: ITransferRecipientBadge[];
 }
 
 export interface IFetchTransferRecipientsParams {

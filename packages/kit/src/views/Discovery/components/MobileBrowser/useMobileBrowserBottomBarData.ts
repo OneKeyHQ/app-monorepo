@@ -73,7 +73,8 @@ export function useMobileBrowserBottomBarData({
     removeBrowserBookmark,
   } = useBrowserBookmarkAction().current;
   const { handleShareUrl } = useBrowserOptionsAction();
-  const { isTranslated, handleTranslate } = usePageTranslation(id);
+  const { isTranslated, handleTranslate, handleTranslateTestAIError } =
+    usePageTranslation(id);
 
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
@@ -212,5 +213,6 @@ export function useMobileBrowserBottomBarData({
     onGoBackHomePage,
     isTranslated,
     handleTranslate,
+    handleTranslateTestAIError,
   };
 }

@@ -151,7 +151,6 @@ export interface IMarketStockInfo {
   sharesOutstanding?: string;
   underlyingAssetTicker?: string;
   underlyingAssetName?: string;
-  sharesPerToken?: number;
 }
 
 export interface IMarketTokenListItem {
@@ -393,6 +392,7 @@ export interface IMarketBasicConfigData {
 export interface IMarketSpotCategory {
   type: string;
   name: string;
+  icon?: string;
 }
 
 export interface IMarketPerpsCategory {
