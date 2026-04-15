@@ -21,6 +21,7 @@ import {
   BITREFILL_BRIDGE_METHOD,
   BITREFILL_EMBED_ORIGIN,
 } from '../utils/bitrefillUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const BITREFILL_DAPP_SCOPE = IInjectedProviderNames.ethereum;
 
@@ -313,9 +314,8 @@ export function useDiscoveryMessageHandler() {
           step,
           message: (error as Error)?.message ?? String(error),
         });
-        // TODO(i18n): replace with ETranslations.bitrefill_payment_failed once the key lands upstream
         Toast.error({
-          title: 'Unable to open payment. Please retry from Bitrefill.',
+          title: ETranslations.browser_unable_to_pay,
         });
       }
     },
