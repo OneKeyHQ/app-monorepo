@@ -978,15 +978,17 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     accountId?: string;
     memo: string;
+    tokenAddress?: string;
   }) {
-    const { networkId, accountId, memo } = params;
+    const { networkId, accountId, memo, tokenAddress } = params;
     if (accountId) {
       const vault = await vaultFactory.getVault({ networkId, accountId });
-      return vault.validateMemo(memo);
+      return vault.validateMemo(memo, tokenAddress);
     }
 
     return (await vaultFactory.getChainOnlyVault({ networkId })).validateMemo(
       memo,
+      tokenAddress,
     );
   }
 

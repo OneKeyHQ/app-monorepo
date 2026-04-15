@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "इस पते पर भेजें",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "{0} भेजने के लिए कम से कम {1} {2} का खाता शेष होना चाहिए।",
   "send.stellar_activation_minimum_hint": "खाता सक्रिय करने के लिए कम से कम 1 एक्सएलएम की आवश्यकता होती है।",
+  "send.stellar_contract_token_no_memo_hint": "स्टेलर कॉन्ट्रैक्ट टोकन के लिए मेमो समर्थित नहीं है।",
   "send.stellar_recipient_account_not_activated": "प्राप्तकर्ता का खाता स्टेलर नेटवर्क पर सक्रिय नहीं है। कृपया इसे सक्रिय करने के लिए इस पते पर कम से कम 1 XLM फ़ाइल भेजें।",
   "send.str_minimum_balance_is_str": "भेजना विफल रहा। {token} के लिए न्यूनतम शेष राशि {amount} है।",
   "send.str_minimum_transfer": "न्यूनतम हस्तांतरण राशि {0} है।",

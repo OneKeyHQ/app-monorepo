@@ -36,11 +36,13 @@ export function useValidateMemoField({
   accountId,
   numericOnlyMemo,
   supportMemoValidation,
+  tokenAddress,
 }: {
   networkId: string;
   accountId?: string;
   numericOnlyMemo?: boolean;
   supportMemoValidation?: boolean;
+  tokenAddress?: string;
 }): (value: string) => IValidateMemoFieldResult {
   const intl = useIntl();
 
@@ -56,13 +58,20 @@ export function useValidateMemoField({
 
       if (supportMemoValidation) {
         return backgroundApiProxy.serviceSend
-          .validateMemo({ networkId, accountId, memo: value })
+          .validateMemo({ networkId, accountId, memo: value, tokenAddress })
           .then((result) => (result.isValid ? undefined : result.errorMessage))
           .catch(() => undefined);
       }
 
       return undefined;
     },
-    [accountId, intl, networkId, numericOnlyMemo, supportMemoValidation],
+    [
+      accountId,
+      intl,
+      networkId,
+      numericOnlyMemo,
+      supportMemoValidation,
+      tokenAddress,
+    ],
   );
 }
