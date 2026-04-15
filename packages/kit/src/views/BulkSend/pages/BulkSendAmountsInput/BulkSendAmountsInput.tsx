@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { chunk, isEmpty } from 'lodash';
 import pLimit from 'p-limit';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
@@ -1420,17 +1420,25 @@ function BulkSendAmountsInputContent({
           sendersWithAccountId.find((sender) => sender.accountId)?.accountId ??
           accountId ??
           '';
-        const resp =
-          await backgroundApiProxy.serviceToken.fetchTokensDetailsBatch({
-            accountId: batchAccountId,
-            networkId,
-            contractList: [tokenInfo.address],
-            queries: Array.from(senderGroups.values()).map((group) => ({
-              accountAddress: group.queryAddress,
-            })),
-          });
 
-        resp.forEach((item) => {
+        const BATCH_CHUNK_SIZE = 50;
+        const allGroups = Array.from(senderGroups.values());
+        const groupChunks = chunk(allGroups, BATCH_CHUNK_SIZE);
+
+        const chunkResults = await Promise.all(
+          groupChunks.map((groupChunk) =>
+            backgroundApiProxy.serviceToken.fetchTokensDetailsBatch({
+              accountId: batchAccountId,
+              networkId,
+              contractList: [tokenInfo.address],
+              queries: groupChunk.map((group) => ({
+                accountAddress: group.queryAddress,
+              })),
+            }),
+          ),
+        );
+
+        chunkResults.flat().forEach((item) => {
           const addressKey = buildSenderBalanceAddressKey(item.accountAddress);
           if (!senderGroups.has(addressKey)) {
             return;
