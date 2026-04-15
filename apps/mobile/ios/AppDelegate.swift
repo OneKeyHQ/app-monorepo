@@ -76,8 +76,16 @@ private enum BackgroundThreadBridge {
   }
 }
 
-/// Captured at static-init time so `hostDidStart` can measure elapsed.
-private let appLaunchCFTime = CFAbsoluteTimeGetCurrent()
+/// App-launch reference time. NOTE: a Swift module-level `let` is **lazy** —
+/// it would only initialize on first read, which (now that we log from inside
+/// `didFinishLaunching`) collapses the "from launch" delta to ~0ms. To make
+/// "from launch" actually reflect app-launch time, the real anchor lives on
+/// `AppDelegate.appLaunchCFTime` (a `static let` on the class) and is forced
+/// to evaluate inside `AppDelegate.init()` (called by `UIApplicationMain`
+/// before `didFinishLaunching` fires). A short `+load`-based ObjC bootstrap
+/// would push the anchor even earlier (into dyld), but pure-Swift this is the
+/// earliest hook that doesn't require touching `project.pbxproj`.
+private var appLaunchCFTime: CFAbsoluteTime { AppDelegate.appLaunchCFTime }
 
 /// Tracks which bundle `bundleURL()` returned as RN's initial bundle, so
 /// `handleHostDidStart` can decide whether the main entry bundle still needs
@@ -92,6 +100,21 @@ private enum InitialBundleKind {
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
+  /// The real app-launch anchor. Captured eagerly inside `init()`, which is
+  /// invoked by `UIApplicationMain` just after dyld + `UIApplication.init`
+  /// finish and before `application(_:didFinishLaunchingWithOptions:)` fires.
+  /// Reading this from anywhere else returns the same fixed timestamp.
+  static let appLaunchCFTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
+
+  public override init() {
+    // Force the static `let` above to evaluate now. Without this read the
+    // anchor would stay un-initialized until something else first touched it
+    // (which would be deep inside `didFinishLaunching`), and every "+from
+    // launch" delta would collapse to ~0ms.
+    _ = AppDelegate.appLaunchCFTime
+    super.init()
+  }
+
   var window: UIWindow?
   @objc var reactHost: AnyObject?
 
