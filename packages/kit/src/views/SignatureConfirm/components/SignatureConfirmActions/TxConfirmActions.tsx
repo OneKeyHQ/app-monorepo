@@ -67,12 +67,14 @@ import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
 
-const GAS_ACCOUNT_REESTIMATE_CODES = new Set([40201, 40202, 40209, 90201]);
+const GAS_ACCOUNT_REFRESH_ESTIMATE_CODES = new Set([
+  40_201, 40_202, 40_209, 90_201,
+]);
 const GAS_ACCOUNT_FALLBACK_CODES = new Set([
-  40213, 40218, 40219, 90200, 90205,
+  40_213, 40_218, 40_219, 90_200, 90_205,
 ]);
 const GAS_ACCOUNT_HINT_ONLY_CODES = new Set([
-  40203, 40214, 40215, 40216, 40217, 90207, 90208, 90209,
+  40_203, 40_214, 40_215, 40_216, 40_217, 90_207, 90_208, 90_209,
 ]);
 
 function getGasAccountErrorCode(error: unknown) {
@@ -90,11 +92,13 @@ function getGasAccountErrorCode(error: unknown) {
   if (typeof e?.code === 'number') {
     return e.code;
   }
-  if (typeof e?.data?.code === 'number') {
-    return e.data.code;
+  const errorDataCode = e?.data?.code;
+  if (typeof errorDataCode === 'number') {
+    return errorDataCode;
   }
-  if (typeof e?.data?.data?.code === 'number') {
-    return e.data.data.code;
+  const nestedErrorDataCode = e?.data?.data?.code;
+  if (typeof nestedErrorDataCode === 'number') {
+    return nestedErrorDataCode;
   }
 
   return undefined;
@@ -109,30 +113,30 @@ function muteHandledErrorToast(error: unknown) {
 
 function getGasAccountErrorMessage(code: number) {
   switch (code) {
-    case 40201:
-    case 40202:
-    case 90201:
+    case 40_201:
+    case 40_202:
+    case 90_201:
       return 'Gas sponsor quote expired. Refreshing fee estimate.';
-    case 40209:
+    case 40_209:
       return 'Gas sponsor nonce changed. Refreshing fee estimate.';
-    case 40213:
-    case 40218:
-    case 40219:
-    case 90200:
-    case 90205:
+    case 40_213:
+    case 40_218:
+    case 40_219:
+    case 90_200:
+    case 90_205:
       return 'Gas sponsor unavailable. Switched to network fee.';
-    case 40203:
+    case 40_203:
       return 'Transaction may already have been submitted. Check activity.';
-    case 40214:
+    case 40_214:
       return 'A gas sponsor request is already in progress. Please try again shortly.';
-    case 40215:
-    case 90207:
+    case 40_215:
+    case 90_207:
       return 'Too many gas sponsor requests. Please try again shortly.';
-    case 40216:
-    case 90208:
+    case 40_216:
+    case 90_208:
       return 'Gas sponsor limit reached for today.';
-    case 40217:
-    case 90209:
+    case 40_217:
+    case 90_209:
       return 'Gas sponsor is busy right now. Please try again later.';
     default:
       return undefined;
@@ -243,7 +247,7 @@ function TxConfirmActions(props: IProps) {
         (error as Error | undefined)?.message ??
         'Failed to submit transaction.';
 
-      if (GAS_ACCOUNT_REESTIMATE_CODES.has(code)) {
+      if (GAS_ACCOUNT_REFRESH_ESTIMATE_CODES.has(code)) {
         muteHandledErrorToast(error);
         resetGasAccountTemporarilyDisabled();
         resetGasAccountUiState();
@@ -672,6 +676,7 @@ function TxConfirmActions(props: IProps) {
     customRpcStatus?.useDefaultRpcOnce,
     settings?.currencyInfo.id,
     nativeTokenInfo.info?.symbol,
+    sendFeeStatus.discountPercent,
   ]);
 
   const handleOnConfirm = useCallback(async () => {
