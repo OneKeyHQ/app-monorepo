@@ -153,6 +153,13 @@ export function useDiscoveryMessageHandler() {
             await backgroundApiProxy.serviceDApp.dAppGetConnectedAccountsInfo(
               dappRequest,
             );
+          // eslint-disable-next-line no-console
+          console.log(
+            `[Bitrefill:DEBUG] connected accounts post-modal ${JSON.stringify({
+              count: accountsInfo?.length ?? 0,
+              first: accountsInfo?.[0]?.accountInfo,
+            })}`,
+          );
           if (!accountsInfo || accountsInfo.length === 0) {
             throw new OneKeyError('No account after connection');
           }
@@ -160,18 +167,39 @@ export function useDiscoveryMessageHandler() {
 
         // 4. Switch network if mismatch
         const currentNetworkId = accountsInfo[0]?.accountInfo?.networkId;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Bitrefill:DEBUG] network comparison ${JSON.stringify({
+            currentNetworkId,
+            targetNetworkId: targetNetwork.id,
+            needsSwitch: currentNetworkId !== targetNetwork.id,
+          })}`,
+        );
         if (currentNetworkId !== targetNetwork.id) {
+          // eslint-disable-next-line no-console
+          console.log('[Bitrefill:DEBUG] switching network');
           await backgroundApiProxy.serviceDApp.switchConnectedNetwork({
             origin: BITREFILL_EMBED_ORIGIN,
             scope: BITREFILL_DAPP_SCOPE,
             oldNetworkId: currentNetworkId,
             newNetworkId: targetNetwork.id,
           });
+          // eslint-disable-next-line no-console
+          console.log('[Bitrefill:DEBUG] switch resolved, re-querying accounts');
           // Re-query after network switch
           accountsInfo =
             await backgroundApiProxy.serviceDApp.dAppGetConnectedAccountsInfo(
               dappRequest,
             );
+          // eslint-disable-next-line no-console
+          console.log(
+            `[Bitrefill:DEBUG] connected accounts post-switch ${JSON.stringify(
+              {
+                count: accountsInfo?.length ?? 0,
+                first: accountsInfo?.[0]?.accountInfo,
+              },
+            )}`,
+          );
           if (!accountsInfo || accountsInfo.length === 0) {
             throw new OneKeyError('No account after network switch');
           }
@@ -180,6 +208,14 @@ export function useDiscoveryMessageHandler() {
         // 5. Resolve final account + network
         const finalAccountId = accountsInfo[0]?.accountInfo?.accountId;
         const finalNetworkId = accountsInfo[0]?.accountInfo?.networkId;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Bitrefill:DEBUG] final account ${JSON.stringify({
+            finalAccountId,
+            finalNetworkId,
+            mounted: isMountedRef.current,
+          })}`,
+        );
         if (!finalAccountId || !finalNetworkId) {
           throw new OneKeyError('Invalid connected account info');
         }
@@ -206,6 +242,17 @@ export function useDiscoveryMessageHandler() {
 
         // 7. Parse amount and push Send modal
         const amount = await parseOnChainAmount(result, selectedToken);
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Bitrefill:DEBUG] about to pushModal ${JSON.stringify({
+            accountId: finalAccountId,
+            networkId: finalNetworkId,
+            address: chainValue.address,
+            amount,
+            hasToken: Boolean(selectedToken),
+            mounted: isMountedRef.current,
+          })}`,
+        );
 
         if (!isMountedRef.current) return;
 
