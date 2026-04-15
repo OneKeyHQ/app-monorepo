@@ -53,6 +53,7 @@
     "ecpair": "^2.1.0",
     "elliptic": "^6.6.0",
     "eth-sig-util": "^3.0.1",
+    "ethereumjs-util": "7.1.5",
     "js-conflux-sdk": "^2.1.12",
     "jsrsasign": "^10.8.6",
     "near-api-js": "^2.1.4",

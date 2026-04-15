@@ -942,6 +942,7 @@ class ServiceAccount extends ServiceBase {
     account,
     indexedAccountNames,
     skipEventEmit,
+    applyRestoreSyncPolicy,
   }: {
     walletId: string;
     networkId: string;
@@ -950,6 +951,7 @@ class ServiceAccount extends ServiceBase {
       [index: number]: string;
     };
     skipEventEmit?: boolean;
+    applyRestoreSyncPolicy?: boolean;
   }) {
     const {
       addressDetail: _addressDetail,
@@ -967,12 +969,14 @@ class ServiceAccount extends ServiceBase {
       indexes: [dbAccount.pathIndex],
       skipIfExists: true,
       names: indexedAccountNames,
+      applyRestoreSyncPolicy,
     });
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts: [dbAccount],
       skipEventEmit,
+      applyRestoreSyncPolicy,
     });
   }
 
@@ -1038,8 +1042,10 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     accounts: IDBAccount[];
     importedCredential?: string;
+    applyRestoreSyncPolicy?: boolean;
   }) {
-    const { walletId, accounts, importedCredential } = params;
+    const { walletId, accounts, importedCredential, applyRestoreSyncPolicy } =
+      params;
     const wallet = await this.getWalletSafe({ walletId });
     const shouldCreateIndexAccount =
       accountUtils.isHdWallet({ walletId }) ||
@@ -1076,8 +1082,24 @@ class ServiceAccount extends ServiceBase {
       walletId,
       accounts,
       importedCredential,
+      applyRestoreSyncPolicy,
     });
     if (shouldCreateIndexAccount) {
+      const indexedAccountNames = Object.fromEntries(
+        accounts
+          .filter(
+            (
+              account,
+            ): account is IDBAccount & {
+              indexedAccountId: string;
+              pathIndex: number;
+            } =>
+              !isNil(account.pathIndex) &&
+              !!account.indexedAccountId &&
+              !!account.name,
+          )
+          .map((account) => [account.pathIndex, account.name]),
+      );
       await this.addIndexedAccount({
         walletId,
         indexes: accounts.map((account) =>
@@ -1088,12 +1110,14 @@ class ServiceAccount extends ServiceBase {
             : 0,
         ),
         skipIfExists: true,
+        names: indexedAccountNames,
+        applyRestoreSyncPolicy,
       });
       for (const account of accounts) {
         const isAccountExists = existsAccounts.some(
           (existsAccount) => existsAccount.id === account.id,
         );
-        if (!isAccountExists) {
+        if (applyRestoreSyncPolicy || !isAccountExists) {
           if (wallet?.xfp && account.indexedAccountId) {
             await this.setUniversalIndexedAccountName({
               name: account.name,
@@ -1102,11 +1126,13 @@ class ServiceAccount extends ServiceBase {
                 indexedAccountId: account.indexedAccountId,
               }).index,
               walletXfp: wallet.xfp,
+              applyRestoreSyncPolicy,
             });
           } else {
             await this.setAccountName({
               name: account.name,
               indexedAccountId: account.indexedAccountId,
+              applyRestoreSyncPolicy,
             });
           }
         }
@@ -1611,6 +1637,7 @@ class ServiceAccount extends ServiceBase {
     shouldCheckDuplicateName,
     skipAddIfNotEqualToAddress,
     skipEventEmit,
+    applyRestoreSyncPolicy,
   }: {
     name?: string;
     fallbackName?: string;
@@ -1620,6 +1647,7 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes | undefined;
     skipAddIfNotEqualToAddress?: string;
     skipEventEmit?: boolean;
+    applyRestoreSyncPolicy?: boolean;
   }): Promise<{
     networkId: string;
     walletId: string;
@@ -1703,6 +1731,7 @@ class ServiceAccount extends ServiceBase {
         walletId,
         accounts,
         importedCredential: credentialEncrypt,
+        applyRestoreSyncPolicy,
         accountNameBuilder: ({ nextAccountId }) => {
           if (fallbackName) {
             return fallbackName;
@@ -1711,11 +1740,17 @@ class ServiceAccount extends ServiceBase {
         },
       });
 
-    void this.fixAccountName({
+    const fixAccountNamePromise = this.fixAccountName({
       account: existsAccounts?.[0],
       name,
       fallbackName,
+      applyRestoreSyncPolicy,
     });
+    if (applyRestoreSyncPolicy) {
+      await fixAccountNamePromise;
+    } else {
+      void fixAccountNamePromise;
+    }
 
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
 
@@ -1837,19 +1872,22 @@ class ServiceAccount extends ServiceBase {
     account,
     name,
     fallbackName,
+    applyRestoreSyncPolicy,
   }: {
     account: IDBAccount | undefined;
     name?: string;
     fallbackName?: string;
+    applyRestoreSyncPolicy?: boolean;
   }) {
     if (!account) {
       return;
     }
     const newName = name || fallbackName;
-    if (newName && account.name !== newName) {
+    if (newName && (applyRestoreSyncPolicy || account.name !== newName)) {
       await this.setAccountName({
         accountId: account.id,
         name: newName,
+        applyRestoreSyncPolicy,
       });
     }
   }
@@ -1866,6 +1904,7 @@ class ServiceAccount extends ServiceBase {
     isUrlAccount,
     skipAddIfNotEqualToAddress,
     skipEventEmit,
+    applyRestoreSyncPolicy,
   }: {
     input: string;
     networkId: string;
@@ -1876,6 +1915,7 @@ class ServiceAccount extends ServiceBase {
     isUrlAccount?: boolean;
     skipAddIfNotEqualToAddress?: string;
     skipEventEmit?: boolean;
+    applyRestoreSyncPolicy?: boolean;
   }): Promise<{
     networkId: string;
     walletId: string;
@@ -2007,6 +2047,7 @@ class ServiceAccount extends ServiceBase {
         allAccountsBelongToNetworkId: networkId,
         walletId,
         accounts,
+        applyRestoreSyncPolicy,
         accountNameBuilder: ({ nextAccountId }) => {
           if (isUrlAccount) {
             return `Url Account ${Date.now()}`;
@@ -2018,11 +2059,17 @@ class ServiceAccount extends ServiceBase {
         },
       });
 
-    void this.fixAccountName({
+    const fixAccountNamePromise = this.fixAccountName({
       account: existsAccounts?.[0],
       name,
       fallbackName,
+      applyRestoreSyncPolicy,
     });
+    if (applyRestoreSyncPolicy) {
+      await fixAccountNamePromise;
+    } else {
+      void fixAccountNamePromise;
+    }
 
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
 
@@ -2661,6 +2708,7 @@ class ServiceAccount extends ServiceBase {
     indexes,
     names,
     skipIfExists,
+    applyRestoreSyncPolicy,
   }: {
     walletId: string;
     indexes: number[];
@@ -2668,12 +2716,14 @@ class ServiceAccount extends ServiceBase {
       [index: number]: string;
     };
     skipIfExists: boolean;
+    applyRestoreSyncPolicy?: boolean;
   }) {
     return localDb.addIndexedAccount({
       walletId,
       indexes,
       names,
       skipIfExists,
+      applyRestoreSyncPolicy,
     });
   }
 
@@ -2720,17 +2770,57 @@ class ServiceAccount extends ServiceBase {
     if (!name) {
       return;
     }
-    if (oldName && name && oldName === name) {
+    if (!params.applyRestoreSyncPolicy && oldName && name && oldName === name) {
       return;
     }
 
     const r = await localDb.setAccountName(params);
-    if (!params.skipEventEmit) {
+
+    if (!params.applyRestoreSyncPolicy) {
+      if (!params.skipEventEmit) {
+        appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      }
+
+      if (oldName && name && oldName !== name) {
+        const entityType: EChangeHistoryEntityType = accountId
+          ? EChangeHistoryEntityType.Account
+          : EChangeHistoryEntityType.IndexedAccount;
+
+        const entityId = accountId || indexedAccountId || '';
+        await simpleDb.changeHistory.addChangeHistory({
+          items: [
+            {
+              entityType,
+              entityId,
+              contentType: EChangeHistoryContentType.Name,
+              oldValue: oldName,
+              value: name,
+            },
+          ],
+        });
+      }
+
+      return r;
+    }
+
+    const latestName = accountId
+      ? (
+          await this.getDBAccountSafe({
+            accountId,
+          })
+        )?.name || ''
+      : (
+          await this.getIndexedAccountSafe({
+            id: indexedAccountId || '',
+          })
+        )?.name || '';
+    const isNameChanged = oldName && latestName && oldName !== latestName;
+
+    if (!params.skipEventEmit && isNameChanged) {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
 
-    // Only proceed if the name is actually changing
-    if (oldName && name && oldName !== name) {
+    if (isNameChanged) {
       const entityType: EChangeHistoryEntityType = accountId
         ? EChangeHistoryEntityType.Account
         : EChangeHistoryEntityType.IndexedAccount;
@@ -2744,7 +2834,7 @@ class ServiceAccount extends ServiceBase {
             entityId,
             contentType: EChangeHistoryContentType.Name,
             oldValue: oldName,
-            value: name,
+            value: latestName,
           },
         ],
       });
@@ -3102,6 +3192,7 @@ class ServiceAccount extends ServiceBase {
     avatarInfo,
     keylessDetailsInfo,
     skipAddHDNextIndexedAccount,
+    applyRestoreSyncPolicy,
   }: {
     mnemonic: string;
     name?: string;
@@ -3110,6 +3201,7 @@ class ServiceAccount extends ServiceBase {
     avatarInfo?: IAvatarInfo;
     keylessDetailsInfo?: IKeylessWalletDetailsInfo;
     skipAddHDNextIndexedAccount?: boolean;
+    applyRestoreSyncPolicy?: boolean;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -3153,6 +3245,7 @@ class ServiceAccount extends ServiceBase {
       avatarInfo,
       keylessDetailsInfo,
       skipAddHDNextIndexedAccount,
+      applyRestoreSyncPolicy,
     });
   }
 
@@ -3201,6 +3294,7 @@ class ServiceAccount extends ServiceBase {
     isKeylessWallet,
     keylessDetailsInfo,
     skipAddHDNextIndexedAccount,
+    applyRestoreSyncPolicy,
   }: {
     rs: string;
     password: string;
@@ -3212,6 +3306,7 @@ class ServiceAccount extends ServiceBase {
     isKeylessWallet?: boolean;
     keylessDetailsInfo?: IKeylessWalletDetailsInfo;
     skipAddHDNextIndexedAccount?: boolean;
+    applyRestoreSyncPolicy?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -3248,6 +3343,7 @@ class ServiceAccount extends ServiceBase {
           walletId: existsSameHashWallet.id,
           indexes: [0],
           skipIfExists: true,
+          applyRestoreSyncPolicy,
         });
         // localDb.buildCreateHDAndHWWalletResult({
         //   walletId: existsSameHashWallet.id,
@@ -3274,6 +3370,7 @@ class ServiceAccount extends ServiceBase {
       isKeylessWallet,
       keylessDetailsInfo,
       skipAddHDNextIndexedAccount,
+      applyRestoreSyncPolicy,
     });
 
     if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
@@ -3800,26 +3897,32 @@ class ServiceAccount extends ServiceBase {
     const { walletId, name } = params;
 
     let oldName = '';
+    let oldAvatar = '';
     // Get the old name before updating
-    if (name) {
+    if (name || params.applyRestoreSyncPolicy) {
       const wallet = await this.getWalletSafe({
         walletId,
         withoutRefill: true,
       });
       oldName = wallet?.name || '';
+      oldAvatar = wallet?.avatar || '';
     }
 
     const result = await localDb.setWalletNameAndAvatar(params);
+    const isWalletMetadataChanged =
+      oldName !== result.name || oldAvatar !== (result.avatar || '');
 
-    if (!params.skipEmitEvent) {
+    if (
+      !params.skipEmitEvent &&
+      (!params.applyRestoreSyncPolicy || isWalletMetadataChanged)
+    ) {
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
       appEventBus.emit(EAppEventBusNames.WalletRename, {
         walletId: params.walletId,
       });
     }
 
-    // Only proceed if the name is actually changing
-    if (name && oldName && oldName !== name) {
+    if (name && oldName && oldName !== result.name) {
       // Record the name change history
       await simpleDb.changeHistory.addChangeHistory({
         items: [
@@ -3828,7 +3931,7 @@ class ServiceAccount extends ServiceBase {
             entityId: walletId,
             contentType: EChangeHistoryContentType.Name,
             oldValue: oldName,
-            value: name,
+            value: result.name,
           },
         ],
       });
@@ -5864,12 +5967,14 @@ class ServiceAccount extends ServiceBase {
     privateKey,
     networkId,
     skipEventEmit,
+    applyRestoreSyncPolicy,
   }: {
     importedAccount: IPrimeTransferAccount;
     input: string;
     privateKey: string;
     networkId: string;
     skipEventEmit?: boolean;
+    applyRestoreSyncPolicy?: boolean;
   }) {
     const addedAccounts: IDBAccount[] = [];
     try {
@@ -5927,6 +6032,7 @@ class ServiceAccount extends ServiceBase {
               name: importedAccount.name,
               deriveType,
               skipAddIfNotEqualToAddress,
+              applyRestoreSyncPolicy,
             });
           addedAccounts.push(...(accounts || []));
         } catch (e) {
@@ -5944,11 +6050,13 @@ class ServiceAccount extends ServiceBase {
     input,
     networkId,
     skipEventEmit,
+    applyRestoreSyncPolicy,
   }: {
     watchingAccount: IPrimeTransferAccount;
     input: string;
     networkId: string;
     skipEventEmit?: boolean;
+    applyRestoreSyncPolicy?: boolean;
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
@@ -6006,6 +6114,7 @@ class ServiceAccount extends ServiceBase {
             deriveType,
             isUrlAccount: false,
             skipAddIfNotEqualToAddress,
+            applyRestoreSyncPolicy,
           });
           addedAccounts.push(...(accounts || []));
         } catch (e) {

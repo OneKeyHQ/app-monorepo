@@ -9498,6 +9498,7 @@ __metadata:
     ecpair: "npm:^2.1.0"
     elliptic: "npm:^6.6.0"
     eth-sig-util: "npm:^3.0.1"
+    ethereumjs-util: "npm:7.1.5"
     folderslint: "npm:1.2.0"
     js-conflux-sdk: "npm:^2.1.12"
     jsrsasign: "npm:^10.8.6"
@@ -28534,7 +28535,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethereumjs-util@npm:*":
+"ethereumjs-util@npm:*, ethereumjs-util@npm:7.1.5":
   version: 7.1.5
   resolution: "ethereumjs-util@npm:7.1.5"
   dependencies:
