@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Button, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
@@ -33,9 +31,6 @@ export function MarketRecommendList({
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
-  const { height: windowHeight } = useWindowDimensions();
-
-  const actualShowTitle = useMemo(() => windowHeight > 700, [windowHeight]);
 
   const uniqueTokens = useMemo(() => {
     if (!recommendedTokens?.length) return [];
@@ -133,29 +128,7 @@ export function MarketRecommendList({
 
   return (
     <YStack px="$5" jc="center" ai="center" width="100%">
-      {actualShowTitle ? (
-        <>
-          <SizableText
-            size={platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'}
-            color="$text"
-          >
-            {intl.formatMessage({
-              id: ETranslations.market_favorites_empty,
-            })}
-          </SizableText>
-          <SizableText
-            color="$textSubdued"
-            size={platformEnv.isExtensionUiPopup ? '$bodyMd' : '$bodyLg'}
-            pt="$2"
-          >
-            {intl.formatMessage({
-              id: ETranslations.market_favorites_empty_desc,
-            })}
-          </SizableText>
-        </>
-      ) : null}
       <YStack
-        pt={actualShowTitle ? '$6' : '$0'}
         gap="$2.5"
         width="100%"
         $gtMd={{ maxWidth: 480 }}
