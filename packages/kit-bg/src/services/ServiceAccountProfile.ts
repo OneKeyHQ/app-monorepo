@@ -344,17 +344,12 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    // For BTC network with fresh address enabled, skip interaction check
-    let checkInteraction: boolean | undefined;
-    if (networkUtils.isBTCNetwork(networkId)) {
-      const enableBTCFreshAddress =
-        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
-      if (enableBTCFreshAddress) {
-        checkInteraction = false;
-      }
-    }
 
     // BTC/LTC merge-derive: fan out /badges per xpub and merge (OK-52897).
+    // The server-side interaction check is now xpub-based, so BTC fresh
+    // address no longer needs the client to disable checkInteraction —
+    // any xpub that actually sent to `toAddress` will report INTERACTED
+    // regardless of which "fresh" fromAddress is active.
     const xpubEntries = accountId
       ? await serviceAccount.safeGetAccountXpubsForAllDeriveTypes({
           accountId,
@@ -374,7 +369,6 @@ class ServiceAccountProfile extends ServiceBase {
               networkId,
               fromAddress,
               toAddress,
-              checkInteraction,
               xpub: entry.xpub,
             }),
         ),
@@ -389,7 +383,6 @@ class ServiceAccountProfile extends ServiceBase {
         networkId,
         fromAddress,
         toAddress,
-        checkInteraction,
         xpub: xpubEntries[0]?.xpub,
       });
     }
