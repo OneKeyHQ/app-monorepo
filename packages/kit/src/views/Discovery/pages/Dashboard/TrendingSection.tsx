@@ -8,7 +8,6 @@ import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scene
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
-import { getMockBitrefillDApp } from '../../utils/bitrefillUtils';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 import { TrendingSectionItems } from './TrendingSectionItems';
@@ -26,11 +25,7 @@ export function TrendingSection({
 }: ITrendingSectionProps) {
   const intl = useIntl();
   const handleWebSite = useWebSiteHandler();
-  // TODO: Remove mock Bitrefill data after integration is complete
-  const dataSource = useMemo<IDApp[]>(
-    () => [getMockBitrefillDApp(), ...(data ?? [])],
-    [data],
-  );
+  const dataSource = useMemo<IDApp[]>(() => data ?? [], [data]);
 
   const handleOpenWebSite = useCallback(
     ({ dApp, webSite }: IMatchDAppItemType) => {
