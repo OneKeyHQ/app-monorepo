@@ -46,7 +46,7 @@ export function AccountSelectorTriggerHome({
       horizontalLayout
       editable
       autoWidthForHome
-      showWalletAvatar
+      showWalletAvatar={!platformEnv.isWebDappMode}
       showWalletName={false}
       num={num}
       linkNetwork={!network?.isAllNetworks}
