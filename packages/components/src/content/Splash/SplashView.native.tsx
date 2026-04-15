@@ -59,9 +59,12 @@ export function SplashView({ onExit, canDismissSplash }: ISplashViewProps) {
     if (!canDismissSplash) {
       return;
     }
-    // Delay 50ms to let React commit the pending render before hiding the splash
-    const timer = setTimeout(hideSplash, 50);
-    return () => clearTimeout(timer);
+    // No setTimeout — the React commit that will render the post-splash tree
+    // already completed before this effect runs. The previous setTimeout(50)
+    // here was observed to get starved to ~320ms under main-thread load, which
+    // was the single largest delay in the "SplashProvider mount → hideSplash"
+    // window.
+    hideSplash();
   }, [canDismissSplash, hideSplash]);
   return null;
 }

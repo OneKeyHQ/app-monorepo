@@ -17,11 +17,13 @@ const SPLASH_SAFETY_TIMEOUT = 5000;
 const jsEntryStart: number =
   (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
-// EXPERIMENT: dismiss splash 50ms after SplashProvider mounts, regardless of
-// whether HomePageReady or PendingInstallTaskProcessFinished have fired.
-// Trades "guaranteed balance on first frame" for ~300-500ms perceived TTI.
+// EXPERIMENT: dismiss splash immediately when SplashProvider mounts — skip
+// waiting for HomePageReady / PendingInstallTaskProcessFinished.
+// Uses a synchronous state update (no setTimeout) so the main-thread-busy
+// window doesn't starve the dismissal. Trades "guaranteed balance on first
+// visible frame" for ~300-500ms perceived TTI gain.
 // Set to false to restore the original cache-aware dismissal logic.
-const EXPERIMENT_DISMISS_SPLASH_AFTER_50MS = true;
+const EXPERIMENT_DISMISS_SPLASH_ON_MOUNT = true;
 
 function logSplashProvider(message: string) {
   if (
@@ -145,15 +147,14 @@ export const useCanDismissSplash =
         const [canDismissSplash, setCanDismissSplash] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);
 
-        // EXPERIMENT short-circuit: skip event-based wait entirely.
+        // EXPERIMENT short-circuit: synchronous dismiss on mount. No setTimeout —
+        // the main-thread-busy window around React mount starves setTimeout(50)
+        // to 100-350ms, defeating the "50ms" intent. A sync setState dispatches
+        // in React's scheduler directly and avoids the starvation tax.
         useEffect(() => {
-          if (!EXPERIMENT_DISMISS_SPLASH_AFTER_50MS) return;
-          logSplashProvider('experiment 50ms timer scheduled');
-          const timer = setTimeout(() => {
-            logSplashProvider('experiment 50ms timer fired');
-            setCanDismissSplash(true);
-          }, 50);
-          return () => clearTimeout(timer);
+          if (!EXPERIMENT_DISMISS_SPLASH_ON_MOUNT) return;
+          logSplashProvider('experiment: immediate dismiss on mount');
+          setCanDismissSplash(true);
         }, []);
 
         // Unconditional safety timer: mounts once and guarantees dismissal
