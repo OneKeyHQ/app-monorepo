@@ -8,20 +8,19 @@ import {
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { parseOnChainAmount } from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode';
+import type { IChainValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBitrefillFailStep } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/bitrefill';
 
 import {
-  BITREFILL_BRIDGE_METHOD,
-  BITREFILL_EMBED_ORIGIN,
-} from '../utils/bitrefillUtils';
-import {
   isBitrefillOrigin,
   parseBitrefillPaymentIntent,
 } from '../utils/bitrefillHandler';
-
-import type { IChainValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import {
+  BITREFILL_BRIDGE_METHOD,
+  BITREFILL_EMBED_ORIGIN,
+} from '../utils/bitrefillUtils';
 
 const BITREFILL_DAPP_SCOPE = IInjectedProviderNames.ethereum;
 
