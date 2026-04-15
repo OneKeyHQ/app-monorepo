@@ -36,7 +36,7 @@ console.log('process.env.VERSION', process.env.VERSION);
 console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
 console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
 build({
-  entryPoints: ['app.ts', 'preload.ts', 'preloadTray.ts', ...serviceFiles].map(
+  entryPoints: ['app.ts', 'preload.ts', ...serviceFiles].map(
     (f) => path.join(electronSource, f),
   ),
   platform: 'node',

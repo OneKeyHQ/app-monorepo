@@ -4,6 +4,7 @@ import { type BrowserWindow, Tray, nativeImage } from 'electron';
 import logger from 'electron-log';
 
 import { ipcMessageKeys } from '../config';
+
 import {
   registerTrayIpcHandlers,
   requestDataFromMainWindow,

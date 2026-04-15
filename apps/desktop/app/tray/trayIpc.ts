@@ -4,6 +4,7 @@ import logger from 'electron-log';
 import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
 
 import { ipcMessageKeys } from '../config';
+
 import { diffAndNotify } from './trayNotification';
 import { getTrayWindow } from './trayWindow';
 
