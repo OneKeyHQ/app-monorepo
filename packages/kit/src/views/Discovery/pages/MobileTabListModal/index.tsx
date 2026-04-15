@@ -13,6 +13,7 @@ import {
   Toast,
   XStack,
   useClipboard,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -57,9 +58,11 @@ function TabToolBar({
   onDone: () => void;
 }) {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   return (
     <Stack
-      py="$2"
+      pt="$2"
+      pb={bottom || '$2'}
       flexDirection="row"
       alignItems="center"
       borderTopWidth={StyleSheet.hairlineWidth}
