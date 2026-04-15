@@ -15,6 +15,9 @@ import { FieldWrapper } from './FieldWrapper';
 
 import type { ISwapConfig } from './ActionField';
 
+export const BORROW_TABLE_APY_COLUMN_MIN_WIDTH = 120;
+export const BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH = 140;
+
 type IBorrowTableListProps<T> = {
   columns: ITableColumn<T>[];
   data: T[];

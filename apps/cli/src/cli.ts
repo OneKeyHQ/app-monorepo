@@ -2,10 +2,13 @@ import { Command } from 'commander';
 import 'fake-indexeddb/auto';
 
 import {
+  handleAuthCommandDiscoveryFallback,
+  registerAuthCommands,
   registerBalanceCommand,
   registerImportCommand,
   registerLogoutCommand,
   registerMarketCommands,
+  registerSchemaCommand,
   registerSecurityCommands,
   registerStatusCommand,
   registerSwapCommands,
@@ -15,9 +18,11 @@ import {
   registerWalletHistoryCommand,
 } from './commands';
 import { secureCache } from './core';
+import { createSignalCleanupHandler } from './core/auth/auth-flow-interruption';
 import { ERROR_CODES } from './errors';
 import { apiClient } from './infra';
 import { OutputFormatter } from './output';
+import './schemas/register-all';
 import { createLogger } from './utils/logger';
 import { detectOutputMode } from './utils/mode-detector';
 
@@ -70,6 +75,7 @@ registerImportCommand(program);
 registerLogoutCommand(program);
 registerBalanceCommand(program);
 registerTransferCommand(program);
+registerAuthCommands(program);
 
 // Phase 3A command groups
 registerTokenCommands(program);
@@ -77,19 +83,31 @@ registerMarketCommands(program);
 registerSwapCommands(program);
 registerSecurityCommands(program);
 registerWalletHistoryCommand(program);
+registerSchemaCommand(program);
 
 // Signal handlers: use Unix-conventional exit codes (128 + signal number)
-process.on('SIGINT', () => {
-  secureCache.clearAll();
-  process.exit(130); // 128 + 2
-});
-process.on('SIGTERM', () => {
-  secureCache.clearAll();
-  process.exit(143); // 128 + 15
-});
-process.on('SIGHUP', () => {
-  secureCache.clearAll();
-  process.exit(129); // 128 + 1
-});
+process.on(
+  'SIGINT',
+  createSignalCleanupHandler({
+    exitCode: 130,
+    clearSecureCache: () => secureCache.clearAll(),
+  }),
+);
+process.on(
+  'SIGTERM',
+  createSignalCleanupHandler({
+    exitCode: 143,
+    clearSecureCache: () => secureCache.clearAll(),
+  }),
+);
+process.on(
+  'SIGHUP',
+  createSignalCleanupHandler({
+    exitCode: 129,
+    clearSecureCache: () => secureCache.clearAll(),
+  }),
+);
 
-program.parse();
+if (!handleAuthCommandDiscoveryFallback(process.argv.slice(2))) {
+  program.parse();
+}

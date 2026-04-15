@@ -2,9 +2,15 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { HeaderScrollGestureWrapper, Tabs, YStack } from '@onekeyhq/components';
+import {
+  HeaderScrollGestureWrapper,
+  Tabs,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   NUMBER_FORMATTER,
@@ -90,6 +96,7 @@ export function MobileInformationTabs({
   }, [intl, tokenDetail?.holders]);
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+  const tabContainerWidth = useTabContainerWidth();
 
   const tabs = useMemo(() => {
     // Check if current network supports holders tab (not available for native tokens)
@@ -161,6 +168,7 @@ export function MobileInformationTabs({
   return (
     <Tabs.Container
       key={tabsKey}
+      width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
       headerContainerStyle={{
         width: '100%',
         shadowColor: 'transparent',

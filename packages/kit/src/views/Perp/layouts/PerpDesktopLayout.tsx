@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -27,24 +27,24 @@ import {
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
-import { calculateMaxLevelsPerSide } from './perpLayoutUtils';
-
 function PerpDesktopLayout() {
   const intl = useIntl();
   const { gtXl } = useMedia();
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
 
   const layout = PERP_LAYOUT_CONFIG.desktop;
-  const showOrderBook = gtXl && (layoutState.orderBook?.visible ?? true);
-  const tradingWidth = layout.widths.trading;
-  const orderBookMaxLevelsPerSide = useMemo(
-    () =>
-      calculateMaxLevelsPerSide(
-        layout.marketContentHeight - layout.panelHeaderHeight,
-      ),
-    [layout.marketContentHeight, layout.panelHeaderHeight],
-  );
+  // Reset chartExpanded on mount to stay in sync with iframe state
+  useEffect(() => {
+    setLayoutState((prev) =>
+      prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  const chartExpanded = layoutState.chartExpanded ?? false;
+  const showOrderBook =
+    gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
+  const tradingWidth = layout.widths.trading;
   const toggleOrderBook = useCallback(() => {
     setLayoutState((prev) => ({
       ...prev,
@@ -107,54 +107,65 @@ function PerpDesktopLayout() {
     tradingWidth,
   ]);
   return (
-    <ScrollView flex={1}>
-      <YStack>
+    <ScrollView
+      flex={1}
+      scrollEnabled={!chartExpanded}
+      contentContainerStyle={chartExpanded ? { flexGrow: 1 } : undefined}
+    >
+      <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
-        <FavoritesBar />
+        {chartExpanded ? null : <FavoritesBar />}
 
-        <YStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
+        <YStack
+          flex={chartExpanded ? 1 : undefined}
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
           <PerpTickerBar />
 
-          <XStack h={layout.marketContentHeight} overflow="hidden">
+          <XStack
+            h={chartExpanded ? undefined : layout.marketContentHeight}
+            flex={chartExpanded ? 1 : undefined}
+            overflow="hidden"
+          >
             <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
               <XStack flex={1} overflow="hidden">
                 <YStack flex={1} position="relative">
                   <PerpCandles />
 
-                  {gtXl ? (
-                    <Stack
-                      position="absolute"
-                      top="50%"
-                      right={showOrderBook ? -4 : 3.5}
-                      zIndex={2}
-                      marginTop={-2}
-                    >
-                      <IconButton
-                        icon={
-                          showOrderBook
-                            ? 'ChevronRightSmallSolid'
-                            : 'ChevronLeftSmallSolid'
-                        }
-                        size="small"
-                        variant="tertiary"
-                        bg="$bg"
-                        borderWidth="$px"
-                        borderColor="$borderSubdued"
-                        borderRadius="$1"
-                        p="$0"
-                        h={30}
-                        w={16}
-                        cursor="default"
-                        hoverStyle={{
-                          borderColor: '$border',
-                        }}
-                        pressStyle={{
-                          borderColor: '$border',
-                        }}
-                        onPress={toggleOrderBook}
-                      />
-                    </Stack>
-                  ) : null}
+                  <Stack
+                    display={gtXl && !chartExpanded ? 'flex' : 'none'}
+                    position="absolute"
+                    top="50%"
+                    right={showOrderBook ? -4 : 3.5}
+                    zIndex={2}
+                    marginTop={-2}
+                  >
+                    <IconButton
+                      icon={
+                        showOrderBook
+                          ? 'ChevronRightSmallSolid'
+                          : 'ChevronLeftSmallSolid'
+                      }
+                      size="small"
+                      variant="tertiary"
+                      bg="$bg"
+                      borderWidth="$px"
+                      borderColor="$borderSubdued"
+                      borderRadius="$1"
+                      p="$0"
+                      h={30}
+                      w={16}
+                      cursor="default"
+                      hoverStyle={{
+                        borderColor: '$border',
+                      }}
+                      pressStyle={{
+                        borderColor: '$border',
+                      }}
+                      onPress={toggleOrderBook}
+                    />
+                  </Stack>
                 </YStack>
 
                 {showOrderBook ? (
@@ -179,19 +190,20 @@ function PerpDesktopLayout() {
                       </SizableText>
                     </XStack>
                     <YStack flex={1} overflow="hidden">
-                      <PerpOrderBook
-                        maxLevelsPerSide={orderBookMaxLevelsPerSide}
-                      />
+                      <PerpOrderBook />
                     </YStack>
                   </YStack>
                 ) : null}
               </XStack>
             </YStack>
 
-            {tradingPanel}
+            <YStack display={chartExpanded ? 'none' : 'flex'}>
+              {tradingPanel}
+            </YStack>
           </XStack>
 
           <XStack
+            display={chartExpanded ? 'none' : 'flex'}
             h={layout.bottomPanelHeight}
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"

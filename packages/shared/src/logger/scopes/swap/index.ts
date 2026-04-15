@@ -11,6 +11,7 @@ import { SwapEstimateFeeScene } from './scenes/swapEstimateFee';
 import { SwapQuoteScene } from './scenes/swapQuote';
 import { SwapSendTxScene } from './scenes/swapSendTx';
 import { TokenSelectorSearchScene } from './scenes/tokenSelectorSearch';
+import { ValueDropTipScene } from './scenes/valueDropTip';
 
 export class SwapScope extends BaseScope {
   protected override scopeName = EScopeName.swap;
@@ -40,4 +41,6 @@ export class SwapScope extends BaseScope {
   swapEstimateFee = this.createScene('swapEstimateFee', SwapEstimateFeeScene);
 
   swapSendTx = this.createScene('swapSendTx', SwapSendTxScene);
+
+  valueDropTip = this.createScene('valueDropTip', ValueDropTipScene);
 }

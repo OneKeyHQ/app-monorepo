@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Markdown, Page, ScrollView } from '@onekeyhq/components';
 import { displayWhatsNewVersion } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
@@ -15,6 +16,16 @@ function WhatsNew() {
   const intl = useIntl();
   const changeLog = useAppChangeLog();
   const navigation = useAppNavigation();
+  const mountTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    const mountTime = mountTimeRef.current;
+    return () => {
+      defaultLogger.app.appUpdate.whatsNewClosed({
+        durationMs: Date.now() - mountTime,
+      });
+    };
+  }, []);
   const handleClose = useCallback(() => {
     setTimeout(() => {
       void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);

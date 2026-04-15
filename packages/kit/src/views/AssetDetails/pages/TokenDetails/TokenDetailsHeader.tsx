@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { type IProps } from '.';
 
@@ -43,15 +43,30 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IAccountToken,
+  IFetchTokenDetailItem,
+} from '@onekeyhq/shared/types/token';
 
 import ActionBuy from './ActionBuy';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
+
+const tokenDetailsCache = new cacheUtils.LRUCache<
+  string,
+  IFetchTokenDetailItem
+>({
+  max: 100,
+  ttl: timerUtils.getTimeDurationMs({ minute: 10 }),
+  ttlAutopurge: true,
+});
 
 function TokenDetailsHeader(props: IProps) {
   const {
@@ -59,6 +74,8 @@ function TokenDetailsHeader(props: IProps) {
     networkId,
     walletId,
     tokenInfo,
+    tokenMap,
+    allowTokenMapAsInitialDetails = true,
     isAllNetworks,
     indexedAccountId,
     isTabView,
@@ -83,6 +100,44 @@ function TokenDetailsHeader(props: IProps) {
   });
 
   const tokenDetailsKey = `${accountId}_${networkId}`;
+  const tokenDetailsCacheKey = `${accountId}_${networkId}_${
+    tokenInfo.address ?? ''
+  }_${settings.currencyInfo.id}`;
+  const tokenMapKey = (tokenInfo as IAccountToken).$key;
+
+  const cachedTokenDetails = useMemo(() => {
+    const contextTokenDetails = tokenDetailsContext[tokenDetailsKey]?.data;
+    if (contextTokenDetails) {
+      return contextTokenDetails;
+    }
+
+    const memoryCachedTokenDetails =
+      tokenDetailsCache.get(tokenDetailsCacheKey);
+    if (memoryCachedTokenDetails) {
+      return memoryCachedTokenDetails;
+    }
+
+    const tokenFiat =
+      allowTokenMapAsInitialDetails && tokenMapKey
+        ? tokenMap?.[tokenMapKey]
+        : undefined;
+    if (!tokenFiat) {
+      return undefined;
+    }
+
+    return {
+      info: tokenInfo,
+      ...tokenFiat,
+    };
+  }, [
+    tokenDetailsContext,
+    tokenDetailsKey,
+    tokenDetailsCacheKey,
+    allowTokenMapAsInitialDetails,
+    tokenMap,
+    tokenMapKey,
+    tokenInfo,
+  ]);
 
   const { handleOnReceive } = useReceiveToken({
     accountId,
@@ -92,6 +147,18 @@ function TokenDetailsHeader(props: IProps) {
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
+  const tokenDetailsPromiseOptions = useMemo(
+    () => ({
+      watchLoading: true,
+      overrideIsFocused: (isPageFocused: boolean) =>
+        isPageFocused && (isTabView ? isFocused : true),
+      debounced: POLLING_DEBOUNCE_INTERVAL,
+      ...(cachedTokenDetails !== undefined
+        ? { initResult: cachedTokenDetails }
+        : {}),
+    }),
+    [cachedTokenDetails, isFocused, isTabView],
+  );
   const { result: tokenDetailsResult, isLoading: isLoadingTokenDetails } =
     usePromiseResult(
       async () => {
@@ -111,6 +178,7 @@ function TokenDetailsHeader(props: IProps) {
         });
 
         if (!data) {
+          tokenDetailsCache.delete(tokenDetailsCacheKey);
           return undefined;
         }
 
@@ -118,6 +186,7 @@ function TokenDetailsHeader(props: IProps) {
           data.fiatValue = '0';
         }
 
+        tokenDetailsCache.set(tokenDetailsCacheKey, data);
         updateTokenDetails({
           accountId,
           networkId,
@@ -132,24 +201,45 @@ function TokenDetailsHeader(props: IProps) {
         tokenInfo.address,
         updateTokenMetadata,
         updateTokenDetails,
+        tokenDetailsCacheKey,
       ],
-      {
-        watchLoading: true,
-        overrideIsFocused: (isPageFocused) =>
-          isPageFocused && (isTabView ? isFocused : true),
-        debounced: POLLING_DEBOUNCE_INTERVAL,
-      },
+      tokenDetailsPromiseOptions,
     );
 
-  const tokenDetails =
-    tokenDetailsResult ?? tokenDetailsContext[tokenDetailsKey]?.data;
+  const tokenDetails = tokenDetailsResult ?? cachedTokenDetails;
+
+  useEffect(() => {
+    if (!cachedTokenDetails || tokenDetailsResult) {
+      return;
+    }
+
+    updateTokenMetadata({
+      price: cachedTokenDetails.price ?? 0,
+      priceChange24h: cachedTokenDetails.price24h ?? 0,
+      coingeckoId:
+        cachedTokenDetails.info?.coingeckoId ?? tokenInfo.coingeckoId ?? '',
+    });
+  }, [
+    cachedTokenDetails,
+    tokenDetailsResult,
+    tokenInfo.coingeckoId,
+    updateTokenMetadata,
+  ]);
 
   const showLoadingState = useMemo(() => {
+    if (tokenDetails) {
+      return false;
+    }
     if (tokenDetailsContext[tokenDetailsKey]?.init) {
       return false;
     }
-    return isLoadingTokenDetails;
-  }, [tokenDetailsContext, tokenDetailsKey, isLoadingTokenDetails]);
+    return isLoadingTokenDetails ?? true;
+  }, [
+    tokenDetails,
+    tokenDetailsContext,
+    tokenDetailsKey,
+    isLoadingTokenDetails,
+  ]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 

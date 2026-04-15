@@ -205,9 +205,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   /**
    * Validate memo/tag field (optional, chain-specific implementation)
    * @param memo - The memo string to validate
-   * @returns Validation result with error message if invalid
+   * @param tokenAddress - Optional token address for token-aware validation
+   *   (e.g. Stellar contract tokens disallow memo). Undefined when called
+   *   outside of a token-send context (like AddressBook).
    */
-  async validateMemo(memo: string): Promise<{
+  async validateMemo(
+    memo: string,
+    tokenAddress?: string,
+  ): Promise<{
     isValid: boolean;
     errorMessage?: string;
   }> {

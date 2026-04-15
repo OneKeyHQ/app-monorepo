@@ -9,6 +9,7 @@ import {
   Anchor,
   Button,
   Dialog,
+  HeightTransition,
   Icon,
   SizableText,
   Spinner,
@@ -41,6 +42,26 @@ import type {
 } from '@onekeyhq/shared/types/device';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
+
+const AUTO_CLOSE_DELAY_MS = 1200;
+
+function useAutoClose(callback: () => void, enabled: boolean) {
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+  const hasClosedRef = useRef(false);
+
+  useEffect(() => {
+    if (enabled && !hasClosedRef.current) {
+      const timer = setTimeout(() => {
+        if (!hasClosedRef.current) {
+          hasClosedRef.current = true;
+          callbackRef.current();
+        }
+      }, AUTO_CLOSE_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [enabled]);
+}
 
 type IFirmwareAuthenticationState =
   | 'unknown'
@@ -415,6 +436,8 @@ function VerifyHash({
   const isShowContinue =
     Object.values(statues).filter((s) => s !== 'success').length === 0;
 
+  useAutoClose(() => onActionPress?.(), isShowContinue);
+
   return (
     <YStack>
       {isShowContinue ? (
@@ -451,20 +474,6 @@ function VerifyHash({
           />
         ))}
       </YStack>
-      {isShowContinue ? (
-        <Button
-          mt="$5"
-          $md={
-            {
-              size: 'large',
-            } as any
-          }
-          variant="primary"
-          onPress={onActionPress}
-        >
-          {intl.formatMessage({ id: ETranslations.global_continue })}
-        </Button>
-      ) : null}
     </YStack>
   );
 }
@@ -646,32 +655,19 @@ export function EnumBasicDialogContentContainer({
         );
       case EFirmwareAuthenticationDialogContentType.verification_successful:
         return (
-          <>
-            <Dialog.Header>
-              <Dialog.Icon icon="BadgeVerifiedSolid" tone="success" />
-              <Dialog.Title>
-                {intl.formatMessage({
-                  id: ETranslations.device_auth_successful_title,
-                })}
-              </Dialog.Title>
-              <Dialog.Description>
-                {intl.formatMessage({
-                  id: ETranslations.device_auth_successful_desc,
-                })}
-              </Dialog.Description>
-            </Dialog.Header>
-            <Button
-              $md={
-                {
-                  size: 'large',
-                } as any
-              }
-              variant="primary"
-              onPress={onActionPress}
-            >
-              {intl.formatMessage({ id: ETranslations.global_continue })}
-            </Button>
-          </>
+          <Dialog.Header>
+            <Dialog.Icon icon="BadgeVerifiedSolid" tone="success" />
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.device_auth_successful_title,
+              })}
+            </Dialog.Title>
+            <Dialog.Description>
+              {intl.formatMessage({
+                id: ETranslations.device_auth_successful_desc,
+              })}
+            </Dialog.Description>
+          </Dialog.Header>
         );
       case EFirmwareAuthenticationDialogContentType.network_error:
         return (
@@ -951,6 +947,14 @@ export function FirmwareAuthenticationDialogContent({
     useNewProcess,
   });
 
+  useAutoClose(
+    () => onContinue({ checked: true }),
+    !useNewProcess &&
+      contentType ===
+        EFirmwareAuthenticationDialogContentType.verification_successful &&
+      result === 'official',
+  );
+
   const handleContinuePress = useCallback(() => {
     onContinue({ checked: false });
   }, [onContinue]);
@@ -1012,7 +1016,11 @@ export function FirmwareAuthenticationDialogContent({
     verify,
   ]);
 
-  return <Stack gap="$5">{content}</Stack>;
+  return (
+    <HeightTransition initialHeight={0}>
+      <Stack gap="$5">{content}</Stack>
+    </HeightTransition>
+  );
 }
 
 export function useFirmwareVerifyDialog() {

@@ -1,3 +1,4 @@
+import { requireAuthenticatedSession } from '../core/auth/auth-gate';
 import { resolveChain } from '../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
@@ -107,6 +108,7 @@ export function registerTransferCommand(program: Command): void {
 
           const { feeDecimals, nativeDecimals, nativeSymbol } = chainConfig;
 
+          await requireAuthenticatedSession();
           const signer = (await getSignerByImpl(chainConfig.impl)) as EvmSigner;
           const addressInfo = await signer.getAddress(chainConfig.networkId);
           const fromAddress = addressInfo.address;

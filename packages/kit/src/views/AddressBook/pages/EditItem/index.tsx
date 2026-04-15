@@ -67,6 +67,7 @@ function EditItemPage() {
           }),
         });
         appEventBus.emit(EAppEventBusNames.AddressBookUpdate, undefined);
+        addressBookParams?.onSaveSuccess?.();
         navigation.pop();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
@@ -74,7 +75,7 @@ function EditItemPage() {
         setIsSubmitLoading(false);
       }
     },
-    [intl, navigation],
+    [addressBookParams, intl, navigation],
   );
 
   const onRemove = useCallback(
@@ -151,7 +152,7 @@ function EditItemPage() {
           ? ETranslations.address_book_add_address_title
           : ETranslations.address_book_edit_address_title,
       })}
-      disabledAddressEdit={false}
+      lockRoutingFields={!isCreateMode}
       item={item}
       onSubmit={onSubmit}
       onRemove={isCreateMode ? undefined : onRemove}

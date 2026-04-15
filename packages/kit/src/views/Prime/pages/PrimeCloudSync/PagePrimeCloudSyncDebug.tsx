@@ -127,6 +127,19 @@ function buildRawDataSummary(
     };
   }
 
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.BotWallet) {
+    return {
+      title:
+        rawDataJson.payload.name || shortText(rawDataJson.payload.walletId),
+      details: [
+        `parent ${shortText(rawDataJson.payload.parentKeylessWalletId)}`,
+        `index ${rawDataJson.payload.index}`,
+        rawDataJson.payload.visible ? 'visible' : 'hidden',
+        rawDataJson.payload.status,
+      ],
+    };
+  }
+
   if (rawDataJson.dataType === EPrimeCloudSyncDataType.IndexedAccount) {
     return {
       title: rawDataJson.payload.name || `#${rawDataJson.payload.index}`,
@@ -288,6 +301,18 @@ function RawDataJsonView({
           rawDataJson.payload.walletType,
           rawDataJson.payload.name,
           rawDataJson.payload.avatar?.img,
+        ].join('>>')}
+      </SizableText>
+    );
+  }
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.BotWallet) {
+    return (
+      <SizableText>
+        {[
+          rawDataJson.payload.name,
+          rawDataJson.payload.parentKeylessWalletId,
+          rawDataJson.payload.index,
+          rawDataJson.payload.status,
         ].join('>>')}
       </SizableText>
     );
@@ -643,6 +668,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
             { label: '全部', value: '$ALL' },
             { label: 'Lock', value: EPrimeCloudSyncDataType.Lock },
             { label: 'Wallet', value: EPrimeCloudSyncDataType.Wallet },
+            { label: 'BotWallet', value: EPrimeCloudSyncDataType.BotWallet },
             {
               label: 'IndexedAccount',
               value: EPrimeCloudSyncDataType.IndexedAccount,

@@ -27,6 +27,7 @@ __generated__
 dist
 build-electron
 .next
+.zed
 build
 *.tsbuildinfo
 yarn-error.log
@@ -42,7 +43,6 @@ yarn-error.log
 !.yarn/versions
 
 .env
-.env.*
 webpack.config.preview.json
 webpack.config.preview.devServer.json
 
@@ -91,15 +91,17 @@ coverage/
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
 
-# Ignore tamagui config file 
+# Ignore tamagui config file
 .tamagui
 
 # Ignore copy inject files
 /apps/desktop/public/static/js-sdk
 /apps/ext/src/entry/injected.js
 /apps/desktop/public/static/preload.js
+/packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js
 /apps/ext/src/entry/injected.text-js
 /packages/kit/src/components/WebView/injectedNative.text-js
+/packages/kit/src/components/WebView/translateInject.text-js
 /packages/shared/src/web/index.html
 /mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/jpush
 apps/mobile/android/.kotlin/
@@ -135,3 +137,7 @@ debug.log
 .gstack/
 
 docs/superpowers/**/*
+# bmad
+/_bmad/
+/_bmad-output/
+/.skillshare/skills/bmad-*

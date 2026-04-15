@@ -266,17 +266,12 @@ export default class NotificationProvider extends NotificationProviderBase {
       params.count === 0 ||
       (params.count as unknown as string) === '0'
     ) {
-      void chrome.action.setBadgeTextColor({ color: [0, 0, 0, 255] }); // black
-      void chrome.action.setBadgeBackgroundColor({
-        color: [190, 190, 190, 255],
-      }); // gray
       return chrome.action.setBadgeText({ text: '' });
     }
-    // chrome extension set badge
     void chrome.action.setBadgeTextColor({ color: '#ffffff' });
     void chrome.action.setBadgeBackgroundColor({ color: '#eb5b4a' });
     return chrome.action.setBadgeText({
-      text: ' ',
+      text: params.count > 99 ? '99+' : String(params.count),
     });
   }
 

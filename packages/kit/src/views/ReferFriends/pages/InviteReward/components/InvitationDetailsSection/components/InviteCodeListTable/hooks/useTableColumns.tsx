@@ -7,13 +7,20 @@ import { SizableText } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IInviteCodeListItem } from '@onekeyhq/shared/src/referralCode/type';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { CodeCell } from '../components/CodeCell';
 import { CopyLinkSplitButton } from '../components/CopyLinkSplitButton';
-import { NoteCell } from '../components/NoteCell';
-import { EInviteCodeListTableColumn, SORTABLE_COLUMNS } from '../const';
+import {
+  EInviteCodeListTableColumn,
+  type IInviteCodeListTableItem,
+  INVITE_CODE_COLUMN_CODE_CHAR_WIDTH,
+  INVITE_CODE_COLUMN_EXTRA_WIDTH,
+  INVITE_CODE_COLUMN_HEADER_CHAR_WIDTH,
+  INVITE_CODE_COLUMN_MIN_CODE_LENGTH,
+  INVITE_CODE_COLUMN_NOTE_WIDTH,
+  SORTABLE_COLUMNS,
+} from '../const';
 
 import type { ISortableColumn } from './useSortableData';
 
@@ -23,7 +30,7 @@ export function useTableColumns(
     column: ISortableColumn,
     order: 'asc' | 'desc' | undefined,
   ) => void,
-  onNoteUpdated?: () => void,
+  onCodeUpdated?: (shouldRefreshSummary?: boolean) => Promise<void> | void,
 ) {
   const intl = useIntl();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -31,11 +38,9 @@ export function useTableColumns(
 
   // Calculate column widths
   const columnWidths = useMemo(() => {
-    const noteWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_code_list_note }).length *
-        10,
-      160,
-    );
+    const codeTitle = intl.formatMessage({
+      id: ETranslations.referral_your_code,
+    });
     const salesWidth = Math.max(
       intl.formatMessage({ id: ETranslations.referral_code_list_sales })
         .length * 10,
@@ -52,7 +57,18 @@ export function useTableColumns(
       135,
     );
     const createdAtWidth = 145;
-    const codeWidth = 130;
+
+    // Keep the fixed code column aligned with the actual cell/header layout.
+    const codeContentWidth =
+      INVITE_CODE_COLUMN_MIN_CODE_LENGTH * INVITE_CODE_COLUMN_CODE_CHAR_WIDTH +
+      INVITE_CODE_COLUMN_EXTRA_WIDTH;
+    const codeHeaderWidth =
+      codeTitle.length * INVITE_CODE_COLUMN_HEADER_CHAR_WIDTH;
+    const codeWidth = Math.max(
+      INVITE_CODE_COLUMN_NOTE_WIDTH,
+      codeHeaderWidth,
+      codeContentWidth,
+    );
     const inviteUrlWidth = Math.max(
       intl.formatMessage({ id: ETranslations.browser_copy_link }).length * 10 +
         40,
@@ -60,7 +76,6 @@ export function useTableColumns(
     );
 
     return {
-      noteWidth,
       salesWidth,
       walletsWidth,
       rewardsWidth,
@@ -74,7 +89,6 @@ export function useTableColumns(
   const totalFixedWidth = useMemo(() => {
     return (
       columnWidths.codeWidth +
-      columnWidths.noteWidth +
       columnWidths.salesWidth +
       columnWidths.walletsWidth +
       columnWidths.rewardsWidth +
@@ -89,27 +103,24 @@ export function useTableColumns(
   }, [containerWidth, totalFixedWidth]);
 
   // Define columns
-  const columns: ITableColumn<IInviteCodeListItem>[] = useMemo(
+  const columns: ITableColumn<IInviteCodeListTableItem>[] = useMemo(
     () => [
       {
         title: intl.formatMessage({ id: ETranslations.referral_your_code }),
         dataIndex: EInviteCodeListTableColumn.CODE,
         columnWidth: columnWidths.codeWidth,
-        render: (text: string) => <CodeCell code={text} />,
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.referral_code_list_note,
-        }),
-        dataIndex: EInviteCodeListTableColumn.NOTE,
-        ...(shouldUseFlex
-          ? { columnProps: { flex: 1 } }
-          : { columnWidth: columnWidths.noteWidth }),
-        render: (_text: string, record: IInviteCodeListItem) => (
-          <NoteCell
+        columnProps: { overflow: 'hidden' },
+        render: (_text: string, record: IInviteCodeListTableItem) => (
+          <CodeCell
             code={record.code}
+            displayCode={record.displayCode}
+            codeViewportWidth={
+              columnWidths.codeWidth - INVITE_CODE_COLUMN_EXTRA_WIDTH
+            }
             note={record.note}
-            onNoteUpdated={onNoteUpdated}
+            isPrimary={record.isPrimary}
+            isCustomCode={record.isCustomCode}
+            onUpdated={onCodeUpdated}
           />
         ),
       },
@@ -185,21 +196,20 @@ export function useTableColumns(
     [
       intl,
       columnWidths.codeWidth,
-      columnWidths.noteWidth,
       columnWidths.salesWidth,
       columnWidths.walletsWidth,
       columnWidths.rewardsWidth,
       columnWidths.createdAtWidth,
       columnWidths.inviteUrlWidth,
       shouldUseFlex,
-      onNoteUpdated,
+      onCodeUpdated,
       currencySymbol,
     ],
   );
 
   // Handle header row for sorting
   const handleHeaderRow = useCallback(
-    (column: ITableColumn<IInviteCodeListItem>) => {
+    (column: ITableColumn<IInviteCodeListTableItem>) => {
       if (SORTABLE_COLUMNS.includes(column.dataIndex as ISortableColumn)) {
         return {
           onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {

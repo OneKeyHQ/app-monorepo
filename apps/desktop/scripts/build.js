@@ -42,6 +42,7 @@ build({
   platform: 'node',
   bundle: true,
   target: 'node16',
+  loader: { '.text-js': 'text' },
   drop: isProduction ? ['console', 'debugger'] : [],
   // Help esbuild locate missing dependencies.
   alias: {

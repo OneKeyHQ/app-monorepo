@@ -4,50 +4,28 @@ import {
 } from './incognitoSettings';
 
 describe('buildSwapIncognitoSettingsUpdate', () => {
-  it('enables recipient tag and snapshots the previous recipient state', () => {
+  it('keeps recipient setting untouched when incognito mode is enabled', () => {
     expect(
       buildSwapIncognitoSettingsUpdate(
         {
           swapEnableRecipientAddress: false,
-          swapEnableRecipientAddressBeforeIncognito: undefined,
           swapIncognitoMode: false,
           swapToAnotherAccountSwitchOn: false,
         },
         true,
       ),
     ).toEqual({
-      swapEnableRecipientAddress: true,
-      swapEnableRecipientAddressBeforeIncognito: false,
+      swapEnableRecipientAddress: false,
       swapIncognitoMode: true,
       swapToAnotherAccountSwitchOn: false,
     });
   });
 
-  it('restores the previous recipient state when incognito mode is disabled', () => {
+  it('keeps recipient setting untouched when incognito mode is disabled', () => {
     expect(
       buildSwapIncognitoSettingsUpdate(
         {
           swapEnableRecipientAddress: true,
-          swapEnableRecipientAddressBeforeIncognito: false,
-          swapIncognitoMode: true,
-          swapToAnotherAccountSwitchOn: true,
-        },
-        false,
-      ),
-    ).toEqual({
-      swapEnableRecipientAddress: false,
-      swapEnableRecipientAddressBeforeIncognito: undefined,
-      swapIncognitoMode: false,
-      swapToAnotherAccountSwitchOn: false,
-    });
-  });
-
-  it('keeps the current recipient selection when the previous state was enabled', () => {
-    expect(
-      buildSwapIncognitoSettingsUpdate(
-        {
-          swapEnableRecipientAddress: true,
-          swapEnableRecipientAddressBeforeIncognito: true,
           swapIncognitoMode: true,
           swapToAnotherAccountSwitchOn: true,
         },
@@ -55,20 +33,16 @@ describe('buildSwapIncognitoSettingsUpdate', () => {
       ),
     ).toEqual({
       swapEnableRecipientAddress: true,
-      swapEnableRecipientAddressBeforeIncognito: undefined,
       swapIncognitoMode: false,
       swapToAnotherAccountSwitchOn: true,
     });
   });
-});
 
-describe('buildSwapRecipientAddressSettingsUpdate', () => {
-  it('turns off incognito mode when recipient tag is manually disabled', () => {
+  it('clears custom recipient when incognito mode is disabled and recipient setting is off', () => {
     expect(
-      buildSwapRecipientAddressSettingsUpdate(
+      buildSwapIncognitoSettingsUpdate(
         {
-          swapEnableRecipientAddress: true,
-          swapEnableRecipientAddressBeforeIncognito: false,
+          swapEnableRecipientAddress: false,
           swapIncognitoMode: true,
           swapToAnotherAccountSwitchOn: true,
         },
@@ -76,7 +50,42 @@ describe('buildSwapRecipientAddressSettingsUpdate', () => {
       ),
     ).toEqual({
       swapEnableRecipientAddress: false,
-      swapEnableRecipientAddressBeforeIncognito: undefined,
+      swapIncognitoMode: false,
+      swapToAnotherAccountSwitchOn: false,
+    });
+  });
+});
+
+describe('buildSwapRecipientAddressSettingsUpdate', () => {
+  it('keeps incognito mode on when recipient setting is manually disabled', () => {
+    expect(
+      buildSwapRecipientAddressSettingsUpdate(
+        {
+          swapEnableRecipientAddress: true,
+          swapIncognitoMode: true,
+          swapToAnotherAccountSwitchOn: true,
+        },
+        false,
+      ),
+    ).toEqual({
+      swapEnableRecipientAddress: false,
+      swapIncognitoMode: true,
+      swapToAnotherAccountSwitchOn: true,
+    });
+  });
+
+  it('clears custom recipient when recipient setting is disabled outside incognito mode', () => {
+    expect(
+      buildSwapRecipientAddressSettingsUpdate(
+        {
+          swapEnableRecipientAddress: true,
+          swapIncognitoMode: false,
+          swapToAnotherAccountSwitchOn: true,
+        },
+        false,
+      ),
+    ).toEqual({
+      swapEnableRecipientAddress: false,
       swapIncognitoMode: false,
       swapToAnotherAccountSwitchOn: false,
     });

@@ -2,6 +2,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, import/first */
 import '@onekeyhq/shared/src/polyfills';
 import '@onekeyhq/shared/src/web/index.css';
+// Initialize desktopApiProxy singleton and assign to globalThis.desktopApiProxy.
+// Must run before any consumer reads globalThis.desktopApiProxy (e.g. Bootstrap, DesktopWebView).
+import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+
 import { useEffect, useState } from 'react';
 import { KitProvider } from '@onekeyhq/kit';
 import {

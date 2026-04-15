@@ -19,6 +19,8 @@ import {
   AmountField,
   AssetField,
   AssetWithAmountField,
+  BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
 } from './BorrowTableList';
@@ -186,6 +188,7 @@ export const BorrowCard = () => {
         key: 'borrowApy',
         render: BorrowAPYField,
         flex: 1,
+        minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
       },
       {
         label: '',
@@ -203,6 +206,7 @@ export const BorrowCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
       },
     ],
     [handleManageBorrow, accountId, walletId, indexedAccountId, labels],

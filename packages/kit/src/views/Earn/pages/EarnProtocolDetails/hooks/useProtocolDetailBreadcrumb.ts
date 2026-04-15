@@ -51,6 +51,7 @@ export function useProtocolDetailBreadcrumb({
         accountId,
         indexedAccountId,
         networkId,
+        includeWithdrawOnly: true,
       });
       return data || [];
     } catch (_error) {

@@ -1,4 +1,5 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
+import type { KeyboardEvent } from 'react';
 
 import { ScrollView, XStack, useMedia } from '@onekeyhq/components';
 
@@ -10,14 +11,41 @@ interface ICategorySelectorProps {
   categories: IMarketCategoryItem[];
   selectedCategoryId: string;
   onSelectCategory: (id: string) => void;
+  triggerOnPressDown?: boolean;
 }
 
 function CategorySelectorImpl({
   categories,
   selectedCategoryId,
   onSelectCategory,
+  triggerOnPressDown = false,
 }: ICategorySelectorProps) {
   const { md } = useMedia();
+  const getCategoryInteractionProps = useCallback(
+    (categoryId: string) => {
+      const handleSelect = () => {
+        onSelectCategory(categoryId);
+      };
+
+      if (!triggerOnPressDown) {
+        return {
+          onPress: handleSelect,
+        };
+      }
+
+      return {
+        onPressIn: handleSelect,
+        onKeyDown: (event: KeyboardEvent) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+          event.preventDefault();
+          handleSelect();
+        },
+      };
+    },
+    [onSelectCategory, triggerOnPressDown],
+  );
 
   if (md) {
     return (
@@ -36,7 +64,7 @@ function CategorySelectorImpl({
             name={item.name}
             icon={item.icon}
             isSelected={item.id === selectedCategoryId}
-            onPress={() => onSelectCategory(item.id)}
+            {...getCategoryInteractionProps(item.id)}
           />
         ))}
       </ScrollView>
@@ -59,7 +87,7 @@ function CategorySelectorImpl({
           name={item.name}
           icon={item.icon}
           isSelected={item.id === selectedCategoryId}
-          onPress={() => onSelectCategory(item.id)}
+          {...getCategoryInteractionProps(item.id)}
         />
       ))}
     </XStack>

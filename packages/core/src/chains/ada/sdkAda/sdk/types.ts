@@ -18,4 +18,7 @@ export interface IAdaSdkApi {
   dAppGetUtxos: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.getUtxos;
   dAppConvertCborTxToEncodeTx: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.convertCborTxToEncodeTx;
   dAppSignData: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.signData;
+  parseRawTxInputs: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.parseRawTxInputs;
+  parseRawTxBodyStakeInfo: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.parseRawTxBodyStakeInfo;
+  extractStakeKeyHashFromBaseAddress: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.extractStakeKeyHashFromBaseAddress;
 }

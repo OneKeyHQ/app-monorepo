@@ -310,7 +310,6 @@ export default function PagePrimeFeatures() {
         ],
       },
 
-      /* Coming soon features */
       {
         id: EPrimeFeatures.BlockaidSiteScan,
         banner: (
@@ -348,6 +347,7 @@ export default function PagePrimeFeatures() {
           },
         ],
       },
+
       {
         id: EPrimeFeatures.DAppTranslate,
         banner: (
@@ -385,6 +385,8 @@ export default function PagePrimeFeatures() {
           },
         ],
       },
+
+      /* Coming soon features */
       {
         id: EPrimeFeatures.ExtendedHistory,
         banner: (

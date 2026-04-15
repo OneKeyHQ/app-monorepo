@@ -868,12 +868,27 @@ class ServiceAccountSelector extends ServiceBase {
       networkId: string;
       indexedAccountId?: string;
       accountAddress?: string;
+      xpub?: string;
     }[] = [];
 
     try {
       sectionData?.forEach?.((s) => {
         s?.data?.forEach?.((account) => {
           accountsCount += 1;
+          const accountAddress =
+            (account as IDBAccount).address ||
+            (account as IDBIndexedAccount).associateAccount?.address ||
+            '';
+          const xpub =
+            ('xpub' in account &&
+              ((account.xpubSegwit || account.xpub) ?? '')) ||
+            ('associateAccount' in account &&
+              account.associateAccount &&
+              'xpub' in account.associateAccount &&
+              ((account.associateAccount.xpubSegwit ||
+                account.associateAccount.xpub) ??
+                '')) ||
+            '';
           accountsForValuesQuery.push({
             accountId: account.id,
             networkId:
@@ -884,10 +899,8 @@ class ServiceAccountSelector extends ServiceBase {
               walletId: (account as IDBIndexedAccount).walletId ?? '',
               index: (account as IDBIndexedAccount).index,
             }),
-            accountAddress:
-              (account as IDBAccount).address ||
-              (account as IDBIndexedAccount).associateAccount?.address ||
-              '',
+            accountAddress,
+            xpub,
           });
         });
       });
@@ -952,6 +965,7 @@ class ServiceAccountSelector extends ServiceBase {
       networkId: string;
       indexedAccountId?: string;
       accountAddress?: string;
+      xpub?: string;
     }[];
   }) {
     const accountsDeFiOverview =

@@ -486,6 +486,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         const protocol = get(swapTypeSwitchAtom());
         const { swapIncognitoMode } = await settingsAtom.get();
+        const incognitoEnabled =
+          protocol === ESwapTabSwitchType.LIMIT
+            ? false
+            : (incognito ?? swapIncognitoMode);
         const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
         const limitPartiallyFillable = limitPartiallyFillableObj.value;
         const expirationTime = get(swapLimitExpirationTimeAtom());
@@ -501,7 +505,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           autoSlippage,
           blockNumber,
           receivingAddress,
-          incognito: incognito ?? swapIncognitoMode,
+          incognito: incognitoEnabled,
           accountId,
           protocol,
           userMarketPriceRate: limitUserMarketPrice.rate,
@@ -761,6 +765,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       const protocol = get(swapTypeSwitchAtom());
       const { swapIncognitoMode } = await settingsAtom.get();
+      const incognitoEnabled =
+        protocol === ESwapTabSwitchType.LIMIT
+          ? false
+          : (incognito ?? swapIncognitoMode);
       const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
       const limitPartiallyFillable = limitPartiallyFillableObj.value;
       const expirationTime = get(swapLimitExpirationTimeAtom());
@@ -786,7 +794,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toTokenAmount,
         protocol,
         receivingAddress,
-        incognito: incognito ?? swapIncognitoMode,
+        incognito: incognitoEnabled,
         userMarketPriceRate: limitUserMarketPrice.rate,
         ...(protocol === ESwapTabSwitchType.LIMIT
           ? {

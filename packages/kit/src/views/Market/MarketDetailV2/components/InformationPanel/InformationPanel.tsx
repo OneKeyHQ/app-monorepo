@@ -137,6 +137,7 @@ export function InformationPanel() {
             stock={stock}
             showAllInTrigger
             hideCommunityInTrigger
+            noTruncateSubtitle={isStockToken}
           />
         </XStack>
       </YStack>
@@ -158,7 +159,7 @@ export function InformationPanel() {
                 id: ETranslations.dexmarket_stock_24h_volume,
               })}
               value={formatStatValueWithFormatter(
-                tokenDetail.stock.volume24h,
+                tokenDetail.stock.assetAnalysis?.volume24h,
                 usdCurrencyFormatter,
               )}
             />
@@ -166,7 +167,9 @@ export function InformationPanel() {
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_stock_pe_ttm,
               })}
-              value={formatRatioValue(tokenDetail.stock.peRatio)}
+              value={formatRatioValue(
+                tokenDetail.stock.tradingActivity?.peRatio,
+              )}
             />
           </>
         ) : (
