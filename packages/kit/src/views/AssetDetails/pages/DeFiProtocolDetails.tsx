@@ -83,7 +83,7 @@ function ProtocolDetailSection({
 }) {
   return (
     <YStack bg="$bgSubdued" borderRadius="$2" px="$3" py="$2" gap="$1">
-      <SizableText size="$headingXs" color="$textSubdued">
+      <SizableText size="$headingXs" color="$text" textTransform="uppercase">
         {section.title}
       </SizableText>
       {section.assets.map((asset, assetIndex) => (
@@ -149,9 +149,6 @@ function DeFiProtocolDetails() {
     () =>
       buildProtocolPositionItems(protocol).map((position) => ({
         ...position,
-        categoryLabel: position.categoryLabelId
-          ? intl.formatMessage({ id: position.categoryLabelId })
-          : position.categoryLabel,
         sections: position.sections.map((section) => ({
           ...section,
           title: section.titleId
@@ -222,8 +219,11 @@ function DeFiProtocolDetails() {
             <Stack key={position.groupId} px="$5">
               <XStack alignItems="center" py="$3" gap="$2">
                 <Badge bg={position.categoryConfig.bg} badgeSize="lg">
-                  <Badge.Text color={position.categoryConfig.text}>
-                    {position.categoryLabel}
+                  <Badge.Text
+                    color={position.categoryConfig.text}
+                    textTransform="capitalize"
+                  >
+                    {position.category}
                   </Badge.Text>
                 </Badge>
                 {position.poolName ? (

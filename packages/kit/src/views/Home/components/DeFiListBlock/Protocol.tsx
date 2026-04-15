@@ -102,7 +102,7 @@ const ProtocolPositionSection = memo(
   }) => {
     return (
       <YStack bg="$bgSubdued" borderRadius="$2" px="$3" py="$2" gap="$1">
-        <SizableText size="$headingXs" color="$textSubdued">
+        <SizableText size="$headingXs" color="$text" textTransform="uppercase">
           {section.title}
         </SizableText>
         {section.assets.map((asset, assetIndex) => (
@@ -319,8 +319,11 @@ const ProtocolDesktopLayout = memo(
                   <YStack key={position.groupId} py="$3">
                     <XStack alignItems="center" gap="$2" px="$5" minHeight={40}>
                       <Badge bg={position.categoryConfig.bg} badgeSize="lg">
-                        <Badge.Text color={position.categoryConfig.text}>
-                          {position.categoryLabel}
+                        <Badge.Text
+                          color={position.categoryConfig.text}
+                          textTransform="capitalize"
+                        >
+                          {position.category}
                         </Badge.Text>
                       </Badge>
                       {position.poolName ? (
@@ -426,9 +429,6 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     () =>
       buildProtocolPositionItems(protocol).map((position) => ({
         ...position,
-        categoryLabel: position.categoryLabelId
-          ? intl.formatMessage({ id: position.categoryLabelId })
-          : position.categoryLabel,
         sections: position.sections.map((section) => ({
           ...section,
           title: section.titleId
