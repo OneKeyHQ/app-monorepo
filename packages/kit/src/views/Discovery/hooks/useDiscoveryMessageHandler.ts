@@ -9,6 +9,8 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { parseOnChainAmount } from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IBitrefillFailStep } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/bitrefill';
 
 import {
   BITREFILL_BRIDGE_METHOD,
@@ -23,12 +25,34 @@ import type { IChainValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCod
 
 const BITREFILL_DAPP_SCOPE = IInjectedProviderNames.ethereum;
 
+// EIP-1193 user-rejected-request code. Also what web3Errors.provider
+// .userRejectedRequest() emits when a dApp connection modal is closed.
+const USER_REJECTED_CODE = 4001;
+
+function isUserRejectedError(error: unknown): boolean {
+  const code = (error as { code?: number } | null | undefined)?.code;
+  return code === USER_REJECTED_CODE;
+}
+
+class BitrefillStepError extends OneKeyError {
+  step: IBitrefillFailStep;
+
+  constructor(step: IBitrefillFailStep, message: string) {
+    super(message);
+    this.step = step;
+  }
+}
+
 /**
  * Hook to handle Discovery WebView messages.
  * Filters for Bitrefill payment_intent events, ensures a DApp wallet connection
  * exists (prompting if needed), switches to the target network if required,
  * builds the on-chain transaction from the paymentUri, then opens the DApp
  * signature-and-send modal so the user just confirms the pre-built tx.
+ *
+ * Trust boundary: we trust postMessages coming from `embed.bitrefill.com`
+ * and rely on the user's final confirmation in the sign-and-send modal
+ * (recipient / amount / network) as the last safety net.
  *
  * This mirrors eth_sendTransaction semantics — Bitrefill already defines all
  * payment parameters (recipient, token, amount) so we skip the Send form.
@@ -70,32 +94,82 @@ export function useDiscoveryMessageHandler() {
 
       try {
         // 1. Parse paymentUri → recipient / tokenAddress / amount / network
-        const result =
-          await backgroundApiProxy.serviceScanQRCode.handlePaymentUri({
+        let chainValue: IChainValue;
+        let result: Awaited<
+          ReturnType<
+            typeof backgroundApiProxy.serviceScanQRCode.handlePaymentUri
+          >
+        >;
+        try {
+          result = await backgroundApiProxy.serviceScanQRCode.handlePaymentUri({
             uri: message.paymentUri,
           });
-        const chainValue = result.data as IChainValue;
+          chainValue = result.data as IChainValue;
+        } catch (e) {
+          throw new BitrefillStepError(
+            'handlePaymentUri',
+            (e as Error)?.message ?? 'handlePaymentUri failed',
+          );
+        }
         const targetNetwork = chainValue.network;
         if (!targetNetwork) {
-          throw new OneKeyError('paymentUri missing network context');
+          throw new BitrefillStepError(
+            'handlePaymentUri',
+            'paymentUri missing network context',
+          );
         }
 
-        // 2. Ensure connected account — prompt user if not yet connected
+        defaultLogger.discovery.bitrefill.paymentIntentReceived({
+          networkId: targetNetwork.id,
+          tokenAddress: chainValue.tokenAddress,
+        });
+
+        // 2. Ensure connected account — prompt user if not yet connected.
+        //    If multiple accounts are already connected for this origin, we
+        //    force a clean reconnect so the user explicitly picks the one
+        //    that should pay. Multiple-account fallthrough would otherwise
+        //    silently default to accountsInfo[0].
         let accountsInfo =
           await backgroundApiProxy.serviceDApp.dAppGetConnectedAccountsInfo(
             dappRequest,
           );
+        if (accountsInfo && accountsInfo.length > 1) {
+          defaultLogger.discovery.bitrefill.walletReconnectTriggered({
+            reason: 'multiAccount',
+            connectedCount: accountsInfo.length,
+          });
+          try {
+            await backgroundApiProxy.serviceDApp.disconnectWebsite({
+              origin: BITREFILL_EMBED_ORIGIN,
+              storageType: 'injectedProvider',
+              beforeConnect: true,
+              entry: 'Browser',
+            });
+          } catch (e) {
+            throw new BitrefillStepError(
+              'connectWallet',
+              (e as Error)?.message ?? 'disconnect before reconnect failed',
+            );
+          }
+          if (!isMountedRef.current) return;
+          accountsInfo = null;
+        }
         if (!accountsInfo || accountsInfo.length === 0) {
           try {
             await backgroundApiProxy.serviceDApp.openConnectionModal(
               dappRequest,
             );
-          } catch {
-            // TODO(i18n): replace with ETranslations.bitrefill_connect_required
-            Toast.error({
-              title: 'Please connect a wallet to continue the payment.',
-            });
-            return;
+          } catch (err) {
+            if (isUserRejectedError(err)) {
+              // User closed the connection modal on purpose — stay silent,
+              // they can retry from Bitrefill's Pay button when ready.
+              defaultLogger.discovery.bitrefill.userRejectedConnect();
+              return;
+            }
+            throw new BitrefillStepError(
+              'connectWallet',
+              (err as Error)?.message ?? 'openConnectionModal failed',
+            );
           }
           if (!isMountedRef.current) return;
           accountsInfo =
@@ -103,26 +177,39 @@ export function useDiscoveryMessageHandler() {
               dappRequest,
             );
           if (!accountsInfo || accountsInfo.length === 0) {
-            throw new OneKeyError('No account after connection');
+            throw new BitrefillStepError(
+              'connectWallet',
+              'no account after connection',
+            );
           }
         }
 
         // 3. Switch network if mismatch
         const currentNetworkId = accountsInfo[0]?.accountInfo?.networkId;
         if (currentNetworkId !== targetNetwork.id) {
-          await backgroundApiProxy.serviceDApp.switchConnectedNetwork({
-            origin: BITREFILL_EMBED_ORIGIN,
-            scope: BITREFILL_DAPP_SCOPE,
-            oldNetworkId: currentNetworkId,
-            newNetworkId: targetNetwork.id,
-          });
+          try {
+            await backgroundApiProxy.serviceDApp.switchConnectedNetwork({
+              origin: BITREFILL_EMBED_ORIGIN,
+              scope: BITREFILL_DAPP_SCOPE,
+              oldNetworkId: currentNetworkId,
+              newNetworkId: targetNetwork.id,
+            });
+          } catch (e) {
+            throw new BitrefillStepError(
+              'switchNetwork',
+              (e as Error)?.message ?? 'switchConnectedNetwork failed',
+            );
+          }
           if (!isMountedRef.current) return;
           accountsInfo =
             await backgroundApiProxy.serviceDApp.dAppGetConnectedAccountsInfo(
               dappRequest,
             );
           if (!accountsInfo || accountsInfo.length === 0) {
-            throw new OneKeyError('No account after network switch');
+            throw new BitrefillStepError(
+              'switchNetwork',
+              'no account after network switch',
+            );
           }
         }
 
@@ -132,7 +219,10 @@ export function useDiscoveryMessageHandler() {
         const senderAddress =
           accountsInfo[0]?.account?.addressDetail?.normalizedAddress;
         if (!finalAccountId || !finalNetworkId || !senderAddress) {
-          throw new OneKeyError('Invalid connected account info');
+          throw new BitrefillStepError(
+            'resolveAccount',
+            'invalid connected account info',
+          );
         }
 
         if (!isMountedRef.current) return;
@@ -140,30 +230,44 @@ export function useDiscoveryMessageHandler() {
         // 5. Resolve token (native or ERC-20) — use vault-registered metadata so
         //    decimals/isNative are trustworthy even if Bitrefill sends unknown tokens
         let selectedToken = null;
-        if (chainValue.tokenAddress) {
-          selectedToken = await backgroundApiProxy.serviceToken.getToken({
-            networkId: finalNetworkId,
-            accountId: finalAccountId,
-            tokenIdOnNetwork: chainValue.tokenAddress,
-          });
+        try {
+          if (chainValue.tokenAddress) {
+            selectedToken = await backgroundApiProxy.serviceToken.getToken({
+              networkId: finalNetworkId,
+              accountId: finalAccountId,
+              tokenIdOnNetwork: chainValue.tokenAddress,
+            });
+          }
+          if (!selectedToken) {
+            selectedToken =
+              await backgroundApiProxy.serviceToken.getNativeToken({
+                networkId: finalNetworkId,
+                accountId: finalAccountId,
+              });
+          }
+        } catch (e) {
+          throw new BitrefillStepError(
+            'resolveToken',
+            (e as Error)?.message ?? 'resolveToken failed',
+          );
         }
         if (!selectedToken) {
-          selectedToken = await backgroundApiProxy.serviceToken.getNativeToken({
-            networkId: finalNetworkId,
-            accountId: finalAccountId,
-          });
-        }
-        if (!selectedToken) {
-          throw new OneKeyError('Could not resolve token for payment');
+          throw new BitrefillStepError(
+            'resolveToken',
+            'could not resolve token for payment',
+          );
         }
 
         if (!isMountedRef.current) return;
 
         // 6. Build encodedTx through the EVM vault — handles ERC-20 ABI encoding
         //    and native value conversion with BigNumber precision (no float math)
-        const amount = await parseOnChainAmount(result, selectedToken);
-        const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx(
-          {
+        let unsignedTx: Awaited<
+          ReturnType<typeof backgroundApiProxy.serviceSend.buildUnsignedTx>
+        >;
+        try {
+          const amount = await parseOnChainAmount(result, selectedToken);
+          unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
             networkId: finalNetworkId,
             accountId: finalAccountId,
             transfersInfo: [
@@ -174,23 +278,42 @@ export function useDiscoveryMessageHandler() {
                 tokenInfo: selectedToken,
               },
             ],
-          },
-        );
+          });
+        } catch (e) {
+          throw new BitrefillStepError(
+            'buildUnsignedTx',
+            (e as Error)?.message ?? 'buildUnsignedTx failed',
+          );
+        }
 
         if (!isMountedRef.current) return;
 
         // 7. Open signature-and-send modal (same path as eth_sendTransaction)
-        await backgroundApiProxy.serviceDApp.openSignAndSendTransactionModal({
-          request: dappRequest,
-          encodedTx: unsignedTx.encodedTx,
-          accountId: finalAccountId,
-          networkId: finalNetworkId,
-          transfersInfo: unsignedTx.transfersInfo,
-        });
+        try {
+          await backgroundApiProxy.serviceDApp.openSignAndSendTransactionModal({
+            request: dappRequest,
+            encodedTx: unsignedTx.encodedTx,
+            accountId: finalAccountId,
+            networkId: finalNetworkId,
+            transfersInfo: unsignedTx.transfersInfo,
+          });
+        } catch (e) {
+          if (isUserRejectedError(e)) {
+            // User rejected the tx — nothing to surface.
+            return;
+          }
+          throw new BitrefillStepError(
+            'openSignModal',
+            (e as Error)?.message ?? 'openSignAndSendTransactionModal failed',
+          );
+        }
       } catch (error) {
-        // TODO(logging): replace with defaultLogger.discovery.bitrefill once a scope exists
-        // eslint-disable-next-line no-console
-        console.error('[Bitrefill] payment_intent handler failed:', error);
+        const step: IBitrefillFailStep =
+          error instanceof BitrefillStepError ? error.step : 'unknown';
+        defaultLogger.discovery.bitrefill.paymentIntentFailed({
+          step,
+          message: (error as Error)?.message ?? String(error),
+        });
         // TODO(i18n): replace with ETranslations.bitrefill_payment_failed once the key lands upstream
         Toast.error({
           title: 'Unable to open payment. Please retry from Bitrefill.',
