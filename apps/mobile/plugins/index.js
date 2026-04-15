@@ -117,17 +117,57 @@ module.exports = (config, projectRoot) => {
       return id;
     };
 
+    // When ONEKEY_STARTUP_PROFILE=1 is set at bundle time, inject a prologue
+    // into the main entry module that (1) flips the globalThis flag the JS
+    // runtime reads in `apps/mobile/src/startupProfile`, and (2) publishes a
+    // moduleId→path map so the profile log can show module paths instead of
+    // opaque numeric ids. The map covers entries in `fileToIdMap`.
+    //
+    // When the env var is NOT set, the prologue reduces to `pendingChunks` only
+    // (original behavior) — zero overhead.
+    const STARTUP_PROFILE_ENABLED =
+      process.env.ONEKEY_STARTUP_PROFILE === '1' ||
+      process.env.ONEKEY_STARTUP_PROFILE === 'true';
+
+    const buildStartupProfilePrologue = () => {
+      if (!STARTUP_PROFILE_ENABLED) return '';
+      const idToPath = {};
+      try {
+        for (const [filePath, id] of fileToIdMap.entries?.() ?? []) {
+          if (typeof id === 'number' && typeof filePath === 'string') {
+            // Trim monorepo root prefix so the map stays small.
+            const trimmed = filePath
+              .replace(/^.*\/node_modules\//, 'node_modules/')
+              .replace(/^.*\/packages\//, 'packages/')
+              .replace(/^.*\/apps\//, 'apps/');
+            idToPath[id] = trimmed;
+          }
+        }
+      } catch (_) {
+        /* noop */
+      }
+      const mapJson = JSON.stringify(idToPath);
+      return [
+        '// --- ONEKEY_STARTUP_PROFILE prologue ---',
+        'globalThis.__ONEKEY_STARTUP_PROFILE__ = true;',
+        `globalThis.__ONEKEY_MODULE_ID_TO_PATH__ = ${mapJson};`,
+      ].join('\n');
+    };
+
     const beforeCustomSerializer = (
       entryPoint,
       prepend,
       graph,
       _bundleOptions,
     ) => {
+      const profilePrologue = buildStartupProfilePrologue();
       for (const [entryKey, value] of graph.dependencies) {
         // to entry file injection of global variables __APP__
         if (entryPoint === entryKey) {
           for (const { data } of value.output) {
-            data.code = `var pendingChunks = {};\n${data.code}`;
+            const headers = ['var pendingChunks = {};'];
+            if (profilePrologue) headers.push(profilePrologue);
+            data.code = `${headers.join('\n')}\n${data.code}`;
           }
           break;
         }

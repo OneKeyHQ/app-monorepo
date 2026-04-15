@@ -163,6 +163,13 @@ android {
             "ENABLE_NATIVE_BACKGROUND_THREAD",
             defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
         )
+        // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
+        // timing + JS module profile. See .skillshare/skills/1k-startup-profile/skill.md
+        buildConfigField(
+            "boolean",
+            "ONEKEY_STARTUP_PROFILE",
+            (System.getenv('ONEKEY_STARTUP_PROFILE')?.toLowerCase() in ['1', 'true', 'yes', 'on']).toString()
+        )
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
         missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'
         manifestPlaceholders = [

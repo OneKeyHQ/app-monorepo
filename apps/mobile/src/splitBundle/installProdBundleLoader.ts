@@ -213,6 +213,19 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       segmentStats.totalLoaded += 1;
       segmentStats.totalTimeMs += durationMs;
 
+      // ONEKEY_STARTUP_PROFILE: emit per-segment breakdown.
+      // NOTE: The combined duration above covers native I/O (open+read+mmap)
+      // + Hermes bytecode parse + register. Splitting I/O vs parse would
+      // require a patch to @onekeyfe/react-native-split-bundle-loader; for
+      // now we emit total + size so the slowest segments are identifiable.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if ((globalThis as any).__ONEKEY_STARTUP_PROFILE__ === true) {
+        NativeLogger.write(
+          LogLevel.Info,
+          `[StartupProfile.seg] ${durationMs}ms id=${entry.id} key=${entry.key} path=${entry.relativePath}`,
+        );
+      }
+
       defaultLogger.app.bootstrap.initDeferredStep(
         `segment:${segmentKey}`,
         durationMs,

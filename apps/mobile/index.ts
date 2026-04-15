@@ -3,6 +3,13 @@
 // Track JS entry execution start time
 (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ = Date.now();
 
+// Startup profiler — gated by `ONEKEY_STARTUP_PROFILE=1` at build time.
+// When OFF this is a single `if (enabled) return;` check with no observable
+// overhead. When ON it monkey-patches Metro's `__r` so every module's factory
+// is timed; results are flushed after `main entry evaluated`.
+// See `.skillshare/skills/1k-startup-profile/skill.md` for how to enable.
+require('./src/startupProfile').installStartupProfileJs();
+
 type IExpoModule = typeof import('expo');
 type IReactNativeDeviceUtilsModule =
   typeof import('@onekeyfe/react-native-device-utils');
@@ -108,58 +115,35 @@ if (!__DEV__) {
   );
 }
 
-// Per-require instrumentation so we can see which single `require()` dominates
-// the previously-aggregated "BG transport setup" window (typically ~1.6-1.8s).
-// Each block records its own duration so the next log analysis can point at
-// the actual culprit instead of averaging the cost across 6 requires.
 const _transportStart = Date.now();
-const _e = (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number;
-// Preload NativeLogger up front so the per-phase logs don't pay the
-// `react-native-file-logger` import cost inside the measured window.
-const { NativeLogger: _NL3, LogLevel: _LL3 } =
-  require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-function _logRequire(label: string, startedAt: number) {
+require('./src/backgroundThread/setupMainThreadBackgroundRunner');
+
+const { I18nManager } =
+  require('react-native') as typeof import('react-native');
+const { registerRootComponent } = require('expo') as IExpoModule;
+const { initSentry } =
+  require('@onekeyhq/shared/src/modules3rdParty/sentry') as ISentryModule;
+const { ReactNativeDeviceUtils } =
+  require('@onekeyfe/react-native-device-utils') as IReactNativeDeviceUtilsModule;
+const App = (require('./App') as IAppModule).default;
+
+{
+  const _e = (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number;
+  const { NativeLogger: _NL3, LogLevel: _LL3 } =
+    require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
   _NL3.write(
     _LL3.Info,
-    `[StartupTiming] require.${label}: ${Date.now() - startedAt}ms (+${Date.now() - _e}ms from entry)`,
+    `[StartupTiming] BG transport setup in ${Date.now() - _transportStart}ms (+${Date.now() - _e}ms)`,
+  );
+  _NL3.write(
+    _LL3.Info,
+    `[StartupTiming] main entry evaluated (+${Date.now() - _e}ms)`,
   );
 }
 
-const _t1 = Date.now();
-require('./src/backgroundThread/setupMainThreadBackgroundRunner');
-_logRequire('bgRunnerSetup', _t1);
-
-const _t2 = Date.now();
-const { I18nManager } =
-  require('react-native') as typeof import('react-native');
-_logRequire('react-native', _t2);
-
-const _t3 = Date.now();
-const { registerRootComponent } = require('expo') as IExpoModule;
-_logRequire('expo', _t3);
-
-const _t4 = Date.now();
-const { initSentry } =
-  require('@onekeyhq/shared/src/modules3rdParty/sentry') as ISentryModule;
-_logRequire('sentry', _t4);
-
-const _t5 = Date.now();
-const { ReactNativeDeviceUtils } =
-  require('@onekeyfe/react-native-device-utils') as IReactNativeDeviceUtilsModule;
-_logRequire('deviceUtils', _t5);
-
-const _t6 = Date.now();
-const App = (require('./App') as IAppModule).default;
-_logRequire('./App', _t6);
-
-_NL3.write(
-  _LL3.Info,
-  `[StartupTiming] BG transport setup in ${Date.now() - _transportStart}ms (+${Date.now() - _e}ms)`,
-);
-_NL3.write(
-  _LL3.Info,
-  `[StartupTiming] main entry evaluated (+${Date.now() - _e}ms)`,
-);
+// If startup profiling is enabled, schedule a flush now so the
+// module-level per-require breakdown ends up right after the line above.
+require('./src/startupProfile').scheduleStartupProfileJsFlush();
 
 ReactNativeDeviceUtils.initEventListeners();
 initSentry();

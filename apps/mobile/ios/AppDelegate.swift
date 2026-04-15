@@ -87,6 +87,22 @@ private enum BackgroundThreadBridge {
 /// earliest hook that doesn't require touching `project.pbxproj`.
 private var appLaunchCFTime: CFAbsoluteTime { AppDelegate.appLaunchCFTime }
 
+/// Single flag controlling HBC + segment profile on native side. Read from
+/// either the env var (Xcode scheme → Arguments → Environment Variables) or
+/// Info.plist. See `.skillshare/skills/1k-startup-profile/skill.md`.
+private func isStartupProfileEnabled() -> Bool {
+  if let env = ProcessInfo.processInfo.environment["ONEKEY_STARTUP_PROFILE"]?.lowercased() {
+    if ["1", "true", "yes", "on"].contains(env) { return true }
+  }
+  if let plist = Bundle.main.object(forInfoDictionaryKey: "ONEKEY_STARTUP_PROFILE") as? NSNumber {
+    return plist.boolValue
+  }
+  if let plist = Bundle.main.object(forInfoDictionaryKey: "ONEKEY_STARTUP_PROFILE") as? String {
+    return ["1", "true", "yes", "on"].contains(plist.lowercased())
+  }
+  return false
+}
+
 /// Tracks which bundle `bundleURL()` returned as RN's initial bundle, so
 /// `handleHostDidStart` can decide whether the main entry bundle still needs
 /// to be loaded. In single-bundle Release builds (no `common.jsbundle`) the
@@ -469,10 +485,32 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       let entryLoadStart = CFAbsoluteTimeGetCurrent()
       if let entryPath = self.resolveMainEntryBundlePath() {
         NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: loading main entry bundle at \(entryPath)")
+
+        // --- ONEKEY_STARTUP_PROFILE: HBC I/O signal ---
+        // Pre-read the file so we can attribute pure I/O time separately from
+        // SplitBundleLoader's combined read+parse+exec below. Warms the page
+        // cache; SplitBundleLoader's subsequent read hits cache and its
+        // measured time is effectively parse+exec only.
+        var hbcIoMs: Double = -1
+        var hbcSize: Int = -1
+        if isStartupProfileEnabled() {
+          let ioStart = CFAbsoluteTimeGetCurrent()
+          if let data = try? Data(contentsOf: URL(fileURLWithPath: entryPath), options: .mappedIfSafe) {
+            hbcIoMs = (CFAbsoluteTimeGetCurrent() - ioStart) * 1000
+            hbcSize = data.count
+          }
+        }
+
         SplitBundleLoader.loadEntryBundle(entryPath, inHost: host)
         let elapsed = (CFAbsoluteTimeGetCurrent() - entryLoadStart) * 1000
         let totalFromLaunch = (CFAbsoluteTimeGetCurrent() - appLaunchCFTime) * 1000
         NitroModuleBridge.logInfo("StartupTiming", "ios.main_entry.evaluated: \(String(format: "%.0f", elapsed))ms (+\(String(format: "%.0f", totalFromLaunch))ms from launch)")
+        if isStartupProfileEnabled() && hbcSize > 0 {
+          NitroModuleBridge.logInfo(
+            "StartupProfile.hbc",
+            "main.hbc: io=\(String(format: "%.1f", hbcIoMs))ms size=\(hbcSize)B (parse+exec ~= \(String(format: "%.0f", elapsed - hbcIoMs))ms)"
+          )
+        }
       } else {
         NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: no main entry bundle found")
       }

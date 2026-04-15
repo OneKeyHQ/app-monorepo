@@ -336,6 +336,38 @@ public class MainApplication extends Application implements ReactApplication {
       "StartupTiming",
       "android.app.on_create.done: " + (tDone - appLaunchMs) + "ms (+" + (tDone - appLaunchMs) + "ms from launch)"
     );
+
+    // ONEKEY_STARTUP_PROFILE: pre-read the main bundle file on a low-priority
+    // background thread to attribute pure I/O time separately from RN's
+    // combined read+parse+eval. Warms the OS page cache so the subsequent
+    // RN load's measured time is effectively parse+eval only.
+    if (BuildConfig.ONEKEY_STARTUP_PROFILE) {
+      final long anchor = appLaunchMs;
+      Thread hbcProbe = new Thread(() -> {
+        long ioStart = System.currentTimeMillis();
+        long size = 0;
+        String[] candidates = new String[] {
+          "index.android.bundle", "main.bundle"
+        };
+        for (String asset : candidates) {
+          try (java.io.InputStream is = getAssets().open(asset)) {
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = is.read(buf)) > 0) size += n;
+            long ioMs = System.currentTimeMillis() - ioStart;
+            OneKeyLog.info(
+              "StartupProfile.hbc",
+              "android." + asset + ": io=" + ioMs + "ms size=" + size + "B (prewarm, at +" + (System.currentTimeMillis() - anchor) + "ms from launch)"
+            );
+            break;
+          } catch (Exception ignored) {
+            // try next candidate
+          }
+        }
+      }, "onekey-hbc-probe");
+      hbcProbe.setPriority(Thread.MIN_PRIORITY);
+      hbcProbe.start();
+    }
   }
 
   @Override
