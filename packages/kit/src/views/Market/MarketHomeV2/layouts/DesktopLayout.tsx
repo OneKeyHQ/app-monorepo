@@ -11,6 +11,10 @@ import { MarketPerpsTokenList } from '../components/MarketPerpsList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
+import {
+  COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  shouldHideSpotExtendedStats,
+} from '../utils';
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic } from './hooks';
@@ -163,6 +167,14 @@ export function DesktopLayout({
     return { paddingBottom: 0 };
   }, []);
 
+  const hiddenSpotDesktopColumns = useMemo(
+    () =>
+      shouldHideSpotExtendedStats(filterBarProps.selectedCategory)
+        ? COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS
+        : undefined,
+    [filterBarProps.selectedCategory],
+  );
+
   const stickyHeaderCtx = useMemo(
     () => ({ portalTarget, activeTabName }),
     [portalTarget, activeTabName],
@@ -200,6 +212,7 @@ export function DesktopLayout({
                 tabName={spotTabName}
                 listContainerProps={listContainerProps}
                 toolbar={<MarketFilterBar {...filterBarProps} />}
+                hiddenDesktopColumns={hiddenSpotDesktopColumns}
               />
             </YStack>
           </Tabs.Tab>
