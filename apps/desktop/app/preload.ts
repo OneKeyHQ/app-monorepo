@@ -259,11 +259,15 @@ const desktopApi = {
   recoveryAutoRepair: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
   // Tray data response — main renderer sends gathered data back to main process.
-  // `sendTrayAction` is intentionally NOT exposed here — only the tray window
-  // preload needs it. Exposing it in the main window would create a
-  // self-forwarding IPC loop (main renderer → main process → main renderer).
   sendTrayData: (data: any) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
+  // Tray action — tray window preload shares this preload file, so we need
+  // `sendTrayAction` exposed for panel click handlers to reach the main
+  // process. The main window renderer must NOT call this (it would trigger
+  // a self-forwarding IPC loop), but that's enforced by convention: only
+  // `TrayPanel.tsx` (which runs in the tray window) calls it.
+  sendTrayAction: (action: any) =>
+    ipcRenderer.send(ipcMessageKeys.TRAY_ACTION, action),
   toggleTray: (enabled: boolean) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_TOGGLE, enabled),
 };

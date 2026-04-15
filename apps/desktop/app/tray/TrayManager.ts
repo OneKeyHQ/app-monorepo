@@ -143,12 +143,18 @@ export function setTrayLocked(locked: boolean): void {
 }
 
 export function destroyTrayManager(): void {
+  if (!isInitialized) return;
   logger.info('[TrayManager] Destroying system tray');
 
   stopPolling();
   unregisterTrayIpcHandlers();
   destroyTrayWindow();
   resetNotificationState();
+
+  // Reset lock state so a subsequent re-init (user toggles setting) is not
+  // blocked by a stale `isLocked = true` in trayIpc's module state, which
+  // would cause `requestDataFromMainWindow` to early-return forever.
+  setLocked(false);
 
   if (tray && !tray.isDestroyed()) {
     tray.destroy();

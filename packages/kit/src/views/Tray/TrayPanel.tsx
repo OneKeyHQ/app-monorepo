@@ -30,22 +30,25 @@ export function TrayPanel() {
   const [data, setData] = useState<ITrayData | null>(null);
 
   useEffect(() => {
-    const handler = (_event: any, trayData: ITrayData) => {
+    // addIpcEventListener strips the IpcRendererEvent, so the listener
+    // receives the payload directly as its first (and only) argument.
+    const handler = (trayData: ITrayData) => {
       setData(trayData);
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (globalThis as any).desktopApi?.addIpcEventListener(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+    const unsubscribe = (globalThis as any).desktopApi?.addIpcEventListener(
       TRAY_IPC.UPDATE,
       handler,
     );
 
     return () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      (globalThis as any).desktopApi?.removeIpcEventListener(
-        TRAY_IPC.UPDATE,
-        handler,
-      );
+      // `removeIpcEventListener` is a documented no-op in the main preload;
+      // we must use the unsubscribe function returned by addIpcEventListener.
+      if (typeof unsubscribe === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        unsubscribe();
+      }
     };
   }, []);
 

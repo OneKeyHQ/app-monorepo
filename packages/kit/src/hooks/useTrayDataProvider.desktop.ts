@@ -293,9 +293,11 @@ export function useTrayDataProvider() {
     }
   }, []);
 
-  // Handle tray navigation events — navigate within main window
+  // Handle tray navigation events — navigate within main window.
+  // addIpcEventListener strips the IpcRendererEvent, so the action payload
+  // is the first (and only) argument to this handler.
   const handleTrayNavigation = useCallback(
-    (_event: unknown, action: { type: string; [key: string]: unknown }) => {
+    (action: { type: string; [key: string]: unknown }) => {
       const nav = rootNavigationRef.current;
       if (!nav) return;
 
@@ -355,33 +357,33 @@ export function useTrayDataProvider() {
     // Subscribe to TRAY_DATA_REQUEST via IPC — the old pattern that dispatched
     // a DOM event from preload no longer works under contextIsolation:true
     // because the preload's globalThis is isolated from the renderer's window.
+    //
+    // `removeIpcEventListener` is a documented no-op in the main preload;
+    // we must use the unsubscribe function returned by addIpcEventListener
+    // to actually clean up the listener.
     const requestHandler = () => {
       void handleTrayDataRequest();
     };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (globalThis as any).desktopApi?.addIpcEventListener(
-      TRAY_IPC.DATA_REQUEST,
-      requestHandler,
-    );
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (globalThis as any).desktopApi?.addIpcEventListener(
-      TRAY_IPC.ACTION,
-      handleTrayNavigation,
-    );
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+    const unsubscribeRequest = (
+      globalThis as any
+    ).desktopApi?.addIpcEventListener(TRAY_IPC.DATA_REQUEST, requestHandler);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+    const unsubscribeAction = (
+      globalThis as any
+    ).desktopApi?.addIpcEventListener(TRAY_IPC.ACTION, handleTrayNavigation);
 
     handleTrayDataRequestRef.current = handleTrayDataRequest;
 
     return () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      (globalThis as any).desktopApi?.removeIpcEventListener(
-        TRAY_IPC.DATA_REQUEST,
-        requestHandler,
-      );
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      (globalThis as any).desktopApi?.removeIpcEventListener(
-        TRAY_IPC.ACTION,
-        handleTrayNavigation,
-      );
+      if (typeof unsubscribeRequest === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        unsubscribeRequest();
+      }
+      if (typeof unsubscribeAction === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        unsubscribeAction();
+      }
     };
   }, [handleTrayDataRequest, handleTrayNavigation]);
 
