@@ -90,6 +90,7 @@ import {
   shouldSkipMarketSignedPrebuild,
 } from './marketReviewExecutionUtils';
 import {
+  attachMarketUnknownTokenValueTip,
   buildDefaultMarketSpeedCheckState,
   buildMarketReviewShouldFallback,
   mergeMarketBuildResultWithQuote,
@@ -1241,6 +1242,19 @@ export function useSpeedSwapActions(props: {
           amount,
         }),
       );
+      const reviewQuoteResult = attachMarketUnknownTokenValueTip({
+        quoteResult: normalizedQuoteResult,
+        toTokenPrice: reviewToToken.price,
+        quoteTip: {
+          title: intl.formatMessage({
+            id: ETranslations.trade_unknown_token_value,
+          }),
+          detail: intl.formatMessage({
+            id: ETranslations.trade_unable_to_obtain_token_value,
+          }),
+          showCancelButton: true,
+        },
+      });
       const shouldFallback = buildMarketReviewShouldFallback({
         networkId: reviewFromToken.networkId,
         isCustomRpcUnavailable,
@@ -1251,7 +1265,7 @@ export function useSpeedSwapActions(props: {
         accountId: netAccountRes.result?.id ?? '',
         networkId: reviewFromToken.networkId,
         shouldFallback,
-        quoteResult: normalizedQuoteResult,
+        quoteResult: reviewQuoteResult,
         buildUnsignedParams: {
           networkId: reviewFromToken.networkId,
           accountId: netAccountRes.result?.id ?? '',
@@ -1280,6 +1294,7 @@ export function useSpeedSwapActions(props: {
       fromTokenAmountDebounced,
       isCustomRpcUnavailable,
       isWrapped,
+      intl,
       netAccountRes.result?.id,
       netAccountRes.result?.addressDetail.address,
       shouldApprove,

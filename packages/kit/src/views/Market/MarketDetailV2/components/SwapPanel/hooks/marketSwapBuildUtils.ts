@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
+  IQuoteTip,
 } from '@onekeyhq/shared/types/swap/types';
 import { SwapBuildShouldFallBackNetworkIds } from '@onekeyhq/shared/types/swap/types';
 
@@ -65,6 +66,36 @@ export function pickMarketQuoteResultByProvider({
   );
 }
 
+export function attachMarketUnknownTokenValueTip({
+  quoteResult,
+  toTokenPrice,
+  quoteTip,
+}: {
+  quoteResult: IFetchQuoteResult;
+  toTokenPrice?: string;
+  quoteTip?: IQuoteTip;
+}) {
+  if (quoteResult.quoteShowTip || !quoteTip) {
+    return quoteResult;
+  }
+
+  const toAmountBN = new BigNumber(quoteResult.toAmount ?? 0);
+  const toTokenPriceBN = new BigNumber(toTokenPrice ?? 0);
+
+  if (toAmountBN.isNaN() || !toAmountBN.gt(0)) {
+    return quoteResult;
+  }
+
+  if (!toTokenPriceBN.isNaN() && toTokenPriceBN.gt(0)) {
+    return quoteResult;
+  }
+
+  return {
+    ...quoteResult,
+    quoteShowTip: quoteTip,
+  };
+}
+
 export function mergeMarketBuildResultWithQuote({
   buildRes,
   quoteResult,
@@ -99,6 +130,10 @@ export function mergeMarketBuildResultWithQuote({
 
   if (!nextBuildRes.result?.minToAmount && quoteResult?.minToAmount) {
     nextBuildRes.result.minToAmount = quoteResult.minToAmount;
+  }
+
+  if (!nextBuildRes.result?.quoteShowTip && quoteResult?.quoteShowTip) {
+    nextBuildRes.result.quoteShowTip = quoteResult.quoteShowTip;
   }
 
   return nextBuildRes;

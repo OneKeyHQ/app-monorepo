@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  attachMarketUnknownTokenValueTip,
   buildDefaultMarketSpeedCheckState,
   buildMarketReviewShouldFallback,
   mergeMarketBuildResultWithQuote,
@@ -150,6 +151,62 @@ describe('marketSwapBuildUtils', () => {
     expect(merged.result.gasLimit).toBe(45_678);
     expect(merged.result.minToAmount).toBe('950');
     expect(merged.result.routesData).toHaveLength(1);
+  });
+
+  it('preserves quote tips from the selected quote fallback data', () => {
+    const quoteShowTip = {
+      title: 'Unknown Token Value',
+      detail: 'Unable to obtain token value',
+      showCancelButton: true,
+    };
+
+    const merged = mergeMarketBuildResultWithQuote({
+      buildRes: createBuildRes(),
+      quoteResult: createQuoteResult({
+        quoteShowTip,
+      }),
+    });
+
+    expect(merged.result.quoteShowTip).toEqual(quoteShowTip);
+  });
+
+  it('attaches the unknown token value warning when the receive token price is unavailable', () => {
+    const quoteShowTip = {
+      title: 'Unknown Token Value',
+      detail: 'Unable to obtain token value',
+      showCancelButton: true,
+    };
+
+    const nextQuoteResult = attachMarketUnknownTokenValueTip({
+      quoteResult: createQuoteResult(),
+      toTokenPrice: '0',
+      quoteTip: quoteShowTip,
+    });
+
+    expect(nextQuoteResult.quoteShowTip).toEqual(quoteShowTip);
+  });
+
+  it('does not override an existing quote tip when the receive token price is unavailable', () => {
+    const existingQuoteTip = {
+      title: '40% value drop',
+      detail: 'High price impact may cause your asset loss.',
+      showCancelButton: true,
+    };
+    const unknownTokenValueTip = {
+      title: 'Unknown Token Value',
+      detail: 'Unable to obtain token value',
+      showCancelButton: true,
+    };
+
+    const nextQuoteResult = attachMarketUnknownTokenValueTip({
+      quoteResult: createQuoteResult({
+        quoteShowTip: existingQuoteTip,
+      }),
+      toTokenPrice: '0',
+      quoteTip: unknownTokenValueTip,
+    });
+
+    expect(nextQuoteResult.quoteShowTip).toEqual(existingQuoteTip);
   });
 
   it('does not overwrite build result fields that are already present', () => {
