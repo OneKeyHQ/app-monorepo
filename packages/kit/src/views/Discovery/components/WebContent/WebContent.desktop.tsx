@@ -133,17 +133,38 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     // can receive them.
     if (isBitrefillEmbedUrl(url)) {
       const webview = ref?.innerRef as IElectronWebView | undefined;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[Bitrefill:DEBUG][WebContent.desktop] injecting bridge ${JSON.stringify(
+          { id, url, hasExecute: typeof webview?.executeJavaScript },
+        )}`,
+      );
       try {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[Bitrefill:DEBUG][WebContent.desktop] injecting bridge ${JSON.stringify(
-            { id, url },
-          )}`,
-        );
-        webview?.executeJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
+        const result = webview?.executeJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
+        if (result && typeof (result as Promise<unknown>).then === 'function') {
+          (result as Promise<unknown>)
+            .then((value) => {
+              // eslint-disable-next-line no-console
+              console.log(
+                `[Bitrefill:DEBUG][WebContent.desktop] inject ok ${JSON.stringify(
+                  { value },
+                )}`,
+              );
+            })
+            .catch((err: unknown) => {
+              // eslint-disable-next-line no-console
+              console.error(
+                '[Bitrefill:DEBUG][WebContent.desktop] inject rejected',
+                err,
+              );
+            });
+        }
       } catch (error) {
         // eslint-disable-next-line no-console
-        console.error('[Bitrefill] failed to inject bridge script', error);
+        console.error(
+          '[Bitrefill:DEBUG][WebContent.desktop] inject threw',
+          error,
+        );
       }
     }
   }, [id, url]);

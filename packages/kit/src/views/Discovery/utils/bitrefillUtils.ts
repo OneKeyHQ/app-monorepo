@@ -41,10 +41,33 @@ export const BITREFILL_BRIDGE_METHOD = 'wallet_bitrefillEvent';
 export const BITREFILL_BRIDGE_SCRIPT = `
 (function() {
   try {
-    if (window.__onekeyBitrefillBridgeInstalled) return;
+    var hasApi = !!(window.$onekey && window.$onekey.$private && typeof window.$onekey.$private.request === 'function');
+    function ping(stage, payload) {
+      try {
+        if (hasApi) {
+          window.$onekey.$private.request({
+            method: 'wallet_bitrefillDebug',
+            params: [{ stage: stage, payload: payload }],
+          }).catch(function(){});
+        }
+      } catch (_e) {}
+    }
+
+    if (window.__onekeyBitrefillBridgeInstalled) {
+      ping('install:skipped', { reason: 'already installed' });
+      return;
+    }
     window.__onekeyBitrefillBridgeInstalled = true;
+
+    ping('install:start', { hasApi: hasApi, loc: location.href });
+
     window.addEventListener('message', function(e) {
       try {
+        ping('message:received', {
+          origin: e.origin,
+          hasData: typeof e.data === 'object' && e.data !== null,
+          event: (e.data && typeof e.data === 'object') ? e.data.event : null,
+        });
         if (e.origin !== '${BITREFILL_EMBED_ORIGIN}') return;
         var data = e.data;
         if (!data || typeof data !== 'object' || !data.event) return;
@@ -54,8 +77,12 @@ export const BITREFILL_BRIDGE_SCRIPT = `
           method: '${BITREFILL_BRIDGE_METHOD}',
           params: [data],
         }).catch(function(){});
-      } catch (_e) {}
+      } catch (_e) {
+        ping('message:error', { message: String(_e && _e.message) });
+      }
     });
+
+    ping('install:done', null);
   } catch (_e) {}
 })();
 true;
