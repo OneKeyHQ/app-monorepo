@@ -14,10 +14,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import {
-  usePerpsActiveAccountStatusAtom,
-  usePerpsActiveAssetAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -155,8 +152,6 @@ function PerpBadgesRow() {
 }
 
 export function PerpTickerBarMobile() {
-  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-
   const content = (
     <XStack
       flex={1}
@@ -178,7 +173,6 @@ export function PerpTickerBarMobile() {
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID="perp-mobile-settings-button"
-          showFeeTierEntry={!perpsAccountStatus.accountNotSupport}
           showGuideEntry
         />
       </XStack>
