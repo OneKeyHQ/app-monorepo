@@ -437,6 +437,10 @@ export function useSignatureConfirmActions() {
   const resetMegafuelEligible = actions.resetMegafuelEligible.use();
   const updateGasAccountUiState = actions.updateGasAccountUiState.use();
   const resetGasAccountUiState = actions.resetGasAccountUiState.use();
+  const updateGasAccountTemporarilyDisabled =
+    actions.updateGasAccountTemporarilyDisabled.use();
+  const resetGasAccountTemporarilyDisabled =
+    actions.resetGasAccountTemporarilyDisabled.use();
   const updateDecodedTxsInit = actions.updateDecodedTxsInit.use();
   const updateTxFeeInfoInit = actions.updateTxFeeInfoInit.use();
   const resetTxFeeState = actions.resetTxFeeState.use();
@@ -470,6 +474,8 @@ export function useSignatureConfirmActions() {
     resetMegafuelEligible,
     updateGasAccountUiState,
     resetGasAccountUiState,
+    updateGasAccountTemporarilyDisabled,
+    resetGasAccountTemporarilyDisabled,
     updateDecodedTxsInit,
     updateTxFeeInfoInit,
     resetTxFeeState,
