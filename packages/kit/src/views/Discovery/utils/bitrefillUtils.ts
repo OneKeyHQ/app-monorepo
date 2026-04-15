@@ -1,51 +1,26 @@
-import type { IDApp } from '@onekeyhq/shared/types/discovery';
+export const BITREFILL_EMBED_ORIGIN = 'https://embed.bitrefill.com';
+export const BITREFILL_REF_CODE = 'bronekey01';
 
-const DEFAULT_PAYMENT_METHODS = [
-  'eth_base',
+// Only EVM payment methods are supported — OneKey has a native ethereum: URI
+// parser already, and handling non-EVM networks would require extra parsers.
+const EVM_PAYMENT_METHODS = [
   'ethereum',
-  'usdc_arbitrum',
-  'usdc_base',
+  'eth_base',
   'usdc_erc20',
   'usdc_polygon',
-  'usdc_solana',
-  'usdt_arbitrum',
-  'usdt_bsc',
+  'usdc_arbitrum',
+  'usdc_base',
   'usdt_erc20',
   'usdt_polygon',
-  'usdt_trc20',
+  'usdt_arbitrum',
+  'usdt_bsc',
 ];
 
-export function getBitrefillUrl(): string {
-  const baseUrl = 'https://embed.bitrefill.com/';
+export function getBitrefillEmbedUrl(): string {
   const params = new URLSearchParams({
-    paymentMethods: DEFAULT_PAYMENT_METHODS.join(','),
+    ref: BITREFILL_REF_CODE,
+    utm_source: 'onekey',
+    paymentMethods: EVM_PAYMENT_METHODS.join(','),
   });
-
-  return `${baseUrl}?${params.toString()}`;
-}
-
-export function getMockBitrefillDApp(): IDApp {
-  return {
-    dappId: 'bitrefill',
-    name: 'Bitrefill',
-    url: getBitrefillUrl(),
-    logo: '',
-    description: 'Buy gift cards & top up phones with crypto',
-    networkIds: [
-      'evm--1', // Ethereum
-      'evm--137', // Polygon
-      'evm--42161', // Arbitrum
-      'evm--8453', // Base
-      'evm--56', // BSC
-      'sol--101', // Solana
-      'tron--0x2b6653dc', // Tron
-    ],
-    tags: [
-      {
-        tagId: 'gift-cards',
-        name: 'Gift Cards',
-        type: 'category',
-      },
-    ],
-  };
+  return `${BITREFILL_EMBED_ORIGIN}/?${params.toString()}`;
 }
