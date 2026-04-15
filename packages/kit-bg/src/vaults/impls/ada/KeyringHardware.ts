@@ -224,12 +224,11 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     // sign for DApp
     if (isSignOnly && rawTxHex) {
-      const stakingPath = `${dbAccount.path
-        .split('/')
-        .slice(0, 4)
-        .join('/')}/2/0`;
+      const basePath = dbAccount.path.split('/').slice(0, 4).join('/');
+      const paymentPath = `${basePath}/0/0`;
+      const stakingPath = `${basePath}/2/0`;
       const keys = {
-        payment: { hash: null, path: dbAccount.path },
+        payment: { hash: null, path: paymentPath },
         stake: { hash: null, path: stakingPath },
       };
       cardanoParams = await CardanoApi.txToOneKey(
@@ -239,6 +238,78 @@ export class KeyringHardware extends KeyringHardwareBase {
         dbAccount.xpub,
         changeAddress,
       );
+      // The SDK's emitted types declare the mutable fields (`inputs`,
+      // `additionalWitnessRequests`) as `null` because they're inferred from
+      // `let x = null`. We view the same object through a structural cast so
+      // assignments don't need `as any` at every call site.
+      const mutableCardanoParams = cardanoParams as unknown as {
+        inputs?: Array<{
+          prev_hash: string;
+          prev_index: number;
+          path?: string;
+        }>;
+        additionalWitnessRequests?: string[] | null;
+      };
+
+      // SDK pre-filters encodedTx.inputs to user-owned UTXOs only; firmware
+      // needs the full inputs set (incl. external contract UTXOs) in the
+      // original order, otherwise its rebuilt body hash won't match the
+      // broadcast body hash and the tx is rejected on-chain.
+      //
+      // Only user-owned inputs get `path` attached. The wire message sent to
+      // firmware (CardanoTxInput) only carries prev_hash/prev_index — path is
+      // an SDK-side hint used by gatherWitnessPaths to decide which witnesses
+      // to emit. Leaving external/script inputs without a path avoids an
+      // unneeded paymentPath witness on txs that carry zero user-owned main
+      // inputs (where forcing one could push past the dApp's fee budget),
+      // while keeping normal dApp signing unchanged: whenever ≥1 user input
+      // exists, witnessPaths still contains paymentPath after dedup.
+      const ownedInputKeys = new Set(
+        (inputs ?? []).map((u) => `${u.txHash.toLowerCase()}:${u.outputIndex}`),
+      );
+      const parsedInputs = await CardanoApi.parseRawTxInputs(rawTxHex);
+      mutableCardanoParams.inputs = parsedInputs.map((input) => {
+        const base = {
+          prev_hash: input.prev_hash,
+          prev_index: input.prev_index,
+        };
+        const key = `${input.prev_hash.toLowerCase()}:${input.prev_index}`;
+        return ownedInputKeys.has(key) ? { ...base, path: paymentPath } : base;
+      });
+
+      // Drop the stake witness request when the tx clearly doesn't need a
+      // stake signature (no cert, no withdrawal, user's stake hash not in
+      // required_signers). The SDK adds it whenever the tx mints, but DeFi
+      // dApp mints are script-authorized — the extra ~101 bytes can push
+      // the broadcast tx past the dApp's fee budget (FeeTooSmallUTxO). Any
+      // parsing failure falls back to keeping the witness.
+      try {
+        const additionalWitnessRequests =
+          mutableCardanoParams.additionalWitnessRequests;
+        if (
+          Array.isArray(additionalWitnessRequests) &&
+          additionalWitnessRequests.includes(stakingPath)
+        ) {
+          const userStakeKeyHash =
+            await CardanoApi.extractStakeKeyHashFromBaseAddress(
+              dbAccount.address,
+            );
+          if (userStakeKeyHash) {
+            const bodyStakeInfo =
+              await CardanoApi.parseRawTxBodyStakeInfo(rawTxHex);
+            const stakeWitnessRequired =
+              bodyStakeInfo.hasCertificates ||
+              bodyStakeInfo.hasWithdrawals ||
+              bodyStakeInfo.requiredSignerHashes.includes(userStakeKeyHash);
+            if (!stakeWitnessRequired) {
+              mutableCardanoParams.additionalWitnessRequests =
+                additionalWitnessRequests.filter((p) => p !== stakingPath);
+            }
+          }
+        }
+      } catch {
+        // fall through: keep stake witness on any failure
+      }
     } else {
       const hasSetTag = await CardanoApi.hasSetTagWithBody(tx.body);
       cardanoParams = {

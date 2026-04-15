@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "Kirim ke alamat ini",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "Mengirim {0} memerlukan saldo akun minimal {1} {2}.",
   "send.stellar_activation_minimum_hint": "Diperlukan minimal 1 XLM untuk mengaktifkan akun.",
+  "send.stellar_contract_token_no_memo_hint": "Memo tidak didukung untuk token kontrak Stellar.",
   "send.stellar_recipient_account_not_activated": "Akun penerima tidak diaktifkan di jaringan Stellar. Kirimkan setidaknya 1 XLM ke alamat ini untuk menginisialisasinya.",
   "send.str_minimum_balance_is_str": "Pengiriman gagal. Saldo minimum untuk {token} adalah {amount}.",
   "send.str_minimum_transfer": "Jumlah transfer minimum adalah {0}.",

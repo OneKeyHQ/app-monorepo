@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "Envoyer à cette adresse",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "L'envoi de {0} nécessite un solde de compte d'au moins {1} {2}.",
   "send.stellar_activation_minimum_hint": "Un minimum de 1 XLM est requis pour activer le compte.",
+  "send.stellar_contract_token_no_memo_hint": "Le mémo n'est pas pris en charge pour les jetons de contrat Stellar.",
   "send.stellar_recipient_account_not_activated": "Le compte du destinataire n'est pas activé sur le réseau Stellar. Veuillez envoyer au moins 1 XLM à cette adresse pour l'initialiser.",
   "send.str_minimum_balance_is_str": "L'envoi a échoué. Le solde minimum pour {token} est de {amount}.",
   "send.str_minimum_transfer": "Le montant minimum de transfert est de {0}.",
