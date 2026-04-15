@@ -131,6 +131,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _postOpenDataCheckTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private _postOpenDataCheckRetries = 0;
+
+  private static readonly POST_OPEN_DATA_CHECK_MAX_RETRIES = 3;
+
   allSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
 
   pendingSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
@@ -459,6 +463,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _startPostOpenDataCheck(): void {
     this._clearPostOpenDataCheck();
+    if (
+      this._postOpenDataCheckRetries >=
+      ServiceHyperliquidSubscription.POST_OPEN_DATA_CHECK_MAX_RETRIES
+    ) {
+      // Stop retrying — rely on transport's built-in backoff
+      return;
+    }
     const messageAtBefore = this._lastMessageAt;
     this._postOpenDataCheckTimer = setTimeout(async () => {
       this._postOpenDataCheckTimer = null;
@@ -466,8 +477,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         this._lastMessageAt === messageAtBefore &&
         !this.subscriptionsHandlerDisabled
       ) {
-        console.log('staleness_watchdog__force_reconnect_transport');
+        this._postOpenDataCheckRetries += 1;
+        console.log(
+          `post_open_data_check__force_reconnect (${this._postOpenDataCheckRetries}/${ServiceHyperliquidSubscription.POST_OPEN_DATA_CHECK_MAX_RETRIES})`,
+        );
         await this._forceReconnectTransport();
+      } else {
+        this._postOpenDataCheckRetries = 0;
       }
     }, 5000);
   }
@@ -1205,6 +1221,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _scheduleNetworkTimeout(messageTimestamp: number): void {
     this._lastMessageAt = messageTimestamp;
+    this._postOpenDataCheckRetries = 0;
 
     if (this._networkTimeoutTimer) {
       return;
