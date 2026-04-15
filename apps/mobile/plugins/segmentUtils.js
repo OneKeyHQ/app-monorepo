@@ -54,9 +54,30 @@ function allocateSegmentIds(segmentKeys) {
   return idMap;
 }
 
+/**
+ * Derive a segment key for a module that is sync-reachable from two or more
+ * async roots. Such modules must not be co-located with any single root — if
+ * they were, the other root's runtime code would sync-require the module
+ * across segments and fail.
+ *
+ * Shared segment keys use a `seg:shared.` prefix for visibility and are
+ * otherwise based on the module's natural path, so the mapping is stable
+ * and deterministic across builds.
+ *
+ * Example:
+ *   packages/kit/src/views/Market/.../TokenSelector/constants.ts
+ *     → seg:shared.kit.views.Market.MarketDetailV2.components.TokenSelector.constants
+ */
+function deriveSharedSegmentKey(absolutePath) {
+  const natural = deriveSegmentKey(absolutePath);
+  // Prefix with `shared.` inside the `seg:` namespace.
+  return natural.replace(/^seg:/, 'seg:shared.');
+}
+
 module.exports = {
   monorepoRoot,
   SEGMENT_ID_BASE,
   deriveSegmentKey,
+  deriveSharedSegmentKey,
   allocateSegmentIds,
 };

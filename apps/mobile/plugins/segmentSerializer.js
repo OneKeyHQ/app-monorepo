@@ -35,6 +35,7 @@ const {
   allocateSegmentIds,
   monorepoRoot,
 } = require('./segmentUtils');
+const { reassignDescendantsToSegments } = require('./segmentAllocator');
 
 const baseJSBundle = require(
   path.resolve(
@@ -275,49 +276,30 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
     moduleToSegment.set(moduleId, segmentKey);
   }
 
-  // Re-scan children: modules only reachable from async roots go into their segment.
-  // Iterate until stable because barrel files (index.ts re-exports) create multi-level
-  // indirection: async root → index.ts (assigned round 1) → RealModule.ts (round 2).
-  // A single pass only resolves one level, leaving grandchildren in eager by mistake.
-  let rescanChanged = true;
-  while (rescanChanged) {
-    rescanChanged = false;
-    for (const [key, value] of graph.dependencies) {
-      const moduleId = fileToIdMap.get(key);
-      if (mainModuleIds.has(moduleId) || moduleToSegment.has(moduleId))
-        continue;
+  // Re-scan descendants. Barrel files (index.ts re-exports) create multi-level
+  // indirection so this runs to a fixpoint. See `segmentAllocator.js` for the
+  // full rules — including multi-root sync-share promotion that prevents
+  // cross-segment sync-require crashes at runtime.
+  const { promotedSharedModules } = reassignDescendantsToSegments({
+    graph,
+    fileToIdMap,
+    mainModuleIds,
+    segmentModules,
+    moduleToSegment,
+  });
 
-      // Check if all parents are in the same segment
-      const parentSegments = new Set();
-      let hasUnresolvedParent = false;
-      for (const parentPath of value.inverseDependencies) {
-        const parentId = fileToIdMap.get(parentPath);
-        const parentSeg = moduleToSegment.get(parentId);
-        if (parentSeg) {
-          parentSegments.add(parentSeg);
-        } else if (mainModuleIds.has(parentId)) {
-          parentSegments.add('main');
-        } else {
-          // Parent is not yet classified — defer to next round
-          hasUnresolvedParent = true;
-        }
-      }
-
-      // If any parent is still unresolved, skip this module for now —
-      // it may be resolved in the next iteration.
-      if (hasUnresolvedParent) continue;
-
-      if (!parentSegments.has('main') && parentSegments.size >= 1) {
-        // All parents are in segments (no eager parent).
-        // Assign to the first segment; the segment dependency graph
-        // will ensure correct loading order for the others.
-        const seg = [...parentSegments][0];
-        segmentModules.get(seg).add(moduleId);
-        moduleToSegment.set(moduleId, seg);
-        rescanChanged = true;
-      } else {
-        mainModuleIds.add(moduleId);
-      }
+  if (promotedSharedModules.size > 0) {
+    console.log(
+      `info Promoted ${promotedSharedModules.size} module(s) to shared segments (multi-root sync-share):`,
+    );
+    const bySharedSeg = new Map();
+    for (const { sharedSeg, consumers } of promotedSharedModules.values()) {
+      if (!bySharedSeg.has(sharedSeg)) bySharedSeg.set(sharedSeg, consumers);
+    }
+    for (const [sharedSeg, consumers] of bySharedSeg) {
+      console.log(
+        `    ${sharedSeg} (consumers: ${[...consumers].join(', ')})`,
+      );
     }
   }
 

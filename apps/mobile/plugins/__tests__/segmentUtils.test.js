@@ -2,6 +2,7 @@ const path = require('path');
 
 const {
   deriveSegmentKey,
+  deriveSharedSegmentKey,
   allocateSegmentIds,
   monorepoRoot,
 } = require('../segmentUtils');
@@ -35,6 +36,53 @@ describe('deriveSegmentKey', () => {
         path.join(monorepoRoot, 'packages/kit/src/views/Market/index.tsx'),
       ),
     ).toBe('seg:kit.views.Market.index');
+  });
+});
+
+describe('deriveSharedSegmentKey', () => {
+  it('prefixes shared. inside seg: namespace for packages path', () => {
+    expect(
+      deriveSharedSegmentKey(
+        path.join(
+          monorepoRoot,
+          'packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/constants.ts',
+        ),
+      ),
+    ).toBe(
+      'seg:shared.kit.views.Market.MarketDetailV2.components.TokenSelector.constants',
+    );
+  });
+
+  it('prefixes shared. for node_modules path', () => {
+    expect(
+      deriveSharedSegmentKey(
+        path.join(monorepoRoot, 'node_modules/lodash/index.js'),
+      ),
+    ).toBe('seg:shared.nm.lodash');
+  });
+
+  it('is deterministic for the same absolute path', () => {
+    const p = path.join(
+      monorepoRoot,
+      'packages/kit/src/utils/helper.ts',
+    );
+    expect(deriveSharedSegmentKey(p)).toBe(deriveSharedSegmentKey(p));
+  });
+
+  it('produces a distinct key from the non-shared variant', () => {
+    const p = path.join(
+      monorepoRoot,
+      'packages/kit/src/utils/helper.ts',
+    );
+    expect(deriveSharedSegmentKey(p)).not.toBe(deriveSegmentKey(p));
+  });
+
+  it('keeps the leading `seg:` marker so routing still works', () => {
+    expect(
+      deriveSharedSegmentKey(
+        path.join(monorepoRoot, 'packages/shared/src/utils/x.ts'),
+      ),
+    ).toMatch(/^seg:shared\./);
   });
 });
 
