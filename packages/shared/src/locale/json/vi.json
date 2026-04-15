@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "Gửi đến địa chỉ này",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "Gửi {0} yêu cầu số dư tài khoản tối thiểu là {1} {2}.",
   "send.stellar_activation_minimum_hint": "Cần tối thiểu 1 XLM để kích hoạt tài khoản.",
+  "send.stellar_contract_token_no_memo_hint": "Tính năng Memo hiện không được hỗ trợ cho các token hợp đồng Stellar.",
   "send.stellar_recipient_account_not_activated": "Tài khoản người nhận chưa được kích hoạt trên mạng Stellar. Vui lòng gửi ít nhất 1 XLM đến địa chỉ này để kích hoạt tài khoản.",
   "send.str_minimum_balance_is_str": "Gửi thất bại. Số dư tối thiểu cho {token} là {amount}.",
   "send.str_minimum_transfer": "Số tiền chuyển tối thiểu là {0}.",
