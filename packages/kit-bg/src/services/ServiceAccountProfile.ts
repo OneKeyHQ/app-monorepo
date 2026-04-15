@@ -80,12 +80,15 @@ function emptyAccountBadgeResult(): IAccountBadgeResult {
 //     so we never demote a positive interaction on one path with a
 //     negative on another
 //   - `addressLabel` / `similarAddress` take the first non-empty response
-//   - badges are concatenated and deduped by (type, label)
+//   - badges come only from responses whose own `interacted` matches the
+//     merged status, so xpub-scoped "First transfer" / "Transferred" badges
+//     cannot coexist in the final array (OK-53278). Address-scoped static
+//     labels (OKX / Scam / CEX / ...) are present in every response, so they
+//     still surface through the matching subset.
 function mergeAccountBadgeResults(
   responses: IAccountBadgeResult[],
 ): IAccountBadgeResult {
   const merged = emptyAccountBadgeResult();
-  const seenBadgeKeys = new Set<string>();
 
   for (const r of responses) {
     merged.isScam = merged.isScam || r.isScam;
@@ -107,12 +110,17 @@ function mergeAccountBadgeResults(
     if (!merged.similarAddress && r.similarAddress) {
       merged.similarAddress = r.similarAddress;
     }
+  }
 
-    for (const badge of r.badges) {
-      const key = `${badge.type ?? ''}:${badge.label ?? ''}`;
-      if (!seenBadgeKeys.has(key)) {
-        seenBadgeKeys.add(key);
-        merged.badges.push(badge);
+  const seenBadgeKeys = new Set<string>();
+  for (const r of responses) {
+    if (r.interacted === merged.interacted) {
+      for (const badge of r.badges) {
+        const key = `${badge.type ?? ''}:${badge.label ?? ''}`;
+        if (!seenBadgeKeys.has(key)) {
+          seenBadgeKeys.add(key);
+          merged.badges.push(badge);
+        }
       }
     }
   }
