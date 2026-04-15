@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "發送到此地址",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "發送 {0} 需要帳戶餘額至少為{1} {2}",
   "send.stellar_activation_minimum_hint": "啟動帳戶至少需要 1 個 XLM。",
+  "send.stellar_contract_token_no_memo_hint": "Stellar合約代幣不支援 Memo。",
   "send.stellar_recipient_account_not_activated": "收款帳戶尚未在Stellar網路上啟用。請向此位址發送至少1個XLM以進行初始化。",
   "send.str_minimum_balance_is_str": "發送失敗，{token} 的最低餘額為 {amount}",
   "send.str_minimum_transfer": "最少轉賬數量 {0}",

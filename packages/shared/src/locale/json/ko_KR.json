@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "이 주소로 보내기",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "{0}을 보내려면 계좌 잔액이 최소한 {1} {2} 이상이어야 합니다.",
   "send.stellar_activation_minimum_hint": "계정을 활성화하려면 최소 1XLM이 필요합니다.",
+  "send.stellar_contract_token_no_memo_hint": "메모는 스텔라 컨트랙트 토큰에는 지원되지 않습니다.",
   "send.stellar_recipient_account_not_activated": "수취인 계정이 스텔라 네트워크에서 활성화되지 않았습니다. 초기화하려면 이 주소로 최소 1XLM을 보내주세요.",
   "send.str_minimum_balance_is_str": "전송 실패. {token}의 최소 잔액은 {amount}입니다.",
   "send.str_minimum_transfer": "최소 이체 금액은 {0}입니다.",
