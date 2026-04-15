@@ -443,6 +443,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   // _destroySubscription completion deletes newly created tracking entries
   private async _forceReconnectTransport(): Promise<void> {
     this._clearPostOpenDataCheck();
+    this._clearNetworkTimeout();
     this._stopPingLoop();
     this._activeSubscriptions.clear();
     await this._closeClient();
