@@ -287,6 +287,13 @@ export const createValidateAddressRule =
     if (value.pending) {
       return;
     }
+    // Empty input is the pristine / cleared state — don't surface an
+    // "invalid address" message here. Callers must gate their submit
+    // button on `value.resolved` (or equivalent) since the form will
+    // now report isValid=true for empty input.
+    if (!value.raw?.trim()) {
+      return;
+    }
     if (!value.resolved) {
       return value.validateError?.message ?? defaultErrorMessage;
     }
@@ -651,7 +658,7 @@ export function AddressInput(props: IAddressInputProps) {
       ) : (
         <IconButton
           title={intl.formatMessage({ id: ETranslations.global_clear })}
-          variant="secondary"
+          variant="tertiary"
           icon="BroomOutline"
           disabled={disabled}
           onPress={disabled ? undefined : handleClear}
@@ -703,32 +710,34 @@ export function AddressInput(props: IAddressInputProps) {
                 </>
               );
             }
+            // Default layout: empty state shows the action cluster
+            // (clipboard / scan / account selector). Non-empty state collapses
+            // to the clear button alone — the selector is hidden so it
+            // doesn't float next to committed address content (OK-53255,
+            // matching the recipient layout used by the Send flow).
+            if (hasContent) {
+              return clearButton;
+            }
             return (
               <>
-                {hasContent ? (
-                  clearButton
-                ) : (
-                  <>
-                    {clipboard ? (
-                      <ClipboardPlugin
-                        display={actionDisplay}
-                        onChange={onChangeText}
-                        disabled={disabled}
-                        testID={testID ? `${testID}-clip` : undefined}
-                      />
-                    ) : null}
-                    {scan ? (
-                      <ScanPlugin
-                        display={actionDisplay}
-                        networkId={networkId}
-                        onScanResult={onScanResult}
-                        onChange={onChangeText}
-                        disabled={disabled}
-                        testID={testID ? `${testID}-scan` : undefined}
-                      />
-                    ) : null}
-                  </>
-                )}
+                {clipboard ? (
+                  <ClipboardPlugin
+                    display={actionDisplay}
+                    onChange={onChangeText}
+                    disabled={disabled}
+                    testID={testID ? `${testID}-clip` : undefined}
+                  />
+                ) : null}
+                {scan ? (
+                  <ScanPlugin
+                    display={actionDisplay}
+                    networkId={networkId}
+                    onScanResult={onScanResult}
+                    onChange={onChangeText}
+                    disabled={disabled}
+                    testID={testID ? `${testID}-scan` : undefined}
+                  />
+                ) : null}
                 {showSelector ? (
                   <SelectorPlugin
                     disabled={disabled}
