@@ -108,6 +108,12 @@ const getChildProps = (
     onChange?: (value: unknown) => void;
     onChangeText?: (value: unknown) => void;
   };
+  // Spread only the keys we want to forward from the RHF field. `field.disabled`
+  // is always present and defaults to `undefined`, which would otherwise clobber
+  // an explicit `disabled={...}` prop the caller set on the child via
+  // cloneElement. onChange is replaced below by a composed handler.
+  const { name, value, onBlur, ref } = field;
+  const baseProps = { name, value, onBlur, ref, error, hasError };
   switch (child.type) {
     case Input:
     case TextAreaInput:
@@ -116,9 +122,8 @@ const getChildProps = (
         ? composeEventHandlers(onChangeText, field.onChange)
         : field.onChange;
       return {
-        ...field,
-        error,
-        hasError,
+        ...baseProps,
+        onChange: field.onChange,
         onChangeText: handleChange,
       };
     }
@@ -127,9 +132,7 @@ const getChildProps = (
         ? composeEventHandlers(onChange, field.onChange)
         : field.onChange;
       return {
-        ...field,
-        error,
-        hasError,
+        ...baseProps,
         onChange: handleChange,
       };
     }
