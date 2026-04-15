@@ -1,11 +1,7 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDeFiAsset, IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 
-import {
-  getCategoryConfig,
-  getCategoryLabel,
-  getCategoryLabelTranslationId,
-} from './defiCategoryConfig';
+import { getCategoryConfig } from './defiCategoryConfig';
 
 const POSITION_ASSET_SECTION_LABELS: Record<
   string,
@@ -38,9 +34,8 @@ export type IProtocolPositionSection = {
 
 export type IProtocolPositionItem = {
   groupId: string;
+  category: string;
   categoryConfig: ReturnType<typeof getCategoryConfig>;
-  categoryLabel: string;
-  categoryLabelId?: ETranslations;
   poolName?: string;
   poolFullName?: string;
   value: string;
@@ -50,7 +45,7 @@ export type IProtocolPositionItem = {
 function getPositionAssetSectionLabel(category: string) {
   return (
     POSITION_ASSET_SECTION_LABELS[category.toLowerCase()] ?? {
-      title: getCategoryLabel(category),
+      title: category,
     }
   );
 }
@@ -62,9 +57,8 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
 
     return {
       groupId: position.groupId,
+      category: position.category,
       categoryConfig,
-      categoryLabel: getCategoryLabel(position.category),
-      categoryLabelId: getCategoryLabelTranslationId(position.category),
       poolName: position.poolName,
       poolFullName: position.poolFullName,
       value: position.value,
