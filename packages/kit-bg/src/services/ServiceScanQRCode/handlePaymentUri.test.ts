@@ -1,4 +1,10 @@
 // yarn jest packages/kit-bg/src/services/ServiceScanQRCode/handlePaymentUri.test.ts
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+
+import ServiceScanQRCode from '.';
+
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: any) => target,
@@ -15,11 +21,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     },
   },
 }));
-
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
-import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
-
-import ServiceScanQRCode from './index';
 
 const mockBackgroundApi = {} as any;
 

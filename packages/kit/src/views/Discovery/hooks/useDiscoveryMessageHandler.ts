@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -6,13 +6,17 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { parseOnChainAmount } from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode';
 import type { IChainValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { isBitrefillOrigin, parseBitrefillPaymentIntent } from '../utils/bitrefillHandler';
+import {
+  isBitrefillOrigin,
+  parseBitrefillPaymentIntent,
+} from '../utils/bitrefillHandler';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -25,6 +29,14 @@ export function useDiscoveryMessageHandler() {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
+  const isMountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    [],
+  );
+
   const customReceiveHandler = useCallback(
     async (payload: IJsBridgeMessagePayload) => {
       if (!isBitrefillOrigin(payload.origin)) return;
@@ -36,19 +48,20 @@ export function useDiscoveryMessageHandler() {
       }
 
       try {
-        const result = await backgroundApiProxy.serviceScanQRCode.handlePaymentUri({
-          uri: message.paymentUri,
-        });
+        const result =
+          await backgroundApiProxy.serviceScanQRCode.handlePaymentUri({
+            uri: message.paymentUri,
+          });
 
         const chainValue = result.data as IChainValue;
         const network = chainValue.network;
         if (!network) {
-          throw new Error('paymentUri missing network context');
+          throw new OneKeyError('paymentUri missing network context');
         }
 
         const accountId = activeAccount.account?.id;
         if (!accountId) {
-          throw new Error('No active account');
+          throw new OneKeyError('No active account');
         }
 
         let selectedToken: IToken | null = null;
@@ -68,20 +81,21 @@ export function useDiscoveryMessageHandler() {
 
         const amount = await parseOnChainAmount(result, selectedToken);
 
+        if (!isMountedRef.current) return;
         navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
           screen: EModalSignatureConfirmRoutes.TxDataInput,
           params: {
             accountId,
             networkId: network.id,
             activeAccountId: accountId,
-            activeNetworkId: selectedToken?.networkId ?? network.id,
+            activeNetworkId: selectedToken?.networkId || network.id,
             isNFT: false,
             token: selectedToken,
             address: chainValue.address,
             amount,
           },
         });
-      } catch (error) {
+      } catch (_error) {
         // TODO(i18n): replace with ETranslations.bitrefill_payment_failed once the key lands upstream
         Toast.error({
           title: 'Unable to open payment. Please retry from Bitrefill.',

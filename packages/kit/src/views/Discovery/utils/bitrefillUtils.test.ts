@@ -32,7 +32,8 @@ describe('bitrefillUtils', () => {
     });
 
     it('includes EVM-only paymentMethods', () => {
-      const methods = parsed.searchParams.get('paymentMethods')?.split(',') ?? [];
+      const methods =
+        parsed.searchParams.get('paymentMethods')?.split(',') ?? [];
       expect(methods).toEqual(
         expect.arrayContaining([
           'ethereum',
@@ -50,7 +51,8 @@ describe('bitrefillUtils', () => {
     });
 
     it('does not include non-EVM payment methods', () => {
-      const methods = parsed.searchParams.get('paymentMethods')?.split(',') ?? [];
+      const methods =
+        parsed.searchParams.get('paymentMethods')?.split(',') ?? [];
       expect(methods).not.toContain('bitcoin');
       expect(methods).not.toContain('lightning');
       expect(methods).not.toContain('usdt_trc20');

@@ -4,7 +4,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
-import { EQRCodeHandlerNames, EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+import {
+  EQRCodeHandlerNames,
+  EQRCodeHandlerType,
+} from '@onekeyhq/shared/types/qrCode';
 
 import ServiceBase from '../ServiceBase';
 
