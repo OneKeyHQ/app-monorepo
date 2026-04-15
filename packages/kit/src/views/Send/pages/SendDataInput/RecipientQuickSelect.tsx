@@ -215,6 +215,10 @@ type IAccountWithDeriveInfo = {
   account: INetworkAccount;
   deriveInfo?: IAccountDeriveInfo;
   deriveType?: string;
+  // The actual historical address that matched the current search (OK-53313).
+  // When set, the row displays this address instead of the account's current
+  // rotating address so the user sees the value they actually typed.
+  matchedAddress?: string;
 };
 
 // Wallet account group type
@@ -247,7 +251,31 @@ function collectAccountSearchAddresses(
     ...(utxo.addresses ? Object.values(utxo.addresses) : []),
     ...(utxo.customAddresses ? Object.values(utxo.customAddresses) : []),
   ].filter((a): a is string => !!a);
-  return Array.from(new Set(candidates.map((a) => a.toLowerCase())));
+  // Preserve original case so the matched value can be shown back to the
+  // user (OK-53313) instead of the current rotating receive address.
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const addr of candidates) {
+    const key = addr.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(addr);
+    }
+  }
+  return unique;
+}
+
+// Find the actual address on `account` that matches `searchValue`
+// (already lowercased). Returns the original-case string so callers can
+// display it back to the user.
+function findMatchedAccountAddress(
+  account: INetworkAccount | undefined,
+  searchValue: string,
+): string | undefined {
+  if (!searchValue) return undefined;
+  return collectAccountSearchAddresses(account).find((addr) =>
+    addr.toLowerCase().includes(searchValue),
+  );
 }
 
 // Get wallet accounts on the specified network (with derive type info)
@@ -459,13 +487,26 @@ function AccountRecipients({
             isNameMatch: (item) =>
               (item.account?.name ?? '').toLowerCase().includes(searchValue),
             isAddressMatch: (item) =>
-              collectAccountSearchAddresses(item.account).some((addr) =>
-                addr.includes(searchValue),
-              ),
+              !!findMatchedAccountAddress(item.account, searchValue),
           });
 
         if (sortedAccounts.length > 0) {
-          const updatedGroup = { ...group, accounts: sortedAccounts };
+          // Attach the matched address so the row can display the value the
+          // user actually searched for instead of the current fresh address
+          // (OK-53313). Name matches keep matchedAddress undefined so the
+          // default display path still wins.
+          const decoratedAccounts = sortedAccounts.map((item) => {
+            const isNameHit = (item.account?.name ?? '')
+              .toLowerCase()
+              .includes(searchValue);
+            if (isNameHit) return item;
+            const matchedAddress = findMatchedAccountAddress(
+              item.account,
+              searchValue,
+            );
+            return matchedAddress ? { ...item, matchedAddress } : item;
+          });
+          const updatedGroup = { ...group, accounts: decoratedAccounts };
           if (nameMatched.length > 0) {
             nameMatchedGroups.push(updatedGroup);
           } else {
@@ -484,6 +525,7 @@ function AccountRecipients({
       const account = item?.account;
       if (!account) return;
       const address =
+        item.matchedAddress ??
         account.addressDetail?.displayAddress ??
         account.address ??
         account.addressDetail?.address ??
@@ -603,6 +645,7 @@ function AccountRecipients({
     | {
         type: 'account';
         account: INetworkAccount;
+        matchedAddress?: string;
         walletId: string;
         walletName: string;
         wallet?: IDBWallet;
@@ -628,6 +671,7 @@ function AccountRecipients({
           items.push({
             type: 'account',
             account: item.account,
+            matchedAddress: item.matchedAddress,
             walletId: section.walletId,
             walletName: section.title,
             wallet: section.wallet,
@@ -752,12 +796,16 @@ function AccountRecipients({
         if (!item.account) {
           return null;
         }
-        const { account, walletId, wallet } = item;
-        const itemAddress =
+        const { account, matchedAddress, walletId, wallet } = item;
+        const currentAddress =
           account.addressDetail?.displayAddress ??
           account.address ??
           account.addressDetail?.address ??
           '';
+        // Prefer the matched historical address (OK-53313) so the user sees
+        // exactly what they typed instead of the current rotating fresh
+        // address.
+        const itemAddress = matchedAddress ?? currentAddress;
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
         // Wallet name is already shown in the section header, only show account name
@@ -776,7 +824,7 @@ function AccountRecipients({
               walletId,
               wallet,
             }}
-            onPress={() => handleSelectAccount({ account })}
+            onPress={() => handleSelectAccount({ account, matchedAddress })}
           />
         );
       })}
