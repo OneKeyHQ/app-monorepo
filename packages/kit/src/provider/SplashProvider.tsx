@@ -17,6 +17,12 @@ const SPLASH_SAFETY_TIMEOUT = 5000;
 const jsEntryStart: number =
   (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
+// EXPERIMENT: dismiss splash 50ms after SplashProvider mounts, regardless of
+// whether HomePageReady or PendingInstallTaskProcessFinished have fired.
+// Trades "guaranteed balance on first frame" for ~300-500ms perceived TTI.
+// Set to false to restore the original cache-aware dismissal logic.
+const EXPERIMENT_DISMISS_SPLASH_AFTER_50MS = true;
+
 function logSplashProvider(message: string) {
   if (
     platformEnv.isNativeMainThread &&
@@ -138,6 +144,17 @@ export const useCanDismissSplash =
 
         const [canDismissSplash, setCanDismissSplash] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);
+
+        // EXPERIMENT short-circuit: skip event-based wait entirely.
+        useEffect(() => {
+          if (!EXPERIMENT_DISMISS_SPLASH_AFTER_50MS) return;
+          logSplashProvider('experiment 50ms timer scheduled');
+          const timer = setTimeout(() => {
+            logSplashProvider('experiment 50ms timer fired');
+            setCanDismissSplash(true);
+          }, 50);
+          return () => clearTimeout(timer);
+        }, []);
 
         // Unconditional safety timer: mounts once and guarantees dismissal
         // regardless of which path (cached/pending/none) is taken, or whether
