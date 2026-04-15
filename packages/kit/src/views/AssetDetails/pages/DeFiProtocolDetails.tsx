@@ -19,7 +19,10 @@ import {
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { getCategoryConfig } from '@onekeyhq/kit/src/utils/defiCategoryConfig';
+import {
+  getCategoryConfig,
+  getCategoryLabel,
+} from '@onekeyhq/kit/src/utils/defiCategoryConfig';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -44,10 +47,6 @@ function DeFiProtocolDetails() {
   const { protocol, protocolInfo } = route.params;
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
-  const getCategoryLabel = useCallback(
-    (category: string) => getCategoryConfig(category).label,
-    [],
-  );
   const renderProtocolOverview = useCallback(() => {
     return (
       <>
@@ -283,13 +282,7 @@ function DeFiProtocolDetails() {
         })}
       </YStack>
     );
-  }, [
-    getCategoryLabel,
-    protocol.positions,
-    intl,
-    settings.currencyInfo.symbol,
-    renderAssetType,
-  ]);
+  }, [protocol.positions, intl, settings.currencyInfo.symbol, renderAssetType]);
   return (
     <Page scrollEnabled>
       <Page.Header
