@@ -585,7 +585,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ...args
   ) => {
     const socket = event.target as WebSocket | undefined;
-    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
+    // OK-53208: SDK transport wrapper reports readyState=undefined in the
+    // open event, which keeps perpsWebSocketConnectedAtom false forever.
+    void perpsWebSocketReadyStateAtom.set({
+      readyState: socket?.readyState ?? WebSocket.OPEN,
+    });
     console.log('hyperliquidWebSocket__event__open', {
       readyState: socket?.readyState,
       args,
