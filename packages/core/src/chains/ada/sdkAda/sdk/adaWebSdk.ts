@@ -1,9 +1,3 @@
-import {
-  extractStakeKeyHashFromBaseAddressWithWasm,
-  parseRawTxBodyStakeInfoWithWasm,
-  parseRawTxInputsWithWasm,
-} from './parseRawTxWithWasm';
-
 import type { IGetCardanoApi } from './types';
 
 const getCardanoApi: IGetCardanoApi = async () => {
@@ -19,10 +13,10 @@ const getCardanoApi: IGetCardanoApi = async () => {
     dAppGetUtxos: Loader.dAppUtils.getUtxos,
     dAppConvertCborTxToEncodeTx: Loader.dAppUtils.convertCborTxToEncodeTx,
     dAppSignData: Loader.dAppUtils.signData,
-    parseRawTxInputs: parseRawTxInputsWithWasm,
-    parseRawTxBodyStakeInfo: parseRawTxBodyStakeInfoWithWasm,
+    parseRawTxInputs: Loader.onekeyUtils.parseRawTxInputs,
+    parseRawTxBodyStakeInfo: Loader.onekeyUtils.parseRawTxBodyStakeInfo,
     extractStakeKeyHashFromBaseAddress:
-      extractStakeKeyHashFromBaseAddressWithWasm,
+      Loader.onekeyUtils.extractStakeKeyHashFromBaseAddress,
   };
 };
 

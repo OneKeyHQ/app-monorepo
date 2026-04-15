@@ -1,8 +1,3 @@
-import {
-  extractStakeKeyHashFromBaseAddressWithWasm,
-  parseRawTxBodyStakeInfoWithWasm,
-  parseRawTxInputsWithWasm,
-} from '@onekeyhq/core/src/chains/ada/sdkAda/sdk/parseRawTxWithWasm';
 import type { IAdaSdkApi } from '@onekeyhq/core/src/chains/ada/sdkAda/sdk/types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -31,6 +26,10 @@ const getCardanoApi = memoizee(
       hwSignTransaction: AdaLib.trezorUtils.signTransaction,
       txToOneKey: AdaLib.onekeyUtils.txToOneKey,
       hasSetTagWithBody: AdaLib.onekeyUtils.hasSetTagWithBody,
+      parseRawTxInputs: AdaLib.onekeyUtils.parseRawTxInputs,
+      parseRawTxBodyStakeInfo: AdaLib.onekeyUtils.parseRawTxBodyStakeInfo,
+      extractStakeKeyHashFromBaseAddress:
+        AdaLib.onekeyUtils.extractStakeKeyHashFromBaseAddress,
       dAppUtils: AdaLib.dAppUtils,
     };
   },
@@ -93,15 +92,18 @@ class WebEmbedApiChainAdaLegacy implements IAdaSdkApi {
   }
 
   async parseRawTxInputs(rawTxHex: string) {
-    return parseRawTxInputsWithWasm(rawTxHex);
+    const cardanoApi = await getCardanoApi();
+    return cardanoApi.parseRawTxInputs(rawTxHex);
   }
 
   async parseRawTxBodyStakeInfo(rawTxHex: string) {
-    return parseRawTxBodyStakeInfoWithWasm(rawTxHex);
+    const cardanoApi = await getCardanoApi();
+    return cardanoApi.parseRawTxBodyStakeInfo(rawTxHex);
   }
 
   async extractStakeKeyHashFromBaseAddress(addr: string) {
-    return extractStakeKeyHashFromBaseAddressWithWasm(addr);
+    const cardanoApi = await getCardanoApi();
+    return cardanoApi.extractStakeKeyHashFromBaseAddress(addr);
   }
 }
 
