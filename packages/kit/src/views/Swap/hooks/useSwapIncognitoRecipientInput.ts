@@ -258,6 +258,7 @@ export function useSwapIncognitoRecipientInput({
     }
 
     resetValidationState({
+      clearInput: prevScope.networkId !== nextScope.networkId,
       clearRecipientAddress: true,
     });
   }, [
