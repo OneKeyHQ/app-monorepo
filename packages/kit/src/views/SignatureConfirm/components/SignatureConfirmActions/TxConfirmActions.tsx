@@ -543,10 +543,15 @@ function TxConfirmActions(props: IProps) {
           : undefined,
       });
 
+      const isGasSponsoredTx = sendFeeStatus.discountPercent === 100;
+
       Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.feedback_transaction_submitted,
-        }),
+        title: isGasSponsoredTx
+          ? 'Gas-sponsored transaction submitted'
+          : intl.formatMessage({
+              id: ETranslations.feedback_transaction_submitted,
+            }),
+        icon: isGasSponsoredTx ? 'GiftSolid' : undefined,
       });
 
       const signedTx = result[0].signedTx;
