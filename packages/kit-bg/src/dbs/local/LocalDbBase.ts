@@ -2413,6 +2413,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async updateFirmwareVerified(params: IDBUpdateFirmwareVerifiedParams) {
+    // [diagnostic] snapshot oldValue before the write
+    let oldValue: string | undefined;
+    try {
+      const existing = await this.getDeviceSafe(params.device.id);
+      oldValue = existing?.verifiedAtVersion;
+    } catch {
+      // ignore — diagnostic only
+    }
+
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       const { device, verifyResult } = params;
       const { id, featuresInfo, features } = device;
@@ -2440,6 +2449,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         },
       });
     });
+
+    // [diagnostic] log degradation after the write
+    try {
+      const wasValid = typeof oldValue === 'string' && oldValue.length > 0;
+      const becomesEmpty = params.verifyResult !== 'official';
+      if (wasValid && becomesEmpty) {
+        defaultLogger.hardware.verify.deviceVerifiedAtVersionCleared({
+          deviceId: params.device.id,
+          oldValue: oldValue as string,
+          newValueRaw: JSON.stringify(params.verifyResult),
+          stack: new Error('verifiedAtVersion-tripwire').stack
+            ?.split('\n')
+            .slice(2, 18)
+            .join('\n'),
+        });
+      }
+    } catch {
+      // diagnostic logging must never break the DB write
+    }
   }
 
   async updateDevice({

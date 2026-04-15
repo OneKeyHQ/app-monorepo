@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "发送到此地址",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "发送 {0} 需要账户余额至少为 {1} {2}",
   "send.stellar_activation_minimum_hint": "激活该账户至少需要发送 1 XLM。",
+  "send.stellar_contract_token_no_memo_hint": "Contract Token 不支持添加 Memo",
   "send.stellar_recipient_account_not_activated": "接收方账户尚未在 Stellar 网络激活，请先向该地址发送至少 1 XLM 以完成初始化。",
   "send.str_minimum_balance_is_str": "发送失败，{token} 的最低余额为 {amount}",
   "send.str_minimum_transfer": "最少转账数量 {0}",
