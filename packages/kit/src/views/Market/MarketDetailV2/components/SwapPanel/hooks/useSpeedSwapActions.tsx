@@ -126,6 +126,42 @@ type IMarketReviewExecutionSnapshot = {
   buildRes?: IFetchBuildTxResponse;
 };
 
+export function buildMarketReviewTokens({
+  tradeType,
+  fromToken,
+  toToken,
+  tradeTokenPrice,
+}: {
+  tradeType: ESwapDirection;
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  tradeTokenPrice?: BigNumber;
+}) {
+  if (!tradeTokenPrice || tradeTokenPrice.isNaN() || !tradeTokenPrice.gt(0)) {
+    return { fromToken, toToken };
+  }
+
+  const resolvedPrice = tradeTokenPrice.toFixed();
+
+  if (tradeType === ESwapDirection.BUY) {
+    return {
+      fromToken: {
+        ...fromToken,
+        price: resolvedPrice,
+      },
+      toToken,
+    };
+  }
+
+  return {
+    fromToken,
+    toToken: {
+      ...toToken,
+      price: resolvedPrice,
+    },
+  };
+}
+
 export function useSpeedSwapActions(props: {
   marketToken: ISwapToken;
   tradeToken: ISwapTokenBase;
@@ -213,6 +249,18 @@ export function useSpeedSwapActions(props: {
   const tradeTokenPriceKey = `${tradeToken.networkId ?? ''}:${tradeToken.contractAddress ?? ''}`;
   const { price: liveTradeTokenPrice, tokenKey: liveTradeTokenPriceKey } =
     usePaymentTokenPrice(tradeToken, tradeToken.networkId);
+  const effectiveTradeTokenPrice = useMemo(() => {
+    if (liveTradeTokenPriceKey === tradeTokenPriceKey) {
+      return liveTradeTokenPrice ?? new BigNumber(tradeToken.price || 0);
+    }
+
+    return new BigNumber(tradeToken.price || 0);
+  }, [
+    liveTradeTokenPrice,
+    liveTradeTokenPriceKey,
+    tradeToken.price,
+    tradeTokenPriceKey,
+  ]);
 
   // Use atom to get selected derive type from Market Detail page
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
@@ -1106,10 +1154,17 @@ export function useSpeedSwapActions(props: {
       const amount = fromAmount ?? fromTokenAmountDebounced;
       const fromTokenFinal = currentFromToken ?? fromToken;
       const toTokenFinal = currentToToken ?? toToken;
+      const { fromToken: reviewFromToken, toToken: reviewToToken } =
+        buildMarketReviewTokens({
+          tradeType,
+          fromToken: fromTokenFinal,
+          toToken: toTokenFinal,
+          tradeTokenPrice: effectiveTradeTokenPrice,
+        });
 
       if (isWrap || isWrapped) {
         const shouldFallback = buildMarketReviewShouldFallback({
-          networkId: fromTokenFinal.networkId,
+          networkId: reviewFromToken.networkId,
           isCustomRpcUnavailable,
         });
         const {
@@ -1118,18 +1173,18 @@ export function useSpeedSwapActions(props: {
           swapInfo,
         } = buildWrappedSwapData({
           fromAmount: amount,
-          fromToken: fromTokenFinal,
-          toToken: toTokenFinal,
+          fromToken: reviewFromToken,
+          toToken: reviewToToken,
         });
         reviewExecutionSnapshotRef.current = {
           kind: 'wrap',
           accountAddress: swapInfo.accountAddress,
           accountId: netAccountRes.result?.id ?? '',
-          networkId: fromTokenFinal.networkId,
+          networkId: reviewFromToken.networkId,
           shouldFallback,
           quoteResult: wrappedQuoteResult,
           buildUnsignedParams: {
-            networkId: fromTokenFinal.networkId,
+            networkId: reviewFromToken.networkId,
             accountId: netAccountRes.result?.id ?? '',
             wrappedInfo,
             swapInfo,
@@ -1152,8 +1207,8 @@ export function useSpeedSwapActions(props: {
       ] = await Promise.all([
         buildSpeedSwapTxData({
           fromAmount: amount,
-          fromToken: fromTokenFinal,
-          toToken: toTokenFinal,
+          fromToken: reviewFromToken,
+          toToken: reviewToToken,
         }),
         resolveMarketReviewAllowanceState({
           amount,
@@ -1164,7 +1219,7 @@ export function useSpeedSwapActions(props: {
           },
           isWrapped,
           spenderAddress: currentSpenderAddress,
-          token: fromTokenFinal,
+          token: reviewFromToken,
           walletAddress: netAccountRes.result?.addressDetail.address,
         }),
       ]);
@@ -1187,18 +1242,18 @@ export function useSpeedSwapActions(props: {
         }),
       );
       const shouldFallback = buildMarketReviewShouldFallback({
-        networkId: fromTokenFinal.networkId,
+        networkId: reviewFromToken.networkId,
         isCustomRpcUnavailable,
       });
       reviewExecutionSnapshotRef.current = {
         kind: 'swap',
         accountAddress: userAddress,
         accountId: netAccountRes.result?.id ?? '',
-        networkId: fromTokenFinal.networkId,
+        networkId: reviewFromToken.networkId,
         shouldFallback,
         quoteResult: normalizedQuoteResult,
         buildUnsignedParams: {
-          networkId: fromTokenFinal.networkId,
+          networkId: reviewFromToken.networkId,
           accountId: netAccountRes.result?.id ?? '',
           transfersInfo: transferInfo ? [transferInfo] : undefined,
           encodedTx,
@@ -1230,6 +1285,8 @@ export function useSpeedSwapActions(props: {
       shouldApprove,
       shouldResetApprove,
       slippage,
+      effectiveTradeTokenPrice,
+      tradeType,
       toToken,
     ],
   );
@@ -2272,10 +2329,6 @@ export function useSpeedSwapActions(props: {
   const fetchTokenPrice = useCallback(async () => {
     const currentRequestId = priceRequestIdRef.current + 1;
     priceRequestIdRef.current = currentRequestId;
-    const effectiveTradeTokenPrice =
-      liveTradeTokenPriceKey === tradeTokenPriceKey
-        ? (liveTradeTokenPrice ?? new BigNumber(tradeToken.price || 0))
-        : new BigNumber(tradeToken.price || 0);
     const fromTokenPriceBN =
       tradeType === ESwapDirection.BUY
         ? effectiveTradeTokenPrice
@@ -2377,8 +2430,8 @@ export function useSpeedSwapActions(props: {
       loading: false,
     });
   }, [
+    effectiveTradeTokenPrice,
     tradeType,
-    tradeToken.price,
     fromToken.price,
     fromToken.symbol,
     fromToken.networkId,
@@ -2387,9 +2440,6 @@ export function useSpeedSwapActions(props: {
     toToken.symbol,
     toToken.networkId,
     toToken.contractAddress,
-    liveTradeTokenPrice,
-    liveTradeTokenPriceKey,
-    tradeTokenPriceKey,
   ]);
 
   useEffect(() => {

@@ -68,7 +68,6 @@ const useMarketHomeLayoutProps = () => {
       return apiSpotCategories.map((c) => ({
         id: c.type,
         name: c.name,
-        icon: c.icon,
       }));
     }
 

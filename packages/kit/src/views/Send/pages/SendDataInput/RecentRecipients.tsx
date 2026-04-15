@@ -48,6 +48,7 @@ interface IRecentRecipientsProps {
   isSearchMode?: boolean;
   compact?: boolean;
   onMatchStatusChange?: (hasMatches: boolean, matchCount: number) => void;
+  onLastUsedDeriveTypeChange?: (deriveType: string | undefined) => void;
   refreshKey?: number;
 }
 
@@ -157,7 +158,7 @@ function QuickSelectListItemBase({
           >
             {primaryText}
           </SizableText>
-          {item.isAddressBook ? (
+          {item.isAddressBook && isEvmNetwork ? (
             <SizableText
               size="$bodySm"
               color="$textSubdued"
@@ -165,12 +166,7 @@ function QuickSelectListItemBase({
               maxWidth="$32"
               numberOfLines={1}
             >
-              {isEvmNetwork
-                ? 'EVM'
-                : (item.lastTransferNetworkName ??
-                  intl.formatMessage({
-                    id: ETranslations.address_book_title,
-                  }))}
+              EVM
             </SizableText>
           ) : null}
           {showNetworkBadge ? (
@@ -203,7 +199,11 @@ function QuickSelectListItemBase({
           wordWrap="break-word"
         >
           {item.memo || item.note
-            ? `${item.address} · ${item.memo || item.note}`
+            ? `${item.address} · ${accountUtils.shortenAddress({
+                address: item.memo || item.note,
+                leadingLength: 6,
+                trailingLength: 4,
+              })}`
             : item.address}
         </MatchSizeableText>
       }
@@ -261,6 +261,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     onSelect,
     compact = false,
     onMatchStatusChange,
+    onLastUsedDeriveTypeChange,
     refreshKey,
   } = props;
 
@@ -295,12 +296,20 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     [intl.locale, formatDistanceToNowStrict],
   );
 
-  const { recentRecipients, isLoadingRecent, isLoadingMore } =
-    useRecentRecipientsData({
-      accountId,
-      networkId,
-      refreshKey,
-    });
+  const {
+    recentRecipients,
+    isLoadingRecent,
+    isLoadingMore,
+    lastUsedDeriveType,
+  } = useRecentRecipientsData({
+    accountId,
+    networkId,
+    refreshKey,
+  });
+
+  useEffect(() => {
+    onLastUsedDeriveTypeChange?.(lastUsedDeriveType);
+  }, [lastUsedDeriveType, onLastUsedDeriveTypeChange]);
 
   const debouncedSearchKey = useDebounce(rawSearchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -369,9 +378,10 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       { initResult: new Map(), undefinedResultIfError: true },
     );
 
-  // Notify parent of match status and count
+  // Notify parent of match status and count.
+  // Skip during debounce — parent resets tabMatchStatus to null on
+  // searchKey change, so allReported stays false until we re-report.
   useEffect(() => {
-    // Skip reporting stale counts during debounce gap to prevent badge flickering
     if (isDebouncing) return;
     onMatchStatusChange?.(
       filteredRecentRecipients.length > 0,
@@ -395,8 +405,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
               name:
                 recipient.addressBookName ?? recipient.walletAccountName ?? '',
               address: canonicalAddress,
-              memo: recipient.addressMemo || recipient.recipientMemo,
-              note: recipient.addressNote,
+              memo: recipient.recipientMemo,
               lastTransferTime: recipient.lastTransferTime,
               lastTransferNetworkName: recipient.lastTransferNetworkName,
               isAddressBook: recipient.isAddressBook,
@@ -412,8 +421,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             onPress={() => {
               onSelect?.({
                 address: canonicalAddress,
-                memo: recipient.addressMemo || recipient.recipientMemo,
-                note: recipient.addressNote,
+                memo: recipient.recipientMemo,
               });
             }}
           />

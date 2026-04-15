@@ -88,7 +88,11 @@ export type IEventBusPayloadShowToast = {
   diagnosticText?: string;
 };
 export interface IAppEventBusPayload {
-  [EAppEventBusNames.ConfirmAccountSelected]: undefined;
+  [EAppEventBusNames.ConfirmAccountSelected]: {
+    num: number;
+    indexedAccountId?: string;
+    othersWalletAccountId?: string;
+  };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
@@ -361,6 +365,9 @@ export interface IAppEventBusPayload {
     showWatchlistOnly: boolean;
   };
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.SupabaseStorageCacheCleared]: {
+    sourceId: string;
+  };
   [EAppEventBusNames.SettingsSearchResult]: {
     list: {
       title: string;

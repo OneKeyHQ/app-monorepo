@@ -152,6 +152,11 @@ export const {
   }>
 >({});
 
+export function useIsAccountSelectorSyncLoading(num: number): boolean {
+  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+  return !!syncLoading?.[num]?.isLoading;
+}
+
 export interface IAccountSelectorActiveAccountInfo {
   ready: boolean;
   isOthersWallet?: boolean;

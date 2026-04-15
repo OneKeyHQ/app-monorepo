@@ -63,6 +63,10 @@ import {
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
 import {
+  shouldBlockSwapActionForIncognitoRecipientInput,
+  useSwapIncognitoRecipientInput,
+} from '../../hooks/useSwapIncognitoRecipientInput';
+import {
   useSwapActionState,
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
@@ -70,6 +74,7 @@ import {
 } from '../../hooks/useSwapState';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
 
+import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
 interface ISwapActionsStateProps {
@@ -138,7 +143,7 @@ const SwapActionsState = ({
   const incognitoTooltipDescription = useMemo(
     () =>
       `${intl.formatMessage({
-        id: ETranslations.trade_incognito_description,
+        id: ETranslations.trade_incognito_tooltips_new,
       })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
         id: ETranslations.trade_incognito_read_more,
       })}</underline></url>`,
@@ -172,7 +177,77 @@ const SwapActionsState = ({
     [incognitoTooltipContent],
   );
 
+  const shouldShowRecipient = useMemo(
+    () =>
+      !!(
+        (swapTypeSwitch === ESwapTabSwitchType.LIMIT || !swapIncognitoMode) &&
+        swapEnableRecipientAddress &&
+        swapProviderSupportReceiveAddress &&
+        fromToken &&
+        toToken
+      ),
+    [
+      swapIncognitoMode,
+      swapEnableRecipientAddress,
+      swapProviderSupportReceiveAddress,
+      fromToken,
+      swapTypeSwitch,
+      toToken,
+    ],
+  );
+
+  const shouldShowIncognitoRecipientInput = useMemo(
+    () =>
+      !!(
+        swapIncognitoMode &&
+        swapProviderSupportReceiveAddress &&
+        fromToken &&
+        toToken &&
+        swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+      ),
+    [
+      fromToken,
+      swapIncognitoMode,
+      swapProviderSupportReceiveAddress,
+      swapTypeSwitch,
+      toToken,
+    ],
+  );
+
+  const clearRecipientAddressOnHide = useMemo(
+    () => swapIncognitoMode && !shouldShowRecipient,
+    [shouldShowRecipient, swapIncognitoMode],
+  );
+
+  const incognitoRecipientInput = useSwapIncognitoRecipientInput({
+    visible: shouldShowIncognitoRecipientInput,
+    clearRecipientAddressOnHide,
+    networkId: toToken?.networkId ?? swapToAddressInfo.networkId,
+    accountId:
+      swapToAddressInfo.activeAccount?.account?.id ??
+      swapToAddressInfo.accountInfo?.account?.id,
+    address: swapToAnotherAccountAddress.address,
+    swapToAnotherAccountSwitchOn,
+  });
+
+  const shouldBlockIncognitoRecipientAction =
+    shouldBlockSwapActionForIncognitoRecipientInput({
+      enabled: incognitoRecipientInput.enabled,
+      inputText: incognitoRecipientInput.inputText,
+      loading: incognitoRecipientInput.loading,
+      queryResult: incognitoRecipientInput.queryResult,
+    });
+
+  const isActionDisabled =
+    swapActionState.disabled ||
+    swapActionState.isLoading ||
+    shouldBlockIncognitoRecipientAction;
+
   const onActionHandlerBefore = useCallback(async () => {
+    if (shouldBlockIncognitoRecipientAction) {
+      return;
+    }
+
     if (swapActionState.noConnectWallet) {
       if (platformEnv.isWebDappMode) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -208,6 +283,7 @@ const SwapActionsState = ({
     navigation,
     onPreSwap,
     quoteAction,
+    shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
     swapActionState.noConnectWallet,
     swapIncognitoMode,
@@ -216,19 +292,26 @@ const SwapActionsState = ({
     swapToAddressInfo?.address,
   ]);
 
-  const shouldShowRecipient = useMemo(
-    () =>
-      !!(
-        swapEnableRecipientAddress &&
-        swapProviderSupportReceiveAddress &&
-        fromToken &&
-        toToken
-      ),
+  const incognitoRecipientInputComponent = useMemo(
+    () => (
+      <SwapIncognitoRecipientInput
+        visible={shouldShowIncognitoRecipientInput}
+        errorMessage={incognitoRecipientInput.errorMessage}
+        inputText={incognitoRecipientInput.inputText}
+        loading={incognitoRecipientInput.loading}
+        onOpenRecipientAddress={onOpenRecipientAddress}
+        onInputChange={incognitoRecipientInput.onInputChange}
+        queryResult={incognitoRecipientInput.queryResult}
+      />
+    ),
     [
-      swapEnableRecipientAddress,
-      swapProviderSupportReceiveAddress,
-      fromToken,
-      toToken,
+      incognitoRecipientInput.errorMessage,
+      incognitoRecipientInput.inputText,
+      incognitoRecipientInput.loading,
+      incognitoRecipientInput.onInputChange,
+      incognitoRecipientInput.queryResult,
+      onOpenRecipientAddress,
+      shouldShowIncognitoRecipientInput,
     ],
   );
 
@@ -726,7 +809,7 @@ const SwapActionsState = ({
             onPress={onActionHandlerBefore}
             size={isDesktopModalPage ? 'medium' : 'large'}
             variant="primary"
-            disabled={swapActionState.disabled || swapActionState.isLoading}
+            disabled={isActionDisabled}
             borderRadius="$full"
           >
             {actionButtonChildren}
@@ -739,11 +822,10 @@ const SwapActionsState = ({
     [
       onActionHandlerBefore,
       actionButtonChildren,
+      isActionDisabled,
       isDesktopModalPage,
       recipientComponent,
       shouldShowRecipientInActionRow,
-      swapActionState.disabled,
-      swapActionState.isLoading,
       costSavingsComponent,
     ],
   );
@@ -782,16 +864,31 @@ const SwapActionsState = ({
           : {})}
       >
         {metaRow}
+        {incognitoRecipientInputComponent}
         {actionRowComponent}
       </Stack>
     );
   }, [
     actionRowComponent,
+    incognitoRecipientInputComponent,
     incognitoComponent,
     showRecipientInMetaRow,
     isDesktopModalPage,
     recipientMetaRowComponent,
   ]);
+
+  const desktopModalRecipientSection = useMemo(() => {
+    if (!incognitoComponent && !incognitoRecipientInputComponent) {
+      return null;
+    }
+
+    return (
+      <Stack gap="$4">
+        {incognitoComponent}
+        {incognitoRecipientInputComponent}
+      </Stack>
+    );
+  }, [incognitoComponent, incognitoRecipientInputComponent]);
 
   const desktopFooterComponent = useMemo(
     () => (
@@ -811,16 +908,15 @@ const SwapActionsState = ({
             </XStack>
           ) : null}
           <XStack width="100%" alignItems="center" gap="$4">
-            <Stack
+            <XStack
               flex={1}
               minWidth={0}
               gap="$6"
               alignItems="center"
               overflow="hidden"
             >
-              {incognitoComponent}
               {recipientFooterComponent}
-            </Stack>
+            </XStack>
             <Stack
               flexShrink={0}
               alignItems="stretch"
@@ -831,7 +927,7 @@ const SwapActionsState = ({
                 onPress={onActionHandlerBefore}
                 size="medium"
                 variant="primary"
-                disabled={swapActionState.disabled || swapActionState.isLoading}
+                disabled={isActionDisabled}
                 borderRadius="$full"
                 {...(desktopActionWidth ? { width: '100%' } : {})}
               >
@@ -852,13 +948,11 @@ const SwapActionsState = ({
       costSavingsComponent,
       desktopActionWidth,
       desktopActionWidthProps,
-      incognitoComponent,
+      isActionDisabled,
       onActionHandlerBefore,
       onDesktopActionTagLayout,
       onSelectPercentageStage,
       recipientFooterComponent,
-      swapActionState.disabled,
-      swapActionState.isLoading,
     ],
   );
 
@@ -880,7 +974,14 @@ const SwapActionsState = ({
 
   return (
     <>
-      {isDesktopModalPage ? desktopFooterComponent : actionComponentCoverFooter}
+      {isDesktopModalPage ? (
+        <>
+          {desktopModalRecipientSection}
+          {desktopFooterComponent}
+        </>
+      ) : (
+        actionComponentCoverFooter
+      )}
     </>
   );
 };

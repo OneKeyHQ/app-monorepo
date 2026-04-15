@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -160,37 +159,6 @@ const SwapProTradeInfoGroup = ({
     }
     return '';
   }, [toTokenAmount?.value, swapProQuoteResult?.toAmount, swapProTradeType]);
-  const tradingFeeValue = useMemo(() => {
-    const tradingFee = swapProQuoteResult?.fee?.percentageFee;
-    const tradingFeeBN = new BigNumber(tradingFee || '0');
-    const isFreeOneKeyFee =
-      (tradingFeeBN.isZero() || tradingFeeBN.isNaN()) &&
-      swapProQuoteResult?.toAmount;
-    if (isFreeOneKeyFee) {
-      return {
-        valueComponent: (
-          <Badge badgeSize="sm" badgeType="info">
-            {intl.formatMessage({
-              id: ETranslations.swap_stablecoin_0_fee,
-            })}
-          </Badge>
-        ),
-      };
-    }
-    if (!swapProQuoteResult?.toAmount) {
-      return {
-        value: '-',
-      };
-    }
-
-    return {
-      value: `${tradingFee ?? '0'}%`,
-    };
-  }, [
-    intl,
-    swapProQuoteResult?.fee?.percentageFee,
-    swapProQuoteResult?.toAmount,
-  ]);
 
   const handleTokenSelect = useCallback(
     (token: IToken) => {
@@ -215,6 +183,18 @@ const SwapProTradeInfoGroup = ({
       setSwapProUseSelectBuyToken,
       swapProSelectToken?.networkId,
     ],
+  );
+
+  const selectorTrigger = useMemo(
+    () => (
+      <DeriveTypeSelectorTriggerIconRenderer
+        autoShowLabel={false}
+        onPress={() => {}}
+        iconProps={{ size: '$4' }}
+        labelProps={{ pl: '$1' }}
+      />
+    ),
+    [],
   );
 
   return (
@@ -249,18 +229,7 @@ const SwapProTradeInfoGroup = ({
                 walletId={activeAccount?.wallet?.id ?? ''}
                 activeDeriveType={activeAccount?.deriveType}
                 activeDeriveInfo={activeAccount?.deriveInfo}
-                renderSelectorTrigger={
-                  <DeriveTypeSelectorTriggerIconRenderer
-                    autoShowLabel={false}
-                    onPress={() => {}}
-                    iconProps={{
-                      size: '$4',
-                    }}
-                    labelProps={{
-                      pl: '$1',
-                    }}
-                  />
-                }
+                renderSelectorTrigger={selectorTrigger}
               />
             ) : null}
           </XStack>
@@ -343,19 +312,6 @@ const SwapProTradeInfoGroup = ({
             ? false
             : swapProQuoteFetching
         }
-        containerProps={{
-          py: '$1',
-        }}
-      />
-      <SwapCommonInfoItem
-        title={intl.formatMessage({
-          id: ETranslations.provider_ios_popover_wallet_fee,
-        })}
-        value={tradingFeeValue.value}
-        valueComponent={tradingFeeValue.valueComponent}
-        titleProps={ITEM_TITLE_PROPS}
-        valueProps={ITEM_VALUE_PROPS}
-        isLoading={swapProQuoteFetching}
         containerProps={{
           py: '$1',
         }}

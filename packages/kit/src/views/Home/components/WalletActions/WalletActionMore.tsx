@@ -11,6 +11,7 @@ import {
   useAccountSelectorSceneInfo,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -38,6 +39,9 @@ export function WalletActionMore() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
+  const isBotWallet = accountUtils.isBotWallet({
+    walletId: activeAccount?.wallet?.id,
+  });
 
   const show = useReviewControl();
   const { config, getMoreActionGroups, getActionCustomization } =
@@ -58,6 +62,22 @@ export function WalletActionMore() {
   const displaySignAndVerify = usePromiseResult(async () => {
     return vaultSettings?.enabledInternalSignAndVerify;
   }, [vaultSettings]);
+  const { result: isBotWalletDeactivatedResult } = usePromiseResult(
+    async () => {
+      if (!activeAccount?.wallet?.id || !isBotWallet) {
+        return false;
+      }
+
+      return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+        walletId: activeAccount.wallet.id,
+      });
+    },
+    [activeAccount?.wallet?.id, isBotWallet],
+    {
+      checkIsFocused: false,
+    },
+  );
+  const isBotWalletDeactivated = !!isBotWalletDeactivatedResult;
 
   const isApprovalEnabled = useMemo(() => {
     const networksSupportApproval = getNetworksSupportBulkRevokeApproval();
@@ -218,7 +238,13 @@ export function WalletActionMore() {
         const actions = developerGroup.actions.filter((action) => {
           switch (action) {
             case 'export':
-              return devSettings?.settings?.showDevExportPrivateKey;
+              return (
+                devSettings?.settings?.showDevExportPrivateKey &&
+                !shouldHideBotWalletExport({
+                  isBotWallet,
+                  isBotWalletDeactivated,
+                })
+              );
             default:
               return config.moreActions.includes(action);
           }
@@ -290,6 +316,8 @@ export function WalletActionMore() {
       isApprovalEnabled,
       getActionCustomization,
       devSettings?.settings?.showDevExportPrivateKey,
+      isBotWallet,
+      isBotWalletDeactivated,
       sceneName,
       sceneUrl,
     ],
