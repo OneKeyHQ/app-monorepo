@@ -59,4 +59,10 @@ describe('ServiceScanQRCode.handlePaymentUri', () => {
       OneKeyError,
     );
   });
+
+  it('throws OneKeyError for malformed ethereum: URI (no address)', async () => {
+    await expect(
+      service.handlePaymentUri({ uri: 'ethereum:?value=1e17' }),
+    ).rejects.toThrow(OneKeyError);
+  });
 });

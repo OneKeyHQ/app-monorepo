@@ -42,6 +42,7 @@ class ServiceScanQRCode extends ServiceBase {
   @backgroundMethod()
   public async handlePaymentUri({ uri }: { uri: string }) {
     if (!uri || typeof uri !== 'string') {
+      // TODO(i18n): replace with ETranslations.bitrefill_unsupported_uri once the key lands upstream
       throw new OneKeyError('Unsupported payment URI');
     }
 
@@ -51,6 +52,7 @@ class ServiceScanQRCode extends ServiceBase {
     });
 
     if (result.type !== EQRCodeHandlerType.ETHEREUM) {
+      // TODO(i18n): replace with ETranslations.bitrefill_unsupported_uri once the key lands upstream
       throw new OneKeyError('Unsupported payment URI');
     }
 
