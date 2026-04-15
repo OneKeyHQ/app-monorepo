@@ -1,4 +1,8 @@
-import type { IDeFiAsset, IDeFiProtocol } from '@onekeyhq/shared/types/defi';
+import type {
+  IDeFiAsset,
+  IDeFiProtocol,
+  IProtocolSummary,
+} from '@onekeyhq/shared/types/defi';
 
 import { getCategoryConfig, getCategoryLabel } from './defiCategoryConfig';
 
@@ -70,4 +74,42 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
   });
 }
 
-export { buildProtocolPositionItems, getPositionAssetSectionLabel };
+function buildProtocolLogoUris(
+  protocolInfo?: Pick<IProtocolSummary, 'protocolLogo' | 'protocolUrl'>,
+) {
+  const protocolLogo = protocolInfo?.protocolLogo?.trim();
+  const protocolUrl = protocolInfo?.protocolUrl?.trim();
+  const protocolLogoUris: string[] = [];
+
+  if (protocolLogo) {
+    protocolLogoUris.push(protocolLogo);
+
+    const encodedProtocolLogo = encodeURI(protocolLogo);
+    if (
+      encodedProtocolLogo &&
+      encodedProtocolLogo !== protocolLogo &&
+      !protocolLogoUris.includes(encodedProtocolLogo)
+    ) {
+      protocolLogoUris.push(encodedProtocolLogo);
+    }
+  }
+
+  if (protocolUrl) {
+    try {
+      const faviconUri = new URL('/favicon.ico', protocolUrl).toString();
+      if (!protocolLogoUris.includes(faviconUri)) {
+        protocolLogoUris.push(faviconUri);
+      }
+    } catch {
+      // Ignore invalid protocolUrl and keep existing logo fallbacks.
+    }
+  }
+
+  return protocolLogoUris;
+}
+
+export {
+  buildProtocolLogoUris,
+  buildProtocolPositionItems,
+  getPositionAssetSectionLabel,
+};
