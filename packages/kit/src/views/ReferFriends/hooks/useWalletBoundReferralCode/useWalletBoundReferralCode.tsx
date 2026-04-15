@@ -18,6 +18,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import {
@@ -249,6 +250,11 @@ export function useWalletBoundReferralCode({
           });
           // Clear cached invite code after successful binding
           await backgroundApiProxy.serviceReferralCode.setCachedInviteCode('');
+          defaultLogger.referral.page.referralBindingCompleted({
+            referralCode,
+            address: walletInfo.address,
+            networkId: walletInfo.networkId,
+          });
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.global_success,
