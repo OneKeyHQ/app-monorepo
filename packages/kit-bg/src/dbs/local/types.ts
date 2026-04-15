@@ -191,6 +191,7 @@ export type IDBCreateHDWalletParams = {
   keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   skipAddHDNextIndexedAccount?: boolean;
   overrideWalletId?: string;
+  applyRestoreSyncPolicy?: boolean;
 };
 export type IDBCreateKeylessWalletParams = {
   password: string;
@@ -232,6 +233,7 @@ export type IDBSetWalletNameAndAvatarParams = {
   shouldCheckDuplicate?: boolean;
   skipSaveLocalSyncItem?: boolean; // avoid infinite loop sync
   skipEmitEvent?: boolean;
+  applyRestoreSyncPolicy?: boolean;
 };
 export type IDBRemoveWalletParams = {
   walletId: string;
@@ -242,6 +244,7 @@ type IDBSetAccountNameParamsBase = {
   shouldCheckDuplicate?: boolean;
   skipEventEmit?: boolean;
   skipSaveLocalSyncItem?: boolean; // avoid infinite loop sync
+  applyRestoreSyncPolicy?: boolean;
 };
 export type IDBSetAccountNameParams = IDBSetAccountNameParamsBase & {
   accountId?: string;
