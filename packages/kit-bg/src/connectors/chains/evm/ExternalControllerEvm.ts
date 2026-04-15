@@ -1,8 +1,8 @@
 import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
-import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';

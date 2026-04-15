@@ -14,10 +14,7 @@ function findOneKeyProvider(providers: readonly EIP6963ProviderDetail[]) {
     if (!provider?.info) return false;
     const rdns = provider.info.rdns?.toLowerCase() ?? '';
     const name = provider.info.name?.toLowerCase() ?? '';
-    return (
-      rdns.includes(ANDROID_PACKAGE_NAME) ||
-      name.includes('onekey')
-    );
+    return rdns.includes(ANDROID_PACKAGE_NAME) || name.includes('onekey');
   });
 }
 
