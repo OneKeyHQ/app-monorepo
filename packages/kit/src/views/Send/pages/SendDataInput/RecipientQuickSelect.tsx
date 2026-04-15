@@ -8,14 +8,19 @@ import {
   ActionList,
   Badge,
   Button,
+  DashText,
   Empty,
   MatchSizeableText,
+  Popover,
   SegmentControl,
+  SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { addressTypeTooltipMap } from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -29,6 +34,7 @@ import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -51,6 +57,52 @@ import {
   normalizeSearchKey,
   prioritizeNameThenAddressMatches,
 } from './searchMatchUtils';
+
+function DeriveTypeLabelWithTooltip({
+  label,
+  description,
+}: {
+  label: string;
+  description: string;
+}) {
+  const trigger = (
+    <DashText
+      size="$bodyMd"
+      $md={{ size: '$bodyLg' }}
+      dashColor="$textDisabled"
+      dashThickness={0.5}
+      cursor="help"
+    >
+      {label}
+    </DashText>
+  );
+  if (platformEnv.isNative) {
+    return (
+      <YStack alignSelf="flex-start">
+        <Popover
+          title=""
+          showHeader={false}
+          placement="top"
+          renderTrigger={trigger}
+          renderContent={
+            <YStack p="$5">
+              <SizableText size="$bodyMd">{description}</SizableText>
+            </YStack>
+          }
+        />
+      </YStack>
+    );
+  }
+  return (
+    <YStack alignSelf="flex-start">
+      <Tooltip
+        placement="top"
+        renderTrigger={trigger}
+        renderContent={description}
+      />
+    </YStack>
+  );
+}
 
 type IRecipientQuickSelectProps = {
   accountId?: string;
@@ -455,10 +507,13 @@ function AccountRecipients({
     return filteredWalletGroups.map((group) => {
       const allAccounts = group?.accounts ?? [];
 
-      // Collect unique derive types for this wallet group
+      // Collect unique derive types for this wallet group. For BTC
+      // merge-derive chains we also surface the per-type explanation
+      // (Taproot / Native SegWit / ...) as a description so users know
+      // what each option means without guessing (OK-53312).
       const deriveTypeMap = new Map<
         string,
-        { label: string; deriveType: string }
+        { label: string; description?: string; deriveType: string }
       >();
       for (const item of allAccounts) {
         const dt = item.deriveType;
@@ -466,7 +521,13 @@ function AccountRecipients({
           const label = item.deriveInfo?.labelKey
             ? intl.formatMessage({ id: item.deriveInfo.labelKey })
             : (item.deriveInfo?.label ?? dt);
-          deriveTypeMap.set(dt, { label, deriveType: dt });
+          const tooltipKey = item.deriveInfo?.addressEncoding
+            ? addressTypeTooltipMap[item.deriveInfo.addressEncoding]
+            : undefined;
+          const description = tooltipKey
+            ? intl.formatMessage({ id: tooltipKey })
+            : undefined;
+          deriveTypeMap.set(dt, { label, description, deriveType: dt });
         }
       }
       const deriveTypeOptions = Array.from(deriveTypeMap.values());
@@ -532,7 +593,11 @@ function AccountRecipients({
         title: string;
         walletId: string;
         hasMultipleDeriveTypes: boolean;
-        deriveTypeOptions: { label: string; deriveType: string }[];
+        deriveTypeOptions: {
+          label: string;
+          description?: string;
+          deriveType: string;
+        }[];
         activeDeriveType?: string;
       }
     | {
@@ -646,6 +711,15 @@ function AccountRecipients({
                   })}
                   items={item.deriveTypeOptions.map((option) => ({
                     label: option.label,
+                    renderLabel: option.description
+                      ? // eslint-disable-next-line react/no-unstable-nested-components
+                        () => (
+                          <DeriveTypeLabelWithTooltip
+                            label={option.label}
+                            description={option.description ?? ''}
+                          />
+                        )
+                      : undefined,
                     onPress: () => {
                       setWalletDeriveType((prev) => ({
                         ...prev,
