@@ -252,9 +252,11 @@ function useHyperliquidEventBusListener() {
   }, [actions]);
 }
 
+// OK-53208: perps atoms/WS must survive unmount — mobile modal push
+// detaches this tab and re-mount has no recovery. Resets on account
+// switch / logout are owned by clearActiveAccountData / ServiceApp.resetApp.
 function useHyperliquidSession() {
   const [subscriptionActive] = useSubscriptionActiveAtom();
-  const actions = useHyperliquidActions();
 
   const [currentAccount] = usePerpsActiveAccountAtom();
   useListenTabFocusState(
@@ -267,13 +269,6 @@ function useHyperliquidSession() {
       }
     },
   );
-
-  useEffect(() => {
-    const actionsRef = actions.current;
-    return () => {
-      void actionsRef.clearAllData();
-    };
-  }, [actions]);
 
   return {
     userAddress: currentAccount?.accountAddress,
@@ -496,20 +491,22 @@ function WebSocketSubscriptionUpdate() {
 
 function useHyperliquidSymbolSelect() {
   const actions = useHyperliquidActions();
-  const initDoneRef = useRef(false);
 
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    if (isFocus && !initDoneRef.current) {
-      initDoneRef.current = true;
-      void (async () => {
-        await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-        const currentToken = await perpsActiveAssetAtom.get();
-        await actions.current.changeActiveAsset({
-          coin: currentToken.coin,
-          force: true,
-        });
-      })();
-    }
+    if (!isFocus) return;
+    void (async () => {
+      // OK-53208: latch lives in ServiceHyperliquid (singleton) so that
+      // Perp tab detach/remount does not re-trigger this init.
+      const claimed =
+        await backgroundApiProxy.serviceHyperliquid.tryClaimInitialSymbolSelect();
+      if (!claimed) return;
+      await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+      const currentToken = await perpsActiveAssetAtom.get();
+      await actions.current.changeActiveAsset({
+        coin: currentToken.coin,
+        force: true,
+      });
+    })();
   });
 }
 
@@ -674,10 +671,13 @@ function AutoPauseSubscriptions() {
 
   useEffect(() => {
     return () => {
+      // OK-53208: unmount ≠ user left Perp. Mobile modal push detaches this
+      // tab; a 300ms pauseSubscriptions timer scheduled here would survive
+      // in the event loop, fire after remount, and kill WS data flow.
+      // Real tab-focus-loss owns the pause timer via useListenTabFocusState.
       clearTimeout(pauseSubscriptionsTimerRef.current);
-      void onFocusHandler({ isFocus: false, pauseDelay: 300 });
     };
-  }, [onFocusHandler]);
+  }, []);
 
   return null;
 }
