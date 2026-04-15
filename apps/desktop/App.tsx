@@ -8,6 +8,7 @@ import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 
 import { useEffect, useState } from 'react';
 import { KitProvider } from '@onekeyhq/kit';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   initSentry,
   withSentryHOC,
@@ -16,6 +17,8 @@ import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { TrayPanel } from '@onekeyhq/kit/src/views/Tray/TrayPanel';
 import { TamaguiProvider } from '@onekeyhq/components/src/hocs/Provider/TamaguiProvider';
+import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import tamaguiConfig from '@onekeyhq/components/tamagui.config';
 
 import {
@@ -53,6 +56,7 @@ function TrayPanelApp() {
       ? 'dark'
       : 'light',
   );
+  const [locale, setLocale] = useState<ILocaleSymbol | null>(null);
 
   useEffect(() => {
     const mq = globalThis.matchMedia('(prefers-color-scheme: dark)');
@@ -62,10 +66,24 @@ function TrayPanelApp() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
+  useEffect(() => {
+    // Resolve the user's locale from settings so translations in TrayPanel
+    // match the main app instead of always falling back to system locale.
+    void backgroundApiProxy.serviceSetting
+      .getCurrentLocale()
+      .then((current) => {
+        setLocale(current);
+      });
+  }, []);
+
+  if (!locale) return null;
+
   return (
-    <TamaguiProvider config={tamaguiConfig} defaultTheme={theme}>
-      <TrayPanel />
-    </TamaguiProvider>
+    <AppIntlProvider locale={locale}>
+      <TamaguiProvider config={tamaguiConfig} defaultTheme={theme}>
+        <TrayPanel />
+      </TamaguiProvider>
+    </AppIntlProvider>
   );
 }
 
