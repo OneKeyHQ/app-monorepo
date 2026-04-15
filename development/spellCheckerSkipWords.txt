@@ -1434,3 +1434,4 @@ Blockaid
 posthog
 Posthog
 autocapture
+ellipsize

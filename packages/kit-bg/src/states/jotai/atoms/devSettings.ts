@@ -46,6 +46,8 @@ export interface IDevSettings {
   allowDeleteKeylessKey?: boolean;
   // show Keyless-related debug dialogs/logs in UI (dev only)
   enableKeylessDebugInfo?: boolean;
+  // enable BotWallet management entry for Keyless wallet
+  enableBotWalletFeature?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -106,6 +108,7 @@ export const {
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
       enableKeylessDebugInfo: false,
+      enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
       showPerformanceMonitor: true,
