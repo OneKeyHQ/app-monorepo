@@ -129,6 +129,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _lastMessageAt: number | null = null;
 
+  private _postOpenDataCheckTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _postOpenDataCheckRetries = 0;
+
+  private static readonly POST_OPEN_DATA_CHECK_MAX_RETRIES = 3;
+
   allSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
 
   pendingSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
@@ -341,35 +347,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async resumeSubscriptions(): Promise<void> {
     await this.enableSubscriptionsHandler();
+    this._postOpenDataCheckRetries = 0;
     console.log('updateSubscriptions__by__resumeSubscriptions');
 
-    // Reconnect if socket is CLOSED (iOS closes WebSocket when app is in background)
     const client = await this.getWebSocketClient();
     if (client?.transport?.socket?.readyState === WebSocket.CLOSED) {
-      console.log('resumeSubscriptions__reconnecting_closed_socket');
-      await this.disconnect();
-      await this.getWebSocketClient();
-    }
-
-    await this.updateSubscriptions();
-
-    const hookInfo = await perpsCandlesWebviewReloadHookAtom.get();
-    if (hookInfo.reloadHook <= -1) {
-      await perpsCandlesWebviewReloadHookAtom.set({
-        reloadHook: Date.now(),
-      });
+      console.log('resumeSubscriptions__force_reconnect_transport');
+      await this._forceReconnectTransport();
+    } else {
+      await this.updateSubscriptions();
     }
   }
 
   @backgroundMethod()
   async pauseSubscriptions(): Promise<void> {
     await this.disableSubscriptionsHandler();
+    this._clearPostOpenDataCheck();
     this._stopPingLoop();
     await this._cleanupAllSubscriptions();
-
-    await perpsCandlesWebviewReloadHookAtom.set({
-      reloadHook: -1 * Date.now(),
-    });
+    // No reloadHook change — iframe WS self-heals on resume
   }
 
   hasNewUserFills = false;
@@ -427,6 +423,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async disconnect(): Promise<void> {
     await this._cleanupAllSubscriptions();
     this._clearNetworkTimeout();
+    this._clearPostOpenDataCheck();
     this._stopPingLoop();
     await this._closeClient();
     this._currentState.isConnected = false;
@@ -443,7 +440,60 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async cleanup(): Promise<void> {
     this._stopPingLoop();
+    this._clearPostOpenDataCheck();
     await this._cleanupAllSubscriptions();
+  }
+
+  // Skip per-subscription unsubscribe to avoid async race where stale
+  // _destroySubscription completion deletes newly created tracking entries
+  private async _forceReconnectTransport(): Promise<void> {
+    this._clearPostOpenDataCheck();
+    this._clearNetworkTimeout();
+    this._stopPingLoop();
+    this._activeSubscriptions.clear();
+    await this._closeClient();
+    this._client = null;
+    this._clientInitPromise = null;
+    this._currentState.isConnected = false;
+    await perpsNetworkStatusAtom.set(
+      (prev): IPerpsNetworkStatus => ({ ...prev, connected: false }),
+    );
+    this._emitConnectionStatus();
+    await this.getWebSocketClient();
+  }
+
+  private _startPostOpenDataCheck(): void {
+    this._clearPostOpenDataCheck();
+    if (
+      this._postOpenDataCheckRetries >=
+      ServiceHyperliquidSubscription.POST_OPEN_DATA_CHECK_MAX_RETRIES
+    ) {
+      // Stop retrying — rely on transport's built-in backoff
+      return;
+    }
+    const messageAtBefore = this._lastMessageAt;
+    this._postOpenDataCheckTimer = setTimeout(async () => {
+      this._postOpenDataCheckTimer = null;
+      if (
+        this._lastMessageAt === messageAtBefore &&
+        !this.subscriptionsHandlerDisabled
+      ) {
+        this._postOpenDataCheckRetries += 1;
+        console.log(
+          `post_open_data_check__force_reconnect (${this._postOpenDataCheckRetries}/${ServiceHyperliquidSubscription.POST_OPEN_DATA_CHECK_MAX_RETRIES})`,
+        );
+        await this._forceReconnectTransport();
+      } else {
+        this._postOpenDataCheckRetries = 0;
+      }
+    }, 5000);
+  }
+
+  private _clearPostOpenDataCheck(): void {
+    if (this._postOpenDataCheckTimer) {
+      clearTimeout(this._postOpenDataCheckTimer);
+      this._postOpenDataCheckTimer = null;
+    }
   }
 
   @backgroundMethod()
@@ -519,6 +569,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       event,
     });
     this._activeSubscriptions.clear();
+    this._clearPostOpenDataCheck();
     this._stopPingLoop();
     void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
       return {
@@ -561,6 +612,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     );
     this._currentState.isConnected = true;
     this._startPingLoop();
+
+    // Skip initial connect — only notify iframe on reconnection
+    if (wasConnected === false && this._lastMessageAt !== null) {
+      appEventBus.emit(EAppEventBusNames.PerpsWebSocketRecovered, undefined);
+    }
+
+    this._startPostOpenDataCheck();
   };
 
   socketMessageHandler: (event: WebSocketEventMap['message']) => void = (
@@ -1164,6 +1222,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _scheduleNetworkTimeout(messageTimestamp: number): void {
     this._lastMessageAt = messageTimestamp;
+    this._postOpenDataCheckRetries = 0;
 
     if (this._networkTimeoutTimer) {
       return;
