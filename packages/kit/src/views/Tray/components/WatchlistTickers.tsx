@@ -91,7 +91,7 @@ export function WatchlistTickers({
     return (
       <Stack padding="$4">
         <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
-{/* TODO: i18n tray.add_favorites */}
+          {/* TODO: i18n tray.add_favorites */}
           Add favorites in the app
         </SizableText>
       </Stack>
@@ -107,7 +107,7 @@ export function WatchlistTickers({
         paddingTop="$3"
         paddingBottom="$1"
       >
-{/* TODO: i18n tray.watchlist */}
+        {/* TODO: i18n tray.watchlist */}
         Watchlist
       </SizableText>
       {tickers.map((ticker, idx) => (

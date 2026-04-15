@@ -739,6 +739,7 @@ export function MenuBarTrayListItem(props: ICustomElementProps) {
       void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
       // Notify Electron main process to init/destroy tray
       if (platformEnv.isDesktopMac) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         (globalThis as any).desktopApi?.toggleTray(value);
       }
     });

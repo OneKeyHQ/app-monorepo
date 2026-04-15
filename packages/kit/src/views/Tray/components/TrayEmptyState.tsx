@@ -1,13 +1,22 @@
 import { SizableText, Stack } from '@onekeyhq/components';
 
-type IEmptyStateType = 'loading' | 'locked' | 'noWallet' | 'noContent' | 'offline';
+type IEmptyStateType =
+  | 'loading'
+  | 'locked'
+  | 'noWallet'
+  | 'noContent'
+  | 'offline';
 
 // TODO: i18n — replace with ETranslations keys when available
 const MESSAGES: Record<
   IEmptyStateType,
   { icon: string; title: string; subtitle: string }
 > = {
-  loading: { icon: '⏳', title: 'Loading...', subtitle: 'Connecting to OneKey' },
+  loading: {
+    icon: '⏳',
+    title: 'Loading...',
+    subtitle: 'Connecting to OneKey',
+  },
   locked: {
     icon: '🔒',
     title: 'App is Locked',
@@ -51,7 +60,12 @@ export function TrayEmptyState({
       <SizableText fontSize={32} marginBottom="$3">
         {message.icon}
       </SizableText>
-      <SizableText fontSize="$headingSm" color="$text" marginBottom="$1.5" textAlign="center">
+      <SizableText
+        fontSize="$headingSm"
+        color="$text"
+        marginBottom="$1.5"
+        textAlign="center"
+      >
         {message.title}
       </SizableText>
       <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">

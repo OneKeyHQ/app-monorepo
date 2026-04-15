@@ -57,7 +57,7 @@ export function PendingTransactions({
     return (
       <Stack padding="$4">
         <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
-{/* TODO: i18n tray.no_pending_transactions */}
+          {/* TODO: i18n tray.no_pending_transactions */}
           No pending transactions
         </SizableText>
       </Stack>
@@ -76,7 +76,7 @@ export function PendingTransactions({
         paddingTop="$3"
         paddingBottom="$1"
       >
-{/* TODO: i18n tray.pending_transactions */}
+        {/* TODO: i18n tray.pending_transactions */}
         Pending Transactions
       </SizableText>
       {displayTxs.map((tx) => (

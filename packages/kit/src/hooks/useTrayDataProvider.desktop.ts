@@ -404,13 +404,14 @@ export function useTrayDataProvider() {
   // so if the user previously disabled it, tell main to destroy it.
   useEffect(() => {
     if (!platformEnv.isDesktopMac) return;
-    void backgroundApiProxy.serviceSetting.getEnableMenuBarTray().then(
-      (enabled) => {
+    void backgroundApiProxy.serviceSetting
+      .getEnableMenuBarTray()
+      .then((enabled) => {
         if (!enabled) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           (globalThis as any).desktopApi?.toggleTray(false);
         }
-      },
-    );
+      });
   }, []);
 
   // Refresh tray when tx status changes or history refreshes (debounced)
