@@ -552,6 +552,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       event,
     });
     this._activeSubscriptions.clear();
+    this._clearPostOpenDataCheck();
     this._stopPingLoop();
     void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
       return {
