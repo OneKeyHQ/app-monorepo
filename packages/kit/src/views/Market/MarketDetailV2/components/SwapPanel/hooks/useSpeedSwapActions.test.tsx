@@ -8,9 +8,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
+  IFetchBuildTxResponse,
   ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildMarketReviewTokens,
@@ -28,6 +30,55 @@ type IFetchSwapTokenDetailsParams = {
 
 type IFetchSwapNativeTokenConfigParams = {
   networkId: string;
+};
+
+type IFetchBuildSpeedSwapTxParams = {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount: string;
+  provider: string;
+  userAddress: string;
+  receivingAddress: string;
+  slippagePercentage: number;
+  accountId?: string;
+};
+
+type IResolveMarketReviewAllowanceStateParams = {
+  amount: string;
+  currentState: {
+    allowanceTarget?: string;
+    shouldApprove?: boolean;
+    shouldResetApprove?: boolean;
+  };
+  isWrapped?: boolean;
+  spenderAddress?: string;
+  token?: ISwapTokenBase;
+  walletAddress?: string;
+};
+
+type IResolveMarketReviewAllowanceStateResult = {
+  shouldApprove: boolean;
+  shouldResetApprove: boolean;
+  allowanceTarget?: string;
+};
+
+type IBuildMarketExecutionPayloadParams = {
+  accountId: string;
+  buildRes: IFetchBuildTxResponse;
+  currentFromToken: ISwapToken;
+  currentToToken: ISwapToken;
+  fromAmount: string;
+  receivingAddress: string;
+  slippage: number;
+  userAddress: string;
+};
+
+type IEstimateMarketDirectGasInfosResult = {
+  preparedUnsignedTx: {
+    encodedTx: undefined;
+  };
+  gasInfos: unknown[];
+  gasFeeFiatValue: string;
 };
 
 type IUsePaymentTokenPriceResult = {
@@ -50,12 +101,55 @@ const mockFetchSwapNativeTokenConfig: jest.MockedFunction<
     params: IFetchSwapNativeTokenConfigParams,
   ) => Promise<{ networkId: string; reserveGas: string }>
 > = jest.fn();
+const mockFetchBuildSpeedSwapTx: jest.MockedFunction<
+  (
+    params: IFetchBuildSpeedSwapTxParams,
+  ) => Promise<IFetchBuildTxResponse | undefined>
+> = jest.fn();
 const mockSetInAppNotificationAtom = jest.fn();
 const mockNavigationToTxConfirm = jest.fn();
 const mockNetAccountRun = jest.fn();
 const mockMarketDeriveInfoRun = jest.fn();
 const mockUsePaymentTokenPrice: jest.MockedFunction<IUsePaymentTokenPriceMock> =
   jest.fn();
+const mockResolveMarketReviewAllowanceState: jest.MockedFunction<
+  (
+    params: IResolveMarketReviewAllowanceStateParams,
+  ) => Promise<IResolveMarketReviewAllowanceStateResult>
+> = jest.fn();
+const mockBuildMarketExecutionPayload: jest.MockedFunction<
+  (params: IBuildMarketExecutionPayloadParams) => Promise<{
+    encodedTx: undefined;
+    transferInfo: undefined;
+    swapInfo: {
+      protocol: EProtocolOfExchange;
+      sender: {
+        amount: string;
+        token: ISwapToken;
+        accountInfo: {
+          accountId: string;
+          networkId: string;
+        };
+      };
+      receiver: {
+        amount: string;
+        token: ISwapToken;
+        accountInfo: {
+          accountId: string;
+          networkId: string;
+        };
+      };
+      accountAddress: string;
+      receivingAddress: string;
+      swapBuildResData: IFetchBuildTxResponse;
+    };
+    skipSendTransAction: boolean;
+    orderId?: string;
+  }>
+> = jest.fn();
+const mockEstimateMarketDirectGasInfos: jest.MockedFunction<
+  (_params: unknown) => Promise<IEstimateMarketDirectGasInfosResult>
+> = jest.fn();
 
 let mockUsePromiseResultCallCount = 0;
 let mockPaymentTokenPriceCache: Record<string, BigNumber> = {};
@@ -95,6 +189,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockFetchSwapTokenDetails(params),
       fetchSwapNativeTokenConfig: (params: IFetchSwapNativeTokenConfigParams) =>
         mockFetchSwapNativeTokenConfig(params),
+      fetchBuildSpeedSwapTx: (params: IFetchBuildSpeedSwapTxParams) =>
+        mockFetchBuildSpeedSwapTx(params),
     },
   },
 }));
@@ -171,6 +267,24 @@ jest.mock('./usePaymentTokenPrice', () => ({
     networkId?: string,
   ): IUsePaymentTokenPriceResult =>
     mockUsePaymentTokenPrice(paymentToken, networkId),
+}));
+
+jest.mock('./marketReviewAllowance', () => ({
+  resolveMarketReviewAllowanceState: (
+    params: IResolveMarketReviewAllowanceStateParams,
+  ) => mockResolveMarketReviewAllowanceState(params),
+}));
+
+jest.mock('./marketBuildExecutionUtils', () => ({
+  buildMarketExecutionPayload: (params: IBuildMarketExecutionPayloadParams) =>
+    mockBuildMarketExecutionPayload(params),
+}));
+
+jest.mock('./marketDirectSendTx', () => ({
+  estimateMarketApproveGasInfos: jest.fn(),
+  estimateMarketDirectGasInfos: (params: unknown) =>
+    mockEstimateMarketDirectGasInfos(params),
+  sendMarketDirectUnsignedTxs: jest.fn(),
 }));
 
 function createDeferred<T>() {
@@ -275,11 +389,15 @@ describe('useSpeedSwapActions', () => {
   beforeEach(() => {
     mockFetchSwapTokenDetails.mockReset();
     mockFetchSwapNativeTokenConfig.mockReset();
+    mockFetchBuildSpeedSwapTx.mockReset();
     mockSetInAppNotificationAtom.mockReset();
     mockNavigationToTxConfirm.mockReset();
     mockNetAccountRun.mockReset();
     mockMarketDeriveInfoRun.mockReset();
     mockUsePaymentTokenPrice.mockReset();
+    mockResolveMarketReviewAllowanceState.mockReset();
+    mockBuildMarketExecutionPayload.mockReset();
+    mockEstimateMarketDirectGasInfos.mockReset();
     mockUsePromiseResultCallCount = 0;
     mockPaymentTokenPriceCache = {};
     mockInAppNotificationAtomState = {};
@@ -308,6 +426,87 @@ describe('useSpeedSwapActions', () => {
     mockFetchSwapNativeTokenConfig.mockResolvedValue({
       networkId: 'evm--1',
       reserveGas: '0.01',
+    });
+    mockFetchBuildSpeedSwapTx.mockResolvedValue({
+      result: {
+        protocol: EProtocolOfExchange.SWAP,
+        info: {
+          provider: 'onekey',
+          providerName: 'OneKey',
+        },
+        fromTokenInfo: usdcToken,
+        toTokenInfo: btcToken,
+        fromAmount: '100',
+        toAmount: '2',
+        gasLimit: 21_000,
+        routesData: [{ subRoutes: [[{}]] }],
+      },
+    } as IFetchBuildTxResponse);
+    mockResolveMarketReviewAllowanceState.mockResolvedValue({
+      shouldApprove: false,
+      shouldResetApprove: false,
+      allowanceTarget: '0xspender',
+    });
+    mockBuildMarketExecutionPayload.mockImplementation(
+      async ({
+        accountId,
+        buildRes,
+        currentFromToken,
+        currentToToken,
+        fromAmount,
+        receivingAddress,
+        slippage,
+        userAddress,
+      }: {
+        accountId: string;
+        buildRes: IFetchBuildTxResponse;
+        currentFromToken: ISwapToken;
+        currentToToken: ISwapToken;
+        fromAmount: string;
+        receivingAddress: string;
+        slippage: number;
+        userAddress: string;
+      }) => ({
+        encodedTx: undefined,
+        transferInfo: undefined,
+        swapInfo: {
+          protocol: buildRes.result.protocol ?? EProtocolOfExchange.SWAP,
+          sender: {
+            amount: buildRes.result.fromAmount ?? fromAmount,
+            token: currentFromToken,
+            accountInfo: {
+              accountId,
+              networkId: currentFromToken.networkId,
+            },
+          },
+          receiver: {
+            amount: buildRes.result.toAmount ?? '0',
+            token: currentToToken,
+            accountInfo: {
+              accountId,
+              networkId: currentToToken.networkId,
+            },
+          },
+          accountAddress: userAddress,
+          receivingAddress,
+          swapBuildResData: {
+            ...buildRes,
+            result: {
+              ...buildRes.result,
+              slippage: buildRes.result.slippage ?? slippage,
+            },
+          },
+        },
+        skipSendTransAction: false,
+        orderId: buildRes.orderId,
+      }),
+    );
+    mockEstimateMarketDirectGasInfos.mockResolvedValue({
+      preparedUnsignedTx: {
+        encodedTx: undefined,
+      },
+      gasInfos: [],
+      gasFeeFiatValue: '0',
     });
     mockNetAccountPromiseResult = {
       result: {
@@ -766,6 +965,41 @@ describe('useSpeedSwapActions', () => {
     });
 
     expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+  });
+
+  it('adds the unknown token value tip to the prepared market review when the receive fiat value is zero', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: {
+            ...btcToken,
+            price: '0',
+          },
+          tradeToken: {
+            ...usdcToken,
+            price: '1',
+          },
+        }),
+      ),
+    );
+
+    let reviewState:
+      | Awaited<ReturnType<typeof result.current.prepareMarketSwapReview>>
+      | undefined;
+
+    await act(async () => {
+      reviewState = await result.current.prepareMarketSwapReview({
+        fromAmount: '100',
+      });
+    });
+
+    expect(reviewState?.quoteResult?.quoteShowTip).toEqual({
+      title: 'trade.unknown_token_value',
+      detail: 'trade.unable_to_obtain_token_value',
+      showCancelButton: true,
+    });
   });
 });
 

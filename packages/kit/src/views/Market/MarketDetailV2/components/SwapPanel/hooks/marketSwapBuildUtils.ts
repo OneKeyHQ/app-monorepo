@@ -82,11 +82,15 @@ export function attachMarketUnknownTokenValueTip({
   const toAmountBN = new BigNumber(quoteResult.toAmount ?? 0);
   const toTokenPriceBN = new BigNumber(toTokenPrice ?? 0);
 
-  if (toAmountBN.isNaN() || !toAmountBN.gt(0)) {
+  if (toAmountBN.isNaN()) {
     return quoteResult;
   }
 
-  if (!toTokenPriceBN.isNaN() && toTokenPriceBN.gt(0)) {
+  const receiveFiatValueBN = toAmountBN.multipliedBy(
+    toTokenPriceBN.isNaN() ? 0 : toTokenPriceBN,
+  );
+
+  if (!receiveFiatValueBN.isNaN() && receiveFiatValueBN.gt(0)) {
     return quoteResult;
   }
 

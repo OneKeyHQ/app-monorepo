@@ -1040,16 +1040,31 @@ export function useSpeedSwapActions(props: {
       snapshot: IMarketReviewExecutionSnapshot,
       networkFeeLevel: ESwapNetworkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
     ) => {
+      const reviewQuoteResult = attachMarketUnknownTokenValueTip({
+        quoteResult: snapshot.quoteResult,
+        toTokenPrice: snapshot.swapInfo.receiver.token.price,
+        quoteTip: {
+          title: intl.formatMessage({
+            id: ETranslations.trade_unknown_token_value,
+          }),
+          detail: intl.formatMessage({
+            id: ETranslations.trade_unable_to_obtain_token_value,
+          }),
+          showCancelButton: true,
+        },
+      });
+      snapshot.quoteResult = reviewQuoteResult;
+
       const nextReviewState = buildMarketReviewState({
         accountId: snapshot.accountId,
         networkId: snapshot.networkId,
         fromToken: snapshot.swapInfo.sender.token,
         toToken: snapshot.swapInfo.receiver.token,
         fromTokenAmount:
-          snapshot.quoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
+          reviewQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
         toTokenAmount:
-          snapshot.quoteResult.toAmount ?? snapshot.swapInfo.receiver.amount,
-        quoteResult: snapshot.quoteResult,
+          reviewQuoteResult.toAmount ?? snapshot.swapInfo.receiver.amount,
+        quoteResult: reviewQuoteResult,
         shouldFallback: snapshot.shouldFallback,
         slippage,
         texts: buildReviewStepTexts(snapshot.quoteResult.info.providerName),
@@ -1060,13 +1075,13 @@ export function useSpeedSwapActions(props: {
         const approveUnsignedTxArr = await buildMarketApproveUnsignedTxArr({
           approveInfos: buildMarketApproveInfos({
             fromUserAddress: snapshot.accountAddress,
-            quoteResult: snapshot.quoteResult,
+            quoteResult: reviewQuoteResult,
           }),
           accountId: snapshot.accountId,
           networkId: snapshot.networkId,
         });
         if (
-          snapshot.quoteResult.swapShouldSignedData &&
+          reviewQuoteResult.swapShouldSignedData &&
           approveUnsignedTxArr?.length
         ) {
           const feeState = await estimateMarketApproveGasInfos({
@@ -1083,7 +1098,7 @@ export function useSpeedSwapActions(props: {
           };
         } else if (
           shouldSkipMarketSignedPrebuild({
-            quoteResult: snapshot.quoteResult,
+            quoteResult: reviewQuoteResult,
             approveUnsignedTxCount: approveUnsignedTxArr?.length,
           })
         ) {
@@ -1128,10 +1143,10 @@ export function useSpeedSwapActions(props: {
           },
           netWorkFee,
         },
-        quoteResult: snapshot.quoteResult,
+        quoteResult: reviewQuoteResult,
       };
     },
-    [buildMarketApproveUnsignedTxArr, buildReviewStepTexts, slippage],
+    [buildMarketApproveUnsignedTxArr, buildReviewStepTexts, intl, slippage],
   );
 
   const prepareMarketSwapReview = useCallback<
@@ -1242,19 +1257,6 @@ export function useSpeedSwapActions(props: {
           amount,
         }),
       );
-      const reviewQuoteResult = attachMarketUnknownTokenValueTip({
-        quoteResult: normalizedQuoteResult,
-        toTokenPrice: reviewToToken.price,
-        quoteTip: {
-          title: intl.formatMessage({
-            id: ETranslations.trade_unknown_token_value,
-          }),
-          detail: intl.formatMessage({
-            id: ETranslations.trade_unable_to_obtain_token_value,
-          }),
-          showCancelButton: true,
-        },
-      });
       const shouldFallback = buildMarketReviewShouldFallback({
         networkId: reviewFromToken.networkId,
         isCustomRpcUnavailable,
@@ -1265,7 +1267,7 @@ export function useSpeedSwapActions(props: {
         accountId: netAccountRes.result?.id ?? '',
         networkId: reviewFromToken.networkId,
         shouldFallback,
-        quoteResult: reviewQuoteResult,
+        quoteResult: normalizedQuoteResult,
         buildUnsignedParams: {
           networkId: reviewFromToken.networkId,
           accountId: netAccountRes.result?.id ?? '',
@@ -1294,7 +1296,6 @@ export function useSpeedSwapActions(props: {
       fromTokenAmountDebounced,
       isCustomRpcUnavailable,
       isWrapped,
-      intl,
       netAccountRes.result?.id,
       netAccountRes.result?.addressDetail.address,
       shouldApprove,

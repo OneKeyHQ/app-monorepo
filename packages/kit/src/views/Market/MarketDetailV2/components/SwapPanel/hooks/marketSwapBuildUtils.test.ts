@@ -186,6 +186,42 @@ describe('marketSwapBuildUtils', () => {
     expect(nextQuoteResult.quoteShowTip).toEqual(quoteShowTip);
   });
 
+  it('attaches the unknown token value warning when the review receive fiat value resolves to zero', () => {
+    const quoteShowTip = {
+      title: 'Unknown Token Value',
+      detail: 'Unable to obtain token value',
+      showCancelButton: true,
+    };
+
+    const nextQuoteResult = attachMarketUnknownTokenValueTip({
+      quoteResult: createQuoteResult({
+        toAmount: '0.0000',
+      }),
+      toTokenPrice: '1',
+      quoteTip: quoteShowTip,
+    });
+
+    expect(nextQuoteResult.quoteShowTip).toEqual(quoteShowTip);
+  });
+
+  it('does not attach the unknown token value warning when the review receive fiat value is still positive', () => {
+    const quoteShowTip = {
+      title: 'Unknown Token Value',
+      detail: 'Unable to obtain token value',
+      showCancelButton: true,
+    };
+
+    const nextQuoteResult = attachMarketUnknownTokenValueTip({
+      quoteResult: createQuoteResult({
+        toAmount: '0.0001',
+      }),
+      toTokenPrice: '1',
+      quoteTip: quoteShowTip,
+    });
+
+    expect(nextQuoteResult.quoteShowTip).toBeUndefined();
+  });
+
   it('does not override an existing quote tip when the receive token price is unavailable', () => {
     const existingQuoteTip = {
       title: '40% value drop',
