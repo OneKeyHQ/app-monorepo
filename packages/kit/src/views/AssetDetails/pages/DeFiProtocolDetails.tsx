@@ -163,12 +163,7 @@ function DeFiProtocolDetails() {
           p="$5"
         >
           <XStack alignItems="center" gap="$3" flex={1} minWidth={0}>
-            <Token
-              size="xl"
-              tokenImageUri={protocolInfo.protocolLogo}
-              showNetworkIcon
-              networkId={protocol.networkId}
-            />
+            <Token size="xl" tokenImageUri={protocolInfo.protocolLogo} isNFT />
             <YStack flex={1} minWidth={0}>
               <SizableText size="$heading2xl" numberOfLines={1}>
                 {protocolInfo.protocolName}
