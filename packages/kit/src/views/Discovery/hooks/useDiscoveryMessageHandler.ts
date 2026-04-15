@@ -97,6 +97,7 @@ export function useDiscoveryMessageHandler() {
             });
             return;
           }
+          if (!isMountedRef.current) return;
           accountsInfo =
             await backgroundApiProxy.serviceDApp.dAppGetConnectedAccountsInfo(
               dappRequest,
@@ -115,6 +116,7 @@ export function useDiscoveryMessageHandler() {
             oldNetworkId: currentNetworkId,
             newNetworkId: targetNetwork.id,
           });
+          if (!isMountedRef.current) return;
           accountsInfo =
             await backgroundApiProxy.serviceDApp.dAppGetConnectedAccountsInfo(
               dappRequest,
@@ -160,18 +162,20 @@ export function useDiscoveryMessageHandler() {
         // 6. Build encodedTx through the EVM vault — handles ERC-20 ABI encoding
         //    and native value conversion with BigNumber precision (no float math)
         const amount = await parseOnChainAmount(result, selectedToken);
-        const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
-          networkId: finalNetworkId,
-          accountId: finalAccountId,
-          transfersInfo: [
-            {
-              from: senderAddress,
-              to: chainValue.address,
-              amount,
-              tokenInfo: selectedToken,
-            },
-          ],
-        });
+        const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx(
+          {
+            networkId: finalNetworkId,
+            accountId: finalAccountId,
+            transfersInfo: [
+              {
+                from: senderAddress,
+                to: chainValue.address,
+                amount,
+                tokenInfo: selectedToken,
+              },
+            ],
+          },
+        );
 
         if (!isMountedRef.current) return;
 
