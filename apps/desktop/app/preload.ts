@@ -41,12 +41,6 @@ ipcRenderer.on(ipcMessageKeys.OPEN_DEEP_LINK_URL, (_event, data) => {
   }
 });
 
-// Forward tray data request from main process as a DOM event — the main
-// window renderer's useTrayDataProvider listens for this event.
-ipcRenderer.on(ipcMessageKeys.TRAY_DATA_REQUEST, () => {
-  globalThis.dispatchEvent(new Event('onekey-tray-data-request'));
-});
-
 // --- Channel whitelist for event subscriptions ---
 
 const validChannels = new Set([
@@ -265,10 +259,11 @@ const desktopApi = {
   recoveryAutoRepair: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
   // Tray data response — main renderer sends gathered data back to main process.
+  // `sendTrayAction` is intentionally NOT exposed here — only the tray window
+  // preload needs it. Exposing it in the main window would create a
+  // self-forwarding IPC loop (main renderer → main process → main renderer).
   sendTrayData: (data: any) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
-  sendTrayAction: (action: any) =>
-    ipcRenderer.send(ipcMessageKeys.TRAY_ACTION, action),
   toggleTray: (enabled: boolean) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_TOGGLE, enabled),
 };

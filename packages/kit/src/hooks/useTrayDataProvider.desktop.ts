@@ -279,8 +279,12 @@ export function useTrayDataProvider() {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       (globalThis as any).desktopApi?.sendTrayData(trayData);
     } catch {
+      // Send error fallback — the `isError` flag tells trayIpc to skip the
+      // pending-tx diff, so a transient data-gathering failure doesn't
+      // trigger false "Transaction Confirmed" notifications for tracked txs.
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       (globalThis as any).desktopApi?.sendTrayData({
+        isError: true,
         wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
@@ -348,9 +352,16 @@ export function useTrayDataProvider() {
   useEffect(() => {
     if (!platformEnv.isDesktop) return;
 
-    globalThis.addEventListener(
-      'onekey-tray-data-request',
-      handleTrayDataRequest,
+    // Subscribe to TRAY_DATA_REQUEST via IPC — the old pattern that dispatched
+    // a DOM event from preload no longer works under contextIsolation:true
+    // because the preload's globalThis is isolated from the renderer's window.
+    const requestHandler = () => {
+      void handleTrayDataRequest();
+    };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    (globalThis as any).desktopApi?.addIpcEventListener(
+      TRAY_IPC.DATA_REQUEST,
+      requestHandler,
     );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     (globalThis as any).desktopApi?.addIpcEventListener(
@@ -361,9 +372,10 @@ export function useTrayDataProvider() {
     handleTrayDataRequestRef.current = handleTrayDataRequest;
 
     return () => {
-      globalThis.removeEventListener(
-        'onekey-tray-data-request',
-        handleTrayDataRequest,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      (globalThis as any).desktopApi?.removeIpcEventListener(
+        TRAY_IPC.DATA_REQUEST,
+        requestHandler,
       );
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       (globalThis as any).desktopApi?.removeIpcEventListener(

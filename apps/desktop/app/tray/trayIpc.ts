@@ -29,6 +29,11 @@ export function registerTrayIpcHandlers(
     if (data.isLocked) {
       isLocked = true;
       cachedTrayData = data; // Keep locked placeholder as cache
+    } else if ((data as { isError?: boolean }).isError) {
+      // Error fallback from renderer — do not run diff/notify because the
+      // empty pendingTxs would trigger false "Transaction Confirmed"
+      // notifications for every tracked pending tx. Keep previous cache.
+      cachedTrayData = data;
     } else {
       isLocked = false;
       cachedTrayData = data;

@@ -730,6 +730,10 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
 
 export function MenuBarTrayListItem(props: ICustomElementProps) {
   const [{ enableMenuBarTray }] = useSettingsPersistAtom();
+  // Default to true to match settingsAtomInitialValue — otherwise migrated
+  // users (whose persisted atom lacks this field) see an off switch while
+  // the main process has the tray enabled by default.
+  const isEnabled = enableMenuBarTray ?? true;
   const toggleMenuBarTray = useCallback(async (value: boolean) => {
     startViewTransition(() => {
       void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
@@ -743,7 +747,7 @@ export function MenuBarTrayListItem(props: ICustomElementProps) {
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
         size={ESwitchSize.small}
-        value={enableMenuBarTray}
+        value={isEnabled}
         onChange={toggleMenuBarTray}
       />
     </TabSettingsListItem>
