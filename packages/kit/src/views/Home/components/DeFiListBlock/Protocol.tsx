@@ -151,13 +151,11 @@ const ProtocolListLayout = memo(
   ({
     protocol,
     protocolInfo,
-    isAllNetworks,
     currencySymbol,
     onPressProtocol,
   }: {
     protocol: IDeFiProtocol;
     protocolInfo?: IProtocolSummary;
-    isAllNetworks?: boolean;
     currencySymbol: string;
     onPressProtocol: () => void;
   }) => {
@@ -170,12 +168,7 @@ const ProtocolListLayout = memo(
         onPress={onPressProtocol}
         drillIn
       >
-        <Token
-          size="lg"
-          tokenImageUri={protocolInfo?.protocolLogo}
-          showNetworkIcon={isAllNetworks}
-          networkId={protocol.networkId}
-        />
+        <Token size="lg" tokenImageUri={protocolInfo?.protocolLogo} isNFT />
         <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
           {protocolInfo?.protocolName ?? protocol.protocol}
         </SizableText>
@@ -412,12 +405,16 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
   const positionNamePopoverTitle = intl.formatMessage({
     id: ETranslations.wallet_defi_position_name_popover_title,
   });
+  const positionCount = useMemo(
+    () => new Set(protocol.positions.map((position) => position.groupId)).size,
+    [protocol.positions],
+  );
   const positionCountText = useMemo(
     () =>
-      `${protocol.positions.length} ${intl.formatMessage({
+      `${positionCount} ${intl.formatMessage({
         id: ETranslations.earn_positions,
       })}`,
-    [intl, protocol.positions.length],
+    [intl, positionCount],
   );
 
   const positions = useMemo<IProtocolPositionItem[]>(
@@ -458,7 +455,6 @@ function Protocol({ protocol, tableLayout, isAllNetworks }: IProtocolProps) {
       <ProtocolListLayout
         protocol={protocol}
         protocolInfo={viewModel.protocolInfo}
-        isAllNetworks={isAllNetworks}
         currencySymbol={viewModel.currencySymbol}
         onPressProtocol={viewModel.onPressProtocol}
       />
