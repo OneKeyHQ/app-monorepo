@@ -83,7 +83,7 @@ function ProtocolDetailSection({
 }) {
   return (
     <YStack bg="$bgSubdued" borderRadius="$2" px="$3" py="$2" gap="$1">
-      <SizableText size="$headingXs" color="$text">
+      <SizableText size="$headingXs" color="$textSubdued">
         {section.title}
       </SizableText>
       {section.assets.map((asset, assetIndex) => (
@@ -146,8 +146,20 @@ function DeFiProtocolDetails() {
   });
 
   const positions = useMemo(
-    () => buildProtocolPositionItems(protocol),
-    [protocol],
+    () =>
+      buildProtocolPositionItems(protocol).map((position) => ({
+        ...position,
+        categoryLabel: position.categoryLabelId
+          ? intl.formatMessage({ id: position.categoryLabelId })
+          : position.categoryLabel,
+        sections: position.sections.map((section) => ({
+          ...section,
+          title: section.titleId
+            ? intl.formatMessage({ id: section.titleId })
+            : section.title,
+        })),
+      })),
+    [intl, protocol],
   );
 
   return (
