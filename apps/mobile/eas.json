@@ -87,6 +87,12 @@
         "credentialsSource": "local"
       }
     },
+    "qa-internal-startup-profile": {
+      "extends": "qa-internal",
+      "env": {
+        "ONEKEY_STARTUP_PROFILE": "1"
+      }
+    },
     "qa-internal-store": {
       "extends": "base",
       "distribution": "store",
