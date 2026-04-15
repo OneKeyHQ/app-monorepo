@@ -4,16 +4,12 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type {
-  IChainValue,
-  IEthereumValue,
-} from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { parseOnChainAmount } from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode';
+import type { IChainValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
-import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { isBitrefillOrigin, parseBitrefillPaymentIntent } from '../utils/bitrefillHandler';
@@ -55,19 +51,6 @@ export function useDiscoveryMessageHandler() {
           throw new Error('No active account');
         }
 
-        // Resolve amount — mirrors parseOnChainAmount logic for ETHEREUM URIs
-        const ethValue = result.data as IEthereumValue;
-        let amount = '';
-        if (result.type === EQRCodeHandlerType.ETHEREUM) {
-          if (ethValue.value) {
-            // will be resolved below once token decimals are known
-          } else if (ethValue.amount) {
-            amount = String(ethValue.amount);
-          }
-        } else {
-          amount = chainValue.amount ? String(chainValue.amount) : '';
-        }
-
         let selectedToken: IToken | null = null;
         if (chainValue.tokenAddress) {
           selectedToken = await backgroundApiProxy.serviceToken.getToken({
@@ -83,13 +66,7 @@ export function useDiscoveryMessageHandler() {
           });
         }
 
-        // If there's a raw chain value (e.g. wei), convert to display amount now that we have the token
-        if (!amount && ethValue.value && selectedToken) {
-          amount = chainValueUtils.convertTokenChainValueToAmount({
-            value: ethValue.value,
-            token: selectedToken,
-          });
-        }
+        const amount = await parseOnChainAmount(result, selectedToken);
 
         navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
           screen: EModalSignatureConfirmRoutes.TxDataInput,
