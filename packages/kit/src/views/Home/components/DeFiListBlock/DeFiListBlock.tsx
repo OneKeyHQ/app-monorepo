@@ -1036,6 +1036,7 @@ function DeFiListBlock({
       title={intl.formatMessage({ id: ETranslations.global_earn })}
       subTitle={renderSubTitle()}
       headerContainerProps={{ px: '$pagePadding' }}
+      contentContainerProps={tableLayout ? { px: '$pagePadding' } : undefined}
       content={renderContent()}
       plainContentContainer
     />
