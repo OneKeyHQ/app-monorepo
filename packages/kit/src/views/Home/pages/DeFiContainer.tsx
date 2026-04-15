@@ -20,8 +20,7 @@ import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RecentHistory } from '../components/RecentHistory';
 import { SupportHub } from '../components/SupportHub';
 import { Upgrade } from '../components/Upgrade';
-
-const DEFI_CONTAINER_RIGHT_SIDE_FIXED_WIDTH = 320;
+import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
 
 function DeFiContainer() {
   const media = useMedia();
@@ -45,7 +44,7 @@ function DeFiContainer() {
         </YStack>
         {showRecentHistory ? (
           <YStack
-            width={DEFI_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
+            width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
             flexShrink={0}
             pt="$3"
           >
