@@ -8247,15 +8247,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cardano-coin-selection-asmjs@npm:1.1.10-alpha.8":
-  version: 1.1.10-alpha.8
-  resolution: "@onekeyfe/cardano-coin-selection-asmjs@npm:1.1.10-alpha.8"
+"@onekeyfe/cardano-coin-selection-asmjs@npm:1.1.11":
+  version: 1.1.11
+  resolution: "@onekeyfe/cardano-coin-selection-asmjs@npm:1.1.11"
   dependencies:
     "@emurgo/cardano-message-signing-asmjs": "npm:^1.0.1"
     "@emurgo/cardano-serialization-lib-asmjs": "npm:13.2.0"
   peerDependencies:
     bignumber.js: ^9.0.1
-  checksum: 10/6f5ac4b15d6672649d0ffd68002dc0ff0dcd1f8d414e7b7bfb6c833960cf77a6363a4bbf7cbc883ac087b66d0cba424bda56620e7adf17d1821085b10a19068e
+  checksum: 10/8b69186ce6c184dae548a1186c6a36b55c14b108d429cc3f186fcafc6c89da631d2f4f7880fd1b5de3a63745b15ebd249cfd2ac416255b50ab848b4431dc8960
   languageName: node
   linkType: hard
 
@@ -9468,7 +9468,7 @@ __metadata:
     "@mymonero/mymonero-keyimage-cache": "npm:^3.0.0"
     "@noble/secp256k1": "npm:1.7.1"
     "@onekeyfe/bitcoinforksjs-lib": "npm:7.0.0-rc.0"
-    "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.10-alpha.8"
+    "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.11"
     "@onekeyfe/coinselect": "npm:3.1.17"
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.2"
     "@onekeyfe/kaspa-wasm": "npm:^1.0.2"

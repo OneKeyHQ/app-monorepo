@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "ส่งไปยังที่อยู่นี้",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "การส่ง {0} ต้องมียอดเงินในบัญชีอย่างน้อย {1} {2}.",
   "send.stellar_activation_minimum_hint": "ต้องใช้ XLM อย่างน้อย 1 เหรียญในการเปิดใช้งานบัญชี",
+  "send.stellar_contract_token_no_memo_hint": "ฟังก์ชัน Memo ไม่รองรับสำหรับโทเค็นสัญญา Stellar",
   "send.stellar_recipient_account_not_activated": "บัญชีผู้รับยังไม่ได้เปิดใช้งานบนเครือข่าย Stellar โปรดส่ง XLM อย่างน้อย 1 เหรียญไปยังที่อยู่นี้เพื่อเริ่มต้นใช้งาน",
   "send.str_minimum_balance_is_str": "การส่งไม่สำเร็จ ยอดเงินขั้นต่ำสำหรับ {token} คือ {amount}",
   "send.str_minimum_transfer": "จำนวนเงินที่โอนขั้นต่ำคือ {0}.",

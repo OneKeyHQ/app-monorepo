@@ -3755,6 +3755,7 @@
   "send.send_to_this_address": "Надіслати на цю адресу",
   "send.sending_str_requires_an_account_balance_of_at_least_str_str": "Для відправлення {0} потрібно мати на балансі рахунку принаймні {1} {2}.",
   "send.stellar_activation_minimum_hint": "Для активації облікового запису потрібно мінімум 1 XLM.",
+  "send.stellar_contract_token_no_memo_hint": "Memo не підтримується для контрактних токенів Stellar.",
   "send.stellar_recipient_account_not_activated": "Обліковий запис одержувача не активовано в мережі Stellar. Будь ласка, надішліть принаймні 1 XLM на цю адресу для його ініціалізації.",
   "send.str_minimum_balance_is_str": "Невдала спроба відправки. Мінімальний баланс для {token} становить {amount}.",
   "send.str_minimum_transfer": "Мінімальна сума переказу становить {0}.",
