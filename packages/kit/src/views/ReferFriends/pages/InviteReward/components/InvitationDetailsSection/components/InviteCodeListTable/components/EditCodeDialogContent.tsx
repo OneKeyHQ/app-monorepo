@@ -117,11 +117,7 @@ export function EditCodeDialogContent({
       });
       void dialogInstance?.close();
     } catch (_error) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.referral_edit_failure,
-        }),
-      });
+      // System auto-shows server error message, no need for manual toast
       return;
     } finally {
       setIsSubmitting(false);
