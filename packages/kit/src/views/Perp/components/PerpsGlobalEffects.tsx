@@ -605,6 +605,9 @@ function AutoPauseSubscriptions() {
 
   const handleAppActiveFromBackground = useCallback(() => {
     if (isFocusedRef.current) {
+      // Native doesn't set lastFocusStateRef to false on background,
+      // so reset it here to prevent dedup guard from blocking resume
+      lastFocusStateRef.current = false;
       void onFocusHandler({ isFocus: true });
     }
   }, [onFocusHandler]);
@@ -621,6 +624,7 @@ function AutoPauseSubscriptions() {
     if (platformEnv.isDesktop) {
       return globalThis.desktopApi.onAppState(
         (state: 'active' | 'background' | 'blur') => {
+          if (!state) return; // fullscreen transitions send undefined
           const isActive = state === 'active';
           if (isActive && isFocusedRef.current) {
             void onFocusHandler({ isFocus: true });
