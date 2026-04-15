@@ -305,9 +305,7 @@ function BasicDesktopBrowserContent({
     };
   }, [id]);
 
-  const { customReceiveHandler } = useDiscoveryMessageHandler({
-    url: tab?.url ?? '',
-  });
+  const { customReceiveHandler } = useDiscoveryMessageHandler();
 
   return (
     <Freeze key={id} freeze={!isActive}>

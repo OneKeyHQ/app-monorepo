@@ -29,10 +29,7 @@ function MobileBrowserContent({
     [tab?.id, activeTabId],
   );
 
-  const { customReceiveHandler } = useDiscoveryMessageHandler({
-    url: tab?.url ?? '',
-  });
-
+  const { customReceiveHandler } = useDiscoveryMessageHandler();
 
   const initCaptureViewRef = useCallback(
     ($ref: any) => {
