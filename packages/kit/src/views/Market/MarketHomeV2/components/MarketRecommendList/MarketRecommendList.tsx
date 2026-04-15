@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
-import { Button, XStack, YStack } from '@onekeyhq/components';
+import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
@@ -31,6 +33,16 @@ export function MarketRecommendList({
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
+  const { height: windowHeight } = useWindowDimensions();
+  const showTitle =
+    platformEnv.isWeb ||
+    platformEnv.isDesktop ||
+    platformEnv.isExtensionUiExpandTab;
+  let containerPaddingTop = 0;
+
+  if (!platformEnv.isExtensionUiPopup) {
+    containerPaddingTop = Math.max(0, (windowHeight - 800) * 0.5);
+  }
 
   const uniqueTokens = useMemo(() => {
     if (!recommendedTokens?.length) return [];
@@ -127,8 +139,35 @@ export function MarketRecommendList({
   }
 
   return (
-    <YStack px="$5" jc="center" ai="center" width="100%">
+    <YStack
+      px="$5"
+      pt={containerPaddingTop}
+      pb="$2"
+      jc="center"
+      ai="center"
+      width="100%"
+    >
+      {showTitle ? (
+        <>
+          <SizableText size="$heading3xl" color="$text" textAlign="center">
+            {intl.formatMessage({
+              id: ETranslations.market_favorites_empty,
+            })}
+          </SizableText>
+          <SizableText
+            color="$textSubdued"
+            size="$bodyLg"
+            pt="$2"
+            textAlign="center"
+          >
+            {intl.formatMessage({
+              id: ETranslations.market_favorites_empty_desc,
+            })}
+          </SizableText>
+        </>
+      ) : null}
       <YStack
+        pt={showTitle ? '$6' : '$0'}
         gap="$2.5"
         width="100%"
         $gtMd={{ maxWidth: 480 }}
