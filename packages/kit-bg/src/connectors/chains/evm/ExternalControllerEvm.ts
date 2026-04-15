@@ -52,6 +52,24 @@ import type {
   IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
 
+const ONEKEY_EIP6963_RDNS_PATTERNS = ['so.onekey.app.wallet'];
+
+function isOneKeyExtensionConnection(connectionInfo: IExternalConnectionInfo) {
+  const eip6963Rdns =
+    connectionInfo.evmEIP6963?.info?.rdns?.toLowerCase() ?? '';
+  const eip6963Name =
+    connectionInfo.evmEIP6963?.info?.name?.toLowerCase() ?? '';
+  const injectedName = connectionInfo.evmInjected?.name?.toLowerCase() ?? '';
+
+  return (
+    ONEKEY_EIP6963_RDNS_PATTERNS.some((pattern) =>
+      eip6963Rdns.includes(pattern),
+    ) ||
+    eip6963Name === 'onekey wallet' ||
+    injectedName === 'onekey wallet'
+  );
+}
+
 export class ExternalControllerEvm extends ExternalControllerBase {
   changeListeners: Record<string, (data: any) => Promise<void>> = {};
 
@@ -280,10 +298,16 @@ export class ExternalControllerEvm extends ExternalControllerBase {
   }): Promise<IExternalConnectWalletResult> {
     const { connectionInfo } = connector;
     checkIsDefined(connectionInfo);
-    const result = (await connector.connect({
-      requestOneKeyKeylessAccount:
-        connectToWalletOptions?.webKeylessPendingLogin?.provider,
-    } as any)) as IExternalConnectResultEvm;
+    const requestOneKeyKeylessAccount = isOneKeyExtensionConnection(
+      connectionInfo,
+    )
+      ? connectToWalletOptions?.webKeylessPendingLogin?.provider
+      : undefined;
+    const result = (await connector.connect(
+      (requestOneKeyKeylessAccount
+        ? { requestOneKeyKeylessAccount }
+        : {}) as any,
+    )) as IExternalConnectResultEvm;
 
     if (!result?.accounts?.length) {
       throw new OneKeyLocalError('No authorized external wallet accounts');
