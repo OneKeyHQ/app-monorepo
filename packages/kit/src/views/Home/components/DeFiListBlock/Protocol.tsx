@@ -23,7 +23,6 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
-import { getCategoryConfig } from '@onekeyhq/kit/src/utils/defiCategoryConfig';
 import {
   type IProtocolPositionItem,
   type IProtocolPositionSection,
@@ -47,10 +46,6 @@ type IProtocolProps = {
   protocol: IDeFiProtocol;
   tableLayout?: boolean;
   isAllNetworks?: boolean;
-};
-
-type IProtocolCategoryItem = ReturnType<typeof getCategoryConfig> & {
-  key: string;
 };
 
 const ProtocolAssetValue = memo(
@@ -158,16 +153,12 @@ const ProtocolListLayout = memo(
     protocolInfo,
     isAllNetworks,
     currencySymbol,
-    displayCategories,
-    extraCategoryCount,
     onPressProtocol,
   }: {
     protocol: IDeFiProtocol;
     protocolInfo?: IProtocolSummary;
     isAllNetworks?: boolean;
     currencySymbol: string;
-    displayCategories: IProtocolCategoryItem[];
-    extraCategoryCount: number;
     onPressProtocol: () => void;
   }) => {
     return (
@@ -177,49 +168,28 @@ const ProtocolListLayout = memo(
         alignItems="center"
         justifyContent="space-between"
         onPress={onPressProtocol}
+        drillIn
       >
-        <XStack alignItems="center" gap="$3" flex={1}>
-          <Token
-            size="lg"
-            tokenImageUri={protocolInfo?.protocolLogo}
-            showNetworkIcon={isAllNetworks}
-            networkId={protocol.networkId}
-          />
-          <YStack flex={1}>
-            <SizableText size="$bodyLgMedium" flex={1}>
-              {protocolInfo?.protocolName ?? protocol.protocol}
-            </SizableText>
-            <XStack alignItems="center" gap="$1" flexWrap="wrap" flex={1}>
-              {displayCategories.map((category) => (
-                <Badge key={category.key} bg={category.bg} badgeSize="sm">
-                  <Badge.Text textTransform="capitalize" color={category.text}>
-                    {category.label}
-                  </Badge.Text>
-                </Badge>
-              ))}
-              {extraCategoryCount > 0 ? (
-                <Badge badgeType="default" badgeSize="sm">
-                  <Badge.Text textTransform="capitalize">
-                    {`+${extraCategoryCount}`}
-                  </Badge.Text>
-                </Badge>
-              ) : null}
-            </XStack>
-          </YStack>
-        </XStack>
-        <ListItem.Text
-          align="right"
-          primary={
-            <NumberSizeableTextWrapper
-              hideValue
-              size="$bodyLgMedium"
-              formatter="value"
-              formatterOptions={{ currency: currencySymbol }}
-            >
-              {protocolInfo?.netWorth ?? 0}
-            </NumberSizeableTextWrapper>
-          }
+        <Token
+          size="lg"
+          tokenImageUri={protocolInfo?.protocolLogo}
+          showNetworkIcon={isAllNetworks}
+          networkId={protocol.networkId}
         />
+        <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
+          {protocolInfo?.protocolName ?? protocol.protocol}
+        </SizableText>
+        <NumberSizeableTextWrapper
+          hideValue
+          size="$bodyLgMedium"
+          formatter="value"
+          formatterOptions={{ currency: currencySymbol }}
+          textAlign="right"
+          flexShrink={0}
+          maxWidth={120}
+        >
+          {protocolInfo?.netWorth ?? 0}
+        </NumberSizeableTextWrapper>
       </ListItem>
     );
   },
@@ -450,15 +420,6 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     [intl, protocol.positions.length],
   );
 
-  const displayCategories = useMemo<IProtocolCategoryItem[]>(
-    () =>
-      protocol.categories.slice(0, 2).map((category) => ({
-        key: category,
-        ...getCategoryConfig(category),
-      })),
-    [protocol.categories],
-  );
-
   const positions = useMemo<IProtocolPositionItem[]>(
     () => buildProtocolPositionItems(protocol),
     [protocol],
@@ -480,8 +441,6 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
 
   return {
     currencySymbol,
-    displayCategories,
-    extraCategoryCount: Math.max(protocol.categories.length - 2, 0),
     onPressProtocol,
     positionCountText,
     positionNamePopoverTitle,
@@ -501,8 +460,6 @@ function Protocol({ protocol, tableLayout, isAllNetworks }: IProtocolProps) {
         protocolInfo={viewModel.protocolInfo}
         isAllNetworks={isAllNetworks}
         currencySymbol={viewModel.currencySymbol}
-        displayCategories={viewModel.displayCategories}
-        extraCategoryCount={viewModel.extraCategoryCount}
         onPressProtocol={viewModel.onPressProtocol}
       />
     );

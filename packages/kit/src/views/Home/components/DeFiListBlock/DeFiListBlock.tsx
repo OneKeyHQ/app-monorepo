@@ -6,6 +6,8 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
+  Divider,
+  Icon,
   Skeleton,
   XStack,
   YStack,
@@ -920,27 +922,23 @@ function DeFiListBlock({
   }, [protocols, overflowState.isOverflow, overflowState.isSliced]);
 
   const renderSubTitle = useCallback(() => {
-    if (tableLayout) {
-      if (!initialized && isRefreshing) {
-        return <Skeleton.HeadingXl />;
-      }
-
-      return (
-        <NumberSizeableTextWrapper
-          hideValue
-          size="$headingXl"
-          color="$textSubdued"
-          formatter="value"
-          formatterOptions={{
-            currency: settings.currencyInfo.symbol,
-          }}
-        >
-          {overview.netWorth}
-        </NumberSizeableTextWrapper>
-      );
+    if (!initialized && isRefreshing) {
+      return <Skeleton.HeadingXl />;
     }
 
-    return null;
+    return (
+      <NumberSizeableTextWrapper
+        hideValue
+        size="$headingXl"
+        color={tableLayout ? '$textSubdued' : '$text'}
+        formatter="value"
+        formatterOptions={{
+          currency: settings.currencyInfo.symbol,
+        }}
+      >
+        {overview.netWorth}
+      </NumberSizeableTextWrapper>
+    );
   }, [
     settings.currencyInfo.symbol,
     overview.netWorth,
@@ -952,13 +950,17 @@ function DeFiListBlock({
     return (
       <>
         <YStack gap={tableLayout ? '$5' : '$0'} flex={1}>
-          {filteredProtocols.map((protocol) => (
-            <Protocol
-              key={`${protocol.networkId}-${protocol.protocol}`}
-              protocol={protocol}
-              tableLayout={tableLayout}
-              isAllNetworks={network?.isAllNetworks}
-            />
+          {filteredProtocols.map((protocol, index) => (
+            <YStack key={`${protocol.networkId}-${protocol.protocol}`}>
+              <Protocol
+                protocol={protocol}
+                tableLayout={tableLayout}
+                isAllNetworks={network?.isAllNetworks}
+              />
+              {!tableLayout && index !== filteredProtocols.length - 1 ? (
+                <Divider mx="$5" />
+              ) : null}
+            </YStack>
           ))}
         </YStack>
         {overflowState.isOverflow ? (
@@ -1017,6 +1019,12 @@ function DeFiListBlock({
         withTitleSeparator
         title={intl.formatMessage({ id: ETranslations.global_earn })}
         subTitle={renderSubTitle()}
+        subTitleProps={tableLayout ? undefined : { color: '$text' }}
+        headerActions={
+          !tableLayout ? (
+            <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
+          ) : undefined
+        }
         headerContainerProps={{ px: '$pagePadding' }}
         plainContentContainer
         content={
@@ -1035,6 +1043,12 @@ function DeFiListBlock({
       withTitleSeparator
       title={intl.formatMessage({ id: ETranslations.global_earn })}
       subTitle={renderSubTitle()}
+      subTitleProps={tableLayout ? undefined : { color: '$text' }}
+      headerActions={
+        !tableLayout ? (
+          <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
+        ) : undefined
+      }
       headerContainerProps={{ px: '$pagePadding' }}
       contentContainerProps={tableLayout ? { px: '$pagePadding' } : undefined}
       content={renderContent()}
