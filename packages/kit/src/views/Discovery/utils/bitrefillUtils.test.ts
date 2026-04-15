@@ -2,7 +2,7 @@ import {
   BITREFILL_EMBED_ORIGIN,
   BITREFILL_REF_CODE,
   getBitrefillEmbedUrl,
-} from '../bitrefillUtils';
+} from './bitrefillUtils';
 
 describe('bitrefillUtils', () => {
   describe('constants', () => {

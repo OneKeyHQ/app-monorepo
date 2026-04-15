@@ -1,8 +1,13 @@
 export const BITREFILL_EMBED_ORIGIN = 'https://embed.bitrefill.com';
 export const BITREFILL_REF_CODE = 'bronekey01';
 
-// Only EVM payment methods are supported — OneKey has a native ethereum: URI
-// parser already, and handling non-EVM networks would require extra parsers.
+// EVM-only payment method identifiers accepted by Bitrefill's embed widget.
+// These identifiers are Bitrefill's own naming (not OneKey's) — see the
+// paymentMethods enum in Bitrefill's embed docs. Non-EVM methods (bitcoin,
+// lightning, usdc_solana, usdt_trc20, etc.) are intentionally excluded
+// because OneKey currently only has a native parser for ethereum: URIs.
+// Not every EVM pair is listed (e.g. usdt_base, usdc_bsc) because Bitrefill
+// does not support them as of 2026-04-15; add as they become available.
 const EVM_PAYMENT_METHODS = [
   'ethereum',
   'eth_base',
