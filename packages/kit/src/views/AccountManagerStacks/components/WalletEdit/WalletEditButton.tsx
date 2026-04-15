@@ -124,9 +124,17 @@ function WalletEditButtonView({
     );
   }, [wallet, isPrimeAvailable]);
 
+  const isBotWalletFeatureEnabled = useMemo(
+    () =>
+      Boolean(
+        devSettings.enabled && devSettings.settings?.enableBotWalletFeature,
+      ),
+    [devSettings.enabled, devSettings.settings?.enableBotWalletFeature],
+  );
+
   const showBotWalletManagerButton = useMemo(
-    () => Boolean(isKeyless && wallet?.id),
-    [isKeyless, wallet?.id],
+    () => Boolean(isKeyless && wallet?.id && isBotWalletFeatureEnabled),
+    [isKeyless, wallet?.id, isBotWalletFeatureEnabled],
   );
 
   const navigation = useAppNavigation();
