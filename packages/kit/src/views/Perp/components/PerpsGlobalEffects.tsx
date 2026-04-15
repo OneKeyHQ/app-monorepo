@@ -556,6 +556,9 @@ function AutoPauseSubscriptions() {
   //   //
   // }, [isFocusedRoute]);
 
+  // Dedup: visibilitychange + window.focus can fire back-to-back
+  const lastFocusStateRef = useRef<boolean | null>(null);
+
   const onFocusHandler = useCallback(
     async ({
       isFocus,
@@ -564,10 +567,11 @@ function AutoPauseSubscriptions() {
       isFocus: boolean;
       pauseDelay?: number;
     }) => {
-      // console.log('AutoPauseSubscriptions___useListenTabFocusState', {
-      //   isFocus,
-      //   isHideByModal,
-      // });
+      if (lastFocusStateRef.current === isFocus && pauseDelay === undefined) {
+        return;
+      }
+      lastFocusStateRef.current = isFocus;
+
       if (isFocus) {
         clearTimeout(pauseSubscriptionsTimerRef.current);
         void backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
@@ -608,6 +612,51 @@ function AutoPauseSubscriptions() {
   useHandleAppStateActive(
     platformEnv.isNative ? handleAppActiveFromBackground : undefined,
   );
+
+  // useListenTabFocusState only covers in-app route changes;
+  // browser tab switches need platform-level visibility events
+  useEffect(() => {
+    if (platformEnv.isNative) return undefined;
+
+    if (platformEnv.isDesktop) {
+      return globalThis.desktopApi.onAppState(
+        (state: 'active' | 'background' | 'blur') => {
+          const isActive = state === 'active';
+          if (isActive && isFocusedRef.current) {
+            void onFocusHandler({ isFocus: true });
+          } else if (!isActive) {
+            void onFocusHandler({ isFocus: false });
+          }
+        },
+      );
+    }
+
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === 'visible';
+      if (isVisible && isFocusedRef.current) {
+        void onFocusHandler({ isFocus: true });
+      } else if (!isVisible) {
+        void onFocusHandler({ isFocus: false });
+      }
+    };
+    const handleWindowFocus = () => {
+      if (isFocusedRef.current) {
+        void onFocusHandler({ isFocus: true });
+      }
+    };
+    const handleWindowBlur = () => {
+      void onFocusHandler({ isFocus: false });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [onFocusHandler]);
 
   const [isLocked] = useAppIsLockedAtom();
 
