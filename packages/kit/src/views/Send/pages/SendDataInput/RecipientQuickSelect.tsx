@@ -573,7 +573,8 @@ function AccountRecipients({
   // Show skeleton while loading OR while useDeferredValue is still stale
   // (isLoadingAccounts settles before the deferred walletGroups updates,
   // which would briefly show an empty list without this guard).
-  const isDeferredStale = walletGroupsRaw !== walletGroups;
+  const isDeferredStale =
+    walletGroupsRaw !== walletGroups && walletGroupsRaw.length > 0;
   const isInitialLoading =
     (isLoadingAccounts !== false || isDeferredStale) &&
     walletGroups.length === 0;

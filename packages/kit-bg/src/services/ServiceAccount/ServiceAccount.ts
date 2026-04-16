@@ -4740,6 +4740,11 @@ class ServiceAccount extends ServiceBase {
       if (shouldSkip) return null;
 
       const { dbIndexedAccounts, dbAccounts } = wallet;
+      let accounts: Array<{
+        account: INetworkAccount;
+        deriveInfo?: IAccountDeriveInfo;
+        deriveType?: string;
+      }> = [];
 
       if (dbIndexedAccounts?.length) {
         const perIndexed = await Promise.all(
@@ -4761,7 +4766,7 @@ class ServiceAccount extends ServiceBase {
             }
           }),
         );
-        const accounts = perIndexed
+        accounts = perIndexed
           .flat()
           .filter((a) => a.account)
           .map((a) => ({
@@ -4769,38 +4774,23 @@ class ServiceAccount extends ServiceBase {
             deriveInfo: a.deriveInfo,
             deriveType: a.deriveType,
           }));
-        if (accounts.length === 0) return null;
-        return {
-          walletId: wallet.id,
-          walletName,
-          isHardwareWallet: accountUtils.isHwWallet({
-            walletId: wallet.id,
-          }),
-          accounts,
-          wallet,
-        };
-      }
-
-      if (dbAccounts?.length) {
+      } else if (dbAccounts?.length) {
         const networkImpl = networkUtils.getNetworkImpl({ networkId });
-        const accounts = dbAccounts
+        accounts = dbAccounts
           .filter((acc) => acc.impl === networkImpl)
           .map((acc) => ({
             account: acc as unknown as INetworkAccount,
           }));
-        if (accounts.length === 0) return null;
-        return {
-          walletId: wallet.id,
-          walletName,
-          isHardwareWallet: accountUtils.isHwWallet({
-            walletId: wallet.id,
-          }),
-          accounts,
-          wallet,
-        };
       }
 
-      return null;
+      if (accounts.length === 0) return null;
+      return {
+        walletId: wallet.id,
+        walletName,
+        isHardwareWallet: accountUtils.isHwWallet({ walletId: wallet.id }),
+        accounts,
+        wallet,
+      };
     };
 
     const tasks: Array<Promise<Awaited<ReturnType<typeof resolveWallet>>>> = [];
