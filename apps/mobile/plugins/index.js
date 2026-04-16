@@ -125,34 +125,13 @@ module.exports = (config, projectRoot) => {
     //
     // When the env var is NOT set, the prologue reduces to `pendingChunks` only
     // (original behavior) — zero overhead.
-    const STARTUP_PROFILE_ENABLED =
-      process.env.ONEKEY_STARTUP_PROFILE === '1' ||
-      process.env.ONEKEY_STARTUP_PROFILE === 'true';
-
-    const buildStartupProfilePrologue = () => {
-      if (!STARTUP_PROFILE_ENABLED) return '';
-      const idToPath = {};
-      try {
-        for (const [filePath, id] of fileToIdMap.entries?.() ?? []) {
-          if (typeof id === 'number' && typeof filePath === 'string') {
-            // Trim monorepo root prefix so the map stays small.
-            const trimmed = filePath
-              .replace(/^.*\/node_modules\//, 'node_modules/')
-              .replace(/^.*\/packages\//, 'packages/')
-              .replace(/^.*\/apps\//, 'apps/');
-            idToPath[id] = trimmed;
-          }
-        }
-      } catch (_) {
-        /* noop */
-      }
-      const mapJson = JSON.stringify(idToPath);
-      return [
-        '// --- ONEKEY_STARTUP_PROFILE prologue ---',
-        'globalThis.__ONEKEY_STARTUP_PROFILE__ = true;',
-        `globalThis.__ONEKEY_MODULE_ID_TO_PATH__ = ${mapJson};`,
-      ].join('\n');
-    };
+    //
+    // The prologue construction lives in `./startupProfilePrologue.js` because
+    // `scripts/unionBuild.js` needs the exact same injection (its writeBundle
+    // path bypasses this customSerializer entirely).
+    const {
+      buildStartupProfilePrologue,
+    } = require('./startupProfilePrologue');
 
     const beforeCustomSerializer = (
       entryPoint,
@@ -160,7 +139,7 @@ module.exports = (config, projectRoot) => {
       graph,
       _bundleOptions,
     ) => {
-      const profilePrologue = buildStartupProfilePrologue();
+      const profilePrologue = buildStartupProfilePrologue({ fileToIdMap });
       for (const [entryKey, value] of graph.dependencies) {
         // to entry file injection of global variables __APP__
         if (entryPoint === entryKey) {

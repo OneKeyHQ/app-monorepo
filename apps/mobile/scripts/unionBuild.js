@@ -43,6 +43,9 @@ const {
 const { computeReachable } = require('../plugins/entryReachability');
 const { fileToIdMap } = require('../plugins/map');
 const {
+  buildStartupProfilePrologue,
+} = require('../plugins/startupProfilePrologue');
+const {
   getSegmentsDir,
   getManifestPath,
   getMergedModuleIdMapPath,
@@ -887,6 +890,23 @@ async function writeBundle({
   }
 
   let preSection = includePre ? pre : '';
+  // Inject the startup-profile prologue into the bundle that carries the
+  // Metro prelude (the common bundle — the only one written with includePre).
+  // Common is loaded first in both main and background runtimes, so placing
+  // the `globalThis.__ONEKEY_STARTUP_PROFILE__` / `__ONEKEY_MODULE_ID_TO_PATH__`
+  // assignments here guarantees they run before any `__d` call or the main
+  // entry's `installStartupProfileJs()` hook. Without this, the JS-side
+  // profile silently never activates in union builds (the customSerializer
+  // injection in plugins/index.js is bypassed because unionBuild.js calls
+  // Metro's `baseJSBundle()` directly).
+  if (includePre) {
+    const profilePrologue = buildStartupProfilePrologue({ fileToIdMap });
+    if (profilePrologue) {
+      preSection = preSection
+        ? `${preSection}\n${profilePrologue}\n`
+        : `${profilePrologue}\n`;
+    }
+  }
   if (includeManifest && manifest) {
     const manifestCode = `globalThis.__SEGMENT_MANIFEST__=${JSON.stringify(manifest)};`;
     preSection = preSection

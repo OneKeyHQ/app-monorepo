@@ -28,5 +28,10 @@ const fileToIdMap = {
     innerMap.delete(path);
     if (id !== undefined) usedIds.delete(id);
   },
+  // Exposed for the startup-profile prologue builder so it can emit a
+  // complete moduleId → path map. Returns the underlying Map's iterator so
+  // consumers can iterate without snapshotting.
+  entries: () => innerMap.entries(),
+  size: () => innerMap.size,
 };
 exports.fileToIdMap = fileToIdMap;
