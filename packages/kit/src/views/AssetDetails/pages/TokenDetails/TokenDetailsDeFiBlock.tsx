@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,7 @@ import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfi
 import { EarnNavigation } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -45,6 +46,8 @@ export function TokenDetailsDeFiBlock({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const requestIdRef = useRef(generateUUID());
+  const isUnmountedRef = useRef(false);
 
   const cacheKey = `${networkId}_${tokenAddress}`;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -57,6 +60,9 @@ export function TokenDetailsDeFiBlock({
           networkId,
           tokenAddress,
         });
+      if (isUnmountedRef.current) {
+        return undefined;
+      }
       if (!symbolInfo) {
         earnResultCache.delete(cacheKey);
         return undefined;
@@ -66,7 +72,11 @@ export function TokenDetailsDeFiBlock({
           symbol: symbolInfo.symbol,
           filterNetworkId: networkId,
           includeWithdrawOnly: true,
+          requestId: requestIdRef.current,
         });
+      if (isUnmountedRef.current) {
+        return undefined;
+      }
       if (!Array.isArray(protocolList) || !protocolList.length) {
         earnResultCache.delete(cacheKey);
         return undefined;
@@ -79,8 +89,12 @@ export function TokenDetailsDeFiBlock({
         earnResultCache.delete(cacheKey);
         return undefined;
       }
-      const blockData =
-        await backgroundApiProxy.serviceStaking.getBlockRegion();
+      const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion({
+        requestId: requestIdRef.current,
+      });
+      if (isUnmountedRef.current) {
+        return undefined;
+      }
       const data = { symbolInfo, maxApr, protocolList, blockData };
       earnResultCache.set(cacheKey, data);
       return data;
@@ -90,6 +104,16 @@ export function TokenDetailsDeFiBlock({
       watchLoading: true,
       ...(cachedResult ? { initResult: cachedResult } : {}),
     },
+  );
+
+  useEffect(
+    () => () => {
+      isUnmountedRef.current = true;
+      void backgroundApiProxy.serviceStaking.abortPendingRequestsByRequestId({
+        requestId: requestIdRef.current,
+      });
+    },
+    [],
   );
 
   const handlePress = useCallback(async () => {
