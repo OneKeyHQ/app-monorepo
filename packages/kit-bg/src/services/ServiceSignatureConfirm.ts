@@ -269,15 +269,42 @@ class ServiceSignatureConfirm extends ServiceBase {
         encodedTx,
       });
 
-    let xpub: string | undefined;
+    // For BTC/LTC merge-derive accounts, one user-facing account spans
+    // multiple xpubs (Taproot / Native SegWit / ...). Pass all of them so
+    // the server can check interaction history across all derive types,
+    // not just the one the user happens to be sending from right now.
+    // Mirrors the fan-out in ServiceAccountProfile.checkAccountBadges.
+    let xpubs: string[] = [];
+    // The sending account's own xpub — used as backward-compat `xpub` field
+    // so old servers that don't read the `xpubs` array still get the correct
+    // identity for the derive type that is actually sending.
+    let currentAccountXpub: string | undefined;
     try {
-      xpub =
-        (await this.backgroundApi.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        })) || undefined;
+      const xpubEntries =
+        await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+          { accountId, networkId },
+        );
+      xpubs = xpubEntries.map((e) => e.xpub).filter((x): x is string => !!x);
+      currentAccountXpub = xpubEntries.find(
+        (e) => e.accountId === accountId,
+      )?.xpub;
     } catch {
-      // non-fatal: backend parses from encodedTx, xpub is an identity hint
+      // non-fatal
+    }
+    if (xpubs.length === 0) {
+      try {
+        const singleXpub =
+          (await this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          })) || undefined;
+        if (singleXpub) {
+          xpubs = [singleXpub];
+          currentAccountXpub = singleXpub;
+        }
+      } catch {
+        // non-fatal: backend parses from encodedTx, xpub is an identity hint
+      }
     }
 
     const client = await this.backgroundApi.serviceGas.getClient(
@@ -289,7 +316,8 @@ class ServiceSignatureConfirm extends ServiceBase {
         networkId,
         accountAddress,
         encodedTx: encodedTxToParse,
-        xpub,
+        xpub: currentAccountXpub ?? xpubs[0],
+        xpubs,
       },
       {
         headers:
