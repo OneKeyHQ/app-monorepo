@@ -249,6 +249,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       return;
     }
 
+    setAccountForTargetNetwork(undefined);
+
     void (async () => {
       try {
         const targetDeriveType =
@@ -328,8 +330,13 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       };
     }
 
+    const matchedTargetNetworkAccount =
+      accountForTargetNetwork?.addressDetail?.networkId === tokenNetworkId
+        ? accountForTargetNetwork
+        : undefined;
+
     const resolvedAccount = shouldResolveTargetNetworkAccount
-      ? accountForTargetNetwork
+      ? matchedTargetNetworkAccount
       : activeAccount.account;
 
     if (activeAccount) {
@@ -363,11 +370,11 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     }
     if (
       isAllNetwork &&
-      accountForTargetNetwork?.networks?.includes(tokenNetworkId)
+      matchedTargetNetworkAccount?.networks?.includes(tokenNetworkId)
     ) {
       return {
         ...res,
-        address: accountForTargetNetwork?.addressDetail?.address,
+        address: matchedTargetNetworkAccount?.addressDetail?.address,
         networkId: tokenNetworkId,
       };
     }
