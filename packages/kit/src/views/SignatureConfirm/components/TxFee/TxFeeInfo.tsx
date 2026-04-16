@@ -14,6 +14,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Button,
+  DashText,
   Dialog,
   Icon,
   NumberSizeableText,
@@ -1773,27 +1774,33 @@ function TxFeeInfo(props: IProps) {
     return dialogInstance;
   }, [handleOpenSponsoredFeesHelpCenter, renderSponsoredCoupon]);
 
-  const renderGasSponsoredBadge = useCallback(
+  const renderSponsoredSummary = useCallback(
     () => (
-      <Badge
-        badgeSize="sm"
-        bg={gasSponsoredAccentColor}
-        borderRadius="$4"
-        px="$2.5"
-        py="$1"
-        flexShrink={0}
+      <XStack
+        alignItems="center"
+        gap="$3"
         cursor="pointer"
         onPress={handleShowSponsoredInfo}
         hoverStyle={{ opacity: 0.9 }}
         pressStyle={{ opacity: 0.82 }}
       >
-        <XStack alignItems="center" gap="$1">
-          <Icon name="GiftSolid" size="$3" color="$iconOnBrightColor" />
-          <Badge.Text color="$textOnBrightColor">Gas Sponsored</Badge.Text>
-        </XStack>
-      </Badge>
+        <Stack flex={1} minWidth={0} gap="$1">
+          <DashText
+            size="$bodyMd"
+            color="$textSubdued"
+            dashColor="$textDisabled"
+            dashThickness={0.5}
+            cursor="pointer"
+          >
+            OneKey Sponsored
+          </DashText>
+          <SizableText size="$bodyMd" color="$text">
+            You pay 0 network fee
+          </SizableText>
+        </Stack>
+      </XStack>
     ),
-    [gasSponsoredAccentColor, handleShowSponsoredInfo],
+    [handleShowSponsoredInfo],
   );
 
   const handlePress = useCallback(() => {
@@ -2007,6 +2014,10 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderOriginalFeeInfo = useCallback(() => {
+    if (shouldShowFreeBadge) {
+      return null;
+    }
+
     if (
       (!isResourceRentalNeeded || !isResourceRentalEnabled) &&
       !transferPayload?.isTronResourceAutoClaimed &&
@@ -2067,15 +2078,6 @@ function TxFeeInfo(props: IProps) {
           </NumberSizeableText>
           )
         </SizableText>
-        {shouldShowFreeBadge ? (
-          <SizableText
-            size="$bodyMdMedium"
-            color={gasSponsoredAccentColor}
-            userSelect="none"
-          >
-            Free
-          </SizableText>
-        ) : null}
         {sendFeeStatus.discountPercent &&
         sendFeeStatus.discountPercent > 0 &&
         !shouldShowFreeBadge ? (
@@ -2111,7 +2113,6 @@ function TxFeeInfo(props: IProps) {
     intl,
     shouldShowFreeBadge,
     sendFeeStatus.discountPercent,
-    gasSponsoredAccentColor,
   ]);
 
   useEffect(() => {
@@ -2221,25 +2222,30 @@ function TxFeeInfo(props: IProps) {
 
   return (
     <Stack {...feeInfoWrapperProps}>
-      <XStack gap="$2" alignItems="center" flexWrap="wrap" pb="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.global_est_network_fee,
-          })}
-        </SizableText>
-        {vaultSettings?.editFeeEnabled &&
-        feeInfoEditable &&
-        !sendFeeStatus.errMessage &&
-        !isPayerManagedByService ? (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            •
-          </SizableText>
-        ) : null}
-        {renderFeeEditor()}
-        {shouldShowFreeBadge ? renderGasSponsoredBadge() : null}
-      </XStack>
-      {renderOriginalFeeInfo()}
-      {renderFeeSummary()}
+      {shouldShowFreeBadge ? (
+        renderSponsoredSummary()
+      ) : (
+        <>
+          <XStack gap="$2" alignItems="center" flexWrap="wrap" pb="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.global_est_network_fee,
+              })}
+            </SizableText>
+            {vaultSettings?.editFeeEnabled &&
+            feeInfoEditable &&
+            !sendFeeStatus.errMessage &&
+            !isPayerManagedByService ? (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                •
+              </SizableText>
+            ) : null}
+            {renderFeeEditor()}
+          </XStack>
+          {renderOriginalFeeInfo()}
+          {renderFeeSummary()}
+        </>
+      )}
     </Stack>
   );
 }
