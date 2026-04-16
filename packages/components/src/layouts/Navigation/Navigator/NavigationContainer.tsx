@@ -313,6 +313,57 @@ export function resetScanModalRoute() {
   );
 }
 
+/**
+ * Atomically remove every root Modal route whose inner screen matches
+ * `modalName` via CommonActions.reset, preserving every other route
+ * (parent modals, tabs, FullScreenPush overlays).
+ *
+ * Use this to close a Modal from ANY caller context. Prefer this over
+ * resetAboveMainRoute() when the target modal can be pushed from inside
+ * another modal — atomic reset above Main would wipe parent overlays too.
+ *
+ * Prefer this over navigation.popStack() / navigation.pop() to skip the
+ * native animated dismiss that leaves detached-tab RNSScreenStacks with
+ * window=NIL and triggers the ~5s (50×100ms) retry storm on iOS.
+ */
+export function resetModalRouteByName(modalName: EModalRoutes) {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
+    return;
+  }
+  const filteredRoutes = state.routes.filter((route) => {
+    const screenName =
+      (route.params as { screen?: string })?.screen ||
+      route.state?.routes?.[route.state?.index || 0]?.name;
+    return !(route.name === ERootRoutes.Modal && screenName === modalName);
+  });
+  if (filteredRoutes.length === state.routes.length) {
+    return;
+  }
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: filteredRoutes,
+      index: filteredRoutes.length - 1,
+    }),
+  );
+}
+
+/** Thin wrapper — see resetModalRouteByName. */
+export function resetChainSelectorModal() {
+  resetModalRouteByName(EModalRoutes.ChainSelectorModal);
+}
+
+/** Thin wrapper — see resetModalRouteByName. */
+export function resetPrimeModal() {
+  resetModalRouteByName(EModalRoutes.PrimeModal);
+}
+
+/** Thin wrapper — see resetModalRouteByName. */
+export function resetOnboardingModal() {
+  resetModalRouteByName(EModalRoutes.OnboardingModal);
+}
+
 export const popToMainRoute = async () => {
   resetAboveMainRoute();
   await timerUtils.wait(100);
