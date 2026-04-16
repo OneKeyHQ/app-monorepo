@@ -33,6 +33,7 @@ import {
   PERPS_CONFIG_FETCH_MAX_RETRIES,
   PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
 } from '@onekeyhq/shared/src/consts/perp';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -406,11 +407,16 @@ export const useFetchMarketBasicConfig = () => {
 export const useFetchPerpConfig = () => {
   useEffect(() => {
     void pRetry(
-      (attemptNumber) => {
-        if (attemptNumber === 1) {
-          return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+      async (attemptNumber) => {
+        try {
+          if (attemptNumber === 1) {
+            return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+          }
+          return await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+        } catch (err) {
+          errorToastUtils.toastIfErrorDisable(err);
+          throw err;
         }
-        return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
       },
       {
         retries: PERPS_CONFIG_FETCH_MAX_RETRIES,
