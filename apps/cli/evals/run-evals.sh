@@ -49,21 +49,22 @@ echo "Cases:   $TOTAL"
 echo "Results: $RESULTS_DIR"
 echo ""
 
-# System prompt: load skill files as context
+# System prompt: point agents to the external skill repo plus schema discovery
 SYSTEM_PROMPT="You are testing the OneKey CLI. You have access to the onekey CLI at: $CLI_DIR/bin/onekey
 
 IMPORTANT RULES:
-- Read the skill files FIRST before running any command.
-- Skill files are at: $CLI_DIR/skills/
-- Read the relevant skill file for the task (skills/wallet/, skills/swap/, skills/market/, or skills/security/).
-- Do NOT use --help to discover commands. The skill files have everything you need.
+- Read the CLI skill guidance FIRST before running any command.
+- CLI skills live in the external repo: https://github.com/OneKeyHQ/onekey-wallet-skills
+- Install commands for Claude are: /plugin marketplace add OneKeyHQ/onekey-wallet-skills and /plugin install onekey-wallet-skills
+- Use 'onekey schema <cmd>' or 'onekey schema --list' to discover exact command signatures.
+- Do NOT use --help to discover commands.
 - Run the actual CLI commands to answer the user's question.
 - After running commands, present the results to the user.
 
 EVAL MODE — CRITICAL RULES:
 - The CLI is already installed and up-to-date. SKIP all pre-flight checks (onekey version, npm view, version comparison). Go straight to the actual command.
 - NEVER ask clarifying questions. You are in non-interactive eval mode with no user to respond.
-- When information is missing (e.g. no chain specified), follow the skill file's rules. If the skill says to search first, run a search command (e.g. onekey token search) to resolve the chain before proceeding. Only default to 'eth' for native ETH operations (balance, transfer) where chain is unambiguous.
+- When information is missing (e.g. no chain specified), follow the installed skill guidance. If the skill says to search first, run a search command (e.g. onekey token search) to resolve the chain before proceeding. Only default to 'eth' for native ETH operations (balance, transfer) where chain is unambiguous.
 - Token symbols should be UPPERCASE (ETH, USDC, PEPE, CAKE), not lowercase.
 - For batch price queries (onekey market prices), if you only have token symbols, first use 'onekey token search' to resolve contract addresses, then build the --tokens parameter in 'chain:address' format.
 - Execute ALL commands needed for the task. Do not stop after one command if the task requires multiple steps (e.g. due diligence requires info + price + trades + liquidity).
@@ -71,7 +72,7 @@ EVAL MODE — CRITICAL RULES:
 - For swap flows: user confirmation is AUTO-GRANTED in eval mode. Do NOT pause to ask the user to confirm. Proceed through the entire flow (balance → security audit → quote → build → execute → status) without stopping.
 - If a CLI command fails with an API error, do NOT retry more than once. Report the error and continue to the next step or finish.
 
-CRITICAL: You MUST read the skill files before running any onekey command. Do not guess parameters."
+CRITICAL: You MUST read the skill guidance before running any onekey command. Do not guess parameters."
 
 RUN_INDEX=0
 PASS=0
@@ -131,4 +132,4 @@ done
 echo "=== Results saved to $RESULTS_DIR ==="
 echo ""
 echo "To analyze results, run:"
-echo "  claude -p \"Read all JSON files in $RESULTS_DIR/ and the test case definitions in $CASES_FILE. For each test case, check: (1) Did the agent read skill files before running commands? (2) Did it run the expected commands from the 'expect' field? (3) Did it avoid forbidden patterns? Output a markdown table with columns: case_id, status (PASS/FAIL), expected_command, actual_commands, issues.\""
+echo "  claude -p \"Read all JSON files in $RESULTS_DIR/ and the test case definitions in $CASES_FILE. For each test case, check: (1) Did the agent read the CLI skill guidance before running commands? (2) Did it run the expected commands from the 'expect' field? (3) Did it avoid forbidden patterns? Output a markdown table with columns: case_id, status (PASS/FAIL), expected_command, actual_commands, issues.\""
