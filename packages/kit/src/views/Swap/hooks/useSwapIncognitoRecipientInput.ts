@@ -9,6 +9,7 @@ import {
   getAddressValidateTranslationId,
   queryAddressWithFallback,
 } from '@onekeyhq/kit/src/components/AddressInput/utils';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSwapToAnotherAccountAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,6 +20,7 @@ type IUseSwapIncognitoRecipientInputParams = {
   clearRecipientAddressOnHide?: boolean;
   networkId?: string;
   accountId?: string;
+  accountInfo?: IAccountSelectorActiveAccountInfo;
   address?: string;
   swapToAnotherAccountSwitchOn: boolean;
 };
@@ -73,6 +75,7 @@ export function useSwapIncognitoRecipientInput({
   clearRecipientAddressOnHide,
   networkId,
   accountId,
+  accountInfo,
   address,
   swapToAnotherAccountSwitchOn,
 }: IUseSwapIncognitoRecipientInputParams) {
@@ -119,17 +122,28 @@ export function useSwapIncognitoRecipientInput({
         swapToAnotherAccountSwitchOn: Boolean(nextAddress),
       }));
 
-      setSwapToAddress((value) => ({
-        ...value,
-        networkId: nextAddress ? networkId : undefined,
-        address: nextAddress,
-        accountInfo:
-          nextAddress && value.address === nextAddress
-            ? value.accountInfo
-            : undefined,
-      }));
+      setSwapToAddress((value) => {
+        let nextAccountInfo: IAccountSelectorActiveAccountInfo | undefined;
+
+        if (nextAddress) {
+          if (accountInfo) {
+            nextAccountInfo = {
+              ...accountInfo,
+            };
+          } else if (value.address === nextAddress) {
+            nextAccountInfo = value.accountInfo;
+          }
+        }
+
+        return {
+          ...value,
+          networkId: nextAddress ? networkId : undefined,
+          address: nextAddress,
+          accountInfo: nextAccountInfo,
+        };
+      });
     },
-    [networkId, setSettings, setSwapToAddress],
+    [accountInfo, networkId, setSettings, setSwapToAddress],
   );
 
   const queryAddress = useDebouncedCallback(async (currentText: string) => {
@@ -257,9 +271,11 @@ export function useSwapIncognitoRecipientInput({
       return;
     }
 
+    const isNetworkChanged = prevScope.networkId !== nextScope.networkId;
+
     resetValidationState({
-      clearInput: prevScope.networkId !== nextScope.networkId,
-      clearRecipientAddress: true,
+      clearInput: isNetworkChanged,
+      clearRecipientAddress: isNetworkChanged,
     });
   }, [
     accountId,
