@@ -58,6 +58,7 @@ const {
   buildSerializedModuleEntries,
   buildGraphModuleIndex,
   buildRuntimeOwnership,
+  collectCommonReferencedSegmentKeys,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
   expandSegmentsWithSyncDeps,
@@ -950,6 +951,7 @@ async function writeSegments({
   sharedEquivalentAbsPaths,
   mainEagerAbsPaths,
   bgEagerAbsPaths,
+  runtimeOwnership,
 }) {
   const promotedSet = new Set(promotedSegments);
 
@@ -1068,6 +1070,20 @@ async function writeSegments({
     ...backgroundSegmentOutputs.keys(),
   ]);
 
+  // Segments async-imported from common-bundle modules must be shared.
+  const commonReferencedSegmentKeys = collectCommonReferencedSegmentKeys({
+    mainGraph: mainRuntime.graph,
+    backgroundGraph: backgroundRuntime.graph,
+    sharedStartupAbsPaths: runtimeOwnership?.sharedStartupAbsPaths,
+    mainSegmentAbsPathsByKey: mainRuntime.segmentAbsPathsByKey,
+    backgroundSegmentAbsPathsByKey: backgroundRuntime.segmentAbsPathsByKey,
+  });
+  if (commonReferencedSegmentKeys.size > 0) {
+    console.log(
+      `[unionBuild] Common-referenced segment keys (forced shared): ${[...commonReferencedSegmentKeys].join(', ')}`,
+    );
+  }
+
   for (const segmentKey of [...allSegmentKeys].toSorted()) {
     const inMain = mainSegmentOutputs.has(segmentKey);
     const inBackground = backgroundSegmentOutputs.has(segmentKey);
@@ -1081,12 +1097,17 @@ async function writeSegments({
       const backgroundDeps = new Set(
         backgroundRuntime.segmentDeps.get(segmentKey) || [],
       );
+      // Force shared when a common-bundle module async-imports this segment.
+      // Without this, the segment gets split into runtime-specific variants
+      // that the common bundle code in the other runtime can't resolve.
+      const forceShared = commonReferencedSegmentKeys.has(segmentKey);
       const canShare =
-        setEquals(mainAbsPaths, backgroundAbsPaths) &&
-        setEquals(mainDeps, backgroundDeps) &&
-        [...mainAbsPaths].every((absolutePath) =>
-          sharedEquivalentAbsPaths.has(absolutePath),
-        );
+        forceShared ||
+        (setEquals(mainAbsPaths, backgroundAbsPaths) &&
+          setEquals(mainDeps, backgroundDeps) &&
+          [...mainAbsPaths].every((absolutePath) =>
+            sharedEquivalentAbsPaths.has(absolutePath),
+          ));
 
       if (canShare) {
         const sharedEntry = await emitSegment({
@@ -1484,6 +1505,7 @@ async function main() {
         ...runtimeOwnership.sharedStartupAbsPaths,
         ...runtimeOwnership.bgStartupAbsPaths,
       ]),
+      runtimeOwnership,
     });
 
     // ── Common bundle ──────────────────────────────────────────────────

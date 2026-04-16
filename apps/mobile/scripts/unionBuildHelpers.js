@@ -614,12 +614,58 @@ function expandSegmentsWithSyncDeps({
   return totalAdded;
 }
 
+/**
+ * Collect segment keys that are async-imported by common-bundle (shared
+ * startup) modules. These segments MUST be emitted as `runtime=shared` —
+ * common code runs in both runtimes, so a runtime-specific variant would
+ * be invisible to the other runtime, causing "segment missing from manifest".
+ *
+ * @param {Object} params
+ * @param {Map<string, {dependencies: Map}>} params.mainGraph - main Metro graph
+ * @param {Map<string, {dependencies: Map}>} params.backgroundGraph - bg Metro graph
+ * @param {Set<string>} params.sharedStartupAbsPaths - eager common-bundle abs paths
+ * @param {Map<string, Set<string>>} params.mainSegmentAbsPathsByKey
+ * @param {Map<string, Set<string>>} params.backgroundSegmentAbsPathsByKey
+ * @returns {Set<string>} segment keys that must be forced shared
+ */
+function collectCommonReferencedSegmentKeys({
+  mainGraph,
+  backgroundGraph,
+  sharedStartupAbsPaths,
+  mainSegmentAbsPathsByKey,
+  backgroundSegmentAbsPathsByKey,
+}) {
+  const result = new Set();
+  const allSegmentAbsPathsByKey = new Map([
+    ...(mainSegmentAbsPathsByKey || new Map()),
+    ...(backgroundSegmentAbsPathsByKey || new Map()),
+  ]);
+  for (const graph of [mainGraph, backgroundGraph]) {
+    if (!graph || !graph.dependencies) continue;
+    for (const absolutePath of sharedStartupAbsPaths || []) {
+      const mod = graph.dependencies.get(absolutePath);
+      if (!mod) continue;
+      for (const [, dep] of mod.dependencies) {
+        if (dep.data?.data?.asyncType === 'async') {
+          for (const [segKey, absPaths] of allSegmentAbsPathsByKey) {
+            if (absPaths.has(dep.absolutePath)) {
+              result.add(segKey);
+            }
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
 module.exports = {
   buildPostSection,
   buildSerializedModuleEntries,
   buildGraphModuleIndex,
   buildModuleSignature,
   buildRuntimeOwnership,
+  collectCommonReferencedSegmentKeys,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
   expandSegmentsWithSyncDeps,

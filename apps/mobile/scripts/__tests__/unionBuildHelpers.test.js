@@ -990,3 +990,147 @@ it('does not expand segments with deps already in eager bundle', () => {
   expect(added).toBe(0);
   expect(segmentOutputs.get('seg:feature')).toHaveLength(1);
 });
+
+// ---------------------------------------------------------------------------
+// collectCommonReferencedSegmentKeys
+// ---------------------------------------------------------------------------
+
+const {
+  collectCommonReferencedSegmentKeys,
+} = require('../unionBuildHelpers');
+
+describe('collectCommonReferencedSegmentKeys', () => {
+  function makeDep(absolutePath, asyncType = null) {
+    return {
+      absolutePath,
+      data: { data: { asyncType } },
+    };
+  }
+
+  function makeGraph(entries) {
+    const deps = new Map();
+    for (const [absPath, depList] of entries) {
+      deps.set(absPath, {
+        dependencies: new Map(
+          depList.map((d, i) => [`dep${i}`, d]),
+        ),
+      });
+    }
+    return { dependencies: deps };
+  }
+
+  it('returns segment keys for async imports from common modules', () => {
+    const commonModule = '/common/intlShim.js';
+    const polyfillModule = '/node_modules/@formatjs/intl-locale/polyfill.js';
+
+    const graph = makeGraph([
+      [commonModule, [makeDep(polyfillModule, 'async')]],
+      [polyfillModule, []],
+    ]);
+
+    const result = collectCommonReferencedSegmentKeys({
+      mainGraph: graph,
+      backgroundGraph: graph,
+      sharedStartupAbsPaths: new Set([commonModule]),
+      mainSegmentAbsPathsByKey: new Map([
+        ['seg:nm.@formatjs', new Set([polyfillModule])],
+      ]),
+      backgroundSegmentAbsPathsByKey: new Map([
+        ['seg:nm.@formatjs', new Set([polyfillModule])],
+      ]),
+    });
+
+    expect(result.has('seg:nm.@formatjs')).toBe(true);
+    expect(result.size).toBe(1);
+  });
+
+  it('returns empty set when common modules have no async imports', () => {
+    const commonModule = '/common/polyfills.js';
+    const syncDep = '/common/shim.js';
+
+    const graph = makeGraph([
+      [commonModule, [makeDep(syncDep, null)]],
+      [syncDep, []],
+    ]);
+
+    const result = collectCommonReferencedSegmentKeys({
+      mainGraph: graph,
+      backgroundGraph: graph,
+      sharedStartupAbsPaths: new Set([commonModule]),
+      mainSegmentAbsPathsByKey: new Map(),
+      backgroundSegmentAbsPathsByKey: new Map(),
+    });
+
+    expect(result.size).toBe(0);
+  });
+
+  it('returns empty set when async import target is not in any segment', () => {
+    const commonModule = '/common/intlShim.js';
+    const polyfillModule = '/node_modules/@formatjs/intl-locale/polyfill.js';
+
+    const graph = makeGraph([
+      [commonModule, [makeDep(polyfillModule, 'async')]],
+      [polyfillModule, []],
+    ]);
+
+    const result = collectCommonReferencedSegmentKeys({
+      mainGraph: graph,
+      backgroundGraph: graph,
+      sharedStartupAbsPaths: new Set([commonModule]),
+      mainSegmentAbsPathsByKey: new Map(),
+      backgroundSegmentAbsPathsByKey: new Map(),
+    });
+
+    expect(result.size).toBe(0);
+  });
+
+  it('collects from both main and background graphs', () => {
+    const commonModule = '/common/locale.js';
+    const mainTarget = '/locale/zh.js';
+    const bgTarget = '/locale/en.js';
+
+    const mainGraph = makeGraph([
+      [commonModule, [makeDep(mainTarget, 'async')]],
+    ]);
+    const bgGraph = makeGraph([
+      [commonModule, [makeDep(bgTarget, 'async')]],
+    ]);
+
+    const result = collectCommonReferencedSegmentKeys({
+      mainGraph,
+      backgroundGraph: bgGraph,
+      sharedStartupAbsPaths: new Set([commonModule]),
+      mainSegmentAbsPathsByKey: new Map([
+        ['seg:locale.zh', new Set([mainTarget])],
+      ]),
+      backgroundSegmentAbsPathsByKey: new Map([
+        ['seg:locale.en', new Set([bgTarget])],
+      ]),
+    });
+
+    expect(result.has('seg:locale.zh')).toBe(true);
+    expect(result.has('seg:locale.en')).toBe(true);
+    expect(result.size).toBe(2);
+  });
+
+  it('ignores non-common modules even if they have async imports', () => {
+    const nonCommonModule = '/kit/views/Market/index.tsx';
+    const target = '/kit/views/Market/detail.tsx';
+
+    const graph = makeGraph([
+      [nonCommonModule, [makeDep(target, 'async')]],
+    ]);
+
+    const result = collectCommonReferencedSegmentKeys({
+      mainGraph: graph,
+      backgroundGraph: graph,
+      sharedStartupAbsPaths: new Set(),
+      mainSegmentAbsPathsByKey: new Map([
+        ['seg:market.detail', new Set([target])],
+      ]),
+      backgroundSegmentAbsPathsByKey: new Map(),
+    });
+
+    expect(result.size).toBe(0);
+  });
+});
