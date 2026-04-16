@@ -1,9 +1,22 @@
 import { memo, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IXStackProps } from '@onekeyhq/components';
-import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  IconButton,
+  Select,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 
 // Electron drag-region helpers. On desktop, the header container is a window
 // drag handle; interactive children opt out so they remain clickable.
@@ -73,3 +86,48 @@ export const LayoutHeaderTitle = memo(
   ),
 );
 LayoutHeaderTitle.displayName = 'LayoutHeaderTitle';
+
+export const LayoutHeaderLanguageSelector = memo(() => {
+  const intl = useIntl();
+  const { options, value, onChange } = useLanguageSelectorWithoutAuto();
+  const { gtMd } = useMedia();
+
+  const handleLanguageChange = useCallback(
+    (v: string) => {
+      setTimeout(() => {
+        void onChange(v);
+      }, 350);
+    },
+    [onChange],
+  );
+
+  return (
+    <YStack ml="auto" style={NO_DRAG_STYLE}>
+      <Select
+        offset={{ mainAxis: 8, crossAxis: 8 }}
+        title={intl.formatMessage({ id: ETranslations.global_language })}
+        items={options}
+        value={value}
+        onChange={handleLanguageChange}
+        placement="bottom-end"
+        floatingPanelProps={{ maxHeight: 280 }}
+        sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
+        renderTrigger={({ label }) =>
+          gtMd ? (
+            <Button
+              size="small"
+              icon="GlobusOutline"
+              variant="tertiary"
+              ml="auto"
+            >
+              {label}
+            </Button>
+          ) : (
+            <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
+          )
+        }
+      />
+    </YStack>
+  );
+});
+LayoutHeaderLanguageSelector.displayName = 'LayoutHeaderLanguageSelector';
