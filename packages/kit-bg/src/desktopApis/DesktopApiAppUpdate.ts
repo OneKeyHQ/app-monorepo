@@ -594,12 +594,11 @@ class DesktopApiAppUpdate {
   // `--appimage-extract-and-run`, or through AppImageLauncher's FUSE overlay
   // (where it points to a read-only mount).
   //
-  // We read via bracket notation so esbuild's `define` in scripts/build.js
-  // (which rewrites the dot-access form to a build-time literal) doesn't
-  // interfere — this way we see the real runtime value that electron-updater
-  // itself reads.
+  // Bracket notation is used to make clear this is a runtime env lookup (the
+  // AppImage launcher sets it), not a build-time target — unlike DESK_CHANNEL,
+  // APPIMAGE is never injected via esbuild `define`.
   private canAutoInstallAppImage(): boolean {
-    // eslint-disable-next-line @typescript-eslint/dot-notation -- bracket bypasses esbuild `define`
+    // eslint-disable-next-line @typescript-eslint/dot-notation -- runtime env, not a build flag
     const appImagePath = process.env['APPIMAGE'];
     if (!appImagePath || appImagePath.trim().length === 0) {
       logger.warn(

@@ -30,8 +30,9 @@ export function registerInfoHandlers(
     if (process.platform === 'linux') {
       // AppImage is detected via the build-time `DESK_CHANNEL=appImage` flag
       // (set in release-desktop-all.yml and baked in by esbuild `define`).
-      // Reading `process.env.APPIMAGE` here would be ambiguous — it is both a
-      // define target (empty on CI) and a runtime value set by the launcher.
+      // We deliberately do not use the runtime `APPIMAGE` env for detection
+      // — it can be empty when a wrapper launcher strips it, giving a false
+      // negative for what is in fact an AppImage build.
       if (process.env.DESK_CHANNEL === 'appImage') {
         channel = 'appImage';
       } else if (process.env.SNAP) {

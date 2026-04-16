@@ -27,7 +27,6 @@ const serviceFiles = glob
 console.log('process.env.NODE_ENV', process.env.NODE_ENV);
 console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
 console.log('process.env.COMMITHASH', process.env.COMMITHASH);
-console.log('process.env.APPIMAGE', process.env.APPIMAGE);
 console.log('process.env.SNAP', process.env.SNAP);
 console.log('process.env.FLATPAK', process.env.FLATPAK);
 console.log('process.env.BUILD_NUMBER', process.env.BUILD_NUMBER);
@@ -100,7 +99,10 @@ build({
     'process.env.SENTRY_DSN_DESKTOP': JSON.stringify(
       process.env.SENTRY_DSN_DESKTOP || '',
     ),
-    'process.env.APPIMAGE': JSON.stringify(process.env.APPIMAGE || ''),
+    // APPIMAGE is intentionally NOT defined here. It is a runtime env set by
+    // the AppImage launcher and read (via bracket notation) by electron-updater
+    // and our canAutoInstallAppImage guard. AppImage BUILD detection is done
+    // via DESK_CHANNEL=appImage instead (see release-desktop-all.yml).
     'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
     'process.env.FLATPAK': JSON.stringify(process.env.FLATPAK || ''),
     'process.env.SENTRY_DSN_MAS': JSON.stringify(
