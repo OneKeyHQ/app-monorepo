@@ -137,7 +137,7 @@ function WalletActionSend({
               { symbol },
             ),
             renderContent: (
-              <YStack gap="$2.5">
+              <YStack gap="$5">
                 <OptionCard
                   icon="ArrowBottomOutline"
                   title={intl.formatMessage({
@@ -196,7 +196,6 @@ function WalletActionSend({
                 <Button
                   variant="tertiary"
                   size="large"
-                  mt="$1.5"
                   mx="$0"
                   py="$2"
                   onPress={() => {
