@@ -79,7 +79,7 @@ import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
 interface ISwapActionsStateProps {
   onPreSwap: () => void;
-  onOpenRecipientAddress: () => void;
+  onOpenRecipientAddress: (address?: string) => void;
   onSelectPercentageStage?: (stage: number) => void;
 }
 

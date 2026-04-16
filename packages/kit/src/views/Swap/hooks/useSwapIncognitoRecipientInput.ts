@@ -308,7 +308,15 @@ export function useSwapIncognitoRecipientInput({
       const nextText = stringUtils.stripLineBreaks(text);
 
       if (textRef.current === nextText) {
-        return;
+        const shouldKeepCurrentValidation =
+          !nextText.trim() ||
+          (queryResult.validStatus === 'valid' &&
+            swapToAnotherAccountSwitchOn &&
+            !!address);
+
+        if (shouldKeepCurrentValidation) {
+          return;
+        }
       }
 
       textRef.current = nextText;
@@ -316,7 +324,12 @@ export function useSwapIncognitoRecipientInput({
       setQueryResult({});
       syncRecipientAddress(undefined);
     },
-    [syncRecipientAddress],
+    [
+      address,
+      queryResult.validStatus,
+      swapToAnotherAccountSwitchOn,
+      syncRecipientAddress,
+    ],
   );
 
   const errorMessage = useMemo(() => {

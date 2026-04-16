@@ -338,16 +338,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     });
   }, [navigation, storeName]);
 
-  const onToAnotherAddressModal = useCallback(() => {
-    dismissKeyboard();
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapToAnotherAddress,
-      params: {
-        address: toAddressInfo.address,
-        storeName,
-      },
-    });
-  }, [navigation, storeName, toAddressInfo.address]);
+  const onToAnotherAddressModal = useCallback(
+    (inputAddress?: string) => {
+      dismissKeyboard();
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapToAnotherAddress,
+        params: {
+          address: toAddressInfo.address,
+          inputAddress,
+          storeName,
+        },
+      });
+    },
+    [navigation, storeName, toAddressInfo.address],
+  );
 
   const refreshAction = useCallback(
     (manual?: boolean) => {
