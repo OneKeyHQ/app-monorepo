@@ -927,7 +927,7 @@ class ServiceStaking extends ServiceBase {
         type,
         accountAddress,
       },
-      signal ? { signal } : undefined,
+      { signal },
     );
     return protocolListResp.data.data.protocols;
   }
@@ -995,9 +995,10 @@ class ServiceStaking extends ServiceBase {
       }
     } catch (error) {
       if (!axios.isCancel(error)) {
-        console.warn(
-          `Failed to fetch protocol list for symbol ${params.symbol}:`,
-          error,
+        defaultLogger.app.error.log(
+          `Failed to fetch protocol list for symbol ${params.symbol}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
       }
       // Fall back to empty array if request fails
@@ -2148,10 +2149,7 @@ class ServiceStaking extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const response = await client.get<{
         data: IStakeBlockRegionResponse;
-      }>(
-        '/earn/v1/block-region',
-        controller ? { signal: controller.signal } : undefined,
-      );
+      }>('/earn/v1/block-region', { signal: controller?.signal });
       const blockResult = response.data.data;
       const blockData = blockResult.isBlockedRegion
         ? blockResult.notification

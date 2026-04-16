@@ -71,14 +71,11 @@ export function TokenDetailsDeFiBlock({
   const isUnmountedRef = useRef(false);
 
   const cacheKey = `${networkId}_${tokenAddress}`;
-  const cachedResult = useMemo(
-    () => earnResultCache.get(cacheKey)?.result,
-    [cacheKey],
-  );
-  const hasCachedResult = useMemo(
-    () => earnResultCache.has(cacheKey),
-    [cacheKey],
-  );
+  // `undefined` means cache miss; `null` means cached "no DeFi banner".
+  // The cache wraps values in `{ result }` so we can distinguish the two cases.
+  const cachedEntry = useMemo(() => earnResultCache.get(cacheKey), [cacheKey]);
+  const hasCachedResult = cachedEntry !== undefined;
+  const cachedResult = cachedEntry?.result;
 
   const { result: earnResult, isLoading } = usePromiseResult(
     async () => {
