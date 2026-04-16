@@ -1,9 +1,38 @@
 const {
   parseModuleDefs,
   transitiveClosure,
+  buildModuleIndex,
   buildModuleIndexFromManifest,
   buildEagerIdSet,
 } = require('../check-split-bundle-integrity');
+
+// ---------------------------------------------------------------------------
+// Fixture helper
+// ---------------------------------------------------------------------------
+//
+// Real build artifacts split module ownership across two files:
+//   segment-manifest.json : { segments: { segKey: { dependsOn, relativePath, … } } }
+//   module-id-map.json    : { common, main, background, segments: { segKey: { modules: {id:path} } } }
+//
+// Earlier fixtures in this file embedded `modules` under manifest entries,
+// which didn't match reality and caused the integrity check's main index
+// lookup to silently return empty. `buildSegFixtures` keeps the two shapes
+// separate the same way the real build does, so regressions in either side
+// surface immediately.
+function buildSegFixtures(segs) {
+  const manifestSegments = {};
+  const idMapSegments = {};
+  for (const [segKey, spec] of Object.entries(segs)) {
+    manifestSegments[segKey] = {
+      relativePath: spec.relativePath,
+      dependsOn: spec.dependsOn || [],
+    };
+    idMapSegments[segKey] = {
+      modules: spec.modules || {},
+    };
+  }
+  return { manifestSegments, idMapSegments };
+}
 
 describe('parseModuleDefs', () => {
   it('parses a single Metro __d() call', () => {
@@ -91,24 +120,65 @@ describe('transitiveClosure', () => {
   });
 });
 
-describe('buildModuleIndexFromManifest', () => {
-  it('maps each numeric module id to its owning segment', () => {
-    const manifest = {
+describe('buildModuleIndex (idMap + manifest)', () => {
+  // Regression: real segment-manifest has NO `modules` field — ownership
+  // lives in idMap.segments[key].modules. Reading from the manifest silently
+  // produced an empty index and made the whole integrity check a no-op.
+  it('reads ownership from idMap.segments, filtered by manifest membership', () => {
+    const idMap = {
       segments: {
         'seg:a': { modules: { 10: 'a/1.ts', 11: 'a/2.ts' } },
         'seg:b': { modules: { 20: 'b/1.ts' } },
+        'seg:other-runtime': { modules: { 30: 'other/1.ts' } },
       },
     };
-    const idx = buildModuleIndexFromManifest(manifest);
+    // Only seg:a and seg:b belong to this manifest (this runtime).
+    const manifest = {
+      segments: {
+        'seg:a': { dependsOn: [] },
+        'seg:b': { dependsOn: [] },
+      },
+    };
+    const idx = buildModuleIndex(idMap, manifest);
     expect(idx.get(10)).toBe('seg:a');
     expect(idx.get(11)).toBe('seg:a');
     expect(idx.get(20)).toBe('seg:b');
+    expect(idx.has(30)).toBe(false);
     expect(idx.has(99)).toBe(false);
   });
 
-  it('gracefully handles manifest entries without modules', () => {
-    const manifest = { segments: { 'seg:empty': {} } };
-    expect(buildModuleIndexFromManifest(manifest).size).toBe(0);
+  it('returns empty index when manifest has no segments', () => {
+    const idMap = {
+      segments: { 'seg:a': { modules: { 10: 'a.ts' } } },
+    };
+    expect(buildModuleIndex(idMap, { segments: {} }).size).toBe(0);
+  });
+
+  it('returns empty index when idMap has no segment ownership', () => {
+    const manifest = { segments: { 'seg:a': { dependsOn: [] } } };
+    expect(buildModuleIndex({ segments: {} }, manifest).size).toBe(0);
+  });
+});
+
+describe('buildModuleIndexFromManifest (legacy shim)', () => {
+  // Retained for any external callers; still works on embedded-modules
+  // fixtures. New code should use buildModuleIndex(idMap, manifest).
+  it('reads modules embedded directly on entries', () => {
+    const embedded = {
+      segments: {
+        'seg:a': { modules: { 10: 'a/1.ts' } },
+        'seg:b': { modules: { 20: 'b/1.ts' } },
+      },
+    };
+    const idx = buildModuleIndexFromManifest(embedded);
+    expect(idx.get(10)).toBe('seg:a');
+    expect(idx.get(20)).toBe('seg:b');
+  });
+
+  it('gracefully handles entries without modules', () => {
+    expect(
+      buildModuleIndexFromManifest({ segments: { 'seg:empty': {} } }).size,
+    ).toBe(0);
   });
 });
 
@@ -178,25 +248,24 @@ describe('integration: cross-segment sync edge detection', () => {
       { moduleId: 3340, deps: [] },
     ]);
 
-    const manifest = {
-      segments: {
-        'seg:mtsel': {
-          relativePath: 'segments/mobile-tokenselector.seg.hbc',
-          modules: { 3480: 'MobileTokenSelector.tsx' },
-          dependsOn: [], // <-- the bug: missing seg:mdv2-index
-        },
-        'seg:mdv2-index': {
-          relativePath: 'segments/marketdetail-index.seg.hbc',
-          modules: { 3340: 'constants.ts' },
-          dependsOn: [],
-        },
+    const { manifestSegments, idMapSegments } = buildSegFixtures({
+      'seg:mtsel': {
+        relativePath: 'segments/mobile-tokenselector.seg.hbc',
+        modules: { 3480: 'MobileTokenSelector.tsx' },
+        dependsOn: [], // <-- the bug: missing seg:mdv2-index
       },
-    };
+      'seg:mdv2-index': {
+        relativePath: 'segments/marketdetail-index.seg.hbc',
+        modules: { 3340: 'constants.ts' },
+        dependsOn: [],
+      },
+    });
+    const manifest = { segments: manifestSegments };
     const idMap = {
       common: {},
       main: {},
       background: {},
-      segments: manifest.segments,
+      segments: idMapSegments,
     };
 
     const { violations } = scanRuntime({
@@ -226,25 +295,24 @@ describe('integration: cross-segment sync edge detection', () => {
       { moduleId: 3340, deps: [] },
     ]);
 
-    const manifest = {
-      segments: {
-        'seg:mtsel': {
-          relativePath: 'segments/mobile-tokenselector.seg.hbc',
-          modules: { 3480: 'MobileTokenSelector.tsx' },
-          dependsOn: ['seg:mdv2-index'], // covered now
-        },
-        'seg:mdv2-index': {
-          relativePath: 'segments/marketdetail-index.seg.hbc',
-          modules: { 3340: 'constants.ts' },
-          dependsOn: [],
-        },
+    const { manifestSegments, idMapSegments } = buildSegFixtures({
+      'seg:mtsel': {
+        relativePath: 'segments/mobile-tokenselector.seg.hbc',
+        modules: { 3480: 'MobileTokenSelector.tsx' },
+        dependsOn: ['seg:mdv2-index'], // covered now
       },
-    };
+      'seg:mdv2-index': {
+        relativePath: 'segments/marketdetail-index.seg.hbc',
+        modules: { 3340: 'constants.ts' },
+        dependsOn: [],
+      },
+    });
+    const manifest = { segments: manifestSegments };
     const idMap = {
       common: {},
       main: {},
       background: {},
-      segments: manifest.segments,
+      segments: idMapSegments,
     };
 
     const { violations } = scanRuntime({
@@ -264,30 +332,29 @@ describe('integration: cross-segment sync edge detection', () => {
     writeSegJs(segmentsDir, 'b', [{ moduleId: 200, deps: [] }]);
     writeSegJs(segmentsDir, 'c', [{ moduleId: 300, deps: [] }]);
 
-    const manifest = {
-      segments: {
-        'seg:a': {
-          relativePath: 'segments/a.seg.hbc',
-          modules: { 100: 'a.ts' },
-          dependsOn: ['seg:b'],
-        },
-        'seg:b': {
-          relativePath: 'segments/b.seg.hbc',
-          modules: { 200: 'b.ts' },
-          dependsOn: ['seg:c'],
-        },
-        'seg:c': {
-          relativePath: 'segments/c.seg.hbc',
-          modules: { 300: 'c.ts' },
-          dependsOn: [],
-        },
+    const { manifestSegments, idMapSegments } = buildSegFixtures({
+      'seg:a': {
+        relativePath: 'segments/a.seg.hbc',
+        modules: { 100: 'a.ts' },
+        dependsOn: ['seg:b'],
       },
-    };
+      'seg:b': {
+        relativePath: 'segments/b.seg.hbc',
+        modules: { 200: 'b.ts' },
+        dependsOn: ['seg:c'],
+      },
+      'seg:c': {
+        relativePath: 'segments/c.seg.hbc',
+        modules: { 300: 'c.ts' },
+        dependsOn: [],
+      },
+    });
+    const manifest = { segments: manifestSegments };
     const idMap = {
       common: {},
       main: {},
       background: {},
-      segments: manifest.segments,
+      segments: idMapSegments,
     };
 
     const { violations } = scanRuntime({
@@ -305,20 +372,19 @@ describe('integration: cross-segment sync edge detection', () => {
     const segmentsDir = path.join(tmpDir, 'segments');
     writeSegJs(segmentsDir, 'a', [{ moduleId: 100, deps: [42] }]);
 
-    const manifest = {
-      segments: {
-        'seg:a': {
-          relativePath: 'segments/a.seg.hbc',
-          modules: { 100: 'a.ts' },
-          dependsOn: [],
-        },
+    const { manifestSegments, idMapSegments } = buildSegFixtures({
+      'seg:a': {
+        relativePath: 'segments/a.seg.hbc',
+        modules: { 100: 'a.ts' },
+        dependsOn: [],
       },
-    };
+    });
+    const manifest = { segments: manifestSegments };
     const idMap = {
       common: { 42: 'eager.ts' }, // 42 is eager → OK
       main: {},
       background: {},
-      segments: manifest.segments,
+      segments: idMapSegments,
     };
 
     const { violations } = scanRuntime({
@@ -354,5 +420,79 @@ describe('integration: cross-segment sync edge detection', () => {
 
     expect(violations).toHaveLength(1);
     expect(violations[0].kind).toBe('missing_manifest_entry');
+  });
+
+  // Regression: previously this whole file silently passed because
+  // buildModuleIndexFromManifest(manifest) returned an empty Map when the
+  // manifest didn't embed `modules`. Ensures the crash fixture is flagged
+  // when using the real separation (manifest only carries dependsOn).
+  it('flags the MobileTokenSelector crash even when manifest has no `modules` field', () => {
+    const segmentsDir = path.join(tmpDir, 'segments');
+    writeSegJs(segmentsDir, 'mobile-tokenselector', [
+      { moduleId: 3480, deps: [3340] },
+    ]);
+    writeSegJs(segmentsDir, 'marketdetail-index', [
+      { moduleId: 3340, deps: [] },
+    ]);
+
+    // Manifest shape matching what segmentSerializer actually writes:
+    // only id/key/runtime/relativePath/sha256/dependsOn/size — no modules.
+    const manifest = {
+      segments: {
+        'seg:mtsel': {
+          id: 1001,
+          key: 'seg:mtsel',
+          runtime: 'main',
+          relativePath: 'segments/mobile-tokenselector.seg.hbc',
+          sha256: 'x',
+          dependsOn: [],
+          size: 100,
+        },
+        'seg:mdv2-index': {
+          id: 1002,
+          key: 'seg:mdv2-index',
+          runtime: 'main',
+          relativePath: 'segments/marketdetail-index.seg.hbc',
+          sha256: 'y',
+          dependsOn: [],
+          size: 100,
+        },
+      },
+    };
+    // Ownership lives only in idMap.segments[key].modules.
+    const idMap = {
+      common: {},
+      main: {},
+      background: {},
+      segments: {
+        'seg:mtsel': {
+          id: 1001,
+          runtime: 'main',
+          modules: { 3480: 'MobileTokenSelector.tsx' },
+        },
+        'seg:mdv2-index': {
+          id: 1002,
+          runtime: 'main',
+          modules: { 3340: 'constants.ts' },
+        },
+      },
+    };
+
+    const { violations } = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir,
+      manifest,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({
+      kind: 'cross_segment_sync',
+      srcSegment: 'seg:mtsel',
+      depSegment: 'seg:mdv2-index',
+      srcModuleId: 3480,
+      depModuleId: 3340,
+    });
   });
 });

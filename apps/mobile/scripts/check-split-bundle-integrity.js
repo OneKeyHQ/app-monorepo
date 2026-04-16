@@ -158,10 +158,39 @@ function transitiveClosure(manifest, startSegKey) {
   return visited;
 }
 
-function buildModuleIndexFromManifest(manifest) {
-  // moduleId -> segmentKey (defined in this manifest's runtime)
+/**
+ * Build moduleId -> segmentKey from idMap.segments (the authoritative source
+ * of per-segment module membership). segment-manifest.json only carries
+ * dependsOn/id/runtime/sha256 — it does NOT list modules — so reading the
+ * ownership map from there silently produces an empty index and makes the
+ * whole integrity check a no-op.
+ *
+ * The `manifest` argument is still accepted so we can skip segments that
+ * don't belong to this runtime's manifest (avoids cross-runtime leakage when
+ * scanning main vs background).
+ */
+function buildModuleIndex(idMap, manifest) {
   const index = new Map();
-  for (const [segKey, entry] of Object.entries(manifest.segments)) {
+  const allowedSegKeys = new Set(Object.keys(manifest.segments || {}));
+  for (const [segKey, entry] of Object.entries(idMap.segments || {})) {
+    if (!allowedSegKeys.has(segKey)) continue;
+    const modules = entry.modules || {};
+    for (const idStr of Object.keys(modules)) {
+      index.set(Number(idStr), segKey);
+    }
+  }
+  return index;
+}
+
+// Backwards-compat alias — tests and external callers may still use the old
+// name. Delegates to the new signature by treating its argument as either
+// shape: an idMap (has `.segments[].modules`) or a legacy manifest fixture
+// that embeds `modules` directly under segments.
+function buildModuleIndexFromManifest(manifestOrIdMap) {
+  const index = new Map();
+  for (const [segKey, entry] of Object.entries(
+    manifestOrIdMap.segments || {},
+  )) {
     const modules = entry.modules || {};
     for (const idStr of Object.keys(modules)) {
       index.set(Number(idStr), segKey);
@@ -208,8 +237,9 @@ function scanRuntime({
 
   // We need a per-runtime module index so a 'main' segment's dep lookup
   // resolves against main's segment definitions (from its manifest), and a
-  // 'background' segment's deps resolve against bg's definitions.
-  const moduleToSegment = buildModuleIndexFromManifest(manifest);
+  // 'background' segment's deps resolve against bg's definitions. The actual
+  // module→segment ownership lives in idMap.segments, NOT in the manifest.
+  const moduleToSegment = buildModuleIndex(idMap, manifest);
   const eager = buildEagerIdSet(idMap, runtimeBucketNames);
 
   // id -> path (for prettier error messages). Prefer segment definitions,
@@ -397,6 +427,7 @@ if (require.main === module) {
 module.exports = {
   parseModuleDefs,
   transitiveClosure,
+  buildModuleIndex,
   buildModuleIndexFromManifest,
   buildEagerIdSet,
   scanRuntime,
