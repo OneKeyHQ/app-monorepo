@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Icon,
-  SizableText,
-  Stack,
+  ListItem,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -141,92 +141,181 @@ function WalletActionSend({
               { symbol },
             ),
             renderContent: (
-              <YStack gap="$4">
-                <XStack gap="$2.5">
-                  <Stack
+              <YStack gap="$2.5">
+                <ListItem
+                  mx="$0"
+                  p="$3.5"
+                  drillIn
+                  gap="$3"
+                  userSelect="none"
+                  bg="$neutral2"
+                  borderRadius="$3"
+                  hoverStyle={{ bg: '$neutral3' }}
+                  pressStyle={{ bg: '$neutral4' }}
+                  $platform-native={{
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: '$neutral3',
+                  }}
+                  $platform-web={{
+                    outlineWidth: 1,
+                    outlineColor: '$neutral3',
+                    outlineStyle: 'solid',
+                  }}
+                  onPress={() => {
+                    logZeroGas('receive');
+                    void dialogRef.close();
+                    safeResolve(false);
+                    navigation.pushModal(EModalRoutes.ReceiveModal, {
+                      screen: EModalReceiveRoutes.ReceiveSelector,
+                    });
+                  }}
+                >
+                  <YStack bg="$neutral3" p="$2" borderRadius="$full">
+                    <Icon name="QrCodeOutline" color="$iconActive" />
+                  </YStack>
+                  <ListItem.Text
+                    gap="$1"
                     flex={1}
-                    flexBasis={0}
-                    alignItems="center"
-                    justifyContent="center"
-                    bg="$bgStrong"
-                    borderRadius="$4"
-                    pt="$4"
-                    pb="$3"
-                    px="$1"
-                    hoverStyle={{ bg: '$bgStrongHover' }}
-                    pressStyle={{ bg: '$bgStrongActive' }}
-                    onPress={() => {
-                      logZeroGas('receive');
+                    primary={intl.formatMessage({
+                      id: ETranslations.global_receive,
+                    })}
+                    secondary={intl.formatMessage({
+                      id: ETranslations.receive_from_another_wallet_desc,
+                    })}
+                  />
+                </ListItem>
+                {isBuySupported ? (
+                  <ListItem
+                    mx="$0"
+                    p="$3.5"
+                    drillIn
+                    gap="$3"
+                    userSelect="none"
+                    bg="$neutral2"
+                    borderRadius="$3"
+                    hoverStyle={{ bg: '$neutral3' }}
+                    pressStyle={{ bg: '$neutral4' }}
+                    $platform-native={{
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: '$neutral3',
+                    }}
+                    $platform-web={{
+                      outlineWidth: 1,
+                      outlineColor: '$neutral3',
+                      outlineStyle: 'solid',
+                    }}
+                    onPress={async () => {
+                      logZeroGas('buy');
                       void dialogRef.close();
                       safeResolve(false);
-                      navigation.pushModal(EModalRoutes.ReceiveModal, {
-                        screen: EModalReceiveRoutes.ReceiveSelector,
-                      });
+                      try {
+                        const { url } =
+                          await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl(
+                            {
+                              networkId: network.id,
+                              tokenAddress: '',
+                              accountId: account?.id ?? '',
+                              type: 'buy',
+                            },
+                          );
+                        if (url) {
+                          openFiatCryptoUrl(url);
+                        }
+                      } catch {
+                        navigation.pushModal(EModalRoutes.FiatCryptoModal, {
+                          screen: EModalFiatCryptoRoutes.BuyModal,
+                          params: {
+                            networkId: network.id,
+                            accountId: account?.id ?? '',
+                            tokens: allTokens.tokens,
+                            map,
+                          },
+                        });
+                      }
                     }}
                   >
-                    <Icon name="ArrowBottomOutline" size="$6" color="$icon" />
-                    <SizableText size="$bodyMdMedium">
-                      {intl.formatMessage({
-                        id: ETranslations.global_receive,
-                      })}
-                    </SizableText>
-                  </Stack>
-                  {isBuySupported ? (
-                    <Stack
+                    <YStack bg="$neutral3" p="$2" borderRadius="$full">
+                      <Icon name="CurrencyDollarOutline" color="$iconActive" />
+                    </YStack>
+                    <ListItem.Text
+                      gap="$1"
                       flex={1}
-                      flexBasis={0}
-                      alignItems="center"
-                      justifyContent="center"
-                      bg="$bgStrong"
-                      borderRadius="$4"
-                      pt="$4"
-                      pb="$3"
-                      px="$1"
-                      hoverStyle={{ bg: '$bgStrongHover' }}
-                      pressStyle={{ bg: '$bgStrongActive' }}
-                      onPress={async () => {
-                        logZeroGas('buy');
-                        void dialogRef.close();
-                        safeResolve(false);
-                        try {
-                          const { url } =
-                            await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl(
-                              {
-                                networkId: network.id,
-                                tokenAddress: '',
-                                accountId: account?.id ?? '',
-                                type: 'buy',
-                              },
-                            );
-                          if (url) {
-                            openFiatCryptoUrl(url);
-                          }
-                        } catch {
-                          navigation.pushModal(EModalRoutes.FiatCryptoModal, {
-                            screen: EModalFiatCryptoRoutes.BuyModal,
-                            params: {
-                              networkId: network.id,
-                              accountId: account?.id ?? '',
-                              tokens: allTokens.tokens,
-                              map,
-                            },
-                          });
-                        }
-                      }}
-                    >
-                      <Icon
-                        name="CurrencyDollarOutline"
-                        size="$6"
-                        color="$icon"
-                      />
-                      <SizableText size="$bodyMdMedium">
-                        {intl.formatMessage({
-                          id: ETranslations.global_buy,
-                        })}
-                      </SizableText>
-                    </Stack>
-                  ) : null}
-                </XStack>
+                      primary={intl.formatMessage({
+                        id: ETranslations.global_buy,
+                      })}
+                      secondary={
+                        <XStack mt="$1" gap="$1">
+                          <YStack
+                            h="$5"
+                            px="$1.5"
+                            borderRadius="$2"
+                            borderCurve="continuous"
+                            justifyContent="center"
+                            alignItems="center"
+                            bg="$neutral3"
+                          >
+                            <Icon
+                              name="ApplePayIllus"
+                              h="$3"
+                              w="$8"
+                              color="$icon"
+                            />
+                          </YStack>
+                          <YStack
+                            h="$5"
+                            px="$1.5"
+                            borderRadius="$2"
+                            borderCurve="continuous"
+                            justifyContent="center"
+                            alignItems="center"
+                            bg="$neutral3"
+                          >
+                            <Icon
+                              name="GooglePayIllus"
+                              h="$3"
+                              w="$8"
+                              color="$icon"
+                            />
+                          </YStack>
+                          <YStack
+                            h="$5"
+                            px="$0.5"
+                            borderRadius="$2"
+                            borderCurve="continuous"
+                            justifyContent="center"
+                            alignItems="center"
+                            bg="$neutral3"
+                          >
+                            <Icon
+                              name="VisaIllus"
+                              h="$3"
+                              w="$8"
+                              color="$icon"
+                            />
+                          </YStack>
+                          <XStack
+                            alignItems="center"
+                            px="$1"
+                            gap="$0.5"
+                            bg="$neutral3"
+                            borderRadius="$2"
+                            borderCurve="continuous"
+                          >
+                            {Array.from({ length: 3 }).map((_, index) => (
+                              <YStack
+                                key={index}
+                                borderRadius="$full"
+                                w={3}
+                                h={3}
+                                bg="$iconSubdued"
+                              />
+                            ))}
+                          </XStack>
+                        </XStack>
+                      }
+                    />
+                  </ListItem>
+                ) : null}
                 <Button
                   variant="tertiary"
                   size="large"
@@ -234,8 +323,6 @@ function WalletActionSend({
                   py="$2"
                   onPress={() => {
                     logZeroGas('continue');
-                    // Dialog.close may fire onClose synchronously, so resolve
-                    // first — otherwise onClose's safeResolve(false) wins.
                     safeResolve(true);
                     void dialogRef.close();
                   }}
