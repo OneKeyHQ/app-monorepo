@@ -29,7 +29,14 @@ const _globalThis = globalThis as unknown as {
 const getChannel = () => {
   let channel;
   try {
-    if (process.platform === 'linux' && process.env.APPIMAGE) {
+    // AppImage is detected via the build-time `DESK_CHANNEL=appImage` flag
+    // (set in release-desktop-all.yml and baked in by esbuild `define`).
+    // Reading `process.env.APPIMAGE` would be ambiguous — it is both a define
+    // target (empty on CI) and a runtime value set by the launcher.
+    if (
+      process.platform === 'linux' &&
+      process.env.DESK_CHANNEL === 'appImage'
+    ) {
       channel = 'appImage';
     } else if (process.platform === 'linux' && process.env.SNAP) {
       channel = 'snap';
