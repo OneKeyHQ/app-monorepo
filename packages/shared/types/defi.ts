@@ -116,6 +116,7 @@ export type IDeFiProtocol = {
   categories: string[];
   positions: {
     category: string;
+    categories: string[];
     assets: (IDeFiAsset & { type: EDeFiAssetType })[];
     debts: (IDeFiAsset & { type: EDeFiAssetType })[];
     rewards: (IDeFiAsset & { type: EDeFiAssetType })[];

@@ -11,6 +11,7 @@ type IPositionLabel = { title: string; titleId?: ETranslations };
 type IProtocolPositionSectionKey = 'supplied' | 'borrowed' | 'rewards';
 type IProtocolPositionSourceAsset =
   IDeFiProtocol['positions'][number]['assets'][number];
+type ICategoryConfig = ReturnType<typeof getCategoryConfig>;
 
 const POSITION_MODULE_LABELS: Record<string, IPositionLabel> = {
   deposit: {
@@ -69,9 +70,17 @@ const POSITION_MODULE_LABELS: Record<string, IPositionLabel> = {
     title: 'Borrowed',
     titleId: ETranslations.wallet_defi_asset_type_borrowed,
   },
+  loan: {
+    title: 'Borrowed',
+    titleId: ETranslations.wallet_defi_asset_type_borrowed,
+  },
   vesting: {
     title: 'Vesting',
     titleId: ETranslations.wallet_defi_position_module_vesting,
+  },
+  reward: {
+    title: 'Rewards',
+    titleId: ETranslations.wallet_defi_position_module_rewards,
   },
   yield: {
     title: 'Yield',
@@ -133,11 +142,12 @@ export type IProtocolPositionSection = {
 };
 
 export type IProtocolPositionItem = {
+  positionKey: string;
   groupId: string;
   category: string;
   categoryLabel: string;
   categoryTitleId?: ETranslations;
-  categoryConfig: ReturnType<typeof getCategoryConfig>;
+  categoryConfig: ICategoryConfig;
   poolName?: string;
   poolFullName?: string;
   value: string;
@@ -196,7 +206,7 @@ function buildPositionSections(position: IDeFiProtocol['positions'][number]) {
     >
   )
     .map(([sectionKey, label]) => ({
-      key: `${position.groupId}-${sectionKey}`,
+      key: `${position.groupId}-${position.category}-${sectionKey}`,
       title: label.title,
       titleId: label.titleId,
       assets: groupedAssets[sectionKey].toSorted((a, b) => b.value - a.value),
@@ -206,15 +216,15 @@ function buildPositionSections(position: IDeFiProtocol['positions'][number]) {
 
 function buildProtocolPositionItems(protocol: IDeFiProtocol) {
   return protocol.positions.map<IProtocolPositionItem>((position) => {
-    const categoryConfig = getCategoryConfig(position.category);
     const categoryLabel = getPositionModuleLabel(position.category);
 
     return {
+      positionKey: `${position.groupId}-${position.category}`,
       groupId: position.groupId,
       category: position.category,
       categoryLabel: categoryLabel.title,
       categoryTitleId: categoryLabel.titleId,
-      categoryConfig,
+      categoryConfig: getCategoryConfig(position.category),
       poolName: position.poolName,
       poolFullName: position.poolFullName,
       value: position.value,
