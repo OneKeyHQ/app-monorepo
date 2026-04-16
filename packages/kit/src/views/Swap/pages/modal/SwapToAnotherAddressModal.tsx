@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -55,19 +55,11 @@ const SwapToAnotherAddressPage = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
-  const route =
-    useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
-    >();
-  const paramAddress = route.params?.address;
-  const {
-    accountInfo,
-    address: _address,
-    activeAccount,
-    networkId,
-  } = useSwapAddressInfo(ESwapDirectionType.TO);
+  const { accountInfo, activeAccount, networkId } = useSwapAddressInfo(
+    ESwapDirectionType.TO,
+  );
 
-  const [{ swapToAnotherAccountSwitchOn }, setSettings] = useSettingsAtom();
+  const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const [selectedQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapManualSelectQuote] = useSwapManualSelectQuoteProvidersAtom();
@@ -102,15 +94,6 @@ const SwapToAnotherAddressPage = () => {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
-  // Only prefill when editing an existing custom address.
-  // When swapToAnotherAccountSwitchOn is true and paramAddress differs from
-  // the user's own address, the user previously set a custom address — prefill it.
-  useEffect(() => {
-    if (paramAddress && swapToAnotherAccountSwitchOn) {
-      form.setValue('address', { raw: paramAddress });
-    }
-  }, [paramAddress, swapToAnotherAccountSwitchOn, form]);
-
   const toAddressRaw = form.watch('address')?.raw ?? '';
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
 
@@ -232,7 +215,7 @@ const SwapToAnotherAddressPage = () => {
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
-          disabled: !form.formState.isValid,
+          disabled: !form.formState.isValid || !toAddressRaw.trim(),
         }}
         onConfirm={() => form.handleSubmit(handleOnConfirm)()}
         onConfirmText={intl.formatMessage({

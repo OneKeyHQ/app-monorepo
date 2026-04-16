@@ -13,7 +13,6 @@ import {
   HeightTransition,
   Icon,
   Image,
-  Input,
   NumberSizeableText,
   Page,
   ScrollView,
@@ -1361,7 +1360,7 @@ function SendAmountInputContainer() {
     return (
       <Form.Field
         name="nftAmount"
-        label={intl.formatMessage({ id: ETranslations.send_nft_amount })}
+        errorMessageAlign="center"
         rules={{
           required: true,
           max: nftDetails?.amount ?? 1,
@@ -1376,42 +1375,73 @@ function SendAmountInputContainer() {
           },
         }}
       >
-        {isLoadingAssets ? null : (
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            position="absolute"
-            right="$0"
-            top="$0"
-          >
-            {intl.formatMessage({ id: ETranslations.global_available })}:{' '}
-            {nftDetails?.amount ?? 1}
-          </SizableText>
-        )}
-        <Input
-          size="large"
-          $gtMd={{
-            size: 'medium',
+        <SendAutoSizeAmountInput
+          tokenSymbol={nft?.metadata?.name ?? nft?.collectionName}
+          inputProps={{
+            placeholder: '0',
+            keyboardType: 'number-pad',
           }}
-          addOns={[
-            {
-              loading: isLoadingAssets,
-              label: intl.formatMessage({ id: ETranslations.send_max }),
-              onPress: () => {
-                form.setValue('nftAmount', nftDetails?.amount ?? '1');
-                void form.trigger('nftAmount');
-              },
-            },
-          ]}
         />
       </Form.Field>
     );
   }, [
     form,
-    intl,
-    isLoadingAssets,
     isNFT,
+    nft?.collectionName,
     nft?.collectionType,
+    nft?.metadata?.name,
+    nftDetails?.amount,
+  ]);
+
+  const renderNFTInfoCard = useMemo(() => {
+    if (!isNFT) return null;
+    const nftImage = nft?.metadata?.image;
+    const nftName = nft?.metadata?.name ?? nft?.collectionName ?? '';
+    return (
+      <XStack
+        bg="$bgStrong"
+        borderRadius="$3"
+        px="$3"
+        py="$2.5"
+        alignItems="center"
+        width="100%"
+      >
+        <Stack mr="$3">
+          {nftImage ? (
+            <Image size="$10" borderRadius="$2" source={{ uri: nftImage }} />
+          ) : (
+            <Stack
+              w="$10"
+              h="$10"
+              borderRadius="$2"
+              bg="$gray5"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon name="ImageMountainSolid" size="$6" color="$iconSubdued" />
+            </Stack>
+          )}
+        </Stack>
+        <YStack flex={1}>
+          <SizableText size="$bodyMdMedium" numberOfLines={1}>
+            {nftName}
+          </SizableText>
+          {nft?.collectionType === ENFTType.ERC1155 ? (
+            <SizableText size="$bodySm" color="$textSubdued" mt="$0.5">
+              {intl.formatMessage({ id: ETranslations.global_available })}:{' '}
+              {nftDetails?.amount ?? 1}
+            </SizableText>
+          ) : null}
+        </YStack>
+      </XStack>
+    );
+  }, [
+    intl,
+    isNFT,
+    nft?.collectionName,
+    nft?.collectionType,
+    nft?.metadata?.image,
+    nft?.metadata?.name,
     nftDetails?.amount,
   ]);
 
@@ -1644,6 +1674,7 @@ function SendAmountInputContainer() {
           </HeightTransition>
           {extraContent}
           {renderBalanceCard}
+          {renderNFTInfoCard}
         </Stack>
         {showBuyButton ? (
           <Page.FooterActions
