@@ -3,7 +3,7 @@ import BigNumber from 'bignumber.js';
 import { EQuoteShowTipType } from '@onekeyhq/shared/types/swap/types';
 import type { IQuoteTip, ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-const QUOTE_SHOW_TIP_PRICE_IMPACT_THRESHOLD = 30;
+const QUOTE_SHOW_TIP_DEFAULT_PRICE_IMPACT_LOSS_THRESHOLD = 30;
 
 function toValidBigNumber(value?: string | number) {
   const valueBN = new BigNumber(value ?? '');
@@ -90,6 +90,14 @@ export function resolveQuoteShowTip({
     return quoteShowTip;
   }
 
+  const quotePriceImpactLossThresholdBN = toValidBigNumber(
+    quoteShowTip.priceImpactLoss,
+  );
+  const priceImpactLossThresholdBN =
+    quotePriceImpactLossThresholdBN &&
+    !quotePriceImpactLossThresholdBN.isNegative()
+      ? quotePriceImpactLossThresholdBN
+      : new BigNumber(QUOTE_SHOW_TIP_DEFAULT_PRICE_IMPACT_LOSS_THRESHOLD);
   const actualPriceImpactBN = getActualPriceImpact({
     fromToken,
     toToken,
@@ -101,10 +109,7 @@ export function resolveQuoteShowTip({
     return quoteShowTip;
   }
 
-  if (
-    !actualPriceImpactBN.gt(QUOTE_SHOW_TIP_PRICE_IMPACT_THRESHOLD) ||
-    actualPriceImpactBN.isNegative()
-  ) {
+  if (!actualPriceImpactBN.gt(priceImpactLossThresholdBN)) {
     return undefined;
   }
 

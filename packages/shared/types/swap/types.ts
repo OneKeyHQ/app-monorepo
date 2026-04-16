@@ -368,6 +368,7 @@ export interface IQuoteTip {
   showCheckbox?: boolean;
   checkboxLabel?: string;
   priceImpact?: number;
+  priceImpactLoss?: number;
   type?: EQuoteShowTipType;
 }
 
