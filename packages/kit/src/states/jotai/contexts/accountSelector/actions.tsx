@@ -2167,7 +2167,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 }
               }
               // maybe no hd hw wallet found, reset walletId and indexedAccountId
-              if (!selectedWallet) {
+              if (
+                !selectedWallet ||
+                accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
+              ) {
                 defaultLogger.accountSelector.autoSelect.resetSelectedWalletToUndefined(
                   {
                     selectedAccount: selectedAccountNew,
