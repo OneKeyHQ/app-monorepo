@@ -966,27 +966,45 @@ export default function RecipientQuickSelect({
   // Dedup auto-switch analytics to avoid multiple events per search
   const lastAutoSwitchRef = useRef<string | undefined>(undefined);
 
-  // Callbacks for each tab's match status and count
+  // Callbacks for each tab's match status and count.
+  // Return prev when unchanged to avoid unnecessary re-renders that
+  // cascade to the parent and cause close-button hover flicker.
   const handleRecentMatchStatus = useCallback(
     (hasMatches: boolean, matchCount: number) => {
-      setTabMatchStatus((prev) => ({ ...prev, recent: hasMatches }));
-      setTabMatchCounts((prev) => ({ ...prev, recent: matchCount }));
+      setTabMatchStatus((prev) =>
+        prev.recent === hasMatches ? prev : { ...prev, recent: hasMatches },
+      );
+      setTabMatchCounts((prev) =>
+        prev.recent === matchCount ? prev : { ...prev, recent: matchCount },
+      );
     },
     [],
   );
 
   const handleAccountMatchStatus = useCallback(
     (hasMatches: boolean, matchCount: number) => {
-      setTabMatchStatus((prev) => ({ ...prev, account: hasMatches }));
-      setTabMatchCounts((prev) => ({ ...prev, account: matchCount }));
+      setTabMatchStatus((prev) =>
+        prev.account === hasMatches ? prev : { ...prev, account: hasMatches },
+      );
+      setTabMatchCounts((prev) =>
+        prev.account === matchCount ? prev : { ...prev, account: matchCount },
+      );
     },
     [],
   );
 
   const handleAddressBookMatchStatus = useCallback(
     (hasMatches: boolean, matchCount: number) => {
-      setTabMatchStatus((prev) => ({ ...prev, addressBook: hasMatches }));
-      setTabMatchCounts((prev) => ({ ...prev, addressBook: matchCount }));
+      setTabMatchStatus((prev) =>
+        prev.addressBook === hasMatches
+          ? prev
+          : { ...prev, addressBook: hasMatches },
+      );
+      setTabMatchCounts((prev) =>
+        prev.addressBook === matchCount
+          ? prev
+          : { ...prev, addressBook: matchCount },
+      );
     },
     [],
   );
@@ -1047,12 +1065,16 @@ export default function RecipientQuickSelect({
     }));
   }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys]);
 
-  // Report match status to parent. Only consider tabs that are actually visible
-  // (Lightning hides account/addressBook; callers can pass hideTabs).
+  // Report match status to parent. Only fire when value actually changes
+  // to avoid unnecessary parent re-renders (close-button hover flicker).
+  const lastMatchStatusRef = useRef<boolean | undefined>(undefined);
   useEffect(() => {
     const visibleStatuses = visibleTabKeys.map((tab) => tabMatchStatus[tab]);
     const anyTabHasMatches = visibleStatuses.some((status) => status === true);
-    onMatchStatusChange?.(anyTabHasMatches);
+    if (lastMatchStatusRef.current !== anyTabHasMatches) {
+      lastMatchStatusRef.current = anyTabHasMatches;
+      onMatchStatusChange?.(anyTabHasMatches);
+    }
 
     const allReported = visibleStatuses.every((status) => status !== null);
     if (
