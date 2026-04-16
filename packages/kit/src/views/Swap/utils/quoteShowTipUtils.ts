@@ -4,7 +4,6 @@ import { EQuoteShowTipType } from '@onekeyhq/shared/types/swap/types';
 import type { IQuoteTip, ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 const QUOTE_SHOW_TIP_PRICE_IMPACT_THRESHOLD = 30;
-const QUOTE_SHOW_TIP_PRICE_IMPACT_TOLERANCE = 5;
 
 function toValidBigNumber(value?: string | number) {
   const valueBN = new BigNumber(value ?? '');
@@ -109,16 +108,5 @@ export function resolveQuoteShowTip({
     return undefined;
   }
 
-  const quotePriceImpactBN = toValidBigNumber(quoteShowTip.priceImpact);
-
-  if (!quotePriceImpactBN) {
-    return quoteShowTip;
-  }
-
-  return actualPriceImpactBN
-    .minus(quotePriceImpactBN)
-    .abs()
-    .lte(QUOTE_SHOW_TIP_PRICE_IMPACT_TOLERANCE)
-    ? quoteShowTip
-    : undefined;
+  return quoteShowTip;
 }
