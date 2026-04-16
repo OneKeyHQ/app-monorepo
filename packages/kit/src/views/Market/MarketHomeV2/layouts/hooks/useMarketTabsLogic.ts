@@ -16,6 +16,7 @@ export interface IMarketTabsLogicReturn {
   showPerpsTab: boolean;
   handleTabChange: (tabName: string) => void;
   selectedTab: string;
+  selectedTabName: string;
 }
 
 export function useMarketTabsLogic(
@@ -52,6 +53,12 @@ export function useMarketTabsLogic(
     onTabChange(tabValue);
   }, 50);
 
+  const selectedTabName = useMemo(() => {
+    if (selectedTab === 'watchlist') return watchlistTabName;
+    if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
+    return spotTabName;
+  }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
+
   return {
     watchlistTabName,
     spotTabName,
@@ -59,5 +66,6 @@ export function useMarketTabsLogic(
     showPerpsTab,
     handleTabChange,
     selectedTab,
+    selectedTabName,
   };
 }
