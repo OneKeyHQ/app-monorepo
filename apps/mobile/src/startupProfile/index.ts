@@ -40,6 +40,24 @@ export function isStartupProfileEnabled(): boolean {
   }
 }
 
+// Diagnostic: emit a one-off NativeLogger line so when the profile flag is on
+// but `[StartupProfile.js]` summary lines are missing from the log, we can
+// tell WHY (is `__r` not a function? is `require` a closure-local under
+// inline-requires? did the factory for require-shim run before or after
+// install?). Keep this small and cheap — it only runs when the flag is on.
+function logStartupProfileDiag(tag: string, extra: string): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
+    const m = require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    (m.NativeLogger as any).write(
+      (m.LogLevel as any).Info,
+      `[StartupProfile.js] ${tag}: ${extra}`,
+    );
+  } catch {
+    /* logger not ready — ignore */
+  }
+}
+
 export function installStartupProfileJs(): void {
   if (!isStartupProfileEnabled()) return;
   const g = globalThis as any;
@@ -49,6 +67,10 @@ export function installStartupProfileJs(): void {
   g[GLOBAL_STATS_KEY] = stats;
 
   const origRequire = g.__r as ((id: unknown) => unknown) | undefined;
+  logStartupProfileDiag(
+    'install',
+    `typeof __r=${typeof origRequire}, typeof __d=${typeof (g as any).__d}, hasGlobal=${typeof globalThis !== 'undefined'}`,
+  );
   if (typeof origRequire !== 'function') {
     // Metro runtime not present (unlikely in RN) — skip silently.
     return;
@@ -104,6 +126,10 @@ export function flushStartupProfileJs(): void {
   const stats = g[GLOBAL_STATS_KEY] as
     | Map<string | number, IModStat>
     | undefined;
+  logStartupProfileDiag(
+    'flush-entry',
+    `statsExists=${!!stats}, statsSize=${stats?.size ?? 'n/a'}`,
+  );
   if (!stats || stats.size === 0) return;
 
   let NativeLogger: any;
