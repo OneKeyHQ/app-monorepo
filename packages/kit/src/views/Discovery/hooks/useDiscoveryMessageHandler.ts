@@ -13,6 +13,8 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBitrefillFailStep } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/bitrefill';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import {
   isBitrefillOrigin,
   parseBitrefillPaymentIntent,
@@ -21,7 +23,6 @@ import {
   BITREFILL_BRIDGE_METHOD,
   BITREFILL_EMBED_ORIGIN,
 } from '../utils/bitrefillUtils';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const BITREFILL_DAPP_SCOPE = IInjectedProviderNames.ethereum;
 
