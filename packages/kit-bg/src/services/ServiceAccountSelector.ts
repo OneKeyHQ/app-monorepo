@@ -319,10 +319,17 @@ class ServiceAccountSelector extends ServiceBase {
         //
       }
     }
+    // Mocked/deprecated wallets are "zombie" records still in DB but no
+    // longer user-facing (e.g. HW wallet removed via isRemoveToMocked).
+    // Creating addresses on them silently fails, so gate every canCreate
+    // path (OK-51091). `hasNoUsableWallet` in accountUtils gives the same
+    // guarantee for the UI surface; this is defense-in-depth for any code
+    // path that reads canCreateAddress directly.
+    const isWalletUnusable = accountUtils.isWalletDeprecatedOrMocked(wallet);
     let canCreateAddress = false;
     if (isAllNetwork && networkId) {
       // build mocked networkAccount of all network
-      if (!isOthersWallet && indexedAccountId) {
+      if (!isOthersWallet && indexedAccountId && !isWalletUnusable) {
         try {
           account =
             await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount({
@@ -333,9 +340,14 @@ class ServiceAccountSelector extends ServiceBase {
           account = undefined;
           canCreateAddress = true;
         }
-      } else if (!isOthersWallet && wallet && !indexedAccountId) {
+      } else if (
+        !isOthersWallet &&
+        wallet &&
+        !isWalletUnusable &&
+        !indexedAccountId
+      ) {
         // When all accounts are deleted, allow creating the first account
-        // for HD wallets, HW wallets, and QR wallets
+        // for HD wallets, HW wallets, and QR wallets.
         const isHdOrHwOrQrWallet =
           accountUtils.isHdWallet({ walletId: wallet.id }) ||
           accountUtils.isHwWallet({ walletId: wallet.id }) ||
@@ -346,9 +358,11 @@ class ServiceAccountSelector extends ServiceBase {
       }
     } else {
       // single network
-      canCreateAddress = !isOthersWallet && !account?.address;
+      canCreateAddress =
+        !isOthersWallet && !isWalletUnusable && !account?.address;
       if (isQrWallet && vaultSettings) {
-        canCreateAddress = !!vaultSettings.qrAccountEnabled;
+        canCreateAddress =
+          !isWalletUnusable && !!vaultSettings.qrAccountEnabled;
       }
     }
 
