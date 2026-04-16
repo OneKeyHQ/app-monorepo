@@ -1148,6 +1148,11 @@ function RecipientQuickSelect({
     [isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys],
   );
 
+  // Nothing to render when all tabs are hidden (e.g. web dapp mode)
+  if (visibleTabKeys.length === 0) {
+    return null;
+  }
+
   return (
     <Animated.View entering={FadeIn.duration(200)}>
       <YStack mt="$3" gap="$3">
