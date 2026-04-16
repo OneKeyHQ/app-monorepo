@@ -1065,18 +1065,22 @@ function RecipientQuickSelect({
     }));
   }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys]);
 
-  // Report match status to parent. Only fire when value actually changes
-  // to avoid unnecessary parent re-renders (close-button hover flicker).
+  // Report match status to parent. Wait until every visible tab has
+  // reported (status !== null) before the first notification — avoids
+  // firing once with a partial false then again with the real value,
+  // which causes 2 parent re-renders and close-button hover flicker.
   const lastMatchStatusRef = useRef<boolean | undefined>(undefined);
   useEffect(() => {
     const visibleStatuses = visibleTabKeys.map((tab) => tabMatchStatus[tab]);
+    const allReported = visibleStatuses.every((status) => status !== null);
+    if (!allReported) return;
+
     const anyTabHasMatches = visibleStatuses.some((status) => status === true);
     if (lastMatchStatusRef.current !== anyTabHasMatches) {
       lastMatchStatusRef.current = anyTabHasMatches;
       onMatchStatusChange?.(anyTabHasMatches);
     }
 
-    const allReported = visibleStatuses.every((status) => status !== null);
     if (
       isSearchMode &&
       trimmedSearchKey &&
