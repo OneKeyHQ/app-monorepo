@@ -96,6 +96,12 @@ const isLinux = process.platform === 'linux';
 const isSnapStore = isLinux && process.env.SNAP;
 const isFlatpakStore = isLinux && process.env.FLATPAK;
 const isWindowsMsStore = isWin && process.env.DESK_CHANNEL === 'ms-store';
+// `DESK_CHANNEL=appImage` is set by the AppImage CI job (see
+// release-desktop-all.yml) and baked into the bundle via esbuild `define` in
+// scripts/build.js. Using the dedicated channel flag avoids the ambiguity of
+// reading the runtime `APPIMAGE` env var, which is both a define target and a
+// runtime value set by the AppImage launcher.
+const isAppImage = isLinux && process.env.DESK_CHANNEL === 'appImage';
 
 const isStoreVersion =
   isMas || isSnapStore || isWindowsMsStore || isFlatpakStore;
@@ -581,61 +587,33 @@ class DesktopApiAppUpdate {
     return verified;
   }
 
-  // electron-updater's AppImageUpdater.doInstall calls unlinkSync(process.env.APPIMAGE)
-  // but only guards with `== null`, so an empty-string APPIMAGE slips through and
-  // crashes with `ENOENT: ... unlink ''`. APPIMAGE can end up empty when the app is
-  // launched via a wrapper that clears env, via `--appimage-extract-and-run`, or
-  // through AppImageLauncher's FUSE overlay (where the path is set but not writable).
-  private recoverAppImagePath(): string | null {
-    if (!isLinux) {
-      return null;
-    }
-    const argv0 = process.env.ARGV0;
-    if (argv0 && argv0.endsWith('.AppImage') && fs.existsSync(argv0)) {
-      return path.resolve(argv0);
-    }
-    // AppImage runtime memory-maps the original binary, so /proc/self/maps
-    // still contains a line pointing at the real .AppImage file even when the
-    // APPIMAGE env was stripped by a wrapper launcher.
-    try {
-      const maps = fs.readFileSync('/proc/self/maps', 'utf8');
-      for (const line of maps.split('\n')) {
-        const match = line.match(/\s(\/.+\.AppImage)$/);
-        if (match && fs.existsSync(match[1])) {
-          return match[1];
-        }
-      }
-    } catch {
-      // /proc unavailable (non-Linux sandbox, restricted container) — give up
-    }
-    return null;
-  }
-
+  // electron-updater's AppImageUpdater.doInstall calls unlinkSync on the path
+  // stored in the runtime env, but only guards with `== null`, so an empty
+  // string slips through and crashes with `ENOENT: ... unlink ''`. The env can
+  // end up empty when the app is launched via a wrapper, via
+  // `--appimage-extract-and-run`, or through AppImageLauncher's FUSE overlay
+  // (where it points to a read-only mount).
+  //
+  // We read via bracket notation so esbuild's `define` in scripts/build.js
+  // (which rewrites the dot-access form to a build-time literal) doesn't
+  // interfere — this way we see the real runtime value that electron-updater
+  // itself reads.
   private canAutoInstallAppImage(): boolean {
-    if (!isLinux) {
-      return true;
-    }
-    let appImage = process.env.APPIMAGE;
-    if (!appImage || appImage.trim().length === 0) {
-      const recovered = this.recoverAppImagePath();
-      if (recovered) {
-        process.env.APPIMAGE = recovered;
-        appImage = recovered;
-        logger.info('auto-updater', `recovered APPIMAGE path: ${recovered}`);
-      } else {
-        logger.warn(
-          'auto-updater',
-          'APPIMAGE env missing and could not be recovered; falling back to manual install',
-        );
-        return false;
-      }
+    // eslint-disable-next-line @typescript-eslint/dot-notation -- bracket bypasses esbuild `define`
+    const appImagePath = process.env['APPIMAGE'];
+    if (!appImagePath || appImagePath.trim().length === 0) {
+      logger.warn(
+        'auto-updater',
+        'AppImage runtime env missing; falling back to manual install',
+      );
+      return false;
     }
     try {
-      fs.accessSync(appImage, fs.constants.W_OK);
+      fs.accessSync(appImagePath, fs.constants.W_OK);
     } catch (error) {
       logger.warn(
         'auto-updater',
-        `APPIMAGE path not writable (${appImage}); falling back to manual install`,
+        `AppImage path not writable (${appImagePath}); falling back to manual install`,
         error,
       );
       return false;
@@ -691,7 +669,7 @@ class DesktopApiAppUpdate {
         // On Linux AppImage, bail out early if APPIMAGE env is unusable —
         // quitAndInstall would otherwise crash inside electron-updater with
         // `ENOENT: ... unlink ''` and leave the user stuck.
-        if (!this.canAutoInstallAppImage()) {
+        if (isLinux && isAppImage && !this.canAutoInstallAppImage()) {
           await this.manualInstallPackage(verifyParams);
           return;
         }
