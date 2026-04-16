@@ -2179,6 +2179,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
                 selectedAccountNew.walletId = undefined;
                 selectedAccountNew.indexedAccountId = undefined;
+                // Sync local variables so subsequent code (isHdWallet /
+                // isHwOrQrWallet checks, Others fallback) doesn't use the
+                // stale deprecated wallet reference and undo the reset.
+                selectedWalletId = undefined;
+                selectedWallet = undefined;
               }
             }
           }
