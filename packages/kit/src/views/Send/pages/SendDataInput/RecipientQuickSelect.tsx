@@ -569,9 +569,13 @@ function AccountRecipients({
     }));
   }, []);
 
-  // Show skeleton on initial load or while loading (when isLoadingAccounts is undefined or true)
+  // Show skeleton while loading OR while useDeferredValue is still stale
+  // (isLoadingAccounts settles before the deferred walletGroups updates,
+  // which would briefly show an empty list without this guard).
+  const isDeferredStale = walletGroupsRaw !== walletGroups;
   const isInitialLoading =
-    isLoadingAccounts !== false && walletGroups.length === 0;
+    (isLoadingAccounts !== false || isDeferredStale) &&
+    walletGroups.length === 0;
   if (isInitialLoading) {
     return <QuickSelectListSkeleton />;
   }
@@ -949,6 +953,11 @@ function RecipientQuickSelect({
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
 
+  // Tracks the last value sent to parent via onMatchStatusChange.
+  // Declared here (before prevSearchKeyRef check) so the reset below
+  // can clear it when searchKey changes.
+  const lastMatchStatusRef = useRef<boolean | undefined>(undefined);
+
   // When the raw searchKey changes, reset tabMatchStatus to null so that
   // the noResult check waits for children to re-report with the new key.
   // This prevents a race where parent's debounce settles before children's,
@@ -958,6 +967,7 @@ function RecipientQuickSelect({
     prevSearchKeyRef.current = searchKey;
     setTabMatchStatus({ recent: null, account: null, addressBook: null });
     setTabMatchCounts({ recent: 0, account: 0, addressBook: 0 });
+    lastMatchStatusRef.current = undefined;
   }
 
   // Track the search key at the time of last manual tab switch
@@ -1069,7 +1079,6 @@ function RecipientQuickSelect({
   // reported (status !== null) before the first notification — avoids
   // firing once with a partial false then again with the real value,
   // which causes 2 parent re-renders and close-button hover flicker.
-  const lastMatchStatusRef = useRef<boolean | undefined>(undefined);
   useEffect(() => {
     const visibleStatuses = visibleTabKeys.map((tab) => tabMatchStatus[tab]);
     const allReported = visibleStatuses.every((status) => status !== null);

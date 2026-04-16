@@ -4816,6 +4816,11 @@ class ServiceAccount extends ServiceBase {
     }
 
     const settled = await Promise.allSettled(tasks);
+    for (const r of settled) {
+      if (r.status === 'rejected') {
+        console.error('resolveWallet failed:', r.reason);
+      }
+    }
     const groups = settled
       .filter(
         (
