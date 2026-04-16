@@ -47,6 +47,7 @@ import PreSwapInfoGroup from '../../components/PreSwapInfoGroup';
 import PreSwapStep from '../../components/PreSwapStep';
 import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
+import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
@@ -114,13 +115,31 @@ const PreSwapDialogContent = ({
     IQuoteTip | undefined
   >(undefined);
 
+  const validatedQuoteShowTip = useMemo(
+    () =>
+      resolveQuoteShowTip({
+        quoteShowTip: quoteResult?.quoteShowTip,
+        fromToken: preSwapData?.fromToken,
+        toToken: preSwapData?.toToken,
+        fromAmount,
+        toAmount,
+      }),
+    [
+      fromAmount,
+      preSwapData?.fromToken,
+      preSwapData?.toToken,
+      quoteResult?.quoteShowTip,
+      toAmount,
+    ],
+  );
+
   const handleConfirmPress = useCallback(() => {
-    if (quoteResult?.quoteShowTip) {
-      setShowPreSwapTipInfo(quoteResult?.quoteShowTip);
+    if (validatedQuoteShowTip) {
+      setShowPreSwapTipInfo(validatedQuoteShowTip);
     } else {
       onConfirm();
     }
-  }, [onConfirm, quoteResult?.quoteShowTip]);
+  }, [onConfirm, validatedQuoteShowTip]);
 
   const tipOnConfirm = useCallback(() => {
     onConfirm();
