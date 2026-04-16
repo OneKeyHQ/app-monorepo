@@ -339,12 +339,14 @@ class ServiceAccountProfile extends ServiceBase {
     networkId,
     accountId,
     toAddress,
+    checkInteractionStatus,
   }: {
     networkId: string;
     accountId?: string;
     toAddress: string;
+    checkInteractionStatus?: boolean;
   }): Promise<IAccountBadgeResult> {
-    const cacheKey = `${networkId}:${accountId ?? ''}:${toAddress.toLowerCase()}`;
+    const cacheKey = `${networkId}:${accountId ?? ''}:${toAddress.toLowerCase()}:${checkInteractionStatus ? '1' : '0'}`;
 
     const cached = this._badgeCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < BADGE_CACHE_TTL) {
@@ -360,6 +362,7 @@ class ServiceAccountProfile extends ServiceBase {
       networkId,
       accountId,
       toAddress,
+      checkInteractionStatus,
     })
       .then((r) => {
         if (this._badgeCache.size >= BADGE_CACHE_MAX_SIZE) {
@@ -383,10 +386,12 @@ class ServiceAccountProfile extends ServiceBase {
     networkId,
     accountId,
     toAddress,
+    checkInteractionStatus,
   }: {
     networkId: string;
     accountId?: string;
     toAddress: string;
+    checkInteractionStatus?: boolean;
   }): Promise<IAccountBadgeResult> {
     const { serviceAccount } = this.backgroundApi;
     let fromAddress: string | undefined;
@@ -398,12 +403,15 @@ class ServiceAccountProfile extends ServiceBase {
       fromAddress = acc.address;
     }
 
-    const xpubEntries = accountId
-      ? await serviceAccount.safeGetAccountXpubsForAllDeriveTypes({
-          accountId,
-          networkId,
-        })
-      : [];
+    // Only fan-out across multiple xpubs when interaction status is needed.
+    // Scam/CEX/contract badges are address-scoped and don't need xpub fan-out.
+    const xpubEntries =
+      checkInteractionStatus && accountId
+        ? await serviceAccount.safeGetAccountXpubsForAllDeriveTypes({
+            accountId,
+            networkId,
+          })
+        : [];
 
     if (xpubEntries.length > 1) {
       const settled = await promiseAllSettledEnhanced(
@@ -453,6 +461,7 @@ class ServiceAccountProfile extends ServiceBase {
       networkId,
       accountId,
       toAddress,
+      checkInteractionStatus,
     });
 
     const {
