@@ -225,8 +225,8 @@ const SwapActionsState = ({
     clearRecipientAddressOnHide,
     networkId: toToken?.networkId ?? swapToAddressInfo.networkId,
     accountId:
-      swapToAddressInfo.activeAccount?.account?.id ??
-      swapToAddressInfo.accountInfo?.account?.id,
+      swapToAddressInfo.accountInfo?.account?.id ??
+      swapToAddressInfo.activeAccount?.account?.id,
     accountInfo:
       swapToAddressInfo.accountInfo ?? swapToAddressInfo.activeAccount,
     address: swapToAnotherAccountAddress.address,
