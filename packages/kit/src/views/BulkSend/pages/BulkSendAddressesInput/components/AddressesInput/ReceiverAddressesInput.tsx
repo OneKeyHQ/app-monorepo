@@ -1,5 +1,5 @@
 /* eslint-disable no-continue */
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
@@ -164,28 +164,30 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
   }, [error?.message, receiverValidationErrors]);
 
   return (
-    <YStack gap="$1">
-      {parsedMessages.map((item) =>
-        'lineNumber' in item ? (
-          <HyperlinkText
-            key={item.key}
-            color="$textCritical"
-            size="$bodyMd"
-            translationId={ETranslations.send_address_not_allowlist_error}
-            autoExecuteParsedAction={false}
-            onAction={(actionId) => {
-              if (actionId === 'to_add_address_page') {
-                void handleOpenAddressBook(item.lineNumber);
-              }
-            }}
-          />
-        ) : (
-          <SizableText key={item.key} color="$textCritical" size="$bodyMd">
-            {item.message}
-          </SizableText>
-        ),
-      )}
-    </YStack>
+    <>
+      {parsedMessages.map((item, index) => (
+        <Fragment key={item.key}>
+          {index > 0 ? '\n' : null}
+          {'lineNumber' in item ? (
+            <HyperlinkText
+              color="$textCritical"
+              size="$bodyMd"
+              translationId={ETranslations.send_address_not_allowlist_error}
+              autoExecuteParsedAction={false}
+              onAction={(actionId) => {
+                if (actionId === 'to_add_address_page') {
+                  void handleOpenAddressBook(item.lineNumber);
+                }
+              }}
+            />
+          ) : (
+            <SizableText color="$textCritical" size="$bodyMd">
+              {item.message}
+            </SizableText>
+          )}
+        </Fragment>
+      ))}
+    </>
   );
 }
 
