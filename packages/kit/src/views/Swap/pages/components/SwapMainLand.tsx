@@ -113,6 +113,7 @@ import {
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 import { buildSwapReviewState } from '../../utils/buildSwapReviewState';
+import { attachUnknownTokenValueTip } from '../../utils/unknownTokenValueTip';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
@@ -579,11 +580,29 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }),
     [currentQuoteRes?.info.providerName, fromSelectToken?.symbol, intl],
   );
+  const unknownTokenValueTip = useMemo(
+    () => ({
+      title: intl.formatMessage({
+        id: ETranslations.trade_unknown_token_value,
+      }),
+      detail: intl.formatMessage({
+        id: ETranslations.trade_unable_to_obtain_token_value,
+      }),
+      showCancelButton: true,
+    }),
+    [intl],
+  );
 
   const parseQuoteResultToSteps = useCallback(() => {
     if (!currentQuoteRes) {
       return;
     }
+
+    const reviewQuoteResult = attachUnknownTokenValueTip({
+      quoteResult: currentQuoteRes,
+      toTokenPrice: toSelectToken?.price,
+      quoteTip: unknownTokenValueTip,
+    });
 
     const nextReviewState = buildSwapReviewState({
       accountId: swapFromAddressInfo.accountInfo?.account?.id,
@@ -596,7 +615,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           ? swapProInputAmount
           : fromTokenAmount.value,
       toTokenAmount: swapToAmount.value,
-      quoteResult: currentQuoteRes,
+      quoteResult: reviewQuoteResult,
       swapType: swapTypeFinal,
       shouldFallback:
         SwapBuildShouldFallBackNetworkIds.includes(
@@ -617,6 +636,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     setSwapSteps,
     fromSelectToken,
     toSelectToken,
+    unknownTokenValueTip,
     focusSwapPro,
     swapProTradeType,
     swapProInputAmount,

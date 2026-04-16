@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { attachUnknownTokenValueTip } from '@onekeyhq/kit/src/views/Swap/utils/unknownTokenValueTip';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -75,29 +76,11 @@ export function attachMarketUnknownTokenValueTip({
   toTokenPrice?: string;
   quoteTip?: IQuoteTip;
 }) {
-  if (quoteResult.quoteShowTip || !quoteTip) {
-    return quoteResult;
-  }
-
-  const toAmountBN = new BigNumber(quoteResult.toAmount ?? 0);
-  const toTokenPriceBN = new BigNumber(toTokenPrice ?? 0);
-
-  if (toAmountBN.isNaN()) {
-    return quoteResult;
-  }
-
-  const receiveFiatValueBN = toAmountBN.multipliedBy(
-    toTokenPriceBN.isNaN() ? 0 : toTokenPriceBN,
-  );
-
-  if (!receiveFiatValueBN.isNaN() && receiveFiatValueBN.gt(0)) {
-    return quoteResult;
-  }
-
-  return {
-    ...quoteResult,
-    quoteShowTip: quoteTip,
-  };
+  return attachUnknownTokenValueTip({
+    quoteResult,
+    toTokenPrice,
+    quoteTip,
+  });
 }
 
 export function mergeMarketBuildResultWithQuote({
