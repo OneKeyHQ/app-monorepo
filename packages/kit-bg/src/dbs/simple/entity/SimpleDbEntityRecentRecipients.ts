@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -13,16 +14,45 @@ export interface IRecentRecipientsDBStruct {
   recentRecipients: Record<string, Record<string, IRecentRecipientData>>; // { storageKey: { recipient address: { updatedAt, networkId } } }
 }
 
+export interface IRecentRecipientEntry {
+  address: string;
+  updatedAt: number;
+  networkId?: string;
+  memo?: string;
+}
+
+// Per-bucket storage cap. Callers fanning out across buckets should request
+// up to this many entries so the merge step has the full pool to dedupe from.
+export const RECENT_RECIPIENTS_BUCKET_CAP = 10;
+
+// Storage key uses (network, on-chain identity) so two accounts that wrap
+// the same identity — e.g. the same mnemonic imported into two HD wallets —
+// share a single recent-recipient list (OK-53307).
+//
+// EVM networkIds are collapsed to their impl (`evm--1` / `evm--56` -> `evm`)
+// via networkUtils.getNetworkImplOrNetworkId before keying, so recipients stay
+// shared across all EVM chains (Ethereum / BSC / Polygon / Arbitrum / ...) —
+// addresses are reusable across them and users expect one recents list, not
+// one per chain. Non-EVM networkIds pass through unchanged: BTC mainnet vs
+// testnet, Cosmos hub vs Osmosis, etc. each keep their own bucket.
+//
+// buildAccountLocalAssetsKey lowercases the entire key, same as the other
+// identity-keyed entities (LocalHistory / LocalTokens / LocalNFTs) — collision
+// risk on case-sensitive xpubs is astronomically improbable and matches the
+// existing project convention.
 function buildRecipientStorageKey({
   networkId,
-  accountId,
+  accountIdentity,
 }: {
   networkId: string;
-  accountId: string;
+  accountIdentity: string;
 }): string {
-  const networkKey =
+  const networkImpl =
     networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
-  return `${networkKey}__${accountId}`;
+  return accountUtils.buildAccountLocalAssetsKey({
+    networkId: networkImpl,
+    accountAddress: accountIdentity,
+  });
 }
 
 export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRecipientsDBStruct> {
@@ -36,45 +66,19 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   }
 
   @backgroundMethod()
-  async deleteRecentRecipient({
-    networkId,
-    accountId,
-    address,
-  }: {
-    networkId: string;
-    accountId: string;
-    address: string;
-  }) {
-    const storageKey = buildRecipientStorageKey({ networkId, accountId });
-    await this.setRawData((rawData) => {
-      const recentRecipients = rawData?.recentRecipients ?? {};
-      const networkRecipients = recentRecipients[storageKey];
-      if (networkRecipients) {
-        const normalizedAddress = networkUtils.isEvmNetwork({ networkId })
-          ? address.toLowerCase()
-          : address;
-        delete networkRecipients[normalizedAddress];
-      }
-      return { recentRecipients };
-    });
-  }
-
-  @backgroundMethod()
   async getRecentRecipients({
     networkId,
-    accountId,
+    accountIdentity,
     limit = 5,
   }: {
     networkId: string;
-    accountId: string;
+    accountIdentity: string;
     limit?: number;
-  }): Promise<
-    { address: string; updatedAt: number; networkId?: string; memo?: string }[]
-  > {
+  }): Promise<IRecentRecipientEntry[]> {
     const rawData = await this.getRawData();
     const recentRecipients = rawData?.recentRecipients ?? {};
 
-    const storageKey = buildRecipientStorageKey({ networkId, accountId });
+    const storageKey = buildRecipientStorageKey({ networkId, accountIdentity });
     const recipients = recentRecipients[storageKey] ?? {};
 
     const recentRecipientsSorted = Object.entries(recipients).toSorted(
@@ -93,18 +97,18 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   @backgroundMethod()
   async updateRecentRecipients({
     networkId,
-    accountId,
+    accountIdentity,
     address,
     updatedAt,
     memo,
   }: {
     networkId: string;
-    accountId: string;
+    accountIdentity: string;
     address: string;
     updatedAt: number;
     memo?: string;
   }) {
-    const storageKey = buildRecipientStorageKey({ networkId, accountId });
+    const storageKey = buildRecipientStorageKey({ networkId, accountIdentity });
 
     await this.setRawData((rawData) => {
       const recentRecipients = rawData?.recentRecipients ?? {};
@@ -122,10 +126,11 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
         memo,
       };
 
-      // Get all recipients for this network sorted by updatedAt
+      // Get all recipients for this network sorted by updatedAt, capped at
+      // RECENT_RECIPIENTS_BUCKET_CAP per (network, identity) bucket.
       const sortedRecipients = Object.entries(networkRecipients)
         .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
-        .slice(0, 10); // Keep only the 10 most recent recipients
+        .slice(0, RECENT_RECIPIENTS_BUCKET_CAP);
 
       // Reconstruct the network recipients object
       recentRecipients[storageKey] = Object.fromEntries(sortedRecipients);
