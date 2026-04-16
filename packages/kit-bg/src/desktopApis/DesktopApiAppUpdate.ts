@@ -581,6 +581,68 @@ class DesktopApiAppUpdate {
     return verified;
   }
 
+  // electron-updater's AppImageUpdater.doInstall calls unlinkSync(process.env.APPIMAGE)
+  // but only guards with `== null`, so an empty-string APPIMAGE slips through and
+  // crashes with `ENOENT: ... unlink ''`. APPIMAGE can end up empty when the app is
+  // launched via a wrapper that clears env, via `--appimage-extract-and-run`, or
+  // through AppImageLauncher's FUSE overlay (where the path is set but not writable).
+  private recoverAppImagePath(): string | null {
+    if (!isLinux) {
+      return null;
+    }
+    const argv0 = process.env.ARGV0;
+    if (argv0 && argv0.endsWith('.AppImage') && fs.existsSync(argv0)) {
+      return path.resolve(argv0);
+    }
+    // AppImage runtime memory-maps the original binary, so /proc/self/maps
+    // still contains a line pointing at the real .AppImage file even when the
+    // APPIMAGE env was stripped by a wrapper launcher.
+    try {
+      const maps = fs.readFileSync('/proc/self/maps', 'utf8');
+      for (const line of maps.split('\n')) {
+        const match = line.match(/\s(\/.+\.AppImage)$/);
+        if (match && fs.existsSync(match[1])) {
+          return match[1];
+        }
+      }
+    } catch {
+      // /proc unavailable (non-Linux sandbox, restricted container) — give up
+    }
+    return null;
+  }
+
+  private canAutoInstallAppImage(): boolean {
+    if (!isLinux) {
+      return true;
+    }
+    let appImage = process.env.APPIMAGE;
+    if (!appImage || appImage.trim().length === 0) {
+      const recovered = this.recoverAppImagePath();
+      if (recovered) {
+        process.env.APPIMAGE = recovered;
+        appImage = recovered;
+        logger.info('auto-updater', `recovered APPIMAGE path: ${recovered}`);
+      } else {
+        logger.warn(
+          'auto-updater',
+          'APPIMAGE env missing and could not be recovered; falling back to manual install',
+        );
+        return false;
+      }
+    }
+    try {
+      fs.accessSync(appImage, fs.constants.W_OK);
+    } catch (error) {
+      logger.warn(
+        'auto-updater',
+        `APPIMAGE path not writable (${appImage}); falling back to manual install`,
+        error,
+      );
+      return false;
+    }
+    return true;
+  }
+
   async installPackage(verifyParams: IInstallUpdateParams): Promise<void> {
     const verified = await this.verifyFile(verifyParams);
     if (!verified) {
@@ -626,6 +688,13 @@ class DesktopApiAppUpdate {
       }
       if (!isMac) {
         logger.info('auto-update', 'button[0] was clicked', buildNumber);
+        // On Linux AppImage, bail out early if APPIMAGE env is unusable —
+        // quitAndInstall would otherwise crash inside electron-updater with
+        // `ENOENT: ... unlink ''` and leave the user stuck.
+        if (!this.canAutoInstallAppImage()) {
+          await this.manualInstallPackage(verifyParams);
+          return;
+        }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const isExist = autoUpdater?.isExistInstallerPath();
         const downloadedFilePath = verifyParams.downloadedFile;
