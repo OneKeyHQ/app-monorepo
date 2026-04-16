@@ -87,15 +87,17 @@ function SendConfirmContainer() {
         logoURI: '',
         info: undefined,
       });
-      const [n, nativeTokenAddress, checkInscriptionProtectionEnabled] =
-        await Promise.all([
-          backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-          backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
-          backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled({
+      const [n, nativeTokenAddress] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+        backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
+      ]);
+      const checkInscriptionProtectionEnabled =
+        await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+          {
             networkId,
             accountId,
-          }),
-        ]);
+          },
+        );
       const withCheckInscription =
         checkInscriptionProtectionEnabled && settings.inscriptionProtection;
       const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
@@ -141,14 +143,117 @@ function SendConfirmContainer() {
     [updateSendFeeStatus],
   );
 
-  const handleOnClose = useCallback(
-    (extra?: { flag?: string }) => {
-      if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
-        dappApprove.reject();
-      }
-    },
-    [dappApprove],
+  const renderSendConfirmView = useCallback(
+    () => (
+      <>
+        <Page.Body testID="tx-confirmation-body">
+          <Stack>
+            {sendFeeStatus.errMessage ? (
+              <Alert
+                mb="$2.5"
+                fullBleed
+                icon="ErrorOutline"
+                type="critical"
+                title={sendFeeStatus.errMessage}
+                action={{
+                  primary: intl.formatMessage({
+                    id: ETranslations.global_retry,
+                  }),
+                  isPrimaryLoading:
+                    sendFeeStatus.status === ESendFeeStatus.Loading,
+                  onPrimaryPress() {
+                    appEventBus.emit(
+                      EAppEventBusNames.EstimateTxFeeRetry,
+                      undefined,
+                    );
+                  },
+                }}
+              />
+            ) : null}
+            {sendAlertStatus.isInsufficientNativeBalance ? (
+              <Alert
+                mb="$2.5"
+                fullBleed
+                icon="ErrorOutline"
+                type="critical"
+                title={intl.formatMessage(
+                  {
+                    id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
+                  },
+                  {
+                    crypto: network?.symbol ?? '',
+                  },
+                )}
+              />
+            ) : null}
+            {preCheckTxStatus.errorMessage ? (
+              <Alert
+                mb="$2.5"
+                fullBleed
+                icon="ErrorOutline"
+                type="critical"
+                title={preCheckTxStatus.errorMessage}
+              />
+            ) : null}
+          </Stack>
+          <TxSourceInfoContainer sourceInfo={sourceInfo} />
+          <TxActionsContainer
+            accountId={accountId}
+            networkId={networkId}
+            transferPayload={transferPayload}
+          />
+          <TxSpecialInfoContainer
+            accountId={accountId}
+            networkId={networkId}
+            unsignedTxs={unsignedTxs}
+          />
+          <TxAdvancedSettingsContainer
+            accountId={accountId}
+            networkId={networkId}
+          />
+        </Page.Body>
+        <SendConfirmActionsContainer
+          popStack={popStack}
+          sourceInfo={sourceInfo}
+          signOnly={signOnly}
+          accountId={accountId}
+          networkId={networkId}
+          onSuccess={onSuccess}
+          onFail={onFail}
+          onCancel={onCancel}
+          transferPayload={transferPayload}
+          useFeeInTx={useFeeInTx}
+          feeInfoEditable={feeInfoEditable}
+        />
+      </>
+    ),
+    [
+      sendFeeStatus.errMessage,
+      sendFeeStatus.status,
+      intl,
+      sendAlertStatus.isInsufficientNativeBalance,
+      network?.symbol,
+      preCheckTxStatus.errorMessage,
+      sourceInfo,
+      accountId,
+      networkId,
+      transferPayload,
+      unsignedTxs,
+      popStack,
+      signOnly,
+      onSuccess,
+      onFail,
+      onCancel,
+      useFeeInTx,
+      feeInfoEditable,
+    ],
   );
+
+  const handleOnClose = (extra?: { flag?: string }) => {
+    if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
+      dappApprove.reject();
+    }
+  };
 
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
@@ -157,85 +262,7 @@ function SendConfirmContainer() {
           id: ETranslations.transaction__transaction_confirm,
         })}
       />
-      <Page.Body testID="tx-confirmation-body">
-        <Stack>
-          {sendFeeStatus.errMessage ? (
-            <Alert
-              mb="$2.5"
-              fullBleed
-              icon="ErrorOutline"
-              type="critical"
-              title={sendFeeStatus.errMessage}
-              action={{
-                primary: intl.formatMessage({
-                  id: ETranslations.global_retry,
-                }),
-                isPrimaryLoading:
-                  sendFeeStatus.status === ESendFeeStatus.Loading,
-                onPrimaryPress() {
-                  appEventBus.emit(
-                    EAppEventBusNames.EstimateTxFeeRetry,
-                    undefined,
-                  );
-                },
-              }}
-            />
-          ) : null}
-          {sendAlertStatus.isInsufficientNativeBalance ? (
-            <Alert
-              mb="$2.5"
-              fullBleed
-              icon="ErrorOutline"
-              type="critical"
-              title={intl.formatMessage(
-                {
-                  id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
-                },
-                {
-                  crypto: network?.symbol ?? '',
-                },
-              )}
-            />
-          ) : null}
-          {preCheckTxStatus.errorMessage ? (
-            <Alert
-              mb="$2.5"
-              fullBleed
-              icon="ErrorOutline"
-              type="critical"
-              title={preCheckTxStatus.errorMessage}
-            />
-          ) : null}
-        </Stack>
-        <TxSourceInfoContainer sourceInfo={sourceInfo} />
-        <TxActionsContainer
-          accountId={accountId}
-          networkId={networkId}
-          transferPayload={transferPayload}
-        />
-        <TxSpecialInfoContainer
-          accountId={accountId}
-          networkId={networkId}
-          unsignedTxs={unsignedTxs}
-        />
-        <TxAdvancedSettingsContainer
-          accountId={accountId}
-          networkId={networkId}
-        />
-      </Page.Body>
-      <SendConfirmActionsContainer
-        popStack={popStack}
-        sourceInfo={sourceInfo}
-        signOnly={signOnly}
-        accountId={accountId}
-        networkId={networkId}
-        onSuccess={onSuccess}
-        onFail={onFail}
-        onCancel={onCancel}
-        transferPayload={transferPayload}
-        useFeeInTx={useFeeInTx}
-        feeInfoEditable={feeInfoEditable}
-      />
+      {renderSendConfirmView()}
     </Page>
   );
 }
