@@ -306,6 +306,19 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       accountInfo: undefined,
       activeAccount: undefined,
     };
+    let nextAccountInfo = swapToAnotherAccountAddressAtom.accountInfo
+      ? {
+          ...swapToAnotherAccountAddressAtom.accountInfo,
+        }
+      : undefined;
+
+    if (!nextAccountInfo && activeAccount) {
+      // Directly pasted recipients may not carry a saved recipient context,
+      // but downstream swap flows still need the current TO-slot account info.
+      nextAccountInfo = {
+        ...activeAccount,
+      };
+    }
     // Keep the confirmed custom recipient even when cross-chain TO account
     // resolution has not materialized a network account yet.
     if (
@@ -323,11 +336,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         ...res,
         address: swapToAnotherAccountAddressAtom.address ?? '',
         networkId: swapToAnotherAccountAddressAtom.networkId ?? '',
-        accountInfo: swapToAnotherAccountAddressAtom.accountInfo
-          ? {
-              ...swapToAnotherAccountAddressAtom.accountInfo,
-            }
-          : undefined,
+        accountInfo: nextAccountInfo,
         activeAccount: {
           ...activeAccount,
         },
