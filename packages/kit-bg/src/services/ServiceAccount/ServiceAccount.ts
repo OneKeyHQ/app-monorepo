@@ -4681,6 +4681,139 @@ class ServiceAccount extends ServiceBase {
     return { networkAccounts, network };
   }
 
+  // Batch-fetch every wallet's accounts for a single network in ONE
+  // background call.  This replaces the N per-indexedAccount IPC
+  // round-trips that RecipientQuickSelect used to make from the UI.
+  @backgroundMethod()
+  async getWalletAccountGroupsForNetwork({
+    networkId,
+    keylessWalletsOnly,
+  }: {
+    networkId: string;
+    keylessWalletsOnly?: boolean;
+  }): Promise<{
+    groups: Array<{
+      walletId: string;
+      walletName: string;
+      isHardwareWallet: boolean;
+      accounts: Array<{
+        account: INetworkAccount;
+        deriveInfo?: IAccountDeriveInfo;
+        deriveType?: string;
+      }>;
+      wallet: IDBWallet;
+    }>;
+    mergeDeriveAssetsEnabled: boolean;
+  }> {
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const vaultSettings = await vault.getVaultSettings();
+    const mergeDeriveAssetsEnabled =
+      !!vaultSettings.mergeDeriveAssetsEnabled;
+
+    const { wallets } = await this.getWallets({
+      ignoreEmptySingletonWalletAccounts: true,
+      ignoreNonBackedUpWallets: true,
+      nestedHiddenWallets: true,
+      includingAccounts: true,
+    });
+
+    // Pre-fetch all DB accounts once — avoids N individual DB reads.
+    const { accounts: allDbAccounts } = await localDb.getAllAccounts();
+
+    const resolveWallet = async (
+      wallet: IDBWallet,
+      walletName: string,
+    ) => {
+      const shouldSkip =
+        accountUtils.isWatchingWallet({ walletId: wallet.id }) ||
+        accountUtils.isExternalWallet({ walletId: wallet.id }) ||
+        wallet.deprecated ||
+        wallet.isMocked ||
+        (keylessWalletsOnly &&
+          !accountUtils.isKeylessWallet({ walletId: wallet.id }));
+      if (shouldSkip) return null;
+
+      const { dbIndexedAccounts, dbAccounts } = wallet;
+      let accounts: Array<{
+        account: INetworkAccount;
+        deriveInfo?: IAccountDeriveInfo;
+        deriveType?: string;
+      }> = [];
+
+      if (dbIndexedAccounts?.length) {
+        // HD / Hardware / QR wallets — reuse existing method with
+        // pre-fetched DB accounts to skip per-account DB reads.
+        const perIndexed = await Promise.all(
+          dbIndexedAccounts.map(async (indexedAccount) => {
+            try {
+              const resp =
+                await this.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+                  {
+                    allDbAccounts,
+                    skipDbQueryIfNotFoundFromAllDbAccounts: true,
+                    networkId,
+                    indexedAccountId: indexedAccount.id,
+                    excludeEmptyAccount: true,
+                  },
+                );
+              return resp.networkAccounts;
+            } catch {
+              return [];
+            }
+          }),
+        );
+        accounts = perIndexed
+          .flat()
+          .filter((a) => a.account)
+          .map((a) => ({
+            account: a.account as INetworkAccount,
+            deriveInfo: a.deriveInfo,
+            deriveType: a.deriveType,
+          }));
+      } else if (dbAccounts?.length) {
+        const networkImpl = networkId.split('--')[0];
+        accounts = dbAccounts
+          .filter((acc) => acc.impl === networkImpl)
+          .map((acc) => ({
+            account: acc as unknown as INetworkAccount,
+          }));
+      }
+
+      if (accounts.length === 0) return null;
+
+      return {
+        walletId: wallet.id,
+        walletName,
+        isHardwareWallet: accountUtils.isHwWallet({
+          walletId: wallet.id,
+        }),
+        accounts,
+        wallet,
+      };
+    };
+
+    const tasks: Array<Promise<ReturnType<typeof resolveWallet>>> = [];
+    for (const wallet of wallets) {
+      tasks.push(resolveWallet(wallet, wallet.name));
+      for (const hidden of wallet.hiddenWallets ?? []) {
+        if (hidden.deprecated || hidden.isMocked) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        tasks.push(
+          resolveWallet(hidden, `${wallet.name} - ${hidden.name}`),
+        );
+      }
+    }
+
+    const settled = await Promise.all(tasks);
+    const groups = settled.filter(
+      (g): g is NonNullable<typeof g> => !!g,
+    );
+
+    return { groups, mergeDeriveAssetsEnabled };
+  }
+
   // For chains with `mergeDeriveAssetsEnabled` (BTC / LTC), a single user-
   // facing "account" owns multiple xpubs (one per derive type: Legacy /
   // Nested SegWit / Native SegWit / Taproot). The backend APIs that accept a

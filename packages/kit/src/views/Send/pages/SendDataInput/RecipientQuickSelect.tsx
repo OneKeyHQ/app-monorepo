@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { flatten, map } from 'lodash';
 import { useIntl } from 'react-intl';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -39,7 +38,6 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
@@ -230,9 +228,6 @@ type IWalletGroup = {
   wallet: IDBWallet;
 };
 
-const NETWORK_ACCOUNTS_FETCH_CONCURRENCY = 4;
-const WALLET_GROUP_FETCH_CONCURRENCY = 6;
-
 // Collect every address an account should be searchable by. For BTC with
 // fresh-address mode (OK-52953) the currently-shown address is one of
 // many rotating entries stored in `IDBUtxoAccount.addresses` (relPath →
@@ -278,62 +273,8 @@ function findMatchedAccountAddress(
   );
 }
 
-// Get wallet accounts on the specified network (with derive type info)
-async function getWalletNetworkAccounts(
-  wallet: IDBWallet,
-  networkId: string,
-): Promise<IAccountWithDeriveInfo[]> {
-  const { dbIndexedAccounts, dbAccounts } = wallet;
-
-  // HD / Hardware wallets use dbIndexedAccounts
-  if (dbIndexedAccounts?.length) {
-    const accountRequestTaskFactories = dbIndexedAccounts.map(
-      (indexedAccount) => async () => {
-        const resp =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId,
-              indexedAccountId: indexedAccount.id,
-              excludeEmptyAccount: true,
-            },
-          );
-        return resp.networkAccounts;
-      },
-    );
-
-    const results = await promiseAllSettledEnhanced(
-      accountRequestTaskFactories,
-      {
-        continueOnError: true,
-        concurrency: NETWORK_ACCOUNTS_FETCH_CONCURRENCY,
-      },
-    );
-    return flatten(
-      map(results, (item) =>
-        (item ?? [])
-          .filter((acc) => acc.account)
-          .map((acc) => ({
-            account: acc.account as INetworkAccount,
-            deriveInfo: acc.deriveInfo,
-            deriveType: acc.deriveType,
-          })),
-      ),
-    );
-  }
-
-  // Imported / Private-key wallets use dbAccounts directly
-  if (dbAccounts?.length) {
-    const networkImpl = networkId.split('--')[0];
-    return dbAccounts
-      .filter((acc) => acc.impl === networkImpl)
-      .map((acc) => ({
-        account: acc as unknown as INetworkAccount,
-        deriveInfo: undefined,
-      }));
-  }
-
-  return [];
-}
+// Removed: getWalletNetworkAccounts — logic moved to
+// ServiceAccount.getWalletAccountGroupsForNetwork (single IPC call).
 
 function AccountRecipients({
   networkId,
@@ -348,7 +289,7 @@ function AccountRecipients({
 }: IAccountRecipientsProps) {
   const intl = useIntl();
 
-  // Get all wallets and their accounts (reuses BulkCopyAddresses logic)
+  // Single IPC call — all wallet/account aggregation happens in background.
   const { result: walletGroups = [], isLoading: isLoadingAccounts } =
     usePromiseResult<IWalletGroup[]>(
       async () => {
@@ -356,100 +297,28 @@ function AccountRecipients({
           return [];
         }
 
-        const vaultSettings =
-          await backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          });
-        const showAllDeriveTypes = !!vaultSettings?.mergeDeriveAssetsEnabled;
-
-        // Fetch wallets, filter non-backed-up, include accounts
-        const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
-          ignoreEmptySingletonWalletAccounts: true,
-          ignoreNonBackedUpWallets: true,
-          nestedHiddenWallets: true,
-          includingAccounts: true,
-        });
-
-        const walletGroupTaskFactories: Array<
-          () => Promise<IWalletGroup | null>
-        > = [];
-
-        const createWalletGroupTaskFactory =
-          (wallet: IDBWallet, walletName: string) =>
-          async (): Promise<IWalletGroup | null> => {
-            let accounts = await getWalletNetworkAccounts(wallet, networkId);
-            // For chains with multiple derive types (BTC/LTC), keep all
-            // accounts so users can switch derive type via header menu.
-            // For other chains, filter by sender's derive type to avoid
-            // showing duplicates (e.g. bip44 + ledger-live on EVM).
-            if (!showAllDeriveTypes) {
-              const targetDeriveType =
-                senderDeriveType ?? accounts[0]?.deriveType;
-              if (targetDeriveType) {
-                const filtered = accounts.filter(
-                  (a) => !a.deriveType || a.deriveType === targetDeriveType,
-                );
-                if (filtered.length > 0) {
-                  accounts = filtered;
-                }
-              }
-            }
-            if (accounts.length === 0) {
-              return null;
-            }
-            return {
-              walletId: wallet.id,
-              walletName,
-              isHardwareWallet: accountUtils.isHwWallet({
-                walletId: wallet.id,
-              }),
-              accounts,
-              wallet,
-            };
-          };
-
-        for (const wallet of wallets) {
-          // Skip watch-only, external, deprecated, and deleted (mocked) wallets
-          // Keep HD, Hardware, Imported, QR wallets
-          const shouldSkip =
-            accountUtils.isWatchingWallet({ walletId: wallet.id }) ||
-            accountUtils.isExternalWallet({ walletId: wallet.id }) ||
-            wallet.deprecated ||
-            wallet.isMocked ||
-            (keylessWalletsOnly &&
-              !accountUtils.isKeylessWallet({ walletId: wallet.id }));
-
-          if (shouldSkip) {
-            // eslint-disable-next-line no-continue
-            continue;
-          }
-
-          walletGroupTaskFactories.push(
-            createWalletGroupTaskFactory(wallet, wallet.name),
+        const { groups, mergeDeriveAssetsEnabled } =
+          await backgroundApiProxy.serviceAccount.getWalletAccountGroupsForNetwork(
+            { networkId, keylessWalletsOnly },
           );
 
-          for (const hiddenWallet of wallet.hiddenWallets ?? []) {
-            if (hiddenWallet.deprecated || hiddenWallet.isMocked) {
-              // eslint-disable-next-line no-continue
-              continue;
-            }
-            walletGroupTaskFactories.push(
-              createWalletGroupTaskFactory(
-                hiddenWallet,
-                `${wallet.name} - ${hiddenWallet.name}`,
-              ),
-            );
-          }
+        // senderDeriveType filtering stays on UI side (cheap, no IPC)
+        if (!mergeDeriveAssetsEnabled) {
+          return groups
+            .map((group) => {
+              const targetDeriveType =
+                senderDeriveType ?? group.accounts[0]?.deriveType;
+              if (!targetDeriveType) return group;
+              const filtered = group.accounts.filter(
+                (a) => !a.deriveType || a.deriveType === targetDeriveType,
+              );
+              return filtered.length > 0
+                ? { ...group, accounts: filtered }
+                : group;
+            })
+            .filter((g) => g.accounts.length > 0);
         }
-
-        const groups = await promiseAllSettledEnhanced(
-          walletGroupTaskFactories,
-          {
-            continueOnError: true,
-            concurrency: WALLET_GROUP_FETCH_CONCURRENCY,
-          },
-        );
-        return groups.filter((group): group is IWalletGroup => !!group);
+        return groups;
       },
       [networkId, senderDeriveType, keylessWalletsOnly],
       { initResult: [], watchLoading: true, undefinedResultIfError: true },
