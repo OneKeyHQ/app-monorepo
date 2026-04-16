@@ -95,13 +95,18 @@ export function TokenDetailsDeFiBlock({
         earnResultCache.set(cacheKey, { result: null });
         return null;
       }
-      const protocolList =
-        await backgroundApiProxy.serviceStaking.getProtocolList({
+      let protocolList;
+      try {
+        protocolList = await backgroundApiProxy.serviceStaking.getProtocolList({
           symbol: symbolInfo.symbol,
           filterNetworkId: networkId,
           includeWithdrawOnly: true,
           requestId: requestIdRef.current,
         });
+      } catch {
+        // Transient error — don't cache so retry happens on next mount
+        return null;
+      }
       if (isUnmountedRef.current) {
         return undefined;
       }

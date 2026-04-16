@@ -994,15 +994,22 @@ class ServiceStaking extends ServiceBase {
         });
       }
     } catch (error) {
-      if (!axios.isCancel(error)) {
+      if (axios.isCancel(error)) {
+        // Cancellation is silent — fall back to empty
+        allItems = [];
+      } else if (controller) {
+        // Scoped (requestId) callers handle errors themselves so they can
+        // distinguish "no data" from "transient failure" for caching decisions.
+        throw error;
+      } else {
         defaultLogger.app.error.log(
           `Failed to fetch protocol list for symbol ${params.symbol}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         );
+        // Fall back to empty array if request fails
+        allItems = [];
       }
-      // Fall back to empty array if request fails
-      allItems = [];
     } finally {
       if (controller) {
         this._unregisterAbortController({
