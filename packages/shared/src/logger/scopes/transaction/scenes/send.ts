@@ -295,6 +295,23 @@ export class SendScene extends BaseScene {
   }
 
   @LogToLocal()
+  public recentRecipientsSkipWrite({
+    accountId,
+    networkId,
+    reason,
+  }: {
+    accountId: string;
+    networkId: string;
+    reason: 'unresolvedIdentity';
+  }) {
+    return {
+      accountId,
+      networkId,
+      reason,
+    };
+  }
+
+  @LogToLocal()
   public rawTxFetchFailed({
     network,
     txids,
