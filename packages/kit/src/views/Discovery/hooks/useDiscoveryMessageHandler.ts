@@ -10,10 +10,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { parseOnChainAmount } from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode';
 import type { IChainValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBitrefillFailStep } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/bitrefill';
-
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   isBitrefillOrigin,
