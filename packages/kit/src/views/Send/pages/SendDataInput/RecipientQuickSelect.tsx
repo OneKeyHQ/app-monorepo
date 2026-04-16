@@ -273,9 +273,6 @@ function findMatchedAccountAddress(
   );
 }
 
-// Removed: getWalletNetworkAccounts — logic moved to
-// ServiceAccount.getWalletAccountGroupsForNetwork (single IPC call).
-
 function AccountRecipients({
   networkId,
   senderDeriveType,

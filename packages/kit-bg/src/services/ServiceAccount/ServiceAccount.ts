@@ -4682,8 +4682,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   // Batch-fetch every wallet's accounts for a single network in ONE
-  // background call.  This replaces the N per-indexedAccount IPC
-  // round-trips that RecipientQuickSelect used to make from the UI.
+  // background call, replacing N per-indexedAccount IPC round-trips.
   @backgroundMethod()
   async getWalletAccountGroupsForNetwork({
     networkId,
@@ -4707,8 +4706,7 @@ class ServiceAccount extends ServiceBase {
   }> {
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
     const vaultSettings = await vault.getVaultSettings();
-    const mergeDeriveAssetsEnabled =
-      !!vaultSettings.mergeDeriveAssetsEnabled;
+    const mergeDeriveAssetsEnabled = !!vaultSettings.mergeDeriveAssetsEnabled;
 
     const { wallets } = await this.getWallets({
       ignoreEmptySingletonWalletAccounts: true,
@@ -4717,32 +4715,33 @@ class ServiceAccount extends ServiceBase {
       includingAccounts: true,
     });
 
-    // Pre-fetch all DB accounts once — avoids N individual DB reads.
     const { accounts: allDbAccounts } = await localDb.getAllAccounts();
 
     const resolveWallet = async (
       wallet: IDBWallet,
       walletName: string,
-    ) => {
+    ): Promise<{
+      walletId: string;
+      walletName: string;
+      isHardwareWallet: boolean;
+      accounts: Array<{
+        account: INetworkAccount;
+        deriveInfo?: IAccountDeriveInfo;
+        deriveType?: string;
+      }>;
+      wallet: IDBWallet;
+    } | null> => {
       const shouldSkip =
         accountUtils.isWatchingWallet({ walletId: wallet.id }) ||
         accountUtils.isExternalWallet({ walletId: wallet.id }) ||
-        wallet.deprecated ||
-        wallet.isMocked ||
+        accountUtils.isWalletDeprecatedOrMocked(wallet) ||
         (keylessWalletsOnly &&
           !accountUtils.isKeylessWallet({ walletId: wallet.id }));
       if (shouldSkip) return null;
 
       const { dbIndexedAccounts, dbAccounts } = wallet;
-      let accounts: Array<{
-        account: INetworkAccount;
-        deriveInfo?: IAccountDeriveInfo;
-        deriveType?: string;
-      }> = [];
 
       if (dbIndexedAccounts?.length) {
-        // HD / Hardware / QR wallets — reuse existing method with
-        // pre-fetched DB accounts to skip per-account DB reads.
         const perIndexed = await Promise.all(
           dbIndexedAccounts.map(async (indexedAccount) => {
             try {
@@ -4762,7 +4761,7 @@ class ServiceAccount extends ServiceBase {
             }
           }),
         );
-        accounts = perIndexed
+        const accounts = perIndexed
           .flat()
           .filter((a) => a.account)
           .map((a) => ({
@@ -4770,46 +4769,62 @@ class ServiceAccount extends ServiceBase {
             deriveInfo: a.deriveInfo,
             deriveType: a.deriveType,
           }));
-      } else if (dbAccounts?.length) {
-        const networkImpl = networkId.split('--')[0];
-        accounts = dbAccounts
+        if (accounts.length === 0) return null;
+        return {
+          walletId: wallet.id,
+          walletName,
+          isHardwareWallet: accountUtils.isHwWallet({
+            walletId: wallet.id,
+          }),
+          accounts,
+          wallet,
+        };
+      }
+
+      if (dbAccounts?.length) {
+        const networkImpl = networkUtils.getNetworkImpl({ networkId });
+        const accounts = dbAccounts
           .filter((acc) => acc.impl === networkImpl)
           .map((acc) => ({
             account: acc as unknown as INetworkAccount,
           }));
+        if (accounts.length === 0) return null;
+        return {
+          walletId: wallet.id,
+          walletName,
+          isHardwareWallet: accountUtils.isHwWallet({
+            walletId: wallet.id,
+          }),
+          accounts,
+          wallet,
+        };
       }
 
-      if (accounts.length === 0) return null;
-
-      return {
-        walletId: wallet.id,
-        walletName,
-        isHardwareWallet: accountUtils.isHwWallet({
-          walletId: wallet.id,
-        }),
-        accounts,
-        wallet,
-      };
+      return null;
     };
 
-    const tasks: Array<Promise<ReturnType<typeof resolveWallet>>> = [];
+    const tasks: Array<Promise<Awaited<ReturnType<typeof resolveWallet>>>> = [];
     for (const wallet of wallets) {
       tasks.push(resolveWallet(wallet, wallet.name));
       for (const hidden of wallet.hiddenWallets ?? []) {
-        if (hidden.deprecated || hidden.isMocked) {
+        if (accountUtils.isWalletDeprecatedOrMocked(hidden)) {
           // eslint-disable-next-line no-continue
           continue;
         }
-        tasks.push(
-          resolveWallet(hidden, `${wallet.name} - ${hidden.name}`),
-        );
+        tasks.push(resolveWallet(hidden, `${wallet.name} - ${hidden.name}`));
       }
     }
 
-    const settled = await Promise.all(tasks);
-    const groups = settled.filter(
-      (g): g is NonNullable<typeof g> => !!g,
-    );
+    const settled = await Promise.allSettled(tasks);
+    const groups = settled
+      .filter(
+        (
+          r,
+        ): r is PromiseFulfilledResult<
+          NonNullable<Awaited<ReturnType<typeof resolveWallet>>>
+        > => r.status === 'fulfilled' && !!r.value,
+      )
+      .map((r) => r.value);
 
     return { groups, mergeDeriveAssetsEnabled };
   }
