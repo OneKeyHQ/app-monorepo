@@ -275,36 +275,29 @@ class ServiceSignatureConfirm extends ServiceBase {
     // not just the one the user happens to be sending from right now.
     // Mirrors the fan-out in ServiceAccountProfile.checkAccountBadges.
     let xpubs: string[] = [];
-    // The sending account's own xpub — used as backward-compat `xpub` field
-    // so old servers that don't read the `xpubs` array still get the correct
-    // identity for the derive type that is actually sending.
+    // The sending account's own xpub — directly from the known accountId.
     let currentAccountXpub: string | undefined;
+    try {
+      currentAccountXpub =
+        (await this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        })) || undefined;
+    } catch {
+      // non-fatal
+    }
+    // Fan out all derive-type xpubs for comprehensive interaction check.
     try {
       const xpubEntries =
         await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
           { accountId, networkId },
         );
       xpubs = xpubEntries.map((e) => e.xpub).filter((x): x is string => !!x);
-      currentAccountXpub = xpubEntries.find(
-        (e) => e.accountId === accountId,
-      )?.xpub;
     } catch {
       // non-fatal
     }
-    if (xpubs.length === 0) {
-      try {
-        const singleXpub =
-          (await this.backgroundApi.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          })) || undefined;
-        if (singleXpub) {
-          xpubs = [singleXpub];
-          currentAccountXpub = singleXpub;
-        }
-      } catch {
-        // non-fatal: backend parses from encodedTx, xpub is an identity hint
-      }
+    if (xpubs.length === 0 && currentAccountXpub) {
+      xpubs = [currentAccountXpub];
     }
 
     const client = await this.backgroundApi.serviceGas.getClient(

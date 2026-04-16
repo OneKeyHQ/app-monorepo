@@ -336,9 +336,27 @@ function AccountRecipients({
     );
   const walletGroups = useDeferredValue(walletGroupsRaw);
 
-  // Placeholder — replaced by ServiceFreshAddress call in later commit
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const btcFreshAddressMap = useMemo(() => new Map<string, string[]>(), []);
+  // BTC fresh address lookup — logic lives in ServiceFreshAddress.
+  const { result: btcFreshAddressMap = {} } = usePromiseResult<
+    Record<string, string[]>
+  >(
+    async () => {
+      if (!networkUtils.isBTCNetwork(networkId) || !walletGroups.length) {
+        return {};
+      }
+      const accounts = walletGroups.flatMap((group) =>
+        (group.accounts ?? []).map((item) => ({
+          accountId: item.account.id,
+          deriveType: item.deriveType,
+        })),
+      );
+      return backgroundApiProxy.serviceFreshAddress.getSearchableAddressesForAccounts(
+        { networkId, accounts },
+      );
+    },
+    [walletGroups, networkId],
+    { initResult: {}, undefinedResultIfError: true },
+  );
 
   const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -375,7 +393,7 @@ function AccountRecipients({
                 item.account,
                 searchValue,
                 item.account?.id
-                  ? btcFreshAddressMap.get(item.account.id)
+                  ? btcFreshAddressMap[item.account.id]
                   : undefined,
               ),
           });
@@ -394,7 +412,7 @@ function AccountRecipients({
               item.account,
               searchValue,
               item.account?.id
-                ? btcFreshAddressMap.get(item.account.id)
+                ? btcFreshAddressMap[item.account.id]
                 : undefined,
             );
             return matchedAddress ? { ...item, matchedAddress } : item;
