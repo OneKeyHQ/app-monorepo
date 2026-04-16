@@ -1,0 +1,358 @@
+const {
+  parseModuleDefs,
+  transitiveClosure,
+  buildModuleIndexFromManifest,
+  buildEagerIdSet,
+} = require('../check-split-bundle-integrity');
+
+describe('parseModuleDefs', () => {
+  it('parses a single Metro __d() call', () => {
+    const js = `__d(function (global, require) {
+      var x = require(_dependencyMap[0]);
+    },3480,[922,6438,3340,7702]);`;
+    const defs = parseModuleDefs(js);
+    expect(defs).toEqual([
+      { moduleId: 3480, deps: [922, 6438, 3340, 7702] },
+    ]);
+  });
+
+  it('handles bodies with nested braces and quoted strings', () => {
+    const js = `__d(function () {
+      var s = "}}{{"; var t = '{}'; if (true) { return {a: 1}; }
+    },7777,[1,2,3]);
+    __d(function () { /* another */ },8888,[]);`;
+    const defs = parseModuleDefs(js);
+    expect(defs).toEqual([
+      { moduleId: 7777, deps: [1, 2, 3] },
+      { moduleId: 8888, deps: [] },
+    ]);
+  });
+
+  it('handles escaped quotes inside strings', () => {
+    const js = `__d(function () { var s = "a \\"b\\" c"; },100,[5]);`;
+    const defs = parseModuleDefs(js);
+    expect(defs).toEqual([{ moduleId: 100, deps: [5] }]);
+  });
+
+  it('ignores `__d(` inside string literals', () => {
+    // No real __d call — should produce empty output.
+    const js = `const doc = "call __d( somewhere";`;
+    const defs = parseModuleDefs(js);
+    expect(defs).toEqual([]);
+  });
+
+  it('returns empty array when no __d calls present', () => {
+    expect(parseModuleDefs('')).toEqual([]);
+    expect(parseModuleDefs('// no modules here')).toEqual([]);
+  });
+});
+
+describe('transitiveClosure', () => {
+  const manifest = {
+    segments: {
+      'seg:a': { dependsOn: ['seg:b', 'seg:c'] },
+      'seg:b': { dependsOn: ['seg:d'] },
+      'seg:c': { dependsOn: [] },
+      'seg:d': { dependsOn: [] },
+      'seg:orphan': { dependsOn: [] },
+    },
+  };
+
+  it('includes the start segment', () => {
+    expect(transitiveClosure(manifest, 'seg:a').has('seg:a')).toBe(true);
+  });
+
+  it('follows deep dependsOn chains', () => {
+    const closure = transitiveClosure(manifest, 'seg:a');
+    expect(closure.has('seg:b')).toBe(true);
+    expect(closure.has('seg:c')).toBe(true);
+    expect(closure.has('seg:d')).toBe(true);
+  });
+
+  it('excludes unrelated segments', () => {
+    expect(transitiveClosure(manifest, 'seg:a').has('seg:orphan')).toBe(false);
+  });
+
+  it('handles cycles without hanging', () => {
+    const cyclic = {
+      segments: {
+        'seg:x': { dependsOn: ['seg:y'] },
+        'seg:y': { dependsOn: ['seg:x'] },
+      },
+    };
+    const closure = transitiveClosure(cyclic, 'seg:x');
+    expect(closure.has('seg:x')).toBe(true);
+    expect(closure.has('seg:y')).toBe(true);
+  });
+
+  it('returns only the start when it has no dependsOn', () => {
+    const closure = transitiveClosure(manifest, 'seg:orphan');
+    expect([...closure]).toEqual(['seg:orphan']);
+  });
+});
+
+describe('buildModuleIndexFromManifest', () => {
+  it('maps each numeric module id to its owning segment', () => {
+    const manifest = {
+      segments: {
+        'seg:a': { modules: { 10: 'a/1.ts', 11: 'a/2.ts' } },
+        'seg:b': { modules: { 20: 'b/1.ts' } },
+      },
+    };
+    const idx = buildModuleIndexFromManifest(manifest);
+    expect(idx.get(10)).toBe('seg:a');
+    expect(idx.get(11)).toBe('seg:a');
+    expect(idx.get(20)).toBe('seg:b');
+    expect(idx.has(99)).toBe(false);
+  });
+
+  it('gracefully handles manifest entries without modules', () => {
+    const manifest = { segments: { 'seg:empty': {} } };
+    expect(buildModuleIndexFromManifest(manifest).size).toBe(0);
+  });
+});
+
+describe('buildEagerIdSet', () => {
+  it('unions ids from the given runtime buckets', () => {
+    const idMap = {
+      common: { 1: 'a', 2: 'b' },
+      main: { 3: 'c' },
+      background: { 4: 'd' },
+      segments: {},
+    };
+    const mainEager = buildEagerIdSet(idMap, ['common', 'main']);
+    expect(mainEager.has(1)).toBe(true);
+    expect(mainEager.has(3)).toBe(true);
+    expect(mainEager.has(4)).toBe(false);
+  });
+
+  it('returns empty set for empty buckets', () => {
+    expect(buildEagerIdSet({}, ['common']).size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Real-world regression fixtures
+// ---------------------------------------------------------------------------
+//
+// These describe the actual crash shapes users hit, translated into the
+// minimal graph needed to reproduce. The integrity check must catch them.
+// ---------------------------------------------------------------------------
+
+describe('integration: cross-segment sync edge detection', () => {
+  const { scanRuntime } = require('../check-split-bundle-integrity');
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+
+  let tmpDir;
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'split-check-'));
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function writeSegJs(segmentsDir, safeName, moduleDefs) {
+    if (!fs.existsSync(segmentsDir)) {
+      fs.mkdirSync(segmentsDir, { recursive: true });
+    }
+    const code = moduleDefs
+      .map(
+        ({ moduleId, deps }) =>
+          `__d(function(){},${moduleId},[${deps.join(',')}]);`,
+      )
+      .join('\n');
+    fs.writeFileSync(path.join(segmentsDir, `${safeName}.seg.js`), code);
+  }
+
+  it('reproduces the MobileTokenSelector → constants crash shape when dependsOn is missing', () => {
+    // MarketDetailV2.index defines 3340 (constants)
+    // MobileTokenSelector defines 3480 (MobileTokenSelector.tsx) which sync-deps 3340
+    // If MobileTokenSelector.dependsOn does NOT include MarketDetailV2.index → latent crash
+    const segmentsDir = path.join(tmpDir, 'segments');
+    writeSegJs(segmentsDir, 'mobile-tokenselector', [
+      { moduleId: 3480, deps: [3340] },
+    ]);
+    writeSegJs(segmentsDir, 'marketdetail-index', [
+      { moduleId: 3340, deps: [] },
+    ]);
+
+    const manifest = {
+      segments: {
+        'seg:mtsel': {
+          relativePath: 'segments/mobile-tokenselector.seg.hbc',
+          modules: { 3480: 'MobileTokenSelector.tsx' },
+          dependsOn: [], // <-- the bug: missing seg:mdv2-index
+        },
+        'seg:mdv2-index': {
+          relativePath: 'segments/marketdetail-index.seg.hbc',
+          modules: { 3340: 'constants.ts' },
+          dependsOn: [],
+        },
+      },
+    };
+    const idMap = {
+      common: {},
+      main: {},
+      background: {},
+      segments: manifest.segments,
+    };
+
+    const { violations } = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir,
+      manifest,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({
+      kind: 'cross_segment_sync',
+      srcSegment: 'seg:mtsel',
+      srcModuleId: 3480,
+      depSegment: 'seg:mdv2-index',
+      depModuleId: 3340,
+    });
+  });
+
+  it('passes when dependsOn covers the cross-segment sync edge', () => {
+    const segmentsDir = path.join(tmpDir, 'segments');
+    writeSegJs(segmentsDir, 'mobile-tokenselector', [
+      { moduleId: 3480, deps: [3340] },
+    ]);
+    writeSegJs(segmentsDir, 'marketdetail-index', [
+      { moduleId: 3340, deps: [] },
+    ]);
+
+    const manifest = {
+      segments: {
+        'seg:mtsel': {
+          relativePath: 'segments/mobile-tokenselector.seg.hbc',
+          modules: { 3480: 'MobileTokenSelector.tsx' },
+          dependsOn: ['seg:mdv2-index'], // covered now
+        },
+        'seg:mdv2-index': {
+          relativePath: 'segments/marketdetail-index.seg.hbc',
+          modules: { 3340: 'constants.ts' },
+          dependsOn: [],
+        },
+      },
+    };
+    const idMap = {
+      common: {},
+      main: {},
+      background: {},
+      segments: manifest.segments,
+    };
+
+    const { violations } = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir,
+      manifest,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('passes when dependsOn covers transitively (A depends B depends C; A sync-uses module in C)', () => {
+    const segmentsDir = path.join(tmpDir, 'segments');
+    writeSegJs(segmentsDir, 'a', [{ moduleId: 100, deps: [300] }]);
+    writeSegJs(segmentsDir, 'b', [{ moduleId: 200, deps: [] }]);
+    writeSegJs(segmentsDir, 'c', [{ moduleId: 300, deps: [] }]);
+
+    const manifest = {
+      segments: {
+        'seg:a': {
+          relativePath: 'segments/a.seg.hbc',
+          modules: { 100: 'a.ts' },
+          dependsOn: ['seg:b'],
+        },
+        'seg:b': {
+          relativePath: 'segments/b.seg.hbc',
+          modules: { 200: 'b.ts' },
+          dependsOn: ['seg:c'],
+        },
+        'seg:c': {
+          relativePath: 'segments/c.seg.hbc',
+          modules: { 300: 'c.ts' },
+          dependsOn: [],
+        },
+      },
+    };
+    const idMap = {
+      common: {},
+      main: {},
+      background: {},
+      segments: manifest.segments,
+    };
+
+    const { violations } = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir,
+      manifest,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('ignores deps satisfied by the eager bundle', () => {
+    const segmentsDir = path.join(tmpDir, 'segments');
+    writeSegJs(segmentsDir, 'a', [{ moduleId: 100, deps: [42] }]);
+
+    const manifest = {
+      segments: {
+        'seg:a': {
+          relativePath: 'segments/a.seg.hbc',
+          modules: { 100: 'a.ts' },
+          dependsOn: [],
+        },
+      },
+    };
+    const idMap = {
+      common: { 42: 'eager.ts' }, // 42 is eager → OK
+      main: {},
+      background: {},
+      segments: manifest.segments,
+    };
+
+    const { violations } = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir,
+      manifest,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('flags missing_manifest_entry when a .seg.js has no matching manifest', () => {
+    const segmentsDir = path.join(tmpDir, 'segments');
+    writeSegJs(segmentsDir, 'orphan', [{ moduleId: 999, deps: [] }]);
+
+    const manifest = { segments: {} }; // orphan not in manifest
+    const idMap = {
+      common: {},
+      main: {},
+      background: {},
+      segments: {},
+    };
+
+    const { violations } = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir,
+      manifest,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].kind).toBe('missing_manifest_entry');
+  });
+});

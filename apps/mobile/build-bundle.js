@@ -757,6 +757,25 @@ const runUnionBuild = ({
     },
   );
   log('union build done');
+
+  // Integrity check: every cross-segment sync dependency in each emitted
+  // segment JS must be covered by the segment's transitive `dependsOn`.
+  // Uncovered edges are latent "Requiring unknown module" crashes; fail the
+  // build now so they never ship. Set ONEKEY_SKIP_SPLIT_INTEGRITY_CHECK=1 to
+  // bypass during local debugging (never in CI).
+  if (process.env.ONEKEY_SKIP_SPLIT_INTEGRITY_CHECK !== '1') {
+    log('union build: split-bundle integrity check');
+    execSync(
+      `${nodeExecutablePath} ${path.join(
+        mobileDirPath,
+        'scripts/check-split-bundle-integrity.js',
+      )}`,
+      { stdio: 'inherit' },
+    );
+    log('union build: split-bundle integrity check passed');
+  } else {
+    log('union build: integrity check SKIPPED by ONEKEY_SKIP_SPLIT_INTEGRITY_CHECK');
+  }
 };
 
 const buildIOSBundle = async () => {
