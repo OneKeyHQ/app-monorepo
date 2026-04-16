@@ -81,7 +81,6 @@ function TokenDetailsHeader(props: IProps) {
     isTabView,
     deriveInfo,
     deriveType,
-    onHeaderHeightChange,
   } = props;
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -456,7 +455,6 @@ function TokenDetailsHeader(props: IProps) {
           tokenAddress={tokenInfo.address}
           walletType={wallet?.type}
           tokenLogoURI={tokenInfo.logoURI}
-          onLayoutChange={onHeaderHeightChange}
         />
         {shouldShowAddressBlock ? (
           <>

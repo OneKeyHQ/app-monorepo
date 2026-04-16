@@ -99,7 +99,6 @@ export type IProps = {
   indexedAccountId?: string;
   inTabList?: boolean;
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
-  onHeaderHeightChange?: () => void;
   deriveInfo?: IAccountDeriveInfo;
   deriveType?: IAccountDeriveTypes;
   allNetworksState?: {

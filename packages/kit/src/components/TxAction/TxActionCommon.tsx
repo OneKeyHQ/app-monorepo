@@ -435,13 +435,6 @@ function TxActionCommonListView(
     changeMaxWidth = '65%';
   }
 
-  const compactChangeLayoutProps = !tableLayout
-    ? {
-        flexShrink: 1,
-        flexBasis: 0,
-      }
-    : undefined;
-
   return (
     <ListItem
       testID="tx-action-common-list-view"
@@ -521,7 +514,7 @@ function TxActionCommonListView(
           maxWidth={changeMaxWidth}
           alignItems="flex-end"
           {...(!tableLayout && {
-            ...compactChangeLayoutProps,
+            flexShrink: 0,
           })}
           {...(tableLayout && {
             alignItems: 'unset',

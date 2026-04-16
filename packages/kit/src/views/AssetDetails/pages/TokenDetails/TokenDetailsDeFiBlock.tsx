@@ -27,7 +27,6 @@ interface ITokenDetailsDeFiBlockProps {
   tokenAddress: string;
   walletType?: string;
   tokenLogoURI?: string;
-  onLayoutChange?: () => void;
 }
 
 type ITokenDetailsDeFiBlockResult = {
@@ -60,7 +59,6 @@ export function TokenDetailsDeFiBlock({
   tokenAddress,
   walletType,
   tokenLogoURI,
-  onLayoutChange,
 }: ITokenDetailsDeFiBlockProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -151,16 +149,6 @@ export function TokenDetailsDeFiBlock({
     },
     [],
   );
-
-  useEffect(() => {
-    if (!onLayoutChange) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      onLayoutChange();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [onLayoutChange, renderState]);
 
   const handlePress = useCallback(async () => {
     if (!earnResult) return;

@@ -1,12 +1,4 @@
-import {
-  cloneElement,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SectionList } from '@onekeyhq/components';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
@@ -67,10 +59,6 @@ function TokenDetailsHistory(props: IProps) {
       (ListComponentRef.current as any)?.recomputeLayout?.();
     }
   }, []);
-
-  const handleHeaderLayout = useCallback(() => {
-    recomputeLayout();
-  }, [recomputeLayout]);
 
   const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
@@ -226,13 +214,7 @@ function TokenDetailsHistory(props: IProps) {
       initialized={effectiveInit}
       data={resolvedHistory}
       onPressHistory={handleHistoryItemPress}
-      ListHeaderComponent={
-        ListHeaderComponent
-          ? cloneElement(ListHeaderComponent, {
-              onHeaderHeightChange: handleHeaderLayout,
-            })
-          : null
-      }
+      ListHeaderComponent={ListHeaderComponent as React.ReactElement}
       isSingleAccount
     />
   );
