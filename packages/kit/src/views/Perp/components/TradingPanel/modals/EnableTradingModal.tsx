@@ -73,9 +73,11 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
           alignItems="center"
           onPress={() => {
             onClose?.();
-            openGuideUrl(
-              buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`),
-            );
+            setTimeout(() => {
+              openGuideUrl(
+                buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`),
+              );
+            }, 150);
           }}
           cursor="default"
         >
