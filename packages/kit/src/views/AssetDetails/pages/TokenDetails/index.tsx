@@ -1,8 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { LayoutChangeEvent } from 'react-native';
-
 import { useRoute } from '@react-navigation/core';
 import { isEmpty, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -101,7 +99,7 @@ export type IProps = {
   indexedAccountId?: string;
   inTabList?: boolean;
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
-  onHeaderHeightChange?: (event: LayoutChangeEvent) => void;
+  onHeaderHeightChange?: () => void;
   deriveInfo?: IAccountDeriveInfo;
   deriveType?: IAccountDeriveTypes;
   allNetworksState?: {

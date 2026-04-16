@@ -1,7 +1,5 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
-import type { LayoutChangeEvent } from 'react-native';
-
 import { type IProps } from '.';
 
 import { isNil } from 'lodash';
@@ -351,16 +349,9 @@ function TokenDetailsHeader(props: IProps) {
     return true;
   }, [wallet?.type, networkId, wallet?.backuped, hideAccountAddress]);
 
-  const handleLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      onHeaderHeightChange?.(event);
-    },
-    [onHeaderHeightChange],
-  );
-
   return (
     <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
-      <YStack onLayout={handleLayout}>
+      <>
         {isWatchOnly ? (
           <Stack pt="$2" px="$5">
             <Alert
@@ -465,6 +456,7 @@ function TokenDetailsHeader(props: IProps) {
           tokenAddress={tokenInfo.address}
           walletType={wallet?.type}
           tokenLogoURI={tokenInfo.logoURI}
+          onLayoutChange={onHeaderHeightChange}
         />
         {shouldShowAddressBlock ? (
           <>
@@ -518,7 +510,7 @@ function TokenDetailsHeader(props: IProps) {
         ) : null}
         {/* History */}
         <Divider mb="$3" />
-      </YStack>
+      </>
     </DebugRenderTracker>
   );
 }

@@ -27,6 +27,7 @@ interface ITokenDetailsDeFiBlockProps {
   tokenAddress: string;
   walletType?: string;
   tokenLogoURI?: string;
+  onLayoutChange?: () => void;
 }
 
 type ITokenDetailsDeFiBlockResult = {
@@ -59,6 +60,7 @@ export function TokenDetailsDeFiBlock({
   tokenAddress,
   walletType,
   tokenLogoURI,
+  onLayoutChange,
 }: ITokenDetailsDeFiBlockProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -130,6 +132,16 @@ export function TokenDetailsDeFiBlock({
     },
   );
 
+  const renderState = useMemo(() => {
+    if (isLoading && earnResult === undefined) {
+      return 'loading';
+    }
+    if (!earnResult) {
+      return 'hidden';
+    }
+    return 'content';
+  }, [earnResult, isLoading]);
+
   useEffect(
     () => () => {
       isUnmountedRef.current = true;
@@ -139,6 +151,16 @@ export function TokenDetailsDeFiBlock({
     },
     [],
   );
+
+  useEffect(() => {
+    if (!onLayoutChange) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      onLayoutChange();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [onLayoutChange, renderState]);
 
   const handlePress = useCallback(async () => {
     if (!earnResult) return;
@@ -200,7 +222,7 @@ export function TokenDetailsDeFiBlock({
 
   // Show skeleton only on first load (no cache). Cache also stores null for
   // "no DeFi banner", so remounts do not flash skeleton again.
-  if (isLoading && earnResult === undefined) {
+  if (renderState === 'loading') {
     return (
       <XStack
         bg="$bgSubdued"
@@ -223,7 +245,7 @@ export function TokenDetailsDeFiBlock({
   }
 
   // No earn data available
-  if (!earnResult) {
+  if (renderState === 'hidden' || !earnResult) {
     return null;
   }
 

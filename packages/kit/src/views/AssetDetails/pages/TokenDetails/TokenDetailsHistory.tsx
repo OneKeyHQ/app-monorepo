@@ -8,8 +8,6 @@ import {
   useState,
 } from 'react';
 
-import type { LayoutChangeEvent } from 'react-native';
-
 import type { SectionList } from '@onekeyhq/components';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -70,18 +68,9 @@ function TokenDetailsHistory(props: IProps) {
     }
   }, []);
 
-  const headerHeightRef = useRef<number | null>(null);
-  const handleHeaderLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const nextHeight = event.nativeEvent.layout.height;
-      if (headerHeightRef.current === nextHeight) {
-        return;
-      }
-      headerHeightRef.current = nextHeight;
-      recomputeLayout();
-    },
-    [recomputeLayout],
-  );
+  const handleHeaderLayout = useCallback(() => {
+    recomputeLayout();
+  }, [recomputeLayout]);
 
   const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
