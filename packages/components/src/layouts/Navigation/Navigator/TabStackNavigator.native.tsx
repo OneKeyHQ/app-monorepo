@@ -8,7 +8,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
@@ -17,6 +16,7 @@ import {
   useIsSplitView,
   useSplitViewType,
   useTheme,
+  useThemeName,
 } from '../../../hooks';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
@@ -93,6 +93,9 @@ export function TabStackNavigator<RouteName extends string>({
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
+  // Subscribe to theme name so OS dark/light switch triggers re-render —
+  // `theme.*.val` reads are non-reactive on native.
+  useThemeName();
   const [tabBarHidden, setTabBarHidden] = useState(false);
 
   // Listen for HideTabBar events to show/hide the tab bar
@@ -195,10 +198,7 @@ export function TabStackNavigator<RouteName extends string>({
     }
   }, [tabBarHidden, splitViewType, isLandscape]);
   const tabBarStyle = useMemo(
-    () =>
-      platformEnv.isNativeAndroid
-        ? { backgroundColor: theme.bg.val }
-        : undefined,
+    () => ({ backgroundColor: theme.bg.val }),
     [theme.bg.val],
   );
 
