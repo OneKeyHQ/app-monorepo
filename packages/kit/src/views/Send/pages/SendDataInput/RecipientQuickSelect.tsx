@@ -138,6 +138,7 @@ type IAccountRecipientsProps = {
   senderDeriveType?: string;
   lastUsedDeriveType?: string;
   searchKey?: string;
+  debouncedSearchKey?: string;
   isSearchMode?: boolean;
   keylessWalletsOnly?: boolean;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
@@ -286,6 +287,7 @@ function AccountRecipients({
   senderDeriveType,
   lastUsedDeriveType: lastUsedDeriveTypeProp,
   searchKey,
+  debouncedSearchKey: debouncedSearchKeyProp,
   isSearchMode,
   keylessWalletsOnly,
   onInputTypeChange,
@@ -331,11 +333,10 @@ function AccountRecipients({
     );
   const walletGroups = useDeferredValue(walletGroupsRaw);
 
-  const debouncedSearchKey = useDebounce(searchKey, 300);
+  const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const isSearchActive = !!(isSearchMode && trimmedSearchKey);
   const searchValue = trimmedSearchKey;
-  // Detect debounce gap: searchKey changed but debounce hasn't settled yet
   const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
 
   // Filter accounts (name matches first, then address matches)
@@ -715,6 +716,7 @@ function AccountRecipients({
 type IAddressBookRecipientsProps = {
   networkId: string;
   searchKey?: string;
+  debouncedSearchKey?: string;
   isSearchMode?: boolean;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
   onSelect?: (params: {
@@ -728,6 +730,7 @@ type IAddressBookRecipientsProps = {
 function AddressBookRecipients({
   networkId,
   searchKey,
+  debouncedSearchKey: debouncedSearchKeyProp,
   isSearchMode,
   onInputTypeChange,
   onSelect,
@@ -735,11 +738,10 @@ function AddressBookRecipients({
 }: IAddressBookRecipientsProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const debouncedSearchKey = useDebounce(searchKey, 300);
+  const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const searchValue = trimmedSearchKey;
   const isSearchActive = !!(isSearchMode && trimmedSearchKey);
-  // Detect debounce gap: searchKey changed but debounce hasn't settled yet
   const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
   const [{ updateTimestamp }] = useAddressBookPersistAtom();
 
@@ -1180,6 +1182,7 @@ function RecipientQuickSelect({
                 senderDeriveType={senderDeriveType}
                 lastUsedDeriveType={lastUsedDeriveType}
                 searchKey={searchKey}
+                debouncedSearchKey={debouncedSearchKey}
                 isSearchMode={isSearchMode}
                 keylessWalletsOnly={keylessWalletsOnly}
                 onInputTypeChange={onInputTypeChange}
@@ -1199,6 +1202,7 @@ function RecipientQuickSelect({
               <AddressBookRecipients
                 networkId={networkId}
                 searchKey={searchKey}
+                debouncedSearchKey={debouncedSearchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
                 onSelect={(params) =>
