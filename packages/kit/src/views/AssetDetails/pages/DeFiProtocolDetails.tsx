@@ -112,12 +112,16 @@ function DeFiProtocolDetails() {
               icon="OpenOutline"
               size="small"
               onPress={() => {
+                const targetUrl = protocolDisplayInfo.protocolUrl;
+                if (!targetUrl) {
+                  return;
+                }
                 if (platformEnv.isDesktop || platformEnv.isNative) {
                   openUrlInDiscovery({
-                    url: protocolDisplayInfo.protocolUrl,
+                    url: targetUrl,
                   });
                 } else {
-                  openUrlExternal(protocolDisplayInfo.protocolUrl);
+                  openUrlExternal(targetUrl);
                 }
               }}
             />
