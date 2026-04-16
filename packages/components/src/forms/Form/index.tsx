@@ -108,20 +108,19 @@ const getChildProps = (
     onChange?: (value: unknown) => void;
     onChangeText?: (value: unknown) => void;
   };
-  // Spread only the keys we want to forward from the RHF field. `field.disabled`
-  // is always present and defaults to `undefined`, which would otherwise clobber
-  // an explicit `disabled={...}` prop the caller set on the child via
-  // cloneElement. Forward it only when RHF actually set it (e.g. `<Form.Field
-  // disabled>`). onChange is replaced below by a composed handler.
-  const { name, value, onBlur, ref, disabled } = field;
+  // Strip `disabled` from the field spread so it doesn't clobber an explicit
+  // `disabled={...}` prop the caller set on the child via cloneElement.
+  // RHF always includes `disabled` on the field object (defaults to
+  // `undefined`), which would override the caller's value. Re-add it only
+  // when RHF actually set it (e.g. `<Controller disabled>`).
+  // `onChange` is also stripped — each branch below composes its own handler.
+  const { disabled: fieldDisabled, onChange: _onChange, ...restField } = field;
   const baseProps = {
-    name,
-    value,
-    onBlur,
-    ref,
+    ...restField,
     error,
     hasError,
-    ...(disabled != null && { disabled }),
+    ...(fieldDisabled !== null &&
+      fieldDisabled !== undefined && { disabled: fieldDisabled }),
   };
   switch (child.type) {
     case Input:
