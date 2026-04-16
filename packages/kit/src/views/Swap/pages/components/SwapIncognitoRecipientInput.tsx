@@ -261,6 +261,7 @@ export function SwapIncognitoRecipientInput({
             variant="tertiary"
             size="small"
             icon="PeopleCircleOutline"
+            loading={loading}
             onPress={onOpenRecipientAddress}
           />
         </XStack>
