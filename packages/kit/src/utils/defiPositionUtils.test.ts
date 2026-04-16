@@ -18,6 +18,7 @@ function createProtocolPosition(
     positions: [
       {
         category,
+        categories: [category],
         groupId: 'group-1',
         poolName: 'Main Pool',
         poolFullName: 'Main Pool',
@@ -169,5 +170,23 @@ describe('buildProtocolPositionItems', () => {
       'deposit',
       'locked',
     ]);
+  });
+
+  it('builds stable position keys when multiple positions share the same group id', () => {
+    const protocol = createProtocolPosition('farming');
+    protocol.positions = [
+      protocol.positions[0],
+      {
+        ...protocol.positions[0],
+        category: 'staked',
+        categories: ['staked'],
+      },
+    ];
+
+    expect(
+      buildProtocolPositionItems(protocol).map(
+        (position) => position.positionKey,
+      ),
+    ).toEqual(['group-1-farming', 'group-1-staked']);
   });
 });

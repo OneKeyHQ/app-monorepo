@@ -119,7 +119,7 @@ const ProtocolPositionSection = memo(
                 tokenImageUri={asset.meta?.logoUrl}
                 bg="$bgStrong"
               />
-              <SizableText size="$headingSm" numberOfLines={1}>
+              <SizableText size="$headingSm" numberOfLines={1} flex={1}>
                 {asset.symbol}
               </SizableText>
             </XStack>
@@ -316,7 +316,7 @@ const ProtocolDesktopLayout = memo(
                 borderColor="$borderSubdued"
               >
                 {positions.map((position, index) => (
-                  <YStack key={position.groupId} py="$3">
+                  <YStack key={position.positionKey} py="$3">
                     <XStack alignItems="center" gap="$2" px="$5" minHeight={40}>
                       <Badge bg={position.categoryConfig.bg} badgeSize="lg">
                         <Badge.Text
@@ -369,7 +369,7 @@ const ProtocolDesktopLayout = memo(
                       {position.sections.map((section) => (
                         <ProtocolPositionSection
                           key={section.key}
-                          groupId={position.groupId}
+                          groupId={position.positionKey}
                           section={section}
                           currencySymbol={currencySymbol}
                           priceUnavailableLabel={priceUnavailableLabel}
@@ -414,17 +414,6 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
   const positionNamePopoverTitle = intl.formatMessage({
     id: ETranslations.wallet_defi_position_name_popover_title,
   });
-  const positionCount = useMemo(
-    () => new Set(protocol.positions.map((position) => position.groupId)).size,
-    [protocol.positions],
-  );
-  const positionCountText = useMemo(
-    () =>
-      `${positionCount} ${intl.formatMessage({
-        id: ETranslations.earn_positions,
-      })}`,
-    [intl, positionCount],
-  );
   const positions = useMemo<IProtocolPositionItem[]>(
     () =>
       buildProtocolPositionItems(protocol).map((position) => ({
@@ -440,6 +429,13 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
         })),
       })),
     [intl, protocol],
+  );
+  const positionCountText = useMemo(
+    () =>
+      `${positions.length} ${intl.formatMessage({
+        id: ETranslations.earn_positions,
+      })}`,
+    [intl, positions.length],
   );
 
   const onPressProtocol = useCallback(() => {

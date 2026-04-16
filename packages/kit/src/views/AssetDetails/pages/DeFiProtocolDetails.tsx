@@ -100,7 +100,7 @@ function ProtocolDetailSection({
               tokenImageUri={asset.meta?.logoUrl}
               bg="$bgStrong"
             />
-            <SizableText size="$headingSm" numberOfLines={1}>
+            <SizableText size="$headingSm" numberOfLines={1} flex={1}>
               {asset.symbol}
             </SizableText>
           </XStack>
@@ -219,9 +219,9 @@ function DeFiProtocolDetails() {
         <Divider />
         <YStack py="$3">
           {positions.map((position, index) => (
-            <Stack key={position.groupId} px="$5">
+            <Stack key={position.positionKey} px="$5">
               <XStack alignItems="center" py="$3" gap="$2">
-                <Badge bg={position.categoryConfig.bg} badgeSize="lg">
+                <Badge bg={position.categoryConfig.bg} badgeSize="sm">
                   <Badge.Text
                     color={position.categoryConfig.text}
                     textTransform="capitalize"
