@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -287,7 +295,8 @@ function AccountRecipients({
   const intl = useIntl();
 
   // Single IPC call — all wallet/account aggregation happens in background.
-  const { result: walletGroups = [], isLoading: isLoadingAccounts } =
+  // useDeferredValue lets React yield to events (close button) mid-render.
+  const { result: walletGroupsRaw = [], isLoading: isLoadingAccounts } =
     usePromiseResult<IWalletGroup[]>(
       async () => {
         if (!networkId) {
@@ -320,6 +329,7 @@ function AccountRecipients({
       [networkId, senderDeriveType, keylessWalletsOnly],
       { initResult: [], watchLoading: true, undefinedResultIfError: true },
     );
+  const walletGroups = useDeferredValue(walletGroupsRaw);
 
   const debouncedSearchKey = useDebounce(searchKey, 300);
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
