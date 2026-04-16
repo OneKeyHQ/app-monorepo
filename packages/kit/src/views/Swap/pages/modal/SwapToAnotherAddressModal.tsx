@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,13 +12,11 @@ import {
   XStack,
   useForm,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInputField } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -27,17 +25,16 @@ import {
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQuickSelect';
 import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataInput/recipientSelectionUtils';
+import { useWebDappRecipientOptions } from '../../../Send/pages/SendDataInput/useWebDappRecipientOptions';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -65,26 +62,9 @@ const SwapToAnotherAddressPage = () => {
   const [, setSwapManualSelectQuote] = useSwapManualSelectQuoteProvidersAtom();
   const intl = useIntl();
 
-  // OK-52685: on web dapp mode, only keyless wallet accounts are valid swap
-  // recipients — hide the address book tab, and the whole account tab too
-  // when the user has no keyless wallet at all.
-  const { result: hasKeylessWallet = true } = usePromiseResult(async () => {
-    if (!platformEnv.isWebDappMode) return true;
-    const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
-      ignoreNonBackedUpWallets: true,
-      nestedHiddenWallets: true,
-    });
-    return wallets.some((w) =>
-      accountUtils.isKeylessWallet({ walletId: w.id }),
-    );
-  }, []);
-
-  const hiddenTabs = useMemo<IRecipientQuickSelectTab[]>(() => {
-    if (!platformEnv.isWebDappMode) return BASE_HIDDEN_TABS;
-    return hasKeylessWallet
-      ? [...BASE_HIDDEN_TABS, 'addressBook']
-      : [...BASE_HIDDEN_TABS, 'addressBook', 'account'];
-  }, [hasKeylessWallet]);
+  const { hiddenTabs, keylessWalletsOnly } = useWebDappRecipientOptions({
+    baseHiddenTabs: BASE_HIDDEN_TABS,
+  });
   const form = useForm({
     defaultValues: {
       address: {
@@ -207,7 +187,7 @@ const SwapToAnotherAddressPage = () => {
             searchKey={toAddressRaw}
             isSearchMode={!!toAddressRaw?.trim()}
             hideTabs={hiddenTabs}
-            keylessWalletsOnly={platformEnv.isWebDappMode}
+            keylessWalletsOnly={keylessWalletsOnly}
             onMatchStatusChange={setHasQuickSelectMatches}
             onSelect={handleQuickSelectRecipient}
           />
