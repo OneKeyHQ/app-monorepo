@@ -50,6 +50,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -226,9 +227,46 @@ const SwapActionsState = ({
     accountId:
       swapToAddressInfo.activeAccount?.account?.id ??
       swapToAddressInfo.accountInfo?.account?.id,
+    accountInfo:
+      swapToAddressInfo.accountInfo ?? swapToAddressInfo.activeAccount,
     address: swapToAnotherAccountAddress.address,
     swapToAnotherAccountSwitchOn,
   });
+  const {
+    errorTranslationId: incognitoRecipientErrorTranslationId,
+    inputText: incognitoRecipientInputText,
+    loading: incognitoRecipientLoading,
+    onInputChange: handleIncognitoRecipientInputChange,
+    queryResult: incognitoRecipientQueryResult,
+  } = incognitoRecipientInput;
+
+  const handleAddRecipientAddressToAddressBook = useCallback(() => {
+    const recipientAddress = incognitoRecipientInputText.trim();
+    const recipientNetworkId =
+      toToken?.networkId ?? swapToAddressInfo.networkId;
+
+    if (!recipientAddress || !recipientNetworkId) {
+      return;
+    }
+
+    navigation.pushModal(EModalRoutes.AddressBookModal, {
+      screen: EModalAddressBookRoutes.EditItemModal,
+      params: {
+        address: recipientAddress,
+        networkId: recipientNetworkId,
+        isAllowListed: true,
+        onSaveSuccess: () => {
+          handleIncognitoRecipientInputChange(incognitoRecipientInputText);
+        },
+      },
+    });
+  }, [
+    handleIncognitoRecipientInputChange,
+    incognitoRecipientInputText,
+    navigation,
+    swapToAddressInfo.networkId,
+    toToken?.networkId,
+  ]);
 
   const shouldBlockIncognitoRecipientAction =
     shouldBlockSwapActionForIncognitoRecipientInput({
@@ -296,20 +334,24 @@ const SwapActionsState = ({
     () => (
       <SwapIncognitoRecipientInput
         visible={shouldShowIncognitoRecipientInput}
-        errorMessage={incognitoRecipientInput.errorMessage}
-        inputText={incognitoRecipientInput.inputText}
-        loading={incognitoRecipientInput.loading}
+        errorTranslationId={incognitoRecipientErrorTranslationId}
+        inputText={incognitoRecipientInputText}
+        loading={incognitoRecipientLoading}
+        onAddRecipientAddressToAddressBook={
+          handleAddRecipientAddressToAddressBook
+        }
         onOpenRecipientAddress={onOpenRecipientAddress}
-        onInputChange={incognitoRecipientInput.onInputChange}
-        queryResult={incognitoRecipientInput.queryResult}
+        onInputChange={handleIncognitoRecipientInputChange}
+        queryResult={incognitoRecipientQueryResult}
       />
     ),
     [
-      incognitoRecipientInput.errorMessage,
-      incognitoRecipientInput.inputText,
-      incognitoRecipientInput.loading,
-      incognitoRecipientInput.onInputChange,
-      incognitoRecipientInput.queryResult,
+      handleIncognitoRecipientInputChange,
+      handleAddRecipientAddressToAddressBook,
+      incognitoRecipientErrorTranslationId,
+      incognitoRecipientInputText,
+      incognitoRecipientLoading,
+      incognitoRecipientQueryResult,
       onOpenRecipientAddress,
       shouldShowIncognitoRecipientInput,
     ],
