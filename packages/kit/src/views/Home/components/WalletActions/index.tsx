@@ -1,12 +1,14 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Button, Dialog, Icon, XStack, YStack } from '@onekeyhq/components';
+import { Button, Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  OptionCard,
+  PaymentMethodBadges,
+} from '@onekeyhq/kit/src/components/OptionCard';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -136,25 +138,14 @@ function WalletActionSend({
             ),
             renderContent: (
               <YStack gap="$2.5">
-                <ListItem
-                  mx="$0"
-                  p="$3.5"
-                  drillIn
-                  gap="$3"
-                  userSelect="none"
-                  bg="$neutral2"
-                  borderRadius="$3"
-                  hoverStyle={{ bg: '$neutral3' }}
-                  pressStyle={{ bg: '$neutral4' }}
-                  $platform-native={{
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: '$neutral3',
-                  }}
-                  $platform-web={{
-                    outlineWidth: 1,
-                    outlineColor: '$neutral3',
-                    outlineStyle: 'solid',
-                  }}
+                <OptionCard
+                  icon="ArrowBottomOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_receive,
+                  })}
+                  subtitle={intl.formatMessage({
+                    id: ETranslations.receive_from_another_wallet_desc,
+                  })}
                   onPress={() => {
                     logZeroGas('receive');
                     safeResolve(false);
@@ -163,41 +154,14 @@ function WalletActionSend({
                       screen: EModalReceiveRoutes.ReceiveSelector,
                     });
                   }}
-                >
-                  <YStack bg="$neutral3" p="$2" borderRadius="$full">
-                    <Icon name="ArrowBottomOutline" color="$iconActive" />
-                  </YStack>
-                  <ListItem.Text
-                    gap="$1"
-                    flex={1}
-                    primary={intl.formatMessage({
-                      id: ETranslations.global_receive,
-                    })}
-                    secondary={intl.formatMessage({
-                      id: ETranslations.receive_from_another_wallet_desc,
-                    })}
-                  />
-                </ListItem>
+                />
                 {isBuySupported ? (
-                  <ListItem
-                    mx="$0"
-                    p="$3.5"
-                    drillIn
-                    gap="$3"
-                    userSelect="none"
-                    bg="$neutral2"
-                    borderRadius="$3"
-                    hoverStyle={{ bg: '$neutral3' }}
-                    pressStyle={{ bg: '$neutral4' }}
-                    $platform-native={{
-                      borderWidth: StyleSheet.hairlineWidth,
-                      borderColor: '$neutral3',
-                    }}
-                    $platform-web={{
-                      outlineWidth: 1,
-                      outlineColor: '$neutral3',
-                      outlineStyle: 'solid',
-                    }}
+                  <OptionCard
+                    icon="CurrencyDollarOutline"
+                    title={intl.formatMessage({
+                      id: ETranslations.global_buy,
+                    })}
+                    subtitle={<PaymentMethodBadges />}
                     onPress={async () => {
                       logZeroGas('buy');
                       safeResolve(false);
@@ -227,88 +191,7 @@ function WalletActionSend({
                         });
                       }
                     }}
-                  >
-                    <YStack bg="$neutral3" p="$2" borderRadius="$full">
-                      <Icon name="CurrencyDollarOutline" color="$iconActive" />
-                    </YStack>
-                    <ListItem.Text
-                      gap="$1"
-                      flex={1}
-                      primary={intl.formatMessage({
-                        id: ETranslations.global_buy,
-                      })}
-                      secondary={
-                        <XStack mt="$1" gap="$1">
-                          <YStack
-                            h="$5"
-                            px="$1.5"
-                            borderRadius="$2"
-                            borderCurve="continuous"
-                            justifyContent="center"
-                            alignItems="center"
-                            bg="$neutral3"
-                          >
-                            <Icon
-                              name="ApplePayIllus"
-                              h="$3"
-                              w="$8"
-                              color="$icon"
-                            />
-                          </YStack>
-                          <YStack
-                            h="$5"
-                            px="$1.5"
-                            borderRadius="$2"
-                            borderCurve="continuous"
-                            justifyContent="center"
-                            alignItems="center"
-                            bg="$neutral3"
-                          >
-                            <Icon
-                              name="GooglePayIllus"
-                              h="$3"
-                              w="$8"
-                              color="$icon"
-                            />
-                          </YStack>
-                          <YStack
-                            h="$5"
-                            px="$0.5"
-                            borderRadius="$2"
-                            borderCurve="continuous"
-                            justifyContent="center"
-                            alignItems="center"
-                            bg="$neutral3"
-                          >
-                            <Icon
-                              name="VisaIllus"
-                              h="$3"
-                              w="$8"
-                              color="$icon"
-                            />
-                          </YStack>
-                          <XStack
-                            alignItems="center"
-                            px="$1"
-                            gap="$0.5"
-                            bg="$neutral3"
-                            borderRadius="$2"
-                            borderCurve="continuous"
-                          >
-                            {Array.from({ length: 3 }).map((_, index) => (
-                              <YStack
-                                key={index}
-                                borderRadius="$full"
-                                w={3}
-                                h={3}
-                                bg="$iconSubdued"
-                              />
-                            ))}
-                          </XStack>
-                        </XStack>
-                      }
-                    />
-                  </ListItem>
+                  />
                 ) : null}
                 <Button
                   variant="tertiary"
