@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import { IconButton, XStack } from '@onekeyhq/components';
+import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -56,3 +56,20 @@ export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
   );
 });
 LayoutHeaderBack.displayName = 'LayoutHeaderBack';
+
+export const LayoutHeaderTitle = memo(
+  ({ children }: { children: React.ReactNode }) => (
+    <YStack
+      position="absolute"
+      inset={0}
+      zIndex={0}
+      justifyContent="center"
+      alignItems="center"
+    >
+      <SizableText size="$headingLg" textAlign="center">
+        {children}
+      </SizableText>
+    </YStack>
+  ),
+);
+LayoutHeaderTitle.displayName = 'LayoutHeaderTitle';
