@@ -37,11 +37,15 @@ function readJson(filePath) {
 }
 
 /**
- * Locate module-id-map.json regardless of platform. build-bundle.js writes it
- * to out-dir-bundle/<platform>/dist/module-id-map.json (the merged union map).
- * Fall back to any platform found.
+ * Locate module-id-map.json. unionBuild.js writes the authoritative union map
+ * to apps/mobile/dist/module-id-map.json — always present post-unionBuild both
+ * locally and on EAS. build-bundle.js additionally copies a per-platform
+ * version to out-dir-bundle/<platform>/dist/module-id-map.json (only populated
+ * by the local --platform flow). Prefer dist; fall back to out-dir-bundle.
  */
 function findModuleIdMap() {
+  const primary = path.join(DIST_DIR, 'module-id-map.json');
+  if (fs.existsSync(primary)) return primary;
   const outDir = path.join(MOBILE_DIR, 'out-dir-bundle');
   if (!fs.existsSync(outDir)) return null;
   for (const platform of fs.readdirSync(outDir)) {
@@ -320,14 +324,18 @@ function main() {
   }
   const idMapPath = findModuleIdMap();
   if (!idMapPath) {
-    problems.push('Missing: out-dir-bundle/<platform>/dist/module-id-map.json');
+    problems.push(
+      'Missing: apps/mobile/dist/module-id-map.json (or out-dir-bundle/<platform>/dist/module-id-map.json)',
+    );
   }
   if (problems.length > 0) {
     console.error(
       '[check-split-bundle-integrity] Required build artifacts not found:',
     );
     for (const p of problems) console.error(`  - ${p}`);
-    console.error('Run `node apps/mobile/build-bundle.js --platform android` first.');
+    console.error(
+      'Run `node apps/mobile/scripts/unionBuild.js` (invoked automatically by build-bundle.js / gradle unionBuildProdRelease) first.',
+    );
     process.exit(1);
   }
 
