@@ -68,8 +68,7 @@ import {
 } from '../../hooks/useSwapIncognitoRecipientInput';
 import {
   useSwapActionState,
-  useSwapQuoteEventFetching,
-  useSwapQuoteLoading,
+  useSwapQuoteProgressState,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
@@ -120,7 +119,8 @@ const SwapActionsState = ({
     setSettings,
   ] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const quoteLoading = useSwapQuoteLoading();
+  const { quoteLoading, quoteEventFetching, isWaitingActionableQuote } =
+    useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -128,7 +128,6 @@ const SwapActionsState = ({
     swapSlippageRef.current = slippageItem;
   }
   const themeVariant = useThemeVariant();
-  const quoting = useSwapQuoteEventFetching();
   const [desktopActionWidth, setDesktopActionWidth] = useState<number>();
 
   const isModalPage = useIsOverlayPage();
@@ -686,7 +685,7 @@ const SwapActionsState = ({
       new BigNumber(currentQuoteRes?.fee?.costSavings || 0).gt(0);
 
     if (hasCostSavings) {
-      const isLoadingQuote = quoting || quoteLoading;
+      const isLoadingQuote = quoteEventFetching || quoteLoading;
       const shouldShow = hasEverShownCostSavingsRef.current || !isLoadingQuote;
 
       if (shouldShow) {
@@ -728,7 +727,7 @@ const SwapActionsState = ({
   }, [
     currentQuoteRes?.fee?.costSavings,
     settingsPersistAtom.currencyInfo.symbol,
-    quoting,
+    quoteEventFetching,
     quoteLoading,
     intl,
   ]);
@@ -767,7 +766,7 @@ const SwapActionsState = ({
 
   const actionButtonChildren = useMemo(
     () =>
-      quoting || quoteLoading ? (
+      isWaitingActionableQuote ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -784,7 +783,7 @@ const SwapActionsState = ({
       ) : (
         swapActionState.label
       ),
-    [quoteLoading, quoting, swapActionState.label, themeVariant],
+    [isWaitingActionableQuote, swapActionState.label, themeVariant],
   );
 
   const actionRowComponent = useMemo(

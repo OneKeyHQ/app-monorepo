@@ -18,6 +18,7 @@ import {
   swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchQuoteResult,
   ISwapCheckWarningDef,
   ISwapState,
 } from '@onekeyhq/shared/types/swap/types';
@@ -143,6 +144,31 @@ export function useSwapQuoteEventFetching() {
   return false;
 }
 
+export function isSwapQuoteActionable(
+  quoteCurrentSelect?: Pick<IFetchQuoteResult, 'toAmount' | 'limit'>,
+) {
+  return Boolean(quoteCurrentSelect?.toAmount || quoteCurrentSelect?.limit);
+}
+
+export function useSwapQuoteProgressState() {
+  const quoteLoading = useSwapQuoteLoading();
+  const quoteEventFetching = useSwapQuoteEventFetching();
+  const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
+
+  const hasActionableQuote = useMemo(
+    () => isSwapQuoteActionable(quoteCurrentSelect),
+    [quoteCurrentSelect],
+  );
+
+  return {
+    quoteLoading,
+    quoteEventFetching,
+    hasActionableQuote,
+    isWaitingActionableQuote:
+      quoteLoading || (quoteEventFetching && !hasActionableQuote),
+  };
+}
+
 export function useSwapBatchTransferType(
   networkId?: string,
   accountId?: string,
@@ -164,8 +190,8 @@ export function useSwapBatchTransferType(
 
 export function useSwapActionState() {
   const intl = useIntl();
-  const quoteLoading = useSwapQuoteLoading();
-  const quoteEventFetching = useSwapQuoteEventFetching();
+  const { quoteLoading, quoteEventFetching, isWaitingActionableQuote } =
+    useSwapQuoteProgressState();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [buildTxFetching] = useSwapBuildTxFetchingAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -280,8 +306,7 @@ export function useSwapActionState() {
       infoRes.disable = true;
     }
     if (
-      quoteLoading ||
-      quoteEventFetching ||
+      isWaitingActionableQuote ||
       swapApprovingMatchLoading ||
       buildTxFetching
     ) {
@@ -378,8 +403,7 @@ export function useSwapActionState() {
     swapTypeSwitchValue,
     isRefreshQuote,
     toTokenAmount.value,
-    quoteLoading,
-    quoteEventFetching,
+    isWaitingActionableQuote,
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
@@ -395,8 +419,7 @@ export function useSwapActionState() {
     noConnectWallet: actionInfo.noConnectWallet,
     disabled:
       actionInfo.disable ||
-      quoteLoading ||
-      quoteEventFetching ||
+      isWaitingActionableQuote ||
       swapApprovingMatchLoading,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
