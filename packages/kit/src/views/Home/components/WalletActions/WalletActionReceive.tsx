@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { Stack, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
@@ -157,15 +157,17 @@ function WalletActionReceive({
   }
 
   return (
-    <RawActions.Receive
-      disabled={customization?.disabled ?? isReceiveDisabled}
-      allowPressWhenDisabled={isBotWalletDeactivated}
-      onPress={handleReceiveOnPress}
-      label={customization?.label}
-      icon={customization?.icon}
-      showButtonStyle={showButtonStyle}
-      trackID="wallet-receive"
-    />
+    <Stack bg="$bgCriticalStrong" borderRadius="$2">
+      <RawActions.Receive
+        disabled={customization?.disabled ?? isReceiveDisabled}
+        allowPressWhenDisabled={isBotWalletDeactivated}
+        onPress={handleReceiveOnPress}
+        label={customization?.label}
+        icon={customization?.icon}
+        showButtonStyle={showButtonStyle}
+        trackID="wallet-receive"
+      />
+    </Stack>
   );
 }
 
