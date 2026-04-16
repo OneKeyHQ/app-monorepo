@@ -1,6 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -12,32 +11,29 @@ import {
   Popover,
   SizableText,
   Stack,
-  Tooltip,
   View,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import {
-  type IProtocolPositionItem,
-  type IProtocolPositionSection,
-  buildProtocolPositionItems,
+  type IDeFiProtocolDisplayInfo,
+  type ILocalizedProtocolPositionItem,
+  buildLocalizedProtocolPositionItems,
+  buildProtocolDisplayInfo,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
-import type {
-  IDeFiAsset,
-  IDeFiProtocol,
-  IProtocolSummary,
-} from '@onekeyhq/shared/types/defi';
+import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 
 const PROTOCOL_CARD_WEB_SHADOW =
   '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';
@@ -48,115 +44,16 @@ type IProtocolProps = {
   isAllNetworks?: boolean;
 };
 
-const ProtocolAssetValue = memo(
-  ({
-    value,
-    currencySymbol,
-    priceUnavailableLabel,
-  }: {
-    value: IDeFiAsset['value'];
-    currencySymbol: string;
-    priceUnavailableLabel: string;
-  }) => {
-    const valueBN = new BigNumber(value);
-    const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
-
-    return (
-      <XStack alignItems="center" justifyContent="flex-end" gap="$1">
-        {isValueUnavailable ? (
-          <Stack width="$4" height="$4">
-            <Tooltip
-              renderContent={priceUnavailableLabel}
-              renderTrigger={
-                <Icon name="ErrorOutline" size="$4" color="$iconCritical" />
-              }
-            />
-          </Stack>
-        ) : null}
-        <NumberSizeableTextWrapper
-          hideValue
-          size="$bodyLg"
-          formatter="value"
-          formatterOptions={{ currency: currencySymbol }}
-          color={isValueUnavailable ? '$text' : undefined}
-        >
-          {isValueUnavailable ? '--' : valueBN.toFixed()}
-        </NumberSizeableTextWrapper>
-      </XStack>
-    );
-  },
-);
-ProtocolAssetValue.displayName = 'ProtocolAssetValue';
-
-const ProtocolPositionSection = memo(
-  ({
-    groupId,
-    section,
-    currencySymbol,
-    priceUnavailableLabel,
-  }: {
-    groupId: string;
-    section: IProtocolPositionSection;
-    currencySymbol: string;
-    priceUnavailableLabel: string;
-  }) => {
-    return (
-      <YStack bg="$bgSubdued" borderRadius="$2" px="$3" py="$2" gap="$1">
-        <SizableText size="$headingXs" color="$text" textTransform="uppercase">
-          {section.title}
-        </SizableText>
-        {section.assets.map((asset, assetIndex) => (
-          <XStack
-            key={`${groupId}-${section.key}-${asset.address}-${assetIndex}`}
-            alignItems="center"
-            justifyContent="space-between"
-            gap="$3"
-            py="$1"
-          >
-            <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
-              <Token
-                size="sm"
-                tokenImageUri={asset.meta?.logoUrl}
-                bg="$bgStrong"
-              />
-              <SizableText size="$headingSm" numberOfLines={1} flex={1}>
-                {asset.symbol}
-              </SizableText>
-            </XStack>
-            <YStack alignItems="flex-end" maxWidth="55%">
-              <ProtocolAssetValue
-                value={asset.value}
-                currencySymbol={currencySymbol}
-                priceUnavailableLabel={priceUnavailableLabel}
-              />
-              <NumberSizeableTextWrapper
-                hideValue
-                size="$bodyMd"
-                color="$textSubdued"
-                formatter="balance"
-                textAlign="right"
-              >
-                {asset.amount}
-              </NumberSizeableTextWrapper>
-            </YStack>
-          </XStack>
-        ))}
-      </YStack>
-    );
-  },
-);
-ProtocolPositionSection.displayName = 'ProtocolPositionSection';
-
 const ProtocolListLayout = memo(
   ({
     protocol,
-    protocolInfo,
+    protocolDisplayInfo,
     isAllNetworks,
     currencySymbol,
     onPressProtocol,
   }: {
     protocol: IDeFiProtocol;
-    protocolInfo?: IProtocolSummary;
+    protocolDisplayInfo: IDeFiProtocolDisplayInfo;
     isAllNetworks?: boolean;
     currencySymbol: string;
     onPressProtocol: () => void;
@@ -172,12 +69,12 @@ const ProtocolListLayout = memo(
       >
         <Token
           size="md"
-          tokenImageUri={protocolInfo?.protocolLogo}
+          tokenImageUri={protocolDisplayInfo.protocolLogo}
           showNetworkIcon={isAllNetworks}
           networkId={protocol.networkId}
         />
         <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
-          {protocolInfo?.protocolName ?? protocol.protocol}
+          {protocolDisplayInfo.protocolName}
         </SizableText>
         <NumberSizeableTextWrapper
           hideValue
@@ -188,7 +85,7 @@ const ProtocolListLayout = memo(
           flexShrink={0}
           maxWidth={120}
         >
-          {protocolInfo?.netWorth ?? 0}
+          {protocolDisplayInfo.netWorth}
         </NumberSizeableTextWrapper>
       </ListItem>
     );
@@ -199,7 +96,7 @@ ProtocolListLayout.displayName = 'ProtocolListLayout';
 const ProtocolDesktopLayout = memo(
   ({
     protocol,
-    protocolInfo,
+    protocolDisplayInfo,
     isAllNetworks,
     currencySymbol,
     positionCountText,
@@ -208,13 +105,13 @@ const ProtocolDesktopLayout = memo(
     positions,
   }: {
     protocol: IDeFiProtocol;
-    protocolInfo?: IProtocolSummary;
+    protocolDisplayInfo: IDeFiProtocolDisplayInfo;
     isAllNetworks?: boolean;
     currencySymbol: string;
     positionCountText: string;
     positionNamePopoverTitle: string;
     priceUnavailableLabel: string;
-    positions: IProtocolPositionItem[];
+    positions: ILocalizedProtocolPositionItem[];
   }) => {
     return (
       <Stack
@@ -265,13 +162,13 @@ const ProtocolDesktopLayout = memo(
                   <XStack gap="$3" alignItems="center" flex={1} minWidth={0}>
                     <Token
                       size="md"
-                      tokenImageUri={protocolInfo?.protocolLogo}
+                      tokenImageUri={protocolDisplayInfo.protocolLogo}
                       showNetworkIcon={isAllNetworks}
                       networkId={protocol.networkId}
                     />
                     <YStack flex={1} minWidth={0} alignItems="flex-start">
                       <SizableText size="$headingLg" numberOfLines={1}>
-                        {protocolInfo?.protocolName ?? protocol.protocol}
+                        {protocolDisplayInfo.protocolName}
                       </SizableText>
                       <SizableText
                         size="$headingSm"
@@ -292,7 +189,7 @@ const ProtocolDesktopLayout = memo(
                     minWidth={120}
                     maxWidth={168}
                   >
-                    {protocolInfo?.netWorth ?? 0}
+                    {protocolDisplayInfo.netWorth}
                   </NumberSizeableTextWrapper>
                   <View
                     ml="$3"
@@ -369,7 +266,7 @@ const ProtocolDesktopLayout = memo(
                       {position.sections.map((section) => (
                         <ProtocolPositionSection
                           key={section.key}
-                          groupId={position.positionKey}
+                          itemKeyPrefix={position.positionKey}
                           section={section}
                           currencySymbol={currencySymbol}
                           priceUnavailableLabel={priceUnavailableLabel}
@@ -399,7 +296,7 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
   const [settings] = useSettingsPersistAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
 
-  const protocolInfo: IProtocolSummary | undefined =
+  const protocolInfo =
     protocolMap[
       defiUtils.buildProtocolMapKey({
         protocol: protocol.protocol,
@@ -408,27 +305,31 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     ];
 
   const currencySymbol = settings.currencyInfo.symbol;
+  const translate = useCallback(
+    (id: ETranslations) => intl.formatMessage({ id }),
+    [intl],
+  );
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
   const positionNamePopoverTitle = intl.formatMessage({
     id: ETranslations.wallet_defi_position_name_popover_title,
   });
-  const positions = useMemo<IProtocolPositionItem[]>(
+  const positions = useMemo<ILocalizedProtocolPositionItem[]>(
     () =>
-      buildProtocolPositionItems(protocol).map((position) => ({
-        ...position,
-        categoryLabel: position.categoryTitleId
-          ? intl.formatMessage({ id: position.categoryTitleId })
-          : position.categoryLabel,
-        sections: position.sections.map((section) => ({
-          ...section,
-          title: section.titleId
-            ? intl.formatMessage({ id: section.titleId })
-            : section.title,
-        })),
-      })),
-    [intl, protocol],
+      buildLocalizedProtocolPositionItems({
+        protocol,
+        translate,
+      }),
+    [protocol, translate],
+  );
+  const protocolDisplayInfo = useMemo(
+    () =>
+      buildProtocolDisplayInfo({
+        protocol,
+        protocolInfo,
+      }),
+    [protocol, protocolInfo],
   );
   const positionCountText = useMemo(
     () =>
@@ -439,10 +340,6 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
   );
 
   const onPressProtocol = useCallback(() => {
-    if (!protocolInfo) {
-      return;
-    }
-
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetDetailRoutes.DeFiProtocolDetails,
       params: {
@@ -459,7 +356,7 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     positionNamePopoverTitle,
     positions,
     priceUnavailableLabel,
-    protocolInfo,
+    protocolDisplayInfo,
   };
 }
 
@@ -470,7 +367,7 @@ function Protocol({ protocol, tableLayout, isAllNetworks }: IProtocolProps) {
     return (
       <ProtocolListLayout
         protocol={protocol}
-        protocolInfo={viewModel.protocolInfo}
+        protocolDisplayInfo={viewModel.protocolDisplayInfo}
         isAllNetworks={isAllNetworks}
         currencySymbol={viewModel.currencySymbol}
         onPressProtocol={viewModel.onPressProtocol}
@@ -481,7 +378,7 @@ function Protocol({ protocol, tableLayout, isAllNetworks }: IProtocolProps) {
   return (
     <ProtocolDesktopLayout
       protocol={protocol}
-      protocolInfo={viewModel.protocolInfo}
+      protocolDisplayInfo={viewModel.protocolDisplayInfo}
       isAllNetworks={isAllNetworks}
       currencySymbol={viewModel.currencySymbol}
       positionCountText={viewModel.positionCountText}

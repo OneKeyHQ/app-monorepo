@@ -1,27 +1,25 @@
 import { useMemo } from 'react';
 
 import { type RouteProp, useRoute } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
   Divider,
-  Icon,
   IconButton,
   Page,
   Popover,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
-  type IProtocolPositionSection,
-  buildProtocolPositionItems,
+  buildLocalizedProtocolPositionItems,
+  buildProtocolDisplayInfo,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -34,97 +32,6 @@ import {
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
-
-function ProtocolDetailAssetValue({
-  value,
-  currencySymbol,
-  priceUnavailableLabel,
-}: {
-  value: number;
-  currencySymbol: string;
-  priceUnavailableLabel: string;
-}) {
-  const valueBN = new BigNumber(value);
-  const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
-
-  return (
-    <XStack alignItems="center" justifyContent="flex-end" gap="$1">
-      {isValueUnavailable ? (
-        <Stack width="$4" height="$4">
-          <Tooltip
-            renderContent={priceUnavailableLabel}
-            renderTrigger={
-              <Icon name="ErrorOutline" size="$4" color="$iconCritical" />
-            }
-          />
-        </Stack>
-      ) : null}
-      <NumberSizeableTextWrapper
-        hideValue
-        size="$bodyLg"
-        formatter="value"
-        formatterOptions={{ currency: currencySymbol }}
-        color={isValueUnavailable ? '$text' : undefined}
-      >
-        {isValueUnavailable ? '--' : valueBN.toFixed()}
-      </NumberSizeableTextWrapper>
-    </XStack>
-  );
-}
-
-function ProtocolDetailSection({
-  section,
-  currencySymbol,
-  priceUnavailableLabel,
-}: {
-  section: IProtocolPositionSection;
-  currencySymbol: string;
-  priceUnavailableLabel: string;
-}) {
-  return (
-    <YStack bg="$bgSubdued" borderRadius="$2" px="$3" py="$2" gap="$1">
-      <SizableText size="$headingXs" color="$text" textTransform="uppercase">
-        {section.title}
-      </SizableText>
-      {section.assets.map((asset, assetIndex) => (
-        <XStack
-          key={`${section.key}-${asset.address}-${assetIndex}`}
-          alignItems="center"
-          justifyContent="space-between"
-          gap="$3"
-          py="$1"
-        >
-          <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
-            <Token
-              size="sm"
-              tokenImageUri={asset.meta?.logoUrl}
-              bg="$bgStrong"
-            />
-            <SizableText size="$headingSm" numberOfLines={1} flex={1}>
-              {asset.symbol}
-            </SizableText>
-          </XStack>
-          <YStack alignItems="flex-end" maxWidth="55%">
-            <ProtocolDetailAssetValue
-              value={asset.value}
-              currencySymbol={currencySymbol}
-              priceUnavailableLabel={priceUnavailableLabel}
-            />
-            <NumberSizeableTextWrapper
-              hideValue
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="balance"
-              textAlign="right"
-            >
-              {asset.amount}
-            </NumberSizeableTextWrapper>
-          </YStack>
-        </XStack>
-      ))}
-    </YStack>
-  );
-}
 
 function DeFiProtocolDetails() {
   const route =
@@ -147,19 +54,19 @@ function DeFiProtocolDetails() {
 
   const positions = useMemo(
     () =>
-      buildProtocolPositionItems(protocol).map((position) => ({
-        ...position,
-        categoryLabel: position.categoryTitleId
-          ? intl.formatMessage({ id: position.categoryTitleId })
-          : position.categoryLabel,
-        sections: position.sections.map((section) => ({
-          ...section,
-          title: section.titleId
-            ? intl.formatMessage({ id: section.titleId })
-            : section.title,
-        })),
-      })),
+      buildLocalizedProtocolPositionItems({
+        protocol,
+        translate: (id) => intl.formatMessage({ id }),
+      }),
     [intl, protocol],
+  );
+  const protocolDisplayInfo = useMemo(
+    () =>
+      buildProtocolDisplayInfo({
+        protocol,
+        protocolInfo,
+      }),
+    [protocol, protocolInfo],
   );
 
   return (
@@ -177,13 +84,13 @@ function DeFiProtocolDetails() {
           <XStack alignItems="center" gap="$3" flex={1} minWidth={0}>
             <Token
               size="xl"
-              tokenImageUri={protocolInfo.protocolLogo}
+              tokenImageUri={protocolDisplayInfo.protocolLogo}
               showNetworkIcon
               networkId={protocol.networkId}
             />
             <YStack flex={1} minWidth={0}>
               <SizableText size="$heading2xl" numberOfLines={1}>
-                {protocolInfo.protocolName}
+                {protocolDisplayInfo.protocolName}
               </SizableText>
               <NumberSizeableTextWrapper
                 hideValue
@@ -192,11 +99,11 @@ function DeFiProtocolDetails() {
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 color="$textSubdued"
               >
-                {protocolInfo.netWorth}
+                {protocolDisplayInfo.netWorth}
               </NumberSizeableTextWrapper>
             </YStack>
           </XStack>
-          {protocolInfo.protocolUrl ? (
+          {protocolDisplayInfo.protocolUrl ? (
             <IconButton
               title={intl.formatMessage({
                 id: ETranslations.global_view_in_blockchain_explorer,
@@ -207,10 +114,10 @@ function DeFiProtocolDetails() {
               onPress={() => {
                 if (platformEnv.isDesktop || platformEnv.isNative) {
                   openUrlInDiscovery({
-                    url: protocolInfo.protocolUrl,
+                    url: protocolDisplayInfo.protocolUrl,
                   });
                 } else {
-                  openUrlExternal(protocolInfo.protocolUrl);
+                  openUrlExternal(protocolDisplayInfo.protocolUrl);
                 }
               }}
             />
@@ -272,8 +179,9 @@ function DeFiProtocolDetails() {
               </XStack>
               <YStack gap="$2">
                 {position.sections.map((section) => (
-                  <ProtocolDetailSection
+                  <ProtocolPositionSection
                     key={section.key}
+                    itemKeyPrefix={position.positionKey}
                     section={section}
                     currencySymbol={settings.currencyInfo.symbol}
                     priceUnavailableLabel={priceUnavailableLabel}

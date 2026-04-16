@@ -118,7 +118,6 @@ function transferPositionMap(
       poolName: string;
       poolFullName: string;
       category: string;
-      categories: Set<string>;
       assets: (IDeFiAsset & { type: EDeFiAssetType })[];
       debts: (IDeFiAsset & { type: EDeFiAssetType })[];
       rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -132,7 +131,6 @@ function transferPositionMap(
       poolName: position.poolName,
       poolFullName: position.poolFullName,
       category: position.category,
-      categories: Array.from(position.categories),
       assets: mergeAssets(position.assets).toSorted((a, b) =>
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
@@ -171,7 +169,6 @@ function transformDeFiData({
           poolName: string;
           poolFullName: string;
           category: string;
-          categories: Set<string>;
           assets: (IDeFiAsset & { type: EDeFiAssetType })[];
           debts: (IDeFiAsset & { type: EDeFiAssetType })[];
           rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -218,7 +215,6 @@ function transformDeFiData({
             poolName: string;
             poolFullName: string;
             category: string;
-            categories: Set<string>;
             assets: (IDeFiAsset & { type: EDeFiAssetType })[];
             debts: (IDeFiAsset & { type: EDeFiAssetType })[];
             rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -242,7 +238,6 @@ function transformDeFiData({
           poolName: targetString,
           poolFullName: originalString,
           category: position.category,
-          categories: new Set([position.category]),
           assets: [],
           debts: [],
           rewards: [],
@@ -257,7 +252,6 @@ function transformDeFiData({
         poolName: string;
         poolFullName: string;
         category: string;
-        categories: Set<string>;
         assets: (IDeFiAsset & { type: EDeFiAssetType })[];
         debts: (IDeFiAsset & { type: EDeFiAssetType })[];
         rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
@@ -280,7 +274,6 @@ function transformDeFiData({
       positionValue.assets.push(...assets);
       positionValue.debts.push(...debts);
       positionValue.rewards.push(...rewards);
-      positionValue.categories.add(position.category);
       // calculate value
       positionValue.value = positionValue.value.plus(
         position.assets
