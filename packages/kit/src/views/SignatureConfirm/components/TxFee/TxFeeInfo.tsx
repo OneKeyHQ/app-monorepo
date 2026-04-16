@@ -13,6 +13,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   Dialog,
   Icon,
   NumberSizeableText,
@@ -20,6 +21,8 @@ import {
   Skeleton,
   Stack,
   XStack,
+  useTheme,
+  useThemeName,
 } from '@onekeyhq/components';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
@@ -76,6 +79,7 @@ import {
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/shared/src/utils/feeUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import {
@@ -103,6 +107,13 @@ type IProps = {
   transferPayload?: ITransferPayload;
 };
 
+const SPONSORED_COUPON_INFO_WIDTH = 56;
+const SPONSORED_COUPON_SEPARATOR_STROKE = 2;
+const SPONSORED_COUPON_CUTOUT_SIZE = 18;
+const SPONSORED_COUPON_CUTOUT_OFFSET = SPONSORED_COUPON_CUTOUT_SIZE / 2;
+const SPONSORED_FEES_HELP_CENTER_URL =
+  'https://help.onekey.so/collections/15988402';
+
 function buildGasAccountIdempotencyKey(quoteId?: string) {
   return quoteId ? `gas-account:${quoteId}` : '';
 }
@@ -117,6 +128,8 @@ function TxFeeInfo(props: IProps) {
     transferPayload,
   } = props;
   const intl = useIntl();
+  const theme = useTheme();
+  const themeName = useThemeName();
   const feeInTxUpdated = useRef(false);
   const tronRentalUpdated = useRef(false);
   const lastTxUuidRef = useRef<string | undefined>(undefined);
@@ -186,6 +199,16 @@ function TxFeeInfo(props: IProps) {
     effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable;
   const isGasAccountSponsored = effectiveFeePayer === 'gasAccount';
   const isPayerManagedByService = isMegafuelSponsored || isGasAccountSponsored;
+  const isDarkMode = /dark/.test(themeName);
+  const gasSponsoredAccentColor = theme.bgAccent.val;
+  const sponsoredCouponBgColor = theme.brand3.val;
+  const sponsoredCouponTextColor = theme.text.val;
+  const sponsoredCouponSubTextColor = theme.textSubdued.val;
+  const sponsoredCouponIconBgColor = isDarkMode
+    ? theme.brand8.val
+    : gasSponsoredAccentColor;
+  const sponsoredCouponSeparatorColor = theme.borderSubdued.val;
+  const sponsoredCouponActionColor = theme.iconSubdued.val;
 
   // For non-HD wallets, approve&swap transactions will be sent as separate consecutive transactions,
   // each requiring individual confirmation
@@ -1594,21 +1617,183 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const shouldShowFreeBadge = isMegafuelSponsored || isGasAccountSponsored;
+  const sponsoredInfoTitle = 'Fee Sponsorship';
+  const sponsoredCouponSubtitle = 'Sponsored by OneKey';
+  const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
+    openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
+  }, []);
 
-  const renderFreeBadge = useCallback(
+  const renderSponsoredCoupon = useCallback(
     () => (
-      <Badge badgeSize="sm" bg="#49DF58" borderRadius="$4" ml="$2">
+      <Stack position="relative" alignSelf="stretch">
+        <XStack overflow="hidden" borderRadius="$5" bg={sponsoredCouponBgColor}>
+          <XStack
+            flex={1}
+            px="$3.5"
+            py="$3"
+            gap="$3"
+            alignItems="center"
+            minWidth={0}
+          >
+            <Stack
+              width={42}
+              height={42}
+              borderRadius="$full"
+              bg={sponsoredCouponIconBgColor}
+              alignItems="center"
+              justifyContent="center"
+              flexShrink={0}
+            >
+              <Icon name="GiftSolid" size="$4.5" color="$iconOnColor" />
+            </Stack>
+            <Stack flex={1} minWidth={0} gap="$1">
+              <SizableText
+                size="$headingMd"
+                color={sponsoredCouponTextColor}
+                numberOfLines={1}
+              >
+                0 Network Fee
+              </SizableText>
+              <SizableText
+                size="$bodySmMedium"
+                color={sponsoredCouponSubTextColor}
+                numberOfLines={1}
+              >
+                {sponsoredCouponSubtitle}
+              </SizableText>
+            </Stack>
+          </XStack>
+          <Stack
+            width={SPONSORED_COUPON_INFO_WIDTH}
+            position="relative"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Stack
+              position="absolute"
+              left={-(SPONSORED_COUPON_SEPARATOR_STROKE / 2)}
+              top="$3"
+              bottom="$3"
+              borderLeftWidth={SPONSORED_COUPON_SEPARATOR_STROKE}
+              borderStyle="dashed"
+              borderColor={sponsoredCouponSeparatorColor}
+              opacity={0.52}
+            />
+            <Stack
+              width={28}
+              height={28}
+              borderRadius="$full"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              onPress={handleOpenSponsoredFeesHelpCenter}
+              hoverStyle={{ opacity: 0.72 }}
+              pressStyle={{ opacity: 0.56 }}
+            >
+              <Icon
+                name="InfoCircleOutline"
+                size="$4.5"
+                color={sponsoredCouponActionColor}
+              />
+            </Stack>
+          </Stack>
+        </XStack>
+        <Stack
+          position="absolute"
+          right={SPONSORED_COUPON_INFO_WIDTH - SPONSORED_COUPON_CUTOUT_OFFSET}
+          top={-SPONSORED_COUPON_CUTOUT_OFFSET}
+          width={SPONSORED_COUPON_CUTOUT_SIZE}
+          height={SPONSORED_COUPON_CUTOUT_SIZE}
+          borderRadius="$full"
+          bg="$bg"
+          pointerEvents="none"
+        />
+        <Stack
+          position="absolute"
+          right={SPONSORED_COUPON_INFO_WIDTH - SPONSORED_COUPON_CUTOUT_OFFSET}
+          bottom={-SPONSORED_COUPON_CUTOUT_OFFSET}
+          width={SPONSORED_COUPON_CUTOUT_SIZE}
+          height={SPONSORED_COUPON_CUTOUT_SIZE}
+          borderRadius="$full"
+          bg="$bg"
+          pointerEvents="none"
+        />
+      </Stack>
+    ),
+    [
+      handleOpenSponsoredFeesHelpCenter,
+      sponsoredCouponActionColor,
+      sponsoredCouponBgColor,
+      sponsoredCouponIconBgColor,
+      sponsoredCouponSeparatorColor,
+      sponsoredCouponSubTextColor,
+      sponsoredCouponSubtitle,
+      sponsoredCouponTextColor,
+    ],
+  );
+
+  const handleShowSponsoredInfo = useCallback(() => {
+    const dialogInstance = Dialog.show({
+      title: sponsoredInfoTitle,
+      showFooter: false,
+      showCancelButton: false,
+      renderContent: (
+        <Stack gap="$4">
+          {renderSponsoredCoupon()}
+          <Stack px="$1" gap="$3">
+            <SizableText size="$bodySm" color="$textSubdued">
+              Sponsorship depends on eligibility, availability, and fair use
+              checks. If it becomes unavailable, the standard network fee will
+              be shown before you send.
+            </SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              color="$text"
+              textDecorationLine="underline"
+              cursor="pointer"
+              alignSelf="flex-start"
+              hoverStyle={{ opacity: 0.8 }}
+              pressStyle={{ opacity: 0.7 }}
+              onPress={handleOpenSponsoredFeesHelpCenter}
+            >
+              Learn about sponsored fees
+            </SizableText>
+          </Stack>
+          <Button
+            size="medium"
+            onPress={() => {
+              void dialogInstance?.close?.();
+            }}
+          >
+            Got it
+          </Button>
+        </Stack>
+      ),
+    });
+    return dialogInstance;
+  }, [handleOpenSponsoredFeesHelpCenter, renderSponsoredCoupon]);
+
+  const renderGasSponsoredBadge = useCallback(
+    () => (
+      <Badge
+        badgeSize="sm"
+        bg={gasSponsoredAccentColor}
+        borderRadius="$4"
+        px="$2.5"
+        py="$1"
+        flexShrink={0}
+        cursor="pointer"
+        onPress={handleShowSponsoredInfo}
+        hoverStyle={{ opacity: 0.9 }}
+        pressStyle={{ opacity: 0.82 }}
+      >
         <XStack alignItems="center" gap="$1">
           <Icon name="GiftSolid" size="$3" color="$iconOnBrightColor" />
-          <Badge.Text color="$textOnBrightColor">
-            {intl.formatMessage({
-              id: ETranslations.prime_status_free,
-            })}
-          </Badge.Text>
+          <Badge.Text color="$textOnBrightColor">Gas Sponsored</Badge.Text>
         </XStack>
       </Badge>
     ),
-    [intl],
+    [gasSponsoredAccentColor, handleShowSponsoredInfo],
   );
 
   const handlePress = useCallback(() => {
@@ -1882,10 +2067,18 @@ function TxFeeInfo(props: IProps) {
           </NumberSizeableText>
           )
         </SizableText>
-        {shouldShowFreeBadge ? renderFreeBadge() : null}
+        {shouldShowFreeBadge ? (
+          <SizableText
+            size="$bodyMdMedium"
+            color={gasSponsoredAccentColor}
+            userSelect="none"
+          >
+            Free
+          </SizableText>
+        ) : null}
         {sendFeeStatus.discountPercent &&
         sendFeeStatus.discountPercent > 0 &&
-        !(shouldShowFreeBadge && sendFeeStatus.discountPercent === 100) ? (
+        !shouldShowFreeBadge ? (
           <Badge badgeSize="sm" badgeType="success">
             <Badge.Text>
               {sendFeeStatus.discountPercent === 100
@@ -1916,9 +2109,9 @@ function TxFeeInfo(props: IProps) {
     txFeeCommon?.nativeSymbol,
     settings.currencyInfo.symbol,
     intl,
-    renderFreeBadge,
     shouldShowFreeBadge,
     sendFeeStatus.discountPercent,
+    gasSponsoredAccentColor,
   ]);
 
   useEffect(() => {
@@ -1993,9 +2186,42 @@ function TxFeeInfo(props: IProps) {
     updateSendFeeStatus,
   ]);
 
+  const renderFeeSummary = useCallback(() => {
+    if (shouldShowFreeBadge) {
+      return null;
+    }
+
+    if (isGasAccountSelected) {
+      return renderGasAccountSummary();
+    }
+
+    return (
+      <XStack gap="$1" alignItems="center">
+        {txFeeInfoInit ? (
+          renderTotalNative()
+        ) : (
+          <Stack py="$1">
+            <Skeleton height="$3" width="$24" />
+          </Stack>
+        )}
+        {txFeeInfoInit && !isNil(selectedFee?.totalFiatMinForDisplay)
+          ? renderTotalFiat()
+          : ''}
+      </XStack>
+    );
+  }, [
+    isGasAccountSelected,
+    renderGasAccountSummary,
+    renderTotalFiat,
+    renderTotalNative,
+    selectedFee?.totalFiatMinForDisplay,
+    shouldShowFreeBadge,
+    txFeeInfoInit,
+  ]);
+
   return (
     <Stack {...feeInfoWrapperProps}>
-      <XStack gap="$2" alignItems="center" pb="$1">
+      <XStack gap="$2" alignItems="center" flexWrap="wrap" pb="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_est_network_fee,
@@ -2010,24 +2236,10 @@ function TxFeeInfo(props: IProps) {
           </SizableText>
         ) : null}
         {renderFeeEditor()}
+        {shouldShowFreeBadge ? renderGasSponsoredBadge() : null}
       </XStack>
       {renderOriginalFeeInfo()}
-      {isGasAccountSelected ? (
-        renderGasAccountSummary()
-      ) : (
-        <XStack gap="$1" alignItems="center">
-          {txFeeInfoInit ? (
-            renderTotalNative()
-          ) : (
-            <Stack py="$1">
-              <Skeleton height="$3" width="$24" />
-            </Stack>
-          )}
-          {txFeeInfoInit && !isNil(selectedFee?.totalFiatMinForDisplay)
-            ? renderTotalFiat()
-            : ''}
-        </XStack>
-      )}
+      {renderFeeSummary()}
     </Stack>
   );
 }

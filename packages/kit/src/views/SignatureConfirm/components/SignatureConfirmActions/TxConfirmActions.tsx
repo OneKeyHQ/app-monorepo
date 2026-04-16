@@ -26,7 +26,9 @@ import {
   useCustomRpcStatusAtom,
   useDecodedTxsAtom,
   useDecodedTxsInitAtom,
+  useEffectiveFeePayerAtom,
   useGasAccountUiStateAtom,
+  useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
   usePreCheckTxStatusAtom,
@@ -184,7 +186,9 @@ function TxConfirmActions(props: IProps) {
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
+  const [effectiveFeePayer] = useEffectiveFeePayerAtom();
   const [gasAccountUiState] = useGasAccountUiStateAtom();
+  const [megafuelEligible] = useMegafuelEligibleAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
@@ -214,6 +218,10 @@ function TxConfirmActions(props: IProps) {
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
+  const isMegafuelSponsored =
+    effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable;
+  const isGasAccountSponsored = effectiveFeePayer === 'gasAccount';
+  const isFeeSponsored = isMegafuelSponsored || isGasAccountSponsored;
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -550,15 +558,13 @@ function TxConfirmActions(props: IProps) {
           : undefined,
       });
 
-      const isGasSponsoredTx = sendFeeStatus.discountPercent === 100;
-
       Toast.success({
-        title: isGasSponsoredTx
+        title: isFeeSponsored
           ? 'Gas-sponsored transaction submitted'
           : intl.formatMessage({
               id: ETranslations.feedback_transaction_submitted,
             }),
-        icon: isGasSponsoredTx ? 'GiftSolid' : undefined,
+        icon: isFeeSponsored ? 'GiftSolid' : undefined,
       });
 
       const signedTx = result[0].signedTx;
@@ -679,7 +685,7 @@ function TxConfirmActions(props: IProps) {
     customRpcStatus?.useDefaultRpcOnce,
     settings?.currencyInfo.id,
     nativeTokenInfo.info?.symbol,
-    sendFeeStatus.discountPercent,
+    isFeeSponsored,
   ]);
 
   const handleOnConfirm = useCallback(async () => {
@@ -832,6 +838,10 @@ function TxConfirmActions(props: IProps) {
       return intl.formatMessage({ id: ETranslations.global_sign });
     }
 
+    if (isFeeSponsored) {
+      return intl.formatMessage({ id: ETranslations.wallet_send_free });
+    }
+
     if (sendFeeStatus.discountPercent === 100) {
       return intl.formatMessage({ id: ETranslations.wallet_send_free });
     }
@@ -843,7 +853,7 @@ function TxConfirmActions(props: IProps) {
     }
 
     return intl.formatMessage({ id: ETranslations.global_confirm });
-  }, [intl, sendFeeStatus.discountPercent, signOnly]);
+  }, [intl, isFeeSponsored, sendFeeStatus.discountPercent, signOnly]);
 
   return (
     <Page.Footer disableKeyboardAnimation>
