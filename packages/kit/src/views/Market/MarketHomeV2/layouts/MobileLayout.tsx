@@ -52,6 +52,7 @@ interface IMobileLayoutProps {
   liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
   tabsRef?: RefObject<ITabContainerRef | null>;
+  isFocused?: boolean;
   nestedPager?: boolean;
 }
 
@@ -165,6 +166,7 @@ function MobileLayoutComponent({
   selectedNetworkId,
   onTabChange,
   tabsRef,
+  isFocused = true,
   nestedPager = false,
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
@@ -219,7 +221,7 @@ function MobileLayoutComponent({
     activeTabName,
     setActiveTabName,
     tabsRef: currentTabsRef,
-  } = useSyncedMarketTab(selectedTabName, tabsRef);
+  } = useSyncedMarketTab(selectedTabName, tabsRef, isFocused);
 
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;

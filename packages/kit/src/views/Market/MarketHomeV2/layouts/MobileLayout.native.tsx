@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { RefObject } from 'react';
@@ -51,6 +52,7 @@ interface IMobileLayoutProps {
   liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
   tabsRef?: RefObject<ITabContainerRef | null>;
+  isFocused?: boolean;
   nestedPager?: boolean;
 }
 
@@ -227,6 +229,7 @@ function MobileLayoutComponent({
   selectedNetworkId,
   onTabChange,
   tabsRef,
+  isFocused = true,
   nestedPager = false,
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
@@ -281,7 +284,9 @@ function MobileLayoutComponent({
     activeTabName,
     setActiveTabName,
     tabsRef: currentTabsRef,
-  } = useSyncedMarketTab(selectedTabName, tabsRef);
+  } = useSyncedMarketTab(selectedTabName, tabsRef, isFocused);
+  const setActiveTabNameRef = useRef(setActiveTabName);
+  setActiveTabNameRef.current = setActiveTabName;
   const useNativeHeaderAnimation = platformEnv.isNativeAndroid
     ? !nestedPager
     : false;
@@ -322,15 +327,23 @@ function MobileLayoutComponent({
 
   // Stable renderTabBar — reads dynamic values from context, not props.
   const renderTabBar = useCallback(
-    (tabBarProps: TabBarProps<string>) => (
-      <MarketHomeTabBar
-        {...tabBarProps}
-        watchlistTabName={watchlistTabName}
-        spotTabName={spotTabName}
-        perpsTabName={perpsTabName}
-      />
-    ),
-    [watchlistTabName, spotTabName, perpsTabName],
+    (tabBarProps: TabBarProps<string>) => {
+      const handleTabPress = (name: string) => {
+        setActiveTabNameRef.current(name);
+        tabBarProps.onTabPress?.(name);
+      };
+
+      return (
+        <MarketHomeTabBar
+          {...tabBarProps}
+          onTabPress={handleTabPress}
+          watchlistTabName={watchlistTabName}
+          spotTabName={spotTabName}
+          perpsTabName={perpsTabName}
+        />
+      );
+    },
+    [perpsTabName, spotTabName, watchlistTabName],
   );
 
   const onTabChangeHandler = useCallback(
