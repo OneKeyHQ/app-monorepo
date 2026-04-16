@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
@@ -79,7 +78,6 @@ export function useSwapIncognitoRecipientInput({
   address,
   swapToAnotherAccountSwitchOn,
 }: IUseSwapIncognitoRecipientInputParams) {
-  const intl = useIntl();
   const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const [inputText, setInputText] = useState('');
@@ -358,7 +356,7 @@ export function useSwapIncognitoRecipientInput({
     ],
   );
 
-  const errorMessage = useMemo(() => {
+  const errorTranslationId = useMemo(() => {
     if (!inputText.trim() || loading || queryResult.validStatus === 'valid') {
       return undefined;
     }
@@ -371,14 +369,12 @@ export function useSwapIncognitoRecipientInput({
       getAddressValidateTranslationId(queryResult.validStatus) ??
       ETranslations.send_address_invalid;
 
-    return intl.formatMessage({
-      id: translationId,
-    });
-  }, [inputText, intl, loading, queryResult.validStatus]);
+    return translationId;
+  }, [inputText, loading, queryResult.validStatus]);
 
   return {
     enabled,
-    errorMessage,
+    errorTranslationId,
     inputText,
     loading,
     onInputChange: handleInputChange,
