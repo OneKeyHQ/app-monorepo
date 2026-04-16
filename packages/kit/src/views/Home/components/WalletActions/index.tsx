@@ -4,15 +4,9 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import {
-  Button,
-  Dialog,
-  Icon,
-  ListItem,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, Icon, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -163,8 +157,8 @@ function WalletActionSend({
                   }}
                   onPress={() => {
                     logZeroGas('receive');
-                    void dialogRef.close();
                     safeResolve(false);
+                    void dialogRef.close();
                     navigation.pushModal(EModalRoutes.ReceiveModal, {
                       screen: EModalReceiveRoutes.ReceiveSelector,
                     });
@@ -206,8 +200,8 @@ function WalletActionSend({
                     }}
                     onPress={async () => {
                       logZeroGas('buy');
-                      void dialogRef.close();
                       safeResolve(false);
+                      void dialogRef.close();
                       try {
                         const { url } =
                           await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl(
