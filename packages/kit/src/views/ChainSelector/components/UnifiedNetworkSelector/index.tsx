@@ -11,6 +11,7 @@ import {
   SizableText,
   Stack,
   YStack,
+  resetChainSelectorModal,
 } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -313,16 +314,13 @@ function UnifiedNetworkSelector() {
         networkId: item.id,
       });
 
-      navigation.popStack();
+      // Surgically drop only the ChainSelectorModal route. popStack() triggers
+      // the iOS RNSScreenStack window=NIL retry storm, and resetAboveMainRoute
+      // would also close any parent modal that pushed us here.
+      // See ios-overlay-navigation-freeze.md.
+      resetChainSelectorModal();
     },
-    [
-      actions,
-      num,
-      navigation,
-      recordNetworkHistoryEnabled,
-      activeNetwork,
-      sceneName,
-    ],
+    [actions, num, recordNetworkHistoryEnabled, activeNetwork, sceneName],
   );
 
   const handleAddCustomNetwork = useCallback(() => {
@@ -447,7 +445,11 @@ function UnifiedNetworkSelector() {
         });
       }
 
-      navigation.pop();
+      // pop() falls through to popStack() when UnifiedNetworkSelector is the
+      // modal root, triggering the iOS RNSScreenStack window=NIL retry storm.
+      // Surgically drop only the ChainSelectorModal route to preserve any parent
+      // modal that pushed us here. See ios-overlay-navigation-freeze.md.
+      resetChainSelectorModal();
 
       void onNetworksChanged?.();
     } finally {
@@ -460,7 +462,6 @@ function UnifiedNetworkSelector() {
     enabledNetworks,
     findNetworksWithoutAccount,
     indexedAccountId,
-    navigation,
     networkId,
     networksState.disabledNetworks,
     networksState.enabledNetworks,
