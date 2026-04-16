@@ -204,6 +204,11 @@ export const { atom: megafuelEligibleAtom, use: useMegafuelEligibleAtom } =
     sponsorName: string;
   }>({ ...defaultMegafuelEligible });
 
+export const defaultEffectiveFeePayer = 'user' as IGasPayer;
+
+export const { atom: effectiveFeePayerAtom, use: useEffectiveFeePayerAtom } =
+  contextAtom<IGasPayer>(defaultEffectiveFeePayer);
+
 export const defaultGasAccountUiState = {
   payer: undefined as IGasPayer | undefined,
   gasAccountEligible: false,

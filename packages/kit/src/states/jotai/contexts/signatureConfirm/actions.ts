@@ -26,12 +26,14 @@ import {
   customRpcStatusAtom,
   decodedTxsAtom,
   decodedTxsInitAtom,
+  defaultEffectiveFeePayer,
   defaultGasAccountUiState,
   defaultMegafuelEligible,
   defaultPayWithTokenInfo,
   defaultSendFeeStatus,
   defaultSendSelectedFee,
   defaultTronResourceRentalInfo,
+  effectiveFeePayerAtom,
   extraFeeInfoAtom,
   gasAccountTemporarilyDisabledAtom,
   gasAccountUiStateAtom,
@@ -327,6 +329,14 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     set(megafuelEligibleAtom(), { ...defaultMegafuelEligible });
   });
 
+  updateEffectiveFeePayer = contextAtomMethod((_, set, payer: IGasPayer) => {
+    set(effectiveFeePayerAtom(), payer);
+  });
+
+  resetEffectiveFeePayer = contextAtomMethod((_, set) => {
+    set(effectiveFeePayerAtom(), defaultEffectiveFeePayer);
+  });
+
   updateGasAccountUiState = contextAtomMethod(
     (
       get,
@@ -384,6 +394,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     });
     set(payWithTokenInfoAtom(), { ...defaultPayWithTokenInfo });
     set(megafuelEligibleAtom(), { ...defaultMegafuelEligible });
+    set(effectiveFeePayerAtom(), defaultEffectiveFeePayer);
     set(gasAccountUiStateAtom(), { ...defaultGasAccountUiState });
     set(gasAccountTemporarilyDisabledAtom(), false);
     set(txFeeInfoInitAtom(), false);
@@ -435,6 +446,8 @@ export function useSignatureConfirmActions() {
   const updateTokenTransferAmount = actions.updateTokenTransferAmount.use();
   const updateMegafuelEligible = actions.updateMegafuelEligible.use();
   const resetMegafuelEligible = actions.resetMegafuelEligible.use();
+  const updateEffectiveFeePayer = actions.updateEffectiveFeePayer.use();
+  const resetEffectiveFeePayer = actions.resetEffectiveFeePayer.use();
   const updateGasAccountUiState = actions.updateGasAccountUiState.use();
   const resetGasAccountUiState = actions.resetGasAccountUiState.use();
   const updateGasAccountTemporarilyDisabled =
@@ -472,6 +485,8 @@ export function useSignatureConfirmActions() {
     updateTokenTransferAmount,
     updateMegafuelEligible,
     resetMegafuelEligible,
+    updateEffectiveFeePayer,
+    resetEffectiveFeePayer,
     updateGasAccountUiState,
     resetGasAccountUiState,
     updateGasAccountTemporarilyDisabled,

@@ -34,6 +34,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCustomFeeAtom,
   useDecodedTxsAtom,
+  useEffectiveFeePayerAtom,
   useExtraFeeInfoAtom,
   useGasAccountTemporarilyDisabledAtom,
   useGasAccountUiStateAtom,
@@ -85,6 +86,7 @@ import {
 import type {
   IFeeInfoUnit,
   IFeeSelectorItem,
+  IGasPayer,
   IMultiTxsFeeSelectorItem,
 } from '@onekeyhq/shared/types/fee';
 
@@ -135,6 +137,7 @@ function TxFeeInfo(props: IProps) {
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tokenTransferAmount] = useTokenTransferAmountAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
+  const [effectiveFeePayer] = useEffectiveFeePayerAtom();
   const [gasAccountTemporarilyDisabled] =
     useGasAccountTemporarilyDisabledAtom();
   const [gasAccountUiState] = useGasAccountUiStateAtom();
@@ -164,6 +167,7 @@ function TxFeeInfo(props: IProps) {
     resetPayWithTokenInfo,
     updateMegafuelEligible,
     resetMegafuelEligible,
+    updateEffectiveFeePayer,
     resetGasAccountTemporarilyDisabled,
     updateGasAccountUiState,
     resetGasAccountUiState,
@@ -178,8 +182,10 @@ function TxFeeInfo(props: IProps) {
     gasAccountUiState.gasAccountEligible && !!gasAccountQuote?.quoteId;
   const isGasAccountSelected =
     isGasAccountEligible && gasAccountUiState.selectedPayer === 'gasAccount';
-  const isMegafuelSponsored = megafuelEligible.sponsorable;
-  const isPayerManagedByService = isMegafuelSponsored || isGasAccountSelected;
+  const isMegafuelSponsored =
+    effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable;
+  const isGasAccountSponsored = effectiveFeePayer === 'gasAccount';
+  const isPayerManagedByService = isMegafuelSponsored || isGasAccountSponsored;
 
   // For non-HD wallets, approve&swap transactions will be sent as separate consecutive transactions,
   // each requiring individual confirmation
@@ -398,6 +404,11 @@ function TxFeeInfo(props: IProps) {
         const isCustomRpcEnabled = !!(
           customRpcInfo?.rpc && customRpcInfo?.enabled
         );
+        const nextEffectiveFeePayer: IGasPayer =
+          isCustomRpcEnabled || gasAccountTemporarilyDisabled
+            ? 'user'
+            : (r.payer ?? 'user');
+        updateEffectiveFeePayer(nextEffectiveFeePayer);
 
         if (r.megafuelEligible) {
           // if custom rpc is enabled, disable megafuel eligible
@@ -552,6 +563,7 @@ function TxFeeInfo(props: IProps) {
             (e as Error).message ??
             e,
         });
+        updateEffectiveFeePayer('user');
       }
     },
     [
@@ -569,6 +581,7 @@ function TxFeeInfo(props: IProps) {
       resetMegafuelEligible,
       resetPayWithTokenInfo,
       resetTronResourceRentalInfo,
+      updateEffectiveFeePayer,
       updateGasAccountUiState,
       updateMegafuelEligible,
       updatePayWithTokenInfo,
@@ -612,7 +625,7 @@ function TxFeeInfo(props: IProps) {
       ),
     [gasAccountFeeNative, txFeeCommon?.nativeTokenPrice],
   );
-  const isGasAccountFree = isGasAccountSelected;
+  const isGasAccountFree = isGasAccountSponsored;
 
   const openFeeEditorEnabled =
     !isLastSwapTxWithFeeInfo &&
@@ -1580,8 +1593,7 @@ function TxFeeInfo(props: IProps) {
     txFeeCommon?.nativeSymbol,
   ]);
 
-  const shouldShowFreeBadge =
-    isMegafuelSponsored || (isGasAccountSelected && isGasAccountFree);
+  const shouldShowFreeBadge = isMegafuelSponsored || isGasAccountSponsored;
 
   const renderFreeBadge = useCallback(
     () => (
@@ -1943,7 +1955,7 @@ function TxFeeInfo(props: IProps) {
         .toFixed();
     }
 
-    if (isGasAccountSelected) {
+    if (isPayerManagedByService) {
       totalFiat = '0';
     }
 
@@ -1969,10 +1981,9 @@ function TxFeeInfo(props: IProps) {
       discountPercent: 0,
     });
   }, [
-    gasAccountFeeFiat,
     isResourceRentalEnabled,
     isResourceRentalNeeded,
-    isGasAccountSelected,
+    isPayerManagedByService,
     isSwapTrxEnabled,
     payTokenInfo,
     payType,

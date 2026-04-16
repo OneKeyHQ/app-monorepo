@@ -193,6 +193,7 @@ function TxConfirmActions(props: IProps) {
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const [{ isBuildingDecodedTxs, decodedTxs }] = useDecodedTxsAtom();
   const {
+    updateEffectiveFeePayer,
     updateGasAccountTemporarilyDisabled,
     resetGasAccountTemporarilyDisabled,
     updateGasAccountUiState,
@@ -264,6 +265,7 @@ function TxConfirmActions(props: IProps) {
 
       if (GAS_ACCOUNT_FALLBACK_CODES.has(code)) {
         muteHandledErrorToast(error);
+        updateEffectiveFeePayer('user');
         updateGasAccountTemporarilyDisabled(true);
         resetGasAccountUiState();
         updateGasAccountUiState({
@@ -295,6 +297,7 @@ function TxConfirmActions(props: IProps) {
       gasAccountUiState.selectedPayer,
       resetGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
+      updateEffectiveFeePayer,
       updateGasAccountTemporarilyDisabled,
       updateGasAccountUiState,
       updateSendFeeStatus,
