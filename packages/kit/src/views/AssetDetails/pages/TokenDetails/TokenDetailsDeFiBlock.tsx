@@ -17,9 +17,9 @@ import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfi
 import { EarnNavigation } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface ITokenDetailsDeFiBlockProps {
@@ -44,10 +44,14 @@ type ITokenDetailsDeFiBlockResult = {
   >;
 } | null;
 
+type ITokenDetailsDeFiBlockCacheValue = {
+  result: ITokenDetailsDeFiBlockResult;
+};
+
 // Module-level cache: prevents skeleton flash on remount when scrolling
 const earnResultCache = new cacheUtils.LRUCache<
   string,
-  ITokenDetailsDeFiBlockResult
+  ITokenDetailsDeFiBlockCacheValue
 >({
   max: 50,
   ttl: timerUtils.getTimeDurationMs({ minute: 10 }),
@@ -67,7 +71,10 @@ export function TokenDetailsDeFiBlock({
   const isUnmountedRef = useRef(false);
 
   const cacheKey = `${networkId}_${tokenAddress}`;
-  const cachedResult = useMemo(() => earnResultCache.get(cacheKey), [cacheKey]);
+  const cachedResult = useMemo(
+    () => earnResultCache.get(cacheKey)?.result,
+    [cacheKey],
+  );
   const hasCachedResult = useMemo(
     () => earnResultCache.has(cacheKey),
     [cacheKey],
@@ -88,7 +95,7 @@ export function TokenDetailsDeFiBlock({
         return undefined;
       }
       if (!symbolInfo) {
-        earnResultCache.set(cacheKey, null);
+        earnResultCache.set(cacheKey, { result: null });
         return null;
       }
       const protocolList =
@@ -102,7 +109,7 @@ export function TokenDetailsDeFiBlock({
         return undefined;
       }
       if (!Array.isArray(protocolList) || !protocolList.length) {
-        earnResultCache.set(cacheKey, null);
+        earnResultCache.set(cacheKey, { result: null });
         return null;
       }
       const aprItems = protocolList
@@ -110,7 +117,7 @@ export function TokenDetailsDeFiBlock({
         .filter((n) => n > 0);
       const maxApr = Math.max(0, ...aprItems);
       if (maxApr === 0) {
-        earnResultCache.set(cacheKey, null);
+        earnResultCache.set(cacheKey, { result: null });
         return null;
       }
       const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion({
@@ -120,7 +127,7 @@ export function TokenDetailsDeFiBlock({
         return undefined;
       }
       const data = { symbolInfo, maxApr, protocolList, blockData };
-      earnResultCache.set(cacheKey, data);
+      earnResultCache.set(cacheKey, { result: data });
       return data;
     },
     [networkId, tokenAddress, cacheKey, hasCachedResult, cachedResult],
