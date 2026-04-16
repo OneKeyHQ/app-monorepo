@@ -855,7 +855,7 @@ function AddressBookRecipients({
   );
 }
 
-export default function RecipientQuickSelect({
+function RecipientQuickSelect({
   accountId,
   networkId,
   searchKey,
@@ -1204,3 +1204,5 @@ export default function RecipientQuickSelect({
     </Animated.View>
   );
 }
+
+export default memo(RecipientQuickSelect);
