@@ -128,7 +128,7 @@ function mergeAccountBadgeResults(
   return merged;
 }
 
-const BADGE_CACHE_TTL = 5 * 60 * 1000;
+const BADGE_CACHE_TTL = 30 * 1000;
 const BADGE_CACHE_MAX_SIZE = 200;
 
 type IBadgeCacheEntry = {
