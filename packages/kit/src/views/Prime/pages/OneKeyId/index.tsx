@@ -11,7 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
-  resetAboveMainRoute,
+  resetPrimeModal,
   resetToRoute,
   rootNavigationRef,
   useUpdateEffect,
@@ -75,7 +75,7 @@ function OneKeyIdPage() {
     }
     if (!isLoggedIn && isFocused) {
       await timerUtils.wait(300);
-      resetAboveMainRoute();
+      resetPrimeModal();
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason:
           'OneKeyIdPage: is focused and primePersistAtom is not logged in',
@@ -94,7 +94,7 @@ function OneKeyIdPage() {
 
   const handleLogoutSuccess = useCallback(async () => {
     defaultLogger.referral.page.logoutOneKeyIDResult();
-    resetAboveMainRoute();
+    resetPrimeModal();
   }, []);
 
   return (
