@@ -124,20 +124,15 @@ function TxFeeContainer(props: IProps) {
     [unsignedTxs],
   );
 
-  const { result: [vaultSettings, network] = [] } =
-    usePromiseResult(async () => {
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
-
-      if (!account) return;
-
-      return Promise.all([
+  const { result: [vaultSettings, network] = [] } = usePromiseResult(
+    async () =>
+      Promise.all([
         backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-      ]);
-    }, [accountId, networkId]);
+      ]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, networkId],
+  );
 
   const { result, run } = usePromiseResult(
     async () => {
