@@ -306,10 +306,11 @@ export function useSwapIncognitoRecipientInput({
   const handleInputChange = useCallback(
     (text: string) => {
       const nextText = stringUtils.stripLineBreaks(text);
+      const trimmedNextText = nextText.trim();
 
       if (textRef.current === nextText) {
         const shouldKeepCurrentValidation =
-          !nextText.trim() ||
+          !trimmedNextText ||
           (queryResult.validStatus === 'valid' &&
             swapToAnotherAccountSwitchOn &&
             !!address);
@@ -317,6 +318,14 @@ export function useSwapIncognitoRecipientInput({
         if (shouldKeepCurrentValidation) {
           return;
         }
+
+        validationSessionIdRef.current += 1;
+        queryAddress.cancel();
+        setLoading(true);
+        setQueryResult({});
+        syncRecipientAddress(undefined);
+        void queryAddress(trimmedNextText);
+        return;
       }
 
       textRef.current = nextText;
@@ -326,6 +335,7 @@ export function useSwapIncognitoRecipientInput({
     },
     [
       address,
+      queryAddress,
       queryResult.validStatus,
       swapToAnotherAccountSwitchOn,
       syncRecipientAddress,
