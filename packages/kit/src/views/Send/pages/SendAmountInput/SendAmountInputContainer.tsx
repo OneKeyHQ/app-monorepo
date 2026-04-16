@@ -164,6 +164,7 @@ function SendAmountInputContainer() {
 
   const amount = form.watch('amount');
   const nftAmount = form.watch('nftAmount');
+  const hasAmountError = !!form.formState.errors.amount;
   const txMessage = form.watch('txMessage');
 
   const { serviceToken, serviceNFT } = backgroundApiProxy;
@@ -420,6 +421,42 @@ function SendAmountInputContainer() {
     }
     return new BigNumber(1).shiftedBy(-decimals).toFixed();
   }, [tokenDetails?.info.decimals]);
+
+  const minAmountHint = useMemo(() => {
+    if (!tokenSymbol || tokenMinAmount === undefined) return undefined;
+    const isNative = tokenDetails?.info.isNative;
+    // Only show the hint when the chain enforces a meaningful chain-level
+    // minimum. Without that, displaying the token-precision floor (e.g.
+    // 1e-18 for an 18-decimal ERC20) is noise.
+    const chainMinRaw = isNative
+      ? (vaultSettings?.nativeMinTransferAmount ??
+        vaultSettings?.minTransferAmount)
+      : vaultSettings?.minTransferAmount;
+    if (!chainMinRaw || new BigNumber(chainMinRaw).isLessThanOrEqualTo(0)) {
+      return undefined;
+    }
+    // Mirror the validator's effectiveMin = max(tokenPrecisionMin, chainMin)
+    // so the hint matches the value the validator actually rejects against.
+    const effectiveMin = BigNumber.max(tokenMinAmount, chainMinRaw).toFixed();
+    // Lightning BTC unit displays the min converted from sats.
+    const displayMinAmount =
+      isLightningNetwork && lnUnit === ELightningUnit.BTC
+        ? chainValueUtils.convertSatsToBtc(effectiveMin)
+        : effectiveMin;
+    return intl.formatMessage(
+      { id: ETranslations.send_error_minimum_amount },
+      { amount: displayMinAmount, token: tokenSymbol },
+    );
+  }, [
+    intl,
+    isLightningNetwork,
+    lnUnit,
+    tokenDetails?.info.isNative,
+    tokenMinAmount,
+    tokenSymbol,
+    vaultSettings?.minTransferAmount,
+    vaultSettings?.nativeMinTransferAmount,
+  ]);
 
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
@@ -1285,12 +1322,17 @@ function SendAmountInputContainer() {
     walletId,
   ]);
 
+  const isAmountZeroOrEmpty = !amount || new BigNumber(amount).isZero();
+  const amountHint =
+    isAmountZeroOrEmpty || !hasAmountError ? minAmountHint : undefined;
+
   const renderAmountInput = useMemo(
     () => (
       <>
         <Form.Field
           name="amount"
           errorMessageAlign="center"
+          hint={amountHint}
           rules={{
             required: true,
             validate: handleValidateTokenAmount,
@@ -1341,6 +1383,7 @@ function SendAmountInputContainer() {
       </>
     ),
     [
+      amountHint,
       currencySymbol,
       handleAmountInputChange,
       handleToggleFiatMode,
