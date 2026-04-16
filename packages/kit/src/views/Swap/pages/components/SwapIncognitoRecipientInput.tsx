@@ -15,6 +15,7 @@ import {
 import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -22,9 +23,10 @@ import type { LayoutChangeEvent } from 'react-native';
 
 type ISwapIncognitoRecipientInputProps = {
   visible: boolean;
-  errorMessage?: string;
+  errorTranslationId?: ETranslations;
   inputText: string;
   loading: boolean;
+  onAddRecipientAddressToAddressBook: () => void;
   onOpenRecipientAddress: () => void;
   onInputChange: (text: string) => void;
   queryResult: IAddressQueryResult;
@@ -83,9 +85,10 @@ function useSwapRecipientInputNativeHeight() {
 
 export function SwapIncognitoRecipientInput({
   visible,
-  errorMessage,
+  errorTranslationId,
   inputText,
   loading,
+  onAddRecipientAddressToAddressBook,
   onOpenRecipientAddress,
   onInputChange,
   queryResult,
@@ -131,7 +134,9 @@ export function SwapIncognitoRecipientInput({
     }),
     [inputHeight, nativeTextStyle],
   );
-  const inputBorderColor = errorMessage ? '$borderCritical' : '$borderStrong';
+  const inputBorderColor = errorTranslationId
+    ? '$borderCritical'
+    : '$borderStrong';
 
   const badgeItems = useMemo(() => {
     if (loading || queryResult.validStatus !== 'valid') {
@@ -238,7 +243,7 @@ export function SwapIncognitoRecipientInput({
             numberOfLines={1}
             size="large"
             placeholder={placeholder}
-            error={!!errorMessage}
+            error={!!errorTranslationId}
             pr="$11"
             scrollEnabled={false}
             onLayout={onLayout}
@@ -261,15 +266,23 @@ export function SwapIncognitoRecipientInput({
         </XStack>
       </Stack>
 
-      {errorMessage ? (
-        <SizableText size="$bodyMd" color="$textCritical">
-          {errorMessage}
-        </SizableText>
+      {errorTranslationId ? (
+        <HyperlinkText
+          color="$textCritical"
+          size="$bodyMd"
+          translationId={errorTranslationId}
+          autoExecuteParsedAction={false}
+          onAction={(actionId) => {
+            if (actionId === 'to_add_address_page') {
+              onAddRecipientAddressToAddressBook();
+            }
+          }}
+        />
       ) : null}
 
       {badgeItems}
 
-      {!errorMessage ? (
+      {!errorTranslationId ? (
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.swap_page_recipient_modal_do_not,
