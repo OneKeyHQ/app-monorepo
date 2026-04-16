@@ -165,7 +165,7 @@ function WalletActionSend({
                   }}
                 >
                   <YStack bg="$neutral3" p="$2" borderRadius="$full">
-                    <Icon name="QrCodeOutline" color="$iconActive" />
+                    <Icon name="ArrowBottomOutline" color="$iconActive" />
                   </YStack>
                   <ListItem.Text
                     gap="$1"
@@ -313,6 +313,7 @@ function WalletActionSend({
                 <Button
                   variant="tertiary"
                   size="large"
+                  mt="$1.5"
                   mx="$0"
                   py="$2"
                   onPress={() => {
