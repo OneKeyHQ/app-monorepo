@@ -4,6 +4,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   convertAddressToSignatureConfirmAddress,
@@ -29,6 +30,10 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
+import {
+  type IRecentRecipientEntry,
+  RECENT_RECIPIENTS_BUCKET_CAP,
+} from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -418,9 +423,26 @@ class ServiceSignatureConfirm extends ServiceBase {
     address: string;
     memo?: string;
   }) {
+    // Resolve to xpub-or-address so two HD wallets wrapping the same mnemonic
+    // share the same recent-recipient bucket (OK-53307). Writes land in the
+    // currently-active derive type's bucket; getRecentRecipients fans out
+    // across all derive types on read.
+    const accountIdentity =
+      await this.backgroundApi.serviceAccount.getAccountXpubOrAddress({
+        accountId,
+        networkId,
+      });
+    if (!accountIdentity) {
+      defaultLogger.transaction.send.recentRecipientsSkipWrite({
+        accountId,
+        networkId,
+        reason: 'unresolvedIdentity',
+      });
+      return;
+    }
     await this.backgroundApi.simpleDb.recentRecipients.updateRecentRecipients({
       networkId,
-      accountId,
+      accountIdentity,
       address,
       updatedAt: Date.now(),
       memo,
@@ -431,17 +453,78 @@ class ServiceSignatureConfirm extends ServiceBase {
   async getRecentRecipients({
     networkId,
     accountId,
-    limit,
+    limit = 5,
   }: {
     networkId: string;
     accountId: string;
     limit?: number;
   }) {
-    return this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
-      networkId,
-      accountId,
-      limit,
-    });
+    // For BTC/LTC merge-derive chains, one user-facing account spans multiple
+    // xpubs (Taproot / Native SegWit / ...). Fan out across all of them and
+    // merge so the local fallback list isn't bound to whichever derive type
+    // is currently active. Mirrors ServiceHistory.fetchTransferRecipients.
+    const xpubEntries =
+      await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+        {
+          accountId,
+          networkId,
+        },
+      );
+
+    const identities: string[] = xpubEntries
+      .map((entry) => entry.xpub)
+      .filter((xpub): xpub is string => !!xpub);
+
+    if (identities.length === 0) {
+      const fallbackIdentity =
+        await this.backgroundApi.serviceAccount.getAccountXpubOrAddress({
+          accountId,
+          networkId,
+        });
+      if (!fallbackIdentity) return [];
+      identities.push(fallbackIdentity);
+    }
+
+    if (identities.length === 1) {
+      return this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
+        networkId,
+        accountIdentity: identities[0],
+        limit,
+      });
+    }
+
+    // Read the full per-bucket cap from each xpub so concentration on a single
+    // derive path can't starve the merge (mirrors ServiceHistory.fetchTransfer
+    // Recipients which fetches `limit` per xpub for the same reason).
+    const buckets = await Promise.all(
+      identities.map((accountIdentity) =>
+        this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
+          networkId,
+          accountIdentity,
+          limit: RECENT_RECIPIENTS_BUCKET_CAP,
+        }),
+      ),
+    );
+
+    // Dedupe by recipient address keeping the latest updatedAt. EVM addresses
+    // are case-insensitive (checksum variants), so lowercase the dedupe key
+    // there. Other chains keep the original case — Solana base58 and Sui /
+    // Aptos / TON hex addresses would lose distinct addresses if collapsed.
+    const merged = new Map<string, IRecentRecipientEntry>();
+    const isEvm = networkUtils.isEvmNetwork({ networkId });
+    for (const bucket of buckets) {
+      for (const entry of bucket) {
+        const key = isEvm ? entry.address.toLowerCase() : entry.address;
+        const existing = merged.get(key);
+        if (!existing || entry.updatedAt > existing.updatedAt) {
+          merged.set(key, entry);
+        }
+      }
+    }
+
+    return [...merged.values()]
+      .toSorted((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, limit);
   }
 }
 
