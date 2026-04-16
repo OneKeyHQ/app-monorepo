@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,19 +21,21 @@ import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageS
 
 // Electron drag-region helpers. On desktop, the header container is a window
 // drag handle; interactive children opt out so they remain clickable.
-const DRAG_STYLE = (platformEnv.isDesktop
-  ? { WebkitAppRegion: 'drag' }
-  : undefined) as any;
+const DRAG_STYLE = (
+  platformEnv.isDesktop ? { WebkitAppRegion: 'drag' } : undefined
+) as any;
 
-const NO_DRAG_STYLE = (platformEnv.isDesktop
-  ? { WebkitAppRegion: 'no-drag' }
-  : undefined) as any;
+const NO_DRAG_STYLE = (
+  platformEnv.isDesktop ? { WebkitAppRegion: 'no-drag' } : undefined
+) as any;
 
 export const LayoutHeader = memo(
   ({ children, style, ...rest }: IXStackProps) => {
+    const { top } = useSafeAreaInsets();
     return (
       <XStack
-        h={52}
+        h={52 + top}
+        pt={top}
         px="$5"
         alignItems="center"
         $gtMd={{
