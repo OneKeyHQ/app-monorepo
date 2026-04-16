@@ -1,13 +1,14 @@
 import path from 'path';
 
 import { type BrowserWindow, Tray, nativeImage } from 'electron';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from '../config';
 
 import {
   registerTrayIpcHandlers,
   requestDataFromMainWindow,
+  resetCachedTrayData,
   sendCachedDataToTrayWindow,
   setLocked,
   unregisterTrayIpcHandlers,
@@ -151,10 +152,10 @@ export function destroyTrayManager(): void {
   destroyTrayWindow();
   resetNotificationState();
 
-  // Reset lock state so a subsequent re-init (user toggles setting) is not
-  // blocked by a stale `isLocked = true` in trayIpc's module state, which
-  // would cause `requestDataFromMainWindow` to early-return forever.
+  // Reset trayIpc module state so a subsequent re-init (user toggles setting)
+  // is not blocked by stale isLocked or served stale cachedTrayData.
   setLocked(false);
+  resetCachedTrayData();
 
   if (tray && !tray.isDestroyed()) {
     tray.destroy();

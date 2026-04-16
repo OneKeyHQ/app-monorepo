@@ -1,5 +1,5 @@
 import { type BrowserWindow, ipcMain } from 'electron';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 
 import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
 
@@ -21,6 +21,10 @@ export function setLocked(locked: boolean): void {
   isLocked = locked;
 }
 
+export function resetCachedTrayData(): void {
+  cachedTrayData = null;
+}
+
 export function registerTrayIpcHandlers(
   getMainWindow: () => BrowserWindow | undefined,
   showMainWindow: () => void,
@@ -33,8 +37,9 @@ export function registerTrayIpcHandlers(
     } else if ((data as { isError?: boolean }).isError) {
       // Error fallback from renderer — do not run diff/notify because the
       // empty pendingTxs would trigger false "Transaction Confirmed"
-      // notifications for every tracked pending tx. Keep previous cache.
-      cachedTrayData = data;
+      // notifications for every tracked pending tx. Keep previous cache
+      // so the panel still shows the last known good data.
+      // (Intentionally NOT updating cachedTrayData here.)
     } else {
       isLocked = false;
       cachedTrayData = data;
