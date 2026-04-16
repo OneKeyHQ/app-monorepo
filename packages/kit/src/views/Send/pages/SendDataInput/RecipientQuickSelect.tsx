@@ -8,14 +8,19 @@ import {
   ActionList,
   Badge,
   Button,
+  DashText,
   Empty,
   MatchSizeableText,
+  Popover,
   SegmentControl,
+  SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { addressTypeTooltipMap } from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -29,6 +34,7 @@ import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -51,6 +57,52 @@ import {
   normalizeSearchKey,
   prioritizeNameThenAddressMatches,
 } from './searchMatchUtils';
+
+function DeriveTypeLabelWithTooltip({
+  label,
+  description,
+}: {
+  label: string;
+  description: string;
+}) {
+  const trigger = (
+    <DashText
+      size="$bodyMd"
+      $md={{ size: '$bodyLg' }}
+      dashColor="$textDisabled"
+      dashThickness={0.5}
+      cursor="help"
+    >
+      {label}
+    </DashText>
+  );
+  if (platformEnv.isNative) {
+    return (
+      <YStack alignSelf="flex-start">
+        <Popover
+          title=""
+          showHeader={false}
+          placement="top"
+          renderTrigger={trigger}
+          renderContent={
+            <YStack p="$5">
+              <SizableText size="$bodyMd">{description}</SizableText>
+            </YStack>
+          }
+        />
+      </YStack>
+    );
+  }
+  return (
+    <YStack alignSelf="flex-start">
+      <Tooltip
+        placement="top"
+        renderTrigger={trigger}
+        renderContent={description}
+      />
+    </YStack>
+  );
+}
 
 type IRecipientQuickSelectProps = {
   accountId?: string;
@@ -163,6 +215,10 @@ type IAccountWithDeriveInfo = {
   account: INetworkAccount;
   deriveInfo?: IAccountDeriveInfo;
   deriveType?: string;
+  // The actual historical address that matched the current search (OK-53313).
+  // When set, the row displays this address instead of the account's current
+  // rotating address so the user sees the value they actually typed.
+  matchedAddress?: string;
 };
 
 // Wallet account group type
@@ -195,7 +251,31 @@ function collectAccountSearchAddresses(
     ...(utxo.addresses ? Object.values(utxo.addresses) : []),
     ...(utxo.customAddresses ? Object.values(utxo.customAddresses) : []),
   ].filter((a): a is string => !!a);
-  return Array.from(new Set(candidates.map((a) => a.toLowerCase())));
+  // Preserve original case so the matched value can be shown back to the
+  // user (OK-53313) instead of the current rotating receive address.
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const addr of candidates) {
+    const key = addr.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(addr);
+    }
+  }
+  return unique;
+}
+
+// Find the actual address on `account` that matches `searchValue`
+// (already lowercased). Returns the original-case string so callers can
+// display it back to the user.
+function findMatchedAccountAddress(
+  account: INetworkAccount | undefined,
+  searchValue: string,
+): string | undefined {
+  if (!searchValue) return undefined;
+  return collectAccountSearchAddresses(account).find((addr) =>
+    addr.toLowerCase().includes(searchValue),
+  );
 }
 
 // Get wallet accounts on the specified network (with derive type info)
@@ -407,13 +487,26 @@ function AccountRecipients({
             isNameMatch: (item) =>
               (item.account?.name ?? '').toLowerCase().includes(searchValue),
             isAddressMatch: (item) =>
-              collectAccountSearchAddresses(item.account).some((addr) =>
-                addr.includes(searchValue),
-              ),
+              !!findMatchedAccountAddress(item.account, searchValue),
           });
 
         if (sortedAccounts.length > 0) {
-          const updatedGroup = { ...group, accounts: sortedAccounts };
+          // Attach the matched address so the row can display the value the
+          // user actually searched for instead of the current fresh address
+          // (OK-53313). Name matches keep matchedAddress undefined so the
+          // default display path still wins.
+          const decoratedAccounts = sortedAccounts.map((item) => {
+            const isNameHit = (item.account?.name ?? '')
+              .toLowerCase()
+              .includes(searchValue);
+            if (isNameHit) return item;
+            const matchedAddress = findMatchedAccountAddress(
+              item.account,
+              searchValue,
+            );
+            return matchedAddress ? { ...item, matchedAddress } : item;
+          });
+          const updatedGroup = { ...group, accounts: decoratedAccounts };
           if (nameMatched.length > 0) {
             nameMatchedGroups.push(updatedGroup);
           } else {
@@ -432,6 +525,7 @@ function AccountRecipients({
       const account = item?.account;
       if (!account) return;
       const address =
+        item.matchedAddress ??
         account.addressDetail?.displayAddress ??
         account.address ??
         account.addressDetail?.address ??
@@ -455,10 +549,13 @@ function AccountRecipients({
     return filteredWalletGroups.map((group) => {
       const allAccounts = group?.accounts ?? [];
 
-      // Collect unique derive types for this wallet group
+      // Collect unique derive types for this wallet group. For BTC
+      // merge-derive chains we also surface the per-type explanation
+      // (Taproot / Native SegWit / ...) as a description so users know
+      // what each option means without guessing (OK-53312).
       const deriveTypeMap = new Map<
         string,
-        { label: string; deriveType: string }
+        { label: string; description?: string; deriveType: string }
       >();
       for (const item of allAccounts) {
         const dt = item.deriveType;
@@ -466,7 +563,13 @@ function AccountRecipients({
           const label = item.deriveInfo?.labelKey
             ? intl.formatMessage({ id: item.deriveInfo.labelKey })
             : (item.deriveInfo?.label ?? dt);
-          deriveTypeMap.set(dt, { label, deriveType: dt });
+          const tooltipKey = item.deriveInfo?.addressEncoding
+            ? addressTypeTooltipMap[item.deriveInfo.addressEncoding]
+            : undefined;
+          const description = tooltipKey
+            ? intl.formatMessage({ id: tooltipKey })
+            : undefined;
+          deriveTypeMap.set(dt, { label, description, deriveType: dt });
         }
       }
       const deriveTypeOptions = Array.from(deriveTypeMap.values());
@@ -532,12 +635,17 @@ function AccountRecipients({
         title: string;
         walletId: string;
         hasMultipleDeriveTypes: boolean;
-        deriveTypeOptions: { label: string; deriveType: string }[];
+        deriveTypeOptions: {
+          label: string;
+          description?: string;
+          deriveType: string;
+        }[];
         activeDeriveType?: string;
       }
     | {
         type: 'account';
         account: INetworkAccount;
+        matchedAddress?: string;
         walletId: string;
         walletName: string;
         wallet?: IDBWallet;
@@ -563,6 +671,7 @@ function AccountRecipients({
           items.push({
             type: 'account',
             account: item.account,
+            matchedAddress: item.matchedAddress,
             walletId: section.walletId,
             walletName: section.title,
             wallet: section.wallet,
@@ -646,6 +755,15 @@ function AccountRecipients({
                   })}
                   items={item.deriveTypeOptions.map((option) => ({
                     label: option.label,
+                    renderLabel: option.description
+                      ? // eslint-disable-next-line react/no-unstable-nested-components
+                        () => (
+                          <DeriveTypeLabelWithTooltip
+                            label={option.label}
+                            description={option.description ?? ''}
+                          />
+                        )
+                      : undefined,
                     onPress: () => {
                       setWalletDeriveType((prev) => ({
                         ...prev,
@@ -678,12 +796,16 @@ function AccountRecipients({
         if (!item.account) {
           return null;
         }
-        const { account, walletId, wallet } = item;
-        const itemAddress =
+        const { account, matchedAddress, walletId, wallet } = item;
+        const currentAddress =
           account.addressDetail?.displayAddress ??
           account.address ??
           account.addressDetail?.address ??
           '';
+        // Prefer the matched historical address (OK-53313) so the user sees
+        // exactly what they typed instead of the current rotating fresh
+        // address.
+        const itemAddress = matchedAddress ?? currentAddress;
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
         // Wallet name is already shown in the section header, only show account name
@@ -702,7 +824,7 @@ function AccountRecipients({
               walletId,
               wallet,
             }}
-            onPress={() => handleSelectAccount({ account })}
+            onPress={() => handleSelectAccount({ account, matchedAddress })}
           />
         );
       })}
