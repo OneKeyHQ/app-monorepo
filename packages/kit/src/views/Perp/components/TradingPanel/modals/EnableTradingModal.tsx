@@ -72,6 +72,7 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
           gap="$1"
           alignItems="center"
           onPress={() => {
+            onClose?.();
             openGuideUrl(
               buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`),
             );

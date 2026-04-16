@@ -210,6 +210,7 @@ const LeverageContent = memo(
             alignItems="center"
             justifyContent="flex-start"
             onPress={() => {
+              void dialogInstance.close();
               openGuideUrl(
                 buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.leverage}`),
               );
