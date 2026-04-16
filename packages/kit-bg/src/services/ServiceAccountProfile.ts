@@ -128,21 +128,11 @@ function mergeAccountBadgeResults(
   return merged;
 }
 
-const BADGE_CACHE_TTL = 30 * 1000;
-const BADGE_CACHE_MAX_SIZE = 200;
-
-type IBadgeCacheEntry = {
-  result: IAccountBadgeResult;
-  ts: number;
-};
-
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
-
-  private _badgeCache = new Map<string, IBadgeCacheEntry>();
 
   private _pendingBadgeRequests = new Map<
     string,
@@ -335,7 +325,8 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
-  private async fetchBadgesCached({
+  // Dedup concurrent in-flight badge requests for the same address
+  private async fetchBadgesDeduped({
     networkId,
     accountId,
     toAddress,
@@ -346,14 +337,9 @@ class ServiceAccountProfile extends ServiceBase {
     toAddress: string;
     checkInteractionStatus?: boolean;
   }): Promise<IAccountBadgeResult> {
-    const cacheKey = `${networkId}:${accountId ?? ''}:${toAddress.toLowerCase()}:${checkInteractionStatus ? '1' : '0'}`;
+    const dedupKey = `${networkId}:${accountId ?? ''}:${toAddress.toLowerCase()}:${checkInteractionStatus ? '1' : '0'}`;
 
-    const cached = this._badgeCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < BADGE_CACHE_TTL) {
-      return cached.result;
-    }
-
-    const pending = this._pendingBadgeRequests.get(cacheKey);
+    const pending = this._pendingBadgeRequests.get(dedupKey);
     if (pending) {
       return pending;
     }
@@ -365,20 +351,15 @@ class ServiceAccountProfile extends ServiceBase {
       checkInteractionStatus,
     })
       .then((r) => {
-        if (this._badgeCache.size >= BADGE_CACHE_MAX_SIZE) {
-          const oldest = this._badgeCache.keys().next().value;
-          if (oldest !== undefined) this._badgeCache.delete(oldest);
-        }
-        this._badgeCache.set(cacheKey, { result: r, ts: Date.now() });
-        this._pendingBadgeRequests.delete(cacheKey);
+        this._pendingBadgeRequests.delete(dedupKey);
         return r;
       })
       .catch((err) => {
-        this._pendingBadgeRequests.delete(cacheKey);
+        this._pendingBadgeRequests.delete(dedupKey);
         throw err;
       });
 
-    this._pendingBadgeRequests.set(cacheKey, request);
+    this._pendingBadgeRequests.set(dedupKey, request);
     return request;
   }
 
@@ -457,7 +438,7 @@ class ServiceAccountProfile extends ServiceBase {
     toAddress: string;
     result: IAddressQueryResult;
   }): Promise<void> {
-    const merged = await this.fetchBadgesCached({
+    const merged = await this.fetchBadgesDeduped({
       networkId,
       accountId,
       toAddress,
