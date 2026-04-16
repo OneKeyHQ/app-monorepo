@@ -273,7 +273,7 @@ export function useSwapIncognitoRecipientInput({
 
     resetValidationState({
       clearInput: isNetworkChanged,
-      clearRecipientAddress: isNetworkChanged,
+      clearRecipientAddress: true,
     });
   }, [
     accountId,
