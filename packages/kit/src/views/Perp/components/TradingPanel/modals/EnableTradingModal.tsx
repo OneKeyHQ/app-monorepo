@@ -75,7 +75,9 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
             onClose?.();
             setTimeout(() => {
               openGuideUrl(
-                buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`),
+                buildHelpUrl(
+                  `articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`,
+                ),
               );
             }, 150);
           }}
