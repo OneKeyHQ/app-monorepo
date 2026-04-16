@@ -918,7 +918,11 @@ function ReceiveToken() {
                 source={{ uri: banner.src }}
                 fallback={<NetworkAvatar size="$5" networkId={networkId} />}
               />
-              <FormatHyperlinkText size="$bodyMd" flex={1}>
+              <FormatHyperlinkText
+                size="$bodyMd"
+                flex={1}
+                autoExecuteParsedAction={false}
+              >
                 {banner.title}
               </FormatHyperlinkText>
             </XStack>
