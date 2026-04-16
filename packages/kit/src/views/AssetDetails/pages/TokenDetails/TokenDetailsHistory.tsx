@@ -1,4 +1,14 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  cloneElement,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 import type { SectionList } from '@onekeyhq/components';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
@@ -59,6 +69,19 @@ function TokenDetailsHistory(props: IProps) {
       (ListComponentRef.current as any)?.recomputeLayout?.();
     }
   }, []);
+
+  const headerHeightRef = useRef<number | null>(null);
+  const handleHeaderLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const nextHeight = event.nativeEvent.layout.height;
+      if (headerHeightRef.current === nextHeight) {
+        return;
+      }
+      headerHeightRef.current = nextHeight;
+      recomputeLayout();
+    },
+    [recomputeLayout],
+  );
 
   const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
@@ -214,7 +237,13 @@ function TokenDetailsHistory(props: IProps) {
       initialized={effectiveInit}
       data={resolvedHistory}
       onPressHistory={handleHistoryItemPress}
-      ListHeaderComponent={ListHeaderComponent as React.ReactElement}
+      ListHeaderComponent={
+        ListHeaderComponent
+          ? cloneElement(ListHeaderComponent, {
+              onHeaderHeightChange: handleHeaderLayout,
+            })
+          : null
+      }
       isSingleAccount
     />
   );

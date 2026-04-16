@@ -29,9 +29,26 @@ interface ITokenDetailsDeFiBlockProps {
   tokenLogoURI?: string;
 }
 
+type ITokenDetailsDeFiBlockResult = {
+  symbolInfo: Awaited<
+    ReturnType<
+      typeof backgroundApiProxy.serviceStaking.findSymbolByTokenAddress
+    >
+  >;
+  maxApr: number;
+  protocolList: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceStaking.getProtocolList>
+  >;
+  blockData: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceStaking.getBlockRegion>
+  >;
+} | null;
+
 // Module-level cache: prevents skeleton flash on remount when scrolling
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const earnResultCache = new cacheUtils.LRUCache<string, any>({
+const earnResultCache = new cacheUtils.LRUCache<
+  string,
+  ITokenDetailsDeFiBlockResult
+>({
   max: 50,
   ttl: timerUtils.getTimeDurationMs({ minute: 10 }),
   ttlAutopurge: true,
@@ -50,11 +67,18 @@ export function TokenDetailsDeFiBlock({
   const isUnmountedRef = useRef(false);
 
   const cacheKey = `${networkId}_${tokenAddress}`;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   const cachedResult = useMemo(() => earnResultCache.get(cacheKey), [cacheKey]);
+  const hasCachedResult = useMemo(
+    () => earnResultCache.has(cacheKey),
+    [cacheKey],
+  );
 
   const { result: earnResult, isLoading } = usePromiseResult(
     async () => {
+      if (hasCachedResult) {
+        return cachedResult;
+      }
+
       const symbolInfo =
         await backgroundApiProxy.serviceStaking.findSymbolByTokenAddress({
           networkId,
@@ -64,8 +88,8 @@ export function TokenDetailsDeFiBlock({
         return undefined;
       }
       if (!symbolInfo) {
-        earnResultCache.delete(cacheKey);
-        return undefined;
+        earnResultCache.set(cacheKey, null);
+        return null;
       }
       const protocolList =
         await backgroundApiProxy.serviceStaking.getProtocolList({
@@ -78,16 +102,16 @@ export function TokenDetailsDeFiBlock({
         return undefined;
       }
       if (!Array.isArray(protocolList) || !protocolList.length) {
-        earnResultCache.delete(cacheKey);
-        return undefined;
+        earnResultCache.set(cacheKey, null);
+        return null;
       }
       const aprItems = protocolList
         .map((o) => Number(o.provider.aprWithoutFee))
         .filter((n) => n > 0);
       const maxApr = Math.max(0, ...aprItems);
       if (maxApr === 0) {
-        earnResultCache.delete(cacheKey);
-        return undefined;
+        earnResultCache.set(cacheKey, null);
+        return null;
       }
       const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion({
         requestId: requestIdRef.current,
@@ -99,10 +123,10 @@ export function TokenDetailsDeFiBlock({
       earnResultCache.set(cacheKey, data);
       return data;
     },
-    [networkId, tokenAddress, cacheKey],
+    [networkId, tokenAddress, cacheKey, hasCachedResult, cachedResult],
     {
       watchLoading: true,
-      ...(cachedResult ? { initResult: cachedResult } : {}),
+      ...(hasCachedResult ? { initResult: cachedResult } : {}),
     },
   );
 
@@ -174,9 +198,9 @@ export function TokenDetailsDeFiBlock({
     tokenLogoURI,
   ]);
 
-  // Show skeleton only on first load (no cache). On remount after scroll,
-  // initResult provides cached data so we skip straight to the real content.
-  if (isLoading && !earnResult) {
+  // Show skeleton only on first load (no cache). Cache also stores null for
+  // "no DeFi banner", so remounts do not flash skeleton again.
+  if (isLoading && earnResult === undefined) {
     return (
       <XStack
         bg="$bgSubdued"
