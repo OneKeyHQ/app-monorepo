@@ -21,6 +21,7 @@ const _globalThis = globalThis as unknown as {
     platform: string;
     arch: string;
     channel?: string;
+    deskChannel: string;
     isMas: boolean;
     isDev: boolean;
   };
@@ -29,17 +30,17 @@ const _globalThis = globalThis as unknown as {
 const getChannel = () => {
   let channel;
   try {
+    if (process.platform !== 'linux') return channel;
     // AppImage is detected via the build-time `DESK_CHANNEL=appImage` flag
     // (set in release-desktop-all.yml and baked in by esbuild `define`).
     // Reading `process.env.APPIMAGE` would be ambiguous — it is both a define
     // target (empty on CI) and a runtime value set by the launcher.
-    if (
-      process.platform === 'linux' &&
-      process.env.DESK_CHANNEL === 'appImage'
-    ) {
+    if (process.env.DESK_CHANNEL === 'appImage') {
       channel = 'appImage';
-    } else if (process.platform === 'linux' && process.env.SNAP) {
+    } else if (process.env.SNAP) {
       channel = 'snap';
+    } else if (process.env.FLATPAK) {
+      channel = 'flatpak';
     }
   } catch (_e) {
     // ignore
@@ -58,6 +59,10 @@ if (typeof globalThis !== 'undefined') {
       systemVersion: process.getSystemVersion(),
       arch: process.arch,
       channel: getChannel(),
+      // Required by packages/shared/src/platformEnv.ts to compute
+      // isDesktopWinMsStore when platformEnv runs in the main process bundle
+      // (renderer gets this via preload/IPC instead).
+      deskChannel: process.env.DESK_CHANNEL || '',
       isMas: process.mas,
       isDev,
     };
