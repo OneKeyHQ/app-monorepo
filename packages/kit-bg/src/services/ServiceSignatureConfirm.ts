@@ -250,7 +250,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
-    const { accountId, networkId, encodedTx, origin } = params;
+    const { accountId, networkId, encodedTx } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -269,6 +269,17 @@ class ServiceSignatureConfirm extends ServiceBase {
         encodedTx,
       });
 
+    let xpub: string | undefined;
+    try {
+      xpub =
+        (await this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        })) || undefined;
+    } catch {
+      // non-fatal: backend parses from encodedTx, xpub is an identity hint
+    }
+
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
@@ -278,7 +289,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         networkId,
         accountAddress,
         encodedTx: encodedTxToParse,
-        origin,
+        xpub,
       },
       {
         headers:
