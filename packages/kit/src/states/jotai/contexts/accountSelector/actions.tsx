@@ -2123,7 +2123,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }));
 
           // auto select hd hw wallet if current wallet not contains next available account
-          if (!selectedWalletId || !hasIndexedAccounts) {
+          if (
+            !selectedWalletId ||
+            !hasIndexedAccounts ||
+            accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
+          ) {
             let shouldSelectHdHwWallet = true;
             if (
               selectedWalletId &&
@@ -2151,7 +2155,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               const { wallets } = await serviceAccount.getAllHdHwQrWallets();
               for (const wallet0 of wallets) {
                 if (
-                  !wallet0?.isMocked &&
+                  !accountUtils.isWalletDeprecatedOrMocked(wallet0) &&
                   (await serviceAccount.isWalletHasIndexedAccounts({
                     walletId: wallet0.id,
                   }))
