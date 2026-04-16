@@ -22,7 +22,7 @@ function getTokenFiatValue({
   const priceBN = toValidBigNumber(token?.price);
   const amountBN = toValidBigNumber(amount);
 
-  if (!priceBN || !priceBN.gt(0) || !amountBN || amountBN.lt(0)) {
+  if (!priceBN || !priceBN.gt(0) || !amountBN || !amountBN.gt(0)) {
     return undefined;
   }
 
