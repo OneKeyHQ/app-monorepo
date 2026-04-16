@@ -64,7 +64,6 @@ export type IModalSwapParamList = {
   };
   [EModalSwapRoutes.SwapToAnotherAddress]: {
     address?: string;
-    inputAddress?: string;
     storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.TokenRiskReminder]: {

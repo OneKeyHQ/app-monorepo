@@ -25,7 +25,7 @@ type ISwapIncognitoRecipientInputProps = {
   errorMessage?: string;
   inputText: string;
   loading: boolean;
-  onOpenRecipientAddress: (address?: string) => void;
+  onOpenRecipientAddress: () => void;
   onInputChange: (text: string) => void;
   queryResult: IAddressQueryResult;
 };
@@ -256,9 +256,8 @@ export function SwapIncognitoRecipientInput({
             variant="tertiary"
             size="small"
             icon="PeopleCircleOutline"
-            onPress={() =>
-              onOpenRecipientAddress(inputText.trim() || undefined)
-            }
+            loading={loading}
+            onPress={onOpenRecipientAddress}
           />
         </XStack>
       </Stack>

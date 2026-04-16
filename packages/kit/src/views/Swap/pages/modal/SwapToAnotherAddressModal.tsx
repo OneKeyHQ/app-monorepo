@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -60,7 +60,6 @@ const SwapToAnotherAddressPage = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
     >();
   const paramAddress = route.params?.address;
-  const inputAddress = route.params?.inputAddress;
   const {
     accountInfo,
     address: _address,
@@ -103,18 +102,14 @@ const SwapToAnotherAddressPage = () => {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
-  const initialAddressRef = useRef<string | undefined>(
-    inputAddress ||
-      (paramAddress && swapToAnotherAccountSwitchOn ? paramAddress : undefined),
-  );
-
-  // Only consume the modal's initial address once so async recipient
-  // resolution outside the modal cannot keep overwriting the form value.
+  // Only prefill when editing an existing custom address.
+  // When swapToAnotherAccountSwitchOn is true and paramAddress differs from
+  // the user's own address, the user previously set a custom address — prefill it.
   useEffect(() => {
-    if (initialAddressRef.current) {
-      form.setValue('address', { raw: initialAddressRef.current });
+    if (paramAddress && swapToAnotherAccountSwitchOn) {
+      form.setValue('address', { raw: paramAddress });
     }
-  }, [form]);
+  }, [paramAddress, swapToAnotherAccountSwitchOn, form]);
 
   const toAddressRaw = form.watch('address')?.raw ?? '';
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
