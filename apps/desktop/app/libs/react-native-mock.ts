@@ -1,3 +1,5 @@
+import type { IDesktopApiGlobal } from '@onekeyhq/shared/types/desktopApiPlatformInfo';
+
 // Avoid `electron-is-dev` here — it accesses `electron.app` which is
 // undefined in the preload/renderer process and would crash at load time.
 // esbuild already defines process.env.NODE_ENV at build time, so this is
@@ -14,21 +16,8 @@ export const InteractionManager = {};
 
 export const NativeEventEmitter = {};
 
-const _globalThis = globalThis as unknown as {
-  __DEV__: boolean;
-  desktopApi: {
-    systemVersion: string;
-    platform: string;
-    arch: string;
-    channel?: string;
-    deskChannel: string;
-    isMas: boolean;
-    isDev: boolean;
-  };
-};
-
-const getChannel = () => {
-  let channel;
+const getChannel = (): string | undefined => {
+  let channel: string | undefined;
   try {
     if (process.platform !== 'linux') return channel;
     // AppImage is detected via the build-time `DESK_CHANNEL=appImage` flag
@@ -49,23 +38,35 @@ const getChannel = () => {
   return channel;
 };
 
+// Exported for the contract test in desktopApiContract.test.ts so drift
+// between this builder and IDesktopApiGlobal is caught at test time in
+// addition to compile time.
+export const buildDesktopApiGlobal = (): IDesktopApiGlobal => ({
+  platform: process.platform,
+  arch: process.arch,
+  systemVersion:
+    typeof process.getSystemVersion === 'function'
+      ? process.getSystemVersion()
+      : '',
+  channel: getChannel(),
+  deskChannel: process.env.DESK_CHANNEL || '',
+  isMas: Boolean(process.mas),
+  isDev,
+});
+
 if (typeof globalThis !== 'undefined') {
-  if (typeof _globalThis.__DEV__ === 'undefined') {
-    _globalThis.__DEV__ = isDev;
+  const g = globalThis as typeof globalThis & { __DEV__?: boolean };
+  if (typeof g.__DEV__ === 'undefined') {
+    g.__DEV__ = isDev;
   }
 
-  if (typeof _globalThis.desktopApi === 'undefined') {
-    _globalThis.desktopApi = {
-      platform: process.platform,
-      systemVersion: process.getSystemVersion(),
-      arch: process.arch,
-      channel: getChannel(),
-      // Required by packages/shared/src/platformEnv.ts to compute
-      // isDesktopWinMsStore when platformEnv runs in the main process bundle
-      // (renderer gets this via preload/IPC instead).
-      deskChannel: process.env.DESK_CHANNEL || '',
-      isMas: process.mas,
-      isDev,
-    };
+  if (typeof globalThis.desktopApi === 'undefined') {
+    // The `globalThis.desktopApi` type (IDesktopApiLegacy) includes bridge
+    // methods (on/ready/isFocused/…) that only exist in the renderer via
+    // contextBridge. In the main process bundle those methods are never
+    // called, so we install the platform-info subset only. Cast narrows the
+    // write to the IDesktopApiGlobal contract.
+    (globalThis as unknown as { desktopApi: IDesktopApiGlobal }).desktopApi =
+      buildDesktopApiGlobal();
   }
 }

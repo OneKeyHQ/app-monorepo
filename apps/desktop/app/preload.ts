@@ -62,6 +62,11 @@ const validChannels = new Set([
 
 // --- Platform info (fetched once from main process, sandbox-compatible) ---
 
+// Shape mirrors IDesktopApiPlatformInfo in
+// @onekeyhq/shared/types/desktopApiPlatformInfo (kept inline to avoid import
+// ordering churn in this sandbox-critical preload). The IPC writer in
+// registerInfoHandlers.ts is typed against the shared interface, so any
+// addition/rename there will still surface here via a tsc error on the reads.
 const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
   arch: string;
   platform: string;
