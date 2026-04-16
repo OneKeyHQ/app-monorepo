@@ -1,8 +1,11 @@
+import BigNumber from 'bignumber.js';
+
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EDeFiAssetType,
   type IDeFiAsset,
   type IDeFiProtocol,
+  type IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
 import { getCategoryConfig } from './defiCategoryConfig';
@@ -12,6 +15,7 @@ type IProtocolPositionSectionKey = 'supplied' | 'borrowed' | 'rewards';
 type IProtocolPositionSourceAsset =
   IDeFiProtocol['positions'][number]['assets'][number];
 type ICategoryConfig = ReturnType<typeof getCategoryConfig>;
+type ITranslatePositionLabel = (id: ETranslations) => string;
 
 const POSITION_MODULE_LABELS: Record<string, IPositionLabel> = {
   deposit: {
@@ -154,6 +158,27 @@ export type IProtocolPositionItem = {
   sections: IProtocolPositionSection[];
 };
 
+export type ILocalizedProtocolPositionSection = Omit<
+  IProtocolPositionSection,
+  'title'
+> & {
+  title: string;
+};
+
+export type ILocalizedProtocolPositionItem = Omit<
+  IProtocolPositionItem,
+  'sections'
+> & {
+  sections: ILocalizedProtocolPositionSection[];
+};
+
+export type IDeFiProtocolDisplayInfo = {
+  protocolName: string;
+  protocolLogo?: string;
+  protocolUrl?: string;
+  netWorth: string | number;
+};
+
 function getPositionModuleLabel(category: string) {
   return (
     POSITION_MODULE_LABELS[category.toLowerCase()] ?? {
@@ -167,6 +192,13 @@ function getProtocolPositionSectionKey(
 ): IProtocolPositionSectionKey {
   const normalizedCategory = asset.category.toLowerCase();
 
+  if (asset.type === EDeFiAssetType.REWARD) {
+    return 'rewards';
+  }
+  if (asset.type === EDeFiAssetType.DEBT) {
+    return 'borrowed';
+  }
+
   if (REWARD_SECTION_SOURCE_CATEGORIES.has(normalizedCategory)) {
     return 'rewards';
   }
@@ -175,13 +207,6 @@ function getProtocolPositionSectionKey(
   }
   if (SUPPLIED_SECTION_SOURCE_CATEGORIES.has(normalizedCategory)) {
     return 'supplied';
-  }
-
-  if (asset.type === EDeFiAssetType.REWARD) {
-    return 'rewards';
-  }
-  if (asset.type === EDeFiAssetType.DEBT) {
-    return 'borrowed';
   }
 
   return 'supplied';
@@ -233,4 +258,51 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
   });
 }
 
-export { buildProtocolPositionItems, getPositionModuleLabel };
+function buildLocalizedProtocolPositionItems({
+  protocol,
+  translate,
+}: {
+  protocol: IDeFiProtocol;
+  translate: ITranslatePositionLabel;
+}) {
+  return buildProtocolPositionItems(protocol).map(
+    (position): ILocalizedProtocolPositionItem => ({
+      ...position,
+      categoryLabel: position.categoryTitleId
+        ? translate(position.categoryTitleId)
+        : position.categoryLabel,
+      sections: position.sections.map((section) => ({
+        ...section,
+        title: section.titleId ? translate(section.titleId) : section.title,
+      })),
+    }),
+  );
+}
+
+function buildProtocolDisplayInfo({
+  protocol,
+  protocolInfo,
+}: {
+  protocol: IDeFiProtocol;
+  protocolInfo?: IProtocolSummary;
+}): IDeFiProtocolDisplayInfo {
+  const netWorth =
+    protocolInfo?.netWorth ??
+    protocol.positions
+      .reduce((acc, position) => acc.plus(position.value), new BigNumber(0))
+      .toFixed();
+
+  return {
+    protocolName: protocolInfo?.protocolName ?? protocol.protocol,
+    protocolLogo: protocolInfo?.protocolLogo,
+    protocolUrl: protocolInfo?.protocolUrl,
+    netWorth,
+  };
+}
+
+export {
+  buildLocalizedProtocolPositionItems,
+  buildProtocolDisplayInfo,
+  buildProtocolPositionItems,
+  getPositionModuleLabel,
+};

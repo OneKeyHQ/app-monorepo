@@ -4,7 +4,11 @@ import {
   type IDeFiProtocol,
 } from '@onekeyhq/shared/types/defi';
 
-import { buildProtocolPositionItems } from './defiPositionUtils';
+import {
+  buildLocalizedProtocolPositionItems,
+  buildProtocolDisplayInfo,
+  buildProtocolPositionItems,
+} from './defiPositionUtils';
 
 function createProtocolPosition(
   category: string,
@@ -18,7 +22,6 @@ function createProtocolPosition(
     positions: [
       {
         category,
-        categories: [category],
         groupId: 'group-1',
         poolName: 'Main Pool',
         poolFullName: 'Main Pool',
@@ -179,7 +182,6 @@ describe('buildProtocolPositionItems', () => {
       {
         ...protocol.positions[0],
         category: 'staked',
-        categories: ['staked'],
       },
     ];
 
@@ -188,5 +190,34 @@ describe('buildProtocolPositionItems', () => {
         (position) => position.positionKey,
       ),
     ).toEqual(['group-1-farming', 'group-1-staked']);
+  });
+
+  it('localizes position and section labels with the provided translator', () => {
+    const [position] = buildLocalizedProtocolPositionItems({
+      protocol: createProtocolPosition('lending'),
+      translate: (id) => `translated:${id}`,
+    });
+
+    expect(position.categoryLabel).toBe(
+      `translated:${ETranslations.wallet_defi_position_module_lending}`,
+    );
+    expect(position.sections.map((section) => section.title)).toEqual([
+      `translated:${ETranslations.wallet_defi_asset_type_supplied}`,
+      `translated:${ETranslations.wallet_defi_asset_type_borrowed}`,
+      `translated:${ETranslations.wallet_defi_position_module_rewards}`,
+    ]);
+  });
+
+  it('falls back to protocol-derived display info when summary metadata is missing', () => {
+    const displayInfo = buildProtocolDisplayInfo({
+      protocol: createProtocolPosition('lending', {
+        value: '123.45',
+      }),
+    });
+
+    expect(displayInfo.protocolName).toBe('aave');
+    expect(displayInfo.protocolLogo).toBeUndefined();
+    expect(displayInfo.protocolUrl).toBeUndefined();
+    expect(displayInfo.netWorth).toBe('123.45');
   });
 });

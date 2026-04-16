@@ -152,8 +152,5 @@ describe('transformDeFiData', () => {
     expect(protocols[0].positions.map((position) => position.category)).toEqual(
       ['staked', 'farming'],
     );
-    expect(
-      protocols[0].positions.map((position) => position.categories),
-    ).toEqual([['staked'], ['farming']]);
   });
 });
