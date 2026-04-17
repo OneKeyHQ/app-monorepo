@@ -377,20 +377,20 @@ When `navigate(pop: true)` is called and the target tab's inner stack has pages 
 
 **Root cause**: `pop: true` pops the target tab's inner stack back to root. If those pages contain nested `RNSScreenStack` (e.g., UrlAccountPage), the popped stacks lose their window and retry indefinitely.
 
-**Mitigation**: `switchTab()` has been optimized to check the current active tab via `getRootState()` — if the target tab is already active, the `navigate(pop: true)` call is skipped entirely, avoiding the retry storm. If you need to navigate within the same tab, use `StackActions.replace` instead of pop + push to avoid orphaning screen stacks:
+**Mitigation**: Use `switchTabAsync()` instead of `switchTab()` when an overlay might be present. `switchTabAsync` serializes overlay dismiss + tab switch into two steps (resetAboveMainRoute → wait → navigate), avoiding the multi-transition overlap that creates orphan stacks:
 
 ```typescript
-// ❌ WRONG: switchTab(pop:true) then push causes retry storm on iOS
-navigation.switchTab(ETabRoutes.Home);  // pops existing pages
-navigation.push(newPage);               // pushes new page — but pop already caused freeze
+// ❌ WRONG: switchTab uses navigate(Main, {pop:true}) which overlaps
+// modal dismiss + tab switch + Main re-attach in one UIKit tick
+navigation.switchTab(ETabRoutes.Home);  // creates orphan RNSScreenStack
+navigation.push(newPage);               // pushes into unstable state
 
-// ✅ CORRECT: Replace existing page in-place
-resetAboveMainRoute();                  // remove overlays
-await timerUtils.wait(100);
-rootNavigationRef.current?.dispatch(
-  StackActions.replace(targetRoute, params),  // no pop, no orphaned stacks
-);
+// ✅ CORRECT: switchTabAsync serializes overlay dismiss and tab switch
+await navigation.switchTabAsync(ETabRoutes.Home);  // dismiss → wait → switch
+navigation.push(newPage);                          // safe — tab is settled
 ```
+
+> **Note**: `switchTab` is marked `@deprecated`. For new code, always use `switchTabAsync`. Old fire-and-forget call sites (tab bar press, bootstrap) can keep `switchTab` since they never have an active overlay.
 
 ---
 
@@ -402,36 +402,34 @@ When the app uses native `UITabBarController` (`@onekeyfe/react-native-tab-view`
 
 **Problem**: Calling `goBack()` to pop overlay routes (Modal, FullScreenPush) triggers React Navigation to reconcile nested stacks inside those routes. If a nested stack is inside a tab that has lost its window, the native `setPushViewControllers` is SKIPPED and retries 50 times (~5 seconds) before giving up. The navigation appears frozen until the user touches the screen.
 
-**Rule**: When navigating from an overlay route to a tab page, **never use sequential `goBack()` calls**. Use `navigateFromOverlayToTab()` or `resetAboveMainRoute()` instead.
+**Rule**: When navigating from an overlay route to a tab page, **never use `switchTab()` (deprecated) or sequential `goBack()` calls**. Use `switchTabAsync()` or `navigateFromOverlayToTab()` instead.
 
 ```typescript
+// ❌ WRONG: switchTab overlaps modal dismiss + tab switch + re-attach
+navigation.switchTab(ETabRoutes.Home);  // navigate(Main, {pop:true}) = 3 UIKit transitions at once
+navigation.push(targetPage);            // orphan stacks accumulate
+
 // ❌ WRONG: Sequential goBack() causes window-nil race condition
 await popScanModalPages();
-await popActionCenterPages();  // Stack inside detached tab = window NIL = FAIL
+await popActionCenterPages();
 navigation.switchTab(ETabRoutes.Home);
-navigation.push(targetPage);
 
-// ✅ CORRECT: Use navigateFromOverlayToTab utility
-await popScanModalPages();           // Dismiss modal with animation
-await waitForScanModalClosed();
-await navigateFromOverlayToTab({     // Atomically reset + switch tab
+// ✅ CORRECT: switchTabAsync serializes everything
+await navigation.switchTabAsync(ETabRoutes.Home);  // reset overlay → wait → switch tab
+navigation.push(targetPage);                        // safe
+
+// ✅ ALSO CORRECT: navigateFromOverlayToTab (uses switchTabAsync internally)
+await navigateFromOverlayToTab({
   targetTab: ETabRoutes.Home,
-  switchTab: (tab) => navigation.switchTab(tab),
 });
-navigation.push(targetPage);         // Safe to push now
-
-// ✅ ALSO CORRECT: Use resetAboveMainRoute directly
-await popScanModalPages();
-await waitForScanModalClosed();
-resetAboveMainRoute();               // Atomically remove all overlay routes
-navigation.switchTab(ETabRoutes.Home);
-await timerUtils.wait(100);          // Wait for navigator to settle
 navigation.push(targetPage);
 ```
 
 **Key utilities** (exported from `@onekeyhq/components`):
-- `navigateFromOverlayToTab()` — Safe overlay-to-tab navigation with atomic reset
+- `switchTabAsync()` — Async tab switch that serializes overlay dismiss + tab switch; **preferred for all new code**
+- `navigateFromOverlayToTab()` — Convenience wrapper around `switchTabAsync`
 - `resetAboveMainRoute()` — Atomically remove all routes above Main via `CommonActions.reset`
+- `switchTab()` — **@deprecated**, synchronous, uses `navigate(Main, {pop:true})` which overlaps UIKit transitions
 
 ### Why `switchTab()` alone cannot activate the target tab
 
@@ -446,12 +444,13 @@ switchTab(Home) → selectedIndex changes, but Home tab's view still has window=
 goBack() to pop FullScreenPush → nested stack update fails (window=NIL)
 ```
 
-Therefore, **you must use `resetAboveMainRoute()` to atomically remove all overlays first**, making Main the topmost route. Only then will `switchTab()` cause the target tab's view to enter the window hierarchy.
+Therefore, **use `switchTabAsync()` which handles this automatically**: it calls `resetAboveMainRoute()` first when an overlay is detected, waits for settle, then navigates to the target tab.
 
 **When to watch out**:
 - Any code that calls `goBack()` on root navigator while a FullScreenPush or Modal is active
 - Any flow that dismisses overlay pages and then navigates to a different tab
 - Cross-tab navigation after closing settings/action center pages
+- **Repeated modal open → dismiss + tab switch cycles** (e.g., UniversalSearch → pick DApp → Discovery tab × N times): each cycle creates an orphan RNSScreenStack if overlay dismiss and tab switch overlap
 
 ---
 

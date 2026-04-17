@@ -31,9 +31,11 @@ The freeze is driven by `setPushViewControllers: SKIPPED - container window not 
 | `resetPrimeModal()` | Thin wrapper → `resetModalRouteByName(PrimeModal)` | Close Prime modal from any context (Prime can be pushed from AccountManagerStacks, Setting, ApprovalManagement, etc.) |
 | `resetOnboardingModal()` | Thin wrapper → `resetModalRouteByName(OnboardingModal)` | Close onboarding from any context (onboarding can be pushed from LiteCard, KeyTag, Swap, Perp, AccountManagerStacks, etc.) |
 | `resetScanModalRoute()` | Specialized: drops `ScanQrCodeModal` **and** the `ActionCenter` FullScreenPush route | Close scan modal (handles an extra FullScreenPush sibling that the generic does not) |
+| `switchTabAsync(route)` | **Async tab switch**: if overlay present, `resetAboveMainRoute()` → `wait(100ms)` → `navigate(Main, {screen: route})`. If no overlay, plain navigate. | ✅ **Preferred** for any tab switch that might happen while a modal is open |
+| `switchTab(route)` | **@deprecated** Sync tab switch using `navigate(Main, {pop:true})` — overlaps modal dismiss + tab switch + Main re-attach in one UIKit tick → creates orphan RNSScreenStack instances | ❌ Legacy, keep only in fire-and-forget paths (tab bar press, bootstrap) |
 | `popToMainRoute()` | `resetAboveMainRoute()` + `await 100ms` | When you truly need to clear every overlay with a settle barrier |
 | `resetToRoute(name, params)` | `reset` that replaces overlay routes with a specified target | Dismiss current overlay **and** open another one in a single dispatch |
-| `navigateFromOverlayToTab({ targetTab, switchTab })` | Reset above Main + switch tab + wait | Jumping to a different tab from inside an overlay |
+| `navigateFromOverlayToTab({ targetTab })` | Delegates to `switchTabAsync` internally | Convenience wrapper with explicit "from overlay" semantics |
 
 ### Atomic vs surgical reset — picking the right tool
 
@@ -181,13 +183,13 @@ resetToRoute(ERootRoutes.Modal, {
 ### When you are in an overlay and need to end up on a tab
 
 ```ts
-import { navigateFromOverlayToTab } from '@onekeyhq/components';
-
-await navigateFromOverlayToTab({
-  targetTab: ETabRoutes.Home,
-  switchTab: (tab) => navigation.switchTab(tab),
-});
+// ✅ PREFERRED: switchTabAsync handles everything
+await navigation.switchTabAsync(ETabRoutes.Home);
 // Now safe to push/navigate inside the Home tab.
+
+// ✅ ALSO OK: navigateFromOverlayToTab (wraps switchTabAsync)
+import { navigateFromOverlayToTab } from '@onekeyhq/components';
+await navigateFromOverlayToTab({ targetTab: ETabRoutes.Home });
 ```
 
 ## What does NOT work
@@ -198,6 +200,9 @@ await navigateFromOverlayToTab({
 | Sequential `goBack()` with retries | Each animated dismiss triggers another window-nil round. Makes the storm worse. |
 | `setTimeout` to nudge state after `popStack()` | JS runs fine; the native stack is the one stuck. Re-rendering JS does not re-attach the iOS window. |
 | `navigation.pop()` assuming "it's just one screen" | When the current navigator is the modal root, `pop()` falls through to `popStack()` → same freeze. |
+| `switchTab()` (deprecated) with `navigate(Main, {pop:true})` | Overlaps modal dismiss + tab switch + Main re-attach in one UIKit tick; creates orphan stacks that accumulate. |
+| `CommonActions.reset` / `resetModalRouteByName` alone | Still triggers animated native dismiss — react-native-screens diffs state and calls `dismissViewControllerAnimated:YES` regardless of JS dispatch type. |
+| JS-side force setState / Jotai atom bump | Fabric commits to the correct shadow node, but the native UIView receiving the commit may be an orphan not in the window — the visible view on screen is a stale CALayer snapshot. |
 
 ## Scope guidance
 
@@ -220,9 +225,38 @@ Rule of thumb:
 - Prime transfer exit — this doc, via `resetPrimeModal()` (partial-close) / `resetAboveMainRoute()` (full-close)
 - External wallet connect onboarding — this doc, via `resetOnboardingModal()`
 
+## Orphan accumulation via repeated modal cycles
+
+The freeze often does NOT trigger on the first modal open/close. It requires **repeated cycles** of "open modal → dismiss + switch tab → open modal → dismiss + switch tab" (e.g., UniversalSearch → pick DApp → Discovery tab, × 3–5 times).
+
+**Mechanism**: Each cycle of `switchTab()` (deprecated) with an overlay present calls `navigate(Main, {pop:true})`, which overlaps:
+1. Modal dismiss (animated UIKit transition)
+2. Tab switch (`UITabBarController.selectedIndex` change)
+3. Main screen re-attach (detachInactiveScreens reversal)
+
+During this overlap, the **previously-active tab's inner RNSScreenStack** may not complete its `didMoveToWindow` chain — it stays as an orphan with `window=NIL, superview=NIL`. Each cycle creates a new orphan. After N cycles:
+- N orphan stacks simultaneously fire 50×100ms retry timers
+- One of the orphans may be the view Fabric is committing prop updates to (due to view recycling or stale component-handle mapping)
+- The on-screen view shows a stale CALayer snapshot, not receiving the Fabric commits → user sees "frozen UI"
+- A touch event triggers UIKit hit-test / layout pass → forces the correct view to render → "unfreezes"
+
+**Fix**: Replace `switchTab()` with `switchTabAsync()` in any flow that opens a modal, then dismisses + switches tab. `switchTabAsync` serializes the dismiss and switch into two separate steps, avoiding the triple-overlap.
+
+**Example fixed flow** (UniversalSearch → DApp → Discovery):
+```ts
+// Before (orphan-producing):
+navigation.switchTab(ETabRoutes.Discovery);         // navigate(Main, {pop:true})
+setTimeout(() => { openMatchDApp(...) }, 300);       // 300ms guess
+
+// After (serialized):
+await switchTabAsync(ETabRoutes.Discovery);          // reset overlay → wait → navigate
+openDApp();                                          // runs after settle
+```
+
 ## Key files
 
-- `packages/components/src/layouts/Navigation/Navigator/NavigationContainer.tsx` — `resetAboveMainRoute`, `resetChainSelectorModal`, `resetScanModalRoute`, `resetToRoute`, `navigateFromOverlayToTab`, `popToMainRoute`
-- `packages/kit/src/hooks/useAppNavigation.ts` — `popStack` (`getParent()?.goBack()`) and `pop` (`canGoBack() ? goBack() : popStack()`)
+- `packages/components/src/layouts/Navigation/Navigator/NavigationContainer.tsx` — `switchTabAsync`, `switchTab` (deprecated), `resetAboveMainRoute`, `resetChainSelectorModal`, `resetScanModalRoute`, `resetToRoute`, `navigateFromOverlayToTab`, `popToMainRoute`
+- `packages/kit/src/hooks/useAppNavigation.ts` — `switchTabAsync` + `switchTab` (deprecated), `popStack`, `pop`
+- `packages/kit/src/states/jotai/contexts/discovery/actions.ts` — `handleOpenWebSite` (the UniversalSearch → DApp flow, fixed to use `switchTabAsync`)
 - `patches/react-native-screens+4.23.0.patch` — the native retry + `[RNSScreenStack]` diagnostic logger
 - `node_modules/@onekeyfe/react-native-native-logger/ios/OneKeyLog.swift` — writes `{Caches}/logs/app-latest.log`
