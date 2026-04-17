@@ -114,8 +114,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
-  const shouldShowMaxMode =
-    !tokenInfo?.isNative && (isOneToMany || !hasDuplicateSenders);
+  const shouldShowMaxMode = isOneToMany
+    ? !tokenInfo?.isNative
+    : !hasDuplicateSenders;
 
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -420,7 +421,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     try {
       // Resolve Max mode amounts from sender balances
       const resolvedTransfersInfo =
-        !isOneToMany && !tokenInfo.isNative && isMaxMode
+        !isOneToMany && isMaxMode
           ? effectiveTransfersInfo.map((transfer) => ({
               ...transfer,
               amount: senderBalances[transfer.from] ?? '0',
@@ -430,12 +431,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       // Recalculate totals for Max mode
       let finalTotalTokenAmount = effectiveTotalTokenAmount;
       let finalTotalFiatAmount = effectiveTotalFiatAmount;
-      if (
-        !isOneToMany &&
-        !tokenInfo.isNative &&
-        isMaxMode &&
-        tokenDetails?.price
-      ) {
+      if (!isOneToMany && isMaxMode && tokenDetails?.price) {
         const { totalTokenAmount: maxTotal, totalFiatAmount: maxFiat } =
           calculateTotalAmounts({
             transfersInfo: resolvedTransfersInfo,
@@ -470,7 +466,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         transfersInfo: resolvedTransfersInfo,
         bulkSendMode,
         isInModal,
-        isMaxMode: !isOneToMany && !tokenInfo.isNative && isMaxMode,
+        isMaxMode: !isOneToMany && isMaxMode,
         totalTokenAmount: finalTotalTokenAmount,
         totalFiatAmount: finalTotalFiatAmount,
       });
@@ -632,7 +628,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   ]);
 
   const handleMaxPress = useCallback(() => {
-    if (!tokenInfo || tokenInfo.isNative) return;
+    if (!tokenInfo || (isOneToMany && tokenInfo.isNative)) return;
     if (amountInputMode !== EAmountInputMode.Specified) return;
 
     // Non-OneToMany: toggle Max mode (send full token balance per sender)
@@ -877,7 +873,7 @@ function BulkSendAmountsInputContent({
 
   // Dynamically compute whether there are duplicate sender addresses
   const hasDuplicateSenders = useMemo(() => {
-    if (bulkSendMode !== EBulkSendMode.ManyToMany) return false;
+    if (bulkSendMode === EBulkSendMode.OneToMany) return false;
     const senderAddresses = transfersInfo.map((t) => t.from);
     return new Set(senderAddresses).size !== senderAddresses.length;
   }, [bulkSendMode, transfersInfo]);

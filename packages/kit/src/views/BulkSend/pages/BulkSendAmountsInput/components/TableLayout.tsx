@@ -237,8 +237,9 @@ function AmountCard() {
   const { network } = useAccountData({ networkId });
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
-  const shouldShowMaxMode =
-    !tokenInfo?.isNative && (isOneToMany || !hasDuplicateSenders);
+  const shouldShowMaxMode = isOneToMany
+    ? !tokenInfo?.isNative
+    : !hasDuplicateSenders;
   const balance = tokenDetails?.balanceParsed ?? '0';
   const minTransferDisplayAmount = useMemo(
     () =>
@@ -506,7 +507,7 @@ function AmountCard() {
 
   // Handle Max button press
   const handleMaxPress = useCallback(() => {
-    if (!tokenInfo || tokenInfo.isNative) return;
+    if (!tokenInfo || (isOneToMany && tokenInfo.isNative)) return;
     if (amountInputMode !== EAmountInputMode.Specified) return;
 
     // Non-OneToMany: toggle Max mode (send full token balance per sender)
