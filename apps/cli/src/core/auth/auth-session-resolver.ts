@@ -3,7 +3,7 @@ import { AuthSessionStore } from '../../infra/auth-session-store';
 import { KEYCHAIN_ENCRYPTION_KEY, KEYCHAIN_MNEMONIC_KEY } from '../../signer';
 import { decrypt, secureWipe } from '../crypto-utils';
 
-import { createAppTransferSourceLabelFromMnemonic } from './mnemonic-login';
+import { createAppTransferSourceLabelFromMnemonic } from './app-transfer-session';
 
 import type { AuthSessionMetadata, ResolvedAuthSession } from './auth-types';
 import type { ISecureStorage } from '../../infra/keychain-storage';
