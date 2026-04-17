@@ -244,6 +244,7 @@ type IWalletGroup = {
 // Without these a user searching an old receive address gets no hit.
 function collectAccountSearchAddresses(
   account: INetworkAccount | undefined,
+  extraAddresses?: string[],
 ): string[] {
   if (!account) return [];
   const utxo = account as Partial<IDBUtxoAccount>;
@@ -254,6 +255,7 @@ function collectAccountSearchAddresses(
     account.addressDetail?.masterAddress,
     ...(utxo.addresses ? Object.values(utxo.addresses) : []),
     ...(utxo.customAddresses ? Object.values(utxo.customAddresses) : []),
+    ...(extraAddresses ?? []),
   ].filter((a): a is string => !!a);
   // Preserve original case so the matched value can be shown back to the
   // user (OK-53313) instead of the current rotating receive address.
@@ -275,9 +277,10 @@ function collectAccountSearchAddresses(
 function findMatchedAccountAddress(
   account: INetworkAccount | undefined,
   searchValue: string,
+  extraAddresses?: string[],
 ): string | undefined {
   if (!searchValue) return undefined;
-  return collectAccountSearchAddresses(account).find((addr) =>
+  return collectAccountSearchAddresses(account, extraAddresses).find((addr) =>
     addr.toLowerCase().includes(searchValue),
   );
 }
@@ -333,6 +336,28 @@ function AccountRecipients({
     );
   const walletGroups = useDeferredValue(walletGroupsRaw);
 
+  // BTC fresh address lookup — logic lives in ServiceFreshAddress.
+  const { result: btcFreshAddressMap = {} } = usePromiseResult<
+    Record<string, string[]>
+  >(
+    async () => {
+      if (!networkUtils.isBTCNetwork(networkId) || !walletGroups.length) {
+        return {};
+      }
+      const accounts = walletGroups.flatMap((group) =>
+        (group.accounts ?? []).map((item) => ({
+          accountId: item.account.id,
+          deriveType: item.deriveType,
+        })),
+      );
+      return backgroundApiProxy.serviceFreshAddress.getSearchableAddressesForAccounts(
+        { networkId, accounts },
+      );
+    },
+    [walletGroups, networkId],
+    { initResult: {}, undefinedResultIfError: true },
+  );
+
   const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const isSearchActive = !!(isSearchMode && trimmedSearchKey);
@@ -364,7 +389,13 @@ function AccountRecipients({
             isNameMatch: (item) =>
               (item.account?.name ?? '').toLowerCase().includes(searchValue),
             isAddressMatch: (item) =>
-              !!findMatchedAccountAddress(item.account, searchValue),
+              !!findMatchedAccountAddress(
+                item.account,
+                searchValue,
+                item.account?.id
+                  ? btcFreshAddressMap[item.account.id]
+                  : undefined,
+              ),
           });
 
         if (sortedAccounts.length > 0) {
@@ -380,6 +411,9 @@ function AccountRecipients({
             const matchedAddress = findMatchedAccountAddress(
               item.account,
               searchValue,
+              item.account?.id
+                ? btcFreshAddressMap[item.account.id]
+                : undefined,
             );
             return matchedAddress ? { ...item, matchedAddress } : item;
           });
@@ -394,7 +428,7 @@ function AccountRecipients({
     }
 
     return [...nameMatchedGroups, ...addressOnlyGroups];
-  }, [walletGroups, isSearchActive, searchValue]);
+  }, [walletGroups, isSearchActive, searchValue, btcFreshAddressMap]);
 
   // Handle account selection
   const handleSelectAccount = useCallback(
@@ -1131,6 +1165,11 @@ function RecipientQuickSelect({
     }),
     [isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys],
   );
+
+  // Nothing to render when all tabs are hidden (e.g. web dapp mode)
+  if (visibleTabKeys.length === 0) {
+    return null;
+  }
 
   return (
     <Animated.View entering={FadeIn.duration(200)}>
