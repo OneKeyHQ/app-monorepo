@@ -57,7 +57,12 @@ export function TrayPanel() {
   }, []);
 
   const hasWatchlist = data?.watchlist && data.watchlist.length > 0;
-  const hasPendingTxs = data?.pendingTxs && data.pendingTxs.length > 0;
+  // `pendingTxs` can include status==='failed' entries (tracked so the main
+  // process can emit the failed-tx notification) — those don't count as
+  // user-visible content, so the panel only flips to the content view when
+  // there's at least one actually-pending tx.
+  const hasPendingTxs =
+    data?.pendingTxs?.some((tx) => tx.status === 'pending') ?? false;
   const hasContent = hasWatchlist || hasPendingTxs;
 
   if (!data) {

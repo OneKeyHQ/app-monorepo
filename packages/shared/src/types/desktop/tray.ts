@@ -3,7 +3,11 @@ export interface IPendingTx {
   type: 'send' | 'swap' | 'contract' | 'approve';
   to: string;
   amount: string;
-  status: string;
+  // 'pending'  — tx still in mempool / awaiting confirmation
+  // 'failed'   — tx resolved as failed (kept in list briefly so the main
+  //              process can emit the "failed" notification via diffAndNotify;
+  //              the panel filters it out from display)
+  status: 'pending' | 'failed';
   confirmations?: string;
 }
 

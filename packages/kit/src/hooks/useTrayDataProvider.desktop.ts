@@ -203,28 +203,41 @@ export function useTrayDataProvider() {
         console.error('[TrayDataProvider] watchlist error:', e);
       }
 
-      // 4. Pending transactions — read directly from simpleDb raw data
+      // 4. Pending transactions — read directly from simpleDb raw data.
+      //
+      // We include BOTH Pending and Failed txs in the tracked list (with real
+      // status) so the main-process diffAndNotify can tell confirmed apart
+      // from failed:
+      //   - Pending → disappears from next snapshot ⇒ "Transaction Confirmed"
+      //   - Pending → appears as Failed in next snapshot ⇒ "Transaction Failed"
+      //     (then disappears the snapshot after, without re-firing)
+      // If we only tracked Pending, a failed tx would look the same as a
+      // confirmed one (just gone from the list) and fire the wrong notification.
       try {
         const rawData =
           await backgroundApiProxy.simpleDb.localHistory.getRawData();
-        const allPendingTxs: any[] = [];
+        const allTrackedTxs: any[] = [];
         if (rawData?.pendingTxs) {
           for (const txs of Object.values(rawData.pendingTxs)) {
             if (Array.isArray(txs)) {
               for (const tx of txs) {
-                if (tx?.decodedTx?.status === EDecodedTxStatus.Pending) {
-                  allPendingTxs.push(tx);
+                const s = tx?.decodedTx?.status;
+                if (
+                  s === EDecodedTxStatus.Pending ||
+                  s === EDecodedTxStatus.Failed
+                ) {
+                  allTrackedTxs.push(tx);
                 }
               }
             }
           }
         }
         // Sort by most recent first
-        allPendingTxs.sort(
+        allTrackedTxs.sort(
           (a, b) =>
             (b.decodedTx?.createdAt || 0) - (a.decodedTx?.createdAt || 0),
         );
-        const history = allPendingTxs;
+        const history = allTrackedTxs;
         if (history?.length) {
           trayData.pendingTxs = history.map((tx: any) => {
             const decodedTx = tx.decodedTx;
@@ -262,12 +275,19 @@ export function useTrayDataProvider() {
             // Get recipient
             const to = firstSend?.to || decodedTx?.to || '';
 
+            // Map decoded status → tray status. Only Pending/Failed are
+            // included in the tracked list above, so this is exhaustive.
+            const status: 'pending' | 'failed' =
+              decodedTx?.status === EDecodedTxStatus.Failed
+                ? 'failed'
+                : 'pending';
+
             return {
               id: decodedTx?.txid || tx.id || '',
               type: txType,
               to,
               amount,
-              status: 'pending',
+              status,
             };
           });
         }

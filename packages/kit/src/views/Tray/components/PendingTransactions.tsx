@@ -65,7 +65,14 @@ export function PendingTransactions({
     id: ETranslations.tray_pending_status,
   });
 
-  if (!transactions || transactions.length === 0) {
+  // Failed txs are included in `transactions` so the main process can fire
+  // the "Transaction Failed" notification via diffAndNotify, but we don't
+  // want to surface them in the panel — filter to pending-only for display.
+  const visibleTxs = (transactions || []).filter(
+    (tx) => tx.status === 'pending',
+  );
+
+  if (visibleTxs.length === 0) {
     return (
       <Stack padding="$4">
         <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
@@ -77,8 +84,8 @@ export function PendingTransactions({
     );
   }
 
-  const displayTxs = transactions.slice(0, 5);
-  const hasMore = transactions.length > 5;
+  const displayTxs = visibleTxs.slice(0, 5);
+  const hasMore = visibleTxs.length > 5;
 
   return (
     <Stack>
