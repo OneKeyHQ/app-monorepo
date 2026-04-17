@@ -1,7 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
-import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  Stack,
+  XStack,
+  resetAccountManagerStacksModal,
+} from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -426,7 +432,7 @@ export function AccountSelectorAccountListItem({
                 autoChangeToAccountMatchedNetworkId: undefined,
               });
             }
-            navigation.popStack();
+            resetAccountManagerStacksModal();
           },
           isLoading: isCreatingAddress,
           userSelect: 'none',

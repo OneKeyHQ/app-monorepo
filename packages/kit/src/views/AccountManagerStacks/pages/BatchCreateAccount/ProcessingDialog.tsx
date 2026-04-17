@@ -10,6 +10,7 @@ import {
   Spinner,
   Stack,
   XStack,
+  resetAccountManagerStacksModal,
   useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
@@ -230,7 +231,7 @@ function ProcessingDialogContent({
           isFlowEnded
             ? async () => {
                 if (!isCancelled) {
-                  navigation?.popStack();
+                  resetAccountManagerStacksModal();
                 }
                 await backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
               }

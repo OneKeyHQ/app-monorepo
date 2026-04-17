@@ -10,6 +10,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  resetAccountManagerStacksModal,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
@@ -148,7 +149,7 @@ export default function PageResolveSameWallets({
                   { password: '' },
                 );
                 // TODO accountSelector action autoSelect next wallet
-                navigation.popStack();
+                resetAccountManagerStacksModal();
               } finally {
                 setIsRemoving(false);
               }

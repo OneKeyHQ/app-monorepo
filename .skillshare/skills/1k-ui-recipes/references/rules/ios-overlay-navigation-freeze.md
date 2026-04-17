@@ -30,6 +30,7 @@ The freeze is driven by `setPushViewControllers: SKIPPED - container window not 
 | `resetChainSelectorModal()` | Thin wrapper → `resetModalRouteByName(ChainSelectorModal)` | Close chain selector from **any** context (Home, DApp, Settings, BulkSend, Onboarding) |
 | `resetPrimeModal()` | Thin wrapper → `resetModalRouteByName(PrimeModal)` | Close Prime modal from any context (Prime can be pushed from AccountManagerStacks, Setting, ApprovalManagement, etc.) |
 | `resetOnboardingModal()` | Thin wrapper → `resetModalRouteByName(OnboardingModal)` | Close onboarding from any context (onboarding can be pushed from LiteCard, KeyTag, Swap, Perp, AccountManagerStacks, etc.) |
+| `resetAccountManagerStacksModal()` | Thin wrapper → `resetModalRouteByName(AccountManagerStacks)` | Close account manager from any context (add account, select account, export keys, batch create, wallet edit, resolve wallets) |
 | `resetScanModalRoute()` | Specialized: drops `ScanQrCodeModal` **and** the `ActionCenter` FullScreenPush route | Close scan modal (handles an extra FullScreenPush sibling that the generic does not) |
 | `switchTabAsync(route)` | **Async tab switch**: if overlay present, `resetAboveMainRoute()` → `wait(100ms)` → `navigate(Main, {screen: route})`. If no overlay, plain navigate. | ✅ **Preferred** for any tab switch that might happen while a modal is open |
 | `switchTab(route)` | **@deprecated** Sync tab switch using `navigate(Main, {pop:true})` — overlaps modal dismiss + tab switch + Main re-attach in one UIKit tick → creates orphan RNSScreenStack instances | ❌ Legacy, keep only in fire-and-forget paths (tab bar press, bootstrap) |
@@ -224,6 +225,7 @@ Rule of thumb:
 - Prime / OneKey ID logout — this doc, via `resetPrimeModal()`
 - Prime transfer exit — this doc, via `resetPrimeModal()` (partial-close) / `resetAboveMainRoute()` (full-close)
 - External wallet connect onboarding — this doc, via `resetOnboardingModal()`
+- Account manager stacks (add account, select account, export keys, batch create, wallet edit, resolve wallets) — OK-52482, via `resetAccountManagerStacksModal()`
 
 ## Orphan accumulation via repeated modal cycles
 

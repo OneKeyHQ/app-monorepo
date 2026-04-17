@@ -15,6 +15,7 @@ import {
   SizableText,
   Stack,
   TextAreaInput,
+  resetAccountManagerStacksModal,
   useClipboard,
   useForm,
   useMedia,
@@ -397,7 +398,7 @@ function ExportPrivateKeysPage({
           disabled: false,
         }}
         onConfirm={async () => {
-          void navigation.popStack();
+          resetAccountManagerStacksModal();
         }}
       />
     </Page>

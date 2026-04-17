@@ -6,6 +6,7 @@ import {
   Page,
   popToMainRoute,
   popToTabRootScreen,
+  resetAboveMainRoute,
   rootNavigationRef,
   switchTab,
   switchTabAsync,
@@ -459,6 +460,25 @@ function useAppNavigation<
   const navigate: typeof navigationRef.current.navigate = useCallback(
     (...args: any) => {
       const [screen, params, options = { pop: true }] = args;
+
+      // When navigating to Main with pop:true while an overlay is present,
+      // serialize the overlay dismiss and tab switch. The default pop:true
+      // uses navigate(Main, {pop:true}) which overlaps modal dismiss + tab
+      // switch + Main re-attach in one UIKit tick, creating orphan
+      // RNSScreenStack instances on iOS that accumulate and freeze the UI.
+      if (screen === ERootRoutes.Main && options?.pop) {
+        const rootState = rootNavigationRef.current?.getRootState();
+        const topRoute = rootState?.routes?.[rootState?.index ?? 0];
+        const hasOverlay = topRoute?.name !== ERootRoutes.Main;
+        if (hasOverlay) {
+          resetAboveMainRoute();
+          setTimeout(() => {
+            navigationRef.current.navigate(screen, params);
+          }, 100);
+          return;
+        }
+      }
+
       navigationRef.current.navigate(screen, params, options);
     },
     [],

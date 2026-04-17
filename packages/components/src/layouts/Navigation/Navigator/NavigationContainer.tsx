@@ -402,6 +402,11 @@ export function resetOnboardingModal() {
   resetModalRouteByName(EModalRoutes.OnboardingModal);
 }
 
+/** Thin wrapper — see resetModalRouteByName. */
+export function resetAccountManagerStacksModal() {
+  resetModalRouteByName(EModalRoutes.AccountManagerStacks);
+}
+
 export const popToMainRoute = async () => {
   resetAboveMainRoute();
   await timerUtils.wait(100);
