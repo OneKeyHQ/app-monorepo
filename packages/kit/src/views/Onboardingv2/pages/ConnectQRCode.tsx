@@ -12,6 +12,7 @@ import {
   Video,
   XStack,
   resetToRoute,
+  useThemeName,
 } from '@onekeyhq/components';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,7 +24,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { trackHardwareWalletConnection } from '../utils';
@@ -33,7 +33,7 @@ import { ConnectionIndicator } from './ConnectYourDevice';
 function ConnectQRCodePage() {
   const { createQrWallet } = useCreateQrWallet();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-  const themeVariant = useThemeVariant();
+  const themeVariant = useThemeName();
   const intl = useIntl();
   const STEPS = [
     intl.formatMessage({ id: ETranslations.select_connect_app_on_home }),

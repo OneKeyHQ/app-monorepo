@@ -33,11 +33,17 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
           }}
           size="$bodySm"
           textDecorationLine="underline"
+          color="$textDisabled"
         >
-          {chunks[0]} ↗
+          {chunks[0]}
         </SizableText>
       ) : (
-        <Anchor href={link} size="$bodySm" color="$textSubdued" target="_blank">
+        <Anchor
+          href={link}
+          size="$bodySm"
+          color="$textDisabled"
+          target="_blank"
+        >
           {chunks}
         </Anchor>
       ),

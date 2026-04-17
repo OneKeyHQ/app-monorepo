@@ -28,6 +28,7 @@ import {
   YStack,
   useMedia,
   usePopoverContext,
+  useThemeName,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
@@ -80,7 +81,6 @@ import { HyperlinkText } from '../../../components/HyperlinkText';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   EBluetoothStatus,
@@ -719,7 +719,7 @@ function USBOrBLEConnectionIndicator({
   deviceTypeItems,
   connectDevice,
 }: IDeviceConnectionProps) {
-  const themeVariant = useThemeVariant();
+  const themeVariant = useThemeName() as 'light' | 'dark';
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();

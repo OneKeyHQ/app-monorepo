@@ -33,19 +33,20 @@ export const LayoutHeader = memo(
   ({ children, style, ...rest }: IXStackProps) => {
     const { top } = useSafeAreaInsets();
     return (
-      <XStack
-        h={52 + top}
-        pt={top}
-        px="$5"
-        alignItems="center"
-        $gtMd={{
-          px: '$10',
-        }}
-        {...rest}
-        style={[DRAG_STYLE, style]}
-      >
-        {children}
-      </XStack>
+      <YStack pt={top || '$12'}>
+        <XStack
+          h={52}
+          px="$5"
+          alignItems="center"
+          $gtMd={{
+            px: '$12',
+          }}
+          {...rest}
+          style={[DRAG_STYLE, style]}
+        >
+          {children}
+        </XStack>
+      </YStack>
     );
   },
 );
@@ -53,6 +54,7 @@ LayoutHeader.displayName = 'LayoutHeader';
 
 export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
 
   const icon = exit ? 'CrossedLargeOutline' : 'ArrowLeftOutline';
 
@@ -62,7 +64,7 @@ export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
 
   return (
     <IconButton
-      size="medium"
+      size={gtMd ? 'small' : 'medium'}
       icon={icon}
       variant="tertiary"
       onPress={handleBack}

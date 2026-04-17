@@ -20,6 +20,7 @@ import {
   Spinner,
   XStack,
   YStack,
+  useThemeName,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -41,7 +42,6 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
@@ -77,7 +77,7 @@ function CheckAndUpdatePage({
   const intl = useIntl();
   const { deviceData, tabValue } = routeParams?.params || {};
   console.log('deviceData', deviceData);
-  const themeVariant = useThemeVariant();
+  const themeVariant = useThemeName();
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
