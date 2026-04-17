@@ -741,14 +741,20 @@ function AccountRecipients({
               displayAddress: itemAddress,
               walletId,
               wallet,
-              // Stable avatar: use account object directly so AccountAvatar
-              // renders the wallet-type icon + consistent blockies seed,
-              // independent of BTC fresh address rotation.
+              // Align with AccountSelector: pass account + wallet + networkId
+              // so avatar renders consistent blockies + wallet badge + network badge.
+              // address fallback for imported accounts with empty account.address.
               customRenderAvatar: () => (
                 <AccountAvatar
                   size="default"
+                  address={
+                    account.address ||
+                    account.addressDetail?.displayAddress ||
+                    account.id
+                  }
                   account={account}
                   wallet={wallet}
+                  networkId={networkId}
                 />
               ),
             }}
