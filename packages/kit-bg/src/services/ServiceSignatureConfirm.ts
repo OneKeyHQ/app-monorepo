@@ -338,15 +338,10 @@ class ServiceSignatureConfirm extends ServiceBase {
       // still parses the tx from encodedTx alone.
       return callParseTransaction(undefined);
     }
-    // Use the first result as base, merge interaction + risk across xpubs.
+    // Use the first result as base, merge riskLevel across xpubs
+    // (take the highest risk seen from any derive path).
     const base = validResults[0];
     if (base.parsedTx?.to) {
-      const anyInteracted = validResults.some(
-        (r) => r.parsedTx?.to?.interacted === true,
-      );
-      if (anyInteracted) {
-        base.parsedTx.to.interacted = true;
-      }
       const maxRiskLevel = Math.max(
         ...validResults.map((r) => r.parsedTx?.to?.riskLevel ?? 0),
       );
