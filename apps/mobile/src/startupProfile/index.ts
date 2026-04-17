@@ -67,18 +67,34 @@ export function installStartupProfileJs(): void {
   g[GLOBAL_STATS_KEY] = stats;
 
   const origRequire = g.__r as ((id: unknown) => unknown) | undefined;
+  // Probe Metro internals so we know which wrapping strategy can work.
+  const probeKeys: string[] = [];
+  try {
+    if (origRequire) {
+      for (const k of Object.getOwnPropertyNames(origRequire)) {
+        probeKeys.push(k);
+      }
+    }
+  } catch { /* ignore */ }
+  const hasGetModules = typeof (origRequire as any)?.getModules === 'function';
+  const hasModulesProp = typeof (origRequire as any)?.modules === 'object';
+  const dProps: string[] = [];
+  try {
+    if (g.__d) {
+      for (const k of Object.getOwnPropertyNames(g.__d)) {
+        dProps.push(k);
+      }
+    }
+  } catch { /* ignore */ }
   logStartupProfileDiag(
     'install',
-    `typeof __r=${typeof origRequire}, typeof __d=${typeof (g as any).__d}, hasGlobal=${typeof globalThis !== 'undefined'}`,
+    `typeof __r=${typeof origRequire}, typeof __d=${typeof g.__d}, hasGlobal=${typeof globalThis !== 'undefined'}, __r.keys=[${probeKeys.join(',')}], __r.getModules=${hasGetModules}, __r.modules=${hasModulesProp}, __d.keys=[${dProps.join(',')}]`,
   );
   if (typeof origRequire !== 'function') {
-    // Metro runtime not present (unlikely in RN) — skip silently.
     return;
   }
 
   const loaded = new Set<string | number>();
-  // Accumulator stack: at each active require depth, records total child time
-  // so parent can subtract to compute its self-time.
   const childMsStack: number[] = [];
 
   g.__r = function patchedRequire(this: unknown, id: unknown) {
