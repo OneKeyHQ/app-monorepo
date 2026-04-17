@@ -172,19 +172,19 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public enterChainlistSearch() {
+  public enterChainListSearch() {
     return {};
   }
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public chainlistSearchPerformed({ keywords }: { keywords: string }) {
+  public chainListSearchPerformed({ keywords }: { keywords: string }) {
     return { keywords };
   }
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public chainlistNetworkSelected({
+  public chainListNetworkSelected({
     chainId,
     networkName,
   }: {
@@ -196,7 +196,7 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public chainlistManualAdd() {
+  public chainListManualAdd() {
     return {};
   }
 }

@@ -212,7 +212,7 @@ export class WalletScene extends BaseScene {
   @LogToLocal()
   public customNetworkAdded(params: {
     chainID: string;
-    source?: 'manual' | 'chainlist' | 'dapp';
+    source?: 'manual' | 'chainList' | 'dapp';
   }) {
     return params;
   }

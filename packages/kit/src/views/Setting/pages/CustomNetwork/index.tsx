@@ -236,11 +236,11 @@ function AddCustomNetwork() {
       void dappApprove.resolve({ result: network });
       setTimeout(() => {
         onSuccess?.(network);
-        let source: 'manual' | 'chainlist' | 'dapp' = 'manual';
+        let source: 'manual' | 'chainList' | 'dapp' = 'manual';
         if ($sourceInfo?.id) {
           source = 'dapp';
         } else if (routeNetworkName) {
-          source = 'chainlist';
+          source = 'chainList';
         }
         defaultLogger.account.wallet.customNetworkAdded({
           chainID: String(finalChainId),

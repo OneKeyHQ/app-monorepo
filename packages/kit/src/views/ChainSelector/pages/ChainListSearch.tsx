@@ -26,6 +26,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
+  IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
   EChainSelectorPages as EChainSelectorPagesEnum,
@@ -38,6 +39,12 @@ import { LetterAvatar } from '../../../components/LetterAvatar';
 import { ListItem } from '../../../components/ListItem';
 
 import type { RouteProp } from '@react-navigation/core';
+
+type IChainListSearchRoute = RouteProp<
+  IChainSelectorParamList & IModalSettingParamList,
+  | EChainSelectorPages.ChainListSearch
+  | EModalSettingRoutes.SettingChainListSearch
+>;
 
 function pickBestRpcUrl(rpcUrls: string[]): string {
   const httpUrls = rpcUrls.filter(
@@ -71,10 +78,7 @@ function ChainListSearchSkeletonList() {
 function ChainListSearch() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const route =
-    useRoute<
-      RouteProp<IChainSelectorParamList, EChainSelectorPages.ChainListSearch>
-    >();
+  const route = useRoute<IChainListSearchRoute>();
   const { onSuccess } = route.params ?? {};
 
   // Determine which form route to push to based on which modal stack
@@ -113,7 +117,7 @@ function ChainListSearch() {
   // Load existing networks on mount + refresh on AddedCustomNetwork event
   useEffect(() => {
     void refreshExistingNetworks();
-    defaultLogger.setting.page.enterChainlistSearch();
+    defaultLogger.setting.page.enterChainListSearch();
     appEventBus.on(
       EAppEventBusNames.AddedCustomNetwork,
       refreshExistingNetworks,
@@ -213,7 +217,7 @@ function ChainListSearch() {
           isSearchingRef.current = true;
           setIsSearching(true);
           setHasError(false);
-          defaultLogger.setting.page.chainlistSearchPerformed({
+          defaultLogger.setting.page.chainListSearchPerformed({
             keywords: text,
           });
           const result =
@@ -263,7 +267,7 @@ function ChainListSearch() {
 
   const handleSelectNetwork = useCallback(
     (item: IChainListItem) => {
-      defaultLogger.setting.page.chainlistNetworkSelected({
+      defaultLogger.setting.page.chainListNetworkSelected({
         chainId: String(item.chainId),
         networkName: item.name,
       });
@@ -279,7 +283,7 @@ function ChainListSearch() {
   );
 
   const handleManualAdd = useCallback(() => {
-    defaultLogger.setting.page.chainlistManualAdd();
+    defaultLogger.setting.page.chainListManualAdd();
     pushFormPage();
   }, [pushFormPage]);
 
