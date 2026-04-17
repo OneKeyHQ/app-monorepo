@@ -29,15 +29,16 @@ import {
   useAddressTypeSelectorStableContext,
 } from './AddressTypeSelectorContext';
 
-const addressTypeTooltipMap: Partial<Record<EAddressEncodings, ETranslations>> =
-  {
-    [EAddressEncodings.P2TR]: ETranslations.address_type_tooltip_taproot__desc,
-    [EAddressEncodings.P2WPKH]:
-      ETranslations.address_type_tooltip_native_segwit__desc,
-    [EAddressEncodings.P2SH_P2WPKH]:
-      ETranslations.address_type_tooltip_nested_segwit__desc,
-    [EAddressEncodings.P2PKH]: ETranslations.address_type_tooltip_legacy__desc,
-  };
+export const addressTypeTooltipMap: Partial<
+  Record<EAddressEncodings, ETranslations>
+> = {
+  [EAddressEncodings.P2TR]: ETranslations.address_type_tooltip_taproot__desc,
+  [EAddressEncodings.P2WPKH]:
+    ETranslations.address_type_tooltip_native_segwit__desc,
+  [EAddressEncodings.P2SH_P2WPKH]:
+    ETranslations.address_type_tooltip_nested_segwit__desc,
+  [EAddressEncodings.P2PKH]: ETranslations.address_type_tooltip_legacy__desc,
+};
 
 type IProps = {
   data: {
