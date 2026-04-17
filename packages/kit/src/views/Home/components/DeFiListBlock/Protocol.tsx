@@ -16,6 +16,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { ProtocolPositionActionShell } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionShell';
 import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -273,6 +274,11 @@ const ProtocolDesktopLayout = memo(
                         />
                       ))}
                     </YStack>
+                    {position.action ? (
+                      <Stack px="$5" pt="$2">
+                        <ProtocolPositionActionShell action={position.action} />
+                      </Stack>
+                    ) : null}
                     {index !== positions.length - 1 ? (
                       <Stack px="$5" pt="$3" pb="$1">
                         <Divider />
