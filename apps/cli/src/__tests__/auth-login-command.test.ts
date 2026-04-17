@@ -25,7 +25,9 @@ function makeUnauthenticatedStatus(): ResolvedAuthSession {
   };
 }
 
-function makeAuthenticatedStatus(): ResolvedAuthSession {
+function makeAuthenticatedStatus(
+  overrides: Partial<ResolvedAuthSession> = {},
+): ResolvedAuthSession {
   return {
     authStatus: 'authenticated',
     hasSecrets: true,
@@ -35,6 +37,7 @@ function makeAuthenticatedStatus(): ResolvedAuthSession {
     displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
     importedAt: '2026-04-06T07:00:00.000Z',
     sourceLabel: 'Bot Wallet (deadbeef)',
+    ...overrides,
   };
 }
 
@@ -117,16 +120,9 @@ describe('executeAuthLoginCommand', () => {
       getStatus: jest
         .fn()
         .mockResolvedValueOnce(makeUnauthenticatedStatus())
-        .mockResolvedValueOnce({
-          authStatus: 'authenticated',
-          hasSecrets: true,
-          storageBackend: 'macos-keychain',
-          loginMethod: 'app_transfer',
-          walletKind: 'hd',
-          displayAddress: '0xabc',
-          importedAt: '2026-04-06T07:00:00.000Z',
-          sourceLabel: 'Bot Wallet (deadbeef)',
-        } satisfies ResolvedAuthSession),
+        .mockResolvedValueOnce(
+          makeAuthenticatedStatus({ displayAddress: '0xabc' }),
+        ),
       startAppTransferLogin: jest.fn(async () => pairingResult),
     };
 
@@ -163,16 +159,9 @@ describe('executeAuthLoginCommand', () => {
       getStatus: jest
         .fn()
         .mockResolvedValueOnce(makeUnauthenticatedStatus())
-        .mockResolvedValueOnce({
-          authStatus: 'authenticated',
-          hasSecrets: true,
-          storageBackend: 'macos-keychain',
-          loginMethod: 'app_transfer',
-          walletKind: 'hd',
-          displayAddress: '0xdef',
-          importedAt: '2026-04-06T07:00:00.000Z',
-          sourceLabel: 'Bot Wallet (deadbeef)',
-        } satisfies ResolvedAuthSession),
+        .mockResolvedValueOnce(
+          makeAuthenticatedStatus({ displayAddress: '0xdef' }),
+        ),
       startAppTransferLogin: jest.fn(async () => pairingResult),
     };
 
@@ -445,16 +434,9 @@ describe('executeAuthLoginCommand', () => {
       getStatus: jest
         .fn()
         .mockResolvedValueOnce(makeUnauthenticatedStatus())
-        .mockResolvedValueOnce({
-          authStatus: 'authenticated',
-          hasSecrets: true,
-          storageBackend: 'macos-keychain',
-          loginMethod: 'app_transfer',
-          walletKind: 'hd',
-          displayAddress: '0xabc',
-          importedAt: '2026-04-06T07:00:00.000Z',
-          sourceLabel: 'Bot Wallet (deadbeef)',
-        } satisfies ResolvedAuthSession),
+        .mockResolvedValueOnce(
+          makeAuthenticatedStatus({ displayAddress: '0xabc' }),
+        ),
       clearSession,
       startAppTransferLogin: jest.fn(async () => pairingResult),
     };
@@ -487,16 +469,9 @@ describe('executeAuthLoginCommand', () => {
       getStatus: jest
         .fn()
         .mockResolvedValueOnce(makeUnauthenticatedStatus())
-        .mockResolvedValueOnce({
-          authStatus: 'authenticated',
-          hasSecrets: true,
-          storageBackend: 'macos-keychain',
-          loginMethod: 'app_transfer',
-          walletKind: 'hd',
-          displayAddress: '0xabc',
-          importedAt: '2026-04-06T07:00:00.000Z',
-          sourceLabel: 'Bot Wallet (deadbeef)',
-        } satisfies ResolvedAuthSession),
+        .mockResolvedValueOnce(
+          makeAuthenticatedStatus({ displayAddress: '0xabc' }),
+        ),
       startAppTransferLogin: jest.fn(async () => pairingResult),
     };
 
