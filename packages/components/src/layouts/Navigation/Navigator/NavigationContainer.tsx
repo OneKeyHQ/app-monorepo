@@ -221,6 +221,26 @@ export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
 
   defaultLogger.app.router.switchTab(route);
 
+  // Tablet/split-view: mirror the tab switch on the tablet navigator
+  setTimeout(() => {
+    const tabletActiveTab = getActiveTabFromRef(tabletMainViewNavigationRef);
+    const tabletHasOverlay = hasOverlayAboveMain(tabletMainViewNavigationRef);
+    if (
+      tabletActiveTab !== undefined &&
+      (tabletHasOverlay || tabletActiveTab !== route)
+    ) {
+      tabletMainViewNavigationRef.current?.navigate(
+        ERootRoutes.Main,
+        {
+          screen: route,
+        },
+        {
+          pop: true,
+        },
+      );
+    }
+  });
+
   if (rootHasOverlay) {
     resetAboveMainRoute();
     await timerUtils.wait(100);
@@ -525,14 +545,15 @@ export const resetToRoute = (
 /**
  * Safely navigate from an overlay route (Modal/FullScreenPush) to a tab page.
  *
- * Delegates to switchTabAsync which serializes overlay dismiss + tab switch.
+ * Always uses switchTabAsync internally (ignores any provided switchTab callback)
+ * to ensure overlay dismiss + tab switch are properly serialized.
  */
 export const navigateFromOverlayToTab = async (options: {
   targetTab: ETabRoutes;
+  /** @deprecated Ignored — always uses switchTabAsync internally */
   switchTab?: (tab: ETabRoutes) => void | Promise<void>;
 }) => {
-  const switcher = options.switchTab ?? switchTabAsync;
-  await switcher(options.targetTab);
+  await switchTabAsync(options.targetTab);
 };
 
 export const popToTabRootScreen = async () => {

@@ -10,7 +10,6 @@ import {
   Spinner,
   Stack,
   XStack,
-  resetAccountManagerStacksModal,
   useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
@@ -30,7 +29,7 @@ export type IBatchCreateAccountAllNetworkInfo = {
 };
 
 function ProcessingDialogContent({
-  navigation: _navigation,
+  navigation,
   allNetworkInfo,
   closeAfterDone,
   closeAfterCancel,
@@ -231,7 +230,7 @@ function ProcessingDialogContent({
           isFlowEnded
             ? async () => {
                 if (!isCancelled) {
-                  resetAccountManagerStacksModal();
+                  void navigation?.popStack();
                 }
                 await backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
               }

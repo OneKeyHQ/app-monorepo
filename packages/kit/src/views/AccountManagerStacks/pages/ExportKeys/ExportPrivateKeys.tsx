@@ -15,12 +15,12 @@ import {
   SizableText,
   Stack,
   TextAreaInput,
-  resetAccountManagerStacksModal,
   useClipboard,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
@@ -85,6 +85,7 @@ function ExportPrivateKeysPage({
   exportType,
 }: IExportAccountSecretKeysRouteParams) {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const navigation = useAppNavigation();
 
   const intl = useIntl();
   const media = useMedia();
@@ -396,7 +397,7 @@ function ExportPrivateKeysPage({
           disabled: false,
         }}
         onConfirm={async () => {
-          resetAccountManagerStacksModal();
+          void navigation.popStack();
         }}
       />
     </Page>
