@@ -88,7 +88,11 @@ export type IEventBusPayloadShowToast = {
   diagnosticText?: string;
 };
 export interface IAppEventBusPayload {
-  [EAppEventBusNames.ConfirmAccountSelected]: undefined;
+  [EAppEventBusNames.ConfirmAccountSelected]: {
+    num: number;
+    indexedAccountId?: string;
+    othersWalletAccountId?: string;
+  };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
@@ -245,6 +249,7 @@ export interface IAppEventBusPayload {
           networkId: string;
         }[];
       };
+  [EAppEventBusNames.RefreshEarnRecommendedList]: undefined;
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;
@@ -360,6 +365,9 @@ export interface IAppEventBusPayload {
     showWatchlistOnly: boolean;
   };
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.SupabaseStorageCacheCleared]: {
+    sourceId: string;
+  };
   [EAppEventBusNames.SettingsSearchResult]: {
     list: {
       title: string;
@@ -382,6 +390,7 @@ export interface IAppEventBusPayload {
     subType: ESubscriptionType;
     data: unknown;
   };
+  [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';

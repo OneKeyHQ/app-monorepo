@@ -256,6 +256,7 @@ export function AvailableAssetsTabViewList() {
               symbol: asset.symbol,
               accountId,
               networkId: accountNetworkId,
+              includeWithdrawOnly: true,
             });
           totalProtocols = allProtocols?.length ?? 1;
         } catch {

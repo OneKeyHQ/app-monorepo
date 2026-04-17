@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -52,6 +52,18 @@ export function BalanceDisplay({
       appEventBus.emit(EAppEventBusNames.NetworkDeriveTypeChanged, undefined);
     },
     [setSelectedDeriveType],
+  );
+
+  const selectorTrigger = useMemo(
+    () => (
+      <DeriveTypeSelectorTriggerIconRenderer
+        autoShowLabel={false}
+        onPress={() => {}}
+        iconProps={{ size: '$4' }}
+        labelProps={{ pl: '$1' }}
+      />
+    ),
+    [],
   );
 
   return (
@@ -109,18 +121,7 @@ export function BalanceDisplay({
               indexedAccountId={activeAccount?.indexedAccount?.id ?? ''}
               walletId={activeAccount?.wallet?.id ?? ''}
               onSelect={onSelect}
-              renderSelectorTrigger={
-                <DeriveTypeSelectorTriggerIconRenderer
-                  autoShowLabel={false}
-                  onPress={() => {}}
-                  iconProps={{
-                    size: '$4',
-                  }}
-                  labelProps={{
-                    pl: '$1',
-                  }}
-                />
-              }
+              renderSelectorTrigger={selectorTrigger}
             />
           ) : null}
         </>

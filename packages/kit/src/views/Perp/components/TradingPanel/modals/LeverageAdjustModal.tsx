@@ -210,9 +210,12 @@ const LeverageContent = memo(
             alignItems="center"
             justifyContent="flex-start"
             onPress={() => {
-              openGuideUrl(
-                buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.leverage}`),
-              );
+              void dialogInstance.close();
+              setTimeout(() => {
+                openGuideUrl(
+                  buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.leverage}`),
+                );
+              }, 150);
             }}
             cursor="default"
           >

@@ -70,6 +70,7 @@ const useMarketHomeLayoutProps = () => {
         name: c.name,
       }));
     }
+
     // Fallback before API responds
     return [
       { id: 'trending', name: 'Trending' },

@@ -181,10 +181,6 @@ function ConnectionModal() {
         },
         result: accountInfo,
       });
-      Toast.success({
-        title: intl.formatMessage({ id: ETranslations.global_connected }),
-      });
-
       setTimeout(() => {
         void notifyKeylessWebConnectSuccess({
           nonce: keylessAutoConnectNonce,
@@ -202,7 +198,6 @@ function ConnectionModal() {
       );
     },
     [
-      intl,
       dappApprove,
       $sourceInfo,
       serviceDApp,

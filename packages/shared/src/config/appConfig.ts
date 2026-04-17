@@ -44,6 +44,11 @@ export const HARDWARE_TROUBLESHOOTING_URL =
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';
 
+export const BUY_GUIDE_URL =
+  'https://help.onekey.so/articles/11461142#h_01J21115Y8PXEPDWJNYMF2RV7X';
+export const SELL_GUIDE_URL =
+  'https://help.onekey.so/articles/11461142#h_01J3MC84TGDENVZG46K9RSDCYZ';
+
 export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
 export const TWITTER_FOLLOW_URL =
   'https://x.com/intent/follow?screen_name=OneKeyHQ';
@@ -98,6 +103,7 @@ export const APP_STORE_DOWNLOAD_LINK = APP_STORE_BASE_LINK;
 export const APP_STORE_DOWNLOAD_WEB_LINK =
   'https://apps.apple.com/app/id1609559473';
 export const ANDROID_PACKAGE_NAME = 'so.onekey.app.wallet';
+export const ONEKEY_EIP6963_RDNS = 'so.onekey.app.wallet';
 export const PLAY_STORE_LINK = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE_NAME}`;
 
 export const ONEKEY_KEY_TAG_PURCHASE_URL =

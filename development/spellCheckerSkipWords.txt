@@ -963,6 +963,9 @@ xprvt
 xpub
 xpub2blake2b224
 xpubkey
+xpubs
+Xpub
+Xpubs
 xpvt
 xrp
 Xrp
@@ -1428,3 +1431,7 @@ oxlintrc
 crosschain
 prebuilds
 Blockaid
+posthog
+Posthog
+autocapture
+ellipsize

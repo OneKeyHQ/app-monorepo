@@ -21,12 +21,16 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapProviderSupportReceiveAddressAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
   useSwapToAnotherAccountAddressAtom,
 } from '../../../states/jotai/contexts/swap';
+
+import {
+  shouldShowSwapRecipientAddressInfo,
+  shouldUseSwapCustomRecipientAddress,
+} from './useSwapAccount.utils';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
@@ -193,7 +197,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
-  const [accountForAllNet, setAccountForAllNet] = useState<
+  const [accountForTargetNetwork, setAccountForTargetNetwork] = useState<
     INetworkAccount | undefined
   >(undefined);
 
@@ -214,79 +218,73 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     currentSelectNetwork?.networkId,
   ]);
 
-  const checkAllNetworkAccount = useCallback(async () => {
-    if (isAllNetwork) {
-      if (
-        (fromToken?.networkId || currentSelectNetwork?.networkId) &&
-        type === ESwapDirectionType.FROM
-      ) {
-        try {
-          const fromTargetNetworkId =
-            currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '';
-          const fromTargetDeriveType =
-            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-              { networkId: fromTargetNetworkId },
-            );
-          const accountParams = {
-            deriveType: fromTargetDeriveType,
-            indexedAccountId: activeAccount.indexedAccount?.id,
-            accountId: activeAccount.indexedAccount?.id
-              ? undefined
-              : activeAccount.account?.id,
-            dbAccount: activeAccount.dbAccount,
-            networkId: fromTargetNetworkId,
-          };
-          const fromTokenAccount =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              ...accountParams,
-            });
-          setAccountForAllNet(fromTokenAccount);
-        } catch (_e) {
-          setAccountForAllNet(undefined);
-        }
-      }
-      if (
-        (toToken?.networkId || currentSelectNetwork?.networkId) &&
-        type === ESwapDirectionType.TO
-      ) {
-        try {
-          const toTargetNetworkId =
-            currentSelectNetwork?.networkId ?? toToken?.networkId ?? '';
-          const toTargetDeriveType =
-            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-              { networkId: toTargetNetworkId },
-            );
-          const accountParams = {
-            deriveType: toTargetDeriveType,
-            indexedAccountId: activeAccount.indexedAccount?.id,
-            accountId: activeAccount.indexedAccount?.id
-              ? undefined
-              : activeAccount.account?.id,
-            dbAccount: activeAccount.dbAccount,
-            networkId: toTargetNetworkId,
-          };
-          const toTokenAccount =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              ...accountParams,
-            });
-          setAccountForAllNet(toTokenAccount);
-        } catch (_e) {
-          setAccountForAllNet(undefined);
-        }
-      }
+  const shouldResolveTargetNetworkAccount = useMemo(() => {
+    if (!tokenNetworkId || !activeAccount.ready) {
+      return false;
     }
+
+    if (!activeAccount.indexedAccount?.id && !activeAccount.account?.id) {
+      return false;
+    }
+
+    if (isAllNetwork) {
+      return true;
+    }
+
+    return activeAccount.network?.id !== tokenNetworkId;
   }, [
-    type,
+    activeAccount.account?.id,
+    activeAccount.indexedAccount?.id,
+    activeAccount.network?.id,
+    activeAccount.ready,
     isAllNetwork,
-    fromToken?.networkId,
-    currentSelectNetwork?.networkId,
-    toToken?.networkId,
-    activeAccount,
+    tokenNetworkId,
   ]);
 
   useEffect(() => {
-    void checkAllNetworkAccount();
-  }, [checkAllNetworkAccount]);
+    let cancelled = false;
+
+    if (!shouldResolveTargetNetworkAccount || !tokenNetworkId) {
+      setAccountForTargetNetwork(undefined);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const targetDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: tokenNetworkId,
+          });
+        const targetAccount =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            deriveType: targetDeriveType,
+            indexedAccountId: activeAccount.indexedAccount?.id,
+            accountId: activeAccount.indexedAccount?.id
+              ? undefined
+              : activeAccount.account?.id,
+            dbAccount: activeAccount.dbAccount,
+            networkId: tokenNetworkId,
+          });
+        if (!cancelled) {
+          setAccountForTargetNetwork(targetAccount);
+        }
+      } catch (_e) {
+        if (!cancelled) {
+          setAccountForTargetNetwork(undefined);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeAccount.account?.id,
+    activeAccount.dbAccount,
+    activeAccount.indexedAccount?.id,
+    shouldResolveTargetNetworkAccount,
+    tokenNetworkId,
+  ]);
 
   const [swapToAnotherAccountAddressAtom] =
     useSwapToAnotherAccountAddressAtom();
@@ -302,73 +300,74 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       accountInfo: undefined,
       activeAccount: undefined,
     };
+    // Keep the confirmed custom recipient even when cross-chain TO account
+    // resolution has not materialized a network account yet.
     if (
-      type === ESwapDirectionType.TO &&
-      swapToAnotherAccountSwitchOn &&
-      swapToAnotherAccountAddressAtom.address &&
-      swapToAnotherAccountAddressAtom.networkId &&
-      swapToAnotherAccountAddressAtom.accountInfo &&
-      swapToAnotherAccountAddressAtom.accountInfo.account &&
-      activeAccount &&
-      activeAccount.account &&
-      (activeAccount.network?.id ===
-        swapToAnotherAccountAddressAtom.networkId ||
-        isAllNetwork)
+      shouldUseSwapCustomRecipientAddress({
+        type,
+        swapToAnotherAccountSwitchOn,
+        selectedRecipientAddress: swapToAnotherAccountAddressAtom.address,
+        selectedRecipientNetworkId: swapToAnotherAccountAddressAtom.networkId,
+        activeNetworkId: activeAccount.network?.id,
+        tokenNetworkId,
+        isAllNetwork,
+      })
     ) {
       return {
         ...res,
         address: swapToAnotherAccountAddressAtom.address ?? '',
         networkId: swapToAnotherAccountAddressAtom.networkId ?? '',
-        accountInfo: {
-          ...swapToAnotherAccountAddressAtom.accountInfo,
-        },
+        accountInfo: swapToAnotherAccountAddressAtom.accountInfo
+          ? {
+              ...swapToAnotherAccountAddressAtom.accountInfo,
+            }
+          : undefined,
         activeAccount: {
           ...activeAccount,
         },
       };
     }
+
+    const resolvedAccount = shouldResolveTargetNetworkAccount
+      ? accountForTargetNetwork
+      : activeAccount.account;
+
     if (activeAccount) {
       return {
         ...res,
-        address: isAllNetwork
-          ? accountForAllNet?.addressDetail?.address
-          : activeAccount.account?.address,
-        networkId:
-          isAllNetwork && tokenNetworkId
-            ? tokenNetworkId
-            : activeAccount.network?.id,
+        address: resolvedAccount?.addressDetail?.address,
+        // Keep the token network and the resolved account aligned so the
+        // inline recipient badge matches the modal parser result.
+        networkId: tokenNetworkId || activeAccount.network?.id,
         activeAccount: {
           ...activeAccount,
-          ...(activeAccount.account
+          ...(resolvedAccount
             ? {
                 account: {
-                  ...activeAccount.account,
-                  id: isAllNetwork
-                    ? (accountForAllNet?.id ?? '')
-                    : (activeAccount.account?.id ?? ''),
+                  ...resolvedAccount,
                 },
               }
             : undefined),
         },
         accountInfo: {
           ...activeAccount,
-          ...(activeAccount.account
+          ...(resolvedAccount
             ? {
                 account: {
-                  ...activeAccount.account,
-                  id: isAllNetwork
-                    ? (accountForAllNet?.id ?? '')
-                    : (activeAccount.account?.id ?? ''),
+                  ...resolvedAccount,
                 },
               }
             : undefined),
         },
       };
     }
-    if (isAllNetwork && accountForAllNet?.networks?.includes(tokenNetworkId)) {
+    if (
+      isAllNetwork &&
+      accountForTargetNetwork?.networks?.includes(tokenNetworkId)
+    ) {
       return {
         ...res,
-        address: accountForAllNet?.addressDetail?.address,
+        address: accountForTargetNetwork?.addressDetail?.address,
         networkId: tokenNetworkId,
       };
     }
@@ -382,53 +381,26 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     swapToAnotherAccountAddressAtom.accountInfo,
     activeAccount,
     isAllNetwork,
-    accountForAllNet?.networks,
-    accountForAllNet?.addressDetail?.address,
+    accountForTargetNetwork,
     tokenNetworkId,
     currentSelectNetwork?.networkId,
+    shouldResolveTargetNetworkAccount,
   ]);
   return addressInfo;
 }
 
 export function useSwapRecipientAddressInfo(enable: boolean) {
-  const fromAccountInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
-  const getToNetWorkAddressFromAccountId = usePromiseResult(
-    async () => {
-      if (!enable) {
-        return null;
-      }
-      if (
-        swapToAddressInfo.networkId &&
-        !networkUtils.isAllNetwork({
-          networkId: swapToAddressInfo.networkId,
-        }) &&
-        fromAccountInfo.accountInfo?.account?.id &&
-        fromAccountInfo.accountInfo?.indexedAccount?.id
-      ) {
-        const accountInfos =
-          await backgroundApiProxy.serviceStaking.getEarnAccount({
-            accountId: fromAccountInfo.accountInfo?.account?.id,
-            networkId: swapToAddressInfo.networkId,
-            indexedAccountId: fromAccountInfo.accountInfo?.indexedAccount?.id,
-          });
-        return accountInfos;
-      }
-    },
-    [
-      enable,
-      swapToAddressInfo.networkId,
-      fromAccountInfo.accountInfo?.account?.id,
-      fromAccountInfo.accountInfo?.indexedAccount?.id,
-    ],
-    {},
-  );
 
   const getToAddressAccountInfos = usePromiseResult(
     async () => {
+      if (!enable) {
+        return undefined;
+      }
+
       if (
         swapToAnotherAddressInfo.networkId &&
         swapToAnotherAddressInfo.address
@@ -443,41 +415,44 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
         }
       }
     },
-    [swapToAnotherAddressInfo.address, swapToAnotherAddressInfo.networkId],
+    [
+      enable,
+      swapToAnotherAddressInfo.address,
+      swapToAnotherAddressInfo.networkId,
+    ],
     {},
   );
+
   if (
-    swapToAddressInfo.address === swapToAnotherAddressInfo.address &&
-    swapToAnotherAccountSwitchOn
+    enable &&
+    shouldShowSwapRecipientAddressInfo({
+      swapToAnotherAccountSwitchOn,
+      selectedRecipientAddress: swapToAnotherAddressInfo.address,
+      selectedRecipientNetworkId: swapToAnotherAddressInfo.networkId,
+      toTokenNetworkId: toToken?.networkId,
+      toAddressNetworkId: swapToAddressInfo.networkId,
+    })
   ) {
-    if (
-      ((getToNetWorkAddressFromAccountId?.result?.accountAddress &&
-        getToNetWorkAddressFromAccountId?.result?.accountAddress !==
-          swapToAnotherAddressInfo.address) ||
-        !getToNetWorkAddressFromAccountId?.result?.accountAddress) &&
-      swapToAnotherAddressInfo.networkId ===
-        currentQuoteRes?.toTokenInfo.networkId
-    ) {
-      return {
-        accountInfo:
-          swapToAnotherAddressInfo.accountInfo?.account?.address ===
-          swapToAnotherAddressInfo.address
-            ? {
-                walletName: swapToAnotherAddressInfo.accountInfo?.wallet?.name,
-                accountName: swapToAnotherAddressInfo.accountInfo?.accountName,
-                accountId: swapToAnotherAddressInfo.accountInfo?.account?.id,
-              }
-            : getToAddressAccountInfos.result,
-        showAddress: accountUtils.shortenAddress({
-          address: swapToAnotherAddressInfo.address,
-          leadingLength: 6,
-          trailingLength: 6,
-        }),
-        isExtAccount:
-          swapToAnotherAddressInfo.accountInfo?.account?.address !==
-            swapToAnotherAddressInfo.address &&
-          !getToAddressAccountInfos.result,
-      };
-    }
+    const isRecipientExternalAccount =
+      swapToAnotherAddressInfo.accountInfo?.account?.address !==
+        swapToAnotherAddressInfo.address && !getToAddressAccountInfos.result;
+
+    return {
+      accountInfo:
+        swapToAnotherAddressInfo.accountInfo?.account?.address ===
+        swapToAnotherAddressInfo.address
+          ? {
+              walletName: swapToAnotherAddressInfo.accountInfo?.wallet?.name,
+              accountName: swapToAnotherAddressInfo.accountInfo?.accountName,
+              accountId: swapToAnotherAddressInfo.accountInfo?.account?.id,
+            }
+          : getToAddressAccountInfos.result,
+      showAddress: accountUtils.shortenAddress({
+        address: swapToAnotherAddressInfo.address,
+        leadingLength: 6,
+        trailingLength: 6,
+      }),
+      isExtAccount: isRecipientExternalAccount,
+    };
   }
 }

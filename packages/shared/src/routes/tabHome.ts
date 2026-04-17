@@ -1,5 +1,6 @@
-import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type { EModalBulkSendRoutes, IModalBulkSendParamList } from './bulkSend';
+import type { EBulkSendMode } from '../../types/bulkSend';
+import type { IToken, ITokenFiat } from '../../types/token';
 
 export enum ETabHomeRoutes {
   TabHome = 'TabHome',
@@ -62,11 +63,7 @@ export type ITabHomeParamList = {
     isInModal?: boolean;
     hasDuplicateSenders?: boolean;
   };
-  [ETabHomeRoutes.TabHomeBulkSendProcess]: {
-    networkId: string;
-    accountId: string | undefined;
-    isInModal?: boolean;
-  };
+  [ETabHomeRoutes.TabHomeBulkSendProcess]: IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendProcess];
   [ETabHomeRoutes.TabHomeApprovalList]: {
     networkId: string | undefined;
     accountId: string | undefined;

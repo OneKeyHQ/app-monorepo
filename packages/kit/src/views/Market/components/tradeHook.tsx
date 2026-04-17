@@ -267,6 +267,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         symbol: normalizedSymbol,
         accountId: networkAccount.id,
         networkId,
+        includeWithdrawOnly: true,
       });
 
     // If only one protocol, navigate directly to details page
