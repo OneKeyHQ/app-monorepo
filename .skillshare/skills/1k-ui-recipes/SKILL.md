@@ -122,31 +122,20 @@ On iOS with native `UITabBarController`, closing overlay routes (Modal, FullScre
 
 **Symptom**: After closing a modal, the app appears stuck on the home page. A touch on the screen "unsticks" navigation.
 
-**Root cause**: `goBack()` triggers animated modal dismiss. Screen stacks inside detached tab views get `window=NIL` and retry indefinitely until the retry limit (50) is exhausted.
+**Root cause**: `react-freeze` (`freezeOnBlur: true` on NativeTab) suspends tab content when a Modal is above Main. On modal dismiss, the unfreeze → Fabric commit pipeline can fail to flush, leaving the UI showing pre-freeze stale content until a touch event forces React to re-evaluate. The `RNSScreenStack` retry storms (`giving up after 50 retries`) visible in native logs are on the doomed modal's inner stack — CPU noise, not the freeze cause.
 
-**Fix**: Use `resetAboveMainRoute()` to atomically remove all overlay routes via `CommonActions.reset` instead of sequential `goBack()` calls.
+**Fix**: Disable `freezeOnBlur` on iOS NativeTab level (`TabStackNavigator.native.tsx`). Additionally, use `switchTabAsync()` instead of `switchTab()` for overlay → tab navigation to reduce overlapping UIKit transitions.
 
 ```typescript
-import { resetAboveMainRoute, rootNavigationRef } from '@onekeyhq/components';
+// ❌ WRONG: switchTab overlaps modal dismiss + tab switch
+navigation.switchTab(ETabRoutes.Home);
 
-// ❌ WRONG: Sequential goBack() causes iOS window-nil freeze
-const closeModalPages = async () => {
-  rootNavigationRef.current?.goBack();
-  await timerUtils.wait(150);
-  await closeModalPages(); // recursive — each call triggers native animation
-};
-await closeModalPages();
-await timerUtils.wait(250);
-rootNavigationRef.current?.navigate(targetRoute);
-
-// ✅ CORRECT: Atomic reset, no orphaned screen stacks
-resetAboveMainRoute();
-await timerUtils.wait(100);
-rootNavigationRef.current?.navigate(targetRoute);
+// ✅ CORRECT: switchTabAsync serializes overlay dismiss and tab switch
+await navigation.switchTabAsync(ETabRoutes.Home);
 ```
 
-> **Key file**: `packages/components/src/layouts/Navigation/Navigator/NavigationContainer.tsx`
-> **Reference**: commit `2cabd040` (OK-50182) — same fix applied to scan QR code navigation.
+> **Key file**: `packages/components/src/layouts/Navigation/Navigator/TabStackNavigator.native.tsx`
+> **Reference**: See `ios-overlay-navigation-freeze.md` for full investigation timeline and corrected root cause analysis.
 
 ### 7. Web: ScrollView `keyboardDismissMode="on-drag"` Causes Cross-Tab Input Blur
 
