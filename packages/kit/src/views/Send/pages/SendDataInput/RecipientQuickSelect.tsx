@@ -18,6 +18,7 @@ import {
   Button,
   DashText,
   Empty,
+  Icon,
   MatchSizeableText,
   Popover,
   SegmentControl,
@@ -30,6 +31,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { addressTypeTooltipMap } from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorItem';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -551,6 +553,7 @@ function AccountRecipients({
         type: 'header';
         title: string;
         walletId: string;
+        wallet?: IDBWallet;
         hasMultipleDeriveTypes: boolean;
         deriveTypeOptions: {
           label: string;
@@ -579,6 +582,7 @@ function AccountRecipients({
             type: 'header',
             title: section.title,
             walletId: section.walletId,
+            wallet: section.wallet,
             hasMultipleDeriveTypes: section.hasMultipleDeriveTypes,
             deriveTypeOptions: section.deriveTypeOptions,
             activeDeriveType: section.activeDeriveType,
@@ -656,21 +660,39 @@ function AccountRecipients({
               pt="$4"
               pb="$2"
               alignItems="center"
-              gap="$4"
+              gap="$2"
             >
               <Button
                 size="small"
                 variant="tertiary"
                 flexShrink={1}
-                textEllipsis
+                childrenAsText={false}
                 onPress={() => toggleCollapse(item.walletId)}
-                iconAfter={
-                  isCollapsed
-                    ? 'ChevronRightSmallOutline'
-                    : 'ChevronDownSmallOutline'
-                }
               >
-                {item.title}
+                <XStack alignItems="center" gap="$1.5">
+                  {item.wallet ? (
+                    <WalletAvatar wallet={item.wallet} size="$5" />
+                  ) : null}
+                  <XStack alignItems="center" flexShrink={1}>
+                    <SizableText
+                      size="$bodySmMedium"
+                      numberOfLines={1}
+                      flexShrink={1}
+                    >
+                      {item.title}
+                    </SizableText>
+                    <Icon
+                      name={
+                        isCollapsed
+                          ? 'ChevronRightSmallOutline'
+                          : 'ChevronDownSmallOutline'
+                      }
+                      size="$5"
+                      color="$iconSubdued"
+                      flexShrink={0}
+                    />
+                  </XStack>
+                </XStack>
               </Button>
               {item.hasMultipleDeriveTypes ? (
                 <ActionList
@@ -699,10 +721,19 @@ function AccountRecipients({
                     <Button
                       size="small"
                       variant="tertiary"
-                      iconAfter="ChevronDownSmallSolid"
                       flexShrink={0}
+                      childrenAsText={false}
                     >
-                      {activeLabel ?? ''}
+                      <XStack alignItems="center">
+                        <SizableText size="$bodySmMedium" numberOfLines={1}>
+                          {activeLabel ?? ''}
+                        </SizableText>
+                        <Icon
+                          name="ChevronDownSmallSolid"
+                          size="$5"
+                          color="$iconSubdued"
+                        />
+                      </XStack>
                     </Button>
                   }
                 />
@@ -716,7 +747,6 @@ function AccountRecipients({
           return null;
         }
 
-        // Render account item
         if (!item.account) {
           return null;
         }
@@ -746,10 +776,6 @@ function AccountRecipients({
               displayAddress: itemAddress,
               walletId,
               wallet,
-              // Align with AccountSelector: when indexedAccount exists,
-              // omit address so AccountAvatar uses idHash as blockies seed
-              // (same as AccountSelector). For imported accounts without
-              // indexedAccount, pass address fallback to avoid X mark.
               customRenderAvatar: () => (
                 <AccountAvatar
                   size="default"
