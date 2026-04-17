@@ -274,19 +274,11 @@ class ServiceSignatureConfirm extends ServiceBase {
     // the server can check interaction history across all derive types,
     // not just the one the user happens to be sending from right now.
     // Mirrors the fan-out in ServiceAccountProfile.checkAccountBadges.
-    let xpubs: string[] = [];
-    // The sending account's own xpub — directly from the known accountId.
-    let currentAccountXpub: string | undefined;
-    try {
-      currentAccountXpub =
-        (await this.backgroundApi.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        })) || undefined;
-    } catch {
-      // non-fatal
-    }
     // Fan out all derive-type xpubs for comprehensive interaction check.
+    // The server's parse-transaction API only accepts a single xpub per
+    // call, so we call it once per derive type and merge the results
+    // (same pattern as ServiceAccountProfile.fetchBadgesDeduped).
+    let xpubs: string[] = [];
     try {
       const xpubEntries =
         await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
@@ -296,30 +288,67 @@ class ServiceSignatureConfirm extends ServiceBase {
     } catch {
       // non-fatal
     }
-    if (xpubs.length === 0 && currentAccountXpub) {
-      xpubs = [currentAccountXpub];
+    if (xpubs.length === 0) {
+      try {
+        const singleXpub =
+          (await this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          })) || undefined;
+        if (singleXpub) {
+          xpubs = [singleXpub];
+        }
+      } catch {
+        // non-fatal
+      }
     }
 
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
-    const resp = await client.post<{ data: IParseTransactionResp }>(
-      '/wallet/v1/account/parse-transaction',
-      {
-        networkId,
-        accountAddress,
-        encodedTx: encodedTxToParse,
-        xpub: currentAccountXpub ?? xpubs[0],
-        xpubs,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
+    const walletTypeHeaders =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+
+    const callParseTransaction = async (xpub?: string) => {
+      const resp = await client.post<{ data: IParseTransactionResp }>(
+        '/wallet/v1/account/parse-transaction',
+        {
+          networkId,
+          accountAddress,
+          encodedTx: encodedTxToParse,
+          xpub,
+        },
+        { headers: walletTypeHeaders },
+      );
+      return resp.data.data;
+    };
+
+    if (xpubs.length <= 1) {
+      return callParseTransaction(xpubs[0]);
+    }
+
+    // Multiple xpubs: call once per xpub, merge interaction results.
+    const results = await Promise.all(
+      xpubs.map((xpub) => callParseTransaction(xpub).catch(() => null)),
     );
-    return resp.data.data;
+    const validResults = results.filter((r): r is IParseTransactionResp => !!r);
+    if (validResults.length === 0) {
+      return callParseTransaction(xpubs[0]);
+    }
+    // Use the first result as base, but if any xpub shows interaction,
+    // mark as interacted (same merge logic as badges).
+    const base = validResults[0];
+    if (base.parsedTx?.to) {
+      const anyInteracted = validResults.some(
+        (r) => r.parsedTx?.to?.interacted === true,
+      );
+      if (anyInteracted) {
+        base.parsedTx.to.interacted = true;
+      }
+    }
+    return base;
   }
 
   @backgroundMethod()
