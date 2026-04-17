@@ -30,7 +30,7 @@ export type IBatchCreateAccountAllNetworkInfo = {
 };
 
 function ProcessingDialogContent({
-  navigation,
+  navigation: _navigation,
   allNetworkInfo,
   closeAfterDone,
   closeAfterCancel,

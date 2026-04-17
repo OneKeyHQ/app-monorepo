@@ -838,7 +838,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       {
         useCurrentWindow,
         tabId,
-        navigation,
+        navigation: _navigation,
         webSite,
         dApp,
       }: {

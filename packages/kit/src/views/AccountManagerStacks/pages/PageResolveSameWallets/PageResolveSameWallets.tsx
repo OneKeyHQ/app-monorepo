@@ -14,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -90,8 +89,6 @@ export default function PageResolveSameWallets({
   const selectedWalletsMap = useRef<{
     [walletHash: string]: string; // walletId
   }>({});
-
-  const navigation = useAppNavigation();
 
   return (
     <Page scrollEnabled safeAreaEnabled>

@@ -11,7 +11,6 @@ import {
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -104,7 +103,6 @@ export function AccountSelectorAccountListItem({
   >;
 }) {
   const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
   const {
     activeAccount: { network },
   } = useActiveAccount({

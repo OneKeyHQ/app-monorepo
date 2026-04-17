@@ -87,7 +87,7 @@ const nativeTabScreenOptions = {
   // content when a modal is on top. When frozen, Jotai/React state updates
   // (e.g. network switch) don't commit until the tab regains focus — but
   // the unfreeze path on iOS can fail to flush pending commits, leaving
-  // the UI visually stale until a touch forces relayout.
+  // the UI visually stale until a touch forces re-layout.
   // Android keeps freeze enabled (no observed issue).
   freezeOnBlur: !platformEnv.isNativeIOS,
   preventsDefault: false,
