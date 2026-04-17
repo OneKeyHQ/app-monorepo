@@ -61,7 +61,7 @@ const message = appLocale.intl.formatMessage({
 ## Translation Workflow
 
 1. **Design provides translation key** like `prime::restore_purchases`
-2. **Run sync command**: `yarn fetch:locale`
+2. **Run sync command**: `yarn i18n:pull`
 3. **Convert key format**: `prime::restore_purchases` → `ETranslations.prime_restore_purchases`
 4. **Use in code**:
    ```tsx
