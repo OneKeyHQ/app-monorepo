@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
@@ -82,7 +83,13 @@ const extraScreenOptions = {
 };
 
 const nativeTabScreenOptions = {
-  freezeOnBlur: true,
+  // iOS: disable freezeOnBlur to prevent react-freeze from suspending tab
+  // content when a modal is on top. When frozen, Jotai/React state updates
+  // (e.g. network switch) don't commit until the tab regains focus — but
+  // the unfreeze path on iOS can fail to flush pending commits, leaving
+  // the UI visually stale until a touch forces re-layout.
+  // Android keeps freeze enabled (no observed issue).
+  freezeOnBlur: !platformEnv.isNativeIOS,
   preventsDefault: false,
   lazy: false,
 };
