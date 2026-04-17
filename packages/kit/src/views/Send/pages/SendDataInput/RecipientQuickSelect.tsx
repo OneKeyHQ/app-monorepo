@@ -981,8 +981,9 @@ function RecipientQuickSelect({
   // builds the active tab. Three heavy lists (Recent + Account + AddressBook)
   // each fire their own IPC fan-out and N×blockies avatar work on mount —
   // doing all three simultaneously during the page-in transition caused
-  // visible jank on web/desktop/ext. After the transition settles, fill in
-  // the other tabs so match counts and auto-switch (OK-52952) still work.
+  // visible frame drops on web/desktop/ext. After the transition settles,
+  // fill in the other tabs so match counts and auto-switch (OK-52952)
+  // still work.
   useEffect(() => {
     const timer = setTimeout(() => {
       setVisitedTabs((prev) => {
