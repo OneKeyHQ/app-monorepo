@@ -4715,7 +4715,23 @@ class ServiceAccount extends ServiceBase {
       includingAccounts: true,
     });
 
-    const { accounts: allDbAccounts } = await localDb.getAllAccounts();
+    const [{ accounts: allDbAccounts }, { indexedAccounts }] =
+      await Promise.all([
+        localDb.getAllAccounts(),
+        localDb.getAllIndexedAccounts(),
+      ]);
+    // Patch account names from indexedAccount (same as refillAccountInfo)
+    // so pre-fetched accounts show the user's custom name, not the
+    // vault-generated default like "APT #1".
+    const indexedAccountMap = new Map(indexedAccounts.map((ia) => [ia.id, ia]));
+    for (const acc of allDbAccounts) {
+      if (acc.indexedAccountId) {
+        const ia = indexedAccountMap.get(acc.indexedAccountId);
+        if (ia) {
+          acc.name = ia.name;
+        }
+      }
+    }
 
     const resolveWallet = async (
       wallet: IDBWallet,
