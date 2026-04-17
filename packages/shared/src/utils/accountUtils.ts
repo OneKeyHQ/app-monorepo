@@ -801,6 +801,17 @@ function isOthersWallet({ walletId }: { walletId: string }): boolean {
   );
 }
 
+// A wallet is considered deprecated-or-mocked when it still has a DB record
+// but is no longer user-facing. Hardware wallets are marked `isMocked=true`
+// on removal (OneKey keeps the metadata so re-connecting the device restores
+// account names / ordering); `deprecated=true` covers the stale-device
+// variant (same connection, different deviceId). Both forms are "zombie"
+// wallets that callers should treat as if the wallet is gone (OK-51091).
+function isWalletDeprecatedOrMocked(wallet: IDBWallet | undefined): boolean {
+  if (!wallet) return false;
+  return !!(wallet.isMocked || wallet.deprecated);
+}
+
 function hasNoUsableWallet({
   wallet,
   account,
@@ -808,9 +819,10 @@ function hasNoUsableWallet({
   wallet: IDBWallet | undefined;
   account: { id: string } | undefined;
 }): boolean {
-  return (
-    !wallet || (isOthersWallet({ walletId: wallet?.id ?? '' }) && !account)
-  );
+  if (!wallet) return true;
+  if (isWalletDeprecatedOrMocked(wallet)) return true;
+  if (isOthersWallet({ walletId: wallet.id ?? '' }) && !account) return true;
+  return false;
 }
 
 function isOthersAccount({
@@ -1315,6 +1327,7 @@ export default {
   buildAllNetworkIndexedAccountIdFromAccountId,
 
   hasNoUsableWallet,
+  isWalletDeprecatedOrMocked,
   isKeylessWallet,
   isKeylessAccount,
   isBotWallet,

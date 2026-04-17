@@ -266,11 +266,10 @@ function ReceiveSelectorContent() {
   const handleExchangePress = useCallback(
     async (config: IExchangeConfig) => {
       const isInstalled = isExchangeInstalled(config.id);
+      const shouldUseBinancePreOrder =
+        !platformEnv.isWebDappMode && (!platformEnv.isNative || isInstalled);
 
-      if (
-        config.id === EExchangeId.Binance &&
-        (!platformEnv.isNative || isInstalled)
-      ) {
+      if (config.id === EExchangeId.Binance && shouldUseBinancePreOrder) {
         await handleBinancePress();
         return;
       }

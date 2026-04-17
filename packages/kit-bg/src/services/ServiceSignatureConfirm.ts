@@ -250,7 +250,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
-    const { accountId, networkId, encodedTx, origin } = params;
+    const { accountId, networkId, encodedTx } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -269,6 +269,37 @@ class ServiceSignatureConfirm extends ServiceBase {
         encodedTx,
       });
 
+    // For BTC/LTC merge-derive accounts, one user-facing account spans
+    // multiple xpubs (Taproot / Native SegWit / ...). Pass all of them so
+    // the server can check interaction history across all derive types,
+    // not just the one the user happens to be sending from right now.
+    // Mirrors the fan-out in ServiceAccountProfile.checkAccountBadges.
+    let xpubs: string[] = [];
+    // The sending account's own xpub — directly from the known accountId.
+    let currentAccountXpub: string | undefined;
+    try {
+      currentAccountXpub =
+        (await this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        })) || undefined;
+    } catch {
+      // non-fatal
+    }
+    // Fan out all derive-type xpubs for comprehensive interaction check.
+    try {
+      const xpubEntries =
+        await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+          { accountId, networkId },
+        );
+      xpubs = xpubEntries.map((e) => e.xpub).filter((x): x is string => !!x);
+    } catch {
+      // non-fatal
+    }
+    if (xpubs.length === 0 && currentAccountXpub) {
+      xpubs = [currentAccountXpub];
+    }
+
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
@@ -278,7 +309,8 @@ class ServiceSignatureConfirm extends ServiceBase {
         networkId,
         accountAddress,
         encodedTx: encodedTxToParse,
-        origin,
+        xpub: currentAccountXpub ?? xpubs[0],
+        xpubs,
       },
       {
         headers:

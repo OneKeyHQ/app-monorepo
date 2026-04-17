@@ -500,6 +500,73 @@ class ServiceFreshAddress extends ServiceBase {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
     },
   );
+  // Return all searchable fresh addresses for a list of BTC accounts.
+  // Consolidates derive-type-aware xpub key selection and fresh address
+  // extraction that was previously inlined in RecipientQuickSelect UI.
+  @backgroundMethod()
+  async getSearchableAddressesForAccounts({
+    networkId,
+    accounts,
+  }: {
+    networkId: string;
+    accounts: Array<{
+      accountId: string;
+      deriveType?: string;
+    }>;
+  }): Promise<Record<string, string[]>> {
+    if (!networkUtils.isBTCNetwork(networkId) || accounts.length === 0) {
+      return {};
+    }
+
+    const result: Record<string, string[]> = {};
+
+    await Promise.all(
+      accounts.map(async ({ accountId, deriveType }) => {
+        try {
+          const dbAccount =
+            (await this.backgroundApi.serviceAccount.getDBAccount({
+              accountId,
+            })) as IDBUtxoAccount | undefined;
+          if (!dbAccount) return;
+
+          // Fresh address DB key depends on derive type: Taproot (BIP86)
+          // uses xpubSegwit, all others use xpub.
+          const xpubSegwit =
+            deriveType === 'BIP86'
+              ? dbAccount.xpubSegwit
+              : (dbAccount.xpub ?? dbAccount.xpubSegwit);
+          if (!xpubSegwit) return;
+
+          const freshData =
+            await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddresses(
+              { networkId, xpubSegwit },
+            );
+          if (!freshData) return;
+
+          const addresses: string[] = [];
+          [
+            freshData.fresh?.used,
+            freshData.fresh?.unused,
+            freshData.change?.used,
+            freshData.change?.unused,
+          ].forEach((group) => {
+            group?.forEach((item) => {
+              const addr = item.address ?? item.name;
+              if (addr) addresses.push(addr);
+            });
+          });
+
+          if (addresses.length > 0) {
+            result[accountId] = addresses;
+          }
+        } catch {
+          // non-fatal per account
+        }
+      }),
+    );
+
+    return result;
+  }
 }
 
 export default ServiceFreshAddress;
