@@ -4743,6 +4743,7 @@ class ServiceAccount extends ServiceBase {
       isHardwareWallet: boolean;
       accounts: Array<{
         account: INetworkAccount;
+        indexedAccount?: IDBIndexedAccount;
         deriveInfo?: IAccountDeriveInfo;
         deriveType?: string;
       }>;
@@ -4759,6 +4760,7 @@ class ServiceAccount extends ServiceBase {
       const { dbIndexedAccounts, dbAccounts } = wallet;
       let accounts: Array<{
         account: INetworkAccount;
+        indexedAccount?: IDBIndexedAccount;
         deriveInfo?: IAccountDeriveInfo;
         deriveType?: string;
       }> = [];
