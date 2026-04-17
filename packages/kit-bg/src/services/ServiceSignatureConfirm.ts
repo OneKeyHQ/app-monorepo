@@ -269,15 +269,35 @@ class ServiceSignatureConfirm extends ServiceBase {
         encodedTx,
       });
 
-    let xpub: string | undefined;
+    // For BTC/LTC merge-derive accounts, one user-facing account spans
+    // multiple xpubs (Taproot / Native SegWit / ...). Pass all of them so
+    // the server can check interaction history across all derive types,
+    // not just the one the user happens to be sending from right now.
+    // Mirrors the fan-out in ServiceAccountProfile.checkAccountBadges.
+    let xpubs: string[] = [];
+    // The sending account's own xpub — directly from the known accountId.
+    let currentAccountXpub: string | undefined;
     try {
-      xpub =
+      currentAccountXpub =
         (await this.backgroundApi.serviceAccount.getAccountXpub({
           accountId,
           networkId,
         })) || undefined;
     } catch {
-      // non-fatal: backend parses from encodedTx, xpub is an identity hint
+      // non-fatal
+    }
+    // Fan out all derive-type xpubs for comprehensive interaction check.
+    try {
+      const xpubEntries =
+        await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+          { accountId, networkId },
+        );
+      xpubs = xpubEntries.map((e) => e.xpub).filter((x): x is string => !!x);
+    } catch {
+      // non-fatal
+    }
+    if (xpubs.length === 0 && currentAccountXpub) {
+      xpubs = [currentAccountXpub];
     }
 
     const client = await this.backgroundApi.serviceGas.getClient(
@@ -289,7 +309,8 @@ class ServiceSignatureConfirm extends ServiceBase {
         networkId,
         accountAddress,
         encodedTx: encodedTxToParse,
-        xpub,
+        xpub: currentAccountXpub ?? xpubs[0],
+        xpubs,
       },
       {
         headers:
