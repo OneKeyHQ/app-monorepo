@@ -924,6 +924,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           openDApp();
         })();
       } else {
+        // Already on Discovery/MultiTabBrowser — still emit the event to
+        // pop inner pages and set the selected browser sub-tab.
+        if (platformEnv.isNative) {
+          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+            tab: ETranslations.global_browser,
+            openUrl: true,
+          });
+        }
         openDApp();
       }
     },
