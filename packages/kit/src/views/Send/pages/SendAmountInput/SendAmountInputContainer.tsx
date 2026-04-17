@@ -342,10 +342,16 @@ function SendAmountInputContainer() {
       }
       // fiat / pricePerSat = sats. Convert to BTC if lnUnit is BTC.
       let originalAmt = amountBN.dividedBy(price);
-      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
-        originalAmt = new BigNumber(
-          chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
-        );
+      if (isLightningNetwork) {
+        // Sats are the smallest Lightning unit (0 decimals) — floor the
+        // fiat→sats result so the display never shows fractional sats,
+        // which would cause a send error (OK-53396).
+        originalAmt = originalAmt.integerValue(BigNumber.ROUND_FLOOR);
+        if (lnUnit === ELightningUnit.BTC) {
+          originalAmt = new BigNumber(
+            chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
+          );
+        }
       }
       return {
         originalAmount: originalAmt.toFixed(),
