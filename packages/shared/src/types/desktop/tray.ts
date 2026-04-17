@@ -31,6 +31,11 @@ export interface ITrayData {
   // the panel still shows last known good values during a transient gather
   // failure (avoids false "Transaction Confirmed" notifications too).
   isError?: boolean;
+  // Resolved user locale. The tray renderer is a separate BrowserWindow that
+  // CANNOT call backgroundApiProxy (DESKTOP_API_CALL is gated to the main
+  // window only), so the main-window renderer assembles locale here and
+  // pushes it through the TRAY_UPDATE pipeline.
+  locale?: string;
   wallet: {
     name: string;
     emoji: string;

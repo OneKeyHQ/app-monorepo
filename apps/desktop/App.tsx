@@ -8,7 +8,6 @@ import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 
 import { useEffect, useState } from 'react';
 import { KitProvider } from '@onekeyhq/kit';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   initSentry,
   withSentryHOC,
@@ -16,6 +15,8 @@ import {
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { TrayPanel } from '@onekeyhq/kit/src/views/Tray/TrayPanel';
+import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
+import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
 import { TamaguiProvider } from '@onekeyhq/components/src/hocs/Provider/TamaguiProvider';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
@@ -56,7 +57,11 @@ function TrayPanelApp() {
       ? 'dark'
       : 'light',
   );
-  const [locale, setLocale] = useState<ILocaleSymbol | null>(null);
+  // Default to 'en-US' so the panel can render its loading state immediately.
+  // The authoritative locale is pushed by the main-window renderer via
+  // TRAY_UPDATE (see ITrayData.locale) — we can't call backgroundApiProxy
+  // here because DESKTOP_API_CALL is gated to the main window only.
+  const [locale, setLocale] = useState<ILocaleSymbol>('en-US');
 
   useEffect(() => {
     const mq = globalThis.matchMedia('(prefers-color-scheme: dark)');
@@ -67,16 +72,19 @@ function TrayPanelApp() {
   }, []);
 
   useEffect(() => {
-    // Resolve the user's locale from settings so translations in TrayPanel
-    // match the main app instead of always falling back to system locale.
-    void backgroundApiProxy.serviceSetting
-      .getCurrentLocale()
-      .then((current) => {
-        setLocale(current);
-      });
-  }, []);
-
-  if (!locale) return null;
+    const handleUpdate = (trayData: ITrayData) => {
+      if (trayData?.locale && trayData.locale !== locale) {
+        setLocale(trayData.locale as ILocaleSymbol);
+      }
+    };
+    const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
+      TRAY_IPC.UPDATE,
+      handleUpdate as (...args: unknown[]) => void,
+    );
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [locale]);
 
   return (
     <AppIntlProvider locale={locale}>

@@ -38,10 +38,23 @@ export function useTrayDataProvider() {
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
 
   const handleTrayDataRequest = useCallback(async () => {
+    // Resolve locale once per request — the tray window can't reach
+    // backgroundApiProxy (DESKTOP_API_CALL is gated to the main window),
+    // so we push it inline with every ITrayData payload. Failure here
+    // must not block the rest of the data — fall back to 'en-US'.
+    let locale = 'en-US';
+    try {
+      const l = await backgroundApiProxy.serviceSetting.getCurrentLocale();
+      if (l) locale = l;
+    } catch {
+      // ignore
+    }
+
     // When locked, send empty data with isLocked flag to protect sensitive info
     if (appIsLockedRef.current) {
       globalThis.desktopApi?.sendTrayData({
         isLocked: true,
+        locale,
         wallet: { name: '', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
@@ -52,6 +65,7 @@ export function useTrayDataProvider() {
 
     try {
       const trayData: ITrayData = {
+        locale,
         wallet: { name: '', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
@@ -302,6 +316,7 @@ export function useTrayDataProvider() {
       // trigger false "Transaction Confirmed" notifications for tracked txs.
       globalThis.desktopApi?.sendTrayData({
         isError: true,
+        locale,
         wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
