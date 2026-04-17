@@ -274,9 +274,32 @@ const desktopApi = {
 
 // --- desktopApiBridge: invoke-based bridge for desktopApiProxy (replaces JsBridge) ---
 
+// The tray panel is a separate BrowserWindow that shares this preload file
+// but is NOT authorized to call DESKTOP_API_CALL (the main-process handler
+// enforces `event.sender.id === mainWindow.webContents.id`). If we fired
+// IPC from the tray renderer, main would reject and log a warning for every
+// call — noisy and confusing. Instead, when this preload is loaded in the
+// tray window, we stub `call` to fail locally. The tray panel should not
+// need backgroundApiProxy at all; any call reaching here is a bug in tray
+// rendering code (locale/settings/etc. must be relayed through TRAY_UPDATE).
+const isTrayWindow =
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).get('render') === 'tray';
+
 const desktopApiBridge = {
-  call: (module: string, method: string, ...params: any[]) =>
-    ipcRenderer.invoke('DESKTOP_API_CALL', { module, method, params }),
+  call: isTrayWindow
+    ? (module: string, method: string) => {
+        console.warn(
+          `[tray preload] blocked DESKTOP_API_CALL from tray renderer: ${module}.${method}`,
+        );
+        return Promise.reject(
+          new Error(
+            `DESKTOP_API_CALL not available in tray renderer: ${module}.${method}`,
+          ),
+        );
+      }
+    : (module: string, method: string, ...params: any[]) =>
+        ipcRenderer.invoke('DESKTOP_API_CALL', { module, method, params }),
 };
 
 // --- Expose everything to renderer ---
