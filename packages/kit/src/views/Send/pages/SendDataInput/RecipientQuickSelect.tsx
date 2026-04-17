@@ -762,7 +762,6 @@ function AccountRecipients({
                   }
                   indexedAccount={itemIndexedAccount}
                   account={account}
-                  wallet={wallet}
                   networkId={networkId}
                 />
               ),
