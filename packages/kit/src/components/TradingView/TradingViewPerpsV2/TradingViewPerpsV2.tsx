@@ -8,6 +8,10 @@ import {
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -188,6 +192,33 @@ export function TradingViewPerpsV2(
     symbol,
     isChartReady: isChartLinesReady,
   });
+
+  const pendingRecoverRef = useRef(false);
+
+  useEffect(() => {
+    const handler = () => {
+      if (isChartLinesReady && webRef.current) {
+        webRef.current.sendMessageViaInjectedScript({
+          type: 'FORCE_RECOVER_WS',
+        });
+      } else {
+        pendingRecoverRef.current = true;
+      }
+    };
+    appEventBus.on(EAppEventBusNames.PerpsWebSocketRecovered, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpsWebSocketRecovered, handler);
+    };
+  }, [isChartLinesReady, webRef]);
+
+  useEffect(() => {
+    if (isChartLinesReady && pendingRecoverRef.current) {
+      pendingRecoverRef.current = false;
+      webRef.current?.sendMessageViaInjectedScript({
+        type: 'FORCE_RECOVER_WS',
+      });
+    }
+  }, [isChartLinesReady, webRef]);
 
   // Callback when TradingView iframe signals chart lines are ready
   const onChartLinesReady = useCallback(() => {

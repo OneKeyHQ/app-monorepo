@@ -107,9 +107,23 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
 
+  // OK-53208: survives Perp tab detach/remount; component refs reset on
+  // unmount and would otherwise repeat refreshTradingMeta + changeActiveAsset
+  // on every modal push.
+  private _initialSymbolSelectClaimed = false;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     void this.init();
+  }
+
+  @backgroundMethod()
+  async tryClaimInitialSymbolSelect(): Promise<boolean> {
+    if (this._initialSymbolSelectClaimed) {
+      return false;
+    }
+    this._initialSymbolSelectClaimed = true;
+    return true;
   }
 
   private get exchangeService(): ServiceHyperliquidExchange {
@@ -377,7 +391,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this._updatePerpsConfigByServerWithCache();
   }
 
-  // TODO: Change maxAge back to { hour: 1 } before production release
   _updatePerpsConfigByServerWithCache = cacheUtils.memoizee(
     async () => {
       return this.updatePerpsConfigByServer();

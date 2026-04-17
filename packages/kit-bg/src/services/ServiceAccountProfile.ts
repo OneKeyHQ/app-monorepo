@@ -80,12 +80,15 @@ function emptyAccountBadgeResult(): IAccountBadgeResult {
 //     so we never demote a positive interaction on one path with a
 //     negative on another
 //   - `addressLabel` / `similarAddress` take the first non-empty response
-//   - badges are concatenated and deduped by (type, label)
+//   - badges come only from responses whose own `interacted` matches the
+//     merged status, so xpub-scoped "First transfer" / "Transferred" badges
+//     cannot coexist in the final array (OK-53278). Address-scoped static
+//     labels (OKX / Scam / CEX / ...) are present in every response, so they
+//     still surface through the matching subset.
 function mergeAccountBadgeResults(
   responses: IAccountBadgeResult[],
 ): IAccountBadgeResult {
   const merged = emptyAccountBadgeResult();
-  const seenBadgeKeys = new Set<string>();
 
   for (const r of responses) {
     merged.isScam = merged.isScam || r.isScam;
@@ -107,12 +110,17 @@ function mergeAccountBadgeResults(
     if (!merged.similarAddress && r.similarAddress) {
       merged.similarAddress = r.similarAddress;
     }
+  }
 
-    for (const badge of r.badges) {
-      const key = `${badge.type ?? ''}:${badge.label ?? ''}`;
-      if (!seenBadgeKeys.has(key)) {
-        seenBadgeKeys.add(key);
-        merged.badges.push(badge);
+  const seenBadgeKeys = new Set<string>();
+  for (const r of responses) {
+    if (r.interacted === merged.interacted) {
+      for (const badge of r.badges) {
+        const key = `${badge.type ?? ''}:${badge.label ?? ''}`;
+        if (!seenBadgeKeys.has(key)) {
+          seenBadgeKeys.add(key);
+          merged.badges.push(badge);
+        }
       }
     }
   }
@@ -125,6 +133,11 @@ class ServiceAccountProfile extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
+
+  private _pendingBadgeRequests = new Map<
+    string,
+    Promise<IAccountBadgeResult>
+  >();
 
   _fetchAccountDetailsControllers: AbortController[] = [];
 
@@ -312,21 +325,55 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
-  private async checkAccountBadges({
+  // Dedup concurrent in-flight badge requests for the same address
+  private async fetchBadgesDeduped({
     networkId,
     accountId,
     toAddress,
     checkInteractionStatus,
-    checkAddressContract,
-    result,
   }: {
-    accountId?: string;
-    checkInteractionStatus?: boolean;
-    checkAddressContract?: boolean;
     networkId: string;
+    accountId?: string;
     toAddress: string;
-    result: IAddressQueryResult;
-  }): Promise<void> {
+    checkInteractionStatus?: boolean;
+  }): Promise<IAccountBadgeResult> {
+    const dedupKey = `${networkId}:${accountId ?? ''}:${toAddress.toLowerCase()}:${checkInteractionStatus ? '1' : '0'}`;
+
+    const pending = this._pendingBadgeRequests.get(dedupKey);
+    if (pending) {
+      return pending;
+    }
+
+    const request = this._fetchBadgesUncached({
+      networkId,
+      accountId,
+      toAddress,
+      checkInteractionStatus,
+    })
+      .then((r) => {
+        this._pendingBadgeRequests.delete(dedupKey);
+        return r;
+      })
+      .catch((err) => {
+        this._pendingBadgeRequests.delete(dedupKey);
+        throw err;
+      });
+
+    this._pendingBadgeRequests.set(dedupKey, request);
+    return request;
+  }
+
+  private async _fetchBadgesUncached({
+    networkId,
+    accountId,
+    toAddress,
+    checkInteractionStatus,
+  }: {
+    networkId: string;
+    accountId?: string;
+    toAddress: string;
+    checkInteractionStatus?: boolean;
+  }): Promise<IAccountBadgeResult> {
     const { serviceAccount } = this.backgroundApi;
     let fromAddress: string | undefined;
     if (accountId) {
@@ -336,29 +383,18 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    // For BTC network with fresh address enabled, skip interaction check
-    let checkInteraction: boolean | undefined;
-    if (networkUtils.isBTCNetwork(networkId)) {
-      const enableBTCFreshAddress =
-        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
-      if (enableBTCFreshAddress) {
-        checkInteraction = false;
-      }
-    }
 
-    // BTC/LTC merge-derive: fan out /badges per xpub and merge (OK-52897).
-    const xpubEntries = accountId
-      ? await serviceAccount.safeGetAccountXpubsForAllDeriveTypes({
-          accountId,
-          networkId,
-        })
-      : [];
+    // Only fan-out across multiple xpubs when interaction status is needed.
+    // Scam/CEX/contract badges are address-scoped and don't need xpub fan-out.
+    const xpubEntries =
+      checkInteractionStatus && accountId
+        ? await serviceAccount.safeGetAccountXpubsForAllDeriveTypes({
+            accountId,
+            networkId,
+          })
+        : [];
 
-    let merged: IAccountBadgeResult;
     if (xpubEntries.length > 1) {
-      // Use allSettled-style fan-out so one slow/failing derive path does
-      // not block the whole lookup. Null responses are filtered before
-      // merge.
       const settled = await promiseAllSettledEnhanced(
         xpubEntries.map(
           (entry) => () =>
@@ -366,25 +402,48 @@ class ServiceAccountProfile extends ServiceBase {
               networkId,
               fromAddress,
               toAddress,
-              checkInteraction,
               xpub: entry.xpub,
             }),
         ),
         { continueOnError: true, concurrency: xpubEntries.length },
       );
       const responses = settled.filter((r): r is IAccountBadgeResult => !!r);
-      merged = responses.length
+      return responses.length
         ? mergeAccountBadgeResults(responses)
         : emptyAccountBadgeResult();
-    } else {
-      merged = await this.getAddressAccountBadge({
-        networkId,
-        fromAddress,
-        toAddress,
-        checkInteraction,
-        xpub: xpubEntries[0]?.xpub,
-      });
     }
+
+    return this.getAddressAccountBadge({
+      networkId,
+      fromAddress,
+      toAddress,
+      xpub: xpubEntries[0]?.xpub,
+    });
+  }
+
+  private async checkAccountBadges({
+    networkId,
+    accountId,
+    toAddress,
+    fromAddress,
+    checkInteractionStatus,
+    checkAddressContract,
+    result,
+  }: {
+    accountId?: string;
+    fromAddress?: string;
+    checkInteractionStatus?: boolean;
+    checkAddressContract?: boolean;
+    networkId: string;
+    toAddress: string;
+    result: IAddressQueryResult;
+  }): Promise<void> {
+    const merged = await this.fetchBadgesDeduped({
+      networkId,
+      accountId,
+      toAddress,
+      checkInteractionStatus,
+    });
 
     const {
       isContract,
@@ -639,10 +698,23 @@ class ServiceAccountProfile extends ServiceBase {
       resolveAddress &&
       (enableAddressContract || (enableAddressInteractionStatus && accountId))
     ) {
+      let senderAddress: string | undefined;
+      if (accountId) {
+        try {
+          const acc = await this.backgroundApi.serviceAccount.getAccount({
+            networkId,
+            accountId,
+          });
+          senderAddress = acc.address;
+        } catch {
+          // non-fatal
+        }
+      }
       await this.checkAccountBadges({
         networkId,
         accountId,
         toAddress: resolveAddress,
+        fromAddress: senderAddress,
         checkAddressContract: enableAddressContract,
         checkInteractionStatus: Boolean(
           enableAddressInteractionStatus && accountId,

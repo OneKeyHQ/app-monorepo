@@ -1,6 +1,6 @@
 # OneKey Wallet — CLI Agent Skills
 
-When working with the `onekey` CLI, use the schema command and skill files to understand commands.
+When working with the `onekey` CLI, use the schema command to understand commands and install the external skill pack when you need guided workflows.
 
 ## Interface Discovery (Primary)
 - `onekey schema <cmd>` — exact input/output JSON Schema for any command
@@ -8,24 +8,23 @@ When working with the `onekey` CLI, use the schema command and skill files to un
 - `onekey schema --all` — full registry dump
 - `apps/cli/cli-api.d.ts` — TypeScript types for full API surface
 
-## Skills (Framework & Security)
+## External Skills Repo
 
-| Skill | Path | Use When |
-|---|---|---|
-| **Wallet** | `skills/wallet/SKILL.md` | Balance, transfer, wallet import, history, logout |
-| **Swap** | `skills/swap/SKILL.md` | Swap quoting, building, execution, status tracking |
-| **Market** | `skills/market/SKILL.md` | Token search, price, trending, kline, trades, liquidity |
-| **Security** | `skills/security/SKILL.md` | Token security audit, risk classification, transaction simulation |
+CLI skills have moved to the standalone repo:
+https://github.com/OneKeyHQ/onekey-wallet-skills
 
-Skills contain security rules, workflows, and domain knowledge.
-For exact command parameters, use `onekey schema <cmd>`.
+Install them in Claude with:
+
+```bash
+/plugin marketplace add OneKeyHQ/onekey-wallet-skills
+/plugin install onekey-wallet-skills
+```
+
+Use `onekey schema <cmd>` for exact command parameters.
 
 ## Quick Start
 
 ```bash
-# Run the CLI locally (from monorepo)
-apps/cli/bin/onekey <command>
-
-# Or if installed globally
+# If installed globally
 onekey <command>
 ```
