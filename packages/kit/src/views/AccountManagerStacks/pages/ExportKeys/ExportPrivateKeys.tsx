@@ -20,12 +20,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
