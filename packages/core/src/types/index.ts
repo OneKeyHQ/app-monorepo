@@ -8,6 +8,7 @@ import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import type { IHardwareGetPubOrAddressExtraInfo } from '@onekeyhq/shared/types/device';
 
 import type { EAddressEncodings } from './coreEnums';
+import type { ECoreApiExportedSecretKeyType } from '@onekeyhq/shared/src/types/coreEnums';
 import type { ICurveName } from './coreTypesBase';
 import type { IUnsignedMessage } from './coreTypesMessage';
 import type { IUnsignedTxPro } from './coreTypesTx';
@@ -97,13 +98,7 @@ export type ICoreApiGetAddressItem = {
 export type ICoreApiGetAddressesResult = {
   addresses: ICoreApiGetAddressItem[];
 };
-export enum ECoreApiExportedSecretKeyType {
-  publicKey = 'publicKey',
-  privateKey = 'privateKey',
-  xpub = 'xpub',
-  xprvt = 'xprvt',
-  mnemonic = 'mnemonic', // TON mnemonic
-}
+export { ECoreApiExportedSecretKeyType } from '@onekeyhq/shared/src/types/coreEnums';
 export type IExportKeyType = 'privateKey' | 'publicKey' | 'mnemonic';
 export type ICoreApiGetExportedSecretKey = ICoreApiSignBasePayload & {
   keyType: ECoreApiExportedSecretKeyType;

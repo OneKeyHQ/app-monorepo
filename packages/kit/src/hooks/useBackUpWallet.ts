@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalKeyTagRoutes,
@@ -8,6 +7,7 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';

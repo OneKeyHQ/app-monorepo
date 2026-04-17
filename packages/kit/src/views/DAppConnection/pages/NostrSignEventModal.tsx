@@ -14,7 +14,7 @@ import {
   EEventKind,
   ENostrSignType,
   i18nSupportEventKinds,
-} from '@onekeyhq/core/src/chains/nostr/types';
+} from '@onekeyhq/shared/src/types/nostr';
 import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';

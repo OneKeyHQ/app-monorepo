@@ -11,7 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';

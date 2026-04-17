@@ -3,7 +3,6 @@ import BigNumber from 'bignumber.js';
 import { TYPED_MESSAGE_SCHEMA, typedSignatureHash } from 'eth-sig-util';
 import { validate } from 'jsonschema';
 
-import { conflux } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import type {
   IUnsignedMessage,
   IUnsignedMessageEth,
@@ -13,6 +12,29 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { IMPL_CFX } from '../engine/engineConsts';
 import { OneKeyError } from '../errors';
 import { OneKeyLocalError } from '../errors/errors/localError';
+
+/**
+ * Fixes a personal sign message by ensuring it has a valid hex prefix.
+ * If the message is not a valid hex-prefixed buffer input, it tries prepending '0x'.
+ *
+ * Migrated from @onekeyhq/core/src/chains/evm/sdkEvm/signMessage.ts
+ * to avoid core dependency in kit/shared.
+ */
+export function autoFixPersonalSignMessage({
+  message,
+}: {
+  message: string;
+}) {
+  let messageFixed = message;
+  // isHexString from @ethereumjs/util requires 0x prefix
+  if (!isHexString(message)) {
+    const tmpMsg = `0x${message}`;
+    if (isHexString(tmpMsg)) {
+      messageFixed = tmpMsg;
+    }
+  }
+  return messageFixed;
+}
 
 const solidityTypes = () => {
   const types = [
@@ -175,7 +197,7 @@ function isValidHexAddress(
   return isValidAddress(addressToCheck);
 }
 
-function validateAddress({
+async function validateAddress({
   address,
   propertyName,
   impl,
@@ -188,7 +210,11 @@ function validateAddress({
 
   if (address && typeof address === 'string') {
     if (impl === IMPL_CFX) {
-      isValid = conflux.address.isValidCfxAddress(address);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const { isValidCfxAddress } = await import(
+        '@conflux-dev/conflux-address-js'
+      );
+      isValid = (isValidCfxAddress as (addr: string) => boolean)(address);
     } else {
       isValid = isValidHexAddress(address);
     }
@@ -203,7 +229,7 @@ function validateAddress({
   }
 }
 
-export function validateSignMessageData(
+export async function validateSignMessageData(
   unsignedMessage: IUnsignedMessageEth,
   impl?: string,
 ) {
@@ -216,7 +242,7 @@ export function validateSignMessageData(
   } else if (unsignedMessage.type === EMessageTypesEth.ETH_SIGN) {
     [from, message] = payload as [string, string];
   }
-  validateAddress({
+  await validateAddress({
     address: from,
     propertyName: 'from',
     impl,
@@ -228,7 +254,7 @@ export function validateSignMessageData(
   }
 }
 
-export function validateTypedSignMessageDataV1(
+export async function validateTypedSignMessageDataV1(
   unsignedMessage: IUnsignedMessageEth,
   impl?: string,
 ) {
@@ -237,7 +263,7 @@ export function validateTypedSignMessageDataV1(
     Array<{ name: string; type: string; value: string }>,
     string,
   ];
-  validateAddress({
+  await validateAddress({
     address: from,
     propertyName: 'from',
     impl,
@@ -257,7 +283,7 @@ export function validateTypedSignMessageDataV1(
   }
 }
 
-export function validateTypedSignMessageDataV3V4(
+export async function validateTypedSignMessageDataV3V4(
   unsignedMessage: IUnsignedMessageEth,
   currentChainId: string | undefined,
   impl?: string,
@@ -269,7 +295,7 @@ export function validateTypedSignMessageDataV3V4(
     types: { EIP712Domain: { name: string; type: string }[] };
   };
 
-  validateAddress({
+  await validateAddress({
     address: from,
     propertyName: 'from',
     impl,

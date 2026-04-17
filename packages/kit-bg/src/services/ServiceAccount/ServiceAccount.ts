@@ -13,6 +13,7 @@ import {
   deriveBotMnemonic,
   encryptImportedCredential,
   ensureSensitiveTextEncoded,
+  generateMnemonic,
   mnemonicFromEntropy,
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
@@ -276,6 +277,11 @@ class ServiceAccount extends ServiceBase {
       mnemonic: realMnemonicFixed,
       mnemonicType: EMnemonicType.BIP39,
     };
+  }
+
+  @backgroundMethod()
+  async generateMnemonic(strength?: number): Promise<string> {
+    return generateMnemonic(strength);
   }
 
   @backgroundMethod()

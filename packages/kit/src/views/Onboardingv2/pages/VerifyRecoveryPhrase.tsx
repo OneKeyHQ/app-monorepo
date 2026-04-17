@@ -13,11 +13,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  ensureSensitiveTextEncoded,
-  generateMnemonic,
-} from '@onekeyhq/core/src/secret';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import type {
   EOnboardingPagesV2,
   IOnboardingParamListV2,
@@ -47,7 +44,7 @@ export default function VerifyRecoveryPhrase() {
         encodedText: routeMnemonic,
       });
     }
-    return generateMnemonic();
+    return backgroundApiProxy.serviceAccount.generateMnemonic();
   }, [route.params?.mnemonic]);
   const recoveryPhrase = useMemo(
     () => mnemonic.split(' ').filter(Boolean),

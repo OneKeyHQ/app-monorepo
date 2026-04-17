@@ -17,7 +17,7 @@ import {
   hmacSHA256,
   hmacSHA512,
   sha256,
-} from '@onekeyhq/core/src/secret/hash';
+} from '@onekeyhq/shared/src/appCrypto/modules/hash';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 
 const { aesCbcDecrypt: aesCbcDecryptAsync, aesCbcEncrypt: aesCbcEncryptAsync } =

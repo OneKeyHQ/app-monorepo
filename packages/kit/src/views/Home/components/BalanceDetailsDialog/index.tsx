@@ -20,7 +20,7 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import {
   isTaprootAddress,
   isTaprootPath,
-} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+} from '@onekeyhq/shared/src/utils/btcUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';

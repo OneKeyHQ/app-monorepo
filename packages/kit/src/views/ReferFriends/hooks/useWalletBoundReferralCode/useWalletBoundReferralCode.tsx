@@ -7,8 +7,8 @@ import {
   Toast,
   useInPageDialog,
 } from '@onekeyhq/components';
-import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';

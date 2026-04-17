@@ -14,11 +14,8 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  ensureSensitiveTextEncoded,
-  generateMnemonic,
-} from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -48,7 +45,7 @@ export default function ShowRecoveryPhrase() {
         encodedText: routeMnemonic,
       });
     }
-    return generateMnemonic();
+    return backgroundApiProxy.serviceAccount.generateMnemonic();
   }, [route.params.mnemonic]);
   const { result: displayName } = usePromiseResult<string>(async () => {
     if (!route.params.walletId) {
