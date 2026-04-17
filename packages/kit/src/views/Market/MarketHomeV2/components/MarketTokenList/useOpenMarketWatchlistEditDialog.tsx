@@ -8,7 +8,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Dialog,
-  Icon,
   SortableListView,
   Toast,
   XStack,
@@ -100,7 +99,7 @@ function MarketWatchlistEditDialogContent({
         getItemLayout={getWatchlistItemLayout}
         onDragEnd={handleDragEnd}
         ListEmptyComponent={null}
-        renderItem={({ item, drag, isActive }) => (
+        renderItem={({ item, drag, dragProps, isActive }) => (
           <ListItem
             h={CELL_HEIGHT}
             minHeight={0}
@@ -109,12 +108,8 @@ function MarketWatchlistEditDialogContent({
             py="$0"
             gap="$2"
             borderRadius="$0"
-            onLongPress={drag}
             opacity={isActive ? 0.8 : 1}
           >
-            <XStack pr="$1" alignItems="center" justifyContent="center">
-              <Icon name="DragOutline" color="$iconSubdued" />
-            </XStack>
             <YStack flex={1} minWidth={0}>
               <TokenIdentityItem
                 tokenLogoURI={item.tokenImageUri}
@@ -131,7 +126,7 @@ function MarketWatchlistEditDialogContent({
                 perpsSubtitle={item.perpsSubtitle}
               />
             </YStack>
-            <XStack gap="$1">
+            <XStack gap="$6">
               <ListItem.IconButton
                 title={intl.formatMessage({
                   id: ETranslations.global_remove,
@@ -140,6 +135,13 @@ function MarketWatchlistEditDialogContent({
                 onPress={() => {
                   void handleRemove(item);
                 }}
+              />
+              <ListItem.IconButton
+                key="drag"
+                cursor="move"
+                icon="DragOutline"
+                onPressIn={drag}
+                dataSet={dragProps}
               />
             </XStack>
           </ListItem>

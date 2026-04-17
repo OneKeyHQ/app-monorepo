@@ -277,7 +277,7 @@ export function CreateOrEditContent({
           >
             <ChainSelectorInput
               networkIds={addressBookEnabledNetworkIds}
-              disabled={lockRoutingFields}
+              editable={!lockRoutingFields}
             />
           </Form.Field>
           <Form.Field

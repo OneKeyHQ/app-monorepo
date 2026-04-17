@@ -88,9 +88,13 @@ const LINE_NUMBER_WIDTH = 40;
 // SizableText (UILabel). This offset compensates so line numbers align with the text.
 // On Android, EditText with includeFontPadding=false has no such extra inset.
 const NATIVE_LINE_NUMBER_TOP_OFFSET = platformEnv.isNativeIOS ? 3 : 0;
+// Keep overlay positioned the same as UITextView; use native TextInput for
+// visible overlay content so baseline comes from the same text engine.
+const NATIVE_TEXT_OVERLAY_TOP_OFFSET = 0;
 // Allow 2 lines of text in singleLine mode for wrapped long addresses
 const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
 const WEB_WORD_BREAK_STYLE = { wordBreak: 'break-all' } as const;
+const NATIVE_TEXT_FONT_FAMILY = 'System';
 
 function LineNumberedTextArea({
   value = '',
@@ -123,6 +127,8 @@ function LineNumberedTextArea({
   const { getClipboard } = useClipboard();
   const theme = useTheme();
   const textColor = theme.text?.val;
+  const textCriticalColor = theme.textCritical?.val;
+  const textCautionColor = theme.textCaution?.val;
   const selectionColor = useSelectionColor();
   const placeholderColor = theme.textPlaceholder?.val;
   const [inputText, setInputText] = useState<string>(value);
@@ -186,10 +192,21 @@ function LineNumberedTextArea({
     return value.split('\n');
   }, [value]);
 
+  const visualErrors = useMemo(
+    () =>
+      errors.filter((item) => {
+        if (item.lineNumber <= 0) {
+          return true;
+        }
+        return Boolean(lines[item.lineNumber - 1]?.trim());
+      }),
+    [errors, lines],
+  );
+
   const { errorLineNumbers, warningLineNumbers } = useMemo(() => {
     const errorSet = new Set<number>();
     const warningSet = new Set<number>();
-    errors.forEach((item) => {
+    visualErrors.forEach((item) => {
       if (item.type === ELineAnnotationType.Warning) {
         warningSet.add(item.lineNumber);
       } else {
@@ -197,7 +214,7 @@ function LineNumberedTextArea({
       }
     });
     return { errorLineNumbers: errorSet, warningLineNumbers: warningSet };
-  }, [errors]);
+  }, [visualErrors]);
 
   // #1 iOS: scroll outer page ScrollView to keep this component visible above keyboard
   const { scrollViewRef: pageScrollViewRef, pageOffsetRef } = useScrollView();
@@ -306,6 +323,8 @@ function LineNumberedTextArea({
   const hasContent = lines.length > 0;
   // Show line numbers based on prop
   const showLineNumbers = showLineNumbersProp;
+  const shouldUseAnnotatedTextOverlay =
+    platformEnv.isNativeIOS && visualErrors.length > 0 && hasContent;
 
   // Auto-scroll to bottom when content height changes
   useEffect(() => {
@@ -371,9 +390,9 @@ function LineNumberedTextArea({
               fontSize: FONT_SIZE,
               lineHeight: LINE_HEIGHT,
               textAlignVertical: 'top',
-              fontFamily: 'System',
+              fontFamily: NATIVE_TEXT_FONT_FAMILY,
               includeFontPadding: false,
-              color: textColor,
+              color: shouldUseAnnotatedTextOverlay ? 'transparent' : textColor,
             }
           : {
               // Web: TextInput is overlaid on display layer
@@ -394,7 +413,7 @@ function LineNumberedTextArea({
               caretColor: textColor,
             },
       } as any),
-    [textColor, contentPaddingLeft],
+    [textColor, contentPaddingLeft, shouldUseAnnotatedTextOverlay],
   );
 
   return (
@@ -432,6 +451,12 @@ function LineNumberedTextArea({
                 {(hasContent ? lines : ['']).map((_, index) => {
                   const lineNumber = index + 1;
                   const lineHeight = lineHeights[index] || LINE_HEIGHT;
+                  let lineNumberColor: string = '$textDisabled';
+                  if (errorLineNumbers.has(lineNumber)) {
+                    lineNumberColor = '$textCritical';
+                  } else if (warningLineNumbers.has(lineNumber)) {
+                    lineNumberColor = '$textCaution';
+                  }
                   return (
                     <Stack
                       key={index}
@@ -442,7 +467,7 @@ function LineNumberedTextArea({
                       <SizableText
                         fontSize={FONT_SIZE}
                         lineHeight={LINE_HEIGHT}
-                        color="$textDisabled"
+                        color={lineNumberColor}
                         userSelect="none"
                         numberOfLines={1}
                         ellipsizeMode="tail"
@@ -467,10 +492,10 @@ function LineNumberedTextArea({
                 {...(platformEnv.isNative
                   ? {
                       position: 'absolute' as const,
-                      top: 0,
+                      top: NATIVE_TEXT_OVERLAY_TOP_OFFSET,
                       left: 0,
                       right: 0,
-                      opacity: 0,
+                      opacity: shouldUseAnnotatedTextOverlay ? 1 : 0,
                     }
                   : {})}
               >
@@ -478,10 +503,13 @@ function LineNumberedTextArea({
                   lines.map((line, index) => {
                     const lineNumber = index + 1;
                     let lineColor = '$text';
+                    let nativeLineColor = textColor;
                     if (errorLineNumbers.has(lineNumber)) {
                       lineColor = '$textCritical';
+                      nativeLineColor = textCriticalColor ?? textColor;
                     } else if (warningLineNumbers.has(lineNumber)) {
                       lineColor = '$textCaution';
+                      nativeLineColor = textCautionColor ?? textColor;
                     }
 
                     return (
@@ -491,28 +519,84 @@ function LineNumberedTextArea({
                           handleLineLayout(index, e)
                         }
                       >
-                        <SizableText
-                          fontSize={FONT_SIZE}
-                          lineHeight={LINE_HEIGHT}
-                          color={lineColor}
-                          textBreakStrategy="simple"
-                          style={
-                            platformEnv.isWeb ? WEB_WORD_BREAK_STYLE : undefined
-                          }
-                        >
-                          {line || ' '}
-                        </SizableText>
+                        {platformEnv.isNative ? (
+                          <RNTextInput
+                            value={line || ' '}
+                            editable={false}
+                            multiline
+                            scrollEnabled={false}
+                            caretHidden
+                            allowFontScaling={false}
+                            maxFontSizeMultiplier={1}
+                            underlineColorAndroid="transparent"
+                            style={{
+                              width: '100%',
+                              paddingTop: 0,
+                              paddingBottom: 0,
+                              paddingLeft: 0,
+                              paddingRight: 0,
+                              margin: 0,
+                              fontSize: FONT_SIZE,
+                              lineHeight: LINE_HEIGHT,
+                              fontFamily: NATIVE_TEXT_FONT_FAMILY,
+                              textAlignVertical: 'top',
+                              includeFontPadding: false,
+                              color: nativeLineColor,
+                              backgroundColor: 'transparent',
+                            }}
+                          />
+                        ) : (
+                          <SizableText
+                            fontSize={FONT_SIZE}
+                            lineHeight={LINE_HEIGHT}
+                            color={lineColor}
+                            textBreakStrategy="simple"
+                            style={WEB_WORD_BREAK_STYLE}
+                          >
+                            {line || ' '}
+                          </SizableText>
+                        )}
                       </Stack>
                     );
                   })
                 ) : (
-                  <SizableText
-                    fontSize={FONT_SIZE}
-                    lineHeight={LINE_HEIGHT}
-                    color="$textPlaceholder"
-                  >
-                    {placeholder}
-                  </SizableText>
+                  <>
+                    {platformEnv.isNative ? (
+                      <RNTextInput
+                        value={placeholder}
+                        editable={false}
+                        multiline
+                        scrollEnabled={false}
+                        caretHidden
+                        allowFontScaling={false}
+                        maxFontSizeMultiplier={1}
+                        underlineColorAndroid="transparent"
+                        style={{
+                          width: '100%',
+                          paddingTop: 0,
+                          paddingBottom: 0,
+                          paddingLeft: 0,
+                          paddingRight: 0,
+                          margin: 0,
+                          fontSize: FONT_SIZE,
+                          lineHeight: LINE_HEIGHT,
+                          fontFamily: NATIVE_TEXT_FONT_FAMILY,
+                          textAlignVertical: 'top',
+                          includeFontPadding: false,
+                          color: placeholderColor,
+                          backgroundColor: 'transparent',
+                        }}
+                      />
+                    ) : (
+                      <SizableText
+                        fontSize={FONT_SIZE}
+                        lineHeight={LINE_HEIGHT}
+                        color="$textPlaceholder"
+                      >
+                        {placeholder}
+                      </SizableText>
+                    )}
+                  </>
                 )}
               </YStack>
 
@@ -520,7 +604,11 @@ function LineNumberedTextArea({
               <RNTextInput
                 ref={inputRef}
                 value={value}
-                placeholder={platformEnv.isNative ? placeholder : undefined}
+                placeholder={
+                  platformEnv.isNative && !shouldUseAnnotatedTextOverlay
+                    ? placeholder
+                    : undefined
+                }
                 placeholderTextColor={placeholderColor}
                 allowFontScaling={false}
                 maxFontSizeMultiplier={1}

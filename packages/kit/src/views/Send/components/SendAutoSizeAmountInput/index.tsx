@@ -447,52 +447,54 @@ function SendAutoSizeAmountInputComponent(
           {wrappedTokenSymbol}
         </SizableText>
       ) : null}
-      <XStack
-        alignItems="center"
-        mt={md ? '$0' : '$2'}
-        py="$1.5"
-        px="$1"
-        borderRadius="$2"
-        alignSelf="center"
-        disabled={valueProps?.loading}
-        onPress={valueProps?.onPress}
-        {...(reversible && {
-          userSelect: 'none',
-          hoverStyle: {
-            bg: '$bgHover',
-          },
-          pressStyle: {
-            bg: '$bgActive',
-          },
-        })}
-      >
-        {valueProps?.loading ? (
-          <Skeleton h="$6" w="$28" />
-        ) : (
-          <>
-            <NumberSizeableText
-              formatter={valueProps?.formatter ?? 'value'}
-              formatterOptions={{
-                currency: valueProps?.currency,
-                tokenSymbol: valueProps?.tokenSymbol,
-              }}
-              size="$headingLg"
-              color={valueProps?.color ?? '$textSubdued'}
-            >
-              {valueProps?.value || '0.00'}
-            </NumberSizeableText>
-            {valueProps?.moreComponent}
-            {reversible ? (
-              <Icon
-                name="SwitchVerOutline"
-                size="$4"
-                color="$iconSubdued"
-                ml="$1.5"
-              />
-            ) : null}
-          </>
-        )}
-      </XStack>
+      {valueProps || reversible ? (
+        <XStack
+          alignItems="center"
+          mt={md ? '$0' : '$2'}
+          py="$1.5"
+          px="$1"
+          borderRadius="$2"
+          alignSelf="center"
+          disabled={valueProps?.loading}
+          onPress={valueProps?.onPress}
+          {...(reversible && {
+            userSelect: 'none',
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+          })}
+        >
+          {valueProps?.loading ? (
+            <Skeleton h="$6" w="$28" />
+          ) : (
+            <>
+              <NumberSizeableText
+                formatter={valueProps?.formatter ?? 'value'}
+                formatterOptions={{
+                  currency: valueProps?.currency,
+                  tokenSymbol: valueProps?.tokenSymbol,
+                }}
+                size="$headingLg"
+                color={valueProps?.color ?? '$textSubdued'}
+              >
+                {valueProps?.value || '0.00'}
+              </NumberSizeableText>
+              {valueProps?.moreComponent}
+              {reversible ? (
+                <Icon
+                  name="SwitchVerOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                  ml="$1.5"
+                />
+              ) : null}
+            </>
+          )}
+        </XStack>
+      ) : null}
       {extraContent}
     </Stack>
   );

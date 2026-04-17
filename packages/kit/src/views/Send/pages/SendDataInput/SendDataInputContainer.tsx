@@ -76,7 +76,9 @@ import {
   normalizeOptionalRecipientText,
   shouldSkipResolvedRecipientUpdate,
 } from './recipientSelectionUtils';
+import { useWebDappRecipientOptions } from './useWebDappRecipientOptions';
 
+import type { IRecipientQuickSelectTab } from './recipientQuickSelectTabUtils';
 import type { RouteProp } from '@react-navigation/core';
 
 interface IFormValues {
@@ -149,9 +151,11 @@ function SendDataInputContainer() {
     networkId,
   });
 
-  const [quickSelectActiveTab, setQuickSelectActiveTab] = useState<
-    'recent' | 'account' | 'addressBook'
-  >('recent');
+  const { hiddenTabs: recipientHiddenTabs, keylessWalletsOnly } =
+    useWebDappRecipientOptions();
+
+  const [quickSelectActiveTab, setQuickSelectActiveTab] =
+    useState<IRecipientQuickSelectTab>('recent');
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
   const [scannedAmount, setScannedAmount] = useState('');
 
@@ -1219,6 +1223,8 @@ function SendDataInputContainer() {
               onInputTypeChange={handleAddressInputChangeType}
               onMatchStatusChange={setHasQuickSelectMatches}
               onSelect={handleQuickSelectRecipient}
+              hideTabs={recipientHiddenTabs}
+              keylessWalletsOnly={keylessWalletsOnly}
             />
           </Form>
         </AccountSelectorProviderMirror>
