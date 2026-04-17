@@ -1,32 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance } from '@onekeyhq/components';
 import {
-  AnimatePresence,
   Button,
-  Dialog,
   Icon,
   Page,
   SizableText,
-  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
-import {
-  useKeylessWallet,
-  useKeylessWalletFeatureIsEnabled,
-} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -37,9 +25,6 @@ import {
   LayoutHeaderBack,
   LayoutHeaderLanguageSelector,
 } from '../components/Layout';
-import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
-
-import type { RouteProp } from '@react-navigation/core';
 
 // English fallbacks kept for dev/unsynced-locale resilience.
 const HERO_SENTENCE_DEFAULT = 'Your most secure crypto wallet for {action}';
@@ -70,8 +55,7 @@ const HERO_CHAR_ANIMATION_MS = 550;
 const HERO_WORD_DISPLAY_MS = 2600;
 // Long enough for the last char's staggered exit to finish (550ms animation +
 // 20 × 45ms stagger covers words up to 20 graphemes).
-const HERO_EXIT_CLEANUP_MS =
-  HERO_CHAR_ANIMATION_MS + 20 * HERO_CHAR_STAGGER_MS;
+const HERO_EXIT_CLEANUP_MS = HERO_CHAR_ANIMATION_MS + 20 * HERO_CHAR_STAGGER_MS;
 
 // Unicode-safe grapheme split: handles CJK, combining marks, emoji ZWJ
 // sequences. Falls back to codepoint split where Intl.Segmenter is missing
@@ -388,105 +372,20 @@ function HeroSentenceNative({
 
 function GetStarted() {
   const navigation = useAppNavigation();
-  const route =
-    useRoute<
-      RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.GetStarted>
-    >();
-  const handleGetStarted = () => {
-    navigation.push(EOnboardingPagesV2.PickYourDevice);
-    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
-  };
   const intl = useIntl();
-  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
-  const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
-    useKeylessWallet();
 
-  // Track which provider is currently loading
-  const [loadingProvider, setLoadingProvider] =
-    useState<EOAuthSocialLoginProvider | null>(null);
+  const handleCreateNewWallet = () => {
+    navigation.push(EOnboardingPagesV2.CreateNewWallet);
+  };
 
-  const handleCreateOrImportWallet = () => {
+  const handleMoreOptions = () => {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
-  const autoLoginKeylessProvider = route?.params?.autoLoginKeylessProvider;
-  const autoConnectNonce = route?.params?.autoConnectNonce;
-  const isWebKeylessSidePanelMode = Boolean(
-    route?.params?.fromExt && autoLoginKeylessProvider,
-  );
-  const loadingDialogRef = useRef<IDialogInstance | null>(null);
-
-  const handleGoogleLogin = useCallback(async () => {
-    setLoadingProvider(EOAuthSocialLoginProvider.Google);
-    try {
-      defaultLogger.account.wallet.onboard({
-        onboardMethod: 'createKeylessWallet',
-      });
-      if (autoLoginKeylessProvider) {
-        loadingDialogRef.current = Dialog.loading({
-          title: intl.formatMessage(
-            {
-              id: ETranslations.continue_with_social_platform,
-            },
-            { platform: 'Google' },
-          ),
-          description: intl.formatMessage(
-            {
-              id: ETranslations.extension_connecting_platform_account,
-            },
-            { platform: 'Google' },
-          ),
-        });
-      }
-      await checkKeylessWalletLocalExistence({
-        signInProvider: EOAuthSocialLoginProvider.Google,
-      });
-    } finally {
-      setLoadingProvider(null);
-      void loadingDialogRef.current?.close();
-    }
-  }, [checkKeylessWalletLocalExistence, intl, autoLoginKeylessProvider]);
-
-  const handleAppleLogin = useCallback(async () => {
-    setLoadingProvider(EOAuthSocialLoginProvider.Apple);
-    try {
-      defaultLogger.account.wallet.onboard({
-        onboardMethod: 'createKeylessWallet',
-      });
-      if (autoLoginKeylessProvider) {
-        loadingDialogRef.current = Dialog.loading({
-          title: intl.formatMessage(
-            {
-              id: ETranslations.continue_with_social_platform,
-            },
-            { platform: 'Apple' },
-          ),
-          description: intl.formatMessage(
-            {
-              id: ETranslations.extension_connecting_platform_account,
-            },
-            { platform: 'Apple' },
-          ),
-        });
-      }
-      await checkKeylessWalletLocalExistence({
-        signInProvider: EOAuthSocialLoginProvider.Apple,
-      });
-    } finally {
-      setLoadingProvider(null);
-      void loadingDialogRef.current?.close();
-    }
-  }, [checkKeylessWalletLocalExistence, intl, autoLoginKeylessProvider]);
-
-  useAutoStartKeylessProvider({
-    autoStartProvider: autoLoginKeylessProvider,
-    autoStartTriggerKey: autoConnectNonce,
-    enabled:
-      (isKeylessWalletEnabled || isWebKeylessSidePanelMode) &&
-      !enableKeylessWalletLoading,
-    onGoogleLogin: handleGoogleLogin,
-    onAppleLogin: handleAppleLogin,
-  });
+  const handleConnectHardwareWallet = () => {
+    navigation.push(EOnboardingPagesV2.PickYourDevice);
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
+  };
 
   const heroActionWords = useMemo(
     () =>
@@ -515,7 +414,15 @@ function GetStarted() {
         <LayoutHeaderBack exit />
         <LayoutHeaderLanguageSelector />
       </LayoutHeader>
-      <YStack flex={1} px="$5" maxWidth={800} mx="auto">
+      <YStack
+        flex={1}
+        $gtMd={{
+          pt: '$10',
+        }}
+        px="$5"
+        maxWidth={800}
+        mx="auto"
+      >
         <YStack flex={1} px="$5" pt="$8" gap="$8">
           <Icon name="OnekeyTextIllus" color="$text" h={48} w={174} />
           {platformEnv.isNative ? (
@@ -544,145 +451,36 @@ function GetStarted() {
           <YStack px="$5" pb="$3">
             <TermsAndPrivacy />
           </YStack>
-          {isKeylessWalletEnabled || isWebKeylessSidePanelMode ? (
-            <>
-              <Button
-                bg="$gray3"
-                hoverStyle={{ bg: '$gray4' }}
-                pressStyle={{ bg: '$gray5' }}
-                size="large"
-                alignSelf="stretch"
-                childrenAsText={false}
-                onPress={
-                  enableKeylessWalletLoading ? undefined : handleGoogleLogin
-                }
-              >
-                <XStack gap="$2" alignItems="center">
-                  <AnimatePresence exitBeforeEnter initial={false}>
-                    {enableKeylessWalletLoading &&
-                    loadingProvider === EOAuthSocialLoginProvider.Google ? (
-                      <YStack
-                        key="loading"
-                        animation="quick"
-                        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                        enterStyle={{ scale: 0.7, opacity: 0 }}
-                        exitStyle={{ scale: 0.7, opacity: 0 }}
-                      >
-                        <Spinner size="small" />
-                      </YStack>
-                    ) : (
-                      <YStack
-                        key="icon"
-                        animation="quick"
-                        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                        enterStyle={{ scale: 0.7, opacity: 0 }}
-                        exitStyle={{ scale: 0.7, opacity: 0 }}
-                      >
-                        <Icon name="GoogleIllus" size="$5" />
-                      </YStack>
-                    )}
-                  </AnimatePresence>
-                  <SizableText size="$bodyLgMedium">
-                    {intl.formatMessage(
-                      { id: ETranslations.continue_with_social_platform },
-                      { platform: 'Google' },
-                    )}
-                  </SizableText>
-                </XStack>
-              </Button>
-              <Button
-                bg="$gray3"
-                hoverStyle={{ bg: '$gray4' }}
-                pressStyle={{ bg: '$gray5' }}
-                size="large"
-                alignSelf="stretch"
-                childrenAsText={false}
-                onPress={
-                  enableKeylessWalletLoading ? undefined : handleAppleLogin
-                }
-              >
-                <XStack gap="$2" alignItems="center">
-                  <AnimatePresence exitBeforeEnter initial={false}>
-                    {enableKeylessWalletLoading &&
-                    loadingProvider === EOAuthSocialLoginProvider.Apple ? (
-                      <YStack
-                        key="loading"
-                        animation="quick"
-                        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                        enterStyle={{ scale: 0.7, opacity: 0 }}
-                        exitStyle={{ scale: 0.7, opacity: 0 }}
-                      >
-                        <Spinner size="small" />
-                      </YStack>
-                    ) : (
-                      <YStack
-                        key="icon"
-                        animation="quick"
-                        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                        enterStyle={{ scale: 0.7, opacity: 0 }}
-                        exitStyle={{ scale: 0.7, opacity: 0 }}
-                      >
-                        <Icon name="AppleBrand" size="$5" />
-                      </YStack>
-                    )}
-                  </AnimatePresence>
-                  <SizableText size="$bodyLgMedium">
-                    {intl.formatMessage(
-                      { id: ETranslations.continue_with_social_platform },
-                      { platform: 'Apple' },
-                    )}
-                  </SizableText>
-                </XStack>
-              </Button>
-              {isWebKeylessSidePanelMode ? null : (
-                <Button
-                  variant="tertiary"
-                  size="large"
-                  alignSelf="stretch"
-                  mx="$0"
-                  onPress={handleCreateOrImportWallet}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.more_options,
-                  })}
-                </Button>
-              )}
-            </>
-          ) : null}
-          {!isKeylessWalletEnabled && !isWebKeylessSidePanelMode ? (
-            <Button
-              bg="$gray3"
-              hoverStyle={{ bg: '$gray4' }}
-              pressStyle={{ bg: '$gray5' }}
-              size="large"
-              alignSelf="stretch"
-              childrenAsText={false}
-              onPress={handleCreateOrImportWallet}
-            >
-              <XStack gap="$2" alignItems="center">
-                <Icon name="PlusLargeOutline" size="$5" />
-                <SizableText size="$bodyLgMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.onboarding_create_or_import_wallet,
-                  })}
-                </SizableText>
-              </XStack>
-            </Button>
-          ) : null}
-          {isWebKeylessSidePanelMode ? null : (
-            <Button
-              size="large"
-              alignSelf="stretch"
-              onPress={handleGetStarted}
-              bg="$transparent"
-              borderWidth={1}
-              borderColor="$borderSubdued"
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_connect_hardware_wallet,
-              })}
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            size="large"
+            alignSelf="stretch"
+            onPress={handleCreateNewWallet}
+          >
+            {intl.formatMessage({
+              id: ETranslations.onboarding_create_new_wallet,
+            })}
+          </Button>
+          <Button
+            variant="secondary"
+            size="large"
+            alignSelf="stretch"
+            onPress={handleMoreOptions}
+          >
+            {intl.formatMessage({ id: ETranslations.add_existing_wallet })}
+          </Button>
+          <Button
+            size="large"
+            alignSelf="stretch"
+            onPress={handleConnectHardwareWallet}
+            bg="$transparent"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_connect_hardware_wallet,
+            })}
+          </Button>
         </YStack>
       </YStack>
     </Page>
