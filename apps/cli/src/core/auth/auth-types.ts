@@ -4,7 +4,7 @@ import type {
   ITransferPairingSession,
 } from '../prime-transfer/transfer-types';
 
-type IAuthLoginMethod = 'mnemonic' | 'app_transfer';
+type IAuthLoginMethod = 'app_transfer';
 type IAuthWalletKind = 'hd';
 type IAuthStatus = 'authenticated' | 'unauthenticated';
 
@@ -21,10 +21,6 @@ interface IPersistAuthSessionInput {
   encryptedMnemonic: Buffer;
   encryptionKey: string;
   session: IAuthSessionMetadata;
-}
-
-interface IMnemonicLoginResult {
-  address: string;
 }
 
 type IStartAppTransferLoginInput = ICreateTransferPairingSessionParams;
@@ -49,7 +45,6 @@ export type {
   IAuthSessionMetadata as AuthSessionMetadata,
   IAuthStatus as AuthStatus,
   IAuthWalletKind as AuthWalletKind,
-  IMnemonicLoginResult as MnemonicLoginResult,
   IPersistAuthSessionInput as PersistAuthSessionInput,
   IResolvedAuthSession as ResolvedAuthSession,
   IStartAppTransferLoginInput as StartAppTransferLoginInput,
