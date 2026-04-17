@@ -269,15 +269,9 @@ class ServiceSignatureConfirm extends ServiceBase {
         encodedTx,
       });
 
-    // For BTC/LTC merge-derive accounts, one user-facing account spans
-    // multiple xpubs (Taproot / Native SegWit / ...). Pass all of them so
-    // the server can check interaction history across all derive types,
-    // not just the one the user happens to be sending from right now.
-    // Mirrors the fan-out in ServiceAccountProfile.checkAccountBadges.
-    // Fan out all derive-type xpubs for comprehensive interaction check.
-    // The server's parse-transaction API only accepts a single xpub per
-    // call, so we call it once per derive type and merge the results
-    // (same pattern as ServiceAccountProfile.fetchBadgesDeduped).
+    // For BTC/LTC merge-derive accounts, the server's parse-transaction
+    // API only accepts a single xpub per call. Call once per derive type
+    // and merge interaction results (same as fetchBadgesDeduped).
     let xpubs: string[] = [];
     try {
       const xpubEntries =
@@ -330,15 +324,21 @@ class ServiceSignatureConfirm extends ServiceBase {
     }
 
     // Multiple xpubs: call once per xpub, merge interaction results.
-    const results = await Promise.all(
-      xpubs.map((xpub) => callParseTransaction(xpub).catch(() => null)),
+    const settled = await Promise.allSettled(
+      xpubs.map((xpub) => callParseTransaction(xpub)),
     );
-    const validResults = results.filter((r): r is IParseTransactionResp => !!r);
+    const validResults = settled
+      .filter(
+        (r): r is PromiseFulfilledResult<IParseTransactionResp> =>
+          r.status === 'fulfilled',
+      )
+      .map((r) => r.value);
     if (validResults.length === 0) {
-      return callParseTransaction(xpubs[0]);
+      // All xpub-scoped calls failed; retry without xpub so the server
+      // still parses the tx from encodedTx alone.
+      return callParseTransaction(undefined);
     }
-    // Use the first result as base, but if any xpub shows interaction,
-    // mark as interacted (same merge logic as badges).
+    // Use the first result as base, merge interaction + risk across xpubs.
     const base = validResults[0];
     if (base.parsedTx?.to) {
       const anyInteracted = validResults.some(
@@ -346,6 +346,12 @@ class ServiceSignatureConfirm extends ServiceBase {
       );
       if (anyInteracted) {
         base.parsedTx.to.interacted = true;
+      }
+      const maxRiskLevel = Math.max(
+        ...validResults.map((r) => r.parsedTx?.to?.riskLevel ?? 0),
+      );
+      if (maxRiskLevel > (base.parsedTx.to.riskLevel ?? 0)) {
+        base.parsedTx.to.riskLevel = maxRiskLevel;
       }
     }
     return base;
