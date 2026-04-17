@@ -1466,19 +1466,36 @@ function SendAmountInputContainer() {
           )}
         </Stack>
         <YStack flex={1}>
-          <SizableText size="$bodyMdMedium" numberOfLines={1}>
+          <SizableText size="$bodySm" color="$textSubdued">
             {nftName}
           </SizableText>
           {nft?.collectionType === ENFTType.ERC1155 ? (
-            <SizableText size="$bodySm" color="$textSubdued" mt="$0.5">
-              {intl.formatMessage({ id: ETranslations.global_available })}:{' '}
-              {nftDetails?.amount ?? 1}
-            </SizableText>
+            <XStack alignItems="center" mt="$0.5">
+              <SizableText size="$bodyLgMedium" color="$text">
+                {nftDetails?.amount ?? 1}
+              </SizableText>
+            </XStack>
           ) : null}
         </YStack>
+
+        {nft?.collectionType === ENFTType.ERC1155 ? (
+          <Button
+            variant="secondary"
+            size="small"
+            ml="$2"
+            onPress={() => {
+              form.setValue('nftAmount', nftDetails?.amount ?? '1', {
+                shouldValidate: true,
+              });
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.send_max })}
+          </Button>
+        ) : null}
       </XStack>
     );
   }, [
+    form,
     intl,
     isNFT,
     nft?.collectionName,
