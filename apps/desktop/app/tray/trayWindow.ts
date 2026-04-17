@@ -87,15 +87,15 @@ export function createTrayWindow(
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
     ::-webkit-scrollbar-track { background: transparent; }
   `;
-  // Inject CSS at every opportunity to ensure splash is hidden
+  // Inject CSS at every opportunity to ensure splash is hidden.
+  // CSS alone is sufficient because trayCSS includes
+  // `.onekey-index-html-preload-image { display: none !important; }`
+  // and App.tsx module-scope code also removes the element once React boots.
   trayWindow.webContents.on('did-start-loading', () => {
     void trayWindow?.webContents.insertCSS(trayCSS);
   });
   trayWindow.webContents.on('dom-ready', () => {
     void trayWindow?.webContents.insertCSS(trayCSS);
-    void trayWindow?.webContents.executeJavaScript(
-      `document.querySelectorAll('.onekey-index-html-preload-image').forEach(e=>e.remove())`,
-    );
   });
 
   loadUrl(trayWindow);

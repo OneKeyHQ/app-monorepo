@@ -23,6 +23,10 @@ export interface ITrayWatchlistItem {
 
 export interface ITrayData {
   isLocked?: boolean;
+  // When true, main-process IPC handler keeps the previous cachedTrayData so
+  // the panel still shows last known good values during a transient gather
+  // failure (avoids false "Transaction Confirmed" notifications too).
+  isError?: boolean;
   wallet: {
     name: string;
     emoji: string;
@@ -35,6 +39,18 @@ export interface ITrayData {
   };
   watchlist: ITrayWatchlistItem[];
   pendingTxs: IPendingTx[];
+}
+
+// Payload sent from the tray panel renderer to the main process via
+// desktopApi.sendTrayAction; must match ALLOWED_TRAY_ACTION_TYPES in
+// apps/desktop/app/tray/trayIpc.ts.
+export interface ITrayAction {
+  type: 'open-page' | 'market-detail-v2';
+  route?: string;
+  tokenAddress?: string;
+  networkId?: string;
+  isNative?: boolean;
+  perpsCoin?: string;
 }
 
 // IPC channel constants (duplicated from config.ts for renderer access)

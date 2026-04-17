@@ -40,8 +40,7 @@ export function useTrayDataProvider() {
   const handleTrayDataRequest = useCallback(async () => {
     // When locked, send empty data with isLocked flag to protect sensitive info
     if (appIsLockedRef.current) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      (globalThis as any).desktopApi?.sendTrayData({
+      globalThis.desktopApi?.sendTrayData({
         isLocked: true,
         wallet: { name: '', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
@@ -276,14 +275,12 @@ export function useTrayDataProvider() {
         console.warn('[TrayDataProvider] pending tx error:', e);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      (globalThis as any).desktopApi?.sendTrayData(trayData);
+      globalThis.desktopApi?.sendTrayData(trayData);
     } catch {
       // Send error fallback — the `isError` flag tells trayIpc to skip the
       // pending-tx diff, so a transient data-gathering failure doesn't
       // trigger false "Transaction Confirmed" notifications for tracked txs.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      (globalThis as any).desktopApi?.sendTrayData({
+      globalThis.desktopApi?.sendTrayData({
         isError: true,
         wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
@@ -364,24 +361,22 @@ export function useTrayDataProvider() {
     const requestHandler = () => {
       void handleTrayDataRequest();
     };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
-    const unsubscribeRequest = (
-      globalThis as any
-    ).desktopApi?.addIpcEventListener(TRAY_IPC.DATA_REQUEST, requestHandler);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
-    const unsubscribeAction = (
-      globalThis as any
-    ).desktopApi?.addIpcEventListener(TRAY_IPC.ACTION, handleTrayNavigation);
+    const unsubscribeRequest = globalThis.desktopApi?.addIpcEventListener(
+      TRAY_IPC.DATA_REQUEST,
+      requestHandler,
+    );
+    const unsubscribeAction = globalThis.desktopApi?.addIpcEventListener(
+      TRAY_IPC.ACTION,
+      handleTrayNavigation as (...args: unknown[]) => void,
+    );
 
     handleTrayDataRequestRef.current = handleTrayDataRequest;
 
     return () => {
       if (typeof unsubscribeRequest === 'function') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         unsubscribeRequest();
       }
       if (typeof unsubscribeAction === 'function') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         unsubscribeAction();
       }
     };
@@ -410,8 +405,7 @@ export function useTrayDataProvider() {
       .getEnableMenuBarTray()
       .then((enabled) => {
         if (!enabled) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          (globalThis as any).desktopApi?.toggleTray(false);
+          globalThis.desktopApi?.toggleTray(false);
         }
       });
   }, []);

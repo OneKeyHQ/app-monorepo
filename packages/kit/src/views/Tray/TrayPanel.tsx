@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ScrollView, Stack } from '@onekeyhq/components';
 import {
+  type ITrayAction,
   type ITrayData,
   type ITrayWatchlistItem,
   TRAY_IPC,
@@ -12,18 +13,8 @@ import { PortfolioOverview } from './components/PortfolioOverview';
 import { TrayEmptyState } from './components/TrayEmptyState';
 import { WatchlistTickers } from './components/WatchlistTickers';
 
-interface ITrayAction {
-  type: string;
-  route?: string;
-  tokenAddress?: string;
-  networkId?: string;
-  isNative?: boolean;
-  perpsCoin?: string;
-}
-
 function sendTrayAction(action: ITrayAction) {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  (globalThis as any).desktopApi?.sendTrayAction(action);
+  globalThis.desktopApi?.sendTrayAction(action);
 }
 
 export function TrayPanel() {
@@ -36,17 +27,15 @@ export function TrayPanel() {
       setData(trayData);
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
-    const unsubscribe = (globalThis as any).desktopApi?.addIpcEventListener(
+    const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
       TRAY_IPC.UPDATE,
-      handler,
+      handler as (...args: unknown[]) => void,
     );
 
     return () => {
       // `removeIpcEventListener` is a documented no-op in the main preload;
       // we must use the unsubscribe function returned by addIpcEventListener.
       if (typeof unsubscribe === 'function') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         unsubscribe();
       }
     };
