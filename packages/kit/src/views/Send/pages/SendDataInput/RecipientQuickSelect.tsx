@@ -746,17 +746,19 @@ function AccountRecipients({
               displayAddress: itemAddress,
               walletId,
               wallet,
-              // Align with AccountSelector avatar rendering:
-              // indexedAccount for stable blockies seed (idHash),
-              // address fallback for imported accounts,
-              // networkId for network badge.
+              // Align with AccountSelector: when indexedAccount exists,
+              // omit address so AccountAvatar uses idHash as blockies seed
+              // (same as AccountSelector). For imported accounts without
+              // indexedAccount, pass address fallback to avoid X mark.
               customRenderAvatar: () => (
                 <AccountAvatar
                   size="default"
                   address={
-                    account.address ||
-                    account.addressDetail?.displayAddress ||
-                    account.id
+                    itemIndexedAccount
+                      ? undefined
+                      : account.address ||
+                        account.addressDetail?.displayAddress ||
+                        account.id
                   }
                   indexedAccount={itemIndexedAccount}
                   account={account}
