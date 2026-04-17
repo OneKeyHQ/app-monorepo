@@ -10,7 +10,6 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import Animated, { FadeIn } from 'react-native-reanimated';
 
 import {
   ActionList,
@@ -1018,23 +1017,28 @@ function RecipientQuickSelect({
     );
   }, [activeTab]);
 
-  // Pre-mount every visible tab (kept hidden via display:none until active)
-  // so each can fetch its data and report its match count without requiring
-  // the user to click in first. Without this, the addressBook tab label
-  // never showed its (N) count when a BTC chain landed on Accounts by
-  // default, and auto-switch couldn't jump to a non-mounted tab (OK-52952).
+  // Defer pre-mounting non-active tabs by ~300ms so the first paint only
+  // builds the active tab. Three heavy lists (Recent + Account + AddressBook)
+  // each fire their own IPC fan-out and N×blockies avatar work on mount —
+  // doing all three simultaneously during the page-in transition caused
+  // visible frame drops on web/desktop/ext. After the transition settles,
+  // fill in the other tabs so match counts and auto-switch (OK-52952)
+  // still work.
   useEffect(() => {
-    setVisitedTabs((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const tab of visibleTabKeys) {
-        if (!next[tab]) {
-          next[tab] = true;
-          changed = true;
+    const timer = setTimeout(() => {
+      setVisitedTabs((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const tab of visibleTabKeys) {
+          if (!next[tab]) {
+            next[tab] = true;
+            changed = true;
+          }
         }
-      }
-      return changed ? next : prev;
-    });
+        return changed ? next : prev;
+      });
+    }, 300);
+    return () => clearTimeout(timer);
   }, [visibleTabKeys]);
 
   // Use debounced search key for auto-switch logic
@@ -1224,93 +1228,91 @@ function RecipientQuickSelect({
   }
 
   return (
-    <Animated.View entering={FadeIn.duration(200)}>
-      <YStack mt="$3" gap="$3">
-        <SegmentControl
-          fullWidth
-          value={activeTab}
-          options={tabOptions}
-          onChange={(value) => {
-            // Record the current search key to prevent auto-switch until user types again
-            lastManualSwitchSearchKeyRef.current = trimmedSearchKey;
-            const toTab = value as IRecipientQuickSelectTab;
-            defaultLogger.transaction.send.quickSelectTabSwitch({
-              network: networkId,
-              fromTab: activeTab,
-              toTab,
-              isAutoSwitch: false,
-            });
-            setActiveTab(toTab);
-          }}
-        />
-        <Stack mx={-20} pb="$3">
-          {/* Render active tab, or visited tabs (hidden with display:none to avoid unmount crashes) */}
-          {!isRecentHidden && (activeTab === 'recent' || visitedTabs.recent) ? (
-            <Stack display={activeTab === 'recent' ? 'flex' : 'none'}>
-              <RecentRecipients
-                compact
-                accountId={accountId}
-                networkId={networkId}
-                searchKey={searchKey}
-                isSearchMode={isSearchMode}
-                onSelect={(params) => {
-                  // Reset input type to Manual to prevent auto-navigation from Recent tab
-                  onInputTypeChange?.(EInputAddressChangeType.Manual);
-                  onSelect?.({
-                    ...params,
-                    quickSelectTab: 'recent',
-                    ...getSearchContext(),
-                  });
-                }}
-                onMatchStatusChange={handleRecentMatchStatus}
-                onLastUsedDeriveTypeChange={setLastUsedDeriveType}
-              />
-            </Stack>
-          ) : null}
-          {activeTab === 'account' || visitedTabs.account ? (
-            <Stack display={activeTab === 'account' ? 'flex' : 'none'}>
-              <AccountRecipients
-                networkId={networkId}
-                senderDeriveType={senderDeriveType}
-                lastUsedDeriveType={lastUsedDeriveType}
-                searchKey={searchKey}
-                debouncedSearchKey={debouncedSearchKey}
-                isSearchMode={isSearchMode}
-                keylessWalletsOnly={keylessWalletsOnly}
-                onInputTypeChange={onInputTypeChange}
-                onSelect={({ address }) =>
-                  onSelect?.({
-                    address,
-                    quickSelectTab: 'account',
-                    ...getSearchContext(),
-                  })
-                }
-                onMatchStatusChange={handleAccountMatchStatus}
-              />
-            </Stack>
-          ) : null}
-          {activeTab === 'addressBook' || visitedTabs.addressBook ? (
-            <Stack display={activeTab === 'addressBook' ? 'flex' : 'none'}>
-              <AddressBookRecipients
-                networkId={networkId}
-                searchKey={searchKey}
-                debouncedSearchKey={debouncedSearchKey}
-                isSearchMode={isSearchMode}
-                onInputTypeChange={onInputTypeChange}
-                onSelect={(params) =>
-                  onSelect?.({
-                    ...params,
-                    quickSelectTab: 'addressBook',
-                    ...getSearchContext(),
-                  })
-                }
-                onMatchStatusChange={handleAddressBookMatchStatus}
-              />
-            </Stack>
-          ) : null}
-        </Stack>
-      </YStack>
-    </Animated.View>
+    <YStack mt="$3" gap="$3">
+      <SegmentControl
+        fullWidth
+        value={activeTab}
+        options={tabOptions}
+        onChange={(value) => {
+          // Record the current search key to prevent auto-switch until user types again
+          lastManualSwitchSearchKeyRef.current = trimmedSearchKey;
+          const toTab = value as IRecipientQuickSelectTab;
+          defaultLogger.transaction.send.quickSelectTabSwitch({
+            network: networkId,
+            fromTab: activeTab,
+            toTab,
+            isAutoSwitch: false,
+          });
+          setActiveTab(toTab);
+        }}
+      />
+      <Stack mx={-20} pb="$3">
+        {/* Render active tab, or visited tabs (hidden with display:none to avoid unmount crashes) */}
+        {!isRecentHidden && (activeTab === 'recent' || visitedTabs.recent) ? (
+          <Stack display={activeTab === 'recent' ? 'flex' : 'none'}>
+            <RecentRecipients
+              compact
+              accountId={accountId}
+              networkId={networkId}
+              searchKey={searchKey}
+              isSearchMode={isSearchMode}
+              onSelect={(params) => {
+                // Reset input type to Manual to prevent auto-navigation from Recent tab
+                onInputTypeChange?.(EInputAddressChangeType.Manual);
+                onSelect?.({
+                  ...params,
+                  quickSelectTab: 'recent',
+                  ...getSearchContext(),
+                });
+              }}
+              onMatchStatusChange={handleRecentMatchStatus}
+              onLastUsedDeriveTypeChange={setLastUsedDeriveType}
+            />
+          </Stack>
+        ) : null}
+        {activeTab === 'account' || visitedTabs.account ? (
+          <Stack display={activeTab === 'account' ? 'flex' : 'none'}>
+            <AccountRecipients
+              networkId={networkId}
+              senderDeriveType={senderDeriveType}
+              lastUsedDeriveType={lastUsedDeriveType}
+              searchKey={searchKey}
+              debouncedSearchKey={debouncedSearchKey}
+              isSearchMode={isSearchMode}
+              keylessWalletsOnly={keylessWalletsOnly}
+              onInputTypeChange={onInputTypeChange}
+              onSelect={({ address }) =>
+                onSelect?.({
+                  address,
+                  quickSelectTab: 'account',
+                  ...getSearchContext(),
+                })
+              }
+              onMatchStatusChange={handleAccountMatchStatus}
+            />
+          </Stack>
+        ) : null}
+        {activeTab === 'addressBook' || visitedTabs.addressBook ? (
+          <Stack display={activeTab === 'addressBook' ? 'flex' : 'none'}>
+            <AddressBookRecipients
+              networkId={networkId}
+              searchKey={searchKey}
+              debouncedSearchKey={debouncedSearchKey}
+              isSearchMode={isSearchMode}
+              onInputTypeChange={onInputTypeChange}
+              onSelect={(params) =>
+                onSelect?.({
+                  ...params,
+                  quickSelectTab: 'addressBook',
+                  ...getSearchContext(),
+                })
+              }
+              onMatchStatusChange={handleAddressBookMatchStatus}
+            />
+          </Stack>
+        ) : null}
+      </Stack>
+    </YStack>
   );
 }
 
