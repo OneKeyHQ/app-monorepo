@@ -31,7 +31,7 @@ export enum EOnboardingV2OneKeyIDLoginMode {
 
 export enum EOnboardingPagesV2 {
   GetStarted = 'GetStarted',
-  AddExistingWallet = 'AddExistingWallet',
+  CreateNewWallet = 'CreateNewWallet',
   CreateOrImportWallet = 'CreateOrImportWallet',
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   PickYourDevice = 'PickYourDevice',
@@ -69,16 +69,14 @@ interface IVerifyRecoveryPhraseParams {
 export type IOnboardingAutoConnectOrigin = string;
 
 export type IOnboardingParamListV2 = {
-  [EOnboardingPagesV2.GetStarted]: {
+  [EOnboardingPagesV2.GetStarted]: undefined;
+  [EOnboardingPagesV2.CreateNewWallet]: {
     fromExt?: boolean;
     autoConnectOrigin?: IOnboardingAutoConnectOrigin;
     autoLoginKeylessProvider?: EOAuthSocialLoginProvider;
     autoConnectNonce?: string;
   };
-  [EOnboardingPagesV2.AddExistingWallet]: undefined;
-  [EOnboardingPagesV2.CreateOrImportWallet]: {
-    fullOptions?: boolean;
-  };
+  [EOnboardingPagesV2.CreateOrImportWallet]: undefined;
   [EOnboardingPagesV2.FinalizeWalletSetup]: {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;

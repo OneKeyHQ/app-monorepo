@@ -11,8 +11,8 @@ const GetStarted = LazyLoadPage(
   false,
   <OnboardingLayoutFallback />,
 );
-const AddExistingWallet = LazyLoadPage(
-  () => import('../pages/AddExistingWallet'),
+const CreateNewWallet = LazyLoadPage(
+  () => import('../pages/CreateNewWallet'),
   undefined,
   false,
   <OnboardingLayoutFallback />,
@@ -188,14 +188,16 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
     rewrite: '/get-started',
   },
   {
-    name: EOnboardingPagesV2.AddExistingWallet,
-    component: AddExistingWallet,
+    name: EOnboardingPagesV2.CreateNewWallet,
+    component: CreateNewWallet,
     options: hiddenHeaderOptions,
+    rewrite: '/create-new-wallet',
   },
   {
     name: EOnboardingPagesV2.CreateOrImportWallet,
     component: CreateOrImportWallet,
     options: hiddenHeaderOptions,
+    rewrite: '/create-or-import-wallet',
   },
   {
     name: EOnboardingPagesV2.FinalizeWalletSetup,
