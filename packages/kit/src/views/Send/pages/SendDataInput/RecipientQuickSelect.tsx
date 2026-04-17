@@ -35,6 +35,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import type {
+  IDBIndexedAccount,
   IDBUtxoAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -224,6 +225,7 @@ QuickSelectListItem.displayName = 'QuickSelectListItem';
 // Account with derive type info
 type IAccountWithDeriveInfo = {
   account: INetworkAccount;
+  indexedAccount?: IDBIndexedAccount;
   deriveInfo?: IAccountDeriveInfo;
   deriveType?: string;
   // The actual historical address that matched the current search (OK-53313).
@@ -560,6 +562,7 @@ function AccountRecipients({
     | {
         type: 'account';
         account: INetworkAccount;
+        indexedAccount?: IDBIndexedAccount;
         matchedAddress?: string;
         walletId: string;
         walletName: string;
@@ -586,6 +589,7 @@ function AccountRecipients({
           items.push({
             type: 'account',
             account: item.account,
+            indexedAccount: item.indexedAccount,
             matchedAddress: item.matchedAddress,
             walletId: section.walletId,
             walletName: section.title,
@@ -716,19 +720,20 @@ function AccountRecipients({
         if (!item.account) {
           return null;
         }
-        const { account, matchedAddress, walletId, wallet } = item;
+        const {
+          account,
+          indexedAccount: itemIndexedAccount,
+          matchedAddress,
+          walletId,
+          wallet,
+        } = item;
         const currentAddress =
           account.addressDetail?.displayAddress ??
           account.address ??
           account.addressDetail?.address ??
           '';
-        // Prefer the matched historical address (OK-53313) so the user sees
-        // exactly what they typed instead of the current rotating fresh
-        // address.
         const itemAddress = matchedAddress ?? currentAddress;
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
-
-        // Wallet name is already shown in the section header, only show account name
         const displayName = account.name ?? '';
 
         return (
@@ -741,9 +746,10 @@ function AccountRecipients({
               displayAddress: itemAddress,
               walletId,
               wallet,
-              // Align with AccountSelector: pass account + wallet + networkId
-              // so avatar renders consistent blockies + wallet badge + network badge.
-              // address fallback for imported accounts with empty account.address.
+              // Align with AccountSelector avatar rendering:
+              // indexedAccount for stable blockies seed (idHash),
+              // address fallback for imported accounts,
+              // networkId for network badge.
               customRenderAvatar: () => (
                 <AccountAvatar
                   size="default"
@@ -752,6 +758,7 @@ function AccountRecipients({
                     account.addressDetail?.displayAddress ||
                     account.id
                   }
+                  indexedAccount={itemIndexedAccount}
                   account={account}
                   wallet={wallet}
                   networkId={networkId}

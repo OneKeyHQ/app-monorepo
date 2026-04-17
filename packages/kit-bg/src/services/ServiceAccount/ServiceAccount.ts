@@ -4697,6 +4697,7 @@ class ServiceAccount extends ServiceBase {
       isHardwareWallet: boolean;
       accounts: Array<{
         account: INetworkAccount;
+        indexedAccount?: IDBIndexedAccount;
         deriveInfo?: IAccountDeriveInfo;
         deriveType?: string;
       }>;
@@ -4785,11 +4786,17 @@ class ServiceAccount extends ServiceBase {
         accounts = perIndexed
           .flat()
           .filter((a) => a.account)
-          .map((a) => ({
-            account: a.account as INetworkAccount,
-            deriveInfo: a.deriveInfo,
-            deriveType: a.deriveType,
-          }));
+          .map((a) => {
+            const acc = a.account as INetworkAccount;
+            return {
+              account: acc,
+              indexedAccount: acc.indexedAccountId
+                ? indexedAccountMap.get(acc.indexedAccountId)
+                : undefined,
+              deriveInfo: a.deriveInfo,
+              deriveType: a.deriveType,
+            };
+          });
       } else if (dbAccounts?.length) {
         const networkImpl = networkUtils.getNetworkImpl({ networkId });
         accounts = dbAccounts
