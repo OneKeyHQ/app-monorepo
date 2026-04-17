@@ -77,24 +77,82 @@ The freeze is driven by `setPushViewControllers: SKIPPED - container window not 
     │                                  UI updates immediately ✓
 ```
 
-### Orphan accumulation across repeated cycles
+### Confirmed trigger: UniversalSearch → DApp → Discovery (single cycle)
 
 ```
-Cycle 1: Search → pick DApp → switchTab(Discovery)
-  └─ Home inner stack orphaned (window=NIL, retry 50×)
+User taps search icon on Home tab
+│
+T+0      pushModal(UniversalSearchModal)
+│        Root state: [Main(home), UniversalSearchModal]
+│        Main detached (detachInactiveScreens=true)
+│        Home inner RNSScreenStack → window=NIL
+│
+│        ... user types, sees DApp results, taps one ...
+│
+T+100ms  UniversalSearchDappItem.handlePress()
+│        └─ setTimeout(100ms) → handleWebSite() → handleOpenWebSite()
+│
+│        handleOpenWebSite does 3 things concurrently:
+│        ┌─────────────────────────────────────────────────────────┐
+│        │ ① navigation.switchTab(Discovery)          [sync]      │
+│        │   └─ navigate(Main, {screen:Discovery}, {pop:true})    │
+│        │      ┌─────────────────────────────────────────┐       │
+│        │      │ UIKit receives in ONE tick:              │       │
+│        │      │  a. dismissVC(SearchModal, animated:YES) │       │
+│        │      │  b. tabBar.selectedIndex = Discovery     │       │
+│        │      │  c. Main re-attach to view tree          │       │
+│        │      └──────────────────────────────────────────┘       │
+│        │                                                         │
+│        │ ② setTimeout(150ms) → emit SwitchDiscoveryTabInNative  │
+│        │                                                         │
+│        │ ③ setTimeout(300ms) → openMatchDApp → push DApp webview│
+│        └─────────────────────────────────────────────────────────┘
+│
+│        During ① UIKit overlap:
+│          Home tab inner stack (was active before switch):
+│            - Main re-attaches, but tab switches to Discovery
+│            - Discovery inner stack gets window=YES
+│            - Home inner stack: didMoveToWindow MISSED → ORPHAN
+│              window=NIL, superview=NIL
+│              → starts retry: 1/50, 2/50, ... 50/50 → give up
+│
+T+250ms  ② fires: SwitchDiscoveryTabInNative event
+│        (another state update while orphan is retrying)
+│
+T+400ms  ③ fires: openMatchDApp pushes DApp webview into Discovery
+│        (yet another state transition)
+│
+│        Result: 1 orphan RNSScreenStack created this cycle
+```
 
-Cycle 2: Search → pick DApp → switchTab(Discovery)
-  └─ Home inner stack orphaned AGAIN (new instance)
-     └─ Previous orphan still retrying or gave up
+### Orphan accumulation across repeated cycles (3-5x to reproduce)
 
-Cycle 3: Search → pick DApp → switchTab(Discovery)
-  └─ 3rd orphan created
-     └─ Fabric may now bind to orphan #1 or #2 instead of live view
-
-Cycle N: Chain selector → pick chain → dismiss modal
-  └─ Fabric commits network change to orphan view
-     └─ User sees frozen UI (stale CALayer from pre-chain-switch)
-     └─ Touch → hitTest finds live view → relayout → unfreeze
+```
+Cycle 1: Home → Search → pick DApp → switchTab(Discovery)
+│  Home inner stack → orphan #1 (window=NIL, retry 50×100ms = 5s)
+│  User goes back to Home tab, sees it working (NEW stack instance)
+│
+Cycle 2: Home → Search → pick DApp → switchTab(Discovery)
+│  Home inner stack → orphan #2
+│  orphan #1: still retrying or already gave up
+│
+Cycle 3: Home → Search → pick DApp → switchTab(Discovery)
+│  Home inner stack → orphan #3
+│  3 orphans now competing for main thread time
+│  Fabric's view registry may now point to orphan #1 or #2
+│
+...after N cycles...
+│
+Trigger: Home → Chain selector → pick new chain → dismiss modal
+│  Jotai atom updates (networkId changed)
+│  React reconciles Home component with new network
+│  Fabric commits props to Home's shadow node
+│  ├─ Mount target: orphan #2's UIView (stale, detached, not in window)
+│  └─ On-screen: live view showing OLD chain data (CALayer cache)
+│
+│  User sees: "UI frozen after chain switch"
+│  User touches screen → UIKit hitTest → finds live view → relayout
+│  → Live view re-reads latest props → UI unfreezes
 ```
 
 ## Useful navigation primitives (from `@onekeyhq/components`)
