@@ -230,7 +230,7 @@ function ProcessingDialogContent({
           isFlowEnded
             ? async () => {
                 if (!isCancelled) {
-                  navigation?.popStack();
+                  void navigation?.popStack();
                 }
                 await backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
               }
