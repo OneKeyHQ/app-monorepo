@@ -4703,6 +4703,7 @@ class ServiceAccount extends ServiceBase {
       isHardwareWallet: boolean;
       accounts: Array<{
         account: INetworkAccount;
+        indexedAccount?: IDBIndexedAccount;
         deriveInfo?: IAccountDeriveInfo;
         deriveType?: string;
       }>;
@@ -4721,7 +4722,23 @@ class ServiceAccount extends ServiceBase {
       includingAccounts: true,
     });
 
-    const { accounts: allDbAccounts } = await localDb.getAllAccounts();
+    const [{ accounts: allDbAccounts }, { indexedAccounts }] =
+      await Promise.all([
+        localDb.getAllAccounts(),
+        localDb.getAllIndexedAccounts(),
+      ]);
+    // Patch account names from indexedAccount (same as refillAccountInfo)
+    // so pre-fetched accounts show the user's custom name, not the
+    // vault-generated default like "APT #1".
+    const indexedAccountMap = new Map(indexedAccounts.map((ia) => [ia.id, ia]));
+    for (const acc of allDbAccounts) {
+      if (acc.indexedAccountId) {
+        const ia = indexedAccountMap.get(acc.indexedAccountId);
+        if (ia) {
+          acc.name = ia.name;
+        }
+      }
+    }
 
     const resolveWallet = async (
       wallet: IDBWallet,
@@ -4732,6 +4749,7 @@ class ServiceAccount extends ServiceBase {
       isHardwareWallet: boolean;
       accounts: Array<{
         account: INetworkAccount;
+        indexedAccount?: IDBIndexedAccount;
         deriveInfo?: IAccountDeriveInfo;
         deriveType?: string;
       }>;
@@ -4748,6 +4766,7 @@ class ServiceAccount extends ServiceBase {
       const { dbIndexedAccounts, dbAccounts } = wallet;
       let accounts: Array<{
         account: INetworkAccount;
+        indexedAccount?: IDBIndexedAccount;
         deriveInfo?: IAccountDeriveInfo;
         deriveType?: string;
       }> = [];
@@ -4775,11 +4794,17 @@ class ServiceAccount extends ServiceBase {
         accounts = perIndexed
           .flat()
           .filter((a) => a.account)
-          .map((a) => ({
-            account: a.account as INetworkAccount,
-            deriveInfo: a.deriveInfo,
-            deriveType: a.deriveType,
-          }));
+          .map((a) => {
+            const acc = a.account as INetworkAccount;
+            return {
+              account: acc,
+              indexedAccount: acc.indexedAccountId
+                ? indexedAccountMap.get(acc.indexedAccountId)
+                : undefined,
+              deriveInfo: a.deriveInfo,
+              deriveType: a.deriveType,
+            };
+          });
       } else if (dbAccounts?.length) {
         const networkImpl = networkUtils.getNetworkImpl({ networkId });
         accounts = dbAccounts

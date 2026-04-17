@@ -4067,7 +4067,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               account = await this.getAccount({ accountId });
             }
             if (wallet && account) {
-              if (this.isTempWalletRemoved({ wallet })) {
+              if (
+                this.isTempWalletRemoved({ wallet }) ||
+                accountUtils.isWalletDeprecatedOrMocked(wallet)
+              ) {
                 // eslint-disable-next-line no-continue
                 continue;
               }

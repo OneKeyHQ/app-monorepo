@@ -24,7 +24,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IXprvtValidation,
@@ -318,9 +317,6 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     // 4236794462
     const fingerprintBuf = ripemd160Buf.slice(0, 4);
     const fingerprintHex = bufferUtils.bytesToHex(fingerprintBuf);
-    // const fingerprintInt = fingerprintBuf.readUInt32BE(0);
-    const fingerprintInt = numberUtils.hexToDecimal(fingerprintHex);
-    const fingerprintHexCheck = numberUtils.numberToHex(fingerprintInt);
 
     const taprootChild = root.derivePath(BTC_FIRST_TAPROOT_PATH);
     const firstTaprootXpub = taprootChild.neutered().toBase58();
@@ -328,14 +324,6 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     const fullXfp = accountUtils.buildFullXfp({
       xfp: fingerprintHex,
       firstTaprootXpub,
-    });
-
-    console.log('generateXfpFromMnemonic', {
-      fulXfp: fullXfp,
-      firstTaprootXpub,
-      fingerprintHex,
-      fingerprintInt,
-      fingerprintHexCheck,
     });
 
     if (!fullXfp) {
@@ -1081,11 +1069,6 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       signers,
       payload,
     });
-
-    if (process.env.NODE_ENV !== 'production') {
-      const buildPsbtHex = psbt.toHex();
-      console.log('BTC buildPsbtHex:', buildPsbtHex);
-    }
 
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < encodedTx.inputs.length; ++i) {

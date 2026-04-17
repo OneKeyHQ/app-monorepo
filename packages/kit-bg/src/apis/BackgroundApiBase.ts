@@ -38,6 +38,7 @@ import { jotaiInit } from '../states/jotai/jotaiInit';
 
 import {
   isExtensionInternalCall,
+  isProviderApiPrivateAllowedKeylessOrigin,
   isProviderApiPrivateAllowedMethod,
   isProviderApiPrivateAllowedOrigin,
   isProviderApiPrivateKeylessMethod,
@@ -328,6 +329,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   ): Promise<IJsonRpcResponse<any>> {
     const { scope, origin } = payload;
     const payloadData = payload?.data as IJsonRpcRequest;
+    const isKeylessPrivateMethod = isProviderApiPrivateKeylessMethod(
+      payloadData?.method,
+    );
     const provider: ProviderApiBase | null =
       this.providers[scope as IInjectedProviderNames];
     if (!provider) {
@@ -337,9 +341,10 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
     if (
       scope === IInjectedProviderNames.$private &&
-      ((isProviderApiPrivateKeylessMethod(payloadData?.method) &&
-        !isProviderApiPrivateAllowedOrigin(origin)) ||
-        (!isProviderApiPrivateAllowedOrigin(origin) &&
+      ((isKeylessPrivateMethod &&
+        !isProviderApiPrivateAllowedKeylessOrigin(origin)) ||
+        (!isKeylessPrivateMethod &&
+          !isProviderApiPrivateAllowedOrigin(origin) &&
           !isProviderApiPrivateAllowedMethod(payloadData?.method)))
     ) {
       const error = new Error(

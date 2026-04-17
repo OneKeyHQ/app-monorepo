@@ -38,7 +38,6 @@ export function WalletActionExport({ onClose }: { onClose: () => void }) {
 
   const exportAccountCredentialKey = useCallback(
     async ({ keyType }: { keyType: ECoreApiExportedSecretKeyType }) => {
-      console.log('ExportSecretKeys >>>> ', keyType);
       let r: string | undefined = '';
       if (
         keyType === ECoreApiExportedSecretKeyType.xpub ||
@@ -56,13 +55,6 @@ export function WalletActionExport({ onClose }: { onClose: () => void }) {
           keyType,
         });
       }
-      console.log('ExportSecretKeys >>>> ', r);
-      console.log(
-        'ExportSecretKeys >>>> ',
-        wallet?.type,
-        keyType,
-        account?.address,
-      );
       Dialog.show({
         title: 'Key',
         description: r,
@@ -73,14 +65,7 @@ export function WalletActionExport({ onClose }: { onClose: () => void }) {
       });
       onClose();
     },
-    [
-      wallet?.type,
-      account?.address,
-      account?.id,
-      network?.id,
-      copyText,
-      onClose,
-    ],
+    [account?.id, network?.id, copyText, onClose],
   );
 
   if (
