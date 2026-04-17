@@ -19,6 +19,84 @@ The patched `RNSScreenStack` in this repo retries its pending container update e
 
 The freeze is driven by `setPushViewControllers: SKIPPED - container window not ready` on an **inner tab's** screen stack, not by the modal dismiss itself. The modal is already gone; the underlying tab stack is the one that cannot commit the update it was queued to run.
 
+### Race condition flow diagram
+
+```
+❌ BAD: navigate(Main, {pop:true}) — 3 UIKit transitions in one tick
+
+  JS dispatch                         UIKit (main thread)
+  ─────────                           ──────────────────
+  navigate(Main,{pop:true})
+    │
+    ├─ React Nav state:               ┌─────────────────────────────┐
+    │  [Main(home), Modal]             │ 1. dismissVC(animated:YES)  │
+    │  → [Main(discovery)]             │ 2. tabBar.selectedIndex = 2 │ ← all in same tick
+    │                                  │ 3. Main re-attach (detach   │
+    │                                  │    reversal)                │
+    │                                  └──────────┬──────────────────┘
+    │                                             │
+    │                                  Home tab inner stack:
+    │                                    didMoveToWindow? ──── MISSED
+    │                                    window=NIL ──────── ORPHAN
+    │                                    retry 1/50 (100ms)
+    │                                    retry 2/50 (100ms)
+    │                                    ...
+    │                                    retry 50/50 → give up
+    │                                             │
+    │                                  Fabric commits to orphan view
+    │                                  User sees stale CALayer
+    │                                             │
+    Touch ─────────────────────────── hitTest → relayout → UI unfreezes
+
+
+✅ GOOD: switchTabAsync / navigate interceptor — serialized
+
+  JS dispatch                         UIKit (main thread)
+  ─────────                           ──────────────────
+  resetAboveMainRoute()
+    │                                  ┌──────────────────────────┐
+    ├─ state: [Main(home), Modal]      │ 1. CommonActions.reset   │
+    │  → [Main(home)]                  │    → state swap, no      │
+    │                                  │      animated dismiss    │
+    │                                  │    → Modal removed       │
+    │                                  └──────────┬───────────────┘
+    │                                             │
+    await 100ms ◄─── UIKit settles ───────────────┘
+    │                                  Main is now topmost
+    │                                  All tab stacks: window=YES ✓
+    │
+  navigate(Main, {screen: discovery})
+    │                                  ┌──────────────────────────┐
+    ├─ state: [Main(home)]             │ 2. tabBar.selectedIndex  │
+    │  → [Main(discovery)]             │    = discovery            │
+    │                                  │    (single transition,   │
+    │                                  │     no overlap)          │
+    │                                  └──────────────────────────┘
+    │
+    │                                  Fabric commits to correct view ✓
+    │                                  UI updates immediately ✓
+```
+
+### Orphan accumulation across repeated cycles
+
+```
+Cycle 1: Search → pick DApp → switchTab(Discovery)
+  └─ Home inner stack orphaned (window=NIL, retry 50×)
+
+Cycle 2: Search → pick DApp → switchTab(Discovery)
+  └─ Home inner stack orphaned AGAIN (new instance)
+     └─ Previous orphan still retrying or gave up
+
+Cycle 3: Search → pick DApp → switchTab(Discovery)
+  └─ 3rd orphan created
+     └─ Fabric may now bind to orphan #1 or #2 instead of live view
+
+Cycle N: Chain selector → pick chain → dismiss modal
+  └─ Fabric commits network change to orphan view
+     └─ User sees frozen UI (stale CALayer from pre-chain-switch)
+     └─ Touch → hitTest finds live view → relayout → unfreeze
+```
+
 ## Useful navigation primitives (from `@onekeyhq/components`)
 
 | Function | Behavior | Use when |

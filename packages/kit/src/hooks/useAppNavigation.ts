@@ -21,8 +21,8 @@ import type {
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo';
-import type { ETabRoutes, IModalParamList } from '@onekeyhq/shared/src/routes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ETabRoutes, IModalParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 const getModalRoute = () => {
@@ -467,7 +467,11 @@ function useAppNavigation<
       // uses navigate(Main, {pop:true}) which overlaps modal dismiss + tab
       // switch + Main re-attach in one UIKit tick, creating orphan
       // RNSScreenStack instances on iOS that accumulate and freeze the UI.
-      if (platformEnv.isNativeIOS && screen === ERootRoutes.Main && options?.pop) {
+      if (
+        platformEnv.isNativeIOS &&
+        screen === ERootRoutes.Main &&
+        options?.pop
+      ) {
         const rootState = rootNavigationRef.current?.getRootState();
         const topRoute = rootState?.routes?.[rootState?.index ?? 0];
         const hasOverlay = topRoute?.name !== ERootRoutes.Main;
