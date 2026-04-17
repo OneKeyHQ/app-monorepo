@@ -110,6 +110,24 @@ function buildGroupedPositionKey({
   return `${groupId}-${category}`;
 }
 
+function getSafeGroupedPositionId({
+  position,
+  positionIndex,
+}: {
+  position: IDeFiPosition;
+  positionIndex: number;
+}) {
+  const normalizedGroupId = position.groupId?.trim();
+
+  if (normalizedGroupId) {
+    return normalizedGroupId;
+  }
+
+  // Fail closed when upstream group_id is missing so unrelated positions
+  // never collapse into one UI group.
+  return `__ungrouped__${position.protocol}-${position.category}-${positionIndex}`;
+}
+
 function transferPositionMap(
   positionMap: Map<
     string,
@@ -189,7 +207,7 @@ function transformDeFiData({
   });
 
   Object.values(positions).forEach((networkPositions) => {
-    networkPositions.forEach((position) => {
+    networkPositions.forEach((position, positionIndex) => {
       const protocolPositionsMapKey = `${position.networkId}-${position.protocol}`;
 
       if (!protocolPositionsMap.has(protocolPositionsMapKey)) {
@@ -224,8 +242,13 @@ function transformDeFiData({
         categorySet: Set<string>;
       };
 
+      const safeGroupId = getSafeGroupedPositionId({
+        position,
+        positionIndex,
+      });
+
       const positionKey = buildGroupedPositionKey({
-        groupId: position.groupId,
+        groupId: safeGroupId,
         category: position.category,
       });
 
@@ -234,7 +257,7 @@ function transformDeFiData({
           position.name,
         );
         protocolPositionsMapValue.positionMap.set(positionKey, {
-          groupId: position.groupId,
+          groupId: safeGroupId,
           poolName: targetString,
           poolFullName: originalString,
           category: position.category,

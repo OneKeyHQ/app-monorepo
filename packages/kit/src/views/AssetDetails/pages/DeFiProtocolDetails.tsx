@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ProtocolPositionActionShell } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionShell';
 import { ProtocolPositionSection } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionSection';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -192,6 +193,11 @@ function DeFiProtocolDetails() {
                   />
                 ))}
               </YStack>
+              {position.action ? (
+                <Stack pt="$2">
+                  <ProtocolPositionActionShell action={position.action} />
+                </Stack>
+              ) : null}
               {index !== positions.length - 1 ? (
                 <Divider mt="$2" mb="$3" />
               ) : null}
