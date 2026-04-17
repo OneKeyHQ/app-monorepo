@@ -13,13 +13,13 @@ export type ITranslateRequest = {
   targetLang: string;
 };
 
-type TranslateHandler = (data: ITranslateRequest) => void;
+type ITranslateHandler = (data: ITranslateRequest) => void;
 
-const handlers: Record<string, TranslateHandler> = {};
+const handlers: Record<string, ITranslateHandler> = {};
 
 export function registerTranslateHandler(
   tabId: string,
-  handler: TranslateHandler,
+  handler: ITranslateHandler,
 ) {
   handlers[tabId] = handler;
 }
@@ -32,10 +32,10 @@ function dispatchTranslateMessage(tabId: string, data: ITranslateRequest) {
   handlers[tabId]?.(data);
 }
 
-type NavigationCallback = () => void;
-const navigationCallbacks: Record<string, NavigationCallback> = {};
+type INavigationCallback = () => void;
+const navigationCallbacks: Record<string, INavigationCallback> = {};
 
-export function onTabNavigation(tabId: string, cb: NavigationCallback) {
+export function onTabNavigation(tabId: string, cb: INavigationCallback) {
   navigationCallbacks[tabId] = cb;
 }
 

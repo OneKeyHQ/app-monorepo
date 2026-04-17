@@ -162,13 +162,6 @@ function BatchCreateAccountPreviewPage({
   const deselectedExistingIndexesRef = useRef<{
     [pathIndex: number]: true;
   }>({});
-  // Store deselection state per network+deriveType so switching preserves selections
-  const deselectedCacheRef = useRef<{
-    [cacheKey: string]: {
-      indexes: { [pathIndex: number]: true };
-      accounts: { [pathIndex: number]: IBatchCreateAccount };
-    };
-  }>({});
   const selectedIndexesCount = useMemo(
     () => Object.values(normalSelectedIndexes).filter(Boolean).length,
     [normalSelectedIndexes],
@@ -229,9 +222,6 @@ function BatchCreateAccountPreviewPage({
     [intl, maxPage],
   );
 
-  const prevNetworkIdRef = useRef<string | undefined>(networkId);
-  const prevDeriveTypeRef = useRef<string | undefined>(deriveType);
-
   const enableAdvancedMode = useCallback(
     (values: IBatchCreateAccountFormValues) => {
       setPage(minPage);
@@ -240,11 +230,9 @@ function BatchCreateAccountPreviewPage({
       setDeselectedExistingIndexes({});
       deselectedExistingIndexesRef.current = {};
       deselectedExistingAccountsRef.current = {};
-      deselectedCacheRef.current = {};
       setFrom(values.from);
       setCount(values.count);
       setDeriveType(values.deriveType);
-      prevDeriveTypeRef.current = values.deriveType;
       setIsAdvancedMode(true);
     },
     [],
@@ -343,46 +331,15 @@ function BatchCreateAccountPreviewPage({
     },
   );
 
-  // Save current deselection state to cache (reads from refs to avoid stale closures)
-  const saveDeselectionToCache = useCallback(() => {
-    const prevNet = prevNetworkIdRef.current;
-    const prevDt = prevDeriveTypeRef.current;
-    if (prevNet) {
-      const key = `${prevNet}__${prevDt ?? ''}`;
-      deselectedCacheRef.current[key] = {
-        indexes: { ...deselectedExistingIndexesRef.current },
-        accounts: { ...deselectedExistingAccountsRef.current },
-      };
-    }
-  }, []);
-
-  // Restore deselection state from cache, or reset
-  const restoreDeselectionFromCache = useCallback(
-    (net: string, dt?: string) => {
-      const key = `${net}__${dt ?? ''}`;
-      const saved = deselectedCacheRef.current[key];
-      if (saved) {
-        setDeselectedExistingIndexes(saved.indexes);
-        deselectedExistingIndexesRef.current = saved.indexes;
-        deselectedExistingAccountsRef.current = saved.accounts;
-      } else {
-        setDeselectedExistingIndexes({});
-        deselectedExistingIndexesRef.current = {};
-        deselectedExistingAccountsRef.current = {};
-      }
-    },
-    [],
-  );
-
   useEffect(() => {
     if (networkId) {
-      if (prevNetworkIdRef.current !== networkId) {
-        saveDeselectionToCache();
-        prevNetworkIdRef.current = networkId;
-        // deriveType will reset to undefined on network change
-        prevDeriveTypeRef.current = undefined;
-        restoreDeselectionFromCache(networkId, undefined);
-      }
+      // Both normalSelectedIndexes and deselectedExistingIndexes are kept
+      // global across network/deriveType changes (OK-51089). The user's
+      // intent — add at index 6, remove at index 3 — is wallet-level: add
+      // creates indexedAccounts, remove drops indexedAccounts which
+      // cascades to all networks under the wallet. So when the user
+      // switches networks the same checked pattern is what they expect to
+      // see, not a fresh canvas.
       setDeriveType(undefined);
       setResult([]);
       // DeriveTypeSelectorFormInput shouldResetDeriveTypeWhenNetworkChanged will handle this internally
@@ -568,12 +525,7 @@ function BatchCreateAccountPreviewPage({
           onItemsChange={setDeriveTypeItems}
           onChange={(v) => {
             if (deriveType !== v) {
-              saveDeselectionToCache();
               setDeriveType(v);
-              prevDeriveTypeRef.current = v;
-              if (networkId) {
-                restoreDeselectionFromCache(networkId, v);
-              }
             }
           }}
           networkId={networkId || ''}
@@ -625,8 +577,6 @@ function BatchCreateAccountPreviewPage({
       networkId,
       showPopoverDeriveTypeInfo,
       networkIdsCompatibleAccount,
-      saveDeselectionToCache,
-      restoreDeselectionFromCache,
     ],
   );
 

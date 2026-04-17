@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
@@ -9,6 +8,7 @@ import {
   getAddressValidateTranslationId,
   queryAddressWithFallback,
 } from '@onekeyhq/kit/src/components/AddressInput/utils';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSwapToAnotherAccountAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,6 +19,7 @@ type IUseSwapIncognitoRecipientInputParams = {
   clearRecipientAddressOnHide?: boolean;
   networkId?: string;
   accountId?: string;
+  accountInfo?: IAccountSelectorActiveAccountInfo;
   address?: string;
   swapToAnotherAccountSwitchOn: boolean;
 };
@@ -73,17 +74,17 @@ export function useSwapIncognitoRecipientInput({
   clearRecipientAddressOnHide,
   networkId,
   accountId,
+  accountInfo,
   address,
   swapToAnotherAccountSwitchOn,
 }: IUseSwapIncognitoRecipientInputParams) {
-  const intl = useIntl();
   const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const [inputText, setInputText] = useState('');
   const [queryResult, setQueryResult] = useState<IAddressQueryResult>({});
   const [loading, setLoading] = useState(false);
   const textRef = useRef('');
-  const skipExternalSyncRef = useRef(false);
+  const skipExternalSyncRef = useRef<string | null>(null);
   const validationSessionIdRef = useRef(0);
   const validationContextRef = useRef<IAddressValidationContext>({
     accountId,
@@ -112,24 +113,35 @@ export function useSwapIncognitoRecipientInput({
 
   const syncRecipientAddress = useCallback(
     (nextAddress?: string) => {
-      skipExternalSyncRef.current = true;
+      skipExternalSyncRef.current = nextAddress ?? '';
 
       setSettings((settings) => ({
         ...settings,
         swapToAnotherAccountSwitchOn: Boolean(nextAddress),
       }));
 
-      setSwapToAddress((value) => ({
-        ...value,
-        networkId: nextAddress ? networkId : undefined,
-        address: nextAddress,
-        accountInfo:
-          nextAddress && value.address === nextAddress
-            ? value.accountInfo
-            : undefined,
-      }));
+      setSwapToAddress((value) => {
+        let nextAccountInfo: IAccountSelectorActiveAccountInfo | undefined;
+
+        if (nextAddress) {
+          if (accountInfo) {
+            nextAccountInfo = {
+              ...accountInfo,
+            };
+          } else if (value.address === nextAddress) {
+            nextAccountInfo = value.accountInfo;
+          }
+        }
+
+        return {
+          ...value,
+          networkId: nextAddress ? networkId : undefined,
+          address: nextAddress,
+          accountInfo: nextAccountInfo,
+        };
+      });
     },
-    [networkId, setSettings, setSwapToAddress],
+    [accountInfo, networkId, setSettings, setSwapToAddress],
   );
 
   const queryAddress = useDebouncedCallback(async (currentText: string) => {
@@ -257,7 +269,10 @@ export function useSwapIncognitoRecipientInput({
       return;
     }
 
+    const isNetworkChanged = prevScope.networkId !== nextScope.networkId;
+
     resetValidationState({
+      clearInput: isNetworkChanged,
       clearRecipientAddress: true,
     });
   }, [
@@ -274,10 +289,11 @@ export function useSwapIncognitoRecipientInput({
     }
 
     const nextText = swapToAnotherAccountSwitchOn && address ? address : '';
+    const skipExternalSyncText = skipExternalSyncRef.current;
 
-    if (skipExternalSyncRef.current) {
-      skipExternalSyncRef.current = false;
-      if (textRef.current === nextText) {
+    if (skipExternalSyncText !== null) {
+      skipExternalSyncRef.current = null;
+      if (skipExternalSyncText === nextText) {
         return;
       }
     }
@@ -304,8 +320,25 @@ export function useSwapIncognitoRecipientInput({
   const handleInputChange = useCallback(
     (text: string) => {
       const nextText = stringUtils.stripLineBreaks(text);
+      const trimmedNextText = nextText.trim();
 
       if (textRef.current === nextText) {
+        const shouldKeepCurrentValidation =
+          !trimmedNextText ||
+          (queryResult.validStatus === 'valid' &&
+            swapToAnotherAccountSwitchOn &&
+            !!address);
+
+        if (shouldKeepCurrentValidation) {
+          return;
+        }
+
+        validationSessionIdRef.current += 1;
+        queryAddress.cancel();
+        setLoading(true);
+        setQueryResult({});
+        syncRecipientAddress(undefined);
+        void queryAddress(trimmedNextText);
         return;
       }
 
@@ -314,10 +347,16 @@ export function useSwapIncognitoRecipientInput({
       setQueryResult({});
       syncRecipientAddress(undefined);
     },
-    [syncRecipientAddress],
+    [
+      address,
+      queryAddress,
+      queryResult.validStatus,
+      swapToAnotherAccountSwitchOn,
+      syncRecipientAddress,
+    ],
   );
 
-  const errorMessage = useMemo(() => {
+  const errorTranslationId = useMemo(() => {
     if (!inputText.trim() || loading || queryResult.validStatus === 'valid') {
       return undefined;
     }
@@ -330,14 +369,12 @@ export function useSwapIncognitoRecipientInput({
       getAddressValidateTranslationId(queryResult.validStatus) ??
       ETranslations.send_address_invalid;
 
-    return intl.formatMessage({
-      id: translationId,
-    });
-  }, [inputText, intl, loading, queryResult.validStatus]);
+    return translationId;
+  }, [inputText, loading, queryResult.validStatus]);
 
   return {
     enabled,
-    errorMessage,
+    errorTranslationId,
     inputText,
     loading,
     onInputChange: handleInputChange,

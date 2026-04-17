@@ -25,6 +25,7 @@ export { default as BlockQuestionMark } from './BlockQuestionMark';
 export { default as BnbCircle } from './BnbCircle';
 export { default as BnbSmartChain } from './BnbSmartChain';
 export { default as BobaNetwork } from './BobaNetwork';
+export { default as Bot } from './Bot';
 export { default as BookPencilDark } from './BookPencilDark';
 export { default as BookPencil } from './BookPencil';
 export { default as BrandLogo } from './BrandLogo';

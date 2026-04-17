@@ -963,6 +963,9 @@ xprvt
 xpub
 xpub2blake2b224
 xpubkey
+xpubs
+Xpub
+Xpubs
 xpvt
 xrp
 Xrp
@@ -1432,3 +1435,4 @@ posthog
 Posthog
 autocapture
 hermesc
+ellipsize

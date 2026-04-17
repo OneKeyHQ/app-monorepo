@@ -3,7 +3,13 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { ActionList, Dialog, Divider, Toast } from '@onekeyhq/components';
+import {
+  ActionList,
+  Dialog,
+  Divider,
+  Toast,
+  resetAccountManagerStacksModal,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
@@ -17,11 +23,13 @@ import {
   useAccountSelectorContextData,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EAccountManagerStacksRoutes,
   EModalRoutes,
   EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes';
@@ -100,8 +108,10 @@ function WalletEditButtonView({
   }, [wallet, isKeyless]);
 
   const showBackupButton = useMemo(() => {
-    if (isKeyless) return false;
-    return accountUtils.isHdWallet({ walletId: wallet?.id });
+    return shouldShowMnemonicBackupEntryForWallet({
+      walletId: wallet?.id,
+      isKeylessWallet: isKeyless,
+    });
   }, [wallet, isKeyless]);
 
   const showBulkCopyAddressesButton = useMemo(() => {
@@ -119,6 +129,19 @@ function WalletEditButtonView({
       accountUtils.isHwWallet({ walletId: wallet?.id })
     );
   }, [wallet, isPrimeAvailable]);
+
+  const isBotWalletFeatureEnabled = useMemo(
+    () =>
+      Boolean(
+        devSettings.enabled && devSettings.settings?.enableBotWalletFeature,
+      ),
+    [devSettings.enabled, devSettings.settings?.enableBotWalletFeature],
+  );
+
+  const showBotWalletManagerButton = useMemo(
+    () => Boolean(isKeyless && wallet?.id && isBotWalletFeatureEnabled),
+    [isKeyless, wallet?.id, isBotWalletFeatureEnabled],
+  );
 
   const navigation = useAppNavigation();
 
@@ -154,7 +177,7 @@ function WalletEditButtonView({
           return;
         }
         if (platformEnv.isNative) {
-          navigation.popStack();
+          resetAccountManagerStacksModal();
           await timerUtils.wait(200);
         }
         await goToOneKeyIDLoginPageForKeylessWallet({ mode });
@@ -163,7 +186,7 @@ function WalletEditButtonView({
         void loadingDialog?.close();
       }
     },
-    [navigation, goToOneKeyIDLoginPageForKeylessWallet, intl],
+    [goToOneKeyIDLoginPageForKeylessWallet, intl],
   );
 
   const renderItems = useCallback(
@@ -209,7 +232,7 @@ function WalletEditButtonView({
               onPress={async (close) => {
                 if (wallet) {
                   close();
-                  navigation.popStack();
+                  resetAccountManagerStacksModal();
                   await timerUtils.wait(200);
                   void verifyKeylessPinChecking({ forceVerify: true, wallet });
                 }
@@ -239,6 +262,19 @@ function WalletEditButtonView({
               networkId={network?.id || ''}
               isPrimeUser={!!isPrimeUser}
               onClose={handleActionListClose}
+            />
+          ) : null}
+
+          {showBotWalletManagerButton ? (
+            <ActionList.Item
+              icon="WalletOutline"
+              label="Bot Wallets"
+              onClose={handleActionListClose}
+              onPress={() => {
+                navigation.push(EAccountManagerStacksRoutes.BotWalletManager, {
+                  parentKeylessWalletId: wallet?.id || '',
+                });
+              }}
             />
           ) : null}
 
@@ -299,6 +335,7 @@ function WalletEditButtonView({
       showBackupButton,
       showDeviceManagementButton,
       showBulkCopyAddressesButton,
+      showBotWalletManagerButton,
       network?.id,
       isPrimeUser,
       showAddHiddenWalletButton,

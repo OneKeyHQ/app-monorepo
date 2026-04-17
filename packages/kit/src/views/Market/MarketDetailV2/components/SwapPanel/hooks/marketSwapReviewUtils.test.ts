@@ -396,6 +396,8 @@ describe('marketSwapReviewUtils', () => {
 
     expect(result.isWrapped).toBe(true);
     expect(result.toAmount).toBe('2');
+    expect(result.instantRate).toBe('1');
+    expect(result.info.providerName).toBe('Wrap Contract');
     expect(result.info.providerLogo).toBe('wrapped-logo');
     expect(result.fee).toEqual({ percentageFee: 0 });
   });
