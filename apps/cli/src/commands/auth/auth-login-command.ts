@@ -279,11 +279,11 @@ export async function executeAuthLoginCommand({
 }: IExecuteAuthLoginCommandParams): Promise<void> {
   let shouldRunInterruptionCleanup = false;
   let releaseActiveAuthFlowCleanup: (() => void) | undefined;
+  // True once we've invoked startAppTransferLogin — gates forcedExitCode so
+  // early-return errors (no flag, already authenticated, no TTY) skip the
+  // explicit process.exit() and let the caller finalize normally.
   let attemptedAppTransfer = false;
   let forcedExitCode: number | null = null;
-  const markInterruptionCleanupHandled = () => {
-    shouldRunInterruptionCleanup = false;
-  };
 
   try {
     if (!appTransferFlag) {
@@ -343,7 +343,6 @@ export async function executeAuthLoginCommand({
       await authManager.getStatus(),
     );
     shouldRunInterruptionCleanup = false;
-    markInterruptionCleanupHandled();
     output.success(presentAuthLoginResult(finalSession));
     forcedExitCode = 0;
   } catch (error) {

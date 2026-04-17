@@ -9,13 +9,65 @@ import {
   resetActiveAuthFlowCleanupForTests,
   runActiveAuthFlowCleanup,
 } from '../core/auth/auth-flow-interruption';
+import {
+  getActiveTransferPairingRuntime,
+  replaceActiveTransferPairingRuntime,
+  startTransferPairingRuntimeTimeout,
+} from '../core/prime-transfer/pairing-session-runtime';
 import { AppError, ERROR_CODES } from '../errors';
 
 import type {
   AppTransferLoginResult,
   ResolvedAuthSession,
 } from '../core/auth/auth-types';
+import type {
+  ITransferPairingRuntime,
+  ITransferStateSnapshot,
+} from '../core/prime-transfer/transfer-types';
 import type { OutputFormatter } from '../output';
+
+jest.mock('../core/prime-transfer/pairing-session-runtime', () => ({
+  __esModule: true,
+  getActiveTransferPairingRuntime: jest.fn(() => null),
+  getTransferPairingRuntimeError: jest.fn(() => null),
+  replaceActiveTransferPairingRuntime: jest.fn(async () => undefined),
+  startTransferPairingRuntimeTimeout: jest.fn(() => null),
+}));
+
+const mockedGetActiveRuntime =
+  getActiveTransferPairingRuntime as jest.MockedFunction<
+    typeof getActiveTransferPairingRuntime
+  >;
+const mockedReplaceActiveRuntime =
+  replaceActiveTransferPairingRuntime as jest.MockedFunction<
+    typeof replaceActiveTransferPairingRuntime
+  >;
+const mockedStartRuntimeTimeout =
+  startTransferPairingRuntimeTimeout as jest.MockedFunction<
+    typeof startTransferPairingRuntimeTimeout
+  >;
+
+function makeCompletedRuntime(pairingCode: string): ITransferPairingRuntime {
+  const terminalState: ITransferStateSnapshot = {
+    event: 'transfer_completed',
+    status: 'completed',
+    message: 'Completed',
+    isTerminal: true,
+    updatedAt: '2026-04-06T07:01:00.000Z',
+  };
+  return {
+    roomId: 'ABCDEFGH123',
+    userId: 'user-1',
+    pairingCode,
+    getVerificationCode: () => null,
+    setVerificationCode: () => undefined,
+    getState: () => terminalState,
+    subscribe: () => () => undefined,
+    transition: () => terminalState,
+    waitForState: async () => terminalState,
+    dispose: async () => undefined,
+  };
+}
 
 function makeUnauthenticatedStatus(): ResolvedAuthSession {
   return {
@@ -81,6 +133,9 @@ describe('executeAuthLoginCommand', () => {
     exit = jest.fn();
     process.exitCode = 0;
     resetActiveAuthFlowCleanupForTests();
+    mockedGetActiveRuntime.mockReset().mockReturnValue(null);
+    mockedReplaceActiveRuntime.mockReset().mockResolvedValue(undefined);
+    mockedStartRuntimeTimeout.mockReset().mockReturnValue(null);
   });
 
   afterEach(() => {
@@ -490,5 +545,90 @@ describe('executeAuthLoginCommand', () => {
     expect(sentinelCleanup).toHaveBeenCalledTimes(1);
 
     release();
+  });
+
+  describe('default waitForHeadlessCompletion wrapper', () => {
+    // These tests omit the waitForHeadlessAppTransferCompletion override so the
+    // SUT's default wrapper runs. The wrapper decides whether to write the
+    // pairing instructions to stderr based on output.getMode() and stderr.isTTY.
+
+    it('skips writing pairing instructions in agent mode when stderr is not a TTY', async () => {
+      const pairingResult = makePairingResult();
+      mockedGetActiveRuntime.mockReturnValue(
+        makeCompletedRuntime(pairingResult.pairingCode),
+      );
+      const stderr: {
+        isTTY: boolean;
+        write: jest.Mock<boolean, [string | Uint8Array]>;
+      } = {
+        isTTY: false,
+        write: jest.fn<boolean, [string | Uint8Array]>(() => true),
+      };
+      const authManager = {
+        getStatus: jest
+          .fn()
+          .mockResolvedValueOnce(makeUnauthenticatedStatus())
+          .mockResolvedValueOnce(
+            makeAuthenticatedStatus({ displayAddress: '0xdef' }),
+          ),
+        startAppTransferLogin: jest.fn(async () => pairingResult),
+      };
+
+      await executeAuthLoginCommand({
+        output: output as OutputFormatter,
+        appTransferFlag: true,
+        isHumanMode: false,
+        isTTY: true,
+        env: 'test',
+        authManager,
+        stderr,
+        exit,
+      });
+
+      expect(stderr.write).not.toHaveBeenCalled();
+      expect(output.success).toHaveBeenCalled();
+      expect(exit).toHaveBeenCalledWith(0);
+    });
+
+    it('writes pairing instructions in agent mode when stderr is a TTY', async () => {
+      const pairingResult = makePairingResult();
+      mockedGetActiveRuntime.mockReturnValue(
+        makeCompletedRuntime(pairingResult.pairingCode),
+      );
+      const stderr: {
+        isTTY: boolean;
+        write: jest.Mock<boolean, [string | Uint8Array]>;
+      } = {
+        isTTY: true,
+        write: jest.fn<boolean, [string | Uint8Array]>(() => true),
+      };
+      const authManager = {
+        getStatus: jest
+          .fn()
+          .mockResolvedValueOnce(makeUnauthenticatedStatus())
+          .mockResolvedValueOnce(
+            makeAuthenticatedStatus({ displayAddress: '0xdef' }),
+          ),
+        startAppTransferLogin: jest.fn(async () => pairingResult),
+      };
+
+      await executeAuthLoginCommand({
+        output: output as OutputFormatter,
+        appTransferFlag: true,
+        isHumanMode: false,
+        isTTY: true,
+        env: 'test',
+        authManager,
+        stderr,
+        exit,
+      });
+
+      expect(stderr.write).toHaveBeenCalledTimes(1);
+      const writtenChunk = stderr.write.mock.calls[0][0];
+      expect(String(writtenChunk)).toContain('Pairing code:');
+      expect(String(writtenChunk)).toContain(pairingResult.pairingCode);
+      expect(output.success).toHaveBeenCalled();
+      expect(exit).toHaveBeenCalledWith(0);
+    });
   });
 });
