@@ -1,3 +1,4 @@
+import { AppError, ERROR_CODES } from '../../errors';
 import { AuthSessionStore } from '../../infra/auth-session-store';
 import { KEYCHAIN_ENCRYPTION_KEY, KEYCHAIN_MNEMONIC_KEY } from '../../signer';
 import { decrypt, secureWipe } from '../crypto-utils';
@@ -21,7 +22,39 @@ export class AuthSessionResolver {
   }
 
   async resolve(): Promise<ResolvedAuthSession> {
-    const metadata = await this.sessionStore.load();
+    let metadata;
+    try {
+      metadata = await this.sessionStore.load();
+    } catch (error) {
+      if (
+        error instanceof AppError &&
+        error.code === ERROR_CODES.AUTH_SESSION_INVALID.code
+      ) {
+        await this.silentlyClearEverything();
+        return {
+          authStatus: 'unauthenticated',
+          hasSecrets: false,
+          storageBackend: this.storage.getBackendType(),
+        };
+      }
+      throw error;
+    }
+
+    // Defense in depth: Task 6 will narrow isValidSessionMetadata to reject
+    // 'mnemonic', but staying correct today requires an explicit check here.
+    // Kept even after Task 6 as a cheap safety net.
+    if (
+      (metadata as unknown as { loginMethod?: string } | null)?.loginMethod ===
+      'mnemonic'
+    ) {
+      await this.silentlyClearEverything();
+      return {
+        authStatus: 'unauthenticated',
+        hasSecrets: false,
+        storageBackend: this.storage.getBackendType(),
+      };
+    }
+
     let encryptedMnemonic: Buffer | null = null;
     let encryptionKey: Buffer | null = null;
     let decryptedMnemonic: Buffer | null = null;
@@ -88,5 +121,13 @@ export class AuthSessionResolver {
         secureWipe(encryptionKey);
       }
     }
+  }
+
+  private async silentlyClearEverything(): Promise<void> {
+    await Promise.allSettled([
+      this.storage.delete(KEYCHAIN_MNEMONIC_KEY),
+      this.storage.delete(KEYCHAIN_ENCRYPTION_KEY),
+      this.sessionStore.clear(),
+    ]);
   }
 }
