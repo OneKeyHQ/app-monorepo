@@ -1,6 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { flatten, map } from 'lodash';
 import { useIntl } from 'react-intl';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -39,7 +46,6 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
@@ -132,6 +138,7 @@ type IAccountRecipientsProps = {
   senderDeriveType?: string;
   lastUsedDeriveType?: string;
   searchKey?: string;
+  debouncedSearchKey?: string;
   isSearchMode?: boolean;
   keylessWalletsOnly?: boolean;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
@@ -230,9 +237,6 @@ type IWalletGroup = {
   wallet: IDBWallet;
 };
 
-const NETWORK_ACCOUNTS_FETCH_CONCURRENCY = 4;
-const WALLET_GROUP_FETCH_CONCURRENCY = 6;
-
 // Collect every address an account should be searchable by. For BTC with
 // fresh-address mode (OK-52953) the currently-shown address is one of
 // many rotating entries stored in `IDBUtxoAccount.addresses` (relPath →
@@ -278,68 +282,12 @@ function findMatchedAccountAddress(
   );
 }
 
-// Get wallet accounts on the specified network (with derive type info)
-async function getWalletNetworkAccounts(
-  wallet: IDBWallet,
-  networkId: string,
-): Promise<IAccountWithDeriveInfo[]> {
-  const { dbIndexedAccounts, dbAccounts } = wallet;
-
-  // HD / Hardware wallets use dbIndexedAccounts
-  if (dbIndexedAccounts?.length) {
-    const accountRequestTaskFactories = dbIndexedAccounts.map(
-      (indexedAccount) => async () => {
-        const resp =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId,
-              indexedAccountId: indexedAccount.id,
-              excludeEmptyAccount: true,
-            },
-          );
-        return resp.networkAccounts;
-      },
-    );
-
-    const results = await promiseAllSettledEnhanced(
-      accountRequestTaskFactories,
-      {
-        continueOnError: true,
-        concurrency: NETWORK_ACCOUNTS_FETCH_CONCURRENCY,
-      },
-    );
-    return flatten(
-      map(results, (item) =>
-        (item ?? [])
-          .filter((acc) => acc.account)
-          .map((acc) => ({
-            account: acc.account as INetworkAccount,
-            deriveInfo: acc.deriveInfo,
-            deriveType: acc.deriveType,
-          })),
-      ),
-    );
-  }
-
-  // Imported / Private-key wallets use dbAccounts directly
-  if (dbAccounts?.length) {
-    const networkImpl = networkId.split('--')[0];
-    return dbAccounts
-      .filter((acc) => acc.impl === networkImpl)
-      .map((acc) => ({
-        account: acc as unknown as INetworkAccount,
-        deriveInfo: undefined,
-      }));
-  }
-
-  return [];
-}
-
 function AccountRecipients({
   networkId,
   senderDeriveType,
   lastUsedDeriveType: lastUsedDeriveTypeProp,
   searchKey,
+  debouncedSearchKey: debouncedSearchKeyProp,
   isSearchMode,
   keylessWalletsOnly,
   onInputTypeChange,
@@ -348,118 +296,47 @@ function AccountRecipients({
 }: IAccountRecipientsProps) {
   const intl = useIntl();
 
-  // Get all wallets and their accounts (reuses BulkCopyAddresses logic)
-  const { result: walletGroups = [], isLoading: isLoadingAccounts } =
+  // Single IPC call — all wallet/account aggregation happens in background.
+  // useDeferredValue lets React yield to events (close button) mid-render.
+  const { result: walletGroupsRaw = [], isLoading: isLoadingAccounts } =
     usePromiseResult<IWalletGroup[]>(
       async () => {
         if (!networkId) {
           return [];
         }
 
-        const vaultSettings =
-          await backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          });
-        const showAllDeriveTypes = !!vaultSettings?.mergeDeriveAssetsEnabled;
-
-        // Fetch wallets, filter non-backed-up, include accounts
-        const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
-          ignoreEmptySingletonWalletAccounts: true,
-          ignoreNonBackedUpWallets: true,
-          nestedHiddenWallets: true,
-          includingAccounts: true,
-        });
-
-        const walletGroupTaskFactories: Array<
-          () => Promise<IWalletGroup | null>
-        > = [];
-
-        const createWalletGroupTaskFactory =
-          (wallet: IDBWallet, walletName: string) =>
-          async (): Promise<IWalletGroup | null> => {
-            let accounts = await getWalletNetworkAccounts(wallet, networkId);
-            // For chains with multiple derive types (BTC/LTC), keep all
-            // accounts so users can switch derive type via header menu.
-            // For other chains, filter by sender's derive type to avoid
-            // showing duplicates (e.g. bip44 + ledger-live on EVM).
-            if (!showAllDeriveTypes) {
-              const targetDeriveType =
-                senderDeriveType ?? accounts[0]?.deriveType;
-              if (targetDeriveType) {
-                const filtered = accounts.filter(
-                  (a) => !a.deriveType || a.deriveType === targetDeriveType,
-                );
-                if (filtered.length > 0) {
-                  accounts = filtered;
-                }
-              }
-            }
-            if (accounts.length === 0) {
-              return null;
-            }
-            return {
-              walletId: wallet.id,
-              walletName,
-              isHardwareWallet: accountUtils.isHwWallet({
-                walletId: wallet.id,
-              }),
-              accounts,
-              wallet,
-            };
-          };
-
-        for (const wallet of wallets) {
-          // Skip watch-only, external, deprecated, and deleted (mocked) wallets
-          // Keep HD, Hardware, Imported, QR wallets
-          const shouldSkip =
-            accountUtils.isWatchingWallet({ walletId: wallet.id }) ||
-            accountUtils.isExternalWallet({ walletId: wallet.id }) ||
-            wallet.deprecated ||
-            wallet.isMocked ||
-            (keylessWalletsOnly &&
-              !accountUtils.isKeylessWallet({ walletId: wallet.id }));
-
-          if (shouldSkip) {
-            // eslint-disable-next-line no-continue
-            continue;
-          }
-
-          walletGroupTaskFactories.push(
-            createWalletGroupTaskFactory(wallet, wallet.name),
+        const { groups, mergeDeriveAssetsEnabled } =
+          await backgroundApiProxy.serviceAccount.getWalletAccountGroupsForNetwork(
+            { networkId, keylessWalletsOnly },
           );
 
-          for (const hiddenWallet of wallet.hiddenWallets ?? []) {
-            if (hiddenWallet.deprecated || hiddenWallet.isMocked) {
-              // eslint-disable-next-line no-continue
-              continue;
-            }
-            walletGroupTaskFactories.push(
-              createWalletGroupTaskFactory(
-                hiddenWallet,
-                `${wallet.name} - ${hiddenWallet.name}`,
-              ),
-            );
-          }
+        // senderDeriveType filtering stays on UI side (cheap, no IPC)
+        if (!mergeDeriveAssetsEnabled) {
+          return groups
+            .map((group) => {
+              const targetDeriveType =
+                senderDeriveType ?? group.accounts[0]?.deriveType;
+              if (!targetDeriveType) return group;
+              const filtered = group.accounts.filter(
+                (a) => !a.deriveType || a.deriveType === targetDeriveType,
+              );
+              return filtered.length > 0
+                ? { ...group, accounts: filtered }
+                : group;
+            })
+            .filter((g) => g.accounts.length > 0);
         }
-
-        const groups = await promiseAllSettledEnhanced(
-          walletGroupTaskFactories,
-          {
-            continueOnError: true,
-            concurrency: WALLET_GROUP_FETCH_CONCURRENCY,
-          },
-        );
-        return groups.filter((group): group is IWalletGroup => !!group);
+        return groups;
       },
       [networkId, senderDeriveType, keylessWalletsOnly],
       { initResult: [], watchLoading: true, undefinedResultIfError: true },
     );
+  const walletGroups = useDeferredValue(walletGroupsRaw);
 
-  const debouncedSearchKey = useDebounce(searchKey, 300);
+  const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const isSearchActive = !!(isSearchMode && trimmedSearchKey);
   const searchValue = trimmedSearchKey;
-  // Detect debounce gap: searchKey changed but debounce hasn't settled yet
   const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
 
   // Filter accounts (name matches first, then address matches)
@@ -693,9 +570,14 @@ function AccountRecipients({
     }));
   }, []);
 
-  // Show skeleton on initial load or while loading (when isLoadingAccounts is undefined or true)
+  // Show skeleton while loading OR while useDeferredValue is still stale
+  // (isLoadingAccounts settles before the deferred walletGroups updates,
+  // which would briefly show an empty list without this guard).
+  const isDeferredStale =
+    walletGroupsRaw !== walletGroups && walletGroupsRaw.length > 0;
   const isInitialLoading =
-    isLoadingAccounts !== false && walletGroups.length === 0;
+    (isLoadingAccounts !== false || isDeferredStale) &&
+    walletGroups.length === 0;
   if (isInitialLoading) {
     return <QuickSelectListSkeleton />;
   }
@@ -835,6 +717,7 @@ function AccountRecipients({
 type IAddressBookRecipientsProps = {
   networkId: string;
   searchKey?: string;
+  debouncedSearchKey?: string;
   isSearchMode?: boolean;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
   onSelect?: (params: {
@@ -848,6 +731,7 @@ type IAddressBookRecipientsProps = {
 function AddressBookRecipients({
   networkId,
   searchKey,
+  debouncedSearchKey: debouncedSearchKeyProp,
   isSearchMode,
   onInputTypeChange,
   onSelect,
@@ -855,11 +739,10 @@ function AddressBookRecipients({
 }: IAddressBookRecipientsProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const debouncedSearchKey = useDebounce(searchKey, 300);
+  const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const searchValue = trimmedSearchKey;
   const isSearchActive = !!(isSearchMode && trimmedSearchKey);
-  // Detect debounce gap: searchKey changed but debounce hasn't settled yet
   const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
   const [{ updateTimestamp }] = useAddressBookPersistAtom();
 
@@ -979,7 +862,7 @@ function AddressBookRecipients({
   );
 }
 
-export default function RecipientQuickSelect({
+function RecipientQuickSelect({
   accountId,
   networkId,
   searchKey,
@@ -1073,6 +956,11 @@ export default function RecipientQuickSelect({
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
 
+  // Tracks the last value sent to parent via onMatchStatusChange.
+  // Declared here (before prevSearchKeyRef check) so the reset below
+  // can clear it when searchKey changes.
+  const lastMatchStatusRef = useRef<boolean | undefined>(undefined);
+
   // When the raw searchKey changes, reset tabMatchStatus to null so that
   // the noResult check waits for children to re-report with the new key.
   // This prevents a race where parent's debounce settles before children's,
@@ -1082,6 +970,7 @@ export default function RecipientQuickSelect({
     prevSearchKeyRef.current = searchKey;
     setTabMatchStatus({ recent: null, account: null, addressBook: null });
     setTabMatchCounts({ recent: 0, account: 0, addressBook: 0 });
+    lastMatchStatusRef.current = undefined;
   }
 
   // Track the search key at the time of last manual tab switch
@@ -1090,27 +979,45 @@ export default function RecipientQuickSelect({
   // Dedup auto-switch analytics to avoid multiple events per search
   const lastAutoSwitchRef = useRef<string | undefined>(undefined);
 
-  // Callbacks for each tab's match status and count
+  // Callbacks for each tab's match status and count.
+  // Return prev when unchanged to avoid unnecessary re-renders that
+  // cascade to the parent and cause close-button hover flicker.
   const handleRecentMatchStatus = useCallback(
     (hasMatches: boolean, matchCount: number) => {
-      setTabMatchStatus((prev) => ({ ...prev, recent: hasMatches }));
-      setTabMatchCounts((prev) => ({ ...prev, recent: matchCount }));
+      setTabMatchStatus((prev) =>
+        prev.recent === hasMatches ? prev : { ...prev, recent: hasMatches },
+      );
+      setTabMatchCounts((prev) =>
+        prev.recent === matchCount ? prev : { ...prev, recent: matchCount },
+      );
     },
     [],
   );
 
   const handleAccountMatchStatus = useCallback(
     (hasMatches: boolean, matchCount: number) => {
-      setTabMatchStatus((prev) => ({ ...prev, account: hasMatches }));
-      setTabMatchCounts((prev) => ({ ...prev, account: matchCount }));
+      setTabMatchStatus((prev) =>
+        prev.account === hasMatches ? prev : { ...prev, account: hasMatches },
+      );
+      setTabMatchCounts((prev) =>
+        prev.account === matchCount ? prev : { ...prev, account: matchCount },
+      );
     },
     [],
   );
 
   const handleAddressBookMatchStatus = useCallback(
     (hasMatches: boolean, matchCount: number) => {
-      setTabMatchStatus((prev) => ({ ...prev, addressBook: hasMatches }));
-      setTabMatchCounts((prev) => ({ ...prev, addressBook: matchCount }));
+      setTabMatchStatus((prev) =>
+        prev.addressBook === hasMatches
+          ? prev
+          : { ...prev, addressBook: hasMatches },
+      );
+      setTabMatchCounts((prev) =>
+        prev.addressBook === matchCount
+          ? prev
+          : { ...prev, addressBook: matchCount },
+      );
     },
     [],
   );
@@ -1171,14 +1078,21 @@ export default function RecipientQuickSelect({
     }));
   }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys]);
 
-  // Report match status to parent. Only consider tabs that are actually visible
-  // (Lightning hides account/addressBook; callers can pass hideTabs).
+  // Report match status to parent. Wait until every visible tab has
+  // reported (status !== null) before the first notification — avoids
+  // firing once with a partial false then again with the real value,
+  // which causes 2 parent re-renders and close-button hover flicker.
   useEffect(() => {
     const visibleStatuses = visibleTabKeys.map((tab) => tabMatchStatus[tab]);
-    const anyTabHasMatches = visibleStatuses.some((status) => status === true);
-    onMatchStatusChange?.(anyTabHasMatches);
-
     const allReported = visibleStatuses.every((status) => status !== null);
+    if (!allReported) return;
+
+    const anyTabHasMatches = visibleStatuses.some((status) => status === true);
+    if (lastMatchStatusRef.current !== anyTabHasMatches) {
+      lastMatchStatusRef.current = anyTabHasMatches;
+      onMatchStatusChange?.(anyTabHasMatches);
+    }
+
     if (
       isSearchMode &&
       trimmedSearchKey &&
@@ -1269,6 +1183,7 @@ export default function RecipientQuickSelect({
                 senderDeriveType={senderDeriveType}
                 lastUsedDeriveType={lastUsedDeriveType}
                 searchKey={searchKey}
+                debouncedSearchKey={debouncedSearchKey}
                 isSearchMode={isSearchMode}
                 keylessWalletsOnly={keylessWalletsOnly}
                 onInputTypeChange={onInputTypeChange}
@@ -1288,6 +1203,7 @@ export default function RecipientQuickSelect({
               <AddressBookRecipients
                 networkId={networkId}
                 searchKey={searchKey}
+                debouncedSearchKey={debouncedSearchKey}
                 isSearchMode={isSearchMode}
                 onInputTypeChange={onInputTypeChange}
                 onSelect={(params) =>
@@ -1306,3 +1222,5 @@ export default function RecipientQuickSelect({
     </Animated.View>
   );
 }
+
+export default memo(RecipientQuickSelect);
