@@ -155,6 +155,32 @@ Trigger: Home → Chain selector → pick new chain → dismiss modal
 │  → Live view re-reads latest props → UI unfreezes
 ```
 
+### Orphan impact on app performance
+
+Orphan `RNSScreenStackView` instances are **never released** until the app is killed. They are kept alive by three strong reference chains:
+- React component tree (tab components are persistent, never unmounted)
+- Fabric `ComponentViewRegistry` (tag → view mapping is never cleaned for orphans)
+- `UITabBarController.cachedViewControllers` (tab VC caching)
+
+**Memory**: each orphan retains a full UIView subtree (the entire tab page content — token list cells, headers, images). N cycles = N × full page view hierarchies in memory. This triggers memory warnings → image cache eviction → visible image flickering.
+
+**CPU (main thread)**:
+
+| Phase | Per orphan | N orphans |
+|---|---|---|
+| First 5s after creation | 50 × `dispatch_after(100ms)` + `NSString stringWithFormat` log | N × 50 main-queue tasks competing with rendering |
+| After give-up (5s+) | Quiet — no active retry | Quiet |
+| Every app foreground | `onApplicationDidBecomeActive` → check `_pendingContainerUpdate` (still YES) → one `schedulePendingContainerUpdateRetry` call → retryCount >= 50 → immediately give up | N wasted calls + N log lines per foreground |
+| Every scene activation | Same as foreground | Same |
+
+**User-perceived sluggishness**: after many cycles (10+), the accumulated orphans cause:
+1. Main-thread contention during the 5s retry window of each new orphan
+2. Increased memory pressure → more frequent GC / cache eviction
+3. Fabric view registry lookup overhead (O(N) stale entries)
+4. Periodic one-shot retry attempts on every foreground/background transition
+
+**Fix scope**: `switchTabAsync` / `navigate` interceptor prevents **new** orphans. Already-accumulated orphans from before the fix persist until **app restart**. A future native-layer enhancement could detect orphans (superview=nil + parentVC=nil + retryCount >= max) and proactively clear `_pendingContainerUpdate` + deregister from Fabric's view registry to allow ARC deallocation.
+
 ## Useful navigation primitives (from `@onekeyhq/components`)
 
 | Function | Behavior | Use when |
