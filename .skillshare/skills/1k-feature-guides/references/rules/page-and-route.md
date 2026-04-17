@@ -371,23 +371,24 @@ navigation.navigate(ERootRoutes.Main, {
 
 ### ⚠️ WARNING: `pop: true` Can Cause iOS Tab Freeze
 
-When `navigate(pop: true)` is called and the target tab's inner stack has pages to pop, the popped pages' `RNSScreenStack` instances get detached from the iOS window hierarchy (`window=NIL`). These orphaned stacks enter a retry storm (50 retries × 100ms × multiple timers), blocking the native main thread for ~5 seconds and freezing the tab transition.
+When `navigate(pop: true)` is called while a modal is present, the modal is dismissed and tab switch happens simultaneously. This creates overlapping UIKit transitions. Additionally, `freezeOnBlur: true` on the NativeTab navigator causes `react-freeze` to suspend tab content during modal display — on modal dismiss, the unfreeze → Fabric commit pipeline can fail to flush, leaving the UI visually stale until a touch.
 
 **Symptom**: Tab switch appears stuck; the user must touch the screen to advance the route.
 
-**Root cause**: `pop: true` pops the target tab's inner stack back to root. If those pages contain nested `RNSScreenStack` (e.g., UrlAccountPage), the popped stacks lose their window and retry indefinitely.
+**Root cause** (corrected): The primary cause is `react-freeze` (`freezeOnBlur: true`) suspending the tab subtree during modal display. On unfreeze (modal dismiss), pending Fabric commits don't flush. The `RNSScreenStack` retry storms visible in native logs (`giving up after 50 retries`) are on the **doomed modal's inner stack** being torn down — CPU noise, not the freeze cause. See `ios-overlay-navigation-freeze.md` for full investigation.
 
-**Mitigation**: Use `switchTabAsync()` instead of `switchTab()` when an overlay might be present. `switchTabAsync` serializes overlay dismiss + tab switch into two steps (resetAboveMainRoute → wait → navigate), avoiding the multi-transition overlap that creates orphan stacks:
+**Fix**: `freezeOnBlur: false` on iOS NativeTab level (`TabStackNavigator.native.tsx`).
+
+**Mitigation (secondary)**: Use `switchTabAsync()` instead of `switchTab()` when an overlay might be present. `switchTabAsync` serializes overlay dismiss + tab switch, reducing overlapping UIKit transitions:
 
 ```typescript
-// ❌ WRONG: switchTab uses navigate(Main, {pop:true}) which overlaps
-// modal dismiss + tab switch + Main re-attach in one UIKit tick
-navigation.switchTab(ETabRoutes.Home);  // creates orphan RNSScreenStack
-navigation.push(newPage);               // pushes into unstable state
+// ❌ WRONG: switchTab uses navigate(Main, {pop:true}) which overlaps transitions
+navigation.switchTab(ETabRoutes.Home);
+navigation.push(newPage);
 
 // ✅ CORRECT: switchTabAsync serializes overlay dismiss and tab switch
-await navigation.switchTabAsync(ETabRoutes.Home);  // dismiss → wait → switch
-navigation.push(newPage);                          // safe — tab is settled
+await navigation.switchTabAsync(ETabRoutes.Home);
+navigation.push(newPage);
 ```
 
 > **Note**: `switchTab` is marked `@deprecated`. For new code, always use `switchTabAsync`. Old fire-and-forget call sites (tab bar press, bootstrap) can keep `switchTab` since they never have an active overlay.
@@ -398,30 +399,27 @@ navigation.push(newPage);                          // safe — tab is settled
 
 ### ⚠️ CRITICAL: Overlay Dismissal with Native UITabBarController
 
-When the app uses native `UITabBarController` (`@onekeyfe/react-native-tab-view`), **non-selected tabs' views are removed from the iOS window hierarchy**. This means any `RNSScreenStack` inside an inactive tab has `window=NIL` and cannot process navigation updates.
+When the app uses native `UITabBarController` (`@onekeyfe/react-native-tab-view`), two issues interact during modal dismiss:
 
-**Problem**: Calling `goBack()` to pop overlay routes (Modal, FullScreenPush) triggers React Navigation to reconcile nested stacks inside those routes. If a nested stack is inside a tab that has lost its window, the native `setPushViewControllers` is SKIPPED and retries 50 times (~5 seconds) before giving up. The navigation appears frozen until the user touches the screen.
+1. **react-freeze** (`freezeOnBlur: true` on NativeTab) suspends tab content when a modal is above Main. On dismiss, the unfreeze → Fabric commit pipeline can fail to flush. **This is the primary freeze cause** — fix by setting `freezeOnBlur: false` on iOS.
 
-**Rule**: When navigating from an overlay route to a tab page, **never use `switchTab()` (deprecated) or sequential `goBack()` calls**. Use `switchTabAsync()` or `navigateFromOverlayToTab()` instead.
+2. **`navigate(Main, {pop:true})`** overlaps modal dismiss + tab switch in one UIKit tick. This creates doomed orphan stacks on the dismissed modal (CPU waste, not the freeze cause itself). **Use `switchTabAsync()` to serialize.**
+
+> **Note**: Native-stack uses `ScreenStack` (not `ScreenContainer`), so `detachInactiveScreens` does NOT apply. Main's view stays in the native hierarchy during modal display. The `window=NIL` retry storms in logs are on the modal's own inner stack being torn down, not on Home's tab stacks.
+
+**Rule**: Use `switchTabAsync()` or `navigateFromOverlayToTab()` for overlay → tab navigation.
 
 ```typescript
-// ❌ WRONG: switchTab overlaps modal dismiss + tab switch + re-attach
-navigation.switchTab(ETabRoutes.Home);  // navigate(Main, {pop:true}) = 3 UIKit transitions at once
-navigation.push(targetPage);            // orphan stacks accumulate
-
-// ❌ WRONG: Sequential goBack() causes window-nil race condition
-await popScanModalPages();
-await popActionCenterPages();
+// ❌ WRONG: switchTab overlaps transitions
 navigation.switchTab(ETabRoutes.Home);
+navigation.push(targetPage);
 
-// ✅ CORRECT: switchTabAsync serializes everything
-await navigation.switchTabAsync(ETabRoutes.Home);  // reset overlay → wait → switch tab
-navigation.push(targetPage);                        // safe
+// ✅ CORRECT: switchTabAsync serializes
+await navigation.switchTabAsync(ETabRoutes.Home);
+navigation.push(targetPage);
 
-// ✅ ALSO CORRECT: navigateFromOverlayToTab (uses switchTabAsync internally)
-await navigateFromOverlayToTab({
-  targetTab: ETabRoutes.Home,
-});
+// ✅ ALSO CORRECT: navigateFromOverlayToTab
+await navigateFromOverlayToTab({ targetTab: ETabRoutes.Home });
 navigation.push(targetPage);
 ```
 
@@ -450,7 +448,7 @@ Therefore, **use `switchTabAsync()` which handles this automatically**: it calls
 - Any code that calls `goBack()` on root navigator while a FullScreenPush or Modal is active
 - Any flow that dismisses overlay pages and then navigates to a different tab
 - Cross-tab navigation after closing settings/action center pages
-- **Repeated modal open → dismiss + tab switch cycles** (e.g., UniversalSearch → pick DApp → Discovery tab × N times): each cycle creates an orphan RNSScreenStack if overlay dismiss and tab switch overlap
+- Repeated modal open → dismiss + tab switch cycles (e.g., UniversalSearch → pick DApp → Discovery tab × N times): each cycle creates overlapping UIKit transitions
 
 ---
 
