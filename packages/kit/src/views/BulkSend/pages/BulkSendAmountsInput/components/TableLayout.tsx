@@ -237,7 +237,8 @@ function AmountCard() {
   const { network } = useAccountData({ networkId });
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
-  const shouldHideMaxMode = !isOneToMany && hasDuplicateSenders;
+  const shouldShowMaxMode =
+    !tokenInfo?.isNative && (isOneToMany || !hasDuplicateSenders);
   const balance = tokenDetails?.balanceParsed ?? '0';
   const minTransferDisplayAmount = useMemo(
     () =>
@@ -505,16 +506,16 @@ function AmountCard() {
 
   // Handle Max button press
   const handleMaxPress = useCallback(() => {
-    if (!tokenInfo) return;
+    if (!tokenInfo || tokenInfo.isNative) return;
     if (amountInputMode !== EAmountInputMode.Specified) return;
 
-    // Non-OneToMany: toggle Max mode (send full balance per sender)
+    // Non-OneToMany: toggle Max mode (send full token balance per sender)
     if (!isOneToMany) {
       setIsMaxMode(!isMaxMode);
       return;
     }
 
-    // OneToMany: calculate max amount per address from balance
+    // OneToMany token transfer: calculate max token amount per address from balance
     if (!balance || transfersInfo.length === 0) return;
     const maxAmountPerAddress = new BigNumber(balance)
       .dividedBy(transfersInfo.length)
@@ -833,8 +834,7 @@ function AmountCard() {
         ) : (
           <Stack />
         )}
-        {amountInputMode === EAmountInputMode.Specified &&
-        !shouldHideMaxMode ? (
+        {amountInputMode === EAmountInputMode.Specified && shouldShowMaxMode ? (
           <SizableText
             size="$bodySmMedium"
             color={isMaxMode ? '$textSuccess' : '$textInteractive'}
