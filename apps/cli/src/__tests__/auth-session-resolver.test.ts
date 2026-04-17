@@ -1,4 +1,10 @@
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -6,10 +12,14 @@ import { AuthSessionResolver } from '../core/auth/auth-session-resolver';
 import { AuthSessionStore } from '../infra/auth-session-store';
 import { KEYCHAIN_ENCRYPTION_KEY, KEYCHAIN_MNEMONIC_KEY } from '../signer';
 
-import type { ISecureStorage, SecureStorageBackend } from '../infra/keychain-storage';
+import type {
+  ISecureStorage,
+  SecureStorageBackend,
+} from '../infra/keychain-storage';
 
 class InMemorySecureStorage implements ISecureStorage {
   private readonly store = new Map<string, Buffer>();
+
   private readonly backendType: SecureStorageBackend;
 
   constructor(backendType: SecureStorageBackend = 'macos-keychain') {
@@ -65,13 +75,19 @@ describe('AuthSessionResolver silent cleanup', () => {
       source_label: 'Mnemonic Import',
     };
     mkdirSync(dirname(sessionPath), { recursive: true });
-    writeFileSync(sessionPath, `${JSON.stringify(legacySession, null, 2)}\n`, 'utf-8');
+    writeFileSync(
+      sessionPath,
+      `${JSON.stringify(legacySession, null, 2)}\n`,
+      'utf-8',
+    );
 
     const sessionStore = new AuthSessionStore(sessionPath);
     const resolver = new AuthSessionResolver(storage, sessionStore);
 
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
 
     const resolved = await resolver.resolve();
 
@@ -85,8 +101,55 @@ describe('AuthSessionResolver silent cleanup', () => {
     expect(existsSync(sessionPath)).toBe(false);
     expect(errorSpy).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
+    expect(infoSpy).not.toHaveBeenCalled();
 
     errorSpy.mockRestore();
     warnSpy.mockRestore();
+    logSpy.mockRestore();
+    infoSpy.mockRestore();
+  });
+
+  it('silently clears everything when the session file is corrupt JSON', async () => {
+    const storage = new InMemorySecureStorage();
+    await storage.set(KEYCHAIN_MNEMONIC_KEY, Buffer.from('ciphertext'));
+    await storage.set(KEYCHAIN_ENCRYPTION_KEY, Buffer.from('encryption-key'));
+
+    // Invalid session shape — parses as JSON but fails isValidSessionMetadata,
+    // so fromRawSession throws AUTH_SESSION_INVALID from load().
+    mkdirSync(dirname(sessionPath), { recursive: true });
+    writeFileSync(
+      sessionPath,
+      '{"this":"is","not":"a","valid":"session"}\n',
+      'utf-8',
+    );
+
+    const sessionStore = new AuthSessionStore(sessionPath);
+    const resolver = new AuthSessionResolver(storage, sessionStore);
+
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+
+    const resolved = await resolver.resolve();
+
+    expect(resolved).toEqual({
+      authStatus: 'unauthenticated',
+      hasSecrets: false,
+      storageBackend: 'macos-keychain',
+    });
+    expect(storage.has(KEYCHAIN_MNEMONIC_KEY)).toBe(false);
+    expect(storage.has(KEYCHAIN_ENCRYPTION_KEY)).toBe(false);
+    expect(existsSync(sessionPath)).toBe(false);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
+    expect(infoSpy).not.toHaveBeenCalled();
+
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+    infoSpy.mockRestore();
   });
 });

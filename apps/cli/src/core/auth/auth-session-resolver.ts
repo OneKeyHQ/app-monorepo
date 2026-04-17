@@ -5,7 +5,7 @@ import { decrypt, secureWipe } from '../crypto-utils';
 
 import { createAppTransferSourceLabelFromMnemonic } from './mnemonic-login';
 
-import type { ResolvedAuthSession } from './auth-types';
+import type { AuthSessionMetadata, ResolvedAuthSession } from './auth-types';
 import type { ISecureStorage } from '../../infra/keychain-storage';
 
 export class AuthSessionResolver {
@@ -22,7 +22,7 @@ export class AuthSessionResolver {
   }
 
   async resolve(): Promise<ResolvedAuthSession> {
-    let metadata;
+    let metadata: AuthSessionMetadata | null;
     try {
       metadata = await this.sessionStore.load();
     } catch (error) {
@@ -44,8 +44,7 @@ export class AuthSessionResolver {
     // 'mnemonic', but staying correct today requires an explicit check here.
     // Kept even after Task 6 as a cheap safety net.
     if (
-      (metadata as unknown as { loginMethod?: string } | null)?.loginMethod ===
-      'mnemonic'
+      (metadata as { loginMethod?: string } | null)?.loginMethod === 'mnemonic'
     ) {
       await this.silentlyClearEverything();
       return {
