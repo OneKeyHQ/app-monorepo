@@ -8,6 +8,7 @@ import {
   popToTabRootScreen,
   rootNavigationRef,
   switchTab,
+  switchTabAsync,
   tabletMainViewNavigationRef,
   useSplitMainView,
 } from '@onekeyhq/components';
@@ -480,7 +481,9 @@ function useAppNavigation<
       reset,
       setParams,
       setOptions,
+      /** @deprecated Use `switchTabAsync` instead */
       switchTab,
+      switchTabAsync,
       popToTop,
       popToMainRoute,
       popToTabRootScreen,
