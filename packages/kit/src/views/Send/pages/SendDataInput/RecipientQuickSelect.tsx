@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   memo,
   useCallback,
@@ -27,6 +28,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { addressTypeTooltipMap } from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -150,12 +152,13 @@ type IQuickItem = {
   id?: string;
   name: string;
   address: string;
-  displayAddress?: string; // Address shown in secondary text (may differ from avatar seed)
+  displayAddress?: string;
   memo?: string;
   note?: string;
   deriveLabel?: string;
   walletId?: string;
   wallet?: IDBWallet;
+  customRenderAvatar?: () => ReactNode;
 };
 
 const QuickSelectListItem = memo(
@@ -181,6 +184,7 @@ const QuickSelectListItem = memo(
         address={item.address}
         walletId={item.walletId}
         wallet={item.wallet}
+        customRenderAvatar={item.customRenderAvatar}
         onPress={onPress}
         testID={`recipient-item-${item.address}`}
         primary={
@@ -733,12 +737,20 @@ function AccountRecipients({
             item={{
               id: account.id ?? '',
               name: displayName,
-              // Use account.id as avatar seed when address is empty (e.g. Lightning)
               address: itemAddress || account.id || '',
-              // Only show address in secondary text when it's a real address
               displayAddress: itemAddress,
               walletId,
               wallet,
+              // Stable avatar: use account object directly so AccountAvatar
+              // renders the wallet-type icon + consistent blockies seed,
+              // independent of BTC fresh address rotation.
+              customRenderAvatar: () => (
+                <AccountAvatar
+                  size="default"
+                  account={account}
+                  wallet={wallet}
+                />
+              ),
             }}
             onPress={() => handleSelectAccount({ account, matchedAddress })}
           />
