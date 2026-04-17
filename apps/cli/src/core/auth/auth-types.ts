@@ -41,6 +41,8 @@ interface IResolvedAuthSession {
   sourceLabel?: string;
 }
 
+export const AUTH_DEFAULT_EVM_NETWORK_ID = 'evm--1';
+
 export type {
   IAppTransferLoginResult as AppTransferLoginResult,
   IAuthLoginMethod as AuthLoginMethod,
