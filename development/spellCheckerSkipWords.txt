@@ -1435,3 +1435,6 @@ posthog
 Posthog
 autocapture
 ellipsize
+minimizable
+maximizable
+fullscreenable
