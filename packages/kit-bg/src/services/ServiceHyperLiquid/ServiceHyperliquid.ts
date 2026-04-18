@@ -444,7 +444,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
     {
       max: 20,
-      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      // 10 min: fast enough to propagate server-side perp disable / builder
+      // config changes, while still deduping redundant focus-driven fetches.
+      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
       promise: true,
     },
   );
