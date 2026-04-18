@@ -1,12 +1,6 @@
 /* eslint-disable no-undef */
 // require('react-native-reanimated').setUpTests();
 
-// Reset process.exitCode between tests so CLI command tests that assert
-// non-zero exit codes do not leak into Node's final exit code.
-afterEach(() => {
-  process.exitCode = 0;
-});
-
 // FIX:     ReferenceError: self is not defined
 globalThis.self = globalThis.self || globalThis;
 
