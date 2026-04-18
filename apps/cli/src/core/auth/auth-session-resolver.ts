@@ -40,20 +40,6 @@ export class AuthSessionResolver {
       throw error;
     }
 
-    // Defense in depth: Task 6 will narrow isValidSessionMetadata to reject
-    // 'mnemonic', but staying correct today requires an explicit check here.
-    // Kept even after Task 6 as a cheap safety net.
-    if (
-      (metadata as { loginMethod?: string } | null)?.loginMethod === 'mnemonic'
-    ) {
-      await this.silentlyClearEverything();
-      return {
-        authStatus: 'unauthenticated',
-        hasSecrets: false,
-        storageBackend: this.storage.getBackendType(),
-      };
-    }
-
     let encryptedMnemonic: Buffer | null = null;
     let encryptionKey: Buffer | null = null;
     let decryptedMnemonic: Buffer | null = null;
@@ -122,11 +108,34 @@ export class AuthSessionResolver {
     }
   }
 
+  // Order matters: delete keychain secrets first, and only clear the session
+  // index if BOTH succeeded. If a keychain delete fails we keep the session
+  // file so the next resolve() re-enters this cleanup path — never leave the
+  // store in a "metadata missing + secrets present" state, which resolve()
+  // would otherwise report as authenticated (see auth-manager.test.ts
+  // "reports authenticated status when secrets exist but metadata is missing").
   private async silentlyClearEverything(): Promise<void> {
-    await Promise.allSettled([
-      this.storage.delete(KEYCHAIN_MNEMONIC_KEY),
-      this.storage.delete(KEYCHAIN_ENCRYPTION_KEY),
-      this.sessionStore.clear(),
-    ]);
+    let keychainCleared = true;
+    try {
+      await this.storage.delete(KEYCHAIN_MNEMONIC_KEY);
+    } catch {
+      keychainCleared = false;
+    }
+    try {
+      await this.storage.delete(KEYCHAIN_ENCRYPTION_KEY);
+    } catch {
+      keychainCleared = false;
+    }
+
+    if (!keychainCleared) {
+      return;
+    }
+
+    try {
+      await this.sessionStore.clear();
+    } catch {
+      // Keychain is already empty; a lingering session file will re-enter the
+      // AUTH_SESSION_INVALID branch on the next resolve() and retry the clear.
+    }
   }
 }
