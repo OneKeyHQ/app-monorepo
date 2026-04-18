@@ -30,4 +30,24 @@ describe('assertBundleCompleteness', () => {
       ]),
     ).not.toThrow();
   });
+
+  it('error body includes the env var name and remediation hint', () => {
+    expect(() =>
+      assertBundleCompleteness([
+        {
+          runtimeLabel: 'main',
+          result: { valid: false, missingAbsPaths: ['/x.js'] },
+        },
+      ]),
+    ).toThrow(/ONEKEY_ALLOW_INCOMPLETE_BUNDLE=1/);
+
+    expect(() =>
+      assertBundleCompleteness([
+        {
+          runtimeLabel: 'main',
+          result: { valid: false, missingAbsPaths: ['/x.js'] },
+        },
+      ]),
+    ).toThrow(/bundle-groups\.config\.js/);
+  });
 });

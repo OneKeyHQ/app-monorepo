@@ -1675,12 +1675,14 @@ async function main() {
 
     if (process.env.ONEKEY_ALLOW_INCOMPLETE_BUNDLE === '1') {
       // Local-only opt-out. CI and release builds must NOT set this.
-      for (const r of completenessReports) {
-        if (!r.result.valid) {
-          console.error(
-            `[unionBuild] WARNING (opt-out active): ${r.runtimeLabel}: ${r.result.missingAbsPaths.length} missing`,
-          );
-        }
+      // Keep the error body intact (paths + remediation) so a developer who
+      // flipped the flag still sees every path to fix next.
+      try {
+        assertBundleCompleteness(completenessReports);
+      } catch (error) {
+        console.error(
+          `[unionBuild] WARNING (opt-out active via ONEKEY_ALLOW_INCOMPLETE_BUNDLE=1):\n${error.message}`,
+        );
       }
     } else {
       assertBundleCompleteness(completenessReports);
