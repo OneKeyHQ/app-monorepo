@@ -467,17 +467,20 @@ class ServiceDeFi extends ServiceBase {
     let total = new BigNumber(0);
     let hasCache = false;
     for (const entry of entries) {
-      if (!entry?.overview) continue;
-      for (const overview of Object.values(entry.overview)) {
-        if (!overview) continue;
-        hasCache = true;
-        const sourceInfo = currencyMap[overview.currency] ?? currencyMap.usd;
-        const converted = this._fixCurrencyValue({
-          sourceCurrencyInfo: sourceInfo,
-          targetCurrencyInfo: targetInfo,
-          value: overview.netWorth ?? 0,
-        });
-        total = total.plus(converted);
+      if (entry?.overview) {
+        for (const overview of Object.values(entry.overview)) {
+          if (overview) {
+            hasCache = true;
+            const sourceInfo =
+              currencyMap[overview.currency] ?? currencyMap.usd;
+            const converted = this._fixCurrencyValue({
+              sourceCurrencyInfo: sourceInfo,
+              targetCurrencyInfo: targetInfo,
+              value: overview.netWorth ?? 0,
+            });
+            total = total.plus(converted);
+          }
+        }
       }
     }
 

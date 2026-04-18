@@ -6,10 +6,9 @@ yarn test packages/kit-bg/src/services/ServiceDeFi.getAccountTotalDeFiNetWorth.t
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => () => undefined,
-  backgroundMethod:
-    () => (_t: unknown, _k: unknown, d: PropertyDescriptor) => d,
-  toastIfError:
-    () => (_t: unknown, _k: unknown, d: PropertyDescriptor) => d,
+  backgroundMethod: () => (_t: unknown, _k: unknown, d: PropertyDescriptor) =>
+    d,
+  toastIfError: () => (_t: unknown, _k: unknown, d: PropertyDescriptor) => d,
 }));
 
 jest.mock('../states/jotai/atoms/currency', () => ({
@@ -28,6 +27,7 @@ jest.mock('./ServiceBase', () => ({
   __esModule: true,
   default: class ServiceBase {
     backgroundApi: any;
+
     constructor({ backgroundApi }: { backgroundApi: any }) {
       this.backgroundApi = backgroundApi;
     }
@@ -59,6 +59,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   },
 }));
 
+// eslint-disable-next-line import/first
 import ServiceDeFi from './ServiceDeFi';
 
 function makeService(overrides: {
@@ -69,8 +70,7 @@ function makeService(overrides: {
   const backgroundApi = {
     simpleDb: {
       deFi: {
-        getAccountsDeFiOverview:
-          overrides.getAccountsDeFiOverview ?? jest.fn(),
+        getAccountsDeFiOverview: overrides.getAccountsDeFiOverview ?? jest.fn(),
         getRawData:
           overrides.getRawData ?? jest.fn().mockResolvedValue(undefined),
       },
@@ -81,6 +81,9 @@ function makeService(overrides: {
         jest.fn().mockResolvedValue({ accountsInfo: [] }),
     },
   };
+  // Cast to any because the real ServiceDeFi constructor expects a fully
+  // typed IBackgroundApi which we are intentionally only partially mocking.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return new (ServiceDeFi as any)({ backgroundApi });
 }
 
