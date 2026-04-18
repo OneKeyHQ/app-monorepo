@@ -1311,7 +1311,9 @@ export function calculateAccountTotalValue(params: {
       const restAccountId = keyArray.join('_');
       const parts = restAccountId.split(SEPARATOR);
       const keyWalletId = parts[0];
-      const keyDeriveType = (parts[2] || 'default').toLowerCase();
+      const keyDeriveType = (
+        accountUtils.normalizeDeriveType(parts[2] || '') ?? 'default'
+      ).toLowerCase();
       const infoEntry = networkInfoMap[netId];
       if (
         keyWalletId === walletId &&

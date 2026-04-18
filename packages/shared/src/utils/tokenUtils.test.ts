@@ -147,8 +147,8 @@ describe('calculateAccountTotalValue — wallet-scoped derive matching branch', 
           'hd-2--path--default_evm--1': '9999',
           // incompatible network
           'hd-1--path--default_sol--101': '9999',
-          // wrong deriveType
-          'hd-1--path--ledger_evm--1': '9999',
+          // wrong deriveType (BIP86 is in allowlist but networkInfo expects 'default')
+          'hd-1--path--BIP86_evm--1': '9999',
         },
         deFiNetWorth: 25,
         walletId: 'hd-1',
@@ -156,5 +156,26 @@ describe('calculateAccountTotalValue — wallet-scoped derive matching branch', 
         networkInfoMap,
       }),
     ).toBe('175');
+  });
+
+  test('normalizes unknown deriveType to "default" per allowlist (regression: AccountValue parity)', () => {
+    // Original AccountValue.tsx used accountUtils.normalizeDeriveType(_deriveType) ?? 'default'.
+    // normalizeDeriveType validates against an allowlist and returns undefined for unknown values,
+    // which then falls back to 'default'. Without this normalization, garbage deriveType strings
+    // would silently exclude entries that the original behavior included.
+    expect(
+      calculateAccountTotalValue({
+        tokensValue: {
+          // Key has unknown deriveType "garbage" — must normalize to "default" to match networkInfo
+          'hd-1--path--garbage_evm--1': '100',
+        },
+        deFiNetWorth: 0,
+        walletId: 'hd-1',
+        enabledNetworksCompatibleWithWalletId: [{ id: 'evm--1' }],
+        networkInfoMap: {
+          'evm--1': { deriveType: 'default', mergeDeriveAssetsEnabled: false },
+        },
+      }),
+    ).toBe('100');
   });
 });
