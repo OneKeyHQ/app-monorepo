@@ -43,9 +43,6 @@ const {
 const { computeReachable } = require('../plugins/entryReachability');
 const { fileToIdMap } = require('../plugins/map');
 const {
-  buildStartupProfilePrologue,
-} = require('../plugins/startupProfilePrologue');
-const {
   getSegmentsDir,
   getManifestPath,
   getMergedModuleIdMapPath,
@@ -55,6 +52,9 @@ const {
   allocateSegmentIds,
   monorepoRoot,
 } = require('../plugins/segmentUtils');
+const {
+  buildStartupProfilePrologue,
+} = require('../plugins/startupProfilePrologue');
 
 const {
   buildPostSection,
@@ -1618,7 +1618,10 @@ async function main() {
     // --- Bundle completeness validation ---
     // Ensure every module in each runtime's graph is covered by
     // eager bundles (common + runtime-specific) or a segment.
-    const { validateBundleCompleteness } = require('./unionBuildHelpers');
+    const {
+      validateBundleCompleteness,
+      assertBundleCompleteness,
+    } = require('./unionBuildHelpers');
 
     const moduleIdsToAbsPaths = (moduleIds, moduleIdToAbsPath) => {
       const absPaths = new Set();
@@ -1636,7 +1639,7 @@ async function main() {
       mainModuleIndex.moduleIdToAbsPath,
     );
 
-    for (const [runtimeLabel, runtimeGraph, eagerAbsPaths, segAbsPaths] of [
+    const completenessReports = [
       [
         'main',
         mainGraph,
@@ -1661,23 +1664,26 @@ async function main() {
         ]),
         bgSegmentAbsPaths,
       ],
-    ]) {
-      const result = validateBundleCompleteness({
+    ].map(([runtimeLabel, runtimeGraph, eagerAbsPaths, segAbsPaths]) => ({
+      runtimeLabel,
+      result: validateBundleCompleteness({
         graph: runtimeGraph.dependencies,
         eagerAbsPaths,
         segmentAbsPaths: segAbsPaths,
-      });
+      }),
+    }));
 
-      if (!result.valid) {
-        const sample = result.missingAbsPaths.slice(0, 20);
-        console.error(
-          `\n[unionBuild] WARNING: ${result.missingAbsPaths.length} modules in ${runtimeLabel} runtime are not in any eager bundle or segment:\n${sample.map((p) => `  - ${p}`).join('\n')}${
-            result.missingAbsPaths.length > 20
-              ? `\n  ... and ${result.missingAbsPaths.length - 20} more`
-              : ''
-          }\n`,
-        );
+    if (process.env.ONEKEY_ALLOW_INCOMPLETE_BUNDLE === '1') {
+      // Local-only opt-out. CI and release builds must NOT set this.
+      for (const r of completenessReports) {
+        if (!r.result.valid) {
+          console.error(
+            `[unionBuild] WARNING (opt-out active): ${r.runtimeLabel}: ${r.result.missingAbsPaths.length} missing`,
+          );
+        }
       }
+    } else {
+      assertBundleCompleteness(completenessReports);
     }
 
     const commonViolations = detectStartupViolations(

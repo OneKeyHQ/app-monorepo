@@ -526,6 +526,41 @@ function validateBundleCompleteness({ graph, eagerAbsPaths, segmentAbsPaths }) {
 }
 
 /**
+ * Assert that every runtime's completeness report passes. Throws a single
+ * aggregated Error with up to 20 sample module paths per runtime. Called
+ * from unionBuild.js after validateBundleCompleteness produced the reports;
+ * centralizing the throw keeps the shape testable without wiring up the
+ * whole union-build pipeline.
+ */
+function assertBundleCompleteness(reports) {
+  const failures = reports.filter(({ result }) => !result.valid);
+  if (failures.length === 0) return;
+  const messages = failures.map(({ runtimeLabel, result }) => {
+    const sample = result.missingAbsPaths.slice(0, 20);
+    const extra =
+      result.missingAbsPaths.length > 20
+        ? `\n  ... and ${result.missingAbsPaths.length - 20} more`
+        : '';
+    return (
+      `[unionBuild] ${runtimeLabel} runtime: ${result.missingAbsPaths.length} module(s) ` +
+      `reachable via sync edges but not in any eager bundle or segment — ` +
+      `this will crash with "Requiring unknown module <N>" at runtime:\n` +
+      sample.map((p) => `  - ${p}`).join('\n') +
+      extra
+    );
+  });
+  throw new Error(
+    [
+      'Split-bundle build is incomplete. Fix the allocator or add the module to',
+      'apps/mobile/bundle-groups.config.js `promotedSegments` / `allocationRules`,',
+      'or keep it in the eager bundle. Never silently continue.',
+      '',
+      ...messages,
+    ].join('\n'),
+  );
+}
+
+/**
  * Expand each segment's module list to include transitive sync
  * dependencies that are NOT already in the eager bundle.
  *
@@ -660,6 +695,7 @@ function collectCommonReferencedSegmentKeys({
 }
 
 module.exports = {
+  assertBundleCompleteness,
   buildPostSection,
   buildSerializedModuleEntries,
   buildGraphModuleIndex,
