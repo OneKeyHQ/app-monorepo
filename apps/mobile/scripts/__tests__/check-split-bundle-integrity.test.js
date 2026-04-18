@@ -541,4 +541,77 @@ describe('integration: cross-segment sync edge detection', () => {
       depModuleId: 4999,
     });
   });
+
+  it('catches a shared segment whose sync dep is missing in the background runtime', () => {
+    // seg:sh defines id=5000 that sync-requires id=5100.
+    // seg:sh is 'shared', so it lives in both manifests.
+    // In main, id=5100 is in main eager bucket → OK.
+    // In background, id=5100 is NOT in background eager and NOT in any bg segment → orphan.
+    const segmentsMainDir = path.join(tmpDir, 'segments');
+    const segmentsBgDir = path.join(tmpDir, 'segments-background');
+    writeSegJs(segmentsMainDir, 'shared-seg', [
+      { moduleId: 5000, deps: [5100] },
+    ]);
+    writeSegJs(segmentsBgDir, 'shared-seg', [
+      { moduleId: 5000, deps: [5100] },
+    ]);
+
+    const sharedEntry = {
+      id: 9001,
+      key: 'seg:sh',
+      runtime: 'shared',
+      sha256: 'x',
+      dependsOn: [],
+      size: 100,
+    };
+    const manifestMain = {
+      segments: {
+        'seg:sh': { ...sharedEntry, relativePath: 'segments/shared-seg.seg.hbc' },
+      },
+    };
+    const manifestBg = {
+      segments: {
+        'seg:sh': {
+          ...sharedEntry,
+          relativePath: 'segments-background/shared-seg.seg.hbc',
+        },
+      },
+    };
+    const idMap = {
+      common: {},
+      main: { 5100: 'main-only-dep.ts' }, // present in main eager — OK there
+      background: {},                      // NOT in background eager
+      segments: {
+        'seg:sh': {
+          id: 9001,
+          runtime: 'shared',
+          modules: { 5000: 'shared.tsx' },
+        },
+      },
+    };
+
+    const mainRun = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir: segmentsMainDir,
+      manifest: manifestMain,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+    const bgRun = scanRuntime({
+      runtimeLabel: 'background',
+      segmentsDir: segmentsBgDir,
+      manifest: manifestBg,
+      idMap,
+      runtimeBucketNames: ['common', 'background'],
+    });
+
+    expect(mainRun.violations).toHaveLength(0);
+    expect(bgRun.violations).toHaveLength(1);
+    expect(bgRun.violations[0]).toMatchObject({
+      kind: 'orphan_dep',
+      runtime: 'background',
+      depModuleId: 5100,
+    });
+    expect(bgRun.violations[0]).not.toHaveProperty('depSegment');
+  });
 });
