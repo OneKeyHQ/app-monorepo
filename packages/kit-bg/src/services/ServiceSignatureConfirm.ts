@@ -269,36 +269,87 @@ class ServiceSignatureConfirm extends ServiceBase {
         encodedTx,
       });
 
-    let xpub: string | undefined;
+    // For BTC/LTC merge-derive accounts, the server's parse-transaction
+    // API only accepts a single xpub per call. Call once per derive type
+    // and merge interaction results (same as fetchBadgesDeduped).
+    let xpubs: string[] = [];
     try {
-      xpub =
-        (await this.backgroundApi.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        })) || undefined;
+      const xpubEntries =
+        await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+          { accountId, networkId },
+        );
+      xpubs = xpubEntries.map((e) => e.xpub).filter((x): x is string => !!x);
     } catch {
-      // non-fatal: backend parses from encodedTx, xpub is an identity hint
+      // non-fatal
+    }
+    if (xpubs.length === 0) {
+      try {
+        const singleXpub =
+          (await this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          })) || undefined;
+        if (singleXpub) {
+          xpubs = [singleXpub];
+        }
+      } catch {
+        // non-fatal
+      }
     }
 
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
-    const resp = await client.post<{ data: IParseTransactionResp }>(
-      '/wallet/v1/account/parse-transaction',
-      {
-        networkId,
-        accountAddress,
-        encodedTx: encodedTxToParse,
-        xpub,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
+    const walletTypeHeaders =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+
+    const callParseTransaction = async (xpub?: string) => {
+      const resp = await client.post<{ data: IParseTransactionResp }>(
+        '/wallet/v1/account/parse-transaction',
+        {
+          networkId,
+          accountAddress,
+          encodedTx: encodedTxToParse,
+          xpub,
+        },
+        { headers: walletTypeHeaders },
+      );
+      return resp.data.data;
+    };
+
+    if (xpubs.length <= 1) {
+      return callParseTransaction(xpubs[0]);
+    }
+
+    // Multiple xpubs: call once per xpub, merge interaction results.
+    const settled = await Promise.allSettled(
+      xpubs.map((xpub) => callParseTransaction(xpub)),
     );
-    return resp.data.data;
+    const validResults = settled
+      .filter(
+        (r): r is PromiseFulfilledResult<IParseTransactionResp> =>
+          r.status === 'fulfilled',
+      )
+      .map((r) => r.value);
+    if (validResults.length === 0) {
+      // All xpub-scoped calls failed; retry without xpub so the server
+      // still parses the tx from encodedTx alone.
+      return callParseTransaction(undefined);
+    }
+    // Use the first result as base, merge riskLevel across xpubs
+    // (take the highest risk seen from any derive path).
+    const base = validResults[0];
+    if (base.parsedTx?.to) {
+      const maxRiskLevel = Math.max(
+        ...validResults.map((r) => r.parsedTx?.to?.riskLevel ?? 0),
+      );
+      if (maxRiskLevel > (base.parsedTx.to.riskLevel ?? 0)) {
+        base.parsedTx.to.riskLevel = maxRiskLevel;
+      }
+    }
+    return base;
   }
 
   @backgroundMethod()

@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
-import { Toast, rootNavigationRef } from '@onekeyhq/components';
+import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
@@ -838,7 +838,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       {
         useCurrentWindow,
         tabId,
-        navigation,
+        navigation: _navigation,
         webSite,
         dApp,
       }: {
@@ -878,47 +878,61 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         console.warn('Failed to detect current tab:', e);
       }
 
-      setTimeout(
-        () => {
-          const isNewWindow = !useCurrentWindow;
+      const isNewWindow = !useCurrentWindow;
 
-          if (!useCurrentWindow) {
-            const disabledAddedNewTab = get(disabledAddedNewTabAtom());
-            if (disabledAddedNewTab) {
-              Toast.message({
-                title: appLocale.intl.formatMessage(
-                  { id: ETranslations.explore_toast_tab_limit_reached },
-                  { number: MaximumNumberOfTabs },
-                ),
-              });
-              return;
-            }
+      const openDApp = () => {
+        if (!useCurrentWindow) {
+          const disabledAddedNewTab = get(disabledAddedNewTabAtom());
+          if (disabledAddedNewTab) {
+            Toast.message({
+              title: appLocale.intl.formatMessage(
+                { id: ETranslations.explore_toast_tab_limit_reached },
+                { number: MaximumNumberOfTabs },
+              ),
+            });
+            return;
           }
-          this.setDisplayHomePage.call(set, false);
-          void this.openMatchDApp.call(set, {
-            webSite,
-            dApp,
-            isNewWindow,
-            tabId,
-          });
-        },
-        needsSwitchTab ? 300 : 0,
-      );
+        }
+        this.setDisplayHomePage.call(set, false);
+        void this.openMatchDApp.call(set, {
+          webSite,
+          dApp,
+          isNewWindow,
+          tabId,
+        });
+      };
 
       if (needsSwitchTab) {
-        if (platformEnv.isDesktop) {
-          navigation.switchTab(ETabRoutes.MultiTabBrowser);
-        } else {
-          navigation.switchTab(ETabRoutes.Discovery);
-        }
-      }
-      if (platformEnv.isNative) {
-        setTimeout(() => {
+        const targetTab = platformEnv.isDesktop
+          ? ETabRoutes.MultiTabBrowser
+          : ETabRoutes.Discovery;
+
+        // Serialize: dismiss any overlay (e.g. UniversalSearchModal) first,
+        // then switch tab, wait for settle, then open the DApp page.
+        // The old code used navigate(Main, {pop:true}) which overlaps modal
+        // dismiss + tab switch + Main re-attach in one UIKit tick, creating
+        // orphan RNSScreenStack instances on iOS that accumulate across
+        // repeated search→open cycles and eventually freeze the UI.
+        void (async () => {
+          await switchTabAsync(targetTab);
+          if (platformEnv.isNative) {
+            appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+              tab: ETranslations.global_browser,
+              openUrl: true,
+            });
+          }
+          openDApp();
+        })();
+      } else {
+        // Already on Discovery/MultiTabBrowser — still emit the event to
+        // pop inner pages and set the selected browser sub-tab.
+        if (platformEnv.isNative) {
           appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
             tab: ETranslations.global_browser,
             openUrl: true,
           });
-        }, 150);
+        }
+        openDApp();
       }
     },
   );

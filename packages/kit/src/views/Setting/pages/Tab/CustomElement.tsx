@@ -208,10 +208,31 @@ export function ThemeListItem(props: ICustomElementProps) {
 
 function SuspenseBiologyAuthListItem(props: ICustomElementProps) {
   const [{ isPasswordSet }] = usePasswordPersistAtom();
-  const [{ isSupport: biologyAuthIsSupport }] =
+  const [{ isSupport: biologyAuthIsSupport, authType, isEnable }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
+  const shouldRender =
+    isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport);
+  // TODO(biologyAuth-debug): temporary log to diagnose biology auth visibility in Settings
+  useEffect(() => {
+    defaultLogger.setting.page.biologyAuthDebug('SuspenseBiologyAuthListItem', {
+      platform: platformEnv.symbol,
+      isPasswordSet,
+      biologyAuthIsSupport,
+      biologyAuthIsEnable: isEnable,
+      authType,
+      webAuthIsSupport,
+      shouldRender,
+    });
+  }, [
+    isPasswordSet,
+    biologyAuthIsSupport,
+    isEnable,
+    authType,
+    webAuthIsSupport,
+    shouldRender,
+  ]);
+  return shouldRender ? (
     <TabSettingsListItem {...props}>
       <UniversalContainerWithSuspense />
     </TabSettingsListItem>

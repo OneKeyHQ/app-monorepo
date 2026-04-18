@@ -342,10 +342,16 @@ function SendAmountInputContainer() {
       }
       // fiat / pricePerSat = sats. Convert to BTC if lnUnit is BTC.
       let originalAmt = amountBN.dividedBy(price);
-      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
-        originalAmt = new BigNumber(
-          chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
-        );
+      if (isLightningNetwork) {
+        // Sats are the smallest Lightning unit (0 decimals) — floor the
+        // fiat→sats result so the display never shows fractional sats,
+        // which would cause a send error (OK-53396).
+        originalAmt = originalAmt.integerValue(BigNumber.ROUND_FLOOR);
+        if (lnUnit === ELightningUnit.BTC) {
+          originalAmt = new BigNumber(
+            chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
+          );
+        }
       }
       return {
         originalAmount: originalAmt.toFixed(),
@@ -1466,19 +1472,36 @@ function SendAmountInputContainer() {
           )}
         </Stack>
         <YStack flex={1}>
-          <SizableText size="$bodyMdMedium" numberOfLines={1}>
+          <SizableText size="$bodySm" color="$textSubdued">
             {nftName}
           </SizableText>
           {nft?.collectionType === ENFTType.ERC1155 ? (
-            <SizableText size="$bodySm" color="$textSubdued" mt="$0.5">
-              {intl.formatMessage({ id: ETranslations.global_available })}:{' '}
-              {nftDetails?.amount ?? 1}
-            </SizableText>
+            <XStack alignItems="center" mt="$0.5">
+              <SizableText size="$bodyLgMedium" color="$text">
+                {nftDetails?.amount ?? 1}
+              </SizableText>
+            </XStack>
           ) : null}
         </YStack>
+
+        {nft?.collectionType === ENFTType.ERC1155 ? (
+          <Button
+            variant="secondary"
+            size="small"
+            ml="$2"
+            onPress={() => {
+              form.setValue('nftAmount', nftDetails?.amount ?? '1', {
+                shouldValidate: true,
+              });
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.send_max })}
+          </Button>
+        ) : null}
       </XStack>
     );
   }, [
+    form,
     intl,
     isNFT,
     nft?.collectionName,

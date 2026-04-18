@@ -3,16 +3,12 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import {
-  Button,
-  Dialog,
-  Icon,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  OptionCard,
+  PaymentMethodBadges,
+} from '@onekeyhq/kit/src/components/OptionCard';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -141,92 +137,62 @@ function WalletActionSend({
               { symbol },
             ),
             renderContent: (
-              <YStack gap="$4">
-                <XStack gap="$2.5">
-                  <Stack
-                    flex={1}
-                    flexBasis={0}
-                    alignItems="center"
-                    justifyContent="center"
-                    bg="$bgStrong"
-                    borderRadius="$4"
-                    pt="$4"
-                    pb="$3"
-                    px="$1"
-                    hoverStyle={{ bg: '$bgStrongHover' }}
-                    pressStyle={{ bg: '$bgStrongActive' }}
-                    onPress={() => {
-                      logZeroGas('receive');
-                      void dialogRef.close();
+              <YStack gap="$5">
+                <OptionCard
+                  icon="ArrowBottomOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_receive,
+                  })}
+                  subtitle={intl.formatMessage({
+                    id: ETranslations.receive_from_another_wallet_desc,
+                  })}
+                  onPress={() => {
+                    logZeroGas('receive');
+                    safeResolve(false);
+                    void dialogRef.close();
+                    navigation.pushModal(EModalRoutes.ReceiveModal, {
+                      screen: EModalReceiveRoutes.ReceiveSelector,
+                    });
+                  }}
+                />
+                {isBuySupported ? (
+                  <OptionCard
+                    icon="CurrencyDollarOutline"
+                    title={intl.formatMessage({
+                      id: ETranslations.global_buy,
+                    })}
+                    subtitle={<PaymentMethodBadges />}
+                    onPress={async () => {
+                      logZeroGas('buy');
                       safeResolve(false);
-                      navigation.pushModal(EModalRoutes.ReceiveModal, {
-                        screen: EModalReceiveRoutes.ReceiveSelector,
-                      });
-                    }}
-                  >
-                    <Icon name="ArrowBottomOutline" size="$6" color="$icon" />
-                    <SizableText size="$bodyMdMedium">
-                      {intl.formatMessage({
-                        id: ETranslations.global_receive,
-                      })}
-                    </SizableText>
-                  </Stack>
-                  {isBuySupported ? (
-                    <Stack
-                      flex={1}
-                      flexBasis={0}
-                      alignItems="center"
-                      justifyContent="center"
-                      bg="$bgStrong"
-                      borderRadius="$4"
-                      pt="$4"
-                      pb="$3"
-                      px="$1"
-                      hoverStyle={{ bg: '$bgStrongHover' }}
-                      pressStyle={{ bg: '$bgStrongActive' }}
-                      onPress={async () => {
-                        logZeroGas('buy');
-                        void dialogRef.close();
-                        safeResolve(false);
-                        try {
-                          const { url } =
-                            await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl(
-                              {
-                                networkId: network.id,
-                                tokenAddress: '',
-                                accountId: account?.id ?? '',
-                                type: 'buy',
-                              },
-                            );
-                          if (url) {
-                            openFiatCryptoUrl(url);
-                          }
-                        } catch {
-                          navigation.pushModal(EModalRoutes.FiatCryptoModal, {
-                            screen: EModalFiatCryptoRoutes.BuyModal,
-                            params: {
+                      void dialogRef.close();
+                      try {
+                        const { url } =
+                          await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl(
+                            {
                               networkId: network.id,
+                              tokenAddress: '',
                               accountId: account?.id ?? '',
-                              tokens: allTokens.tokens,
-                              map,
+                              type: 'buy',
                             },
-                          });
+                          );
+                        if (url) {
+                          openFiatCryptoUrl(url);
                         }
-                      }}
-                    >
-                      <Icon
-                        name="CurrencyDollarOutline"
-                        size="$6"
-                        color="$icon"
-                      />
-                      <SizableText size="$bodyMdMedium">
-                        {intl.formatMessage({
-                          id: ETranslations.global_buy,
-                        })}
-                      </SizableText>
-                    </Stack>
-                  ) : null}
-                </XStack>
+                      } catch {
+                        navigation.pushModal(EModalRoutes.FiatCryptoModal, {
+                          screen: EModalFiatCryptoRoutes.BuyModal,
+                          params: {
+                            networkId: network.id,
+                            accountId: account?.id ?? '',
+                            tokens: allTokens.tokens,
+                            map,
+                          },
+                        });
+                      }
+                    }}
+                  />
+                ) : null}
                 <Button
                   variant="tertiary"
                   size="large"
@@ -234,8 +200,6 @@ function WalletActionSend({
                   py="$2"
                   onPress={() => {
                     logZeroGas('continue');
-                    // Dialog.close may fire onClose synchronously, so resolve
-                    // first — otherwise onClose's safeResolve(false) wins.
                     safeResolve(true);
                     void dialogRef.close();
                   }}
