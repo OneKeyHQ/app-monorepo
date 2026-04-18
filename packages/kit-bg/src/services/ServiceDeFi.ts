@@ -16,6 +16,8 @@ import type {
 } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import { currencyPersistAtom } from '../states/jotai/atoms/currency';
+
 import ServiceBase from './ServiceBase';
 
 import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
@@ -431,6 +433,55 @@ class ServiceDeFi extends ServiceBase {
       accounts,
       deFiRawData,
     });
+  }
+
+  @backgroundMethod()
+  async getAccountTotalDeFiNetWorth(params: {
+    accountId: string;
+    networkId: string;
+    targetCurrency: string;
+  }): Promise<{ netWorth: string; hasCache: boolean }> {
+    const { accountId, networkId, targetCurrency } = params;
+
+    // For own accounts the caller passes indexedAccountId (that's what
+    // HomeOverviewContainer writes into activeAccountValueAtom). For
+    // "others" accounts the caller passes the accountId itself.
+    const indexedAccountId = accountUtils.isOthersAccount({ accountId })
+      ? undefined
+      : accountId;
+
+    // Delegate tuple resolution to the existing helper — it handles both
+    // All-Networks (via serviceAllNetwork.getAllNetworkAccounts) and
+    // single-network (via simpleDb.deFi.getAccountsDeFiOverview) paths.
+    const entries = await this.getAccountsLocalDeFiOverview({
+      accounts: [{ accountId, networkId, indexedAccountId }],
+    });
+
+    if (!entries || !entries.some((e) => e?.overview)) {
+      return { netWorth: '0', hasCache: false };
+    }
+
+    const { currencyMap } = await currencyPersistAtom.get();
+    const targetInfo = currencyMap[targetCurrency] ?? currencyMap.usd;
+
+    let total = new BigNumber(0);
+    let hasCache = false;
+    for (const entry of entries) {
+      if (!entry?.overview) continue;
+      for (const overview of Object.values(entry.overview)) {
+        if (!overview) continue;
+        hasCache = true;
+        const sourceInfo = currencyMap[overview.currency] ?? currencyMap.usd;
+        const converted = this._fixCurrencyValue({
+          sourceCurrencyInfo: sourceInfo,
+          targetCurrencyInfo: targetInfo,
+          value: overview.netWorth ?? 0,
+        });
+        total = total.plus(converted);
+      }
+    }
+
+    return { netWorth: total.toFixed(), hasCache };
   }
 
   @backgroundMethod()
