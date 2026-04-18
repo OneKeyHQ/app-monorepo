@@ -13,8 +13,8 @@ import { secureCache } from '../secure-cache';
 
 import { startAppTransferLogin } from './app-transfer-login';
 import { extractBotWalletMnemonicFromTransferData } from './app-transfer-payload';
-import { AuthSessionResolver } from './auth-session-resolver';
 import { createAppTransferSessionMetadata } from './app-transfer-session';
+import { AuthSessionResolver } from './auth-session-resolver';
 import { AUTH_DEFAULT_EVM_NETWORK_ID } from './auth-types';
 import { assertValidMnemonic, normalizeMnemonic } from './mnemonic-utils';
 
