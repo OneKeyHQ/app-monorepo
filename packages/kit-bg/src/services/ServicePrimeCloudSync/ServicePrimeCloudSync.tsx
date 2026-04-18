@@ -1659,6 +1659,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       isCloudSyncEnabled: false,
       isCloudSyncEnabledKeyless: true,
       hasEverEnabledOneKeyIdSync: true,
+      hasEverEnabledKeylessSync: true,
     }));
     await this.clearCachedSyncCredential();
     return true;

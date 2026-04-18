@@ -166,9 +166,23 @@ export default class ServiceHyperliquid extends ServiceBase {
     baseNameToPairName: {},
   };
 
+  // OK-53208: survives Perp tab detach/remount; component refs reset on
+  // unmount and would otherwise repeat refreshTradingMeta + changeActiveAsset
+  // on every modal push.
+  private _initialSymbolSelectClaimed = false;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     void this.init();
+  }
+
+  @backgroundMethod()
+  async tryClaimInitialSymbolSelect(): Promise<boolean> {
+    if (this._initialSymbolSelectClaimed) {
+      return false;
+    }
+    this._initialSymbolSelectClaimed = true;
+    return true;
   }
 
   private get exchangeService(): ServiceHyperliquidExchange {

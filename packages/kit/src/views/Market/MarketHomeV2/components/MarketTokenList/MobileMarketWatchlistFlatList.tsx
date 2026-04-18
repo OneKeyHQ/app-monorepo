@@ -396,28 +396,15 @@ function MobileMarketWatchlistFlatListImpl({
   }
 
   if (watchlist.length === 0 && !showSkeleton) {
-    let bottomValue: string | undefined;
-    if (platformEnv.isNativeIOS) {
-      bottomValue = '$24';
-    } else if (platformEnv.isNativeAndroid) {
-      bottomValue = '$4';
-    }
-
     return (
       <Tabs.ScrollView>
         <Stack
-          {...(platformEnv.isNative
-            ? {
-                position: 'absolute' as const,
-                bottom: bottomValue,
-                left: 0,
-                right: 0,
-              }
-            : { paddingTop: '$8', justifyContent: 'center' })}
+          {...(platformEnv.isNative ? null : { justifyContent: 'center' })}
           alignItems="center"
+          paddingTop="$8"
         >
           <MarketRecommendList
-            maxSize={platformEnv.isNativeAndroid ? 6 : 8}
+            maxSize={8}
             recommendedTokens={recommendedTokens}
           />
         </Stack>

@@ -3,7 +3,13 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { ActionList, Dialog, Divider, Toast } from '@onekeyhq/components';
+import {
+  ActionList,
+  Dialog,
+  Divider,
+  Toast,
+  resetAccountManagerStacksModal,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
@@ -124,9 +130,17 @@ function WalletEditButtonView({
     );
   }, [wallet, isPrimeAvailable]);
 
+  const isBotWalletFeatureEnabled = useMemo(
+    () =>
+      Boolean(
+        devSettings.enabled && devSettings.settings?.enableBotWalletFeature,
+      ),
+    [devSettings.enabled, devSettings.settings?.enableBotWalletFeature],
+  );
+
   const showBotWalletManagerButton = useMemo(
-    () => Boolean(isKeyless && wallet?.id),
-    [isKeyless, wallet?.id],
+    () => Boolean(isKeyless && wallet?.id && isBotWalletFeatureEnabled),
+    [isKeyless, wallet?.id, isBotWalletFeatureEnabled],
   );
 
   const navigation = useAppNavigation();
@@ -163,7 +177,7 @@ function WalletEditButtonView({
           return;
         }
         if (platformEnv.isNative) {
-          navigation.popStack();
+          resetAccountManagerStacksModal();
           await timerUtils.wait(200);
         }
         await goToOneKeyIDLoginPageForKeylessWallet({ mode });
@@ -172,7 +186,7 @@ function WalletEditButtonView({
         void loadingDialog?.close();
       }
     },
-    [navigation, goToOneKeyIDLoginPageForKeylessWallet, intl],
+    [goToOneKeyIDLoginPageForKeylessWallet, intl],
   );
 
   const renderItems = useCallback(
@@ -218,7 +232,7 @@ function WalletEditButtonView({
               onPress={async (close) => {
                 if (wallet) {
                   close();
-                  navigation.popStack();
+                  resetAccountManagerStacksModal();
                   await timerUtils.wait(200);
                   void verifyKeylessPinChecking({ forceVerify: true, wallet });
                 }

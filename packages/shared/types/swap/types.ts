@@ -367,6 +367,14 @@ export interface IQuoteTip {
   link?: string;
   showCheckbox?: boolean;
   checkboxLabel?: string;
+  priceImpact?: number;
+  priceImpactLoss?: number;
+  type?: EQuoteShowTipType;
+}
+
+export enum EQuoteShowTipType {
+  PRICE_IMPACT = 'priceImpact',
+  TRADE_UNKNOWN = 'tradeUnknown',
 }
 
 export interface IFetchLimitMarketPrice {

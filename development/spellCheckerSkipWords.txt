@@ -1434,4 +1434,5 @@ Blockaid
 posthog
 Posthog
 autocapture
+ellipsize
 misalign

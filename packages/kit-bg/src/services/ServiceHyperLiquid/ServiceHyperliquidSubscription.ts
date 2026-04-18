@@ -12,6 +12,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -137,11 +138,70 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _lastMessageAt: number | null = null;
 
+  private _postOpenDataCheckTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _postOpenDataCheckRetries = 0;
+
+  private static readonly POST_OPEN_DATA_CHECK_MAX_RETRIES = 3;
+
   allSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
 
   pendingSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
+
+  // OK-53014: Extension-only defensive watcher.
+  //
+  // Context: On browser extension cold start (e.g. create wallet in popup
+  // then expand to large-screen tab), UI-to-background atom sync is an async
+  // IPC round-trip.  socketOpenHandler() calls updateSubscriptions() before
+  // perpsActiveAccountAtom / perpsActiveAssetAtom / perpsActiveOrderBookOptionsAtom
+  // have arrived from the freshly-mounted UI, so calculateRequiredSubscriptions()
+  // silently skips all user-/symbol-gated subscriptions and the user sees
+  // everything except the K-line iframe stuck in loading.
+  //
+  // Fix: subscribe to the three atoms that gate subscription creation and
+  // re-run updateSubscriptions() whenever any of them changes while the
+  // socket is OPEN.  updateSubscriptions() is debounced(300ms) + idempotent
+  // via diff, so redundant fires are coalesced.
+  //
+  // Scope: extension only — other platforms run UI and background in the
+  // same JS process where atom writes are effectively synchronous, so the
+  // IPC race does not apply.
+  private _subscriptionAtomsUnsubs: Array<() => void> = [];
+
+  private _watchSubscriptionAtoms(): void {
+    if (!platformEnv.isExtension) {
+      return;
+    }
+    this._unwatchSubscriptionAtoms();
+
+    const handler = () => {
+      const client = this._client;
+      if (!client || client.transport?.socket?.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      console.log('updateSubscriptions__by__atomWatcher');
+      void this.updateSubscriptions();
+    };
+
+    this._subscriptionAtomsUnsubs = [
+      perpsActiveAccountAtom.sub(handler),
+      perpsActiveAssetAtom.sub(handler),
+      perpsActiveOrderBookOptionsAtom.sub(handler),
+    ];
+  }
+
+  private _unwatchSubscriptionAtoms(): void {
+    for (const unsub of this._subscriptionAtomsUnsubs) {
+      try {
+        unsub();
+      } catch (e) {
+        console.error('unwatchSubscriptionAtoms failed', e);
+      }
+    }
+    this._subscriptionAtomsUnsubs = [];
+  }
 
   async buildRequiredSubscriptionsMap() {
     const client = await this.getWebSocketClient();
@@ -361,33 +421,30 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async resumeSubscriptions(): Promise<void> {
     await this.enableSubscriptionsHandler();
+    this._postOpenDataCheckRetries = 0;
+    console.log('updateSubscriptions__by__resumeSubscriptions');
 
-    // Reconnect if socket is CLOSED (iOS closes WebSocket when app is in background)
     const client = await this.getWebSocketClient();
     if (client?.transport?.socket?.readyState === WebSocket.CLOSED) {
-      await this.disconnect();
-      await this.getWebSocketClient();
-    }
-
-    await this.updateSubscriptions();
-
-    const hookInfo = await perpsCandlesWebviewReloadHookAtom.get();
-    if (hookInfo.reloadHook <= -1) {
-      await perpsCandlesWebviewReloadHookAtom.set({
-        reloadHook: Date.now(),
-      });
+      console.log('resumeSubscriptions__force_reconnect_transport');
+      await this._forceReconnectTransport();
+    } else {
+      // OK-53014: re-install atom watcher since pauseSubscriptions() tore
+      // it down.  The socket is still OPEN here, so socketOpenHandler will
+      // not fire again to reinstall it for us.
+      this._watchSubscriptionAtoms();
+      await this.updateSubscriptions();
     }
   }
 
   @backgroundMethod()
   async pauseSubscriptions(): Promise<void> {
+    this._unwatchSubscriptionAtoms();
     await this.disableSubscriptionsHandler();
+    this._clearPostOpenDataCheck();
     this._stopPingLoop();
     await this._cleanupAllSubscriptions();
-
-    await perpsCandlesWebviewReloadHookAtom.set({
-      reloadHook: -1 * Date.now(),
-    });
+    // No reloadHook change — iframe WS self-heals on resume
   }
 
   hasNewUserFills = false;
@@ -457,8 +514,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async disconnect(): Promise<void> {
+    this._unwatchSubscriptionAtoms();
     await this._cleanupAllSubscriptions();
     this._clearNetworkTimeout();
+    this._clearPostOpenDataCheck();
     this._stopPingLoop();
     await this._closeClient();
     this._currentState.isConnected = false;
@@ -477,8 +536,63 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async cleanup(): Promise<void> {
+    this._unwatchSubscriptionAtoms();
     this._stopPingLoop();
+    this._clearPostOpenDataCheck();
     await this._cleanupAllSubscriptions();
+  }
+
+  // Skip per-subscription unsubscribe to avoid async race where stale
+  // _destroySubscription completion deletes newly created tracking entries
+  private async _forceReconnectTransport(): Promise<void> {
+    this._unwatchSubscriptionAtoms();
+    this._clearPostOpenDataCheck();
+    this._clearNetworkTimeout();
+    this._stopPingLoop();
+    this._activeSubscriptions.clear();
+    await this._closeClient();
+    this._client = null;
+    this._clientInitPromise = null;
+    this._currentState.isConnected = false;
+    await perpsNetworkStatusAtom.set(
+      (prev): IPerpsNetworkStatus => ({ ...prev, connected: false }),
+    );
+    this._emitConnectionStatus();
+    await this.getWebSocketClient();
+  }
+
+  private _startPostOpenDataCheck(): void {
+    this._clearPostOpenDataCheck();
+    if (
+      this._postOpenDataCheckRetries >=
+      ServiceHyperliquidSubscription.POST_OPEN_DATA_CHECK_MAX_RETRIES
+    ) {
+      // Stop retrying — rely on transport's built-in backoff
+      return;
+    }
+    const messageAtBefore = this._lastMessageAt;
+    this._postOpenDataCheckTimer = setTimeout(async () => {
+      this._postOpenDataCheckTimer = null;
+      if (
+        this._lastMessageAt === messageAtBefore &&
+        !this.subscriptionsHandlerDisabled
+      ) {
+        this._postOpenDataCheckRetries += 1;
+        console.log(
+          `post_open_data_check__force_reconnect (${this._postOpenDataCheckRetries}/${ServiceHyperliquidSubscription.POST_OPEN_DATA_CHECK_MAX_RETRIES})`,
+        );
+        await this._forceReconnectTransport();
+      } else {
+        this._postOpenDataCheckRetries = 0;
+      }
+    }, 5000);
+  }
+
+  private _clearPostOpenDataCheck(): void {
+    if (this._postOpenDataCheckTimer) {
+      clearTimeout(this._postOpenDataCheckTimer);
+      this._postOpenDataCheckTimer = null;
+    }
   }
 
   @backgroundMethod()
@@ -544,7 +658,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     void perpsWebSocketReadyStateAtom.set({ readyState });
     // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
     this._activeSubscriptions.clear();
+    this._clearPostOpenDataCheck();
     this._stopPingLoop();
+    // OK-53014: WS closed — drop any pending atom-change reconcile.  A new
+    // watcher will be installed by socketOpenHandler on the next successful
+    // open to catch late-arriving atom writes.
+    this._unwatchSubscriptionAtoms();
     void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
       return {
         ...prev,
@@ -561,13 +680,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const socket = event.target as WebSocket | undefined;
     const readyState = socket?.readyState;
     this._lastReadyState = readyState;
-    void perpsWebSocketReadyStateAtom.set({ readyState });
-    // WS open event — readyState tracked via perpsWebSocketReadyStateAtom
+    // OK-53208: SDK transport wrapper reports readyState=undefined in the
+    // open event, which keeps perpsWebSocketConnectedAtom false forever.
+    void perpsWebSocketReadyStateAtom.set({
+      readyState: readyState ?? WebSocket.OPEN,
+    });
 
     const prevNetworkStatus = await perpsNetworkStatusAtom.get();
     const wasConnected = prevNetworkStatus?.connected;
 
     await timerUtils.wait(600); // wait network status atom update
+
+    // OK-53014: Install atom watcher BEFORE initial updateSubscriptions so
+    // that any atom change arriving in the gap between these two calls is
+    // captured and re-triggers a reconcile.
+    this._watchSubscriptionAtoms();
 
     if (!wasConnected) {
       // resubscribe when reconnecting
@@ -583,6 +710,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     );
     this._currentState.isConnected = true;
     this._startPingLoop();
+
+    // Skip initial connect — only notify iframe on reconnection
+    if (wasConnected === false && this._lastMessageAt !== null) {
+      appEventBus.emit(EAppEventBusNames.PerpsWebSocketRecovered, undefined);
+    }
+
+    this._startPostOpenDataCheck();
   };
 
   private _lastReadyState: number | undefined;
@@ -770,6 +904,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _closeClient(): Promise<void> {
+    this._unwatchSubscriptionAtoms();
     if (this._client) {
       try {
         // TODO remove all eventListeners
@@ -1183,6 +1318,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _scheduleNetworkTimeout(messageTimestamp: number): void {
     this._lastMessageAt = messageTimestamp;
+    this._postOpenDataCheckRetries = 0;
 
     if (this._networkTimeoutTimer) {
       return;

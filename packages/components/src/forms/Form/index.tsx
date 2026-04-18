@@ -108,6 +108,20 @@ const getChildProps = (
     onChange?: (value: unknown) => void;
     onChangeText?: (value: unknown) => void;
   };
+  // Strip `disabled` from the field spread so it doesn't clobber an explicit
+  // `disabled={...}` prop the caller set on the child via cloneElement.
+  // RHF always includes `disabled` on the field object (defaults to
+  // `undefined`), which would override the caller's value. Re-add it only
+  // when RHF actually set it (e.g. `<Controller disabled>`).
+  // `onChange` is also stripped — each branch below composes its own handler.
+  const { disabled: fieldDisabled, onChange: _onChange, ...restField } = field;
+  const baseProps = {
+    ...restField,
+    error,
+    hasError,
+    ...(fieldDisabled !== null &&
+      fieldDisabled !== undefined && { disabled: fieldDisabled }),
+  };
   switch (child.type) {
     case Input:
     case TextAreaInput:
@@ -116,9 +130,8 @@ const getChildProps = (
         ? composeEventHandlers(onChangeText, field.onChange)
         : field.onChange;
       return {
-        ...field,
-        error,
-        hasError,
+        ...baseProps,
+        onChange: field.onChange,
         onChangeText: handleChange,
       };
     }
@@ -127,9 +140,7 @@ const getChildProps = (
         ? composeEventHandlers(onChange, field.onChange)
         : field.onChange;
       return {
-        ...field,
-        error,
-        hasError,
+        ...baseProps,
         onChange: handleChange,
       };
     }
@@ -166,6 +177,11 @@ export type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
       | 'flex'
       | 'inline-flex';
     description?: string | ReactNode;
+    /**
+     * Helper text rendered in the error message slot, in textSubdued color.
+     * Takes precedence over the error message when both are present.
+     */
+    hint?: string;
     horizontal?: boolean;
     optional?: boolean;
     labelAddon?: string | ReactElement | ReactNode;
@@ -180,6 +196,7 @@ function Field({
   display,
   errorMessageAlign,
   description,
+  hint,
   rules,
   children,
   horizontal = false,
@@ -252,7 +269,7 @@ function Field({
           )}
         </Stack>
         <HeightTransition>
-          {error?.message ? (
+          {hint || error?.message ? (
             <SizableText
               pt="$1.5"
               animation="quick"
@@ -261,9 +278,19 @@ function Field({
               exitStyle={errorAnimationStyle}
               textAlign={errorMessageAlign}
             >
-              {renderErrorMessage ? (
-                renderErrorMessage({ error })
-              ) : (
+              {hint ? (
+                <SizableText
+                  color="$textSubdued"
+                  size="$bodyMd"
+                  textAlign={errorMessageAlign}
+                >
+                  {hint}
+                </SizableText>
+              ) : null}
+              {!hint && renderErrorMessage
+                ? renderErrorMessage({ error })
+                : null}
+              {!hint && !renderErrorMessage ? (
                 <SizableText
                   color="$textCritical"
                   size="$bodyMd"
@@ -273,7 +300,7 @@ function Field({
                 >
                   {error?.message}
                 </SizableText>
-              )}
+              ) : null}
             </SizableText>
           ) : null}
         </HeightTransition>
@@ -286,6 +313,7 @@ function Field({
       display,
       error,
       errorMessageAlign,
+      hint,
       horizontal,
       intl,
       label,

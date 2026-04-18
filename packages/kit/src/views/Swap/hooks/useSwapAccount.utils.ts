@@ -1,3 +1,4 @@
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 type IShouldUseSwapCustomRecipientAddressParams = {
@@ -16,6 +17,13 @@ type IShouldShowSwapRecipientAddressInfoParams = {
   selectedRecipientNetworkId?: string;
   toAddressNetworkId?: string;
   toTokenNetworkId?: string;
+};
+
+type IShouldUseSwapAddressForTokenFetchParams = {
+  address?: string;
+  activeNetworkId?: string;
+  resolvedAddressNetworkId?: string;
+  targetNetworkId?: string;
 };
 
 export function shouldUseSwapCustomRecipientAddress({
@@ -63,5 +71,25 @@ export function shouldShowSwapRecipientAddressInfo({
 
   return (
     selectedRecipientNetworkId === (toTokenNetworkId ?? toAddressNetworkId)
+  );
+}
+
+export function shouldUseSwapAddressForTokenFetch({
+  address,
+  activeNetworkId,
+  resolvedAddressNetworkId,
+  targetNetworkId,
+}: IShouldUseSwapAddressForTokenFetchParams) {
+  if (!address || !resolvedAddressNetworkId || !targetNetworkId) {
+    return false;
+  }
+
+  if (networkUtils.isAllNetwork({ networkId: activeNetworkId })) {
+    return resolvedAddressNetworkId === targetNetworkId;
+  }
+
+  return (
+    activeNetworkId === targetNetworkId &&
+    resolvedAddressNetworkId === targetNetworkId
   );
 }

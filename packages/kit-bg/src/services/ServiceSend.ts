@@ -850,22 +850,11 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     toAddress: string;
   }) {
-    // For BTC network with fresh address enabled, skip interaction check
-    let checkInteraction: boolean | undefined;
-    if (networkUtils.isBTCNetwork(networkId)) {
-      const enableBTCFreshAddress =
-        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
-      if (enableBTCFreshAddress) {
-        checkInteraction = false;
-      }
-    }
-
     const { isContract, isScam } =
       await this.backgroundApi.serviceAccountProfile.getAddressAccountBadge({
         networkId,
         fromAddress,
         toAddress,
-        checkInteraction,
       });
     if (isContract || isScam) {
       await new Promise<boolean>((resolve, reject) => {
@@ -978,15 +967,17 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     accountId?: string;
     memo: string;
+    tokenAddress?: string;
   }) {
-    const { networkId, accountId, memo } = params;
+    const { networkId, accountId, memo, tokenAddress } = params;
     if (accountId) {
       const vault = await vaultFactory.getVault({ networkId, accountId });
-      return vault.validateMemo(memo);
+      return vault.validateMemo(memo, tokenAddress);
     }
 
     return (await vaultFactory.getChainOnlyVault({ networkId })).validateMemo(
       memo,
+      tokenAddress,
     );
   }
 

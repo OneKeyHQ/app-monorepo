@@ -15,7 +15,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
-  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -161,7 +160,6 @@ function PerpBadgesRow() {
 }
 
 export function PerpTickerBarMobile() {
-  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const content = (
     <XStack
       flex={1}
@@ -183,7 +181,6 @@ export function PerpTickerBarMobile() {
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID="perp-mobile-settings-button"
-          showFeeTierEntry={!perpsAccountStatus.accountNotSupport}
           showGuideEntry
         />
       </XStack>

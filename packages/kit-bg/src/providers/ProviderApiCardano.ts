@@ -175,7 +175,10 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async signTx(request: IJsBridgeMessagePayload, params: { tx: string }) {
+  async signTx(
+    request: IJsBridgeMessagePayload,
+    params: { tx: string; partialSign?: boolean },
+  ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const vault = await this.getAdaVault(request);
     if (!vault) {
@@ -187,6 +190,7 @@ class ProviderApiCardano extends ProviderApiBase {
     const encodedTx = await vault.buildTxCborToEncodeTx({
       txHex: params.tx,
       isSignOnly: true,
+      partialSign: !!params.partialSign,
     });
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
