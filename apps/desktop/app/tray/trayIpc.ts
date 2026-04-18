@@ -41,6 +41,15 @@ export function registerTrayIpcHandlers(
       // so the panel still shows the last known good data, and do NOT
       // forward the empty error placeholder to the tray window (which
       // would replace the displayed good data with a "No Data Yet" state).
+      //
+      // Clear isLocked: the renderer only hits this path when the app is
+      // already unlocked (the locked branch in useTrayDataProvider returns
+      // before the try/catch). Without this, a lock→unlock→gather-failure
+      // sequence leaves isLocked stuck true and
+      // requestDataFromMainWindow's `if (isLocked) return;` blocks ALL
+      // subsequent polling until a push event (account switch, tx status
+      // change) happens to produce a non-error response.
+      isLocked = false;
       return;
     } else {
       isLocked = false;
