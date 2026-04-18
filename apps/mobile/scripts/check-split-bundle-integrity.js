@@ -282,16 +282,31 @@ function scanRuntime({
       for (const depId of deps) {
         if (eager.has(depId)) continue; // eager — always available
         const depSeg = moduleToSegment.get(depId);
-        if (!depSeg) continue; // not in any segment in this runtime (orphan) — skip silently
         if (depSeg === segKey) continue; // same segment — OK
-        if (closure.has(depSeg)) continue; // covered by transitive dependsOn — OK
+        if (depSeg) {
+          // The dep is owned by another segment in THIS runtime.
+          if (closure.has(depSeg)) continue; // covered by transitive dependsOn — OK
+          violations.push({
+            kind: 'cross_segment_sync',
+            runtime: runtimeLabel,
+            srcSegment: segKey,
+            srcModuleId: moduleId,
+            srcModulePath: idToPath.get(moduleId) || `<unknown ${moduleId}>`,
+            depSegment: depSeg,
+            depModuleId: depId,
+            depModulePath: idToPath.get(depId) || `<unknown ${depId}>`,
+          });
+          continue;
+        }
+        // Orphan: dep isn't in eager and isn't owned by any segment in this
+        // runtime's manifest. At runtime this becomes
+        // "Requiring unknown module <depId>" — flag it.
         violations.push({
-          kind: 'cross_segment_sync',
+          kind: 'orphan_dep',
           runtime: runtimeLabel,
           srcSegment: segKey,
           srcModuleId: moduleId,
           srcModulePath: idToPath.get(moduleId) || `<unknown ${moduleId}>`,
-          depSegment: depSeg,
           depModuleId: depId,
           depModulePath: idToPath.get(depId) || `<unknown ${depId}>`,
         });
@@ -309,30 +324,36 @@ function formatPath(p) {
 }
 
 function printViolations(violations) {
-  // Group by (srcSegment, depSegment) for readable output.
   const groups = new Map();
   const structural = [];
+  const orphans = [];
   for (const v of violations) {
-    if (v.kind !== 'cross_segment_sync') {
-      structural.push(v);
+    if (v.kind === 'cross_segment_sync') {
+      const key = `${v.runtime}::${v.srcSegment} -> ${v.depSegment}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(v);
       continue;
     }
-    const key = `${v.runtime}::${v.srcSegment} -> ${v.depSegment}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(v);
+    if (v.kind === 'orphan_dep') {
+      orphans.push(v);
+      continue;
+    }
+    structural.push(v);
   }
 
   for (const s of structural) {
     console.error(`[integrity][${s.runtime}] ${s.kind}: ${s.message}`);
   }
 
-  const keys = [...groups.keys()].sort();
+  const keys = [...groups.keys()].toSorted();
   for (const key of keys) {
     const list = groups.get(key);
     const sample = list[0];
     console.error(`[integrity][${sample.runtime}] ${sample.srcSegment}`);
     console.error(`    → ${sample.depSegment}`);
-    console.error(`    ${list.length} sync edge(s) not covered by dependsOn. First 3:`);
+    console.error(
+      `    ${list.length} sync edge(s) not covered by dependsOn. First 3:`,
+    );
     for (const v of list.slice(0, 3)) {
       console.error(
         `      module ${v.srcModuleId} (${formatPath(v.srcModulePath)})`,
@@ -340,6 +361,24 @@ function printViolations(violations) {
       console.error(
         `        → module ${v.depModuleId} (${formatPath(v.depModulePath)})`,
       );
+    }
+  }
+
+  if (orphans.length > 0) {
+    console.error('');
+    console.error(
+      `[integrity] ORPHAN DEPS (${orphans.length}) — will crash at runtime:`,
+    );
+    for (const v of orphans.slice(0, 10)) {
+      console.error(
+        `  [${v.runtime}] ${v.srcSegment} id=${v.srcModuleId} (${formatPath(v.srcModulePath)})`,
+      );
+      console.error(
+        `    → id=${v.depModuleId} (${formatPath(v.depModulePath)}) NOT in any bundle/segment`,
+      );
+    }
+    if (orphans.length > 10) {
+      console.error(`  ... and ${orphans.length - 10} more`);
     }
   }
 }
@@ -400,7 +439,9 @@ function main() {
   );
 
   if (allViolations.length === 0) {
-    console.log('[check-split-bundle-integrity] OK — no cross-segment sync violations.');
+    console.log(
+      '[check-split-bundle-integrity] OK — no cross-segment sync violations.',
+    );
     process.exit(0);
   }
 
@@ -415,7 +456,7 @@ function main() {
     'Each violation is a latent "Requiring unknown module" crash: the source segment\'s runtime sync-requires a module whose defining segment is not loaded first.',
   );
   console.error(
-    'Fixes: (1) promote the shared module to a dedicated seg:shared.* segment (allocator), or (2) extend the source segment\'s dependsOn chain.',
+    "Fixes: (1) promote the shared module to a dedicated seg:shared.* segment (allocator), or (2) extend the source segment's dependsOn chain.",
   );
   process.exit(1);
 }

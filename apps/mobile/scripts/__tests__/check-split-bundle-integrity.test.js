@@ -40,9 +40,7 @@ describe('parseModuleDefs', () => {
       var x = require(_dependencyMap[0]);
     },3480,[922,6438,3340,7702]);`;
     const defs = parseModuleDefs(js);
-    expect(defs).toEqual([
-      { moduleId: 3480, deps: [922, 6438, 3340, 7702] },
-    ]);
+    expect(defs).toEqual([{ moduleId: 3480, deps: [922, 6438, 3340, 7702] }]);
   });
 
   it('handles bodies with nested braces and quoted strings', () => {
@@ -493,6 +491,54 @@ describe('integration: cross-segment sync edge detection', () => {
       depSegment: 'seg:mdv2-index',
       srcModuleId: 3480,
       depModuleId: 3340,
+    });
+  });
+
+  it('flags a dep that is orphan — not in eager and not in any segment', () => {
+    const segmentsDir = path.join(tmpDir, 'segments');
+    // Segment A defines module 4001 whose sync dep is 4999.
+    // 4999 is NOT in idMap.common/main and NOT in any segment →
+    // runtime crash waiting to happen.
+    writeSegJs(segmentsDir, 'seg-a', [{ moduleId: 4001, deps: [4999] }]);
+
+    const manifest = {
+      segments: {
+        'seg:a': {
+          id: 2001,
+          key: 'seg:a',
+          runtime: 'main',
+          relativePath: 'segments/seg-a.seg.hbc',
+          sha256: 'a',
+          dependsOn: [],
+          size: 100,
+        },
+      },
+    };
+    const idMap = {
+      common: {},
+      main: {},
+      background: {},
+      segments: {
+        'seg:a': { id: 2001, runtime: 'main', modules: { 4001: 'a.tsx' } },
+        // Intentionally no entry for 4999 anywhere.
+      },
+    };
+
+    const { violations } = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir,
+      manifest,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({
+      kind: 'orphan_dep',
+      runtime: 'main',
+      srcSegment: 'seg:a',
+      srcModuleId: 4001,
+      depModuleId: 4999,
     });
   });
 });
