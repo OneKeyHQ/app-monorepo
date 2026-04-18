@@ -153,12 +153,14 @@ const hasOverlayAboveMain = (ref: typeof rootNavigationRef): boolean => {
   return topRoute?.name !== ERootRoutes.Main;
 };
 
+/**
+ * @deprecated
+ * @description Prefer `switchTabAsync` for new code. This synchronous version
+ * uses navigate(Main, {pop:true}) when an overlay is present, which combines
+ * modal dismiss + tab switch + Main re-attach into one UIKit tick and can
+ * create orphan RNSScreenStack instances on iOS (causing UI freeze).
+ */
 export const switchTab = (route: ETabRoutes) => {
-  // Skip per-ref navigate if already on the target tab to avoid unnecessary
-  // navigate(pop:true) which triggers RNSScreenStack retry storms on iOS
-  // when the tab's inner stack has pages that get popped and orphaned.
-  // But if any overlay route is currently above Main, we still need one
-  // navigate(pop:true) to refocus Main and avoid leaving overlay on top.
   const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
   const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
 
@@ -192,6 +194,62 @@ export const switchTab = (route: ETabRoutes) => {
         pop: true,
       },
     );
+  }
+
+  defaultLogger.app.router.switchTabDone(route);
+};
+
+/**
+ * Async version of switchTab that serializes overlay dismiss and tab switch.
+ *
+ * When an overlay (Modal/FullScreenPush) is above Main, this function:
+ * 1. Atomically removes all overlay routes via resetAboveMainRoute()
+ * 2. Waits 100ms for UIKit to settle (dismiss animation + view re-attach)
+ * 3. Navigates to the target tab
+ *
+ * This avoids the iOS RNSScreenStack orphan race that occurs when
+ * navigate(Main, {pop:true}) overlaps modal dismiss + tab switch + Main
+ * re-attach in a single UIKit transition tick. The orphans accumulate
+ * across repeated modal open/close cycles and eventually freeze the UI.
+ *
+ * Use this in flows that open a modal, then dismiss + switch tab
+ * (e.g. UniversalSearch → pick DApp → Discovery tab).
+ */
+export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
+  const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
+  const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
+
+  defaultLogger.app.router.switchTab(route);
+
+  // Tablet/split-view: mirror the tab switch on the tablet navigator
+  setTimeout(() => {
+    const tabletActiveTab = getActiveTabFromRef(tabletMainViewNavigationRef);
+    const tabletHasOverlay = hasOverlayAboveMain(tabletMainViewNavigationRef);
+    if (
+      tabletActiveTab !== undefined &&
+      (tabletHasOverlay || tabletActiveTab !== route)
+    ) {
+      tabletMainViewNavigationRef.current?.navigate(
+        ERootRoutes.Main,
+        {
+          screen: route,
+        },
+        {
+          pop: true,
+        },
+      );
+    }
+  });
+
+  if (rootHasOverlay) {
+    resetAboveMainRoute();
+    await timerUtils.wait(100);
+  }
+
+  if (rootActiveTab !== route) {
+    rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+      screen: route,
+    });
   }
 
   defaultLogger.app.router.switchTabDone(route);
@@ -364,6 +422,11 @@ export function resetOnboardingModal() {
   resetModalRouteByName(EModalRoutes.OnboardingModal);
 }
 
+/** Thin wrapper — see resetModalRouteByName. */
+export function resetAccountManagerStacksModal() {
+  resetModalRouteByName(EModalRoutes.AccountManagerStacks);
+}
+
 export const popToMainRoute = async () => {
   resetAboveMainRoute();
   await timerUtils.wait(100);
@@ -482,28 +545,15 @@ export const resetToRoute = (
 /**
  * Safely navigate from an overlay route (Modal/FullScreenPush) to a tab page.
  *
- * When using native UITabBarController, calling goBack() on overlay routes
- * can trigger RNSScreenStack updates on stacks inside detached tab views,
- * where window=NIL causes the update to fail after 50 retries (~5 seconds).
- *
- * This utility atomically removes all overlay routes via reset, switches
- * to the target tab, and waits for the navigator to settle before returning.
- *
- * Usage:
- *   await navigateFromOverlayToTab({
- *     targetTab: ETabRoutes.Home,
- *     switchTab: (tab) => navigation.switchTab(tab),
- *   });
- *   // Now safe to push/navigate within the target tab
+ * Always uses switchTabAsync internally (ignores any provided switchTab callback)
+ * to ensure overlay dismiss + tab switch are properly serialized.
  */
 export const navigateFromOverlayToTab = async (options: {
   targetTab: ETabRoutes;
-  switchTab: (tab: ETabRoutes) => void;
+  /** @deprecated Ignored — always uses switchTabAsync internally */
+  switchTab?: (tab: ETabRoutes) => void | Promise<void>;
 }) => {
-  resetAboveMainRoute();
-  options.switchTab(options.targetTab);
-  // Wait for navigator to fully reconcile after reset + tab switch
-  await timerUtils.wait(100);
+  await switchTabAsync(options.targetTab);
 };
 
 export const popToTabRootScreen = async () => {
