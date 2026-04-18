@@ -440,23 +440,23 @@ function main() {
 
   if (allViolations.length === 0) {
     console.log(
-      '[check-split-bundle-integrity] OK — no cross-segment sync violations.',
+      '[check-split-bundle-integrity] OK — no cross-segment sync violations or orphan deps.',
     );
     process.exit(0);
   }
 
   console.error('');
   console.error(
-    '[check-split-bundle-integrity] FAIL — cross-segment sync dependencies without dependsOn coverage:',
+    '[check-split-bundle-integrity] FAIL — split-bundle integrity violations (cross-segment sync or orphan deps):',
   );
   console.error('');
   printViolations(allViolations);
   console.error('');
   console.error(
-    'Each violation is a latent "Requiring unknown module" crash: the source segment\'s runtime sync-requires a module whose defining segment is not loaded first.',
+    'Each violation is a latent "Requiring unknown module" crash: the source segment sync-requires a module whose defining segment is not loaded first (cross_segment_sync) or whose definition ships nowhere (orphan_dep).',
   );
   console.error(
-    "Fixes: (1) promote the shared module to a dedicated seg:shared.* segment (allocator), or (2) extend the source segment's dependsOn chain.",
+    "Fixes: (1) promote the shared module to a dedicated seg:shared.* segment (allocator), (2) extend the source segment's dependsOn chain, or (3) add the orphan path to apps/mobile/bundle-groups.config.js or keep it in the eager bundle.",
   );
   process.exit(1);
 }
