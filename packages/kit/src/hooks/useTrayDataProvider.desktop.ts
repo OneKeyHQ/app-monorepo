@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { rootNavigationRef } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
 import {
+  currencyPersistAtom,
+  settingsPersistAtom,
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -18,6 +23,7 @@ import {
   TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -101,24 +107,83 @@ export function useTrayDataProvider() {
         }
       }
 
-      // 2. Balance
+      // 2. Balance (tokens + DeFi, in user's display currency)
+      //
+      // Tray semantic is "wallet at a glance" — always cross-network, NOT
+      // following the main window's current network selection (spec non-goal #1).
+      // We therefore pass the All-Networks id to getAccountTotalDeFiNetWorth
+      // unconditionally.
       const accountValue = activeAccountValueRef.current;
-      if (accountValue) {
-        const val = accountValue.value;
-        let totalNum = 0;
-        if (typeof val === 'string') {
-          totalNum = Number(val) || 0;
-        } else if (val && typeof val === 'object') {
-          totalNum = Object.values(val).reduce(
-            (sum, v) => sum + (Number(v) || 0),
-            0,
-          );
+      if (accountValue && currentWallet) {
+        try {
+          const [{ currencyInfo }, { currencyMap }] = await Promise.all([
+            settingsPersistAtom.get(),
+            currencyPersistAtom.get(),
+          ]);
+          const targetCurrency = currencyInfo.id; // e.g. 'usd' / 'cny'
+          const usdInfoRaw = currencyMap.usd;
+          const targetInfoRaw = currencyMap[targetCurrency];
+
+          // activeAccountValueAtom is always USD; convert to display currency.
+          // value is either a string (others account) or Record<key, string> (own).
+          const val = accountValue.value;
+          let tokensUsd = new BigNumber(0);
+          if (typeof val === 'string') {
+            tokensUsd = new BigNumber(val || '0');
+          } else if (val && typeof val === 'object') {
+            tokensUsd = Object.values(val).reduce(
+              (sum, v) => sum.plus(new BigNumber(v || '0')),
+              new BigNumber(0),
+            );
+          }
+
+          let tokensInTarget: string;
+          let displayCurrency: string;
+          if (!usdInfoRaw || !targetInfoRaw) {
+            // currencyMap not populated yet (first launch, before Settings →
+            // Currency opens). Fall back to USD labeling so we don't display
+            // a USD-valued number mislabeled as the target currency.
+            tokensInTarget = tokensUsd.toFixed();
+            displayCurrency = 'usd';
+          } else {
+            tokensInTarget = tokensUsd
+              .div(new BigNumber(usdInfoRaw.value || '1'))
+              .times(new BigNumber(targetInfoRaw.value || '1'))
+              .toFixed();
+            displayCurrency = targetCurrency;
+          }
+
+          // DeFi netWorth via service (reads simpleDb.deFi only; no network).
+          // The real All-Networks id is 'onekeyall--0' — see
+          // networkUtils.isAllNetwork / getNetworkIdsMap().onekeyall.
+          let deFiNetWorth = '0';
+          try {
+            const deFiResp =
+              await backgroundApiProxy.serviceDeFi.getAccountTotalDeFiNetWorth({
+                accountId: accountValue.accountId,
+                networkId: getNetworkIdsMap().onekeyall,
+                targetCurrency: displayCurrency,
+              });
+            deFiNetWorth = deFiResp.netWorth;
+          } catch (e) {
+            console.warn('[TrayDataProvider] defi fetch error:', e);
+          }
+
+          const total =
+            calculateAccountTotalValue({
+              tokensValue: tokensInTarget,
+              deFiNetWorth,
+            }) ?? '0';
+
+          trayData.totalBalance = {
+            amount: new BigNumber(total).toFixed(2),
+            currency: displayCurrency,
+            change24h: 0,
+          };
+        } catch (e) {
+          console.warn('[TrayDataProvider] balance composition error:', e);
+          // Fall through: leave trayData.totalBalance at the initial default.
         }
-        trayData.totalBalance = {
-          amount: totalNum.toFixed(2),
-          currency: accountValue.currency || 'USD',
-          change24h: 0,
-        };
       }
 
       // 3. Watchlist — both spot and perps
