@@ -889,17 +889,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const refilledWalletsCache: {
       [walletId: string]: IDBWallet;
     } = {};
+    const nestedHiddenIds = new Set<string>();
     wallets = await Promise.all(
       wallets.map(async (w) => {
+        const ownHidden = w.associatedDevice
+          ? (hiddenWalletsMap[w.associatedDevice] || []).filter((hw) =>
+              hw.id.startsWith(w.id),
+            )
+          : undefined;
+        if (ownHidden) {
+          for (const hw of ownHidden) {
+            nestedHiddenIds.add(hw.id);
+          }
+        }
         const newWallet: IDBWallet = await this.refillWalletInfo({
           refilledWalletsCache,
           allDevices,
           wallet: w,
-          hiddenWallets: w.associatedDevice
-            ? (hiddenWalletsMap[w.associatedDevice] || []).filter((hw) =>
-                hw.id.startsWith(w.id),
-              )
-            : undefined,
+          hiddenWallets: ownHidden,
         });
         if (includingAccounts) {
           await Promise.all([
@@ -913,6 +920,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         return newWallet;
       }),
     );
+
+    // Promote orphan hidden wallets whose parent standard wallet doesn't
+    // exist (e.g., user only created a passphrase wallet on a HW device).
+    for (const deviceHiddenWallets of Object.values(hiddenWalletsMap)) {
+      if (!deviceHiddenWallets) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      for (const hw of deviceHiddenWallets) {
+        if (nestedHiddenIds.has(hw.id)) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const newWallet: IDBWallet = await this.refillWalletInfo({
+          refilledWalletsCache,
+          allDevices,
+          wallet: hw,
+        });
+        if (includingAccounts) {
+          await fillDbAccounts(newWallet);
+        }
+        wallets.push(newWallet);
+      }
+    }
+
     wallets = wallets.toSorted(this.walletSortFn);
 
     return {
@@ -4035,6 +4067,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               account = await this.getAccount({ accountId });
             }
             if (wallet && account) {
+              if (
+                this.isTempWalletRemoved({ wallet }) ||
+                accountUtils.isWalletDeprecatedOrMocked(wallet)
+              ) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
               const order = getOrderByWalletType(wallet.type);
               if (
                 !accountUtils.isUrlAccountFn({
