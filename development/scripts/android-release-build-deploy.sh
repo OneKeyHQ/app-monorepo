@@ -45,7 +45,18 @@ detect_device() {
 cmd_build() {
   echo "$(timestamp) 📦 Building HBC bundles (union build + hermesc)..."
   cd "$MOBILE_DIR"
-  rm -rf out-dir-bundle out-dir-bundle-zip
+
+  # Clear stale outputs so the integrity check can't inspect inconsistent
+  # data from a previous interrupted build.
+  rm -rf out-dir-bundle out-dir-bundle-zip \
+         dist/segments dist/segments-background \
+         dist/segment-manifest.json dist/segment-manifest-background.json \
+         dist/module-id-map.json \
+         dist/module-id-map-main.json dist/module-id-map-background.json
+
+  # Guards must be ON by default. Setting either of these to 1 in CI is a BUG.
+  unset ONEKEY_SKIP_SPLIT_INTEGRITY_CHECK
+  unset ONEKEY_ALLOW_INCOMPLETE_BUNDLE
 
   SENTRY_DISABLE_AUTO_UPLOAD=true \
   ENABLE_NATIVE_BACKGROUND_THREAD=true \
