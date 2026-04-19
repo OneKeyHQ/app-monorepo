@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { ONEKEY_EIP6963_RDNS } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -51,6 +52,20 @@ import type {
   IExternalSignMessagePayload,
   IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
+
+function isOneKeyExtensionConnection(connectionInfo: IExternalConnectionInfo) {
+  const eip6963Rdns =
+    connectionInfo.evmEIP6963?.info?.rdns?.toLowerCase() ?? '';
+  const eip6963Name =
+    connectionInfo.evmEIP6963?.info?.name?.toLowerCase() ?? '';
+  const injectedName = connectionInfo.evmInjected?.name?.toLowerCase() ?? '';
+
+  return (
+    eip6963Rdns === ONEKEY_EIP6963_RDNS ||
+    eip6963Name === 'onekey wallet' ||
+    injectedName === 'onekey wallet'
+  );
+}
 
 export class ExternalControllerEvm extends ExternalControllerBase {
   changeListeners: Record<string, (data: any) => Promise<void>> = {};
@@ -280,10 +295,16 @@ export class ExternalControllerEvm extends ExternalControllerBase {
   }): Promise<IExternalConnectWalletResult> {
     const { connectionInfo } = connector;
     checkIsDefined(connectionInfo);
-    const result = (await connector.connect({
-      requestOneKeyKeylessAccount:
-        connectToWalletOptions?.webKeylessPendingLogin?.provider,
-    } as any)) as IExternalConnectResultEvm;
+    const requestOneKeyKeylessAccount = isOneKeyExtensionConnection(
+      connectionInfo,
+    )
+      ? connectToWalletOptions?.webKeylessPendingLogin?.provider
+      : undefined;
+    const result = (await connector.connect(
+      (requestOneKeyKeylessAccount
+        ? { requestOneKeyKeylessAccount }
+        : {}) as any,
+    )) as IExternalConnectResultEvm;
 
     if (!result?.accounts?.length) {
       throw new OneKeyLocalError('No authorized external wallet accounts');

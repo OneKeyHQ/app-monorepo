@@ -358,7 +358,12 @@ function GetStarted() {
             },
             { platform: 'Google' },
           ),
-          description: 'OneKey is connecting to your Google account...',
+          description: intl.formatMessage(
+            {
+              id: ETranslations.extension_connecting_platform_account,
+            },
+            { platform: 'Google' },
+          ),
         });
       }
       await checkKeylessWalletLocalExistence({
@@ -384,7 +389,12 @@ function GetStarted() {
             },
             { platform: 'Apple' },
           ),
-          description: 'OneKey is connecting to your Apple account...',
+          description: intl.formatMessage(
+            {
+              id: ETranslations.extension_connecting_platform_account,
+            },
+            { platform: 'Apple' },
+          ),
         });
       }
       await checkKeylessWalletLocalExistence({

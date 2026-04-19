@@ -60,6 +60,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -75,7 +76,9 @@ import {
   normalizeOptionalRecipientText,
   shouldSkipResolvedRecipientUpdate,
 } from './recipientSelectionUtils';
+import { useWebDappRecipientOptions } from './useWebDappRecipientOptions';
 
+import type { IRecipientQuickSelectTab } from './recipientQuickSelectTabUtils';
 import type { RouteProp } from '@react-navigation/core';
 
 interface IFormValues {
@@ -148,9 +151,11 @@ function SendDataInputContainer() {
     networkId,
   });
 
-  const [quickSelectActiveTab, setQuickSelectActiveTab] = useState<
-    'recent' | 'account' | 'addressBook'
-  >('recent');
+  const { hiddenTabs: recipientHiddenTabs, keylessWalletsOnly } =
+    useWebDappRecipientOptions();
+
+  const [quickSelectActiveTab, setQuickSelectActiveTab] =
+    useState<IRecipientQuickSelectTab>('recent');
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
   const [scannedAmount, setScannedAmount] = useState('');
 
@@ -481,6 +486,51 @@ function SendDataInputContainer() {
         return;
       }
 
+      // ERC-721 NFTs are 1-of-1 so there is nothing to enter on the amount
+      // page — skip straight to confirm with a fixed quantity of 1 (OK-53248).
+      const nftItem = nfts?.[0];
+      if (
+        isNFT &&
+        nftItem &&
+        nftItem.collectionType !== ENFTType.ERC1155 &&
+        account
+      ) {
+        const transfersInfo: ITransferInfo[] = [
+          {
+            from: account.address,
+            to: toResolved,
+            amount: '1',
+            nftInfo: {
+              nftId: nftItem.itemId,
+              nftAddress: nftItem.collectionAddress,
+              nftType: nftItem.collectionType,
+            },
+            memo: nextMemoValue || undefined,
+            paymentId: nextPaymentIdValue || undefined,
+            note: nextNoteValue || undefined,
+          },
+        ];
+        await signatureConfirm.navigationToTxConfirm({
+          transfersInfo,
+          sameModal: true,
+          onSuccess,
+          onFail,
+          onCancel,
+          transferPayload: {
+            amountToSend: '1',
+            isMaxSend: false,
+            isNFT: true,
+            originalRecipient: toResolved,
+            isToContract: !!toVal?.isContract,
+            memo: nextMemoValue || undefined,
+            paymentId: nextPaymentIdValue || undefined,
+            note: nextNoteValue || undefined,
+          },
+          isInternalTransfer: true,
+        });
+        return;
+      }
+
       pushAmountInput({
         networkId: currentAccount.networkId,
         accountId: currentAccount.accountId,
@@ -528,6 +578,7 @@ function SendDataInputContainer() {
     accountId: currentAccount.accountId,
     numericOnlyMemo,
     supportMemoValidation: vaultSettings?.supportMemoValidation,
+    tokenAddress: tokenInfo?.address,
   });
 
   const renderMemoForm = useCallback(() => {
@@ -1172,6 +1223,8 @@ function SendDataInputContainer() {
               onInputTypeChange={handleAddressInputChangeType}
               onMatchStatusChange={setHasQuickSelectMatches}
               onSelect={handleQuickSelectRecipient}
+              hideTabs={recipientHiddenTabs}
+              keylessWalletsOnly={keylessWalletsOnly}
             />
           </Form>
         </AccountSelectorProviderMirror>

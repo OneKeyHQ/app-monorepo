@@ -72,6 +72,7 @@ import {
   accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
   accountSelectorStorageReadyAtom,
+  accountSelectorSyncLoadingAtom,
   accountSelectorUpdateMetaAtom,
   activeAccountsAtom,
   contextAtomMethod,
@@ -573,7 +574,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }),
       });
 
-      appEventBus.emit(EAppEventBusNames.ConfirmAccountSelected, undefined);
+      appEventBus.emit(EAppEventBusNames.ConfirmAccountSelected, {
+        num,
+        indexedAccountId: indexedAccount?.id,
+        othersWalletAccountId: othersWalletAccount?.id,
+      });
     },
   );
 
@@ -1364,16 +1369,27 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) => {
       // TODO add home scene check
       const num = 0;
-      await serviceAccount.removeWallet({
-        walletId,
-        isRemoveToMocked,
+      set(accountSelectorSyncLoadingAtom(), {
+        ...get(accountSelectorSyncLoadingAtom()),
+        [num]: { isLoading: true },
       });
-      set(accountSelectorEditModeAtom(), false);
+      try {
+        await serviceAccount.removeWallet({
+          walletId,
+          isRemoveToMocked,
+        });
+        set(accountSelectorEditModeAtom(), false);
 
-      await this.autoSelectNextAccount.call(set, {
-        num,
-        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
-      });
+        await this.autoSelectNextAccount.call(set, {
+          num,
+          triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+        });
+      } finally {
+        set(accountSelectorSyncLoadingAtom(), {
+          ...get(accountSelectorSyncLoadingAtom()),
+          [num]: { isLoading: false },
+        });
+      }
     },
   );
 
@@ -2061,10 +2077,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           activeAccount;
         const selectedAccount = this.getSelectedAccount.call(set, { num });
         const isAccountExist = Boolean(indexedAccount || account || dbAccount);
+        // Mocked / deprecated wallets are no longer user-facing — treat them
+        // as needing replacement so the auto-select loop runs and either picks
+        // the next valid wallet or resets to undefined (OK-51091).
         const shouldAutoSelectNextAccount =
           !selectedAccount?.focusedWallet ||
           !network ||
           !wallet ||
+          accountUtils.isWalletDeprecatedOrMocked(wallet) ||
           !isAccountExist;
 
         if (shouldAutoSelectNextAccount) {
@@ -2103,7 +2123,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }));
 
           // auto select hd hw wallet if current wallet not contains next available account
-          if (!selectedWalletId || !hasIndexedAccounts) {
+          if (
+            !selectedWalletId ||
+            !hasIndexedAccounts ||
+            accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
+          ) {
             let shouldSelectHdHwWallet = true;
             if (
               selectedWalletId &&
@@ -2131,7 +2155,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               const { wallets } = await serviceAccount.getAllHdHwQrWallets();
               for (const wallet0 of wallets) {
                 if (
-                  !wallet0?.isMocked &&
+                  !accountUtils.isWalletDeprecatedOrMocked(wallet0) &&
                   (await serviceAccount.isWalletHasIndexedAccounts({
                     walletId: wallet0.id,
                   }))
@@ -2143,7 +2167,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 }
               }
               // maybe no hd hw wallet found, reset walletId and indexedAccountId
-              if (!selectedWallet) {
+              if (
+                !selectedWallet ||
+                accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
+              ) {
                 defaultLogger.accountSelector.autoSelect.resetSelectedWalletToUndefined(
                   {
                     selectedAccount: selectedAccountNew,
@@ -2152,6 +2179,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
                 selectedAccountNew.walletId = undefined;
                 selectedAccountNew.indexedAccountId = undefined;
+                selectedAccountNew.focusedWallet = undefined;
+                // Sync local variables so subsequent code (isHdWallet /
+                // isHwOrQrWallet checks, Others fallback) doesn't use the
+                // stale deprecated wallet reference and undo the reset.
+                selectedWalletId = undefined;
+                selectedWallet = undefined;
               }
             }
           }

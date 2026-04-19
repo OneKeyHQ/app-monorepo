@@ -73,6 +73,14 @@ import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthUtils } from './biologyAuthUtils';
 
+function unrefTimeout(
+  timeout: ReturnType<typeof setTimeout> | null | undefined,
+) {
+  (
+    timeout as ReturnType<typeof setTimeout> & { unref?: () => void }
+  )?.unref?.();
+}
+
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
   private cachedPassword?: string;
@@ -238,6 +246,7 @@ export default class ServicePassword extends ServiceBase {
     this.cachedPrfMasterKeyTimeOutObject = setTimeout(() => {
       void this.clearCachedPrfMasterKey();
     }, this.PRF_MASTER_KEY_CACHE_DURATION_MS);
+    unrefTimeout(this.cachedPrfMasterKeyTimeOutObject);
   }
 
   @backgroundMethod()
@@ -264,6 +273,7 @@ export default class ServicePassword extends ServiceBase {
     this.cachedPasswordTimeOutObject = setTimeout(() => {
       void this.clearCachedPassword();
     }, this.cachedPasswordTTL);
+    unrefTimeout(this.cachedPasswordTimeOutObject);
 
     void (async () => {
       const prevPasswordRaw = prevPassword
@@ -296,6 +306,7 @@ export default class ServicePassword extends ServiceBase {
     this.cachedPasswordTimeOutObject = setTimeout(() => {
       void this.clearCachedPassword();
     }, this.cachedPasswordTTL);
+    unrefTimeout(this.cachedPasswordTimeOutObject);
     return this.cachedPassword;
   }
 
@@ -375,6 +386,12 @@ export default class ServicePassword extends ServiceBase {
     enable: boolean,
     skipAuth?: boolean,
   ): Promise<void> {
+    // TODO(biologyAuth-debug): temporary log to diagnose biometric disappearing
+    defaultLogger.setting.page.biologyAuthDebug('setBiologyAuthEnable', {
+      enable,
+      skipAuth: !!skipAuth,
+      stack: new Error('trace').stack?.split('\n').slice(1, 6).join(' | '),
+    });
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
@@ -893,6 +910,7 @@ export default class ServicePassword extends ServiceBase {
     this.passwordPromptTimeout = setTimeout(() => {
       void this.cancelPasswordPromptDialog(params.idNumber);
     }, this.passwordPromptTTL);
+    unrefTimeout(this.passwordPromptTimeout);
   }
 
   @backgroundMethod()

@@ -57,6 +57,7 @@ import {
 } from './components/Context';
 
 import type { ILineError } from './components/AddressesInput/LineNumberedTextArea';
+import type { IResolvedSenderAccount } from './components/Context';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
@@ -525,7 +526,7 @@ function BaseBulkSendAddressesInput() {
             !isOneToMany && amount !== undefined
               ? new BigNumber(amount.trim()).toFixed()
               : undefined,
-          accountId: resolvedSenderAccountIds[currentIndex],
+          accountId: resolvedSenderAccountIds[currentIndex]?.accountId,
         };
       });
 
@@ -753,11 +754,12 @@ function BaseBulkSendAddressesInput() {
   );
 }
 
-function BulkSendAddressesInput() {
+function BulkSendAddressesInputProvider() {
   const route = useAppRoute<
     IModalBulkSendParamList,
     EModalBulkSendRoutes.BulkSendAddressesInput
   >();
+  const { activeAccount } = useActiveAccount({ num: 0 });
 
   const [selectedAccountId, setSelectedAccountId] = useState<
     string | undefined
@@ -791,7 +793,7 @@ function BulkSendAddressesInput() {
   >(undefined);
 
   const [resolvedSenderAccountIds, setResolvedSenderAccountIds] = useState<
-    Record<number, string>
+    Record<number, IResolvedSenderAccount>
   >({});
 
   const [duplicateSenderAddressCount, setDuplicateSenderAddressCount] =
@@ -804,6 +806,11 @@ function BulkSendAddressesInput() {
 
   const context = useMemo(
     () => ({
+      currentWalletId: selectedAccountId
+        ? accountUtils.getWalletIdFromAccountId({
+            accountId: selectedAccountId,
+          })
+        : activeAccount?.wallet?.id,
       selectedAccountId,
       setSelectedAccountId,
       selectedNetworkId,
@@ -832,6 +839,7 @@ function BulkSendAddressesInput() {
       setReceiverValidationErrors,
     }),
     [
+      activeAccount?.wallet?.id,
       selectedAccountId,
       selectedNetworkId,
       selectedToken,
@@ -857,6 +865,14 @@ function BulkSendAddressesInput() {
   );
 
   return (
+    <BulkSendAddressesInputContext.Provider value={context}>
+      <BaseBulkSendAddressesInput />
+    </BulkSendAddressesInputContext.Provider>
+  );
+}
+
+function BulkSendAddressesInput() {
+  return (
     <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.home,
@@ -864,9 +880,7 @@ function BulkSendAddressesInput() {
       }}
       enabledNum={[0]}
     >
-      <BulkSendAddressesInputContext.Provider value={context}>
-        <BaseBulkSendAddressesInput />
-      </BulkSendAddressesInputContext.Provider>
+      <BulkSendAddressesInputProvider />
     </AccountSelectorProviderMirror>
   );
 }

@@ -34,8 +34,15 @@ export function MarketRecommendList({
   const intl = useIntl();
   const actions = useWatchListV2Action();
   const { height: windowHeight } = useWindowDimensions();
+  const showTitle =
+    platformEnv.isWeb ||
+    platformEnv.isDesktop ||
+    platformEnv.isExtensionUiExpandTab;
+  let containerPaddingTop = 0;
 
-  const actualShowTitle = useMemo(() => windowHeight > 700, [windowHeight]);
+  if (!platformEnv.isExtensionUiPopup) {
+    containerPaddingTop = Math.max(0, (windowHeight - 800) * 0.5);
+  }
 
   const uniqueTokens = useMemo(() => {
     if (!recommendedTokens?.length) return [];
@@ -132,21 +139,26 @@ export function MarketRecommendList({
   }
 
   return (
-    <YStack px="$5" jc="center" ai="center" width="100%">
-      {actualShowTitle ? (
+    <YStack
+      px="$5"
+      pt={containerPaddingTop}
+      pb="$2"
+      jc="center"
+      ai="center"
+      width="100%"
+    >
+      {showTitle ? (
         <>
-          <SizableText
-            size={platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'}
-            color="$text"
-          >
+          <SizableText size="$heading3xl" color="$text" textAlign="center">
             {intl.formatMessage({
               id: ETranslations.market_favorites_empty,
             })}
           </SizableText>
           <SizableText
             color="$textSubdued"
-            size={platformEnv.isExtensionUiPopup ? '$bodyMd' : '$bodyLg'}
+            size="$bodyLg"
             pt="$2"
+            textAlign="center"
           >
             {intl.formatMessage({
               id: ETranslations.market_favorites_empty_desc,
@@ -155,7 +167,7 @@ export function MarketRecommendList({
         </>
       ) : null}
       <YStack
-        pt={actualShowTitle ? '$6' : '$0'}
+        pt={showTitle ? '$6' : '$0'}
         gap="$2.5"
         width="100%"
         $gtMd={{ maxWidth: 480 }}

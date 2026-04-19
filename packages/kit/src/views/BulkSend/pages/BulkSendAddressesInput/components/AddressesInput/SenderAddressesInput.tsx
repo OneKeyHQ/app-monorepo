@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,6 +12,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -20,10 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import {
-  EInputAddressChangeType,
-  type IAddressBadge,
-} from '@onekeyhq/shared/types/address';
+import { type IAddressBadge } from '@onekeyhq/shared/types/address';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { useBulkSendAddressesInputContext } from '../Context';
@@ -32,7 +29,8 @@ import LineNumberedTextArea from './LineNumberedTextArea';
 import {
   type IBulkSendSenderSelectorAccountItem,
   buildSenderSelectorAddressKey,
-  resolveSenderSelectorFallbackAccount,
+  resolveBulkSendSenderFallbackSelection,
+  resolveBulkSendSenderSelection,
 } from './senderSelectorAccountUtils';
 import { useMultiLineAddressValidation } from './useMultiLineAddressValidation';
 
@@ -59,6 +57,7 @@ function buildSenderSelectorAccountItem(
 function SingleLineSenderInput() {
   const intl = useIntl();
   const {
+    currentWalletId,
     selectedAccountId,
     selectedNetworkId,
     selectedIndexedAccountId,
@@ -70,6 +69,7 @@ function SingleLineSenderInput() {
     setSelectedDeriveType,
   } = useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
+  const { connectedDevices } = useHardwareWalletConnectStatus();
   const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
   const senderSelectorAccountItemsRef = useRef<
     Record<string, IBulkSendSenderSelectorAccountItem>
@@ -89,10 +89,6 @@ function SingleLineSenderInput() {
     return '';
   }, [selectedIndexedAccountId]);
 
-  // Use refs to store latest values for validation closure
-  const selectedAccountIdRef = useRef(selectedAccountId);
-  const selectedIndexedAccountIdRef = useRef(selectedIndexedAccountId);
-
   const handleAddressTypeSelect = useCallback(
     async ({
       account,
@@ -104,7 +100,6 @@ function SingleLineSenderInput() {
     }) => {
       setSelectedDeriveType(deriveType);
       if (account?.id) {
-        selectedAccountIdRef.current = account.id;
         setSelectedAccountId(account.id);
       }
     },
@@ -127,29 +122,45 @@ function SingleLineSenderInput() {
         ];
 
       const applySelectorFallback = async () => {
-        const fallbackResult = await resolveSenderSelectorFallbackAccount({
+        const fallbackResult = await resolveBulkSendSenderFallbackSelection({
           fallbackAccountItem,
+          currentWalletId,
           networkId: selectedNetworkId ?? '',
+          connectedDeviceIds: connectedDevices,
         });
         if (!fallbackResult) {
           return undefined;
         }
 
         if (fallbackResult.type === 'error') {
-          setAddressBadges([]);
+          setAddressBadges(
+            fallbackResult.candidate
+              ? [
+                  {
+                    label: `${fallbackResult.candidate.walletName} / ${fallbackResult.candidate.accountName}`,
+                    type: 'success',
+                  },
+                ]
+              : [],
+          );
           return intl.formatMessage({
             id: fallbackResult.errorMessageId,
           });
         }
 
+        if (!fallbackResult.candidate) {
+          setAddressBadges([]);
+          return intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_address_not_found,
+          });
+        }
+
         setAddressBadges([
           {
-            label: `${fallbackAccountItem.walletName} / ${fallbackAccountItem.accountName}`,
+            label: `${fallbackResult.candidate.walletName} / ${fallbackResult.candidate.accountName}`,
             type: 'success',
           },
         ]);
-        selectedAccountIdRef.current = fallbackResult.accountId;
-        selectedIndexedAccountIdRef.current = fallbackResult.indexedAccountId;
         setSelectedAccountId(fallbackResult.accountId);
         setSelectedIndexedAccountId(fallbackResult.indexedAccountId);
         return true;
@@ -170,7 +181,7 @@ function SingleLineSenderInput() {
               address: trimmedAddress,
             });
 
-          if (isEmpty(walletAccountItems)) {
+          if (walletAccountItems.length === 0) {
             const fallbackResult = await applySelectorFallback();
             if (fallbackResult !== undefined) {
               return fallbackResult;
@@ -181,88 +192,37 @@ function SingleLineSenderInput() {
             });
           }
 
-          let accountItem:
-            | { walletName: string; accountName: string; accountId: string }
-            | undefined;
+          const selection = await resolveBulkSendSenderSelection({
+            walletAccountItems,
+            currentWalletId,
+            networkId: selectedNetworkId ?? '',
+            connectedDeviceIds: connectedDevices,
+          });
 
-          const currentAccountId = selectedAccountIdRef.current;
-          const currentIndexedAccountId = selectedIndexedAccountIdRef.current;
-
-          if (currentAccountId || currentIndexedAccountId) {
-            accountItem = walletAccountItems.find((item) => {
-              if (currentIndexedAccountId) {
-                return item.accountId === currentIndexedAccountId;
-              }
-              return item.accountId === currentAccountId;
-            });
-          }
-
-          let isWatchingAccount = false;
-
-          if (accountItem) {
-            setAddressBadges([
-              {
-                label: `${accountItem.walletName} / ${accountItem.accountName}`,
-                type: 'success',
-              },
-            ]);
-            isWatchingAccount = accountUtils.isWatchingAccount({
-              accountId: accountItem.accountId,
-            });
-          } else {
+          if (selection.type === 'error') {
             setAddressBadges(
-              walletAccountItems[0]
+              selection.candidate
                 ? [
                     {
-                      label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
+                      label: `${selection.candidate.walletName} / ${selection.candidate.accountName}`,
                       type: 'success',
                     },
                   ]
                 : [],
             );
-            for (const item of walletAccountItems) {
-              if (
-                accountUtils.isHdAccount({ accountId: item.accountId }) ||
-                accountUtils.isHwAccount({ accountId: item.accountId })
-              ) {
-                const networkAccounts =
-                  await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-                    {
-                      indexedAccountId: item.accountId,
-                      networkIds: [selectedNetworkId ?? ''],
-                    },
-                  );
-                if (networkAccounts[0].account) {
-                  selectedAccountIdRef.current = networkAccounts[0].account.id;
-                  selectedIndexedAccountIdRef.current = item.accountId;
-                  setSelectedAccountId(networkAccounts[0].account.id);
-                  setSelectedIndexedAccountId(item.accountId);
-                  return true;
-                }
-              } else if (
-                accountUtils.isExternalAccount({ accountId: item.accountId }) ||
-                accountUtils.isImportedAccount({ accountId: item.accountId })
-              ) {
-                selectedAccountIdRef.current = item.accountId;
-                selectedIndexedAccountIdRef.current = undefined;
-                setSelectedAccountId(item.accountId);
-                setSelectedIndexedAccountId(undefined);
-                break;
-              } else if (
-                accountUtils.isWatchingAccount({ accountId: item.accountId })
-              ) {
-                isWatchingAccount = true;
-                break;
-              }
-            }
-          }
-
-          if (isWatchingAccount) {
             return intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_error_watching_account,
+              id: selection.errorMessageId,
             });
           }
 
+          setAddressBadges([
+            {
+              label: `${selection.candidate.walletName} / ${selection.candidate.accountName}`,
+              type: 'success',
+            },
+          ]);
+          setSelectedAccountId(selection.accountId);
+          setSelectedIndexedAccountId(selection.indexedAccountId);
           return true;
         } catch (_) {
           const fallbackResult = await applySelectorFallback();
@@ -299,6 +259,8 @@ function SingleLineSenderInput() {
       network?.name,
       network?.id,
       selectedNetworkId,
+      currentWalletId,
+      connectedDevices,
       senderSelectorAccountItemsRef,
       setSelectedAccountId,
       setSelectedIndexedAccountId,
@@ -347,14 +309,11 @@ function SingleLineSenderInput() {
   const handleActiveAccountChange = useCallback(
     (activeAccount: IAccountSelectorActiveAccountInfo) => {
       if (activeAccount.account?.id) {
-        selectedAccountIdRef.current = activeAccount.account.id;
         setSelectedAccountId(activeAccount.account.id);
       }
       if (activeAccount.indexedAccount?.id) {
-        selectedIndexedAccountIdRef.current = activeAccount.indexedAccount.id;
         setSelectedIndexedAccountId(activeAccount.indexedAccount.id);
       } else {
-        selectedIndexedAccountIdRef.current = undefined;
         setSelectedIndexedAccountId(undefined);
       }
 
@@ -372,18 +331,6 @@ function SingleLineSenderInput() {
       senderSelectorAccountItemsRef,
     ],
   );
-
-  const handleInputTypeChange = useCallback((type: EInputAddressChangeType) => {
-    if (type !== EInputAddressChangeType.AccountSelector) {
-      selectedAccountIdRef.current = undefined;
-      selectedIndexedAccountIdRef.current = undefined;
-    }
-  }, []);
-
-  useEffect(() => {
-    selectedAccountIdRef.current = selectedAccountId;
-    selectedIndexedAccountIdRef.current = selectedIndexedAccountId;
-  }, [selectedAccountId, selectedIndexedAccountId]);
 
   const renderLabelAddon = useMemo(() => {
     if (isBTC && selectedIndexedAccountId && walletId) {
@@ -440,7 +387,6 @@ function SingleLineSenderInput() {
         networkId={selectedNetworkId}
         accountId={selectedAccountId}
         onActiveAccountChange={handleActiveAccountChange}
-        onInputTypeChange={handleInputTypeChange}
       />
     </Form.Field>
   );
@@ -457,11 +403,13 @@ function MultiLineSenderInput({
 }) {
   const intl = useIntl();
   const {
+    currentWalletId,
     selectedNetworkId,
     selectedToken,
     selectedAccountId,
     setResolvedSenderAccountIds,
   } = useBulkSendAddressesInputContext();
+  const { connectedDevices } = useHardwareWalletConnectStatus();
   const senderSelectorAccountItemsRef = useRef<
     Record<string, IBulkSendSenderSelectorAccountItem>
   >({});
@@ -479,6 +427,8 @@ function MultiLineSenderInput({
     duplicateWarningMode,
     onDuplicateAddressCountChange,
     selectorAccountItemsRef: senderSelectorAccountItemsRef,
+    currentWalletId,
+    connectedDeviceIds: connectedDevices,
   });
 
   const handleActiveAccountChange = useCallback(

@@ -1,6 +1,13 @@
 // apps/cli/src/schemas/register-all.ts
+import {
+  authLoginInputSchema,
+  authLoginOutputSchema,
+  authLogoutInputSchema,
+  authLogoutOutputSchema,
+  authStatusInputSchema,
+  authStatusOutputSchema,
+} from './auth-schema';
 import { balanceAllOutputSchema, balanceInputSchema } from './balance-schema';
-import { importInputSchema, importOutputSchema } from './import-schema';
 import { logoutInputSchema, logoutOutputSchema } from './logout-schema';
 import {
   marketKlineInputSchema,
@@ -72,14 +79,6 @@ defineCommand({
 });
 
 defineCommand({
-  name: 'import',
-  description: 'Import wallet from mnemonic (read from stdin)',
-  input: importInputSchema,
-  output: importOutputSchema,
-  examples: ['echo "word1 word2 ..." | onekey import'],
-});
-
-defineCommand({
   name: 'logout',
   description: 'Remove wallet from system keychain',
   input: logoutInputSchema,
@@ -109,6 +108,30 @@ defineCommand({
     'onekey transfer --to 0x... --amount 100 --token 0x... --chain bsc',
     'onekey transfer --to 0x... --amount 0.01 --dry-run',
   ],
+});
+
+defineCommand({
+  name: 'auth-login',
+  description: 'Authenticate with a OneKey App Bot Wallet',
+  input: authLoginInputSchema,
+  output: authLoginOutputSchema,
+  examples: ['onekey auth login --app-transfer'],
+});
+
+defineCommand({
+  name: 'auth-status',
+  description: 'Show the current auth session',
+  input: authStatusInputSchema,
+  output: authStatusOutputSchema,
+  examples: ['onekey auth status'],
+});
+
+defineCommand({
+  name: 'auth-logout',
+  description: 'Log out of the current auth session',
+  input: authLogoutInputSchema,
+  output: authLogoutOutputSchema,
+  examples: ['onekey auth logout', 'onekey --yes auth logout'],
 });
 
 defineCommand({

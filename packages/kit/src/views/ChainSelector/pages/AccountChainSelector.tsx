@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
+import { resetChainSelectorModal } from '@onekeyhq/components';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -346,16 +347,14 @@ function AccountChainSelector({
         networkId: item.id,
       });
 
-      navigation.popStack();
+      // Surgically drop only the ChainSelectorModal route. popStack() triggers
+      // a native animated dismiss that leaves tab RNSScreenStacks with window=NIL
+      // (~5s retry storm on iOS). resetAboveMainRoute would also kill any parent
+      // modal (DApp connect, Settings, BulkSend, Onboarding) that pushed us here,
+      // so filter by route name instead. See ios-overlay-navigation-freeze.md.
+      resetChainSelectorModal();
     },
-    [
-      actions,
-      num,
-      navigation,
-      recordNetworkHistoryEnabled,
-      activeNetwork,
-      sceneName,
-    ],
+    [actions, num, recordNetworkHistoryEnabled, activeNetwork, sceneName],
   );
   const onAddCustomNetwork = useCallback(() => {
     navigation.push(EChainSelectorPages.AddCustomNetwork, {

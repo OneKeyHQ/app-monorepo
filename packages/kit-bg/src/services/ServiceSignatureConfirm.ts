@@ -4,6 +4,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   convertAddressToSignatureConfirmAddress,
@@ -29,6 +30,10 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
+import {
+  type IRecentRecipientEntry,
+  RECENT_RECIPIENTS_BUCKET_CAP,
+} from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -245,7 +250,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
-    const { accountId, networkId, encodedTx, origin } = params;
+    const { accountId, networkId, encodedTx } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -264,25 +269,87 @@ class ServiceSignatureConfirm extends ServiceBase {
         encodedTx,
       });
 
+    // For BTC/LTC merge-derive accounts, the server's parse-transaction
+    // API only accepts a single xpub per call. Call once per derive type
+    // and merge interaction results (same as fetchBadgesDeduped).
+    let xpubs: string[] = [];
+    try {
+      const xpubEntries =
+        await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+          { accountId, networkId },
+        );
+      xpubs = xpubEntries.map((e) => e.xpub).filter((x): x is string => !!x);
+    } catch {
+      // non-fatal
+    }
+    if (xpubs.length === 0) {
+      try {
+        const singleXpub =
+          (await this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          })) || undefined;
+        if (singleXpub) {
+          xpubs = [singleXpub];
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
-    const resp = await client.post<{ data: IParseTransactionResp }>(
-      '/wallet/v1/account/parse-transaction',
-      {
-        networkId,
-        accountAddress,
-        encodedTx: encodedTxToParse,
-        origin,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
+    const walletTypeHeaders =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+
+    const callParseTransaction = async (xpub?: string) => {
+      const resp = await client.post<{ data: IParseTransactionResp }>(
+        '/wallet/v1/account/parse-transaction',
+        {
+          networkId,
+          accountAddress,
+          encodedTx: encodedTxToParse,
+          xpub,
+        },
+        { headers: walletTypeHeaders },
+      );
+      return resp.data.data;
+    };
+
+    if (xpubs.length <= 1) {
+      return callParseTransaction(xpubs[0]);
+    }
+
+    // Multiple xpubs: call once per xpub, merge interaction results.
+    const settled = await Promise.allSettled(
+      xpubs.map((xpub) => callParseTransaction(xpub)),
     );
-    return resp.data.data;
+    const validResults = settled
+      .filter(
+        (r): r is PromiseFulfilledResult<IParseTransactionResp> =>
+          r.status === 'fulfilled',
+      )
+      .map((r) => r.value);
+    if (validResults.length === 0) {
+      // All xpub-scoped calls failed; retry without xpub so the server
+      // still parses the tx from encodedTx alone.
+      return callParseTransaction(undefined);
+    }
+    // Use the first result as base, merge riskLevel across xpubs
+    // (take the highest risk seen from any derive path).
+    const base = validResults[0];
+    if (base.parsedTx?.to) {
+      const maxRiskLevel = Math.max(
+        ...validResults.map((r) => r.parsedTx?.to?.riskLevel ?? 0),
+      );
+      if (maxRiskLevel > (base.parsedTx.to.riskLevel ?? 0)) {
+        base.parsedTx.to.riskLevel = maxRiskLevel;
+      }
+    }
+    return base;
   }
 
   @backgroundMethod()
@@ -409,15 +476,35 @@ class ServiceSignatureConfirm extends ServiceBase {
   @backgroundMethod()
   async updateRecentRecipients({
     networkId,
+    accountId,
     address,
     memo,
   }: {
     networkId: string;
+    accountId: string;
     address: string;
     memo?: string;
   }) {
+    // Resolve to xpub-or-address so two HD wallets wrapping the same mnemonic
+    // share the same recent-recipient bucket (OK-53307). Writes land in the
+    // currently-active derive type's bucket; getRecentRecipients fans out
+    // across all derive types on read.
+    const accountIdentity =
+      await this.backgroundApi.serviceAccount.getAccountXpubOrAddress({
+        accountId,
+        networkId,
+      });
+    if (!accountIdentity) {
+      defaultLogger.transaction.send.recentRecipientsSkipWrite({
+        accountId,
+        networkId,
+        reason: 'unresolvedIdentity',
+      });
+      return;
+    }
     await this.backgroundApi.simpleDb.recentRecipients.updateRecentRecipients({
       networkId,
+      accountIdentity,
       address,
       updatedAt: Date.now(),
       memo,
@@ -427,15 +514,79 @@ class ServiceSignatureConfirm extends ServiceBase {
   @backgroundMethod()
   async getRecentRecipients({
     networkId,
-    limit,
+    accountId,
+    limit = 5,
   }: {
     networkId: string;
+    accountId: string;
     limit?: number;
   }) {
-    return this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
-      networkId,
-      limit,
-    });
+    // For BTC/LTC merge-derive chains, one user-facing account spans multiple
+    // xpubs (Taproot / Native SegWit / ...). Fan out across all of them and
+    // merge so the local fallback list isn't bound to whichever derive type
+    // is currently active. Mirrors ServiceHistory.fetchTransferRecipients.
+    const xpubEntries =
+      await this.backgroundApi.serviceAccount.safeGetAccountXpubsForAllDeriveTypes(
+        {
+          accountId,
+          networkId,
+        },
+      );
+
+    const identities: string[] = xpubEntries
+      .map((entry) => entry.xpub)
+      .filter((xpub): xpub is string => !!xpub);
+
+    if (identities.length === 0) {
+      const fallbackIdentity =
+        await this.backgroundApi.serviceAccount.getAccountXpubOrAddress({
+          accountId,
+          networkId,
+        });
+      if (!fallbackIdentity) return [];
+      identities.push(fallbackIdentity);
+    }
+
+    if (identities.length === 1) {
+      return this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
+        networkId,
+        accountIdentity: identities[0],
+        limit,
+      });
+    }
+
+    // Read the full per-bucket cap from each xpub so concentration on a single
+    // derive path can't starve the merge (mirrors ServiceHistory.fetchTransfer
+    // Recipients which fetches `limit` per xpub for the same reason).
+    const buckets = await Promise.all(
+      identities.map((accountIdentity) =>
+        this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
+          networkId,
+          accountIdentity,
+          limit: RECENT_RECIPIENTS_BUCKET_CAP,
+        }),
+      ),
+    );
+
+    // Dedupe by recipient address keeping the latest updatedAt. EVM addresses
+    // are case-insensitive (checksum variants), so lowercase the dedupe key
+    // there. Other chains keep the original case — Solana base58 and Sui /
+    // Aptos / TON hex addresses would lose distinct addresses if collapsed.
+    const merged = new Map<string, IRecentRecipientEntry>();
+    const isEvm = networkUtils.isEvmNetwork({ networkId });
+    for (const bucket of buckets) {
+      for (const entry of bucket) {
+        const key = isEvm ? entry.address.toLowerCase() : entry.address;
+        const existing = merged.get(key);
+        if (!existing || entry.updatedAt > existing.updatedAt) {
+          merged.set(key, entry);
+        }
+      }
+    }
+
+    return [...merged.values()]
+      .toSorted((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, limit);
   }
 }
 
