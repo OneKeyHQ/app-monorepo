@@ -386,6 +386,12 @@ export default class ServicePassword extends ServiceBase {
     enable: boolean,
     skipAuth?: boolean,
   ): Promise<void> {
+    // TODO(biologyAuth-debug): temporary log to diagnose biometric disappearing
+    defaultLogger.setting.page.biologyAuthDebug('setBiologyAuthEnable', {
+      enable,
+      skipAuth: !!skipAuth,
+      stack: new Error('trace').stack?.split('\n').slice(1, 6).join(' | '),
+    });
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
