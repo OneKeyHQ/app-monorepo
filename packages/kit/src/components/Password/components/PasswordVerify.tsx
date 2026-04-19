@@ -27,6 +27,7 @@ import {
 import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -185,11 +186,22 @@ function PasswordVerify({
 
   const checkAuthChanged = useCallback(async () => {
     const isSupport = await biologyAuth.isSupportBiologyAuth();
+    // TODO(biologyAuth-debug): temporary log to diagnose iOS biometric disappearing
+    defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:start', {
+      platform: platformEnv.symbol,
+      isSupport,
+    });
     if (!isSupport) {
       return false;
     }
     try {
       const changed = await checkBiometricAuthChanged();
+      // TODO(biologyAuth-debug): temporary log — `changed: true` silently turns off
+      // isBiologyAuthSwitchOn, hiding the biometric button on lock screen.
+      defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:result', {
+        platform: platformEnv.symbol,
+        changed,
+      });
       if (changed) {
         await backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
         setTimeout(() => {
