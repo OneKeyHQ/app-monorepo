@@ -15,6 +15,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
@@ -195,7 +196,11 @@ export function useTrayDataProvider() {
               });
             deFiNetWorth = deFiResp.netWorth;
           } catch (e) {
-            console.warn('[TrayDataProvider] defi fetch error:', e);
+            defaultLogger.app.error.log(
+              `[TrayDataProvider] defi fetch error: ${
+                (e as Error)?.message || String(e)
+              }`,
+            );
           }
 
           const total =
@@ -210,7 +215,11 @@ export function useTrayDataProvider() {
             change24h: 0,
           };
         } catch (e) {
-          console.warn('[TrayDataProvider] balance composition error:', e);
+          defaultLogger.app.error.log(
+            `[TrayDataProvider] balance composition error: ${
+              (e as Error)?.message || String(e)
+            }`,
+          );
           // Fall through: leave trayData.totalBalance at the initial default.
         }
       }
@@ -317,7 +326,11 @@ export function useTrayDataProvider() {
           trayData.watchlist = watchlistResults;
         }
       } catch (e) {
-        console.error('[TrayDataProvider] watchlist error:', e);
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] watchlist error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
       }
 
       // 4. Pending transactions — read directly from simpleDb raw data.
@@ -409,7 +422,11 @@ export function useTrayDataProvider() {
           });
         }
       } catch (e) {
-        console.warn('[TrayDataProvider] pending tx error:', e);
+        defaultLogger.app.error.log(
+          `[TrayDataProvider] pending tx error: ${
+            (e as Error)?.message || String(e)
+          }`,
+        );
       }
 
       // Re-check lock state: the user may have locked the app mid-fetch
@@ -501,7 +518,11 @@ export function useTrayDataProvider() {
                 coin: action.perpsCoin as string,
               });
             } catch (e) {
-              console.warn('[TrayDataProvider] perps navigation error:', e);
+              defaultLogger.app.error.log(
+                `[TrayDataProvider] perps navigation error: ${
+                  (e as Error)?.message || String(e)
+                }`,
+              );
             }
           }, 80);
           return;
