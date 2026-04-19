@@ -40,7 +40,7 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
     isOthersAccount: ({ accountId }: { accountId: string }) =>
       accountId.startsWith('other--'),
     isAllNetwork: ({ networkId }: { networkId: string }) =>
-      networkId === 'all--0',
+      networkId === 'onekeyall--0',
     buildAccountLocalAssetsKey: ({
       accountAddress,
       xpub,
@@ -55,7 +55,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
   default: {
     isAllNetwork: ({ networkId }: { networkId: string }) =>
-      networkId === 'all--0',
+      networkId === 'onekeyall--0',
   },
 }));
 
@@ -100,7 +100,7 @@ describe('getAccountTotalDeFiNetWorth', () => {
 
     const result = await svc.getAccountTotalDeFiNetWorth({
       accountId: 'hd-1--0',
-      networkId: 'all--0',
+      networkId: 'onekeyall--0',
       targetCurrency: 'usd',
     });
 
@@ -182,7 +182,7 @@ describe('getAccountTotalDeFiNetWorth', () => {
 
     const result = await svc.getAccountTotalDeFiNetWorth({
       accountId: 'hd-1--0',
-      networkId: 'all--0',
+      networkId: 'onekeyall--0',
       targetCurrency: 'usd',
     });
 

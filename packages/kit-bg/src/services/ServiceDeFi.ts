@@ -435,6 +435,24 @@ class ServiceDeFi extends ServiceBase {
     });
   }
 
+  /**
+   * Returns the total DeFi netWorth for an account, summed across all
+   * networks the account has DeFi cache for, converted to `targetCurrency`.
+   *
+   * Reads exclusively from the local `simpleDb.deFi` cache — no network
+   * calls. Designed for surfaces that need a wallet-level DeFi figure
+   * outside the Home tab's React tree (e.g. macOS menu-bar tray).
+   *
+   * - Pass `networkId: getNetworkIdsMap().onekeyall` for the cross-network
+   *   total (the typical caller intent). Single-network networkIds are
+   *   accepted but produce `hasCache: false` unless the caller resolves
+   *   accountAddress/xpub upstream.
+   * - `hasCache: false` ⇔ no DeFi cache entries for this account. Callers
+   *   should silently fall back (e.g. show tokens-only) rather than treat
+   *   it as an error.
+   * - `netWorth` is always a BigNumber-safe string in `targetCurrency`,
+   *   even when zero.
+   */
   @backgroundMethod()
   async getAccountTotalDeFiNetWorth(params: {
     accountId: string;
