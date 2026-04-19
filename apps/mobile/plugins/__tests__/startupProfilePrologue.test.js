@@ -101,6 +101,7 @@ describe('buildStartupProfilePrologue', () => {
       env: { ONEKEY_STARTUP_PROFILE: 'true' },
     });
     // No unterminated quotes, balanced braces.
+    // eslint-disable-next-line no-new-func
     expect(() => Function(out)).not.toThrow();
   });
 
@@ -122,7 +123,6 @@ describe('buildStartupProfilePrologue', () => {
       env: { ONEKEY_STARTUP_PROFILE: '1' },
     });
     // Simulate Metro runtime: __d stores factory, __r calls it.
-    const modules = {};
     // eslint-disable-next-line no-new-func
     const setup = new Function(
       'globalThis',

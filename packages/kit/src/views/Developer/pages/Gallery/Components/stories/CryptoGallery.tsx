@@ -30,12 +30,12 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
+import { Layout } from './utils/Layout';
+
 // Core secret functions are loaded dynamically to avoid kit->core value import
 async function loadCoreSecret() {
   return import('@onekeyhq/core/src/secret');
 }
-
-import { Layout } from './utils/Layout';
 
 function PartContainer({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

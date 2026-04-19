@@ -4,6 +4,7 @@ const {
   buildGraphModuleIndex,
   buildModuleSignature,
   buildRuntimeOwnership,
+  collectCommonReferencedSegmentKeys,
   createSerializedModuleToSegmentMap,
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
@@ -994,8 +995,6 @@ it('does not expand segments with deps already in eager bundle', () => {
 // ---------------------------------------------------------------------------
 // collectCommonReferencedSegmentKeys
 // ---------------------------------------------------------------------------
-
-const { collectCommonReferencedSegmentKeys } = require('../unionBuildHelpers');
 
 describe('collectCommonReferencedSegmentKeys', () => {
   function makeDep(absolutePath, asyncType = null) {

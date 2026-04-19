@@ -64,7 +64,10 @@ function checkEagerBuckets(idMap, forbiddenPatterns) {
   const violations = [];
   for (const bucket of ['common', 'main']) {
     const modules = idMap[bucket];
-    if (!modules) continue;
+    if (!modules) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
     for (const [moduleId, modulePath] of Object.entries(modules)) {
       for (const rule of forbiddenPatterns) {
         const matches =

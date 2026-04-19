@@ -541,13 +541,8 @@ function assertBundleCompleteness(reports) {
       result.missingAbsPaths.length > 20
         ? `\n  ... and ${result.missingAbsPaths.length - 20} more`
         : '';
-    return (
-      `[unionBuild] ${runtimeLabel} runtime: ${result.missingAbsPaths.length} module(s) ` +
-      `reachable via sync edges but not in any eager bundle or segment — ` +
-      `this will crash with "Requiring unknown module <N>" at runtime:\n` +
-      sample.map((p) => `  - ${p}`).join('\n') +
-      extra
-    );
+    const sampleBlock = sample.map((p) => `  - ${p}`).join('\n');
+    return `[unionBuild] ${runtimeLabel} runtime: ${result.missingAbsPaths.length} module(s) reachable via sync edges but not in any eager bundle or segment — this will crash with "Requiring unknown module <N>" at runtime:\n${sampleBlock}${extra}`;
   });
   throw new Error(
     [
@@ -680,10 +675,16 @@ function collectCommonReferencedSegmentKeys({
     ...(backgroundSegmentAbsPathsByKey || new Map()),
   ]);
   for (const graph of [mainGraph, backgroundGraph]) {
-    if (!graph || !graph.dependencies) continue;
+    if (!graph || !graph.dependencies) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
     for (const absolutePath of sharedStartupAbsPaths || []) {
       const mod = graph.dependencies.get(absolutePath);
-      if (!mod) continue;
+      if (!mod) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       for (const [, dep] of mod.dependencies) {
         if (dep.data?.data?.asyncType === 'async') {
           for (const [segKey, absPaths] of allSegmentAbsPathsByKey) {

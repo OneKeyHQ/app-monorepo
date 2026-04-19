@@ -128,7 +128,7 @@ function parseModuleDefs(segmentJs) {
  * to disk (e.g. `@` → `_`), so we can't just prepend `seg:` to the filename —
  * we have to consult the manifest which preserves the original key.
  */
-function buildFilenameToSegmentKey(manifest, segmentsDirBase) {
+function buildFilenameToSegmentKey(manifest, _segmentsDirBase) {
   // relativePath looks like 'segments/<safeName>.seg.hbc' or
   // 'segments-background/<safeName>.seg.hbc'. The .seg.js we scan has the
   // same safeName with .seg.js extension.
@@ -412,7 +412,7 @@ function main() {
   const manifestBg = readJson(MANIFEST_BG);
   const idMap = readJson(idMapPath);
 
-  const main = scanRuntime({
+  const mainRuntime = scanRuntime({
     runtimeLabel: 'main',
     segmentsDir: SEGMENTS_MAIN,
     manifest: manifestMain,
@@ -427,12 +427,12 @@ function main() {
     runtimeBucketNames: ['common', 'background'],
   });
 
-  const allViolations = [...main.violations, ...bg.violations];
+  const allViolations = [...mainRuntime.violations, ...bg.violations];
   console.log(
-    `[check-split-bundle-integrity] scanned ${main.scannedSegments} main + ${bg.scannedSegments} bg segments`,
+    `[check-split-bundle-integrity] scanned ${mainRuntime.scannedSegments} main + ${bg.scannedSegments} bg segments`,
   );
   console.log(
-    `[check-split-bundle-integrity] main violations: ${main.violations.length}`,
+    `[check-split-bundle-integrity] main violations: ${mainRuntime.violations.length}`,
   );
   console.log(
     `[check-split-bundle-integrity] bg violations:   ${bg.violations.length}`,

@@ -8,6 +8,7 @@
 // overhead. When ON it monkey-patches Metro's `__r` so every module's factory
 // is timed; results are flushed after `main entry evaluated`.
 // See `.skillshare/skills/1k-startup-profile/skill.md` for how to enable.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call
 require('./src/startupProfile').installStartupProfileJs();
 
 type IExpoModule = typeof import('expo');
@@ -143,6 +144,7 @@ const App = (require('./App') as IAppModule).default;
 
 // If startup profiling is enabled, schedule a flush now so the
 // module-level per-require breakdown ends up right after the line above.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call
 require('./src/startupProfile').scheduleStartupProfileJsFlush();
 
 ReactNativeDeviceUtils.initEventListeners();
