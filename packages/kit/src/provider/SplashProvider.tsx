@@ -22,8 +22,11 @@ const jsEntryStart: number =
 // Uses a synchronous state update (no setTimeout) so the main-thread-busy
 // window doesn't starve the dismissal. Trades "guaranteed balance on first
 // visible frame" for ~300-500ms perceived TTI gain.
-// Set to false to restore the original cache-aware dismissal logic.
-const EXPERIMENT_DISMISS_SPLASH_ON_MOUNT = true;
+// Tests that need to exercise the original cache-aware dismissal logic can
+// set `globalThis.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true` before
+// loading this module.
+const EXPERIMENT_DISMISS_SPLASH_ON_MOUNT =
+  (globalThis as any).__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT !== true;
 
 function logSplashProvider(message: string) {
   if (

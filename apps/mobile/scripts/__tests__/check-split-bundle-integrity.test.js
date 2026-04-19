@@ -552,9 +552,7 @@ describe('integration: cross-segment sync edge detection', () => {
     writeSegJs(segmentsMainDir, 'shared-seg', [
       { moduleId: 5000, deps: [5100] },
     ]);
-    writeSegJs(segmentsBgDir, 'shared-seg', [
-      { moduleId: 5000, deps: [5100] },
-    ]);
+    writeSegJs(segmentsBgDir, 'shared-seg', [{ moduleId: 5000, deps: [5100] }]);
 
     const sharedEntry = {
       id: 9001,
@@ -566,7 +564,10 @@ describe('integration: cross-segment sync edge detection', () => {
     };
     const manifestMain = {
       segments: {
-        'seg:sh': { ...sharedEntry, relativePath: 'segments/shared-seg.seg.hbc' },
+        'seg:sh': {
+          ...sharedEntry,
+          relativePath: 'segments/shared-seg.seg.hbc',
+        },
       },
     };
     const manifestBg = {
@@ -580,7 +581,7 @@ describe('integration: cross-segment sync edge detection', () => {
     const idMap = {
       common: {},
       main: { 5100: 'main-only-dep.ts' }, // present in main eager — OK there
-      background: {},                      // NOT in background eager
+      background: {}, // NOT in background eager
       segments: {
         'seg:sh': {
           id: 9001,

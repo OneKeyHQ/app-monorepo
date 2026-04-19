@@ -135,6 +135,7 @@ beforeEach(() => {
   g.__lastCanDismissSplash = undefined;
   delete g.__ONEKEY_CTX_ATOM_SNAPSHOT__;
   delete g.__onekeyBalanceDisplayed;
+  delete g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT;
   g.__mockHasPendingInstallTask?.mockReturnValue(false);
   const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
   platformEnvMock.version = '1.0.0';
@@ -146,6 +147,7 @@ beforeEach(() => {
 
 describe('useCanDismissSplash', () => {
   test('runs pending task processing once and waits for the finish event', async () => {
+    g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true;
     const { useCanDismissSplash } = freshSplash();
     g.__mockHasPendingInstallTask.mockReturnValue(true);
     const { result } = renderHook(() => useCanDismissSplash());
@@ -273,6 +275,7 @@ describe('useCanDismissSplash', () => {
 
 describe('SplashProvider', () => {
   test('renders children immediately while splash is still waiting to hide', async () => {
+    g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true;
     const { SplashProvider } = freshSplash();
     g.__mockHasPendingInstallTask.mockReturnValue(true);
 
@@ -433,6 +436,7 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
   });
 
   test('snapshot has byOwner hit by active account ownerKey → waits for HomePageReady', async () => {
+    g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true;
     g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
       'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
         latest: '$2.31',
@@ -469,6 +473,7 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
   });
 
   test('snapshot has both lastConfirmedOverviewBalance (ownerKey hit) and accountWorthAtom stale placeholder → still waits on lastConfirmed signal', async () => {
+    g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true;
     g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
       'store:homeAccountOverview::ctx:accountWorthAtom': {
         worth: {},

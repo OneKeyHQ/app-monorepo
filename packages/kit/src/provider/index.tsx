@@ -91,11 +91,11 @@ const WebViewWebEmbedProvider = LazyLoad(
 );
 const SyncHomeAccountToDappAccountProvider = LazyLoad(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider'
-    ).then((m) => ({
-      default: m.SyncHomeAccountToDappAccountProvider,
-    })) as unknown as Promise<{
+    import('@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider').then(
+      (m) => ({
+        default: m.SyncHomeAccountToDappAccountProvider,
+      }),
+    ) as unknown as Promise<{
       default: ComponentType<Record<string, unknown>>;
     }>,
   1500,
