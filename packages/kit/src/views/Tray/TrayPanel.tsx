@@ -14,7 +14,9 @@ import { TrayEmptyState } from './components/TrayEmptyState';
 import { WatchlistTickers } from './components/WatchlistTickers';
 
 function sendTrayAction(action: ITrayAction) {
-  globalThis.desktopApi?.sendTrayAction(action);
+  // `sendTrayAction` is only exposed on the tray window preload (see
+  // apps/desktop/app/preload.ts), so it may be undefined elsewhere.
+  globalThis.desktopApi?.sendTrayAction?.(action);
 }
 
 export function TrayPanel() {

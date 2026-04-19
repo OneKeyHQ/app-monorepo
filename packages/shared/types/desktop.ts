@@ -108,7 +108,10 @@ export type IDesktopApiLegacy = {
   // macOS menu bar tray — methods exist on all platforms but are no-ops
   // outside macOS (main process only wires ipcMain handlers when isMac).
   sendTrayData: (data: ITrayData) => void;
-  sendTrayAction: (action: ITrayAction) => void;
+  // Only exposed inside the tray BrowserWindow (preload checks
+  // `?render=tray`); `undefined` on the main renderer, so callers must
+  // guard with optional chaining.
+  sendTrayAction?: (action: ITrayAction) => void;
   toggleTray: (enabled: boolean) => void;
 };
 

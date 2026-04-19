@@ -93,14 +93,14 @@ export function registerTrayIpcHandlers(
   ipcMain.on(
     ipcMessageKeys.TRAY_ACTION,
     (event, action: { type: string; [key: string]: unknown }) => {
-      // Only accept actions from the tray window. `sendTrayAction` is also
-      // exposed on the main-window preload (because the tray window shares
-      // that preload), so without this check a compromised main renderer —
-      // or any caller holding `globalThis.desktopApi` — could trigger
-      // navigation + main-window focus via this channel. Also prevents a
-      // self-forwarding IPC loop: main-process forwards TRAY_ACTION to the
-      // main window (for handleTrayNavigation); if the main window could
-      // echo it back, that would re-forward indefinitely.
+      // Only accept actions from the tray window. `sendTrayAction` is
+      // scoped to the tray preload (isTrayWindow check in preload.ts), so
+      // this sender gate is defense-in-depth: if the scoping were ever
+      // loosened, this still blocks a compromised main renderer from
+      // driving navigation + main-window focus via TRAY_ACTION. Also
+      // prevents a self-forwarding IPC loop: main-process forwards
+      // TRAY_ACTION to the main window (for handleTrayNavigation); if the
+      // main window could echo it back, that would re-forward indefinitely.
       const trayWindow = getTrayWindow();
       if (!trayWindow || event.sender.id !== trayWindow.webContents.id) {
         logger.warn('[TrayIpc] rejected TRAY_ACTION from non-tray window');

@@ -73,6 +73,12 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
 
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
 
+// Preload runs per-window; detect the tray renderer so we can scope
+// tray-only surfaces (e.g. `sendTrayAction`) away from the main window.
+const isTrayWindow =
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).get('render') === 'tray';
+
 // --- desktopApi: legacy API surface (plain object, contextBridge-compatible) ---
 
 const desktopApi = {
@@ -261,13 +267,16 @@ const desktopApi = {
   // Tray data response — main renderer sends gathered data back to main process.
   sendTrayData: (data: any) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
-  // Tray action — tray window preload shares this preload file, so we need
-  // `sendTrayAction` exposed for panel click handlers to reach the main
-  // process. The main window renderer must NOT call this (it would trigger
-  // a self-forwarding IPC loop), but that's enforced by convention: only
-  // `TrayPanel.tsx` (which runs in the tray window) calls it.
-  sendTrayAction: (action: any) =>
-    ipcRenderer.send(ipcMessageKeys.TRAY_ACTION, action),
+  // `sendTrayAction` is intentionally omitted from the shared surface —
+  // it is spread in only for `isTrayWindow` below so the main renderer
+  // cannot reach the TRAY_ACTION IPC channel at all (belt-and-suspenders
+  // alongside the sender-id check in trayIpc.ts).
+  ...(isTrayWindow
+    ? {
+        sendTrayAction: (action: any) =>
+          ipcRenderer.send(ipcMessageKeys.TRAY_ACTION, action),
+      }
+    : {}),
   toggleTray: (enabled: boolean) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_TOGGLE, enabled),
 };
@@ -282,9 +291,8 @@ const desktopApi = {
 // tray window, we stub `call` to fail locally. The tray panel should not
 // need backgroundApiProxy at all; any call reaching here is a bug in tray
 // rendering code (locale/settings/etc. must be relayed through TRAY_UPDATE).
-const isTrayWindow =
-  typeof location !== 'undefined' &&
-  new URLSearchParams(location.search).get('render') === 'tray';
+// (isTrayWindow is defined above, near desktopApi, so tray-only surfaces
+// can be scoped there too.)
 
 const desktopApiBridge = {
   call: isTrayWindow
