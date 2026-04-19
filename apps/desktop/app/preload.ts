@@ -101,7 +101,10 @@ const desktopApi = {
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
-    // Channel whitelist for addIpcEventListener (mirrors validChannels for on())
+    // Channel whitelist for addIpcEventListener (mirrors validChannels for on()).
+    // TRAY_* channels are scoped per window so a compromised main renderer
+    // cannot sniff TRAY_UPDATE payloads (wallet balance, watchlist) and a
+    // compromised tray renderer cannot impersonate the data-request pipeline.
     const validIpcEventChannels = new Set([
       ipcMessageKeys.EVENT_OPEN_URL,
       ipcMessageKeys.WEBVIEW_NEW_WINDOW,
@@ -110,10 +113,10 @@ const desktopApi = {
       ipcMessageKeys.APP_IDLE,
       ipcMessageKeys.SERVER_START_RES,
       ipcMessageKeys.SERVER_LISTENER,
-      ipcMessageKeys.TRAY_ACTION,
-      ipcMessageKeys.TRAY_UPDATE,
-      ipcMessageKeys.TRAY_DATA_REQUEST,
       OAUTH_CALLBACK_DESKTOP_CHANNEL,
+      ...(isTrayWindow
+        ? [ipcMessageKeys.TRAY_UPDATE]
+        : [ipcMessageKeys.TRAY_DATA_REQUEST, ipcMessageKeys.TRAY_ACTION]),
     ]);
     if (!validIpcEventChannels.has(event)) {
       console.warn(`[preload] addIpcEventListener: blocked channel "${event}"`);
