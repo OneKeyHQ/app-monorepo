@@ -9,6 +9,7 @@ import {
   type IPrimeTransferData,
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
+import * as appTransferPayloadModule from '../core/auth/app-transfer-payload';
 import { AuthManager } from '../core/auth/auth-manager';
 import { encrypt } from '../core/crypto-utils';
 import { AppError, ERROR_CODES } from '../errors';
@@ -21,7 +22,6 @@ import { KEYCHAIN_ENCRYPTION_KEY, KEYCHAIN_MNEMONIC_KEY } from '../signer';
 import type {
   AppTransferLoginResult,
   AuthSessionMetadata,
-  MnemonicLoginResult,
 } from '../core/auth/auth-types';
 import type { TransferPayloadHandler } from '../core/prime-transfer/transfer-types';
 import type {
@@ -29,6 +29,18 @@ import type {
   SecureStorageBackend,
 } from '../infra/keychain-storage';
 import type { ISigner } from '../signer/types';
+
+jest.mock('../core/auth/app-transfer-payload', () => {
+  const actual = jest.requireActual<
+    typeof import('../core/auth/app-transfer-payload')
+  >('../core/auth/app-transfer-payload');
+  return {
+    ...actual,
+    extractBotWalletMnemonicFromTransferData: jest.fn(
+      actual.extractBotWalletMnemonicFromTransferData,
+    ),
+  };
+});
 
 class InMemorySecureStorage implements ISecureStorage {
   private readonly store = new Map<string, Buffer>();
@@ -144,11 +156,11 @@ function makeSession(
 ): AuthSessionMetadata {
   return {
     schemaVersion: AUTH_SESSION_SCHEMA_VERSION,
-    loginMethod: 'mnemonic',
+    loginMethod: 'app_transfer',
     walletKind: 'hd',
     displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
     importedAt: '2026-04-06T05:35:44.000Z',
-    sourceLabel: 'Mnemonic Import',
+    sourceLabel: 'Bot Wallet (abcd1234)',
     ...overrides,
   };
 }
@@ -175,13 +187,23 @@ function makePairingResult(): AppTransferLoginResult {
 let tempDir: string;
 let sessionPath: string;
 
+const mockedExtractBotWalletMnemonic = jest.mocked(
+  appTransferPayloadModule.extractBotWalletMnemonicFromTransferData,
+);
+
 beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'auth-manager-'));
   sessionPath = join(tempDir, 'auth-session.json');
+  mockedExtractBotWalletMnemonic.mockImplementation(
+    jest.requireActual<typeof import('../core/auth/app-transfer-payload')>(
+      '../core/auth/app-transfer-payload',
+    ).extractBotWalletMnemonicFromTransferData,
+  );
 });
 
 afterEach(() => {
   rmSync(tempDir, { recursive: true, force: true });
+  mockedExtractBotWalletMnemonic.mockReset();
 });
 
 describe('AuthManager', () => {
@@ -308,70 +330,6 @@ describe('AuthManager', () => {
       code: ERROR_CODES.SEC_STORAGE_ERROR.code,
     });
     expect([...mnemonicBuffer].every((byte) => byte === 0)).toBe(true);
-  });
-
-  it('logs in with mnemonic through the shared auth core and writes metadata', async () => {
-    const storage = new InMemorySecureStorage();
-    const sessionStore = new AuthSessionStore(sessionPath);
-    const signerFactory = jest.fn<Promise<ISigner>, [string]>(async () =>
-      createMockSigner(),
-    );
-    const manager = new AuthManager(storage, sessionStore, signerFactory);
-
-    const result = await manager.loginWithMnemonic(VALID_MNEMONIC);
-
-    expect(result).toEqual({
-      address: '0x1234567890abcdef1234567890abcdef12345678',
-    } satisfies MnemonicLoginResult);
-    expect(storage.has(KEYCHAIN_MNEMONIC_KEY)).toBe(true);
-    expect(storage.has(KEYCHAIN_ENCRYPTION_KEY)).toBe(true);
-    await expect(sessionStore.load()).resolves.toMatchObject({
-      loginMethod: 'mnemonic',
-      sourceLabel: 'Mnemonic Import',
-      displayAddress: result.address,
-    });
-    expect(signerFactory).toHaveBeenCalledWith('evm');
-  });
-
-  it('rejects mnemonic login when an active wallet already exists', async () => {
-    const storage = new InMemorySecureStorage();
-    const sessionStore = new AuthSessionStore(sessionPath);
-    await storage.set(KEYCHAIN_MNEMONIC_KEY, Buffer.from('ciphertext'));
-    await storage.set(KEYCHAIN_ENCRYPTION_KEY, Buffer.from('encryption-key'));
-    await sessionStore.save(makeSession());
-
-    const manager = new AuthManager(
-      storage,
-      sessionStore,
-      jest.fn<Promise<ISigner>, [string]>(async () => createMockSigner()),
-    );
-
-    await expect(
-      manager.loginWithMnemonic(VALID_MNEMONIC),
-    ).rejects.toMatchObject({
-      code: ERROR_CODES.AUTH_WALLET_EXISTS.code,
-    });
-    expect(storage.has(KEYCHAIN_MNEMONIC_KEY)).toBe(true);
-    expect(storage.has(KEYCHAIN_ENCRYPTION_KEY)).toBe(true);
-  });
-
-  it('rejects invalid mnemonic input without persisting partial session data', async () => {
-    const storage = new InMemorySecureStorage();
-    const sessionStore = new AuthSessionStore(sessionPath);
-    const manager = new AuthManager(
-      storage,
-      sessionStore,
-      jest.fn<Promise<ISigner>, [string]>(async () => createMockSigner()),
-    );
-
-    await expect(
-      manager.loginWithMnemonic('not a valid mnemonic'),
-    ).rejects.toMatchObject({
-      code: ERROR_CODES.PARAM_INVALID_MNEMONIC.code,
-    });
-    expect(storage.has(KEYCHAIN_MNEMONIC_KEY)).toBe(false);
-    expect(storage.has(KEYCHAIN_ENCRYPTION_KEY)).toBe(false);
-    await expect(sessionStore.load()).resolves.toBeNull();
   });
 
   it('starts app transfer login through the shared auth core when no active wallet exists', async () => {
@@ -576,6 +534,64 @@ describe('AuthManager', () => {
       }),
     ).rejects.toMatchObject({
       code: ERROR_CODES.AUTH_TRANSFER_TIMEOUT.code,
+    });
+
+    expect(storage.has(KEYCHAIN_MNEMONIC_KEY)).toBe(false);
+    expect(storage.has(KEYCHAIN_ENCRYPTION_KEY)).toBe(false);
+    await expect(sessionStore.load()).resolves.toBeNull();
+  });
+
+  it('rejects app_transfer payload carrying an invalid mnemonic', async () => {
+    mockedExtractBotWalletMnemonic.mockReturnValueOnce('not a valid mnemonic');
+
+    const storage = new InMemorySecureStorage();
+    const sessionStore = new AuthSessionStore(sessionPath);
+    const manager = new AuthManager(
+      storage,
+      sessionStore,
+      jest.fn<Promise<ISigner>, [string]>(async () => createMockSigner()),
+      jest.fn(
+        async (
+          _input: unknown,
+          deps: {
+            onTransferData: TransferPayloadHandler;
+          },
+        ) => {
+          const transferData = {
+            privateData: {
+              credentials: {},
+              decryptedCredentials: {
+                'hd-bot--parent-1--0': mnemonicToRevealableSeed(VALID_MNEMONIC),
+              },
+              importedAccounts: {},
+              watchingAccounts: {},
+              wallets: {
+                'hd-bot--parent-1--0': {
+                  id: 'hd-bot--parent-1--0',
+                },
+              },
+            },
+            publicData: undefined,
+            isEmptyData: false,
+            isWatchingOnly: false,
+            appVersion: '1.0.0',
+          } as unknown as IPrimeTransferData;
+
+          await deps.onTransferData(transferData, {
+            assertSessionIsActive() {},
+          });
+
+          return makePairingResult();
+        },
+      ),
+    );
+
+    await expect(
+      manager.startAppTransferLogin({
+        endpointEnv: 'test',
+      }),
+    ).rejects.toMatchObject({
+      code: ERROR_CODES.PARAM_INVALID_MNEMONIC.code,
     });
 
     expect(storage.has(KEYCHAIN_MNEMONIC_KEY)).toBe(false);
