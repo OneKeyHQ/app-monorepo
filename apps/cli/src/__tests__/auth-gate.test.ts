@@ -10,9 +10,9 @@ const AUTHENTICATED_SESSION: ResolvedAuthSession = {
   authStatus: 'authenticated',
   hasSecrets: true,
   storageBackend: 'macos-keychain',
-  loginMethod: 'mnemonic',
+  loginMethod: 'app_transfer',
   walletKind: 'hd',
-  sourceLabel: 'Mnemonic Import',
+  sourceLabel: 'Bot Wallet (abcd1234)',
   displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
   importedAt: '2026-04-06T06:00:00.000Z',
 };
