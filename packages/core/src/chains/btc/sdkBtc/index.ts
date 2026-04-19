@@ -17,6 +17,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import {
+  isTaprootAddress,
+  isTaprootPath,
+} from '@onekeyhq/shared/src/utils/btcUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
   IAddressValidation,

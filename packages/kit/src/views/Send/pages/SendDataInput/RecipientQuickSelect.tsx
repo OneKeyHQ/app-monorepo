@@ -12,6 +12,7 @@ import {
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
   Badge,
   Button,
   DashText,
@@ -693,7 +694,7 @@ function AccountRecipients({
                 </XStack>
               </Button>
               {item.hasMultipleDeriveTypes ? (
-                <Popover
+                <ActionList
                   title={intl.formatMessage({
                     id: ETranslations.address_type_selector_title,
                   })}
