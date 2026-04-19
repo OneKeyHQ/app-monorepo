@@ -8,6 +8,7 @@ import {
   settingsPersistAtom,
   useActiveAccountValueAtom,
   useAppIsLockedAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -32,9 +33,15 @@ import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
+  const [{ enableMenuBarTray }] = useSettingsPersistAtom();
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
+  // The tray provider is mounted by Bootstrap only on macOS, but guard
+  // every effect on the combined macOS + enableMenuBarTray predicate so
+  // that flipping the setting tears down IPC/event subscriptions and
+  // flipping it back on re-subscribes, without remounting the provider.
+  const isTrayActive = platformEnv.isDesktopMac && (enableMenuBarTray ?? true);
   const activeAccountValueRef = useRef(activeAccountValue);
   activeAccountValueRef.current = activeAccountValue;
   const appIsLockedRef = useRef(appIsLocked);
@@ -522,7 +529,7 @@ export function useTrayDataProvider() {
   );
 
   useEffect(() => {
-    if (!platformEnv.isDesktop) return;
+    if (!isTrayActive) return;
 
     // Subscribe to TRAY_DATA_REQUEST via IPC — the old pattern that dispatched
     // a DOM event from preload no longer works under contextIsolation:true
@@ -553,22 +560,22 @@ export function useTrayDataProvider() {
         unsubscribeAction();
       }
     };
-  }, [handleTrayDataRequest, handleTrayNavigation]);
+  }, [isTrayActive, handleTrayDataRequest, handleTrayNavigation]);
 
   // Push data immediately when active account changes (wallet switch)
   useEffect(() => {
-    if (!platformEnv.isDesktop) return;
+    if (!isTrayActive) return;
     const timer = setTimeout(() => {
       handleTrayDataRequestRef.current?.();
     }, 300);
     return () => clearTimeout(timer);
-  }, [activeAccountValue]);
+  }, [isTrayActive, activeAccountValue]);
 
   // Push lock state change immediately
   useEffect(() => {
-    if (!platformEnv.isDesktop) return;
+    if (!isTrayActive) return;
     handleTrayDataRequestRef.current?.();
-  }, [appIsLocked]);
+  }, [isTrayActive, appIsLocked]);
 
   // Sync tray enabled state on startup — main process inits tray by default,
   // so if the user previously disabled it, tell main to destroy it.
@@ -585,7 +592,7 @@ export function useTrayDataProvider() {
 
   // Refresh tray when tx status changes or history refreshes (debounced)
   useEffect(() => {
-    if (!platformEnv.isDesktop) return;
+    if (!isTrayActive) return;
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const debouncedRefresh = () => {
@@ -608,5 +615,5 @@ export function useTrayDataProvider() {
       appEventBus.off(EAppEventBusNames.RefreshHistoryList, debouncedRefresh);
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, debouncedRefresh);
     };
-  }, []);
+  }, [isTrayActive]);
 }

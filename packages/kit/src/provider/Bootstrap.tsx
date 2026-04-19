@@ -834,7 +834,7 @@ export function Bootstrap() {
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
-  return platformEnv.isDesktop ? <DesktopTrayDataProvider /> : null;
+  return platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null;
 }
 
 function DesktopTrayDataProvider() {
