@@ -82,7 +82,12 @@ export function useTrayDataProvider() {
       locale,
       accountId: activeAccountId,
       wallet: { name: '', emoji: '', avatarImg: '' },
-      totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
+      totalBalance: {
+        amount: '0.00',
+        currency: 'USD',
+        symbol: '$',
+        change24h: 0,
+      },
       watchlist: [],
       pendingTxs: [],
     });
@@ -125,7 +130,12 @@ export function useTrayDataProvider() {
         locale,
         accountId: activeAccountId,
         wallet: { name: '', emoji: '', avatarImg: '' },
-        totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
+        totalBalance: {
+          amount: '0.00',
+          currency: displayCurrency,
+          symbol: displaySymbol,
+          change24h: 0,
+        },
         watchlist: [],
         pendingTxs: [],
       };
@@ -212,6 +222,7 @@ export function useTrayDataProvider() {
           trayData.totalBalance = {
             amount: new BigNumber(total).toFixed(2),
             currency: displayCurrency,
+            symbol: displaySymbol,
             change24h: 0,
           };
         } catch (e) {
@@ -384,22 +395,27 @@ export function useTrayDataProvider() {
               txType = 'send';
             }
 
-            // Get amount + symbol from first send transfer
+            // Get amount + symbol from first send transfer.
+            // BigNumber — raw JS `Number` rounds away meaningful digits
+            // for 18-decimal tokens (e.g. 0.000000123456 ETH would
+            // collapse to 0 or lose precision).
             let amount = '';
             const firstSend = transfer?.sends?.[0];
             if (firstSend) {
-              const num = Number(firstSend.amount);
+              const bn = new BigNumber(firstSend.amount ?? '');
               let formatted: string;
-              if (Number.isNaN(num)) {
+              if (bn.isNaN()) {
                 formatted = firstSend.amount;
-              } else if (num < 0.01) {
-                formatted = num.toPrecision(3);
+              } else if (bn.abs().lt('0.01')) {
+                formatted = bn.toPrecision(3);
               } else {
-                formatted = num.toFixed(4).replace(/\.?0+$/, '');
+                formatted = bn.toFixed(4).replace(/\.?0+$/, '');
               }
               amount = `${formatted} ${firstSend.symbol}`;
             } else if (decodedTx?.totalFeeFiatValue) {
-              amount = `$${Number(decodedTx.totalFeeFiatValue).toFixed(2)}`;
+              amount = `${displaySymbol}${new BigNumber(
+                decodedTx.totalFeeFiatValue,
+              ).toFixed(2)}`;
             }
 
             // Get recipient
@@ -455,7 +471,12 @@ export function useTrayDataProvider() {
         locale,
         accountId: activeAccountId,
         wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
-        totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
+        totalBalance: {
+          amount: '0.00',
+          currency: 'USD',
+          symbol: '$',
+          change24h: 0,
+        },
         watchlist: [],
         pendingTxs: [],
       });

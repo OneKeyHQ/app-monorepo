@@ -49,6 +49,11 @@ export interface ITrayData {
   totalBalance: {
     amount: string;
     currency: string;
+    // Resolved display symbol (e.g. '$', '¥', 'CNY¥'). Filled by the
+    // data provider from currencyMap so the tray renderer does not
+    // need its own currency → symbol lookup table (which couldn't tell
+    // unknown currencies apart from USD).
+    symbol: string;
     change24h: number;
   };
   watchlist: ITrayWatchlistItem[];

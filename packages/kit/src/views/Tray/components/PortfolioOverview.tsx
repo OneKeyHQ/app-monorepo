@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { Image, SizableText, Stack } from '@onekeyhq/components';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -8,27 +10,27 @@ export function PortfolioOverview({
   onPress,
 }: {
   wallet: { name: string; emoji: string; avatarImg: string };
-  totalBalance: { amount: string; currency: string; change24h: number };
+  totalBalance: {
+    amount: string;
+    currency: string;
+    symbol: string;
+    change24h: number;
+  };
   onPress: () => void;
 }) {
   const isPositive = totalBalance.change24h >= 0;
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
 
-  const CURRENCY_SYMBOLS: Record<string, string> = {
-    usd: '$',
-    cny: '¥',
-    eur: '€',
-    gbp: '£',
-    jpy: '¥',
-  };
-
-  const cur = (totalBalance.currency || '').toLowerCase();
-  const currencySymbol = CURRENCY_SYMBOLS[cur] || '$';
-  const formattedAmount = Number(totalBalance.amount).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  // `symbol` comes from currencyMap via the data provider, so unusual
+  // currencies (ARS, JPY, ...) keep their real unit instead of silently
+  // falling back to `$`. `BigNumber.toFormat` preserves precision for
+  // large balances that would overflow JS Number mantissa.
+  const amountBn = new BigNumber(totalBalance.amount || '0');
+  const formattedAmount = amountBn.isNaN()
+    ? totalBalance.amount
+    : amountBn.toFormat(2);
+  const currencySymbol = totalBalance.symbol || '$';
 
   const avatarSource = wallet.avatarImg
     ? AllWalletAvatarImages[
