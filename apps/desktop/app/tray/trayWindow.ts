@@ -71,9 +71,11 @@ export function createTrayWindow(
       spellcheck: false,
       webviewTag: false,
       webSecurity: !isDev,
-      contextIsolation: false,
-      // Use full preload — tray loads the complete app bundle which requires
-      // all desktopApi methods (webview, notification, etc.) at module init.
+      // Tray renderer runs with contextIsolation on: preload exposes the
+      // desktopApi surface via contextBridge.exposeInMainWorld, so the
+      // app bundle still sees `window.desktopApi`, but cannot monkey-patch
+      // preload internals. See apps/desktop/app/preload.ts.
+      contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
       nodeIntegration: false,

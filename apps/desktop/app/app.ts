@@ -62,6 +62,7 @@ import { getBackgroundColor } from './libs/utils';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
+import { setMainWindowForHttpServer } from './process/HttpServer';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -704,6 +705,10 @@ async function createMainWindow() {
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
+  // Set main window reference for OAuth-callback HTTP server; the tray window
+  // shares the same preload bundle, so ipcMain must reject SERVER_* calls
+  // that originate from anywhere other than the main renderer.
+  setMainWindowForHttpServer(browserWindow);
 
   // Protocol handler for win32
   if (isWin || isMac) {
