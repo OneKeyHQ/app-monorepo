@@ -8,6 +8,10 @@ const WINDOW_HEIGHT = 480;
 
 let trayWindow: BrowserWindow | null = null;
 let visibilityCallback: ((visible: boolean) => void) | null = null;
+// Tracked so we can cancel the blur-hide delay when the window is
+// destroyed; otherwise a late timeout could hit trayWindow.hide() after
+// destroy() has cleared the reference.
+let blurHideTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Register a callback to be notified when the tray panel shows/hides */
 export function onTrayWindowVisibilityChange(
@@ -103,7 +107,9 @@ export function createTrayWindow(
   loadUrl(trayWindow);
 
   trayWindow.on('blur', () => {
-    setTimeout(() => {
+    if (blurHideTimer) clearTimeout(blurHideTimer);
+    blurHideTimer = setTimeout(() => {
+      blurHideTimer = null;
       if (trayWindow && !trayWindow.isDestroyed() && !trayWindow.isFocused()) {
         trayWindow.hide();
         visibilityCallback?.(false);
@@ -146,6 +152,10 @@ export function getTrayWindow(): BrowserWindow | null {
 }
 
 export function destroyTrayWindow(): void {
+  if (blurHideTimer) {
+    clearTimeout(blurHideTimer);
+    blurHideTimer = null;
+  }
   if (trayWindow && !trayWindow.isDestroyed()) {
     trayWindow.destroy();
   }

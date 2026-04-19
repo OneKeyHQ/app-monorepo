@@ -14,6 +14,13 @@ import { getTrayWindow } from './trayWindow';
  */
 let onResponseReceived: (() => void) | null = null;
 
+type IpcOn = Parameters<typeof ipcMain.on>[1];
+// Keep handler references so unregisterTrayIpcHandlers can remove only
+// the specific listeners this module added, instead of nuking everything
+// on these channels (which would blow away unrelated subscribers).
+let onTrayDataResponse: IpcOn | null = null;
+let onTrayAction: IpcOn | null = null;
+
 const ALLOWED_TRAY_ACTION_TYPES = new Set([
   'open-page',
   'market-detail-v2',
@@ -46,7 +53,7 @@ export function registerTrayIpcHandlers(
   onResponse?: () => void,
 ): void {
   onResponseReceived = onResponse ?? null;
-  ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, (event, data: ITrayData) => {
+  onTrayDataResponse = (event, data: ITrayData) => {
     // Only accept responses from the main window. The tray window shares the
     // same preload and could otherwise push crafted payloads (e.g. isLocked)
     // into the cache, mirroring the sender check used by DESKTOP_API_CALL.
@@ -92,54 +99,53 @@ export function registerTrayIpcHandlers(
     if (trayWindow) {
       trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, data);
     }
-  });
+  };
+  ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, onTrayDataResponse);
 
-  ipcMain.on(
-    ipcMessageKeys.TRAY_ACTION,
-    (event, action: { type: string; [key: string]: unknown }) => {
-      // Only accept actions from the tray window. `sendTrayAction` is
-      // scoped to the tray preload (isTrayWindow check in preload.ts), so
-      // this sender gate is defense-in-depth: if the scoping were ever
-      // loosened, this still blocks a compromised main renderer from
-      // driving navigation + main-window focus via TRAY_ACTION. Also
-      // prevents a self-forwarding IPC loop: main-process forwards
-      // TRAY_ACTION to the main window (for handleTrayNavigation); if the
-      // main window could echo it back, that would re-forward indefinitely.
-      const trayWindow = getTrayWindow();
-      if (!trayWindow || event.sender.id !== trayWindow.webContents.id) {
-        logger.warn('[TrayIpc] rejected TRAY_ACTION from non-tray window');
+  onTrayAction = (event, action: { type: string; [key: string]: unknown }) => {
+    // Only accept actions from the tray window. `sendTrayAction` is
+    // scoped to the tray preload (isTrayWindow check in preload.ts), so
+    // this sender gate is defense-in-depth: if the scoping were ever
+    // loosened, this still blocks a compromised main renderer from
+    // driving navigation + main-window focus via TRAY_ACTION. Also
+    // prevents a self-forwarding IPC loop: main-process forwards
+    // TRAY_ACTION to the main window (for handleTrayNavigation); if the
+    // main window could echo it back, that would re-forward indefinitely.
+    const trayWindow = getTrayWindow();
+    if (!trayWindow || event.sender.id !== trayWindow.webContents.id) {
+      logger.warn('[TrayIpc] rejected TRAY_ACTION from non-tray window');
+      return;
+    }
+
+    if (!action?.type || !ALLOWED_TRAY_ACTION_TYPES.has(action.type)) {
+      logger.warn('[TrayIpc] rejected unknown action type:', action?.type);
+      return;
+    }
+
+    showMainWindow();
+
+    const mainWindow = getMainWindow();
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    // Transaction detail is routed via the existing deep-link pipeline
+    // (same path the native notification click uses in TrayManager).
+    // The main-window renderer's registerHandler subscribes to
+    // EVENT_OPEN_URL and resolves the onekey-wallet:// URL to a
+    // proper navigation stack, so we reuse it instead of inventing a
+    // second navigation mechanism.
+    if (action.type === 'open-page' && typeof action.route === 'string') {
+      const match = TX_DETAIL_ROUTE_PATTERN.exec(action.route);
+      if (match) {
+        mainWindow.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, {
+          url: `onekey-wallet://transaction/${match[1]}`,
+        });
         return;
       }
+    }
 
-      if (!action?.type || !ALLOWED_TRAY_ACTION_TYPES.has(action.type)) {
-        logger.warn('[TrayIpc] rejected unknown action type:', action?.type);
-        return;
-      }
-
-      showMainWindow();
-
-      const mainWindow = getMainWindow();
-      if (!mainWindow || mainWindow.isDestroyed()) return;
-
-      // Transaction detail is routed via the existing deep-link pipeline
-      // (same path the native notification click uses in TrayManager).
-      // The main-window renderer's registerHandler subscribes to
-      // EVENT_OPEN_URL and resolves the onekey-wallet:// URL to a
-      // proper navigation stack, so we reuse it instead of inventing a
-      // second navigation mechanism.
-      if (action.type === 'open-page' && typeof action.route === 'string') {
-        const match = TX_DETAIL_ROUTE_PATTERN.exec(action.route);
-        if (match) {
-          mainWindow.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, {
-            url: `onekey-wallet://transaction/${match[1]}`,
-          });
-          return;
-        }
-      }
-
-      mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, action);
-    },
-  );
+    mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, action);
+  };
+  ipcMain.on(ipcMessageKeys.TRAY_ACTION, onTrayAction);
 }
 
 export function sendCachedDataToTrayWindow(): void {
@@ -163,7 +169,16 @@ export function requestDataFromMainWindow(
 }
 
 export function unregisterTrayIpcHandlers(): void {
-  ipcMain.removeAllListeners(ipcMessageKeys.TRAY_DATA_RESPONSE);
-  ipcMain.removeAllListeners(ipcMessageKeys.TRAY_ACTION);
+  if (onTrayDataResponse) {
+    ipcMain.removeListener(
+      ipcMessageKeys.TRAY_DATA_RESPONSE,
+      onTrayDataResponse,
+    );
+    onTrayDataResponse = null;
+  }
+  if (onTrayAction) {
+    ipcMain.removeListener(ipcMessageKeys.TRAY_ACTION, onTrayAction);
+    onTrayAction = null;
+  }
   onResponseReceived = null;
 }
