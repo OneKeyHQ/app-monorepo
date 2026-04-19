@@ -14,7 +14,11 @@ import { getTrayWindow } from './trayWindow';
  */
 let onResponseReceived: (() => void) | null = null;
 
-const ALLOWED_TRAY_ACTION_TYPES = new Set(['open-page', 'market-detail-v2']);
+const ALLOWED_TRAY_ACTION_TYPES = new Set([
+  'open-page',
+  'market-detail-v2',
+  'view-all-transactions',
+]);
 
 // `/transaction/<hex txid>` — stricter than a catch-all so the tray
 // cannot coerce the deep-link handler into navigating to arbitrary URLs

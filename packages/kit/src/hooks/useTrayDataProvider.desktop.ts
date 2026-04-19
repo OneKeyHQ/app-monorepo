@@ -527,6 +527,17 @@ export function useTrayDataProvider() {
         return;
       }
 
+      if (action?.type === 'view-all-transactions') {
+        // Fallback to Home tab. The Home tab hosts the history sub-tab
+        // but there's no public route param to select it from here, so
+        // the user lands on Home and the tray has at least surfaced the
+        // main window with the account context.
+        nav.navigate(ERootRoutes.Main, {
+          screen: ETabRoutes.Home,
+        });
+        return;
+      }
+
       if (action?.type === 'market-detail-v2') {
         // Perps token — switch to Perp tab and change active asset
         if (action.perpsCoin) {

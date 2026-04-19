@@ -47,6 +47,10 @@ export function TrayPanel() {
     sendTrayAction({ type: 'open-page', route });
   }, []);
 
+  const handleViewAllTransactions = useCallback(() => {
+    sendTrayAction({ type: 'view-all-transactions' });
+  }, []);
+
   const handleTickerPress = useCallback((ticker: ITrayWatchlistItem) => {
     // Send structured navigation action — main window renderer handles routing
     sendTrayAction({
@@ -115,6 +119,7 @@ export function TrayPanel() {
           <PendingTransactions
             transactions={data.pendingTxs}
             onTxPress={(txId) => handleNavigate(`/transaction/${txId}`)}
+            onViewAll={handleViewAllTransactions}
           />
         </ScrollView>
       ) : (

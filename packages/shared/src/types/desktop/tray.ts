@@ -64,7 +64,7 @@ export interface ITrayData {
 // desktopApi.sendTrayAction; must match ALLOWED_TRAY_ACTION_TYPES in
 // apps/desktop/app/tray/trayIpc.ts.
 export interface ITrayAction {
-  type: 'open-page' | 'market-detail-v2';
+  type: 'open-page' | 'market-detail-v2' | 'view-all-transactions';
   route?: string;
   tokenAddress?: string;
   networkId?: string;

@@ -56,9 +56,11 @@ function TxRow({
 export function PendingTransactions({
   transactions,
   onTxPress,
+  onViewAll,
 }: {
   transactions: IPendingTx[];
   onTxPress: (txId: string) => void;
+  onViewAll: () => void;
 }) {
   const intl = useIntl();
   const pendingLabel = intl.formatMessage({
@@ -114,7 +116,7 @@ export function PendingTransactions({
         );
       })}
       {hasMore ? (
-        <Stack padding="$3" onPress={() => onTxPress('')} cursor="pointer">
+        <Stack padding="$3" onPress={onViewAll} cursor="pointer">
           <SizableText
             fontSize="$bodySm"
             color="$textInteractive"
