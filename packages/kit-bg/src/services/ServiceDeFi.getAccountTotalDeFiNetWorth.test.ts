@@ -81,10 +81,13 @@ function makeService(overrides: {
         jest.fn().mockResolvedValue({ accountsInfo: [] }),
     },
   };
-  // Cast to any because the real ServiceDeFi constructor expects a fully
-  // typed IBackgroundApi which we are intentionally only partially mocking.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return new (ServiceDeFi as any)({ backgroundApi });
+  // The real ServiceDeFi constructor expects a fully typed IBackgroundApi;
+  // we're intentionally only partially mocking it, so go through `unknown` to
+  // keep the returned instance strongly typed for callers.
+  const Ctor = ServiceDeFi as unknown as new (args: {
+    backgroundApi: unknown;
+  }) => ServiceDeFi;
+  return new Ctor({ backgroundApi });
 }
 
 describe('getAccountTotalDeFiNetWorth', () => {

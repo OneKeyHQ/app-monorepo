@@ -73,8 +73,10 @@ function TrayPanelApp() {
 
   useEffect(() => {
     const handleUpdate = (trayData: ITrayData) => {
-      if (trayData?.locale && trayData.locale !== locale) {
-        setLocale(trayData.locale as ILocaleSymbol);
+      if (trayData?.locale) {
+        setLocale((prev) =>
+          trayData.locale !== prev ? (trayData.locale as ILocaleSymbol) : prev,
+        );
       }
     };
     const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
@@ -84,7 +86,7 @@ function TrayPanelApp() {
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [locale]);
+  }, []);
 
   return (
     <AppIntlProvider locale={locale}>

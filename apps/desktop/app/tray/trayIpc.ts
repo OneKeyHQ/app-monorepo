@@ -29,7 +29,16 @@ export function registerTrayIpcHandlers(
   getMainWindow: () => BrowserWindow | undefined,
   showMainWindow: () => void,
 ): void {
-  ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, (_event, data: ITrayData) => {
+  ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, (event, data: ITrayData) => {
+    // Only accept responses from the main window. The tray window shares the
+    // same preload and could otherwise push crafted payloads (e.g. isLocked)
+    // into the cache, mirroring the sender check used by DESKTOP_API_CALL.
+    const mainWindow = getMainWindow();
+    if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
+      logger.warn('[TrayIpc] rejected TRAY_DATA_RESPONSE from non-main window');
+      return;
+    }
+
     // Sync lock state from renderer
     if (data.isLocked) {
       isLocked = true;
