@@ -20,6 +20,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
+import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
@@ -304,11 +305,18 @@ function BasicDesktopBrowserContent({
     };
   }, [id]);
 
+  const { customReceiveHandler } = useDiscoveryMessageHandler();
+
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}
       {tab?.url ? (
-        <WebContent id={id} url={tab.url} isCurrent={isActive} />
+        <WebContent
+          id={id}
+          url={tab.url}
+          isCurrent={isActive}
+          customReceiveHandler={customReceiveHandler}
+        />
       ) : (
         <DashboardContent />
       )}
