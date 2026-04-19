@@ -13,7 +13,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Toast } from '@onekeyhq/components';
-import { SyncHomeAccountToDappAccountProvider } from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   EAppEventBusNames,
@@ -27,18 +26,14 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import SupabaseAuthProvider from '../components/OneKeyAuth/supabase/SupabaseAuthProvider';
-import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
 import { Container } from './Container';
 import { ColdStartByNotification } from './Container/ColdStartByNotification';
 import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
-import { StateActiveContainer } from './Container/StateActiveContainer';
-import { HardwareServiceProvider } from './HardwareServiceProvider';
 import { KeyboardProvider } from './KeyboardProvider';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
-import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -51,6 +46,50 @@ appGlobals.$Toast = Toast;
 const LastActivityTracker = LazyLoad(
   () => import('../components/LastActivityTracker'),
   3000,
+);
+
+// Non-first-screen siblings — delayed to shorten the KitProvider sync-mount
+// critical path. The UX-visible behavior of each is deferred:
+//   - PasswordVerify: only renders on user-triggered protected actions
+//   - StateActive: badge clear + AppState handler — a 300ms delay is not
+//       visible to the user on cold start
+//   - Hardware: SDK init happens only when a hardware wallet is active
+//   - WebViewWebEmbed: webembed webview is shown on demand via event bus
+//   - SyncHomeAccountToDapp: dapp account mirror, irrelevant until user
+//       opens a dapp tab
+const PasswordVerifyPromptMount = LazyLoad(
+  () => import('../components/Password/container/PasswordVerifyPromptMount'),
+  500,
+);
+const StateActiveContainer = LazyLoad(
+  () =>
+    import('./Container/StateActiveContainer').then((m) => ({
+      default: m.StateActiveContainer,
+    })),
+  300,
+);
+const HardwareServiceProvider = LazyLoad(
+  () =>
+    import('./HardwareServiceProvider').then((m) => ({
+      default: m.HardwareServiceProvider,
+    })),
+  500,
+);
+const WebViewWebEmbedProvider = LazyLoad(
+  () =>
+    import('./WebViewWebEmbedProvider').then((m) => ({
+      default: m.WebViewWebEmbedProvider,
+    })),
+  1500,
+);
+const SyncHomeAccountToDappAccountProvider = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider'
+    ).then((m) => ({
+      default: m.SyncHomeAccountToDappAccountProvider,
+    })),
+  1500,
 );
 
 const flexStyle = { flex: 1 };
