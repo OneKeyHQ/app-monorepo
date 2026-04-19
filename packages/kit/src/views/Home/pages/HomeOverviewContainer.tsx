@@ -101,6 +101,52 @@ function HomeOverviewContainer() {
     return false;
   }, [wallet]);
 
+  // Bypass token-cache/DeFi-ready gating during the first ~500ms after cold-start
+  // mount: if we have a locally-cached `lastConfirmedOverviewBalance.latest`,
+  // show it immediately. Empirically, waiting for BG to flip hasCache/isReady
+  // costs ~300ms on real device and contributes most of the Window-2 gap from
+  // canDismissSplash=true to Balance displayed. After the window expires, the
+  // original gate logic (BALANCE_REUSE_GRACE_MS + hasPositiveCurrentOwnerSignal)
+  // takes over for account-switch scenarios.
+  const isFirstColdStartMountRef = useRef(true);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      isFirstColdStartMountRef.current = false;
+    }, 500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Synchronously read the MMKV-hydrated atom snapshot to compute the effective
+  // owner key on first render. accountSelector atoms are ColdStartCache-backed,
+  // so the snapshot at bootstrap contains the last known selected account.
+  // Without this, currentOverviewOwnerKey is '' for 1-3 React commits while the
+  // accountSelector atom propagates to HomeOverview, and
+  // lastConfirmedOverviewBalance.byOwner[''] returns undefined — delaying the
+  // first balance display.
+  const bootstrapOwnerKey = useMemo(() => {
+    try {
+      const snap = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
+        | Record<string, unknown>
+        | undefined;
+      if (!snap) return '';
+      const raw = snap[
+        'store:accountSelector@home::ctx:selectedAccountsAtom'
+      ] as unknown;
+      if (!raw || typeof raw !== 'object') return '';
+      // selectedAccountsAtom shape: { '<num>': { indexedAccountId, networkId, ... } }
+      // Home scene uses num=0 by convention.
+      const atZero = (raw as Record<string, any>)['0'];
+      if (!atZero || typeof atZero !== 'object') return '';
+      const accountId: string | undefined =
+        atZero.indexedAccountId || atZero.othersWalletAccountId;
+      const networkId: string | undefined = atZero.networkId;
+      if (!accountId || !networkId) return '';
+      return buildOverviewOwnerKey(accountId, networkId);
+    } catch {
+      return '';
+    }
+  }, []);
+
   useEffect(() => {
     perfMark('Home:overview:mount');
     return () => {
@@ -498,8 +544,9 @@ function HomeOverviewContainer() {
     setLastConfirmedOverviewBalance,
   ]);
 
+  const effectiveOwnerKey = currentOverviewOwnerKey || bootstrapOwnerKey;
   const currentConfirmedBalance =
-    lastConfirmedOverviewBalance.byOwner[currentOverviewOwnerKey];
+    lastConfirmedOverviewBalance.byOwner[effectiveOwnerKey];
   const isCurrentTokenCacheStateMatched =
     overviewTokenCacheState.ownerKey === currentOverviewOwnerKey;
   const isCurrentDeFiDataStateMatched =
@@ -512,17 +559,21 @@ function HomeOverviewContainer() {
     if (currentConfirmedBalance || !lastConfirmedOverviewBalance.latest) {
       return false;
     }
-
+    if (isWalletNotBackedUp) {
+      return false;
+    }
+    // First-mount fast path: see comment on isFirstColdStartMountRef.
+    if (isFirstColdStartMountRef.current) {
+      return true;
+    }
     const hasPositiveCurrentOwnerSignal =
       (isCurrentTokenCacheStateMatched &&
         overviewTokenCacheState.hasCache === true) ||
       (isCurrentDeFiDataStateMatched && overviewDeFiDataState.isReady === true);
-
     if (!hasPositiveCurrentOwnerSignal) {
       return false;
     }
-
-    return !reuseLatestBalanceGraceExpired && !isWalletNotBackedUp;
+    return !reuseLatestBalanceGraceExpired;
   }, [
     currentConfirmedBalance,
     isWalletNotBackedUp,
