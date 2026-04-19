@@ -5,7 +5,7 @@ import { AuthManager } from './auth-manager';
 import type { ResolvedAuthSession } from './auth-types';
 
 export const DEFAULT_AUTH_LOGIN_SUGGESTION =
-  'Run: onekey auth login --mnemonic';
+  'Run: onekey auth login --app-transfer';
 
 interface IAuthStatusReader {
   getStatus(): Promise<ResolvedAuthSession>;

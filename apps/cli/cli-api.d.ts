@@ -2,7 +2,7 @@
 // @generated — do not edit manually
 // Generated from zod schemas in src/schemas/
 // Run: yarn generate:cli-types
-// Generated at: 2026-04-07T03:38:22.166Z
+// Generated at: 2026-04-17T08:26:05.253Z
 
 /** Print CLI version and environment */
 export interface VersionInput {}
@@ -20,14 +20,6 @@ export interface StatusOutput {
   env: string;
   latency_ms?: number;
   note?: string;
-}
-
-/** Import wallet from mnemonic (read from stdin) */
-export interface ImportInput {}
-
-export interface ImportOutput {
-  /** Derived wallet address */
-  address: string;
 }
 
 /** Remove wallet from system keychain */
@@ -48,13 +40,13 @@ export interface BalanceInput {
 export interface BalanceOutput {
   address: string;
   chain: string;
-  tokens: {
+  tokens: ({
     symbol: string;
     balance: string;
     contractAddress: string;
     fiatValue: string | null;
     isNative: boolean;
-  }[];
+  })[];
 }
 
 /** Send native or ERC-20 tokens */
@@ -84,6 +76,45 @@ export interface TransferOutput {
   amount: string;
   /** Chain alias */
   chain: string;
+}
+
+/** Authenticate with a OneKey App Bot Wallet */
+export interface AuthLoginInput {
+  /** Authenticate with a OneKey App Bot Wallet */
+  appTransfer?: boolean;
+}
+
+export interface AuthLoginOutput {
+  auth_status: string;
+  login_method: string;
+  source_label: string | null;
+  display_address: string | null;
+  storage_backend: "macos-keychain" | "linux-secret-service";
+}
+
+/** Show the current auth session */
+export interface AuthStatusInput {}
+
+export interface AuthStatusOutput {
+  authStatus: "authenticated" | "unauthenticated";
+  hasSecrets: boolean;
+  storageBackend: "macos-keychain" | "linux-secret-service";
+  loginMethod: "app_transfer" | null;
+  walletKind: "hd" | null;
+  sourceLabel: string | null;
+  displayAddress: string | null;
+  importedAt: string | null;
+}
+
+/** Log out of the current auth session */
+export interface AuthLogoutInput {}
+
+export interface AuthLogoutOutput {
+  status: "logged_out" | "already_logged_out" | "cancelled";
+  authStatus: "authenticated" | "unauthenticated";
+  changed: boolean;
+  sourceLabel: string | null;
+  displayAddress: string | null;
 }
 
 /** On-chain transaction history */
@@ -116,7 +147,7 @@ export interface TokenSearchInput {
   limit?: number;
 }
 
-export type TokenSearchOutput = {
+export type TokenSearchOutput = ({
   contractAddress: string;
   symbol: string;
   name: string | null;
@@ -128,7 +159,7 @@ export type TokenSearchOutput = {
   liquidity: string | null;
   marketCap: string | null;
   communityRecognized: boolean;
-}[]
+})[]
 
 /** Detailed token metadata and market data */
 export interface TokenInfoInput {
@@ -193,7 +224,7 @@ export interface TokenTrendingInput {
   limit?: number;
 }
 
-export type TokenTrendingOutput = {
+export type TokenTrendingOutput = ({
   symbol: string;
   name: string | null;
   contractAddress: string;
@@ -204,7 +235,7 @@ export type TokenTrendingOutput = {
   logoUrl: string | null;
   isNative: boolean;
   communityRecognized: boolean;
-}[]
+})[]
 
 /** Buy/sell activity and volume stats by timeframe */
 export interface TokenTradesInput {
@@ -275,12 +306,12 @@ export interface TokenLiquidityInput {
   token: string;
 }
 
-export type TokenLiquidityOutput = {
+export type TokenLiquidityOutput = ({
   accountAddress: string;
   amount: string;
   fiatValue: string;
   percentage: string | null;
-}[]
+})[]
 
 /** Get single token price from market data */
 export interface MarketPriceInput {
@@ -308,13 +339,13 @@ export interface MarketPricesInput {
   tokens: string;
 }
 
-export type MarketPricesOutput = {
+export type MarketPricesOutput = ({
   symbol: string;
   contractAddress: string;
   networkId: string;
   price: string | null;
   priceChange24hPercent: string | null;
-}[]
+})[]
 
 /** Candlestick OHLCV data */
 export interface MarketKlineInput {
@@ -364,7 +395,7 @@ export interface SwapQuoteInput {
 }
 
 export interface SwapQuoteOutput {
-  quotes: {
+  quotes: ({
     provider: string;
     providerName: string;
     toAmount: string | null;
@@ -380,7 +411,7 @@ export interface SwapQuoteOutput {
       amount: string;
       shouldResetApprove?: boolean;
     } | null;
-  }[];
+  })[];
   security: {
     blocked: boolean;
     overallRisk: "high" | "caution" | "low" | "unknown";
@@ -518,7 +549,7 @@ export type SwapNetworksOutput = {
 /** Local swap order history */
 export interface SwapHistoryInput {}
 
-export type SwapHistoryOutput = {
+export type SwapHistoryOutput = ({
   orderId: string;
   status: string;
   chain: string;
@@ -529,7 +560,7 @@ export type SwapHistoryOutput = {
   provider: string | null;
   createdAt: number;
   updatedAt: number;
-}[]
+})[]
 
 /** Token risk assessment — returns overall risk level with item breakdown */
 export interface SecurityAuditInput {

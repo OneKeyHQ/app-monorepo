@@ -48,8 +48,7 @@ function isValidSessionMetadata(value: unknown): value is AuthSessionMetadata {
 
   return (
     metadata.schemaVersion === AUTH_SESSION_SCHEMA_VERSION &&
-    (metadata.loginMethod === 'mnemonic' ||
-      metadata.loginMethod === 'app_transfer') &&
+    metadata.loginMethod === 'app_transfer' &&
     metadata.walletKind === 'hd' &&
     typeof metadata.displayAddress === 'string' &&
     metadata.displayAddress.length > 0 &&
