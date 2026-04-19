@@ -556,7 +556,14 @@ function HomeOverviewContainer() {
     }),
     [currentOverviewOwnerKey, displayBalanceString],
   );
-  const debouncedBalancePayload = useDebounce(balancePayload, 100);
+  // leading:true fires immediately so a fresh balance isn't held back by
+  // the 100ms tail; trailing:true preserves the de-duplication on rapid
+  // back-to-back updates. This removes up to 100ms of cold-start latency
+  // on the balance display path.
+  const debouncedBalancePayload = useDebounce(balancePayload, 100, {
+    leading: true,
+    trailing: true,
+  });
 
   const numberFormatter: INumberFormatProps = {
     formatter: 'value',
