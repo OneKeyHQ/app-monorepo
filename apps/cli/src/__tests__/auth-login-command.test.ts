@@ -4,13 +4,70 @@ import {
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { executeAuthLoginCommand } from '../commands/auth/auth-login-command';
+import {
+  registerActiveAuthFlowCleanup,
+  resetActiveAuthFlowCleanupForTests,
+  runActiveAuthFlowCleanup,
+} from '../core/auth/auth-flow-interruption';
+import {
+  getActiveTransferPairingRuntime,
+  replaceActiveTransferPairingRuntime,
+  startTransferPairingRuntimeTimeout,
+} from '../core/prime-transfer/pairing-session-runtime';
 import { AppError, ERROR_CODES } from '../errors';
 
 import type {
   AppTransferLoginResult,
   ResolvedAuthSession,
 } from '../core/auth/auth-types';
+import type {
+  ITransferPairingRuntime,
+  ITransferStateSnapshot,
+} from '../core/prime-transfer/transfer-types';
 import type { OutputFormatter } from '../output';
+
+jest.mock('../core/prime-transfer/pairing-session-runtime', () => ({
+  __esModule: true,
+  getActiveTransferPairingRuntime: jest.fn(() => null),
+  getTransferPairingRuntimeError: jest.fn(() => null),
+  replaceActiveTransferPairingRuntime: jest.fn(async () => undefined),
+  startTransferPairingRuntimeTimeout: jest.fn(() => null),
+}));
+
+const mockedGetActiveRuntime =
+  getActiveTransferPairingRuntime as jest.MockedFunction<
+    typeof getActiveTransferPairingRuntime
+  >;
+const mockedReplaceActiveRuntime =
+  replaceActiveTransferPairingRuntime as jest.MockedFunction<
+    typeof replaceActiveTransferPairingRuntime
+  >;
+const mockedStartRuntimeTimeout =
+  startTransferPairingRuntimeTimeout as jest.MockedFunction<
+    typeof startTransferPairingRuntimeTimeout
+  >;
+
+function makeCompletedRuntime(pairingCode: string): ITransferPairingRuntime {
+  const terminalState: ITransferStateSnapshot = {
+    event: 'transfer_completed',
+    status: 'completed',
+    message: 'Completed',
+    isTerminal: true,
+    updatedAt: '2026-04-06T07:01:00.000Z',
+  };
+  return {
+    roomId: 'ABCDEFGH123',
+    userId: 'user-1',
+    pairingCode,
+    getVerificationCode: () => null,
+    setVerificationCode: () => undefined,
+    getState: () => terminalState,
+    subscribe: () => () => undefined,
+    transition: () => terminalState,
+    waitForState: async () => terminalState,
+    dispose: async () => undefined,
+  };
+}
 
 function makeUnauthenticatedStatus(): ResolvedAuthSession {
   return {
@@ -20,16 +77,19 @@ function makeUnauthenticatedStatus(): ResolvedAuthSession {
   };
 }
 
-function makeAuthenticatedStatus(): ResolvedAuthSession {
+function makeAuthenticatedStatus(
+  overrides: Partial<ResolvedAuthSession> = {},
+): ResolvedAuthSession {
   return {
     authStatus: 'authenticated',
     hasSecrets: true,
     storageBackend: 'macos-keychain',
-    loginMethod: 'mnemonic',
+    loginMethod: 'app_transfer',
     walletKind: 'hd',
     displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
     importedAt: '2026-04-06T07:00:00.000Z',
-    sourceLabel: 'Mnemonic Import',
+    sourceLabel: 'Bot Wallet (deadbeef)',
+    ...overrides,
   };
 }
 
@@ -52,58 +112,86 @@ function makePairingResult(): AppTransferLoginResult {
   };
 }
 
+function makeOutputMock(): Pick<
+  OutputFormatter,
+  'error' | 'success' | 'warn' | 'getMode'
+> {
+  return {
+    error: jest.fn(),
+    success: jest.fn(),
+    warn: jest.fn(),
+    getMode: jest.fn(() => 'agent'),
+  };
+}
+
 describe('executeAuthLoginCommand', () => {
-  let output: Pick<OutputFormatter, 'error' | 'success'>;
+  let output: Pick<OutputFormatter, 'error' | 'success' | 'warn' | 'getMode'>;
   let exit: jest.Mock<void, [number]>;
 
   beforeEach(() => {
-    output = {
-      error: jest.fn(),
-      success: jest.fn(),
-    };
+    output = makeOutputMock();
     exit = jest.fn();
     process.exitCode = 0;
+    resetActiveAuthFlowCleanupForTests();
+    mockedGetActiveRuntime.mockReset().mockReturnValue(null);
+    mockedReplaceActiveRuntime.mockReset().mockResolvedValue(undefined);
+    mockedStartRuntimeTimeout.mockReset().mockReturnValue(null);
   });
 
   afterEach(() => {
     process.exitCode = 0;
+    resetActiveAuthFlowCleanupForTests();
   });
 
-  it('routes a human tty login session into the app transfer branch when selected', async () => {
+  it('emits PARAM_MISSING_REQUIRED when no login method flag is provided', async () => {
+    const authManager = {
+      getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
+      startAppTransferLogin: jest.fn(async () => makePairingResult()),
+    };
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      isHumanMode: false,
+      isTTY: false,
+      authManager,
+      exit,
+    });
+
+    expect(output.error).toHaveBeenCalledWith({
+      code: ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+      message: 'Login method required. Use --app-transfer.',
+      suggestion: 'Run: onekey auth login --app-transfer',
+    });
+    expect(authManager.getStatus).not.toHaveBeenCalled();
+    expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(ERROR_CODES.PARAM_MISSING_REQUIRED.exitCode);
+    expect(exit).not.toHaveBeenCalled();
+  });
+
+  it('runs the interactive pairing display in human TTY mode and emits the structured login result', async () => {
     const pairingResult = makePairingResult();
     const runAppTransferPairingDisplay = jest.fn(async () => undefined);
     const authManager = {
       getStatus: jest
         .fn()
         .mockResolvedValueOnce(makeUnauthenticatedStatus())
-        .mockResolvedValueOnce({
-          authStatus: 'authenticated',
-          hasSecrets: true,
-          storageBackend: 'macos-keychain',
-          loginMethod: 'app_transfer',
-          walletKind: 'hd',
-          displayAddress: '0xabc',
-          importedAt: '2026-04-06T07:00:00.000Z',
-          sourceLabel: 'Bot Wallet (deadbeef)',
-        } satisfies ResolvedAuthSession),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
+        .mockResolvedValueOnce(
+          makeAuthenticatedStatus({ displayAddress: '0xabc' }),
+        ),
       startAppTransferLogin: jest.fn(async () => pairingResult),
     };
-    const selectMethod = jest.fn(async () => 'app_transfer' as const);
 
     await executeAuthLoginCommand({
       output: output as OutputFormatter,
-      mnemonicFlag: false,
+      appTransferFlag: true,
       isHumanMode: true,
       isTTY: true,
       env: 'test',
       authManager,
-      selectMethod,
       runAppTransferPairingDisplay,
       exit,
     });
 
-    expect(selectMethod).toHaveBeenCalledTimes(1);
     expect(authManager.startAppTransferLogin).toHaveBeenCalledWith({
       endpointEnv: 'test',
     });
@@ -115,54 +203,20 @@ describe('executeAuthLoginCommand', () => {
       display_address: '0xabc',
       storage_backend: 'macos-keychain',
     });
+    expect(output.error).not.toHaveBeenCalled();
     expect(exit).toHaveBeenCalledWith(0);
   });
 
-  it('routes a human tty login session into mnemonic import when selected', async () => {
-    const authManager = {
-      getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
-      startAppTransferLogin: jest.fn(async () => makePairingResult()),
-    };
-    const selectMethod = jest.fn(async () => 'mnemonic' as const);
-    const readInput = jest.fn(async () => 'raw mnemonic');
-
-    await executeAuthLoginCommand({
-      output: output as OutputFormatter,
-      mnemonicFlag: false,
-      isHumanMode: true,
-      isTTY: true,
-      authManager,
-      selectMethod,
-      readInput,
-      exit,
-    });
-
-    expect(readInput).toHaveBeenCalledTimes(1);
-    expect(authManager.loginWithMnemonic).toHaveBeenCalledWith('raw mnemonic');
-    expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
-    expect(output.success).toHaveBeenCalledWith({ address: '0xabc' });
-    expect(exit).not.toHaveBeenCalled();
-  });
-
-  it('waits for app transfer completion and returns structured auth output in agent mode', async () => {
+  it('waits for headless app transfer completion in agent mode and emits the structured login result', async () => {
     const pairingResult = makePairingResult();
     const waitForHeadlessAppTransferCompletion = jest.fn(async () => undefined);
     const authManager = {
       getStatus: jest
         .fn()
         .mockResolvedValueOnce(makeUnauthenticatedStatus())
-        .mockResolvedValueOnce({
-          authStatus: 'authenticated',
-          hasSecrets: true,
-          storageBackend: 'macos-keychain',
-          loginMethod: 'app_transfer',
-          walletKind: 'hd',
-          displayAddress: '0xdef',
-          importedAt: '2026-04-06T07:00:00.000Z',
-          sourceLabel: 'Bot Wallet (deadbeef)',
-        } satisfies ResolvedAuthSession),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
+        .mockResolvedValueOnce(
+          makeAuthenticatedStatus({ displayAddress: '0xdef' }),
+        ),
       startAppTransferLogin: jest.fn(async () => pairingResult),
     };
 
@@ -193,10 +247,9 @@ describe('executeAuthLoginCommand', () => {
     expect(exit).toHaveBeenCalledWith(0);
   });
 
-  it('rejects non-tty app transfer before the pairing session starts', async () => {
+  it('rejects --app-transfer without a TTY before the pairing session starts', async () => {
     const authManager = {
       getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
       clearSession: jest.fn(async () => undefined),
       startAppTransferLogin: jest.fn(async () => makePairingResult()),
     };
@@ -215,139 +268,40 @@ describe('executeAuthLoginCommand', () => {
     expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
     expect(waitForHeadlessAppTransferCompletion).not.toHaveBeenCalled();
     expect(output.error).toHaveBeenCalledWith({
-      code: 'PARAM_REQUIRES_TTY',
+      code: ERROR_CODES.PARAM_REQUIRES_TTY.code,
       message: 'App Transfer login requires an interactive TTY terminal.',
-      suggestion:
-        'Run this command in an interactive terminal, or use --mnemonic until a dedicated non-interactive App Transfer mode is available.',
+      suggestion: 'Run this command in an interactive terminal.',
     });
-    expect(process.exitCode).toBe(2);
+    expect(process.exitCode).toBe(ERROR_CODES.PARAM_REQUIRES_TTY.exitCode);
     expect(exit).not.toHaveBeenCalled();
   });
 
-  it('keeps non-tty callers on the explicit method path', async () => {
-    const authManager = {
-      getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
-      startAppTransferLogin: jest.fn(async () => makePairingResult()),
-    };
-
-    await executeAuthLoginCommand({
-      output: output as OutputFormatter,
-      mnemonicFlag: false,
-      isHumanMode: false,
-      isTTY: false,
-      authManager,
-      exit,
-    });
-
-    expect(output.error).toHaveBeenCalledWith({
-      code: 'PARAM_MISSING_REQUIRED',
-      message: 'Login method required. Use --mnemonic or --app-transfer.',
-      suggestion:
-        'Run: onekey auth login --mnemonic or onekey auth login --app-transfer',
-    });
-    expect(process.exitCode).toBe(2);
-    expect(authManager.getStatus).not.toHaveBeenCalled();
-    expect(exit).not.toHaveBeenCalled();
-  });
-
-  it('rejects conflicting login method flags', async () => {
-    const authManager = {
-      getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
-      startAppTransferLogin: jest.fn(async () => makePairingResult()),
-    };
-
-    await executeAuthLoginCommand({
-      output: output as OutputFormatter,
-      mnemonicFlag: true,
-      appTransferFlag: true,
-      isHumanMode: false,
-      isTTY: false,
-      authManager,
-      exit,
-    });
-
-    expect(output.error).toHaveBeenCalledWith({
-      code: 'PARAM_INVALID_CONFIG',
-      message: 'Choose only one login method flag',
-      suggestion: 'Use either --mnemonic or --app-transfer',
-    });
-    expect(authManager.getStatus).not.toHaveBeenCalled();
-    expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
-    expect(process.exitCode).toBe(2);
-    expect(exit).not.toHaveBeenCalled();
-  });
-
-  it('blocks the menu flow when an authenticated wallet already exists', async () => {
+  it('blocks --app-transfer login when an authenticated wallet already exists', async () => {
+    const runAppTransferPairingDisplay = jest.fn(async () => undefined);
     const authManager = {
       getStatus: jest.fn(async () => makeAuthenticatedStatus()),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
       startAppTransferLogin: jest.fn(async () => makePairingResult()),
     };
-    const selectMethod = jest.fn(async () => 'app_transfer' as const);
 
     await executeAuthLoginCommand({
       output: output as OutputFormatter,
-      mnemonicFlag: false,
+      appTransferFlag: true,
       isHumanMode: true,
       isTTY: true,
       authManager,
-      selectMethod,
-      exit,
-    });
-
-    expect(selectMethod).not.toHaveBeenCalled();
-    expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
-    expect(output.error).toHaveBeenCalledWith({
-      code: 'AUTH_WALLET_EXISTS',
-      message:
-        'Wallet already exists. Log out before importing another wallet.',
-      suggestion: 'Run: onekey auth logout',
-    });
-    expect(process.exitCode).toBe(4);
-    expect(exit).not.toHaveBeenCalled();
-  });
-
-  it('returns to the login menu after interactive app transfer cancellation', async () => {
-    const pairingResult = makePairingResult();
-    const runAppTransferPairingDisplay = jest
-      .fn()
-      .mockRejectedValueOnce(
-        new AppError(
-          ERROR_CODES.AUTH_TRANSFER_CANCELLED.code,
-          'Transfer cancelled.',
-          'Retry the App Transfer login flow',
-        ),
-      );
-    const authManager = {
-      getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
-      startAppTransferLogin: jest.fn(async () => pairingResult),
-    };
-    const selectMethod = jest
-      .fn()
-      .mockResolvedValueOnce('app_transfer' as const)
-      .mockResolvedValueOnce('mnemonic' as const);
-    const readInput = jest.fn(async () => 'raw mnemonic');
-
-    await executeAuthLoginCommand({
-      output: output as OutputFormatter,
-      isHumanMode: true,
-      isTTY: true,
-      authManager,
-      selectMethod,
-      readInput,
       runAppTransferPairingDisplay,
       exit,
     });
 
-    expect(selectMethod).toHaveBeenCalledTimes(2);
-    expect(runAppTransferPairingDisplay).toHaveBeenCalledTimes(1);
-    expect(authManager.startAppTransferLogin).toHaveBeenCalledTimes(1);
-    expect(authManager.loginWithMnemonic).toHaveBeenCalledWith('raw mnemonic');
-    expect(output.success).toHaveBeenCalledWith({ address: '0xabc' });
-    expect(output.error).not.toHaveBeenCalled();
+    expect(authManager.startAppTransferLogin).not.toHaveBeenCalled();
+    expect(runAppTransferPairingDisplay).not.toHaveBeenCalled();
+    expect(output.error).toHaveBeenCalledWith({
+      code: ERROR_CODES.AUTH_WALLET_EXISTS.code,
+      message:
+        'Wallet already exists. Log out before importing another wallet.',
+      suggestion: 'Run: onekey auth logout',
+    });
+    expect(process.exitCode).toBe(ERROR_CODES.AUTH_WALLET_EXISTS.exitCode);
     expect(exit).not.toHaveBeenCalled();
   });
 
@@ -362,7 +316,6 @@ describe('executeAuthLoginCommand', () => {
     });
     const authManager = {
       getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
       startAppTransferLogin: jest.fn(async () => pairingResult),
     };
 
@@ -377,7 +330,7 @@ describe('executeAuthLoginCommand', () => {
     });
 
     expect(output.error).toHaveBeenCalledWith({
-      code: 'AUTH_TRANSFER_TIMEOUT',
+      code: ERROR_CODES.AUTH_TRANSFER_TIMEOUT.code,
       message: 'Transfer timed out.',
       suggestion: 'Retry the App Transfer login flow',
       details: {
@@ -390,13 +343,13 @@ describe('executeAuthLoginCommand', () => {
         next_action: 'retry_app_transfer',
       },
     });
-    expect(process.exitCode).toBe(4);
+    expect(process.exitCode).toBe(ERROR_CODES.AUTH_TRANSFER_TIMEOUT.exitCode);
     expect(exit).toHaveBeenCalledWith(
       ERROR_CODES.AUTH_TRANSFER_TIMEOUT.exitCode,
     );
   });
 
-  it('reports structured cancellation guidance outside the interactive menu flow', async () => {
+  it('reports structured cancellation guidance when headless app transfer is cancelled', async () => {
     const pairingResult = makePairingResult();
     const waitForHeadlessAppTransferCompletion = jest.fn(async () => {
       throw new AppError(
@@ -407,7 +360,6 @@ describe('executeAuthLoginCommand', () => {
     });
     const authManager = {
       getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
-      loginWithMnemonic: jest.fn(async () => ({ address: '0xabc' })),
       startAppTransferLogin: jest.fn(async () => pairingResult),
     };
 
@@ -422,7 +374,7 @@ describe('executeAuthLoginCommand', () => {
     });
 
     expect(output.error).toHaveBeenCalledWith({
-      code: 'AUTH_TRANSFER_CANCELLED',
+      code: ERROR_CODES.AUTH_TRANSFER_CANCELLED.code,
       message: 'Transfer cancelled.',
       suggestion: 'Retry the App Transfer login flow',
       details: {
@@ -435,9 +387,248 @@ describe('executeAuthLoginCommand', () => {
         next_action: 'retry_app_transfer',
       },
     });
-    expect(process.exitCode).toBe(4);
+    expect(process.exitCode).toBe(ERROR_CODES.AUTH_TRANSFER_CANCELLED.exitCode);
     expect(exit).toHaveBeenCalledWith(
       ERROR_CODES.AUTH_TRANSFER_CANCELLED.exitCode,
     );
+  });
+
+  it('propagates cancellation from the interactive pairing display with structured retry guidance', async () => {
+    const pairingResult = makePairingResult();
+    const runAppTransferPairingDisplay = jest.fn(async () => {
+      throw new AppError(
+        ERROR_CODES.AUTH_TRANSFER_CANCELLED.code,
+        'Transfer cancelled.',
+        'Retry the App Transfer login flow',
+      );
+    });
+    const authManager = {
+      getStatus: jest.fn(async () => makeUnauthenticatedStatus()),
+      startAppTransferLogin: jest.fn(async () => pairingResult),
+    };
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      appTransferFlag: true,
+      isHumanMode: true,
+      isTTY: true,
+      authManager,
+      runAppTransferPairingDisplay,
+      exit,
+    });
+
+    expect(runAppTransferPairingDisplay).toHaveBeenCalledWith(pairingResult);
+    expect(output.error).toHaveBeenCalledWith({
+      code: ERROR_CODES.AUTH_TRANSFER_CANCELLED.code,
+      message: 'Transfer cancelled.',
+      suggestion: 'Retry the App Transfer login flow',
+      details: {
+        status: 'cancelled',
+        auth_status: 'unauthenticated',
+        login_method: 'app_transfer',
+        source_label: null,
+        display_address: null,
+        storage_backend: null,
+        next_action: 'retry_app_transfer',
+      },
+    });
+    expect(process.exitCode).toBe(ERROR_CODES.AUTH_TRANSFER_CANCELLED.exitCode);
+    expect(exit).toHaveBeenCalledWith(
+      ERROR_CODES.AUTH_TRANSFER_CANCELLED.exitCode,
+    );
+  });
+
+  it('fails with AUTH_SESSION_INVALID when app transfer completes without a valid session', async () => {
+    const pairingResult = makePairingResult();
+    const runAppTransferPairingDisplay = jest.fn(async () => undefined);
+    const authManager = {
+      getStatus: jest
+        .fn()
+        // First call: unauthenticated (pre-login check)
+        .mockResolvedValueOnce(makeUnauthenticatedStatus())
+        // Second call: still unauthenticated even after pairing completes
+        .mockResolvedValueOnce(makeUnauthenticatedStatus()),
+      startAppTransferLogin: jest.fn(async () => pairingResult),
+    };
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      appTransferFlag: true,
+      isHumanMode: true,
+      isTTY: true,
+      authManager,
+      runAppTransferPairingDisplay,
+      exit,
+    });
+
+    expect(runAppTransferPairingDisplay).toHaveBeenCalledWith(pairingResult);
+    expect(output.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: ERROR_CODES.AUTH_SESSION_INVALID.code,
+        message: 'App Transfer completed without a valid auth session',
+        suggestion: 'Retry the App Transfer login flow',
+      }),
+    );
+    expect(output.success).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(ERROR_CODES.AUTH_SESSION_INVALID.exitCode);
+    expect(exit).toHaveBeenCalledWith(
+      ERROR_CODES.AUTH_SESSION_INVALID.exitCode,
+    );
+  });
+
+  it('registers an interruption cleanup that clears the session when triggered externally', async () => {
+    const pairingResult = makePairingResult();
+    // Trigger the active cleanup mid-flow by waiting for it to fire during the display.
+    const clearSession = jest.fn(async () => undefined);
+    let triggeredCleanup: Promise<void> | null = null;
+    const runAppTransferPairingDisplay = jest.fn(async () => {
+      triggeredCleanup = runActiveAuthFlowCleanup();
+      await triggeredCleanup;
+    });
+    const authManager = {
+      getStatus: jest
+        .fn()
+        .mockResolvedValueOnce(makeUnauthenticatedStatus())
+        .mockResolvedValueOnce(
+          makeAuthenticatedStatus({ displayAddress: '0xabc' }),
+        ),
+      clearSession,
+      startAppTransferLogin: jest.fn(async () => pairingResult),
+    };
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      appTransferFlag: true,
+      isHumanMode: true,
+      isTTY: true,
+      authManager,
+      runAppTransferPairingDisplay,
+      exit,
+    });
+
+    expect(triggeredCleanup).not.toBeNull();
+    expect(clearSession).toHaveBeenCalledTimes(1);
+    expect(output.success).toHaveBeenCalled();
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it('skips interruption cleanup registration when authManager has no clearSession implementation', async () => {
+    // Pre-register a sentinel cleanup to confirm the command does NOT override it
+    // when clearSession is undefined.
+    const sentinelCleanup = jest.fn(async () => undefined);
+    const release = registerActiveAuthFlowCleanup(sentinelCleanup);
+
+    const pairingResult = makePairingResult();
+    const runAppTransferPairingDisplay = jest.fn(async () => undefined);
+    const authManager = {
+      getStatus: jest
+        .fn()
+        .mockResolvedValueOnce(makeUnauthenticatedStatus())
+        .mockResolvedValueOnce(
+          makeAuthenticatedStatus({ displayAddress: '0xabc' }),
+        ),
+      startAppTransferLogin: jest.fn(async () => pairingResult),
+    };
+
+    await executeAuthLoginCommand({
+      output: output as OutputFormatter,
+      appTransferFlag: true,
+      isHumanMode: true,
+      isTTY: true,
+      authManager,
+      runAppTransferPairingDisplay,
+      exit,
+    });
+
+    // Sentinel should still be the active cleanup since the command skipped registration.
+    await runActiveAuthFlowCleanup();
+    expect(sentinelCleanup).toHaveBeenCalledTimes(1);
+
+    release();
+  });
+
+  describe('default waitForHeadlessCompletion wrapper', () => {
+    // These tests omit the waitForHeadlessAppTransferCompletion override so the
+    // SUT's default wrapper runs. The wrapper decides whether to write the
+    // pairing instructions to stderr based on output.getMode() and stderr.isTTY.
+
+    it('skips writing pairing instructions in agent mode when stderr is not a TTY', async () => {
+      const pairingResult = makePairingResult();
+      mockedGetActiveRuntime.mockReturnValue(
+        makeCompletedRuntime(pairingResult.pairingCode),
+      );
+      const stderr: {
+        isTTY: boolean;
+        write: jest.Mock<boolean, [string | Uint8Array]>;
+      } = {
+        isTTY: false,
+        write: jest.fn<boolean, [string | Uint8Array]>(() => true),
+      };
+      const authManager = {
+        getStatus: jest
+          .fn()
+          .mockResolvedValueOnce(makeUnauthenticatedStatus())
+          .mockResolvedValueOnce(
+            makeAuthenticatedStatus({ displayAddress: '0xdef' }),
+          ),
+        startAppTransferLogin: jest.fn(async () => pairingResult),
+      };
+
+      await executeAuthLoginCommand({
+        output: output as OutputFormatter,
+        appTransferFlag: true,
+        isHumanMode: false,
+        isTTY: true,
+        env: 'test',
+        authManager,
+        stderr,
+        exit,
+      });
+
+      expect(stderr.write).not.toHaveBeenCalled();
+      expect(output.success).toHaveBeenCalled();
+      expect(exit).toHaveBeenCalledWith(0);
+    });
+
+    it('writes pairing instructions in agent mode when stderr is a TTY', async () => {
+      const pairingResult = makePairingResult();
+      mockedGetActiveRuntime.mockReturnValue(
+        makeCompletedRuntime(pairingResult.pairingCode),
+      );
+      const stderr: {
+        isTTY: boolean;
+        write: jest.Mock<boolean, [string | Uint8Array]>;
+      } = {
+        isTTY: true,
+        write: jest.fn<boolean, [string | Uint8Array]>(() => true),
+      };
+      const authManager = {
+        getStatus: jest
+          .fn()
+          .mockResolvedValueOnce(makeUnauthenticatedStatus())
+          .mockResolvedValueOnce(
+            makeAuthenticatedStatus({ displayAddress: '0xdef' }),
+          ),
+        startAppTransferLogin: jest.fn(async () => pairingResult),
+      };
+
+      await executeAuthLoginCommand({
+        output: output as OutputFormatter,
+        appTransferFlag: true,
+        isHumanMode: false,
+        isTTY: true,
+        env: 'test',
+        authManager,
+        stderr,
+        exit,
+      });
+
+      expect(stderr.write).toHaveBeenCalledTimes(1);
+      const writtenChunk = stderr.write.mock.calls[0][0];
+      expect(String(writtenChunk)).toContain('Pairing code:');
+      expect(String(writtenChunk)).toContain(pairingResult.pairingCode);
+      expect(output.success).toHaveBeenCalled();
+      expect(exit).toHaveBeenCalledWith(0);
+    });
   });
 });

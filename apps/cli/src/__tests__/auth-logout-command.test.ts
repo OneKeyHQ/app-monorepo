@@ -11,9 +11,9 @@ const AUTHENTICATED_SESSION = {
   authStatus: 'authenticated' as const,
   hasSecrets: true,
   storageBackend: 'macos-keychain' as const,
-  loginMethod: 'mnemonic' as const,
+  loginMethod: 'app_transfer' as const,
   walletKind: 'hd' as const,
-  sourceLabel: 'Mnemonic Import',
+  sourceLabel: 'Bot Wallet (abcd1234)',
   displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
   importedAt: '2026-04-06T06:20:00.000Z',
 };
@@ -98,7 +98,7 @@ describe('executeAuthLogoutCommand', () => {
       status: 'cancelled',
       authStatus: 'authenticated',
       changed: false,
-      sourceLabel: 'Mnemonic Import',
+      sourceLabel: 'Bot Wallet (abcd1234)',
       displayAddress: '0x1234567890abcdef1234567890abcdef12345678',
     });
     expect(authManager.clearSession).not.toHaveBeenCalled();
