@@ -11,7 +11,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-
 import {
   ENCODE_TEXT_PREFIX,
   ensureSensitiveTextEncoded,
@@ -67,7 +66,6 @@ function ensureEncodeKeyExists(key: string) {
     );
   }
 }
-
 
 async function decodePasswordAsync({
   password,
@@ -549,7 +547,6 @@ function checkKeyPassedOnExtUi(key?: string) {
     );
   }
 }
-
 
 async function decodeSensitiveTextAsync({
   encodedText,

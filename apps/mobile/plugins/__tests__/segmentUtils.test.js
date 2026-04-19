@@ -62,18 +62,12 @@ describe('deriveSharedSegmentKey', () => {
   });
 
   it('is deterministic for the same absolute path', () => {
-    const p = path.join(
-      monorepoRoot,
-      'packages/kit/src/utils/helper.ts',
-    );
+    const p = path.join(monorepoRoot, 'packages/kit/src/utils/helper.ts');
     expect(deriveSharedSegmentKey(p)).toBe(deriveSharedSegmentKey(p));
   });
 
   it('produces a distinct key from the non-shared variant', () => {
-    const p = path.join(
-      monorepoRoot,
-      'packages/kit/src/utils/helper.ts',
-    );
+    const p = path.join(monorepoRoot, 'packages/kit/src/utils/helper.ts');
     expect(deriveSharedSegmentKey(p)).not.toBe(deriveSegmentKey(p));
   });
 

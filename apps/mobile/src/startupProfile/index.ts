@@ -49,8 +49,8 @@ function logStartupProfileDiag(tag: string, extra: string): void {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
     const m = require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    (m.NativeLogger as any).write(
-      (m.LogLevel as any).Info,
+    m.NativeLogger.write(
+      m.LogLevel.Info,
       `[StartupProfile.js] ${tag}: ${extra}`,
     );
   } catch {
@@ -75,7 +75,9 @@ export function installStartupProfileJs(): void {
         probeKeys.push(k);
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   const hasGetModules = typeof (origRequire as any)?.getModules === 'function';
   const hasModulesProp = typeof (origRequire as any)?.modules === 'object';
   const dProps: string[] = [];
@@ -85,7 +87,9 @@ export function installStartupProfileJs(): void {
         dProps.push(k);
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   logStartupProfileDiag(
     'install',
     `typeof __r=${typeof origRequire}, typeof __d=${typeof g.__d}, hasGlobal=${typeof globalThis !== 'undefined'}, __r.keys=[${probeKeys.join(',')}], __r.getModules=${hasGetModules}, __r.modules=${hasModulesProp}, __d.keys=[${dProps.join(',')}]`,

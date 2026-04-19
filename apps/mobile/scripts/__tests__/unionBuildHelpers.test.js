@@ -995,9 +995,7 @@ it('does not expand segments with deps already in eager bundle', () => {
 // collectCommonReferencedSegmentKeys
 // ---------------------------------------------------------------------------
 
-const {
-  collectCommonReferencedSegmentKeys,
-} = require('../unionBuildHelpers');
+const { collectCommonReferencedSegmentKeys } = require('../unionBuildHelpers');
 
 describe('collectCommonReferencedSegmentKeys', () => {
   function makeDep(absolutePath, asyncType = null) {
@@ -1011,9 +1009,7 @@ describe('collectCommonReferencedSegmentKeys', () => {
     const deps = new Map();
     for (const [absPath, depList] of entries) {
       deps.set(absPath, {
-        dependencies: new Map(
-          depList.map((d, i) => [`dep${i}`, d]),
-        ),
+        dependencies: new Map(depList.map((d, i) => [`dep${i}`, d])),
       });
     }
     return { dependencies: deps };
@@ -1092,9 +1088,7 @@ describe('collectCommonReferencedSegmentKeys', () => {
     const mainGraph = makeGraph([
       [commonModule, [makeDep(mainTarget, 'async')]],
     ]);
-    const bgGraph = makeGraph([
-      [commonModule, [makeDep(bgTarget, 'async')]],
-    ]);
+    const bgGraph = makeGraph([[commonModule, [makeDep(bgTarget, 'async')]]]);
 
     const result = collectCommonReferencedSegmentKeys({
       mainGraph,
@@ -1117,9 +1111,7 @@ describe('collectCommonReferencedSegmentKeys', () => {
     const nonCommonModule = '/kit/views/Market/index.tsx';
     const target = '/kit/views/Market/detail.tsx';
 
-    const graph = makeGraph([
-      [nonCommonModule, [makeDep(target, 'async')]],
-    ]);
+    const graph = makeGraph([[nonCommonModule, [makeDep(target, 'async')]]]);
 
     const result = collectCommonReferencedSegmentKeys({
       mainGraph: graph,

@@ -178,8 +178,7 @@ function CreateOrImportWallet() {
 
   const handleCreateNewWallet = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    const mnemonic =
-      await backgroundApiProxy.serviceAccount.generateMnemonic();
+    const mnemonic = await backgroundApiProxy.serviceAccount.generateMnemonic();
     const encodedMnemonic =
       await backgroundApiProxy.servicePassword.encodeSensitiveText({
         text: mnemonic,

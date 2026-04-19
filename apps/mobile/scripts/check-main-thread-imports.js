@@ -37,8 +37,7 @@ const FORBIDDEN_IN_EAGER = [
   },
   {
     pattern: 'packages/core/src/secret/bip32.ts',
-    message:
-      'BIP-32 key derivation belongs in background thread only.',
+    message: 'BIP-32 key derivation belongs in background thread only.',
   },
   {
     pattern: 'packages/core/src/chains/',
@@ -54,12 +53,7 @@ function findModuleIdMap() {
   const outDir = path.join(MOBILE_DIR, 'out-dir-bundle');
   if (!fs.existsSync(outDir)) return null;
   for (const platform of fs.readdirSync(outDir)) {
-    const candidate = path.join(
-      outDir,
-      platform,
-      'dist',
-      'module-id-map.json',
-    );
+    const candidate = path.join(outDir, platform, 'dist', 'module-id-map.json');
     if (fs.existsSync(candidate)) return candidate;
   }
   return null;
@@ -82,9 +76,10 @@ function checkEagerBuckets(idMap, forbiddenPatterns) {
             bucket,
             moduleId: Number(moduleId),
             modulePath,
-            rule: typeof rule.pattern === 'string'
-              ? rule.pattern
-              : rule.pattern.source,
+            rule:
+              typeof rule.pattern === 'string'
+                ? rule.pattern
+                : rule.pattern.source,
             message: rule.message,
           });
         }
@@ -135,9 +130,7 @@ function main() {
   console.log(
     `[check-main-thread-imports] scanned ${commonCount} common + ${mainCount} main modules against ${FORBIDDEN_IN_EAGER.length} rules`,
   );
-  console.log(
-    `[check-main-thread-imports] violations: ${violations.length}`,
-  );
+  console.log(`[check-main-thread-imports] violations: ${violations.length}`);
 
   if (violations.length === 0) {
     console.log(

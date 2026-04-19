@@ -30,7 +30,9 @@ describe('messageUtils', () => {
           message,
           payload: [message],
         } as any),
-      ).rejects.toThrow(`Invalid "from" address: undefined must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: undefined must be a valid string.`,
+      );
     });
 
     test('should throw if invalid from address', async () => {
@@ -42,7 +44,9 @@ describe('messageUtils', () => {
           message,
           payload: [message, from],
         } as any),
-      ).rejects.toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
     test('should throw if invalid type from address', async () => {
@@ -54,7 +58,9 @@ describe('messageUtils', () => {
           message,
           payload: [message, from],
         } as any),
-      ).rejects.toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
     test('should throw if no message', async () => {
@@ -100,7 +106,9 @@ describe('messageUtils', () => {
           type: EMessageTypesEth.TYPED_DATA_V1,
           message,
         } as any),
-      ).rejects.toThrow(`Invalid "from" address: undefined must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: undefined must be a valid string.`,
+      );
     });
 
     test('should throw if invalid from address', async () => {
@@ -112,7 +120,9 @@ describe('messageUtils', () => {
           message: [],
           payload: [message, from],
         } as any),
-      ).rejects.toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
     test('should throw if invalid type from address', async () => {
@@ -124,7 +134,9 @@ describe('messageUtils', () => {
           message: [],
           payload: [message, from],
         } as any),
-      ).rejects.toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
     test('should throw if incorrect message', async () => {
@@ -187,7 +199,9 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).rejects.toThrow(`Invalid "from" address: undefined must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: undefined must be a valid string.`,
+      );
     });
 
     test('should throw if invalid from address', async () => {
@@ -202,7 +216,9 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).rejects.toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
     test('should throw if invalid type from address', async () => {
@@ -217,7 +233,9 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).rejects.toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
     test('should throw if array message', async () => {

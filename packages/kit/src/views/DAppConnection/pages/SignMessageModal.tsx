@@ -178,7 +178,10 @@ function SignMessageModal() {
           await validateSignMessageData(unsignedMessage, currentNetwork?.impl);
         }
         if (unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V1) {
-          await validateTypedSignMessageDataV1(unsignedMessage, currentNetwork?.impl);
+          await validateTypedSignMessageDataV1(
+            unsignedMessage,
+            currentNetwork?.impl,
+          );
         }
         if (
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||

@@ -169,8 +169,7 @@ describe('reassignDescendantsToSegments', () => {
       const deps = new Map();
       for (const p of insertOrder) {
         deps.set(p, {
-          inverseDependencies:
-            p === shared ? [rootA, rootB] : [],
+          inverseDependencies: p === shared ? [rootA, rootB] : [],
         });
       }
       const segmentModules = new Map([

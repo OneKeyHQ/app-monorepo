@@ -3,7 +3,12 @@ const {
   FORBIDDEN_IN_EAGER,
 } = require('../check-main-thread-imports');
 
-function buildIdMap({ common = {}, main = {}, background = {}, segments = {} } = {}) {
+function buildIdMap({
+  common = {},
+  main = {},
+  background = {},
+  segments = {},
+} = {}) {
   return { common, main, background, segments };
 }
 
@@ -26,7 +31,7 @@ describe('checkEagerBuckets', () => {
     const idMap = buildIdMap({
       common: {
         2099: 'packages/core/src/secret/curves/elliptic.ts',
-        10544: 'packages/core/src/secret/curves/index.ts',
+        10_544: 'packages/core/src/secret/curves/index.ts',
         1: 'packages/shared/src/utils/foo.ts',
       },
     });

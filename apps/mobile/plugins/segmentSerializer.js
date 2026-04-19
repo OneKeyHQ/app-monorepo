@@ -25,6 +25,7 @@ const {
 } = require('../bundle-groups.config');
 
 const { fileToIdMap } = require('./map');
+const { reassignDescendantsToSegments } = require('./segmentAllocator');
 const {
   getSegmentsDir,
   getManifestPath,
@@ -35,7 +36,6 @@ const {
   allocateSegmentIds,
   monorepoRoot,
 } = require('./segmentUtils');
-const { reassignDescendantsToSegments } = require('./segmentAllocator');
 
 const baseJSBundle = require(
   path.resolve(
@@ -297,9 +297,7 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
       if (!bySharedSeg.has(sharedSeg)) bySharedSeg.set(sharedSeg, consumers);
     }
     for (const [sharedSeg, consumers] of bySharedSeg) {
-      console.log(
-        `    ${sharedSeg} (consumers: ${[...consumers].join(', ')})`,
-      );
+      console.log(`    ${sharedSeg} (consumers: ${[...consumers].join(', ')})`);
     }
   }
 

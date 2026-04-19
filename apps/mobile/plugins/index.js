@@ -129,9 +129,7 @@ module.exports = (config, projectRoot) => {
     // The prologue construction lives in `./startupProfilePrologue.js` because
     // `scripts/unionBuild.js` needs the exact same injection (its writeBundle
     // path bypasses this customSerializer entirely).
-    const {
-      buildStartupProfilePrologue,
-    } = require('./startupProfilePrologue');
+    const { buildStartupProfilePrologue } = require('./startupProfilePrologue');
 
     const beforeCustomSerializer = (
       entryPoint,

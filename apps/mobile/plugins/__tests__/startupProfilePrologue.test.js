@@ -72,7 +72,7 @@ describe('buildStartupProfilePrologue', () => {
       fileToIdMap: fakeFileToIdMap([
         ['/r/apps/x.ts', 1],
         ['/r/apps/bogus.ts', 'not-a-number'],
-        [12345, 2], // path must be a string
+        [12_345, 2], // path must be a string
         [null, 3],
       ]),
       env: { ONEKEY_STARTUP_PROFILE: '1' },
@@ -137,7 +137,9 @@ describe('buildStartupProfilePrologue', () => {
     const g = { Date };
     setup(g);
     // Register + invoke a module via the wrapped __d
-    g.__d(function() { /* simulated 0ms factory */ }, 42);
+    g.__d(function () {
+      /* simulated 0ms factory */
+    }, 42);
     g.__r(42);
     const stats = g.__ONEKEY_STARTUP_PROFILE_STATS__;
     expect(stats).toBeInstanceOf(Map);

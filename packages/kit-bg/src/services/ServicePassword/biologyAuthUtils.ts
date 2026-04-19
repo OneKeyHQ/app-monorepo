@@ -3,13 +3,13 @@ import {
   encodeKeyPrefix,
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret/encryptors/aes256';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type { ISecureStorageSetOptions } from '@onekeyhq/shared/src/storage/secureStorage/types';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';

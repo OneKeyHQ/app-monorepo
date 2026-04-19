@@ -774,7 +774,9 @@ const runUnionBuild = ({
     );
     log('union build: split-bundle integrity check passed');
   } else {
-    log('union build: integrity check SKIPPED by ONEKEY_SKIP_SPLIT_INTEGRITY_CHECK');
+    log(
+      'union build: integrity check SKIPPED by ONEKEY_SKIP_SPLIT_INTEGRITY_CHECK',
+    );
   }
 };
 

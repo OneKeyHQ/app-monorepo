@@ -20,11 +20,7 @@ import { OneKeyLocalError } from '../errors/errors/localError';
  * Migrated from @onekeyhq/core/src/chains/evm/sdkEvm/signMessage.ts
  * to avoid core dependency in kit/shared.
  */
-export function autoFixPersonalSignMessage({
-  message,
-}: {
-  message: string;
-}) {
+export function autoFixPersonalSignMessage({ message }: { message: string }) {
   let messageFixed = message;
   // isHexString from @ethereumjs/util requires 0x prefix
   if (!isHexString(message)) {
@@ -211,9 +207,8 @@ async function validateAddress({
   if (address && typeof address === 'string') {
     if (impl === IMPL_CFX) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const { isValidCfxAddress } = await import(
-        '@conflux-dev/conflux-address-js'
-      );
+      const { isValidCfxAddress } =
+        await import('@conflux-dev/conflux-address-js');
       isValid = (isValidCfxAddress as (addr: string) => boolean)(address);
     } else {
       isValid = isValidHexAddress(address);

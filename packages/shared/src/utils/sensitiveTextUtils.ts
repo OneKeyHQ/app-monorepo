@@ -18,4 +18,8 @@ function ensureSensitiveTextEncoded(text: string) {
   }
 }
 
-export { ENCODE_TEXT_PREFIX, ensureSensitiveTextEncoded, isEncodedSensitiveText };
+export {
+  ENCODE_TEXT_PREFIX,
+  ensureSensitiveTextEncoded,
+  isEncodedSensitiveText,
+};

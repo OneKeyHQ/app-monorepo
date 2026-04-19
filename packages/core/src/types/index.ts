@@ -5,10 +5,10 @@ import type {
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
 import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
+import type { ECoreApiExportedSecretKeyType } from '@onekeyhq/shared/src/types/coreEnums';
 import type { IHardwareGetPubOrAddressExtraInfo } from '@onekeyhq/shared/types/device';
 
 import type { EAddressEncodings } from './coreEnums';
-import type { ECoreApiExportedSecretKeyType } from '@onekeyhq/shared/src/types/coreEnums';
 import type { ICurveName } from './coreTypesBase';
 import type { IUnsignedMessage } from './coreTypesMessage';
 import type { IUnsignedTxPro } from './coreTypesTx';

@@ -124,9 +124,8 @@ function CustomAppRequestDeviceQR() {
               console.log('psbt before finalize', psbt);
               await timerUtils.wait(1000);
               // eslint-disable-next-line @typescript-eslint/no-shadow
-              const { decodedPsbt } = await import(
-                '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils'
-              );
+              const { decodedPsbt } =
+                await import('@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils');
               const tx = decodedPsbt({ psbt, psbtNetwork: network });
               const coreChainApi = (
                 await import('@onekeyhq/core/src/instance/coreChainApi')

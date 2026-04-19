@@ -300,9 +300,8 @@ export function CloudBackupApiTests() {
                     'alZpZVpoWDQrc0h1aEQ0Q0xMd1owS0Z4dmhGemZrOCtwcjNtOEN5dWhheTQxQTVlbTJrMTA5NHdrOGl3c2VNaVZkcEpXMGxQSHYyL003dnJBbzFNTWhsZFd1VjBldUhySS8wOUpJTGtQTFBlRkhNbkpLN0FybHJxVExlMTk2dzZQMWpna1RVVVNrMGN1aDROWDUzckpQVERFV1N1WGR5anVGR0ZRS1E1R2k2SzFhYkZCYlJ5Y0RkUldYN0F0TC9OYXRuSU9WRldhQ3NtbHVsY3B3bzVnYzFpK3oxWDF4WURUQjI1eEtrSUZlYmgrZ094dldPZ0UyN1oxWVVmTjYyQ3Y5OC9FTUFEWjlFQzZvYzRFODllNEE9PQ==';
                   const encryptedData = Buffer.from(content, 'base64');
                   // eslint-disable-next-line @typescript-eslint/no-shadow
-                  const { decryptAsync } = await import(
-                    '@onekeyhq/core/src/secret/encryptors/aes256'
-                  );
+                  const { decryptAsync } =
+                    await import('@onekeyhq/core/src/secret/encryptors/aes256');
                   const decryptedData = await decryptAsync({
                     data: encryptedData,
                     password: encryptionKey,
