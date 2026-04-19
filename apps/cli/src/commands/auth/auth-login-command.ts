@@ -16,9 +16,6 @@ import {
   presentInterruptedAuthLoginResult,
 } from '../../output/auth-presenters';
 
-import { promptForAuthLoginMethod } from './auth-prompt-utils';
-import { executeMnemonicLoginCommand } from './mnemonic-login-command';
-
 import type { IEndpointEnv } from '../../config';
 import type {
   AppTransferLoginResult,
@@ -30,7 +27,6 @@ import type { OutputFormatter } from '../../output';
 
 interface IAuthLoginHandler {
   getStatus(): Promise<ResolvedAuthSession>;
-  loginWithMnemonic(rawMnemonic: string): Promise<{ address: string }>;
   clearSession?(): Promise<void>;
   startAppTransferLogin(
     input?: StartAppTransferLoginInput,
@@ -39,14 +35,11 @@ interface IAuthLoginHandler {
 
 interface IExecuteAuthLoginCommandParams {
   output: OutputFormatter;
-  mnemonicFlag?: boolean;
   appTransferFlag?: boolean;
   isHumanMode?: boolean;
   isTTY?: boolean;
   env?: IEndpointEnv;
   authManager?: IAuthLoginHandler;
-  selectMethod?: () => Promise<'mnemonic' | 'app_transfer'>;
-  readInput?: () => Promise<string>;
   stderr?: {
     isTTY?: boolean;
     write(chunk: string | Uint8Array): boolean;
@@ -60,10 +53,8 @@ interface IExecuteAuthLoginCommandParams {
   exit?: (code: number) => void;
 }
 
-const MISSING_METHOD_MESSAGE =
-  'Login method required. Use --mnemonic or --app-transfer.';
-const MISSING_METHOD_SUGGESTION =
-  'Run: onekey auth login --mnemonic or onekey auth login --app-transfer';
+const MISSING_METHOD_MESSAGE = 'Login method required. Use --app-transfer.';
+const MISSING_METHOD_SUGGESTION = 'Run: onekey auth login --app-transfer';
 
 function assertCompletedAppTransferSession(
   session: ResolvedAuthSession,
@@ -229,7 +220,7 @@ function createAppTransferRequiresTTYError(): AppError {
   return new AppError(
     ERROR_CODES.PARAM_REQUIRES_TTY.code,
     'App Transfer login requires an interactive TTY terminal.',
-    'Run this command in an interactive terminal, or use --mnemonic until a dedicated non-interactive App Transfer mode is available.',
+    'Run this command in an interactive terminal.',
   );
 }
 
@@ -259,14 +250,11 @@ function buildAuthLoginInterruptionError(appError: AppError): AppError {
 
 export async function executeAuthLoginCommand({
   output,
-  mnemonicFlag,
   appTransferFlag,
   isHumanMode = false,
   isTTY = false,
   env = 'test',
   authManager = new AuthManager(),
-  selectMethod = promptForAuthLoginMethod,
-  readInput,
   stderr = process.stderr,
   runAppTransferPairingDisplay:
     runPairingDisplay = runAppTransferPairingDisplay,
@@ -291,29 +279,14 @@ export async function executeAuthLoginCommand({
 }: IExecuteAuthLoginCommandParams): Promise<void> {
   let shouldRunInterruptionCleanup = false;
   let releaseActiveAuthFlowCleanup: (() => void) | undefined;
+  // True once we've invoked startAppTransferLogin — gates forcedExitCode so
+  // early-return errors (no flag, already authenticated, no TTY) skip the
+  // explicit process.exit() and let the caller finalize normally.
   let attemptedAppTransfer = false;
   let forcedExitCode: number | null = null;
-  const markInterruptionCleanupHandled = () => {
-    shouldRunInterruptionCleanup = false;
-  };
 
   try {
-    if (mnemonicFlag && appTransferFlag) {
-      throw new AppError(
-        ERROR_CODES.PARAM_INVALID_CONFIG.code,
-        'Choose only one login method flag',
-        'Use either --mnemonic or --app-transfer',
-      );
-    }
-
-    let requestedMethod: 'mnemonic' | 'app_transfer' | undefined;
-    if (mnemonicFlag) {
-      requestedMethod = 'mnemonic';
-    } else if (appTransferFlag) {
-      requestedMethod = 'app_transfer';
-    }
-
-    if (!requestedMethod && (!isHumanMode || !isTTY)) {
+    if (!appTransferFlag) {
       output.error({
         code: ERROR_CODES.PARAM_MISSING_REQUIRED.code,
         message: MISSING_METHOD_MESSAGE,
@@ -347,78 +320,31 @@ export async function executeAuthLoginCommand({
       });
     }
 
-    if (mnemonicFlag) {
-      await executeMnemonicLoginCommand({
-        output,
-        requiresMnemonicFlag: false,
-        mnemonicFlag: true,
-        missingMethodMessage: MISSING_METHOD_MESSAGE,
-        missingMethodSuggestion: MISSING_METHOD_SUGGESTION,
-        authManager,
-        readInput,
-        beforeFinalize: markInterruptionCleanupHandled,
-      });
-      return;
+    if (!isTTY) {
+      throw createAppTransferRequiresTTYError();
     }
 
-    for (;;) {
-      attemptedAppTransfer = false;
-      const selectedMethod = requestedMethod ?? (await selectMethod());
-      if (selectedMethod === 'mnemonic') {
-        await executeMnemonicLoginCommand({
-          output,
-          requiresMnemonicFlag: false,
-          mnemonicFlag: true,
-          missingMethodMessage: MISSING_METHOD_MESSAGE,
-          missingMethodSuggestion: MISSING_METHOD_SUGGESTION,
-          authManager,
-          readInput,
-          beforeFinalize: markInterruptionCleanupHandled,
-        });
-        return;
+    attemptedAppTransfer = true;
+    const result = await authManager.startAppTransferLogin({
+      endpointEnv: env,
+    });
+
+    try {
+      if (isHumanMode && isTTY) {
+        await runPairingDisplay(result);
+      } else {
+        await waitForHeadlessCompletion(result);
       }
-
-      if (!isTTY) {
-        throw createAppTransferRequiresTTYError();
-      }
-
-      attemptedAppTransfer = true;
-      const result = await authManager.startAppTransferLogin({
-        endpointEnv: env,
-      });
-      let shouldRestartSelection = false;
-
-      try {
-        if (isHumanMode && isTTY) {
-          await runPairingDisplay(result);
-        } else {
-          await waitForHeadlessCompletion(result);
-        }
-      } catch (error) {
-        const appError = AppError.from(error);
-        if (
-          requestedMethod ||
-          !isHumanMode ||
-          !isTTY ||
-          appError.code !== ERROR_CODES.AUTH_TRANSFER_CANCELLED.code
-        ) {
-          throw buildAuthLoginInterruptionError(appError);
-        }
-
-        shouldRestartSelection = true;
-        await replaceActiveTransferPairingRuntime(null);
-      }
-
-      if (!shouldRestartSelection) {
-        const finalSession = assertCompletedAppTransferSession(
-          await authManager.getStatus(),
-        );
-        shouldRunInterruptionCleanup = false;
-        output.success(presentAuthLoginResult(finalSession));
-        forcedExitCode = 0;
-        return;
-      }
+    } catch (error) {
+      throw buildAuthLoginInterruptionError(AppError.from(error));
     }
+
+    const finalSession = assertCompletedAppTransferSession(
+      await authManager.getStatus(),
+    );
+    shouldRunInterruptionCleanup = false;
+    output.success(presentAuthLoginResult(finalSession));
+    forcedExitCode = 0;
   } catch (error) {
     shouldRunInterruptionCleanup = false;
     const appError = AppError.from(error);
