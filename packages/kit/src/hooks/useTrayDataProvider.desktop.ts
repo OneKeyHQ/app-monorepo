@@ -42,8 +42,16 @@ export function useTrayDataProvider() {
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
+  // Renderer-side inflight guard. Main-process `guardedRequest` already
+  // serializes poll-driven runs, but renderer-only paths (active-account
+  // change, appEventBus refresh) call `handleTrayDataRequest` directly
+  // and would otherwise stack on top of an in-flight poll or each other.
+  // We coalesce extra calls into a single trailing re-run so the tray
+  // always ends up in sync with the latest state without stacking work.
+  const inFlightRef = useRef(false);
+  const trailingRefreshRef = useRef(false);
 
-  const handleTrayDataRequest = useCallback(async () => {
+  const handleTrayDataRequestInner = useCallback(async () => {
     // Resolve locale once per request — the tray window can't reach
     // backgroundApiProxy (DESKTOP_API_CALL is gated to the main window),
     // so we push it inline with every ITrayData payload. Failure here
@@ -56,17 +64,46 @@ export function useTrayDataProvider() {
       // ignore
     }
 
+    const buildLockedPayload = (): ITrayData => ({
+      isLocked: true,
+      locale,
+      wallet: { name: '', emoji: '', avatarImg: '' },
+      totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
+      watchlist: [],
+      pendingTxs: [],
+    });
+
     // When locked, send empty data with isLocked flag to protect sensitive info
     if (appIsLockedRef.current) {
-      globalThis.desktopApi?.sendTrayData({
-        isLocked: true,
-        locale,
-        wallet: { name: '', emoji: '', avatarImg: '' },
-        totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
-        watchlist: [],
-        pendingTxs: [],
-      });
+      globalThis.desktopApi?.sendTrayData(buildLockedPayload());
       return;
+    }
+
+    // Resolve the display currency + USD→target conversion factor up-front
+    // so both totalBalance and watchlist rows format consistently. The
+    // market API reports prices in USD; without conversion a CNY/EUR/JPY
+    // user would see a localized total balance alongside USD-valued
+    // watchlist rows labeled with a `$` sign.
+    let displayCurrency = 'usd';
+    let displaySymbol = '$';
+    let usdToTargetFactor = new BigNumber(1);
+    try {
+      const [{ currencyInfo }, { currencyMap }] = await Promise.all([
+        settingsPersistAtom.get(),
+        currencyPersistAtom.get(),
+      ]);
+      const targetCurrency = currencyInfo.id;
+      const usdInfoRaw = currencyMap.usd;
+      const targetInfoRaw = currencyMap[targetCurrency];
+      if (usdInfoRaw && targetInfoRaw) {
+        displayCurrency = targetCurrency;
+        displaySymbol = targetInfoRaw.unit || targetCurrency.toUpperCase();
+        usdToTargetFactor = new BigNumber(targetInfoRaw.value || '1').div(
+          new BigNumber(usdInfoRaw.value || '1'),
+        );
+      }
+    } catch {
+      // currencyMap not populated yet — keep USD defaults.
     }
 
     try {
@@ -116,16 +153,9 @@ export function useTrayDataProvider() {
       const accountValue = activeAccountValueRef.current;
       if (accountValue && currentWallet) {
         try {
-          const [{ currencyInfo }, { currencyMap }] = await Promise.all([
-            settingsPersistAtom.get(),
-            currencyPersistAtom.get(),
-          ]);
-          const targetCurrency = currencyInfo.id; // e.g. 'usd' / 'cny'
-          const usdInfoRaw = currencyMap.usd;
-          const targetInfoRaw = currencyMap[targetCurrency];
-
-          // activeAccountValueAtom is always USD; convert to display currency.
-          // value is either a string (others account) or Record<key, string> (own).
+          // activeAccountValueAtom is always USD; convert via the
+          // pre-resolved factor. `value` is either a string (others
+          // account) or Record<key, string> (own).
           const val = accountValue.value;
           let tokensUsd = new BigNumber(0);
           if (typeof val === 'string') {
@@ -136,22 +166,7 @@ export function useTrayDataProvider() {
               new BigNumber(0),
             );
           }
-
-          let tokensInTarget: string;
-          let displayCurrency: string;
-          if (!usdInfoRaw || !targetInfoRaw) {
-            // currencyMap not populated yet (first launch, before Settings →
-            // Currency opens). Fall back to USD labeling so we don't display
-            // a USD-valued number mislabeled as the target currency.
-            tokensInTarget = tokensUsd.toFixed();
-            displayCurrency = 'usd';
-          } else {
-            tokensInTarget = tokensUsd
-              .div(new BigNumber(usdInfoRaw.value || '1'))
-              .times(new BigNumber(targetInfoRaw.value || '1'))
-              .toFixed();
-            displayCurrency = targetCurrency;
-          }
+          const tokensInTarget = tokensUsd.times(usdToTargetFactor).toFixed();
 
           // DeFi netWorth via service (reads simpleDb.deFi only; no network).
           // The real All-Networks id is 'onekeyall--0' — see
@@ -187,6 +202,15 @@ export function useTrayDataProvider() {
       }
 
       // 3. Watchlist — both spot and perps
+      //
+      // Market API quotes USD; convert each row via `usdToTargetFactor`
+      // so a CNY/EUR/JPY user sees consistent currency with totalBalance.
+      // BigNumber precision matters for sub-cent long-tail tokens where
+      // a raw JS `Number` would round away meaningful digits.
+      const formatPriceInTarget = (usdPrice: number | string): string => {
+        const converted = new BigNumber(usdPrice || 0).times(usdToTargetFactor);
+        return `${displaySymbol}${converted.toFormat(2)}`;
+      };
       try {
         const watchListData =
           await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
@@ -228,7 +252,7 @@ export function useTrayDataProvider() {
                     symbol: (coin.symbol || '').toUpperCase(),
                     name: coin.name || '',
                     icon: coin.logoUrl || '',
-                    price: `$${Number(coin.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    price: formatPriceInTarget(coin.price),
                     change24h: Number(coin.priceChange24hPercent || 0),
                     type: 'spot',
                     tokenAddress:
@@ -263,7 +287,7 @@ export function useTrayDataProvider() {
                       symbol: (coin.name || '').toUpperCase(),
                       name: coin.displayName || coin.name || '',
                       icon: coin.tokenImageUrl || '',
-                      price: `$${Number(coin.markPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      price: formatPriceInTarget(coin.markPrice),
                       change24h: coin.change24hPercent || 0,
                       type: 'perps',
                       perpsCoin: item.perpsCoin,
@@ -374,8 +398,24 @@ export function useTrayDataProvider() {
         console.warn('[TrayDataProvider] pending tx error:', e);
       }
 
+      // Re-check lock state: the user may have locked the app mid-fetch
+      // while our awaits were in flight. Without this guard, the gathered
+      // balance/watchlist/pending-tx data would leak to the tray window
+      // after lock, replacing the "App is Locked" placeholder.
+      if (appIsLockedRef.current) {
+        globalThis.desktopApi?.sendTrayData(buildLockedPayload());
+        return;
+      }
+
       globalThis.desktopApi?.sendTrayData(trayData);
     } catch {
+      // If the user locked during the failing request, prefer the locked
+      // placeholder over the error placeholder so the panel doesn't briefly
+      // flash last-known balances before landing on "App is Locked".
+      if (appIsLockedRef.current) {
+        globalThis.desktopApi?.sendTrayData(buildLockedPayload());
+        return;
+      }
       // Send error fallback — the `isError` flag tells trayIpc to skip the
       // pending-tx diff, so a transient data-gathering failure doesn't
       // trigger false "Transaction Confirmed" notifications for tracked txs.
@@ -390,6 +430,28 @@ export function useTrayDataProvider() {
     }
   }, []);
 
+  const handleTrayDataRequest = useCallback(async () => {
+    if (inFlightRef.current) {
+      trailingRefreshRef.current = true;
+      return;
+    }
+    inFlightRef.current = true;
+    try {
+      await handleTrayDataRequestInner();
+    } finally {
+      inFlightRef.current = false;
+      if (trailingRefreshRef.current) {
+        trailingRefreshRef.current = false;
+        // Schedule the coalesced trailing run on the microtask queue so
+        // we don't blow the call stack, and so main-process paths that
+        // release `guardedRequest` on TRAY_DATA_RESPONSE can settle.
+        queueMicrotask(() => {
+          void handleTrayDataRequestRef.current?.();
+        });
+      }
+    }
+  }, [handleTrayDataRequestInner]);
+
   // Handle tray navigation events — navigate within main window.
   // addIpcEventListener strips the IpcRendererEvent, so the action payload
   // is the first (and only) argument to this handler.
@@ -399,13 +461,16 @@ export function useTrayDataProvider() {
       if (!nav) return;
 
       if (action?.type === 'open-page') {
-        // Simple navigation — just show main window and switch to the target tab
+        // Simple navigation — just show main window and switch to the target tab.
         if (action.route === '/main/tab-home') {
           nav.navigate(ERootRoutes.Main, {
             screen: ETabRoutes.Home,
           });
         }
-        // For other routes like /transaction/{txId}, just show main window (done by caller)
+        // Transaction-detail routes (`/transaction/:txid`) are redirected
+        // to the EVENT_OPEN_URL deep-link pipeline in `trayIpc.ts` and
+        // therefore never reach this handler. Other routes fall through
+        // intentionally — main window is already shown by the caller.
         return;
       }
 

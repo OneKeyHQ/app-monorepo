@@ -25,25 +25,45 @@ import {
 } from './trayWindow';
 
 const POLL_INTERVAL_MS = 30_000;
+// Backstop: release the in-flight guard if the renderer never responds
+// (e.g. main window crash, unexpected error path). Must be larger than
+// the worst-case serial fetch time in `handleTrayDataRequest` but smaller
+// than POLL_INTERVAL_MS so we don't accidentally block two whole polls.
+const REQUEST_TIMEOUT_MS = 20_000;
 
 let tray: Tray | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let isInitialized = false;
 let isRequesting = false;
+let requestTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 let cachedGetMainWindow: (() => BrowserWindow | undefined) | null = null;
+
+function clearRequestTimeout(): void {
+  if (requestTimeoutTimer) {
+    clearTimeout(requestTimeoutTimer);
+    requestTimeoutTimer = null;
+  }
+}
+
+/**
+ * Release the in-flight guard. Called either on TRAY_DATA_RESPONSE
+ * (completion-driven, the normal path) or via the backstop timeout.
+ */
+export function releaseRequestGuard(): void {
+  isRequesting = false;
+  clearRequestTimeout();
+}
 
 /** Request data with guard to prevent overlapping requests */
 function guardedRequest(): void {
   if (!cachedGetMainWindow || isRequesting) return;
   isRequesting = true;
-  try {
-    requestDataFromMainWindow(cachedGetMainWindow);
-  } finally {
-    // Release after a short delay so the async pipeline can settle
-    setTimeout(() => {
-      isRequesting = false;
-    }, 2000);
-  }
+  clearRequestTimeout();
+  requestTimeoutTimer = setTimeout(() => {
+    logger.warn('[TrayManager] data request timed out — releasing guard');
+    releaseRequestGuard();
+  }, REQUEST_TIMEOUT_MS);
+  requestDataFromMainWindow(cachedGetMainWindow);
 }
 
 export function startPolling(): void {
@@ -115,7 +135,7 @@ export function initTrayManager(
     }
   });
 
-  registerTrayIpcHandlers(getMainWindow, showMainWindow);
+  registerTrayIpcHandlers(getMainWindow, showMainWindow, releaseRequestGuard);
 
   setNotificationClickHandler((txId: string) => {
     showMainWindow();
@@ -148,6 +168,7 @@ export function destroyTrayManager(): void {
   logger.info('[TrayManager] Destroying system tray');
 
   stopPolling();
+  releaseRequestGuard();
   unregisterTrayIpcHandlers();
   destroyTrayWindow();
   resetNotificationState();

@@ -1356,8 +1356,19 @@ if (!singleInstance && !process.mas) {
         loadTrayUrl,
       );
 
-      // Listen for tray toggle from renderer (settings change)
-      ipcMain.on(ipcMessageKeys.TRAY_TOGGLE, (_event, enabled: boolean) => {
+      // Listen for tray toggle from renderer (settings change).
+      // Only the main window is authorized — the tray window shares the
+      // main preload and therefore also exposes `toggleTray`, so without
+      // this check a tray-side caller could disable the tray itself.
+      ipcMain.on(ipcMessageKeys.TRAY_TOGGLE, (event, enabled: boolean) => {
+        const senderMainWindow = getSafelyMainWindow();
+        if (
+          !senderMainWindow ||
+          event.sender.id !== senderMainWindow.webContents.id
+        ) {
+          logger.warn('[TrayToggle] rejected TRAY_TOGGLE from non-main window');
+          return;
+        }
         if (enabled) {
           initTrayManager(
             getSafelyMainWindow,
