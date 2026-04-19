@@ -1,6 +1,8 @@
 export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
   accountWorthAtom: 'ctx:accountWorthAtom',
   lastConfirmedOverviewBalanceAtom: 'ctx:lastConfirmedOverviewBalanceAtom',
+  overviewTokenCacheStateAtom: 'ctx:overviewTokenCacheStateAtom',
+  overviewDeFiDataStateAtom: 'ctx:overviewDeFiDataStateAtom',
   walletTopBannersAtom: 'ctx:walletTopBannersAtom',
   selectedAccountsAtom: 'ctx:selectedAccountsAtom',
   accountSelectorStorageReadyAtom: 'ctx:accountSelectorStorageReadyAtom',

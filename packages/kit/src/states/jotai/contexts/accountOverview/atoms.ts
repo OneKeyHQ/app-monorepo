@@ -95,10 +95,17 @@ export const {
 } = contextAtom<{
   ownerKey: string;
   hasCache?: boolean;
-}>({
-  ownerKey: '',
-  hasCache: undefined,
-});
+}>(
+  {
+    ownerKey: '',
+    hasCache: undefined,
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.overviewTokenCacheStateAtom,
+  },
+);
 
 export const {
   atom: overviewDeFiDataStateAtom,
@@ -106,10 +113,17 @@ export const {
 } = contextAtom<{
   ownerKey: string;
   isReady?: boolean;
-}>({
-  ownerKey: '',
-  isReady: undefined,
-});
+}>(
+  {
+    ownerKey: '',
+    isReady: undefined,
+  },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.overviewDeFiDataStateAtom,
+  },
+);
 
 export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
   contextAtom<{
