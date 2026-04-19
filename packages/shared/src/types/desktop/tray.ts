@@ -36,6 +36,11 @@ export interface ITrayData {
   // window only), so the main-window renderer assembles locale here and
   // pushes it through the TRAY_UPDATE pipeline.
   locale?: string;
+  // ID of the account whose data is represented here. Needed by the
+  // main-process pending-tx diff so that switching wallets resets the
+  // notification baseline instead of firing "Transaction Confirmed" for
+  // every tx that vanishes from the new account's pending list.
+  accountId?: string;
   wallet: {
     name: string;
     emoji: string;

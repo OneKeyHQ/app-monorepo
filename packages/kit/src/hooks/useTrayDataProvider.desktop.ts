@@ -64,9 +64,15 @@ export function useTrayDataProvider() {
       // ignore
     }
 
+    // Capture accountId up-front so every outbound payload (main path,
+    // locked/error branches) carries the same identity the notification
+    // diff uses to decide whether to reset its pending-tx baseline.
+    const activeAccountId = activeAccountValueRef.current?.accountId;
+
     const buildLockedPayload = (): ITrayData => ({
       isLocked: true,
       locale,
+      accountId: activeAccountId,
       wallet: { name: '', emoji: '', avatarImg: '' },
       totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
       watchlist: [],
@@ -109,6 +115,7 @@ export function useTrayDataProvider() {
     try {
       const trayData: ITrayData = {
         locale,
+        accountId: activeAccountId,
         wallet: { name: '', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
@@ -422,6 +429,7 @@ export function useTrayDataProvider() {
       globalThis.desktopApi?.sendTrayData({
         isError: true,
         locale,
+        accountId: activeAccountId,
         wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
