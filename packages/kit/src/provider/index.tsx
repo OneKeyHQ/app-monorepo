@@ -8,6 +8,7 @@
 // } from '@expo-google-fonts/inter';
 // import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
+import type { ComponentType } from 'react';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -65,21 +66,27 @@ const StateActiveContainer = LazyLoad(
   () =>
     import('./Container/StateActiveContainer').then((m) => ({
       default: m.StateActiveContainer,
-    })),
+    })) as unknown as Promise<{
+      default: ComponentType<Record<string, unknown>>;
+    }>,
   300,
 );
 const HardwareServiceProvider = LazyLoad(
   () =>
     import('./HardwareServiceProvider').then((m) => ({
       default: m.HardwareServiceProvider,
-    })),
+    })) as unknown as Promise<{
+      default: ComponentType<Record<string, unknown>>;
+    }>,
   500,
 );
 const WebViewWebEmbedProvider = LazyLoad(
   () =>
     import('./WebViewWebEmbedProvider').then((m) => ({
       default: m.WebViewWebEmbedProvider,
-    })),
+    })) as unknown as Promise<{
+      default: ComponentType<Record<string, unknown>>;
+    }>,
   1500,
 );
 const SyncHomeAccountToDappAccountProvider = LazyLoad(
@@ -88,7 +95,9 @@ const SyncHomeAccountToDappAccountProvider = LazyLoad(
       '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider'
     ).then((m) => ({
       default: m.SyncHomeAccountToDappAccountProvider,
-    })),
+    })) as unknown as Promise<{
+      default: ComponentType<Record<string, unknown>>;
+    }>,
   1500,
 );
 
