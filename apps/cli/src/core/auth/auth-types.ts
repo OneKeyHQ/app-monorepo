@@ -4,7 +4,7 @@ import type {
   ITransferPairingSession,
 } from '../prime-transfer/transfer-types';
 
-type IAuthLoginMethod = 'mnemonic' | 'app_transfer';
+type IAuthLoginMethod = 'app_transfer';
 type IAuthWalletKind = 'hd';
 type IAuthStatus = 'authenticated' | 'unauthenticated';
 
@@ -23,10 +23,6 @@ interface IPersistAuthSessionInput {
   session: IAuthSessionMetadata;
 }
 
-interface IMnemonicLoginResult {
-  address: string;
-}
-
 type IStartAppTransferLoginInput = ICreateTransferPairingSessionParams;
 type IAppTransferLoginResult = ITransferPairingSession;
 
@@ -41,13 +37,14 @@ interface IResolvedAuthSession {
   sourceLabel?: string;
 }
 
+export const AUTH_DEFAULT_EVM_NETWORK_ID = 'evm--1';
+
 export type {
   IAppTransferLoginResult as AppTransferLoginResult,
   IAuthLoginMethod as AuthLoginMethod,
   IAuthSessionMetadata as AuthSessionMetadata,
   IAuthStatus as AuthStatus,
   IAuthWalletKind as AuthWalletKind,
-  IMnemonicLoginResult as MnemonicLoginResult,
   IPersistAuthSessionInput as PersistAuthSessionInput,
   IResolvedAuthSession as ResolvedAuthSession,
   IStartAppTransferLoginInput as StartAppTransferLoginInput,

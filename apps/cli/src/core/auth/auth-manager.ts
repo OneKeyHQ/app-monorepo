@@ -13,19 +13,14 @@ import { secureCache } from '../secure-cache';
 
 import { startAppTransferLogin } from './app-transfer-login';
 import { extractBotWalletMnemonicFromTransferData } from './app-transfer-payload';
+import { createAppTransferSessionMetadata } from './app-transfer-session';
 import { AuthSessionResolver } from './auth-session-resolver';
-import {
-  AUTH_DEFAULT_EVM_NETWORK_ID,
-  assertValidMnemonic,
-  createAppTransferSessionMetadata,
-  createMnemonicSessionMetadata,
-  normalizeMnemonic,
-} from './mnemonic-login';
+import { AUTH_DEFAULT_EVM_NETWORK_ID } from './auth-types';
+import { assertValidMnemonic, normalizeMnemonic } from './mnemonic-utils';
 
 import type {
   AppTransferLoginResult,
   AuthSessionMetadata,
-  MnemonicLoginResult,
   PersistAuthSessionInput,
   ResolvedAuthSession,
   StartAppTransferLoginInput,
@@ -57,25 +52,6 @@ export class AuthManager {
     private readonly appTransferLogin: IAppTransferLoginExecutor = startAppTransferLogin,
   ) {
     this.resolver = new AuthSessionResolver(this.storage, this.sessionStore);
-  }
-
-  async loginWithMnemonic(rawMnemonic: string): Promise<MnemonicLoginResult> {
-    const currentSession = await this.getStatus();
-    if (currentSession.authStatus === 'authenticated') {
-      throw new AppError(
-        'AUTH_WALLET_EXISTS',
-        'Wallet already exists. Log out before importing another wallet.',
-        'Run: onekey auth logout',
-      );
-    }
-
-    const session = await this.persistHdWalletSession({
-      rawMnemonic,
-      createSessionMetadata: (address, importedAt) =>
-        createMnemonicSessionMetadata(address, importedAt),
-    });
-
-    return { address: session.displayAddress ?? '' };
   }
 
   async persistSession(
