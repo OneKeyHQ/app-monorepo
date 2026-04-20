@@ -29,7 +29,7 @@ if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
     process.env.SPLIT_BUNDLE_SEGMENTS || 'true';
 }
 
-// Budgets — recalibrated 2026-04-20 after the three-bundle / native-background
+// Budgets — re-tuned 2026-04-20 after the three-bundle / native-background
 // split landed. Caller is expected to pass per-entry budgets via env vars
 // (see .github/workflows/startup-graph-budget.yml); defaults here are fallbacks
 // tuned for the background entry (the larger of the two) so that running the
