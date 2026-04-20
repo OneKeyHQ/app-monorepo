@@ -67,12 +67,15 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../components/AccountSelector';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
+import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
 import type { IntlShape } from 'react-intl';
 
@@ -830,5 +833,26 @@ export function Bootstrap() {
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  return platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null;
+}
+
+function DesktopTrayDataProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
+      <TrayDataProviderInner />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+function TrayDataProviderInner() {
+  useTrayDataProvider();
   return null;
 }
