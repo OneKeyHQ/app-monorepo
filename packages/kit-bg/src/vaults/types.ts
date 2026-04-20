@@ -169,6 +169,17 @@ export type IVaultSettings = {
 
   supportedDeviceTypes?: IDeviceType[];
 
+  /**
+   * Third-party hardware vendors (e.g. Ledger) this network supports.
+   * Consumed by `ServiceNetwork.getNetworkIdsCompatibleWithWalletId` to
+   * hide networks from the chain selector when the current hw wallet
+   * is a third-party vendor whose SDK doesn't sign this chain.
+   *
+   * Omit / leave undefined to mean "no third-party vendor supports this
+   * network" — OneKey's own hardware wallets ignore this field.
+   */
+  supportedThirdPartyVendors?: EHardwareVendor[];
+
   addressBookDisabled?: boolean;
   copyAddressDisabled?: boolean;
 

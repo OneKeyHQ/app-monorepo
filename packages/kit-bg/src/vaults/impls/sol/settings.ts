@@ -13,6 +13,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
 import { EDBAccountType } from '../../../dbs/local/consts';
 
 import type {
@@ -53,6 +55,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
+
+  supportedThirdPartyVendors: [EHardwareVendor.ledger],
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,

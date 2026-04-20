@@ -47,8 +47,7 @@ export const OthersWalletAvatarImages = {
 };
 
 export const ThirdPartyWalletAvatarImages = {
-  // TODO: replace with real Ledger logo when available
-  ledger: require('../assets/wallet/avatar/Classic.png'),
+  ledger: require('../assets/wallet/avatar/Ledger.png'),
 };
 
 export const AllWalletAvatarImages = {

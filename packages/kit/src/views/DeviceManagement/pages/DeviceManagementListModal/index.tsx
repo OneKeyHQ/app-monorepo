@@ -71,6 +71,9 @@ function DeviceListItem({
   isConnected: boolean;
 }) {
   const { gtMd } = useMedia();
+  const isThirdParty = getVendorProfile(
+    item.device?.vendor ?? EHardwareVendor.onekey,
+  ).isThirdParty;
   const walletAvatarProps: IWalletAvatarProps = {
     img: item.wallet.avatarInfo?.img,
     wallet: item.wallet,
@@ -243,7 +246,9 @@ function DeviceListItem({
             >
               {item.wallet.name}
             </SizableText>
-            {item.isQrWallet ? null : <VerifiedBadge isVerified={isVerified} />}
+            {item.isQrWallet || isThirdParty ? null : (
+              <VerifiedBadge isVerified={isVerified} />
+            )}
           </XStack>
           {bleName ? (
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -252,10 +257,10 @@ function DeviceListItem({
           ) : null}
         </YStack>
       )}
-      onPress={() => onPress(item.wallet)}
-      drillIn
+      onPress={isThirdParty ? undefined : () => onPress(item.wallet)}
+      drillIn={!isThirdParty}
     >
-      {renderItemText}
+      {isThirdParty ? null : renderItemText}
     </ListItem>
   );
 }
@@ -293,10 +298,7 @@ function DeviceManagementV2ListWeb() {
       const devices: Array<IDeviceManagementListItem> = Object.values(r)
         .filter(
           (item): item is IHwQrWalletWithDevice =>
-            Boolean(item.device) &&
-            !item.wallet.deprecated &&
-            !getVendorProfile(item.device?.vendor ?? EHardwareVendor.onekey)
-              .isThirdParty,
+            Boolean(item.device) && !item.wallet.deprecated,
         )
         .toSorted((a, b) => {
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
@@ -305,6 +307,17 @@ function DeviceManagementV2ListWeb() {
         });
 
       for (const item of devices) {
+        item.isQrWallet = accountUtils.isQrWallet({
+          walletId: item.wallet.id,
+        });
+
+        const vendorProfile = getVendorProfile(
+          item.device?.vendor ?? EHardwareVendor.onekey,
+        );
+        if (vendorProfile.isThirdParty) {
+          continue;
+        }
+
         const firmwareTypeBadge = await deviceUtils.getFirmwareType({
           features: item.device?.featuresInfo,
         });
@@ -315,9 +328,6 @@ function DeviceManagementV2ListWeb() {
         const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
         const shouldUpdate = deviceDetectStatus?.hasUpgrade;
         const updateVersionDisplay = deviceDetectStatus?.toVersion;
-        item.isQrWallet = accountUtils.isQrWallet({
-          walletId: item.wallet.id,
-        });
         item.firmwareTypeBadge = firmwareTypeBadge;
         item.firmwareVersionDisplay = `v${
           deviceVersion.firmwareVersion ?? '-'

@@ -1,6 +1,7 @@
-import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@bytezhang/hardware-wallet-core';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import * as ThirdPartyErrors from '../errors/thirdPartyHardwareErrors';
+import { OneKeyThirdPartyExtHwErrorCode } from '../errors/thirdPartyHardwareErrors';
 
 import type { IOneKeyHardwareErrorPayload } from '../types/errorTypes';
 
@@ -21,14 +22,36 @@ interface IThirdPartyErrorContext {
  * ```
  */
 export function convertThirdPartyDeviceError(
-  payload: { error: string; code: number },
+  payload: { error: string; code: number; appName?: string },
   context?: IThirdPartyErrorContext,
 ) {
   const hwPayload: IOneKeyHardwareErrorPayload = {
     code: payload.code,
     message: payload.error,
   };
-  const props = { payload: hwPayload, ...context };
+  const props = {
+    payload: hwPayload,
+    ...context,
+    appName: payload.appName,
+  };
+
+  // OneKey-side extended codes for vendor-specific APDU errors. The SDK
+  // (@onekeyfe/hwk-ledger-adapter) is responsible for identifying these and
+  // surfacing the matching numeric code — this layer only routes to i18n.
+  switch (payload.code as number) {
+    case OneKeyThirdPartyExtHwErrorCode.EvmBlindSigningRequired:
+      return new ThirdPartyErrors.ThirdPartyEvmBlindSigningRequired(props);
+    case OneKeyThirdPartyExtHwErrorCode.EvmClearSignPluginMissing:
+      return new ThirdPartyErrors.ThirdPartyEvmClearSignPluginMissing(props);
+    case OneKeyThirdPartyExtHwErrorCode.EvmDataTooLarge:
+      return new ThirdPartyErrors.ThirdPartyEvmDataTooLarge(props);
+    case OneKeyThirdPartyExtHwErrorCode.EvmTxTypeNotSupported:
+      return new ThirdPartyErrors.ThirdPartyEvmTxTypeNotSupported(props);
+    case OneKeyThirdPartyExtHwErrorCode.AppTooOld:
+      return new ThirdPartyErrors.ThirdPartyAppTooOld(props);
+    default:
+      break;
+  }
 
   switch (payload.code) {
     case ThirdPartyHwErrorCode.AppNotOpen:

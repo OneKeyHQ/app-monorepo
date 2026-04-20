@@ -36,7 +36,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { EvmSignature } from '@bytezhang/hardware-wallet-core';
+import type { EvmSignature } from '@onekeyfe/hwk-adapter-core';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardwareLedger extends KeyringHardwareBase {

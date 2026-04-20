@@ -5,6 +5,7 @@ import {
   getBtcForkNetwork,
   getPublicKeyFromXpub,
   initBitcoinEcc,
+  isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -14,7 +15,7 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -145,6 +146,19 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
+    const { unsignedTx } = params;
+    const { psbtHex, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
+
+    if (psbtHex && inputsToSign) {
+      return this.signPsbt(params);
+    }
+
+    return this.signNormalTransaction(params);
+  }
+
+  private async signNormalTransaction(
+    params: ISignTransactionParams,
+  ): Promise<ISignedTxPro> {
     const { unsignedTx, signOnly: _signOnly, deviceParams } = params;
     const { dbDevice } = checkIsDefined(deviceParams);
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
@@ -192,13 +206,23 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       // Get xpub and master fingerprint for BIP32 derivation
       const utxoAccount = dbAccount as IDBUtxoAccount;
       const xpub = utxoAccount.xpubSegwit || utxoAccount.xpub;
-      const fpResult = await adapter.hw.btcGetMasterFingerprint(
-        dbDevice.connectId,
-        '',
+      const fpResult = await callLedgerWithFingerprintRetry(
+        this.backgroundApi,
+        dbDevice,
+        'btc',
+        (deviceId) =>
+          adapter.hw.btcGetMasterFingerprint(dbDevice.connectId, deviceId),
       );
-      const masterFingerprint = fpResult.success
-        ? Buffer.from(fpResult.payload.masterFingerprint, 'hex')
-        : Buffer.alloc(4);
+      if (!fpResult.success) {
+        throw convertThirdPartyDeviceError(fpResult.payload, {
+          vendor: 'Ledger',
+          chain: 'Bitcoin',
+        });
+      }
+      const masterFingerprint = Buffer.from(
+        fpResult.payload.masterFingerprint,
+        'hex',
+      );
 
       const isTaproot = dbAccount.path.includes("86'");
 
@@ -294,6 +318,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         adapter.hw.btcSignTransaction(dbDevice.connectId, deviceId, {
           psbt: psbtHex,
           coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
+          path: dbAccount.path,
           inputs: inputPaths.map((p) => ({
             path: p.path,
             prevHash: '',
@@ -326,6 +351,114 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     };
   }
 
+  override async signPsbt(params: ISignTransactionParams): Promise<ISignedTxPro> {
+    const { unsignedTx, signOnly, deviceParams } = params;
+    const { dbDevice } = checkIsDefined(deviceParams);
+    const { psbtHex } = unsignedTx.encodedTx as IEncodedTxBtc;
+
+    if (!psbtHex) {
+      throw new OneKeyLocalError('signPsbt requires psbtHex');
+    }
+
+    const adapter =
+      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+        EHardwareVendor.ledger,
+      );
+    if (!adapter) {
+      throw new OneKeyLocalError('Ledger adapter not available');
+    }
+
+    initBitcoinEcc();
+
+    const dbAccount = await this.vault.getAccount();
+    const networkInfo = await this.getCoreApiNetworkInfo();
+    const btcNetwork = getBtcForkNetwork(networkInfo.networkChainCode);
+
+    let enrichedPsbtHex = psbtHex;
+
+    if (isTaprootPath(dbAccount.path)) {
+      const { inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
+      if (inputsToSign?.length) {
+        const fpResult = await callLedgerWithFingerprintRetry(
+          this.backgroundApi,
+          dbDevice,
+          'btc',
+          (deviceId) =>
+            adapter.hw.btcGetMasterFingerprint(dbDevice.connectId, deviceId),
+        );
+        if (fpResult.success) {
+          const fp = Buffer.from(fpResult.payload.masterFingerprint, 'hex');
+          const psbt = BitcoinJS.Psbt.fromHex(psbtHex, { network: btcNetwork });
+          for (const input of inputsToSign) {
+            psbt.updateInput(input.index, {
+              tapBip32Derivation: [
+                {
+                  masterFingerprint: fp,
+                  pubkey: Buffer.from(input.publicKey, 'hex').subarray(1, 33),
+                  path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+                  leafHashes: [],
+                },
+              ],
+            });
+          }
+          enrichedPsbtHex = psbt.toHex();
+        }
+      }
+    }
+
+    const result = await callLedgerWithFingerprintRetry(
+      this.backgroundApi,
+      dbDevice,
+      'btc',
+      (deviceId) =>
+        adapter.hw.btcSignPsbt(dbDevice.connectId, deviceId, {
+          psbt: enrichedPsbtHex,
+          coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
+          path: dbAccount.path,
+        }),
+    );
+
+    if (!result.success) {
+      throw convertThirdPartyDeviceError(result.payload, {
+        vendor: 'Ledger',
+        chain: 'Bitcoin',
+      });
+    }
+
+    const signedPsbtHex = result.payload.signedPsbt;
+
+    let rawTx = '';
+    let finalizedPsbtHex = '';
+
+    try {
+      const finalizedPsbt = BitcoinJS.Psbt.fromHex(signedPsbtHex, {
+        network: btcNetwork,
+      });
+
+      const { inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
+      if (inputsToSign) {
+        inputsToSign.forEach((v) => {
+          finalizedPsbt.finalizeInput(v.index);
+        });
+      }
+
+      if (!signOnly) {
+        rawTx = finalizedPsbt.extractTransaction().toHex();
+      }
+      finalizedPsbtHex = finalizedPsbt.toHex();
+    } catch {
+      finalizedPsbtHex = signedPsbtHex;
+    }
+
+    return {
+      encodedTx: unsignedTx.encodedTx,
+      txid: '',
+      rawTx,
+      psbtHex: signedPsbtHex,
+      finalizedPsbtHex,
+    };
+  }
+
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
@@ -345,7 +478,13 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     const fullPath = `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
 
     const result = await Promise.all(
-      params.messages.map(async (payload: { message: string }) => {
+      params.messages.map(async (payload: { message: string; type?: string }) => {
+        if (payload.type === 'bip322-simple') {
+          throw new NotImplemented(
+            'Ledger does not support BIP-322 message signing',
+          );
+        }
+
         const messageHex = Buffer.from(payload.message).toString('hex');
 
         const res = await callLedgerWithFingerprintRetry(

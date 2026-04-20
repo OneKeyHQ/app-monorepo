@@ -29,6 +29,8 @@ import type {
 } from '@onekeyhq/shared/types/earn';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
 import { EDBAccountType } from '../../../dbs/local/consts';
 
 import type {
@@ -343,6 +345,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
+
+  supportedThirdPartyVendors: [EHardwareVendor.ledger],
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,

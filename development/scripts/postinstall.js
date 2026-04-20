@@ -14,7 +14,7 @@ execSync('yarn setup:env && patch-package && yarn copy:inject', {
 // Fix @ledgerhq packages missing "main" field.
 // Metro (React Native) can't resolve packages that only have "exports" (no "main").
 // See: https://github.com/facebook/metro/issues/1222
-// These packages are dependencies of @bytezhang/ledger-adapter.
+// These packages are dependencies of @onekeyfe/hwk-ledger-adapter.
 const LEDGER_PACKAGES_MISSING_MAIN = [
   '@ledgerhq/device-management-kit',
   '@ledgerhq/device-signer-kit-ethereum',

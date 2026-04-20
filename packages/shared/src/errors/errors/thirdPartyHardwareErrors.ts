@@ -1,13 +1,36 @@
 /* eslint-disable max-classes-per-file */
-import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@bytezhang/hardware-wallet-core';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
-// import { ETranslations } from '../../locale';
+import { ETranslationsMock } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
 import { OneKeyHardwareError } from './hardwareErrors';
 
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
+
+// ---------------------------------------------------------------------------
+// OneKey-side extended error codes for vendor-specific APDU errors that the
+// upstream `HardwareErrorCode` enum (in @onekeyfe/hwk-adapter-core) doesn't
+// cover. Numeric range 7000+ is reserved here to avoid colliding with the
+// upstream enum values (0-10, 5520-5560).
+// ---------------------------------------------------------------------------
+
+export const OneKeyThirdPartyExtHwErrorCode = {
+  // Ledger Ethereum App — APDU 0x6a80 "Invalid data" when blind signing is off
+  EvmBlindSigningRequired: 7001,
+  // Ledger Ethereum App — APDU 0x6984 "Plugin not installed"
+  EvmClearSignPluginMissing: 7002,
+  // Ledger Ethereum App — APDU 0x6a84 "Insufficient memory" (Nano S)
+  EvmDataTooLarge: 7003,
+  // Ledger Ethereum App — APDU 0x6501 "TransactionType not supported"
+  EvmTxTypeNotSupported: 7004,
+  // Ledger Ethereum App — APDU 0x911c "Command code not supported"
+  AppTooOld: 7005,
+} as const;
+
+export type IOneKeyThirdPartyExtHwErrorCode =
+  (typeof OneKeyThirdPartyExtHwErrorCode)[keyof typeof OneKeyThirdPartyExtHwErrorCode];
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -23,6 +46,9 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
 
   /** Chain hint for i18n (e.g. "Ethereum", "Solana") */
   chain?: string;
+
+  /** Ledger app name from device (e.g. "Tron", "Bitcoin", "Ethereum") */
+  appName?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,16 +60,23 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
 /** App not installed on device (Ledger 0x6807 "Unknown application name") */
 export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
   constructor(
-    props?: IOneKeyErrorHardwareProps & { vendor?: string; chain?: string },
+    props?: IOneKeyErrorHardwareProps & {
+      vendor?: string;
+      chain?: string;
+      appName?: string;
+    },
   ) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Please open the correct app on your device',
+        defaultMessage: props?.appName
+          ? `Please install the "${props.appName}" app on your device`
+          : 'Please open the correct app on your device',
         // defaultKey: ETranslations.hardware_third_party_app_not_installed,
       }),
     );
     this.vendor = props?.vendor;
     this.chain = props?.chain;
+    this.appName = props?.appName;
   }
 
   override code = ThirdPartyHwErrorCode.AppNotOpen;
@@ -170,4 +203,93 @@ export class ThirdPartyUnknownError extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.UnknownError;
+}
+
+// ---------------------------------------------------------------------------
+// EVM-specific Ledger Ethereum App errors (mapped from Ledger APDU codes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Ledger APDU 0x6a80 "Invalid data" in EVM context = Blind signing disabled.
+ * Surfaces when DMK falls back to `blindSignTransactionFallback` and the
+ * device rejects because `Blind signing` is off in the Ethereum app settings.
+ */
+export class ThirdPartyEvmBlindSigningRequired extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    // NOTE: Do NOT pass `defaultMessage` here. The mock key's value already
+    // contains the full human-readable text, and `normalizeErrorProps` joins
+    // `[defaultMessage, key]` when i18n lookup returns the id itself — which
+    // would duplicate the sentence in the toast.
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslationsMock.hardware_third_party_evm_blind_signing_required,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = OneKeyThirdPartyExtHwErrorCode.EvmBlindSigningRequired;
+}
+
+/** Ledger APDU 0x6984 — required clear-sign plugin missing */
+export class ThirdPartyEvmClearSignPluginMissing extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslationsMock.hardware_third_party_evm_clear_sign_plugin_missing,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = OneKeyThirdPartyExtHwErrorCode.EvmClearSignPluginMissing;
+}
+
+/** Ledger APDU 0x6a84 — device memory not enough (typically Nano S) */
+export class ThirdPartyEvmDataTooLarge extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslationsMock.hardware_third_party_evm_data_too_large,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = OneKeyThirdPartyExtHwErrorCode.EvmDataTooLarge;
+}
+
+/** Ledger APDU 0x6501 — transaction type not supported by current Ethereum app */
+export class ThirdPartyEvmTxTypeNotSupported extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslationsMock.hardware_third_party_evm_tx_type_not_supported,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = OneKeyThirdPartyExtHwErrorCode.EvmTxTypeNotSupported;
+}
+
+/** Ledger APDU 0x911c — app too old / command not supported */
+export class ThirdPartyAppTooOld extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslationsMock.hardware_third_party_app_too_old,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = OneKeyThirdPartyExtHwErrorCode.AppTooOld;
 }

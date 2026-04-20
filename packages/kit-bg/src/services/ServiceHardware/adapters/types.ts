@@ -1,13 +1,13 @@
-import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
-
 import { EThirdPartyHardwareUiAction } from '../../../states/jotai/atoms/hardware';
+
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type {
   DeviceInfo,
   IConnector,
   IHardwareWallet,
   Response,
-} from '@bytezhang/hardware-wallet-core';
+} from '@onekeyfe/hwk-adapter-core';
 
 export type { DeviceInfo, IHardwareWallet, Response, IConnector };
 
@@ -83,10 +83,15 @@ export function isThirdPartyConfirmOnDevice(
   return action === EThirdPartyHardwareUiAction.confirmOnDevice;
 }
 
-export type IThirdPartyVendor = EHardwareVendor.ledger;
-
+/**
+ * The narrow union of "vendors that currently have a registered adapter"
+ * is derived from `thirdPartyHardwareAdapterRegistry` — import it from
+ * `./thirdPartyHardwareAdapterRegistry` (or re-export via `./index`).
+ * We keep `vendor` typed as the broader `EHardwareVendor` here to avoid
+ * a types ↔ registry circular import.
+ */
 export interface IThirdPartyHardwareAdapter {
-  readonly vendor: IThirdPartyVendor;
+  readonly vendor: EHardwareVendor;
   readonly hw: IHardwareWallet;
 
   onUiEvent(handler: (event: IAdapterUiEvent) => void): () => void;

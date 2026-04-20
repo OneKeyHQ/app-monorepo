@@ -1,3 +1,5 @@
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
 import type {
   IAdapterUiEvent,
   IAdapterUiEventType,
@@ -6,11 +8,10 @@ import type {
   IAdapterUiRequestType,
   IAdapterUiResponse,
   IHardwareWallet,
-  IThirdPartyVendor,
 } from './types';
 
 export abstract class BaseAdapter {
-  abstract readonly vendor: IThirdPartyVendor;
+  abstract readonly vendor: EHardwareVendor;
 
   abstract readonly hw: IHardwareWallet;
 

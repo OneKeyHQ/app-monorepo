@@ -3244,6 +3244,64 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  private async buildOneKeyHwWalletFieldsFromFeatures({
+    device,
+    features,
+  }: {
+    device: IDBCreateHwWalletParams['device'];
+    features: IOneKeyDeviceFeatures;
+  }): Promise<{
+    deviceType: IDeviceType;
+    firmwareType: EFirmwareType | undefined;
+    avatar: IAvatarInfo;
+    deviceName: string;
+    featuresInfo: IOneKeyDeviceFeatures;
+  }> {
+    // ble connected device type is inaccuracy
+    const deviceTypeFromFeatures = await deviceUtils.getDeviceTypeFromFeatures({
+      features,
+    });
+    const deviceType = deviceTypeFromFeatures || device.deviceType;
+    const firmwareType = await deviceUtils.getFirmwareType({ features });
+    const avatar: IAvatarInfo = {
+      img: getDeviceAvatarImage(
+        deviceType,
+        deviceUtils.getDeviceSerialNoFromFeatures(features),
+      ),
+    };
+    const deviceName = await deviceUtils.buildDeviceName({ device, features });
+    const featuresInfo = await deviceUtils.attachAppParamsToFeatures({
+      features,
+    });
+    return { deviceType, firmwareType, avatar, deviceName, featuresInfo };
+  }
+
+  private buildThirdPartyHwWalletFieldsFromProfile({
+    device,
+    features,
+    profile,
+  }: {
+    device: IDBCreateHwWalletParams['device'];
+    features: IOneKeyDeviceFeatures;
+    profile: ReturnType<typeof getVendorProfile>;
+  }): {
+    deviceType: IDeviceType;
+    firmwareType: EFirmwareType | undefined;
+    avatar: IAvatarInfo;
+    deviceName: string;
+    featuresInfo: IOneKeyDeviceFeatures;
+  } {
+    return {
+      deviceType: EDeviceType.Unknown,
+      firmwareType: undefined,
+      avatar: {
+        img: profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers,
+      },
+      deviceName: device.name || `${profile.defaultDeviceName} Device`,
+      featuresInfo: features,
+    };
+  }
+
   // TODO remove unused hidden wallet first
   async createHwWallet(params: IDBCreateHwWalletParams) {
     const {
@@ -3258,7 +3316,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       transportType,
       vendor,
     } = params;
-    console.log('createHwWallet', features);
     const { connectId } = device;
     const resolvedVendor = vendor ?? EHardwareVendor.onekey;
     const profile = getVendorProfile(resolvedVendor);
@@ -3269,44 +3326,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       throw new OneKeyLocalError('createHwWallet ERROR: connectId is required');
     }
     const context = await this.getContext();
-    // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
 
-    let deviceType: IDeviceType;
-    let firmwareType: EFirmwareType | undefined;
-
-    if (!profile.isThirdParty) {
-      // ble connected device type is inaccuracy
-      const deviceTypeFromFeatures =
-        await deviceUtils.getDeviceTypeFromFeatures({
-          features,
-        });
-      deviceType = deviceTypeFromFeatures || device.deviceType;
-      firmwareType = await deviceUtils.getFirmwareType({
-        features,
-      });
-    } else {
-      // Third-party vendors: store 'unknown' as deviceType
-      // since their device types are not in EDeviceType enum.
-      // Use vendor field for identity instead.
-      deviceType = EDeviceType.Unknown;
-      firmwareType = undefined;
-    }
-
-    // For third-party vendors, use vendor as avatar key (e.g. 'ledger', 'trezor')
-    // For OneKey devices, derive avatar from deviceType + serialNo
-    let avatar: IAvatarInfo;
-    if (profile.isThirdParty) {
-      avatar = {
-        img: profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers,
-      };
-    } else {
-      avatar = {
-        img: getDeviceAvatarImage(
-          deviceType,
-          deviceUtils.getDeviceSerialNoFromFeatures(features),
-        ),
-      };
-    }
+    const { deviceType, firmwareType, avatar, deviceName, featuresInfo } =
+      profile.isThirdParty
+        ? this.buildThirdPartyHwWalletFieldsFromProfile({
+            device,
+            features,
+            profile,
+          })
+        : await this.buildOneKeyHwWalletFieldsFromFeatures({ device, features });
 
     const { dbDeviceId, dbWalletId, deviceUUID, rawDeviceId } =
       await this.buildHwWalletId(params);
@@ -3320,12 +3348,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
 
     let parentWalletId: string | undefined;
-    let deviceName: string;
-    if (!profile.isThirdParty) {
-      deviceName = await deviceUtils.buildDeviceName({ device, features });
-    } else {
-      deviceName = device.name || `${profile.defaultDeviceName} Device`;
-    }
     let walletName = name || deviceName;
     let hiddenDefaultWalletName: string | undefined;
     if (passphraseState) {
@@ -3338,14 +3360,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       hiddenDefaultWalletName = hiddenWalletNameInfo.hiddenWalletName;
     }
 
-    let featuresInfo: IOneKeyDeviceFeatures;
-    if (!profile.isThirdParty) {
-      featuresInfo = await deviceUtils.attachAppParamsToFeatures({
-        features,
-      });
-    } else {
-      featuresInfo = features;
-    }
     const featuresStr = JSON.stringify(featuresInfo);
 
     const firstAccountIndex = 0;

@@ -7,11 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
-
 import {
   Button,
-  Dialog,
   EVideoResizeMode,
   HeightTransition,
   SizableText,
@@ -21,25 +18,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
-import {
-  HARDWARE_BRIDGE_DOWNLOAD_URL,
-  HARDWARE_TROUBLESHOOTING_URL,
-} from '@onekeyhq/shared/src/config/appConfig';
-import {
-  BleLocationServiceError,
-  BridgeTimeoutError,
-  BridgeTimeoutErrorForDesktop,
-  ConnectTimeoutError,
-  DeviceMethodCallTimeout,
-  InitIframeLoadFail,
-  InitIframeTimeout,
-  NeedBluetoothPermissions,
-  NeedBluetoothTurnedOn,
-  NeedOneKeyBridge,
-} from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import {
@@ -73,23 +53,12 @@ enum EConnectionStatus {
   listing = 'listing',
 }
 
-function BridgeNotInstalledDialogContent() {
-  return (
-    <SizableText size="$bodyLg" mt="$1.5" color="$textSubdued">
-      {platformEnv.isSupportWebUSB
-        ? 'Communication failed. Please check the connection and try again.'
-        : 'Please install OneKey Bridge to continue.'}
-    </SizableText>
-  );
-}
-
 function DeviceVideo({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
-  // Use ProW video as default — replace with Ledger video later
   const videoSource = useMemo<ReactVideoSource>(
     () =>
       themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4') as ReactVideoSource),
+        ? (require('@onekeyhq/kit/assets/onboarding/Connect-Ledger-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Connect-Ledger-L.mp4') as ReactVideoSource),
     [themeVariant],
   );
 
@@ -104,74 +73,6 @@ function DeviceVideo({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
       resizeMode={EVideoResizeMode.COVER}
       source={videoSource}
     />
-  );
-}
-
-function TroubleShootingButton() {
-  const [showHelper, setShowHelper] = useState(false);
-  const intl = useIntl();
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowHelper(true);
-    }, 10_000);
-    return () => clearTimeout(timer);
-  }, [showHelper]);
-
-  return (
-    <>
-      {showHelper ? (
-        <YStack
-          bg="$bgSubdued"
-          $platform-web={{
-            boxShadow:
-              '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-          }}
-          $theme-dark={{
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: '$neutral3',
-            bg: '$neutral3',
-          }}
-          $platform-native={{
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: '$neutral3',
-          }}
-          borderRadius="$2.5"
-          borderCurve="continuous"
-          overflow="hidden"
-          p="$4"
-          gap="$4"
-        >
-          <SizableText size="$bodyMd" color="$textSubdued" textAlign="left">
-            {intl.formatMessage({
-              id: ETranslations.troubleshooting_show_helper_cta_label,
-            })}
-          </SizableText>
-          <XStack gap="$2" flexWrap="wrap">
-            <Button
-              flex={1}
-              minWidth="$40"
-              icon="OpenOutline"
-              onPress={() => {
-                void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
-            </Button>
-            <Button
-              flex={1}
-              minWidth="$40"
-              icon="HelpSupportOutline"
-              onPress={() => {
-                void showIntercom();
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.settings_contact_us })}
-            </Button>
-          </XStack>
-        </YStack>
-      ) : null}
-    </>
   );
 }
 
@@ -222,72 +123,14 @@ export default function LedgerConnectionFlow() {
     deviceScanner.startDeviceScan(
       (response) => {
         if (!response.success) {
+          // Ledger goes through @onekeyfe/hwk-* SDK + native HID/BLE; OneKey Bridge,
+          // iframe and Bluetooth-permission errors do not apply here. Keep this
+          // simple and surface whatever the SDK reports.
           const error = convertDeviceError(response.payload);
-          if (platformEnv.isNative) {
-            if (
-              !(error instanceof NeedBluetoothTurnedOn) &&
-              !(error instanceof NeedBluetoothPermissions) &&
-              !(error instanceof BleLocationServiceError)
-            ) {
-              Toast.error({
-                title: error.message || 'DeviceScanError',
-              });
-            } else {
-              deviceScanner.stopScan();
-            }
-          } else if (
-            error instanceof InitIframeLoadFail ||
-            error instanceof InitIframeTimeout
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_network_error,
-              }),
-              message: error.message || 'DeviceScanError',
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (
-            error instanceof BridgeTimeoutError ||
-            error instanceof BridgeTimeoutErrorForDesktop
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_connection_failed,
-              }),
-              message: error.message || 'DeviceScanError',
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (
-            error instanceof ConnectTimeoutError ||
-            error instanceof DeviceMethodCallTimeout
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_connection_failed,
-              }),
-              message: error.message || 'DeviceScanError',
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (error instanceof NeedOneKeyBridge) {
-            Dialog.confirm({
-              icon: 'OnekeyBrand',
-              title: intl.formatMessage({
-                id: ETranslations.onboarding_install_onekey_bridge,
-              }),
-              renderContent: <BridgeNotInstalledDialogContent />,
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_download_and_install,
-              }),
-              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
-            });
-            deviceScanner.stopScan();
-          }
+          Toast.error({
+            title: error.message || 'DeviceScanError',
+          });
+          deviceScanner.stopScan();
           return;
         }
 
@@ -486,7 +329,6 @@ export default function LedgerConnectionFlow() {
           </HeightTransition>
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
-      <TroubleShootingButton />
     </>
   );
 }

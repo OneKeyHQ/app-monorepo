@@ -57,6 +57,79 @@ import { usePrepareUSBConnectForFirmwareUpdate } from './usePrepareUSBConnectFor
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 
+// ---------------------------------------------------------------------------
+// Third-party vendor helpers (Ledger today; Trezor would add sibling helpers
+// here, NOT modify these). Kept as plain module-level functions so the
+// useDeviceConnect hook stays focused on the OneKey path.
+// ---------------------------------------------------------------------------
+
+async function verifyLedgerDevice(
+  device: SearchDevice,
+): Promise<IFirmwareVerifyResult> {
+  // Third-party devices do not go through OneKey firmware verify /
+  // bootloader checks; return a synthetic verified result.
+  return {
+    verified: true,
+    device,
+    payload: {
+      deviceType: device.deviceType,
+      data: '',
+      cert: '',
+      signature: '',
+    },
+    result: {
+      message: '',
+    },
+  };
+}
+
+async function createLedgerHwWallet({
+  device,
+  vendor,
+  actions,
+  navigation,
+  hardwareTransportType,
+  isSoftwareWalletOnlyUser,
+}: {
+  device: SearchDevice;
+  vendor: EHardwareVendor;
+  actions: ReturnType<typeof useAccountSelectorActions>;
+  navigation: ReturnType<typeof useAppNavigation>;
+  hardwareTransportType: EHardwareTransportType | undefined;
+  isSoftwareWalletOnlyUser: boolean;
+}): Promise<void> {
+  try {
+    navigation.push(EOnboardingPages.FinalizeWalletSetup);
+
+    const params: IDBCreateHwWalletParamsBase & {
+      vendor?: EHardwareVendor;
+    } = {
+      device,
+      hideCheckingDeviceLoading: true,
+      features: {
+        device_id: device.deviceId || '',
+        vendor,
+      } as IOneKeyDeviceFeatures,
+      isFirmwareVerified: true,
+      defaultIsTemp: true,
+      vendor,
+    };
+    await actions.current.createHWWalletWithoutHidden(params);
+
+    await trackHardwareWalletConnection({
+      status: 'success',
+      deviceType: device.deviceType,
+      features: params.features,
+      hardwareTransportType,
+      isSoftwareWalletOnlyUser,
+    });
+  } catch (error) {
+    errorToastUtils.toastIfError(error);
+    navigation.pop();
+    throw error;
+  }
+}
+
 export function useDeviceConnect({
   setCurrentDevice,
 }: {
@@ -347,28 +420,13 @@ export function useDeviceConnect({
     async (device: SearchDevice, tabValue: EConnectDeviceChannel) => {
       // Ensure all scanning and polling activities are stopped before connecting
       console.log('handleDeviceConnect: Starting device connection process');
-      // Check if this is a third-party vendor device (Ledger)
+
+      // Third-party vendor short-circuit: skip OneKey-specific verify
+      // (firmware verify, bootloader check, etc.).
       const deviceVendor = (device as SearchDevice & { vendor?: string })
         ?.vendor;
-      if (
-        deviceVendor === EHardwareVendor.ledger ||
-        deviceVendor === 'ledger'
-      ) {
-        // Skip firmware verify, bootloader check, etc. for third-party vendors
-        // Return a simple verified result
-        return {
-          verified: true,
-          device,
-          payload: {
-            deviceType: device.deviceType,
-            data: '',
-            cert: '',
-            signature: '',
-          },
-          result: {
-            message: '',
-          },
-        } as IFirmwareVerifyResult;
+      if (deviceVendor === EHardwareVendor.ledger) {
+        return verifyLedgerDevice(device);
       }
 
       defaultLogger.account.wallet.addWalletStarted({
@@ -797,39 +855,16 @@ export function useDeviceConnect({
       vendor?: EHardwareVendor;
     }) => {
       // For third-party vendor devices (Ledger), skip OneKey SDK
-      // connection/features flow and create wallet directly
+      // connection/features flow and create wallet directly.
       if (vendor === EHardwareVendor.ledger) {
-        try {
-          navigation.push(EOnboardingPages.FinalizeWalletSetup);
-
-          const params: IDBCreateHwWalletParamsBase & {
-            vendor?: EHardwareVendor;
-          } = {
-            device,
-            hideCheckingDeviceLoading: true,
-            features: {
-              device_id: device.deviceId || '',
-              vendor,
-            } as IOneKeyDeviceFeatures,
-            isFirmwareVerified: true,
-            defaultIsTemp: true,
-            vendor,
-          };
-          await actions.current.createHWWalletWithoutHidden(params);
-
-          await trackHardwareWalletConnection({
-            status: 'success',
-            deviceType: device.deviceType,
-            features: params.features,
-            hardwareTransportType,
-            isSoftwareWalletOnlyUser,
-          });
-        } catch (error) {
-          errorToastUtils.toastIfError(error);
-          navigation.pop();
-          throw error;
-        }
-        return;
+        return createLedgerHwWallet({
+          device,
+          vendor,
+          actions,
+          navigation,
+          hardwareTransportType,
+          isSoftwareWalletOnlyUser,
+        });
       }
 
       await ensureActiveConnection(device);

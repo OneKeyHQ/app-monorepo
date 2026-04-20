@@ -2,12 +2,14 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   DialogContainer,
+  EVideoResizeMode,
   Icon,
   IconButton,
   Portal,
   SizableText,
   Stack,
   Toast,
+  Video,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -20,8 +22,13 @@ import {
   thirdPartyHardwareUiStateAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
+
+import type { ReactVideoSource } from 'react-native-video';
 
 const TOAST_ACTIONS: Set<string> = new Set([
   EThirdPartyHardwareUiAction.confirmOnDevice,
@@ -42,8 +49,15 @@ const TOAST_VIEWPORT_NAME = 'THIRD_PARTY_HW_TOAST';
 // Toast content for "confirm on device" — no Lottie, simple icon + text
 // ---------------------------------------------------------------------------
 
-function getToastLabel(action: string | undefined, _vendor: string): string {
-  const device = 'Ledger';
+function getDeviceLabel(vendor: string | undefined): string {
+  if (!vendor) return 'Device';
+  return (
+    getVendorProfile(vendor as EHardwareVendor)?.defaultDeviceName || 'Device'
+  );
+}
+
+function getToastLabel(action: string | undefined, vendor: string): string {
+  const device = getDeviceLabel(vendor);
   switch (action) {
     case EThirdPartyHardwareUiAction.openApp:
       return `Please open the app on your ${device}`;
@@ -57,6 +71,25 @@ function getToastLabel(action: string | undefined, _vendor: string): string {
   }
 }
 
+function getLedgerActionVideo(
+  action: string | undefined,
+  themeVariant: 'light' | 'dark',
+): ReactVideoSource | null {
+  switch (action) {
+    case EThirdPartyHardwareUiAction.confirmOnDevice:
+    case EThirdPartyHardwareUiAction.openApp:
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/hardware/confirm-on-ledger-dark.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/hardware/confirm-on-ledger-light.mp4') as ReactVideoSource);
+    case EThirdPartyHardwareUiAction.unlockDevice:
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/hardware/enter-pin-on-ledger-dark.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/hardware/enter-pin-on-ledger-light.mp4') as ReactVideoSource);
+    default:
+      return null;
+  }
+}
+
 function DeviceActionToast({
   action,
   vendor,
@@ -65,6 +98,7 @@ function DeviceActionToast({
   vendor: string;
 }) {
   const [showCloseButton, setShowCloseButton] = useState(false);
+  const themeVariant = useThemeVariant();
 
   useEffect(() => {
     const timer = setTimeout(
@@ -76,6 +110,11 @@ function DeviceActionToast({
 
   const label = getToastLabel(action, vendor);
 
+  const videoSource = useMemo<ReactVideoSource | null>(() => {
+    if (vendor !== EHardwareVendor.ledger) return null;
+    return getLedgerActionVideo(action, themeVariant);
+  }, [action, vendor, themeVariant]);
+
   return (
     <XStack alignItems="center">
       <Stack
@@ -86,8 +125,22 @@ function DeviceActionToast({
         h={72}
         alignItems="center"
         justifyContent="center"
+        overflow="hidden"
       >
-        <Icon name="CheckboxOutline" size="$10" color="$iconSubdued" />
+        {videoSource ? (
+          <Video
+            muted
+            autoPlay
+            w="100%"
+            h="100%"
+            controls={false}
+            playInBackground={false}
+            resizeMode={EVideoResizeMode.COVER}
+            source={videoSource}
+          />
+        ) : (
+          <Icon name="CheckboxOutline" size="$10" color="$iconSubdued" />
+        )}
       </Stack>
       <XStack flex={1} alignItems="center" px="$3" gap="$5">
         <SizableText flex={1} size="$bodyLgMedium">
@@ -114,15 +167,16 @@ function getDialogContent(state: IThirdPartyHardwareUiState): {
   message: string;
   showFooter: boolean;
 } {
-  const { action, payload } = state;
+  const { action, payload, vendor } = state;
+  const device = getDeviceLabel(vendor);
 
   switch (action) {
     case EThirdPartyHardwareUiAction.requestUnlock:
       return {
-        title: 'Connect Ledger',
+        title: `Connect ${device}`,
         message:
           payload?.message ||
-          'Please connect and unlock your Ledger device, then press Confirm.',
+          `Please connect and unlock your ${device} device, then press Confirm.`,
         showFooter: true,
       };
     case EThirdPartyHardwareUiAction.requestRetry:
@@ -219,7 +273,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         >
           <DeviceActionToast
             action={uiState?.action}
-            vendor={uiState?.vendor ?? 'ledger'}
+            vendor={uiState?.vendor ?? ''}
           />
         </ShowCustom>
       </Portal.Body>

@@ -1,9 +1,17 @@
+import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
+
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { Response } from '@bytezhang/hardware-wallet-core';
+import type {
+  ChainForFingerprint,
+  Response,
+} from '@onekeyfe/hwk-adapter-core';
 
 type IDbDeviceForFingerprint = {
   id: string;
@@ -13,16 +21,14 @@ type IDbDeviceForFingerprint = {
   vendor?: string;
 };
 
-type IChain = 'evm' | 'btc' | 'sol' | 'tron';
-
 // In-memory cache: deviceDbId → chain → fingerprint
 const fingerprintCache = new Map<string, Map<string, string>>();
 
-function getCached(deviceDbId: string, chain: IChain): string | undefined {
+function getCached(deviceDbId: string, chain: ChainForFingerprint): string | undefined {
   return fingerprintCache.get(deviceDbId)?.get(chain);
 }
 
-function setCache(deviceDbId: string, chain: IChain, fp: string): void {
+function setCache(deviceDbId: string, chain: ChainForFingerprint, fp: string): void {
   let deviceMap = fingerprintCache.get(deviceDbId);
   if (!deviceMap) {
     deviceMap = new Map();
@@ -48,9 +54,6 @@ function serializeWrite(
   return next;
 }
 
-// Track post-success generation attempts
-const postOpAttempted = new Set<string>();
-
 /**
  * Look up existing fingerprint from memory cache or DB snapshot.
  * Does NOT generate — generation happens after successful operation
@@ -59,15 +62,25 @@ const postOpAttempted = new Set<string>();
 export async function ensureLedgerChainFingerprint(
   _backgroundApi: IBackgroundApi,
   dbDevice: IDbDeviceForFingerprint,
-  chain: IChain,
+  chain: ChainForFingerprint,
 ): Promise<string> {
   if (dbDevice.vendor !== EHardwareVendor.ledger) {
-    return dbDevice.deviceId || '';
+    throw new OneKeyInternalError(
+      `ledgerFingerprintUtils called with non-ledger vendor: ${
+        dbDevice.vendor ?? 'undefined'
+      }`,
+    );
   }
 
-  // BLE has persistent connectId (e.g. "A58F") — no need for chain fingerprint.
-  // The SDK adapter uses connectId to verify device identity.
-  if (dbDevice.connectId) {
+  // When the stored connectId is itself a persistent device identifier
+  // (Ledger BLE uses a 4-hex suffix like "A58F"), use it directly.
+  // USB connectIds are ephemeral and must not be persisted, so the profile's
+  // regex also acts as a safety net against stale USB UUIDs reaching here.
+  const profile = getVendorProfile(EHardwareVendor.ledger);
+  if (
+    dbDevice.connectId &&
+    profile.canMatchDeviceByConnectId(dbDevice.connectId)
+  ) {
     return dbDevice.connectId;
   }
 
@@ -81,8 +94,11 @@ export async function ensureLedgerChainFingerprint(
   let settings: Record<string, unknown> = {};
   try {
     settings = JSON.parse(dbDevice.settingsRaw || '{}');
-  } catch {
-    // ignore
+  } catch (e) {
+    defaultLogger.hardware.sdkLog.log(
+      'ledgerFingerprint.settingsRawParseFailed',
+      (e as Error)?.message ?? '',
+    );
   }
   const chainFingerprints =
     (settings.chainFingerprints as Record<string, string>) ?? {};
@@ -109,7 +125,7 @@ export async function ensureLedgerChainFingerprint(
 export async function callLedgerWithFingerprintRetry<T>(
   backgroundApi: IBackgroundApi,
   dbDevice: IDbDeviceForFingerprint,
-  chain: IChain,
+  chain: ChainForFingerprint,
   fn: (deviceId: string) => Promise<Response<T>>,
 ): Promise<Response<T>> {
   const deviceId = await ensureLedgerChainFingerprint(
@@ -120,7 +136,10 @@ export async function callLedgerWithFingerprintRetry<T>(
   const result = await fn(deviceId);
 
   // Wrong device → regenerate and retry
-  if (!result.success && result.payload.error === 'Wrong device connected') {
+  if (
+    !result.success &&
+    result.payload.code === HardwareErrorCode.DeviceMismatch
+  ) {
     fingerprintCache.get(dbDevice.id)?.delete(chain);
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const newDeviceId = await generateAndStoreFingerprint(
@@ -135,24 +154,25 @@ export async function callLedgerWithFingerprintRetry<T>(
   }
 
   // Success without fingerprint → the correct App is now open,
-  // generate fingerprint synchronously before returning.
+  // generate fingerprint before returning. On success the cache is
+  // populated; on failure the next call will retry — regeneration is
+  // idempotent against a stable device.
   if (result.success && !deviceId) {
-    const postOpKey = `${dbDevice.id}:${chain}`;
-    if (!postOpAttempted.has(postOpKey)) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        const fp = await generateAndStoreFingerprint(
-          backgroundApi,
-          dbDevice,
-          chain,
-        );
-        if (fp) {
-          setCache(dbDevice.id, chain, fp);
-          postOpAttempted.add(postOpKey);
-        }
-      } catch {
-        // Non-critical — fingerprint will be retried next time
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      const fp = await generateAndStoreFingerprint(
+        backgroundApi,
+        dbDevice,
+        chain,
+      );
+      if (fp) {
+        setCache(dbDevice.id, chain, fp);
       }
+    } catch (e) {
+      defaultLogger.hardware.sdkLog.log(
+        'ledgerFingerprint.postOpGenerationFailed',
+        (e as Error)?.message ?? '',
+      );
     }
   }
 
@@ -162,7 +182,7 @@ export async function callLedgerWithFingerprintRetry<T>(
 async function generateAndStoreFingerprint(
   backgroundApi: IBackgroundApi,
   dbDevice: { id: string; connectId: string },
-  chain: IChain,
+  chain: ChainForFingerprint,
 ): Promise<string> {
   const adapter = await backgroundApi.serviceHardware.getAdapterForVendor(
     EHardwareVendor.ledger,
@@ -188,8 +208,15 @@ async function generateAndStoreFingerprint(
       }
       return fingerprint;
     }
-  } catch {
-    // ignore — fingerprint generation is non-critical
+    defaultLogger.hardware.sdkLog.log(
+      'ledgerFingerprint.generateFailed',
+      `${chain} ${!result.success ? result.payload.error : 'empty payload'}`,
+    );
+  } catch (e) {
+    defaultLogger.hardware.sdkLog.log(
+      'ledgerFingerprint.generateThrew',
+      `${chain} ${(e as Error)?.message ?? ''}`,
+    );
   }
   return '';
 }

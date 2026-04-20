@@ -67,11 +67,19 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import { dispatchOffscreenEvent } from '../../offscreens/offscreenEventBus';
+
+import { thirdPartyHardwareAdapterRegistry } from './adapters/thirdPartyHardwareAdapterRegistry';
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
+import type {
+  IOffscreenEventMap,
+  IOffscreenEventType,
+} from '../../offscreens/offscreenEventBus';
+import type { IThirdPartyVendor } from './adapters/thirdPartyHardwareAdapterRegistry';
 import type { DeviceInfo, IThirdPartyHardwareAdapter } from './adapters/types';
 import type {
   IBaseDeviceProcessingParams,
@@ -147,77 +155,90 @@ const NEW_DIALOG_EVENTS = new Set([
 class ServiceHardware extends ServiceBase {
   private bridgeAvailabilityChecked = false;
 
-  // Third-party hardware adapter registry
-  private thirdPartyAdapters = new Map<string, IThirdPartyHardwareAdapter>();
+  // ---------------------------------------------------------------------
+  // Third-party hardware adapters
+  //
+  // Vendor → adapter instances are managed by iterating the registry at
+  // `./adapters/thirdPartyHardwareAdapterRegistry.ts`. To add a new vendor,
+  // append an entry there — ServiceHardware needs no changes.
+  //
+  // Public facade `getAdapterForVendor(vendor)` is unchanged, so callers
+  // (keyrings, etc.) are not affected.
+  // ---------------------------------------------------------------------
 
-  // Per-vendor init promises so callers can await only the vendor they need.
-  private adapterInitPromises = new Map<string, Promise<void>>();
+  /** Live adapter instances, keyed by vendor name. */
+  private thirdPartyAdapters = new Map<
+    IThirdPartyVendor,
+    IThirdPartyHardwareAdapter
+  >();
 
-  private adapterInitStarted = false;
+  /** In-flight init promises so concurrent callers share one factory run. */
+  private thirdPartyAdapterInitPromises = new Map<
+    IThirdPartyVendor,
+    Promise<void>
+  >();
 
-  registerThirdPartyAdapter(
+  private isRegisteredThirdPartyVendor(
+    vendor: string | undefined,
+  ): vendor is IThirdPartyVendor {
+    return (
+      !!vendor &&
+      Object.prototype.hasOwnProperty.call(
+        thirdPartyHardwareAdapterRegistry,
+        vendor,
+      )
+    );
+  }
+
+  private async ensureThirdPartyAdapterInitialized(
+    vendor: IThirdPartyVendor,
+  ): Promise<void> {
+    if (this.thirdPartyAdapters.has(vendor)) return;
+    let p = this.thirdPartyAdapterInitPromises.get(vendor);
+    if (!p) {
+      const factory = thirdPartyHardwareAdapterRegistry[vendor];
+      p = factory()
+        .then((adapter) => {
+          this.thirdPartyAdapters.set(vendor, adapter);
+        })
+        .catch((error) => {
+          console.error(
+            `[ServiceHardware] Failed to init ${vendor} adapter:`,
+            error,
+          );
+          // Reset so a later call can retry.
+          this.thirdPartyAdapterInitPromises.delete(vendor);
+        });
+      this.thirdPartyAdapterInitPromises.set(vendor, p);
+    }
+    await p;
+  }
+
+  /**
+   * Ensure the adapter for `vendor` is initialized. If no vendor is given,
+   * initialize every registered third-party adapter (used by discovery paths).
+   */
+  private async ensureAdaptersInitialized(vendor?: string): Promise<void> {
+    if (this.isRegisteredThirdPartyVendor(vendor)) {
+      await this.ensureThirdPartyAdapterInitialized(vendor);
+      return;
+    }
+    await Promise.allSettled(
+      (
+        Object.keys(thirdPartyHardwareAdapterRegistry) as IThirdPartyVendor[]
+      ).map((v) => this.ensureThirdPartyAdapterInitialized(v)),
+    );
+  }
+
+  /**
+   * Get the in-memory adapter for a vendor (does NOT trigger init).
+   * Use after ensureAdaptersInitialized().
+   */
+  private getThirdPartyAdapter(
     vendor: string,
-    adapter: IThirdPartyHardwareAdapter,
-  ) {
-    this.thirdPartyAdapters.set(vendor, adapter);
-  }
-
-  getThirdPartyAdapter(vendor: string): IThirdPartyHardwareAdapter | undefined {
+  ): IThirdPartyHardwareAdapter | undefined {
+    if (!this.isRegisteredThirdPartyVendor(vendor)) return undefined;
     return this.thirdPartyAdapters.get(vendor);
-  }
-
-  private async ensureAdaptersInitialized(vendor?: string) {
-    // Fast path: the requested vendor (or any vendor) is already registered.
-    if (vendor && this.thirdPartyAdapters.has(vendor)) return;
-    if (!vendor && this.thirdPartyAdapters.size > 0) return;
-
-    // Kick off initialization once.
-    if (!this.adapterInitStarted) {
-      this.adapterInitStarted = true;
-      this.startThirdPartyAdapterInit();
-    }
-
-    // If a specific vendor was requested, only wait for that vendor's promise.
-    if (vendor) {
-      const vendorPromise = this.adapterInitPromises.get(vendor);
-      if (vendorPromise) {
-        await vendorPromise;
-        return;
-      }
-    }
-
-    // Otherwise wait for all vendors to finish.
-    await Promise.allSettled(Array.from(this.adapterInitPromises.values()));
-  }
-
-  private startThirdPartyAdapterInit() {
-    const ledgerPromise = this.initSingleAdapter(EHardwareVendor.ledger).catch(
-      (error) => {
-        console.error(
-          '[ServiceHardware] Failed to init ledger adapter:',
-          error,
-        );
-      },
-    );
-    this.adapterInitPromises.set(EHardwareVendor.ledger, ledgerPromise);
-  }
-
-  private async initSingleAdapter(_vendor: EHardwareVendor.ledger) {
-    const { LedgerAdapter } = await import('./adapters');
-
-    const { createLedgerConnector } =
-      await import('@onekeyhq/shared/src/hardware/connector-loader/ledger');
-    const ledgerConnector = await createLedgerConnector();
-
-    // Create the @bytezhang LedgerAdapter (IHardwareWallet)
-    const { LedgerAdapter: BytezhangLedgerAdapter } =
-      await import('@bytezhang/ledger-adapter');
-    const hwLedger = new BytezhangLedgerAdapter(ledgerConnector);
-
-    this.registerThirdPartyAdapter(
-      EHardwareVendor.ledger,
-      new LedgerAdapter(hwLedger, ledgerConnector),
-    );
   }
 
   constructor(props: IServiceBaseProps) {
@@ -728,6 +749,20 @@ class ServiceHardware extends ServiceBase {
       connectId: undefined,
     });
     sdk.emit(eventMessage.event, eventMessage);
+  }
+
+  /**
+   * Receiver for the typed offscreen → SW event channel.
+   * `offscreenEventBus.emitOffscreenEventToBackground` on the offscreen side
+   * routes all event types through this single method; we just hand them off
+   * to the bus dispatcher, which fans out to per-type subscribers registered
+   * elsewhere in SW (e.g. in ServiceHardware constructors or jotai atoms).
+   */
+  @backgroundMethod()
+  async passThirdPartyHardwareEventsFromOffscreenToBackground<
+    K extends IOffscreenEventType,
+  >(message: { type: K; payload: IOffscreenEventMap[K] }) {
+    dispatchOffscreenEvent(message.type, message.payload);
   }
 
   @backgroundMethod()
