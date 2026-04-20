@@ -723,6 +723,12 @@ const buildSegments = async ({
     if (fs.existsSync(`${segHbcPath}.map`)) {
       fs.rmSync(`${segHbcPath}.map`, { force: true });
     }
+    // Sourcemap has been uploaded to Sentry above — don't ship it in the APK
+    // assets (saves ~15MB compressed; each segment emits an adjacent .seg.map
+    // that would otherwise be picked up by Gradle's copy { from segmentsDir }).
+    if (fs.existsSync(segMapPath)) {
+      fs.rmSync(segMapPath, { force: true });
+    }
   });
 
   await runWithConcurrency(tasks, CONCURRENCY);
