@@ -41,6 +41,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
+  EHardwareVendor,
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
   IDeviceVerifyVersionCompareResult,
@@ -51,7 +52,6 @@ import type {
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
-  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -243,6 +243,18 @@ class ServiceHardware extends ServiceBase {
   ): IThirdPartyHardwareAdapter | undefined {
     if (!this.isRegisteredThirdPartyVendor(vendor)) return undefined;
     return this.thirdPartyAdapters.get(vendor);
+  }
+
+  /** Reset the adapter and evict it from the registry (use instead of adapter.reset() directly). */
+  resetThirdPartyAdapter(vendor: string): void {
+    if (!this.isRegisteredThirdPartyVendor(vendor)) return;
+    const adapter = this.thirdPartyAdapters.get(vendor);
+    if (!adapter) return;
+    try {
+      adapter.reset();
+    } finally {
+      this.thirdPartyAdapters.delete(vendor);
+    }
   }
 
   constructor(props: IServiceBaseProps) {
@@ -1706,7 +1718,7 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async thirdPartyHardwareUiResponse(params: {
-    vendor: string;
+    vendor: EHardwareVendor;
     type: 'confirm' | 'cancel';
   }) {
     await this.ensureAdaptersInitialized(params.vendor);

@@ -4,6 +4,7 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   EFirmwareUpdateTipMessages,
+  EHardwareVendor,
   EOneKeyDeviceMode,
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
@@ -156,7 +157,7 @@ export enum EThirdPartyHardwareUiAction {
 
 export type IThirdPartyHardwareUiState = {
   action: EThirdPartyHardwareUiAction;
-  vendor: string;
+  vendor: EHardwareVendor;
   payload?: {
     message?: string;
     retryCount?: number;

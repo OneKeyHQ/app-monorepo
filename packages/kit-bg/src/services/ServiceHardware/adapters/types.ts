@@ -7,6 +7,7 @@ import type {
   IConnector,
   IHardwareWallet,
   Response,
+  UiResponseEvent,
 } from '@onekeyfe/hwk-adapter-core';
 
 export type { DeviceInfo, IHardwareWallet, Response, IConnector };
@@ -49,11 +50,8 @@ export type IAdapterUiNotification = {
 
 export type IAdapterUiEvent = IAdapterUiRequest | IAdapterUiNotification;
 
-/** Mirrors `IHardwareWallet.uiResponse` — `type` is a `UI_RESPONSE.*` constant. */
-export type IAdapterUiResponse = {
-  type: string;
-  payload: unknown;
-};
+/** Alias of SDK's UiResponseEvent — the (type, payload) contract is SDK-owned. */
+export type IAdapterUiResponse = UiResponseEvent;
 
 /** Non-interactive notifications — user acts on the physical device, not in the app. */
 const TOAST_ACTIONS: Set<string> = new Set<string>([

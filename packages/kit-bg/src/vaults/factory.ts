@@ -90,16 +90,33 @@ export async function createKeyringInstance(vault: VaultBase) {
     keyring = new keyringMap.qr(vault);
   }
   if (walletId.startsWith('hw-')) {
+    // Exhaustive switch: adding a new EHardwareVendor without handling it
+    // here will fail to compile (the `never` assertion in `default`).
     const vendor = vault.options.hardwareVendor;
-    if (vendor === EHardwareVendor.ledger) {
-      if (keyringMap.hwLedger) {
+    switch (vendor) {
+      case EHardwareVendor.ledger:
+        if (!keyringMap.hwLedger) {
+          throw new NotImplemented(`Ledger does not support this chain yet`);
+        }
         keyring = new keyringMap.hwLedger(vault);
-      } else {
-        throw new NotImplemented(`Ledger does not support this chain yet`);
+        break;
+      case EHardwareVendor.trezor:
+        if (!keyringMap.hwTrezor) {
+          throw new NotImplemented(`Trezor does not support this chain yet`);
+        }
+        keyring = new keyringMap.hwTrezor(vault);
+        break;
+      case EHardwareVendor.onekey:
+      case undefined:
+        checkKeyringClassExists(keyringMap.hw);
+        keyring = new keyringMap.hw(vault);
+        break;
+      default: {
+        const _exhaustive: never = vendor;
+        throw new OneKeyInternalError(
+          `Unknown hardware vendor: ${String(_exhaustive)}`,
+        );
       }
-    } else {
-      checkKeyringClassExists(keyringMap.hw);
-      keyring = new keyringMap.hw(vault);
     }
   }
   if (walletId === WALLET_TYPE_WATCHING) {

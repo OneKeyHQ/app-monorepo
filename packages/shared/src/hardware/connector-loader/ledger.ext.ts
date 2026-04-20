@@ -1,3 +1,4 @@
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IConnector } from '@onekeyfe/hwk-adapter-core';
@@ -19,27 +20,27 @@ import type { IConnector } from '@onekeyfe/hwk-adapter-core';
  * offscreen bundle never pulls `swSideHardwareBridge`.
  */
 export const createLedgerConnector = async (): Promise<IConnector> => {
+  // Ledger on extension requires the offscreen document (MV3-only Chromium API).
+  // Firefox / MV2 would otherwise silently hang 60s waiting for a bridge that
+  // cannot exist.
+  if (!platformEnv.isManifestV3) {
+    throw new NotImplemented(
+      'Ledger is only supported on Chromium MV3 extensions',
+    );
+  }
   if (platformEnv.isExtensionOffscreen) {
     // Offscreen owns the real device handle.
-    const { createLedgerWebHidConnector } = await import(
-      '@onekeyfe/hwk-ledger-connector-webhid'
-    );
+    const { createLedgerWebHidConnector } =
+      await import('@onekeyfe/hwk-ledger-connector-webhid');
     return createLedgerWebHidConnector();
   }
 
   // Service Worker / any other ext context: use the bridge so all hardware
   // I/O lands in offscreen, where the connection survives SW termination.
-  const [
-    { createBridgedConnector },
-    { getOffscreenHardwareBridgeClient },
-  ] = await Promise.all([
-    import('@onekeyfe/hwk-adapter-core'),
-    import(
-      '@onekeyhq/kit-bg/src/services/ServiceHardware/adapters/offscreenHardwareBridgeClient'
-    ),
-  ]);
-  return createBridgedConnector(
-    'ledger',
-    getOffscreenHardwareBridgeClient(),
-  );
+  const [{ createBridgedConnector }, { getOffscreenHardwareBridgeClient }] =
+    await Promise.all([
+      import('@onekeyfe/hwk-adapter-core'),
+      import('@onekeyhq/kit-bg/src/services/ServiceHardware/adapters/offscreenHardwareBridgeClient'),
+    ]);
+  return createBridgedConnector('ledger', getOffscreenHardwareBridgeClient());
 };

@@ -1,9 +1,10 @@
-import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core';
+import { EConnectorInteraction, UI_REQUEST } from '@onekeyfe/hwk-adapter-core';
 
 import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { BaseAdapter } from './BaseAdapter';
@@ -31,30 +32,36 @@ export class LedgerAdapter
     this.hw = hw;
     this._connector = connector;
 
-    // Connector interaction events -> set atom for UI display
+    // Whitelist known ui-event types; unknown ones log-only.
     this._connector.on('ui-event', (event) => {
       switch (event.type) {
-        case 'confirm-open-app':
+        case EConnectorInteraction.ConfirmOpenApp:
           void thirdPartyHardwareUiStateAtom.set({
             action: EThirdPartyHardwareUiAction.openApp,
             vendor: EHardwareVendor.ledger,
           });
           break;
-        case 'unlock-device':
+        case EConnectorInteraction.UnlockDevice:
           void thirdPartyHardwareUiStateAtom.set({
             action: EThirdPartyHardwareUiAction.unlockDevice,
             vendor: EHardwareVendor.ledger,
           });
           break;
-        case 'interaction-complete':
-          void thirdPartyHardwareUiStateAtom.set(undefined);
-          break;
-        default:
-          // All other interactive events (sign, verify, etc.)
+        case EConnectorInteraction.ConfirmOnDevice:
           void thirdPartyHardwareUiStateAtom.set({
             action: EThirdPartyHardwareUiAction.confirmOnDevice,
             vendor: EHardwareVendor.ledger,
           });
+          break;
+        case EConnectorInteraction.InteractionComplete:
+          void thirdPartyHardwareUiStateAtom.set(undefined);
+          break;
+        default:
+          defaultLogger.hardware.sdkLog.log(
+            `[LedgerAdapter] Unhandled SDK ui-event type: ${String(
+              event.type,
+            )}`,
+          );
           break;
       }
     });

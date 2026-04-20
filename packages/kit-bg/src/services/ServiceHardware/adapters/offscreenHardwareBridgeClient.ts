@@ -6,6 +6,7 @@ import type {
   ConnectorEventType,
   ConnectorSession,
   IHardwareBridge,
+  UiResponseEvent,
   VendorType,
 } from '@onekeyfe/hwk-adapter-core';
 
@@ -61,10 +62,7 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
     return offscreenApiProxy.thirdPartyHardware.connect(params);
   }
 
-  disconnect(params: {
-    vendor: VendorType;
-    sessionId: string;
-  }): Promise<void> {
+  disconnect(params: { vendor: VendorType; sessionId: string }): Promise<void> {
     return offscreenApiProxy.thirdPartyHardware.disconnect(params);
   }
 
@@ -81,10 +79,7 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
     return offscreenApiProxy.thirdPartyHardware.cancel(params);
   }
 
-  uiResponse(params: {
-    vendor: VendorType;
-    response: { type: string; payload: unknown };
-  }): void {
+  uiResponse(params: { vendor: VendorType; response: UiResponseEvent }): void {
     // Fire-and-forget from caller's perspective. The proxy returns a Promise
     // we deliberately discard — `IHardwareBridge.uiResponse` is sync `void`.
     void offscreenApiProxy.thirdPartyHardware.uiResponse(params);

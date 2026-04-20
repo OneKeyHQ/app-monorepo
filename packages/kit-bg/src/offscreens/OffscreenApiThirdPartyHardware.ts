@@ -8,6 +8,7 @@ import type {
   ConnectorSession,
   IConnector,
   IHardwareBridge,
+  UiResponseEvent,
   VendorType,
 } from '@onekeyfe/hwk-adapter-core';
 
@@ -75,9 +76,8 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   private async createConnector(vendor: VendorType): Promise<IConnector> {
     switch (vendor) {
       case 'ledger': {
-        const { createLedgerWebHidConnector } = await import(
-          '@onekeyfe/hwk-ledger-connector-webhid'
-        );
+        const { createLedgerWebHidConnector } =
+          await import('@onekeyfe/hwk-ledger-connector-webhid');
         return createLedgerWebHidConnector();
       }
       default:
@@ -156,10 +156,7 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
     await connector.cancel(params.sessionId);
   }
 
-  uiResponse(params: {
-    vendor: VendorType;
-    response: { type: string; payload: unknown };
-  }): void {
+  uiResponse(params: { vendor: VendorType; response: UiResponseEvent }): void {
     // uiResponse is only meaningful if a connector already exists — a pending
     // UI request necessarily implies prior connector activity. If not, drop.
     const connector = this.getConnectorSync(params.vendor);
