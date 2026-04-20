@@ -15,7 +15,6 @@ import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notif
 import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { resolveAndroidChannel } from '@onekeyhq/shared/src/androidNativeEnv';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -494,32 +493,6 @@ export const useDownloadPackage = () => {
   const downloadPackage = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
     const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-
-    // Google Play builds must never enter the in-app APK download flow: the
-    // native layer rejects APK installs with a signature mismatch and the
-    // server may still return an APK downloadUrl when its gray-scale rule
-    // is mis-configured. If the server supplied a storeUrl we open it;
-    // otherwise bail out silently — deliberately avoiding a hardcoded Play
-    // Store URL so a client-side mis-detection cannot shove a user out of
-    // the app unexpectedly.
-    if (
-      platformEnv.isNativeAndroid &&
-      fileType === EUpdateFileType.appShell &&
-      (await resolveAndroidChannel()) === 'googlePlay'
-    ) {
-      if (params.storeUrl) {
-        openUrlExternal(params.storeUrl);
-        defaultLogger.app.appUpdate.log(
-          'downloadPackage redirected to storeUrl: resolved=googlePlay',
-        );
-      } else {
-        defaultLogger.app.appUpdate.log(
-          'downloadPackage aborted: resolved=googlePlay storeUrl=missing',
-        );
-      }
-      return;
-    }
-
     currentUpdateAttemptId = generateUUID();
     const softwareUpdateParams = buildSoftwareUpdateParams(
       fileType,
