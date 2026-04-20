@@ -43,6 +43,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
           size="$bodySm"
           color="$textDisabled"
           target="_blank"
+          showExternalIndicator={false}
         >
           {chunks}
         </Anchor>
@@ -66,8 +67,9 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
       size="$bodySm"
       color="$textDisabled"
       textAlign="center"
-      $md={{
-        maxWidth: '$80',
+      $gtMd={{
+        size: '$bodyMd',
+        alignSelf: 'flex-start',
       }}
       {...(props?.contentContainerProps as any)}
     >

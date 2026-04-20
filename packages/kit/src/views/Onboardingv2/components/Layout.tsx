@@ -33,7 +33,7 @@ export const LayoutHeader = memo(
   ({ children, style, ...rest }: IXStackProps) => {
     const { top } = useSafeAreaInsets();
     return (
-      <YStack pt={top || '$12'}>
+      <YStack pt={top || '$12'} style={DRAG_STYLE}>
         <XStack
           h={52}
           px="$5"
@@ -42,7 +42,7 @@ export const LayoutHeader = memo(
             px: '$12',
           }}
           {...rest}
-          style={[DRAG_STYLE, style]}
+          style={style}
         >
           {children}
         </XStack>

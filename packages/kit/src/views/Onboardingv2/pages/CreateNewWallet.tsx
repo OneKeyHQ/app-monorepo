@@ -3,7 +3,18 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, YStack } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Icon,
+  Page,
+  SizableText,
+  Spinner,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -14,7 +25,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   LayoutHeader,
@@ -25,6 +35,28 @@ import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvide
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
 
 import type { RouteProp } from '@react-navigation/core';
+
+const bullets: ReadonlyArray<{
+  icon: IKeyOfIcons;
+  titleId: ETranslations;
+  descriptionId: ETranslations;
+}> = [
+  {
+    icon: 'LightningOutline',
+    titleId: ETranslations.onboarding_benefit_setup_title,
+    descriptionId: ETranslations.onboarding_benefit_setup_description,
+  },
+  {
+    icon: 'CubeOutline',
+    titleId: ETranslations.onboarding_benefit_security_title,
+    descriptionId: ETranslations.onboarding_benefit_security_description,
+  },
+  {
+    icon: 'RenewOutline',
+    titleId: ETranslations.onboarding_benefit_recovery_title,
+    descriptionId: ETranslations.onboarding_benefit_recovery_description,
+  },
+];
 
 function CreateNewWallet() {
   const intl = useIntl();
@@ -76,45 +108,186 @@ function CreateNewWallet() {
     enableKeylessWalletLoading &&
     loadingProvider === EOAuthSocialLoginProvider.Apple;
 
+  const { md } = useMedia();
+
   return (
     <Page>
       <LayoutHeader>
         <LayoutHeaderBack />
         <LayoutHeaderLanguageSelector />
       </LayoutHeader>
-      <YStack px="$5" gap="$2">
-        <ListItem
-          icon="GoogleIllus"
-          title={intl.formatMessage(
-            { id: ETranslations.continue_with_social_platform },
-            { platform: 'Google' },
-          )}
-          drillIn
-          isLoading={isGoogleLoading}
-          disabled={enableKeylessWalletLoading}
-          onPress={handleGoogleLogin}
-        />
-        <ListItem
-          icon="AppleBrand"
-          title={intl.formatMessage(
-            { id: ETranslations.continue_with_social_platform },
-            { platform: 'Apple' },
-          )}
-          drillIn
-          isLoading={isAppleLoading}
-          disabled={enableKeylessWalletLoading}
-          onPress={handleAppleLogin}
-        />
-        {isWebKeylessSidePanelMode ? null : (
-          <ListItem
-            icon="SecretPhraseOutline"
-            title={intl.formatMessage({
-              id: ETranslations.create_seed_phrase_wallet,
+      <YStack
+        flex={1}
+        $gtMd={{
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        px="$5"
+      >
+        <YStack
+          w="100%"
+          maxWidth={800}
+          mx="auto"
+          $md={{
+            flex: 1,
+          }}
+          $gtMd={{
+            minHeight: 600,
+          }}
+        >
+          <SizableText size="$heading4xl">
+            {intl.formatMessage({
+              id: ETranslations.onboarding_create_new_wallet,
             })}
-            drillIn
-            onPress={handleCreateSeedPhraseWallet}
-          />
-        )}
+          </SizableText>
+          <YStack
+            $md={{
+              flex: 1,
+            }}
+            $gtMd={{
+              flexDirection: 'row-reverse',
+              mt: -40,
+            }}
+          >
+            <YStack
+              $md={{
+                pt: '$5',
+              }}
+              $gtMd={{
+                w: '$80',
+                ml: '$20',
+                pl: '$8',
+                borderLeftWidth: 2,
+                borderLeftColor: '$borderSubdued',
+              }}
+            >
+              {md ? null : (
+                <YStack
+                  bg="$brand10"
+                  p="$2"
+                  borderRadius="$full"
+                  alignSelf="flex-start"
+                  mb="$6"
+                >
+                  <Icon name="LightBulbOutline" color="$iconOnColor" />
+                </YStack>
+              )}
+              <YStack gap="$6">
+                <SizableText size="$headingMd">
+                  {intl.formatMessage({
+                    id: ETranslations.onboarding_keyless_tagline,
+                  })}
+                </SizableText>
+                {bullets.map((item) => (
+                  <XStack key={item.titleId} gap="$5" alignItems="flex-start">
+                    {md ? (
+                      <Icon
+                        name={item.icon}
+                        color="$iconSubdued"
+                        size="$6"
+                        flexShrink={0}
+                      />
+                    ) : null}
+                    <YStack flex={1} gap="$1">
+                      <SizableText size="$bodyLgMedium">
+                        {intl.formatMessage({ id: item.titleId })}
+                      </SizableText>
+                      <SizableText size="$bodyLg" color="$textSubdued">
+                        {intl.formatMessage({ id: item.descriptionId })}
+                      </SizableText>
+                    </YStack>
+                  </XStack>
+                ))}
+              </YStack>
+            </YStack>
+            <YStack
+              gap="$3"
+              $md={{
+                mt: 'auto',
+              }}
+              $gtMd={{
+                flex: 1,
+                pt: 88,
+                gap: '$5',
+              }}
+            >
+              <Button
+                variant="primary"
+                size="large"
+                alignSelf="stretch"
+                childrenAsText={false}
+                disabled={enableKeylessWalletLoading || isGoogleLoading}
+                onPress={handleGoogleLogin}
+              >
+                <YStack position="absolute" left="$5">
+                  {isGoogleLoading ? (
+                    <Spinner size="small" />
+                  ) : (
+                    <Icon name="GoogleIllus" size="$5" color="$iconInverse" />
+                  )}
+                </YStack>
+                <SizableText size="$bodyLgMedium" color="$textInverse">
+                  {intl.formatMessage(
+                    { id: ETranslations.continue_with_social_platform },
+                    { platform: 'Google' },
+                  )}
+                </SizableText>
+              </Button>
+              <Button
+                variant="primary"
+                size="large"
+                alignSelf="stretch"
+                childrenAsText={false}
+                disabled={enableKeylessWalletLoading || isAppleLoading}
+                onPress={handleAppleLogin}
+              >
+                <YStack position="absolute" left="$5">
+                  {isAppleLoading ? (
+                    <Spinner size="small" />
+                  ) : (
+                    <Icon name="AppleBrand" size="$5" color="$iconInverse" />
+                  )}
+                </YStack>
+                <SizableText size="$bodyLgMedium" color="$textInverse">
+                  {intl.formatMessage(
+                    { id: ETranslations.continue_with_social_platform },
+                    { platform: 'Apple' },
+                  )}
+                </SizableText>
+              </Button>
+              {isWebKeylessSidePanelMode ? null : (
+                <>
+                  <XStack gap="$4" alignItems="center" px="$5">
+                    <Divider borderColor="$neutral3" flex={1} />
+                    <SizableText color="$textDisabled" size="$bodyLg">
+                      {intl.formatMessage({ id: ETranslations.global_or })}
+                    </SizableText>
+                    <Divider borderColor="$neutral3" flex={1} />
+                  </XStack>
+                  <Button
+                    size="large"
+                    alignSelf="stretch"
+                    childrenAsText={false}
+                    onPress={handleCreateSeedPhraseWallet}
+                  >
+                    <Icon
+                      name="SecretPhraseOutline"
+                      position="absolute"
+                      left="$5"
+                      size="$5"
+                      color="$icon"
+                    />
+                    <SizableText size="$bodyLgMedium" color="$text">
+                      {intl.formatMessage({
+                        id: ETranslations.create_seed_phrase_wallet,
+                      })}
+                    </SizableText>
+                  </Button>
+                </>
+              )}
+            </YStack>
+          </YStack>
+        </YStack>
       </YStack>
     </Page>
   );
