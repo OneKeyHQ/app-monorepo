@@ -6486,6 +6486,25 @@ class ServiceAccount extends ServiceBase {
   }
 
   /**
+   * Check if the wallet belongs to a third-party hardware vendor (e.g. Ledger, Trezor)
+   */
+  @backgroundMethod()
+  async isThirdPartyHwByWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<boolean> {
+    if (!accountUtils.isHwWallet({ walletId })) {
+      return false;
+    }
+    const device = await this.getWalletDeviceSafe({ walletId });
+    if (!device?.vendor) {
+      return false;
+    }
+    return getVendorProfile(device.vendor).isThirdParty;
+  }
+
+  /**
    * Check if the account network is supported by the wallet
    *
    * @param accountId - Optional: account ID (either accountId or walletId must be provided)
