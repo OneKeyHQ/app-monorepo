@@ -234,13 +234,26 @@ export function usePromiseResult<T>(
             setLoadingTrue();
             nonceRef.current += 1;
             const requestNonce = nonceRef.current;
+            // Capture swrKey at dispatch time. If it changes mid-flight (e.g.
+            // user switches wallet/account), we must NOT write this result
+            // into the new scope's cache slot — that would cross-pollute
+            // cached balances between accounts.
+            const capturedSwrKey = swrKeyRef.current;
             const { r, nonce } = await methodWithNonce({
               nonce: requestNonce,
             });
             if (shouldSetState(config) && nonceRef.current === nonce) {
               setResult(r);
-              if (swrKeyRef.current) {
-                swrCacheUtils.set(swrKeyRef.current, r);
+              // Only persist if (1) swrKey is still the one we dispatched
+              // under, and (2) the result is defined — writing `undefined`
+              // would later override the caller's explicit initResult on
+              // next mount.
+              if (
+                capturedSwrKey &&
+                capturedSwrKey === swrKeyRef.current &&
+                r !== undefined
+              ) {
+                swrCacheUtils.set(capturedSwrKey, r);
               }
             }
           }
