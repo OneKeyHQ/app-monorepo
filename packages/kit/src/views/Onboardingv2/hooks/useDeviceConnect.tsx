@@ -35,6 +35,7 @@ import type {
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
+  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 
@@ -346,6 +347,29 @@ export function useDeviceConnect({
     async (device: SearchDevice, tabValue: EConnectDeviceChannel) => {
       // Ensure all scanning and polling activities are stopped before connecting
       console.log('handleDeviceConnect: Starting device connection process');
+      // Check if this is a third-party vendor device (Ledger)
+      const deviceVendor = (device as SearchDevice & { vendor?: string })
+        ?.vendor;
+      if (
+        deviceVendor === EHardwareVendor.ledger ||
+        deviceVendor === 'ledger'
+      ) {
+        // Skip firmware verify, bootloader check, etc. for third-party vendors
+        // Return a simple verified result
+        return {
+          verified: true,
+          device,
+          payload: {
+            deviceType: device.deviceType,
+            data: '',
+            cert: '',
+            signature: '',
+          },
+          result: {
+            message: '',
+          },
+        } as IFirmwareVerifyResult;
+      }
 
       defaultLogger.account.wallet.addWalletStarted({
         addMethod: 'ConnectHWWallet',
@@ -766,10 +790,48 @@ export function useDeviceConnect({
     async ({
       device,
       isFirmwareVerified,
+      vendor,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
+      vendor?: EHardwareVendor;
     }) => {
+      // For third-party vendor devices (Ledger), skip OneKey SDK
+      // connection/features flow and create wallet directly
+      if (vendor === EHardwareVendor.ledger) {
+        try {
+          navigation.push(EOnboardingPages.FinalizeWalletSetup);
+
+          const params: IDBCreateHwWalletParamsBase & {
+            vendor?: EHardwareVendor;
+          } = {
+            device,
+            hideCheckingDeviceLoading: true,
+            features: {
+              device_id: device.deviceId || '',
+              vendor,
+            } as IOneKeyDeviceFeatures,
+            isFirmwareVerified: true,
+            defaultIsTemp: true,
+            vendor,
+          };
+          await actions.current.createHWWalletWithoutHidden(params);
+
+          await trackHardwareWalletConnection({
+            status: 'success',
+            deviceType: device.deviceType,
+            features: params.features,
+            hardwareTransportType,
+            isSoftwareWalletOnlyUser,
+          });
+        } catch (error) {
+          errorToastUtils.toastIfError(error);
+          navigation.pop();
+          throw error;
+        }
+        return;
+      }
+
       await ensureActiveConnection(device);
       const currentDevice = getActiveDevice() ?? device;
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
@@ -820,6 +882,10 @@ export function useDeviceConnect({
       createHwWallet,
       closeDialogAndReturn,
       intl,
+      navigation,
+      actions,
+      hardwareTransportType,
+      isSoftwareWalletOnlyUser,
     ],
   );
   return useMemo(

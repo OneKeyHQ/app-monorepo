@@ -42,10 +42,12 @@ import {
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  NotImplemented,
   OneKeyInternalError,
   OneKeyLocalError,
   VaultKeyringNotDefinedError,
 } from '@onekeyhq/shared/src/errors';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -60,7 +62,10 @@ export async function createKeyringInstance(vault: VaultBase) {
   const { walletId } = vault;
 
   let keyring: KeyringBase | null = null;
-  const keyringMap = vault.keyringMap as Record<string, typeof KeyringBaseMock>;
+  const keyringMap = vault.keyringMap as unknown as Record<
+    string,
+    typeof KeyringBaseMock
+  >;
 
   const checkKeyringClassExists = (
     keyringClass: typeof KeyringBaseMock,
@@ -85,8 +90,17 @@ export async function createKeyringInstance(vault: VaultBase) {
     keyring = new keyringMap.qr(vault);
   }
   if (walletId.startsWith('hw-')) {
-    checkKeyringClassExists(keyringMap.hw);
-    keyring = new keyringMap.hw(vault);
+    const vendor = vault.options.hardwareVendor;
+    if (vendor === EHardwareVendor.ledger) {
+      if (keyringMap.hwLedger) {
+        keyring = new keyringMap.hwLedger(vault);
+      } else {
+        throw new NotImplemented(`Ledger does not support this chain yet`);
+      }
+    } else {
+      checkKeyringClassExists(keyringMap.hw);
+      keyring = new keyringMap.hw(vault);
+    }
   }
   if (walletId === WALLET_TYPE_WATCHING) {
     checkKeyringClassExists(keyringMap.watching);

@@ -9,6 +9,7 @@ import {
   WALLET_TYPE_HW,
   WALLET_TYPE_QR,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   IncorrectMasterPassword,
@@ -109,6 +110,11 @@ class CloudSyncItemBuilder {
     let keyHash = hdWalletHash;
     let deviceType = '';
     if (walletType === WALLET_TYPE_HW) {
+      const deviceVendor = dbDevice?.vendor;
+      const hwProfile = deviceVendor ? getVendorProfile(deviceVendor) : null;
+      if (hwProfile && !hwProfile.supportsCloudSync) {
+        return null;
+      }
       keyHash = dbDevice?.deviceId;
       deviceType = dbDevice?.deviceType || '';
     }

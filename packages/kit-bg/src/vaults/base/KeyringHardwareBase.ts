@@ -41,6 +41,15 @@ export abstract class KeyringHardwareBase extends KeyringBase {
   hwSdkNetwork: IHwSdkNetwork | undefined;
 
   async getHardwareSDKInstance({ connectId }: { connectId: string }) {
+    // Guard: third-party vendors (Ledger) must not use the OneKey SDK.
+    const vendor = this.vault?.options?.hardwareVendor;
+    if (vendor && vendor !== 'onekey') {
+      throw new OneKeyInternalError(
+        `[${vendor}] This operation is not supported yet. ` +
+          `(KeyringHardwareBase.getHardwareSDKInstance called for third-party device)`,
+      );
+    }
+
     defaultLogger.account.accountCreatePerf.getHardwareSDKInstance();
 
     // Since the sdk instance can not pass the serializable testing in backgroundApiProxy

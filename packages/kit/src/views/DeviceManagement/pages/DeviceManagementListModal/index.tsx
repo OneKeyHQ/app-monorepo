@@ -36,7 +36,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
@@ -291,7 +293,10 @@ function DeviceManagementV2ListWeb() {
       const devices: Array<IDeviceManagementListItem> = Object.values(r)
         .filter(
           (item): item is IHwQrWalletWithDevice =>
-            Boolean(item.device) && !item.wallet.deprecated,
+            Boolean(item.device) &&
+            !item.wallet.deprecated &&
+            !getVendorProfile(item.device?.vendor ?? EHardwareVendor.onekey)
+              .isThirdParty,
         )
         .toSorted((a, b) => {
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;

@@ -1020,11 +1020,22 @@ async function createMainWindow() {
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
 
   browserWindow.webContents.session.setDevicePermissionHandler((details) => {
-    if (details.deviceType === 'usb') {
+    if (details.deviceType === 'usb' || details.deviceType === 'hid') {
       return true;
     }
     return false;
   });
+
+  browserWindow.webContents.session.on(
+    'select-hid-device',
+    (event, details, callback) => {
+      // Only auto-select Ledger devices (vendorId 0x2c97)
+      const ledgerDevice = details.deviceList.find(
+        (d) => d.vendorId === 0x2c_97,
+      );
+      callback(ledgerDevice ? ledgerDevice.deviceId : '');
+    },
+  );
 
   // Permission handler for webview (partition: persist:onekey)
   //

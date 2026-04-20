@@ -24,6 +24,7 @@ import type {
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
 import type {
+  EHardwareVendor,
   IDeviceHomeScreen,
   IHardwareGetPubOrAddressExtraInfo,
   IOneKeyDeviceFeatures,
@@ -209,6 +210,7 @@ export type IDBCreateHwWalletParamsBase = {
   defaultIsTemp?: boolean;
   isMockedStandardHwWallet?: boolean;
   isAttachPinMode?: boolean;
+  vendor?: EHardwareVendor;
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
@@ -374,6 +376,8 @@ export type IDBAddAccountDerivationParams = {
 export type IDBDeviceSettings = {
   inputPinOnSoftware?: boolean;
   inputPinOnSoftwareSupport?: boolean;
+  chainFingerprints?: Record<string, string>;
+  vendor?: EHardwareVendor;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string; // TODO rename to featuresRaw
@@ -397,6 +401,9 @@ export type IDBDevice = IDBBaseObjectWithName & {
   // New fields for USB/BLE connection support
   usbConnectId?: string; // USB connection ID (serial number)
   bleConnectId?: string; // BLE connection ID (MAC address)
+
+  // Runtime field — populated by refillDeviceInfo() from settings.vendor, not a DB column
+  vendor?: EHardwareVendor;
 };
 export type IDBUpdateDeviceSettingsParams = {
   dbDeviceId: string;

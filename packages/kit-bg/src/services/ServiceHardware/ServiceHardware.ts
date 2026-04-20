@@ -24,6 +24,7 @@ import {
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -39,6 +40,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
+  EHardwareVendor,
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
   IDeviceVerifyVersionCompareResult,
@@ -69,6 +71,11 @@ import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
+
+import type {
+  DeviceInfo,
+  IThirdPartyHardwareAdapter,
+} from './adapters/types';
 
 import type {
   IBaseDeviceProcessingParams,
@@ -116,6 +123,7 @@ import type {
 
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
+  vendor?: EHardwareVendor;
   withHardwareProcessing?: boolean;
   silentMode?: boolean;
   params?: CommonParams & {
@@ -142,6 +150,74 @@ const NEW_DIALOG_EVENTS = new Set([
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
   private bridgeAvailabilityChecked = false;
+
+  // Third-party hardware adapter registry
+  private thirdPartyAdapters = new Map<string, IThirdPartyHardwareAdapter>();
+
+  // Per-vendor init promises so callers can await only the vendor they need.
+  private adapterInitPromises = new Map<string, Promise<void>>();
+
+  private adapterInitStarted = false;
+
+  registerThirdPartyAdapter(
+    vendor: string,
+    adapter: IThirdPartyHardwareAdapter,
+  ) {
+    this.thirdPartyAdapters.set(vendor, adapter);
+  }
+
+  getThirdPartyAdapter(vendor: string): IThirdPartyHardwareAdapter | undefined {
+    return this.thirdPartyAdapters.get(vendor);
+  }
+
+  private async ensureAdaptersInitialized(vendor?: string) {
+    // Fast path: the requested vendor (or any vendor) is already registered.
+    if (vendor && this.thirdPartyAdapters.has(vendor)) return;
+    if (!vendor && this.thirdPartyAdapters.size > 0) return;
+
+    // Kick off initialization once.
+    if (!this.adapterInitStarted) {
+      this.adapterInitStarted = true;
+      this.startThirdPartyAdapterInit();
+    }
+
+    // If a specific vendor was requested, only wait for that vendor's promise.
+    if (vendor) {
+      const vendorPromise = this.adapterInitPromises.get(vendor);
+      if (vendorPromise) {
+        await vendorPromise;
+        return;
+      }
+    }
+
+    // Otherwise wait for all vendors to finish.
+    await Promise.allSettled(Array.from(this.adapterInitPromises.values()));
+  }
+
+  private startThirdPartyAdapterInit() {
+    const ledgerPromise = this.initSingleAdapter('ledger').catch((error) => {
+      console.error('[ServiceHardware] Failed to init ledger adapter:', error);
+    });
+    this.adapterInitPromises.set('ledger', ledgerPromise);
+  }
+
+  private async initSingleAdapter(_vendor: 'ledger') {
+    const { LedgerAdapter } = await import('./adapters');
+
+    const { createLedgerConnector } =
+      await import('@onekeyhq/shared/src/hardware/connector-loader/ledger');
+    const ledgerConnector = await createLedgerConnector();
+
+    // Create the @bytezhang LedgerAdapter (IHardwareWallet)
+    const { LedgerAdapter: BytezhangLedgerAdapter } =
+      await import('@bytezhang/ledger-adapter');
+    const hwLedger = new BytezhangLedgerAdapter(ledgerConnector);
+
+    this.registerThirdPartyAdapter(
+      'ledger',
+      new LedgerAdapter(hwLedger, ledgerConnector),
+    );
+  }
 
   constructor(props: IServiceBaseProps) {
     super(props);
@@ -663,22 +739,106 @@ class ServiceHardware extends ServiceBase {
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()
-  async searchDevices() {
+  async searchDevices(params?: { vendor?: EHardwareVendor }) {
+    const vendorProfile = params?.vendor
+      ? getVendorProfile(params.vendor)
+      : undefined;
+    if (params?.vendor && vendorProfile?.isThirdParty) {
+      await this.ensureAdaptersInitialized(params.vendor);
+      const adapter = this.getThirdPartyAdapter(params.vendor);
+      if (!adapter) {
+        console.error(
+          `[ServiceHardware] No adapter registered for vendor "${params.vendor}". NOT falling through to OneKey SDK.`,
+        );
+        return {
+          success: false as const,
+          payload: { code: -1, error: `No adapter for ${params.vendor}` },
+        };
+      }
+      try {
+        const devices = await adapter.searchDevices();
+
+        const isUuidLike = (s?: string) =>
+          s ? /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(s) : false;
+
+        return {
+          success: true as const,
+          payload: devices.map((d) => {
+            const isBle = d.connectionType === 'ble';
+
+            // BLE: connectId is the stable 4-digit HEX (e.g. "A58F"), name is "Ledger"
+            // USB: connectId is null (ephemeral), name from label or default
+            let name: string;
+            let connectId: string | null = null;
+
+            if (isBle) {
+              connectId = d.connectId || null;
+              name = vendorProfile.defaultDeviceName || 'Ledger';
+            } else {
+              const rawName =
+                d.label ||
+                (d as DeviceInfo & { name?: string }).name ||
+                '';
+              name = isUuidLike(rawName)
+                ? vendorProfile.defaultDeviceName
+                : rawName || vendorProfile.defaultDeviceName;
+            }
+
+            return {
+              connectId,
+              deviceId: null,
+              name,
+              deviceType: params.vendor || 'unknown',
+              uuid: '',
+              commType: 'bridge',
+            } as SearchDevice;
+          }),
+        };
+      } catch (error) {
+        return {
+          success: false as const,
+          payload: { code: -1, error: String(error) },
+        };
+      }
+    }
+
+    // Original OneKey SDK path
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
     const response = await hardwareSDK?.searchDevices();
     console.log('searchDevices response: ', response);
     return response;
-    // if (response.success) {
-    //   return response.payload;
-    // }
-    // const deviceError = convertDeviceError(response.payload);
-    // return Promise.reject(deviceError);
   }
 
   @backgroundMethod()
   async connectDevice(params: IDeviceGetFeaturesOptions) {
+    const connectProfile = params.vendor
+      ? getVendorProfile(params.vendor)
+      : undefined;
+    if (params.vendor && connectProfile?.isThirdParty && params.connectId) {
+      await this.ensureAdaptersInitialized(params.vendor);
+      const adapter = this.getThirdPartyAdapter(params.vendor);
+      if (!adapter) {
+        throw new OneKeyLocalError(
+          `No adapter registered for vendor "${params.vendor}"`,
+        );
+      }
+      const result = await adapter.connectDevice(params.connectId);
+      if (!result.success) {
+        throw new OneKeyLocalError(
+          `${params.vendor} connect failed: ${result.payload.error}`,
+        );
+      }
+      return {
+        device_id: result.payload.deviceId,
+        initialized: true,
+        unlocked: true,
+        label: params.vendor,
+        bootloader_mode: false,
+        firmware_present: true,
+      } as Features;
+    }
     return this.getFeaturesWithoutCache(params);
   }
 
@@ -703,6 +863,19 @@ class ServiceHardware extends ServiceBase {
     device: SearchDevice;
     hardwareCallContext?: EHardwareCallContext;
   }): Promise<Features | undefined> {
+    // Check for third-party vendor (Ledger)
+    const vendor = (device as SearchDevice & { vendor?: string }).vendor;
+    const connectVendorProfile = vendor
+      ? getVendorProfile(vendor as EHardwareVendor)
+      : undefined;
+    if (connectVendorProfile?.isThirdParty) {
+      return this.connectDevice({
+        connectId: device.connectId ?? undefined,
+        vendor: vendor as EHardwareVendor,
+      });
+    }
+
+    // Original OneKey flow
     const { connectId } = device;
     if (
       !connectId &&
@@ -1483,12 +1656,62 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
+  /**
+   * Get the adapter for a specific vendor.
+   * NOTE: Not decorated with @backgroundMethod because the returned adapter
+   * is a non-serializable object. Only call from in-process code (keyrings).
+   */
+  async getAdapterForVendor(
+    vendor: EHardwareVendor,
+  ): Promise<IThirdPartyHardwareAdapter | undefined> {
+    await this.ensureAdaptersInitialized(vendor);
+    return this.getThirdPartyAdapter(vendor);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareUiResponse(params: {
+    vendor: string;
+    type: 'confirm' | 'cancel';
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (adapter) {
+      adapter.uiResponse({ type: params.type });
+    }
+  }
+
   @backgroundMethod()
   async getEvmAddressByStandardWallet(params: {
     connectId: string;
     deviceId: string;
     path: string;
+    vendor?: EHardwareVendor;
   }): Promise<string | null> {
+    const evmProfile = params.vendor
+      ? getVendorProfile(params.vendor)
+      : undefined;
+    if (params.vendor && evmProfile?.isThirdParty) {
+      await this.ensureAdaptersInitialized(params.vendor);
+      const adapter = this.getThirdPartyAdapter(params.vendor);
+      if (adapter) {
+        try {
+          const result = await adapter.hw.evmGetAddress(
+            params.connectId,
+            params.deviceId,
+            {
+              path: params.path,
+              showOnDevice: false,
+            },
+          );
+          if (result.success) {
+            return result.payload.address || null;
+          }
+          return null;
+        } catch (error) {
+          return null;
+        }
+      }
+    }
     try {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId: params.connectId,
@@ -1525,15 +1748,22 @@ class ServiceHardware extends ServiceBase {
     passphraseState,
     throwError,
     withUserInteraction,
+    vendor,
   }: {
     connectId: string | undefined | null;
     deviceId: string | undefined | null;
     passphraseState: string | undefined;
     throwError: boolean;
     withUserInteraction: boolean;
+    vendor?: EHardwareVendor;
   }): Promise<string | undefined> {
     if (!connectId) {
       return;
+    }
+    const xfpProfile = vendor ? getVendorProfile(vendor) : undefined;
+    if (xfpProfile?.isThirdParty) {
+      // Third-party XFP not needed initially — can be added later
+      return undefined;
     }
     try {
       const compatibleConnectId = await this.getCompatibleConnectId({
@@ -1874,6 +2104,17 @@ class ServiceHardware extends ServiceBase {
       featuresDeviceId: featuresDeviceId || undefined,
       features,
     });
+
+    // Third-party devices (Ledger) manage their own transport.
+    // Their connectId is already the correct identifier for the current
+    // connection type (e.g. BLE 4-digit HEX), so skip the OneKey
+    // USB↔BLE compatibility layer entirely.
+    if (device?.vendor) {
+      const vp = getVendorProfile(device.vendor);
+      if (vp.isThirdParty) {
+        return device.connectId || connectId;
+      }
+    }
 
     if (!platformEnv.isSupportDesktopBle) {
       return device?.connectId || connectId;

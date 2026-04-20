@@ -7,8 +7,11 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
   ProviderJotaiContextDeviceDetails,
+  useDeviceAtom,
   useDeviceDetailsActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import {
   EAppEventBusNames,
@@ -63,6 +66,10 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
   const { handleBackPress } = useDeviceBackNavigation();
 
   const isQrWallet = accountUtils.isQrWallet({ walletId });
+  const [device] = useDeviceAtom();
+  const isOnekeyDevice =
+    !isQrWallet &&
+    !getVendorProfile(device?.vendor ?? EHardwareVendor.onekey).isThirdParty;
 
   useEffect(() => {
     if (!walletId) return;
@@ -119,9 +126,8 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
           <XStack bg="$bgApp" gap="$8" alignItems="flex-start">
             <YStack gap="$8" flex={1}>
               <DeviceBasicInfo />
-              {isQrWallet ? (
-                <DeviceSectionQrInfo />
-              ) : (
+              {isQrWallet ? <DeviceSectionQrInfo /> : null}
+              {isOnekeyDevice ? (
                 <>
                   <DeviceUpdateAlert type="bottom" />
                   <DeviceSectionSupport
@@ -135,7 +141,7 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
                     onPressCheckForUpdates={onPressCheckForUpdates}
                   />
                 </>
-              )}
+              ) : null}
             </YStack>
             <DeviceGetStartedLayout />
           </XStack>

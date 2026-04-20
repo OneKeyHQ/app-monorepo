@@ -97,6 +97,7 @@ import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
@@ -146,10 +147,13 @@ import type { FailedAttemptError } from 'p-retry';
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> & {
+    hwLedger?: typeof KeyringBase | undefined;
+  } = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,
+    hwLedger: KeyringHardwareLedger,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,

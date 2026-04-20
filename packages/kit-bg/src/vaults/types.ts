@@ -21,7 +21,10 @@ import type {
 } from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type {
+  EHardwareVendor,
+  IDeviceSharedCallParams,
+} from '@onekeyhq/shared/types/device';
 import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import type {
   IFeeInfoUnit,
@@ -305,6 +308,7 @@ export type IVaultFactoryOptions = {
   walletId?: IDBWalletId;
   isChainOnly?: boolean;
   isWalletOnly?: boolean;
+  hardwareVendor?: EHardwareVendor;
 };
 export type IVaultOptions = IVaultFactoryOptions & {
   backgroundApi: IBackgroundApi;

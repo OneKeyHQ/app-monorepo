@@ -30,7 +30,12 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
-import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EHardwareVendor,
+} from '@onekeyhq/shared/types/device';
+
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 
 import localDb from '../../dbs/local/localDb';
 import { primeTransferAtom } from '../../states/jotai/atoms/prime';
@@ -660,6 +665,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
           walletId: params.walletId,
           hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         });
+
+      // Ledger doesn't support OneKey SDK's allNetworkGetAddress batch API.
+      // Skip the batch call — individual keyring.prepareAccounts() will handle it.
+      if (
+        deviceParams?.dbDevice?.vendor &&
+        getVendorProfile(deviceParams.dbDevice.vendor).isThirdParty
+      ) {
+        return hwAllNetworkPrepareAccountsResponse;
+      }
+
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
           const bundleParams: AllNetworkAddressParams[] = [];
@@ -960,6 +975,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             this.checkIfCancelled({
               saveToDb,
             });
+
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { accountsForCreate } = await this.batchBuildAccounts({
               ...params,

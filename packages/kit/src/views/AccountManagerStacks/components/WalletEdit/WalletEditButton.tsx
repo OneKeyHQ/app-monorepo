@@ -34,6 +34,7 @@ import {
   EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -76,6 +77,12 @@ function WalletEditButtonView({
 
   const showDeviceManagementButton = useMemo(() => {
     if (isKeyless) return false;
+    if (
+      wallet?.associatedDeviceInfo?.vendor &&
+      getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty
+    ) {
+      return false;
+    }
     return (
       !accountUtils.isHwHiddenWallet({ wallet }) &&
       accountUtils.isHwOrQrWallet({ walletId: wallet?.id })

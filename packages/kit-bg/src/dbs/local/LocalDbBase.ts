@@ -76,6 +76,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -98,6 +99,7 @@ import type {
   INetworkAccount,
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceHomeScreen,
   IDeviceVersionCacheInfo,
@@ -1234,43 +1236,68 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (wallet.associatedDevice) {
         const device = associatedDeviceInfo;
 
+        const deviceVendor = device?.vendor ?? EHardwareVendor.onekey;
+        const profile = getVendorProfile(deviceVendor);
+
         if (shouldFixAvatar) {
-          const deviceType = device?.deviceType;
-          const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
-            device?.featuresInfo,
-          );
-          if (device && deviceType === EDeviceType.Pro && serialNo) {
-            const imgFromSerialNo = getDeviceAvatarImage(deviceType, serialNo);
-            if (imgFromSerialNo !== avatarInfo?.img) {
-              appEventBus.emit(
-                EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
-                {
-                  walletId: wallet.id,
-                  dbDeviceId: device.id,
-                  avatarInfo: {
-                    ...avatarInfo,
-                    img: imgFromSerialNo,
-                  },
-                },
+          if (profile.isThirdParty) {
+            // Third-party vendor: fix avatar to match vendor key
+            const expectedImg = profile.avatarKey;
+            if (avatarInfo?.img && avatarInfo.img !== expectedImg) {
+              wallet.avatarInfo = { ...avatarInfo, img: expectedImg };
+              wallet.avatar = JSON.stringify(wallet.avatarInfo);
+            }
+          } else {
+            // OneKey devices: sync avatar from deviceType/serialNo
+            const deviceType = device?.deviceType;
+            const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
+              device?.featuresInfo,
+            );
+            if (device && deviceType === EDeviceType.Pro && serialNo) {
+              const imgFromSerialNo = getDeviceAvatarImage(
+                deviceType,
+                serialNo,
               );
-              wallet.avatarInfo = {
-                ...avatarInfo,
-                img: imgFromSerialNo,
-              };
+              if (imgFromSerialNo !== avatarInfo?.img) {
+                appEventBus.emit(
+                  EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
+                  {
+                    walletId: wallet.id,
+                    dbDeviceId: device.id,
+                    avatarInfo: {
+                      ...avatarInfo,
+                      img: imgFromSerialNo,
+                    },
+                  },
+                );
+                wallet.avatarInfo = {
+                  ...avatarInfo,
+                  img: imgFromSerialNo,
+                };
+              }
             }
           }
         }
 
         if (shouldFixName) {
-          const label = device?.featuresInfo?.label;
-          if (device && label && label !== wallet.name) {
-            appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
-              walletId: wallet.id,
-              dbDeviceId: device.id,
-              label,
-              walletName: wallet.name,
-            });
-            wallet.name = label;
+          if (profile.isThirdParty) {
+            // Third-party vendor: fix name if it contains OneKey device names
+            const vendorLabel = profile.defaultDeviceName || deviceVendor;
+            if (wallet.name && wallet.name.startsWith('OneKey')) {
+              wallet.name = vendorLabel;
+            }
+          } else {
+            // OneKey devices: sync name from features.label
+            const label = device?.featuresInfo?.label;
+            if (device && label && label !== wallet.name) {
+              appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+                walletId: wallet.id,
+                dbDeviceId: device.id,
+                label,
+                walletName: wallet.name,
+              });
+              wallet.name = label;
+            }
           }
         }
       }
@@ -2675,6 +2702,40 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async updateDeviceChainFingerprint({
+    dbDeviceId,
+    chain,
+    fingerprint,
+  }: {
+    dbDeviceId: string;
+    chain: string;
+    fingerprint: string;
+  }) {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          // Store chainFingerprints inside settingsRaw JSON
+          let settings: Record<string, unknown> = {};
+          try {
+            settings = JSON.parse(item.settingsRaw || '{}');
+          } catch {
+            // ignore
+          }
+          const existing =
+            (settings.chainFingerprints as Record<string, string>) ?? {};
+          existing[chain] = fingerprint;
+          settings.chainFingerprints = existing;
+          item.settingsRaw = JSON.stringify(settings);
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+  }
+
   async fixHiddenWalletName({
     dbDeviceId,
     dbWalletId,
@@ -3134,8 +3195,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async buildHwWalletId(params: IDBCreateHwWalletParams) {
     const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
 
-    const { name, device, features, passphraseState, isFirmwareVerified } =
-      params;
+    const {
+      name,
+      device,
+      features,
+      passphraseState,
+      isFirmwareVerified,
+      vendor,
+    } = params;
     const deviceUUID = device.uuid || getDeviceUUID(features);
     const rawDeviceId = deviceUtils.getRawDeviceId({
       device,
@@ -3144,7 +3211,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,
       uuid: deviceUUID,
+      connectId: device.connectId,
       getFirstEvmAddressFn: params.getFirstEvmAddressFn,
+      vendor,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
     const dbWalletId = accountUtils.buildHwWalletId({
@@ -3185,29 +3254,55 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       defaultIsTemp,
       isMockedStandardHwWallet,
       transportType,
+      vendor,
     } = params;
     console.log('createHwWallet', features);
     const { connectId } = device;
-    if (!connectId) {
+    const resolvedVendor = vendor ?? EHardwareVendor.onekey;
+    const profile = getVendorProfile(resolvedVendor);
+
+    // Allow empty connectId only for vendors without persistent USB connectId
+    // (e.g. Ledger DMK generates temporary UUIDs that change every session).
+    if (!connectId && profile.hasPersistentConnectId('usb')) {
       throw new OneKeyLocalError('createHwWallet ERROR: connectId is required');
     }
     const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
 
-    // ble connected device type is inaccuracy
-    const deviceTypeFromFeatures = await deviceUtils.getDeviceTypeFromFeatures({
-      features,
-    });
-    const deviceType = deviceTypeFromFeatures || device.deviceType;
-    const firmwareType = await deviceUtils.getFirmwareType({
-      features,
-    });
-    const avatar: IAvatarInfo = {
-      img: getDeviceAvatarImage(
-        deviceType,
-        deviceUtils.getDeviceSerialNoFromFeatures(features),
-      ),
-    };
+    let deviceType: IDeviceType;
+    let firmwareType: EFirmwareType | undefined;
+
+    if (!profile.isThirdParty) {
+      // ble connected device type is inaccuracy
+      const deviceTypeFromFeatures =
+        await deviceUtils.getDeviceTypeFromFeatures({
+          features,
+        });
+      deviceType = deviceTypeFromFeatures || device.deviceType;
+      firmwareType = await deviceUtils.getFirmwareType({
+        features,
+      });
+    } else {
+      // Third-party vendors: store 'unknown' as deviceType
+      // since their device types are not in EDeviceType enum.
+      // Use vendor field for identity instead.
+      deviceType = EDeviceType.Unknown;
+      firmwareType = undefined;
+    }
+
+    // For third-party vendors, use vendor as avatar key (e.g. 'ledger', 'trezor')
+    // For OneKey devices, derive avatar from deviceType + serialNo
+    let avatar: IAvatarInfo;
+    if (profile.isThirdParty) {
+      avatar = { img: profile.avatarKey };
+    } else {
+      avatar = {
+        img: getDeviceAvatarImage(
+          deviceType,
+          deviceUtils.getDeviceSerialNoFromFeatures(features),
+        ),
+      };
+    }
 
     const { dbDeviceId, dbWalletId, deviceUUID, rawDeviceId } =
       await this.buildHwWalletId(params);
@@ -3221,7 +3316,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
 
     let parentWalletId: string | undefined;
-    const deviceName = await deviceUtils.buildDeviceName({ device, features });
+    let deviceName: string;
+    if (!profile.isThirdParty) {
+      deviceName = await deviceUtils.buildDeviceName({ device, features });
+    } else {
+      deviceName = device.name || `${profile.defaultDeviceName} Device`;
+    }
     let walletName = name || deviceName;
     let hiddenDefaultWalletName: string | undefined;
     if (passphraseState) {
@@ -3234,9 +3334,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       hiddenDefaultWalletName = hiddenWalletNameInfo.hiddenWalletName;
     }
 
-    const featuresInfo = await deviceUtils.attachAppParamsToFeatures({
-      features,
-    });
+    let featuresInfo: IOneKeyDeviceFeatures;
+    if (!profile.isThirdParty) {
+      featuresInfo = await deviceUtils.attachAppParamsToFeatures({
+        features,
+      });
+    } else {
+      featuresInfo = features;
+    }
     const featuresStr = JSON.stringify(featuresInfo);
 
     const firstAccountIndex = 0;
@@ -3287,7 +3392,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       deviceType,
       features: featuresStr,
       settingsRaw: JSON.stringify({
-        inputPinOnSoftware: true,
+        inputPinOnSoftware: profile.supportsSoftwarePin,
+        vendor: resolvedVendor,
       } as IDBDeviceSettings),
       createdAt: now,
       updatedAt: now,
@@ -3314,7 +3420,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       xfp,
       firmwareTypeAtCreated: firmwareType,
     };
-
     const isUsingDefaultName = () =>
       Boolean(
         walletToAdd.passphraseState &&
@@ -3397,11 +3502,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 item.bleConnectId = bleConnectId;
               }
 
-              item.settingsRaw =
-                item.settingsRaw ||
-                JSON.stringify({
-                  inputPinOnSoftware: true,
-                } as IDBDeviceSettings);
+              // Ensure settingsRaw exists, then merge vendor into it
+              let existingSettings: IDBDeviceSettings = {};
+              try {
+                existingSettings = JSON.parse(item.settingsRaw || '{}');
+              } catch {
+                // ignore
+              }
+              existingSettings.inputPinOnSoftware =
+                existingSettings.inputPinOnSoftware ??
+                profile.supportsSoftwarePin;
+              existingSettings.vendor = resolvedVendor;
+              item.settingsRaw = JSON.stringify(existingSettings);
 
               if (isFirmwareVerified) {
                 const versionText = await deviceUtils.getDeviceVersionStr({
@@ -5254,17 +5366,50 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     //      use the getSameDeviceByUUIDEvenIfReset() method if you want to find the same device even if it is reset.
     rawDeviceId,
     uuid,
+    connectId,
     getFirstEvmAddressFn,
+    vendor,
   }: {
     rawDeviceId: string;
     uuid: string;
+    connectId?: string;
     getFirstEvmAddressFn?: () => Promise<string | null>;
+    vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
+    // Third-party devices may not have rawDeviceId (features.device_id).
+    // Use vendorProfile.canMatchDeviceByConnectId to determine if connectId
+    // is reliable enough to identify an existing device.
     if (!rawDeviceId) {
+      const profile = getVendorProfile(vendor ?? EHardwareVendor.onekey);
+
+      if (connectId && profile.canMatchDeviceByConnectId(connectId)) {
+        const normalizedVendor = vendor ?? EHardwareVendor.onekey;
+        const { devices } = await this.getAllDevices();
+        const connId = connectId.toLowerCase();
+        const matched = devices.find((item) => {
+          if ((item.vendor ?? EHardwareVendor.onekey) !== normalizedVendor) {
+            return false;
+          }
+          return (
+            item.connectId?.toLowerCase() === connId ||
+            item.bleConnectId?.toLowerCase() === connId ||
+            item.usbConnectId?.toLowerCase() === connId
+          );
+        });
+        if (matched) {
+          return this.refillDeviceInfo({ device: matched });
+        }
+      }
+
       return undefined;
     }
+    const normalizedVendor = vendor ?? EHardwareVendor.onekey;
     const { devices } = await this.getAllDevices();
     const sameDeviceIdAndUuidDevice = devices.find((item) => {
+      const deviceVendor = item.vendor ?? EHardwareVendor.onekey;
+      if (deviceVendor !== normalizedVendor) {
+        return false;
+      }
       let deviceIdMatched = rawDeviceId && item.deviceId === rawDeviceId;
       if (uuid && item.uuid) {
         deviceIdMatched = deviceIdMatched && item.uuid === uuid;
@@ -5280,7 +5425,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return undefined;
     }
 
-    const sameUuidDevices = devices.filter((item) => item.uuid === uuid);
+    const sameUuidDevices = devices.filter((item) => {
+      const deviceVendor = item.vendor ?? EHardwareVendor.onekey;
+      return item.uuid === uuid && deviceVendor === normalizedVendor;
+    });
     if (sameUuidDevices.length === 0) {
       return undefined;
     }
@@ -5374,12 +5522,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     connectId,
     featuresDeviceId,
     features,
+    vendor,
   }: {
     connectId?: string;
     featuresDeviceId?: string; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
+    vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
     const { getDeviceUUID } = await CoreSDKLoader();
+    const normalizedVendor = vendor ?? EHardwareVendor.onekey;
     const { devices } = await this.getAllDevices();
     const device = devices.find((item) => {
       let predicate: boolean | undefined;
@@ -5390,6 +5541,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           predicate = predicate && p;
         }
       };
+      mergePredicate(
+        (item.vendor ?? EHardwareVendor.onekey) === normalizedVendor,
+      );
       if (connectId) {
         // Match any of the connectId fields (legacy behavior + new fields)
         // Use case-insensitive comparison because iOS BLE (CBPeripheral UUID)
@@ -5436,6 +5590,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   refillDeviceInfo({ device }: { device: IDBDevice }) {
     device.featuresInfo = JSON.parse(device.features || '{}');
     device.settings = JSON.parse(device.settingsRaw || '{}');
+    device.vendor = device.settings?.vendor ?? EHardwareVendor.onekey;
     return device;
   }
 

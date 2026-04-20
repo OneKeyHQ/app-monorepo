@@ -140,6 +140,39 @@ export const {
   name: EAtomNames.hardwareUiStateCompletedAtom,
 });
 
+// third-party hardware ui state -----------------------------------
+
+export enum EThirdPartyHardwareUiAction {
+  // Blocking requests — UI waits for user response
+  requestUnlock = 'request-ledger-unlock',
+  requestRetry = 'request-ledger-retry',
+  // Non-blocking notifications — UI shows status
+  openApp = 'ui-event-ledger-open-app',
+  confirmOnDevice = 'ui-event-ledger-confirm-on-device',
+  searching = 'ui-event-ledger-searching',
+  unlockDevice = 'ui-event-ledger-unlock-device',
+  error = 'ui-event-ledger-error',
+}
+
+export type IThirdPartyHardwareUiState = {
+  action: EThirdPartyHardwareUiAction;
+  vendor: string;
+  payload?: {
+    message?: string;
+    retryCount?: number;
+    maxRetries?: number;
+    chain?: string;
+  };
+};
+
+export const {
+  target: thirdPartyHardwareUiStateAtom,
+  use: useThirdPartyHardwareUiStateAtom,
+} = globalAtom<IThirdPartyHardwareUiState | undefined>({
+  initialValue: undefined,
+  name: EAtomNames.thirdPartyHardwareUiStateAtom,
+});
+
 // firmware update ----------------------------------------------
 
 export const {

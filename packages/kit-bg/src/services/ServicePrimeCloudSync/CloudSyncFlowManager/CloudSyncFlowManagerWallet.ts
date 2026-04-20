@@ -39,14 +39,17 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   }) {
     const { wallet, dbDevice } = target;
 
-    const { rawKey } = cloudSyncItemBuilder.buildWalletSyncKey({
+    const result = cloudSyncItemBuilder.buildWalletSyncKey({
       dataType: EPrimeCloudSyncDataType.Wallet,
       wallet,
       dbDevice,
       accountIndex: undefined,
     });
 
-    return rawKey;
+    // Third-party HW wallets (Ledger) skip cloud sync
+    if (!result) return '';
+
+    return result.rawKey;
   }
 
   override async buildSyncPayload({
