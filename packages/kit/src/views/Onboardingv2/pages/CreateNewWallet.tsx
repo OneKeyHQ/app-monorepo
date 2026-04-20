@@ -8,7 +8,6 @@ import {
   Button,
   Divider,
   Icon,
-  Page,
   SizableText,
   Spinner,
   XStack,
@@ -27,9 +26,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
-  LayoutHeader,
-  LayoutHeaderBack,
-  LayoutHeaderLanguageSelector,
+  OnboardingIconBadge,
+  OnboardingPage,
+  OnboardingSidebar,
 } from '../components/Layout';
 import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
@@ -111,185 +110,139 @@ function CreateNewWallet() {
   const { md } = useMedia();
 
   return (
-    <Page>
-      <LayoutHeader>
-        <LayoutHeaderBack />
-        <LayoutHeaderLanguageSelector />
-      </LayoutHeader>
+    <OnboardingPage>
+      <SizableText size="$heading4xl">
+        {intl.formatMessage({
+          id: ETranslations.onboarding_create_new_wallet,
+        })}
+      </SizableText>
       <YStack
-        flex={1}
-        $gtMd={{
-          alignItems: 'center',
-          justifyContent: 'center',
+        $md={{
+          flex: 1,
         }}
-        px="$5"
+        $gtMd={{
+          flexDirection: 'row-reverse',
+          mt: -40,
+        }}
       >
+        <OnboardingSidebar $md={{ pt: '$5' }}>
+          {md ? null : <OnboardingIconBadge icon="LightBulbOutline" />}
+          <YStack gap="$6">
+            <SizableText size="$headingMd">
+              {intl.formatMessage({
+                id: ETranslations.onboarding_keyless_tagline,
+              })}
+            </SizableText>
+            {bullets.map((item) => (
+              <XStack key={item.titleId} gap="$5" alignItems="flex-start">
+                {md ? (
+                  <Icon
+                    name={item.icon}
+                    color="$iconSubdued"
+                    size="$6"
+                    flexShrink={0}
+                  />
+                ) : null}
+                <YStack flex={1} gap="$1">
+                  <SizableText size="$bodyLgMedium">
+                    {intl.formatMessage({ id: item.titleId })}
+                  </SizableText>
+                  <SizableText size="$bodyLg" color="$textSubdued">
+                    {intl.formatMessage({ id: item.descriptionId })}
+                  </SizableText>
+                </YStack>
+              </XStack>
+            ))}
+          </YStack>
+        </OnboardingSidebar>
         <YStack
-          w="100%"
-          maxWidth={800}
-          mx="auto"
+          gap="$3"
           $md={{
-            flex: 1,
+            mt: 'auto',
           }}
           $gtMd={{
-            minHeight: 600,
+            flex: 1,
+            pt: 88,
+            gap: '$5',
           }}
         >
-          <SizableText size="$heading4xl">
-            {intl.formatMessage({
-              id: ETranslations.onboarding_create_new_wallet,
-            })}
-          </SizableText>
-          <YStack
-            $md={{
-              flex: 1,
-            }}
-            $gtMd={{
-              flexDirection: 'row-reverse',
-              mt: -40,
-            }}
+          <Button
+            variant="primary"
+            size="large"
+            alignSelf="stretch"
+            childrenAsText={false}
+            disabled={enableKeylessWalletLoading || isGoogleLoading}
+            onPress={handleGoogleLogin}
           >
-            <YStack
-              $md={{
-                pt: '$5',
-              }}
-              $gtMd={{
-                w: '$80',
-                ml: '$20',
-                pl: '$8',
-                borderLeftWidth: 2,
-                borderLeftColor: '$borderSubdued',
-              }}
-            >
-              {md ? null : (
-                <YStack
-                  bg="$brand10"
-                  p="$2"
-                  borderRadius="$full"
-                  alignSelf="flex-start"
-                  mb="$6"
-                >
-                  <Icon name="LightBulbOutline" color="$iconOnColor" />
-                </YStack>
+            <YStack position="absolute" left="$5">
+              {isGoogleLoading ? (
+                <Spinner size="small" />
+              ) : (
+                <Icon name="GoogleIllus" size="$5" color="$iconInverse" />
               )}
-              <YStack gap="$6">
-                <SizableText size="$headingMd">
+            </YStack>
+            <SizableText size="$bodyLgMedium" color="$textInverse">
+              {intl.formatMessage(
+                { id: ETranslations.continue_with_social_platform },
+                { platform: 'Google' },
+              )}
+            </SizableText>
+          </Button>
+          <Button
+            variant="primary"
+            size="large"
+            alignSelf="stretch"
+            childrenAsText={false}
+            disabled={enableKeylessWalletLoading || isAppleLoading}
+            onPress={handleAppleLogin}
+          >
+            <YStack position="absolute" left="$5">
+              {isAppleLoading ? (
+                <Spinner size="small" />
+              ) : (
+                <Icon name="AppleBrand" size="$5" color="$iconInverse" />
+              )}
+            </YStack>
+            <SizableText size="$bodyLgMedium" color="$textInverse">
+              {intl.formatMessage(
+                { id: ETranslations.continue_with_social_platform },
+                { platform: 'Apple' },
+              )}
+            </SizableText>
+          </Button>
+          {isWebKeylessSidePanelMode ? null : (
+            <>
+              <XStack gap="$4" alignItems="center" px="$5">
+                <Divider borderColor="$neutral3" flex={1} />
+                <SizableText color="$textDisabled" size="$bodyLg">
+                  {intl.formatMessage({ id: ETranslations.global_or })}
+                </SizableText>
+                <Divider borderColor="$neutral3" flex={1} />
+              </XStack>
+              <Button
+                size="large"
+                alignSelf="stretch"
+                childrenAsText={false}
+                onPress={handleCreateSeedPhraseWallet}
+              >
+                <Icon
+                  name="SecretPhraseOutline"
+                  position="absolute"
+                  left="$5"
+                  size="$5"
+                  color="$icon"
+                />
+                <SizableText size="$bodyLgMedium" color="$text">
                   {intl.formatMessage({
-                    id: ETranslations.onboarding_keyless_tagline,
+                    id: ETranslations.create_seed_phrase_wallet,
                   })}
                 </SizableText>
-                {bullets.map((item) => (
-                  <XStack key={item.titleId} gap="$5" alignItems="flex-start">
-                    {md ? (
-                      <Icon
-                        name={item.icon}
-                        color="$iconSubdued"
-                        size="$6"
-                        flexShrink={0}
-                      />
-                    ) : null}
-                    <YStack flex={1} gap="$1">
-                      <SizableText size="$bodyLgMedium">
-                        {intl.formatMessage({ id: item.titleId })}
-                      </SizableText>
-                      <SizableText size="$bodyLg" color="$textSubdued">
-                        {intl.formatMessage({ id: item.descriptionId })}
-                      </SizableText>
-                    </YStack>
-                  </XStack>
-                ))}
-              </YStack>
-            </YStack>
-            <YStack
-              gap="$3"
-              $md={{
-                mt: 'auto',
-              }}
-              $gtMd={{
-                flex: 1,
-                pt: 88,
-                gap: '$5',
-              }}
-            >
-              <Button
-                variant="primary"
-                size="large"
-                alignSelf="stretch"
-                childrenAsText={false}
-                disabled={enableKeylessWalletLoading || isGoogleLoading}
-                onPress={handleGoogleLogin}
-              >
-                <YStack position="absolute" left="$5">
-                  {isGoogleLoading ? (
-                    <Spinner size="small" />
-                  ) : (
-                    <Icon name="GoogleIllus" size="$5" color="$iconInverse" />
-                  )}
-                </YStack>
-                <SizableText size="$bodyLgMedium" color="$textInverse">
-                  {intl.formatMessage(
-                    { id: ETranslations.continue_with_social_platform },
-                    { platform: 'Google' },
-                  )}
-                </SizableText>
               </Button>
-              <Button
-                variant="primary"
-                size="large"
-                alignSelf="stretch"
-                childrenAsText={false}
-                disabled={enableKeylessWalletLoading || isAppleLoading}
-                onPress={handleAppleLogin}
-              >
-                <YStack position="absolute" left="$5">
-                  {isAppleLoading ? (
-                    <Spinner size="small" />
-                  ) : (
-                    <Icon name="AppleBrand" size="$5" color="$iconInverse" />
-                  )}
-                </YStack>
-                <SizableText size="$bodyLgMedium" color="$textInverse">
-                  {intl.formatMessage(
-                    { id: ETranslations.continue_with_social_platform },
-                    { platform: 'Apple' },
-                  )}
-                </SizableText>
-              </Button>
-              {isWebKeylessSidePanelMode ? null : (
-                <>
-                  <XStack gap="$4" alignItems="center" px="$5">
-                    <Divider borderColor="$neutral3" flex={1} />
-                    <SizableText color="$textDisabled" size="$bodyLg">
-                      {intl.formatMessage({ id: ETranslations.global_or })}
-                    </SizableText>
-                    <Divider borderColor="$neutral3" flex={1} />
-                  </XStack>
-                  <Button
-                    size="large"
-                    alignSelf="stretch"
-                    childrenAsText={false}
-                    onPress={handleCreateSeedPhraseWallet}
-                  >
-                    <Icon
-                      name="SecretPhraseOutline"
-                      position="absolute"
-                      left="$5"
-                      size="$5"
-                      color="$icon"
-                    />
-                    <SizableText size="$bodyLgMedium" color="$text">
-                      {intl.formatMessage({
-                        id: ETranslations.create_seed_phrase_wallet,
-                      })}
-                    </SizableText>
-                  </Button>
-                </>
-              )}
-            </YStack>
-          </YStack>
+            </>
+          )}
         </YStack>
       </YStack>
-    </Page>
+    </OnboardingPage>
   );
 }
 

@@ -3,25 +3,26 @@ import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
+import { OnboardingPageFallback } from '../components/Layout';
 import { OnboardingLayoutFallback } from '../components/OnboardingLayout';
 
 const GetStarted = LazyLoadPage(
   () => import('../pages/GetStarted'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const CreateNewWallet = LazyLoadPage(
   () => import('../pages/CreateNewWallet'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const CreateOrImportWallet = LazyLoadPage(
   () => import('../pages/CreateOrImportWallet'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const FinalizeWalletSetup = LazyLoadPage(
   () => import('../pages/FinalizeWalletSetup'),
@@ -141,13 +142,13 @@ const CreatePin = LazyLoadPage(
   () => import('../pages/CreatePinPage'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const ConfirmPin = LazyLoadPage(
   () => import('../pages/ConfirmPinPage'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const CreatePasscode = LazyLoadPage(
   () => import('../pages/CreatePasscodePage'),
@@ -159,13 +160,13 @@ const VerifyPin = LazyLoadPage(
   () => import('../pages/VerifyPinPage'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const ResetPinGuidePage = LazyLoadPage(
   () => import('../pages/ResetPinGuidePage'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const NewPinCreated = LazyLoadPage(
   () => import('../pages/NewPinCreatedPage'),

@@ -2,10 +2,17 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IXStackProps } from '@onekeyhq/components';
+import type {
+  IKeyOfIcons,
+  IPageProps,
+  IXStackProps,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Button,
+  Icon,
   IconButton,
+  Page,
   Select,
   SizableText,
   XStack,
@@ -136,3 +143,98 @@ export const LayoutHeaderLanguageSelector = memo(() => {
   );
 });
 LayoutHeaderLanguageSelector.displayName = 'LayoutHeaderLanguageSelector';
+
+export interface IOnboardingPageProps extends IPageProps {
+  headerBack?: boolean | 'exit';
+  showLanguageSelector?: boolean;
+  contentContainerProps?: IYStackProps;
+  children: React.ReactNode;
+}
+
+export function OnboardingPage({
+  headerBack = true,
+  showLanguageSelector = true,
+  contentContainerProps,
+  children,
+  ...pageProps
+}: IOnboardingPageProps) {
+  return (
+    <Page {...pageProps}>
+      <LayoutHeader>
+        {headerBack !== false ? (
+          <LayoutHeaderBack exit={headerBack === 'exit'} />
+        ) : null}
+        {showLanguageSelector ? <LayoutHeaderLanguageSelector /> : null}
+      </LayoutHeader>
+      <YStack
+        flex={1}
+        $gtMd={{ alignItems: 'center', justifyContent: 'center' }}
+        px="$5"
+      >
+        <YStack
+          w="100%"
+          maxWidth={800}
+          mx="auto"
+          $md={{ flex: 1 }}
+          $gtMd={{ minHeight: 600 }}
+          {...contentContainerProps}
+        >
+          {children}
+        </YStack>
+      </YStack>
+    </Page>
+  );
+}
+
+export function OnboardingSidebar({
+  $gtMd: userGtMd,
+  children,
+  ...rest
+}: IYStackProps) {
+  return (
+    <YStack
+      $gtMd={{
+        w: '$80',
+        ml: '$20',
+        pl: '$8',
+        borderLeftWidth: 2,
+        borderLeftColor: '$borderSubdued',
+        ...userGtMd,
+      }}
+      {...rest}
+    >
+      {children}
+    </YStack>
+  );
+}
+
+export interface IOnboardingIconBadgeProps extends Omit<
+  IYStackProps,
+  'children'
+> {
+  icon: IKeyOfIcons;
+  iconColor?: React.ComponentProps<typeof Icon>['color'];
+}
+
+export function OnboardingIconBadge({
+  icon,
+  iconColor = '$iconOnColor',
+  ...rest
+}: IOnboardingIconBadgeProps) {
+  return (
+    <YStack
+      bg="$brand10"
+      p="$2"
+      borderRadius="$full"
+      alignSelf="flex-start"
+      mb="$6"
+      {...rest}
+    >
+      <Icon name={icon} color={iconColor} />
+    </YStack>
+  );
+}
+
+export function OnboardingPageFallback() {
+  return <LayoutHeader />;
+}

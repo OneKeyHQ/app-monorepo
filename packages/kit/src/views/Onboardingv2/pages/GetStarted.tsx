@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
-  Page,
   SizableText,
   XStack,
   YStack,
@@ -21,11 +20,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
-import {
-  LayoutHeader,
-  LayoutHeaderBack,
-  LayoutHeaderLanguageSelector,
-} from '../components/Layout';
+import { OnboardingPage } from '../components/Layout';
 
 // English fallbacks kept for dev/unsynced-locale resilience.
 const HERO_SENTENCE_DEFAULT = 'Your most secure crypto wallet for {action}';
@@ -436,125 +431,100 @@ function GetStarted() {
   ] as const;
 
   return (
-    <Page>
-      <LayoutHeader>
-        <LayoutHeaderBack exit />
-        <LayoutHeaderLanguageSelector />
-      </LayoutHeader>
+    <OnboardingPage headerBack="exit">
       <YStack
-        flex={1}
-        $gtMd={{
-          alignItems: 'center',
-          justifyContent: 'center',
+        $md={{
+          flex: 1,
+          px: '$5',
+          pt: '$8',
         }}
-        px="$5"
+        gap="$8"
       >
-        <YStack
-          w="100%"
-          maxWidth={800}
-          mx="auto"
-          $md={{
-            flex: 1,
-          }}
-          $gtMd={{
-            minHeight: 600,
-          }}
-        >
-          <YStack
-            $md={{
-              flex: 1,
-              px: '$5',
-              pt: '$8',
-            }}
-            gap="$8"
-          >
-            <Icon name="OnekeyTextIllus" color="$text" h={48} w={174} />
-            {platformEnv.isNative ? (
-              <HeroSentenceNative
-                prefix={heroPrefix}
-                suffix={heroSuffix}
-                rotating={<HeroRotatingWord words={heroActionWords} />}
-              />
-            ) : (
-              <XStack flexWrap="wrap" alignItems="baseline">
-                {heroPrefix ? (
-                  <SizableText size="$heading5xl" fontWeight={400}>
-                    {heroPrefix}
-                  </SizableText>
-                ) : null}
-                <HeroRotatingWord words={heroActionWords} />
-                {heroSuffix ? (
-                  <SizableText size="$heading5xl" fontWeight={400}>
-                    {heroSuffix}
-                  </SizableText>
-                ) : null}
-              </XStack>
-            )}
-          </YStack>
-          <YStack
-            gap="$6"
-            $gtMd={{
-              pt: '$20',
-            }}
-          >
-            <TermsAndPrivacy
-              contentContainerProps={{
-                $md: {
-                  px: '$5',
-                },
-              }}
-            />
-            {gtMd ? (
-              <XStack gap="$4" h="$40">
-                {actions.map((action) => (
-                  <YStack
-                    flexGrow={1}
-                    flexBasis={0}
-                    justifyContent="space-between"
-                    bg="$bgStrong"
-                    p="$6"
-                    key={action.labelId}
-                    onPress={action.onPress}
-                    borderRadius="$6"
-                    borderCurve="continuous"
-                    $platform-web={{
-                      boxShadow:
-                        'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)',
-                    }}
-                    hoverStyle={{
-                      bg: '$bgStrongHover',
-                    }}
-                    pressStyle={{
-                      bg: '$bgStrongActive',
-                    }}
-                    userSelect="none"
-                  >
-                    <Icon size="$8" color="$iconActive" name={action.icon} />
-                    <SizableText size="$headingLg">
-                      {intl.formatMessage({ id: action.labelId })}
-                    </SizableText>
-                  </YStack>
-                ))}
-              </XStack>
-            ) : (
-              <YStack gap="$3">
-                {actions.map((action) => (
-                  <Button
-                    key={action.labelId}
-                    size="large"
-                    alignSelf="stretch"
-                    onPress={action.onPress}
-                    {...action.mobileButtonProps}
-                  >
-                    {intl.formatMessage({ id: action.labelId })}
-                  </Button>
-                ))}
-              </YStack>
-            )}
-          </YStack>
-        </YStack>
+        <Icon name="OnekeyTextIllus" color="$text" h={48} w={174} />
+        {platformEnv.isNative ? (
+          <HeroSentenceNative
+            prefix={heroPrefix}
+            suffix={heroSuffix}
+            rotating={<HeroRotatingWord words={heroActionWords} />}
+          />
+        ) : (
+          <XStack flexWrap="wrap" alignItems="baseline">
+            {heroPrefix ? (
+              <SizableText size="$heading5xl" fontWeight={400}>
+                {heroPrefix}
+              </SizableText>
+            ) : null}
+            <HeroRotatingWord words={heroActionWords} />
+            {heroSuffix ? (
+              <SizableText size="$heading5xl" fontWeight={400}>
+                {heroSuffix}
+              </SizableText>
+            ) : null}
+          </XStack>
+        )}
       </YStack>
-    </Page>
+      <YStack
+        gap="$6"
+        $gtMd={{
+          pt: '$20',
+        }}
+      >
+        <TermsAndPrivacy
+          contentContainerProps={{
+            $md: {
+              px: '$5',
+            },
+          }}
+        />
+        {gtMd ? (
+          <XStack gap="$4" h="$40">
+            {actions.map((action) => (
+              <YStack
+                flexGrow={1}
+                flexBasis={0}
+                justifyContent="space-between"
+                bg="$bgStrong"
+                p="$6"
+                key={action.labelId}
+                onPress={action.onPress}
+                borderRadius="$6"
+                borderCurve="continuous"
+                $platform-web={{
+                  boxShadow:
+                    'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)',
+                }}
+                hoverStyle={{
+                  bg: '$bgStrongHover',
+                }}
+                pressStyle={{
+                  bg: '$bgStrongActive',
+                }}
+                userSelect="none"
+              >
+                <Icon size="$8" color="$iconActive" name={action.icon} />
+                <SizableText size="$headingLg">
+                  {intl.formatMessage({ id: action.labelId })}
+                </SizableText>
+              </YStack>
+            ))}
+          </XStack>
+        ) : (
+          <YStack gap="$3">
+            {actions.map((action) => (
+              <Button
+                key={action.labelId}
+                size="large"
+                alignSelf="stretch"
+                onPress={action.onPress}
+                {...action.mobileButtonProps}
+              >
+                {intl.formatMessage({ id: action.labelId })}
+              </Button>
+            ))}
+          </YStack>
+        )}
+      </YStack>
+    </OnboardingPage>
   );
 }
 
