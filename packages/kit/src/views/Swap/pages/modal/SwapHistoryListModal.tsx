@@ -156,20 +156,20 @@ const SwapHistoryListModal = ({
     }
 
     return (
-      <Stack
+      <Badge
+        badgeType="default"
+        badgeSize="sm"
         minWidth="$5"
         h="$5"
-        px="$1.5"
+        px="$0"
+        bg="$transparent"
         borderRadius="$full"
         borderWidth={1}
         borderColor="$borderSubdued"
-        alignItems="center"
         justifyContent="center"
       >
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {count}
-        </SizableText>
-      </Stack>
+        <Badge.Text>{count}</Badge.Text>
+      </Badge>
     );
   }, []);
 
