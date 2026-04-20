@@ -1,7 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { debounce, isEmpty, isUndefined } from 'lodash';
 
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,
@@ -10,11 +9,14 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type {
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
 } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+
+import { currencyPersistAtom } from '../states/jotai/atoms/currency';
 
 import ServiceBase from './ServiceBase';
 
@@ -431,6 +433,60 @@ class ServiceDeFi extends ServiceBase {
       accounts,
       deFiRawData,
     });
+  }
+
+  /**
+   * Total DeFi netWorth for an account in `targetCurrency`, summed across
+   * networks. Pass `networkId: getNetworkIdsMap().onekeyall` for the
+   * cross-network total.
+   *
+   * Reads only from `simpleDb.deFi` — no network call. `hasCache: false`
+   * means no DeFi entries; callers should silently fall back to tokens-only.
+   */
+  @backgroundMethod()
+  async getAccountTotalDeFiNetWorth(params: {
+    accountId: string;
+    networkId: string;
+    targetCurrency: string;
+  }): Promise<{ netWorth: string; hasCache: boolean }> {
+    const { accountId, networkId, targetCurrency } = params;
+
+    const indexedAccountId = accountUtils.isOthersAccount({ accountId })
+      ? undefined
+      : accountId;
+
+    const entries = await this.getAccountsLocalDeFiOverview({
+      accounts: [{ accountId, networkId, indexedAccountId }],
+    });
+
+    if (!entries || !entries.some((e) => e?.overview)) {
+      return { netWorth: '0', hasCache: false };
+    }
+
+    const { currencyMap } = await currencyPersistAtom.get();
+    const targetInfo = currencyMap[targetCurrency] ?? currencyMap.usd;
+
+    let total = new BigNumber(0);
+    let hasCache = false;
+    for (const entry of entries) {
+      if (entry?.overview) {
+        for (const overview of Object.values(entry.overview)) {
+          if (overview) {
+            hasCache = true;
+            const sourceInfo =
+              currencyMap[overview.currency] ?? currencyMap.usd;
+            const converted = this._fixCurrencyValue({
+              sourceCurrencyInfo: sourceInfo,
+              targetCurrencyInfo: targetInfo,
+              value: overview.netWorth ?? 0,
+            });
+            total = total.plus(converted);
+          }
+        }
+      }
+    }
+
+    return { netWorth: total.toFixed(), hasCache };
   }
 
   @backgroundMethod()

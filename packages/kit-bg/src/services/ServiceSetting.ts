@@ -7,7 +7,6 @@ import {
   isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,
@@ -45,6 +44,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   EHardwareTransportType,
+  ICurrencyItem,
   IServerNetwork,
 } from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
@@ -713,6 +713,21 @@ class ServiceSetting extends ServiceBase {
       ...prev,
       enableBTCFreshAddress: value,
     }));
+  }
+
+  @backgroundMethod()
+  public async setEnableMenuBarTray(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableMenuBarTray: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getEnableMenuBarTray() {
+    const { enableMenuBarTray } = await settingsPersistAtom.get();
+    // Fall back to true to match settingsAtomInitialValue for upgrades.
+    return enableMenuBarTray ?? true;
   }
 
   @backgroundMethod()
