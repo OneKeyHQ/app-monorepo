@@ -1079,6 +1079,20 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     if (!symbolMeta) {
       throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
     }
+
+    if (symbolMeta.isSpot) {
+      // Spot orders cannot be reduce-only and must use 'Gtc' or 'Ioc'.
+      return this.placeSpotOrder({
+        assetId: symbolMeta.assetId,
+        isBuy: params.isBuy,
+        sz: params.size,
+        limitPx: params.price,
+        orderType: 'limit',
+        tif: params.tif === 'Ioc' ? 'Ioc' : 'Gtc',
+        szDecimals: symbolMeta.spotUniverse?.baseSzDecimals,
+      });
+    }
+
     return this.placeOrder({
       assetId: symbolMeta.assetId,
       isBuy: params.isBuy,
