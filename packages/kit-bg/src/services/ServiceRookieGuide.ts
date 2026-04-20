@@ -13,6 +13,7 @@ import {
   type IRookieGuideProgress,
 } from '@onekeyhq/shared/types/rookieGuide';
 
+import localDb from '../dbs/local/localDb';
 import { activeAccountValueAtom } from '../states/jotai/atoms';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 
@@ -28,14 +29,19 @@ class ServiceRookieGuide extends ServiceBase {
     await this.backgroundApi.simpleDb.rookieGuide.activate();
     defaultLogger.rookieGuide.guide.activated();
 
-    const [taskProgress, balanceInfo, oneKeyId, instanceId] = await Promise.all(
-      [
-        this.getTaskProgress(),
-        this._getActiveFiatBalance(),
-        this._getOneKeyIdInfo(),
-        this.backgroundApi.serviceSetting.getInstanceId(),
-      ],
-    );
+    const [
+      taskProgress,
+      balanceInfo,
+      oneKeyId,
+      instanceId,
+      hyperliquidReferral,
+    ] = await Promise.all([
+      this.getTaskProgress(),
+      this._getActiveFiatBalance(),
+      this._getOneKeyIdInfo(),
+      this.backgroundApi.serviceSetting.getInstanceId(),
+      this._getHyperliquidReferralEligibility(),
+    ]);
 
     const result: IRookieGuideInfo = {
       fiatBalance: balanceInfo.balance,
@@ -43,6 +49,7 @@ class ServiceRookieGuide extends ServiceBase {
       oneKeyId,
       instanceId,
       taskProgress,
+      hyperliquidReferral,
     };
 
     defaultLogger.rookieGuide.guide.getInfo({
@@ -126,6 +133,48 @@ class ServiceRookieGuide extends ServiceBase {
       };
     } catch {
       return { isLoggedIn: false };
+    }
+  }
+
+  // For HD wallets, indexedAccountId lets the service resolve the EVM address
+  // from the same index even when the active account is non-EVM.
+  // Imported/HW single-chain accounts won't have it and fall through to
+  // accountId-based resolution inside the service.
+  private async _getHyperliquidReferralEligibility(): Promise<
+    IRookieGuideInfo['hyperliquidReferral']
+  > {
+    try {
+      const accountValue = await activeAccountValueAtom.get();
+      const accountId = accountValue?.accountId;
+      if (!accountId) {
+        return undefined;
+      }
+
+      let indexedAccountId: string | undefined;
+      try {
+        const dbAccount = await localDb.getAccount({ accountId });
+        indexedAccountId = dbAccount?.indexedAccountId || undefined;
+      } catch {
+        indexedAccountId = undefined;
+      }
+
+      const res =
+        await this.backgroundApi.serviceHyperliquidReferral.checkBannerReferralEligibility(
+          {
+            accountId,
+            indexedAccountId,
+            deriveType: 'default',
+          },
+        );
+
+      return {
+        eligible: res.shouldShow,
+        reason: res.reason ?? (res.shouldShow ? 'eligible' : 'unknown'),
+        address: res.resolvedAddress || undefined,
+      };
+    } catch {
+      // Silent fail — errors here must not break the rest of the guide response
+      return undefined;
     }
   }
 
