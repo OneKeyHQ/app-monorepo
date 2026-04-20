@@ -727,7 +727,12 @@ function HomeOverviewContainer() {
         /* NativeLogger may not be available */
       }
     }
-  }, [balanceReady]);
+  }, [
+    balanceReady,
+    currentOverviewOwnerKey,
+    renderedBalanceString,
+    setLastConfirmedOverviewBalance,
+  ]);
 
   return (
     <YStack gap="$2.5" alignItems="flex-start">
