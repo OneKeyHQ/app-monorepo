@@ -207,7 +207,10 @@ class ServiceHardware extends ServiceBase {
             `[ServiceHardware] Failed to init ${vendor} adapter:`,
             error,
           );
-          // Reset so a later call can retry.
+          throw error;
+        })
+        .finally(() => {
+          // Drop inflight marker so a subsequent call can re-attempt.
           this.thirdPartyAdapterInitPromises.delete(vendor);
         });
       this.thirdPartyAdapterInitPromises.set(vendor, p);
@@ -781,18 +784,16 @@ class ServiceHardware extends ServiceBase {
       ? getVendorProfile(params.vendor)
       : undefined;
     if (params?.vendor && vendorProfile?.isThirdParty) {
-      await this.ensureAdaptersInitialized(params.vendor);
-      const adapter = this.getThirdPartyAdapter(params.vendor);
-      if (!adapter) {
-        console.error(
-          `[ServiceHardware] No adapter registered for vendor "${params.vendor}". NOT falling through to OneKey SDK.`,
-        );
-        return {
-          success: false as const,
-          payload: { code: -1, error: `No adapter for ${params.vendor}` },
-        };
-      }
       try {
+        await this.ensureAdaptersInitialized(params.vendor);
+        const adapter = this.getThirdPartyAdapter(params.vendor);
+        if (!adapter) {
+          // Vendor is registered but adapter slot is empty — registry bug,
+          // not a transient init failure. Surface explicitly.
+          throw new OneKeyLocalError(
+            `No adapter registered for vendor "${params.vendor}"`,
+          );
+        }
         const devices = await adapter.searchDevices();
 
         const isUuidLike = (s?: string) =>
@@ -1731,25 +1732,28 @@ class ServiceHardware extends ServiceBase {
       ? getVendorProfile(params.vendor)
       : undefined;
     if (params.vendor && evmProfile?.isThirdParty) {
-      await this.ensureAdaptersInitialized(params.vendor);
-      const adapter = this.getThirdPartyAdapter(params.vendor);
-      if (adapter) {
-        try {
-          const result = await adapter.hw.evmGetAddress(
-            params.connectId,
-            params.deviceId,
-            {
-              path: params.path,
-              showOnDevice: false,
-            },
-          );
-          if (result.success) {
-            return result.payload.address || null;
-          }
-          return null;
-        } catch {
-          return null;
+      try {
+        await this.ensureAdaptersInitialized(params.vendor);
+        const adapter = this.getThirdPartyAdapter(params.vendor);
+        if (!adapter) return null;
+        const result = await adapter.hw.evmGetAddress(
+          params.connectId,
+          params.deviceId,
+          {
+            path: params.path,
+            showOnDevice: false,
+          },
+        );
+        if (result.success) {
+          return result.payload.address || null;
         }
+        return null;
+      } catch (error) {
+        console.error(
+          `[ServiceHardware] getEvmAddressByStandardWallet failed:`,
+          error,
+        );
+        return null;
       }
     }
     try {

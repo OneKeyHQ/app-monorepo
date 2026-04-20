@@ -53,11 +53,24 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
 
 // ---------------------------------------------------------------------------
 // Specific error classes
-// TODO: Register these i18n keys in ETranslations and locale JSON, then
-//       uncomment the defaultKey lines below.
+//
+// Keys live in `ETranslationsMock` for now because real locale data hasn't
+// been registered yet. Once the translation team adds them to `ETranslations`
+// + locale JSON, swap the imports below. Do NOT pass `defaultMessage` here:
+// the mock enum value already holds the human-readable text, and
+// `normalizeErrorProps` joins `[defaultMessage, key]` when i18n lookup
+// returns the id itself — which would duplicate the sentence in the toast.
 // ---------------------------------------------------------------------------
 
-/** App not installed on device (Ledger 0x6807 "Unknown application name") */
+/**
+ * App not installed on device (Ledger 0x6807 "Unknown application name").
+ *
+ * TODO: when the real `ETranslations.hardware_third_party_app_not_installed`
+ * key ships, make the locale value use an `{appName}` ICU placeholder and
+ * pass `info: { appName }` here so the toast can interpolate. Mock lookup
+ * doesn't do ICU substitution on the id, so the mock phase shows the
+ * static fallback text without the app name.
+ */
 export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
   constructor(
     props?: IOneKeyErrorHardwareProps & {
@@ -68,10 +81,7 @@ export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
   ) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: props?.appName
-          ? `Please install the "${props.appName}" app on your device`
-          : 'Please open the correct app on your device',
-        // defaultKey: ETranslations.hardware_third_party_app_not_installed,
+        defaultKey: ETranslationsMock.hardware_third_party_app_not_installed,
       }),
     );
     this.vendor = props?.vendor;
@@ -87,8 +97,7 @@ export class ThirdPartyDeviceLocked extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Device is locked, please unlock',
-        // defaultKey: ETranslations.hardware_third_party_device_locked,
+        defaultKey: ETranslationsMock.hardware_third_party_device_locked,
       }),
     );
     this.vendor = props?.vendor;
@@ -102,8 +111,7 @@ export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'User rejected the operation',
-        // defaultKey: ETranslations.hardware_user_cancel_error,
+        defaultKey: ETranslationsMock.hardware_third_party_user_rejected,
         defaultAutoToast: true,
       }),
     );
@@ -119,8 +127,7 @@ export class ThirdPartyWrongApp extends ThirdPartyHardwareError {
   ) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Wrong app is open on device',
-        // defaultKey: ETranslations.hardware_third_party_wrong_app,
+        defaultKey: ETranslationsMock.hardware_third_party_wrong_app,
       }),
     );
     this.vendor = props?.vendor;
@@ -135,8 +142,7 @@ export class ThirdPartyDeviceDisconnected extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Device disconnected',
-        // defaultKey: ETranslations.hardware_third_party_device_disconnected,
+        defaultKey: ETranslationsMock.hardware_third_party_device_disconnected,
         defaultAutoToast: true,
       }),
     );
@@ -151,8 +157,7 @@ export class ThirdPartyDeviceMismatch extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Connected device does not match the stored wallet',
-        // defaultKey: ETranslations.hardware_third_party_device_mismatch,
+        defaultKey: ETranslationsMock.hardware_third_party_device_mismatch,
       }),
     );
     this.vendor = props?.vendor;
@@ -166,8 +171,7 @@ export class ThirdPartyOperationTimeout extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Operation timed out',
-        // defaultKey: ETranslations.hardware_third_party_operation_timeout,
+        defaultKey: ETranslationsMock.hardware_third_party_operation_timeout,
         defaultAutoToast: true,
       }),
     );
@@ -181,8 +185,8 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'This operation is not supported',
-        // defaultKey: ETranslations.hardware_third_party_method_not_supported,
+        defaultKey:
+          ETranslationsMock.hardware_third_party_method_not_supported,
         defaultAutoToast: true,
       }),
     );
@@ -196,7 +200,7 @@ export class ThirdPartyUnknownError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'ThirdPartyUnknownError',
+        defaultKey: ETranslationsMock.hardware_third_party_unknown_error,
         defaultAutoToast: true,
       }),
     );

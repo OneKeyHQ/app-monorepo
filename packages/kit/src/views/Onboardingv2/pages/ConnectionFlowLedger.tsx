@@ -119,9 +119,13 @@ export default function LedgerConnectionFlow() {
       });
     }
 
+    const MAX_TRY_COUNT = 60;
+    let pollsCompleted = 0;
+
     isSearchingRef.current = true;
     deviceScanner.startDeviceScan(
       (response) => {
+        pollsCompleted += 1;
         if (!response.success) {
           // Ledger goes through @onekeyfe/hwk-* SDK + native HID/BLE; OneKey Bridge,
           // iframe and Bluetooth-permission errors do not apply here. Keep this
@@ -130,6 +134,10 @@ export default function LedgerConnectionFlow() {
           Toast.error({
             title: error.message || 'DeviceScanError',
           });
+          // Reset the searching flag so a subsequent scanDevice() call can re-enter.
+          isSearchingRef.current = false;
+          // Return to init so the Start Connection button reappears.
+          setConnectStatus(EConnectionStatus.init);
           deviceScanner.stopScan();
           return;
         }
@@ -142,16 +150,29 @@ export default function LedgerConnectionFlow() {
         );
 
         setSearchedDevices(sortedDevices);
+
+        // Scanner internally calls stopScan() once tryCount exceeds maxTryCount
+        // on the next poll iteration, but doesn't notify the caller. Reset the
+        // searching flag here so a subsequent scanDevice() call can re-enter.
+        if (pollsCompleted >= MAX_TRY_COUNT) {
+          isSearchingRef.current = false;
+          // If no device was found after the full window, return to init so
+          // the Start Connection button reappears. If devices were found, keep
+          // the listing state so the user can still pick from what's on screen.
+          if (sortedDevices.length === 0) {
+            setConnectStatus(EConnectionStatus.init);
+          }
+        }
       },
       (state) => {
         searchStateRef.current = state;
       },
       1, // pollIntervalRate — no backoff, fixed interval
       1500, // pollInterval — 1.5s between polls
-      60, // maxTryCount — search for up to ~90s
+      MAX_TRY_COUNT, // maxTryCount — search for up to ~90s
       vendor,
     );
-  }, [deviceScanner, intl, vendor, tabValue]);
+  }, [deviceScanner, vendor, tabValue]);
 
   const stopScan = useCallback(() => {
     isSearchingRef.current = false;
