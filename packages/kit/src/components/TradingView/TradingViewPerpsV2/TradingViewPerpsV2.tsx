@@ -275,9 +275,6 @@ export function TradingViewPerpsV2(
 
   const onOrderPriceUpdate = useCallback(
     async (payload: ITVOrderPriceUpdatePayload) => {
-      // TV only commits the drag on the trailing edge; it still ships `stage: 'move'`
-      // today, but a future `modify` stage from a UI-side ticket edit should be ignored.
-      if (payload.stage === 'modify') return;
       if (!payload.orderId) {
         console.warn('[TradingViewPerpsV2] Price update: missing orderId');
         return;

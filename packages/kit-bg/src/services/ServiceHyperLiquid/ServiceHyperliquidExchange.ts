@@ -1081,7 +1081,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
 
     if (symbolMeta.isSpot) {
-      // Spot orders cannot be reduce-only and must use 'Gtc' or 'Ioc'.
       return this.placeSpotOrder({
         assetId: symbolMeta.assetId,
         isBuy: params.isBuy,
