@@ -129,9 +129,7 @@ function HomeOverviewContainer() {
         | Record<string, unknown>
         | undefined;
       if (!snap) return '';
-      const raw = snap[
-        'store:accountSelector@home::ctx:selectedAccountsAtom'
-      ] as unknown;
+      const raw = snap['store:accountSelector@home::ctx:selectedAccountsAtom'];
       if (!raw || typeof raw !== 'object') return '';
       // selectedAccountsAtom shape: { '<num>': { indexedAccountId, networkId, ... } }
       // Home scene uses num=0 by convention.
