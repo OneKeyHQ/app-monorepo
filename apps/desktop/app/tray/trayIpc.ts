@@ -78,7 +78,7 @@ export function registerTrayIpcHandlers(
     } else {
       isLocked = false;
       cachedTrayData = data;
-      diffAndNotify(data.pendingTxs, data.accountId);
+      diffAndNotify(data.pendingTxs, data.accountId, data.pendingTxsCleared);
     }
 
     const trayWindow = getTrayWindow();

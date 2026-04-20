@@ -27,6 +27,7 @@ function showNotification(title: string, body: string, txId: string): void {
 export function diffAndNotify(
   currentTxs: IPendingTx[],
   currentAccountId: string | undefined,
+  pendingTxsCleared?: boolean,
 ): void {
   if (!Notification.isSupported()) {
     previousPendingTxs = currentTxs;
@@ -37,6 +38,12 @@ export function diffAndNotify(
   if (currentAccountId !== previousAccountId) {
     previousPendingTxs = [];
     previousAccountId = currentAccountId;
+  }
+
+  if (pendingTxsCleared) {
+    previousPendingTxs = currentTxs;
+    previousAccountId = currentAccountId;
+    return;
   }
 
   for (const prevTx of previousPendingTxs) {

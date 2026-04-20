@@ -27,6 +27,9 @@ export interface ITrayData {
   // When true, main keeps previous cachedTrayData so the panel still shows
   // last known good values and skips the pending-tx diff.
   isError?: boolean;
+  // One-shot hint from the main renderer that pending txs were cleared by
+  // user action, so disappearance must not be treated as confirmation.
+  pendingTxsCleared?: boolean;
   // Tray renderer can't call backgroundApiProxy, so locale is assembled
   // on the main window side and pushed through TRAY_UPDATE.
   locale?: string;

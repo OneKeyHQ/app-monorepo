@@ -48,6 +48,7 @@ export function useTrayDataProvider() {
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
+  const pendingTxsClearedRef = useRef(false);
   // Renderer-side inflight guard — main-process `guardedRequest` only
   // covers poll-driven runs; renderer-triggered paths (account change,
   // appEventBus refresh) coalesce extra calls into a single trailing re-run.
@@ -73,6 +74,7 @@ export function useTrayDataProvider() {
       isLocked: true,
       locale,
       accountId: activeAccountId,
+      pendingTxsCleared: pendingTxsClearedRef.current,
       wallet: { name: '', emoji: '', avatarImg: '' },
       totalBalance: {
         amount: '0.00',
@@ -118,6 +120,7 @@ export function useTrayDataProvider() {
       const trayData: ITrayData = {
         locale,
         accountId: activeAccountId,
+        pendingTxsCleared: pendingTxsClearedRef.current,
         wallet: { name: '', emoji: '', avatarImg: '' },
         totalBalance: {
           amount: '0.00',
@@ -415,10 +418,12 @@ export function useTrayDataProvider() {
           ...trayData,
           isError: true,
         });
+        pendingTxsClearedRef.current = false;
         return;
       }
 
       globalThis.desktopApi?.sendTrayData(trayData);
+      pendingTxsClearedRef.current = false;
     } catch {
       // Prefer locked placeholder over error if user locked during the
       // failing request, so the panel doesn't flash last-known balances.
@@ -432,6 +437,7 @@ export function useTrayDataProvider() {
         isError: true,
         locale,
         accountId: activeAccountId,
+        pendingTxsCleared: pendingTxsClearedRef.current,
         wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
         totalBalance: {
           amount: '0.00',
@@ -442,6 +448,7 @@ export function useTrayDataProvider() {
         watchlist: [],
         pendingTxs: [],
       });
+      pendingTxsClearedRef.current = false;
     }
   }, []);
 
@@ -600,10 +607,18 @@ export function useTrayDataProvider() {
         handleTrayDataRequestRef.current?.();
       }, 1500);
     };
+    const handlePendingTxsCleared = () => {
+      pendingTxsClearedRef.current = true;
+      debouncedRefresh();
+    };
 
     appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, debouncedRefresh);
     appEventBus.on(EAppEventBusNames.RefreshHistoryList, debouncedRefresh);
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, debouncedRefresh);
+    appEventBus.on(
+      EAppEventBusNames.ClearLocalHistoryPendingTxs,
+      handlePendingTxsCleared,
+    );
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -613,6 +628,10 @@ export function useTrayDataProvider() {
       );
       appEventBus.off(EAppEventBusNames.RefreshHistoryList, debouncedRefresh);
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, debouncedRefresh);
+      appEventBus.off(
+        EAppEventBusNames.ClearLocalHistoryPendingTxs,
+        handlePendingTxsCleared,
+      );
     };
   }, [isTrayActive]);
 }
