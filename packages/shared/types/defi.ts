@@ -1,4 +1,4 @@
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
+import type { ICurrencyItem } from './currency';
 
 export type IFetchAccountDeFiPositionsParams = {
   accountId: string;

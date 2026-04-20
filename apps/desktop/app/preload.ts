@@ -73,6 +73,12 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
 
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
 
+// Preload runs per-window; detect tray so tray-only surfaces can be scoped
+// away from the main renderer.
+const isTrayWindow =
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).get('render') === 'tray';
+
 // --- desktopApi: legacy API surface (plain object, contextBridge-compatible) ---
 
 const desktopApi = {
@@ -95,7 +101,8 @@ const desktopApi = {
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
-    // Channel whitelist for addIpcEventListener (mirrors validChannels for on())
+    // TRAY_* channels are scoped per window so neither renderer can sniff
+    // or impersonate the other's half of the tray pipeline.
     const validIpcEventChannels = new Set([
       ipcMessageKeys.EVENT_OPEN_URL,
       ipcMessageKeys.WEBVIEW_NEW_WINDOW,
@@ -105,6 +112,9 @@ const desktopApi = {
       ipcMessageKeys.SERVER_START_RES,
       ipcMessageKeys.SERVER_LISTENER,
       OAUTH_CALLBACK_DESKTOP_CHANNEL,
+      ...(isTrayWindow
+        ? [ipcMessageKeys.TRAY_UPDATE]
+        : [ipcMessageKeys.TRAY_DATA_REQUEST, ipcMessageKeys.TRAY_ACTION]),
     ]);
     if (!validIpcEventChannels.has(event)) {
       console.warn(`[preload] addIpcEventListener: blocked channel "${event}"`);
@@ -255,13 +265,42 @@ const desktopApi = {
   recoveryTryAgain: () => ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
   recoveryAutoRepair: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
+  sendTrayData: (data: any) =>
+    ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
+  // `sendTrayAction` is only exposed in the tray window so the main
+  // renderer cannot reach TRAY_ACTION at all — belt-and-suspenders with
+  // the sender-id check in trayIpc.ts.
+  ...(isTrayWindow
+    ? {
+        sendTrayAction: (action: any) =>
+          ipcRenderer.send(ipcMessageKeys.TRAY_ACTION, action),
+      }
+    : {}),
+  toggleTray: (enabled: boolean) =>
+    ipcRenderer.send(ipcMessageKeys.TRAY_TOGGLE, enabled),
 };
 
 // --- desktopApiBridge: invoke-based bridge for desktopApiProxy (replaces JsBridge) ---
 
+// The tray window shares this preload but is not authorized to call
+// DESKTOP_API_CALL (main rejects by sender-id). Stubbing `call` locally
+// avoids noisy warnings and flags any tray-side caller as a bug — all
+// tray data must arrive via TRAY_UPDATE.
+
 const desktopApiBridge = {
-  call: (module: string, method: string, ...params: any[]) =>
-    ipcRenderer.invoke('DESKTOP_API_CALL', { module, method, params }),
+  call: isTrayWindow
+    ? (module: string, method: string) => {
+        console.warn(
+          `[tray preload] blocked DESKTOP_API_CALL from tray renderer: ${module}.${method}`,
+        );
+        return Promise.reject(
+          new Error(
+            `DESKTOP_API_CALL not available in tray renderer: ${module}.${method}`,
+          ),
+        );
+      }
+    : (module: string, method: string, ...params: any[]) =>
+        ipcRenderer.invoke('DESKTOP_API_CALL', { module, method, params }),
 };
 
 // --- Expose everything to renderer ---
