@@ -1,8 +1,120 @@
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt b/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt
-index 809df1a..0345d52 100644
+index 809df1a..1f14afc 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/android/src/main/java/com/splitbundleloader/SplitBundleLoaderModule.kt
-@@ -132,54 +132,21 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+@@ -30,10 +30,87 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+         // #18: Limit concurrent asset extractions to avoid I/O contention
+         private const val MAX_CONCURRENT_EXTRACTS = 2
+         private val extractSemaphore = Semaphore(MAX_CONCURRENT_EXTRACTS)
++
++        // Wipe-on-APK-replace: avoids stale extracted HBC after overwrite install.
++        // `lastUpdateTime` changes on every APK replacement (adb install -r,
++        // Play Store upgrade, sideload, TestFlight-equivalent). If it differs
++        // from what we persisted, nuke the whole extract tree so the new APK's
++        // assets get extracted fresh on first load.
++        private const val PREFS_NAME = "split_bundle_loader"
++        private const val KEY_LAST_INSTALL_STAMP = "last_install_stamp"
++        // Double-checked locking: loser threads must BLOCK until the wipe
++        // finishes, not just skip. AtomicBoolean.compareAndSet would let
++        // losers race ahead and read half-nuked state.
++        @Volatile private var wipeCheckDone: Boolean = false
++        private val wipeLock = Any()
+     }
+ 
+     override fun getName(): String = NAME
+ 
++    // -----------------------------------------------------------------------
++    // Wipe extract dir when APK install/upgrade detected.
++    //
++    // Without this, an overwrite install (adb install -r, Play Store upgrade,
++    // etc.) leaves last-run's extracted HBC files in /data/.../files/, and
++    // extractBuiltinSegmentIfNeeded reuses them because its size check can
++    // pass even when Metro module IDs drifted. Nuking the tree on every
++    // install-stamp change forces the new APK's assets to be re-extracted.
++    //
++    // Atomic gate means this runs at most once per process regardless of how
++    // many entry points call it.
++    // -----------------------------------------------------------------------
++
++    private fun ensureExtractDirFreshForCurrentInstall(context: Context) {
++        // Fast path: already done, no locking needed (volatile read).
++        if (wipeCheckDone) return
++        synchronized(wipeLock) {
++            // Re-check inside the lock: another thread may have finished
++            // the wipe while we were waiting to enter.
++            if (wipeCheckDone) return
++
++            val currentStamp = try {
++                context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
++            } catch (e: Exception) {
++                SBLLogger.warn("[install-stamp] failed to read lastUpdateTime: ${e.message}")
++                // Mark done even on failure: retrying every call won't help and
++                // would defeat the gate. Conservative default is to NOT wipe.
++                wipeCheckDone = true
++                return
++            }
++
++            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
++            val savedStamp = prefs.getLong(KEY_LAST_INSTALL_STAMP, -1L)
++            if (savedStamp != currentStamp) {
++                val baseDir = File(context.filesDir, BUILTIN_EXTRACT_DIR)
++                if (baseDir.exists()) {
++                    SBLLogger.info(
++                        "[install-stamp] changed saved=$savedStamp current=$currentStamp, wiping ${baseDir.absolutePath}"
++                    )
++                    // rename-then-delete so the baseDir is gone atomically
++                    // before we release the lock; waiters never see a half-nuked dir.
++                    val tomb = File(
++                        baseDir.parentFile,
++                        ".${BUILTIN_EXTRACT_DIR}.stale-${System.nanoTime()}"
++                    )
++                    if (baseDir.renameTo(tomb)) {
++                        tomb.deleteRecursively()
++                    } else {
++                        baseDir.deleteRecursively()
++                    }
++                } else {
++                    SBLLogger.info(
++                        "[install-stamp] first seen current=$currentStamp (no extract dir yet)"
++                    )
++                }
++                // Persist synchronously (commit) so that a crash mid-wipe doesn't
++                // leave us with a stale stamp + still-wiped dir next launch.
++                prefs.edit().putLong(KEY_LAST_INSTALL_STAMP, currentStamp).commit()
++            }
++            // Publish via volatile write; fast path on other threads now sees true.
++            wipeCheckDone = true
++        }
++    }
++
+     // -----------------------------------------------------------------------
+     // getRuntimeBundleContext
+     // -----------------------------------------------------------------------
+@@ -41,6 +118,7 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+     override fun getRuntimeBundleContext(promise: Promise) {
+         try {
+             val context = reactApplicationContext
++            ensureExtractDirFreshForCurrentInstall(context)
+             val runtimeKind = "main"
+             var sourceKind = "builtin"
+             var bundleRoot = ""
+@@ -91,6 +169,7 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+ 
+     override fun resolveSegmentPath(relativePath: String, sha256: String, promise: Promise) {
+         try {
++            ensureExtractDirFreshForCurrentInstall(reactApplicationContext)
+             val absolutePath = resolveSegmentPath(relativePath, sha256)
+             if (absolutePath != null) {
+                 promise.resolve(absolutePath)
+@@ -121,6 +200,7 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+         // segment integrity. Builtin segments are signed as part of the APK/IPA.
+         // If runtime SHA-256 verification is needed, add it here.
+         try {
++            ensureExtractDirFreshForCurrentInstall(reactApplicationContext)
+             val segId = segmentId.toInt()
+ 
+             val absolutePath = resolveSegmentPath(relativePath, sha256)
+@@ -132,54 +212,21 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
                  return
              }
  
@@ -61,7 +173,7 @@ index 809df1a..0345d52 100644
      // -----------------------------------------------------------------------
      // Path resolution helpers
      // -----------------------------------------------------------------------
-@@ -206,14 +173,27 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+@@ -206,14 +253,27 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
              val otaRoot = File(otaBundlePath).parentFile
              if (otaRoot != null) {
                  val candidate = File(otaRoot, relativePath)
@@ -91,7 +203,15 @@ index 809df1a..0345d52 100644
      }
  
      /**
-@@ -272,12 +252,15 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+@@ -225,6 +285,7 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
+      */
+     private fun extractBuiltinSegmentIfNeeded(relativePath: String, expectedSha256: String): String? {
+         val context = reactApplicationContext
++        ensureExtractDirFreshForCurrentInstall(context)
+         val nativeVersion = try {
+             context.packageManager
+                 .getPackageInfo(context.packageName, 0).versionName ?: "unknown"
+@@ -272,12 +333,15 @@ class SplitBundleLoaderModule(reactContext: ReactApplicationContext) :
                  }
                  // Atomic rename prevents partial file observation
                  if (tempFile.renameTo(extractedFile)) {
