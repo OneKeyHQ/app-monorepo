@@ -89,11 +89,7 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
         gap="$3"
         alignItems="center"
       >
-        <Illustration
-          name="Orders"
-          size={isMobile ? 88 : 100}
-          mb={-24}
-        />
+        <Illustration name="Orders" size={isMobile ? 88 : 100} mb={-24} />
 
         <YStack gap="$1" alignItems="center">
           <SizableText size={isMobile ? '$bodyMdMedium' : '$headingSm'}>
