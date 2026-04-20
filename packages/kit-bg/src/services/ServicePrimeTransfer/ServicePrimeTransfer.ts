@@ -2480,11 +2480,6 @@ class ServicePrimeTransfer extends ServiceBase {
               accountId: addedAccounts?.[0]?.id,
               rs: tonRsEncrypted,
             });
-            // const tonMnemonic2 = await tonMnemonicFromEntropy(
-            //   tonMnemonicCredential,
-            //   password,
-            // );
-            // console.log('tonMnemonic2', tonMnemonic2);
           }
         } catch (e) {
           console.error('tonMnemonicCredential error', e);
