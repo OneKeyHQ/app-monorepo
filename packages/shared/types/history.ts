@@ -1,5 +1,5 @@
 import type { ISizableTextProps } from '@onekeyhq/components';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
+import type { ICurrencyItem } from './currency';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAddressBadge, IAddressInfo } from './address';

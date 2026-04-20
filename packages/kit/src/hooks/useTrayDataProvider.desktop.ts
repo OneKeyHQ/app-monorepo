@@ -354,6 +354,7 @@ export function useTrayDataProvider() {
       //     (then disappears the snapshot after, without re-firing)
       // If we only tracked Pending, a failed tx would look the same as a
       // confirmed one (just gone from the list) and fire the wrong notification.
+      let pendingTxReadFailed = false;
       try {
         const rawData =
           await backgroundApiProxy.simpleDb.localHistory.getRawData();
@@ -443,6 +444,7 @@ export function useTrayDataProvider() {
             (e as Error)?.message || String(e)
           }`,
         );
+        pendingTxReadFailed = true;
       }
 
       // Re-check lock state: the user may have locked the app mid-fetch
@@ -451,6 +453,14 @@ export function useTrayDataProvider() {
       // after lock, replacing the "App is Locked" placeholder.
       if (appIsLockedRef.current) {
         globalThis.desktopApi?.sendTrayData(buildLockedPayload());
+        return;
+      }
+
+      if (pendingTxReadFailed) {
+        globalThis.desktopApi?.sendTrayData({
+          ...trayData,
+          isError: true,
+        });
         return;
       }
 

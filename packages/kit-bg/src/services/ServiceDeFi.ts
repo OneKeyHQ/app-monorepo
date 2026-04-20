@@ -1,7 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { debounce, isEmpty, isUndefined } from 'lodash';
 
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,
@@ -11,6 +10,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  ICurrencyItem,
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
 } from '@onekeyhq/shared/types/defi';

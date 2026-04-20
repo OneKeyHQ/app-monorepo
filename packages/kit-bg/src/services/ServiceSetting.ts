@@ -7,7 +7,6 @@ import {
   isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,
@@ -44,6 +43,7 @@ import {
   buildHomeDefaultTokenMapKey,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  ICurrencyItem,
   EHardwareTransportType,
   IServerNetwork,
 } from '@onekeyhq/shared/types';
