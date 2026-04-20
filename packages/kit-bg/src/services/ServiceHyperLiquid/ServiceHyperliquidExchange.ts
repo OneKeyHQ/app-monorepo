@@ -89,6 +89,14 @@ interface IOrderLogOptions {
   extra?: Record<string, unknown>;
 }
 
+// TV iframe lowercases all symbols internally; HL universe keys perps names in
+// uppercase and spot pairs as `@N`. Uppercase only non-spot identifiers.
+function normalizePerpsCoin(coin: string): string {
+  if (!coin) return coin;
+  if (coin.startsWith('@')) return coin;
+  return coin.toUpperCase();
+}
+
 @backgroundClass()
 export default class ServiceHyperliquidExchange extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
@@ -1066,7 +1074,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }): Promise<IOrderResponse> {
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
-        coin: params.coin,
+        coin: normalizePerpsCoin(params.coin),
       });
     if (!symbolMeta) {
       throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
@@ -1089,7 +1097,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }): Promise<IModifyResponse> {
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
-        coin: params.coin,
+        coin: normalizePerpsCoin(params.coin),
       });
     if (!symbolMeta) {
       throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
@@ -1128,7 +1136,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }): Promise<ICancelResponse> {
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
-        coin: params.coin,
+        coin: normalizePerpsCoin(params.coin),
       });
     if (!symbolMeta) {
       throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
