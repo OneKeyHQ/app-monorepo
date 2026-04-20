@@ -10,11 +10,11 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
-import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { callLedgerWithFingerprintRetry } from '../../base/ledgerFingerprintUtils';
@@ -158,56 +158,15 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
   }
 
   override async signMessage(
-    params: ISignMessageParams,
+    _params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    const { deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
-    const dbAccount = await this.vault.getAccount();
-
-    const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
-        EHardwareVendor.ledger,
-      );
-    if (!adapter) {
-      throw new OneKeyLocalError('Ledger adapter not available');
-    }
-
-    const result = await Promise.all(
-      params.messages.map(
-        async (payload: { type: string; message: string }) => {
-          if (payload.type !== EMessageTypesCommon.SIGN_MESSAGE) {
-            throw new OneKeyLocalError(
-              `Ledger SOL signMessage: unsupported type "${payload.type}"`,
-            );
-          }
-
-          const messageHex = Buffer.from(payload.message).toString('hex');
-
-          const res = await callLedgerWithFingerprintRetry(
-            this.backgroundApi,
-            dbDevice,
-            'sol',
-            (deviceId) =>
-              adapter.hw.solSignMessage(dbDevice.connectId, deviceId, {
-                path: dbAccount.path,
-                message: messageHex,
-              }),
-          );
-
-          if (!res.success) {
-            throw convertThirdPartyDeviceError(res.payload, {
-              vendor: 'Ledger',
-              chain: 'Solana',
-            });
-          }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return res.payload.signature;
-        },
-      ),
-    );
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-    return result.map((sig) => bs58.encode(Buffer.from(sig, 'hex')));
+    // Ledger Solana app only signs Off-chain Message (OCM) envelopes, not
+    // raw message bytes. The DMK returns a base58-encoded envelope that
+    // contains [version | signature | OCM payload] — dapps expecting a
+    // plain 64-byte ed25519 signature over the original message cannot
+    // verify this. Block until Ledger + dapp ecosystem agree on a format
+    // OneKey can round-trip without breaking verification.
+    throw new ThirdPartyMethodNotSupported();
   }
 
   override async buildHwAllNetworkPrepareAccountsParams(
