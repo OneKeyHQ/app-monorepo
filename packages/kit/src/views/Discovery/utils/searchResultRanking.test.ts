@@ -15,12 +15,16 @@ function createDApp({
   url,
   origins,
   isExactUrl,
+  keyword,
+  tags,
 }: {
   dappId: string;
   name?: string;
   url: string;
   origins?: string[];
   isExactUrl?: boolean;
+  keyword?: string;
+  tags?: IDApp['tags'];
 }): IDApp {
   return {
     dappId,
@@ -28,10 +32,11 @@ function createDApp({
     url,
     origins,
     isExactUrl,
+    keyword,
     logo: '',
     description: '',
     networkIds: [],
-    tags: [],
+    tags: tags ?? [],
   };
 }
 
@@ -68,6 +73,33 @@ function createBookmark({
     sortIndex: 0,
   };
 }
+
+const REAL_DISCOVERY_DAPPS = {
+  aave: createDApp({
+    dappId: 'f1346f86-ff4b-489c-9dc0-98362f8eab95',
+    name: 'AAVE',
+    url: 'https://app.aave.com/',
+    origins: ['okx', 'bitget', 'defillama', 'tp', 'dappradar'],
+  }),
+  uniswap: createDApp({
+    dappId: 'e7642615-0d2c-496a-9d9e-2042f1623447',
+    name: 'Uniswap',
+    url: 'https://uniswap.org',
+    origins: ['okx', 'bitget', 'defillama', 'tp', 'dappradar'],
+  }),
+  pendle: createDApp({
+    dappId: 'e193d6d2-c919-4e6e-8c31-2d7208706037',
+    name: 'Pendle',
+    url: 'https://pendle.finance/',
+    origins: ['okx', 'defillama', 'tp', 'dappradar'],
+  }),
+  aster: createDApp({
+    dappId: '93ba2378-b2c4-47c8-b05e-b80d8cfd4375',
+    name: 'Aster',
+    url: 'https://www.asterdex.com',
+    origins: ['defillama', 'tp'],
+  }),
+};
 
 describe('searchResultRanking', () => {
   beforeEach(() => {
@@ -130,6 +162,62 @@ describe('searchResultRanking', () => {
     });
 
     expect(result.map((item) => item.dappId)).toEqual(['strong', 'weak']);
+  });
+
+  it('uses dapp keyword matches in chrome-like ranking', () => {
+    const result = rankSearchResultsChromeLike({
+      keyword: 'dex',
+      searchResult: [
+        createDApp({
+          dappId: 'keyword-match',
+          name: 'Aggregator',
+          url: 'https://keyword.example',
+          keyword: 'dex',
+        }),
+        createDApp({
+          dappId: 'name-substring',
+          name: 'Indexer',
+          url: 'https://name.example',
+        }),
+      ],
+      rankingHistoryData: [],
+    });
+
+    expect(result.map((item) => item.dappId)).toEqual([
+      'keyword-match',
+      'name-substring',
+    ]);
+  });
+
+  it('uses dapp tag matches in chrome-like ranking', () => {
+    const result = rankSearchResultsChromeLike({
+      keyword: 'social',
+      searchResult: [
+        createDApp({
+          dappId: 'tag-match',
+          name: 'Community Hub',
+          url: 'https://tag.example',
+          tags: [
+            {
+              tagId: 'social',
+              name: 'social',
+              type: 'category',
+            },
+          ],
+        }),
+        createDApp({
+          dappId: 'name-substring',
+          name: 'Unsocialized',
+          url: 'https://name.example',
+        }),
+      ],
+      rankingHistoryData: [],
+    });
+
+    expect(result.map((item) => item.dappId)).toEqual([
+      'tag-match',
+      'name-substring',
+    ]);
   });
 
   it('keeps original order when candidates share topicality and frecency', () => {
@@ -205,6 +293,52 @@ describe('searchResultRanking', () => {
     expect(result.map((item) => item.dappId)).toEqual(['exact', 'visited']);
   });
 
+  it('normalizes protocol, www prefix, and trailing slash for exact url matching', () => {
+    const result = rankSearchResultsChromeLike({
+      keyword: 'app.uniswap.org/swap',
+      searchResult: [
+        createDApp({
+          dappId: 'normalized-exact',
+          url: 'https://www.app.uniswap.org/swap/',
+          isExactUrl: true,
+        }),
+        createDApp({
+          dappId: 'other',
+          url: 'https://app.uniswap.org/pool',
+        }),
+      ],
+      rankingHistoryData: [],
+    });
+
+    expect(result.map((item) => item.dappId)).toEqual([
+      'normalized-exact',
+      'other',
+    ]);
+  });
+
+  it('normalizes protocol and www prefix for host-level matching', () => {
+    const result = rankSearchResultsChromeLike({
+      keyword: 'app.uni',
+      searchResult: [
+        createDApp({
+          dappId: 'host-prefix',
+          url: 'https://www.app.uniswap.org/swap',
+        }),
+        createDApp({
+          dappId: 'weaker',
+          name: 'Application unit',
+          url: 'https://example.com/path',
+        }),
+      ],
+      rankingHistoryData: [],
+    });
+
+    expect(result.map((item) => item.dappId)).toEqual([
+      'host-prefix',
+      'weaker',
+    ]);
+  });
+
   it('ranks local host matches ahead of weaker title-only matches before merging remote results', () => {
     const result = mergeSearchResultsWithLocalData({
       keyword: 'app.uni',
@@ -257,6 +391,308 @@ describe('searchResultRanking', () => {
         url: 'https://remote.example',
       },
     ]);
+  });
+
+  it('prioritizes exact dapp name matches ahead while deduping same-url local items', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'pendle',
+      searchResult: [REAL_DISCOVERY_DAPPS.pendle],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'Pendle - Liberating Yield',
+          url: 'https://pendle.finance/',
+        }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'pendle-history',
+          title: 'Pendle V2 - Fixed Yield & Yield Trading',
+          url: 'https://pendle.finance/pendle',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'dapp',
+        title: 'Pendle',
+      },
+      {
+        type: 'history',
+        title: 'Pendle V2 - Fixed Yield & Yield Trading',
+      },
+    ]);
+  });
+
+  it('prioritizes dapps with multiple same-origin local matches for shorter queries', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'ast',
+      searchResult: [REAL_DISCOVERY_DAPPS.aster],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: '74,419.1 | BTCUSDT | Trade | Aster',
+          url: 'https://www.asterdex.com/en/trade/pro/futures/BTCUSDT',
+        }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'aster-history',
+          title: 'Aster Spot',
+          url: 'https://www.asterdex.com/en/trade/spot/BTCUSDT',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'dapp',
+        title: 'Aster',
+      },
+      {
+        type: 'bookmark',
+        title: '74,419.1 | BTCUSDT | Trade | Aster',
+      },
+      {
+        type: 'history',
+        title: 'Aster Spot',
+      },
+    ]);
+  });
+
+  it('prioritizes near-complete dapp name prefixes ahead of local items', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'aste',
+      searchResult: [REAL_DISCOVERY_DAPPS.aster],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: '74,419.1 | BTCUSDT | Trade | Aster',
+          url: 'https://www.asterdex.com/en/trade/pro/futures/BTCUSDT',
+        }),
+      ],
+      historySearchData: [],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'dapp',
+        title: 'Aster',
+      },
+      {
+        type: 'bookmark',
+        title: '74,419.1 | BTCUSDT | Trade | Aster',
+      },
+    ]);
+  });
+
+  it('keeps shorter dapp matches behind local items when same-origin support is weak', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'ast',
+      searchResult: [REAL_DISCOVERY_DAPPS.aster],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'Astrolabe Notes',
+          url: 'https://notes.example/ast',
+        }),
+      ],
+      historySearchData: [],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'bookmark',
+        title: 'Astrolabe Notes',
+      },
+      {
+        type: 'dapp',
+        title: 'Aster',
+      },
+    ]);
+  });
+
+  it('uses real discovery URLs to promote site-backed dapps ahead of weaker text matches', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'aav',
+      searchResult: [REAL_DISCOVERY_DAPPS.aave],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'Aave Markets',
+          url: 'https://app.aave.com/markets',
+        }),
+        createBookmark({
+          title: 'Aave Borrow',
+          url: 'https://app.aave.com/borrow',
+        }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'history-weak-aav',
+          title: 'Available notes',
+          url: 'https://notes.example/available',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'dapp',
+        title: 'AAVE',
+      },
+      {
+        type: 'bookmark',
+        title: 'Aave Markets',
+      },
+      {
+        type: 'bookmark',
+        title: 'Aave Borrow',
+      },
+      {
+        type: 'history',
+        title: 'Available notes',
+      },
+    ]);
+  });
+
+  it('prioritizes dapps with same-site local support across root and app subdomains', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'uni',
+      searchResult: [REAL_DISCOVERY_DAPPS.uniswap],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'Swap | Uniswap',
+          url: 'https://app.uniswap.org/swap',
+        }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'uniswap-history',
+          title: 'Uniswap Pool',
+          url: 'https://app.uniswap.org/pool',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'dapp',
+        title: 'Uniswap',
+      },
+      {
+        type: 'bookmark',
+        title: 'Swap | Uniswap',
+      },
+      {
+        type: 'history',
+        title: 'Uniswap Pool',
+      },
+    ]);
+  });
+
+  it('keeps a same-url dapp behind local history when it is not promoted', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'aav',
+      searchResult: [
+        REAL_DISCOVERY_DAPPS.aave,
+        createDApp({
+          dappId: 'aavegotchi',
+          name: 'Aavegotchi',
+          url: 'https://www.aavegotchi.com',
+        }),
+        createDApp({
+          dappId: 'aave-chan',
+          name: 'Aave-Chan',
+          url: 'https://www.aavechan.com',
+        }),
+      ],
+      rankingHistoryData: [],
+      bookmarkSearchData: [],
+      historySearchData: [
+        createHistory({
+          id: 'history-aave-home',
+          title: 'Aave - Open Source Liquidity Protocol',
+          url: 'https://app.aave.com',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'history',
+        title: 'Aave - Open Source Liquidity Protocol',
+      },
+      {
+        type: 'dapp',
+        title: 'AAVE',
+      },
+      {
+        type: 'dapp',
+        title: 'Aavegotchi',
+      },
+      {
+        type: 'dapp',
+        title: 'Aave-Chan',
+      },
+    ]);
+  });
+
+  it('does not dedupe different dapps that only share metadata origins in real payloads', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'e',
+      searchResult: [REAL_DISCOVERY_DAPPS.aster, REAL_DISCOVERY_DAPPS.pendle],
+      rankingHistoryData: [],
+      bookmarkSearchData: [],
+      historySearchData: [],
+    });
+
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.title)).toEqual(
+      expect.arrayContaining(['Aster', 'Pendle']),
+    );
   });
 
   it('keeps exact url results ahead of local fused items', () => {
@@ -411,7 +847,7 @@ describe('searchResultRanking', () => {
     ]);
   });
 
-  it('keeps distinct local matches from the same origin', () => {
+  it('keeps distinct local matches and one same-origin dapp result', () => {
     const result = mergeSearchResultsWithLocalData({
       keyword: 'swap',
       searchResult: [
@@ -458,6 +894,87 @@ describe('searchResultRanking', () => {
       {
         type: 'history',
         url: 'https://app.uniswap.org/pool',
+      },
+      {
+        type: 'dapp',
+        url: 'https://app.uniswap.org/explore',
+      },
+    ]);
+  });
+
+  it('uses history item itself as a visit when no exact url history match exists', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'swap',
+      searchResult: [],
+      rankingHistoryData: [],
+      bookmarkSearchData: [],
+      historySearchData: [
+        createHistory({
+          id: 'history-older',
+          title: 'Swap Alpha',
+          url: 'https://alpha.example/trade',
+          createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+        }),
+        createHistory({
+          id: 'history-newer',
+          title: 'Swap Beta',
+          url: 'https://beta.example/trade',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        key: item.key,
+      })),
+    ).toEqual([
+      {
+        type: 'history',
+        key: 'history:history-newer',
+      },
+      {
+        type: 'history',
+        key: 'history:history-older',
+      },
+    ]);
+  });
+
+  it('keeps bookmark ahead of history when local scores tie', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'swap',
+      searchResult: [],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'Swap Alpha',
+          url: 'https://alpha.example',
+        }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'history-beta',
+          title: 'Swap Beta',
+          url: 'https://beta.example',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        url: item.url,
+      })),
+    ).toEqual([
+      {
+        type: 'bookmark',
+        url: 'https://alpha.example',
+      },
+      {
+        type: 'history',
+        url: 'https://beta.example',
       },
     ]);
   });
@@ -508,15 +1025,15 @@ describe('searchResultRanking', () => {
     expect(result.map((item) => item.dappId)).toEqual(['uniswap']);
   });
 
-  it('skips remote search for queries with length up to three', () => {
+  it('skips remote search only for queries shorter than three characters', () => {
     expect(shouldSkipRemoteSearchByKeyword('a')).toBe(true);
     expect(shouldSkipRemoteSearchByKeyword('ab')).toBe(true);
     expect(shouldSkipRemoteSearchByKeyword(' Ab ')).toBe(true);
-    expect(shouldSkipRemoteSearchByKeyword('abc')).toBe(true);
+    expect(shouldSkipRemoteSearchByKeyword('abc')).toBe(false);
     expect(shouldSkipRemoteSearchByKeyword('abcd')).toBe(false);
     expect(shouldSkipRemoteSearchByKeyword('a1')).toBe(true);
     expect(shouldSkipRemoteSearchByKeyword('你我')).toBe(true);
-    expect(shouldSkipRemoteSearchByKeyword('okx')).toBe(true);
+    expect(shouldSkipRemoteSearchByKeyword('okx')).toBe(false);
     expect(shouldSkipRemoteSearchByKeyword('okxx')).toBe(false);
   });
 });

@@ -9,6 +9,10 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const MAX_RECENT_VISITS_PER_ITEM = 10;
 const MAX_FRECENCY_VISIT_SCORE = 6;
 const BOOKMARK_FRECENCY_BONUS = 0.2;
+const REMOTE_SEARCH_MIN_QUERY_LENGTH = 3;
+const DAPP_PROMOTION_LOCAL_SUPPORT_MIN_COUNT = 2;
+const DAPP_PROMOTION_PREFIX_COVERAGE_DIRECT = 0.8;
+const DAPP_PROMOTION_PREFIX_COVERAGE_WITH_SUPPORT = 0.6;
 
 export const DISCOVERY_RANKING_HISTORY_LIMIT = 200;
 export const DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT = 200;
@@ -80,6 +84,14 @@ function normalizeText(text?: string) {
   return (text ?? '').trim().toLowerCase();
 }
 
+function isWebUrl(text?: string): text is string {
+  return /^https?:\/\//.test(normalizeText(text));
+}
+
+function getWebOrigins(origins?: string[]) {
+  return (origins ?? []).filter((origin) => isWebUrl(origin));
+}
+
 function normalizeUrlLikeText(text?: string) {
   return normalizeText(text)
     .replace(/^https?:\/\//, '')
@@ -110,10 +122,42 @@ function pickHigherTopicalityScore(
 }
 
 function getHostFromUrl(url?: string) {
-  if (!url) {
+  if (!isWebUrl(url)) {
     return '';
   }
   return normalizeUrlLikeText(uriUtils.getHostNameFromUrl({ url }));
+}
+
+function isIpHostname(hostname: string) {
+  return /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(hostname) || hostname.includes(':');
+}
+
+function getHostnameSiteKey(hostname?: string) {
+  const normalizedHostname = normalizeText(hostname)
+    .replace(/^www\./, '')
+    .replace(/\.+$/u, '');
+
+  if (!normalizedHostname) {
+    return '';
+  }
+
+  if (isIpHostname(normalizedHostname)) {
+    return normalizedHostname;
+  }
+
+  const labels = normalizedHostname.split('.').filter(Boolean);
+  if (labels.length <= 2) {
+    return normalizedHostname;
+  }
+
+  const tld = labels[labels.length - 1];
+  const sld = labels[labels.length - 2];
+
+  if (tld.length === 2 && sld.length <= 3) {
+    return labels.slice(-3).join('.');
+  }
+
+  return labels.slice(-2).join('.');
 }
 
 function getOriginMatchKeys({
@@ -125,15 +169,118 @@ function getOriginMatchKeys({
 }) {
   return Array.from(
     new Set(
-      [url, ...(origins ?? [])]
+      [url, ...getWebOrigins(origins)]
         .filter((item): item is string => Boolean(item))
         .map((item) => uriUtils.getOriginFromUrl({ url: item }) || item),
     ),
   );
 }
 
+function getSiteMatchKeys({
+  url,
+  origins,
+}: {
+  url?: string;
+  origins?: string[];
+}) {
+  return Array.from(
+    new Set(
+      [url, ...getWebOrigins(origins)]
+        .filter((item): item is string => Boolean(item))
+        .map((item) => {
+          const parsedUrl = uriUtils.safeParseURL(item);
+          if (!parsedUrl || !['http:', 'https:'].includes(parsedUrl.protocol)) {
+            return '';
+          }
+
+          const siteKey = getHostnameSiteKey(parsedUrl.hostname);
+          return siteKey ? `${parsedUrl.protocol}//${siteKey}` : '';
+        })
+        .filter(Boolean),
+    ),
+  );
+}
+
 function getExactUrlVisitKey(url?: string) {
   return normalizeUrlLikeText(url);
+}
+
+function isExactDappNameMatch({
+  dapp,
+  keyword,
+}: {
+  dapp: Pick<IDApp, 'name'>;
+  keyword: string;
+}) {
+  const normalizedKeyword = normalizeText(keyword);
+  const normalizedName = normalizeText(dapp.name);
+
+  return Boolean(normalizedKeyword) && normalizedKeyword === normalizedName;
+}
+
+function getDappNamePrefixCoverage({
+  dapp,
+  keyword,
+}: {
+  dapp: Pick<IDApp, 'name'>;
+  keyword: string;
+}) {
+  const normalizedKeyword = normalizeText(keyword);
+  const normalizedName = normalizeText(dapp.name);
+
+  if (
+    !normalizedKeyword ||
+    !normalizedName ||
+    !normalizedName.startsWith(normalizedKeyword)
+  ) {
+    return 0;
+  }
+
+  return normalizedKeyword.length / normalizedName.length;
+}
+
+function getDappLocalSupportCount({
+  dapp,
+  rankedLocalItems,
+}: {
+  dapp: Pick<IDApp, 'url' | 'origins'>;
+  rankedLocalItems: ILocalCandidate[];
+}) {
+  const dappOriginKeySet = new Set(
+    getOriginMatchKeys({
+      url: dapp.url,
+      origins: dapp.origins,
+    }),
+  );
+  const dappSiteKeySet = new Set(
+    getSiteMatchKeys({
+      url: dapp.url,
+      origins: dapp.origins,
+    }),
+  );
+  const supportedUrlKeySet = new Set<string>();
+
+  rankedLocalItems.forEach((candidate) => {
+    const candidateOriginKeys = getOriginMatchKeys({ url: candidate.item.url });
+    const candidateSiteKeys = getSiteMatchKeys({ url: candidate.item.url });
+    const hasOriginSupport = candidateOriginKeys.some((key) =>
+      dappOriginKeySet.has(key),
+    );
+    const hasSiteSupport = candidateSiteKeys.some((key) =>
+      dappSiteKeySet.has(key),
+    );
+
+    if (!hasOriginSupport && !hasSiteSupport) {
+      return;
+    }
+
+    const urlKey = getExactUrlVisitKey(candidate.item.url);
+    if (urlKey) {
+      supportedUrlKeySet.add(urlKey);
+    }
+  });
+
+  return supportedUrlKeySet.size;
 }
 
 function hasWordBoundaryMatch(text: string, query: string) {
@@ -231,6 +378,59 @@ function getUrlTopicalityScore({
   return makeTopicalityScore(0, 0);
 }
 
+function getDappSiteTopicalityScore({
+  dapp,
+  query,
+}: {
+  dapp: Pick<IDApp, 'url' | 'origins'>;
+  query: string;
+}) {
+  let bestScore = getUrlTopicalityScore({ url: dapp.url, query });
+
+  getWebOrigins(dapp.origins).forEach((origin) => {
+    bestScore = pickHigherTopicalityScore(
+      bestScore,
+      getUrlTopicalityScore({ url: origin, query }),
+    );
+  });
+
+  return bestScore;
+}
+
+function shouldPrioritizeDappAheadOfLocal({
+  dapp,
+  keyword,
+  localSupportCount,
+}: {
+  dapp: Pick<IDApp, 'name' | 'url' | 'origins' | 'keyword' | 'tags'>;
+  keyword: string;
+  localSupportCount: number;
+}) {
+  if (isExactDappNameMatch({ dapp, keyword })) {
+    return true;
+  }
+
+  const namePrefixCoverage = getDappNamePrefixCoverage({ dapp, keyword });
+  if (namePrefixCoverage >= DAPP_PROMOTION_PREFIX_COVERAGE_DIRECT) {
+    return true;
+  }
+
+  if (localSupportCount < DAPP_PROMOTION_LOCAL_SUPPORT_MIN_COUNT) {
+    return false;
+  }
+
+  if (namePrefixCoverage >= DAPP_PROMOTION_PREFIX_COVERAGE_WITH_SUPPORT) {
+    return true;
+  }
+
+  return (
+    getDappSiteTopicalityScore({
+      dapp,
+      query: normalizeUrlLikeText(keyword),
+    }).bucket >= 4
+  );
+}
+
 function getLocalItemTopicalityScore({
   title,
   url,
@@ -269,7 +469,7 @@ function getDappTopicalityScore({
 }) {
   let bestScore = getUrlTopicalityScore({ url: dapp.url, query });
 
-  (dapp.origins ?? []).forEach((origin) => {
+  getWebOrigins(dapp.origins).forEach((origin) => {
     bestScore = pickHigherTopicalityScore(
       bestScore,
       getUrlTopicalityScore({ url: origin, query }),
@@ -691,7 +891,9 @@ export function searchTrendingDappsByKeyword({
 }
 
 export function shouldSkipRemoteSearchByKeyword(keyword: string) {
-  return keyword.trim().length <= 3;
+  // Three characters already form a meaningful prefix for most English dapp
+  // names, so remote search starts at length 3 and only skips shorter input.
+  return keyword.trim().length < REMOTE_SEARCH_MIN_QUERY_LENGTH;
 }
 
 function hasMatchKeyOverlap({
@@ -714,6 +916,60 @@ function appendMatchKeys({
   keys.forEach((key) => dedupeKeySet.add(key));
 }
 
+function sortDappsByLocalSupport({
+  items,
+  getLocalSupportCount,
+}: {
+  items: IDApp[];
+  getLocalSupportCount: (dapp: IDApp) => number;
+}) {
+  return items.toSorted(
+    (a, b) => getLocalSupportCount(b) - getLocalSupportCount(a),
+  );
+}
+
+function appendDappSearchResult({
+  item,
+  source,
+  keyword,
+  mergedItems,
+  originDedupeKeySet,
+  urlDedupeKeySet,
+  reserveLocalUrlKey = false,
+}: {
+  item: IDApp;
+  source: 'remote' | 'trending';
+  keyword: string;
+  mergedItems: IDiscoverySearchListItem[];
+  originDedupeKeySet: Set<string>;
+  urlDedupeKeySet: Set<string>;
+  reserveLocalUrlKey?: boolean;
+}) {
+  const urlKey = getExactUrlVisitKey(item.url);
+  const keys = getOriginMatchKeys({ url: item.url, origins: item.origins });
+  if (hasMatchKeyOverlap({ keys, dedupeKeySet: originDedupeKeySet })) {
+    return;
+  }
+
+  appendMatchKeys({ keys, dedupeKeySet: originDedupeKeySet });
+  if (reserveLocalUrlKey && urlKey) {
+    urlDedupeKeySet.add(urlKey);
+  }
+
+  mergedItems.push({
+    type: 'dapp',
+    source,
+    key: `${source === 'trending' ? 'trending' : 'dapp'}:${item.dappId}`,
+    title: item.name,
+    url: item.url,
+    logo: item.logo,
+    originLogo: item.originLogo,
+    isExactUrl: item.isExactUrl,
+    keyword: keyword || item.keyword,
+    dapp: item,
+  });
+}
+
 export function mergeSearchResultsWithLocalData({
   keyword,
   searchResult,
@@ -730,7 +986,7 @@ export function mergeSearchResultsWithLocalData({
   trendingSearchData?: IDApp[];
 }): IDiscoverySearchListItem[] {
   const mergedItems: IDiscoverySearchListItem[] = [];
-  const originDedupeKeySet = new Set<string>();
+  const dappOriginDedupeKeySet = new Set<string>();
   const urlDedupeKeySet = new Set<string>();
 
   const rankedRemoteResults = rankSearchResultsChromeLike({
@@ -749,33 +1005,100 @@ export function mergeSearchResultsWithLocalData({
     bookmarkSearchData,
     historySearchData,
   });
+  const localSupportCountCache = new Map<string, number>();
+  const getLocalSupportCount = (dapp: IDApp) => {
+    const cached = localSupportCountCache.get(dapp.dappId);
+    if (cached !== undefined) {
+      return cached;
+    }
 
-  const exactUrlResults = rankedRemoteResults.filter((item) => item.isExactUrl);
-  const otherRemoteResults = rankedRemoteResults.filter(
+    const count = getDappLocalSupportCount({
+      dapp,
+      rankedLocalItems,
+    });
+    localSupportCountCache.set(dapp.dappId, count);
+    return count;
+  };
+  const rankedTrendingResultsWithLocalSupport = sortDappsByLocalSupport({
+    items: rankedTrendingResults,
+    getLocalSupportCount,
+  });
+  const rankedRemoteResultsWithLocalSupport = sortDappsByLocalSupport({
+    items: rankedRemoteResults,
+    getLocalSupportCount,
+  });
+
+  const exactUrlResults = rankedRemoteResultsWithLocalSupport.filter(
+    (item) => item.isExactUrl,
+  );
+  const prioritizedTrendingResults =
+    rankedTrendingResultsWithLocalSupport.filter((item) =>
+      shouldPrioritizeDappAheadOfLocal({
+        dapp: item,
+        keyword,
+        localSupportCount: getLocalSupportCount(item),
+      }),
+    );
+  const otherRemoteResults = rankedRemoteResultsWithLocalSupport.filter(
     (item) => !item.isExactUrl,
+  );
+  const prioritizedRemoteResults = otherRemoteResults.filter((item) =>
+    shouldPrioritizeDappAheadOfLocal({
+      dapp: item,
+      keyword,
+      localSupportCount: getLocalSupportCount(item),
+    }),
+  );
+  const otherTrendingResults = rankedTrendingResultsWithLocalSupport.filter(
+    (item) =>
+      !shouldPrioritizeDappAheadOfLocal({
+        dapp: item,
+        keyword,
+        localSupportCount: getLocalSupportCount(item),
+      }),
+  );
+  const remainingRemoteResults = otherRemoteResults.filter(
+    (item) =>
+      !shouldPrioritizeDappAheadOfLocal({
+        dapp: item,
+        keyword,
+        localSupportCount: getLocalSupportCount(item),
+      }),
   );
 
   exactUrlResults.forEach((item) => {
-    const keys = getOriginMatchKeys({ url: item.url, origins: item.origins });
-    if (hasMatchKeyOverlap({ keys, dedupeKeySet: originDedupeKeySet })) {
-      return;
-    }
-    appendMatchKeys({ keys, dedupeKeySet: originDedupeKeySet });
-    const urlKey = getExactUrlVisitKey(item.url);
-    if (urlKey) {
-      urlDedupeKeySet.add(urlKey);
-    }
-    mergedItems.push({
-      type: 'dapp',
+    appendDappSearchResult({
+      item,
       source: 'remote',
-      key: `dapp:${item.dappId}`,
-      title: item.name,
-      url: item.url,
-      logo: item.logo,
-      originLogo: item.originLogo,
-      isExactUrl: item.isExactUrl,
-      keyword: keyword || item.keyword,
-      dapp: item,
+      keyword,
+      mergedItems,
+      originDedupeKeySet: dappOriginDedupeKeySet,
+      urlDedupeKeySet,
+      reserveLocalUrlKey: true,
+    });
+  });
+
+  prioritizedTrendingResults.forEach((item) => {
+    appendDappSearchResult({
+      item,
+      source: 'trending',
+      keyword,
+      mergedItems,
+      originDedupeKeySet: dappOriginDedupeKeySet,
+      urlDedupeKeySet,
+      reserveLocalUrlKey: true,
+    });
+  });
+
+  prioritizedRemoteResults.forEach((item) => {
+    appendDappSearchResult({
+      item,
+      source: 'remote',
+      keyword,
+      mergedItems,
+      originDedupeKeySet: dappOriginDedupeKeySet,
+      urlDedupeKeySet,
+      reserveLocalUrlKey: true,
     });
   });
 
@@ -787,10 +1110,6 @@ export function mergeSearchResultsWithLocalData({
     if (urlKey) {
       urlDedupeKeySet.add(urlKey);
     }
-    appendMatchKeys({
-      keys: getOriginMatchKeys({ url: candidate.item.url }),
-      dedupeKeySet: originDedupeKeySet,
-    });
 
     if (candidate.type === 'bookmark') {
       const item = candidate.item;
@@ -820,43 +1139,25 @@ export function mergeSearchResultsWithLocalData({
     });
   });
 
-  rankedTrendingResults.forEach((item) => {
-    const keys = getOriginMatchKeys({ url: item.url, origins: item.origins });
-    if (hasMatchKeyOverlap({ keys, dedupeKeySet: originDedupeKeySet })) {
-      return;
-    }
-    appendMatchKeys({ keys, dedupeKeySet: originDedupeKeySet });
-    mergedItems.push({
-      type: 'dapp',
+  otherTrendingResults.forEach((item) => {
+    appendDappSearchResult({
+      item,
       source: 'trending',
-      key: `trending:${item.dappId}`,
-      title: item.name,
-      url: item.url,
-      logo: item.logo,
-      originLogo: item.originLogo,
-      isExactUrl: item.isExactUrl,
-      keyword: keyword || item.keyword,
-      dapp: item,
+      keyword,
+      mergedItems,
+      originDedupeKeySet: dappOriginDedupeKeySet,
+      urlDedupeKeySet,
     });
   });
 
-  otherRemoteResults.forEach((item) => {
-    const keys = getOriginMatchKeys({ url: item.url, origins: item.origins });
-    if (hasMatchKeyOverlap({ keys, dedupeKeySet: originDedupeKeySet })) {
-      return;
-    }
-    appendMatchKeys({ keys, dedupeKeySet: originDedupeKeySet });
-    mergedItems.push({
-      type: 'dapp',
+  remainingRemoteResults.forEach((item) => {
+    appendDappSearchResult({
+      item,
       source: 'remote',
-      key: `dapp:${item.dappId}`,
-      title: item.name,
-      url: item.url,
-      logo: item.logo,
-      originLogo: item.originLogo,
-      isExactUrl: item.isExactUrl,
-      keyword: keyword || item.keyword,
-      dapp: item,
+      keyword,
+      mergedItems,
+      originDedupeKeySet: dappOriginDedupeKeySet,
+      urlDedupeKeySet,
     });
   });
 

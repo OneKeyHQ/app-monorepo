@@ -198,4 +198,183 @@ describe('useSearchModalData', () => {
       sliceCount: DISCOVERY_LOCAL_SEARCH_CANDIDATE_LIMIT,
     });
   });
+
+  it('skips remote search for queries shorter than three characters when review control is enabled', async () => {
+    reviewControlMock.mockReturnValue(true);
+
+    const { result } = renderHook(() => useSearchModalData('un'));
+
+    await waitFor(() => {
+      expect(
+        serviceDiscoveryMock.fetchDiscoveryHomePageData,
+      ).toHaveBeenCalled();
+      // Short queries still keep locally matched trending results and the
+      // trailing search-action row; only remote DApp search is skipped.
+      expect(result.current.searchList).toHaveLength(2);
+    });
+
+    expect(serviceDiscoveryMock.searchDApp).not.toHaveBeenCalled();
+    expect(result.current.searchList).toEqual([
+      expect.objectContaining({
+        type: 'dapp',
+        source: 'trending',
+        url: 'https://app.uniswap.org',
+      }),
+      expect.objectContaining({
+        type: 'search-action',
+      }),
+    ]);
+  });
+
+  it('requests remote search for queries with length three when review control is enabled', async () => {
+    reviewControlMock.mockReturnValue(true);
+    serviceDiscoveryMock.getBookmarkData.mockImplementation(
+      async (options?: {
+        generateIcon?: boolean;
+        keyword?: string;
+        sliceCount?: number;
+      }) => {
+        if (options?.keyword === 'ast') {
+          return [
+            {
+              title: '74,419.1 | BTCUSDT | Trade | Aster',
+              url: 'https://www.asterdex.com/en/trade/pro/futures/BTCUSDT',
+              logo: '',
+              sortIndex: 0,
+            },
+          ];
+        }
+        return [];
+      },
+    );
+    serviceDiscoveryMock.fetchDiscoveryHomePageData.mockResolvedValue({
+      trending: [],
+    });
+    serviceDiscoveryMock.searchDApp.mockResolvedValue([
+      {
+        dappId: '93ba2378-b2c4-47c8-b05e-b80d8cfd4375',
+        name: 'Aster',
+        url: 'https://www.asterdex.com',
+        origins: ['defillama', 'tp'],
+        logo: '',
+        description: '',
+        networkIds: [],
+        tags: [],
+      },
+    ]);
+
+    const { result } = renderHook(() => useSearchModalData('ast'));
+
+    await waitFor(() => {
+      expect(serviceDiscoveryMock.searchDApp).toHaveBeenCalledWith('ast');
+      expect(result.current.searchList).toEqual([
+        expect.objectContaining({
+          type: 'bookmark',
+          title: '74,419.1 | BTCUSDT | Trade | Aster',
+        }),
+        expect.objectContaining({
+          type: 'dapp',
+          source: 'remote',
+          title: 'Aster',
+        }),
+        expect.objectContaining({
+          type: 'search-action',
+        }),
+      ]);
+    });
+  });
+
+  it('prioritizes near-complete dapp name prefixes ahead of local items', async () => {
+    reviewControlMock.mockReturnValue(true);
+    serviceDiscoveryMock.getBookmarkData.mockImplementation(
+      async (options?: {
+        generateIcon?: boolean;
+        keyword?: string;
+        sliceCount?: number;
+      }) => {
+        if (options?.keyword === 'aste') {
+          return [
+            {
+              title: '74,419.1 | BTCUSDT | Trade | Aster',
+              url: 'https://www.asterdex.com/en/trade/pro/futures/BTCUSDT',
+              logo: '',
+              sortIndex: 0,
+            },
+          ];
+        }
+        return [];
+      },
+    );
+    serviceDiscoveryMock.fetchDiscoveryHomePageData.mockResolvedValue({
+      trending: [],
+    });
+    serviceDiscoveryMock.searchDApp.mockResolvedValue([
+      {
+        dappId: '93ba2378-b2c4-47c8-b05e-b80d8cfd4375',
+        name: 'Aster',
+        url: 'https://www.asterdex.com',
+        origins: ['defillama', 'tp'],
+        logo: '',
+        description: '',
+        networkIds: [],
+        tags: [],
+      },
+    ]);
+
+    const { result } = renderHook(() => useSearchModalData('aste'));
+
+    await waitFor(() => {
+      expect(serviceDiscoveryMock.searchDApp).toHaveBeenCalledWith('aste');
+      expect(result.current.searchList).toEqual([
+        expect.objectContaining({
+          type: 'dapp',
+          source: 'remote',
+          title: 'Aster',
+        }),
+        expect.objectContaining({
+          type: 'bookmark',
+          title: '74,419.1 | BTCUSDT | Trade | Aster',
+        }),
+        expect.objectContaining({
+          type: 'search-action',
+        }),
+      ]);
+    });
+  });
+
+  it('requests remote search for queries longer than three characters when review control is enabled', async () => {
+    reviewControlMock.mockReturnValue(true);
+
+    const { result } = renderHook(() => useSearchModalData('uniswap'));
+
+    await waitFor(() => {
+      expect(
+        serviceDiscoveryMock.fetchDiscoveryHomePageData,
+      ).toHaveBeenCalled();
+      expect(serviceDiscoveryMock.searchDApp).toHaveBeenCalledWith('uniswap');
+    });
+
+    expect(result.current.searchList).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'search-action',
+        }),
+      ]),
+    );
+  });
+
+  it('returns an empty search list for empty query', async () => {
+    reviewControlMock.mockReturnValue(true);
+
+    const { result } = renderHook(() => useSearchModalData(''));
+
+    await waitFor(() => {
+      expect(serviceDiscoveryMock.getBookmarkData).toHaveBeenCalled();
+      expect(serviceDiscoveryMock.getHistoryData).toHaveBeenCalled();
+    });
+
+    expect(serviceDiscoveryMock.searchDApp).not.toHaveBeenCalled();
+    expect(result.current.searchList).toEqual([]);
+    expect(result.current.displaySearchList).toBe(false);
+  });
 });
