@@ -29,14 +29,16 @@ if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
     process.env.SPLIT_BUNDLE_SEGMENTS || 'true';
 }
 
-// Budgets — calibrated after Phase 1 bundle-split optimization (2026-04-06).
-//   common: 4062 modules / 14.03 MB
-//   main:   6679 modules / 29.30 MB (includes common overlap)
-//   bg:     8712 modules / 51.38 MB
-// Headroom: ~15 % above current measurements.
-const MODULE_BUDGET = parseInt(process.env.STARTUP_MODULE_BUDGET || '7700', 10);
+// Budgets — recalibrated 2026-04-20 after the three-bundle / native-background
+// split landed. Caller is expected to pass per-entry budgets via env vars
+// (see .github/workflows/startup-graph-budget.yml); defaults here are fallbacks
+// tuned for the background entry (the larger of the two) so that running the
+// script without env vars still behaves reasonably.
+//   main:       ~2666 modules / ~12.63 MB
+//   background: ~4359 modules / ~34.66 MB
+const MODULE_BUDGET = parseInt(process.env.STARTUP_MODULE_BUDGET || '5200', 10);
 const SIZE_BUDGET_BYTES =
-  parseFloat(process.env.STARTUP_SIZE_BUDGET_MB || '34') * 1024 * 1024;
+  parseFloat(process.env.STARTUP_SIZE_BUDGET_MB || '40') * 1024 * 1024;
 
 // npm packages that must NEVER appear in the main startup graph.
 // Phase 1 optimization moved these to lazy / dynamic imports.
