@@ -84,7 +84,7 @@ public class MainApplication extends Application implements ReactApplication {
 
     @Nullable
     @Override
-    public ReactHost getReactHost() {
+    public synchronized ReactHost getReactHost() {
         if (mReactHost == null) {
           mReactHost =
             ReactNativeHostWrapper.createReactHost(
