@@ -1,5 +1,3 @@
-import { EThirdPartyHardwareUiAction } from '../../../states/jotai/atoms/hardware';
-
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type {
@@ -52,32 +50,6 @@ export type IAdapterUiEvent = IAdapterUiRequest | IAdapterUiNotification;
 
 /** Alias of SDK's UiResponseEvent — the (type, payload) contract is SDK-owned. */
 export type IAdapterUiResponse = UiResponseEvent;
-
-/** Non-interactive notifications — user acts on the physical device, not in the app. */
-const TOAST_ACTIONS: Set<string> = new Set<string>([
-  EThirdPartyHardwareUiAction.confirmOnDevice,
-  EThirdPartyHardwareUiAction.openApp,
-  EThirdPartyHardwareUiAction.searching,
-]);
-
-/** Also treat unlock-device as toast (defined in atom types, not in IAdapterUiEventType). */
-const TOAST_ACTIONS_EXTRA = new Set([EThirdPartyHardwareUiAction.unlockDevice]);
-
-/** Is this a non-interactive notification that should show as a Toast (not Dialog)? */
-export function isThirdPartyToastAction(action: string | undefined): boolean {
-  return (
-    !!action &&
-    (TOAST_ACTIONS.has(action) ||
-      TOAST_ACTIONS_EXTRA.has(action as EThirdPartyHardwareUiAction))
-  );
-}
-
-/** Is this a "confirm on device" action specifically? (used by ReceiveToken for address display) */
-export function isThirdPartyConfirmOnDevice(
-  action: string | undefined,
-): boolean {
-  return action === EThirdPartyHardwareUiAction.confirmOnDevice;
-}
 
 /**
  * The narrow union of "vendors that currently have a registered adapter"

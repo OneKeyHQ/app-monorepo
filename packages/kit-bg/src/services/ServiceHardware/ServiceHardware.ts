@@ -41,7 +41,6 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
-  EHardwareVendor,
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
   IDeviceVerifyVersionCompareResult,
@@ -52,6 +51,7 @@ import type {
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
+  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -866,31 +866,13 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async connectDevice(params: IDeviceGetFeaturesOptions) {
-    const connectProfile = params.vendor
-      ? getVendorProfile(params.vendor)
-      : undefined;
-    if (params.vendor && connectProfile?.isThirdParty && params.connectId) {
-      await this.ensureAdaptersInitialized(params.vendor);
-      const adapter = this.getThirdPartyAdapter(params.vendor);
-      if (!adapter) {
-        throw new OneKeyLocalError(
-          `No adapter registered for vendor "${params.vendor}"`,
-        );
-      }
-      const result = await adapter.connectDevice(params.connectId);
-      if (!result.success) {
-        throw new OneKeyLocalError(
-          `${params.vendor} connect failed: ${result.payload.error}`,
-        );
-      }
-      return {
-        device_id: result.payload.deviceId,
-        initialized: true,
-        unlocked: true,
-        label: params.vendor,
-        bootloader_mode: false,
-        firmware_present: true,
-      } as Features;
+    if (params.vendor && params.vendor !== EHardwareVendor.onekey) {
+      throw new OneKeyLocalError(
+        `serviceHardware.connectDevice is OneKey-only; got vendor "${params.vendor}". ` +
+          `Third-party vendors have their own flow: ` +
+          `UI layer should use the dedicated hook (e.g. useDeviceConnect for ledger), ` +
+          `background/vault layer should call serviceHardware.getAdapterForVendor(vendor) and use the adapter directly.`,
+      );
     }
     return this.getFeaturesWithoutCache(params);
   }
@@ -916,19 +898,16 @@ class ServiceHardware extends ServiceBase {
     device: SearchDevice;
     hardwareCallContext?: EHardwareCallContext;
   }): Promise<Features | undefined> {
-    // Check for third-party vendor (Ledger)
     const vendor = (device as SearchDevice & { vendor?: string }).vendor;
-    const connectVendorProfile = vendor
-      ? getVendorProfile(vendor as EHardwareVendor)
-      : undefined;
-    if (connectVendorProfile?.isThirdParty) {
-      return this.connectDevice({
-        connectId: device.connectId ?? undefined,
-        vendor: vendor as EHardwareVendor,
-      });
+    if (vendor && vendor !== EHardwareVendor.onekey) {
+      throw new OneKeyLocalError(
+        `serviceHardware.connect is OneKey-only; got vendor "${vendor}". ` +
+          `Third-party vendors have their own flow: ` +
+          `UI layer should use the dedicated hook (e.g. useDeviceConnect for ledger), ` +
+          `background/vault layer should call serviceHardware.getAdapterForVendor(vendor) and use the adapter directly.`,
+      );
     }
 
-    // Original OneKey flow
     const { connectId } = device;
     if (
       !connectId &&

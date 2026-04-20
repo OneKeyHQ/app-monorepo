@@ -1,3 +1,4 @@
+import { OneKeyInternalError } from '../errors';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 export interface IHardwareVendorProfile {
@@ -77,7 +78,17 @@ const vendorProfiles: Record<EHardwareVendor, IHardwareVendorProfile> = {
 };
 
 export function getVendorProfile(
-  vendor: EHardwareVendor,
+  vendor: EHardwareVendor | undefined | null,
 ): IHardwareVendorProfile {
-  return vendorProfiles[vendor] ?? onekeyProfile;
+  // No vendor field means OneKey (legacy rows + callers that don't deal with
+  // third-party). Explicit `EHardwareVendor.onekey` also lands here via the
+  // lookup below. Any other value must have its profile registered.
+  if (!vendor) return onekeyProfile;
+  const profile = vendorProfiles[vendor];
+  if (!profile) {
+    throw new OneKeyInternalError(
+      `Unknown hardware vendor: "${vendor}". Register its profile in packages/shared/src/hardware/vendorProfile.ts`,
+    );
+  }
+  return profile;
 }

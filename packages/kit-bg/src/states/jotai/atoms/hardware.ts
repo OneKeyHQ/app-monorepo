@@ -155,6 +155,26 @@ export enum EThirdPartyHardwareUiAction {
   error = 'ui-event-ledger-error',
 }
 
+/** Actions shown as a passive toast (user acts on the physical device, not in the app). */
+const TOAST_ACTIONS = new Set<string>([
+  EThirdPartyHardwareUiAction.confirmOnDevice,
+  EThirdPartyHardwareUiAction.openApp,
+  EThirdPartyHardwareUiAction.searching,
+  EThirdPartyHardwareUiAction.unlockDevice,
+]);
+
+/** Is this a non-interactive notification that should show as a Toast (not Dialog)? */
+export function isThirdPartyToastAction(action: string | undefined): boolean {
+  return !!action && TOAST_ACTIONS.has(action);
+}
+
+/** Is this a "confirm on device" action specifically? (used by ReceiveToken for address display) */
+export function isThirdPartyConfirmOnDevice(
+  action: string | undefined,
+): boolean {
+  return action === EThirdPartyHardwareUiAction.confirmOnDevice;
+}
+
 export type IThirdPartyHardwareUiState = {
   action: EThirdPartyHardwareUiAction;
   vendor: EHardwareVendor;

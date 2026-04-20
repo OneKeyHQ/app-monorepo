@@ -19,6 +19,7 @@ import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import type { IThirdPartyHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EThirdPartyHardwareUiAction,
+  isThirdPartyToastAction,
   thirdPartyHardwareUiStateAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -29,17 +30,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import type { ReactVideoSource } from 'react-native-video';
-
-const TOAST_ACTIONS: Set<string> = new Set([
-  EThirdPartyHardwareUiAction.confirmOnDevice,
-  EThirdPartyHardwareUiAction.openApp,
-  EThirdPartyHardwareUiAction.searching,
-  EThirdPartyHardwareUiAction.unlockDevice,
-]);
-
-function isThirdPartyToastAction(action: string | undefined): boolean {
-  return !!action && TOAST_ACTIONS.has(action);
-}
 
 const AUTO_CLOSED_FLAG = 'autoClosed';
 const SHOW_CLOSE_BUTTON_DELAY = 8000;
@@ -52,7 +42,7 @@ const TOAST_VIEWPORT_NAME = 'THIRD_PARTY_HW_TOAST';
 function getDeviceLabel(vendor: string | undefined): string {
   if (!vendor) return 'Device';
   return (
-    getVendorProfile(vendor as EHardwareVendor)?.defaultDeviceName || 'Device'
+    getVendorProfile(vendor as EHardwareVendor).defaultDeviceName || 'Device'
   );
 }
 

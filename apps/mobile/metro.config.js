@@ -123,6 +123,25 @@ const devRouterStub = path.resolve(
   monorepoRoot,
   'packages/kit/src/views/Developer/router.empty.ts',
 );
+
+// Ledger DMK packages only declare `exports` (no `main`). With
+// unstable_enablePackageExports=false above, Metro can't find the entry
+// for the bare specifier. Resolve each to its CJS entry directly.
+const LEDGER_CJS_ENTRY_PACKAGES = [
+  '@ledgerhq/device-management-kit',
+  '@ledgerhq/device-signer-kit-ethereum',
+  '@ledgerhq/device-signer-kit-solana',
+  '@ledgerhq/device-transport-kit-react-native-ble',
+  '@ledgerhq/context-module',
+  '@ledgerhq/signer-utils',
+];
+const ledgerCjsByPackage = new Map(
+  LEDGER_CJS_ENTRY_PACKAGES.map((pkg) => {
+    const pkgRoot = path.dirname(require.resolve(`${pkg}/package.json`));
+    return [pkg, path.join(pkgRoot, 'lib/cjs/index.js')];
+  }),
+);
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === '@nktkas/hyperliquid/signing') {
     return {
@@ -150,6 +169,13 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === 'lodash-es' || moduleName.startsWith('lodash-es/')) {
     const cjsName = moduleName.replace('lodash-es', 'lodash');
     return resolve(context, cjsName, platform);
+  }
+  const ledgerCjs = ledgerCjsByPackage.get(moduleName);
+  if (ledgerCjs) {
+    return {
+      type: 'sourceFile',
+      filePath: ledgerCjs,
+    };
   }
   return resolve(context, moduleName, platform);
 };
