@@ -21,7 +21,10 @@ import {
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -247,6 +250,10 @@ export function HomePageView({
   }, [wallet]);
 
   const isBulkRevokeApprovalEnabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING) {
+      return false;
+    }
+
     if (network?.isAllNetworks) {
       if (
         accountUtils.isOthersAccount({
@@ -262,6 +269,7 @@ export function HomePageView({
 
     return networksSupportBulkRevokeApproval[network?.id ?? ''] ?? false;
   }, [
+    wallet?.type,
     network?.isAllNetworks,
     network?.id,
     account?.id,

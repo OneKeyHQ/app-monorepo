@@ -1781,6 +1781,14 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
                       <SectionFieldItem
+                        icon="EyeOutline"
+                        name="allowBulkSendWatchingAccount"
+                        title="批量转账允许观察账户进入前置流程"
+                        subtitle="仅放行前置校验，实际发送仍会在提交时拦截"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
                         icon="ShieldExclamationOutline"
                         name="strictSignatureAlert"
                         title="严格的签名 Alert 展示"

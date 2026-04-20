@@ -46,6 +46,8 @@ export interface INetworkExplorerConfig {
   token?: string;
 }
 
+export type { ICurrencyItem, ICurrencyType } from './currency';
+
 export type IServerNetwork = {
   id: string; // networkId like evm--1
   impl: string;
