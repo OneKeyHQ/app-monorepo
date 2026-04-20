@@ -7,6 +7,10 @@ import {
   useHyperliquidActions,
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  EActionType,
+  withToast,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -231,66 +235,62 @@ export function TradingViewPerpsV2(
     setIsChartLinesReady(true);
   }, []);
 
-  // Callback when user clicks cancel button on order line in TradingView chart
   const onOrderCancel = useCallback(
     async (payload: ITVOrderCancelPayload) => {
       const { symbol: orderSymbol, orderId } = payload;
+      if (!orderId) return;
 
-      if (!orderId) {
-        console.warn('[TradingViewPerpsV2] Order cancel: missing orderId');
-        return;
-      }
-
-      try {
-        await actions.current.ensureTradingEnabled();
-        await backgroundApiProxy.serviceHyperliquidExchange.cancelOrderByOid({
-          coin: orderSymbol,
-          oid: parseInt(orderId, 10),
+      await actions.current.ensureTradingEnabled();
+      const symbolMeta =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: orderSymbol.startsWith('@')
+            ? orderSymbol
+            : orderSymbol.toUpperCase(),
         });
-      } catch (error) {
-        console.error('[TradingViewPerpsV2] Failed to cancel order:', error);
-      }
+      if (!symbolMeta) return;
+
+      await actions.current.cancelOrder({
+        orders: [
+          { assetId: symbolMeta.assetId, oid: parseInt(orderId, 10) },
+        ],
+      });
     },
     [actions],
   );
 
   const onOrderDraftCreate = useCallback(
     async (payload: ITVOrderDraftCreatePayload) => {
-      try {
-        await actions.current.ensureTradingEnabled();
-        await backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin(
-          {
+      await actions.current.ensureTradingEnabled();
+      await withToast({
+        asyncFn: () =>
+          backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin({
             coin: payload.symbol,
             isBuy: payload.side === 'buy',
             size: payload.quantity,
             price: payload.price,
-          },
-        );
-      } catch (error) {
-        console.error('[TradingViewPerpsV2] Failed to place order:', error);
-      }
+          }),
+        actionType: EActionType.PLACE_ORDER,
+      });
     },
     [actions],
   );
 
   const onOrderPriceUpdate = useCallback(
     async (payload: ITVOrderPriceUpdatePayload) => {
-      if (!payload.orderId) {
-        console.warn('[TradingViewPerpsV2] Price update: missing orderId');
-        return;
-      }
+      if (!payload.orderId) return;
 
       try {
         await actions.current.ensureTradingEnabled();
-        await backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
-          {
-            coin: payload.symbol,
-            oid: parseInt(payload.orderId, 10),
-            newPrice: payload.price,
-          },
-        );
-      } catch (error) {
-        console.error('[TradingViewPerpsV2] Amend failed, reverting:', error);
+        await withToast({
+          asyncFn: () =>
+            backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid({
+              coin: payload.symbol,
+              oid: parseInt(payload.orderId as string, 10),
+              newPrice: payload.price,
+            }),
+          actionType: EActionType.PLACE_ORDER,
+        });
+      } catch {
         webRef.current?.sendMessageViaInjectedScript({
           type: MESSAGE_TYPES.PERPS_TV_ORDER_PRICE_UPDATE_REJECTED,
           payload: {
