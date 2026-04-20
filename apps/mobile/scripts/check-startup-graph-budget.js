@@ -36,9 +36,9 @@ if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
 // script without env vars still behaves reasonably.
 //   main:       ~2666 modules / ~12.63 MB
 //   background: ~4359 modules / ~34.66 MB
-const MODULE_BUDGET = parseInt(process.env.STARTUP_MODULE_BUDGET || '5200', 10);
+const MODULE_BUDGET = parseInt(process.env.STARTUP_MODULE_BUDGET || '5000', 10);
 const SIZE_BUDGET_BYTES =
-  parseFloat(process.env.STARTUP_SIZE_BUDGET_MB || '40') * 1024 * 1024;
+  parseFloat(process.env.STARTUP_SIZE_BUDGET_MB || '38') * 1024 * 1024;
 
 // npm packages that must NEVER appear in the main startup graph.
 // Phase 1 optimization moved these to lazy / dynamic imports.

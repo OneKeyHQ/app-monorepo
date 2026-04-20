@@ -70,9 +70,8 @@ jobs:
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
           ENTRY: main
           # main entry currently: ~2666 modules / ~12.63 MB
-          # Headroom: ~25% above current measurement
-          STARTUP_MODULE_BUDGET: '3500'
-          STARTUP_SIZE_BUDGET_MB: '16'
+          STARTUP_MODULE_BUDGET: '3000'
+          STARTUP_SIZE_BUDGET_MB: '15'
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Budget Check (background entry)
@@ -81,9 +80,8 @@ jobs:
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
           ENTRY: background
           # background entry currently: ~4359 modules / ~34.66 MB
-          # Headroom: ~15% above current measurement
-          STARTUP_MODULE_BUDGET: '5200'
-          STARTUP_SIZE_BUDGET_MB: '40'
+          STARTUP_MODULE_BUDGET: '5000'
+          STARTUP_SIZE_BUDGET_MB: '38'
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Architecture Check (three-bundle rules)
