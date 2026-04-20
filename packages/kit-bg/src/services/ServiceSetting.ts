@@ -43,8 +43,8 @@ import {
   buildHomeDefaultTokenMapKey,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
-  ICurrencyItem,
   EHardwareTransportType,
+  ICurrencyItem,
   IServerNetwork,
 } from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
