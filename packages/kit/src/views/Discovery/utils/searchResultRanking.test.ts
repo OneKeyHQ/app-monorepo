@@ -1025,7 +1025,308 @@ describe('searchResultRanking', () => {
     expect(result.map((item) => item.dappId)).toEqual(['uniswap']);
   });
 
-  it('skips remote search only for queries shorter than three characters', () => {
+  it('returns all local items without scoring when keyword is empty', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: '',
+      searchResult: [
+        createDApp({ dappId: 'dapp', url: 'https://example.com' }),
+      ],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({ title: 'Bookmark', url: 'https://bookmark.example' }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'history-1',
+          title: 'History',
+          url: 'https://history.example',
+          createdAt: Date.now(),
+        }),
+      ],
+    });
+
+    expect(result.map((item) => item.type)).toEqual([
+      'bookmark',
+      'history',
+      'dapp',
+    ]);
+  });
+
+  it('handles special regex characters in keyword without errors', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'test(.*)+?[]',
+      searchResult: [],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'Test (.*)+?[] Page',
+          url: 'https://example.com',
+        }),
+      ],
+      historySearchData: [],
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe('bookmark');
+  });
+
+  it('ranks recent visits ahead of older ones following time decay buckets', () => {
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+
+    const result = rankSearchResultsChromeLike({
+      keyword: 'swap',
+      searchResult: [
+        createDApp({
+          dappId: 'day-400',
+          name: 'Swap 400',
+          url: 'https://400.example',
+        }),
+        createDApp({
+          dappId: 'day-100',
+          name: 'Swap 100',
+          url: 'https://100.example',
+        }),
+        createDApp({
+          dappId: 'day-50',
+          name: 'Swap 50',
+          url: 'https://50.example',
+        }),
+        createDApp({
+          dappId: 'day-20',
+          name: 'Swap 20',
+          url: 'https://20.example',
+        }),
+        createDApp({
+          dappId: 'day-10',
+          name: 'Swap 10',
+          url: 'https://10.example',
+        }),
+        createDApp({
+          dappId: 'day-2',
+          name: 'Swap 2',
+          url: 'https://2.example',
+        }),
+      ],
+      rankingHistoryData: [
+        createHistory({
+          id: 'h-400',
+          url: 'https://400.example',
+          createdAt: now - 400 * DAY,
+        }),
+        createHistory({
+          id: 'h-100',
+          url: 'https://100.example',
+          createdAt: now - 100 * DAY,
+        }),
+        createHistory({
+          id: 'h-50',
+          url: 'https://50.example',
+          createdAt: now - 50 * DAY,
+        }),
+        createHistory({
+          id: 'h-20',
+          url: 'https://20.example',
+          createdAt: now - 20 * DAY,
+        }),
+        createHistory({
+          id: 'h-10',
+          url: 'https://10.example',
+          createdAt: now - 10 * DAY,
+        }),
+        createHistory({
+          id: 'h-2',
+          url: 'https://2.example',
+          createdAt: now - 2 * DAY,
+        }),
+      ],
+    });
+
+    expect(result.map((item) => item.dappId)).toEqual([
+      'day-2',
+      'day-10',
+      'day-20',
+      'day-50',
+      'day-100',
+      'day-400',
+    ]);
+  });
+
+  it('treats ccTLD domains as same site across subdomains', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'bbc',
+      searchResult: [
+        createDApp({
+          dappId: 'bbc-dapp',
+          name: 'BBC News',
+          url: 'https://www.bbc.co.uk',
+        }),
+      ],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'BBC Sport',
+          url: 'https://sport.bbc.co.uk/football',
+        }),
+        createBookmark({
+          title: 'BBC Weather',
+          url: 'https://weather.bbc.co.uk',
+        }),
+      ],
+      historySearchData: [],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      { type: 'dapp', title: 'BBC News' },
+      { type: 'bookmark', title: 'BBC Sport' },
+      { type: 'bookmark', title: 'BBC Weather' },
+    ]);
+  });
+
+  it('treats com.cn domains as same site with ccTLD logic', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'taobao',
+      searchResult: [
+        createDApp({
+          dappId: 'taobao-dapp',
+          name: 'Taobao',
+          url: 'https://www.taobao.com.cn',
+        }),
+      ],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'Taobao Mobile',
+          url: 'https://m.taobao.com.cn/page',
+        }),
+        createBookmark({
+          title: 'Taobao App',
+          url: 'https://app.taobao.com.cn',
+        }),
+      ],
+      historySearchData: [],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      { type: 'dapp', title: 'Taobao' },
+      { type: 'bookmark', title: 'Taobao Mobile' },
+      { type: 'bookmark', title: 'Taobao App' },
+    ]);
+  });
+
+  it('dedupes IP address URLs by origin like regular hostnames', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'local',
+      searchResult: [
+        createDApp({
+          dappId: 'local-dapp',
+          name: 'Local Server',
+          url: 'http://192.168.1.1:8080',
+        }),
+      ],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'Local Admin',
+          url: 'http://192.168.1.1:8080/admin',
+        }),
+      ],
+      historySearchData: [],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      { type: 'bookmark', title: 'Local Admin' },
+      { type: 'dapp', title: 'Local Server' },
+    ]);
+  });
+
+  it('treats visits at decay boundary days with expected scores', () => {
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+
+    const result = rankSearchResultsChromeLike({
+      keyword: 'swap',
+      searchResult: [
+        createDApp({
+          dappId: 'day-4',
+          name: 'Swap 4',
+          url: 'https://4.example',
+        }),
+        createDApp({
+          dappId: 'day-14',
+          name: 'Swap 14',
+          url: 'https://14.example',
+        }),
+        createDApp({
+          dappId: 'day-31',
+          name: 'Swap 31',
+          url: 'https://31.example',
+        }),
+        createDApp({
+          dappId: 'day-90',
+          name: 'Swap 90',
+          url: 'https://90.example',
+        }),
+        createDApp({
+          dappId: 'day-365',
+          name: 'Swap 365',
+          url: 'https://365.example',
+        }),
+      ],
+      rankingHistoryData: [
+        createHistory({
+          id: 'h-4',
+          url: 'https://4.example',
+          createdAt: now - 4 * DAY,
+        }),
+        createHistory({
+          id: 'h-14',
+          url: 'https://14.example',
+          createdAt: now - 14 * DAY,
+        }),
+        createHistory({
+          id: 'h-31',
+          url: 'https://31.example',
+          createdAt: now - 31 * DAY,
+        }),
+        createHistory({
+          id: 'h-90',
+          url: 'https://90.example',
+          createdAt: now - 90 * DAY,
+        }),
+        createHistory({
+          id: 'h-365',
+          url: 'https://365.example',
+          createdAt: now - 365 * DAY,
+        }),
+      ],
+    });
+
+    expect(result.map((item) => item.dappId)).toEqual([
+      'day-4',
+      'day-14',
+      'day-31',
+      'day-90',
+      'day-365',
+    ]);
+  });
+
+  it('skips remote search for short queries and overlong non-url queries', () => {
     expect(shouldSkipRemoteSearchByKeyword('a')).toBe(true);
     expect(shouldSkipRemoteSearchByKeyword('ab')).toBe(true);
     expect(shouldSkipRemoteSearchByKeyword(' Ab ')).toBe(true);
@@ -1035,5 +1336,21 @@ describe('searchResultRanking', () => {
     expect(shouldSkipRemoteSearchByKeyword('你我')).toBe(true);
     expect(shouldSkipRemoteSearchByKeyword('okx')).toBe(false);
     expect(shouldSkipRemoteSearchByKeyword('okxx')).toBe(false);
+    expect(shouldSkipRemoteSearchByKeyword('a'.repeat(64))).toBe(false);
+    expect(shouldSkipRemoteSearchByKeyword('a'.repeat(65))).toBe(true);
+    expect(shouldSkipRemoteSearchByKeyword(`  ${'a'.repeat(64)}  `)).toBe(
+      false,
+    );
+    expect(shouldSkipRemoteSearchByKeyword('a'.repeat(200))).toBe(true);
+    expect(
+      shouldSkipRemoteSearchByKeyword(
+        'https://app.uniswap.org/swap?inputCurrency=ETH&outputCurrency=USDC&chain=ethereum',
+      ),
+    ).toBe(false);
+    expect(
+      shouldSkipRemoteSearchByKeyword(
+        'app.uniswap.org/swap?inputCurrency=ETH&outputCurrency=USDC&chain=ethereum',
+      ),
+    ).toBe(false);
   });
 });

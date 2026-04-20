@@ -342,6 +342,44 @@ describe('useSearchModalData', () => {
     });
   });
 
+  it('keeps remote search enabled for long url queries when review control is enabled', async () => {
+    reviewControlMock.mockReturnValue(true);
+    serviceDiscoveryMock.fetchDiscoveryHomePageData.mockResolvedValue({
+      trending: [],
+    });
+    serviceDiscoveryMock.searchDApp.mockResolvedValue([
+      {
+        dappId: 'remote-uniswap-exact',
+        name: 'Remote Uniswap Exact',
+        url: 'https://app.uniswap.org',
+        isExactUrl: true,
+        logo: '',
+        description: '',
+        networkIds: [],
+        tags: [],
+      },
+    ]);
+    const longUrl =
+      'https://app.uniswap.org/swap?inputCurrency=ETH&outputCurrency=USDC&chain=ethereum';
+
+    const { result } = renderHook(() => useSearchModalData(longUrl));
+
+    await waitFor(() => {
+      expect(serviceDiscoveryMock.searchDApp).toHaveBeenCalledWith(longUrl);
+      expect(result.current.searchList).toEqual([
+        expect.objectContaining({
+          type: 'dapp',
+          source: 'remote',
+          title: 'Remote Uniswap Exact',
+          isExactUrl: true,
+        }),
+        expect.objectContaining({
+          type: 'search-action',
+        }),
+      ]);
+    });
+  });
+
   it('requests remote search for queries longer than three characters when review control is enabled', async () => {
     reviewControlMock.mockReturnValue(true);
 
