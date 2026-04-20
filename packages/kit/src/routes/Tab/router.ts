@@ -2,6 +2,7 @@
 import { useMemo } from 'react';
 
 import type {
+  INativeTabBarIcon,
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
@@ -9,8 +10,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { homeRouters } from '../../views/Home/router';
-
-import type { INativeTabBarIcon } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
 
 // [ONBOARDING-DEV] Only wallet icon kept for placeholder Home tab
 const nativeTabIcons = {

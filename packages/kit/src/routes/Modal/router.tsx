@@ -6,7 +6,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
-import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
+import type { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { keylessOnboardingCache } from '../../components/KeylessWallet/useKeylessWallet';
