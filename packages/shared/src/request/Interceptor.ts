@@ -11,7 +11,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import appDeviceInfo from '../appDeviceInfo/appDeviceInfo';
 import { defaultColorScheme } from '../config/appConfig';
 
-import { getHeaderPlatform } from './InterceptorConsts';
+import { headerPlatform } from './InterceptorConsts';
 import requestHelper from './requestHelper';
 
 import type { InternalAxiosRequestConfig } from 'axios';
@@ -117,7 +117,7 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Instance-Id')]: settings.instanceId,
     [normalizeHeaderKey('X-Onekey-Request-Locale')]: locale.toLowerCase(),
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
-    [normalizeHeaderKey('X-Onekey-Request-Platform')]: getHeaderPlatform(),
+    [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
     [normalizeHeaderKey('X-Onekey-Request-Platform-Name')]:
       appDeviceInfoData.displayName || 'Unknown',
     [normalizeHeaderKey('X-Onekey-Request-Device-Name')]:

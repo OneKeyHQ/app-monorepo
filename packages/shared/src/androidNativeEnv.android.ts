@@ -3,95 +3,59 @@ export const ANDROID_CHANNEL = process.env.ANDROID_CHANNEL || 'direct';
 export type IResolvedAndroidChannel = 'googlePlay' | 'apk';
 
 let cached: IResolvedAndroidChannel | undefined;
-let inflight: Promise<IResolvedAndroidChannel> | undefined;
 
-interface IInstallReferrerApi {
-  getInstallReferrerAsync?: () => Promise<string | null | undefined>;
-}
-
-interface ILoggerApi {
-  defaultLogger?: {
-    app?: {
-      appUpdate?: {
-        log?: (message: string) => void;
-      };
-    };
-  };
-}
-
-// Play Store install is probed via expo-application.getInstallReferrerAsync.
-// When the device can talk to the Play Install Referrer API we treat the app
-// as installed via Google Play. A native `getInstallerPackageName()` signal
-// would be stronger but is not exposed to JS in the current dependency graph;
-// when a native bridge is added in a future release we can extend the
-// resolver to prefer it.
-async function probeInstallReferrer(): Promise<{
-  ok: boolean;
-  detail: string;
-}> {
+// Write a one-liner to the native-logger so incident triage can inspect the
+// resolver outcome offline. Lazy require avoids the circular import chain
+// androidNativeEnv -> logger -> platformEnv -> androidNativeEnv.
+function log(message: string): void {
   try {
-    // Lazy require to avoid importing expo-application before the RN bridge
-    // is ready and to keep this module safe to evaluate in any context.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    const Application = require('expo-application') as IInstallReferrerApi;
-    if (typeof Application?.getInstallReferrerAsync !== 'function') {
-      return { ok: false, detail: 'api-missing' };
-    }
-    const referrer = await Application.getInstallReferrerAsync();
-    return {
-      ok: true,
-      detail: referrer ? `ok(len=${referrer.length})` : 'ok(empty)',
-    };
-  } catch (error) {
-    const message = (error as Error)?.message ?? String(error);
-    return { ok: false, detail: `fail(${message})` };
-  }
-}
-
-function writeLog(message: string): void {
-  // Lazy require to avoid a circular import:
-  //   androidNativeEnv -> logger -> platformEnv -> androidNativeEnv.
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    const mod = require('./logger/logger') as ILoggerApi;
-    mod.defaultLogger?.app?.appUpdate?.log?.(message);
+    /* eslint-disable @typescript-eslint/no-var-requires, global-require, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
+    require('./logger/logger').defaultLogger?.app?.appUpdate?.log?.(message);
+    /* eslint-enable */
   } catch {
-    // Logger not available yet; drop the message silently.
+    // logger not ready yet — drop silently
   }
 }
 
+// Resolve the runtime Android channel.
+//
+// `ANDROID_CHANNEL` is inlined by Metro at bundle-build time. The builtin
+// bundle shipped inside a Google Play APK inlines `google`; OTA bundles
+// built without that env var inline `direct` and, when they land on a
+// Google Play APK, mis-report the channel to both the update guard and
+// network headers.
+//
+// The runtime probe is `expo-application.getInstallReferrerAsync()`: it
+// returns a referrer string only when the device can talk to the Play
+// Install Referrer API, so success is a reasonable proxy for "installed
+// via Google Play". A dedicated `getInstallerPackageName()` native bridge
+// would be stronger but is out of scope for the hot-fix.
 export async function resolveAndroidChannel(): Promise<IResolvedAndroidChannel> {
   if (cached) return cached;
-  if (inflight) return inflight;
-  inflight = (async () => {
-    const inlineChannel = ANDROID_CHANNEL;
-    // Builtin bundle carries the APK flavor via Metro-inlined env var. When
-    // inline says 'google' we trust it and skip the probe. This is the 100%
-    // common case today (OTA bundles for mobile are still served from a
-    // single pipeline that inlines `google`).
-    if (inlineChannel === 'google') {
+  if (ANDROID_CHANNEL === 'google') {
+    cached = 'googlePlay';
+    log('resolveAndroidChannel: inline=google resolved=googlePlay');
+    return cached;
+  }
+  let probe = 'api-missing';
+  try {
+    /* eslint-disable @typescript-eslint/no-var-requires, global-require, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
+    const Application = require('expo-application');
+    if (typeof Application?.getInstallReferrerAsync === 'function') {
+      const referrer = await Application.getInstallReferrerAsync();
+      probe =
+        typeof referrer === 'string' && referrer.length
+          ? `ok(len=${referrer.length})`
+          : 'ok(empty)';
       cached = 'googlePlay';
-      writeLog(
-        `resolveAndroidChannel: inline=google resolved=googlePlay source=inline`,
-      );
-      return cached;
     }
-    // OTA bundle built without `ANDROID_CHANNEL=google` can land on a Google
-    // Play APK and inline 'direct'. Probe Play Install Referrer to correct
-    // the mismatch at runtime. This also acts as a diagnostic log for any
-    // future user who reports APK-download behaviour while running a Play
-    // Store build.
-    const probe = await probeInstallReferrer();
-    const resolved: IResolvedAndroidChannel = probe.ok ? 'googlePlay' : 'apk';
-    cached = resolved;
-    writeLog(
-      `resolveAndroidChannel: inline=${inlineChannel} installerProbe=${probe.detail} resolved=${resolved} source=installReferrer`,
-    );
-    return resolved;
-  })();
-  return inflight;
-}
-
-export function getAndroidChannelSync(): IResolvedAndroidChannel | undefined {
+    /* eslint-enable */
+  } catch (error) {
+    probe = `fail(${(error as Error)?.message ?? 'unknown'})`;
+  }
+  if (!cached) cached = 'apk';
+  log(
+    `resolveAndroidChannel: inline=${ANDROID_CHANNEL} installerProbe=${probe} resolved=${cached}`,
+  );
   return cached;
 }

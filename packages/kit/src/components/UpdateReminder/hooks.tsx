@@ -59,20 +59,9 @@ function getUpdatePlatform() {
   return 'web';
 }
 
-// Fallback Play Store URL used when the server did not return a storeUrl
-// for the update record even though the runtime channel resolves to
-// Google Play. See fix/appupdate-googleplay-channel for context.
+// Fallback when the server omits storeUrl for a Google Play update record.
 const PLAY_STORE_FALLBACK_URL =
   'https://play.google.com/store/apps/details?id=so.onekey.app.wallet';
-
-async function shouldRedirectToPlayStoreForAppShell(
-  fileType: EUpdateFileType,
-): Promise<boolean> {
-  if (fileType !== EUpdateFileType.appShell) return false;
-  if (!platformEnv.isNativeAndroid) return false;
-  const resolved = await resolveAndroidChannel();
-  return resolved === 'googlePlay';
-}
 
 const updateStrategyMap: Record<EUpdateStrategy, string> = {
   [EUpdateStrategy.silent]: 'silent',
@@ -510,12 +499,16 @@ export const useDownloadPackage = () => {
     const fileType = await getFileTypeFromUpdateInfo();
     const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
 
-    // Google Play builds must never enter the in-app APK download flow:
-    // the native layer rejects APK installs with a signature mismatch and
-    // the server may still return an APK downloadUrl for a mis-configured
-    // gray-scale rule. Redirect to the store URL (or the hardcoded Play
+    // Google Play builds must never enter the in-app APK download flow: the
+    // native layer rejects APK installs with a signature mismatch and the
+    // server may still return an APK downloadUrl when its gray-scale rule
+    // is mis-configured. Redirect to the store URL (or the hardcoded Play
     // Store page) instead of starting a doomed download.
-    if (await shouldRedirectToPlayStoreForAppShell(fileType)) {
+    if (
+      platformEnv.isNativeAndroid &&
+      fileType === EUpdateFileType.appShell &&
+      (await resolveAndroidChannel()) === 'googlePlay'
+    ) {
       openUrlExternal(params.storeUrl || PLAY_STORE_FALLBACK_URL);
       defaultLogger.app.appUpdate.log(
         'downloadPackage redirected to Play Store: resolved=googlePlay',
@@ -820,33 +813,24 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               jsBundleVersion:
                 params?.jsBundleVersion ?? currentUpdateInfo.jsBundleVersion,
             });
-            // Google Play / resolved googlePlay → open store URL (or the
-            // Play Store fallback when the server omitted storeUrl).
-            void (async () => {
-              if (await shouldRedirectToPlayStoreForAppShell(fileType)) {
-                openUrlExternal(params?.storeUrl || PLAY_STORE_FALLBACK_URL);
-                defaultLogger.app.component.confirmedInUpdateDialog();
-                return;
-              }
-              if (
-                !platformEnv.isExtension &&
-                params?.storeUrl &&
-                fileType === EUpdateFileType.appShell
-              ) {
-                openUrlExternal(params.storeUrl);
-              } else {
-                setTimeout(async () => {
-                  const updateInfo =
-                    await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-                  if (updateInfo.status === EAppUpdateStatus.ready) {
-                    toDownloadAndVerifyPage();
-                  } else {
-                    toUpdatePreviewPage(isFull, params);
-                  }
-                }, 120);
-              }
-              defaultLogger.app.component.confirmedInUpdateDialog();
-            })();
+            if (
+              !platformEnv.isExtension &&
+              params?.storeUrl &&
+              fileType === EUpdateFileType.appShell
+            ) {
+              openUrlExternal(params.storeUrl);
+            } else {
+              setTimeout(async () => {
+                const updateInfo =
+                  await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+                if (updateInfo.status === EAppUpdateStatus.ready) {
+                  toDownloadAndVerifyPage();
+                } else {
+                  toUpdatePreviewPage(isFull, params);
+                }
+              }, 120);
+            }
+            defaultLogger.app.component.confirmedInUpdateDialog();
           },
         });
       }, 0);
