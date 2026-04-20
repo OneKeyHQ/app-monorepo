@@ -582,7 +582,7 @@ function WalletBanner() {
         await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
           { userAddress: resolvedAddress },
         );
-        await backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+        void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
           ERookieTaskType.HYPERLIQUID_REFERRAL,
         );
         setReferralBannerHiddenForAccount(resolvedAddress);
