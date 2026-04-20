@@ -1081,14 +1081,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
 
     if (symbolMeta.isSpot) {
+      const szDecimals = symbolMeta.spotUniverse?.baseSzDecimals ?? 0;
       return this.placeSpotOrder({
         assetId: symbolMeta.assetId,
         isBuy: params.isBuy,
         sz: params.size,
-        limitPx: params.price,
+        limitPx: formatSpotPriceToValid(params.price, szDecimals),
         orderType: 'limit',
         tif: params.tif === 'Ioc' ? 'Ioc' : 'Gtc',
-        szDecimals: symbolMeta.spotUniverse?.baseSzDecimals,
+        szDecimals,
       });
     }
 
@@ -1096,7 +1097,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       assetId: symbolMeta.assetId,
       isBuy: params.isBuy,
       sz: params.size,
-      limitPx: params.price,
+      limitPx: formatPriceToSignificantDigits(
+        params.price,
+        symbolMeta.universe?.szDecimals,
+      ),
       orderType: { limit: { tif: params.tif ?? 'Gtc' } },
       reduceOnly: params.reduceOnly,
     });
@@ -1131,12 +1135,22 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       throw new OneKeyLocalError(`Order ${params.oid} not found`);
     }
 
+    const formattedPrice = symbolMeta.isSpot
+      ? formatSpotPriceToValid(
+          params.newPrice,
+          symbolMeta.spotUniverse?.baseSzDecimals ?? 0,
+        )
+      : formatPriceToSignificantDigits(
+          params.newPrice,
+          symbolMeta.universe?.szDecimals,
+        );
+
     return this.modifyOrder({
       oid: params.oid,
       assetId: symbolMeta.assetId,
       isBuy: existing.side === 'B',
       sz: existing.sz,
-      price: params.newPrice,
+      price: formattedPrice,
       reduceOnly: existing.reduceOnly,
       orderType: { limit: { tif: existing.tif === 'Alo' ? 'Alo' : 'Gtc' } },
     });
