@@ -12,8 +12,8 @@ import {
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useShowGuide } from '../../../hooks/useShowGuide';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { useShowGuide } from '../../../hooks/useShowGuide';
 import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
 
 function ActionButton({
@@ -21,7 +21,6 @@ function ActionButton({
   icon,
   width,
   height,
-  variant = 'secondary',
   onPress,
   disabled,
 }: {
@@ -29,7 +28,6 @@ function ActionButton({
   icon: 'DownloadOutline' | 'BookOpenOutline';
   width: number;
   height: number;
-  variant?: 'secondary';
   onPress?: () => void;
   disabled?: boolean;
 }) {
@@ -40,7 +38,7 @@ function ActionButton({
       size="small"
       h={height}
       px="$3"
-      variant={variant}
+      variant="secondary"
       onPress={onPress}
       disabled={disabled}
       childrenAsText={false}
@@ -71,7 +69,6 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
     <ActionButton
       width={buttonWidth}
       height={buttonHeight}
-      variant="secondary"
       icon="BookOpenOutline"
       label={guideLabel}
       onPress={useGuidePopover ? undefined : showGuide}
@@ -95,7 +92,7 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
         <Illustration
           name="Orders"
           size={isMobile ? 88 : 100}
-          mb={isMobile ? -24 : -24}
+          mb={-24}
         />
 
         <YStack gap="$1" alignItems="center">
@@ -121,7 +118,6 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
           flexDirection="row"
           alignItems="center"
           justifyContent="center"
-          flexWrap={isMobile ? 'nowrap' : undefined}
         >
           <ActionButton
             width={buttonWidth}

@@ -26,8 +26,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
 import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
-import { calcCellAlign, getColumnStyle } from '../utils';
 import { PositionRow } from '../Components/PositionsRow';
+import { calcCellAlign, getColumnStyle } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
