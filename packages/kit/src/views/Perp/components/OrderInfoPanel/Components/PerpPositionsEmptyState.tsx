@@ -7,6 +7,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -54,6 +55,7 @@ function ActionButton({
 
 export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const { showGuide } = useShowGuide();
   const [activeAccount] = usePerpsActiveAccountAtom();
@@ -61,6 +63,7 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
   const buttonWidth = isMobile ? 136 : 132;
   const buttonHeight = isMobile ? 32 : 28;
   const hasAccountAddress = Boolean(activeAccount?.accountAddress);
+  const useGuidePopover = gtMd;
   const guideLabel = intl.formatMessage({
     id: ETranslations.perp_guide_title,
   });
@@ -71,7 +74,7 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
       variant="secondary"
       icon="BookOpenOutline"
       label={guideLabel}
-      onPress={isMobile ? showGuide : undefined}
+      onPress={useGuidePopover ? undefined : showGuide}
     />
   );
 
@@ -130,12 +133,12 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
             onPress={() => void showDepositWithdrawModal('deposit')}
             disabled={!hasAccountAddress}
           />
-          {isMobile ? (
-            guideButton
-          ) : (
+          {useGuidePopover ? (
             <YStack width={buttonWidth}>
               <PerpGuidePopover renderTrigger={guideButton} />
             </YStack>
+          ) : (
+            guideButton
           )}
         </XStack>
       </YStack>
