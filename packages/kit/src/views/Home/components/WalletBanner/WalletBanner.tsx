@@ -45,6 +45,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 const PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
@@ -545,6 +546,8 @@ function WalletBanner() {
   }, [account?.id, indexedAccount?.id, deriveType]);
 
   const handleReferralBind = useCallback(async () => {
+    // Guard against eligibility flipping mid-signing (race condition).
+    if (!referralEligibility?.shouldShow) return;
     if (
       !referralEligibility?.resolvedAddress ||
       !referralEligibility?.resolvedAccountId
@@ -578,6 +581,9 @@ function WalletBanner() {
       if (submitResult.status === 'ok') {
         await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
           { userAddress: resolvedAddress },
+        );
+        await backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+          ERookieTaskType.HYPERLIQUID_REFERRAL,
         );
         setReferralBannerHiddenForAccount(resolvedAddress);
         Toast.success({
