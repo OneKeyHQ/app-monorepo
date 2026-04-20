@@ -26,7 +26,12 @@ const DEFAULT_CATEGORY_CONFIG = {
 } as const;
 
 function getCategoryConfig(category: string) {
-  return CATEGORY_CONFIG[category.toLowerCase()] ?? DEFAULT_CATEGORY_CONFIG;
+  const normalizedCategory = category
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  return CATEGORY_CONFIG[normalizedCategory] ?? DEFAULT_CATEGORY_CONFIG;
 }
 
 export { CATEGORY_CONFIG, DEFAULT_CATEGORY_CONFIG, getCategoryConfig };
