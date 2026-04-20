@@ -250,9 +250,7 @@ export function TradingViewPerpsV2(
       if (!symbolMeta) return;
 
       await actions.current.cancelOrder({
-        orders: [
-          { assetId: symbolMeta.assetId, oid: parseInt(orderId, 10) },
-        ],
+        orders: [{ assetId: symbolMeta.assetId, oid: parseInt(orderId, 10) }],
       });
     },
     [actions],
