@@ -807,6 +807,11 @@ class ServiceHardware extends ServiceBase {
           );
         }
         const devices = await adapter.searchDevices();
+        defaultLogger.hardware.sdkLog.thirdPartySearchDevicesResponse({
+          vendor: params.vendor,
+          success: true,
+          count: devices.length,
+        });
 
         const isUuidLike = (s?: string) =>
           s ? /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(s) : false;

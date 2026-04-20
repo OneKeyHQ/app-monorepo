@@ -14,7 +14,6 @@ import {
   IncorrectMasterPassword,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -24,6 +23,8 @@ import type {
   ICloudSyncPayloadDbWalletFields,
   ICloudSyncRawDataJson,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import keylessCloudSyncUtils from './keylessCloudSyncUtils';
 
@@ -111,8 +112,9 @@ class CloudSyncItemBuilder {
     let deviceType = '';
     if (walletType === WALLET_TYPE_HW) {
       const deviceVendor = dbDevice?.vendor;
-      const hwProfile = deviceVendor ? getVendorProfile(deviceVendor) : null;
-      if (hwProfile && !hwProfile.supportsCloudSync) {
+      // No vendor field means OneKey. Only OneKey is cloud-synced;
+      // third-party vendors (Ledger, ...) are excluded.
+      if (deviceVendor && deviceVendor !== EHardwareVendor.onekey) {
         return null;
       }
       keyHash = dbDevice?.deviceId;

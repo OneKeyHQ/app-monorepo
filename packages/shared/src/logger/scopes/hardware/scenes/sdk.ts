@@ -3,12 +3,24 @@ import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToConsole, LogToLocal } from '../../../base/decorators';
 
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export class HardwareSDKScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public log(eventName: string, version: number | string = '') {
     return `${eventName} ${version}`;
+  }
+
+  /** Third-party hardware (Ledger, ...) searchDevices result. The `thirdParty`
+   *  prefix distinguishes these logs from the OneKey HD-SDK path. */
+  @LogToLocal({ level: 'info' })
+  public thirdPartySearchDevicesResponse(params: {
+    vendor: EHardwareVendor;
+    success: boolean;
+    count: number;
+  }) {
+    return params;
   }
 
   @LogToConsole()
