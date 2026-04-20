@@ -751,14 +751,12 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
 
 export function MenuBarTrayListItem(props: ICustomElementProps) {
   const [{ enableMenuBarTray }] = useSettingsPersistAtom();
-  // Default to true to match settingsAtomInitialValue — otherwise migrated
-  // users (whose persisted atom lacks this field) see an off switch while
-  // the main process has the tray enabled by default.
+  // Fall back to true so migrated users (persisted atom lacks this field)
+  // match the main-process default of tray-enabled.
   const isEnabled = enableMenuBarTray ?? true;
   const toggleMenuBarTray = useCallback(async (value: boolean) => {
     startViewTransition(() => {
       void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
-      // Notify Electron main process to init/destroy tray
       if (platformEnv.isDesktopMac) {
         globalThis.desktopApi?.toggleTray(value);
       }

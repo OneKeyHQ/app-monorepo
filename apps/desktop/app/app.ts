@@ -705,9 +705,8 @@ async function createMainWindow() {
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
-  // Set main window reference for OAuth-callback HTTP server; the tray window
-  // shares the same preload bundle, so ipcMain must reject SERVER_* calls
-  // that originate from anywhere other than the main renderer.
+  // Tray shares the same preload, so SERVER_* must be scoped to the main
+  // renderer via sender-id checks in HttpServer.
   setMainWindowForHttpServer(browserWindow);
 
   // Protocol handler for win32
@@ -763,9 +762,6 @@ async function createMainWindow() {
     // before isAppReady is set to true (which affects the cache logic)
     emitter.emit('ready');
     isAppReady = true;
-
-    // Tray polling is now managed by TrayManager internally —
-    // starts when tray panel becomes visible, stops when hidden.
   });
 
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -1352,8 +1348,8 @@ if (!singleInstance && !process.mas) {
         }
       };
 
-      // Init tray on startup (default enabled); renderer will send
-      // TRAY_TOGGLE(false) if the user has disabled it in settings.
+      // Default to on; renderer sends TRAY_TOGGLE(false) on startup if
+      // the user had previously disabled it.
       initTrayManager(
         getSafelyMainWindow,
         showMainWindow,
@@ -1361,10 +1357,8 @@ if (!singleInstance && !process.mas) {
         loadTrayUrl,
       );
 
-      // Listen for tray toggle from renderer (settings change).
-      // Only the main window is authorized — the tray window shares the
-      // main preload and therefore also exposes `toggleTray`, so without
-      // this check a tray-side caller could disable the tray itself.
+      // Sender gate: tray window shares the main preload and also exposes
+      // `toggleTray`, so without this a tray-side caller could disable itself.
       ipcMain.on(ipcMessageKeys.TRAY_TOGGLE, (event, enabled: boolean) => {
         const senderMainWindow = getSafelyMainWindow();
         if (

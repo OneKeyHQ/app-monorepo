@@ -22,10 +22,7 @@ export function PortfolioOverview({
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
 
-  // `symbol` comes from currencyMap via the data provider, so unusual
-  // currencies (ARS, JPY, ...) keep their real unit instead of silently
-  // falling back to `$`. `BigNumber.toFormat` preserves precision for
-  // large balances that would overflow JS Number mantissa.
+  // BigNumber keeps precision for large balances that would overflow Number.
   const amountBn = new BigNumber(totalBalance.amount || '0');
   const formattedAmount = amountBn.isNaN()
     ? totalBalance.amount

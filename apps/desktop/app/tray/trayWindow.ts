@@ -8,12 +8,10 @@ const WINDOW_HEIGHT = 480;
 
 let trayWindow: BrowserWindow | null = null;
 let visibilityCallback: ((visible: boolean) => void) | null = null;
-// Tracked so we can cancel the blur-hide delay when the window is
-// destroyed; otherwise a late timeout could hit trayWindow.hide() after
-// destroy() has cleared the reference.
+// Tracked so destroy() can cancel a pending blur-hide; otherwise a late
+// timeout could call hide() after the window reference is gone.
 let blurHideTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** Register a callback to be notified when the tray panel shows/hides */
 export function onTrayWindowVisibilityChange(
   cb: (visible: boolean) => void,
 ): void {
@@ -75,10 +73,6 @@ export function createTrayWindow(
       spellcheck: false,
       webviewTag: false,
       webSecurity: !isDev,
-      // Tray renderer runs with contextIsolation on: preload exposes the
-      // desktopApi surface via contextBridge.exposeInMainWorld, so the
-      // app bundle still sees `window.desktopApi`, but cannot monkey-patch
-      // preload internals. See apps/desktop/app/preload.ts.
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
@@ -93,10 +87,8 @@ export function createTrayWindow(
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
     ::-webkit-scrollbar-track { background: transparent; }
   `;
-  // Inject CSS at every opportunity to ensure splash is hidden.
-  // CSS alone is sufficient because trayCSS includes
-  // `.onekey-index-html-preload-image { display: none !important; }`
-  // and App.tsx module-scope code also removes the element once React boots.
+  // Inject on both events so splash is hidden before any paint, regardless
+  // of which lifecycle hook fires first.
   trayWindow.webContents.on('did-start-loading', () => {
     void trayWindow?.webContents.insertCSS(trayCSS);
   });

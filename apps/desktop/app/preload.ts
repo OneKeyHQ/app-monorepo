@@ -73,8 +73,8 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
 
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
 
-// Preload runs per-window; detect the tray renderer so we can scope
-// tray-only surfaces (e.g. `sendTrayAction`) away from the main window.
+// Preload runs per-window; detect tray so tray-only surfaces can be scoped
+// away from the main renderer.
 const isTrayWindow =
   typeof location !== 'undefined' &&
   new URLSearchParams(location.search).get('render') === 'tray';
@@ -101,10 +101,8 @@ const desktopApi = {
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
-    // Channel whitelist for addIpcEventListener (mirrors validChannels for on()).
-    // TRAY_* channels are scoped per window so a compromised main renderer
-    // cannot sniff TRAY_UPDATE payloads (wallet balance, watchlist) and a
-    // compromised tray renderer cannot impersonate the data-request pipeline.
+    // TRAY_* channels are scoped per window so neither renderer can sniff
+    // or impersonate the other's half of the tray pipeline.
     const validIpcEventChannels = new Set([
       ipcMessageKeys.EVENT_OPEN_URL,
       ipcMessageKeys.WEBVIEW_NEW_WINDOW,
@@ -267,13 +265,11 @@ const desktopApi = {
   recoveryTryAgain: () => ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
   recoveryAutoRepair: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
-  // Tray data response — main renderer sends gathered data back to main process.
   sendTrayData: (data: any) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
-  // `sendTrayAction` is intentionally omitted from the shared surface —
-  // it is spread in only for `isTrayWindow` below so the main renderer
-  // cannot reach the TRAY_ACTION IPC channel at all (belt-and-suspenders
-  // alongside the sender-id check in trayIpc.ts).
+  // `sendTrayAction` is only exposed in the tray window so the main
+  // renderer cannot reach TRAY_ACTION at all — belt-and-suspenders with
+  // the sender-id check in trayIpc.ts.
   ...(isTrayWindow
     ? {
         sendTrayAction: (action: any) =>
@@ -286,16 +282,10 @@ const desktopApi = {
 
 // --- desktopApiBridge: invoke-based bridge for desktopApiProxy (replaces JsBridge) ---
 
-// The tray panel is a separate BrowserWindow that shares this preload file
-// but is NOT authorized to call DESKTOP_API_CALL (the main-process handler
-// enforces `event.sender.id === mainWindow.webContents.id`). If we fired
-// IPC from the tray renderer, main would reject and log a warning for every
-// call — noisy and confusing. Instead, when this preload is loaded in the
-// tray window, we stub `call` to fail locally. The tray panel should not
-// need backgroundApiProxy at all; any call reaching here is a bug in tray
-// rendering code (locale/settings/etc. must be relayed through TRAY_UPDATE).
-// (isTrayWindow is defined above, near desktopApi, so tray-only surfaces
-// can be scoped there too.)
+// The tray window shares this preload but is not authorized to call
+// DESKTOP_API_CALL (main rejects by sender-id). Stubbing `call` locally
+// avoids noisy warnings and flags any tray-side caller as a bug — all
+// tray data must arrive via TRAY_UPDATE.
 
 const desktopApiBridge = {
   call: isTrayWindow

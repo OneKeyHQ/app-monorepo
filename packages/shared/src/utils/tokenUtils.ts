@@ -1283,23 +1283,18 @@ export function calculateAccountTotalValue(params: {
   const hasDeFi = deFiNetWorth !== undefined && deFiNetWorth !== null;
   const deFi = new BigNumber(deFiNetWorth ?? 0);
 
-  // Branch A: tokensValue is a string (already a scalar)
   if (typeof tokensValue === 'string') {
     return new BigNumber(tokensValue || '0').plus(deFi).toFixed();
   }
 
-  // No structured tokens — return DeFi only (or undefined if both absent)
   if (!tokensValue || typeof tokensValue !== 'object') {
     if (!hasDeFi) return undefined;
     return deFi.toFixed();
   }
 
-  // Branch F: wallet-scoped derive matching. IMPORTANT: this branch has
-  // priority over Branch E (single-network accountId+networkId). If a
-  // caller passes all of { walletId, enabledNetworksCompatibleWithWalletId,
-  // networkInfoMap } together with { accountId, networkId }, the wallet-scoped
-  // path is taken. Callers that want single-account semantics must not pass
-  // the wallet-scoped params.
+  // Wallet-scoped branch takes priority over the single-network branch
+  // below when all wallet-scope params are provided — callers wanting
+  // single-account semantics must not pass them together.
   if (walletId && enabledNetworksCompatibleWithWalletId && networkInfoMap) {
     const SEPARATOR = '--';
     const compatibleIds = new Set(
@@ -1329,8 +1324,8 @@ export function calculateAccountTotalValue(params: {
     return sum.plus(deFi).toFixed();
   }
 
-  // Branch D: merge-derive per network (AccountValue branch 2)
-  // Intentional: does NOT add deFi — merge-derive chains (BTC/LTC/etc.) have no DeFi.
+  // Intentional: merge-derive chains (BTC/LTC/etc.) have no DeFi, so deFi
+  // is excluded from this branch.
   if (mergeDeriveAssetsEnabled && networkId) {
     let matched = false;
     const sum = Object.entries(tokensValue).reduce((acc, [k, v]) => {
@@ -1346,7 +1341,6 @@ export function calculateAccountTotalValue(params: {
     return sum.toFixed();
   }
 
-  // Branch E: single network (accountId + networkId both provided)
   if (accountId && networkId) {
     const key = accountUtils.buildAccountValueKey({ accountId, networkId });
     const entry = tokensValue[key];
@@ -1354,7 +1348,6 @@ export function calculateAccountTotalValue(params: {
     return new BigNumber(entry ?? '0').plus(deFi).toFixed();
   }
 
-  // Branches B + C: no filters → sum everything + deFi (tray case)
   const sumAll = Object.values(tokensValue).reduce(
     (acc: BigNumber, v) => acc.plus(new BigNumber(v || '0')),
     new BigNumber(0),

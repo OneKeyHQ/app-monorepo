@@ -25,10 +25,9 @@ import {
 } from './trayWindow';
 
 const POLL_INTERVAL_MS = 30_000;
-// Backstop: release the in-flight guard if the renderer never responds
-// (e.g. main window crash, unexpected error path). Must be larger than
-// the worst-case serial fetch time in `handleTrayDataRequest` but smaller
-// than POLL_INTERVAL_MS so we don't accidentally block two whole polls.
+// Backstop for when the renderer never responds (main-window crash, etc.).
+// Must exceed worst-case serial fetch but stay under POLL_INTERVAL_MS so
+// we don't block two whole polls.
 const REQUEST_TIMEOUT_MS = 20_000;
 
 let tray: Tray | null = null;
@@ -45,16 +44,11 @@ function clearRequestTimeout(): void {
   }
 }
 
-/**
- * Release the in-flight guard. Called either on TRAY_DATA_RESPONSE
- * (completion-driven, the normal path) or via the backstop timeout.
- */
 export function releaseRequestGuard(): void {
   isRequesting = false;
   clearRequestTimeout();
 }
 
-/** Request data with guard to prevent overlapping requests */
 function guardedRequest(): void {
   if (!cachedGetMainWindow || isRequesting) return;
   isRequesting = true;
@@ -114,7 +108,6 @@ export function initTrayManager(
     if (!panelCreated) {
       createTrayWindow(tray, loadTrayUrl);
       panelCreated = true;
-      // Send cached data after panel renderer mounts
       setTimeout(() => sendCachedDataToTrayWindow(), 500);
       setTimeout(() => sendCachedDataToTrayWindow(), 1500);
     } else {
@@ -126,7 +119,6 @@ export function initTrayManager(
   tray.on('click', handleClick);
   tray.on('right-click', handleClick);
 
-  // Start/stop polling based on tray panel visibility
   onTrayWindowVisibilityChange((visible) => {
     if (visible) {
       startPolling();
@@ -149,7 +141,7 @@ export function initTrayManager(
 
   isInitialized = true;
 
-  // Fetch initial data once so the first panel open is instant
+  // Prime the cache so the first panel open is instant.
   guardedRequest();
 
   logger.info('[TrayManager] macOS system tray initialized');
@@ -173,8 +165,8 @@ export function destroyTrayManager(): void {
   destroyTrayWindow();
   resetNotificationState();
 
-  // Reset trayIpc module state so a subsequent re-init (user toggles setting)
-  // is not blocked by stale isLocked or served stale cachedTrayData.
+  // Clear state so a re-init (setting toggle) isn't blocked by stale
+  // isLocked or served stale cachedTrayData.
   setLocked(false);
   resetCachedTrayData();
 

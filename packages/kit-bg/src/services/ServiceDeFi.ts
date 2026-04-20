@@ -436,22 +436,12 @@ class ServiceDeFi extends ServiceBase {
   }
 
   /**
-   * Returns the total DeFi netWorth for an account, summed across all
-   * networks the account has DeFi cache for, converted to `targetCurrency`.
+   * Total DeFi netWorth for an account in `targetCurrency`, summed across
+   * networks. Pass `networkId: getNetworkIdsMap().onekeyall` for the
+   * cross-network total.
    *
-   * Reads exclusively from the local `simpleDb.deFi` cache — no network
-   * calls. Designed for surfaces that need a wallet-level DeFi figure
-   * outside the Home tab's React tree (e.g. macOS menu-bar tray).
-   *
-   * - Pass `networkId: getNetworkIdsMap().onekeyall` for the cross-network
-   *   total (the typical caller intent). Single-network networkIds are
-   *   accepted but produce `hasCache: false` unless the caller resolves
-   *   accountAddress/xpub upstream.
-   * - `hasCache: false` ⇔ no DeFi cache entries for this account. Callers
-   *   should silently fall back (e.g. show tokens-only) rather than treat
-   *   it as an error.
-   * - `netWorth` is always a BigNumber-safe string in `targetCurrency`,
-   *   even when zero.
+   * Reads only from `simpleDb.deFi` — no network call. `hasCache: false`
+   * means no DeFi entries; callers should silently fall back to tokens-only.
    */
   @backgroundMethod()
   async getAccountTotalDeFiNetWorth(params: {
@@ -461,16 +451,10 @@ class ServiceDeFi extends ServiceBase {
   }): Promise<{ netWorth: string; hasCache: boolean }> {
     const { accountId, networkId, targetCurrency } = params;
 
-    // For own accounts the caller passes indexedAccountId (that's what
-    // HomeOverviewContainer writes into activeAccountValueAtom). For
-    // "others" accounts the caller passes the accountId itself.
     const indexedAccountId = accountUtils.isOthersAccount({ accountId })
       ? undefined
       : accountId;
 
-    // Delegate tuple resolution to the existing helper — it handles both
-    // All-Networks (via serviceAllNetwork.getAllNetworkAccounts) and
-    // single-network (via simpleDb.deFi.getAccountsDeFiOverview) paths.
     const entries = await this.getAccountsLocalDeFiOverview({
       accounts: [{ accountId, networkId, indexedAccountId }],
     });

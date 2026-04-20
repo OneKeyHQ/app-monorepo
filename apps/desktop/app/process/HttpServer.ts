@@ -9,10 +9,8 @@ import { ipcMessageKeys } from '../config';
 
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
-// The OAuth callback HTTP server must only be controllable from the main
-// renderer. The tray window shares the same preload bundle and could
-// otherwise reach `startServer` / `serverRespond` / `stopServer`, so the
-// ipcMain handlers below reject any sender that isn't the main window.
+// Tray window shares the same preload and would otherwise reach the
+// SERVER_* handlers; gate all of them on main-window sender id.
 let mainWindow: BrowserWindow | null = null;
 
 export function setMainWindowForHttpServer(window: BrowserWindow | null) {

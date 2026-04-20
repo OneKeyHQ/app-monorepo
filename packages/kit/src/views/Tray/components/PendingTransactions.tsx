@@ -67,9 +67,7 @@ export function PendingTransactions({
     id: ETranslations.tray_pending_status,
   });
 
-  // Failed txs are included in `transactions` so the main process can fire
-  // the "Transaction Failed" notification via diffAndNotify, but we don't
-  // want to surface them in the panel — filter to pending-only for display.
+  // Failed txs stay in `transactions` for diffAndNotify; don't show them here.
   const visibleTxs = (transactions || []).filter(
     (tx) => tx.status === 'pending',
   );

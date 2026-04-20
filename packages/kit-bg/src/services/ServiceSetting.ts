@@ -726,8 +726,7 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async getEnableMenuBarTray() {
     const { enableMenuBarTray } = await settingsPersistAtom.get();
-    // Default to true (matches settingsAtomInitialValue) so users upgrading
-    // from versions without this field get the menu bar tray by default.
+    // Fall back to true to match settingsAtomInitialValue for upgrades.
     return enableMenuBarTray ?? true;
   }
 

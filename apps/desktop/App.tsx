@@ -41,7 +41,7 @@ const SentryKitProvider = withSentryHOC(
   SentryErrorBoundaryFallback,
 );
 
-// Remove HTML splash before React mounts (safe: runs once at module load)
+// Runs at module load so splash is gone before React mounts.
 if (
   typeof globalThis !== 'undefined' &&
   typeof globalThis.location !== 'undefined' &&
@@ -57,10 +57,8 @@ function TrayPanelApp() {
       ? 'dark'
       : 'light',
   );
-  // Default to 'en-US' so the panel can render its loading state immediately.
-  // The authoritative locale is pushed by the main-window renderer via
-  // TRAY_UPDATE (see ITrayData.locale) — we can't call backgroundApiProxy
-  // here because DESKTOP_API_CALL is gated to the main window only.
+  // Authoritative locale arrives via TRAY_UPDATE; start with 'en-US' so the
+  // loading state can render before the first payload.
   const [locale, setLocale] = useState<ILocaleSymbol>('en-US');
 
   useEffect(() => {

@@ -14,8 +14,7 @@ import { TrayEmptyState } from './components/TrayEmptyState';
 import { WatchlistTickers } from './components/WatchlistTickers';
 
 function sendTrayAction(action: ITrayAction) {
-  // `sendTrayAction` is only exposed on the tray window preload (see
-  // apps/desktop/app/preload.ts), so it may be undefined elsewhere.
+  // Only exposed on the tray-window preload; undefined elsewhere.
   globalThis.desktopApi?.sendTrayAction?.(action);
 }
 
@@ -23,20 +22,18 @@ export function TrayPanel() {
   const [data, setData] = useState<ITrayData | null>(null);
 
   useEffect(() => {
-    // addIpcEventListener strips the IpcRendererEvent, so the listener
-    // receives the payload directly as its first (and only) argument.
     const handler = (trayData: ITrayData) => {
       setData(trayData);
     };
 
+    // `removeIpcEventListener` is a no-op in the main preload — only the
+    // unsubscribe function returned here actually detaches the listener.
     const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
       TRAY_IPC.UPDATE,
       handler as (...args: unknown[]) => void,
     );
 
     return () => {
-      // `removeIpcEventListener` is a documented no-op in the main preload;
-      // we must use the unsubscribe function returned by addIpcEventListener.
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       }
@@ -52,7 +49,6 @@ export function TrayPanel() {
   }, []);
 
   const handleTickerPress = useCallback((ticker: ITrayWatchlistItem) => {
-    // Send structured navigation action — main window renderer handles routing
     sendTrayAction({
       type: 'market-detail-v2',
       tokenAddress: ticker.tokenAddress || '',
@@ -63,10 +59,7 @@ export function TrayPanel() {
   }, []);
 
   const hasWatchlist = data?.watchlist && data.watchlist.length > 0;
-  // `pendingTxs` can include status==='failed' entries (tracked so the main
-  // process can emit the failed-tx notification) — those don't count as
-  // user-visible content, so the panel only flips to the content view when
-  // there's at least one actually-pending tx.
+  // Failed txs are tracked for notifications but don't count as content.
   const hasPendingTxs =
     data?.pendingTxs?.some((tx) => tx.status === 'pending') ?? false;
   const hasContent = hasWatchlist || hasPendingTxs;
