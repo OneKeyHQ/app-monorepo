@@ -132,15 +132,28 @@ function HomeOverviewContainer() {
         | Record<string, unknown>
         | undefined;
       if (!snap) return '';
-      const raw = snap['store:accountSelector@home::ctx:selectedAccountsAtom'];
+      // Read from activeAccountsAtom (not selectedAccountsAtom): byOwner keys
+      // are built via buildOverviewOwnerKey(account.id, network.id) where
+      // account.id is the fully-derived form (e.g. "hd-1--0000/0"), while
+      // selectedAccountsAtom only exposes indexedAccountId ("hd-1--0"). Using
+      // the latter would never match any byOwner entry, making the first-frame
+      // balance fast-path dead code. activeAccountsAtom is ColdStartCache-
+      // backed so its snapshot is present at bootstrap; see SplashProvider
+      // hasBalanceCacheInSnapshot() for the mirrored lookup.
+      const activeKey = Object.keys(snap).find(
+        (key) =>
+          key.includes('accountSelector@home') &&
+          key.includes('ctx:activeAccountsAtom'),
+      );
+      if (!activeKey) return '';
+      const raw = snap[activeKey];
       if (!raw || typeof raw !== 'object') return '';
-      // selectedAccountsAtom shape: { '<num>': { indexedAccountId, networkId, ... } }
+      // activeAccountsAtom shape: { '<num>': { account: { id }, network: { id }, ... } }
       // Home scene uses num=0 by convention.
       const atZero = (raw as Record<string, any>)['0'];
       if (!atZero || typeof atZero !== 'object') return '';
-      const accountId: string | undefined =
-        atZero.indexedAccountId || atZero.othersWalletAccountId;
-      const networkId: string | undefined = atZero.networkId;
+      const accountId: string | undefined = atZero.account?.id;
+      const networkId: string | undefined = atZero.network?.id;
       if (!accountId || !networkId) return '';
       return buildOverviewOwnerKey(accountId, networkId);
     } catch {
