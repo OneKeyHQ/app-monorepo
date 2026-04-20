@@ -86,10 +86,10 @@ export async function resolveAndroidChannel(): Promise<IResolvedAndroidChannel> 
   return cached;
 }
 
-// Eager sync classification at module load. This fires BEFORE `platformEnv`
-// (which imports this module) captures `ANDROID_CHANNEL` into its `const`
-// snapshots, so any write-back from `classifyAndroidChannelSync()` is seen
-// by every downstream consumer. The async probe continues off-thread and
-// only drives the diagnostic log.
-cached = classifyAndroidChannelSync();
+// Eager kick at module load. The synchronous portion of
+// `resolveAndroidChannel()` (classification + ANDROID_CHANNEL write-back)
+// runs before the first `await` inside the function, which is BEFORE
+// `platformEnv` — which imports this module — captures `ANDROID_CHANNEL`
+// into its `const` snapshots. The async Install Referrer probe then
+// continues off-thread and drives the diagnostic log.
 void resolveAndroidChannel();
