@@ -75,6 +75,8 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import { hyperLiquidApiClients } from './hyperLiquidApiClients';
+
 import type {
   WalletHyperliquidOnekey,
   WalletHyperliquidProxy,
@@ -1051,6 +1053,87 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       throw error;
     }
+  }
+
+  @backgroundMethod()
+  async placeLimitOrderByCoin(params: {
+    coin: string;
+    isBuy: boolean;
+    size: string;
+    price: string;
+    tif?: 'Gtc' | 'Ioc' | 'Alo';
+    reduceOnly?: boolean;
+  }): Promise<IOrderResponse> {
+    const symbolMeta =
+      await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
+        coin: params.coin,
+      });
+    if (!symbolMeta) {
+      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+    }
+    return this.placeOrder({
+      assetId: symbolMeta.assetId,
+      isBuy: params.isBuy,
+      sz: params.size,
+      limitPx: params.price,
+      orderType: { limit: { tif: params.tif ?? 'Gtc' } },
+      reduceOnly: params.reduceOnly,
+    });
+  }
+
+  @backgroundMethod()
+  async amendOrderPriceByOid(params: {
+    coin: string;
+    oid: number;
+    newPrice: string;
+  }): Promise<IModifyResponse> {
+    const symbolMeta =
+      await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
+        coin: params.coin,
+      });
+    if (!symbolMeta) {
+      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+    }
+
+    // HL modify requires the full order shape. Fetch the current order from HL
+    // so callers don't need to pass side/size/reduceOnly they already know.
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (!activeAccount.accountAddress) {
+      throw new OneKeyLocalError('No active perps account');
+    }
+    const openOrders =
+      await hyperLiquidApiClients.infoClient.frontendOpenOrders({
+        user: activeAccount.accountAddress,
+      });
+    const existing = openOrders.find((o) => o.oid === params.oid);
+    if (!existing) {
+      throw new OneKeyLocalError(`Order ${params.oid} not found`);
+    }
+
+    return this.modifyOrder({
+      oid: params.oid,
+      assetId: symbolMeta.assetId,
+      isBuy: existing.side === 'B',
+      sz: existing.sz,
+      price: params.newPrice,
+      reduceOnly: existing.reduceOnly,
+      orderType: { limit: { tif: existing.tif === 'Alo' ? 'Alo' : 'Gtc' } },
+    });
+  }
+
+  @backgroundMethod()
+  async cancelOrderByOid(params: {
+    coin: string;
+    oid: number;
+  }): Promise<ICancelResponse> {
+    const symbolMeta =
+      await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
+        coin: params.coin,
+      });
+    if (!symbolMeta) {
+      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+    }
+    return this.cancelOrder([{ assetId: symbolMeta.assetId, oid: params.oid }]);
   }
 
   @backgroundMethod()

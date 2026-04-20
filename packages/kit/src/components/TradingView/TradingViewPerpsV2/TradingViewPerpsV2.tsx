@@ -19,10 +19,16 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
+import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
 import { usePerpsTradingViewMessageHandler } from './messageHandlers';
 
-import type { ITVOrderCancelPayload, ITradeEvent } from './types';
+import type {
+  ITVOrderCancelPayload,
+  ITVOrderDraftCreatePayload,
+  ITVOrderPriceUpdatePayload,
+  ITradeEvent,
+} from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
@@ -236,34 +242,67 @@ export function TradingViewPerpsV2(
       }
 
       try {
-        // Ensure trading is enabled before canceling
         await actions.current.ensureTradingEnabled();
-
-        // Get symbol metadata to obtain assetId
-        const symbolMeta =
-          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-            coin: orderSymbol,
-          });
-
-        if (!symbolMeta) {
-          console.warn(
-            '[TradingViewPerpsV2] Token info not found for coin:',
-            orderSymbol,
-          );
-          return;
-        }
-
-        // Cancel the order
-        await actions.current.cancelOrder({
-          orders: [
-            {
-              assetId: symbolMeta.assetId,
-              oid: parseInt(orderId, 10),
-            },
-          ],
+        await backgroundApiProxy.serviceHyperliquidExchange.cancelOrderByOid({
+          coin: orderSymbol,
+          oid: parseInt(orderId, 10),
         });
       } catch (error) {
         console.error('[TradingViewPerpsV2] Failed to cancel order:', error);
+      }
+    },
+    [actions],
+  );
+
+  const onOrderDraftCreate = useCallback(
+    async (payload: ITVOrderDraftCreatePayload) => {
+      try {
+        await actions.current.ensureTradingEnabled();
+        await backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin(
+          {
+            coin: payload.symbol,
+            isBuy: payload.side === 'buy',
+            size: payload.quantity,
+            price: payload.price,
+          },
+        );
+      } catch (error) {
+        console.error('[TradingViewPerpsV2] Failed to place order:', error);
+      }
+    },
+    [actions],
+  );
+
+  const onOrderPriceUpdate = useCallback(
+    async (payload: ITVOrderPriceUpdatePayload) => {
+      // TV only commits the drag on the trailing edge; it still ships `stage: 'move'`
+      // today, but a future `modify` stage from a UI-side ticket edit should be ignored.
+      if (payload.stage === 'modify') return;
+      if (!payload.orderId) {
+        console.warn('[TradingViewPerpsV2] Price update: missing orderId');
+        return;
+      }
+
+      try {
+        await actions.current.ensureTradingEnabled();
+        await backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
+          {
+            coin: payload.symbol,
+            oid: parseInt(payload.orderId, 10),
+            newPrice: payload.price,
+          },
+        );
+      } catch (error) {
+        console.error('[TradingViewPerpsV2] Amend failed, reverting:', error);
+        webRef.current?.sendMessageViaInjectedScript({
+          type: MESSAGE_TYPES.PERPS_TV_ORDER_PRICE_UPDATE_REJECTED,
+          payload: {
+            requestId: payload.requestId,
+            lineId: payload.lineId,
+            symbol: payload.symbol,
+            orderId: payload.orderId,
+          },
+        });
       }
     },
     [actions],
@@ -275,6 +314,8 @@ export function TradingViewPerpsV2(
     webRef,
     onChartLinesReady,
     onOrderCancel,
+    onOrderDraftCreate,
+    onOrderPriceUpdate,
     onTouchScroll,
   });
 
