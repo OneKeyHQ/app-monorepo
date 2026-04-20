@@ -4,8 +4,6 @@ import type {
   IAdapterUiEvent,
   IAdapterUiEventType,
   IAdapterUiNotification,
-  IAdapterUiRequest,
-  IAdapterUiRequestType,
   IAdapterUiResponse,
   IHardwareWallet,
 } from './types';
@@ -17,10 +15,6 @@ export abstract class BaseAdapter {
 
   private uiEventHandlers = new Set<(event: IAdapterUiEvent) => void>();
 
-  private pendingUiResponse: {
-    resolve: (response: IAdapterUiResponse) => void;
-  } | null = null;
-
   onUiEvent(handler: (event: IAdapterUiEvent) => void): () => void {
     this.uiEventHandlers.add(handler);
     return () => {
@@ -29,26 +23,13 @@ export abstract class BaseAdapter {
   }
 
   uiResponse(response: IAdapterUiResponse): void {
-    if (this.pendingUiResponse) {
-      this.pendingUiResponse.resolve(response);
-      this.pendingUiResponse = null;
-    }
+    this.hw.uiResponse(response);
   }
 
   protected emitUiEvent(event: IAdapterUiEvent): void {
     for (const handler of this.uiEventHandlers) {
       handler(event);
     }
-  }
-
-  protected async emitRequest(
-    type: IAdapterUiRequestType,
-    payload?: IAdapterUiRequest['payload'],
-  ): Promise<IAdapterUiResponse> {
-    return new Promise<IAdapterUiResponse>((resolve) => {
-      this.pendingUiResponse = { resolve };
-      this.emitUiEvent({ kind: 'request', type, payload });
-    });
   }
 
   protected emitNotification(

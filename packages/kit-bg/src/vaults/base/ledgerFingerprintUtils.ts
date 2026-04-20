@@ -8,10 +8,13 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import localDb from '../../dbs/local/localDb';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IDBDevice } from '../../dbs/local/types';
 import type {
   ChainForFingerprint,
   Response,
 } from '@onekeyfe/hwk-adapter-core';
+
+const FINGERPRINT_CHAINS: ChainForFingerprint[] = ['evm', 'btc', 'sol', 'tron'];
 
 type IDbDeviceForFingerprint = {
   id: string;
@@ -177,6 +180,55 @@ export async function callLedgerWithFingerprintRetry<T>(
   }
 
   return result;
+}
+
+/**
+ * Compare one stored chain fingerprint against the live device. A single
+ * successful compare is definitive (same seed + same path = same fingerprint).
+ * Returns `'unknown'` when no chain could be queried.
+ */
+export async function verifySeedMatch(
+  backgroundApi: IBackgroundApi,
+  dbDevice: IDBDevice,
+  liveConnectId: string,
+): Promise<'match' | 'mismatch' | 'unknown'> {
+  if (dbDevice.vendor !== EHardwareVendor.ledger) return 'unknown';
+
+  const adapter = await backgroundApi.serviceHardware.getAdapterForVendor(
+    EHardwareVendor.ledger,
+  );
+  if (!adapter) return 'unknown';
+
+  let stored: Record<string, string> = {};
+  try {
+    const settings = JSON.parse(dbDevice.settingsRaw || '{}');
+    stored = (settings.chainFingerprints as Record<string, string>) ?? {};
+  } catch {
+    // Malformed settingsRaw — treat as "nothing stored", no guarantee to offer.
+    return 'unknown';
+  }
+
+  const candidates = FINGERPRINT_CHAINS.filter((c) => !!stored[c]);
+  if (candidates.length === 0) return 'unknown';
+
+  for (const chain of candidates) {
+    let live: string;
+    try {
+      const res = await adapter.hw.getChainFingerprint(liveConnectId, '', chain);
+      if (!res.success || !res.payload) continue;
+      live = res.payload;
+    } catch {
+      continue;
+    }
+
+    return live === stored[chain] ? 'match' : 'mismatch';
+  }
+
+  defaultLogger.hardware.sdkLog.log(
+    'ledgerFingerprint.verifySeedMatchUnknown',
+    `no candidate chain could be verified (stored=${candidates.join(',')})`,
+  );
+  return 'unknown';
 }
 
 async function generateAndStoreFingerprint(

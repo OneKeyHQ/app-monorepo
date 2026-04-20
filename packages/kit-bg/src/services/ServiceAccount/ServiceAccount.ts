@@ -164,6 +164,7 @@ import {
   indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
+import { verifySeedMatch as verifyLedgerSeedMatch } from '../../vaults/base/ledgerFingerprintUtils';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -3186,6 +3187,15 @@ class ServiceAccount extends ServiceBase {
           );
         return r;
       },
+      verifySeedMatchFn:
+        vendor === EHardwareVendor.ledger
+          ? async (matchedDevice) =>
+              verifyLedgerSeedMatch(
+                this.backgroundApi,
+                matchedDevice,
+                compatibleConnectId,
+              )
+          : undefined,
       transportType,
     });
     // Chain fingerprints for third-party vendors (Ledger) are generated on-demand

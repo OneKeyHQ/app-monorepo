@@ -216,6 +216,10 @@ export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
   xfp?: string;
   getFirstEvmAddressFn?: () => Promise<string | null>;
+  /** Returning anything other than `'match'` forces a fresh dbDeviceId. */
+  verifySeedMatchFn?: (
+    matchedDevice: IDBDevice,
+  ) => Promise<'match' | 'mismatch' | 'unknown'>;
   fillingXfpByCallingSdk?: boolean;
   transportType?: EHardwareTransportType; // Transport type used for this connection
 };

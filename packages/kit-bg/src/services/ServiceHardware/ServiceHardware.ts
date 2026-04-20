@@ -1,4 +1,5 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -1709,9 +1710,14 @@ class ServiceHardware extends ServiceBase {
   }) {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
-    if (adapter) {
-      adapter.uiResponse({ type: params.type });
-    }
+    if (!adapter) return;
+
+    // Only REQUEST_DEVICE_CONNECT flows through this path today. Extend the
+    // mapping when PIN / passphrase / select-device dialogs are wired up.
+    adapter.uiResponse({
+      type: UI_RESPONSE.RECEIVE_DEVICE_CONNECT,
+      payload: { confirmed: params.type === 'confirm' },
+    });
   }
 
   @backgroundMethod()

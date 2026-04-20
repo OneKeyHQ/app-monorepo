@@ -49,12 +49,10 @@ export type IAdapterUiNotification = {
 
 export type IAdapterUiEvent = IAdapterUiRequest | IAdapterUiNotification;
 
+/** Mirrors `IHardwareWallet.uiResponse` — `type` is a `UI_RESPONSE.*` constant. */
 export type IAdapterUiResponse = {
-  type: 'confirm' | 'cancel';
-  payload?: {
-    pin?: string;
-    passphrase?: string;
-  };
+  type: string;
+  payload: unknown;
 };
 
 /** Non-interactive notifications — user acts on the physical device, not in the app. */

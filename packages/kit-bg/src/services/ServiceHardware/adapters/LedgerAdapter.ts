@@ -66,18 +66,14 @@ export class LedgerAdapter
       });
     });
 
-    // SDK adapter asks user to connect/unlock device -> blocking request via emitRequest
-    this.hw.on(UI_REQUEST.REQUEST_DEVICE_CONNECT, async () => {
-      const response = await this.emitRequest(
-        EThirdPartyHardwareUiAction.requestUnlock,
-        {
+    this.hw.on(UI_REQUEST.REQUEST_DEVICE_CONNECT, () => {
+      this.emitUiEvent({
+        kind: 'request',
+        type: EThirdPartyHardwareUiAction.requestUnlock,
+        payload: {
           message: 'Please connect and unlock your Ledger device',
         },
-      );
-      void thirdPartyHardwareUiStateAtom.set(undefined);
-      this.hw.deviceConnectResponse(
-        response.type === 'confirm' ? 'confirm' : 'cancel',
-      );
+      });
     });
 
     // BaseAdapter's onUiEvent -> set atom for request events

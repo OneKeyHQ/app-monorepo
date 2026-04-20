@@ -3215,6 +3215,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       uuid: deviceUUID,
       connectId: device.connectId ?? undefined,
       getFirstEvmAddressFn: params.getFirstEvmAddressFn,
+      verifySeedMatchFn: params.verifySeedMatchFn,
       vendor,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
@@ -5386,12 +5387,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     uuid,
     connectId,
     getFirstEvmAddressFn,
+    verifySeedMatchFn,
     vendor,
   }: {
     rawDeviceId: string;
     uuid: string;
     connectId?: string;
     getFirstEvmAddressFn?: () => Promise<string | null>;
+    verifySeedMatchFn?: (
+      matchedDevice: IDBDevice,
+    ) => Promise<'match' | 'mismatch' | 'unknown'>;
     vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
     // Third-party devices may not have rawDeviceId (features.device_id).
@@ -5415,7 +5420,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           );
         });
         if (matched) {
-          return this.refillDeviceInfo({ device: matched });
+          const refilled = this.refillDeviceInfo({ device: matched });
+          // Ledger BLE connectId survives wipe-and-reseed; require a positive
+          // seed-match before reusing. Duplicates are recoverable, silent
+          // re-association of a new seed onto an old wallet is not.
+          if (verifySeedMatchFn) {
+            const seedCheck = await verifySeedMatchFn(refilled);
+            if (seedCheck !== 'match') return undefined;
+          }
+          return refilled;
         }
       }
 
