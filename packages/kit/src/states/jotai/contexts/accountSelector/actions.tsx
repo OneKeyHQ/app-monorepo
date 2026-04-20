@@ -42,6 +42,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -846,10 +847,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   (f) => f.error.code === ThirdPartyHwErrorCode.AppNotOpen,
                 );
               if (allAppNotInstalled) {
-                // TODO: add i18n key ETranslations.hardware_third_party_no_app_installed
                 Toast.error({
-                  title:
-                    'No apps installed on your device. Please install apps via Ledger Live.',
+                  title: appLocale.intl.formatMessage({
+                    id: ETranslationsMock.hardware_third_party_no_app_installed_on_device,
+                  }),
                 });
                 return;
               }

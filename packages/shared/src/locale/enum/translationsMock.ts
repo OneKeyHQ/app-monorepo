@@ -18,6 +18,10 @@ export enum ETranslationsMock {
   hardware_third_party_operation_timeout = 'Operation timed out',
   hardware_third_party_method_not_supported = 'This operation is not supported',
   hardware_third_party_unknown_error = 'Unknown hardware error. Please try again.',
+  hardware_third_party_device_not_found = 'No device detected. Please plug in via USB or enable Bluetooth.',
+  hardware_third_party_device_busy = 'Device is in use by another app. Close Ledger Live and try again.',
+  hardware_third_party_transport_error = 'Hardware communication failed. Check the USB cable or Bluetooth and try again.',
+  hardware_third_party_transport_not_available = 'Your browser or platform does not support connecting to this hardware wallet.',
   // ----------------------------------------------
   // Third-party hardware (Ledger) — EVM Eth App errors
   hardware_third_party_evm_blind_signing_required = 'Please enable Blind signing on your Ledger: open the Ethereum app → Settings → Blind signing → Enabled, then try again.',
@@ -25,4 +29,11 @@ export enum ETranslationsMock {
   hardware_third_party_evm_data_too_large = 'Transaction data is too large for your Ledger device. Try a simpler transaction or use a Ledger with more memory.',
   hardware_third_party_evm_tx_type_not_supported = 'Transaction type is not supported by your Ledger Ethereum app. Please update the app to the latest version.',
   hardware_third_party_app_too_old = 'Your Ledger app is out of date. Please update it via Ledger Live.',
+  // ----------------------------------------------
+  // Third-party hardware — UI labels (no ICU placeholders in mock phase)
+  hardware_third_party_default_device_label = 'Device',
+  hardware_third_party_device_not_found_title = 'Device Not Found',
+  hardware_third_party_device_scan_error = 'Failed to scan for devices. Please try again.',
+  hardware_third_party_no_app_installed_on_device = 'No apps installed on your device. Please install apps via Ledger Live.',
+  hardware_third_party_connect_ledger_message = 'Please connect and unlock your Ledger device',
 }

@@ -11,32 +11,12 @@ import type {
 } from '@onekeyfe/hwk-adapter-core';
 
 /**
- * Client for the Offscreen-side hardware bridge.
- *
- * Implements `IHardwareBridge` on the caller side (runs in the Service
- * Worker). The real server is `OffscreenApiThirdPartyHardware`, which lives in
- * the Offscreen Document and owns the per-vendor `IConnector` instances.
- *
- * - Methods (searchDevices / connect / call / ...) forward to
- *   `offscreenApiProxy.thirdPartyHardware.<method>(...)` via the existing
- *   RemoteApiProxy channel.
- * - `onEvent` / `offEvent` maintain a per-vendor handler set. The underlying
- *   `onOffscreenEvent` subscription is set up lazily on the first `onEvent`
- *   and torn down when the last handler is removed, so the bus doesn't hold
- *   a dead reference after all subscribers are gone.
- *
- * Pass this into `createBridgedConnector('ledger', client)` — the SDK
- * returns a full `IConnector` whose every method flows through here.
- *
- * Lifecycle notes:
- * - In the extension build the SW process itself is the outer lifecycle:
- *   when Chrome kills the SW, this module's singleton is dropped and a new
- *   SW instance recreates it on demand.
- * - Within a single SW lifetime, callers should `.off()` each handler they
- *   `.on()`'d — typically driven by the SDK adapter's dispose path. The
- *   internal subscription auto-unsubscribes once the last handler leaves,
- *   so swapping transports (e.g. Trezor USB ↔ BLE in a future release) or
- *   re-creating adapters doesn't leak a stale bus listener.
+ * SW-side `IHardwareBridge` — forwards to the offscreen-doc server
+ * (`OffscreenApiThirdPartyHardware`) via `offscreenApiProxy`. Event
+ * subscription is lazy: first `.on` attaches, last `.off` tears down,
+ * so recreating adapters within an SW lifetime doesn't leak a listener.
+ * Singleton across SW lifetime (SW kill → module dropped → SW restart
+ * recreates on demand).
  */
 class OffscreenHardwareBridgeClient implements IHardwareBridge {
   private eventHandlersByVendor = new Map<

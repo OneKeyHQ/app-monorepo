@@ -24,6 +24,8 @@ import {
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -40,12 +42,15 @@ const TOAST_VIEWPORT_NAME = 'THIRD_PARTY_HW_TOAST';
 // ---------------------------------------------------------------------------
 
 function getDeviceLabel(vendor: string | undefined): string {
-  if (!vendor) return 'Device';
-  return (
-    getVendorProfile(vendor as EHardwareVendor).defaultDeviceName || 'Device'
-  );
+  const fallback = appLocale.intl.formatMessage({
+    id: ETranslationsMock.hardware_third_party_default_device_label,
+  });
+  if (!vendor) return fallback;
+  return getVendorProfile(vendor as EHardwareVendor).defaultDeviceName || fallback;
 }
 
+// TODO: replace template literals with i18n + ICU {device} placeholder once
+// the real ETranslations keys ship; mock lookup doesn't do ICU substitution.
 function getToastLabel(action: string | undefined, vendor: string): string {
   const device = getDeviceLabel(vendor);
   switch (action) {
@@ -162,6 +167,7 @@ function getDialogContent(state: IThirdPartyHardwareUiState): {
 
   switch (action) {
     case EThirdPartyHardwareUiAction.requestUnlock:
+      // TODO: replace with ETranslations + ICU {device} placeholder when available
       return {
         title: `Connect ${device}`,
         message:
@@ -170,8 +176,11 @@ function getDialogContent(state: IThirdPartyHardwareUiState): {
         showFooter: true,
       };
     case EThirdPartyHardwareUiAction.requestRetry:
+      // TODO: replace with ETranslations + ICU {retryCount}/{maxRetries} placeholders when available
       return {
-        title: 'Device Not Found',
+        title: appLocale.intl.formatMessage({
+          id: ETranslationsMock.hardware_third_party_device_not_found_title,
+        }),
         message: `Device not found. Attempt ${payload?.retryCount || 0}/${payload?.maxRetries || 3}. Please check connection and try again.`,
         showFooter: true,
       };

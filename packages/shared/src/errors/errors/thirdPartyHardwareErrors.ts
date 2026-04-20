@@ -51,16 +51,9 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
   appName?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Specific error classes
-//
-// Keys live in `ETranslationsMock` for now because real locale data hasn't
-// been registered yet. Once the translation team adds them to `ETranslations`
-// + locale JSON, swap the imports below. Do NOT pass `defaultMessage` here:
-// the mock enum value already holds the human-readable text, and
-// `normalizeErrorProps` joins `[defaultMessage, key]` when i18n lookup
-// returns the id itself — which would duplicate the sentence in the toast.
-// ---------------------------------------------------------------------------
+// Error classes use `ETranslationsMock` keys until real locale data ships;
+// swap to `ETranslations` imports then. Do NOT pass `defaultMessage` — the
+// mock enum value already holds the human-readable text.
 
 /**
  * App not installed on device (Ledger 0x6807 "Unknown application name").
@@ -185,8 +178,7 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultKey:
-          ETranslationsMock.hardware_third_party_method_not_supported,
+        defaultKey: ETranslationsMock.hardware_third_party_method_not_supported,
         defaultAutoToast: true,
       }),
     );
@@ -209,6 +201,67 @@ export class ThirdPartyUnknownError extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.UnknownError;
 }
 
+/** Device not detected (BLE not discovered, USB unplugged, etc.) */
+export class ThirdPartyDeviceNotFound extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslationsMock.hardware_third_party_device_not_found,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceNotFound;
+}
+
+/** Device busy — held by another app (e.g. Ledger Live) */
+export class ThirdPartyDeviceBusy extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslationsMock.hardware_third_party_device_busy,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceBusy;
+}
+
+/** Transport-layer failure (USB / BLE communication) */
+export class ThirdPartyTransportError extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslationsMock.hardware_third_party_transport_error,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.TransportError;
+}
+
+/** Browser / platform lacks the required transport (e.g. Firefox WebHID) */
+export class ThirdPartyTransportNotAvailable extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslationsMock.hardware_third_party_transport_not_available,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.TransportNotAvailable;
+}
+
 // ---------------------------------------------------------------------------
 // EVM-specific Ledger Ethereum App errors (mapped from Ledger APDU codes)
 // ---------------------------------------------------------------------------
@@ -226,7 +279,8 @@ export class ThirdPartyEvmBlindSigningRequired extends ThirdPartyHardwareError {
     // would duplicate the sentence in the toast.
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_evm_blind_signing_required,
+        defaultKey:
+          ETranslationsMock.hardware_third_party_evm_blind_signing_required,
         defaultAutoToast: true,
       }),
     );

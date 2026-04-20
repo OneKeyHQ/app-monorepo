@@ -4,6 +4,8 @@ import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -56,13 +58,13 @@ export class LedgerAdapter
         case EConnectorInteraction.InteractionComplete:
           void thirdPartyHardwareUiStateAtom.set(undefined);
           break;
-        default:
+        default: {
+          const unknownType = (event as { type?: string }).type ?? 'unknown';
           defaultLogger.hardware.sdkLog.log(
-            `[LedgerAdapter] Unhandled SDK ui-event type: ${String(
-              event.type,
-            )}`,
+            `[LedgerAdapter] Unhandled SDK ui-event type: ${unknownType}`,
           );
           break;
+        }
       }
     });
 
@@ -78,7 +80,9 @@ export class LedgerAdapter
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestUnlock,
         payload: {
-          message: 'Please connect and unlock your Ledger device',
+          message: appLocale.intl.formatMessage({
+            id: ETranslationsMock.hardware_third_party_connect_ledger_message,
+          }),
         },
       });
     });

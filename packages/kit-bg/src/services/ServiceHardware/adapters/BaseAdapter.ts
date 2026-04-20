@@ -2,8 +2,6 @@ import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type {
   IAdapterUiEvent,
-  IAdapterUiEventType,
-  IAdapterUiNotification,
   IAdapterUiResponse,
   IHardwareWallet,
 } from './types';
@@ -30,12 +28,5 @@ export abstract class BaseAdapter {
     for (const handler of this.uiEventHandlers) {
       handler(event);
     }
-  }
-
-  protected emitNotification(
-    type: IAdapterUiEventType,
-    payload?: IAdapterUiNotification['payload'],
-  ): void {
-    this.emitUiEvent({ kind: 'ui-event', type, payload });
   }
 }

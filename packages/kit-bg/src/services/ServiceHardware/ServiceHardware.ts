@@ -156,16 +156,9 @@ const NEW_DIALOG_EVENTS = new Set([
 class ServiceHardware extends ServiceBase {
   private bridgeAvailabilityChecked = false;
 
-  // ---------------------------------------------------------------------
-  // Third-party hardware adapters
-  //
-  // Vendor → adapter instances are managed by iterating the registry at
-  // `./adapters/thirdPartyHardwareAdapterRegistry.ts`. To add a new vendor,
-  // append an entry there — ServiceHardware needs no changes.
-  //
-  // Public facade `getAdapterForVendor(vendor)` is unchanged, so callers
-  // (keyrings, etc.) are not affected.
-  // ---------------------------------------------------------------------
+  // Third-party hardware adapters — vendor → adapter via
+  // ./adapters/thirdPartyHardwareAdapterRegistry. Public facade is
+  // getAdapterForVendor(vendor).
 
   /** Live adapter instances, keyed by vendor name. */
   private thirdPartyAdapters = new Map<

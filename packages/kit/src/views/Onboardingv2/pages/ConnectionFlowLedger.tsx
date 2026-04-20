@@ -1,7 +1,3 @@
-/**
- * Ledger connection flow — 1:1 copy of OneKey USB connection flow.
- * Customize from here.
- */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
@@ -20,6 +16,7 @@ import {
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import {
@@ -42,10 +39,6 @@ import { ConnectionIndicator } from './ConnectYourDevice';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
-
-// ---------------------------------------------------------------------------
-// Copied from ConnectYourDevice.tsx — keep in sync or refactor to shared
-// ---------------------------------------------------------------------------
 
 enum EConnectionStatus {
   init = 'init',
@@ -132,7 +125,11 @@ export default function LedgerConnectionFlow() {
           // simple and surface whatever the SDK reports.
           const error = convertDeviceError(response.payload);
           Toast.error({
-            title: error.message || 'DeviceScanError',
+            title:
+              error.message ||
+              intl.formatMessage({
+                id: ETranslationsMock.hardware_third_party_device_scan_error,
+              }),
           });
           // Reset the searching flag so a subsequent scanDevice() call can re-enter.
           isSearchingRef.current = false;

@@ -1,3 +1,5 @@
+import type { EThirdPartyHardwareUiAction } from '../../../states/jotai/atoms/hardware';
+
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type {
@@ -15,17 +17,8 @@ export type { DeviceInfo, IHardwareWallet, Response, IConnector };
 // =====================================================================
 
 export type IAdapterUiRequestType =
-  | 'request-ledger-unlock'
-  | 'request-ledger-retry';
-
-export type IAdapterUiEventType =
-  | 'ui-event-ledger-searching'
-  | 'ui-event-ledger-connecting'
-  | 'ui-event-ledger-open-app'
-  | 'ui-event-ledger-confirm-on-device'
-  | 'ui-event-ledger-processing'
-  | 'ui-event-ledger-done'
-  | 'ui-event-ledger-error';
+  | EThirdPartyHardwareUiAction.requestUnlock
+  | EThirdPartyHardwareUiAction.requestRetry;
 
 export type IAdapterUiRequest = {
   kind: 'request';
@@ -37,16 +30,7 @@ export type IAdapterUiRequest = {
   };
 };
 
-export type IAdapterUiNotification = {
-  kind: 'ui-event';
-  type: IAdapterUiEventType;
-  payload?: {
-    chain?: string;
-    message?: string;
-  };
-};
-
-export type IAdapterUiEvent = IAdapterUiRequest | IAdapterUiNotification;
+export type IAdapterUiEvent = IAdapterUiRequest;
 
 /** Alias of SDK's UiResponseEvent — the (type, payload) contract is SDK-owned. */
 export type IAdapterUiResponse = UiResponseEvent;

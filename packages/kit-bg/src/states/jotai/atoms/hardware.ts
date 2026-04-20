@@ -151,6 +151,9 @@ export enum EThirdPartyHardwareUiAction {
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
   searching = 'ui-event-ledger-searching',
+  connecting = 'ui-event-ledger-connecting',
+  processing = 'ui-event-ledger-processing',
+  done = 'ui-event-ledger-done',
   unlockDevice = 'ui-event-ledger-unlock-device',
   error = 'ui-event-ledger-error',
 }

@@ -38,7 +38,7 @@ export function convertThirdPartyDeviceError(
   // OneKey-side extended codes for vendor-specific APDU errors. The SDK
   // (@onekeyfe/hwk-ledger-adapter) is responsible for identifying these and
   // surfacing the matching numeric code — this layer only routes to i18n.
-  switch (payload.code as number) {
+  switch (payload.code) {
     case OneKeyThirdPartyExtHwErrorCode.EvmBlindSigningRequired:
       return new ThirdPartyErrors.ThirdPartyEvmBlindSigningRequired(props);
     case OneKeyThirdPartyExtHwErrorCode.EvmClearSignPluginMissing:
@@ -77,6 +77,18 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.MethodNotSupported:
       return new ThirdPartyErrors.ThirdPartyMethodNotSupported(props);
+
+    case ThirdPartyHwErrorCode.DeviceNotFound:
+      return new ThirdPartyErrors.ThirdPartyDeviceNotFound(props);
+
+    case ThirdPartyHwErrorCode.DeviceBusy:
+      return new ThirdPartyErrors.ThirdPartyDeviceBusy(props);
+
+    case ThirdPartyHwErrorCode.TransportError:
+      return new ThirdPartyErrors.ThirdPartyTransportError(props);
+
+    case ThirdPartyHwErrorCode.TransportNotAvailable:
+      return new ThirdPartyErrors.ThirdPartyTransportNotAvailable(props);
 
     default:
       return new ThirdPartyErrors.ThirdPartyUnknownError(props);

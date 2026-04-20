@@ -13,25 +13,11 @@ import type {
 } from '@onekeyfe/hwk-adapter-core';
 
 /**
- * Offscreen-side implementation of `IHardwareBridge` for third-party hardware
- * wallets.
- *
- * This class lives only in the offscreen document. It owns the real SDK
- * `IConnector` instances (and the `navigator.hid` handles, DMK sessions, etc.
- * they hold) so they persist beyond any MV3 service-worker termination.
- *
- * Wiring:
- * - SW side builds a `createBridgedConnector('<vendor>', OffscreenHardwareBridgeClient)`
- *   whose `IConnector` methods tunnel here via `offscreenApiProxy.thirdPartyHardware`.
- * - This class receives those tunneled calls as plain async methods and
- *   forwards them to the real per-vendor connector.
- * - Connector events (`ui-event`, `device-connect`, `device-disconnect`,
- *   `ui-request`) are subscribed once per vendor and pushed back to SW via
- *   `offscreenEventBus` where `OffscreenHardwareBridgeClient` fans them out to
- *   whoever registered `onEvent(...)`.
- *
- * Adding a new vendor = one `case` in `createConnector()`. Everything else
- * is vendor-agnostic.
+ * Offscreen-doc server for `IHardwareBridge` — owns the per-vendor
+ * `IConnector` instances (and the `navigator.hid` handles they hold) so
+ * they outlive MV3 service-worker termination. SW tunnels calls here via
+ * `offscreenApiProxy.thirdPartyHardware`; connector events flow back
+ * through `offscreenEventBus`. New vendor = one `case` in `createConnector()`.
  */
 export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   private connectors = new Map<VendorType, IConnector>();

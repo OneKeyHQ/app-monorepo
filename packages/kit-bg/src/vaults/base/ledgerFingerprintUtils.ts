@@ -9,10 +9,7 @@ import localDb from '../../dbs/local/localDb';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
-import type {
-  ChainForFingerprint,
-  Response,
-} from '@onekeyfe/hwk-adapter-core';
+import type { ChainForFingerprint, Response } from '@onekeyfe/hwk-adapter-core';
 
 const FINGERPRINT_CHAINS: ChainForFingerprint[] = ['evm', 'btc', 'sol', 'tron'];
 
@@ -27,11 +24,18 @@ type IDbDeviceForFingerprint = {
 // In-memory cache: deviceDbId → chain → fingerprint
 const fingerprintCache = new Map<string, Map<string, string>>();
 
-function getCached(deviceDbId: string, chain: ChainForFingerprint): string | undefined {
+function getCached(
+  deviceDbId: string,
+  chain: ChainForFingerprint,
+): string | undefined {
   return fingerprintCache.get(deviceDbId)?.get(chain);
 }
 
-function setCache(deviceDbId: string, chain: ChainForFingerprint, fp: string): void {
+function setCache(
+  deviceDbId: string,
+  chain: ChainForFingerprint,
+  fp: string,
+): void {
   let deviceMap = fingerprintCache.get(deviceDbId);
   if (!deviceMap) {
     deviceMap = new Map();
@@ -75,10 +79,8 @@ export async function ensureLedgerChainFingerprint(
     );
   }
 
-  // When the stored connectId is itself a persistent device identifier
-  // (Ledger BLE uses a 4-hex suffix like "A58F"), use it directly.
-  // USB connectIds are ephemeral and must not be persisted, so the profile's
-  // regex also acts as a safety net against stale USB UUIDs reaching here.
+  // Use persistent BLE connectId directly (4-hex "A58F"); the profile regex
+  // rejects ephemeral USB UUIDs that would be stale here.
   const profile = getVendorProfile(EHardwareVendor.ledger);
   if (
     dbDevice.connectId &&
@@ -214,7 +216,11 @@ export async function verifySeedMatch(
   for (const chain of candidates) {
     let live: string;
     try {
-      const res = await adapter.hw.getChainFingerprint(liveConnectId, '', chain);
+      const res = await adapter.hw.getChainFingerprint(
+        liveConnectId,
+        '',
+        chain,
+      );
       if (!res.success || !res.payload) continue;
       live = res.payload;
     } catch {
