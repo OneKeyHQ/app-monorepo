@@ -83,6 +83,8 @@ export default function LedgerConnectionFlow() {
   const vendor = EHardwareVendor.ledger;
   const tabValue = EConnectDeviceChannel.usbOrBle;
   const deviceLabel = 'Ledger';
+  // Mobile (iOS/Android) uses BLE; extension and desktop use USB.
+  const isBle = platformEnv.isNative;
 
   // --- Device connection state (copied from useDeviceConnection) ---
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
@@ -277,19 +279,29 @@ export default function LedgerConnectionFlow() {
           </ConnectionIndicator.Animation>
           <ConnectionIndicator.Content gap="$2">
             <ConnectionIndicator.Title>
-              {intl.formatMessage(
-                {
-                  id: ETranslations.connect_device_to_computer_via_usb,
-                },
-                { deviceLabel },
-              )}
+              {isBle
+                ? intl.formatMessage({
+                    id: ETranslations.onboarding_bluetooth_prepare_to_connect,
+                  })
+                : intl.formatMessage(
+                    {
+                      id: ETranslations.connect_device_to_computer_via_usb,
+                    },
+                    { deviceLabel },
+                  )}
             </ConnectionIndicator.Title>
             <YStack gap="$1">
               <SizableText color="$textSubdued">
-                1. Connect your Ledger to computer via USB
+                {`1. ${intl.formatMessage({
+                  id: isBle
+                    ? ETranslationsMock.hardware_third_party_connect_step_ble
+                    : ETranslationsMock.hardware_third_party_connect_step_usb,
+                })}`}
               </SizableText>
               <SizableText color="$textSubdued">
-                2. Unlock your Ledger
+                {`2. ${intl.formatMessage({
+                  id: ETranslationsMock.hardware_third_party_connect_step_power_on_and_unlock,
+                })}`}
               </SizableText>
             </YStack>
             {connectStatus === EConnectionStatus.init ? (

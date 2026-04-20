@@ -36,4 +36,9 @@ export enum ETranslationsMock {
   hardware_third_party_device_scan_error = 'Failed to scan for devices. Please try again.',
   hardware_third_party_no_app_installed_on_device = 'No apps installed on your device. Please install apps via Ledger Live.',
   hardware_third_party_connect_ledger_message = 'Please connect and unlock your Ledger device',
+  // ----------------------------------------------
+  // Third-party hardware (Ledger) — onboarding / connection flow steps
+  hardware_third_party_connect_step_usb = 'Connect your Ledger to the computer via USB',
+  hardware_third_party_connect_step_ble = 'Turn on Bluetooth on your phone and keep Ledger nearby',
+  hardware_third_party_connect_step_power_on_and_unlock = 'Power on and unlock your Ledger',
 }
