@@ -7,11 +7,19 @@ import { I18nManager } from 'react-native';
 import { registerRootComponent } from 'expo';
 
 import '@onekeyhq/shared/src/polyfills';
+// Kick the Android channel resolver at the earliest point so the
+// sync classification + ANDROID_CHANNEL write-back happens before any
+// downstream consumer (header builder, update guard) reads the value.
+// The async Install Referrer probe runs off-thread and only feeds the
+// native-logger diagnostic line.
+import { resolveAndroidChannel } from '@onekeyhq/shared/src/androidNativeEnv';
 import { initSentry } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 
 import App from './App';
+
+void resolveAndroidChannel();
 
 ReactNativeDeviceUtils.initEventListeners();
 initSentry();
