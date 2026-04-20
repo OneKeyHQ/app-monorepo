@@ -45,6 +45,7 @@ import type {
   IApiRequestResult,
   ICancelResponse,
   IHex,
+  IModifyResponse,
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
@@ -54,6 +55,7 @@ import type {
   IBuilderFeeRequest,
   ICancelOrderParams,
   ILeverageUpdateRequest,
+  IModifyOrderParams,
   IOrderCloseParams,
   IOrderOpenParams,
   IPlaceOrderParams,
@@ -964,6 +966,49 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       throw new OneKeyLocalError(
         `Failed to place close order: ${String(error)}`,
       );
+    }
+  }
+
+  @backgroundMethod()
+  async modifyOrder(params: IModifyOrderParams): Promise<IModifyResponse> {
+    await this.checkAccountCanTrade();
+
+    const order: IOrderParams = {
+      a: params.assetId,
+      b: params.isBuy,
+      p: params.price,
+      s: params.sz,
+      r: params.reduceOnly ?? false,
+      t: params.orderType ?? { limit: { tif: 'Gtc' } },
+    };
+
+    const client = await this.getExchangeClientForTrading();
+    const requestPayload = { oid: params.oid, order };
+    const context = await this._buildLogContext();
+    const extra = { originalParams: params };
+
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.modify({ oid: params.oid, order }),
+      );
+      defaultLogger.perp.hyperliquid.modifyOrder({
+        ...context,
+        request: requestPayload,
+        response,
+        extra,
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.modifyOrder({
+        ...context,
+        request: requestPayload,
+        response: extractHyperLiquidErrorResponse<
+          IModifyResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra,
+      });
+      throw error;
     }
   }
 
