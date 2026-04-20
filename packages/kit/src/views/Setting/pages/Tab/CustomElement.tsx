@@ -749,6 +749,30 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
   );
 }
 
+export function MenuBarTrayListItem(props: ICustomElementProps) {
+  const [{ enableMenuBarTray }] = useSettingsPersistAtom();
+  // Fall back to true so migrated users (persisted atom lacks this field)
+  // match the main-process default of tray-enabled.
+  const isEnabled = enableMenuBarTray ?? true;
+  const toggleMenuBarTray = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
+      if (platformEnv.isDesktopMac) {
+        globalThis.desktopApi?.toggleTray(value);
+      }
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        size={ESwitchSize.small}
+        value={isEnabled}
+        onChange={toggleMenuBarTray}
+      />
+    </TabSettingsListItem>
+  );
+}
+
 export function BTCFreshAddressListItem(props: ICustomElementProps) {
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const toggleBTCFreshAddress = useCallback(async (value: boolean) => {

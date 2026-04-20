@@ -68,6 +68,7 @@ export type ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar?: boolean;
   enableDesktopBluetooth?: boolean;
   enableBTCFreshAddress?: boolean;
+  enableMenuBarTray?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -104,6 +105,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar: true,
   enableDesktopBluetooth: true,
   enableBTCFreshAddress: true,
+  enableMenuBarTray: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
