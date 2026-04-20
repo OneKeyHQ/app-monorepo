@@ -2,6 +2,8 @@ import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
+
 import {
   Icon,
   IconButton,
@@ -62,7 +64,7 @@ const MarketTokenSelectorRow = memo(
       return 'price' as const;
     }, [item.price]);
 
-    const changeColor = item.change24h >= 0 ? '$textSuccess' : '$textCritical';
+    const { changeColor } = getTokenPriceChangeStyle({ priceChange: item.change24h });
 
     // Use hooks directly + custom IconButton to match perps FavoriteButton exactly
     const spotStar = useStarV2Checked({

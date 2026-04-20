@@ -25,6 +25,7 @@ import {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { Txns } from '../../components/Txns';
@@ -181,7 +182,7 @@ export const useColumnsDesktop = (
           <NumberSizeableText
             size="$bodyMd"
             formatter="priceChange"
-            color={text >= 0 ? '$textSuccess' : '$textCritical'}
+            color={getTokenPriceChangeStyle({ priceChange: text }).changeColor}
             formatterOptions={{
               showPlusMinusSigns: true,
             }}
