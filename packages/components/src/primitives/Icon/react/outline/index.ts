@@ -367,6 +367,7 @@ export { default as Eject } from './Eject';
 export { default as Email2Notification } from './Email2Notification';
 export { default as Email2 } from './Email2';
 export { default as Email } from './Email';
+export { default as EnergyCircle } from './EnergyCircle';
 export { default as Error } from './Error';
 export { default as Ethereum } from './Ethereum';
 export { default as Euro } from './Euro';
