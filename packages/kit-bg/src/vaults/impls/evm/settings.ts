@@ -23,13 +23,12 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IStakingConfig,
   IStakingFlowConfig,
 } from '@onekeyhq/shared/types/earn';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
-
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 

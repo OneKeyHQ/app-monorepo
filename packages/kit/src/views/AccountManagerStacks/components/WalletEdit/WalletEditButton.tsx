@@ -83,7 +83,7 @@ function WalletEditButtonView({
   const isThirdPartyVendorWallet = useMemo(() => {
     return Boolean(
       wallet?.associatedDeviceInfo?.vendor &&
-        getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
+      getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
     );
   }, [wallet]);
 

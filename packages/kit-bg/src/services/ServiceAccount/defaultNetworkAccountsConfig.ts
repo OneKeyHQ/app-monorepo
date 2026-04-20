@@ -2,7 +2,7 @@ import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { uniqBy } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { IMPL_BTC, IMPL_LTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';

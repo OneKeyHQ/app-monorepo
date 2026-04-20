@@ -36,8 +36,8 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { EvmSignature } from '@onekeyfe/hwk-adapter-core';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+import type { EvmSignature } from '@onekeyfe/hwk-adapter-core';
 
 export class KeyringHardwareLedger extends KeyringHardwareBase {
   override coreApi = coreChainApi.evm.hd;

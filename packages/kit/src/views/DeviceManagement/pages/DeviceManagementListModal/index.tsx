@@ -315,6 +315,7 @@ function DeviceManagementV2ListWeb() {
           item.device?.vendor ?? EHardwareVendor.onekey,
         );
         if (vendorProfile.isThirdParty) {
+          // eslint-disable-next-line no-continue
           continue;
         }
 

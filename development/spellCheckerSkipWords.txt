@@ -1451,3 +1451,5 @@ frecency
 reactnativeappupdate
 ledgerhq
 keyrings
+APDU
+webhid

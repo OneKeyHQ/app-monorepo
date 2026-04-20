@@ -351,7 +351,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     };
   }
 
-  override async signPsbt(params: ISignTransactionParams): Promise<ISignedTxPro> {
+  override async signPsbt(
+    params: ISignTransactionParams,
+  ): Promise<ISignedTxPro> {
     const { unsignedTx, signOnly, deviceParams } = params;
     const { dbDevice } = checkIsDefined(deviceParams);
     const { psbtHex } = unsignedTx.encodedTx as IEncodedTxBtc;
@@ -478,36 +480,38 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     const fullPath = `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
 
     const result = await Promise.all(
-      params.messages.map(async (payload: { message: string; type?: string }) => {
-        if (payload.type === 'bip322-simple') {
-          throw new NotImplemented(
-            'Ledger does not support BIP-322 message signing',
+      params.messages.map(
+        async (payload: { message: string; type?: string }) => {
+          if (payload.type === 'bip322-simple') {
+            throw new NotImplemented(
+              'Ledger does not support BIP-322 message signing',
+            );
+          }
+
+          const messageHex = Buffer.from(payload.message).toString('hex');
+
+          const res = await callLedgerWithFingerprintRetry(
+            this.backgroundApi,
+            dbDevice,
+            'btc',
+            (deviceId) =>
+              adapter.hw.btcSignMessage(dbDevice.connectId, deviceId, {
+                path: fullPath,
+                message: messageHex,
+                coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
+              }),
           );
-        }
 
-        const messageHex = Buffer.from(payload.message).toString('hex');
-
-        const res = await callLedgerWithFingerprintRetry(
-          this.backgroundApi,
-          dbDevice,
-          'btc',
-          (deviceId) =>
-            adapter.hw.btcSignMessage(dbDevice.connectId, deviceId, {
-              path: fullPath,
-              message: messageHex,
-              coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
-            }),
-        );
-
-        if (!res.success) {
-          throw convertThirdPartyDeviceError(res.payload, {
-            vendor: 'Ledger',
-            chain: 'Bitcoin',
-          });
-        }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return res.payload.signature;
-      }),
+          if (!res.success) {
+            throw convertThirdPartyDeviceError(res.payload, {
+              vendor: 'Ledger',
+              chain: 'Bitcoin',
+            });
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return res.payload.signature;
+        },
+      ),
     );
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return

@@ -118,14 +118,14 @@ export function onOffscreenEvent<K extends IOffscreenEventType>(
   type: K,
   handler: IHandler<K>,
 ): () => void {
-  let set = handlersByType[type] as Set<IHandler<K>> | undefined;
+  let set = handlersByType[type];
   if (!set) {
     set = new Set<IHandler<K>>();
     handlersByType[type] = set as NonNullable<(typeof handlersByType)[K]>;
   }
   set.add(handler);
   return () => {
-    (handlersByType[type] as Set<IHandler<K>> | undefined)?.delete(handler);
+    handlersByType[type]?.delete(handler);
   };
 }
 
@@ -137,7 +137,7 @@ export function dispatchOffscreenEvent<K extends IOffscreenEventType>(
   type: K,
   payload: IOffscreenEventMap[K],
 ): void {
-  const set = handlersByType[type] as Set<IHandler<K>> | undefined;
+  const set = handlersByType[type];
   if (!set || set.size === 0) return;
   for (const handler of set) {
     try {

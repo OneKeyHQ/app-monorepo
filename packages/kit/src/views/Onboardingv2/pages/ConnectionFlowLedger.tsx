@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
+
 import {
   Button,
   EVideoResizeMode,
@@ -171,7 +172,7 @@ export default function LedgerConnectionFlow() {
       MAX_TRY_COUNT, // maxTryCount — search for up to ~90s
       vendor,
     );
-  }, [deviceScanner, vendor, tabValue]);
+  }, [deviceScanner, vendor, tabValue, intl]);
 
   const stopScan = useCallback(() => {
     isSearchingRef.current = false;

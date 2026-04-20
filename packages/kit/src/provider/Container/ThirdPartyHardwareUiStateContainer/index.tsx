@@ -46,7 +46,9 @@ function getDeviceLabel(vendor: string | undefined): string {
     id: ETranslationsMock.hardware_third_party_default_device_label,
   });
   if (!vendor) return fallback;
-  return getVendorProfile(vendor as EHardwareVendor).defaultDeviceName || fallback;
+  return (
+    getVendorProfile(vendor as EHardwareVendor).defaultDeviceName || fallback
+  );
 }
 
 // TODO: replace template literals with i18n + ICU {device} placeholder once

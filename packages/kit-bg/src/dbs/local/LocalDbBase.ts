@@ -3335,7 +3335,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             features,
             profile,
           })
-        : await this.buildOneKeyHwWalletFieldsFromFeatures({ device, features });
+        : await this.buildOneKeyHwWalletFieldsFromFeatures({
+            device,
+            features,
+          });
 
     const { dbDeviceId, dbWalletId, deviceUUID, rawDeviceId } =
       await this.buildHwWalletId(params);

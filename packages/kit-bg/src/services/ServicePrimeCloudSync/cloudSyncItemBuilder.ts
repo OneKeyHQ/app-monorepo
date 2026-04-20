@@ -17,14 +17,13 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   ICloudSyncCredential,
   ICloudSyncCredentialForLock,
   ICloudSyncPayloadDbWalletFields,
   ICloudSyncRawDataJson,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
-
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import keylessCloudSyncUtils from './keylessCloudSyncUtils';
 

@@ -1,5 +1,6 @@
-import { OneKeyInternalError } from '../errors';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import { OneKeyInternalError } from '../errors';
 
 export interface IHardwareVendorProfile {
   vendor: EHardwareVendor;

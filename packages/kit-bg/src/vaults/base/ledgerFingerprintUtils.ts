@@ -221,9 +221,11 @@ export async function verifySeedMatch(
         '',
         chain,
       );
+      // eslint-disable-next-line no-continue
       if (!res.success || !res.payload) continue;
       live = res.payload;
     } catch {
+      // eslint-disable-next-line no-continue
       continue;
     }
 

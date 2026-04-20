@@ -1,9 +1,9 @@
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToConsole, LogToLocal } from '../../../base/decorators';
 
-import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export class HardwareSDKScene extends BaseScene {

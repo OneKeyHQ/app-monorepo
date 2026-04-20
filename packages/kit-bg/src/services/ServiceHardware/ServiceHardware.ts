@@ -59,6 +59,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import simpleDb from '../../dbs/simple/simpleDb';
+import { dispatchOffscreenEvent } from '../../offscreens/offscreenEventBus';
 import {
   EHardwareUiStateAction,
   hardwareForceTransportAtom,
@@ -68,18 +69,12 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import { dispatchOffscreenEvent } from '../../offscreens/offscreenEventBus';
-
 import { thirdPartyHardwareAdapterRegistry } from './adapters/thirdPartyHardwareAdapterRegistry';
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
-import type {
-  IOffscreenEventMap,
-  IOffscreenEventType,
-} from '../../offscreens/offscreenEventBus';
 import type { IThirdPartyVendor } from './adapters/thirdPartyHardwareAdapterRegistry';
 import type { DeviceInfo, IThirdPartyHardwareAdapter } from './adapters/types';
 import type {
@@ -105,6 +100,10 @@ import type {
 } from './HardwareVerifyManager';
 import type { IHardwareHomeScreenResponse } from './ServerType';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
+import type {
+  IOffscreenEventMap,
+  IOffscreenEventType,
+} from '../../offscreens/offscreenEventBus';
 import type {
   IHardwareUiPayload,
   IHardwareUiState,

@@ -1,7 +1,6 @@
-import type { EThirdPartyHardwareUiAction } from '../../../states/jotai/atoms/hardware';
-
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
+import type { EThirdPartyHardwareUiAction } from '../../../states/jotai/atoms/hardware';
 import type {
   DeviceInfo,
   IConnector,
