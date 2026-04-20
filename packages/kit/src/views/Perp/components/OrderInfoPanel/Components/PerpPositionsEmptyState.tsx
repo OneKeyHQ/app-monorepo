@@ -91,23 +91,16 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
       >
         <Illustration name="Orders" size={isMobile ? 88 : 100} mb={-24} />
 
-        <YStack gap="$1" alignItems="center">
-          <SizableText size={isMobile ? '$bodyMdMedium' : '$headingSm'}>
-            {intl.formatMessage({
-              id: ETranslations.perp_position_empty,
-            })}
-          </SizableText>
-          <SizableText
-            size={isMobile ? '$bodyXs' : '$bodySm'}
-            color="$textSubdued"
-            textAlign="center"
-            maxWidth={isMobile ? 280 : 360}
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_position_empty_desc,
-            })}
-          </SizableText>
-        </YStack>
+        <SizableText
+          size={isMobile ? '$bodyXs' : '$bodySm'}
+          color="$textSubdued"
+          textAlign="center"
+          maxWidth={isMobile ? 280 : 360}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_position_empty_desc,
+          })}
+        </SizableText>
 
         <XStack
           gap="$2"
