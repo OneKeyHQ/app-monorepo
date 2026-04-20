@@ -27,7 +27,10 @@ import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { calculateAccountTokensValue } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  calculateAccountTokensValue,
+  calculateAccountTotalValue,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -448,7 +451,10 @@ function HomeOverviewContainer() {
         ? (accountDeFiOverview.netWorth ?? 0)
         : 0;
 
-    return new BigNumber(tokenWorth).plus(deFiWorth).toFixed();
+    return calculateAccountTotalValue({
+      tokensValue: tokenWorth,
+      deFiNetWorth: deFiWorth,
+    });
   }, [
     account?.id,
     network?.id,
