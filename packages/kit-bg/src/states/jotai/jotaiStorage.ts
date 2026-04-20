@@ -97,8 +97,13 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       const raw = this.mmkv.getString(key);
       if (raw !== undefined) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return JSON.parse(raw);
+          const parsed = JSON.parse(raw);
+          // Legacy entries where a null was persisted as the string "null"
+          // should behave like "cleared" and fall back to initialValue.
+          if (parsed !== null) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return parsed;
+          }
         } catch (e) {
           this.log(`MMKV parse failed for ${key}: ${(e as Error)?.message}`);
         }
@@ -122,11 +127,10 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
-    // Explicit undefined write → route to removeItem. Persisting an empty
-    // string here would cause the next getItem to hit JSON.parse('') and
-    // log a false "MMKV parse failed" error, and would silently convert
-    // "cleared key" into "parse-error → initialValue".
-    if (newValue === undefined) {
+    // undefined/null writes → route to removeItem. Persisting JSON.stringify(null) ("null")
+    // would later parse back to `null` and be returned by getItem instead of the atom's
+    // initialValue, breaking initialization after restart. Treat both as "cleared".
+    if (newValue === undefined || newValue === null) {
       await this.removeItem(key);
       return;
     }
