@@ -135,9 +135,12 @@ const LEDGER_CJS_ENTRY_PACKAGES = [
   '@ledgerhq/context-module',
   '@ledgerhq/signer-utils',
 ];
+// Ledger DMK packages restrict `exports` and do not expose `./package.json`,
+// so `require.resolve('<pkg>/package.json')` throws ERR_PACKAGE_PATH_NOT_EXPORTED.
+// Resolve via the filesystem layout in node_modules instead.
 const ledgerCjsByPackage = new Map(
   LEDGER_CJS_ENTRY_PACKAGES.map((pkg) => {
-    const pkgRoot = path.dirname(require.resolve(`${pkg}/package.json`));
+    const pkgRoot = path.join(monorepoRoot, 'node_modules', pkg);
     return [pkg, path.join(pkgRoot, 'lib/cjs/index.js')];
   }),
 );
