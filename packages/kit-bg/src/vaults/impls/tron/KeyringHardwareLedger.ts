@@ -170,7 +170,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
           (deviceId) =>
             adapter.hw.tronSignMessage(dbDevice.connectId, deviceId, {
               path: account.path,
-              message: e.message,
+              messageHex: e.message,
             }),
         );
 
