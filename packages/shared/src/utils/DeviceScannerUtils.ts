@@ -2,7 +2,6 @@ import { createDeferred } from '@onekeyfe/hd-shared';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { SearchDevice, Success, Unsuccessful } from '@onekeyfe/hd-core';

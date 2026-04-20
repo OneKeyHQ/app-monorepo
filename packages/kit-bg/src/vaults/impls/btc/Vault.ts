@@ -104,8 +104,8 @@ import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
 
-import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
-import type { KeyringBase } from '../../base/KeyringBase';
+import type { IDBUtxoAccount } from '../../../dbs/local/types';
+import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
@@ -801,9 +801,7 @@ export default class VaultBtc extends VaultBase {
     throw new OneKeyLocalError('getCoinSelectTxType ERROR: Invalid encoding');
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> & {
-    hwLedger?: typeof KeyringBase | undefined;
-  } = {
+  override keyringMap: IKeyringMap = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,

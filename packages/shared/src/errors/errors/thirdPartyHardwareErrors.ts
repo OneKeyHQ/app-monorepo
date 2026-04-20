@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@bytezhang/hardware-wallet-core';
 
-import { ETranslations } from '../../locale';
+// import { ETranslations } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -27,6 +27,8 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
 
 // ---------------------------------------------------------------------------
 // Specific error classes
+// TODO: Register these i18n keys in ETranslations and locale JSON, then
+//       uncomment the defaultKey lines below.
 // ---------------------------------------------------------------------------
 
 /** App not installed on device (Ledger 0x6807 "Unknown application name") */
@@ -36,8 +38,8 @@ export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
   ) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'ThirdPartyAppNotInstalled',
-        defaultKey: ETranslations.hardware_third_party_app_not_installed,
+        defaultMessage: 'Please open the correct app on your device',
+        // defaultKey: ETranslations.hardware_third_party_app_not_installed,
       }),
     );
     this.vendor = props?.vendor;
@@ -52,8 +54,8 @@ export class ThirdPartyDeviceLocked extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'ThirdPartyDeviceLocked',
-        defaultKey: ETranslations.hardware_third_party_device_locked,
+        defaultMessage: 'Device is locked, please unlock',
+        // defaultKey: ETranslations.hardware_third_party_device_locked,
       }),
     );
     this.vendor = props?.vendor;
@@ -67,8 +69,8 @@ export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'ThirdPartyUserRejected',
-        defaultKey: ETranslations.hardware_user_cancel_error,
+        defaultMessage: 'User rejected the operation',
+        // defaultKey: ETranslations.hardware_user_cancel_error,
         defaultAutoToast: true,
       }),
     );
@@ -84,8 +86,8 @@ export class ThirdPartyWrongApp extends ThirdPartyHardwareError {
   ) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'ThirdPartyWrongApp',
-        defaultKey: ETranslations.hardware_third_party_wrong_app,
+        defaultMessage: 'Wrong app is open on device',
+        // defaultKey: ETranslations.hardware_third_party_wrong_app,
       }),
     );
     this.vendor = props?.vendor;
@@ -100,8 +102,8 @@ export class ThirdPartyDeviceDisconnected extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'ThirdPartyDeviceDisconnected',
-        defaultKey: ETranslations.hardware_third_party_device_disconnected,
+        defaultMessage: 'Device disconnected',
+        // defaultKey: ETranslations.hardware_third_party_device_disconnected,
         defaultAutoToast: true,
       }),
     );
@@ -116,8 +118,8 @@ export class ThirdPartyDeviceMismatch extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'ThirdPartyDeviceMismatch',
-        defaultKey: ETranslations.hardware_third_party_device_mismatch,
+        defaultMessage: 'Connected device does not match the stored wallet',
+        // defaultKey: ETranslations.hardware_third_party_device_mismatch,
       }),
     );
     this.vendor = props?.vendor;
@@ -131,8 +133,8 @@ export class ThirdPartyOperationTimeout extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'ThirdPartyOperationTimeout',
-        defaultKey: ETranslations.hardware_third_party_operation_timeout,
+        defaultMessage: 'Operation timed out',
+        // defaultKey: ETranslations.hardware_third_party_operation_timeout,
         defaultAutoToast: true,
       }),
     );
@@ -146,8 +148,8 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'ThirdPartyMethodNotSupported',
-        defaultKey: ETranslations.hardware_third_party_method_not_supported,
+        defaultMessage: 'This operation is not supported',
+        // defaultKey: ETranslations.hardware_third_party_method_not_supported,
         defaultAutoToast: true,
       }),
     );

@@ -40,7 +40,6 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
-  EHardwareVendor,
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
   IDeviceVerifyVersionCompareResult,
@@ -51,6 +50,7 @@ import type {
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
+  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -72,11 +72,7 @@ import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
-import type {
-  DeviceInfo,
-  IThirdPartyHardwareAdapter,
-} from './adapters/types';
-
+import type { DeviceInfo, IThirdPartyHardwareAdapter } from './adapters/types';
 import type {
   IBaseDeviceProcessingParams,
   IChangePinParams,
@@ -195,13 +191,18 @@ class ServiceHardware extends ServiceBase {
   }
 
   private startThirdPartyAdapterInit() {
-    const ledgerPromise = this.initSingleAdapter('ledger').catch((error) => {
-      console.error('[ServiceHardware] Failed to init ledger adapter:', error);
-    });
-    this.adapterInitPromises.set('ledger', ledgerPromise);
+    const ledgerPromise = this.initSingleAdapter(EHardwareVendor.ledger).catch(
+      (error) => {
+        console.error(
+          '[ServiceHardware] Failed to init ledger adapter:',
+          error,
+        );
+      },
+    );
+    this.adapterInitPromises.set(EHardwareVendor.ledger, ledgerPromise);
   }
 
-  private async initSingleAdapter(_vendor: 'ledger') {
+  private async initSingleAdapter(_vendor: EHardwareVendor.ledger) {
     const { LedgerAdapter } = await import('./adapters');
 
     const { createLedgerConnector } =
@@ -214,7 +215,7 @@ class ServiceHardware extends ServiceBase {
     const hwLedger = new BytezhangLedgerAdapter(ledgerConnector);
 
     this.registerThirdPartyAdapter(
-      'ledger',
+      EHardwareVendor.ledger,
       new LedgerAdapter(hwLedger, ledgerConnector),
     );
   }
@@ -776,9 +777,7 @@ class ServiceHardware extends ServiceBase {
               name = vendorProfile.defaultDeviceName || 'Ledger';
             } else {
               const rawName =
-                d.label ||
-                (d as DeviceInfo & { name?: string }).name ||
-                '';
+                d.label || (d as DeviceInfo & { name?: string }).name || '';
               name = isUuidLike(rawName)
                 ? vendorProfile.defaultDeviceName
                 : rawName || vendorProfile.defaultDeviceName;
@@ -1707,7 +1706,7 @@ class ServiceHardware extends ServiceBase {
             return result.payload.address || null;
           }
           return null;
-        } catch (error) {
+        } catch {
           return null;
         }
       }

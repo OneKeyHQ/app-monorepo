@@ -28,7 +28,6 @@ import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
-import { ThirdPartyHardwareUiStateContainer } from './ThirdPartyHardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
@@ -38,6 +37,7 @@ import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContain
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { RookieShareContainer } from './RookieShareContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
+import { ThirdPartyHardwareUiStateContainer } from './ThirdPartyHardwareUiStateContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 

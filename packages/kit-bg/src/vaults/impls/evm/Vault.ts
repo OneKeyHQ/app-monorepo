@@ -101,8 +101,7 @@ import { KeyringWatching } from './KeyringWatching';
 import { ClientEvm } from './sdkEvm/ClientEvm';
 import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 
-import type { IDBWalletType } from '../../../dbs/local/types';
-import type { KeyringBase } from '../../base/KeyringBase';
+import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
@@ -135,9 +134,7 @@ export default class Vault extends VaultBase {
     return this.baseValidatePrivateKey(privateKey);
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> & {
-    hwLedger?: typeof KeyringBase | undefined;
-  } = {
+  override keyringMap: IKeyringMap = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,

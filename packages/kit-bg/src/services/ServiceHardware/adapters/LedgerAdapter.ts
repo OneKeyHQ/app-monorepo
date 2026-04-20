@@ -1,8 +1,12 @@
+import { UI_REQUEST } from '@bytezhang/hardware-wallet-core';
+
 import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import { BaseAdapter } from './BaseAdapter';
 
 import type {
   DeviceInfo,
@@ -11,7 +15,6 @@ import type {
   IThirdPartyHardwareAdapter,
   Response,
 } from './types';
-import { BaseAdapter } from './BaseAdapter';
 
 export class LedgerAdapter
   extends BaseAdapter
@@ -64,7 +67,7 @@ export class LedgerAdapter
     });
 
     // SDK adapter asks user to connect/unlock device -> blocking request via emitRequest
-    this.hw.on('ui-request-device-connect' as any, async () => {
+    this.hw.on(UI_REQUEST.REQUEST_DEVICE_CONNECT, async () => {
       const response = await this.emitRequest(
         EThirdPartyHardwareUiAction.requestUnlock,
         {
@@ -72,8 +75,7 @@ export class LedgerAdapter
         },
       );
       void thirdPartyHardwareUiStateAtom.set(undefined);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      (this.hw as any).deviceConnectResponse?.(
+      this.hw.deviceConnectResponse(
         response.type === 'confirm' ? 'confirm' : 'cancel',
       );
     });

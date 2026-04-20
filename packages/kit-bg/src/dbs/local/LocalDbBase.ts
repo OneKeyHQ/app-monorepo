@@ -83,6 +83,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -1242,7 +1243,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         if (shouldFixAvatar) {
           if (profile.isThirdParty) {
             // Third-party vendor: fix avatar to match vendor key
-            const expectedImg = profile.avatarKey;
+            const expectedImg =
+              profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers;
             if (avatarInfo?.img && avatarInfo.img !== expectedImg) {
               wallet.avatarInfo = { ...avatarInfo, img: expectedImg };
               wallet.avatar = JSON.stringify(wallet.avatarInfo);
@@ -3211,7 +3213,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,
       uuid: deviceUUID,
-      connectId: device.connectId,
+      connectId: device.connectId ?? undefined,
       getFirstEvmAddressFn: params.getFirstEvmAddressFn,
       vendor,
     });
@@ -3294,7 +3296,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // For OneKey devices, derive avatar from deviceType + serialNo
     let avatar: IAvatarInfo;
     if (profile.isThirdParty) {
-      avatar = { img: profile.avatarKey };
+      avatar = {
+        img: profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers,
+      };
     } else {
       avatar = {
         img: getDeviceAvatarImage(
@@ -3359,17 +3363,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         case EHardwareTransportType.WEBUSB:
         case EHardwareTransportType.Bridge:
           // Bridge and WEBUSB are both USB-based connections
-          usbConnectId = connectId;
-          compatibleConnectId = connectId;
+          usbConnectId = connectId ?? undefined;
+          compatibleConnectId = connectId ?? undefined;
           break;
         case EHardwareTransportType.BLE:
-          bleConnectId = connectId;
-          compatibleConnectId = connectId;
+          bleConnectId = connectId ?? undefined;
+          compatibleConnectId = connectId ?? undefined;
           break;
         case EHardwareTransportType.DesktopWebBle:
           // BLE connections - set bleConnectId but don't override connectId
           // @ts-expect-error
-          bleConnectId = device.bleConnectId || connectId;
+          bleConnectId = (device.bleConnectId || connectId) ?? undefined;
           // If connectId is empty, get it from getDeviceUUID for compatibility
           if (!compatibleConnectId) {
             const { getDeviceUUID } = await CoreSDKLoader();

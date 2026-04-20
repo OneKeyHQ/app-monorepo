@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -30,12 +31,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
-import {
-  EHardwareCallContext,
-  EHardwareVendor,
-} from '@onekeyhq/shared/types/device';
-
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import { primeTransferAtom } from '../../states/jotai/atoms/prime';

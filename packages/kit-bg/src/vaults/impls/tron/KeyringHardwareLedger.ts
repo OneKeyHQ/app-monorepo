@@ -1,3 +1,4 @@
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -14,7 +15,6 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { callLedgerWithFingerprintRetry } from '../../base/ledgerFingerprintUtils';
 
-import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,

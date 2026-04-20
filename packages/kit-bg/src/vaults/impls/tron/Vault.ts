@@ -72,8 +72,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { KeyringQr } from './KeytringQr';
 
-import type { IDBWalletType } from '../../../dbs/local/types';
-import type { KeyringBase } from '../../base/KeyringBase';
+import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
@@ -99,9 +98,7 @@ const INFINITE_AMOUNT_HEX =
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.tron.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> & {
-    hwLedger?: typeof KeyringBase | undefined;
-  } = {
+  override keyringMap: IKeyringMap = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,

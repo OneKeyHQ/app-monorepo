@@ -10,13 +10,12 @@ import {
   useDeviceAtom,
   useDeviceDetailsActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalDeviceManagementRoutes,
@@ -26,6 +25,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
 import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalStyle';

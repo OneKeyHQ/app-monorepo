@@ -1449,3 +1449,5 @@ maximizable
 fullscreenable
 frecency
 reactnativeappupdate
+ledgerhq
+keyrings

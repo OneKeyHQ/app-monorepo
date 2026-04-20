@@ -9,12 +9,12 @@ import {
   WALLET_TYPE_HW,
   WALLET_TYPE_QR,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   IncorrectMasterPassword,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';

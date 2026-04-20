@@ -1,13 +1,13 @@
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import { EThirdPartyHardwareUiAction } from '../../../states/jotai/atoms/hardware';
+
 import type {
   DeviceInfo,
   IConnector,
   IHardwareWallet,
   Response,
 } from '@bytezhang/hardware-wallet-core';
-
-import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
-
-import { EThirdPartyHardwareUiAction } from '../../../states/jotai/atoms/hardware';
 
 export type { DeviceInfo, IHardwareWallet, Response, IConnector };
 
@@ -70,7 +70,9 @@ const TOAST_ACTIONS_EXTRA = new Set([EThirdPartyHardwareUiAction.unlockDevice]);
 /** Is this a non-interactive notification that should show as a Toast (not Dialog)? */
 export function isThirdPartyToastAction(action: string | undefined): boolean {
   return (
-    !!action && (TOAST_ACTIONS.has(action) || TOAST_ACTIONS_EXTRA.has(action))
+    !!action &&
+    (TOAST_ACTIONS.has(action) ||
+      TOAST_ACTIONS_EXTRA.has(action as EThirdPartyHardwareUiAction))
   );
 }
 

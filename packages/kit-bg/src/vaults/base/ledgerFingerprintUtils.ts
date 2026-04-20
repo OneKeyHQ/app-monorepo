@@ -1,7 +1,9 @@
-import type { Response } from '@bytezhang/hardware-wallet-core';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { Response } from '@bytezhang/hardware-wallet-core';
 
 type IDbDeviceForFingerprint = {
   id: string;
@@ -59,7 +61,7 @@ export async function ensureLedgerChainFingerprint(
   dbDevice: IDbDeviceForFingerprint,
   chain: IChain,
 ): Promise<string> {
-  if (dbDevice.vendor !== 'ledger') {
+  if (dbDevice.vendor !== EHardwareVendor.ledger) {
     return dbDevice.deviceId || '';
   }
 
@@ -163,7 +165,7 @@ async function generateAndStoreFingerprint(
   chain: IChain,
 ): Promise<string> {
   const adapter = await backgroundApi.serviceHardware.getAdapterForVendor(
-    'ledger' as any,
+    EHardwareVendor.ledger,
   );
   if (!adapter) return '';
 

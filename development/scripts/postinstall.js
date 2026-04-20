@@ -26,18 +26,33 @@ const LEDGER_PACKAGES_MISSING_MAIN = [
 const CJS_ENTRY = 'lib/cjs/index.js';
 
 for (const pkg of LEDGER_PACKAGES_MISSING_MAIN) {
-  const pkgJsonPath = path.join(__dirname, '..', '..', 'node_modules', pkg, 'package.json');
-  if (!fs.existsSync(pkgJsonPath)) continue;
-  try {
-    const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
-    if (pkgJson.main) continue;
-    const cjsPath = path.join(path.dirname(pkgJsonPath), CJS_ENTRY);
-    if (!fs.existsSync(cjsPath)) continue;
-    pkgJson.main = CJS_ENTRY;
-    fs.writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + '\n');
-    console.log(`[postinstall] Added "main" to ${pkg}`);
-  } catch (e) {
-    console.warn(`[postinstall] Failed to fix ${pkg}:`, e.message);
+  const pkgJsonPath = path.join(
+    __dirname,
+    '..',
+    '..',
+    'node_modules',
+    pkg,
+    'package.json',
+  );
+  if (!fs.existsSync(pkgJsonPath)) {
+    // skip missing packages
+  } else {
+    try {
+      const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+      if (!pkgJson.main) {
+        const cjsPath = path.join(path.dirname(pkgJsonPath), CJS_ENTRY);
+        if (fs.existsSync(cjsPath)) {
+          pkgJson.main = CJS_ENTRY;
+          fs.writeFileSync(
+            pkgJsonPath,
+            `${JSON.stringify(pkgJson, null, 2)}\n`,
+          );
+          console.log(`[postinstall] Added "main" to ${pkg}`);
+        }
+      }
+    } catch (e) {
+      console.warn(`[postinstall] Failed to fix ${pkg}:`, e.message);
+    }
   }
 }
 

@@ -57,6 +57,7 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { getForceTransportType, sortDevicesData } from '../utils';
+
 import { ConnectionIndicator } from './ConnectYourDevice';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
@@ -178,7 +179,7 @@ function TroubleShootingButton() {
 // Main Ledger connection flow — same structure as USBOrBLEConnectionIndicator
 // ---------------------------------------------------------------------------
 
-export function LedgerConnectionFlow() {
+export default function LedgerConnectionFlow() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();

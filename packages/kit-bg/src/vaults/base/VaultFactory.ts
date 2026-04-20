@@ -1,10 +1,10 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { IMemoizeeOptions } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { VaultBase, VaultBaseChainOnly } from './VaultBase';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
@@ -92,10 +92,11 @@ import {
   getForceTransportType,
   sortDevicesData,
 } from '../utils';
-import { LedgerConnectionFlow } from './ConnectionFlowLedger';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
+
+const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
 
 enum EConnectionStatus {
   init = 'init',

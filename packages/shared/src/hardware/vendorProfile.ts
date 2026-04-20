@@ -55,13 +55,25 @@ const ledgerProfile: IHardwareVendorProfile = {
   canMatchDeviceByConnectId: (connectId) => /^[0-9A-Fa-f]{4}$/.test(connectId),
 };
 
-// TODO: Trezor profile stub — re-add when Trezor UI integration is implemented
+// Trezor stub — isThirdParty=true so it won't be treated as OneKey device.
+// Full profile will be filled when Trezor adapter/keyrings are re-integrated.
+const trezorProfileStub: IHardwareVendorProfile = {
+  vendor: EHardwareVendor.trezor,
+  isThirdParty: true,
+  defaultDeviceName: 'Trezor',
+  avatarKey: '',
+  supportsSoftwarePin: false,
+  requiresAppOpen: false,
+  hasPersistentConnectId: () => true,
+  hasPersistentDeviceId: () => true,
+  supportsCloudSync: false,
+  canMatchDeviceByConnectId: () => true,
+};
 
 const vendorProfiles: Record<EHardwareVendor, IHardwareVendorProfile> = {
   [EHardwareVendor.onekey]: onekeyProfile,
   [EHardwareVendor.ledger]: ledgerProfile,
-  // Trezor falls back to onekeyProfile via getVendorProfile() until re-implemented
-  [EHardwareVendor.trezor]: onekeyProfile,
+  [EHardwareVendor.trezor]: trezorProfileStub,
 };
 
 export function getVendorProfile(

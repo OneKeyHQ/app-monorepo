@@ -52,6 +52,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -70,8 +71,6 @@ import {
 } from '../hooks/useDeviceConnect';
 
 import MatrixBackground from './MatrixBackground';
-
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 

@@ -13,12 +13,8 @@ import type {
   IUnsignedMessage,
   IUnsignedMessageEth,
 } from '@onekeyhq/core/src/types';
-import type { EvmSignature } from '@bytezhang/hardware-wallet-core';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
-
-import type { IThirdPartyHardwareAdapter } from '../../services/ServiceHardware/adapters/types';
-import type { IDBDevice } from '../../dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -31,7 +27,8 @@ import {
   ensureLedgerChainFingerprint,
 } from '../../base/ledgerFingerprintUtils';
 
-import type { IDBAccount } from '../../../dbs/local/types';
+import type { IDBAccount, IDBDevice } from '../../../dbs/local/types';
+import type { IThirdPartyHardwareAdapter } from '../../../services/ServiceHardware/adapters/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
   IHwSdkNetwork,
@@ -39,6 +36,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { EvmSignature } from '@bytezhang/hardware-wallet-core';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardwareLedger extends KeyringHardwareBase {
@@ -170,10 +168,13 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
     const { messages, deviceParams } = params;
-    checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
     return Promise.all(
       messages.map(async (message: IUnsignedMessage) =>
-        this._handleSignMessage(message as IUnsignedMessageEth, deviceParams),
+        this._handleSignMessage(
+          message as IUnsignedMessageEth,
+          checkedDeviceParams,
+        ),
       ),
     );
   }

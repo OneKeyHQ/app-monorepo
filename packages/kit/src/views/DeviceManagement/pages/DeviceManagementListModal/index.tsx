@@ -31,12 +31,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 

@@ -2888,55 +2888,55 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@bytezhang/hardware-ledger-connector-ble@npm:0.0.35":
-  version: 0.0.35
-  resolution: "@bytezhang/hardware-ledger-connector-ble@npm:0.0.35"
+"@bytezhang/hardware-ledger-connector-ble@npm:0.0.37":
+  version: 0.0.37
+  resolution: "@bytezhang/hardware-ledger-connector-ble@npm:0.0.37"
   dependencies:
-    "@bytezhang/hardware-wallet-core": "npm:0.0.35"
-    "@bytezhang/ledger-adapter": "npm:0.0.35"
+    "@bytezhang/hardware-wallet-core": "npm:0.0.37"
+    "@bytezhang/ledger-adapter": "npm:0.0.37"
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-react-native-ble": "npm:^1.0.0"
-  checksum: 10/7408c81d58cacaf4ab9892bbd2c8103ca2ea72c97498937b5211511cbc4667875b7a6710bcea55bfe448ea57a4b5326740c23dae1cec7060f43f359026c61cc0
+  checksum: 10/4e4c1c8988b84b4356a4d00cbb8fdfaecb1a614c7b0f39ba492bd4798d471ebb9c3ad34e4741c22e0f8f1635bc21f37a103fe424cfe116b634b8e65432d3b3cb
   languageName: node
   linkType: hard
 
-"@bytezhang/hardware-ledger-connector-webhid@npm:0.0.35":
-  version: 0.0.35
-  resolution: "@bytezhang/hardware-ledger-connector-webhid@npm:0.0.35"
+"@bytezhang/hardware-ledger-connector-webhid@npm:0.0.37":
+  version: 0.0.37
+  resolution: "@bytezhang/hardware-ledger-connector-webhid@npm:0.0.37"
   dependencies:
-    "@bytezhang/hardware-wallet-core": "npm:0.0.35"
-    "@bytezhang/ledger-adapter": "npm:0.0.35"
+    "@bytezhang/hardware-wallet-core": "npm:0.0.37"
+    "@bytezhang/ledger-adapter": "npm:0.0.37"
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-web-hid": "npm:^1.0.0"
-  checksum: 10/91cc12d87680503ce1457fb7a717ba75acf408a6abb57e1f36ecfa40af79c4a5e74f270e6cdf41d39fa0a26e164508d33d5959316f35d15c0a5bbb02bfd88f98
+  checksum: 10/ea85e708995f3c808e7f3a6d58d4f81096a8a8a568472696b1485f9401150395a77099749e891bcb6a66cf622ba8a87a26aa83b84408fe9821e6ced540018c6c
   languageName: node
   linkType: hard
 
-"@bytezhang/hardware-wallet-core@npm:0.0.35":
-  version: 0.0.35
-  resolution: "@bytezhang/hardware-wallet-core@npm:0.0.35"
-  checksum: 10/8ee5762e052faca73f99be735f5de2716c6bec521fd8b1f690813eae0be8a624b6509637c3a394f79f456cdcedf128c890c4394499dec99bd05e79e3df14ec8d
+"@bytezhang/hardware-wallet-core@npm:0.0.37":
+  version: 0.0.37
+  resolution: "@bytezhang/hardware-wallet-core@npm:0.0.37"
+  checksum: 10/c404a347304b09d2c6efba43d70dd9e7f594cb997c504f746bd93418252688fdb403d27420fa040b08ec816c29e57f30c8d2c3b72cd6eabb2270ecf545a59a9e
   languageName: node
   linkType: hard
 
-"@bytezhang/ledger-adapter@npm:0.0.35":
-  version: 0.0.35
-  resolution: "@bytezhang/ledger-adapter@npm:0.0.35"
+"@bytezhang/ledger-adapter@npm:0.0.37":
+  version: 0.0.37
+  resolution: "@bytezhang/ledger-adapter@npm:0.0.37"
   dependencies:
-    "@bytezhang/hardware-wallet-core": "npm:0.0.35"
+    "@bytezhang/hardware-wallet-core": "npm:0.0.37"
     "@ledgerhq/context-module": "npm:^1.0.0"
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     rxjs: "npm:^7.8.1"
-  checksum: 10/ab5a678711e33ea8d02b6357c6dfe7fe90c3d062ce9fb8ed419011b0461aae5b09bfc00780dbead4e3c61003f1b06ffb3923ff36422d1a1b34798dd60a4ba9aa
+  checksum: 10/0f5c9018088239eb552f82108d48ad95f35dabb7f0bbfe14e6ebb9dd83f7cda16f584f2a3a2099aebe40d5d7a5bd3980fd2935ba491c90613c8d4bee34b45dfd
   languageName: node
   linkType: hard
 
@@ -9434,10 +9434,10 @@ __metadata:
     "@babel/preset-env": "npm:7.28.6"
     "@babel/preset-typescript": "npm:^7.27.1"
     "@benfen/bfc.js": "npm:0.2.7"
-    "@bytezhang/hardware-ledger-connector-ble": "npm:0.0.35"
-    "@bytezhang/hardware-ledger-connector-webhid": "npm:0.0.35"
-    "@bytezhang/hardware-wallet-core": "npm:0.0.35"
-    "@bytezhang/ledger-adapter": "npm:0.0.35"
+    "@bytezhang/hardware-ledger-connector-ble": "npm:0.0.37"
+    "@bytezhang/hardware-ledger-connector-webhid": "npm:0.0.37"
+    "@bytezhang/hardware-wallet-core": "npm:0.0.37"
+    "@bytezhang/ledger-adapter": "npm:0.0.37"
     "@cityofzion/neon-core": "npm:^5.7.0"
     "@cowprotocol/contracts": "npm:^1.7.0"
     "@cspell/eslint-plugin": "npm:^9.6.0"

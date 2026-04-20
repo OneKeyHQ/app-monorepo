@@ -47,10 +47,10 @@ import {
   OneKeyLocalError,
   VaultKeyringNotDefinedError,
 } from '@onekeyhq/shared/src/errors';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { VaultFactory } from './base/VaultFactory';
 

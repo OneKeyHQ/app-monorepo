@@ -8,12 +8,12 @@ import {
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -27,6 +27,7 @@ import { callLedgerWithFingerprintRetry } from '../../base/ledgerFingerprintUtil
 
 import { KeyringHardwareBtcBase } from './KeyringHardwareBtcBase';
 
+import type VaultBtc from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
@@ -98,13 +99,13 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
             });
           }
 
-          type IRawXpub = string | { extendedPublicKey: string };
-          const rawXpub = pubKeyResult.payload.xpub;
+          const rawXpub: unknown = pubKeyResult.payload.xpub;
           // Ledger DMK may return { extendedPublicKey: string } instead of string
           const xpub =
             typeof rawXpub === 'string'
               ? rawXpub
-              : ((rawXpub as IRawXpub)?.extendedPublicKey ?? String(rawXpub));
+              : ((rawXpub as { extendedPublicKey: string })
+                  ?.extendedPublicKey ?? String(rawXpub));
 
           // Derive address from xpub
           const {
@@ -293,8 +294,6 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         adapter.hw.btcSignTransaction(dbDevice.connectId, deviceId, {
           psbt: psbtHex,
           coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
-          path: dbAccount.path,
-          inputDerivations: inputPaths,
           inputs: inputPaths.map((p) => ({
             path: p.path,
             prevHash: '',
@@ -315,6 +314,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     // (internally it does sign → finalize → extractTransaction)
     const serializedTx =
       result.payload.signedPsbt || result.payload.serializedTx;
+    if (!serializedTx) {
+      throw new OneKeyLocalError('Missing signed transaction data from Ledger');
+    }
     const tx = BitcoinJS.Transaction.fromHex(serializedTx);
 
     return {
