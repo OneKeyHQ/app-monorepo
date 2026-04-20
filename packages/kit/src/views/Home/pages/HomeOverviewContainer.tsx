@@ -687,6 +687,30 @@ function HomeOverviewContainer() {
     if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
       (globalThis as any).__onekeyBalanceDisplayed = true;
       appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
+      // Best-effort: persist the on-screen balance to lastConfirmedOverviewBalance
+      // so the NEXT cold start's fast-path (Lever 1 in HomeOverviewContainer) can
+      // reuse it without waiting for isCurrentAllNetworksBalanceFullyReady — which
+      // often never turns true before the user kills the app in AllNetworks mode.
+      // The existing fully-ready-gated useEffect above still runs for progressive
+      // updates; this one just guarantees we capture the first-displayed value.
+      try {
+        const balanceToPersist = renderedBalanceString;
+        if (
+          balanceToPersist !== undefined &&
+          balanceToPersist !== null &&
+          currentOverviewOwnerKey
+        ) {
+          setLastConfirmedOverviewBalance((prev) => ({
+            latest: balanceToPersist,
+            byOwner: {
+              ...prev.byOwner,
+              [currentOverviewOwnerKey]: balanceToPersist,
+            },
+          }));
+        }
+      } catch {
+        /* persistence is best-effort — never break HomePageReady emission */
+      }
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { NativeLogger: NL, LogLevel: LL } =
