@@ -617,16 +617,19 @@ export function contextAtomBase<Value>({
     ? () => {
         const cacheKey = activeColdStartCacheKey;
         const coldStartScopeKey = useColdStartScopeKey?.();
+        const result = useContextAtom(atomBuilder());
+        // Missing scopeKey means the atom is being consumed from a store not
+        // created via JotaiContextStore.createStore (e.g. a test harness or a
+        // future embedded renderer). Fall back to plain useContextAtom and
+        // skip cold-start tracking rather than crashing the render tree.
         if (!coldStartScopeKey) {
-          throw new OneKeyLocalError(
-            `contextAtom coldStartCache requires provider store scope, atom=${cacheKey}`,
-          );
+          coldStartLog(`no-scope-key: ${cacheKey}`);
+          return result;
         }
         const scopedCacheKey = buildColdStartScopedKey({
           coldStartScopeKey,
           coldStartCacheKey: cacheKey,
         });
-        const result = useContextAtom(atomBuilder());
         const currentValue = result[0];
         if (!coldStartValuesMap.has(scopedCacheKey)) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
