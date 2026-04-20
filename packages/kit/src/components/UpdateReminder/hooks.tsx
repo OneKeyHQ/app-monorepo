@@ -59,10 +59,6 @@ function getUpdatePlatform() {
   return 'web';
 }
 
-// Fallback when the server omits storeUrl for a Google Play update record.
-const PLAY_STORE_FALLBACK_URL =
-  'https://play.google.com/store/apps/details?id=so.onekey.app.wallet';
-
 const updateStrategyMap: Record<EUpdateStrategy, string> = {
   [EUpdateStrategy.silent]: 'silent',
   [EUpdateStrategy.force]: 'force',
@@ -502,17 +498,25 @@ export const useDownloadPackage = () => {
     // Google Play builds must never enter the in-app APK download flow: the
     // native layer rejects APK installs with a signature mismatch and the
     // server may still return an APK downloadUrl when its gray-scale rule
-    // is mis-configured. Redirect to the store URL (or the hardcoded Play
-    // Store page) instead of starting a doomed download.
+    // is mis-configured. If the server supplied a storeUrl we open it;
+    // otherwise bail out silently — deliberately avoiding a hardcoded Play
+    // Store URL so a client-side mis-detection cannot shove a user out of
+    // the app unexpectedly.
     if (
       platformEnv.isNativeAndroid &&
       fileType === EUpdateFileType.appShell &&
       (await resolveAndroidChannel()) === 'googlePlay'
     ) {
-      openUrlExternal(params.storeUrl || PLAY_STORE_FALLBACK_URL);
-      defaultLogger.app.appUpdate.log(
-        'downloadPackage redirected to Play Store: resolved=googlePlay',
-      );
+      if (params.storeUrl) {
+        openUrlExternal(params.storeUrl);
+        defaultLogger.app.appUpdate.log(
+          'downloadPackage redirected to storeUrl: resolved=googlePlay',
+        );
+      } else {
+        defaultLogger.app.appUpdate.log(
+          'downloadPackage aborted: resolved=googlePlay storeUrl=missing',
+        );
+      }
       return;
     }
 
