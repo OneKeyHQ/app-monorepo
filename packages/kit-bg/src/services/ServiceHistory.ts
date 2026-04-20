@@ -26,12 +26,12 @@ import {
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
   IChangedPendingTxInfo,
-  ICurrencyItem,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsParams,

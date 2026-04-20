@@ -12,9 +12,9 @@ import { TX_RISKY_LEVEL_SPAM } from '../walletConnect/constant';
 
 import { formatDate } from './dateUtils';
 
+import type { ICurrencyItem } from '../../types/currency';
 import type {
   IAccountHistoryTx,
-  ICurrencyItem,
   IHistoryListSectionGroup,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,

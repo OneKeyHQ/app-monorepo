@@ -9,8 +9,8 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type {
-  ICurrencyItem,
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
 } from '@onekeyhq/shared/types/defi';
