@@ -4,6 +4,10 @@ import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
+import {
+  getAndroidChannelSync,
+  resolveAndroidChannel,
+} from '@onekeyhq/shared/src/androidNativeEnv';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -22,11 +26,33 @@ import type {
   IVerifyPackage,
 } from './type';
 
+// Fire-and-forget: trigger the runtime channel resolver early so downstream
+// consumers (network headers, auto-update guard) observe the corrected value.
+// Resolution also writes a diagnostic line to native-logger.
+if (platformEnv.isNativeAndroid) {
+  void resolveAndroidChannel();
+}
+
 // AppUpdate native module is excluded from google/huawei builds via
 // dependencyConfiguration: 'prodImplementation' in react-native.config.js.
 // Use lazy require() to avoid crash when the module is not linked.
-const isAppUpdateAvailable =
-  !platformEnv.isNativeAndroidGooglePlay && !platformEnv.isNativeAndroidHuawei;
+// The inline signal (`isNativeAndroidGooglePlay`) can be stale on OTA
+// bundles, so we also consult the runtime resolver whenever it has settled.
+function getIsAppUpdateAvailable(): boolean {
+  if (
+    platformEnv.isNativeAndroidGooglePlay ||
+    platformEnv.isNativeAndroidHuawei
+  ) {
+    return false;
+  }
+  if (platformEnv.isNativeAndroid) {
+    const resolved = getAndroidChannelSync();
+    if (resolved === 'googlePlay') {
+      return false;
+    }
+  }
+  return true;
+}
 
 // Local interface matching the Nitro HybridObject shape, avoids name collision
 // between the value export and the type re-export from the package.
@@ -49,7 +75,7 @@ interface IReactNativeAppUpdateNative {
 
 let _reactNativeAppUpdate: IReactNativeAppUpdateNative | null = null;
 function getReactNativeAppUpdate(): IReactNativeAppUpdateNative {
-  if (!isAppUpdateAvailable) {
+  if (!getIsAppUpdateAvailable()) {
     throw new OneKeyLocalError(
       'AppUpdate is not available on Google Play / Huawei channel',
     );
@@ -81,7 +107,7 @@ const toNativeNumber = (value: unknown): number => {
 };
 
 const clearPackage: IClearPackage = async () => {
-  if (!isAppUpdateAvailable) {
+  if (!getIsAppUpdateAvailable()) {
     return;
   }
   await getReactNativeAppUpdate().clearCache();
@@ -96,6 +122,18 @@ const downloadPackage: IDownloadPackage = async ({
   const nativeLatestVersion = toNativeString(latestVersion).trim();
   if (!nativeDownloadUrl || !nativeLatestVersion) {
     throw new OneKeyLocalError('Invalid version or downloadUrl');
+  }
+  // Await the runtime channel resolver so an OTA-bundle install that turns
+  // out to be a Play Store APK still bails out before touching the native
+  // downloader. This guards against the failure mode captured in the
+  // original incident log.
+  if (platformEnv.isNativeAndroid) {
+    const resolved = await resolveAndroidChannel();
+    if (resolved === 'googlePlay') {
+      throw new OneKeyLocalError(
+        'AppUpdate is not available on Google Play / Huawei channel',
+      );
+    }
   }
   await getReactNativeAppUpdate().downloadAPK({
     downloadUrl: nativeDownloadUrl,
@@ -179,7 +217,7 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
   }, []);
 
   useEffect(() => {
-    if (isAppUpdateAvailable) {
+    if (getIsAppUpdateAvailable()) {
       appUpdateListenerId.current =
         getReactNativeAppUpdate().addDownloadListener((event) => {
           if (event.type === DOWNLOAD_EVENT_TYPE.start) {
@@ -200,7 +238,7 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
       });
 
     return () => {
-      if (isAppUpdateAvailable && appUpdateListenerId.current !== null) {
+      if (getIsAppUpdateAvailable() && appUpdateListenerId.current !== null) {
         getReactNativeAppUpdate().removeDownloadListener(
           appUpdateListenerId.current,
         );
