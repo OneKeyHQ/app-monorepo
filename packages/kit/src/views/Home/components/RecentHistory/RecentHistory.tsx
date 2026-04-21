@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,7 +13,7 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import { TxHistoryListContainer } from '../../pages/TxHistoryContainer';
 import { RichBlock } from '../RichBlock';
 
-function RecentHistory() {
+const RecentHistory = memo(() => {
   const intl = useIntl();
 
   const handleNavigateToHistory = useCallback(() => {
@@ -61,6 +61,6 @@ function RecentHistory() {
       plainContentContainer
     />
   );
-}
+});
 
 export { RecentHistory };

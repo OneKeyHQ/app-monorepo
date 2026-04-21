@@ -137,6 +137,7 @@ debug.log
 .gstack/
 
 docs/superpowers/**/*
+.superpowers/
 # bmad
 /_bmad/
 /_bmad-output/
