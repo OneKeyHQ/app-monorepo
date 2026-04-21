@@ -32,6 +32,8 @@ import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import {
+  CACHE_TIME_QUANTIZE_MS,
+  SPOT_ASSET_ID_OFFSET,
   XYZ_ASSET_ID_OFFSET,
   XYZ_DEX_PREFIX,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -45,10 +47,13 @@ import type {
   IPerpsActiveAssetData,
   IPerpsActiveAssetDataRaw,
   IPerpsUniverse,
+  ISpotUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
   IWsActiveAssetCtx,
+  IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
+  IWsSpotAssetCtxs,
   IWsSpotState,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -73,6 +78,11 @@ import {
   perpsLastUsedLeverageAtom,
   perpsSpotBalancesAtom,
   perpsTradesHistoryDataAtom,
+  spotActiveAssetAtom,
+  spotActiveAssetCtxAtom,
+  spotAssetCtxsMapAtom,
+  spotBalancesAtom,
+  spotPairDisplayMapAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -94,6 +104,10 @@ import type {
   IPerpsDepositToken,
   IPerpsDepositTokensAtom,
 } from '../../states/jotai/atoms';
+import type {
+  ISpotActiveAssetCtxAtom,
+  ISpotAssetCtxEntry,
+} from '../../states/jotai/atoms/spot';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 import type { IHyperliquidMaxBuilderFee } from '../ServiceWebviewPerp';
 import type {
@@ -106,6 +120,51 @@ export default class ServiceHyperliquid extends ServiceBase {
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
+
+  // Avoids async atom reads in the hot path — written to atom on a throttled schedule
+  private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
+
+  private _spotPriceDirty = false;
+
+  private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _flushSpotPrices(map: Record<string, ISpotAssetCtxEntry>) {
+    // allMids only sets markPx, spotAssetCtxs sets full entry — merge so neither overwrites the other
+    for (const [key, entry] of Object.entries(map)) {
+      const existing = this._spotPriceCache[key];
+      if (existing) {
+        this._spotPriceCache[key] = { ...existing, ...entry };
+      } else {
+        this._spotPriceCache[key] = entry;
+      }
+    }
+    this._spotPriceDirty = true;
+
+    if (!this._spotPriceFlushTimer) {
+      void spotAssetCtxsMapAtom.set({ ...this._spotPriceCache });
+      this._spotPriceDirty = false;
+      this._spotPriceFlushTimer = setTimeout(() => {
+        this._spotPriceFlushTimer = null;
+        if (this._spotPriceDirty) {
+          void spotAssetCtxsMapAtom.set({ ...this._spotPriceCache });
+          this._spotPriceDirty = false;
+        }
+      }, 1000);
+    }
+  }
+
+  // Cached in-memory so WS handlers don't need async SimpleDb reads on the hot path
+  private _spotMappings: {
+    pairToBaseName: Record<string, string>;
+    baseNameToAssetId: Record<string, number>;
+    baseNameToSzDecimals: Record<string, number>;
+    baseNameToPairName: Record<string, string>;
+  } = {
+    pairToBaseName: {},
+    baseNameToAssetId: {},
+    baseNameToSzDecimals: {},
+    baseNameToPairName: {},
+  };
 
   // OK-53208: survives Perp tab detach/remount; component refs reset on
   // unmount and would otherwise repeat refreshTradingMeta + changeActiveAsset
@@ -229,13 +288,6 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     // If configVersion changed, remove all agent credentials
     if (isConfigVersionChanged) {
-      console.log(
-        '[ServiceHyperliquid] configVersion changed:',
-        prevConfigVersion,
-        '->',
-        newConfigVersion,
-        ', removing all agent credentials',
-      );
       defaultLogger.perp.agentLifeCycle.trackReason({
         reason: 'config_version_changed_reset',
         statusDetails: {
@@ -334,12 +386,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   async removeAllAgentCredentialsAndResetStatus() {
     // Remove all agent credentials from local db
-    const removedCount = await localDb.removeAllHyperLiquidAgentCredentials();
-    console.log(
-      '[ServiceHyperliquid] Removed',
-      removedCount,
-      'agent credentials',
-    );
+    await localDb.removeAllHyperLiquidAgentCredentials();
 
     // Clear related caches
     this.fetchExtraAgentsWithCache.clear();
@@ -397,7 +444,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
     {
       max: 20,
-      maxAge: 0,
+      // 10 min: fast enough to propagate server-side perp disable / builder
+      // config changes, while still deduping redundant focus-driven fetches.
+      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
       promise: true,
     },
   );
@@ -463,7 +512,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       return current.fills;
     }
 
-    const now = Date.now();
+    // Quantize to 10-second boundary so near-simultaneous callers
+    // produce identical memoizee keys and share a single request.
+    const now =
+      Math.floor(Date.now() / CACHE_TIME_QUANTIZE_MS) * CACHE_TIME_QUANTIZE_MS;
     const historyDuration = timerUtils.getTimeDurationMs({ year: 2 });
     const twoYearsAgo = now - historyDuration;
 
@@ -574,15 +626,36 @@ export default class ServiceHyperliquid extends ServiceBase {
   async getSymbolsMetaMap({ coins }: { coins: string[] }) {
     const { universesByDex, marginTablesMapByDex } =
       await this.getTradingUniverse();
+    const { universes: spotUniverses } =
+      await this.backgroundApi.simpleDb.perp.getSpotMeta();
     const map: Partial<{
       [coin: string]: {
         coin: string;
         assetId: number;
         universe: IPerpsUniverse | undefined;
         marginTable: IMarginTable | undefined;
+        isSpot?: boolean;
+        spotUniverse?: ISpotUniverse;
       };
     }> = {};
     coins.forEach((coin) => {
+      if (perpsUtils.isSpotInstrument(coin)) {
+        const spotUni = spotUniverses.find(
+          (item: ISpotUniverse) => item.name === coin,
+        );
+        if (isNil(spotUni?.assetId)) {
+          throw new OneKeyLocalError(`Asset id not found for coin: ${coin}`);
+        }
+        map[coin] = {
+          assetId: spotUni.assetId,
+          coin,
+          universe: undefined,
+          marginTable: undefined,
+          isSpot: true,
+          spotUniverse: spotUni,
+        };
+        return;
+      }
       const dexIndex = this.detectDexIndexByCoin(coin);
       const universes = universesByDex?.[dexIndex];
       const marginTables = marginTablesMapByDex?.[dexIndex];
@@ -624,6 +697,50 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (activeAssetCtx?.coin !== activeAsset?.coin) {
         await perpsActiveAssetCtxAtom.set(undefined);
       }
+    }
+  }
+
+  async updateActiveSpotAssetCtx(data: IWsActiveSpotAssetCtx | undefined) {
+    const activeSpotAsset = await spotActiveAssetAtom.get();
+    if (activeSpotAsset?.coin === data?.coin && data?.coin && data?.ctx) {
+      await spotActiveAssetCtxAtom.set(
+        (_prev): ISpotActiveAssetCtxAtom => ({
+          coin: data.coin,
+          assetId: activeSpotAsset?.assetId,
+          ctx: perpsUtils.formatSpotAssetCtx(data.ctx),
+        }),
+      );
+    }
+    // Don't clear to undefined — stale data from the previous coin is preferable
+    // to a brief flash of empty state while waiting for the new WS update.
+  }
+
+  async updateSpotAssetCtxsMap(data: IWsSpotAssetCtxs) {
+    if (!Array.isArray(data) || data.length === 0) return;
+
+    const map: Record<string, ISpotAssetCtxEntry> = {};
+    data.forEach((ctx) => {
+      if (ctx?.coin && ctx?.markPx) {
+        map[ctx.coin] = {
+          markPx: ctx.markPx,
+          prevDayPx: ctx.prevDayPx,
+          dayNtlVlm: ctx.dayNtlVlm,
+          circulatingSupply: ctx.circulatingSupply,
+        };
+      }
+    });
+    this._flushSpotPrices(map);
+  }
+
+  async extractSpotPricesFromAllMids(mids: Record<string, string>) {
+    const map: Record<string, ISpotAssetCtxEntry> = {};
+    for (const [coin, price] of Object.entries(mids)) {
+      if (perpsUtils.isSpotInstrument(coin) && price) {
+        map[coin] = { markPx: price };
+      }
+    }
+    if (Object.keys(map).length > 0) {
+      this._flushSpotPrices(map);
     }
   }
 
@@ -806,6 +923,8 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     const balances = spotStateData?.spotState?.balances || [];
 
+    await spotBalancesAtom.set({ balances, isLoaded: true });
+
     // Calculate total USD value from spot balances
     // Price lookup: USDC (token=0) → 1:1, others → allMids.mids[coin] (perp mid price by token name)
     // Note: allMids["HYPE"]=36.20 is the correct USD price
@@ -901,6 +1020,97 @@ export default class ServiceHyperliquid extends ServiceBase {
     });
   }
 
+  private _rebuildSpotMappings(universes: ISpotUniverse[]) {
+    const pairToBaseName: Record<string, string> = {};
+    const baseNameToAssetId: Record<string, number> = {};
+    const baseNameToSzDecimals: Record<string, number> = {};
+    const baseNameToPairName: Record<string, string> = {};
+
+    for (const u of universes) {
+      pairToBaseName[u.name] = u.baseName;
+      baseNameToAssetId[u.baseName] = u.assetId;
+      baseNameToSzDecimals[u.baseName] = u.baseSzDecimals;
+      baseNameToPairName[u.baseName] = u.name;
+    }
+
+    this._spotMappings = {
+      pairToBaseName,
+      baseNameToAssetId,
+      baseNameToSzDecimals,
+      baseNameToPairName,
+    };
+
+    // UI needs synchronous @N → display name resolution (no async SimpleDb lookup)
+    const displayMap: Record<string, string> = {};
+    for (const u of universes) {
+      displayMap[u.name] = perpsUtils.getSpotTokenDisplayName(u.baseName);
+    }
+    void spotPairDisplayMapAtom.set(displayMap);
+  }
+
+  // Service may restart without refreshSpotMeta — rebuild from SimpleDb on first access
+  private async _ensureSpotMappings() {
+    if (Object.keys(this._spotMappings.pairToBaseName).length > 0) return;
+    const { universes } = await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    if (universes.length > 0) {
+      this._rebuildSpotMappings(universes);
+    }
+  }
+
+  @backgroundMethod()
+  async getSpotAssetId(tokenName: string): Promise<number | undefined> {
+    await this._ensureSpotMappings();
+    return this._spotMappings.baseNameToAssetId[tokenName];
+  }
+
+  @backgroundMethod()
+  async getSpotSzDecimals(tokenName: string): Promise<number | undefined> {
+    await this._ensureSpotMappings();
+    return this._spotMappings.baseNameToSzDecimals[tokenName];
+  }
+
+  @backgroundMethod()
+  async getSpotPairName(tokenName: string): Promise<string | undefined> {
+    await this._ensureSpotMappings();
+    return this._spotMappings.baseNameToPairName[tokenName];
+  }
+
+  @backgroundMethod()
+  async getSpotMeta() {
+    return this.backgroundApi.simpleDb.perp.getSpotMeta();
+  }
+
+  @backgroundMethod()
+  async refreshSpotMeta() {
+    const { infoClient } = hyperLiquidApiClients;
+    const result = await infoClient.spotMetaAndAssetCtxs();
+    const meta = result[0];
+    if (meta?.tokens && meta?.universe) {
+      const tokens = meta.tokens;
+      const universes: ISpotUniverse[] = meta.universe.map((item) => {
+        const baseTokenIdx = item.tokens[0];
+        const quoteTokenIdx = item.tokens[1];
+        const baseToken = tokens[baseTokenIdx];
+        const quoteToken = tokens[quoteTokenIdx];
+        const baseName = baseToken?.name ?? '';
+        const quoteName = quoteToken?.name ?? 'USDC';
+        return {
+          ...item,
+          assetId: SPOT_ASSET_ID_OFFSET + item.index,
+          baseName,
+          quoteName,
+          displayName: perpsUtils.getSpotTokenDisplayName(baseName),
+          baseSzDecimals: baseToken?.szDecimals ?? 0,
+        };
+      });
+      await this.backgroundApi.simpleDb.perp.setSpotMeta({
+        tokens,
+        universes,
+      });
+      this._rebuildSpotMappings(universes);
+    }
+  }
+
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   @backgroundMethod()
@@ -980,6 +1190,9 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     await perpsAbstractionModeAtom.set(undefined);
     await perpsSpotBalancesAtom.set(undefined);
+    // Also reset the UI-facing spot balances atom so stale balances from
+    // the previous account don't flash before the new SPOT_STATE arrives.
+    await spotBalancesAtom.set({ balances: [], isLoaded: false });
     await perpsActiveAccountAtom.set(perpsAccount);
     return perpsAccount;
   }
@@ -1145,27 +1358,29 @@ export default class ServiceHyperliquid extends ServiceBase {
         }),
       );
 
-      // TODO reset exchange client if account not exists, or address not exists
-      await this.exchangeService.setup({
-        userAddress: accountAddress,
-        userAccountId: selectedAccount.accountId ?? undefined,
-      });
-
       if (!accountAddress) {
         throw new OneKeyLocalError(
           'Check perps account status ERROR: Account address is required',
         );
       }
 
+      // Run exchange client setup and activation check in parallel —
+      // setup is local-only, userRole uses the info client (independent).
       let isActivated = false;
       if (hyperLiquidCache?.activatedUser?.[accountAddress] === true) {
         isActivated = true;
       }
-      if (!isActivated) {
-        const userRole = await infoClient.userRole({
-          user: accountAddress,
-        });
-        isActivated = userRole.role !== 'missing';
+      const [, userRoleResult] = await Promise.all([
+        this.exchangeService.setup({
+          userAddress: accountAddress,
+          userAccountId: selectedAccount.accountId ?? undefined,
+        }),
+        !isActivated
+          ? infoClient.userRole({ user: accountAddress })
+          : Promise.resolve(null),
+      ]);
+      if (!isActivated && userRoleResult) {
+        isActivated = userRoleResult.role !== 'missing';
       }
       if (!isActivated) {
         statusDetails.activatedOk = false;
@@ -1189,19 +1404,21 @@ export default class ServiceHyperliquid extends ServiceBase {
         // So account value displays correctly before enable trading
         void this.fetchUserAbstraction(accountAddress);
 
-        // Builder fee must be approved before agent setup
-        await this.checkBuilderFeeStatus({
-          accountAddress,
-          accountId: selectedAccount.accountId,
-          isEnableTradingTrigger,
-          statusDetails,
-        });
-
-        const isRebateBound =
-          await this.checkInternalRebateBindingStatusWithCache({
+        // Builder fee check and rebate binding check are independent — run in parallel.
+        // Both must complete before checkAgentStatus (builder fee must be approved,
+        // and credentials may be cleared based on rebate result).
+        const [, isRebateBound] = await Promise.all([
+          this.checkBuilderFeeStatus({
+            accountAddress,
+            accountId: selectedAccount.accountId,
+            isEnableTradingTrigger,
+            statusDetails,
+          }),
+          this.checkInternalRebateBindingStatusWithCache({
             accountId: selectedAccount.accountId,
             accountAddress,
-          });
+          }),
+        ]);
 
         // Clear local credentials to force new agent creation for rebate binding
         if (!isRebateBound) {
@@ -1234,26 +1451,6 @@ export default class ServiceHyperliquid extends ServiceBase {
             userAddress: accountAddress,
             agentCredential,
           });
-
-          void (async () => {
-            const cacheKey = [
-              agentCredential.userAddress.toLowerCase(),
-              agentCredential.agentAddress.toLowerCase(),
-              agentCredential.agentName,
-            ].join('-');
-            if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
-              const { referralCode } =
-                await this.backgroundApi.simpleDb.perp.getPerpData();
-              try {
-                // referrer code can be approved by agent
-                await this.exchangeService.setReferrerCode({
-                  code: referralCode || HYPERLIQUID_REFERRAL_CODE,
-                });
-              } finally {
-                hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
-              }
-            }
-          })();
 
           statusDetails.internalRebateBoundOk = true;
           statusDetails.referralCodeOk = true;
@@ -1298,6 +1495,30 @@ export default class ServiceHyperliquid extends ServiceBase {
           }),
         );
       }, 0);
+    }
+
+    // Deferred: bind referral code after loading resolves.
+    // Non-blocking, non-critical — avoids bandwidth contention during critical path.
+    if (agentCredential) {
+      void (async () => {
+        const cacheKey = [
+          agentCredential.userAddress.toLowerCase(),
+          agentCredential.agentAddress.toLowerCase(),
+          agentCredential.agentName,
+        ].join('-');
+        if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
+          const { referralCode } =
+            await this.backgroundApi.simpleDb.perp.getPerpData();
+          try {
+            // referrer code can be approved by agent
+            await this.exchangeService.setReferrerCode({
+              code: referralCode || HYPERLIQUID_REFERRAL_CODE,
+            });
+          } finally {
+            hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
+          }
+        }
+      })();
     }
   }
 
@@ -1498,7 +1719,6 @@ export default class ServiceHyperliquid extends ServiceBase {
                   agentName: agentNameToRemove,
                 },
               );
-              console.log('approveAgentResult::', approveAgentResult);
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_removed_for_slot_recovery',
                 accountAddress,
@@ -1535,11 +1755,10 @@ export default class ServiceHyperliquid extends ServiceBase {
                       (agent) => agent.name === agentNameToRemove,
                     )
                   ) {
-                    console.log('Agent removal confirmed:', agentNameToRemove);
                     break;
                   }
                 } catch (error) {
-                  console.log('Polling request failed:', error);
+                  console.error('Polling request failed:', error);
                 }
 
                 // Wait 500ms before next poll attempt
@@ -1596,7 +1815,6 @@ export default class ServiceHyperliquid extends ServiceBase {
             }
           } catch (error) {
             const requestError = error as IApiRequestError | undefined;
-            console.log('approveAgentError::', requestError);
             const errorResponse = (
               requestError as {
                 response?: { status?: string; response?: string };
@@ -1616,7 +1834,6 @@ export default class ServiceHyperliquid extends ServiceBase {
           await timerUtils.wait(500);
         }
 
-        console.log('approveAgentResult::', approveAgentResult);
         if (
           approveAgentResult &&
           approveAgentResult.status === 'ok' &&
@@ -1881,7 +2098,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         ) {
           statusDetails.builderFeeOk = true;
         }
-        console.log('approveBuilderFeeResult::', approveBuilderFeeResult);
       }
     }
   }

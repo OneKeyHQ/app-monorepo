@@ -24,6 +24,7 @@ interface ITradeSideToggleProps {
   onChange: (value: ISide) => void;
   disabled?: boolean;
   isMobile?: boolean;
+  isSpot?: boolean;
 }
 
 function getCommonButtonStyle(isMobile?: boolean): IButtonProps {
@@ -41,7 +42,7 @@ function getCommonButtonStyle(isMobile?: boolean): IButtonProps {
 }
 
 export const TradeSideToggle = memo<ITradeSideToggleProps>(
-  ({ value, onChange, disabled = false, isMobile = false }) => {
+  ({ value, onChange, disabled = false, isMobile = false, isSpot = false }) => {
     const handleChange = useCallback(
       (newValue: string | number) => {
         const strValue = String(newValue);
@@ -68,6 +69,13 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         ? PERP_TRADE_BUTTON_COLORS.light.short
         : PERP_TRADE_BUTTON_COLORS.dark.short;
     };
+    const longLabel = isSpot
+      ? intl.formatMessage({ id: ETranslations.global_buy })
+      : intl.formatMessage({ id: ETranslations.perp_trade_long });
+    const shortLabel = isSpot
+      ? intl.formatMessage({ id: ETranslations.global_sell })
+      : intl.formatMessage({ id: ETranslations.perp_trade_short });
+
     const options = [
       {
         value: 'long',
@@ -84,9 +92,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
               size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
               color={isLongActive ? '$textOnColor' : '$textDisabled'}
             >
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_long,
-              })}
+              {longLabel}
             </SizableText>
           </Button>
         ),
@@ -106,9 +112,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
               size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
               color={isShortActive ? '$textOnColor' : '$textDisabled'}
             >
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_short,
-              })}
+              {shortLabel}
             </SizableText>
           </Button>
         ),
