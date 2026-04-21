@@ -42,9 +42,7 @@ const TOAST_VIEWPORT_NAME = 'THIRD_PARTY_HW_TOAST';
 // ---------------------------------------------------------------------------
 
 function getDeviceLabel(vendor: string | undefined): string {
-  const fallback = appLocale.intl.formatMessage({
-    id: ETranslationsMock.hardware_third_party_default_device_label,
-  });
+  const fallback = 'Device';
   if (!vendor) return fallback;
   return (
     getVendorProfile(vendor as EHardwareVendor).defaultDeviceName || fallback

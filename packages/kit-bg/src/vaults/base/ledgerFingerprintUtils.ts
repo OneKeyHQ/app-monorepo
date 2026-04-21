@@ -1,4 +1,3 @@
-
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';

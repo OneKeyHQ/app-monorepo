@@ -113,10 +113,10 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
               : ((rawXpubField as { extendedPublicKey: string })
                   ?.extendedPublicKey ?? String(rawXpubField));
 
-          // Ledger DMK always returns xpub with standard mainnet version bytes
-          // regardless of BIP purpose. Re-encode to match the encoding so
-          // downstream tools (blockbook, exporters) interpret the address type
-          // correctly. xpub→ypub for BIP49, xpub→zpub for BIP84.
+          // Ledger DMK always returns an xpub with standard mainnet version
+          // bytes regardless of BIP purpose. Re-encode the version bytes to
+          // match the encoding so downstream tools (blockbook, exporters)
+          // interpret the address type correctly.
           const xpub = addressEncoding
             ? convertBtcForkXpub({
                 btcForkNetwork: network,

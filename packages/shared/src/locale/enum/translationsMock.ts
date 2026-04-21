@@ -31,7 +31,6 @@ export enum ETranslationsMock {
   hardware_third_party_app_too_old = 'Your Ledger app is out of date. Please update it via Ledger Live.',
   // ----------------------------------------------
   // Third-party hardware — UI labels (no ICU placeholders in mock phase)
-  hardware_third_party_default_device_label = 'Device',
   hardware_third_party_device_not_found_title = 'Device Not Found',
   hardware_third_party_device_scan_error = 'Failed to scan for devices. Please try again.',
   hardware_third_party_no_app_installed_on_device = 'No apps installed on your device. Please install apps via Ledger Live.',
