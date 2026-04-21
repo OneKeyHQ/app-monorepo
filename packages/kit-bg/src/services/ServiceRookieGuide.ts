@@ -71,7 +71,7 @@ class ServiceRookieGuide extends ServiceBase {
     );
     defaultLogger.rookieGuide.guide.getProgress({
       completedTasks,
-      totalTasks: 5,
+      totalTasks: Object.keys(ERookieTaskType).length,
     });
     return progress;
   }
