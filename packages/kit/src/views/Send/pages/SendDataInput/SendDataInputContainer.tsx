@@ -490,6 +490,7 @@ function SendDataInputContainer() {
       // page — skip straight to confirm with a fixed quantity of 1 (OK-53248).
       const nftItem = nfts?.[0];
       if (
+        nftItem &&
         shouldSkipAmountInputForNFT({
           isNFT,
           nft: nftItem,
@@ -948,6 +949,7 @@ function SendDataInputContainer() {
         const nftItem = nfts?.[0];
 
         if (
+          nftItem &&
           shouldSkipAmountInputForNFT({
             isNFT,
             nft: nftItem,
