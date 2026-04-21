@@ -6,6 +6,7 @@ import {
   useContext,
   useMemo,
 } from 'react';
+import { useIntl } from 'react-intl';
 
 import {
   DebugRenderTracker,
@@ -39,7 +40,6 @@ import {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
-import { useIntl } from 'react-intl';
 
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 

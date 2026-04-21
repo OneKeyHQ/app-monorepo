@@ -13,6 +13,10 @@ import {
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import {
+  usePerpsActiveAccountSummaryAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -24,10 +28,6 @@ import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
-import {
-  usePerpsActiveAccountSummaryAtom,
-  useSpotBalancesAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { SpotBalanceList } from '../components/OrderInfoPanel/List/SpotBalanceList';
