@@ -9,15 +9,18 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   EPerpsSizeInputMode,
   IPerpsFormattedAssetCtx,
+  ISpotFormattedAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid';
 import {
   MAX_DECIMALS_PERP,
+  MAX_DECIMALS_SPOT,
   MAX_PRICE_INTEGER_DIGITS,
   MAX_SIGNIFICANT_FIGURES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
+  ISpotAssetCtx,
   IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -501,6 +504,42 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
   return intLen + dec.length <= MAX_SIGNIFICANT_FIGURES;
 }
 
+// Spot variant: max decimals = MAX_DECIMALS_SPOT - szDecimals (vs PERP's 6).
+function validateSpotPriceInput(input: string, szDecimals = 0): boolean {
+  if (!input) return true;
+
+  const text = input.replace(/。/g, '.');
+  if (text === '00') return false;
+
+  if (text.length > 1 && text[0] === '0' && text[1] !== '.') {
+    return false;
+  }
+
+  const maxDecimals = Math.max(0, MAX_DECIMALS_SPOT - szDecimals);
+
+  if (!/^[0-9]*\.?[0-9]*$/.test(text) || text.split('.').length > 2)
+    return false;
+  if (maxDecimals <= 0) return !/\./.test(text);
+
+  const [int = '0', dec = ''] = text.split('.');
+  if (int.length > MAX_PRICE_INTEGER_DIGITS) return false;
+  const hasDecimal = text.includes('.');
+
+  if (dec.length > maxDecimals) return false;
+
+  const intLen = int.replace(/^0+/, '').length;
+  const isZeroInt = intLen === 0;
+
+  if (intLen >= MAX_SIGNIFICANT_FIGURES) return !hasDecimal;
+
+  if (isZeroInt) {
+    const leadingZeros = dec.match(/^0*/)?.[0].length || 0;
+    return dec.length - leadingZeros <= MAX_SIGNIFICANT_FIGURES;
+  }
+
+  return intLen + dec.length <= MAX_SIGNIFICANT_FIGURES;
+}
+
 /**
  * Format price to display with significant digits and precision constraints
  *
@@ -513,6 +552,78 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
  * @param szDecimals - Optional asset's szDecimals for precision limiting
  * @returns Formatted price string suitable for display
  */
+/**
+ * Get valid decimal places for a spot price
+ *
+ * HyperLiquid spot prices follow: maxDecimals = MAX_DECIMALS_SPOT - szDecimals
+ * with up to MAX_SIGNIFICANT_FIGURES significant figures.
+ */
+function getValidSpotPriceDecimals(
+  marketPrice: string | number,
+  szDecimals: number,
+): number {
+  const price = new BigNumber(marketPrice);
+
+  if (!price.isFinite() || price.isLessThanOrEqualTo(0)) {
+    return 2;
+  }
+
+  const maxDecimals = Math.max(0, MAX_DECIMALS_SPOT - szDecimals);
+
+  if (price.isInteger()) {
+    return 0;
+  }
+
+  const priceStr = price.toFixed();
+  const decimalIndex = priceStr.indexOf('.');
+
+  if (decimalIndex === -1) {
+    return 0;
+  }
+
+  const actualDecimals = priceStr.length - decimalIndex - 1;
+  const significantFigures = _countSignificantFigures(price);
+
+  let maxAllowedDecimals = Math.min(actualDecimals, maxDecimals);
+
+  if (significantFigures > MAX_SIGNIFICANT_FIGURES) {
+    const integerPart = price.integerValue(BigNumber.ROUND_DOWN);
+    const integerDigits = integerPart.isZero()
+      ? 0
+      : integerPart.toFixed().length;
+    maxAllowedDecimals = Math.min(
+      maxAllowedDecimals,
+      Math.max(0, MAX_SIGNIFICANT_FIGURES - integerDigits),
+    );
+  }
+
+  return maxAllowedDecimals;
+}
+
+/**
+ * Format a spot price to a valid string according to HyperLiquid rules
+ */
+function formatSpotPriceToValid(
+  marketPrice: string | number,
+  szDecimals: number,
+): string {
+  const price = new BigNumber(marketPrice);
+
+  if (!price.isFinite() || price.isLessThanOrEqualTo(0)) {
+    return '0';
+  }
+
+  const validDecimals = getValidSpotPriceDecimals(marketPrice, szDecimals);
+
+  // Strip trailing zeros ONLY after the decimal point (e.g. "60.100" → "60.1").
+  // Do NOT strip trailing zeros from integers (e.g. "60000" must stay "60000").
+  const fixed = price.toFixed(validDecimals);
+  if (fixed.includes('.')) {
+    return fixed.replace(/0+$/, '').replace(/\.$/, '');
+  }
+  return fixed;
+}
+
 function formatPriceToSignificantDigits(
   price: number | string | BigNumber | undefined,
   szDecimals?: number,
@@ -1448,6 +1559,121 @@ export function formatChartUsdPrice(price: number): string {
   return `${sign}$${abs.toFixed(2)}`;
 }
 
+// ── Spot Asset Context Formatter ──
+
+function formatSpotAssetCtx(
+  spotCtx: ISpotAssetCtx | null,
+): ISpotFormattedAssetCtx {
+  const midPrice = spotCtx?.midPx || '0';
+  const markPrice = spotCtx?.markPx || '0';
+  const prevDayPrice = spotCtx?.prevDayPx || '0';
+  const priceDecimals = getValidPriceDecimals(markPrice);
+
+  const markPriceBN = new BigNumber(markPrice);
+  const prevDayPriceBN = new BigNumber(prevDayPrice);
+  const change24hBN = markPriceBN.minus(prevDayPriceBN);
+
+  const change24h = change24hBN.toFixed(priceDecimals);
+  const change24hPercent = prevDayPriceBN.isZero()
+    ? 0
+    : change24hBN.dividedBy(prevDayPriceBN).multipliedBy(100).toNumber();
+
+  return {
+    midPrice,
+    markPrice,
+    prevDayPrice,
+    volume24h: spotCtx?.dayNtlVlm || '0',
+    change24h,
+    change24hPercent,
+    circulatingSupply: spotCtx?.circulatingSupply || '0',
+    totalSupply: spotCtx?.totalSupply || '0',
+    dayBaseVlm: spotCtx?.dayBaseVlm || '0',
+  };
+}
+
+/** Lightweight price entry formatter for spot price map entries (markPx + prevDayPx). */
+function formatSpotPriceEntry(spotEntry?: {
+  markPx?: string;
+  prevDayPx?: string;
+}): { change24hPercent: number; markPrice: string } {
+  const markPrice = spotEntry?.markPx ?? '0';
+  const markPriceNumber = Number(markPrice);
+  const prevDayPriceNumber = Number(spotEntry?.prevDayPx ?? '0');
+  const change24hPercent =
+    Number.isFinite(prevDayPriceNumber) && prevDayPriceNumber > 0
+      ? ((markPriceNumber - prevDayPriceNumber) / prevDayPriceNumber) * 100
+      : 0;
+
+  return {
+    change24hPercent: Number.isFinite(change24hPercent) ? change24hPercent : 0,
+    markPrice,
+  };
+}
+
+// ── Spot Token Utils ──
+
+/* cspell:disable -- HL spot token internal names (UBTC, HPENGU, FXRP, etc.) */
+const SPOT_TOKEN_DISPLAY_MAP: Record<string, string> = {
+  UBTC: 'BTC',
+  UETH: 'ETH',
+  USOL: 'SOL',
+  UFART: 'FARTCOIN',
+  UBONK: 'BONK',
+  UPUMP: 'PUMP',
+  UENA: 'ENA',
+  UXPL: 'XPL',
+  UZEC: 'ZEC',
+  UMON: 'MON',
+  UUUSPX: 'SPX',
+  UDOGE: 'DOGE',
+  UMOG: 'MOG',
+  UWLD: 'WLD',
+  UMEGA: 'MEGA',
+  UVIRT: 'VIRTUAL',
+  USPYX: 'SPYX',
+  UDZ: 'DZ',
+  LINK0: 'LINK',
+  AAVE0: 'AAVE',
+  AVAX0: 'AVAX',
+  BNB0: 'BNB',
+  CFX0: 'CFX',
+  PEPE0: 'PEPE',
+  TRX0: 'TRX',
+  USDT0: 'USDT',
+  XAUT0: 'XAUT',
+  HPENGU: 'PENGU',
+  HPEPE: 'PEPE',
+  FXRP: 'XRP',
+  XMR1: 'XMR',
+  HBNB: 'BNB',
+  HSEI: 'SEI',
+};
+/* cspell:enable */
+
+function getSpotTokenDisplayName(rawName: string): string {
+  return SPOT_TOKEN_DISPLAY_MAP[rawName] ?? rawName;
+}
+
+function formatSpotPairDisplayName(
+  baseName: string,
+  quoteName: string,
+): string {
+  return `${getSpotTokenDisplayName(baseName)}/${quoteName}`;
+}
+
+function isSpotInstrument(coin?: string | null): boolean {
+  if (!coin) return false;
+  return coin.startsWith('@') || coin.includes('/');
+}
+
+const SPOT_MIN_VOLUME_STRICT = 10;
+
+function filterSpotTokensStrict(
+  tokens: Array<{ dayNtlVlm: number; midPx: boolean }>,
+): Array<{ dayNtlVlm: number; midPx: boolean }> {
+  return tokens.filter((t) => t.dayNtlVlm >= SPOT_MIN_VOLUME_STRICT && t.midPx);
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1466,6 +1692,7 @@ export {
   validateSizeInput,
   formatPercentage,
   validatePriceInput,
+  validateSpotPriceInput,
   formatPriceToSignificantDigits,
   calculateProfitLoss,
   findMarginTier,
@@ -1480,6 +1707,16 @@ export {
   mapTriggerOrderType,
   inferTpsl,
   getTriggerEffectivePrice,
+  getValidSpotPriceDecimals,
+  formatSpotPriceToValid,
+  formatSpotAssetCtx,
+  formatSpotPriceEntry,
+  isSpotInstrument,
+  getSpotTokenDisplayName,
+  formatSpotPairDisplayName,
+  filterSpotTokensStrict,
+  SPOT_TOKEN_DISPLAY_MAP,
+  SPOT_MIN_VOLUME_STRICT,
 };
 export default {
   formatAssetCtx,
@@ -1499,6 +1736,7 @@ export default {
   validateSizeInput,
   formatPercentage,
   validatePriceInput,
+  validateSpotPriceInput,
   formatPriceToSignificantDigits,
   calculateProfitLoss,
   findMarginTier,
@@ -1520,4 +1758,14 @@ export default {
   formatPerpsCompactUsd,
   getPerpsValueColor,
   formatChartUsdPrice,
+  formatSpotAssetCtx,
+  formatSpotPriceEntry,
+  isSpotInstrument,
+  getSpotTokenDisplayName,
+  formatSpotPairDisplayName,
+  filterSpotTokensStrict,
+  SPOT_TOKEN_DISPLAY_MAP,
+  SPOT_MIN_VOLUME_STRICT,
+  getValidSpotPriceDecimals,
+  formatSpotPriceToValid,
 };

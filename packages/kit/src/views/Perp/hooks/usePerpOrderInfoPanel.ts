@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
   usePerpsTradesHistoryDataAtom,
@@ -16,8 +17,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 
 export function usePerpTradesHistory() {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
-  const [tradesData] = usePerpsTradesHistoryDataAtom();
+  const [perpsTradesData] = usePerpsTradesHistoryDataAtom();
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
 
   const [currentListPage, setCurrentListPage] = useState(1);
@@ -52,13 +54,16 @@ export function usePerpTradesHistory() {
 
   useEffect(() => {
     noop(refreshHook);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (isFocusedRef.current) {
         void backgroundApiProxy.serviceHyperliquidSubscription.refreshSubscriptionForUserFills();
       }
     }, 300);
+    return () => clearTimeout(timer);
   }, [refreshHook]);
 
+  // Spot and perps fills both come from the same USER_FILLS WS subscription
+  const tradesData = perpsTradesData;
   const fills: IFill[] = tradesData?.fills ?? [];
   const isLoaded: boolean = tradesData?.isLoaded ?? false;
   const hasAccountAddress = Boolean(currentAccount?.accountAddress);
@@ -67,6 +72,7 @@ export function usePerpTradesHistory() {
     trades: fills,
     currentListPage,
     setCurrentListPage,
+    mode: activeTradeInstrument.mode,
     // If current account has no Perp address (unsupported or not created yet),
     // show empty state instead of skeleton loading.
     isLoading: hasAccountAddress ? !isLoaded : false,

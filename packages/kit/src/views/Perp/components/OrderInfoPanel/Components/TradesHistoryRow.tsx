@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -15,12 +15,15 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  getSpotTokenDisplayName,
   getValidPriceDecimals,
+  isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -63,19 +66,37 @@ const TradesHistoryRow = memo(
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
+        !isSpotInstrument(fill.coin) &&
         fill.closedPnl &&
         !new BigNumber(fill.closedPnl).isZero() &&
         !fill.liquidation &&
         onShare
       );
-    }, [fill.closedPnl, fill.liquidation, onShare]);
+    }, [fill.closedPnl, fill.coin, fill.liquidation, onShare]);
     const actions = useHyperliquidActions();
     const intl = useIntl();
+    const [spotDisplayMap] = useSpotPairDisplayMapAtom();
     const assetSymbol = useMemo(() => {
-      const parsed = parseDexCoin(fill.coin);
-      return parsed.displayName;
-    }, [fill.coin]);
+      if (!isSpotInstrument(fill.coin)) {
+        return parseDexCoin(fill.coin).displayName;
+      }
+      // Resolve @107 → HYPE via display map atom
+      const displayName = spotDisplayMap[fill.coin];
+      if (displayName) return displayName;
+      // Fallback: canonical pairs like PURR/USDC
+      if (fill.coin.includes('/')) {
+        const [baseName] = fill.coin.split('/');
+        return getSpotTokenDisplayName(baseName);
+      }
+      return fill.coin;
+    }, [fill.coin, spotDisplayMap]);
     const rawCoin = fill.coin;
+    const handleSwitchInstrument = useCallback(() => {
+      void actions.current.switchTradeInstrument({
+        mode: isSpotInstrument(rawCoin) ? 'spot' : 'perp',
+        coin: rawCoin,
+      });
+    }, [actions, rawCoin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(fill.time);
       const date = formatTime(timeDate, {
@@ -88,6 +109,15 @@ const TradesHistoryRow = memo(
     }, [fill.time]);
 
     const directionInfo = useMemo(() => {
+      if (isSpotInstrument(fill.coin)) {
+        return {
+          directionStr:
+            fill.side === 'B'
+              ? intl.formatMessage({ id: ETranslations.global_buy })
+              : intl.formatMessage({ id: ETranslations.global_sell }),
+          directionColor: fill.side === 'B' ? '$green11' : '$red11',
+        };
+      }
       const side = fill.side;
       let directionColor = '$green11';
       if (side === 'A') {
@@ -106,7 +136,7 @@ const TradesHistoryRow = memo(
       }
 
       return { directionStr, directionColor };
-    }, [fill.dir, fill.side, fill.liquidation]);
+    }, [fill.coin, fill.dir, fill.side, fill.liquidation, intl]);
 
     const tradeBaseInfo = useMemo(() => {
       const price = fill.px;
@@ -198,10 +228,8 @@ const TradesHistoryRow = memo(
               <XStack
                 gap="$2"
                 alignItems="center"
-                // cursor="pointer"
-                // onPress={() =>
-                //   actions.current.changeActiveAsset({ coin: assetSymbol })
-                // }
+                onPress={handleSwitchInstrument}
+                cursor="default"
               >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
                 <SizableText
@@ -356,9 +384,7 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
-              onPress={() =>
-                actions.current.changeActiveAsset({ coin: rawCoin })
-              }
+              onPress={handleSwitchInstrument}
               cursor="default"
             >
               <SizableText

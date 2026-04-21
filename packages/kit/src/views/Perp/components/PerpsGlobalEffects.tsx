@@ -1,10 +1,9 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, startTransition, useCallback, useEffect, useRef } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isEqual, noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
-import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import {
   useAccountIsAutoCreatingAtom,
   useAppIsLockedAtom,
@@ -15,13 +14,14 @@ import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/stat
 import {
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
+  tradingModeAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountRefreshHookAtom,
-  usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
   usePerpsWebSocketConnectedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+import { spotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -55,21 +55,28 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
+import {
+  useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
+  useTradeRouteViewStateAtom,
+} from '../../../states/jotai/contexts/hyperliquid';
 import {
   useOrderBookTickOptionsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsSharePrompt } from '../hooks/usePerpsSharePrompt';
+import { planTradeSubscriptions } from '../utils/subscriptionPlanner';
 
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
 function useSyncContextOrderBookOptionsToGlobal() {
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
 
   const orderBookTickOptionsRef = useRef(orderBookTickOptions);
   orderBookTickOptionsRef.current = orderBookTickOptions;
+  const activeTradeInstrumentRef = useRef(activeTradeInstrument);
+  activeTradeInstrumentRef.current = activeTradeInstrument;
 
   const isFocusedRef = useRef(false);
 
@@ -81,10 +88,10 @@ function useSyncContextOrderBookOptionsToGlobal() {
         return;
       }
       const prev = await perpsActiveOrderBookOptionsAtom.get();
-      const _activeAsset = await perpsActiveAssetAtom.get();
+      const _activeInstrument = activeTradeInstrumentRef.current;
 
       const l2SubscriptionOptions = (() => {
-        const coin = _activeAsset?.coin;
+        const coin = _activeInstrument?.coin;
         if (!coin) {
           return { nSigFigs: null, mantissa: null };
         }
@@ -96,8 +103,8 @@ function useSyncContextOrderBookOptionsToGlobal() {
       })();
 
       const next: IPerpsActiveOrderBookOptionsAtom = {
-        coin: _activeAsset?.coin,
-        assetId: _activeAsset?.assetId,
+        coin: _activeInstrument?.coin,
+        assetId: _activeInstrument?.assetId,
         ...l2SubscriptionOptions,
       };
       if (isEqual(prev, next)) {
@@ -112,9 +119,14 @@ function useSyncContextOrderBookOptionsToGlobal() {
 
   useEffect(() => {
     noop(orderBookTickOptions);
-    noop(activeAsset?.coin);
+    noop(activeTradeInstrument?.coin);
     void updateGlobalOrderBookOptions(orderBookTickOptions);
-  }, [orderBookTickOptions, activeAsset?.coin, updateGlobalOrderBookOptions]);
+  }, [
+    orderBookTickOptions,
+    activeTradeInstrument?.coin,
+    activeTradeInstrument?.assetId,
+    updateGlobalOrderBookOptions,
+  ]);
 
   useListenTabFocusState(
     ETabRoutes.Perp,
@@ -128,8 +140,37 @@ function useSyncContextOrderBookOptionsToGlobal() {
   );
 }
 
+function useTradeRouteViewStateSync() {
+  const actions = useHyperliquidActions();
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    (isFocus: boolean, isHiddenByModal: boolean) => {
+      actions.current.setTradeRouteViewState({
+        routeFocused: isFocus && !isHiddenByModal,
+      });
+    },
+  );
+
+  useEffect(() => {
+    const actionsRef = actions.current;
+    return () => {
+      actionsRef.setTradeRouteViewState({
+        routeFocused: false,
+        tokenSelectorOpen: false,
+      });
+    };
+  }, [actions]);
+}
+
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
+
+  // Throttle ALL_DEXS_ASSET_CTXS to 1s (leading + trailing) — fires every
+  // ~500ms and causes token-selector row re-renders; startTransition yields
+  // to user interactions.
+  const assetCtxsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const assetCtxsDirtyRef = useRef<IWsAllDexsAssetCtxs | null>(null);
 
   useEffect(() => {
     const handleDataUpdate = (payload: unknown) => {
@@ -165,9 +206,24 @@ function useHyperliquidEventBusListener() {
           }
 
           case ESubscriptionType.ALL_DEXS_ASSET_CTXS: {
-            void actions.current.updateAllDexsAssetCtxs(
-              data as IWsAllDexsAssetCtxs,
-            );
+            assetCtxsDirtyRef.current = data as IWsAllDexsAssetCtxs;
+            if (!assetCtxsTimerRef.current) {
+              const pending = assetCtxsDirtyRef.current;
+              assetCtxsDirtyRef.current = null;
+              startTransition(() => {
+                void actions.current.updateAllDexsAssetCtxs(pending);
+              });
+              assetCtxsTimerRef.current = setTimeout(() => {
+                assetCtxsTimerRef.current = null;
+                if (assetCtxsDirtyRef.current) {
+                  const trailing = assetCtxsDirtyRef.current;
+                  assetCtxsDirtyRef.current = null;
+                  startTransition(() => {
+                    void actions.current.updateAllDexsAssetCtxs(trailing);
+                  });
+                }
+              }, 1000);
+            }
             break;
           }
 
@@ -240,6 +296,10 @@ function useHyperliquidEventBusListener() {
     );
 
     return () => {
+      if (assetCtxsTimerRef.current) {
+        clearTimeout(assetCtxsTimerRef.current);
+        assetCtxsTimerRef.current = null;
+      }
       appEventBus.off(
         EAppEventBusNames.HyperliquidDataUpdate,
         handleDataUpdate,
@@ -333,10 +393,6 @@ function useHyperliquidAccountSelect() {
     }
     noop(activeAccountRefreshHook);
     noop(activeAccount.account?.address);
-    console.log(
-      'selectPerpsAccount______555_address',
-      activeAccount.account?.address,
-    );
     await actions.current.changeActivePerpsAccount({
       indexedAccountId: activeAccount?.indexedAccount?.id || null,
       accountId: activeAccount?.account?.id || null,
@@ -428,8 +484,9 @@ function useHyperliquidAccountSelect() {
 function WebSocketSubscriptionUpdate() {
   const [loadingInfo] = usePerpsAccountLoadingInfoAtom();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
+  const [tradeRouteViewState] = useTradeRouteViewStateAtom();
   const actions = useHyperliquidActions();
   const [isWebSocketConnected] = usePerpsWebSocketConnectedAtom();
 
@@ -442,49 +499,82 @@ function WebSocketSubscriptionUpdate() {
   const isLoadingRef = useRef(isLoading);
   isLoadingRef.current = isLoading;
 
+  // Primitives as deps — avoids re-running on same-value object changes
+  const instrumentCoin = activeTradeInstrument?.coin;
+  const instrumentMode = activeTradeInstrument.mode;
+  const instrumentAssetId = activeTradeInstrument?.assetId;
+  const orderBookCoin = activeOrderBookOptions?.coin;
+  const orderBookMantissa = activeOrderBookOptions?.mantissa;
+  const orderBookNSigFigs = activeOrderBookOptions?.nSigFigs;
+  const routeFocused = tradeRouteViewState.routeFocused;
+  const tokenSelectorOpen = tradeRouteViewState.tokenSelectorOpen;
+  const tokenSelectorTab = tradeRouteViewState.tokenSelectorTab;
+  const infoPanelTab = tradeRouteViewState.infoPanelTab;
+  const accountAddress = activePerpsAccount?.accountAddress;
+
+  // Refs for reading inside effect body without triggering it
+  const activeTradeInstrumentRef = useRef(activeTradeInstrument);
+  activeTradeInstrumentRef.current = activeTradeInstrument;
+  const activeOrderBookOptionsRef = useRef(activeOrderBookOptions);
+  activeOrderBookOptionsRef.current = activeOrderBookOptions;
+  const tradeRouteViewStateRef = useRef(tradeRouteViewState);
+  tradeRouteViewStateRef.current = tradeRouteViewState;
+
   useEffect(() => {
     checkDeps({
       isWebSocketConnected,
       isLoading,
       actions,
-      address: activePerpsAccount?.accountAddress,
-      coin: activeAsset?.coin,
-      mantissa: activeOrderBookOptions?.mantissa,
-      nSigFigs: activeOrderBookOptions?.nSigFigs,
-      orderBookCoin: activeOrderBookOptions?.coin,
+      address: accountAddress,
+      coin: instrumentCoin,
+      tradingMode: instrumentMode,
+      mantissa: orderBookMantissa,
+      nSigFigs: orderBookNSigFigs,
+      orderBookCoin,
+      routeFocused,
+      tokenSelectorOpen,
+      tokenSelectorTab,
+      infoPanelTab,
     });
-    noop(activePerpsAccount?.accountAddress);
-    noop(activeAsset?.coin);
-    noop(activeOrderBookOptions?.coin);
-    noop(activeOrderBookOptions?.mantissa);
-    noop(activeOrderBookOptions?.nSigFigs);
 
-    if (isWebSocketConnected === true && !isLoading) {
-      if (
-        activeAsset?.coin &&
-        activeOrderBookOptions?.coin === activeAsset?.coin
-      ) {
-        console.log('updateSubscriptions______PerpsGlobalEffects');
-        void actions.current.updateSubscriptions();
-      } else {
-        // update orderbook options to match the active asset
-        // Toast.error({
-        //   title: 'Error',
-        //   message:
-        //     'Orderbook options do not match the active asset coin, please change the asset',
-        // });
-      }
+    const plan = planTradeSubscriptions({
+      activeInstrument: activeTradeInstrumentRef.current,
+      hasAccount: !!accountAddress,
+      orderBookOptions: activeOrderBookOptionsRef.current,
+      viewState: tradeRouteViewStateRef.current,
+    });
+
+    void backgroundApiProxy.serviceHyperliquidSubscription.setRouteSubscriptionState(
+      {
+        enableLedgerUpdates: plan.enableLedgerUpdates,
+        spotAssetCtxsEnabled: plan.spotAssetCtxsEnabled,
+        spotEnabled: plan.spotEnabled,
+      },
+    );
+
+    if (
+      isWebSocketConnected === true &&
+      !isLoading &&
+      plan.shouldSyncSubscriptions
+    ) {
+      void actions.current.updateSubscriptions();
     }
   }, [
     checkDeps,
     isWebSocketConnected,
     isLoading,
     actions,
-    activePerpsAccount?.accountAddress,
-    activeAsset?.coin,
-    activeOrderBookOptions?.mantissa,
-    activeOrderBookOptions?.nSigFigs,
-    activeOrderBookOptions?.coin,
+    accountAddress,
+    instrumentCoin,
+    instrumentMode,
+    instrumentAssetId,
+    orderBookCoin,
+    orderBookMantissa,
+    orderBookNSigFigs,
+    routeFocused,
+    tokenSelectorOpen,
+    tokenSelectorTab,
+    infoPanelTab,
   ]);
   return null;
 }
@@ -500,11 +590,28 @@ function useHyperliquidSymbolSelect() {
       const claimed =
         await backgroundApiProxy.serviceHyperliquid.tryClaimInitialSymbolSelect();
       if (!claimed) return;
-      await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-      const currentToken = await perpsActiveAssetAtom.get();
-      await actions.current.changeActiveAsset({
-        coin: currentToken.coin,
+      await Promise.all([
+        backgroundApiProxy.serviceHyperliquid.refreshTradingMeta(),
+        // Spot meta failure must not block perps initialization
+        backgroundApiProxy.serviceHyperliquid.refreshSpotMeta().catch((e) => {
+          console.error('refreshSpotMeta failed (non-blocking):', e);
+        }),
+      ]);
+      const currentMode = await tradingModeAtom.get();
+      const currentPerpToken = await perpsActiveAssetAtom.get();
+      const currentSpotToken = await spotActiveAssetAtom.get();
+      const nextMode = currentMode === 'spot' ? 'spot' : 'perp';
+      const nextCoin =
+        nextMode === 'spot' ? currentSpotToken?.coin : currentPerpToken?.coin;
+      if (!nextCoin) {
+        return;
+      }
+      await actions.current.switchTradeInstrument({
+        mode: nextMode,
+        coin: nextCoin,
         force: true,
+        spotUniverse:
+          nextMode === 'spot' ? currentSpotToken?.universe : undefined,
       });
     })();
   });
@@ -547,11 +654,6 @@ function AutoPauseSubscriptions() {
   const pauseSubscriptionsTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
-
-  // const isFocusedRoute = useRouteIsFocused();
-  // useEffect(() => {
-  //   //
-  // }, [isFocusedRoute]);
 
   // Dedup: visibilitychange + window.focus can fire back-to-back
   const lastFocusStateRef = useRef<boolean | null>(null);
@@ -690,24 +792,18 @@ function PerpsGlobalEffectsView() {
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
+  useTradeRouteViewStateSync();
   usePerpsSharePrompt();
 
   return (
     <>
-      <DelayedRender delay={600}>
-        <WebSocketSubscriptionUpdate />
-      </DelayedRender>
+      <WebSocketSubscriptionUpdate />
       <AutoPauseSubscriptions />
     </>
   );
 }
 
-const PerpsGlobalEffectsMemo = memo(() => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('PerpsGlobalEffectsMemo___mouted');
-  }
-  return <PerpsGlobalEffectsView />;
-});
+const PerpsGlobalEffectsMemo = memo(() => <PerpsGlobalEffectsView />);
 PerpsGlobalEffectsMemo.displayName = 'PerpsGlobalEffectsMemo';
 
 export function PerpsGlobalEffects() {
