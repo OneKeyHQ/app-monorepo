@@ -47,6 +47,38 @@ function writeNativeLog(message: string): void {
 
 function detectAndroidChannel(): string {
   const inline = process.env.ANDROID_CHANNEL || 'direct';
+
+  // Preferred path: ask the native DeviceUtils module directly. It reads
+  // the APK's installer package name (Play Store / AppGallery / direct),
+  // which is authoritative and does not rely on flavor-gated module
+  // linking tricks.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+    const mod = require('@onekeyfe/react-native-device-utils') as {
+      ReactNativeDeviceUtils?: {
+        getAndroidChannel?: () => 'direct' | 'google' | 'huawei' | 'unknown';
+      };
+    };
+    const native = mod?.ReactNativeDeviceUtils?.getAndroidChannel?.();
+    if (native && native !== 'unknown') {
+      writeNativeLog(
+        `detectAndroidChannel: inline=${inline} deviceUtils=${native} resolved=${native}`,
+      );
+      return native;
+    }
+    writeNativeLog(
+      `detectAndroidChannel: inline=${inline} deviceUtils=${native ?? 'api-missing'} (falling back to legacy probe)`,
+    );
+  } catch (error) {
+    const message = (error as Error)?.message ?? String(error);
+    writeNativeLog(
+      `detectAndroidChannel: inline=${inline} deviceUtilsProbe=fail(${message}) (falling back to legacy probe)`,
+    );
+  }
+
+  // Fallback: infer via whether the app-update Nitro HybridObject is
+  // linked — present on direct APKs, substituted with the noop stub on
+  // Google Play builds. See header comment for the build.gradle mapping.
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
     const mod = require('react-native-nitro-modules') as {
