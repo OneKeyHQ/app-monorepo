@@ -22,14 +22,14 @@ interface ITradeSideToggleProps {
   isSpot?: boolean;
 }
 
-function getCommonToggleItemStyle(isMobile?: boolean) {
+function getCommonToggleItemStyle() {
   return {
     alignItems: 'center' as const,
-    borderRadius: '$full',
-    height: isMobile ? '$8' : '$8',
+    borderRadius: '$full' as const,
+    height: '$8',
     justifyContent: 'center' as const,
     width: '100%' as const,
-  };
+  } as const;
 }
 
 export const TradeSideToggle = memo<ITradeSideToggleProps>(
@@ -84,6 +84,10 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         ? PERP_TRADE_BUTTON_COLORS.light.shortPress
         : PERP_TRADE_BUTTON_COLORS.dark.shortPress;
     };
+    const longHoverBgColor = getLongHoverBgColor();
+    const longPressBgColor = getLongPressBgColor();
+    const shortHoverBgColor = getShortHoverBgColor();
+    const shortPressBgColor = getShortPressBgColor();
     const longLabel = isSpot
       ? intl.formatMessage({
           id: ETranslations.dexmarket_details_transactions_buy,
@@ -100,19 +104,15 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         value: 'long',
         label: (
           <XStack
-            {...getCommonToggleItemStyle(isMobile)}
+            {...getCommonToggleItemStyle()}
             bg={getLongBgColor()}
             onPress={() => {
               if (!disabled) {
                 onChange('long');
               }
             }}
-            hoverStyle={
-              getLongHoverBgColor() ? { bg: getLongHoverBgColor() } : undefined
-            }
-            pressStyle={
-              getLongPressBgColor() ? { bg: getLongPressBgColor() } : undefined
-            }
+            hoverStyle={longHoverBgColor ? { bg: longHoverBgColor } : undefined}
+            pressStyle={longPressBgColor ? { bg: longPressBgColor } : undefined}
           >
             <SizableText
               size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
@@ -127,7 +127,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         value: 'short',
         label: (
           <XStack
-            {...getCommonToggleItemStyle(isMobile)}
+            {...getCommonToggleItemStyle()}
             bg={getShortBgColor()}
             onPress={() => {
               if (!disabled) {
@@ -135,14 +135,10 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
               }
             }}
             hoverStyle={
-              getShortHoverBgColor()
-                ? { bg: getShortHoverBgColor() }
-                : undefined
+              shortHoverBgColor ? { bg: shortHoverBgColor } : undefined
             }
             pressStyle={
-              getShortPressBgColor()
-                ? { bg: getShortPressBgColor() }
-                : undefined
+              shortPressBgColor ? { bg: shortPressBgColor } : undefined
             }
           >
             <SizableText

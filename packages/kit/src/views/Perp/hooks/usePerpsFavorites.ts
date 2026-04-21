@@ -88,17 +88,13 @@ export function usePerpsFavorites(options?: {
   );
 
   const favoriteItems = useMemo(() => {
-    if (
-      !favorites.length ||
-      !taggedUniverse ||
-      taggedUniverse.mode !== favoritesMode
-    ) {
+    if (!favorites.length || !taggedUniverse) {
       return [];
     }
 
     const items: IFavoriteItem[] = [];
 
-    if (favoritesMode === 'spot') {
+    if (taggedUniverse.mode === 'spot') {
       const spotUniverses = taggedUniverse.data;
       if (!spotUniverses.length) {
         return [];
@@ -147,7 +143,7 @@ export function usePerpsFavorites(options?: {
     });
 
     return items;
-  }, [favorites, favoritesMode, taggedUniverse]);
+  }, [favorites, taggedUniverse]);
 
   return { favoriteItems, isReady: taggedUniverse !== undefined };
 }
