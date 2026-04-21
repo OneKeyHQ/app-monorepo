@@ -339,6 +339,79 @@ describe('searchResultRanking', () => {
     ]);
   });
 
+  it('keeps stronger dapp name prefixes ahead of weaker host prefix matches', () => {
+    const result = rankSearchResultsChromeLike({
+      keyword: 'aav',
+      searchResult: [
+        REAL_DISCOVERY_DAPPS.aave,
+        createDApp({
+          dappId: 'aavegotchi',
+          name: 'Aavegotchi',
+          url: 'https://www.aavegotchi.com',
+        }),
+      ],
+      rankingHistoryData: [],
+    });
+
+    expect(result.map((item) => item.dappId)).toEqual([
+      REAL_DISCOVERY_DAPPS.aave.dappId,
+      'aavegotchi',
+    ]);
+  });
+
+  it('does not let local support move weaker remote dapps ahead of stronger remote relevance', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'aav',
+      searchResult: [
+        REAL_DISCOVERY_DAPPS.aave,
+        createDApp({
+          dappId: 'aavegotchi',
+          name: 'Aavegotchi',
+          url: 'https://www.aavegotchi.com',
+        }),
+      ],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'Aavegotchi Lending',
+          url: 'https://www.aavegotchi.com/lending',
+        }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'history-aavegotchi',
+          title: 'Aavegotchi Wearables',
+          url: 'https://www.aavegotchi.com/wearables',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'bookmark',
+        title: 'Aavegotchi Lending',
+      },
+      {
+        type: 'history',
+        title: 'Aavegotchi Wearables',
+      },
+      {
+        type: 'dapp',
+        title: 'AAVE',
+      },
+      {
+        type: 'dapp',
+        title: 'Aavegotchi',
+      },
+    ]);
+  });
+
   it('ranks local host matches ahead of weaker title-only matches before merging remote results', () => {
     const result = mergeSearchResultsWithLocalData({
       keyword: 'app.uni',
@@ -671,11 +744,64 @@ describe('searchResultRanking', () => {
       },
       {
         type: 'dapp',
-        title: 'Aavegotchi',
+        title: 'Aave-Chan',
       },
       {
         type: 'dapp',
-        title: 'Aave-Chan',
+        title: 'Aavegotchi',
+      },
+    ]);
+  });
+
+  it('keeps stronger remote relevance ahead of weaker locally supported matches', () => {
+    const result = mergeSearchResultsWithLocalData({
+      keyword: 'aav',
+      searchResult: [
+        REAL_DISCOVERY_DAPPS.aave,
+        createDApp({
+          dappId: 'weaker-local-support',
+          name: 'DeFi Club',
+          url: 'https://defi.example/aav',
+        }),
+      ],
+      rankingHistoryData: [],
+      bookmarkSearchData: [
+        createBookmark({
+          title: 'AAV Guide',
+          url: 'https://defi.example/aav-guide',
+        }),
+      ],
+      historySearchData: [
+        createHistory({
+          id: 'history-weaker-local-support',
+          title: 'AAV Tools',
+          url: 'https://defi.example/aav-tools',
+          createdAt: Date.now() - 1 * 60 * 60 * 1000,
+        }),
+      ],
+    });
+
+    expect(
+      result.map((item) => ({
+        type: item.type,
+        title: item.title,
+      })),
+    ).toEqual([
+      {
+        type: 'bookmark',
+        title: 'AAV Guide',
+      },
+      {
+        type: 'history',
+        title: 'AAV Tools',
+      },
+      {
+        type: 'dapp',
+        title: 'AAVE',
+      },
+      {
+        type: 'dapp',
+        title: 'DeFi Club',
       },
     ]);
   });

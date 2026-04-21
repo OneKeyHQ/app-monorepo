@@ -69,6 +69,15 @@ type IHistoryVisitMaps = {
   urlVisitMap: Map<string, IBrowserHistory[]>;
 };
 
+type IDappRankedSearchEntry = {
+  item: IDApp;
+  index: number;
+  topicality: ITopicalityScore;
+  namePrefixCoverage: number;
+  visits: IBrowserHistory[];
+  finalScore: number;
+};
+
 type ILocalCandidate =
   | {
       type: 'bookmark';
@@ -361,7 +370,7 @@ function getUrlTopicalityScore({
   }
 
   if (normalizedHost.startsWith(query)) {
-    return makeTopicalityScore(5, 104);
+    return makeTopicalityScore(4, 94);
   }
 
   if (hasWordBoundaryMatch(normalizedHost, query)) {
@@ -735,6 +744,84 @@ function getLocalItemMatchedVisits({
   return visits;
 }
 
+function compareRankedDappSearchEntries(
+  a: IDappRankedSearchEntry,
+  b: IDappRankedSearchEntry,
+  options?: {
+    getLocalSupportCount?: (dapp: IDApp) => number;
+  },
+) {
+  if (Boolean(a.item.isExactUrl) !== Boolean(b.item.isExactUrl)) {
+    return (
+      Number(Boolean(b.item.isExactUrl)) - Number(Boolean(a.item.isExactUrl))
+    );
+  }
+  if (a.topicality.bucket !== b.topicality.bucket) {
+    return b.topicality.bucket - a.topicality.bucket;
+  }
+  if (a.finalScore !== b.finalScore) {
+    return b.finalScore - a.finalScore;
+  }
+  if (a.namePrefixCoverage !== b.namePrefixCoverage) {
+    return b.namePrefixCoverage - a.namePrefixCoverage;
+  }
+
+  const localSupportCountDiff =
+    (options?.getLocalSupportCount?.(b.item) ?? 0) -
+    (options?.getLocalSupportCount?.(a.item) ?? 0);
+  if (localSupportCountDiff !== 0) {
+    return localSupportCountDiff;
+  }
+
+  const latestVisitDiff =
+    getLatestVisitTimestamp(b.visits) - getLatestVisitTimestamp(a.visits);
+  if (latestVisitDiff !== 0) {
+    return latestVisitDiff;
+  }
+  return a.index - b.index;
+}
+
+function buildRankedDappSearchEntries({
+  keyword,
+  searchResult,
+  rankingHistoryData,
+}: {
+  keyword: string;
+  searchResult?: IDApp[];
+  rankingHistoryData?: IBrowserHistory[];
+}): IDappRankedSearchEntry[] {
+  const normalizedQuery = normalizeUrlLikeText(keyword);
+  const historyVisitMaps = buildHistoryVisitMaps(rankingHistoryData ?? []);
+  const now = Date.now();
+
+  return (searchResult ?? []).map((item, index) => {
+    const topicality = getDappTopicalityScore({
+      dapp: item,
+      query: normalizedQuery,
+    });
+    const visits = getDappMatchedVisits({
+      dapp: item,
+      originVisitMap: historyVisitMaps.originVisitMap,
+    });
+    const frecencyMultiplier = getFrecencyMultiplier({
+      visits,
+      now,
+    });
+
+    return {
+      item,
+      index,
+      topicality,
+      namePrefixCoverage: getDappNamePrefixCoverage({
+        dapp: item,
+        keyword,
+      }),
+      visits,
+      finalScore: topicality.score * frecencyMultiplier,
+    };
+  });
+}
+
 export function rankSearchResultsChromeLike({
   keyword,
   searchResult,
@@ -744,54 +831,12 @@ export function rankSearchResultsChromeLike({
   searchResult?: IDApp[];
   rankingHistoryData?: IBrowserHistory[];
 }) {
-  const normalizedQuery = normalizeUrlLikeText(keyword);
-  const historyVisitMaps = buildHistoryVisitMaps(rankingHistoryData ?? []);
-  const now = Date.now();
-
-  return (searchResult ?? [])
-    .map((item, index) => {
-      const topicality = getDappTopicalityScore({
-        dapp: item,
-        query: normalizedQuery,
-      });
-      const visits = getDappMatchedVisits({
-        dapp: item,
-        originVisitMap: historyVisitMaps.originVisitMap,
-      });
-      const frecencyMultiplier = getFrecencyMultiplier({
-        visits,
-        now,
-      });
-
-      return {
-        item,
-        index,
-        topicality,
-        visits,
-        frecencyMultiplier,
-        finalScore: topicality.score * frecencyMultiplier,
-      };
-    })
-    .toSorted((a, b) => {
-      if (Boolean(a.item.isExactUrl) !== Boolean(b.item.isExactUrl)) {
-        return (
-          Number(Boolean(b.item.isExactUrl)) -
-          Number(Boolean(a.item.isExactUrl))
-        );
-      }
-      if (a.topicality.bucket !== b.topicality.bucket) {
-        return b.topicality.bucket - a.topicality.bucket;
-      }
-      if (a.finalScore !== b.finalScore) {
-        return b.finalScore - a.finalScore;
-      }
-      const latestVisitDiff =
-        getLatestVisitTimestamp(b.visits) - getLatestVisitTimestamp(a.visits);
-      if (latestVisitDiff !== 0) {
-        return latestVisitDiff;
-      }
-      return a.index - b.index;
-    })
+  return buildRankedDappSearchEntries({
+    keyword,
+    searchResult,
+    rankingHistoryData,
+  })
+    .toSorted((a, b) => compareRankedDappSearchEntries(a, b))
     .map(({ item }) => item);
 }
 
@@ -929,18 +974,6 @@ function appendMatchKeys({
   keys.forEach((key) => dedupeKeySet.add(key));
 }
 
-function sortDappsByLocalSupport({
-  items,
-  getLocalSupportCount,
-}: {
-  items: IDApp[];
-  getLocalSupportCount: (dapp: IDApp) => number;
-}) {
-  return items.toSorted(
-    (a, b) => getLocalSupportCount(b) - getLocalSupportCount(a),
-  );
-}
-
 function appendDappSearchResults({
   items,
   source,
@@ -1032,12 +1065,12 @@ export function mergeSearchResultsWithLocalData({
   const dappOriginDedupeKeySet = new Set<string>();
   const urlDedupeKeySet = new Set<string>();
 
-  const rankedRemoteResults = rankSearchResultsChromeLike({
+  const rankedRemoteSearchEntries = buildRankedDappSearchEntries({
     keyword,
     searchResult,
     rankingHistoryData,
   });
-  const rankedTrendingResults = rankSearchResultsChromeLike({
+  const rankedTrendingSearchEntries = buildRankedDappSearchEntries({
     keyword,
     searchResult: trendingSearchData,
     rankingHistoryData,
@@ -1062,14 +1095,20 @@ export function mergeSearchResultsWithLocalData({
     localSupportCountCache.set(dapp.dappId, count);
     return count;
   };
-  const rankedTrendingResultsWithLocalSupport = sortDappsByLocalSupport({
-    items: rankedTrendingResults,
-    getLocalSupportCount,
-  });
-  const rankedRemoteResultsWithLocalSupport = sortDappsByLocalSupport({
-    items: rankedRemoteResults,
-    getLocalSupportCount,
-  });
+  const rankedTrendingResults = rankedTrendingSearchEntries
+    .toSorted((a, b) =>
+      compareRankedDappSearchEntries(a, b, {
+        getLocalSupportCount,
+      }),
+    )
+    .map(({ item }) => item);
+  const rankedRemoteResults = rankedRemoteSearchEntries
+    .toSorted((a, b) =>
+      compareRankedDappSearchEntries(a, b, {
+        getLocalSupportCount,
+      }),
+    )
+    .map(({ item }) => item);
 
   const shouldPrioritize = (dapp: IDApp) =>
     shouldPrioritizeDappAheadOfLocal({
@@ -1081,22 +1120,26 @@ export function mergeSearchResultsWithLocalData({
   const exactUrlResults: IDApp[] = [];
   const prioritizedRemoteResults: IDApp[] = [];
   const remainingRemoteResults: IDApp[] = [];
-  for (const item of rankedRemoteResultsWithLocalSupport) {
+  let hasStartedRemainingRemoteResults = false;
+  for (const item of rankedRemoteResults) {
     if (item.isExactUrl) {
       exactUrlResults.push(item);
-    } else if (shouldPrioritize(item)) {
+    } else if (!hasStartedRemainingRemoteResults && shouldPrioritize(item)) {
       prioritizedRemoteResults.push(item);
     } else {
+      hasStartedRemainingRemoteResults = true;
       remainingRemoteResults.push(item);
     }
   }
 
   const prioritizedTrendingResults: IDApp[] = [];
   const otherTrendingResults: IDApp[] = [];
-  for (const item of rankedTrendingResultsWithLocalSupport) {
-    if (shouldPrioritize(item)) {
+  let hasStartedOtherTrendingResults = false;
+  for (const item of rankedTrendingResults) {
+    if (!hasStartedOtherTrendingResults && shouldPrioritize(item)) {
       prioritizedTrendingResults.push(item);
     } else {
+      hasStartedOtherTrendingResults = true;
       otherTrendingResults.push(item);
     }
   }
