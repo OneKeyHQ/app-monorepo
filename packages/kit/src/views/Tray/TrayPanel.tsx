@@ -33,6 +33,11 @@ export function TrayPanel() {
       handler as (...args: unknown[]) => void,
     );
 
+    // Signal main AFTER the listener is attached. Main replies with cached
+    // data or triggers a fresh gather, so the panel never sits on the
+    // loading placeholder waiting for a delayed setTimeout push from main.
+    globalThis.desktopApi?.sendTrayReady?.();
+
     return () => {
       if (typeof unsubscribe === 'function') {
         unsubscribe();

@@ -116,11 +116,14 @@ export function initTrayManager(
   const handleClick = () => {
     if (!tray) return;
     if (!panelCreated) {
+      // First-open path: tray renderer emits TRAY_READY from its mount
+      // useEffect, which is when main delivers cached data (or triggers a
+      // fresh gather). No setTimeout heuristics — the renderer tells us
+      // exactly when its listener is registered.
       createTrayWindow(tray, loadTrayUrl);
       panelCreated = true;
-      setTimeout(() => sendCachedDataToTrayWindow(), 500);
-      setTimeout(() => sendCachedDataToTrayWindow(), 1500);
     } else {
+      // Subsequent opens: renderer stays mounted, just push the latest cache.
       sendCachedDataToTrayWindow();
     }
     showTrayWindow(tray);

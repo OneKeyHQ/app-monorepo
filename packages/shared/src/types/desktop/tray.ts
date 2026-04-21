@@ -68,4 +68,8 @@ export const TRAY_IPC = {
   DATA_RESPONSE: 'tray/dataResponse',
   UPDATE: 'tray/update',
   ACTION: 'tray/action',
+  // Tray renderer signals it has mounted and registered the UPDATE listener,
+  // so main can deliver cached data (or trigger a fresh gather) without
+  // racing React's useEffect against setTimeout heuristics.
+  READY: 'tray/ready',
 } as const;

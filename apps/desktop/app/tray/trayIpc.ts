@@ -17,6 +17,7 @@ let onResponseReceived: (() => void) | null = null;
 type IpcOn = Parameters<typeof ipcMain.on>[1];
 let onTrayDataResponse: IpcOn | null = null;
 let onTrayAction: IpcOn | null = null;
+let onTrayReady: IpcOn | null = null;
 
 const ALLOWED_TRAY_ACTION_TYPES = new Set([
   'open-page',
@@ -124,6 +125,24 @@ export function registerTrayIpcHandlers(
     mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, action);
   };
   ipcMain.on(ipcMessageKeys.TRAY_ACTION, onTrayAction);
+
+  onTrayReady = (event) => {
+    // Same sender-id discipline as TRAY_ACTION: only the tray window may
+    // claim readiness, so the main renderer can't spoof a ready signal.
+    const trayWindow = getTrayWindow();
+    if (!trayWindow || event.sender.id !== trayWindow.webContents.id) {
+      logger.warn('[TrayIpc] rejected TRAY_READY from non-tray window');
+      return;
+    }
+    if (cachedTrayData) {
+      trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, cachedTrayData);
+      return;
+    }
+    // Cold start: main renderer hasn't pushed data yet. Kick off a gather
+    // now instead of waiting for the next 30s poll tick.
+    requestDataFromMainWindow(getMainWindow);
+  };
+  ipcMain.on(ipcMessageKeys.TRAY_READY, onTrayReady);
 }
 
 export function sendCachedDataToTrayWindow(): void {
@@ -157,6 +176,10 @@ export function unregisterTrayIpcHandlers(): void {
   if (onTrayAction) {
     ipcMain.removeListener(ipcMessageKeys.TRAY_ACTION, onTrayAction);
     onTrayAction = null;
+  }
+  if (onTrayReady) {
+    ipcMain.removeListener(ipcMessageKeys.TRAY_READY, onTrayReady);
+    onTrayReady = null;
   }
   onResponseReceived = null;
 }
