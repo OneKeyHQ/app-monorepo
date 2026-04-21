@@ -420,33 +420,51 @@ const formatWithUnits = (
   ) => { value: BigNumber; extraMeta?: Partial<IDisplayNumber['meta']> } | null,
 ): IDisplayNumber | null => {
   const absValue = val.abs();
-  for (const { threshold, divisor, unit } of units) {
-    if (absValue.gte(threshold)) {
-      let dividedValue = val.div(divisor);
-      let extraMeta: Partial<IDisplayNumber['meta']> | undefined;
-      if (unitHook) {
-        const hookResult = unitHook(dividedValue, unit);
-        if (hookResult) {
-          dividedValue = hookResult.value;
-          extraMeta = hookResult.extraMeta;
-        }
+  const formatUnitResult = ({
+    divisor,
+    unit,
+  }: {
+    threshold: BigNumber;
+    divisor: BigNumber;
+    unit: ENumberUnit;
+  }) => {
+    let dividedValue = val.div(divisor);
+    let extraMeta: Partial<IDisplayNumber['meta']> | undefined;
+    if (unitHook) {
+      const hookResult = unitHook(dividedValue, unit);
+      if (hookResult) {
+        dividedValue = hookResult.value;
+        extraMeta = hookResult.extraMeta;
       }
-      const {
-        value: formattedValue,
-        decimalSymbol,
+    }
+    const {
+      value: formattedValue,
+      decimalSymbol,
+      roundValue,
+    } = formatLocalNumber(dividedValue, opts);
+    return {
+      formattedValue,
+      meta: {
+        value,
+        unit,
         roundValue,
-      } = formatLocalNumber(dividedValue, opts);
-      return {
-        formattedValue,
-        meta: {
-          value,
-          unit,
-          roundValue,
-          decimalSymbol,
-          ...extraMeta,
-          ...options,
-        },
-      };
+        decimalSymbol,
+        ...extraMeta,
+        ...options,
+      },
+    };
+  };
+
+  for (let index = 0; index < units.length; index += 1) {
+    const unitConfig = units[index];
+    const { threshold } = unitConfig;
+    if (absValue.gte(threshold)) {
+      const unitResult = formatUnitResult(unitConfig);
+      const roundedValue = new BigNumber(unitResult.meta.roundValue ?? 0);
+      if (index > 0 && roundedValue.abs().gte(1000)) {
+        return formatUnitResult(units[index - 1]);
+      }
+      return unitResult;
     }
   }
   return null;
