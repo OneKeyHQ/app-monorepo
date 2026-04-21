@@ -22,7 +22,15 @@ export function TrayPanel() {
   const [data, setData] = useState<ITrayData | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[TrayPanel] mount effect firing');
     const handler = (trayData: ITrayData) => {
+      // eslint-disable-next-line no-console
+      console.log('[TrayPanel] TRAY_UPDATE received', {
+        isLocked: !!trayData?.isLocked,
+        walletName: trayData?.wallet?.name,
+        watchlistLen: trayData?.watchlist?.length ?? 0,
+      });
       setData(trayData);
     };
 
@@ -32,10 +40,17 @@ export function TrayPanel() {
       TRAY_IPC.UPDATE,
       handler as (...args: unknown[]) => void,
     );
+    // eslint-disable-next-line no-console
+    console.log('[TrayPanel] TRAY_UPDATE listener attached', {
+      hasUnsubscribe: typeof unsubscribe === 'function',
+    });
 
     // Signal main AFTER the listener is attached. Main replies with cached
     // data or triggers a fresh gather, so the panel never sits on the
     // loading placeholder waiting for a delayed setTimeout push from main.
+    const canSendReady = typeof globalThis.desktopApi?.sendTrayReady === 'function';
+    // eslint-disable-next-line no-console
+    console.log('[TrayPanel] sendTrayReady', { canSendReady });
     globalThis.desktopApi?.sendTrayReady?.();
 
     return () => {

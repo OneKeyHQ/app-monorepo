@@ -2,6 +2,7 @@ import path from 'path';
 
 import { BrowserWindow, type Tray, screen } from 'electron';
 import isDev from 'electron-is-dev';
+import logger from 'electron-log/main';
 
 const WINDOW_WIDTH = 360;
 const WINDOW_HEIGHT = 480;
@@ -48,10 +49,12 @@ export function createTrayWindow(
   loadUrl: (win: BrowserWindow) => void,
 ): BrowserWindow {
   if (trayWindow && !trayWindow.isDestroyed()) {
+    logger.info('[TrayWindow] reuse existing tray window');
     return trayWindow;
   }
 
   const { x, y } = calculateWindowPosition(tray, WINDOW_WIDTH, WINDOW_HEIGHT);
+  logger.info('[TrayWindow] create tray window at', { x, y });
 
   trayWindow = new BrowserWindow({
     x,
@@ -96,7 +99,37 @@ export function createTrayWindow(
     void trayWindow?.webContents.insertCSS(trayCSS);
   });
 
+  trayWindow.webContents.on('did-finish-load', () => {
+    logger.info('[TrayWindow] did-finish-load');
+  });
+  trayWindow.webContents.on(
+    'did-fail-load',
+    (_e, code, description, validatedURL) => {
+      logger.warn('[TrayWindow] did-fail-load', {
+        code,
+        description,
+        validatedURL,
+      });
+    },
+  );
+  trayWindow.webContents.on('render-process-gone', (_e, details) => {
+    logger.warn('[TrayWindow] render-process-gone', details);
+  });
+  // Forward tray renderer's console output into main log so [TrayPanel]
+  // markers land in app-latest.log. Electron 34+ hands us a single event
+  // object; older versions pass positional args — defensive spread covers
+  // both without depending on shape.
+  trayWindow.webContents.on('console-message', (...args: any[]) => {
+    const ev = args[0];
+    const message = typeof ev === 'object' && ev !== null ? ev.message : args[2];
+    const level = typeof ev === 'object' && ev !== null ? ev.level : args[1];
+    if (typeof message === 'string' && message.startsWith('[TrayPanel]')) {
+      logger.info('[TrayRenderer]', { level, message });
+    }
+  });
+
   loadUrl(trayWindow);
+  logger.info('[TrayWindow] loadUrl invoked');
 
   trayWindow.on('blur', () => {
     if (blurHideTimer) clearTimeout(blurHideTimer);
@@ -121,10 +154,15 @@ export function createTrayWindow(
 
 export function showTrayWindow(tray: Tray): void {
   if (!trayWindow || trayWindow.isDestroyed()) {
+    logger.warn('[TrayWindow] showTrayWindow aborted: window missing', {
+      hasWindow: !!trayWindow,
+      destroyed: trayWindow?.isDestroyed() ?? null,
+    });
     return;
   }
 
   if (trayWindow.isVisible()) {
+    logger.info('[TrayWindow] toggle hide (was visible)');
     trayWindow.hide();
     visibilityCallback?.(false);
     return;
@@ -133,6 +171,7 @@ export function showTrayWindow(tray: Tray): void {
   const { x, y } = calculateWindowPosition(tray, WINDOW_WIDTH, WINDOW_HEIGHT);
   trayWindow.setPosition(x, y);
   trayWindow.show();
+  logger.info('[TrayWindow] show at', { x, y });
   visibilityCallback?.(true);
 }
 

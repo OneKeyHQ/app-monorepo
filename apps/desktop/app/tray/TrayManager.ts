@@ -113,7 +113,12 @@ export function initTrayManager(
 
   let panelCreated = false;
 
-  const handleClick = () => {
+  const handleClick = (eventType: 'click' | 'right-click') => () => {
+    logger.info('[TrayManager] tray click received', {
+      eventType,
+      panelCreated,
+      hasTray: !!tray,
+    });
     if (!tray) return;
     if (!panelCreated) {
       // First-open path: tray renderer emits TRAY_READY from its mount
@@ -129,8 +134,8 @@ export function initTrayManager(
     showTrayWindow(tray);
   };
 
-  tray.on('click', handleClick);
-  tray.on('right-click', handleClick);
+  tray.on('click', handleClick('click'));
+  tray.on('right-click', handleClick('right-click'));
 
   onTrayWindowVisibilityChange((visible) => {
     if (visible) {

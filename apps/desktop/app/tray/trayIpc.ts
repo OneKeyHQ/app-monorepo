@@ -59,6 +59,14 @@ export function registerTrayIpcHandlers(
       return;
     }
 
+    logger.info('[TrayIpc] TRAY_DATA_RESPONSE received', {
+      isLocked: !!data.isLocked,
+      isError: !!data.isError,
+      walletName: data.wallet?.name,
+      watchlistLen: data.watchlist?.length ?? 0,
+      pendingTxsLen: data.pendingTxs?.length ?? 0,
+    });
+
     // Release the in-flight guard immediately so the next poll/wallet-switch
     // doesn't have to wait for the backstop timeout.
     onResponseReceived?.();
@@ -75,6 +83,7 @@ export function registerTrayIpcHandlers(
       // this, a lock→unlock→gather-failure sequence leaves isLocked stuck
       // true and blocks all polling until a push event arrives.
       isLocked = false;
+      logger.info('[TrayIpc] TRAY_DATA_RESPONSE isError: keep previous cache');
       return;
     } else {
       isLocked = false;
@@ -84,7 +93,10 @@ export function registerTrayIpcHandlers(
 
     const trayWindow = getTrayWindow();
     if (trayWindow) {
+      logger.info('[TrayIpc] forward TRAY_UPDATE to tray window');
       trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, data);
+    } else {
+      logger.info('[TrayIpc] no tray window to forward TRAY_UPDATE');
     }
   };
   ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, onTrayDataResponse);
@@ -131,9 +143,16 @@ export function registerTrayIpcHandlers(
     // claim readiness, so the main renderer can't spoof a ready signal.
     const trayWindow = getTrayWindow();
     if (!trayWindow || event.sender.id !== trayWindow.webContents.id) {
-      logger.warn('[TrayIpc] rejected TRAY_READY from non-tray window');
+      logger.warn('[TrayIpc] rejected TRAY_READY from non-tray window', {
+        senderId: event.sender.id,
+        hasTrayWindow: !!trayWindow,
+        trayWindowId: trayWindow?.webContents.id ?? null,
+      });
       return;
     }
+    logger.info('[TrayIpc] TRAY_READY received', {
+      hasCache: !!cachedTrayData,
+    });
     if (cachedTrayData) {
       trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, cachedTrayData);
       return;
@@ -146,22 +165,41 @@ export function registerTrayIpcHandlers(
 }
 
 export function sendCachedDataToTrayWindow(): void {
-  if (!cachedTrayData) return;
+  if (!cachedTrayData) {
+    logger.info('[TrayIpc] sendCachedDataToTrayWindow skipped: cache empty');
+    return;
+  }
   const trayWindow = getTrayWindow();
   if (trayWindow && !trayWindow.isDestroyed()) {
+    logger.info('[TrayIpc] sendCachedDataToTrayWindow -> TRAY_UPDATE');
     trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, cachedTrayData);
+  } else {
+    logger.warn('[TrayIpc] sendCachedDataToTrayWindow: tray window missing');
   }
 }
 
 export function requestDataFromMainWindow(
   getMainWindow: () => BrowserWindow | undefined,
 ): void {
-  if (isLocked) return;
+  if (isLocked) {
+    logger.info('[TrayIpc] requestDataFromMainWindow skipped: isLocked');
+    return;
+  }
 
   const mainWindow = getMainWindow();
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.webContents.isCrashed()) return;
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    logger.warn('[TrayIpc] requestDataFromMainWindow: main window missing', {
+      hasWindow: !!mainWindow,
+      destroyed: mainWindow?.isDestroyed() ?? null,
+    });
+    return;
+  }
+  if (mainWindow.webContents.isCrashed()) {
+    logger.warn('[TrayIpc] requestDataFromMainWindow: main renderer crashed');
+    return;
+  }
 
+  logger.info('[TrayIpc] requestDataFromMainWindow -> TRAY_DATA_REQUEST');
   mainWindow.webContents.send(ipcMessageKeys.TRAY_DATA_REQUEST);
 }
 
