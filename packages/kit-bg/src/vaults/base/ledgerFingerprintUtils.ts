@@ -1,7 +1,5 @@
-import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -79,16 +77,6 @@ export async function ensureLedgerChainFingerprint(
     );
   }
 
-  // Use persistent BLE connectId directly (4-hex "A58F"); the profile regex
-  // rejects ephemeral USB UUIDs that would be stale here.
-  const profile = getVendorProfile(EHardwareVendor.ledger);
-  if (
-    dbDevice.connectId &&
-    profile.canMatchDeviceByConnectId(dbDevice.connectId)
-  ) {
-    return dbDevice.connectId;
-  }
-
   // 1. Memory cache
   const cached = getCached(dbDevice.id, chain);
   if (cached !== undefined) {
@@ -114,7 +102,7 @@ export async function ensureLedgerChainFingerprint(
   }
 
   // 3. Not found — return empty. Fingerprint will be generated
-  // after the operation succeeds (post-success in callLedgerWithFingerprintRetry).
+  // after the operation succeeds (post-success in callLedgerWithFingerprint).
   return '';
 }
 
@@ -124,10 +112,14 @@ export async function ensureLedgerChainFingerprint(
  * Flow:
  * 1. Look up fingerprint (cache/DB). If found, pass to fn for verification.
  * 2. If not found, call fn('') — adapter skips verification when deviceId is empty.
- * 3. On "Wrong device" error → regenerate fingerprint + retry once.
- * 4. On success without fingerprint → generate and store now (the correct App is open).
+ * 3. On success without fingerprint → generate and store now (the correct App is open).
+ *
+ * DeviceMismatch is NOT silently recovered here: a mismatch means the live
+ * device's seed differs from what we recorded, and silently rewriting the DB
+ * record would re-associate an old wallet's account tree onto a new seed.
+ * The error is propagated so the UI can surface it to the user.
  */
-export async function callLedgerWithFingerprintRetry<T>(
+export async function callLedgerWithFingerprint<T>(
   backgroundApi: IBackgroundApi,
   dbDevice: IDbDeviceForFingerprint,
   chain: ChainForFingerprint,
@@ -139,24 +131,6 @@ export async function callLedgerWithFingerprintRetry<T>(
     chain,
   );
   const result = await fn(deviceId);
-
-  // Wrong device → regenerate and retry
-  if (
-    !result.success &&
-    result.payload.code === HardwareErrorCode.DeviceMismatch
-  ) {
-    fingerprintCache.get(dbDevice.id)?.delete(chain);
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    const newDeviceId = await generateAndStoreFingerprint(
-      backgroundApi,
-      dbDevice,
-      chain,
-    );
-    if (newDeviceId) {
-      setCache(dbDevice.id, chain, newDeviceId);
-      return fn(newDeviceId);
-    }
-  }
 
   // Success without fingerprint → the correct App is now open,
   // generate fingerprint before returning. On success the cache is

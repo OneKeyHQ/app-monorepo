@@ -17,7 +17,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
-import { callLedgerWithFingerprintRetry } from '../../base/ledgerFingerprintUtils';
+import { callLedgerWithFingerprint } from '../../base/ledgerFingerprintUtils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -60,7 +60,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             index,
           });
 
-          const result = await callLedgerWithFingerprintRetry(
+          const result = await callLedgerWithFingerprint(
             this.backgroundApi,
             dbDevice,
             'sol',
@@ -127,7 +127,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       ? Buffer.from(transaction.message.serialize()).toString('hex')
       : transaction.serializeMessage().toString('hex');
 
-    const result = await callLedgerWithFingerprintRetry(
+    const result = await callLedgerWithFingerprint(
       this.backgroundApi,
       dbDevice,
       'sol',

@@ -2,6 +2,7 @@ import * as BitcoinJS from 'bitcoinjs-lib';
 
 import {
   checkBtcAddressIsUsed,
+  convertBtcForkXpub,
   getBtcForkNetwork,
   getPublicKeyFromXpub,
   initBitcoinEcc,
@@ -9,10 +10,11 @@ import {
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  ICoreApiGetAddressItem,
-  ISignedMessagePro,
-  ISignedTxPro,
+import {
+  EAddressEncodings,
+  type ICoreApiGetAddressItem,
+  type ISignedMessagePro,
+  type ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -24,7 +26,10 @@ import {
   EHardwareVendor,
 } from '@onekeyhq/shared/types/device';
 
-import { callLedgerWithFingerprintRetry } from '../../base/ledgerFingerprintUtils';
+import {
+  callLedgerWithFingerprint,
+  ensureLedgerChainFingerprint,
+} from '../../base/ledgerFingerprintUtils';
 
 import { KeyringHardwareBtcBase } from './KeyringHardwareBtcBase';
 
@@ -82,7 +87,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
           });
 
           // Get xpub from Ledger device
-          const pubKeyResult = await callLedgerWithFingerprintRetry(
+          const pubKeyResult = await callLedgerWithFingerprint(
             this.backgroundApi,
             dbDevice,
             'btc',
@@ -100,19 +105,31 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
             });
           }
 
-          const rawXpub: unknown = pubKeyResult.payload.xpub;
+          const rawXpubField: unknown = pubKeyResult.payload.xpub;
           // Ledger DMK may return { extendedPublicKey: string } instead of string
-          const xpub =
-            typeof rawXpub === 'string'
-              ? rawXpub
-              : ((rawXpub as { extendedPublicKey: string })
-                  ?.extendedPublicKey ?? String(rawXpub));
+          const rawXpub =
+            typeof rawXpubField === 'string'
+              ? rawXpubField
+              : ((rawXpubField as { extendedPublicKey: string })
+                  ?.extendedPublicKey ?? String(rawXpubField));
+
+          // Ledger DMK always returns xpub with standard mainnet version bytes
+          // regardless of BIP purpose. Re-encode to match the encoding so
+          // downstream tools (blockbook, exporters) interpret the address type
+          // correctly. xpub→ypub for BIP49, xpub→zpub for BIP84.
+          const xpub = addressEncoding
+            ? convertBtcForkXpub({
+                btcForkNetwork: network,
+                xpub: rawXpub,
+                addressEncoding,
+              })
+            : rawXpub;
 
           // Derive address from xpub
           const {
             addresses: addressFromXpub,
             publicKeys: publicKeysMap,
-            xpubSegwit,
+            xpubSegwit: bareXpubSegwit,
           } = await checkIsDefined(this.coreApi).getAddressFromXpub({
             network,
             xpub,
@@ -121,6 +138,25 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
           });
           const { [addressRelPath]: publicKey } = publicKeysMap;
           const { [addressRelPath]: address } = addressFromXpub;
+
+          // For P2TR, build a full BIP380 descriptor with the device master
+          // fingerprint + origin path + multipath children, so blockbook scans
+          // both 0/* and 1/* sub-paths and PSBT signing can identify the
+          // signing device. coreApi.getAddressFromXpub only emits a bare
+          // `tr(xpub)` since it has no master xfp on hand.
+          let xpubSegwit = bareXpubSegwit;
+          if (addressEncoding === EAddressEncodings.P2TR) {
+            const masterXfp = await ensureLedgerChainFingerprint(
+              this.backgroundApi,
+              dbDevice,
+              'btc',
+            );
+            if (masterXfp) {
+              xpubSegwit = `tr([${masterXfp}${accountPath.substring(
+                1,
+              )}]${xpub}/<0;1>/*)`;
+            }
+          }
 
           const addressInfo: ICoreApiGetAddressItem = {
             address,
@@ -206,7 +242,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       // Get xpub and master fingerprint for BIP32 derivation
       const utxoAccount = dbAccount as IDBUtxoAccount;
       const xpub = utxoAccount.xpubSegwit || utxoAccount.xpub;
-      const fpResult = await callLedgerWithFingerprintRetry(
+      const fpResult = await callLedgerWithFingerprint(
         this.backgroundApi,
         dbDevice,
         'btc',
@@ -310,7 +346,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       inputPaths = [{ path: dbAccount.path }];
     }
 
-    const result = await callLedgerWithFingerprintRetry(
+    const result = await callLedgerWithFingerprint(
       this.backgroundApi,
       dbDevice,
       'btc',
@@ -381,7 +417,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     if (isTaprootPath(dbAccount.path)) {
       const { inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
       if (inputsToSign?.length) {
-        const fpResult = await callLedgerWithFingerprintRetry(
+        const fpResult = await callLedgerWithFingerprint(
           this.backgroundApi,
           dbDevice,
           'btc',
@@ -408,7 +444,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       }
     }
 
-    const result = await callLedgerWithFingerprintRetry(
+    const result = await callLedgerWithFingerprint(
       this.backgroundApi,
       dbDevice,
       'btc',
@@ -490,7 +526,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
 
           const messageHex = Buffer.from(payload.message).toString('hex');
 
-          const res = await callLedgerWithFingerprintRetry(
+          const res = await callLedgerWithFingerprint(
             this.backgroundApi,
             dbDevice,
             'btc',
@@ -559,7 +595,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         showOnDevice = i === indexes.length - 1;
       }
 
-      const result = await callLedgerWithFingerprintRetry(
+      const result = await callLedgerWithFingerprint(
         this.backgroundApi,
         dbDevice,
         'btc',

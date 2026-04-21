@@ -23,7 +23,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import {
-  callLedgerWithFingerprintRetry,
+  callLedgerWithFingerprint,
   ensureLedgerChainFingerprint,
 } from '../../base/ledgerFingerprintUtils';
 
@@ -66,7 +66,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
 
           let address: string | null = null;
           if (adapter) {
-            const result = await callLedgerWithFingerprintRetry(
+            const result = await callLedgerWithFingerprint(
               this.backgroundApi,
               dbDevice,
               'evm',
@@ -139,7 +139,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     // Pack and RLP-serialize the unsigned transaction
     const { tx, serializedTx } = packUnsignedTxForSignEvm(unsignedTx);
 
-    const result = await callLedgerWithFingerprintRetry(
+    const result = await callLedgerWithFingerprint(
       this.backgroundApi,
       dbDevice,
       'evm',
@@ -231,7 +231,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       messageHex = Buffer.from(message.message, 'utf-8').toString('hex');
     }
 
-    const result = await callLedgerWithFingerprintRetry<EvmSignature>(
+    const result = await callLedgerWithFingerprint<EvmSignature>(
       this.backgroundApi,
       dbDevice,
       'evm',
@@ -260,7 +260,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const useV4 = message.type === EMessageTypesEth.TYPED_DATA_V4;
     const data = JSON.parse(message.message);
 
-    const result = await callLedgerWithFingerprintRetry<EvmSignature>(
+    const result = await callLedgerWithFingerprint<EvmSignature>(
       this.backgroundApi,
       dbDevice,
       'evm',
