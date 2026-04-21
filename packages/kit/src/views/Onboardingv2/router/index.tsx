@@ -40,7 +40,7 @@ const ImportPhraseOrPrivateKey = LazyLoadPage(
   () => import('../pages/ImportPhraseOrPrivateKey'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const ImportWatchedAccount = LazyLoadPage(
   () => import('../pages/ImportWatchedAccountV2'),
