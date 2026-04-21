@@ -483,6 +483,7 @@ export { default as Import2 } from './Import2';
 export { default as Import } from './Import';
 export { default as Inbox } from './Inbox';
 export { default as InfoCircle } from './InfoCircle';
+export { default as InfoSimple } from './InfoSimple';
 export { default as InfoSquare } from './InfoSquare';
 export { default as Input } from './Input';
 export { default as Invite } from './Invite';
