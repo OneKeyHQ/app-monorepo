@@ -238,12 +238,12 @@ export function selectBestQuote(
 
   const manual = options?.manualSelect;
   if (manual) {
-    const hasDifferentEvent =
-      !!manual.eventId &&
-      sortedQuotes.some(
-        (item) => !!item.eventId && item.eventId !== manual.eventId,
-      );
-    if (hasDifferentEvent) {
+    const hasEventQuotes = sortedQuotes.some((item) => !!item.eventId);
+    const isManualFromCurrentEvent =
+      !hasEventQuotes ||
+      (!!manual.eventId &&
+        sortedQuotes.some((item) => item.eventId === manual.eventId));
+    if (!isManualFromCurrentEvent) {
       return sortedQuotes[0];
     }
 

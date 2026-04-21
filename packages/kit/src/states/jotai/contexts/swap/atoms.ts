@@ -244,9 +244,14 @@ export const {
   atom: swapQuoteCurrentSelectAtom,
   use: useSwapQuoteCurrentSelectAtom,
 } = contextAtomComputed((get) => {
-  const list = get(swapSortedQuoteListAtom());
+  const list = get(swapQuoteListAtom());
+  const fromTokenAmount = get(swapFromTokenAmountAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
-  return selectBestQuote(list, {
+  const recommendedList = sortSwapQuotes(list, {
+    sort: ESwapProviderSort.RECOMMENDED,
+    fromTokenAmount: fromTokenAmount.value,
+  });
+  return selectBestQuote(recommendedList, {
     manualSelect: manualSelectQuoteProviders ?? undefined,
   });
 });
