@@ -214,14 +214,25 @@ export function useChartLines({
   // Send full sync
   const sendLinesSync = useCallback(() => {
     if (!webRef.current || !isReady) {
+      console.log('[useChartLines] sendLinesSync SKIPPED', {
+        symbol,
+        hasWebRef: !!webRef.current,
+        isReady,
+      });
       return;
     }
 
+    const rev = getNextRevision();
+    console.log('[useChartLines] sendLinesSync FIRE', {
+      symbol,
+      revision: rev,
+      lineIds: currentLines.map((l) => l.id),
+    });
     webRef.current.sendMessageViaInjectedScript({
       type: MESSAGE_TYPES.PERPS_TV_LINES_SYNC,
       payload: {
         symbol,
-        revision: getNextRevision(),
+        revision: rev,
         lines: currentLines,
       },
     });
@@ -449,17 +460,16 @@ export function useChartLines({
     const patch = computeLinesDiff(prevLinesRef.current, currentLines);
     const hasStructuralChange = patch.add.length > 0 || patch.remove.length > 0;
 
+    let action = 'noop';
+    if (hasStructuralChange) action = 'SYNC';
+    else if (patch.update.length > 0) action = 'PATCH';
     console.log('[useChartLines] diff', {
       prevIds: Array.from(prevLinesRef.current.keys()),
       currentIds: currentLines.map((l) => l.id),
       add: patch.add.map((l) => l.id),
       update: patch.update.map((l) => l.id),
       remove: patch.remove,
-      action: hasStructuralChange
-        ? 'SYNC'
-        : patch.update.length > 0
-          ? 'PATCH'
-          : 'noop',
+      action,
     });
 
     if (hasStructuralChange) {
