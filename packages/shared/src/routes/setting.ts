@@ -33,6 +33,7 @@ export enum EModalSettingRoutes {
   SettingDevBundleList = 'SettingDevBundleList',
   SettingDevLocalBundleList = 'SettingDevLocalBundleList',
   SettingDevBundleUpdateStatusModal = 'SettingDevBundleUpdateStatusModal',
+  SettingDevSplitBundleTestModal = 'SettingDevSplitBundleTestModal',
   // OneKey ID sub-pages
   SettingOneKeyIdPersonalInfo = 'SettingOneKeyIdPersonalInfo',
   SettingOneKeyIdSignInSecurity = 'SettingOneKeyIdSignInSecurity',
@@ -78,6 +79,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevBundleList]: { version: string };
   [EModalSettingRoutes.SettingDevLocalBundleList]: undefined;
   [EModalSettingRoutes.SettingDevBundleUpdateStatusModal]: undefined;
+  [EModalSettingRoutes.SettingDevSplitBundleTestModal]: undefined;
   // OneKey ID sub-pages
   [EModalSettingRoutes.SettingOneKeyIdPersonalInfo]: undefined;
   [EModalSettingRoutes.SettingOneKeyIdSignInSecurity]: undefined;

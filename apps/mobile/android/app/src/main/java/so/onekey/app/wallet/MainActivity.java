@@ -10,6 +10,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.backgroundthread.BackgroundThreadManager;
 import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativesplashscreen.SplashScreenBridge;
 import com.facebook.react.ReactActivity;
@@ -31,6 +32,11 @@ public class MainActivity extends ReactActivity {
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    long tActivityStart = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.activity.on_create.start: +" + (tActivityStart - MainApplication.appLaunchMs) + "ms from launch"
+    );
     // Install AndroidX SplashScreen before super.onCreate() to fix MIUI/HyperOS crashes
     // where system's replaceUmiTheme method fails with NullPointerException
     // Added defensive error handling for OPPO and other vendor-specific crashes
@@ -62,7 +68,13 @@ public class MainActivity extends ReactActivity {
         // If AndroidX splash screen fails, we'll rely on the Expo splash screen as fallback
       }
     }
+    long tBeforeSuper = System.currentTimeMillis();
     super.onCreate(null);
+    long tAfterSuper = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.activity.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms (ReactActivity init)"
+    );
 
     if (MainApplication.shouldShowRecovery) {
         startActivity(new Intent(this, RecoveryActivity.class));
@@ -85,6 +97,31 @@ public class MainActivity extends ReactActivity {
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
     EventBus.getDefault().register(this);
+
+    long tActivityDone = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.activity.on_create.done: " + (tActivityDone - tActivityStart) + "ms (+" + (tActivityDone - MainApplication.appLaunchMs) + "ms from launch)"
+    );
+  }
+
+  @Override
+  public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    // super -> ReactActivityDelegate drives the UI-host ReactContext's
+    // ActivityEventListener fan-out in the normal RN path.
+    super.onActivityResult(requestCode, resultCode, data);
+    // Manager re-dispatches only to an allowlisted subset of listeners on
+    // the bg ReactContext (see BackgroundThreadManager.bgActivityListenerClassAllowlist).
+    // This lets google-signin's bg instance resolve its pending signIn
+    // promise without leaking the event to every other bg module.
+    BackgroundThreadManager.getInstance()
+        .dispatchActivityResult(this, requestCode, resultCode, data);
+  }
+
+  @Override
+  public void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    BackgroundThreadManager.getInstance().dispatchNewIntent(intent);
   }
 
   @Override

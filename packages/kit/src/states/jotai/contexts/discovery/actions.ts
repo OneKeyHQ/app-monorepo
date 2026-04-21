@@ -54,6 +54,7 @@ import {
   webTabsMapAtom,
 } from './atoms';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebView } from 'react-native-webview';
 
@@ -1048,6 +1049,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         // update jsBridge interaction
         if (ref.jsBridge) {
           ref.jsBridge.globalOnMessageEnabled = !shouldPause;
+          backgroundApiProxy.connectBridge(
+            ref.jsBridge as unknown as JsBridgeBase,
+          );
         }
         // update wallet connect websocket
         if (platformEnv.isNative) {

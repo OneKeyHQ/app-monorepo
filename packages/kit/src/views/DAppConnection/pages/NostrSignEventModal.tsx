@@ -10,13 +10,13 @@ import {
   TextArea,
   YStack,
 } from '@onekeyhq/components';
+import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EEventKind,
   ENostrSignType,
   i18nSupportEventKinds,
-} from '@onekeyhq/core/src/chains/nostr/types';
-import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+} from '@onekeyhq/shared/src/types/nostr';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
