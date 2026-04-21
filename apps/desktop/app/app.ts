@@ -1170,7 +1170,10 @@ async function createMainWindow() {
         }
 
         // move to parent folder
-        const url = request.url.substring(PROTOCOL.length + 1);
+        // Drop any query string before path resolution — tray window loads
+        // index.html with `?render=tray`, and without this split the query
+        // gets concatenated onto the resolved file path and fs misses.
+        const url = request.url.split('?')[0].substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
           if (decodedUrl.includes(bundleDirPath)) {
@@ -1338,14 +1341,24 @@ if (!singleInstance && !process.mas) {
         if (isDev) {
           const port = process.env.PORT || 3001;
           void win.loadURL(`http://localhost:${port}?render=tray`);
-        } else {
-          const bundleData = store.getUpdateBundleData();
-          const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
-          const filePath =
-            bundleIndexHtmlPath ||
-            path.join(__dirname, '..', 'build', 'index.html');
-          void win.loadFile(filePath, { query: { render: 'tray' } });
+          return;
         }
+        // Match the main window (createMainWindow) — loadURL with a
+        // `file://`-scheme formatUrl so the interceptFileProtocol handler
+        // receives a relative URL its string-based resolver can handle.
+        // loadFile(abs, { query }) produced an absolute URL + query that
+        // the interceptor misresolved into a nested non-existent path,
+        // tripping ERR_FILE_NOT_FOUND and aborting the tray renderer.
+        const bundleData = store.getUpdateBundleData();
+        const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+        void win.loadURL(
+          formatUrl({
+            pathname: bundleIndexHtmlPath || 'index.html',
+            protocol: 'file',
+            slashes: true,
+            query: { render: 'tray' },
+          }),
+        );
       };
 
       // Default to on; renderer sends TRAY_TOGGLE(false) on startup if
