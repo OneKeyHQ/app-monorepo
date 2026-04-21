@@ -266,13 +266,22 @@ class ServiceDiscovery extends ServiceBase {
       | {
           generateIcon?: boolean;
           sliceCount?: number;
+          keyword?: string;
         }
       | undefined,
   ): Promise<IBrowserBookmark[]> {
-    const { generateIcon, sliceCount } = options ?? {};
+    const { generateIcon, sliceCount, keyword } = options ?? {};
     const data =
       await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
     let dataSource = data?.data ?? [];
+    if (keyword) {
+      const fuse = buildFuse(dataSource, { keys: ['title', 'url'] });
+      dataSource = fuse.search(keyword).map((i) => ({
+        ...i.item,
+        titleMatch: i.matches?.find((v) => v.key === 'title'),
+        urlMatch: i.matches?.find((v) => v.key === 'url'),
+      }));
+    }
     if (isNumber(sliceCount)) {
       dataSource = dataSource.slice(0, sliceCount);
     }
@@ -332,7 +341,7 @@ class ServiceDiscovery extends ServiceBase {
     let dataSource: IBrowserHistory[] = data?.data ?? [];
     if (keyword) {
       const fuse = buildFuse(dataSource, { keys: ['title', 'url'] });
-      dataSource = fuse.search(options?.keyword ?? 'uniswap').map((i) => ({
+      dataSource = fuse.search(keyword).map((i) => ({
         ...i.item,
         titleMatch: i.matches?.find((v) => v.key === 'title'),
         urlMatch: i.matches?.find((v) => v.key === 'url'),
