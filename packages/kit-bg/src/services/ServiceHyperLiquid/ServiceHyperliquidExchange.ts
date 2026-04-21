@@ -89,10 +89,8 @@ interface IOrderLogOptions {
   extra?: Record<string, unknown>;
 }
 
-// TV iframe lowercases all symbols internally. HL spot coins are `@N` and the
-// XYZ sub-DEX prefix is the literal `xyz:` — both must keep lowercase so
-// `detectDexIndexByCoin` and the spot lookup still match. Only main-DEX
-// perp coins like `eth` get upper-cased to match HL's universe index.
+// TV lowercases coins; HL wants `BTC`/`ETH` upper-case but `@N` spot pairs
+// and `xyz:` sub-DEX tags must stay lowercase for downstream routing.
 function normalizePerpsCoin(coin: string): string {
   if (!coin) return coin;
   if (coin.startsWith('@')) return coin;
@@ -1123,8 +1121,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
     }
 
-    // HL modify requires the full order shape. Fetch the current order from HL
-    // so callers don't need to pass side/size/reduceOnly they already know.
+    // HL modify requires the full order shape; refetch to avoid leaking that to callers.
     const activeAccount = await perpsActiveAccountAtom.get();
     if (!activeAccount.accountAddress) {
       throw new OneKeyLocalError('No active perps account');
