@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ERookieTaskType,
   type IRookieGuideInfo,
@@ -13,7 +14,6 @@ import {
   type IRookieGuideProgress,
 } from '@onekeyhq/shared/types/rookieGuide';
 
-import localDb from '../dbs/local/localDb';
 import { activeAccountValueAtom } from '../states/jotai/atoms';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 
@@ -71,7 +71,7 @@ class ServiceRookieGuide extends ServiceBase {
     );
     defaultLogger.rookieGuide.guide.getProgress({
       completedTasks,
-      totalTasks: Object.keys(ERookieTaskType).length,
+      totalTasks: 6,
     });
     return progress;
   }
@@ -136,26 +136,25 @@ class ServiceRookieGuide extends ServiceBase {
     }
   }
 
-  // For HD wallets, indexedAccountId lets the service resolve the EVM address
-  // from the same index even when the active account is non-EVM.
-  // Imported/HW single-chain accounts won't have it and fall through to
-  // accountId-based resolution inside the service.
+  // Read the home scene account selector snapshot — same source of truth as
+  // WalletBanner's useActiveAccount({ num: 0 }) hook. This keeps the banner
+  // and the rookie guide querying eligibility for the exact same address,
+  // including non-default deriveTypes (e.g. ledger_live EVM path).
   private async _getHyperliquidReferralEligibility(): Promise<
     IRookieGuideInfo['hyperliquidReferral']
   > {
     try {
-      const accountValue = await activeAccountValueAtom.get();
-      const accountId = accountValue?.accountId;
+      const homeSelected =
+        await this.backgroundApi.simpleDb.accountSelector.getSelectedAccount({
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+        });
+
+      const indexedAccountId = homeSelected?.indexedAccountId;
+      const accountId =
+        indexedAccountId || homeSelected?.othersWalletAccountId;
       if (!accountId) {
         return undefined;
-      }
-
-      let indexedAccountId: string | undefined;
-      try {
-        const dbAccount = await localDb.getAccount({ accountId });
-        indexedAccountId = dbAccount?.indexedAccountId || undefined;
-      } catch {
-        indexedAccountId = undefined;
       }
 
       const res =
@@ -163,7 +162,7 @@ class ServiceRookieGuide extends ServiceBase {
           {
             accountId,
             indexedAccountId,
-            deriveType: 'default',
+            deriveType: homeSelected?.deriveType || 'default',
           },
         );
 
