@@ -5,7 +5,6 @@ import {
   handleAuthCommandDiscoveryFallback,
   registerAuthCommands,
   registerBalanceCommand,
-  registerImportCommand,
   registerLogoutCommand,
   registerMarketCommands,
   registerSchemaCommand,
@@ -71,7 +70,6 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
 
 registerVersionCommand(program);
 registerStatusCommand(program);
-registerImportCommand(program);
 registerLogoutCommand(program);
 registerBalanceCommand(program);
 registerTransferCommand(program);

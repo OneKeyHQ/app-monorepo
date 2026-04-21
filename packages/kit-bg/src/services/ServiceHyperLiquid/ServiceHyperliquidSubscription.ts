@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 /* spell-checker: disable */
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import { cloneDeep, debounce, isEmpty } from 'lodash';
+import { cloneDeep, debounce } from 'lodash';
 
 import {
   backgroundClass,
@@ -27,10 +27,12 @@ import type {
   IPerpsSubscriptionParams,
   IWebSocketTransportOptions,
   IWsActiveAssetCtx,
+  IWsActiveSpotAssetCtx,
   IWsAllDexsAssetCtxs,
   IWsAllDexsClearinghouseState,
   IWsAllMids,
   IWsOpenOrders,
+  IWsSpotAssetCtxs,
   IWsSpotState,
   IWsUserFills,
   IWsWebData2,
@@ -53,7 +55,9 @@ import {
   perpsTradesHistoryRefreshHookAtom,
   perpsWebSocketDataUpdateTimesAtom,
   perpsWebSocketReadyStateAtom,
+  tradingModeAtom,
 } from '../../states/jotai/atoms/perps';
+import { spotActiveAssetAtom } from '../../states/jotai/atoms/spot';
 import ServiceBase from '../ServiceBase';
 
 import hyperLiquidCache from './hyperLiquidCache';
@@ -122,6 +126,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     isConnected: false,
     l2BookOptions: undefined,
     enableLedgerUpdates: false,
+    spotEnabled: true, // default true — SPOT_STATE needed for total account value from first connection
+    spotAssetCtxsEnabled: false,
+    currentSpotSymbol: undefined,
+    tradingMode: 'perp',
   };
 
   private _networkTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -203,15 +211,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAsset = await perpsActiveAssetAtom.get();
+    const spotActiveAsset = await spotActiveAssetAtom.get();
+    const currentMode = (await tradingModeAtom.get()) ?? 'perp';
+    const currentCoin =
+      currentMode === 'spot' ? spotActiveAsset?.coin : activeAsset?.coin;
+    const currentAssetId =
+      currentMode === 'spot' ? spotActiveAsset?.assetId : activeAsset?.assetId;
     let activeOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
 
     if (
       activeOrderBookOptions?.coin &&
-      activeOrderBookOptions?.coin !== activeAsset.coin
+      activeOrderBookOptions?.coin !== currentCoin
     ) {
       const syncedOptions = {
         ...activeOrderBookOptions,
-        coin: activeAsset.coin,
+        coin: currentCoin,
+        assetId: currentAssetId,
       };
       await perpsActiveOrderBookOptionsAtom.set(syncedOptions);
       activeOrderBookOptions = syncedOptions;
@@ -241,12 +256,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
         : undefined;
     delete l2BookOptions?.assetId;
+    const currentSpotSymbol = spotActiveAsset?.coin || undefined;
     const params: ISubscriptionState = {
       isConnected,
       l2BookOptions,
-      currentSymbol: activeAsset?.coin,
+      currentSymbol: currentCoin,
       currentUser: activeAccount?.accountAddress,
       enableLedgerUpdates: this._currentState.enableLedgerUpdates,
+      spotEnabled: this._currentState.spotEnabled,
+      spotAssetCtxsEnabled: this._currentState.spotAssetCtxsEnabled,
+      currentSpotSymbol,
+      tradingMode: currentMode,
     };
 
     const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
@@ -254,40 +274,35 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     return { requiredSubSpecsMap, params };
   }
 
+  private _hasInitialSubscription = false;
+
+  private async _updateSubscriptionsCore() {
+    const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+    if (!requiredSubInfo) {
+      return;
+    }
+
+    this.allSubSpecsMap = {
+      ...this.allSubSpecsMap,
+      ...requiredSubInfo.requiredSubSpecsMap,
+    };
+    this.pendingSubSpecsMap = {
+      ...requiredSubInfo.requiredSubSpecsMap,
+    };
+
+    const newState: ISubscriptionState = { ...this._currentState };
+
+    this._applyStateUpdates(newState, requiredSubInfo.params);
+
+    this._emitConnectionStatus();
+    this._executeSubscriptionChanges();
+
+    this._currentState = newState;
+  }
+
   _updateSubscriptionsDebounced = debounce(
     async () => {
-      const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
-      if (!requiredSubInfo) {
-        return;
-      }
-
-      this.allSubSpecsMap = {
-        ...this.allSubSpecsMap,
-        ...requiredSubInfo.requiredSubSpecsMap,
-      };
-      if (isEmpty(this.allSubSpecsMap)) {
-        // debugger;
-      }
-      this.pendingSubSpecsMap = {
-        ...requiredSubInfo.requiredSubSpecsMap,
-      };
-
-      const newState: ISubscriptionState = { ...this._currentState };
-
-      this._applyStateUpdates(newState, requiredSubInfo.params);
-
-      console.log('updateSubscriptions____state', {
-        requiredSubSpecsMap: requiredSubInfo.requiredSubSpecsMap,
-        requiredParams: requiredSubInfo.params,
-        allSubSpecsMap: this.allSubSpecsMap,
-        pendingSubSpecsMap: this.pendingSubSpecsMap,
-        newState,
-      });
-
-      this._emitConnectionStatus();
-      this._executeSubscriptionChanges();
-
-      this._currentState = newState;
+      await this._updateSubscriptionsCore();
     },
     300,
     {
@@ -298,6 +313,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
+    // Skip debounce on first subscription to speed up initial load
+    if (!this._hasInitialSubscription) {
+      this._hasInitialSubscription = true;
+      await this._updateSubscriptionsCore();
+      return;
+    }
     await this._updateSubscriptionsDebounced();
   }
 
@@ -353,7 +374,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       // socket is open but no recent data (possible half-open), rebuild subscriptions
       await this._cleanupAllSubscriptions();
       await timerUtils.wait(50);
-      console.log('updateSubscriptions__by__refreshAllPerpsData');
       await this.updateSubscriptions();
     }
 
@@ -456,8 +476,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
     this._currentState.enableLedgerUpdates = true;
-    console.log('updateSubscriptions__by__enableLedgerUpdatesSubscription');
     await this.updateSubscriptions();
+  }
+
+  @backgroundMethod()
+  async setRouteSubscriptionState(params: {
+    enableLedgerUpdates: boolean;
+    spotAssetCtxsEnabled: boolean;
+    spotEnabled: boolean;
+  }): Promise<void> {
+    // enableLedgerUpdates is a one-way toggle (set true by enableLedgerUpdatesSubscription
+    // when user visits Account tab). Never reset to false — planTradeSubscriptions cannot
+    // reliably compute this since infoPanelTab is not synced to real tab state.
+    this._currentState.enableLedgerUpdates =
+      params.enableLedgerUpdates || this._currentState.enableLedgerUpdates;
+    this._currentState.spotAssetCtxsEnabled = params.spotAssetCtxsEnabled;
+    this._currentState.spotEnabled = params.spotEnabled;
   }
 
   @backgroundMethod()
@@ -487,6 +521,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._stopPingLoop();
     await this._closeClient();
     this._currentState.isConnected = false;
+    // Reset so the first post-reconnect updateSubscriptions() skips debounce
+    // for fast recovery (critical for iOS foreground resume).
+    this._hasInitialSubscription = false;
     this._emitConnectionStatus();
   }
 
@@ -602,34 +639,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketErrorHandler: (event: WebSocketEventMap['error']) => void = (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
-    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
-    console.log('hyperliquidWebSocket__event__error', {
-      readyState: socket?.readyState,
-      code: (event as any)?.code,
-      message: (event as any)?.message,
-      reason: (event as any)?.reason,
-      args,
-      event,
-    });
+    const readyState = socket?.readyState;
+    this._lastReadyState = readyState;
+    void perpsWebSocketReadyStateAtom.set({ readyState });
+    // WS error event — readyState tracked via perpsWebSocketReadyStateAtom
   };
 
   socketCloseHandler: (event: WebSocketEventMap['close']) => void = (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
-    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
-    console.log('hyperliquidWebSocket__event__close', {
-      readyState: socket?.readyState,
-      code: event.code,
-      reason: event.reason,
-      wasClean: event.wasClean,
-      args,
-      event,
-    });
+    const readyState = socket?.readyState;
+    this._lastReadyState = readyState;
+    void perpsWebSocketReadyStateAtom.set({ readyState });
+    // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
     this._activeSubscriptions.clear();
     this._clearPostOpenDataCheck();
     this._stopPingLoop();
@@ -648,18 +675,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   socketOpenHandler: (event: WebSocketEventMap['open']) => void = async (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
+    const readyState = socket?.readyState;
+    this._lastReadyState = readyState;
     // OK-53208: SDK transport wrapper reports readyState=undefined in the
     // open event, which keeps perpsWebSocketConnectedAtom false forever.
     void perpsWebSocketReadyStateAtom.set({
-      readyState: socket?.readyState ?? WebSocket.OPEN,
-    });
-    console.log('hyperliquidWebSocket__event__open', {
-      readyState: socket?.readyState,
-      args,
-      event,
+      readyState: readyState ?? WebSocket.OPEN,
     });
 
     const prevNetworkStatus = await perpsNetworkStatusAtom.get();
@@ -673,7 +697,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._watchSubscriptionAtoms();
 
     if (!wasConnected) {
-      console.log('updateSubscriptions__by__socketOpen');
       // resubscribe when reconnecting
       await this.updateSubscriptions();
     }
@@ -696,17 +719,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._startPostOpenDataCheck();
   };
 
+  private _lastReadyState: number | undefined;
+
   socketMessageHandler: (event: WebSocketEventMap['message']) => void = (
     event,
-    ...args
+    ..._args
   ) => {
     const socket = event.target as WebSocket | undefined;
-    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
-    console.log('hyperliquidWebSocket__event__message', {
-      readyState: socket?.readyState,
-      args,
-      event,
-    });
+    const readyState = socket?.readyState;
+    // Only write readyState atom when it actually changes to avoid
+    // triggering downstream re-renders on every WS message
+    if (readyState !== this._lastReadyState) {
+      this._lastReadyState = readyState;
+      void perpsWebSocketReadyStateAtom.set({ readyState });
+    }
   };
 
   private async getWebSocketClient(): Promise<IHyperliquidWsClient> {
@@ -792,7 +818,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.ALL_DEXS_ASSET_CTXS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
+        ESubscriptionType.ACTIVE_SPOT_ASSET_CTX,
         ESubscriptionType.SPOT_STATE,
+        ESubscriptionType.SPOT_ASSET_CTXS,
       ];
       const removeAllSubscriptionHandlers = () => {
         allTypes.forEach((type) => {
@@ -813,18 +841,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const wsRequester = innerTransport._postRequest as {
         request: (method: string, payload: any) => Promise<void>;
       };
-      // const payload = { type: "activeAssetCtx", ...params };
-      console.log('getWebSocketClient__wsRequester', wsRequester);
       const subscribe = async <T extends ESubscriptionType>(
         type: T,
         params: IPerpsSubscriptionParams[T],
       ) => {
-        // for (let i = 0; i < 100; i += 1) {
-        //   void wsRequester.request('subscribe', {
-        //     type,
-        //     ...params,
-        //   });
-        // }
         return wsRequester.request('subscribe', {
           type,
           ...params,
@@ -919,23 +939,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         toDestroySubscriptions.push(spec);
       }
     });
-    if (toDestroySubscriptions.length) {
-      console.log('toDestroySubscriptions__info', toDestroySubscriptions);
-    } else {
-      console.log(
-        'toDestroySubscriptions__info__no_to_destroy',
-        toDestroySubscriptions,
-      );
-    }
     toDestroySubscriptions.forEach((spec) => {
-      console.log('destroyUnusedSubscriptions__destroy___2222', spec.key);
       void this._destroySubscription(spec);
     });
   }
 
   private _executeSubscriptionChanges(): void {
-    console.log('_executeSubscriptionChanges___start');
-
     const toCreateSubscriptions: ISubscriptionSpec<ESubscriptionType>[] = [];
     Object.values(this.pendingSubSpecsMap).forEach((spec) => {
       if (!this._activeSubscriptions.has(spec.key)) {
@@ -946,7 +955,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this.destroyUnusedSubscriptions();
 
     toCreateSubscriptions.forEach((spec) => {
-      console.log('destroyUnusedSubscriptions__create', spec.key);
       void this._createSubscription(spec);
     });
     // this.destroyUnusedSubscriptions();
@@ -957,9 +965,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   ): Promise<void> {
     // eslint-disable-next-line no-param-reassign
     spec = cloneDeep(spec);
-    if (spec.key.includes('l2Book')) {
-      // debugger;
-    }
 
     const addSubCache = () => {
       if (!this.allSubSpecsMap[spec.key]) {
@@ -979,8 +984,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     try {
-      console.log('createSubscription', spec.key);
-      const sdkSubscription = await this._createSubscriptionDirect(spec);
+      const _sdkSubscription = await this._createSubscriptionDirect(spec);
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
         type: spec.type,
@@ -989,13 +993,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lastActivity: Date.now(),
         isActive: true,
       });
-      if (spec.key.includes('l2Book')) {
-        console.log(
-          'createSubscription__done',
-          sdkSubscription,
-          this._activeSubscriptions,
-        );
-      }
     } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.createSubscription] Failed to create subscription ${spec.type}:`,
@@ -1017,7 +1014,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           this._activeSubscriptions.delete(spec.key);
         };
         try {
-          console.log('destroyUnusedSubscriptions__destroy', spec.key);
           const client = await this.getWebSocketClient();
           if (!client) {
             return;
@@ -1052,9 +1048,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         (subInfo) => subInfo.spec,
       ),
     ];
-    allSpecs.forEach((spec) => {
-      void this._destroySubscription(spec);
-    });
+    // Await all unsubscribes before clearing the active set so that the
+    // server has fully acknowledged the teardown before we forget about them.
+    await Promise.all(allSpecs.map((spec) => this._destroySubscription(spec)));
     this._activeSubscriptions.clear();
     void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
       return {
@@ -1096,13 +1092,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           const userFills = event?.detail as IWsUserFills;
           const isSnapshot = userFills?.isSnapshot;
           const fillsLength = userFills?.fills?.length;
-          console.log(
-            'userFills__handleSubscriptionData',
-            userFills?.user,
-            isSnapshot,
-            fillsLength,
-            userFills,
-          );
           if (userFills?.user && fillsLength > 0 && !isSnapshot) {
             this.hasNewUserFills = true;
           }
@@ -1129,6 +1118,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
         // Cache allMids in background for spot balance USD calculation
         hyperLiquidCache.allMids = data as IWsAllMids;
+        const allMidsData = data as { mids?: Record<string, string> };
+        if (allMidsData?.mids) {
+          void this.backgroundApi.serviceHyperliquid.extractSpotPricesFromAllMids(
+            allMidsData.mids,
+          );
+        }
         // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)
         void this.backgroundApi.serviceHyperliquid.recalculateSpotTotalUsd();
         // Emit to frontend (PerpsGlobalEffects listens for allMids updates)
@@ -1218,10 +1213,35 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         return;
       }
 
-      if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_CTX) {
-        void this.backgroundApi.serviceHyperliquid.updateActiveAssetCtx(
-          data as IWsActiveAssetCtx,
+      if (subscriptionType === ESubscriptionType.SPOT_ASSET_CTXS) {
+        void this.backgroundApi.serviceHyperliquid.updateSpotAssetCtxsMap(
+          data as IWsSpotAssetCtxs,
         );
+        this._updateNetworkLiveness();
+        return;
+      }
+
+      if (subscriptionType === ESubscriptionType.ACTIVE_SPOT_ASSET_CTX) {
+        void this.backgroundApi.serviceHyperliquid.updateActiveSpotAssetCtx(
+          data as IWsActiveSpotAssetCtx,
+        );
+        this._updateNetworkLiveness();
+        return;
+      }
+
+      if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_CTX) {
+        const coinStr = (data as { coin?: string })?.coin ?? '';
+        const isSpotData = coinStr.startsWith('@') || coinStr.includes('/');
+        if (isSpotData) {
+          // Fallback: some server versions may still send spot data on "activeAssetCtx"
+          void this.backgroundApi.serviceHyperliquid.updateActiveSpotAssetCtx(
+            data as IWsActiveSpotAssetCtx,
+          );
+        } else {
+          void this.backgroundApi.serviceHyperliquid.updateActiveAssetCtx(
+            data as IWsActiveAssetCtx,
+          );
+        }
       } else if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA) {
         void this.backgroundApi.serviceHyperliquid.updateActiveAssetData(
           data as IPerpsActiveAssetDataRaw,

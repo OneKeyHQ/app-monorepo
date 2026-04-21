@@ -2,6 +2,7 @@
 module.exports = {
   testEnvironment: 'node',
   setupFiles: ['<rootDir>/src/__tests__/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/__tests__/jest.after-each.ts'],
   transform: {
     '^.+\\.[jt]sx?$': [
       '@swc/jest',

@@ -1,5 +1,3 @@
-import { SIGN_CLIENT_EVENTS } from '@walletconnect/sign-client';
-
 import type { IWalletKit } from '@reown/walletkit';
 import type { IKeyValueStorage } from '@walletconnect/keyvaluestorage';
 import type { pino } from '@walletconnect/logger';
@@ -38,7 +36,23 @@ export enum EWalletConnectNamespaceType {
   algo = 'algorand',
 }
 
-export const WALLET_CONNECT_SIGN_CLIENT_EVENTS = SIGN_CLIENT_EVENTS;
+// Inlined from @walletconnect/sign-client to avoid pulling the entire
+// sign-client package (98 transitive deps) into the eager bundle.
+export const WALLET_CONNECT_SIGN_CLIENT_EVENTS = {
+  session_proposal: 'session_proposal',
+  session_update: 'session_update',
+  session_extend: 'session_extend',
+  session_ping: 'session_ping',
+  session_delete: 'session_delete',
+  session_expire: 'session_expire',
+  session_request: 'session_request',
+  session_request_sent: 'session_request_sent',
+  session_event: 'session_event',
+  proposal_expire: 'proposal_expire',
+  session_authenticate: 'session_authenticate',
+  session_request_expire: 'session_request_expire',
+  session_connect: 'session_connect',
+} as const;
 // https://docs.walletconnect.com/advanced/providers/universal#events
 export enum EWalletConnectSessionEvents {
   display_uri = 'display_uri',

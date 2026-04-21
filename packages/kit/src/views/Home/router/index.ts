@@ -3,11 +3,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import HomePageContainer from '../pages/HomePageContainer';
 import { urlAccountLandingRewrite } from '../pages/urlAccount/urlAccountUtils';
 
-const HomePageContainer = LazyLoadPage(
-  () => import('../pages/HomePageContainer'),
-);
+// Home tab is eagerly imported — it's always the first screen, lazy-loading
+// only adds a Suspense frame that delays first meaningful paint.
 
 const UrlAccountPageContainer = LazyLoadPage(async () => {
   const { UrlAccountPageContainer: UrlAccountPageContainerModule } =

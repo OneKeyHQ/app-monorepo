@@ -62,6 +62,7 @@ import { getBackgroundColor } from './libs/utils';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
+import { setMainWindowForHttpServer } from './process/HttpServer';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -72,6 +73,7 @@ import { initSentry } from './sentry';
 import { startServices } from './service';
 // eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
+import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 
 initSentry();
 
@@ -703,6 +705,9 @@ async function createMainWindow() {
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
+  // Tray shares the same preload, so SERVER_* must be scoped to the main
+  // renderer via sender-id checks in HttpServer.
+  setMainWindowForHttpServer(browserWindow);
 
   // Protocol handler for win32
   if (isWin || isMac) {
@@ -1328,6 +1333,54 @@ if (!singleInstance && !process.mas) {
       return;
     }
 
+    if (isMac) {
+      const loadTrayUrl = (win: BrowserWindow) => {
+        if (isDev) {
+          const port = process.env.PORT || 3001;
+          void win.loadURL(`http://localhost:${port}?render=tray`);
+        } else {
+          const bundleData = store.getUpdateBundleData();
+          const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+          const filePath =
+            bundleIndexHtmlPath ||
+            path.join(__dirname, '..', 'build', 'index.html');
+          void win.loadFile(filePath, { query: { render: 'tray' } });
+        }
+      };
+
+      // Default to on; renderer sends TRAY_TOGGLE(false) on startup if
+      // the user had previously disabled it.
+      initTrayManager(
+        getSafelyMainWindow,
+        showMainWindow,
+        appStaticResourcesPath,
+        loadTrayUrl,
+      );
+
+      // Sender gate: tray window shares the main preload and also exposes
+      // `toggleTray`, so without this a tray-side caller could disable itself.
+      ipcMain.on(ipcMessageKeys.TRAY_TOGGLE, (event, enabled: boolean) => {
+        const senderMainWindow = getSafelyMainWindow();
+        if (
+          !senderMainWindow ||
+          event.sender.id !== senderMainWindow.webContents.id
+        ) {
+          logger.warn('[TrayToggle] rejected TRAY_TOGGLE from non-main window');
+          return;
+        }
+        if (enabled) {
+          initTrayManager(
+            getSafelyMainWindow,
+            showMainWindow,
+            appStaticResourcesPath,
+            loadTrayUrl,
+          );
+        } else {
+          destroyTrayManager();
+        }
+      });
+    }
+
     startServices();
     void initChildProcess();
   });
@@ -1345,6 +1398,10 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  if (isMac) {
+    destroyTrayManager();
+  }
+
   // Reset crash counter on graceful shutdown so normal close
   // is not mistaken for a crash on next boot.
   // Skip reset when in recovery mode (count >= 3) so recovery is still

@@ -1,4 +1,4 @@
-import { Markdown } from '@onekeyhq/components';
+import { Markdown } from '@onekeyhq/components/src/content/Markdown';
 
 import { Layout } from './utils/Layout';
 

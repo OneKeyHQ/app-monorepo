@@ -7,7 +7,6 @@ import {
   Toast,
   useInPageDialog,
 } from '@onekeyhq/components';
-import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -17,6 +16,7 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import {
