@@ -121,7 +121,8 @@ export function createTrayWindow(
   // both without depending on shape.
   trayWindow.webContents.on('console-message', (...args: any[]) => {
     const ev = args[0];
-    const message = typeof ev === 'object' && ev !== null ? ev.message : args[2];
+    const message =
+      typeof ev === 'object' && ev !== null ? ev.message : args[2];
     const level = typeof ev === 'object' && ev !== null ? ev.level : args[1];
     if (typeof message === 'string' && message.startsWith('[TrayPanel]')) {
       logger.info('[TrayRenderer]', { level, message });

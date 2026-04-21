@@ -48,7 +48,8 @@ export function TrayPanel() {
     // Signal main AFTER the listener is attached. Main replies with cached
     // data or triggers a fresh gather, so the panel never sits on the
     // loading placeholder waiting for a delayed setTimeout push from main.
-    const canSendReady = typeof globalThis.desktopApi?.sendTrayReady === 'function';
+    const canSendReady =
+      typeof globalThis.desktopApi?.sendTrayReady === 'function';
     // eslint-disable-next-line no-console
     console.log('[TrayPanel] sendTrayReady', { canSendReady });
     globalThis.desktopApi?.sendTrayReady?.();

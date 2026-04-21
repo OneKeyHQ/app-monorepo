@@ -1347,8 +1347,8 @@ if (!singleInstance && !process.mas) {
         // `file://`-scheme formatUrl so the interceptFileProtocol handler
         // receives a relative URL its string-based resolver can handle.
         // loadFile(abs, { query }) produced an absolute URL + query that
-        // the interceptor misresolved into a nested non-existent path,
-        // tripping ERR_FILE_NOT_FOUND and aborting the tray renderer.
+        // the interceptor resolved incorrectly into a nested non-existent
+        // path, tripping ERR_FILE_NOT_FOUND and aborting the tray renderer.
         const bundleData = store.getUpdateBundleData();
         const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
         void win.loadURL(
