@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { isString } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -7,6 +7,7 @@ import {
   DashText,
   DebugRenderTracker,
   Divider,
+  IconButton,
   NumberSizeableText,
   ScrollView,
   SizableText,
@@ -14,12 +15,18 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotActiveAssetAtom,
+  useSpotActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
@@ -28,12 +35,23 @@ import {
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
+import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
 
 function useTickerBarIsLoading() {
   const { isReady, hasError } = usePerpSession();
+  const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const isSpot = tradingMode === 'spot';
+  if (isSpot) {
+    // Spot: only loading if spot ctx hasn't arrived yet.
+    // Don't gate on isReady (perps WS connection state) — spot data
+    // flows through the same WS but isReady can be temporarily false
+    // during mode transitions while the spot subscription is active.
+    return !spotAssetCtx?.ctx;
+  }
   const { markPrice } = assetCtx?.ctx || {
     markPrice: '0',
   };
@@ -79,8 +97,13 @@ const TickerBarMarkPriceView = memo(
 TickerBarMarkPriceView.displayName = 'TickerBarMarkPriceView';
 
 function TickerBarMarkPrice() {
+  const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const formattedMarkPrice = assetCtx?.ctx?.markPrice || '';
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const formattedMarkPrice =
+    tradingMode === 'spot'
+      ? spotAssetCtx?.ctx?.markPrice || ''
+      : assetCtx?.ctx?.markPrice || '';
   const isLoading = useTickerBarIsLoading();
   return (
     <TickerBarMarkPriceView
@@ -126,8 +149,13 @@ TickerBarChange24hPercentView.displayName = 'TickerBarChange24hPercentView';
 
 export function TickerBarChange24hPercent() {
   const { gtMd } = useMedia();
+  const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const change24hPercent =
+    tradingMode === 'spot'
+      ? spotAssetCtx?.ctx?.change24hPercent || 0
+      : assetCtx?.ctx?.change24hPercent || 0;
   const isLoading = useTickerBarIsLoading();
 
   return (
@@ -225,8 +253,13 @@ const TickerBar24hVolumeView = memo(
 TickerBar24hVolumeView.displayName = 'TickerBar24hVolumeView';
 
 function TickerBar24hVolume() {
+  const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const volume24h = assetCtx?.ctx?.volume24h || '0';
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const isSpot = tradingMode === 'spot';
+  const volume24h = isSpot
+    ? spotAssetCtx?.ctx?.volume24h || '0'
+    : assetCtx?.ctx?.volume24h || '0';
   const formattedVolume24h = formatDisplayNumber(
     NUMBER_FORMATTER.marketCap(volume24h.toString()),
   );
@@ -306,6 +339,111 @@ function TickerBarOpenInterest() {
       }
       isLoading={isLoading}
     />
+  );
+}
+
+const TickerBarMarketCapView = memo(
+  ({
+    formattedMarketCap,
+    isLoading,
+  }: {
+    formattedMarketCap: string;
+    isLoading: boolean;
+  }) => {
+    const intl = useIntl();
+    return (
+      <DebugRenderTracker name="TickerBarMarketCap">
+        <YStack>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_market_cap,
+            })}
+          </SizableText>
+          <SkeletonContainer isLoading={isLoading} width={80} height={16}>
+            <SizableText size="$headingXs">${formattedMarketCap}</SizableText>
+          </SkeletonContainer>
+        </YStack>
+      </DebugRenderTracker>
+    );
+  },
+);
+TickerBarMarketCapView.displayName = 'TickerBarMarketCapView';
+
+function TickerBarMarketCap() {
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const { circulatingSupply = '0', markPrice = '0' } = spotAssetCtx?.ctx || {};
+  const formattedMarketCap = formatDisplayNumber(
+    NUMBER_FORMATTER.marketCap(
+      (Number(circulatingSupply) * Number(markPrice)).toString(),
+    ),
+  );
+  const isLoading = useTickerBarIsLoading();
+
+  return (
+    <TickerBarMarketCapView
+      formattedMarketCap={
+        isString(formattedMarketCap) ? formattedMarketCap : '--'
+      }
+      isLoading={isLoading}
+    />
+  );
+}
+
+const TickerBarSpotContractView = memo(
+  ({ contract, isLoading }: { contract?: string; isLoading: boolean }) => {
+    const intl = useIntl();
+    const { copyText } = useClipboard();
+    const shortenedContract = contract
+      ? `${contract.slice(0, 6)}...${contract.slice(-4)}`
+      : '--';
+
+    return (
+      <DebugRenderTracker name="TickerBarSpotContract">
+        <YStack>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_contract,
+            })}
+          </SizableText>
+          <SkeletonContainer isLoading={isLoading} width={120} height={16}>
+            <XStack gap="$1" alignItems="center">
+              <SizableText
+                size="$headingXs"
+                fontFamily="$monoRegular"
+                color="$text"
+              >
+                {shortenedContract}
+              </SizableText>
+              {contract ? (
+                <IconButton
+                  size="small"
+                  variant="tertiary"
+                  icon="Copy3Outline"
+                  iconProps={{ size: '$3', color: '$iconSubdued' }}
+                  onPress={() => {
+                    copyText(contract);
+                  }}
+                />
+              ) : null}
+            </XStack>
+          </SkeletonContainer>
+        </YStack>
+      </DebugRenderTracker>
+    );
+  },
+);
+TickerBarSpotContractView.displayName = 'TickerBarSpotContractView';
+
+function TickerBarSpotContract() {
+  const [spotAsset] = useSpotActiveAssetAtom();
+  const { tokenContractMap } = useSpotMetaMaps();
+  const isLoading = useTickerBarIsLoading();
+  const contract =
+    tokenContractMap[spotAsset?.universe?.baseName ?? ''] ||
+    tokenContractMap[spotAsset?.coin ?? ''];
+
+  return (
+    <TickerBarSpotContractView contract={contract} isLoading={isLoading} />
   );
 }
 
@@ -633,6 +771,9 @@ function TickerBarFundingRate() {
 
 function PerpTickerBarDesktop() {
   const [activeAsset] = usePerpsActiveAssetAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const isSpot = tradingMode === 'spot';
+  const marketDataGap = useMemo(() => (isSpot ? '$6' : '$8'), [isSpot]);
   const content = (
     <XStack
       bg="$bgApp"
@@ -648,7 +789,11 @@ function PerpTickerBarDesktop() {
     >
       <XStack gap="$4" alignItems="center">
         <XStack gap="$2" alignItems="center">
-          <FavoriteButton coin={activeAsset.coin} iconSize="$4" />
+          <FavoriteButton
+            coin={activeAsset.coin}
+            iconSize="$4"
+            isSpot={isSpot}
+          />
           <PerpTokenSelector />
         </XStack>
 
@@ -664,15 +809,16 @@ function PerpTickerBarDesktop() {
         horizontal
         flex={1}
         contentContainerStyle={{
-          gap: '$8',
+          gap: marketDataGap,
           alignItems: 'center',
           justifyContent: 'flex-start',
         }}
       >
-        <TickerBarOraclePrice />
+        {isSpot ? null : <TickerBarOraclePrice />}
         <TickerBar24hVolume />
-        <TickerBarOpenInterest />
-        <TickerBarFundingRate />
+        {isSpot ? <TickerBarMarketCap /> : <TickerBarOpenInterest />}
+        {isSpot ? <TickerBarSpotContract /> : null}
+        {isSpot ? null : <TickerBarFundingRate />}
       </ScrollView>
     </XStack>
   );

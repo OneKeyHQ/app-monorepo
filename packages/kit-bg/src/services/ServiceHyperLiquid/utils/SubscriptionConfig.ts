@@ -1,10 +1,7 @@
 import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
-  IEventActiveAssetCtxParameters,
-  IEventActiveAssetDataParameters,
   IEventAllDexsClearinghouseStateParameters,
-  IEventBboParameters,
   IEventL2BookParameters,
   IEventOpenOrdersParameters,
   IEventUserFillsParameters,
@@ -81,6 +78,16 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 3,
   },
+  [ESubscriptionType.SPOT_ASSET_CTXS]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
+    priority: 2,
+  },
+  // Shares wire type "activeAssetCtx" with perps — spot mode reuses
+  // ACTIVE_ASSET_CTX and relies on coin format detection in the WS handler
+  [ESubscriptionType.ACTIVE_SPOT_ASSET_CTX]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
+    priority: 2,
+  },
 };
 
 export interface ISubscriptionSpec<T extends ESubscriptionType> {
@@ -96,6 +103,11 @@ export interface ISubscriptionState {
   isConnected: boolean;
   l2BookOptions?: IL2BookOptions | null;
   enableLedgerUpdates?: boolean;
+  spotEnabled?: boolean;
+  spotAssetCtxsEnabled?: boolean;
+  currentSpotSymbol?: string;
+  // Per-asset subscriptions are mutually exclusive based on this
+  tradingMode?: 'perp' | 'spot';
 }
 
 export interface ISubscriptionDiff {
@@ -138,11 +150,7 @@ export function calculateRequiredSubscriptions(
 ): ISubscriptionSpec<ESubscriptionType>[] {
   const specs: ISubscriptionSpec<ESubscriptionType>[] = [];
 
-  // Market Data: All Mids (Global)
-  // TODO: verify if 'dex' parameter is supported in sdk/types for IWsAllMidsParameters
-  // The user log shows {"type":"allMids","dex":"ALL_DEXS"}, so we include it.
   const allMidsParams: IWsAllMidsParameters = {
-    // @ts-ignore
     dex: 'ALL_DEXS',
   };
   specs.push(
@@ -162,41 +170,56 @@ export function calculateRequiredSubscriptions(
     }),
   );
 
-  if (state.currentSymbol) {
-    const activeAssetCtxParams: IEventActiveAssetCtxParameters = {
-      coin: state.currentSymbol,
-    };
+  // Per-asset subscriptions are mutually exclusive — avoids duplicate BBO/ctx data
+  if (state.tradingMode === 'spot' && state.currentSpotSymbol) {
+    // Wire protocol is the same "activeAssetCtx"; server returns spot data for @N coins
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.ACTIVE_ASSET_CTX,
-        params: activeAssetCtxParams,
+        params: { coin: state.currentSpotSymbol },
       }),
     );
-
-    // BBO subscription for trading price reference
-    const bboParams: IEventBboParameters = {
-      coin: state.currentSymbol,
-    };
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.BBO,
-        params: bboParams,
+        params: { coin: state.currentSpotSymbol },
       }),
     );
-
-    const activeAssetDataParams: IEventActiveAssetDataParameters = {
-      coin: state.currentSymbol,
-      user: state.currentUser || PERPS_EMPTY_ADDRESS,
-    };
+    if (state.l2BookOptions) {
+      specs.push(
+        buildSubscriptionSpec({
+          type: ESubscriptionType.L2_BOOK,
+          params: {
+            coin: state.currentSpotSymbol,
+            nSigFigs: state.l2BookOptions.nSigFigs ?? null,
+            mantissa: state.l2BookOptions.mantissa ?? null,
+          },
+        }),
+      );
+    }
+  } else if (state.currentSymbol) {
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.ACTIVE_ASSET_CTX,
+        params: { coin: state.currentSymbol },
+      }),
+    );
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.BBO,
+        params: { coin: state.currentSymbol },
+      }),
+    );
     specs.push(
       buildSubscriptionSpec({
         type: ESubscriptionType.ACTIVE_ASSET_DATA,
-        params: activeAssetDataParams,
+        params: {
+          coin: state.currentSymbol,
+          user: state.currentUser || PERPS_EMPTY_ADDRESS,
+        },
       }),
     );
-
     if (state.l2BookOptions) {
-      // Create L2_BOOK subscription with default parameters if no custom params are provided
       const l2BookParams: IEventL2BookParameters = {
         coin: state.currentSymbol,
         nSigFigs: state.l2BookOptions.nSigFigs ?? null,
@@ -242,19 +265,19 @@ export function calculateRequiredSubscriptions(
         },
       }),
     );
-    specs.push(
-      buildSubscriptionSpec({
-        type: ESubscriptionType.SPOT_STATE,
-        params: {
-          user: state.currentUser,
-        },
-      }),
-    );
+    if (state.spotEnabled) {
+      specs.push(
+        buildSubscriptionSpec({
+          type: ESubscriptionType.SPOT_STATE,
+          params: {
+            user: state.currentUser,
+          },
+        }),
+      );
+    }
     const userFillsParams: IEventUserFillsParameters = {
       user: state.currentUser,
       aggregateByTime: true,
-      // @ts-ignore
-      // reversed: true, // not working
     };
     specs.push(
       buildSubscriptionSpec({
@@ -274,27 +297,15 @@ export function calculateRequiredSubscriptions(
         }),
       );
     }
+  }
 
-    // Legacy or specific per-asset data (Optional, based on need.
-    // Usually WebData3 covers general state, but if specific asset data needed:
-    // User log implies global subscriptions are preferred.)
-    /*
-    if (state.currentSymbol) {
-      const activeAssetDataParams: IEventActiveAssetDataParameters = {
-        user: state.currentUser,
-        coin: state.currentSymbol,
-      };
-      specs.push(
-        buildSubscriptionSpec({
-          type: ESubscriptionType.ACTIVE_ASSET_DATA,
-          params: activeAssetDataParams,
-        }),
-      );
-    }
-    */
-  } else {
-    // WebData3 requires a user address.
-    // If no user, we likely only need market data (handled above).
+  if (state.spotAssetCtxsEnabled) {
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.SPOT_ASSET_CTXS,
+        params: {},
+      }),
+    );
   }
 
   return specs.toSorted((a, b) => a.priority - b.priority);
