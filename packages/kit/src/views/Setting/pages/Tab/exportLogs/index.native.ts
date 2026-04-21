@@ -107,14 +107,10 @@ export const collectLogDigest = async (
   }
   const stat = await RNFS.stat(normalizedPath);
   const sizeBytes = Number(stat.size ?? 0);
-  // RNFS.hash rejects on missing/unreadable files; probe existence first and
-  // wrap in try/catch to keep prior "empty string on failure" semantics.
+  // Keep prior "empty string on failure" semantics for ILogDigest consumers.
   let sha256 = '';
   try {
-    const exists = await RNFS.exists(normalizedPath);
-    if (exists) {
-      sha256 = await RNFS.hash(normalizedPath, 'sha256');
-    }
+    sha256 = await RNFS.hash(normalizedPath, 'sha256');
   } catch {
     sha256 = '';
   }
