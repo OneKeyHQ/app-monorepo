@@ -632,11 +632,60 @@ function DeFiContainerScrollableNative() {
   );
 }
 
+const BACK_TO_TOP_THRESHOLD = 600;
+
 function DeFiContainerScrollableWeb() {
   const tabBarOffset = useScrollContentTabBarOffset();
+  const sentinelRef = useRef<HTMLElement | null>(null);
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  const outerRef = useRef<HTMLElement | null>(null);
+  const [backToTopVisible, setBackToTopVisible] = useState(false);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const scroller = findScrollableAncestorFromLocalNode(sentinel);
+    scrollerRef.current = scroller;
+    if (!scroller) return;
+
+    let rafId = 0;
+    const onScroll = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        const next = scroller.scrollTop > BACK_TO_TOP_THRESHOLD;
+        setBackToTopVisible((prev) => (prev === next ? prev : next));
+      });
+    };
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  const onPressBackToTop = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    scroller.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const target = e.target as Node | null;
+    if (target && scroller.contains(target)) return;
+    scroller.scrollBy({ top: e.deltaY, left: e.deltaX });
+  }, []);
 
   return (
-    <Stack flex={1}>
+    <Stack
+      flex={1}
+      ref={outerRef as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {...({ onWheel: handleWheel } as any)}
+    >
       <Tabs.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarOffset }}
@@ -647,17 +696,27 @@ function DeFiContainerScrollableWeb() {
           ) : undefined
         }
       >
+        <Stack
+          ref={sentinelRef as any}
+          width={0}
+          height={0}
+          pointerEvents="none"
+        />
         <DeFiContainer />
       </Tabs.ScrollView>
+      <BackToTopButton
+        visible={backToTopVisible}
+        onPress={onPressBackToTop}
+      />
     </Stack>
   );
 }
 
 function DeFiContainerScrollable() {
-  if (platformEnv.isWeb) {
-    return <DeFiContainerScrollableWeb />;
+  if (platformEnv.isNative) {
+    return <DeFiContainerScrollableNative />;
   }
-  return <DeFiContainerScrollableNative />;
+  return <DeFiContainerScrollableWeb />;
 }
 
 function DeFiContainerWithProvider() {
