@@ -89,11 +89,14 @@ interface IOrderLogOptions {
   extra?: Record<string, unknown>;
 }
 
-// TV iframe lowercases all symbols internally; HL universe keys perps names in
-// uppercase and spot pairs as `@N`. Uppercase only non-spot identifiers.
+// TV iframe lowercases all symbols internally. HL spot coins are `@N` and the
+// XYZ sub-DEX prefix is the literal `xyz:` — both must keep lowercase so
+// `detectDexIndexByCoin` and the spot lookup still match. Only main-DEX
+// perp coins like `eth` get upper-cased to match HL's universe index.
 function normalizePerpsCoin(coin: string): string {
   if (!coin) return coin;
   if (coin.startsWith('@')) return coin;
+  if (/^xyz:/i.test(coin)) return coin.toLowerCase();
   return coin.toUpperCase();
 }
 
@@ -1069,7 +1072,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     isBuy: boolean;
     size: string;
     price: string;
-    tif?: 'Gtc' | 'Ioc' | 'Alo';
+    tif?: 'Gtc' | 'Ioc';
     reduceOnly?: boolean;
   }): Promise<IOrderResponse> {
     const symbolMeta =
@@ -1088,7 +1091,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         sz: params.size,
         limitPx: formatSpotPriceToValid(params.price, szDecimals),
         orderType: 'limit',
-        tif: params.tif === 'Ioc' ? 'Ioc' : 'Gtc',
+        tif: params.tif ?? 'Gtc',
         szDecimals,
       });
     }
@@ -1152,7 +1155,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       sz: existing.sz,
       price: formattedPrice,
       reduceOnly: existing.reduceOnly,
-      orderType: { limit: { tif: existing.tif === 'Alo' ? 'Alo' : 'Gtc' } },
     });
   }
 

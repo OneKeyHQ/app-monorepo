@@ -237,20 +237,20 @@ export function TradingViewPerpsV2(
 
   const onOrderCancel = useCallback(
     async (payload: ITVOrderCancelPayload) => {
-      const { symbol: orderSymbol, orderId } = payload;
-      if (!orderId) return;
+      const oid = Number.parseInt(payload.orderId ?? '', 10);
+      if (!Number.isFinite(oid)) return;
 
       await actions.current.ensureTradingEnabled();
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-          coin: orderSymbol.startsWith('@')
-            ? orderSymbol
-            : orderSymbol.toUpperCase(),
+          coin: payload.symbol.startsWith('@')
+            ? payload.symbol
+            : payload.symbol.toUpperCase(),
         });
       if (!symbolMeta) return;
 
       await actions.current.cancelOrder({
-        orders: [{ assetId: symbolMeta.assetId, oid: parseInt(orderId, 10) }],
+        orders: [{ assetId: symbolMeta.assetId, oid }],
       });
     },
     [actions],
@@ -275,7 +275,8 @@ export function TradingViewPerpsV2(
 
   const onOrderPriceUpdate = useCallback(
     async (payload: ITVOrderPriceUpdatePayload) => {
-      if (!payload.orderId) return;
+      const oid = Number.parseInt(payload.orderId ?? '', 10);
+      if (!Number.isFinite(oid)) return;
 
       try {
         await actions.current.ensureTradingEnabled();
@@ -283,7 +284,7 @@ export function TradingViewPerpsV2(
           asyncFn: () =>
             backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid({
               coin: payload.symbol,
-              oid: parseInt(payload.orderId as string, 10),
+              oid,
               newPrice: payload.price,
             }),
           actionType: EActionType.PLACE_ORDER,
