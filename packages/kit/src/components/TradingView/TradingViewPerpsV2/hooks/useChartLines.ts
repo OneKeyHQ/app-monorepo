@@ -438,17 +438,30 @@ export function useChartLines({
     }
 
     if (prevLinesRef.current.size === 0 && currentLines.length > 0) {
+      console.log('[useChartLines] first SYNC', {
+        count: currentLines.length,
+        ids: currentLines.map((l) => l.id),
+      });
       sendLinesSync();
       return;
     }
 
     const patch = computeLinesDiff(prevLinesRef.current, currentLines);
-    const hasStructuralChange =
-      patch.add.length > 0 || patch.remove.length > 0;
+    const hasStructuralChange = patch.add.length > 0 || patch.remove.length > 0;
 
-    // Structural changes (add/remove) always go through full SYNC so
-    // stale adapters cannot drift; only cosmetic updates (e.g. position
-    // PNL ticks) use PATCH to avoid rebuild flicker and hit the throttle.
+    console.log('[useChartLines] diff', {
+      prevIds: Array.from(prevLinesRef.current.keys()),
+      currentIds: currentLines.map((l) => l.id),
+      add: patch.add.map((l) => l.id),
+      update: patch.update.map((l) => l.id),
+      remove: patch.remove,
+      action: hasStructuralChange
+        ? 'SYNC'
+        : patch.update.length > 0
+          ? 'PATCH'
+          : 'noop',
+    });
+
     if (hasStructuralChange) {
       sendLinesSync();
       return;
