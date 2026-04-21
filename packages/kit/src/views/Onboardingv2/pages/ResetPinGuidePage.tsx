@@ -12,7 +12,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { OnboardingPage } from '../components/Layout';
+import { OnboardingHeading, OnboardingPage } from '../components/Layout';
 
 function ResetPinGuidePage() {
   const intl = useIntl();
@@ -53,11 +53,11 @@ function ResetPinGuidePage() {
     <OnboardingPage>
       <YStack $md={{ flex: 1 }}>
         <YStack gap="$2" mb="$10">
-          <SizableText size="$heading2xl">
+          <OnboardingHeading>
             {intl.formatMessage({
               id: ETranslations.reset_pin_using_another_device,
             })}
-          </SizableText>
+          </OnboardingHeading>
           <SizableText size="$bodyLg" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.reset_pin_using_another_device_desc,

@@ -3,7 +3,13 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Page, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Spinner,
+  YStack,
+} from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -24,9 +30,9 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
 import {
-  LayoutHeader,
-  LayoutHeaderBack,
-  LayoutHeaderLanguageSelector,
+  OnboardingHeading,
+  OnboardingPage,
+  OnboardingSidebar,
 } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
@@ -39,6 +45,14 @@ type IImportOption = {
   isLoading?: boolean;
   disabled?: boolean;
 };
+
+const listItemNativePressableStyle = { flexShrink: 0 } as const;
+
+const HIGHEST_PRIORITY_KEYS = new Set(['google', 'apple']);
+const MEDIUM_PRIORITY_KEYS = new Set(['phraseOrPrivateKey']);
+
+const isGroup1 = (key: string) =>
+  HIGHEST_PRIORITY_KEYS.has(key) || MEDIUM_PRIORITY_KEYS.has(key);
 
 function CreateOrImportWallet() {
   const intl = useIntl();
@@ -237,26 +251,109 @@ function CreateOrImportWallet() {
     handleImportWatchedAccount,
   ]);
 
+  const primaryOptions = options.filter((o) => isGroup1(o.key));
+  const secondaryOptions = options.filter((o) => !isGroup1(o.key));
+
+  const renderPrimaryButton = ({
+    key,
+    icon,
+    title,
+    onPress,
+    isLoading,
+    disabled,
+  }: IImportOption) => {
+    const isPrimary = HIGHEST_PRIORITY_KEYS.has(key);
+    return (
+      <Button
+        key={key}
+        variant={isPrimary ? 'primary' : 'secondary'}
+        size="large"
+        alignSelf="stretch"
+        childrenAsText={false}
+        disabled={disabled}
+        onPress={onPress}
+      >
+        <YStack position="absolute" left="$5">
+          {isLoading ? (
+            <Spinner size="small" />
+          ) : (
+            <Icon
+              name={icon}
+              size="$6"
+              color={isPrimary ? '$iconInverse' : '$icon'}
+              $gtMd={{
+                size: '$5',
+              }}
+            />
+          )}
+        </YStack>
+        <SizableText
+          size="$bodyLgMedium"
+          color={isPrimary ? '$textInverse' : '$text'}
+        >
+          {title}
+        </SizableText>
+      </Button>
+    );
+  };
+
+  const renderSecondaryItem = ({
+    key,
+    icon,
+    title,
+    onPress,
+    isLoading,
+    disabled,
+  }: IImportOption) => (
+    <ListItem
+      key={key}
+      icon={icon}
+      title={title}
+      drillIn
+      onPress={onPress}
+      isLoading={isLoading}
+      disabled={disabled}
+      nativePressableStyle={listItemNativePressableStyle}
+    />
+  );
+
   return (
-    <Page>
-      <LayoutHeader>
-        <LayoutHeaderBack />
-        <LayoutHeaderLanguageSelector />
-      </LayoutHeader>
-      <YStack px="$5" gap="$2">
-        {options.map(({ key, icon, title, onPress, isLoading, disabled }) => (
-          <ListItem
-            key={key}
-            icon={icon}
-            title={title}
-            drillIn
-            onPress={onPress}
-            isLoading={isLoading}
-            disabled={disabled}
-          />
-        ))}
+    <OnboardingPage scrollable>
+      <YStack $gtMd={{ flexDirection: 'row' }}>
+        <YStack gap="$8" $gtMd={{ flex: 1, gap: '$12' }}>
+          <OnboardingHeading>
+            {intl.formatMessage({ id: ETranslations.add_existing_wallet })}
+          </OnboardingHeading>
+          <YStack
+            gap="$3"
+            $gtMd={{
+              gap: '$5',
+            }}
+          >
+            {primaryOptions.map(renderPrimaryButton)}
+          </YStack>
+        </YStack>
+        <OnboardingSidebar gap="$2" $md={{ mt: '$12' }}>
+          <SizableText
+            size="$bodyLg"
+            color="$textSubdued"
+            pb="$3"
+            $md={{
+              px: '$5',
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.other_import_options })}
+          </SizableText>
+          <YStack
+            $gtMd={{
+              mx: '$-5',
+            }}
+          >
+            {secondaryOptions.map(renderSecondaryItem)}
+          </YStack>
+        </OnboardingSidebar>
       </YStack>
-    </Page>
+    </OnboardingPage>
   );
 }
 

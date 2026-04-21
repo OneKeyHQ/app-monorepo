@@ -18,6 +18,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
+  OnboardingHeading,
   OnboardingIconBadge,
   OnboardingPage,
   OnboardingSidebar,
@@ -77,7 +78,7 @@ function PasscodeFormView() {
   return (
     <>
       <YStack gap="$2">
-        <SizableText size="$heading4xl">
+        <OnboardingHeading>
           {!isPasswordSet
             ? intl.formatMessage({
                 id: ETranslations.global_set_passcode,
@@ -85,7 +86,7 @@ function PasscodeFormView() {
             : intl.formatMessage({
                 id: ETranslations.auth_confirm_passcode_form_label,
               })}
-        </SizableText>
+        </OnboardingHeading>
         {!isPasswordSet ? (
           <SizableText size="$bodyLg" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.create_passcode_desc })}

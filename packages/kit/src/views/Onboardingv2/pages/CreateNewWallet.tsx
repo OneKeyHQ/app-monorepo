@@ -26,6 +26,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
+  OnboardingHeading,
   OnboardingIconBadge,
   OnboardingPage,
   OnboardingSidebar,
@@ -119,11 +120,11 @@ function CreateNewWallet() {
 
   return (
     <OnboardingPage>
-      <SizableText size="$heading4xl">
+      <OnboardingHeading>
         {intl.formatMessage({
           id: ETranslations.onboarding_create_new_wallet,
         })}
-      </SizableText>
+      </OnboardingHeading>
       <YStack
         $md={{
           flex: 1,
@@ -134,7 +135,7 @@ function CreateNewWallet() {
         }}
       >
         <OnboardingSidebar $md={{ pt: '$5' }}>
-          {md ? null : <OnboardingIconBadge icon="LightBulbOutline" />}
+          {md ? null : <OnboardingIconBadge icon="EmailSparkleSolid" />}
           <YStack gap="$6">
             <SizableText size="$headingMd">
               {intl.formatMessage({

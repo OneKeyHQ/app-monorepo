@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type {
   IKeyOfIcons,
   IPageProps,
+  ISizableTextProps,
   IXStackProps,
   IYStackProps,
 } from '@onekeyhq/components';
@@ -13,6 +14,7 @@ import {
   Icon,
   IconButton,
   Page,
+  ScrollView,
   Select,
   SizableText,
   XStack,
@@ -163,6 +165,7 @@ LayoutHeaderLanguageSelector.displayName = 'LayoutHeaderLanguageSelector';
 export interface IOnboardingPageProps extends IPageProps {
   headerBack?: boolean | 'exit';
   showLanguageSelector?: boolean;
+  scrollable?: boolean;
   contentContainerProps?: IYStackProps;
   children: React.ReactNode;
 }
@@ -170,10 +173,30 @@ export interface IOnboardingPageProps extends IPageProps {
 export function OnboardingPage({
   headerBack = true,
   showLanguageSelector = true,
+  scrollable = false,
   contentContainerProps,
   children,
   ...pageProps
 }: IOnboardingPageProps) {
+  const contentArea = (
+    <YStack
+      flex={1}
+      px="$5"
+      $gtMd={{ alignItems: 'center', justifyContent: 'center' }}
+    >
+      <YStack
+        w="100%"
+        maxWidth={800}
+        mx="auto"
+        $md={{ flex: 1 }}
+        $gtMd={{ minHeight: 522 }}
+        {...contentContainerProps}
+      >
+        {children}
+      </YStack>
+    </YStack>
+  );
+
   return (
     <Page {...pageProps}>
       <LayoutHeader>
@@ -182,22 +205,13 @@ export function OnboardingPage({
         ) : null}
         {showLanguageSelector ? <LayoutHeaderLanguageSelector /> : null}
       </LayoutHeader>
-      <YStack
-        flex={1}
-        $gtMd={{ alignItems: 'center', justifyContent: 'center' }}
-        px="$5"
-      >
-        <YStack
-          w="100%"
-          maxWidth={800}
-          mx="auto"
-          $md={{ flex: 1 }}
-          $gtMd={{ minHeight: 600 }}
-          {...contentContainerProps}
-        >
-          {children}
-        </YStack>
-      </YStack>
+      {scrollable ? (
+        <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+          {contentArea}
+        </ScrollView>
+      ) : (
+        contentArea
+      )}
     </Page>
   );
 }
@@ -248,6 +262,17 @@ export function OnboardingIconBadge({
     >
       <Icon name={icon} color={iconColor} />
     </YStack>
+  );
+}
+
+export function OnboardingHeading({
+  children,
+  ...rest
+}: Omit<ISizableTextProps, 'size'>) {
+  return (
+    <SizableText size="$heading4xl" {...rest}>
+      {children}
+    </SizableText>
   );
 }
 
