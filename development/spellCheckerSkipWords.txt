@@ -1,5 +1,9 @@
 # Custom words for cspell spell checker
 # Migrated from spellCheckerSkipWords.js
+rescan
+fixpoint
+mmap
+segs
 unixTime
 nodata
 tradingview
@@ -13,6 +17,9 @@ _j_msgid
 oxlintrc
 0x1fffffffffffff
 skillshare
+bitrefill
+Bitrefill
+BITREFILL
 worktree
 googleusercontent
 0xf7ad23226db5c1c00ca0ca1468fd49c8f8bbc1489bc1c382de5adc557a69c229
@@ -963,6 +970,9 @@ xprvt
 xpub
 xpub2blake2b224
 xpubkey
+xpubs
+Xpub
+Xpubs
 xpvt
 xrp
 Xrp
@@ -1431,3 +1441,10 @@ Blockaid
 posthog
 Posthog
 autocapture
+hermesc
+ellipsize
+misalign
+minimizable
+maximizable
+fullscreenable
+frecency

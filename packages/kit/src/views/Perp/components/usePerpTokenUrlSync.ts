@@ -3,17 +3,19 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
 import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+  useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
   DEX_PREFIXES,
   DEX_SEPARATOR,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 
 function findDexPrefix(token: string): string | null {
   const lowerToken = token.toLowerCase();
@@ -48,22 +50,37 @@ function decodeCoinFromUrl(urlToken: string): string {
   return urlToken.toUpperCase();
 }
 
-function getTokenFromUrl(): string | null {
+function getInstrumentFromUrl(): {
+  coin: string;
+  mode: 'perp' | 'spot';
+} | null {
   try {
     const searchParams = new URLSearchParams(globalThis.location.search);
     const urlToken = searchParams.get('token')?.trim();
     if (!urlToken) return null;
+    const mode = searchParams.get('mode') === 'spot' ? 'spot' : 'perp';
 
-    return decodeCoinFromUrl(urlToken);
+    return {
+      coin: decodeCoinFromUrl(urlToken),
+      mode,
+    };
   } catch {
     return null;
   }
 }
 
-function updateUrlWithoutNavigation(token: string): void {
+function updateUrlWithoutNavigation(params: {
+  coin: string;
+  mode: 'perp' | 'spot';
+}): void {
   try {
-    const encoded = encodeCoinForUrl(token);
-    const newUrl = `${PERPS_ROUTE_PATH}?token=${encoded}`;
+    const encoded = encodeCoinForUrl(params.coin);
+    const searchParams = new URLSearchParams();
+    if (params.mode === 'spot') {
+      searchParams.set('mode', 'spot');
+    }
+    searchParams.set('token', encoded);
+    const newUrl = `${PERPS_ROUTE_PATH}?${searchParams.toString()}`;
     setTimeout(() => {
       try {
         globalThis.history.replaceState(null, '', newUrl);
@@ -85,22 +102,26 @@ function isValidPrice(price: string): boolean {
 export function usePerpTokenUrlSync(): void {
   const isFocused = useIsFocused();
   const actions = useHyperliquidActions();
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const { displayName } = useActiveTradeDisplay();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [activeSpotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isInitializedRef = useRef(false);
-  const lastSyncedTokenRef = useRef('');
   const originalTitleRef = useRef<string>('');
 
-  const symbolDisplay = useMemo(() => {
-    if (!activeAsset?.coin) return '';
-    const { displayName, dexLabel } = parseDexCoin(activeAsset.coin);
-    return dexLabel ? `${displayName} (${dexLabel})` : displayName;
-  }, [activeAsset?.coin]);
+  const symbolDisplay = useMemo(() => displayName || '', [displayName]);
 
   const markPrice = useMemo(() => {
-    const price = activeAssetCtx?.ctx?.markPrice || '';
+    const price =
+      activeTradeInstrument.mode === 'spot'
+        ? activeSpotAssetCtx?.ctx?.markPrice || ''
+        : activeAssetCtx?.ctx?.markPrice || '';
     return isValidPrice(price) ? price : '';
-  }, [activeAssetCtx?.ctx?.markPrice]);
+  }, [
+    activeAssetCtx?.ctx?.markPrice,
+    activeSpotAssetCtx?.ctx?.markPrice,
+    activeTradeInstrument.mode,
+  ]);
 
   const updateTitle = (price: string) => {
     try {
@@ -122,10 +143,9 @@ export function usePerpTokenUrlSync(): void {
     originalTitleRef.current = globalThis.document.title;
 
     void (async () => {
-      const urlToken = getTokenFromUrl();
-      if (urlToken) {
-        lastSyncedTokenRef.current = urlToken;
-        await actions.current.changeActiveAsset({ coin: urlToken });
+      const urlInstrument = getInstrumentFromUrl();
+      if (urlInstrument) {
+        await actions.current.switchTradeInstrument(urlInstrument);
       }
       isInitializedRef.current = true;
     })();
@@ -139,12 +159,14 @@ export function usePerpTokenUrlSync(): void {
   useEffect(() => {
     if (!isInitializedRef.current || !isFocused) return;
 
-    const currentToken = activeAsset?.coin?.trim();
+    const currentToken = activeTradeInstrument?.coin?.trim();
     if (!currentToken) return;
 
-    lastSyncedTokenRef.current = currentToken;
-    updateUrlWithoutNavigation(currentToken);
-  }, [activeAsset?.coin, isFocused]);
+    updateUrlWithoutNavigation({
+      coin: currentToken,
+      mode: activeTradeInstrument.mode,
+    });
+  }, [activeTradeInstrument, isFocused]);
 
   useEffect(() => {
     if (!isInitializedRef.current || !isFocused) return;

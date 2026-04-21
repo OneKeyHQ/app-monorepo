@@ -13,6 +13,16 @@ export {
   tokenId,
 } from './common';
 
+// Auth
+export {
+  authLoginInputSchema,
+  authLoginOutputSchema,
+  authLogoutInputSchema,
+  authLogoutOutputSchema,
+  authStatusInputSchema,
+  authStatusOutputSchema,
+} from './auth-schema';
+
 // Transfer
 export {
   transferDryRunOutputSchema,
@@ -35,8 +45,7 @@ export {
   walletHistoryOutputSchema,
 } from './wallet-history-schema';
 
-// Import / Logout / Status / Version
-export { importInputSchema, importOutputSchema } from './import-schema';
+// Logout / Status / Version
 export { logoutInputSchema, logoutOutputSchema } from './logout-schema';
 export { statusInputSchema, statusOutputSchema } from './status-schema';
 export { versionInputSchema, versionOutputSchema } from './version-schema';

@@ -26,8 +26,8 @@ export class SignerBase {
     if (!encryptionKeyBuf) {
       throw new AppError(
         ERROR_CODES.AUTH_NO_WALLET.code,
-        'No wallet found. Import a wallet first.',
-        'Run: onekey import --mnemonic',
+        'No authenticated wallet found. Log in first.',
+        'Run: onekey auth login --app-transfer',
       );
     }
 
@@ -36,8 +36,8 @@ export class SignerBase {
       if (!encryptedMnemonic) {
         throw new AppError(
           ERROR_CODES.AUTH_NO_WALLET.code,
-          'No wallet found. Import a wallet first.',
-          'Run: onekey import --mnemonic',
+          'No authenticated wallet found. Log in first.',
+          'Run: onekey auth login --app-transfer',
         );
       }
 

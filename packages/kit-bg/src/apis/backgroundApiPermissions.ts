@@ -96,6 +96,10 @@ export function isProviderApiPrivateKeylessMethod(method?: string) {
   return method && PROVIDER_API_PRIVATE_KEYLESS_METHOD.includes(method || '');
 }
 
+export function isProviderApiPrivateAllowedKeylessOrigin(origin?: string) {
+  return !!origin && KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN.includes(origin);
+}
+
 export function isProviderApiPrivateAllowedOrigin(origin?: string) {
   const isDevLocalhostOrigin =
     platformEnv.isDev &&

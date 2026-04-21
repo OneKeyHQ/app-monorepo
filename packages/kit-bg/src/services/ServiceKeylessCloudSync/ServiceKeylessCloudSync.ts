@@ -616,6 +616,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
       ...v,
       isCloudSyncEnabled: shouldEnableKeyless ? false : v.isCloudSyncEnabled,
       isCloudSyncEnabledKeyless: shouldEnableKeyless,
+      hasEverEnabledKeylessSync:
+        shouldEnableKeyless ||
+        !!v.hasEverEnabledKeylessSync ||
+        !!v.isCloudSyncEnabledKeyless ||
+        !!v.lastSyncTimeKeyless,
     }));
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
 
@@ -752,13 +757,27 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
     await this.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(wallets);
     const shouldMigrateFromId = this.pendingAutoEnableCloudSyncKeyless;
-    const { isCloudSyncEnabledKeyless, isCloudSyncEnabled } =
-      await primeCloudSyncPersistAtom.get();
+    const {
+      isCloudSyncEnabledKeyless,
+      isCloudSyncEnabled,
+      hasEverEnabledOneKeyIdSync,
+      hasEverEnabledKeylessSync,
+      lastSyncTimeKeyless,
+    } = await primeCloudSyncPersistAtom.get();
+    const hasUsedKeylessSyncBefore =
+      !!hasEverEnabledKeylessSync || !!lastSyncTimeKeyless;
     if (isCloudSyncEnabledKeyless) {
       this.pendingAutoEnableCloudSyncKeyless = false;
       return;
     }
-    if (isCloudSyncEnabled && !shouldMigrateFromId) {
+    // Keep prior OneKey ID sync users on their current mode unless they
+    // explicitly chose "Switch Now" from the Cloud Sync page. Once Keyless
+    // sync has been enabled, Keyless becomes the only upgrade path.
+    if (
+      !shouldMigrateFromId &&
+      (isCloudSyncEnabled ||
+        (hasEverEnabledOneKeyIdSync && !hasUsedKeylessSyncBefore))
+    ) {
       return;
     }
     try {

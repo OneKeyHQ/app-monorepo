@@ -63,6 +63,30 @@ export interface IWalletDetailsProps {
   device?: IDBDevice | undefined;
 }
 
+function BotWalletDeactivatedBanner({ walletId }: { walletId: string }) {
+  const { result: isBotWalletDeactivated } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceAccount.isBotWalletDeactivated({ walletId }),
+    [walletId],
+    {
+      checkIsFocused: false,
+    },
+  );
+
+  if (!isBotWalletDeactivated) {
+    return null;
+  }
+
+  return (
+    <Alert
+      fullBleed
+      type="warning"
+      title="该 Bot 钱包已停用"
+      description="收款功能已禁用。如需转移资产，请使用发送功能。"
+    />
+  );
+}
+
 function WalletDetailsView({ num }: IWalletDetailsProps) {
   const intl = useIntl();
   const { serviceAccountSelector } = backgroundApiProxy;
@@ -763,6 +787,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         num={num}
         title={title}
       />
+
+      {focusedWalletInfo?.wallet?.id &&
+      accountUtils.isBotWallet({ walletId: focusedWalletInfo.wallet.id }) ? (
+        <BotWalletDeactivatedBanner walletId={focusedWalletInfo.wallet.id} />
+      ) : null}
 
       {platformEnv.isWebDappMode &&
       accountUtils.isHwWallet({ walletId: focusedWalletInfo?.wallet?.id }) ? (

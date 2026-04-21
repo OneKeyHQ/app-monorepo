@@ -430,6 +430,7 @@ export default class Vault extends VaultBase {
 
   override async validateMemo(
     memo: string,
+    _tokenAddress?: string,
   ): Promise<{ isValid: boolean; errorMessage?: string }> {
     if (!memo) return { isValid: true };
 

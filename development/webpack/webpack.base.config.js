@@ -47,6 +47,7 @@ const baseResolve = ({ platform, configName, basePath }) => ({
   alias: {
     'react-native$': 'react-native-web',
     'react-native-aes-crypto': false,
+    'react-native-cloud-fs': false,
     'react-native/Libraries/Components/View/ViewStylePropTypes$':
       'react-native-web/dist/exports/View/ViewStylePropTypes',
     'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$':

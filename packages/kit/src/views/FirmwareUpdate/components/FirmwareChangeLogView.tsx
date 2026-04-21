@@ -13,11 +13,11 @@ import {
   Alert,
   Dialog,
   Icon,
-  Markdown,
   SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { Markdown } from '@onekeyhq/components/src/content/Markdown';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
