@@ -4,11 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import type {
-  ICurrencyItem,
-  ICurrencyType,
-} from '../views/Setting/pages/Currency';
+import type { ICurrencyItem, ICurrencyType } from '@onekeyhq/shared/types';
 
 const currencyFilterFn = (keyword: string, item: ICurrencyItem) => {
   const text = keyword.toLowerCase();

@@ -133,10 +133,15 @@ debug.log
 .local_docs/
 /.claude/worktrees
 /.worktree
+/.worktrees
 .skillshare/logs/operations.log
 .gstack/
+/apps/mobile/out-dir-analysis
+/apps/mobile/dist-test
+/apps/mobile/ios-bundle
 
 docs/superpowers/**/*
+apps/mobile/android/app/src/main/assets/modules.json
 # bmad
 /_bmad/
 /_bmad-output/

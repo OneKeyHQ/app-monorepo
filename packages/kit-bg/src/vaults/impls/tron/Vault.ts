@@ -4,13 +4,6 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, noop } from 'lodash';
 import TronWeb from 'tronweb';
 
-import {
-  TRON_SOURCE_FLAG_MAINNET,
-  TRON_SOURCE_FLAG_TESTNET,
-  TRON_TX_EXPIRATION_TIME,
-  tronTokenAddressMainnet,
-  tronTokenAddressTestnet,
-} from '@onekeyhq/core/src/chains/tron/constants';
 import type {
   IDecodedTxExtraTron,
   IEncodedTxTron,
@@ -18,6 +11,13 @@ import type {
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
+import {
+  TRON_SOURCE_FLAG_MAINNET,
+  TRON_SOURCE_FLAG_TESTNET,
+  TRON_TX_EXPIRATION_TIME,
+  tronTokenAddressMainnet,
+  tronTokenAddressTestnet,
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   InsufficientBalance,
   OneKeyInternalError,

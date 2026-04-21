@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
+import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

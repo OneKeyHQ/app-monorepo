@@ -1,5 +1,6 @@
 import type { IDesktopApiGlobal } from './desktopApiPlatformInfo';
 import type { ILocaleSymbol } from '../src/locale';
+import type { ITrayAction, ITrayData } from '../src/types/desktop/tray';
 
 export type IPrefType =
   | 'default'
@@ -98,6 +99,14 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   recoveryExportLogs: () => Promise<{ error?: string }>;
   recoveryTryAgain: () => Promise<void>;
   recoveryAutoRepair: () => Promise<{ error?: string }>;
+  // macOS menu bar tray — methods exist on all platforms but are no-ops
+  // outside macOS (main process only wires ipcMain handlers when isMac).
+  sendTrayData: (data: ITrayData) => void;
+  // Only exposed inside the tray BrowserWindow (preload checks
+  // `?render=tray`); `undefined` on the main renderer, so callers must
+  // guard with optional chaining.
+  sendTrayAction?: (action: ITrayAction) => void;
+  toggleTray: (enabled: boolean) => void;
 };
 
 export type IDesktopApiBridge = {

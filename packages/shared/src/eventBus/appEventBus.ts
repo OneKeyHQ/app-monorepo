@@ -408,6 +408,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowFallbackUpdateDialog]: {
     version: string | null | undefined;
   };
+  [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;
   };
@@ -480,6 +481,11 @@ export interface IAppEventBusPayload {
     data: IRookieShareData;
   };
   [EAppEventBusNames.CreateNewBrowserTab]: undefined;
+  [EAppEventBusNames.NavigateModalFromBackgroundThread]: {
+    screen: any;
+    params: any;
+  };
+  [EAppEventBusNames.HomePageReady]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
@@ -539,7 +545,7 @@ class AppEventBusClass extends CrossEventEmitter {
     );
   }
 
-  override emit<T extends EAppEventBusNames>(
+  override emit<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
   ): boolean {
@@ -550,35 +556,35 @@ class AppEventBusClass extends CrossEventEmitter {
     return true;
   }
 
-  override once<T extends EAppEventBusNames>(
+  override once<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {
     return super.once(type, listener);
   }
 
-  override on<T extends EAppEventBusNames>(
+  override on<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {
     return super.on(type, listener);
   }
 
-  override off<T extends EAppEventBusNames>(
+  override off<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {
     return super.off(type, listener);
   }
 
-  override addListener<T extends EAppEventBusNames>(
+  override addListener<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {
     return super.addListener(type, listener);
   }
 
-  override removeListener<T extends EAppEventBusNames>(
+  override removeListener<T extends keyof IAppEventBusPayload>(
     type: T,
     listener: (payload: IAppEventBusPayload[T]) => void,
   ) {
@@ -612,6 +618,14 @@ class AppEventBusClass extends CrossEventEmitter {
 
   async emitToRemote(params: { type: string; payload: unknown }) {
     const { type, payload } = params;
+    const isRemoteEventPayload =
+      payload &&
+      typeof payload === 'object' &&
+      (
+        payload as {
+          $$isRemoteEvent?: boolean;
+        }
+      ).$$isRemoteEvent;
     const convertToRemoteEventPayload = (payloadValue: unknown): unknown => {
       const payloadCloned = cloneDeep(payloadValue);
       try {
@@ -628,14 +642,33 @@ class AppEventBusClass extends CrossEventEmitter {
       return payloadCloned;
     };
 
+    if (isRemoteEventPayload) {
+      return;
+    }
+
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
       throw new OneKeyLocalError(
         'offscreen or webembed event bus not support yet.',
       );
     }
-    if (platformEnv.isNative) {
-      // requestToWebEmbed
+    if (
+      platformEnv.isNativeMainThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      return this.broadcastMethods.uiToBg(
+        type,
+        convertToRemoteEventPayload(payload),
+      );
+    }
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      return this.broadcastMethods.bgToUi(
+        type,
+        convertToRemoteEventPayload(payload),
+      );
     }
     if (platformEnv.isExtensionUi) {
       // request background
