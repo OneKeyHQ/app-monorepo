@@ -417,20 +417,21 @@ index e782b90..7be5bac 100644
 +      const handlePageSelected = React.useCallback(
 +        (event: PagerViewOnPageSelectedEvent) => {
 +          const selectedIndex = event.nativeEvent.position
++          const pendingTarget = programmaticPageTarget.value
 +          console.log('[MarketTab][Tabs.Container] onPageSelected', {
 +            position: selectedIndex,
 +            index: index.value,
 +            focusedTab: tabNames.value[index.value],
-+            programmaticPageTarget: programmaticPageTarget.value,
++            programmaticPageTarget: pendingTarget,
 +          })
-+          if (programmaticPageTarget.value === selectedIndex) {
++          if (pendingTarget === selectedIndex) {
 +            if (index.value !== selectedIndex) {
 +              calculateNextOffset.value = selectedIndex
 +              indexDecimal.value = selectedIndex
 +            }
 +            programmaticPageTarget.value = null
++            clearPendingPageFallback()
 +          }
-+          clearPendingPageFallback()
 +          pagerProps?.onPageSelected?.(event)
 +        },
 +        [calculateNextOffset, clearPendingPageFallback, index, indexDecimal, pagerProps, programmaticPageTarget, tabNames]
@@ -438,15 +439,20 @@ index e782b90..7be5bac 100644
 +
 +      const handlePageScrollStateChanged = React.useCallback(
 +        (event: PageScrollStateChangedNativeEvent) => {
++          const pendingTarget = programmaticPageTarget.value
 +          console.log('[MarketTab][Tabs.Container] onPageScrollStateChanged', {
 +            pageScrollState: event.nativeEvent.pageScrollState,
 +            index: index.value,
 +            focusedTab: tabNames.value[index.value],
++            programmaticPageTarget: pendingTarget,
 +          })
-+          clearPendingPageFallback()
++          if (pendingTarget !== null && index.value === pendingTarget) {
++            programmaticPageTarget.value = null
++            clearPendingPageFallback()
++          }
 +          pagerProps?.onPageScrollStateChanged?.(event)
 +        },
-+        [clearPendingPageFallback, index, pagerProps, tabNames]
++        [clearPendingPageFallback, index, pagerProps, programmaticPageTarget, tabNames]
 +      )
 +
 +      const setPageWithFallback = React.useCallback(

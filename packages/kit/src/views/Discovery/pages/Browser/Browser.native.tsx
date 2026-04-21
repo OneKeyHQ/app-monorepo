@@ -246,7 +246,7 @@ function MobileBrowser() {
     }
   }, [tabs?.length]);
 
-  const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
+  const previousDefaultTab = useRef<ETranslations | undefined>(undefined);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
       previousDefaultTab.current = defaultTab;
