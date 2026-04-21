@@ -500,6 +500,7 @@ class ServiceFreshAddress extends ServiceBase {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
     },
   );
+
   // Return all searchable fresh addresses for a list of BTC accounts.
   // Consolidates derive-type-aware xpub key selection and fresh address
   // extraction that was previously inlined in RecipientQuickSelect UI.
