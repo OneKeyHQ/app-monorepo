@@ -43,11 +43,15 @@ diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/
 index e782b90..7be5bac 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-@@ -1,9 +1,10 @@
+@@ -1,9 +1,14 @@
  import React from 'react'
 -import { StyleSheet, useWindowDimensions, View } from 'react-native'
 +import { Animated as RNAnimated, Platform, StyleSheet, useWindowDimensions, View } from 'react-native'
  import PagerView from 'react-native-pager-view'
++import type {
++  PageScrollStateChangedNativeEvent,
++  PagerViewOnPageSelectedEvent,
++} from 'react-native-pager-view'
  import Animated, {
    runOnJS,
    runOnUI,
@@ -66,14 +70,16 @@ index e782b90..7be5bac 100644
 @@ -95,7 +97,7 @@ export const Container = React.memo(
        const [tabBarHeight, getTabBarHeight] =
          useLayoutHeight(initialTabBarHeight)
- 
+-
++
 -      const [headerHeight, getHeaderHeight] = useLayoutHeight(
 +      const [headerHeight, getHeaderHeight, headerHeightSV] = useLayoutHeight(
          !renderHeader ? 0 : initialHeaderHeight
        )
        const initialIndex = React.useMemo(
-@@ -141,8 +143,10 @@ export const Container = React.memo(
+@@ -141,8 +143,11 @@ export const Container = React.memo(
        const calculateNextOffset = useSharedValue(initialIndex)
++      const programmaticPageTarget = useSharedValue<number | null>(null)
        const headerScrollDistance: ContextType['headerScrollDistance'] =
          useDerivedValue(() => {
 -          return headerHeight !== undefined ? headerHeight - minHeaderHeight : 0
@@ -85,7 +91,7 @@ index e782b90..7be5bac 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -174,12 +178,15 @@ export const Container = React.memo(
+@@ -174,11 +178,14 @@ export const Container = React.memo(
            return afterRender.value === 1
          },
          (trigger) => {
@@ -102,8 +108,25 @@ index e782b90..7be5bac 100644
 +        [tabNamesArray, refMap, afterRender, contentInset, useNativeHeaderAnimation]
        )
  
-       // derived from scrollX
-@@ -212,25 +219,46 @@ export const Container = React.memo(
+@@ -194,8 +199,17 @@ export const Container = React.memo(
+         },
+         (nextIndex) => {
+           if (nextIndex !== null && nextIndex !== index.value) {
++            if (
++              programmaticPageTarget.value !== null &&
++              nextIndex !== programmaticPageTarget.value
++            ) {
++              return
++            }
++            if (nextIndex === programmaticPageTarget.value) {
++              programmaticPageTarget.value = null
++            }
+             calculateNextOffset.value = nextIndex
+           }
+         },
+         []
+       )
+@@ -212,25 +228,46 @@ export const Container = React.memo(
          'worklet'
  
          const name = tabNamesArray[index.value]
@@ -156,7 +179,7 @@ index e782b90..7be5bac 100644
            runOnJS(toggleSyncScrollFrame)(false)
          }
        }, false)
-@@ -241,54 +269,239 @@ export const Container = React.memo(
+@@ -241,54 +273,304 @@ export const Container = React.memo(
          },
          (i) => {
            if (i !== index.value) {
@@ -375,10 +398,14 @@ index e782b90..7be5bac 100644
 +
 +      const clearPendingPageFallback = React.useCallback(() => {
 +        if (pendingPageFallbackTimerRef.current) {
++          console.log('[MarketTab][Tabs.Container] clear page fallback', {
++            index: index.value,
++            focusedTab: tabNames.value[index.value],
++          })
 +          clearTimeout(pendingPageFallbackTimerRef.current)
 +          pendingPageFallbackTimerRef.current = null
 +        }
-+      }, [])
++      }, [index, tabNames])
 +
 +      React.useEffect(
 +        () => () => {
@@ -387,9 +414,52 @@ index e782b90..7be5bac 100644
 +        [clearPendingPageFallback]
 +      )
 +
++      const handlePageSelected = React.useCallback(
++        (event: PagerViewOnPageSelectedEvent) => {
++          const selectedIndex = event.nativeEvent.position
++          console.log('[MarketTab][Tabs.Container] onPageSelected', {
++            position: selectedIndex,
++            index: index.value,
++            focusedTab: tabNames.value[index.value],
++            programmaticPageTarget: programmaticPageTarget.value,
++          })
++          if (programmaticPageTarget.value === selectedIndex) {
++            if (index.value !== selectedIndex) {
++              calculateNextOffset.value = selectedIndex
++              indexDecimal.value = selectedIndex
++            }
++            programmaticPageTarget.value = null
++          }
++          clearPendingPageFallback()
++          pagerProps?.onPageSelected?.(event)
++        },
++        [calculateNextOffset, clearPendingPageFallback, index, indexDecimal, pagerProps, programmaticPageTarget, tabNames]
++      )
++
++      const handlePageScrollStateChanged = React.useCallback(
++        (event: PageScrollStateChangedNativeEvent) => {
++          console.log('[MarketTab][Tabs.Container] onPageScrollStateChanged', {
++            pageScrollState: event.nativeEvent.pageScrollState,
++            index: index.value,
++            focusedTab: tabNames.value[index.value],
++          })
++          clearPendingPageFallback()
++          pagerProps?.onPageScrollStateChanged?.(event)
++        },
++        [clearPendingPageFallback, index, pagerProps, tabNames]
++      )
++
 +      const setPageWithFallback = React.useCallback(
 +        (nextIndex: number) => {
++          console.log('[MarketTab][Tabs.Container] setPageWithFallback', {
++            nextIndex,
++            targetTab: tabNames.value[nextIndex],
++            index: index.value,
++            focusedTab: tabNames.value[index.value],
++            platform: Platform.OS,
++          })
 +          clearPendingPageFallback()
++          programmaticPageTarget.value = nextIndex
 +          containerRef.current?.setPage(nextIndex)
 +
 +          if (Platform.OS !== 'ios') {
@@ -397,31 +467,64 @@ index e782b90..7be5bac 100644
 +          }
 +
 +          pendingPageFallbackTimerRef.current = setTimeout(() => {
++            console.log('[MarketTab][Tabs.Container] page fallback fired', {
++              nextIndex,
++              targetTab: tabNames.value[nextIndex],
++              index: index.value,
++              focusedTab: tabNames.value[index.value],
++            })
 +            pendingPageFallbackTimerRef.current = null
++            if (index.value === nextIndex) {
++              programmaticPageTarget.value = null
++              return
++            }
++            programmaticPageTarget.value = null
++            calculateNextOffset.value = nextIndex
++            indexDecimal.value = nextIndex
 +            containerRef.current?.setPageWithoutAnimation(nextIndex)
-+          }, 48)
++          }, 300)
 +        },
-+        [clearPendingPageFallback, containerRef, index]
++        [calculateNextOffset, clearPendingPageFallback, containerRef, index, indexDecimal, programmaticPageTarget, tabNames]
 +      )
 +
 +      const syncToTabIndex = React.useCallback(
 +        (nextIndex: number) => {
 +          if (nextIndex === index.value) {
++            console.log('[MarketTab][Tabs.Container] syncToTabIndex skipped', {
++              nextIndex,
++              focusedTab: tabNames.value[index.value],
++            })
 +            return
 +          }
-+          // PagerView sometimes misses programmatic page-change callbacks after
-+          // nested freeze/unfreeze on iOS. Update the shared tab state eagerly
-+          // so the container doesn't stay logically stuck on the previous tab.
-+          calculateNextOffset.value = nextIndex
-+          indexDecimal.value = nextIndex
++          console.log('[MarketTab][Tabs.Container] syncToTabIndex', {
++            nextIndex,
++            targetTab: tabNames.value[nextIndex],
++            index: index.value,
++            focusedTab: tabNames.value[index.value],
++          })
 +          setPageWithFallback(nextIndex)
 +        },
-+        [calculateNextOffset, index, indexDecimal, setPageWithFallback]
++        [index, setPageWithFallback, tabNames]
 +      )
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -303,11 +516,11 @@ export const Container = React.memo(
+@@ -295,19 +562,25 @@ export const Container = React.memo(
+           const i = tabNames.value.findIndex((n) => n === name)
++          console.log('[MarketTab][Tabs.Container] onTabPress', {
++            name,
++            nextIndex: i,
++            index: index.value,
++            focusedTab: focusedTab.value,
++          })
+-
++
+           if (name === focusedTab.value) {
+             const ref = refMap[name]
+             runOnUI(scrollToImpl)(
+               ref,
+               0,
+               headerScrollDistance.value - contentInset,
                true
              )
            } else {
@@ -435,11 +538,15 @@ index e782b90..7be5bac 100644
        )
  
        useAnimatedReaction(
-@@ -344,55 +557,94 @@ export const Container = React.memo(
+@@ -344,55 +577,98 @@ export const Container = React.memo(
            getCurrentIndex: () => {
              return index.value
            },
 +          syncCurrentPage: () => {
++            console.log('[MarketTab][Tabs.Container] syncCurrentPage', {
++              index: index.value,
++              focusedTab: tabNames.value[index.value],
++            })
 +            containerRef.current?.setPageWithoutAnimation(index.value)
 +          },
          }),
@@ -567,7 +674,7 @@ index e782b90..7be5bac 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -407,8 +659,9 @@ export const Container = React.memo(
+@@ -407,8 +679,9 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -578,7 +685,7 @@ index e782b90..7be5bac 100644
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
-@@ -425,7 +678,7 @@ export const Container = React.memo(
+@@ -425,13 +698,15 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>
@@ -587,6 +694,15 @@ index e782b90..7be5bac 100644
  
              <AnimatedPagerView
                ref={containerRef}
+-              onPageScroll={pageScrollHandler}
+               initialPage={initialIndex}
+               {...pagerProps}
++              onPageScroll={pageScrollHandler}
++              onPageSelected={handlePageSelected}
++              onPageScrollStateChanged={handlePageScrollStateChanged}
+               style={[pagerProps?.style, StyleSheet.absoluteFill]}
+             >
+               {tabNamesArray.map((tabName, i) => {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
 index 9ce60da..d8f162e 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
