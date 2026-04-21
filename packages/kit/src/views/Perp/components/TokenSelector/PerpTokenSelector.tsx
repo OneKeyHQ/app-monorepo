@@ -77,7 +77,7 @@ import {
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
-import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
+import { PerpTokenSelectorRow, TradingModeBadge } from './PerpTokenSelectorRow';
 import { SortableHeaderCell } from './SortableHeaderCell';
 
 export const SPOT_DEX_INDEX = -1;
@@ -824,6 +824,7 @@ function BasePerpTokenSelector() {
             <SizableText size="$heading2xl">
               {mode === 'spot' ? displayName : `${displayName}USDC`}
             </SizableText>
+            <TradingModeBadge isSpot={mode === 'spot'} />
             {builderFeeRate === 0 ? (
               <Tooltip
                 placement="bottom"

@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
@@ -14,6 +15,10 @@ import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveAccountSummaryAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -44,8 +49,25 @@ function TabBarItem({
 
   const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+
+  const holdingsCount = useMemo(() => {
+    const nonZeroSpotBalanceCount = balances.filter(
+      (item) => !new BigNumber(item.total).isZero(),
+    ).length;
+    const perpsUsdcCount =
+      accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0)
+        ? 1
+        : 0;
+    return nonZeroSpotBalanceCount + perpsUsdcCount;
+  }, [accountSummary?.totalRawUsd, balances]);
 
   const tabCount = useMemo(() => {
+    if (name === 'Balances') {
+      return `(${holdingsCount})`;
+    }
     if (name === 'Trades History') {
       return '';
     }
@@ -56,7 +78,7 @@ function TabBarItem({
       return `(${openOrdersLength})`;
     }
     return '';
-  }, [positionsLength, openOrdersLength, name]);
+  }, [holdingsCount, positionsLength, openOrdersLength, name]);
 
   const translationKey = tabNameToTranslationKey[name];
   let tabTitle = translationKey;
@@ -65,6 +87,12 @@ function TabBarItem({
       id: translationKey as ETranslations,
     });
   }
+  if (name === 'Balances') {
+    tabTitle = 'Holdings';
+  }
+
+  const displayTitle =
+    name === 'Balances' ? `${tabTitle}${tabCount}` : `${tabTitle} ${tabCount}`;
 
   return (
     <DebugRenderTracker
@@ -79,7 +107,7 @@ function TabBarItem({
         borderBottomColor="$borderActive"
         onPress={() => onPress(name)}
       >
-        <SizableText size="$bodyMdMedium">{`${tabTitle} ${tabCount}`}</SizableText>
+        <SizableText size="$bodyMdMedium">{displayTitle.trim()}</SizableText>
       </XStack>
     </DebugRenderTracker>
   );

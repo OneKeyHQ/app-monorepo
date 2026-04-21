@@ -456,6 +456,35 @@ function PerpTradingForm({
     sizeSzDecimals,
   ]);
 
+  const spotMaxTradeLabel = useMemo(
+    () => (formData.side === 'long' ? 'Max buy' : 'Max sell'),
+    [formData.side],
+  );
+  const spotMaxTradeTooltip = useMemo(
+    () =>
+      'The max buy or max sell amount depends on your available balance and the order price. For limit orders, it updates automatically after you enter a price.',
+    [],
+  );
+
+  const spotMaxTradeDisplay = useMemo(() => {
+    if (!isSpot) return '';
+    if (formData.side === 'long') {
+      return `${spotMaxTradeSzs?.[0] ?? '0'} ${spotUniverse?.baseName ?? ''}`;
+    }
+    const quoteValue = spotAvailableBaseBN.multipliedBy(
+      midPriceBN.isFinite() && midPriceBN.gt(0) ? midPriceBN : 0,
+    );
+    return `${quoteValue.toFixed(2, BigNumber.ROUND_DOWN)} ${spotUniverse?.quoteName ?? ''}`;
+  }, [
+    formData.side,
+    isSpot,
+    midPriceBN,
+    spotAvailableBaseBN,
+    spotMaxTradeSzs,
+    spotUniverse?.baseName,
+    spotUniverse?.quoteName,
+  ]);
+
   const handleSideChange = useCallback(
     (newSide: 'long' | 'short') => {
       if (newSide !== formData.side) {
@@ -731,7 +760,11 @@ function PerpTradingForm({
     }
     if (formData.type === 'limit' || isMobile) {
       return (
-        <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
+        <XStack
+          alignItems="center"
+          flex={isMobile ? undefined : 1}
+          gap={isMobile ? '$2.5' : '$3'}
+        >
           {isBBOActive && formData.type === 'limit' ? (
             <YStack flex={1}>
               <BBOSelector
@@ -978,12 +1011,51 @@ function PerpTradingForm({
     ? triggerOrderType
     : primaryOrderType;
 
+  const renderSpotTradeSummaryRows = () => (
+    <>
+      <XStack justifyContent="space-between" alignItems="center" gap="$3">
+        <SizableText size="$bodySm" color="$textSubdued">
+          Available
+        </SizableText>
+        <XStack alignItems="center" gap="$1">
+          <SizableText size="$bodySmMedium">{spotAvailableDisplay}</SizableText>
+          <MobileDepositButton />
+        </XStack>
+      </XStack>
+
+      <XStack justifyContent="space-between" alignItems="center" gap="$3">
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              cursor="help"
+            >
+              {spotMaxTradeLabel}
+            </DashText>
+          }
+          renderContent={
+            <SizableText size="$bodySm">{spotMaxTradeTooltip}</SizableText>
+          }
+        />
+        <SizableText size="$bodySmMedium">{spotMaxTradeDisplay}</SizableText>
+      </XStack>
+    </>
+  );
+
   return (
-    <YStack gap={isMobile ? '$2.5' : '$4'} pt={isMobile ? '$0' : '$2.5'}>
+    <YStack
+      gap={isMobile ? '$2.5' : '$4'}
+      pt={isMobile ? '$0' : '$2.5'}
+      flex={isSpot && isMobile ? 1 : undefined}
+    >
       {isMobile ? (
-        <>
+        <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
-            <XStack alignItems="center" flex={1} gap="$2.5">
+            <XStack alignItems="center" gap="$2.5">
               <YStack flex={1}>
                 <MarginModeSelector
                   disabled={isSubmitting}
@@ -994,7 +1066,7 @@ function PerpTradingForm({
             </XStack>
           )}
 
-          <XStack alignItems="center" flex={1} gap="$2.5">
+          <XStack alignItems="center" gap="$2.5">
             <YStack flex={1}>
               <Select
                 items={mobileOrderTypeOptions}
@@ -1044,7 +1116,15 @@ function PerpTradingForm({
               />
             </YStack>
           </XStack>
-        </>
+          {isSpot ? (
+            <TradeSideToggle
+              value={formData.side}
+              onChange={handleSideChange}
+              isMobile={isMobile}
+              isSpot
+            />
+          ) : null}
+        </YStack>
       ) : (
         <>
           <YStack gap="$2">
@@ -1165,7 +1245,7 @@ function PerpTradingForm({
         </>
       )}
 
-      {isSpot ? (
+      {isSpot && !isMobile ? (
         <TradeSideToggle
           value={formData.side}
           onChange={handleSideChange}
@@ -1174,59 +1254,61 @@ function PerpTradingForm({
         />
       ) : null}
 
-      <YStack
-        gap="$2.5"
-        {...(!isMobile && {
-          flex: 1,
-          p: '$2.5',
-          borderWidth: '$px',
-          borderColor: '$borderSubdued',
-          borderRadius: '$2',
-        })}
-      >
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_account_overview_available,
-            })}
-          </SizableText>
-          <XStack alignItems="center" gap="$1">
-            {isSpot ? (
-              <SizableText size="$bodySmMedium">
-                {spotAvailableDisplay}
-              </SizableText>
-            ) : (
-              <PerpsAccountNumberValue
-                value={availableToTrade}
-                skeletonWidth={60}
-              />
-            )}
-            <MobileDepositButton />
-          </XStack>
-        </XStack>
+      {isSpot && isMobile ? null : (
+        <YStack
+          gap={isSpot ? '$1.5' : '$2.5'}
+          {...(!isMobile && {
+            flex: 1,
+            p: '$2.5',
+            borderWidth: '$px',
+            borderColor: '$borderSubdued',
+            borderRadius: '$2',
+          })}
+        >
+          {isSpot ? (
+            renderSpotTradeSummaryRows()
+          ) : (
+            <>
+              <XStack justifyContent="space-between">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_account_overview_available,
+                  })}
+                </SizableText>
+                <XStack alignItems="center" gap="$1">
+                  <PerpsAccountNumberValue
+                    value={availableToTrade}
+                    skeletonWidth={60}
+                  />
+                  <MobileDepositButton />
+                </XStack>
+              </XStack>
 
-        {isMobile || isSpot ? null : (
-          <XStack justifyContent="space-between">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_current_position,
-              })}
-            </SizableText>
-            {perpsAccountLoading?.selectAccountLoading ? (
-              <Skeleton width={60} height={16} />
-            ) : (
-              <SizableText
-                size="$bodySmMedium"
-                color={getTradingSideTextColor(
-                  selectedSymbolPositionSide as ITradeSide,
-                )}
-              >
-                {selectedSymbolPositionValue} {perpsSelectedDisplayName}
-              </SizableText>
-            )}
-          </XStack>
-        )}
-      </YStack>
+              {isMobile ? null : (
+                <XStack justifyContent="space-between">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_trade_current_position,
+                    })}
+                  </SizableText>
+                  {perpsAccountLoading?.selectAccountLoading ? (
+                    <Skeleton width={60} height={16} />
+                  ) : (
+                    <SizableText
+                      size="$bodySmMedium"
+                      color={getTradingSideTextColor(
+                        selectedSymbolPositionSide as ITradeSide,
+                      )}
+                    >
+                      {selectedSymbolPositionValue} {perpsSelectedDisplayName}
+                    </SizableText>
+                  )}
+                </XStack>
+              )}
+            </>
+          )}
+        </YStack>
+      )}
 
       {renderPriceInputSection()}
 
@@ -1261,6 +1343,12 @@ function PerpTradingForm({
       </YStack>
 
       {renderBottomSection()}
+
+      {isSpot && isMobile ? (
+        <YStack gap="$0.5" pt="$0" pb="$1.5" mt="auto">
+          {renderSpotTradeSummaryRows()}
+        </YStack>
+      ) : null}
     </YStack>
   );
 }

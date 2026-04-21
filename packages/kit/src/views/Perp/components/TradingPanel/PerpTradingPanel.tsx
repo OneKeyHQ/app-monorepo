@@ -13,6 +13,7 @@ import {
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useOrderConfirm, useTradingPrice } from '../../hooks';
@@ -33,6 +34,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const { midPriceBN } = useTradingPrice();
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
+  const [tradingMode] = useTradingModeAtom();
 
   const universalLoading = useMemo(() => {
     return perpsAccountLoading?.selectAccountLoading;
@@ -116,11 +118,13 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
 
   const content = (
     <YStack
-      gap="$2"
+      gap={isMobile && tradingMode === 'spot' ? '$0.5' : '$2'}
       pl={isMobile ? undefined : '$3'}
       pr={isMobile ? undefined : '$5'}
       flex={isMobile ? 1 : undefined}
-      justifyContent={isMobile ? 'space-between' : undefined}
+      justifyContent={
+        isMobile && tradingMode !== 'spot' ? 'space-between' : undefined
+      }
     >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       {perpsAccountStatus.canTrade ? (

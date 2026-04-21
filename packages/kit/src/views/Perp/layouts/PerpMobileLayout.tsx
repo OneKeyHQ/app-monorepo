@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { RefreshControl, ScrollView } from 'react-native';
 
@@ -23,6 +24,10 @@ import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveAccountSummaryAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { SpotBalanceList } from '../components/OrderInfoPanel/List/SpotBalanceList';
@@ -68,6 +73,16 @@ export const TabBarItem = memo(
     tabCount?: string;
   }) => {
     const intl = useIntl();
+    const tabTitle =
+      name === ETabName.Balances
+        ? 'Holdings'
+        : intl.formatMessage({
+            id: tabNameToTranslationKey[name],
+          });
+    const displayTitle =
+      name === ETabName.Balances
+        ? `${tabTitle}${tabCount ?? ''}`
+        : `${tabTitle}${tabCount ? ` ${tabCount}` : ''}`;
 
     return (
       <DebugRenderTracker
@@ -81,11 +96,7 @@ export const TabBarItem = memo(
           onPress={() => onPress(name)}
           mb={-2}
         >
-          <SizableText size="$bodyMdMedium">
-            {`${intl.formatMessage({
-              id: tabNameToTranslationKey[name],
-            })}${tabCount ? ` ${tabCount}` : ''}`}
-          </SizableText>
+          <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
         </XStack>
       </DebugRenderTracker>
     );
@@ -124,6 +135,20 @@ export function PerpMobileLayout() {
 
   const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+
+  const holdingsCount = useMemo(() => {
+    const nonZeroSpotBalanceCount = balances.filter(
+      (item) => !new BigNumber(item.total).isZero(),
+    ).length;
+    const perpsUsdcCount =
+      accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0)
+        ? 1
+        : 0;
+    return nonZeroSpotBalanceCount + perpsUsdcCount;
+  }, [accountSummary?.totalRawUsd, balances]);
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {
@@ -138,6 +163,8 @@ export function PerpMobileLayout() {
     }
     return '';
   }, [openOrdersLength]);
+
+  const holdingsTabCount = useMemo(() => `(${holdingsCount})`, [holdingsCount]);
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
@@ -188,6 +215,7 @@ export function PerpMobileLayout() {
             name={ETabName.Balances}
             isFocused={activeTab === ETabName.Balances}
             onPress={setActiveTab}
+            tabCount={holdingsTabCount}
           />
         </XStack>
         <IconButton

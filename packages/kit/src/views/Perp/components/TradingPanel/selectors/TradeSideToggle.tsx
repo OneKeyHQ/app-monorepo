@@ -3,12 +3,7 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  type IButtonProps,
-  SegmentControl,
-  SizableText,
-} from '@onekeyhq/components';
+import { SegmentControl, SizableText, XStack } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -27,17 +22,13 @@ interface ITradeSideToggleProps {
   isSpot?: boolean;
 }
 
-function getCommonButtonStyle(isMobile?: boolean): IButtonProps {
+function getCommonToggleItemStyle(isMobile?: boolean) {
   return {
-    height: isMobile ? '$7' : '$8',
-    borderRadius: '$2',
-    borderWidth: 0,
-    hoverStyle: {
-      opacity: 0.9,
-    },
-    pressStyle: {
-      opacity: 0.7,
-    },
+    alignItems: 'center' as const,
+    borderRadius: '$full',
+    height: isMobile ? '$8' : '$8',
+    justifyContent: 'center' as const,
+    width: '100%' as const,
   };
 }
 
@@ -69,24 +60,59 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         ? PERP_TRADE_BUTTON_COLORS.light.short
         : PERP_TRADE_BUTTON_COLORS.dark.short;
     };
+    const getLongHoverBgColor = () => {
+      if (!isLongActive) return undefined;
+      return themeVariant === 'light'
+        ? PERP_TRADE_BUTTON_COLORS.light.longHover
+        : PERP_TRADE_BUTTON_COLORS.dark.longHover;
+    };
+    const getLongPressBgColor = () => {
+      if (!isLongActive) return undefined;
+      return themeVariant === 'light'
+        ? PERP_TRADE_BUTTON_COLORS.light.longPress
+        : PERP_TRADE_BUTTON_COLORS.dark.longPress;
+    };
+    const getShortHoverBgColor = () => {
+      if (!isShortActive) return undefined;
+      return themeVariant === 'light'
+        ? PERP_TRADE_BUTTON_COLORS.light.shortHover
+        : PERP_TRADE_BUTTON_COLORS.dark.shortHover;
+    };
+    const getShortPressBgColor = () => {
+      if (!isShortActive) return undefined;
+      return themeVariant === 'light'
+        ? PERP_TRADE_BUTTON_COLORS.light.shortPress
+        : PERP_TRADE_BUTTON_COLORS.dark.shortPress;
+    };
     const longLabel = isSpot
-      ? intl.formatMessage({ id: ETranslations.global_buy })
+      ? intl.formatMessage({
+          id: ETranslations.dexmarket_details_transactions_buy,
+        })
       : intl.formatMessage({ id: ETranslations.perp_trade_long });
     const shortLabel = isSpot
-      ? intl.formatMessage({ id: ETranslations.global_sell })
+      ? intl.formatMessage({
+          id: ETranslations.dexmarket_details_transactions_sell,
+        })
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
 
     const options = [
       {
         value: 'long',
         label: (
-          <Button
-            {...getCommonButtonStyle(isMobile)}
+          <XStack
+            {...getCommonToggleItemStyle(isMobile)}
             bg={getLongBgColor()}
-            onPress={() => onChange('long')}
-            disabled={disabled}
-            justifyContent="center"
-            alignItems="center"
+            onPress={() => {
+              if (!disabled) {
+                onChange('long');
+              }
+            }}
+            hoverStyle={
+              getLongHoverBgColor() ? { bg: getLongHoverBgColor() } : undefined
+            }
+            pressStyle={
+              getLongPressBgColor() ? { bg: getLongPressBgColor() } : undefined
+            }
           >
             <SizableText
               size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
@@ -94,19 +120,30 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
             >
               {longLabel}
             </SizableText>
-          </Button>
+          </XStack>
         ),
       },
       {
         value: 'short',
         label: (
-          <Button
-            {...getCommonButtonStyle(isMobile)}
+          <XStack
+            {...getCommonToggleItemStyle(isMobile)}
             bg={getShortBgColor()}
-            onPress={() => onChange('short')}
-            disabled={disabled}
-            justifyContent="center"
-            alignItems="center"
+            onPress={() => {
+              if (!disabled) {
+                onChange('short');
+              }
+            }}
+            hoverStyle={
+              getShortHoverBgColor()
+                ? { bg: getShortHoverBgColor() }
+                : undefined
+            }
+            pressStyle={
+              getShortPressBgColor()
+                ? { bg: getShortPressBgColor() }
+                : undefined
+            }
           >
             <SizableText
               size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
@@ -114,7 +151,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
             >
               {shortLabel}
             </SizableText>
-          </Button>
+          </XStack>
         ),
       },
     ];
@@ -124,14 +161,18 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         value={value}
         onChange={handleChange}
         options={options}
-        backgroundColor="$neutral5"
-        borderRadius="$2.5"
-        p="$0.5"
+        backgroundColor="$bgStrong"
+        activeBackgroundColor="$transparent"
+        borderRadius="$full"
+        h={isMobile ? '$8' : 'auto'}
+        p="$0"
         fullWidth
         disabled={disabled}
         segmentControlItemStyleProps={{
           bg: '$transparent',
-          p: 0,
+          px: 0,
+          py: 0,
+          borderRadius: '$full',
         }}
       />
     );
