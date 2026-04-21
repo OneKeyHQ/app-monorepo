@@ -9,6 +9,7 @@ import {
   SizableText,
   Spinner,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,6 +32,7 @@ import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
 import {
   OnboardingHeading,
+  OnboardingOrDivider,
   OnboardingPage,
   OnboardingSidebar,
 } from '../components/Layout';
@@ -189,6 +191,14 @@ function CreateOrImportWallet() {
         onPress: handleImportPhraseOrPrivateKey,
       },
       {
+        key: 'external',
+        icon: 'LinkOutline',
+        title: intl.formatMessage({
+          id: ETranslations.onboarding_connect_external_wallet,
+        }),
+        onPress: handleConnectExternalWallet,
+      },
+      {
         key: 'transfer',
         icon: 'MultipleDevicesOutline',
         title: intl.formatMessage({ id: ETranslations.transfer_transfer }),
@@ -203,12 +213,6 @@ function CreateOrImportWallet() {
             isLoading: cloudBackupCheckLoading,
           }
         : null,
-      {
-        key: 'keytag',
-        icon: 'OnekeyKeytagOutline',
-        title: 'OneKey KeyTag',
-        onPress: handleImportKeyTag,
-      },
       platformEnv.isNative
         ? {
             key: 'lite',
@@ -218,12 +222,10 @@ function CreateOrImportWallet() {
           }
         : null,
       {
-        key: 'external',
-        icon: 'LinkOutline',
-        title: intl.formatMessage({
-          id: ETranslations.onboarding_connect_external_wallet,
-        }),
-        onPress: handleConnectExternalWallet,
+        key: 'keytag',
+        icon: 'OnekeyKeytagOutline',
+        title: 'OneKey KeyTag',
+        onPress: handleImportKeyTag,
       },
       {
         key: 'watch',
@@ -251,7 +253,14 @@ function CreateOrImportWallet() {
     handleImportWatchedAccount,
   ]);
 
-  const primaryOptions = options.filter((o) => isGroup1(o.key));
+  const { gtMd } = useMedia();
+
+  const highestPriorityOptions = options.filter((o) =>
+    HIGHEST_PRIORITY_KEYS.has(o.key),
+  );
+  const mediumPriorityOptions = options.filter((o) =>
+    MEDIUM_PRIORITY_KEYS.has(o.key),
+  );
   const secondaryOptions = options.filter((o) => !isGroup1(o.key));
 
   const renderPrimaryButton = ({
@@ -330,19 +339,23 @@ function CreateOrImportWallet() {
               gap: '$5',
             }}
           >
-            {primaryOptions.map(renderPrimaryButton)}
+            {highestPriorityOptions.map(renderPrimaryButton)}
+            {gtMd ? <OnboardingOrDivider /> : null}
+            {mediumPriorityOptions.map(renderPrimaryButton)}
           </YStack>
         </YStack>
         <OnboardingSidebar gap="$2" $md={{ mt: '$12' }}>
           <SizableText
             size="$bodyLg"
             color="$textSubdued"
-            pb="$3"
-            $md={{
-              px: '$5',
+            px="$5"
+            $gtMd={{
+              px: '$0',
+              pb: '$6',
             }}
+            lineHeight={40}
           >
-            {intl.formatMessage({ id: ETranslations.other_import_options })}
+            {intl.formatMessage({ id: ETranslations.more_options })}
           </SizableText>
           <YStack
             $gtMd={{
