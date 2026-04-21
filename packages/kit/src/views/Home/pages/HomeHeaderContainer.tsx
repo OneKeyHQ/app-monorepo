@@ -108,7 +108,9 @@ function BaseHomeHeaderContainer() {
       <YStack
         pb="$8"
         gap="$5"
-        minHeight={platformEnv.isNative ? 312 : undefined}
+        minHeight={
+          platformEnv.isNative && !isWalletNotBackedUp ? 312 : undefined
+        }
         $gtMd={{ gap: '$8' }}
         bg="$bgApp"
         pointerEvents="box-none"
