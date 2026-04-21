@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 
 import { Skeleton, XStack } from '@onekeyhq/components';
+import { useDeFiListSlicedAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import type {
   IDeFiProtocol,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { useDeFiListSlicedAtom } from '../../../../states/jotai/contexts/deFiList';
 import { OVERVIEW_TOP_N } from '../../types';
 
 import {

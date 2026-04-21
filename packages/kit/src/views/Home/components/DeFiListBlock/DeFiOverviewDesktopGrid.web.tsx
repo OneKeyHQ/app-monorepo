@@ -5,10 +5,11 @@ import type {
 } from '@onekeyhq/shared/types/defi';
 
 import { OVERVIEW_GRID_STYLE } from './DeFiOverviewLayout';
-import type { IDeFiOverviewRenderCell } from './DeFiOverviewPlanner';
 import { DeFiOverviewLessTile } from './DeFiOverviewLessTile';
 import { DeFiOverviewMoreTile } from './DeFiOverviewMoreTile';
 import { DeFiOverviewTile } from './DeFiOverviewTile';
+
+import type { IDeFiOverviewRenderCell } from './DeFiOverviewPlanner';
 
 const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
 const SPAN_2: React.CSSProperties = { gridColumnEnd: 'span 2' };

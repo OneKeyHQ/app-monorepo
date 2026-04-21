@@ -62,5 +62,6 @@ const RecentHistory = memo(() => {
     />
   );
 });
+RecentHistory.displayName = 'RecentHistory';
 
 export { RecentHistory };

@@ -6,13 +6,13 @@ Date: 2026-03-05
 
 ### Skeleton Loading (Done)
 
-| Area | Component | Details |
-|------|-----------|---------|
-| Banner | `BannerV2.tsx` | Fixed 130px height skeleton, no CLS |
-| Recommended | `Recommended.tsx` | 4 skeleton items, desktop grid / mobile horizontal scroll |
-| Portfolio Tab | `PortfolioTabContent.tsx` | Full skeleton matching final layout (header + 2 rows) |
-| FAQ Tab | `FAQContent.tsx` | Title + 4 accordion skeleton items |
-| Pendle Quote | `PendleSharedComponents.tsx` | Skeleton for transaction details during quote fetching |
+| Area          | Component                    | Details                                                   |
+| ------------- | ---------------------------- | --------------------------------------------------------- |
+| Banner        | `BannerV2.tsx`               | Fixed 130px height skeleton, no CLS                       |
+| Recommended   | `Recommended.tsx`            | 4 skeleton items, desktop grid / mobile horizontal scroll |
+| Portfolio Tab | `PortfolioTabContent.tsx`    | Full skeleton matching final layout (header + 2 rows)     |
+| FAQ Tab       | `FAQContent.tsx`             | Title + 4 accordion skeleton items                        |
+| Pendle Quote  | `PendleSharedComponents.tsx` | Skeleton for transaction details during quote fetching    |
 
 ### Missing Skeleton Loading (Needs Improvement)
 
@@ -107,11 +107,11 @@ After unmount, the new TableList renders with `data={[]}` until the async fetch 
 
 ### Recommended Fix Priority
 
-| Priority | Fix | Impact |
-|----------|-----|--------|
-| P0 | Remove `key` prop, let TableList update in-place with new data | Eliminates remount, preserves scroll/sort state |
-| P1 | Add `TableListSkeleton` when `assets.length === 0 && loading` | Smooth transition during data fetch |
-| P2 | Cache fetched tab data in atom (already partially done via `availableAssetsByType`) so tab switches show cached data instantly | Near-instant tab switches |
+| Priority | Fix                                                                                                                            | Impact                                          |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| P0       | Remove `key` prop, let TableList update in-place with new data                                                                 | Eliminates remount, preserves scroll/sort state |
+| P1       | Add `TableListSkeleton` when `assets.length === 0 && loading`                                                                  | Smooth transition during data fetch             |
+| P2       | Cache fetched tab data in atom (already partially done via `availableAssetsByType`) so tab switches show cached data instantly | Near-instant tab switches                       |
 
 ### Relationship to Skeleton Issues
 

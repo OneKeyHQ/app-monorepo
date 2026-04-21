@@ -40,7 +40,7 @@ export function findPinnedProtocolKey({
         candidate.bottom > stickyLine &&
         candidate.width > 0,
     )
-    .sort((a, b) => b.top - a.top)[0]?.key;
+    .toSorted((a, b) => b.top - a.top)[0]?.key;
 }
 
 export function getStickySidebarMaxHeight({

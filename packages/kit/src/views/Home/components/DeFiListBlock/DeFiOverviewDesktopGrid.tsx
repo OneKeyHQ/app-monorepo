@@ -4,10 +4,11 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import type { IDeFiOverviewRenderCell } from './DeFiOverviewPlanner';
 import { DeFiOverviewLessTile } from './DeFiOverviewLessTile';
 import { DeFiOverviewMoreTile } from './DeFiOverviewMoreTile';
 import { DeFiOverviewTile } from './DeFiOverviewTile';
+
+import type { IDeFiOverviewRenderCell } from './DeFiOverviewPlanner';
 
 export type IDeFiOverviewDesktopGridProps = {
   cells: IDeFiOverviewRenderCell[];

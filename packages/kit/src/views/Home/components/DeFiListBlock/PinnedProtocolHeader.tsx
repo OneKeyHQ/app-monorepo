@@ -2,11 +2,11 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDeFiProtocol,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ProtocolHeaderRow } from './ProtocolHeaderRow';
 

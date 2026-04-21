@@ -7,9 +7,8 @@ import {
   useState,
 } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import {
   runOnJS,
   runOnUI,
@@ -27,8 +26,8 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { useTabsContext } from '@onekeyhq/components/src/composite/Tabs/context';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -65,6 +64,7 @@ import {
   PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH,
   STICKY_TOP_OFFSET,
 } from '../types';
+
 import {
   findPinnedProtocolKey,
   findScrollableAncestorFromLocalNode,
@@ -119,7 +119,6 @@ function DeFiContainer() {
   const [overview] = useAccountDeFiOverviewAtom();
   const isOverviewLoading = !initialized && isRefreshing;
   const heroTotal = overview.netWorth ?? 0;
-
 
   const triggerPinCheckRef = useRef<() => void>(() => {});
   const scrollContainerRef = useRef<HTMLElement | null>(null);
@@ -688,10 +687,7 @@ function DeFiContainerScrollableWeb() {
         />
         <DeFiContainer />
       </Tabs.ScrollView>
-      <BackToTopButton
-        visible={backToTopVisible}
-        onPress={onPressBackToTop}
-      />
+      <BackToTopButton visible={backToTopVisible} onPress={onPressBackToTop} />
     </Stack>
   );
 }

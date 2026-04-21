@@ -142,8 +142,8 @@ class ServiceCrossChainDeposit {
     amount: string;
     depositor: string;
     // DeFi action 参数
-    defiProtocol: string;       // e.g. "aave-v3"
-    defiAction: string;         // e.g. "deposit"
+    defiProtocol: string; // e.g. "aave-v3"
+    defiAction: string; // e.g. "deposit"
     defiTargetContract: string; // e.g. Aave Pool address
   }): Promise<ICrossChainDepositQuote>;
 
@@ -171,16 +171,16 @@ class ServiceCrossChainDeposit {
 const quote = await axios.get('https://app.across.to/api/swap/approval', {
   params: {
     tradeType: 'exactInput',
-    amount: parseUnits('1000', 6).toString(),  // 1000 USDC
+    amount: parseUnits('1000', 6).toString(), // 1000 USDC
     inputToken: USDC_OPTIMISM,
-    originChainId: 10,         // Optimism
+    originChainId: 10, // Optimism
     outputToken: USDC_ARBITRUM,
     destinationChainId: 42161, // Arbitrum
     depositor: userAddress,
     // message 参数用于 cross-chain action
     message: encodedMessage,
     recipient: MULTICALL_HANDLER_ADDRESS,
-  }
+  },
 });
 
 // 返回:
@@ -192,6 +192,7 @@ const quote = await axios.get('https://app.across.to/api/swap/approval', {
 ```
 
 **费用结构**（约 0.1-0.2%）：
+
 - Relayer capital fee: ~0.01%
 - Relayer gas fee: ~0.09%
 - LP fee: 变动
@@ -203,7 +204,7 @@ const status = await axios.get('https://app.across.to/api/deposit-status', {
   params: {
     originChainId: 10,
     depositTxHash: txHash,
-  }
+  },
 });
 // status: "pending" | "filled" | "expired"
 ```
@@ -234,6 +235,7 @@ const status = await axios.get('https://app.across.to/api/deposit-status', {
 ```
 
 **交易流程**：
+
 1. 用户点击确认
 2. 如需 token approval → 弹出授权签名
 3. 弹出主交易签名（Across deposit intent）
@@ -288,6 +290,7 @@ Ethereum、Optimism、Arbitrum、Base、Polygon、zkSync、Linea、Scroll、Blas
 ETH、WETH、USDC、USDT、WBTC、DAI 等主流资产
 
 **限制**：
+
 - 仅 EVM 链（不支持 Solana、Cosmos、BTC 等）
 - 需要目标链有 Across SpokePool 部署
 - 需要目标链有 Multicall Handler 部署
@@ -297,26 +300,26 @@ ETH、WETH、USDC、USDT、WBTC、DAI 等主流资产
 
 ### 工作量估算
 
-| 阶段 | 内容 | 预估 |
-|------|------|------|
-| Phase 1 | ServiceCrossChainDeposit 基础框架 | 2-3 天 |
-| Phase 2 | Across API 对接 + 报价/状态追踪 | 2-3 天 |
-| Phase 3 | Earn Deposit UI 改造（余额检测 + 跨链选项） | 3-4 天 |
-| Phase 4 | DeFi Action 编码器（先支持 Aave） | 1-2 天 |
-| 测试 | E2E 测试 + 边界情况处理 | 2-3 天 |
-| **合计** | | **10-15 天** |
+| 阶段     | 内容                                        | 预估         |
+| -------- | ------------------------------------------- | ------------ |
+| Phase 1  | ServiceCrossChainDeposit 基础框架           | 2-3 天       |
+| Phase 2  | Across API 对接 + 报价/状态追踪             | 2-3 天       |
+| Phase 3  | Earn Deposit UI 改造（余额检测 + 跨链选项） | 3-4 天       |
+| Phase 4  | DeFi Action 编码器（先支持 Aave）           | 1-2 天       |
+| 测试     | E2E 测试 + 边界情况处理                     | 2-3 天       |
+| **合计** |                                             | **10-15 天** |
 
 ---
 
 ### 风险与兜底
 
-| 风险 | 兜底策略 |
-|------|----------|
-| Relayer 无流动性 | API 返回 400，前端降级为提示手动 bridge |
+| 风险                           | 兜底策略                                           |
+| ------------------------------ | -------------------------------------------------- |
+| Relayer 无流动性               | API 返回 400，前端降级为提示手动 bridge            |
 | Bridge 成功但 DeFi action 失败 | `fallbackRecipient` 确保资金退回用户在目标链的地址 |
-| Across 服务不可用 | 降级为现有 swap/bridge 流程 |
-| 费用波动 | 展示费用明细，用户确认后再签名 |
-| 非 EVM 链不支持 | 仅对 Across 覆盖的链显示跨链选项 |
+| Across 服务不可用              | 降级为现有 swap/bridge 流程                        |
+| 费用波动                       | 展示费用明细，用户确认后再签名                     |
+| 非 EVM 链不支持                | 仅对 Across 覆盖的链显示跨链选项                   |
 
 ---
 
