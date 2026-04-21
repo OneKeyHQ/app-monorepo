@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
-  Divider,
   Icon,
   SizableText,
   Spinner,
@@ -28,6 +27,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   OnboardingHeading,
   OnboardingIconBadge,
+  OnboardingOrDivider,
   OnboardingPage,
   OnboardingSidebar,
 } from '../components/Layout';
@@ -221,13 +221,7 @@ function CreateNewWallet() {
           </Button>
           {isWebKeylessSidePanelMode ? null : (
             <>
-              <XStack gap="$4" alignItems="center" px="$5">
-                <Divider borderColor="$neutral3" flex={1} />
-                <SizableText color="$textDisabled" size="$bodyLg">
-                  {intl.formatMessage({ id: ETranslations.global_or })}
-                </SizableText>
-                <Divider borderColor="$neutral3" flex={1} />
-              </XStack>
+              <OnboardingOrDivider />
               <Button
                 size="large"
                 alignSelf="stretch"

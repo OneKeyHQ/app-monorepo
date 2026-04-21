@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/components';
 import {
   Button,
+  Divider,
   Icon,
   IconButton,
   Page,
@@ -273,6 +274,19 @@ export function OnboardingHeading({
     <SizableText size="$heading4xl" {...rest}>
       {children}
     </SizableText>
+  );
+}
+
+export function OnboardingOrDivider() {
+  const intl = useIntl();
+  return (
+    <XStack gap="$4" alignItems="center" px="$5">
+      <Divider borderColor="$neutral3" flex={1} />
+      <SizableText color="$textDisabled" size="$bodyLg">
+        {intl.formatMessage({ id: ETranslations.global_or })}
+      </SizableText>
+      <Divider borderColor="$neutral3" flex={1} />
+    </XStack>
   );
 }
 
