@@ -83,6 +83,7 @@ function normalizeConfig({ platform, config }) {
     isExtChrome,
     isExtFirefox,
     enablePerfMonitor,
+    enableNativeBackgroundThread,
   } = require('../packages/shared/src/buildTimeEnv');
 
   config.plugins = [
@@ -119,6 +120,8 @@ function normalizeConfig({ platform, config }) {
         'platformEnv.isNative': isNative,
         'platformEnv.isExtChrome': isExtChrome,
         'platformEnv.isExtFirefox': isExtFirefox,
+        'platformEnv.enableNativeBackgroundThread':
+          enableNativeBackgroundThread,
       },
     ],
     /*

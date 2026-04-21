@@ -37,6 +37,7 @@
     "app:web-embed": "yarn workspace @onekeyhq/web-embed start",
     "app:web-embed:build": "yarn workspace @onekeyhq/web-embed build",
     "app:native-bundle": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile native-bundle",
+    "app:native-bundle:bg": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile native-bundle:bg",
     "app:split-bundle": "yarn workspace @onekeyhq/mobile split-bundle",
     "app:build-bundle": "yarn workspace @onekeyhq/mobile build-bundle",
     "app:ios": "yarn workspace @onekeyhq/mobile ios",
@@ -103,6 +104,7 @@
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
     "wt": "node development/scripts/worktree.js",
     "worktree": "node development/scripts/worktree.js",
+    "onekeyhq:modules:upgrade": "node development/scripts/upgrade-modules.js",
     "check:release-age": "npx tsx development/scripts/minimum-release-age/run.ts diff",
     "check:release-age:full": "npx tsx development/scripts/minimum-release-age/run.ts full"
   },
@@ -206,7 +208,7 @@
     "react-native": "0.81.5",
     "react-native-confirmation-code-field": "^7.4.0",
     "react-native-draggable-flatlist": "4.0.3",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@1.1.46",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.19",
     "react-native-reanimated": "4.2.1",
     "react-native-screens": "4.23.0",
     "react-native-web": "0.21.2",
@@ -433,7 +435,7 @@
     "react-native-reanimated": "4.2.1",
     "react-native-worklets": "0.7.1",
     "react-native-screens": "4.23.0",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@1.1.46",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.19",
     "@isaacs/brace-expansion": "5.0.1",
     "fast-xml-parser": "4.5.4"
   }
