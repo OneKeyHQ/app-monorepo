@@ -241,17 +241,7 @@ export function TradingViewPerpsV2(
       if (!Number.isFinite(oid)) return;
 
       await actions.current.ensureTradingEnabled();
-      const symbolMeta =
-        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-          coin: payload.symbol.startsWith('@')
-            ? payload.symbol
-            : payload.symbol.toUpperCase(),
-        });
-      if (!symbolMeta) return;
-
-      await actions.current.cancelOrder({
-        orders: [{ assetId: symbolMeta.assetId, oid }],
-      });
+      await actions.current.cancelChartOrder({ oid });
     },
     [actions],
   );

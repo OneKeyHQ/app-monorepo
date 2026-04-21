@@ -1584,6 +1584,36 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  cancelChartOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        oid: number;
+      },
+    ) => {
+      const { openOrders } = get(perpsActiveOpenOrdersAtom());
+      const existing = openOrders.find((o) => o.oid === params.oid);
+      if (!existing) {
+        throw new OneKeyLocalError(`Order ${params.oid} not found`);
+      }
+
+      // order.coin is HL-native (e.g. xyz sub-DEX tickers); hand to
+      // backend as-is so getSymbolMeta hits the right entry.
+      const symbolMeta =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: existing.coin,
+        });
+      if (!symbolMeta) {
+        throw new OneKeyLocalError(`Unknown coin: ${existing.coin}`);
+      }
+
+      return this.cancelOrder.call(set, {
+        orders: [{ assetId: symbolMeta.assetId, oid: params.oid }],
+      });
+    },
+  );
+
   cancelOrder = contextAtomMethod(
     async (
       get,
@@ -1967,6 +1997,7 @@ export function useHyperliquidActions() {
   const updateIsolatedMargin = actions.updateIsolatedMargin.use();
   const ordersClose = actions.ordersClose.use();
   const amendChartOrder = actions.amendChartOrder.use();
+  const cancelChartOrder = actions.cancelChartOrder.use();
   const cancelOrder = actions.cancelOrder.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
@@ -2028,6 +2059,7 @@ export function useHyperliquidActions() {
     updateIsolatedMargin,
     ordersClose,
     amendChartOrder,
+    cancelChartOrder,
     cancelOrder,
     setPositionTpsl,
     withdraw,
