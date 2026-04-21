@@ -1,10 +1,10 @@
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+
 import {
   normalizeOptionalRecipientText,
   shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
 } from './recipientSelectionUtils';
-
 
 describe('recipientSelectionUtils', () => {
   it('normalizes optional memo/note values to avoid stale form values', () => {
