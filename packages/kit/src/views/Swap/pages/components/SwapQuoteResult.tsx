@@ -162,6 +162,9 @@ const SwapQuoteResult = ({
   );
 
   const quoting = useSwapQuoteEventFetching();
+  const hasActionableQuote = new BigNumber(quoteResult?.toAmount ?? 0).gt(0);
+  const isWaitingActionableQuote =
+    swapQuoteLoading || (quoting && !hasActionableQuote);
 
   const { limitOrderExpiryStepMap, limitOrderPartiallyFillStepMap } =
     useSwapLimitConfigMaps();
@@ -197,7 +200,7 @@ const SwapQuoteResult = ({
     );
   }
   if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
-    if (quoting || swapQuoteLoading) {
+    if (isWaitingActionableQuote) {
       return (
         <XStack alignItems="center">
           <XStack gap="$2">
@@ -283,7 +286,7 @@ const SwapQuoteResult = ({
             {({ open }: { open: boolean }) => (
               <SwapQuoteResultRate
                 rate={quoteResult?.instantRate}
-                quoting={quoting}
+                quoting={isWaitingActionableQuote}
                 fromToken={fromToken}
                 toToken={toToken}
                 isBest={quoteResult?.isBest}
