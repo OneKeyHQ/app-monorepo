@@ -432,22 +432,32 @@ export function useChartLines({
     clearPendingPnlUpdates,
   ]);
 
-  // Handle lines update (incremental)
   useEffect(() => {
     if (!isReady || !userAddress) {
       return;
     }
 
-    // If no previous lines, do full sync
     if (prevLinesRef.current.size === 0 && currentLines.length > 0) {
       sendLinesSync();
       return;
     }
 
-    // Compute and send diff
     const patch = computeLinesDiff(prevLinesRef.current, currentLines);
-    patch.symbol = symbol;
-    sendLinesPatch(patch);
+    const hasStructuralChange =
+      patch.add.length > 0 || patch.remove.length > 0;
+
+    // Structural changes (add/remove) always go through full SYNC so
+    // stale adapters cannot drift; only cosmetic updates (e.g. position
+    // PNL ticks) use PATCH to avoid rebuild flicker and hit the throttle.
+    if (hasStructuralChange) {
+      sendLinesSync();
+      return;
+    }
+
+    if (patch.update.length > 0) {
+      patch.symbol = symbol;
+      sendLinesPatch(patch);
+    }
   }, [
     currentLines,
     isReady,
