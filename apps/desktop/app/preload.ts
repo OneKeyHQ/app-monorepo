@@ -267,13 +267,14 @@ const desktopApi = {
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
   sendTrayData: (data: any) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
-  // `sendTrayAction` is only exposed in the tray window so the main
-  // renderer cannot reach TRAY_ACTION at all — belt-and-suspenders with
-  // the sender-id check in trayIpc.ts.
+  // `sendTrayAction` / `sendTrayReady` are only exposed in the tray window
+  // so the main renderer cannot reach TRAY_ACTION / TRAY_READY at all —
+  // belt-and-suspenders with the sender-id checks in trayIpc.ts.
   ...(isTrayWindow
     ? {
         sendTrayAction: (action: any) =>
           ipcRenderer.send(ipcMessageKeys.TRAY_ACTION, action),
+        sendTrayReady: () => ipcRenderer.send(ipcMessageKeys.TRAY_READY),
       }
     : {}),
   toggleTray: (enabled: boolean) =>
