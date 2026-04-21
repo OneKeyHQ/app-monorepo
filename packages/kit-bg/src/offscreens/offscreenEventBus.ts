@@ -120,8 +120,8 @@ export function onOffscreenEvent<K extends IOffscreenEventType>(
 ): () => void {
   let set = handlersByType[type];
   if (!set) {
-    set = new Set<IHandler<K>>();
-    handlersByType[type] = set as NonNullable<(typeof handlersByType)[K]>;
+    set = new Set<IHandler<K>>() as NonNullable<(typeof handlersByType)[K]>;
+    handlersByType[type] = set;
   }
   set.add(handler);
   return () => {

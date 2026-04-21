@@ -1029,6 +1029,9 @@ async function createMainWindow() {
   browserWindow.webContents.session.on(
     'select-hid-device',
     (event, details, callback) => {
+      // preventDefault is required; otherwise Electron auto-picks the first
+      // device and ignores the callback — see Electron Session docs.
+      event.preventDefault();
       // Only auto-select Ledger devices (vendorId 0x2c97)
       const ledgerDevice = details.deviceList.find(
         (d) => d.vendorId === 0x2c_97,

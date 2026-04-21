@@ -9566,7 +9566,7 @@ __metadata:
     "@reown/appkit-ethers5-react-native": "https://github.com/OneKeyHQ/app-modules#9d96daccc13625e5b3c8b236f9357956b049b884"
     "@reown/appkit-scaffold-react-native": "https://github.com/OneKeyHQ/app-modules#ef39e1c6682f8b50dc019a851f6e2211392d353a"
     "@reown/appkit-scaffold-utils-react-native": "https://github.com/OneKeyHQ/app-modules#aa31ef69e5058bb822c40f0a706ee9bdd191b005"
-    "@reown/walletkit": "npm:1.2.10"
+    "@reown/walletkit": "npm:1.2.11"
     "@revenuecat/purchases-js": "npm:0.15.1"
     "@rspack/cli": "npm:^1.7.1"
     "@rspack/core": "npm:^1.7.1"
@@ -9617,10 +9617,10 @@ __metadata:
     "@wagmi/core": "npm:2.21.0"
     "@walletconnect/sign-client": "npm:2.21.9"
     "@walletconnect/universal-provider": "npm:2.21.9"
-    agentation: "npm:^2.3.3"
+    agentation: "npm:^3.0.2"
     allotment: "npm:^1.20.5"
     array.prototype.toreversed: "npm:^1.1.2"
-    axios: "npm:^1.13.2"
+    axios: "npm:1.15.0"
     babel-loader: "npm:^9.1.3"
     babel-plugin-catch-logger: "npm:0.1.13"
     babel-plugin-import: "npm:^1.13.5"
@@ -14104,18 +14104,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@reown/walletkit@npm:1.2.10":
-  version: 1.2.10
-  resolution: "@reown/walletkit@npm:1.2.10"
+"@reown/walletkit@npm:1.2.11":
+  version: 1.2.11
+  resolution: "@reown/walletkit@npm:1.2.11"
   dependencies:
-    "@walletconnect/core": "npm:2.21.7"
+    "@walletconnect/core": "npm:2.21.9"
     "@walletconnect/jsonrpc-provider": "npm:1.0.14"
     "@walletconnect/jsonrpc-utils": "npm:1.0.8"
     "@walletconnect/logger": "npm:2.1.2"
-    "@walletconnect/sign-client": "npm:2.21.7"
-    "@walletconnect/types": "npm:2.21.7"
-    "@walletconnect/utils": "npm:2.21.7"
-  checksum: 10/0f1b74586123f639dce77f57eb25434d724654c36ea611454808e5134b5072271f64da7dc237658d6c748a219c770145c3bc7c80de45509954f1183b0e7be6f9
+    "@walletconnect/sign-client": "npm:2.21.9"
+    "@walletconnect/types": "npm:2.21.9"
+    "@walletconnect/utils": "npm:2.21.9"
+  checksum: 10/ed09bf943415ad353fe028006c2ec1961dc7b7757f83e44d7a3264d1da4b32b68886403487859dece576fa61f81e5b79ea2f9e27682058a2ad05770c13c2f194
   languageName: node
   linkType: hard
 
@@ -20349,23 +20349,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@walletconnect/sign-client@npm:2.21.7":
-  version: 2.21.7
-  resolution: "@walletconnect/sign-client@npm:2.21.7"
-  dependencies:
-    "@walletconnect/core": "npm:2.21.7"
-    "@walletconnect/events": "npm:1.0.1"
-    "@walletconnect/heartbeat": "npm:1.2.2"
-    "@walletconnect/jsonrpc-utils": "npm:1.0.8"
-    "@walletconnect/logger": "npm:2.1.2"
-    "@walletconnect/time": "npm:1.0.2"
-    "@walletconnect/types": "npm:2.21.7"
-    "@walletconnect/utils": "npm:2.21.7"
-    events: "npm:3.3.0"
-  checksum: 10/f6310d9cfe8cf8b19dac629402decf29be92475d66784e080bcc0ebf11c4dff4eb026f6e86da066e7efbcae9a5eeda6449ec10ace18adfbbc3823ecd996fe22c
-  languageName: node
-  linkType: hard
-
 "@walletconnect/sign-client@npm:2.21.9":
   version: 2.21.9
   resolution: "@walletconnect/sign-client@npm:2.21.9"
@@ -21025,9 +21008,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"agentation@npm:^2.3.3":
-  version: 2.3.3
-  resolution: "agentation@npm:2.3.3"
+"agentation@npm:^3.0.2":
+  version: 3.0.2
+  resolution: "agentation@npm:3.0.2"
   peerDependencies:
     react: ">=18.0.0"
     react-dom: ">=18.0.0"
@@ -21036,7 +21019,7 @@ __metadata:
       optional: true
     react-dom:
       optional: true
-  checksum: 10/c7c0af104ea3b2b4c34eaef0253aae3324ceb971f9ee30f35f31045ddd73660c3021349fc0be7abef05a4bbd5bcf1460d8c9532e6b98217d29be0de0e34d22ec
+  checksum: 10/91f3ed9dadce95ca389ffb74656d0e3cd04a9683b075b2152a4e43dfff5f90b0a1d27d1425298ec92eda270a792e2fd6f3c3b72c8b12d596a5fa6c46e1750a8e
   languageName: node
   linkType: hard
 
@@ -22027,7 +22010,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:^1.13.2":
+"axios@npm:1.15.0":
   version: 1.15.0
   resolution: "axios@npm:1.15.0"
   dependencies:
@@ -27255,16 +27238,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@npm:39.5.1":
-  version: 39.5.1
-  resolution: "electron@npm:39.5.1"
+"electron@npm:39.8.4":
+  version: 39.8.4
+  resolution: "electron@npm:39.8.4"
   dependencies:
     "@electron/get": "npm:^2.0.0"
     "@types/node": "npm:^22.7.7"
     extract-zip: "npm:^2.0.1"
   bin:
     electron: cli.js
-  checksum: 10/bdc7addd81321f06d03f0ad636d4c6ffd3a90d2a5243851b0be500432d6b8ed195b83ed353763d22d31c2d812070b16f4039972654e3cbbf1e25ec0c969fb5ed
+  checksum: 10/3b6ffc7decd2a5f5e0677db09367df2be1c1319e34b46cfa447aa11100d7b278005ff57abd39cf589797e76176ce9f0e69f1e156c1c7041f158fba20cc3b373a
   languageName: node
   linkType: hard
 
