@@ -16,14 +16,12 @@ import {
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type {
-  EAppEventBusNames,
-  IAppEventBusPayload,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EEventBusBroadcastMethodNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
@@ -32,6 +30,7 @@ import {
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
 import { updateInterceptorRequestHelper } from '../init/updateInterceptorRequestHelper';
+import { updateInterceptorRequestHelperWithIpTable } from '../init/updateInterceptorRequestHelperWithIpTable';
 import { createBackgroundProviders } from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
@@ -63,9 +62,116 @@ import type {
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 updateInterceptorRequestHelper();
+updateInterceptorRequestHelperWithIpTable();
+
+function summarizeSetAtomValuePayload(value: unknown) {
+  if (value === undefined) {
+    return 'undefined';
+  }
+  if (value === null) {
+    return 'null';
+  }
+  if (Array.isArray(value)) {
+    return `array(len=${value.length})`;
+  }
+  const valueType = typeof value;
+  if (valueType === 'string') {
+    return `string(len=${(value as string).length})`;
+  }
+  if (
+    valueType === 'number' ||
+    valueType === 'boolean' ||
+    valueType === 'bigint'
+  ) {
+    return `${valueType}(${String(value)})`;
+  }
+  if (valueType === 'object') {
+    const objectValue = value as Record<string, unknown>;
+    const keys = Object.keys(objectValue);
+    const previewKeys = keys.slice(0, 12);
+    const undefinedKeys = previewKeys.filter(
+      (key) => objectValue[key] === undefined,
+    );
+    return [
+      `object(keys=${keys.length})`,
+      `previewKeys=${previewKeys.join('|') || 'none'}`,
+      `undefinedPreviewKeys=${undefinedKeys.join('|') || 'none'}`,
+    ].join(', ');
+  }
+  return valueType;
+}
 
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
+  private static readonly PENDING_BRIDGE_MESSAGE_TTL_MS = 10_000;
+
+  private static readonly MAX_PENDING_BRIDGE_MESSAGE_COUNT = 100;
+
+  private pendingInjectedBridgeMessages: Array<{
+    scope: IInjectedProviderNamesStrings;
+    data: unknown;
+    targetOrigin: string;
+    createdAt: number;
+  }> = [];
+
+  private isFlushingPendingInjectedBridgeMessages = false;
+
+  private getNativeBackgroundThreadBridgeRelay() {
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __onekeyNativeBackgroundThreadBridgeRelay?: {
+        emitAppEventToUi: (payload: {
+          eventName: string;
+          payload: unknown;
+        }) => boolean;
+        sendBridgeMessageToUi: (payload: {
+          channel: 'dapp' | 'webEmbed';
+          scope: IInjectedProviderNamesStrings;
+          data: unknown;
+          targetOrigin?: string;
+        }) => boolean;
+        getBridgeState: (channel: 'dapp' | 'webEmbed') =>
+          | {
+              channel: 'dapp' | 'webEmbed';
+              connected: boolean;
+              origin?: string;
+              globalOnMessageEnabled: boolean;
+            }
+          | undefined;
+      };
+      __onekeyNativeBackgroundThreadFlushPendingBridgeMessages?: () => void;
+    };
+
+    return runtimeGlobal.__onekeyNativeBackgroundThreadBridgeRelay;
+  }
+
+  private getNativeBackgroundThreadActiveBridgeState(targetOrigin?: string) {
+    const bridgeRelay = this.getNativeBackgroundThreadBridgeRelay();
+    if (!bridgeRelay) {
+      return undefined;
+    }
+
+    const bridgeStates = ['dapp', 'webEmbed']
+      .map((channel) =>
+        bridgeRelay.getBridgeState(channel as 'dapp' | 'webEmbed'),
+      )
+      .filter((state) => state?.connected);
+
+    if (!bridgeStates.length) {
+      return undefined;
+    }
+
+    if (targetOrigin) {
+      const matchedBridgeState = bridgeStates.find(
+        (state) => state?.origin === targetOrigin,
+      );
+      if (matchedBridgeState) {
+        return matchedBridgeState;
+      }
+    }
+
+    return bridgeStates[0];
+  }
+
   constructor() {
     this.cycleDepsCheck();
     jotaiBgSync.setBackgroundApi(this as any);
@@ -73,10 +179,32 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     if (process.env.NODE_ENV !== 'production') {
       appGlobals.$$backgroundApi = this as any;
     }
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      (
+        globalThis as typeof globalThis & {
+          __onekeyNativeBackgroundThreadFlushPendingBridgeMessages?: () => void;
+        }
+      ).__onekeyNativeBackgroundThreadFlushPendingBridgeMessages = () => {
+        void this.flushPendingInjectedBridgeMessages();
+      };
+    }
     // this.startDemoNowTimeUpdateInterval();
     appEventBus.registerBroadcastMethods(
       EEventBusBroadcastMethodNames.bgToUi,
       async (type, payload) => {
+        if (
+          platformEnv.isNativeBackgroundThread &&
+          platformEnv.enableNativeBackgroundThread
+        ) {
+          this.getNativeBackgroundThreadBridgeRelay()?.emitAppEventToUi({
+            eventName: type,
+            payload,
+          });
+          return;
+        }
         const params: IGlobalEventBusSyncBroadcastParams = {
           $$isFromBgEventBusSyncBroadcast: true,
           type,
@@ -109,6 +237,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   @bindThis()
   @backgroundMethod()
   async setAtomValue(atomName: EAtomNames, value: any) {
+    const startedAt = Date.now();
     const atoms = await this.allAtoms;
     const atom = atoms[atomName];
     if (!atom) {
@@ -116,11 +245,29 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         `setAtomValue ERROR: atomName not found: ${atomName}`,
       );
     }
-    await atom.set(value);
+    try {
+      await atom.set(value);
+      const durationMs = Date.now() - startedAt;
+      if (durationMs >= 1000) {
+        defaultLogger.app.appUpdate.log(
+          `[BgSetAtomValue] slow atom=${atomName}, durationMs=${durationMs}, payload=${summarizeSetAtomValuePayload(
+            value,
+          )}`,
+        );
+      }
+    } catch (error) {
+      const durationMs = Date.now() - startedAt;
+      defaultLogger.app.appUpdate.log(
+        `[BgSetAtomValue] failed atom=${atomName}, durationMs=${durationMs}, payload=${summarizeSetAtomValuePayload(
+          value,
+        )}, error=${(error as Error)?.message || 'unknown'}`,
+      );
+      throw error;
+    }
   }
 
   @backgroundMethod()
-  async emitEvent<T extends EAppEventBusNames>(
+  async emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
   ): Promise<boolean> {
@@ -146,15 +293,24 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   // @ts-ignore
   _persistorUnsubscribe: () => void;
 
-  connectBridge(bridge: JsBridgeBase) {
+  connectBridge(bridge: JsBridgeBase | null) {
     if (platformEnv.isExtension) {
-      this.bridgeExtBg = bridge as unknown as JsBridgeExtBackground;
+      this.bridgeExtBg = bridge as unknown as JsBridgeExtBackground | null;
     }
     this.bridge = bridge;
+    if (bridge) {
+      void this.flushPendingInjectedBridgeMessages();
+    }
   }
 
-  connectWebEmbedBridge(bridge: JsBridgeBase) {
+  connectWebEmbedBridge(bridge: JsBridgeBase | null) {
+    defaultLogger.app.webembed.webEmbedBgConnectWebEmbedBridge({
+      hasBridge: !!bridge,
+    });
     this.webEmbedBridge = bridge;
+    if (bridge) {
+      void this.flushPendingInjectedBridgeMessages();
+    }
   }
 
   protected rpcResult(
@@ -301,60 +457,154 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     data: unknown,
     targetOrigin: string,
   ) => {
-    if (!this.bridge && !this.webEmbedBridge) {
-      if (!platformEnv.isWeb) {
-        console.warn(
-          `sendMessagesToInjectedBridge ERROR: bridge should be connected first. scope=${scope}`,
-        );
-      }
-      return;
-    }
-    if (platformEnv.isExtension) {
-      // send to all dapp sites content-script
+    const delivered = await this.trySendMessagesToInjectedBridge({
+      scope,
+      data,
+      targetOrigin,
+    });
 
-      // * bridgeExtBg.requestToAllCS supports function data: await data({ origin })
+    if (!delivered) {
+      this.enqueuePendingInjectedBridgeMessage({
+        scope,
+        data,
+        targetOrigin,
+      });
+    }
+  };
+
+  private prunePendingInjectedBridgeMessages() {
+    const now = Date.now();
+    this.pendingInjectedBridgeMessages =
+      this.pendingInjectedBridgeMessages.filter(
+        (message) =>
+          now - message.createdAt <=
+          BackgroundApiBase.PENDING_BRIDGE_MESSAGE_TTL_MS,
+      );
+  }
+
+  private enqueuePendingInjectedBridgeMessage(params: {
+    scope: IInjectedProviderNamesStrings;
+    data: unknown;
+    targetOrigin: string;
+  }) {
+    this.prunePendingInjectedBridgeMessages();
+    this.pendingInjectedBridgeMessages.push({
+      ...params,
+      createdAt: Date.now(),
+    });
+
+    if (
+      this.pendingInjectedBridgeMessages.length >
+      BackgroundApiBase.MAX_PENDING_BRIDGE_MESSAGE_COUNT
+    ) {
+      this.pendingInjectedBridgeMessages.shift();
+    }
+  }
+
+  private async resolveBridgeMessageData(params: {
+    data: unknown;
+    origin: string;
+  }) {
+    let { data } = params;
+    if (isFunction(data)) {
+      data = await data({ origin: params.origin });
+    }
+    ensureSerializable(data);
+    return data;
+  }
+
+  private async trySendMessagesToInjectedBridge(params: {
+    scope: IInjectedProviderNamesStrings;
+    data: unknown;
+    targetOrigin: string;
+  }) {
+    const { scope, targetOrigin } = params;
+    let { data } = params;
+
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      const bridgeRelay = this.getNativeBackgroundThreadBridgeRelay();
+      const bridgeState =
+        this.getNativeBackgroundThreadActiveBridgeState(targetOrigin);
+      if (!bridgeRelay || !bridgeState || !bridgeState.globalOnMessageEnabled) {
+        return false;
+      }
+
+      data = await this.resolveBridgeMessageData({
+        data,
+        origin: bridgeState.origin || targetOrigin,
+      });
+      const delivered = bridgeRelay.sendBridgeMessageToUi({
+        channel: bridgeState.channel,
+        scope,
+        data,
+        targetOrigin,
+      });
+      return delivered;
+    }
+
+    if (platformEnv.isExtension) {
       const currentSettings = await settingsPersistAtom.get();
+      let requestTargetOrigin = targetOrigin;
       if (
         currentSettings.alignPrimaryAccountMode ===
         EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
       ) {
-        // eslint-disable-next-line no-param-reassign
-        targetOrigin = consts.ONEKEY_REQUEST_TO_ALL_CS;
+        requestTargetOrigin = consts.ONEKEY_REQUEST_TO_ALL_CS;
       }
-      this.bridgeExtBg?.requestToAllCS(scope, data, targetOrigin);
-    } else {
-      if (this.bridge && this.bridge.remoteInfo.origin) {
-        if (isFunction(data)) {
-          // eslint-disable-next-line no-param-reassign
-          data = await data({ origin: this.bridge.remoteInfo.origin });
-        }
-        ensureSerializable(data);
+      this.bridgeExtBg?.requestToAllCS(scope, data, requestTargetOrigin);
+      return true;
+    }
 
-        if (scope === 'ethereum') {
-          // console.log('sendMessagesToInjectedBridge>>>>>>', scope, data, {
-          //   targetOrigin,
-          //   globalOnMessageEnabled: this.bridge.globalOnMessageEnabled,
-          // });
-        }
+    let delivered = false;
+    const bridges = [this.bridge, this.webEmbedBridge].filter(
+      (bridge): bridge is JsBridgeBase => Boolean(bridge),
+    );
 
-        // this.bridge.requestSync({ scope, data });
-        if (this.bridge.globalOnMessageEnabled) {
-          this.bridge.requestSync({ scope, data });
-        }
-      }
-      if (this.webEmbedBridge && this.webEmbedBridge.remoteInfo.origin) {
-        if (isFunction(data)) {
-          // eslint-disable-next-line no-param-reassign
-          data = await data({ origin: this.webEmbedBridge.remoteInfo.origin });
-        }
-        ensureSerializable(data);
-
-        // this.bridge.requestSync({ scope, data });
-        if (this.webEmbedBridge.globalOnMessageEnabled) {
-          this.webEmbedBridge.requestSync({ scope, data });
-        }
+    for (const bridge of bridges) {
+      const bridgeOrigin = bridge.remoteInfo?.origin;
+      const shouldSend =
+        Boolean(bridgeOrigin) &&
+        (!targetOrigin || targetOrigin === bridgeOrigin) &&
+        bridge.globalOnMessageEnabled;
+      if (shouldSend && bridgeOrigin) {
+        const payload = await this.resolveBridgeMessageData({
+          data,
+          origin: bridgeOrigin,
+        });
+        bridge.requestSync({ scope, data: payload });
+        delivered = true;
       }
     }
-  };
+
+    return delivered;
+  }
+
+  private async flushPendingInjectedBridgeMessages() {
+    if (this.isFlushingPendingInjectedBridgeMessages) {
+      return;
+    }
+
+    this.isFlushingPendingInjectedBridgeMessages = true;
+    try {
+      this.prunePendingInjectedBridgeMessages();
+      const pendingMessages = this.pendingInjectedBridgeMessages.splice(0);
+      const undeliveredMessages: typeof pendingMessages = [];
+
+      for (const message of pendingMessages) {
+        const delivered = await this.trySendMessagesToInjectedBridge(message);
+        if (!delivered) {
+          undeliveredMessages.push(message);
+        }
+      }
+
+      this.pendingInjectedBridgeMessages.unshift(...undeliveredMessages);
+      this.prunePendingInjectedBridgeMessages();
+    } finally {
+      this.isFlushingPendingInjectedBridgeMessages = false;
+    }
+  }
 }
 export default BackgroundApiBase;

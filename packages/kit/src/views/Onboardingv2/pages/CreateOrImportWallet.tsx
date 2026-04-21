@@ -23,7 +23,6 @@ import {
   ANIMATE_ONLY_OPACITY_TRANSFORM,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -179,7 +178,7 @@ function CreateOrImportWallet() {
 
   const handleCreateNewWallet = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    const mnemonic = generateMnemonic();
+    const mnemonic = await backgroundApiProxy.serviceAccount.generateMnemonic();
     const encodedMnemonic =
       await backgroundApiProxy.servicePassword.encodeSensitiveText({
         text: mnemonic,

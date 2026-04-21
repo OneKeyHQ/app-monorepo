@@ -28,6 +28,7 @@ import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -818,6 +819,24 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   enabledNetworks?: IServerNetwork[];
 }) {
   const initResult = useMemo(() => getEmptyEnabledNetworksResult(), []);
+  const enabledNetworkIdsKey = useMemo(() => {
+    if (!enabledNetworksParam) {
+      return '';
+    }
+    return Array.from(
+      new Set(enabledNetworksParam.map((network) => network.id)),
+    )
+      .toSorted((a, b) => {
+        if (a < b) {
+          return -1;
+        }
+        if (a > b) {
+          return 1;
+        }
+        return 0;
+      })
+      .join(',');
+  }, [enabledNetworksParam]);
 
   const { result, run } = usePromiseResult(
     async () => {
@@ -979,6 +998,16 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     {
       initResult,
       revalidateOnFocus: true,
+      swrKey: walletId
+        ? swrKeys.allNetworksCompatible({
+            walletId,
+            networkId,
+            filterNetworksWithoutAccount,
+            indexedAccountId,
+            withNetworksInfo,
+            enabledNetworkIdsKey,
+          })
+        : undefined,
     },
   );
 
