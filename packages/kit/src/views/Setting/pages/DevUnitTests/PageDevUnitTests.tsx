@@ -12,13 +12,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   hash160,
   hmacSHA256,
   hmacSHA512,
   sha256,
-} from '@onekeyhq/core/src/secret/hash';
-import appCrypto from '@onekeyhq/shared/src/appCrypto';
+} from '@onekeyhq/shared/src/appCrypto/modules/hash';
 
 const { aesCbcDecrypt: aesCbcDecryptAsync, aesCbcEncrypt: aesCbcEncryptAsync } =
   appCrypto.aesCbc;

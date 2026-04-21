@@ -1,4 +1,5 @@
-import { utils } from 'ethers';
+// verifyMessage is imported dynamically to avoid pulling @ethersproject/wallet
+// (and its heavy transitive deps) into the common startup bundle.
 import stringify from 'fast-json-stable-stringify';
 
 import platformEnv from '../platformEnv';
@@ -10,9 +11,9 @@ export function isSupportIpTablePlatform() {
   return platformEnv.isNative || platformEnv.isDesktop;
 }
 
-export function verifyIpTableConfigSignature(
+export async function verifyIpTableConfigSignature(
   config: IIpTableRemoteConfig,
-): boolean {
+): Promise<boolean> {
   try {
     const { signature, ...dataToVerify } = config;
 
@@ -25,7 +26,8 @@ export function verifyIpTableConfigSignature(
 
     const canonicalString = stringify(dataToVerify);
 
-    const recoveredAddress = utils.verifyMessage(canonicalString, signature);
+    const { verifyMessage } = await import('@ethersproject/wallet');
+    const recoveredAddress = verifyMessage(canonicalString, signature);
 
     const isValid =
       recoveredAddress.toLowerCase() === CDN_SIGNER_ADDRESS.toLowerCase();

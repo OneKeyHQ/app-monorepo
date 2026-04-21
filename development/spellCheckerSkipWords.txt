@@ -1,5 +1,9 @@
 # Custom words for cspell spell checker
 # Migrated from spellCheckerSkipWords.js
+rescan
+fixpoint
+mmap
+segs
 unixTime
 nodata
 tradingview
@@ -1437,6 +1441,7 @@ Blockaid
 posthog
 Posthog
 autocapture
+hermesc
 ellipsize
 misalign
 minimizable

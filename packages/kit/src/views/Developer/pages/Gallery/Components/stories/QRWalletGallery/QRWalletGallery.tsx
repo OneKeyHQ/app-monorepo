@@ -2,8 +2,7 @@ import { networks as BitcoinJsNetworks, Psbt } from 'bitcoinjs-lib';
 import { range } from 'lodash';
 
 import { Button, Stack } from '@onekeyhq/components';
-import { decodedPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
-import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+// decodedPsbt and coreChainApi loaded dynamically to avoid kit->core value import
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -124,7 +123,13 @@ function CustomAppRequestDeviceQR() {
               const psbt = Psbt.fromHex(psbtHex);
               console.log('psbt before finalize', psbt);
               await timerUtils.wait(1000);
+              // eslint-disable-next-line @typescript-eslint/no-shadow
+              const { decodedPsbt } =
+                await import('@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils');
               const tx = decodedPsbt({ psbt, psbtNetwork: network });
+              const coreChainApi = (
+                await import('@onekeyhq/core/src/instance/coreChainApi')
+              ).default;
               const signedTx = await coreChainApi.btc.hd.extractPsbtToSignedTx({
                 psbt,
               });

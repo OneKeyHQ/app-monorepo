@@ -11,6 +11,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import {
+  ENCODE_TEXT_PREFIX,
+  ensureSensitiveTextEncoded,
+  isEncodedSensitiveText,
+} from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 
 import { xorDecrypt, xorEncrypt } from './xor';
 
@@ -51,10 +56,6 @@ export const encodeKeyPrefix =
 let encodeKey = platformEnv.isWebEmbed
   ? ''
   : `${encodeKeyPrefix}${generateUUID()}`;
-const ENCODE_TEXT_PREFIX = {
-  aes: 'SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::',
-  xor: 'SENSITIVE_ENCODE::AAAAAAAA-2E51-4DC6-A913-79EB1C62D09E::',
-};
 // xor more fast but not safe
 const SENSITIVE_ENCODE_TYPE: 'xor' | 'aes' = 'aes';
 
@@ -64,13 +65,6 @@ function ensureEncodeKeyExists(key: string) {
       'encodeKey is not set, please call setBgSensitiveTextEncodeKey() from webembed',
     );
   }
-}
-
-function isEncodedSensitiveText(text: string) {
-  return (
-    text.startsWith(ENCODE_TEXT_PREFIX.aes) ||
-    text.startsWith(ENCODE_TEXT_PREFIX.xor)
-  );
 }
 
 async function decodePasswordAsync({
@@ -551,12 +545,6 @@ function checkKeyPassedOnExtUi(key?: string) {
     throw new OneKeyLocalError(
       'Please get and pass key by:  await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey()',
     );
-  }
-}
-
-function ensureSensitiveTextEncoded(text: string) {
-  if (!isEncodedSensitiveText(text)) {
-    throw new OneKeyLocalError('Not encoded sensitive text');
   }
 }
 

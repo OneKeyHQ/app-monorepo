@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BUNDLE_VERSION</key>
+	<string>1</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -44,8 +46,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>BUNDLE_VERSION</key>
-	<string>1</string>
+	<key>ENABLE_NATIVE_BACKGROUND_THREAD</key>
+	<string>$(ENABLE_NATIVE_BACKGROUND_THREAD)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
@@ -92,16 +94,25 @@
 	<string>Use bluetooth peripheral to connect OneKey hardware devices.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Use Camera to scan QR Code.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Use Microphone to record videos.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use biometrics to authenticate and unlock your wallet.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Use Microphone to record videos.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Use photo library to save images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Roobert-Regular.ttf</string>
+		<string>Roobert-Medium.ttf</string>
+		<string>Roobert-SemiBold.ttf</string>
+		<string>Roobert-Bold.ttf</string>
+		<string>GeistMono-Regular.ttf</string>
+		<string>GeistMono-Medium.ttf</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
@@ -129,15 +140,6 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-	</array>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Roobert-Regular.ttf</string>
-		<string>Roobert-Medium.ttf</string>
-		<string>Roobert-SemiBold.ttf</string>
-		<string>Roobert-Bold.ttf</string>
-		<string>GeistMono-Regular.ttf</string>
-		<string>GeistMono-Medium.ttf</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
