@@ -474,7 +474,7 @@ function DeFiContainer() {
         <XStack gap="$6">
           <YStack flex={1} gap="$8" pt="$3" pb="$8">
             {shouldShowOverview ? (
-              <YStack gap="$4" px="$pagePadding">
+              <YStack gap="$4" px="$pagePadding" userSelect="none">
                 <DeFiHeroTotal
                   total={heroTotal}
                   isLoading={isOverviewLoading}
@@ -531,7 +531,7 @@ function DeFiContainer() {
         </XStack>
         {portalTarget && isTabFocused && hasStickyOverlay ? (
           <DeFiStickyPortal target={portalTarget}>
-            <XStack gap="$6" px="$pagePadding" pt="$0">
+            <XStack gap="$6" px="$pagePadding" pt="$0" userSelect="none">
               <YStack
                 flex={1}
                 pointerEvents={pinnedProtocol ? 'auto' : 'none'}
