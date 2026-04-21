@@ -109,4 +109,5 @@ export const ipcMessageKeys = {
   TRAY_UPDATE: 'tray/update',
   TRAY_ACTION: 'tray/action',
   TRAY_TOGGLE: 'tray/toggle',
+  TRAY_READY: 'tray/ready',
 };
