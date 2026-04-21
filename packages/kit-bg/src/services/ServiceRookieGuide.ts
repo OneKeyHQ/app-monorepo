@@ -155,6 +155,9 @@ class ServiceRookieGuide extends ServiceBase {
       const indexedAccountId = homeSelected?.indexedAccountId;
       const accountId = indexedAccountId || homeSelected?.othersWalletAccountId;
       if (!accountId) {
+        defaultLogger.rookieGuide.guide.hyperliquidReferralResolved({
+          skipped: 'no_account',
+        });
         return undefined;
       }
 
@@ -172,13 +175,28 @@ class ServiceRookieGuide extends ServiceBase {
           },
         );
 
-      return {
+      const result = {
         eligible: res.shouldShow,
         reason: res.reason ?? (res.shouldShow ? 'eligible' : 'unknown'),
         address: res.resolvedAddress || undefined,
       };
-    } catch {
+
+      defaultLogger.rookieGuide.guide.hyperliquidReferralResolved({
+        accountId,
+        indexedAccountId,
+        deriveType,
+        eligible: result.eligible,
+        reason: result.reason,
+        address: result.address,
+      });
+
+      return result;
+    } catch (error) {
       // Silent fail — errors here must not break the rest of the guide response
+      defaultLogger.rookieGuide.guide.hyperliquidReferralResolved({
+        skipped: 'catch_error',
+        catchError: (error as Error)?.message ?? String(error),
+      });
       return undefined;
     }
   }
