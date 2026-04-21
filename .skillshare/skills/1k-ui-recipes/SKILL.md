@@ -1,6 +1,6 @@
 ---
 name: 1k-ui-recipes
-description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), horizontal scroll in collapsible tab headers (CollapsibleTabContext), Android bottom tab touch interception workaround, keyboard avoidance for input fields, iOS overlay navigation freeze prevention (resetAboveMainRoute), web keyboardDismissMode cross-tab input blur prevention, and iOS modal Fabric frame animation fix (performWithoutAnimation for recycled views).
+description: Reference-only catalog of UI workaround recipes. Do NOT auto-load — invoke ONLY when the user explicitly asks for "1k-ui-recipes" or a specific recipe by name (iOS tab bar scroll offset, startViewTransition, collapsible tab horizontal scroll, Android bottom tab touch intercept, keyboard avoidance, iOS overlay navigation freeze, web keyboardDismissMode, iOS modal Fabric frame animation, Android background thread timers/microtasks).
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -20,6 +20,7 @@ Bite-sized solutions for common UI issues.
 | iOS Overlay Navigation Freeze | [ios-overlay-navigation-freeze.md](references/rules/ios-overlay-navigation-freeze.md) | Use `resetAboveMainRoute()` instead of sequential `goBack()` to close overlays before navigating |
 | Web keyboardDismissMode Cross-Tab Blur | — | Never use `on-drag` on web; it globally blurs inputs via `TextInputState` |
 | iOS Modal Fabric Frame Animation | [ios-modal-fabric-frame-animation.md](references/rules/ios-modal-fabric-frame-animation.md) | Fabric recycled views retain stale frames; wrap `updateLayoutMetrics` in `performWithoutAnimation` during modal transition |
+| Android Background Thread Timers + Microtasks | [android-background-thread-timers-microtasks.md](references/rules/android-background-thread-timers-microtasks.md) | Bg Hermes runtime has no `setTimeout` and never drains the microtask queue — install JSI timers + call `rt->drainMicrotasks()` (fixed in `@onekeyfe/react-native-background-thread` 3.0.18) |
 
 ## Critical Rules Summary
 
@@ -187,6 +188,41 @@ if (RNSModalTransitionInProgress) {
 
 > **Key files**: `patches/react-native-screens+4.23.0.patch`, `patches/react-native+0.81.5.patch`
 > **Reference**: [ios-modal-fabric-frame-animation.md](references/rules/ios-modal-fabric-frame-animation.md)
+
+### 9. Android Background Thread Missing `setTimeout` / Microtask Queue
+
+On Android, the background JS runtime spun up by `@onekeyfe/react-native-background-thread` is a standalone Hermes runtime. RN's built-in timer module only wires into the **main** runtime, and the custom RPC executor that dispatches work into the bg runtime never drains the Hermes microtask queue. Two symptoms fall out of this:
+
+- `setTimeout` / `setInterval` / `requestAnimationFrame` / `requestIdleCallback` are `undefined` → `await timerUtils.wait(ms)` hangs forever.
+- `Promise.then()` / `async`/`await` continuations (even `await Promise.resolve()`) never run → any async RPC handler stalls at the first `await`, which surfaces as bridge-call timeouts.
+
+**Fix**: Shipped in `@onekeyfe/react-native-background-thread` **3.0.18** at `android/src/main/cpp/cpp-adapter.cpp`. Bump `apps/mobile/package.json` — no patch-package needed.
+
+Two changes on the bg runtime only:
+
+1. **Drain microtasks after every cross-runtime work execution** — inside `nativeExecuteWork`, call `rt->drainMicrotasks()` after `work(*rt)`. This is the one line that makes `Promise.then` / `async`/`await` work.
+2. **Install JSI-level timers** — `installTimersOnRuntime()` registers `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, `requestAnimationFrame`, `cancelAnimationFrame`, `requestIdleCallback`, `cancelIdleCallback` as host functions backed by a single C++ worker thread that dispatches callbacks back onto the bg JS queue via the same `RPCRuntimeExecutor` used by `SharedRPC`.
+
+```cpp
+// Both fixes are required — they address orthogonal bugs on the same code path.
+try { work(*rt); } catch (...) { /* ... */ }
+rt->drainMicrotasks(); // ← fixes Promise/async hangs
+
+// In nativeInstallSharedBridge, background branch only:
+if (!capturedIsMain) { gBgTimerExecutor = executor; }
+SharedRPC::install(*rt, std::move(executor), runtimeId);
+if (!capturedIsMain) {
+    installTimersOnRuntime(*rt); // ← fixes setTimeout/setInterval/rAF/rIC
+}
+```
+
+**Rules**:
+- **Do NOT** add a JS-land polyfill for `setTimeout` in `polyfillsPlatform.js` — the bug is below the JS layer, and a JS polyfill would hide (not fix) the missing microtask drain.
+- Any future code that spawns a third JSI runtime from C++ **must** also call `drainMicrotasks()` after each work execution, or the Promise-hang symptom will reappear.
+- iOS is unaffected — `BackgroundRunnerReactNativeDelegate` reuses RN's built-in timer module and default microtask handling.
+
+> **Key files**: `native-modules/react-native-background-thread/android/src/main/cpp/cpp-adapter.cpp` (upstream in `~/project/app-modules`), `apps/mobile/package.json` (dependency bump to `3.0.18`)
+> **Reference**: [android-background-thread-timers-microtasks.md](references/rules/android-background-thread-timers-microtasks.md)
 
 ---
 

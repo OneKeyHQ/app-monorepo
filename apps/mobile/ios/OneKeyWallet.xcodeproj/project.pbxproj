@@ -278,6 +278,7 @@
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				EA7958392B70B02A00E0382F /* Bundle React Native code and images */,
+				F14A4B1031B7C10000000001 /* Bundle Background React Native code */,
 				C274DAC62AE2644400755275 /* Embed Foundation Extensions */,
 				2FA0D2DF4C8B4E3B9FCE32CA /* Upload Debug Symbols to Sentry */,
 				076068C12E7EF3BA00E007B2 /* Embed Frameworks */,
@@ -498,7 +499,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios relative | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n/bin/sh `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode.sh'\"` `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
+			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios relative | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# --- Union build: run build-bundle.js instead of standard Metro ---\n# When UNION_BUILD=true, skip the default single-entry Metro bundling\n# and run the union build which produces common + main + background\n# bundles in a single process with shared module IDs.\nif [[ \"$UNION_BUILD\" = \"true\" && \"$SKIP_BUNDLING\" != \"1\" ]]; then\n  echo \"[UnionBuild] Running union build (UNION_BUILD=true)...\"\n  DEST=\"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  cd \"$PROJECT_ROOT\"\n  SENTRY_DISABLE_AUTO_UPLOAD=true NODE_ENV=production \"$NODE_BINARY\" --max-old-space-size=8192 build-bundle.js --platform ios\n  UNION_OUT=\"$PROJECT_ROOT/out-dir-bundle/ios/dist\"\n  # Copy union output to Xcode bundle destination\n  if [[ -f \"$UNION_OUT/common.jsbundle.hbc\" ]]; then\n    cp \"$UNION_OUT/common.jsbundle.hbc\" \"$DEST/common.jsbundle\"\n    echo \"[UnionBuild] Copied common.jsbundle\"\n  fi\n  cp \"$UNION_OUT/main.jsbundle.hbc\" \"$DEST/main.jsbundle\"\n  echo \"[UnionBuild] Copied main.jsbundle\"\n  cp \"$UNION_OUT/background.bundle\" \"$DEST/background.bundle\"\n  echo \"[UnionBuild] Copied background.bundle\"\n  if [[ -d \"$UNION_OUT/segments\" ]]; then\n    cp -R \"$UNION_OUT/segments\" \"$DEST/segments\"\n    echo \"[UnionBuild] Copied segments/\"\n  fi\n  if [[ -d \"$UNION_OUT/segments-background\" ]]; then\n    cp -R \"$UNION_OUT/segments-background\" \"$DEST/segments-background\"\n    echo \"[UnionBuild] Copied segments-background/\"\n  fi\n  if [[ -f \"$UNION_OUT/module-id-map.json\" ]]; then\n    cp \"$UNION_OUT/module-id-map.json\" \"$DEST/module-id-map.json\"\n    echo \"[UnionBuild] Copied module-id-map.json\"\n  fi\n  echo \"[UnionBuild] Union build complete.\"\n  exit 0\nfi\n\n/bin/sh `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode.sh'\"` `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
 		};
 		EFE2221F1F14C7E02A5D3839 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -524,7 +525,6 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/PromisesObjC/FBLPromises_Privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/PurchasesHybridCommon/PurchasesHybridCommon.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNImageCropPicker/RNImageCropPickerPrivacyInfo.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNImageCropPicker/QBImagePicker.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNPermissions/RNPermissionsPrivacyInfo.bundle",
@@ -562,7 +562,6 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FBLPromises_Privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PurchasesHybridCommon.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNImageCropPickerPrivacyInfo.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/QBImagePicker.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNPermissionsPrivacyInfo.bundle",
@@ -584,6 +583,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		F14A4B1031B7C10000000001 /* Bundle Background React Native code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../background.ts",
+				"$(SRCROOT)/../scripts/build-release-background-bundle.js",
+			);
+			name = "Bundle Background React Native code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(CONFIGURATION_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/background.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  echo \"Skipping background bundle in Debug configuration\"\n  exit 0\nfi\n\n# Union build already produced background.bundle — skip separate Metro run.\nif [[ \"$UNION_BUILD\" = \"true\" ]]; then\n  echo \"Skipping separate background bundle (UNION_BUILD=true)\"\n  exit 0\nfi\n\nif [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\nif [[ -z \"$NODE_BINARY\" ]]; then\n  export NODE_BINARY=\"node\"\nfi\n\n\"$NODE_BINARY\" \"$PROJECT_ROOT/scripts/build-release-background-bundle.js\" \\\n  --platform ios \\\n  --entry-file \"$PROJECT_ROOT/background.ts\" \\\n  --bundle-output \"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/background.bundle\" \\\n  --assets-dest \"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" \\\n  --sourcemap-output \"$CONFIGURATION_BUILD_DIR/background.bundle.map\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -664,6 +686,7 @@
 				DEVELOPMENT_TEAM = BVJ3FU5H2K;
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = BVJ3FU5H2K;
 				ENABLE_BITCODE = NO;
+				ENABLE_NATIVE_BACKGROUND_THREAD = false;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = "$(REACT_NATIVE_ROOT)/../react-native-lite-card/ios/GPChannelSDKCore.framework";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -708,6 +731,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = BVJ3FU5H2K;
+				ENABLE_NATIVE_BACKGROUND_THREAD = true;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
@@ -716,6 +740,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

@@ -4,7 +4,10 @@ export * from './HeightTransition';
 export * from './LinearGradient';
 export * from './BlurView';
 export * from './Empty';
-export * from './Markdown';
+// Markdown removed from barrel — import directly from
+// '@onekeyhq/components/src/content/Markdown' to avoid pulling
+// markdown-it (86 modules) into the main eager bundle.
+// export * from './Markdown';
 export * from './LottieView';
 export * from './Video';
 export * from './MatchSizeableText';
