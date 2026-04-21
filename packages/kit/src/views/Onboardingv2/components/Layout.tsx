@@ -60,6 +60,7 @@ export const LayoutHeader = memo(
 LayoutHeader.displayName = 'LayoutHeader';
 
 export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
 
@@ -68,6 +69,21 @@ export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
   const handleBack = useCallback(() => {
     navigation.pop();
   }, [navigation]);
+
+  if (gtMd && !exit) {
+    return (
+      <Button
+        size="small"
+        icon={icon}
+        variant="tertiary"
+        onPress={handleBack}
+        zIndex={1}
+        style={NO_DRAG_STYLE}
+      >
+        {intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_back })}
+      </Button>
+    );
+  }
 
   return (
     <IconButton
@@ -218,7 +234,7 @@ export interface IOnboardingIconBadgeProps extends Omit<
 
 export function OnboardingIconBadge({
   icon,
-  iconColor = '$iconOnColor',
+  iconColor = '$bgApp',
   ...rest
 }: IOnboardingIconBadgeProps) {
   return (
@@ -227,7 +243,7 @@ export function OnboardingIconBadge({
       p="$2"
       borderRadius="$full"
       alignSelf="flex-start"
-      mb="$6"
+      mb="$8"
       {...rest}
     >
       <Icon name={icon} color={iconColor} />

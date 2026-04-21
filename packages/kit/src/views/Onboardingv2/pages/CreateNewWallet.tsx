@@ -79,17 +79,25 @@ function CreateNewWallet() {
   } = useKeylessLocalExistenceLogin({ autoLoginKeylessProvider });
 
   const handleCreateSeedPhraseWallet = useCallback(async () => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
     const mnemonic = generateMnemonic();
     const encodedMnemonic =
       await backgroundApiProxy.servicePassword.encodeSensitiveText({
         text: mnemonic,
       });
-    navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+    const hasCachedPassword =
+      await backgroundApiProxy.servicePassword.hasCachedPassword();
+    if (hasCachedPassword) {
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        mnemonic: encodedMnemonic,
+        isWalletBackedUp: false,
+      });
+      defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
+      return;
+    }
+    navigation.push(EOnboardingPagesV2.CreatePasscode, {
       mnemonic: encodedMnemonic,
       isWalletBackedUp: false,
     });
-    defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
   }, [navigation]);
 
   useAutoStartKeylessProvider({

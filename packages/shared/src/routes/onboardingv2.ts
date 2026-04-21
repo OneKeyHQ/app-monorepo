@@ -146,7 +146,9 @@ export type IOnboardingParamListV2 = {
     action?: EKeylessFinalizeAction;
   };
   [EOnboardingPagesV2.CreatePasscode]: {
-    action: EKeylessFinalizeAction;
+    action?: EKeylessFinalizeAction;
+    mnemonic?: string;
+    isWalletBackedUp?: boolean;
   };
   [EOnboardingPagesV2.VerifyPin]: {
     mode?: EOnboardingV2OneKeyIDLoginMode;

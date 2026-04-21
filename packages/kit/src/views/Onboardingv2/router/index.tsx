@@ -154,7 +154,7 @@ const CreatePasscode = LazyLoadPage(
   () => import('../pages/CreatePasscodePage'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const VerifyPin = LazyLoadPage(
   () => import('../pages/VerifyPinPage'),
