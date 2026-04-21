@@ -238,6 +238,15 @@ export function selectBestQuote(
 
   const manual = options?.manualSelect;
   if (manual) {
+    const hasDifferentEvent =
+      !!manual.eventId &&
+      sortedQuotes.some(
+        (item) => !!item.eventId && item.eventId !== manual.eventId,
+      );
+    if (hasDifferentEvent) {
+      return sortedQuotes[0];
+    }
+
     const matched = sortedQuotes.find(
       (item) =>
         item.info.provider === manual.info.provider &&
