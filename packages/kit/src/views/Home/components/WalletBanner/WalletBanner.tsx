@@ -503,14 +503,7 @@ function PerpsReferralDialogContent({
 
 function WalletBanner() {
   const {
-    activeAccount: {
-      account,
-      network,
-      wallet,
-      vaultSettings,
-      indexedAccount,
-      deriveType,
-    },
+    activeAccount: { account, network, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
@@ -536,14 +529,22 @@ function WalletBanner() {
     if (!account?.id) {
       return null;
     }
+    // Use the global EVM deriveType for PERPS_NETWORK_ID, not the scene-local
+    // deriveType. Home may currently be on a non-EVM network (e.g. BTC with
+    // 'native_segwit'), in which case the scene deriveType cannot resolve the
+    // Arbitrum account.
+    const globalEvmDeriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: PERPS_NETWORK_ID,
+      });
     return backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
       {
         accountId: account.id,
         indexedAccountId: indexedAccount?.id || undefined,
-        deriveType: deriveType || 'default',
+        deriveType: globalEvmDeriveType,
       },
     );
-  }, [account?.id, indexedAccount?.id, deriveType]);
+  }, [account?.id, indexedAccount?.id]);
 
   const handleReferralBind = useCallback(async () => {
     // Guard against eligibility flipping mid-signing (race condition).
