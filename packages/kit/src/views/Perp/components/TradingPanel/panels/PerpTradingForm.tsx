@@ -54,6 +54,7 @@ import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
+import { useOrderPrice } from '../../../hooks/useOrderPrice';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
@@ -135,6 +136,7 @@ function PerpTradingForm({
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
   const { baseName: activeBaseName } = useActiveTradeDisplay();
   const { midPrice, midPriceBN } = useTradingPrice();
+  const { price: orderPriceBN } = useOrderPrice(formData.side);
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const isBBOActive = !!formData.bboPriceMode;
@@ -216,8 +218,14 @@ function PerpTradingForm({
     if (!isSpot) {
       return undefined;
     }
-    const buyMax = midPriceBN.gt(0)
-      ? spotAvailableQuoteBN.dividedBy(midPriceBN)
+    let effectiveSpotPriceBN = new BigNumber(0);
+    if (orderPriceBN.isFinite() && orderPriceBN.gt(0)) {
+      effectiveSpotPriceBN = orderPriceBN;
+    } else if (midPriceBN.isFinite() && midPriceBN.gt(0)) {
+      effectiveSpotPriceBN = midPriceBN;
+    }
+    const buyMax = effectiveSpotPriceBN.gt(0)
+      ? spotAvailableQuoteBN.dividedBy(effectiveSpotPriceBN)
       : new BigNumber(0);
     return [
       buyMax.decimalPlaces(sizeSzDecimals, BigNumber.ROUND_FLOOR).toFixed(),
@@ -228,6 +236,7 @@ function PerpTradingForm({
   }, [
     isSpot,
     midPriceBN,
+    orderPriceBN,
     sizeSzDecimals,
     spotAvailableBaseBN,
     spotAvailableQuoteBN,
@@ -476,22 +485,10 @@ function PerpTradingForm({
 
   const spotMaxTradeDisplay = useMemo(() => {
     if (!isSpot) return '';
-    if (formData.side === 'long') {
-      return `${spotMaxTradeSzs?.[0] ?? '0'} ${spotUniverse?.baseName ?? ''}`;
-    }
-    const quoteValue = spotAvailableBaseBN.multipliedBy(
-      midPriceBN.isFinite() && midPriceBN.gt(0) ? midPriceBN : 0,
-    );
-    return `${quoteValue.toFixed(2, BigNumber.ROUND_DOWN)} ${spotUniverse?.quoteName ?? ''}`;
-  }, [
-    formData.side,
-    isSpot,
-    midPriceBN,
-    spotAvailableBaseBN,
-    spotMaxTradeSzs,
-    spotUniverse?.baseName,
-    spotUniverse?.quoteName,
-  ]);
+    const maxSize =
+      formData.side === 'long' ? spotMaxTradeSzs?.[0] : spotMaxTradeSzs?.[1];
+    return `${maxSize ?? '0'} ${spotUniverse?.baseName ?? ''}`;
+  }, [formData.side, isSpot, spotMaxTradeSzs, spotUniverse?.baseName]);
 
   const handleSideChange = useCallback(
     (newSide: 'long' | 'short') => {
