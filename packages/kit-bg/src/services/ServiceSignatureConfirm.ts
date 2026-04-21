@@ -284,7 +284,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
-    const { accountId, networkId, encodedTx } = params;
+    const { accountId, networkId, encodedTx, origin } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -347,6 +347,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           accountAddress,
           encodedTx: encodedTxToParse,
           xpub,
+          origin,
         },
         { headers: walletTypeHeaders },
       );
