@@ -106,6 +106,8 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   // `?render=tray`); `undefined` on the main renderer, so callers must
   // guard with optional chaining.
   sendTrayAction?: (action: ITrayAction) => void;
+  // Tray renderer → main handshake. Tray-only; undefined on main renderer.
+  sendTrayReady?: () => void;
   toggleTray: (enabled: boolean) => void;
 };
 
