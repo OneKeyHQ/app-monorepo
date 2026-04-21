@@ -28,12 +28,12 @@ import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 import { SpotBalanceList } from './List/SpotBalanceList';
 
-const tabNameToTranslationKey: Record<string, string> = {
+const tabNameToTranslationKey: Record<string, ETranslations> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
   'Trades History': ETranslations.perp_trades_history_title,
   'Account': ETranslations.perp_account_history,
-  'Balances': 'Balances', // TODO: add i18n key (ETranslations)
+  'Balances': ETranslations.perp_holdings_tokens,
 };
 
 function TabBarItem({
@@ -81,15 +81,9 @@ function TabBarItem({
   }, [holdingsCount, positionsLength, openOrdersLength, name]);
 
   const translationKey = tabNameToTranslationKey[name];
-  let tabTitle = translationKey;
-  if (translationKey.startsWith('perp.')) {
-    tabTitle = intl.formatMessage({
-      id: translationKey as ETranslations,
-    });
-  }
-  if (name === 'Balances') {
-    tabTitle = 'Holdings';
-  }
+  const tabTitle = intl.formatMessage({
+    id: translationKey,
+  });
 
   const displayTitle =
     name === 'Balances' ? `${tabTitle}${tabCount}` : `${tabTitle} ${tabCount}`;

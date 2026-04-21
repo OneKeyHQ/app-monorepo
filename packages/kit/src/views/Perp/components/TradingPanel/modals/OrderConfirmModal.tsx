@@ -141,8 +141,8 @@ function OrderConfirmContent({
     ? intl.formatMessage({
         id:
           effectiveSide === 'long'
-            ? ETranslations.global_buy
-            : ETranslations.global_sell,
+            ? ETranslations.dexmarket_details_transactions_buy
+            : ETranslations.dexmarket_details_transactions_sell,
       })
     : intl.formatMessage({
         id:

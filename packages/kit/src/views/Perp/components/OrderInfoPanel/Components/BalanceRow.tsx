@@ -1,5 +1,7 @@
 import { memo, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   IconButton,
@@ -11,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -52,10 +55,9 @@ function getPnlColor(pnl?: string): string | undefined {
 
 // Only add suffix to the perps side when the same coin appears in both spot and
 // perps (e.g. USDC). Spot keeps the plain symbol in both desktop and mobile UI.
-function getCoinLabel(item: IBalanceDisplayItem): string {
+function getCoinLabel(item: IBalanceDisplayItem, perpLabel: string): string {
   if (!item.needsSuffix) return item.coin;
-  // TODO: add i18n key for "Perps" suffix
-  return item.type === 'perps' ? `${item.coin} (Perps)` : item.coin;
+  return item.type === 'perps' ? `${item.coin} (${perpLabel})` : item.coin;
 }
 
 function ContractAddressCell({
@@ -88,7 +90,13 @@ function ContractAddressCell({
 }
 
 function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
-  const label = getCoinLabel(item);
+  const intl = useIntl();
+  const label = getCoinLabel(
+    item,
+    intl.formatMessage({
+      id: ETranslations.perp_label_perp,
+    }),
+  );
   const pnlText = formatPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;
@@ -170,7 +178,13 @@ function BalanceRowDesktop({
   index,
   onChangeAsset,
 }: IBalanceRowProps) {
-  const label = getCoinLabel(item);
+  const intl = useIntl();
+  const label = getCoinLabel(
+    item,
+    intl.formatMessage({
+      id: ETranslations.perp_label_perp,
+    }),
+  );
   const pnlText = formatPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;

@@ -49,13 +49,13 @@ const tabNameToTranslationKey: Record<
   ETabName,
   | ETranslations.perp_position_title
   | ETranslations.perp_open_orders_title
-  | ETranslations.global_balance
+  | ETranslations.perp_holdings_tokens
   | ETranslations.Limit_open_order
   | ETranslations.Limit_order_history
 > = {
   [ETabName.Positions]: ETranslations.perp_position_title,
   [ETabName.OpenOrders]: ETranslations.perp_open_orders_title,
-  [ETabName.Balances]: ETranslations.global_balance,
+  [ETabName.Balances]: ETranslations.perp_holdings_tokens,
   [ETabName.SwapProOpenOrders]: ETranslations.Limit_open_order,
   [ETabName.SwapOrderHistory]: ETranslations.Limit_order_history,
 };
@@ -73,12 +73,9 @@ export const TabBarItem = memo(
     tabCount?: string;
   }) => {
     const intl = useIntl();
-    const tabTitle =
-      name === ETabName.Balances
-        ? 'Holdings'
-        : intl.formatMessage({
-            id: tabNameToTranslationKey[name],
-          });
+    const tabTitle = intl.formatMessage({
+      id: tabNameToTranslationKey[name],
+    });
     const displayTitle =
       name === ETabName.Balances
         ? `${tabTitle}${tabCount ?? ''}`

@@ -195,7 +195,9 @@ function TokenListHeader({ isSpot }: { isSpot?: boolean }) {
           />
           <SortableHeaderCell
             field="openInterest"
-            label="Market Cap" // TODO: add i18n key (ETranslations)
+            label={intl.formatMessage({
+              id: ETranslations.global_market_cap,
+            })}
             width={200}
           />
         </>
@@ -231,7 +233,7 @@ function BasePerpTokenSelectorContent({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
-      spot: 'Spot', // TODO: add i18n key (ETranslations)
+      spot: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
     }),
     [intl],
   );
@@ -789,7 +791,9 @@ function BasePerpTokenSelector() {
   const content = useMemo(
     () => (
       <Popover
-        title="Select Token"
+        title={intl.formatMessage({
+          id: ETranslations.dexmarket_select_token,
+        })}
         floatingPanelProps={{
           width: 800,
         }}

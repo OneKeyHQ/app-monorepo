@@ -246,7 +246,9 @@ export const TradingModeBadge = memo(
       >
         <SizableText color={color} fontSize={10} lineHeight={16}>
           {isSpot
-            ? 'Spot'
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_spot,
+              })
             : intl.formatMessage({
                 id: ETranslations.perp_label_perp,
               })}

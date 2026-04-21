@@ -457,13 +457,21 @@ function PerpTradingForm({
   ]);
 
   const spotMaxTradeLabel = useMemo(
-    () => (formData.side === 'long' ? 'Max buy' : 'Max sell'),
-    [formData.side],
+    () =>
+      intl.formatMessage({
+        id:
+          formData.side === 'long'
+            ? ETranslations.perp_spot_max_buy
+            : ETranslations.perp_spot_max_sell,
+      }),
+    [formData.side, intl],
   );
   const spotMaxTradeTooltip = useMemo(
     () =>
-      'The max buy or max sell amount depends on your available balance and the order price. For limit orders, it updates automatically after you enter a price.',
-    [],
+      intl.formatMessage({
+        id: ETranslations.perp_spot_max_buy_sell_tooltip,
+      }),
+    [intl],
   );
 
   const spotMaxTradeDisplay = useMemo(() => {
@@ -1015,7 +1023,7 @@ function PerpTradingForm({
     <>
       <XStack justifyContent="space-between" alignItems="center" gap="$3">
         <SizableText size="$bodySm" color="$textSubdued">
-          Available
+          {intl.formatMessage({ id: ETranslations.global_available })}
         </SizableText>
         <XStack alignItems="center" gap="$1">
           <SizableText size="$bodySmMedium">{spotAvailableDisplay}</SizableText>
@@ -1024,23 +1032,44 @@ function PerpTradingForm({
       </XStack>
 
       <XStack justifyContent="space-between" alignItems="center" gap="$3">
-        <Tooltip
-          placement="top"
-          renderTrigger={
-            <DashText
-              size="$bodySm"
-              color="$textSubdued"
-              dashColor="$textDisabled"
-              dashThickness={0.5}
-              cursor="help"
-            >
-              {spotMaxTradeLabel}
-            </DashText>
-          }
-          renderContent={
-            <SizableText size="$bodySm">{spotMaxTradeTooltip}</SizableText>
-          }
-        />
+        {isMobile ? (
+          <Popover
+            title={spotMaxTradeLabel}
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+              >
+                {spotMaxTradeLabel}
+              </DashText>
+            }
+            renderContent={() => (
+              <YStack px="$5" pt="$2" pb="$4">
+                <SizableText size="$bodyMd">{spotMaxTradeTooltip}</SizableText>
+              </YStack>
+            )}
+          />
+        ) : (
+          <Tooltip
+            placement="top"
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                cursor="help"
+              >
+                {spotMaxTradeLabel}
+              </DashText>
+            }
+            renderContent={
+              <SizableText size="$bodySm">{spotMaxTradeTooltip}</SizableText>
+            }
+          />
+        )}
         <SizableText size="$bodySmMedium">{spotMaxTradeDisplay}</SizableText>
       </XStack>
     </>

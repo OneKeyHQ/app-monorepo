@@ -197,11 +197,27 @@ function SideButtonInternal({
       });
     if (isSpot) {
       if (!spotTradeSymbol) {
-        return side === 'long' ? 'Buy' : 'Sell';
+        return side === 'long'
+          ? intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_buy,
+            })
+          : intl.formatMessage({
+              id: ETranslations.dexmarket_details_transactions_sell,
+            });
       }
       return side === 'long'
-        ? `Buy ${spotTradeSymbol}`
-        : `Sell ${spotTradeSymbol}`;
+        ? intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_buy_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          )
+        : intl.formatMessage(
+            {
+              id: ETranslations.dexmarket_sell_token_default,
+            },
+            { TokenName: spotTradeSymbol },
+          );
     }
     return side === 'long'
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
