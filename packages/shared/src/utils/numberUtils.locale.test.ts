@@ -787,17 +787,17 @@ describe('numberUtils it-IT formatting', () => {
     expect(formatDisplayNumber(formatMarketCap('882134512'))).toEqual(
       '882,13M',
     );
-    expect(formatDisplayNumber(formatMarketCap('999994999'))).toEqual(
-      '999,99M',
-    );
-    expect(formatDisplayNumber(formatMarketCap('999995000'))).toEqual('1B');
-    expect(formatDisplayNumber(formatMarketCap('999999999.999'))).toEqual('1B');
-    expect(formatDisplayNumber(formatMarketCap('-999999999.999'))).toEqual(
-      '-1B',
-    );
-    expect(formatDisplayNumber(formatMarketCap('999999999999.999'))).toEqual(
-      '1T',
-    );
+    (
+      [
+        ['999994999', '999,99M'],
+        ['999995000', '1B'],
+        ['999999999.999', '1B'],
+        ['-999999999.999', '-1B'],
+        ['999999999999.999', '1T'],
+      ] as const
+    ).forEach(([input, expected]) => {
+      expect(formatDisplayNumber(formatMarketCap(input))).toEqual(expected);
+    });
 
     // more then 1 billion, but less then 1 trillion
     expect(formatDisplayNumber(formatMarketCap('235002184512.1242'))).toEqual(

@@ -350,12 +350,14 @@ const handleNaNOrZero = (
   return null;
 };
 
-// Shared unit-based formatting for formatBalance and formatMarketCap.
-const BALANCE_UNITS: Array<{
+type INumberUnitConfig = {
   threshold: BigNumber;
   divisor: BigNumber;
   unit: ENumberUnit;
-}> = [
+};
+
+// Shared unit-based formatting for formatBalance and formatMarketCap.
+const BALANCE_UNITS: INumberUnitConfig[] = [
   {
     threshold: new BigNumber(ENumberUnitValue.Q),
     divisor: new BigNumber(ENumberUnitValue.Q),
@@ -373,11 +375,7 @@ const BALANCE_UNITS: Array<{
   },
 ];
 
-const MARKET_CAP_UNITS: Array<{
-  threshold: BigNumber;
-  divisor: BigNumber;
-  unit: ENumberUnit;
-}> = [
+const MARKET_CAP_UNITS: INumberUnitConfig[] = [
   {
     threshold: new BigNumber(ENumberUnitValue.T),
     divisor: new BigNumber(ENumberUnitValue.T),
@@ -403,11 +401,7 @@ const MARKET_CAP_UNITS: Array<{
 const formatWithUnits = (
   val: BigNumber,
   value: string,
-  units: Array<{
-    threshold: BigNumber;
-    divisor: BigNumber;
-    unit: ENumberUnit;
-  }>,
+  units: INumberUnitConfig[],
   opts: {
     digits: number;
     removeTrailingZeros: boolean;
@@ -420,14 +414,7 @@ const formatWithUnits = (
   ) => { value: BigNumber; extraMeta?: Partial<IDisplayNumber['meta']> } | null,
 ): IDisplayNumber | null => {
   const absValue = val.abs();
-  const formatUnitResult = ({
-    divisor,
-    unit,
-  }: {
-    threshold: BigNumber;
-    divisor: BigNumber;
-    unit: ENumberUnit;
-  }) => {
+  const formatUnitResult = ({ divisor, unit }: INumberUnitConfig) => {
     let dividedValue = val.div(divisor);
     let extraMeta: Partial<IDisplayNumber['meta']> | undefined;
     if (unitHook) {
