@@ -14,8 +14,8 @@ import {
   Icon,
   Page,
   Popover,
-  Select,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -24,7 +24,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { LazyHeaderTitle } from '@onekeyhq/kit/src/components/LazyHeaderTitle';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  filterSwapHistoryPendingList,
+  useInAppNotificationAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -35,6 +38,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
+  ESwapLimitOrderStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -60,7 +64,8 @@ const SwapHistoryListModal = ({
   const [historyType, setHistoryType] = useState<EProtocolOfExchange>(
     type ?? EProtocolOfExchange.SWAP,
   );
-  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const [{ swapHistoryPendingList, swapLimitOrders }] =
+    useInAppNotificationAtom();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
       const histories =
@@ -109,6 +114,155 @@ const SwapHistoryListModal = ({
       formatterOptions: { currency: '$' },
     });
   }, [swapTxHistoryList]);
+
+  const marketPendingHistoryCount = useMemo(
+    () =>
+      filterSwapHistoryPendingList(swapHistoryPendingList).filter(
+        (item) =>
+          item.status === ESwapTxHistoryStatus.PENDING ||
+          item.status === ESwapTxHistoryStatus.CANCELING,
+      ).length,
+    [swapHistoryPendingList],
+  );
+
+  const limitPendingHistoryCount = useMemo(
+    () =>
+      swapLimitOrders.filter(
+        (item) =>
+          item.status === ESwapLimitOrderStatus.OPEN ||
+          item.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+      ).length,
+    [swapLimitOrders],
+  );
+
+  const showHistoryInfoDot =
+    marketPendingHistoryCount + limitPendingHistoryCount > 0;
+
+  const historyTypeTitle = useMemo(
+    () =>
+      historyType === EProtocolOfExchange.LIMIT
+        ? intl.formatMessage({
+            id: ETranslations.swap_page_limit_dialog_title,
+          })
+        : intl.formatMessage({
+            id: ETranslations.perp_trade_market,
+          }),
+    [historyType, intl],
+  );
+
+  const renderHistoryTypeBadge = useCallback((count: number) => {
+    if (count <= 0) {
+      return null;
+    }
+
+    return (
+      <Stack
+        w="$5"
+        h="$5"
+        userSelect="none"
+        borderRadius="$full"
+        borderColor="$icon"
+        borderWidth={1.2}
+        alignItems="center"
+        justifyContent="center"
+        flexShrink={0}
+      >
+        <SizableText color="$text" size="$bodySm">
+          {count}
+        </SizableText>
+      </Stack>
+    );
+  }, []);
+
+  const handleSelectSwapHistoryType = useCallback(() => {
+    setHistoryType(EProtocolOfExchange.SWAP);
+  }, []);
+
+  const handleSelectLimitHistoryType = useCallback(() => {
+    setHistoryType(EProtocolOfExchange.LIMIT);
+  }, []);
+
+  const renderSwapHistoryTypeLabel = useCallback(
+    () => (
+      <XStack alignItems="center" gap="$2" flex={1}>
+        <SizableText size="$bodyMd" $gtMd={{ size: '$bodyLg' }}>
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_market,
+          })}
+        </SizableText>
+        {renderHistoryTypeBadge(marketPendingHistoryCount)}
+      </XStack>
+    ),
+    [intl, marketPendingHistoryCount, renderHistoryTypeBadge],
+  );
+
+  const renderLimitHistoryTypeLabel = useCallback(
+    () => (
+      <XStack alignItems="center" gap="$2" flex={1}>
+        <SizableText size="$bodyMd" $gtMd={{ size: '$bodyLg' }}>
+          {intl.formatMessage({
+            id: ETranslations.swap_page_limit_dialog_title,
+          })}
+        </SizableText>
+        {renderHistoryTypeBadge(limitPendingHistoryCount)}
+      </XStack>
+    ),
+    [intl, limitPendingHistoryCount, renderHistoryTypeBadge],
+  );
+
+  const historyTypeItems = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_trade_market,
+        }),
+        renderLabel: renderSwapHistoryTypeLabel,
+        extra:
+          historyType === EProtocolOfExchange.SWAP ? (
+            <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
+          ) : undefined,
+        onPress: handleSelectSwapHistoryType,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.swap_page_limit_dialog_title,
+        }),
+        renderLabel: renderLimitHistoryTypeLabel,
+        extra:
+          historyType === EProtocolOfExchange.LIMIT ? (
+            <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
+          ) : undefined,
+        onPress: handleSelectLimitHistoryType,
+      },
+    ],
+    [
+      handleSelectLimitHistoryType,
+      handleSelectSwapHistoryType,
+      historyType,
+      intl,
+      renderLimitHistoryTypeLabel,
+      renderSwapHistoryTypeLabel,
+    ],
+  );
+
+  const historyTypeTrigger = useMemo(
+    () => (
+      <XStack alignItems="center" gap="$1" cursor="pointer">
+        <SizableText size="$headingLg">{historyTypeTitle}</SizableText>
+        {showHistoryInfoDot ? (
+          <Stack
+            w="$2"
+            h="$2"
+            borderRadius="$full"
+            backgroundColor="$textInfo"
+            pointerEvents="none"
+          />
+        ) : null}
+        <Icon name="ChevronDownSmallSolid" size="$5" />
+      </XStack>
+    ),
+    [historyTypeTitle, showHistoryInfoDot],
+  );
 
   const onDeleteHistory = useCallback(() => {
     // dialog
@@ -335,48 +489,18 @@ const SwapHistoryListModal = ({
     ],
   );
 
-  const headerSelectType = useMemo(() => {
-    const title =
-      historyType === EProtocolOfExchange.LIMIT
-        ? intl.formatMessage({
-            id: ETranslations.swap_page_limit_dialog_title,
-          })
-        : intl.formatMessage({
-            id: ETranslations.perp_trade_market,
-          });
-    const renderHeaderTitle = () => (
+  const headerSelectType = useCallback(
+    () => (
       <LazyHeaderTitle>
-        <Select
-          title={title}
-          items={[
-            {
-              label: intl.formatMessage({
-                id: ETranslations.perp_trade_market,
-              }),
-              value: EProtocolOfExchange.SWAP,
-            },
-            {
-              label: intl.formatMessage({
-                id: ETranslations.swap_page_limit_dialog_title,
-              }),
-              value: EProtocolOfExchange.LIMIT,
-            },
-          ]}
-          onChange={(value) => {
-            setHistoryType(value as EProtocolOfExchange);
-          }}
-          value={historyType}
-          renderTrigger={(props) => (
-            <XStack {...props} alignItems="center" gap="$1" cursor="pointer">
-              <SizableText size="$headingLg">{title}</SizableText>
-              <Icon name="ChevronDownSmallSolid" size="$5" />
-            </XStack>
-          )}
+        <ActionList
+          title={historyTypeTitle}
+          items={historyTypeItems}
+          renderTrigger={historyTypeTrigger}
         />
       </LazyHeaderTitle>
-    );
-    return renderHeaderTitle;
-  }, [historyType, intl]);
+    ),
+    [historyTypeItems, historyTypeTitle, historyTypeTrigger],
+  );
 
   const savingsBanner = useMemo(() => {
     if (
