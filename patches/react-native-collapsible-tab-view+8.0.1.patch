@@ -414,7 +414,7 @@ index e782b90..e24c4dd 100644
 +        (event: PagerViewOnPageSelectedEvent) => {
 +          const selectedIndex = event.nativeEvent.position
 +          const pendingTarget = programmaticPageTarget.value
-+          if (pendingTarget === selectedIndex) {
++          if (pendingTarget !== null || pendingPageFallbackTimerRef.current) {
 +            if (index.value !== selectedIndex) {
 +              calculateNextOffset.value = selectedIndex
 +              indexDecimal.value = selectedIndex
