@@ -20,6 +20,9 @@ export type IThirdPartyHardwareAdapterFactory =
 export const thirdPartyHardwareAdapterRegistry = {
   [EHardwareVendor.ledger]: async () => {
     const { LedgerAdapter } = await import('./LedgerAdapter');
+    // webpack resolves this to the platform-specific variant:
+    //   - ext Service Worker (MV3) → `ledger.ext-bg-v3.ts` (bridges to offscreen)
+    //   - desktop / native / web   → `ledger.desktop.ts` / `.native.ts` / `.ts`
     const { createLedgerConnector } =
       await import('@onekeyhq/shared/src/hardware/connector-loader/ledger');
     const { LedgerAdapter: HwkLedgerAdapter } =
