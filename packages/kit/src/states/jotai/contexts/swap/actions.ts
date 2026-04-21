@@ -616,9 +616,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               (dataJson as ISwapQuoteEventInfo).totalQuoteCount ||
               (dataJson as ISwapQuoteEventInfo).totalQuoteCount === 0
             ) {
-              const { totalQuoteCount } = dataJson as ISwapQuoteEventInfo;
+              const { eventId, totalQuoteCount } =
+                dataJson as ISwapQuoteEventInfo;
+              const currentQuoteEventTotalCount = get(
+                swapQuoteEventTotalCountAtom(),
+              );
+              if (currentQuoteEventTotalCount.eventId !== eventId) {
+                set(swapQuoteListAtom(), []);
+              }
               set(swapQuoteEventTotalCountAtom(), {
-                eventId: (dataJson as ISwapQuoteEventInfo).eventId,
+                eventId,
                 count: totalQuoteCount,
               });
               if (totalQuoteCount === 0) {
@@ -627,7 +634,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     info: { provider: '', providerName: '' },
                     fromTokenInfo: event.tokenPairs.fromToken,
                     toTokenInfo: event.tokenPairs.toToken,
-                    eventId: (dataJson as ISwapQuoteEventInfo).eventId,
+                    eventId,
                   },
                 ]);
               }
@@ -670,18 +677,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   if (newUpdateQuoteRes) {
                     return newUpdateQuoteRes;
                   }
-                  // OK-49700: 如果旧报价的 fromAmount 与当前询价的 fromTokenAmount 相同，
-                  // 则更新旧报价的 eventId 为当前的 eventId，这样它就不会被 eventId 过滤掉，
-                  // 实现再次询价时保留旧报价、只更新部分渠道商报价的效果
-                  if (
-                    oldQuoteRes.fromAmount === event.params.fromTokenAmount &&
-                    quoteEventTotalCount.eventId
-                  ) {
-                    return {
-                      ...oldQuoteRes,
-                      eventId: quoteEventTotalCount.eventId,
-                    };
-                  }
                   return oldQuoteRes;
                 });
                 const newAddQuoteRes = quoteResultsUpdateSlippage.filter(
@@ -721,6 +716,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           break;
         }
         case 'done': {
+          const quoteResultList = get(swapQuoteListAtom());
+          const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
+          set(swapQuoteEventTotalCountAtom(), {
+            eventId: quoteEventTotalCount.eventId,
+            count: quoteResultList.length,
+          });
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           if (platformEnv.isExtension) {
             set(swapQuoteFetchingAtom(), false);
@@ -729,6 +730,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           break;
         }
         case 'error': {
+          const quoteResultList = get(swapQuoteListAtom());
+          const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
+          set(swapQuoteEventTotalCountAtom(), {
+            eventId: quoteEventTotalCount.eventId,
+            count: quoteResultList.length,
+          });
           if (platformEnv.isExtension) {
             set(swapQuoteFetchingAtom(), false);
           }
@@ -736,6 +743,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           break;
         }
         case 'close': {
+          const quoteResultList = get(swapQuoteListAtom());
+          const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
+          set(swapQuoteEventTotalCountAtom(), {
+            eventId: quoteEventTotalCount.eventId,
+            count: quoteResultList.length,
+          });
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           break;
@@ -890,6 +903,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (!unResetCount) {
         set(swapQuoteIntervalCountAtom(), 0);
       }
+      set(swapQuoteListAtom(), []);
+      set(swapQuoteEventTotalCountAtom(), { count: 0 });
       set(swapBuildTxFetchingAtom(), false);
       set(swapShouldRefreshQuoteAtom(), false);
       const fromTokenAmountNumber = Number(fromTokenAmount.value);
@@ -1165,8 +1180,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const swapSupportAllNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
       const tokenMetadata = get(swapTokenMetadataAtom());
-      const quoteResultList = get(swapQuoteListAtom());
-      const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       let alertsRes: ISwapAlertState[] = [];
       const quoteEventError = get(swapQuoteEventErrorAtom());
@@ -1203,12 +1216,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
 
-      if (
-        !networks.length ||
-        !swapFromAddressInfo.accountInfo?.ready ||
-        (quoteEventTotalCount.count > 0 &&
-          quoteResultList.length < quoteEventTotalCount.count)
-      ) {
+      if (!networks.length || !swapFromAddressInfo.accountInfo?.ready) {
         if (quoteEventError) {
           set(swapAlertsAtom(), {
             states: alertsRes,

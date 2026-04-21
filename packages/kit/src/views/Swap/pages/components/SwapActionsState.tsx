@@ -130,6 +130,12 @@ const SwapActionsState = ({
   }
   const themeVariant = useThemeVariant();
   const quoting = useSwapQuoteEventFetching();
+  const hasActionableQuote = useMemo(
+    () => new BigNumber(currentQuoteRes?.toAmount ?? 0).gt(0),
+    [currentQuoteRes?.toAmount],
+  );
+  const isWaitingActionableQuote =
+    quoteLoading || (quoting && !hasActionableQuote);
   const [desktopActionWidth, setDesktopActionWidth] = useState<number>();
 
   const isModalPage = useIsOverlayPage();
@@ -728,8 +734,8 @@ const SwapActionsState = ({
       new BigNumber(currentQuoteRes?.fee?.costSavings || 0).gt(0);
 
     if (hasCostSavings) {
-      const isLoadingQuote = quoting || quoteLoading;
-      const shouldShow = hasEverShownCostSavingsRef.current || !isLoadingQuote;
+      const shouldShow =
+        hasEverShownCostSavingsRef.current || !isWaitingActionableQuote;
 
       if (shouldShow) {
         if (!hasEverShownCostSavingsRef.current) {
@@ -770,8 +776,7 @@ const SwapActionsState = ({
   }, [
     currentQuoteRes?.fee?.costSavings,
     settingsPersistAtom.currencyInfo.symbol,
-    quoting,
-    quoteLoading,
+    isWaitingActionableQuote,
     intl,
   ]);
 
@@ -809,7 +814,7 @@ const SwapActionsState = ({
 
   const actionButtonChildren = useMemo(
     () =>
-      quoting || quoteLoading ? (
+      isWaitingActionableQuote ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -826,7 +831,7 @@ const SwapActionsState = ({
       ) : (
         swapActionState.label
       ),
-    [quoteLoading, quoting, swapActionState.label, themeVariant],
+    [isWaitingActionableQuote, swapActionState.label, themeVariant],
   );
 
   const actionRowComponent = useMemo(

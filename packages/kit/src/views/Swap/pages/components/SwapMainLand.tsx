@@ -594,7 +594,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET
           ? swapProInputAmount
           : fromTokenAmount.value,
-      toTokenAmount: swapToAmount.value,
+      toTokenAmount: currentQuoteRes.toAmount ?? swapToAmount.value,
       quoteResult: currentQuoteRes,
       swapType: swapTypeFinal,
       shouldFallback:

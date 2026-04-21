@@ -217,6 +217,12 @@ export function useSwapActionState() {
     () => quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote,
     [quoteIntervalCount, shouldRefreshQuote],
   );
+  const hasActionableQuote = useMemo(
+    () => new BigNumber(quoteCurrentSelect?.toAmount ?? 0).gt(0),
+    [quoteCurrentSelect?.toAmount],
+  );
+  const isWaitingActionableQuote =
+    quoteLoading || (quoteEventFetching && !hasActionableQuote);
 
   const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
@@ -273,15 +279,14 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     }
-    if (
-      new BigNumber(toTokenAmount.value ?? 0).isZero() ||
-      new BigNumber(toTokenAmount.value ?? 0).isNaN()
-    ) {
+    const quoteToAmountBN = new BigNumber(
+      quoteCurrentSelect?.toAmount ?? toTokenAmount.value ?? 0,
+    );
+    if (quoteToAmountBN.isZero() || quoteToAmountBN.isNaN()) {
       infoRes.disable = true;
     }
     if (
-      quoteLoading ||
-      quoteEventFetching ||
+      isWaitingActionableQuote ||
       swapApprovingMatchLoading ||
       buildTxFetching
     ) {
@@ -378,8 +383,7 @@ export function useSwapActionState() {
     swapTypeSwitchValue,
     isRefreshQuote,
     toTokenAmount.value,
-    quoteLoading,
-    quoteEventFetching,
+    isWaitingActionableQuote,
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
@@ -395,8 +399,7 @@ export function useSwapActionState() {
     noConnectWallet: actionInfo.noConnectWallet,
     disabled:
       actionInfo.disable ||
-      quoteLoading ||
-      quoteEventFetching ||
+      isWaitingActionableQuote ||
       swapApprovingMatchLoading,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
@@ -406,8 +409,7 @@ export function useSwapActionState() {
     isWrapped: !!quoteCurrentSelect?.isWrapped,
     isRefreshQuote:
       (isRefreshQuote || quoteResultNoMatchDebounce) &&
-      !quoteLoading &&
-      !quoteEventFetching,
+      !isWaitingActionableQuote,
   };
   return stepState;
 }
