@@ -1,10 +1,12 @@
 package so.onekey.app.wallet;
 
+import android.app.Activity;
 import android.app.Application;
 import android.net.Uri;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
+import android.os.Bundle;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
@@ -143,6 +145,48 @@ public class MainApplication extends Application implements ReactApplication {
 
     private boolean isNativeBackgroundThreadEnabled() {
       return BuildConfig.ENABLE_NATIVE_BACKGROUND_THREAD;
+    }
+
+    /**
+     * Feeds the host Activity's resume/pause/destroy signals to
+     * {@link BackgroundThreadManager} so an allowlisted subset of bg-host
+     * TurboModules (currently only react-native-google-signin) can observe
+     * getCurrentActivity() on the bg ReactContext. The manager does NOT
+     * fan out these events through ReactHost / ReactContext lifecycle
+     * APIs — see the comment block in BackgroundThreadManager.kt for the
+     * reasoning and tradeoffs.
+     */
+    private void registerBackgroundThreadActivityBridge() {
+      if (!isNativeBackgroundThreadEnabled()) {
+        return;
+      }
+      // Register FQCN prefixes of native modules whose ActivityEventListener
+      // / LifecycleEventListener instances on the bg ReactHost are allowed
+      // to receive bridged Activity events. Modules outside this list are
+      // unaffected (preserve baseline "bg never resumed"). Each entry is a
+      // cross-runtime decision — see the comment block in
+      // BackgroundThreadManager.kt before adding new prefixes.
+      BackgroundThreadManager.getInstance()
+          .addBgActivityBridgeListenerClassPrefix("com.reactnativegooglesignin.");
+
+      registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+        @Override public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {}
+        @Override public void onActivityStarted(@NonNull Activity activity) {}
+        @Override
+        public void onActivityResumed(@NonNull Activity activity) {
+          BackgroundThreadManager.getInstance().dispatchActivityResumed(activity);
+        }
+        @Override
+        public void onActivityPaused(@NonNull Activity activity) {
+          BackgroundThreadManager.getInstance().dispatchActivityPaused(activity);
+        }
+        @Override public void onActivityStopped(@NonNull Activity activity) {}
+        @Override public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {}
+        @Override
+        public void onActivityDestroyed(@NonNull Activity activity) {
+          BackgroundThreadManager.getInstance().dispatchActivityDestroyed(activity);
+        }
+      });
     }
 
     private void setupBackgroundThreadBootstrap() {
@@ -312,6 +356,7 @@ public class MainApplication extends Application implements ReactApplication {
     //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     // }
     long tBeforeBg = System.currentTimeMillis();
+    registerBackgroundThreadActivityBridge();
     setupBackgroundThreadBootstrap();
     long tAfterBg = System.currentTimeMillis();
     OneKeyLog.info(

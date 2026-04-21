@@ -10,6 +10,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.backgroundthread.BackgroundThreadManager;
 import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativesplashscreen.SplashScreenBridge;
 import com.facebook.react.ReactActivity;
@@ -102,6 +103,25 @@ public class MainActivity extends ReactActivity {
       "StartupTiming",
       "android.activity.on_create.done: " + (tActivityDone - tActivityStart) + "ms (+" + (tActivityDone - MainApplication.appLaunchMs) + "ms from launch)"
     );
+  }
+
+  @Override
+  public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    // super -> ReactActivityDelegate drives the UI-host ReactContext's
+    // ActivityEventListener fan-out in the normal RN path.
+    super.onActivityResult(requestCode, resultCode, data);
+    // Manager re-dispatches only to an allowlisted subset of listeners on
+    // the bg ReactContext (see BackgroundThreadManager.bgActivityListenerClassAllowlist).
+    // This lets google-signin's bg instance resolve its pending signIn
+    // promise without leaking the event to every other bg module.
+    BackgroundThreadManager.getInstance()
+        .dispatchActivityResult(this, requestCode, resultCode, data);
+  }
+
+  @Override
+  public void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    BackgroundThreadManager.getInstance().dispatchNewIntent(intent);
   }
 
   @Override
