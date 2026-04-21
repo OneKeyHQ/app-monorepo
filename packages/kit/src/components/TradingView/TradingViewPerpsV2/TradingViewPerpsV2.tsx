@@ -280,14 +280,10 @@ export function TradingViewPerpsV2(
 
       try {
         await actions.current.ensureTradingEnabled();
-        await withToast({
-          asyncFn: () =>
-            backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid({
-              coin: payload.symbol,
-              oid,
-              newPrice: payload.price,
-            }),
-          actionType: EActionType.MODIFY_ORDER,
+        await actions.current.amendChartOrder({
+          coin: payload.symbol,
+          oid,
+          newPrice: payload.price,
         });
       } catch {
         webRef.current?.sendMessageViaInjectedScript({

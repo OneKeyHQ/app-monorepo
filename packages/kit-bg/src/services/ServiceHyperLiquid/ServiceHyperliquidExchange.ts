@@ -75,8 +75,6 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import { hyperLiquidApiClients } from './hyperLiquidApiClients';
-
 import type {
   WalletHyperliquidOnekey,
   WalletHyperliquidProxy,
@@ -1113,6 +1111,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     coin: string;
     oid: number;
     newPrice: string;
+    isBuy: boolean;
+    size: string;
+    reduceOnly: boolean;
   }): Promise<IModifyResponse> {
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
@@ -1120,20 +1121,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
     if (!symbolMeta) {
       throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
-    }
-
-    // HL modify requires the full order shape; refetch to avoid leaking that to callers.
-    const activeAccount = await perpsActiveAccountAtom.get();
-    if (!activeAccount.accountAddress) {
-      throw new OneKeyLocalError('No active perps account');
-    }
-    const openOrders =
-      await hyperLiquidApiClients.infoClient.frontendOpenOrders({
-        user: activeAccount.accountAddress,
-      });
-    const existing = openOrders.find((o) => o.oid === params.oid);
-    if (!existing) {
-      throw new OneKeyLocalError(`Order ${params.oid} not found`);
     }
 
     const formattedPrice = symbolMeta.isSpot
@@ -1149,10 +1136,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     return this.modifyOrder({
       oid: params.oid,
       assetId: symbolMeta.assetId,
-      isBuy: existing.side === 'B',
-      sz: existing.sz,
+      isBuy: params.isBuy,
+      sz: params.size,
       price: formattedPrice,
-      reduceOnly: existing.reduceOnly,
+      reduceOnly: params.reduceOnly,
     });
   }
 

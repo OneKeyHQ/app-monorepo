@@ -1543,6 +1543,47 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  amendChartOrder = contextAtomMethod(
+    async (
+      get,
+      _set,
+      params: {
+        coin: string;
+        oid: number;
+        newPrice: string;
+      },
+    ) => {
+      const { openOrders } = get(perpsActiveOpenOrdersAtom());
+      const existing = openOrders.find((o) => o.oid === params.oid);
+      if (!existing) {
+        throw new OneKeyLocalError(`Order ${params.oid} not found`);
+      }
+
+      const activeCtx = await perpsActiveAssetCtxAtom.get();
+      const markPrice = activeCtx?.ctx?.markPrice;
+      if (!markPrice) {
+        throw new OneKeyLocalError('Mark price unavailable');
+      }
+
+      // Dragging across mark re-derives side — a limit above mark would otherwise
+      // fill immediately at mark, which is never the user's intent.
+      const isBuy = new BigNumber(params.newPrice).lt(markPrice);
+
+      return withToast({
+        asyncFn: () =>
+          backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid({
+            coin: params.coin,
+            oid: params.oid,
+            newPrice: params.newPrice,
+            isBuy,
+            size: existing.sz,
+            reduceOnly: existing.reduceOnly,
+          }),
+        actionType: EActionType.MODIFY_ORDER,
+      });
+    },
+  );
+
   cancelOrder = contextAtomMethod(
     async (
       get,
@@ -1925,6 +1966,7 @@ export function useHyperliquidActions() {
   const updateLeverage = actions.updateLeverage.use();
   const updateIsolatedMargin = actions.updateIsolatedMargin.use();
   const ordersClose = actions.ordersClose.use();
+  const amendChartOrder = actions.amendChartOrder.use();
   const cancelOrder = actions.cancelOrder.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
@@ -1985,6 +2027,7 @@ export function useHyperliquidActions() {
     updateLeverage,
     updateIsolatedMargin,
     ordersClose,
+    amendChartOrder,
     cancelOrder,
     setPositionTpsl,
     withdraw,
