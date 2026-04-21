@@ -175,16 +175,19 @@ function SignMessageModal() {
           unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
           unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
         ) {
-          validateSignMessageData(unsignedMessage, currentNetwork?.impl);
+          await validateSignMessageData(unsignedMessage, currentNetwork?.impl);
         }
         if (unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V1) {
-          validateTypedSignMessageDataV1(unsignedMessage, currentNetwork?.impl);
+          await validateTypedSignMessageDataV1(
+            unsignedMessage,
+            currentNetwork?.impl,
+          );
         }
         if (
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4
         ) {
-          validateTypedSignMessageDataV3V4(
+          await validateTypedSignMessageDataV3V4(
             unsignedMessage,
             networkUtils.getNetworkChainId({ networkId }),
             currentNetwork?.impl,

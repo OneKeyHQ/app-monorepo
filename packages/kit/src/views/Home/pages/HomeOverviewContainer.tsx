@@ -57,9 +57,9 @@ const BALANCE_REUSE_GRACE_MS = 180;
 
 function HomeOverviewContainer() {
   const num = 0;
-  const {
-    activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
-  } = useActiveAccount({ num });
+  const { activeAccount } = useActiveAccount({ num });
+  const { account, network, wallet, deriveInfoItems, vaultSettings } =
+    activeAccount;
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
   const handleResourceDetailsOnPress = useCallback(() => {
     if (resourceDialogInstance.current) return;
@@ -103,6 +103,63 @@ function HomeOverviewContainer() {
     }
     return false;
   }, [wallet]);
+
+  // Bypass token-cache/DeFi-ready gating during the first ~500ms after cold-start
+  // mount: if we have a locally-cached `lastConfirmedOverviewBalance.latest`,
+  // show it immediately. Empirically, waiting for BG to flip hasCache/isReady
+  // costs ~300ms on real device and contributes most of the Window-2 gap from
+  // canDismissSplash=true to Balance displayed. After the window expires, the
+  // original gate logic (BALANCE_REUSE_GRACE_MS + hasPositiveCurrentOwnerSignal)
+  // takes over for account-switch scenarios.
+  const isFirstColdStartMountRef = useRef(true);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      isFirstColdStartMountRef.current = false;
+    }, 500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Synchronously read the MMKV-hydrated atom snapshot to compute the effective
+  // owner key on first render. accountSelector atoms are ColdStartCache-backed,
+  // so the snapshot at bootstrap contains the last known selected account.
+  // Without this, currentOverviewOwnerKey is '' for 1-3 React commits while the
+  // accountSelector atom propagates to HomeOverview, and
+  // lastConfirmedOverviewBalance.byOwner[''] returns undefined — delaying the
+  // first balance display.
+  const bootstrapOwnerKey = useMemo(() => {
+    try {
+      const snap = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
+        | Record<string, unknown>
+        | undefined;
+      if (!snap) return '';
+      // Read from activeAccountsAtom (not selectedAccountsAtom): byOwner keys
+      // are built via buildOverviewOwnerKey(account.id, network.id) where
+      // account.id is the fully-derived form (e.g. "hd-1--0000/0"), while
+      // selectedAccountsAtom only exposes indexedAccountId ("hd-1--0"). Using
+      // the latter would never match any byOwner entry, making the first-frame
+      // balance fast-path dead code. activeAccountsAtom is ColdStartCache-
+      // backed so its snapshot is present at bootstrap; see SplashProvider
+      // hasBalanceCacheInSnapshot() for the mirrored lookup.
+      const activeKey = Object.keys(snap).find(
+        (key) =>
+          key.includes('accountSelector@home') &&
+          key.includes('ctx:activeAccountsAtom'),
+      );
+      if (!activeKey) return '';
+      const raw = snap[activeKey];
+      if (!raw || typeof raw !== 'object') return '';
+      // activeAccountsAtom shape: { '<num>': { account: { id }, network: { id }, ... } }
+      // Home scene uses num=0 by convention.
+      const atZero = (raw as Record<string, any>)['0'];
+      if (!atZero || typeof atZero !== 'object') return '';
+      const accountId: string | undefined = atZero.account?.id;
+      const networkId: string | undefined = atZero.network?.id;
+      if (!accountId || !networkId) return '';
+      return buildOverviewOwnerKey(accountId, networkId);
+    } catch {
+      return '';
+    }
+  }, []);
 
   useEffect(() => {
     perfMark('Home:overview:mount');
@@ -504,8 +561,9 @@ function HomeOverviewContainer() {
     setLastConfirmedOverviewBalance,
   ]);
 
+  const effectiveOwnerKey = currentOverviewOwnerKey || bootstrapOwnerKey;
   const currentConfirmedBalance =
-    lastConfirmedOverviewBalance.byOwner[currentOverviewOwnerKey];
+    lastConfirmedOverviewBalance.byOwner[effectiveOwnerKey];
   const isCurrentTokenCacheStateMatched =
     overviewTokenCacheState.ownerKey === currentOverviewOwnerKey;
   const isCurrentDeFiDataStateMatched =
@@ -518,17 +576,21 @@ function HomeOverviewContainer() {
     if (currentConfirmedBalance || !lastConfirmedOverviewBalance.latest) {
       return false;
     }
-
+    if (isWalletNotBackedUp) {
+      return false;
+    }
+    // First-mount fast path: see comment on isFirstColdStartMountRef.
+    if (isFirstColdStartMountRef.current) {
+      return true;
+    }
     const hasPositiveCurrentOwnerSignal =
       (isCurrentTokenCacheStateMatched &&
         overviewTokenCacheState.hasCache === true) ||
       (isCurrentDeFiDataStateMatched && overviewDeFiDataState.isReady === true);
-
     if (!hasPositiveCurrentOwnerSignal) {
       return false;
     }
-
-    return !reuseLatestBalanceGraceExpired && !isWalletNotBackedUp;
+    return !reuseLatestBalanceGraceExpired;
   }, [
     currentConfirmedBalance,
     isWalletNotBackedUp,
@@ -562,7 +624,14 @@ function HomeOverviewContainer() {
     }),
     [currentOverviewOwnerKey, displayBalanceString],
   );
-  const debouncedBalancePayload = useDebounce(balancePayload, 100);
+  // leading:true fires immediately so a fresh balance isn't held back by
+  // the 100ms tail; trailing:true preserves the de-duplication on rapid
+  // back-to-back updates. This removes up to 100ms of cold-start latency
+  // on the balance display path.
+  const debouncedBalancePayload = useDebounce(balancePayload, 100, {
+    leading: true,
+    trailing: true,
+  });
 
   const numberFormatter: INumberFormatProps = {
     formatter: 'value',
@@ -622,13 +691,69 @@ function HomeOverviewContainer() {
 
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
+  // Track when balance is first displayed
+  const balanceReady =
+    !showSkeleton &&
+    renderedBalanceString !== null &&
+    renderedBalanceString !== undefined;
+  useEffect(() => {
+    if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
+      (globalThis as any).__onekeyBalanceDisplayed = true;
+      appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
+      // Best-effort: persist the on-screen balance to lastConfirmedOverviewBalance
+      // so the NEXT cold start's fast-path (Lever 1 in HomeOverviewContainer) can
+      // reuse it without waiting for isCurrentAllNetworksBalanceFullyReady — which
+      // often never turns true before the user kills the app in AllNetworks mode.
+      // The existing fully-ready-gated useEffect above still runs for progressive
+      // updates; this one just guarantees we capture the first-displayed value.
+      try {
+        const balanceToPersist = renderedBalanceString;
+        if (
+          balanceToPersist !== undefined &&
+          balanceToPersist !== null &&
+          currentOverviewOwnerKey
+        ) {
+          setLastConfirmedOverviewBalance((prev) => ({
+            latest: balanceToPersist,
+            byOwner: {
+              ...prev.byOwner,
+              [currentOverviewOwnerKey]: balanceToPersist,
+            },
+          }));
+        }
+      } catch {
+        /* persistence is best-effort — never break HomePageReady emission */
+      }
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { NativeLogger: NL, LogLevel: LL } =
+          require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+        const jsEntry: number =
+          (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+        if (jsEntry) {
+          NL.write(
+            LL.Info,
+            `[StartupTiming] Balance displayed (+${Date.now() - jsEntry}ms)`,
+          );
+        }
+      } catch {
+        /* NativeLogger may not be available */
+      }
+    }
+  }, [
+    balanceReady,
+    currentOverviewOwnerKey,
+    renderedBalanceString,
+    setLastConfirmedOverviewBalance,
+  ]);
+
   return (
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />
         ) : (
-          <XStack alignItems="center" gap="$3">
+          <XStack alignItems="center" gap="$3" h={48}>
             <XStack
               flexShrink={1}
               borderRadius="$3"

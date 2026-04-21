@@ -356,7 +356,7 @@ class ServiceIpTable extends ServiceBase {
         return false;
       }
 
-      const isValidSignature = verifyIpTableConfigSignature(remoteConfig);
+      const isValidSignature = await verifyIpTableConfigSignature(remoteConfig);
 
       if (!isValidSignature) {
         defaultLogger.ipTable.request.error({
