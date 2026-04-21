@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -43,6 +43,7 @@ import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
   useFlattenAggregateTokensMapAtom,
+  useRenderedTokenListCacheAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
@@ -182,6 +183,11 @@ function TokenListViewCmp(props: IProps) {
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
+  const [renderedTokenListCache, setRenderedTokenListCache] =
+    useRenderedTokenListCacheAtom();
+  // Use ref to avoid useMemo→useEffect→setState cycle
+  const renderedTokenListCacheRef = useRef(renderedTokenListCache);
+  renderedTokenListCacheRef.current = renderedTokenListCache;
   const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
 
   const tokenManagementEnabled =
@@ -275,6 +281,21 @@ function TokenListViewCmp(props: IProps) {
       });
     }
 
+    // Use cached rendered list on cold start when real data hasn't loaded yet.
+    // Only use cache if it matches the current account+network.
+    // Read from ref to avoid dependency cycle (useMemo→useEffect→setState→useMemo).
+    const cache = renderedTokenListCacheRef.current;
+    if (
+      resultTokens.length === 0 &&
+      !tokenListState.initialized &&
+      cache.initialized &&
+      cache.tokens.length > 0 &&
+      cache.accountId === accountId &&
+      cache.networkId === networkId
+    ) {
+      return cache.tokens;
+    }
+
     return resultTokens;
   }, [
     showActiveAccountTokenList,
@@ -291,6 +312,33 @@ function TokenListViewCmp(props: IProps) {
     homeDefaultTokenMap,
     customTokens,
     exchangeFilter,
+    tokenListState.initialized,
+    accountId,
+    networkId,
+  ]);
+
+  // Save rendered token list cache for cold start (in useEffect, not useMemo)
+  useEffect(() => {
+    if (
+      tokens.length > 0 &&
+      tokenListState.initialized &&
+      !tokenListState.isRefreshing &&
+      accountId
+    ) {
+      setRenderedTokenListCache({
+        tokens,
+        initialized: true,
+        accountId,
+        networkId,
+      });
+    }
+  }, [
+    tokens,
+    tokenListState.initialized,
+    tokenListState.isRefreshing,
+    setRenderedTokenListCache,
+    accountId,
+    networkId,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
@@ -382,25 +430,37 @@ function TokenListViewCmp(props: IProps) {
     };
   }, []);
 
-  const showSkeleton = useMemo(
-    () =>
+  const showSkeleton = useMemo(() => {
+    // If we have a cached rendered token list matching current account, skip skeleton
+    const cache = renderedTokenListCacheRef.current;
+    if (
+      cache.initialized &&
+      cache.tokens.length > 0 &&
+      cache.accountId === accountId &&
+      cache.networkId === networkId
+    ) {
+      return false;
+    }
+    return (
       (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
       (!isTokenSelector && searchTokenState.isSearching) ||
       (!tokenListState.initialized && tokenListState.isRefreshing) ||
       (!activeAccountTokenListState.initialized &&
         showActiveAccountTokenList &&
-        activeAccountTokenListState.isRefreshing),
-    [
-      isTokenSelector,
-      tokenSelectorSearchTokenState.isSearching,
-      searchTokenState.isSearching,
-      tokenListState.initialized,
-      tokenListState.isRefreshing,
-      activeAccountTokenListState.initialized,
-      activeAccountTokenListState.isRefreshing,
-      showActiveAccountTokenList,
-    ],
-  );
+        activeAccountTokenListState.isRefreshing)
+    );
+  }, [
+    isTokenSelector,
+    tokenSelectorSearchTokenState.isSearching,
+    searchTokenState.isSearching,
+    tokenListState.initialized,
+    tokenListState.isRefreshing,
+    activeAccountTokenListState.initialized,
+    activeAccountTokenListState.isRefreshing,
+    showActiveAccountTokenList,
+    accountId,
+    networkId,
+  ]);
 
   useEffect(() => {
     if (showSkeleton) {

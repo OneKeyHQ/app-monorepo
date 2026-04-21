@@ -14,7 +14,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAssetAtom,
+  useTradingModeAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -48,6 +51,8 @@ function PerpCandleChartButtonMobile() {
 
 function PerpBadgesRow() {
   const intl = useIntl();
+  const [tradingMode] = useTradingModeAtom();
+  const isSpot = tradingMode === 'spot';
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const [asset] = usePerpsActiveAssetAtom();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
@@ -98,9 +103,12 @@ function PerpBadgesRow() {
     <XStack alignItems="center" gap="$1.5">
       <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
         <SizableText color="$textSubdued" fontSize={10}>
-          {intl.formatMessage({
-            id: ETranslations.perp_label_perp,
-          })}
+          {/* TODO: add i18n key for 'Spot' (ETranslations) */}
+          {isSpot
+            ? 'Spot'
+            : intl.formatMessage({
+                id: ETranslations.perp_label_perp,
+              })}
         </SizableText>
       </Badge>
       {subtitle ? (
@@ -138,7 +146,7 @@ function PerpBadgesRow() {
           }
         />
       ) : null}
-      {builderFeeRate === 0 ? (
+      {!isSpot && builderFeeRate === 0 ? (
         <Badge radius="$1" bg="$bgSuccess" px="$0.5" py={0}>
           <SizableText color="$textSuccess" fontSize={10}>
             {intl.formatMessage({

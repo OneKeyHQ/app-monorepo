@@ -66,6 +66,7 @@ import {
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
+  MenuBarTrayListItem,
   ResetAppListItem,
   ResetPinListItem,
   ThemeListItem,
@@ -342,6 +343,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_bluetooth,
                   }),
                   renderElement: <DesktopBluetoothListItem />,
+                }
+              : undefined,
+          ],
+          [
+            platformEnv.isDesktopMac
+              ? {
+                  icon: 'DockOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray_desc,
+                  }),
+                  renderElement: <MenuBarTrayListItem />,
                 }
               : undefined,
           ],

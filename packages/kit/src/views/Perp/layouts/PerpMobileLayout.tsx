@@ -25,6 +25,7 @@ import {
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
+import { SpotBalanceList } from '../components/OrderInfoPanel/List/SpotBalanceList';
 import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
@@ -34,6 +35,7 @@ import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 export enum ETabName {
   Positions = 'Positions',
   OpenOrders = 'OpenOrders',
+  Balances = 'Balances',
   SwapProOpenOrders = 'SwapProOpenOrders',
   SwapOrderHistory = 'SwapOrderHistory',
 }
@@ -42,11 +44,13 @@ const tabNameToTranslationKey: Record<
   ETabName,
   | ETranslations.perp_position_title
   | ETranslations.perp_open_orders_title
+  | ETranslations.global_balance
   | ETranslations.Limit_open_order
   | ETranslations.Limit_order_history
 > = {
   [ETabName.Positions]: ETranslations.perp_position_title,
   [ETabName.OpenOrders]: ETranslations.perp_open_orders_title,
+  [ETabName.Balances]: ETranslations.global_balance,
   [ETabName.SwapProOpenOrders]: ETranslations.Limit_open_order,
   [ETabName.SwapOrderHistory]: ETranslations.Limit_order_history,
 };
@@ -180,6 +184,11 @@ export function PerpMobileLayout() {
             onPress={setActiveTab}
             tabCount={openOrdersTabCount}
           />
+          <TabBarItem
+            name={ETabName.Balances}
+            isFocused={activeTab === ETabName.Balances}
+            onPress={setActiveTab}
+          />
         </XStack>
         <IconButton
           variant="tertiary"
@@ -206,6 +215,12 @@ export function PerpMobileLayout() {
           flex={1}
         >
           <PerpOpenOrdersList isMobile useTabsList={false} disableListScroll />
+        </YStack>
+        <YStack
+          display={activeTab === ETabName.Balances ? 'flex' : 'none'}
+          flex={1}
+        >
+          <SpotBalanceList isMobile useTabsList={false} disableListScroll />
         </YStack>
       </YStack>
     </ScrollView>

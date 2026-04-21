@@ -1109,6 +1109,17 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
 
                       <SectionPressItem
+                        icon="RepeatOutline"
+                        title="Split Bundle & Background Thread"
+                        subtitle="Check dual-thread mode & test service RPC"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSplitBundleTestModal,
+                          );
+                        }}
+                      />
+
+                      <SectionPressItem
                         icon="Lab2Outline"
                         title="Dev Unit Tests"
                         testID="dev-unit-tests-menu"
@@ -1777,6 +1788,14 @@ const BaseDevSettingsSection = () => {
                         name="alwaysSignOnlySendTx"
                         title="始终只签名不广播"
                         testID="always-sign-only-send-tx"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="EyeOutline"
+                        name="allowBulkSendWatchingAccount"
+                        title="批量转账允许观察账户进入前置流程"
+                        subtitle="仅放行前置校验，实际发送仍会在提交时拦截"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>

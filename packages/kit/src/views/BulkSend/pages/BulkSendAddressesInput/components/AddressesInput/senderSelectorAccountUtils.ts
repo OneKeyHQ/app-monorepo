@@ -3,6 +3,29 @@ import type { IDBWalletType } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+// Cached so a single validation pass over many addresses pays only one
+// cross-process read of the dev setting. TTL is short so toggling from the
+// UI takes effect quickly.
+let devFlagCache: { at: number; promise: Promise<boolean> } | undefined;
+const DEV_FLAG_CACHE_TTL_MS = 1000;
+
+async function isBulkSendWatchingAccountAllowedInDev(): Promise<boolean> {
+  const now = Date.now();
+  if (devFlagCache && now - devFlagCache.at < DEV_FLAG_CACHE_TTL_MS) {
+    return devFlagCache.promise;
+  }
+  const promise = (async () => {
+    try {
+      const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
+      return !!(dev.enabled && dev.settings?.allowBulkSendWatchingAccount);
+    } catch {
+      return false;
+    }
+  })();
+  devFlagCache = { at: now, promise };
+  return promise;
+}
+
 export type IBulkSendSelectorAccountItem = {
   address: string;
   walletName: string;
@@ -93,6 +116,13 @@ export async function resolveBulkSendSelectorFallbackAccount({
       accountId: fallbackAccountItem.accountId,
     })
   ) {
+    if (await isBulkSendWatchingAccountAllowedInDev()) {
+      return {
+        type: 'resolved',
+        accountId: fallbackAccountItem.accountId,
+        indexedAccountId: fallbackAccountItem.indexedAccountId,
+      };
+    }
     return {
       type: 'error',
       errorMessageId: ETranslations.wallet_bulk_send_error_watching_account,
@@ -186,9 +216,11 @@ function getBulkSendSenderCandidateRank(
 async function resolveBulkSendCandidateAccount({
   candidate,
   networkId,
+  allowWatchingAccount,
 }: {
   candidate: IBulkSendAddressWalletCandidate;
   networkId: string;
+  allowWatchingAccount?: boolean;
 }): Promise<
   | {
       accountId: string;
@@ -220,6 +252,15 @@ async function resolveBulkSendCandidateAccount({
   if (
     accountUtils.isImportedAccount({ accountId: candidate.accountId }) ||
     accountUtils.isExternalAccount({ accountId: candidate.accountId })
+  ) {
+    return {
+      accountId: candidate.accountId,
+    };
+  }
+
+  if (
+    allowWatchingAccount &&
+    accountUtils.isWatchingAccount({ accountId: candidate.accountId })
   ) {
     return {
       accountId: candidate.accountId,
@@ -330,11 +371,16 @@ export async function resolveBulkSendSenderSelection({
   // candidates are unusable (e.g., watching accounts).
   const candidatesToResolve = sortedCandidates;
   const preferredCandidate = candidatesToResolve[0];
+  const allowWatchingAccount = await isBulkSendWatchingAccountAllowedInDev();
   let sawWatchingCandidate = false;
   let sawNonWatchingCandidate = false;
 
   for (const candidate of candidatesToResolve) {
-    if (accountUtils.isWatchingAccount({ accountId: candidate.accountId })) {
+    const isWatching = accountUtils.isWatchingAccount({
+      accountId: candidate.accountId,
+    });
+
+    if (isWatching && !allowWatchingAccount) {
       sawWatchingCandidate = true;
     } else {
       sawNonWatchingCandidate = true;
@@ -342,6 +388,7 @@ export async function resolveBulkSendSenderSelection({
       const resolvedAccount = await resolveBulkSendCandidateAccount({
         candidate,
         networkId,
+        allowWatchingAccount,
       });
       if (resolvedAccount) {
         return {

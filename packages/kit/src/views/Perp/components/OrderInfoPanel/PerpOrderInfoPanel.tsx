@@ -21,12 +21,14 @@ import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
+import { SpotBalanceList } from './List/SpotBalanceList';
 
 const tabNameToTranslationKey: Record<string, string> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
   'Trades History': ETranslations.perp_trades_history_title,
   'Account': ETranslations.perp_account_history,
+  'Balances': 'Balances', // TODO: add i18n key (ETranslations)
 };
 
 function TabBarItem({
@@ -105,7 +107,12 @@ function PerpOrderInfoPanel() {
         <Tabs.TabBar
           {...props}
           renderItem={({ name, isFocused, onPress }) => (
-            <TabBarItem name={name} isFocused={isFocused} onPress={onPress} />
+            <TabBarItem
+              key={name}
+              name={name}
+              isFocused={isFocused}
+              onPress={onPress}
+            />
           )}
           containerStyle={{
             borderRadius: 0,
@@ -116,6 +123,9 @@ function PerpOrderInfoPanel() {
         />
       )}
     >
+      <Tabs.Tab name="Balances">
+        <SpotBalanceList />
+      </Tabs.Tab>
       <Tabs.Tab name="Positions">
         <PerpPositionsList handleViewTpslOrders={handleViewTpslOrders} />
       </Tabs.Tab>
