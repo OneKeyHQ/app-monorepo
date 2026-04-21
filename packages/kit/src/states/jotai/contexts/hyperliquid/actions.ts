@@ -1559,23 +1559,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         throw new OneKeyLocalError(`Order ${params.oid} not found`);
       }
 
-      const activeCtx = await perpsActiveAssetCtxAtom.get();
-      const markPrice = activeCtx?.ctx?.markPrice;
-      if (!markPrice) {
-        throw new OneKeyLocalError('Mark price unavailable');
-      }
-
-      // Dragging across mark re-derives side — a limit above mark would otherwise
-      // fill immediately at mark, which is never the user's intent.
-      const isBuy = new BigNumber(params.newPrice).lt(markPrice);
-
+      // Preserve side on drag. HL treats a modify that flips side as
+      // cancel-and-replace under the hood — the original oid is retired,
+      // a follow-up drag on the stale oid fails with "cannot modify
+      // canceled or filled order". Users wanting the opposite side
+      // should cancel and place a new order.
       return withToast({
         asyncFn: () =>
           backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid({
             coin: params.coin,
             oid: params.oid,
             newPrice: params.newPrice,
-            isBuy,
+            isBuy: existing.side === 'B',
             size: existing.sz,
             reduceOnly: existing.reduceOnly,
           }),
