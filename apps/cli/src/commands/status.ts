@@ -15,7 +15,7 @@ export function registerStatusCommand(program: Command): void {
       const output = globalOpts._outputFormatter as OutputFormatter;
 
       try {
-        const env = ((globalOpts.env as string) ?? 'test') as IEndpointEnv;
+        const env = ((globalOpts.env as string) ?? 'prod') as IEndpointEnv;
         apiClient.setEnv(env);
 
         const start = Date.now();
@@ -38,7 +38,7 @@ export function registerStatusCommand(program: Command): void {
           >;
           output.success({
             status: 'connected',
-            env: (statusOpts.env as string) ?? 'test',
+            env: (statusOpts.env as string) ?? 'prod',
             note: 'API reachable (business error expected for zero address)',
           });
           return;
