@@ -225,16 +225,6 @@ function MobileLayoutComponent({
 
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
-  const activeTabNameRef = useRef(activeTabName);
-  activeTabNameRef.current = activeTabName;
-  const selectedTabNameRef = useRef(selectedTabName);
-  selectedTabNameRef.current = selectedTabName;
-  const currentTabsRefRef = useRef(currentTabsRef);
-  currentTabsRefRef.current = currentTabsRef;
-  const isFocusedRef = useRef(isFocused);
-  isFocusedRef.current = isFocused;
-  const nestedPagerRef = useRef(nestedPager);
-  nestedPagerRef.current = nestedPager;
 
   const containerProps = useMemo(
     () => ({
@@ -274,15 +264,6 @@ function MobileLayoutComponent({
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
-        console.log('[MarketTab][MobileLayout] tab press', {
-          name,
-          activeTabName: activeTabNameRef.current,
-          selectedTabName: selectedTabNameRef.current,
-          focusedTabName: currentTabsRefRef.current.current?.getFocusedTab(),
-          currentIndex: currentTabsRefRef.current.current?.getCurrentIndex(),
-          isFocused: isFocusedRef.current,
-          nestedPager: nestedPagerRef.current,
-        });
         setActiveTabNameRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
@@ -302,15 +283,6 @@ function MobileLayoutComponent({
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
-      console.log('[MarketTab][MobileLayout] onTabChange', {
-        tabName,
-        activeTabName: activeTabNameRef.current,
-        selectedTabName: selectedTabNameRef.current,
-        focusedTabName: currentTabsRefRef.current.current?.getFocusedTab(),
-        currentIndex: currentTabsRefRef.current.current?.getCurrentIndex(),
-        isFocused: isFocusedRef.current,
-        nestedPager: nestedPagerRef.current,
-      });
       setActiveTabName(tabName);
       handleTabChange(tabName);
     },
