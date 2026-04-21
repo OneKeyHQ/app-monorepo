@@ -28,6 +28,8 @@ import type {
 import type { SharedValue } from 'react-native-reanimated';
 import type { WindowScrollerChildProps } from 'react-virtualized';
 
+export const TABS_CONTAINER_CLASSNAME = 'onekey-tabs-container';
+
 const overflowYScrollStyle = { overflowY: 'scroll' } as const;
 const scrollSnapStyle = { scrollSnapType: 'x' } as const;
 const childDivStyle = {
@@ -388,7 +390,7 @@ export function Container({
   return (
     <YStack
       flex={1}
-      className="onekey-tabs-container"
+      className={TABS_CONTAINER_CLASSNAME}
       position="relative"
       style={disableScroll ? undefined : overflowYScrollStyle}
       ref={ref as React.RefObject<HTMLDivElement>}

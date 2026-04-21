@@ -632,8 +632,6 @@ function DeFiContainerScrollableNative() {
   );
 }
 
-const BACK_TO_TOP_THRESHOLD = 600;
-
 function DeFiContainerScrollableWeb() {
   const tabBarOffset = useScrollContentTabBarOffset();
   const sentinelRef = useRef<HTMLElement | null>(null);
@@ -652,7 +650,7 @@ function DeFiContainerScrollableWeb() {
       if (rafId) return;
       rafId = requestAnimationFrame(() => {
         rafId = 0;
-        const next = scroller.scrollTop > BACK_TO_TOP_THRESHOLD;
+        const next = scroller.scrollTop > scroller.clientHeight * 2;
         setBackToTopVisible((prev) => (prev === next ? prev : next));
       });
     };

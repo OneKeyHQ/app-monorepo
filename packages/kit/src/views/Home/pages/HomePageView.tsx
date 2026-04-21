@@ -13,6 +13,7 @@ import {
   ScrollView,
   Spinner,
   Stack,
+  TABS_CONTAINER_CLASSNAME,
   Tabs,
   YStack,
   useScrollContentTabBarOffset,
@@ -54,6 +55,7 @@ import {
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
+import { findScrollableAncestorFromLocalNode } from './defiDesktopStickyDom';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
@@ -551,30 +553,31 @@ export function HomePageView({
     void Icon.prefetch('CloudOffOutline');
   }, []);
 
-  // Forward wheel events fired outside any scrollable (page-shell gutters,
-  // BasicPage right margin, border area) to the active tab's scroller.
+  // Wheel fired over page-shell gutters (BasicPage right margin / border) lands
+  // on the document, not on the tabs scroller — forward it so those empty
+  // regions still scroll the page.
   useEffect(() => {
     if (platformEnv.isNative) return;
-    const onWheel = (e: WheelEvent) => {
-      const scroller = document.querySelector(
-        '.onekey-tabs-container',
-      ) as HTMLElement | null;
-      if (!scroller) return;
-      let node: Node | null = e.target as Node | null;
-      while (node) {
-        if (node === scroller) return;
-        if (node instanceof HTMLElement) {
-          const { overflowY } = globalThis.getComputedStyle(node);
-          if (
-            (overflowY === 'auto' || overflowY === 'scroll') &&
-            node.scrollHeight > node.clientHeight
-          ) {
-            return;
-          }
-        }
-        node = (node as Node).parentNode;
+    const scrollerSelector = `.${TABS_CONTAINER_CLASSNAME}`;
+    let scroller: HTMLElement | null = null;
+    const resolveScroller = () => {
+      if (!scroller || !scroller.isConnected) {
+        scroller = document.querySelector(scrollerSelector);
       }
-      scroller.scrollBy({ top: e.deltaY, left: e.deltaX });
+      return scroller;
+    };
+    const onWheel = (e: WheelEvent) => {
+      const s = resolveScroller();
+      if (!s) return;
+      const target = e.target;
+      if (target instanceof Node && s.contains(target)) return;
+      if (
+        target instanceof HTMLElement &&
+        findScrollableAncestorFromLocalNode(target)
+      ) {
+        return;
+      }
+      s.scrollBy({ top: e.deltaY, left: e.deltaX });
     };
     globalThis.addEventListener('wheel', onWheel, { passive: true });
     return () => {

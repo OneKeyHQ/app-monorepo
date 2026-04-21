@@ -25,6 +25,7 @@ export const Tabs = {
 };
 
 export type { ITabContainerRef, ITabContainerProps } from './Container';
+export { TABS_CONTAINER_CLASSNAME } from './Container';
 export type { ITabBarVariant, ITabBarItemProps } from './TabBar';
 export * from './hooks';
 
