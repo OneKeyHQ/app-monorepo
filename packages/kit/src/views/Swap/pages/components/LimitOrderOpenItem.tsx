@@ -30,7 +30,9 @@ const LimitOrderOpenItem = ({
   const openLimitOrder = useMemo(
     () =>
       swapLimitOrders.filter(
-        (order) => order.status === ESwapLimitOrderStatus.OPEN,
+        (order) =>
+          order.status === ESwapLimitOrderStatus.OPEN ||
+          order.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
       ),
     [swapLimitOrders],
   );
