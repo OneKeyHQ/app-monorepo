@@ -13,7 +13,6 @@ import {
   type ILogUploadResponse,
 } from '@onekeyhq/shared/src/logger/types';
 import utils from '@onekeyhq/shared/src/logger/utils';
-import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -108,7 +107,17 @@ export const collectLogDigest = async (
   }
   const stat = await RNFS.stat(normalizedPath);
   const sizeBytes = Number(stat.size ?? 0);
-  const sha256 = await BundleUpdate.getSha256FromFilePath(normalizedPath);
+  // RNFS.hash rejects on missing/unreadable files; probe existence first and
+  // wrap in try/catch to keep prior "empty string on failure" semantics.
+  let sha256 = '';
+  try {
+    const exists = await RNFS.exists(normalizedPath);
+    if (exists) {
+      sha256 = await RNFS.hash(normalizedPath, 'sha256');
+    }
+  } catch {
+    sha256 = '';
+  }
   return {
     sizeBytes,
     sha256,
