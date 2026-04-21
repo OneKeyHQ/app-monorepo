@@ -53,6 +53,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
+import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
@@ -414,16 +415,76 @@ export function HomePageView({
     [],
   );
 
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
+    setPortalTarget((prev) => (prev === el ? prev : el));
+  }, []);
+
+  const [stickyHost, setStickyHost] = useState<HTMLElement | null>(null);
+  const stickyHostRefCallback = useCallback((el: unknown) => {
+    const next =
+      typeof HTMLElement !== 'undefined' && el instanceof HTMLElement
+        ? el
+        : null;
+    setStickyHost((prev) => (prev === next ? prev : next));
+  }, []);
+
+  const initialTabName = tabConfigs[0]?.name ?? '';
+  const [activeTabName, setActiveTabName] = useState(initialTabName);
+
   const renderTabBar = useCallback(
-    (props: any) => (
-      <Tabs.TabBar
-        {...props}
-        variant="pill"
-        renderItem={handleRenderItem}
-        renderToolbar={renderToolbar}
-      />
-    ),
-    [handleRenderItem, renderToolbar],
+    (tabBarProps: any) => {
+      const handleTabPress = (name: string) => {
+        setActiveTabName(name);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        tabBarProps.onTabPress?.(name);
+      };
+      return (
+        <YStack
+          ref={stickyHostRefCallback as any}
+          bg="$bgApp"
+          position={'sticky' as any}
+          top={0}
+          zIndex={10}
+        >
+          <Tabs.TabBar
+            {...tabBarProps}
+            onTabPress={handleTabPress}
+            variant="pill"
+            renderItem={handleRenderItem}
+            renderToolbar={renderToolbar}
+            containerStyle={{ position: 'relative' as any }}
+          />
+          {platformEnv.isNative ? null : (
+            <div
+              ref={portalRefCallback}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                zIndex: 1,
+              }}
+            />
+          )}
+        </YStack>
+      );
+    },
+    [
+      portalRefCallback,
+      stickyHostRefCallback,
+      handleRenderItem,
+      renderToolbar,
+    ],
+  );
+
+  const handleTabChange = useCallback((data: { tabName: string }) => {
+    setActiveTabName(data.tabName);
+  }, []);
+
+  const stickyHeaderCtx = useMemo(
+    () => ({ portalTarget, stickyHost, activeTabName }),
+    [portalTarget, stickyHost, activeTabName],
   );
 
   const tabs = useMemo(() => {
@@ -452,6 +513,7 @@ export function HomePageView({
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
+        onTabChange={handleTabChange}
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
@@ -471,6 +533,7 @@ export function HomePageView({
     network?.id,
     renderHeader,
     renderTabBar,
+    handleTabChange,
     tabConfigs,
   ]);
 
@@ -680,6 +743,10 @@ export function HomePageView({
   ]);
 
   return useMemo(() => {
-    return <Page fullPage>{homePage}</Page>;
-  }, [homePage]);
+    return (
+      <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
+        <Page fullPage>{homePage}</Page>
+      </HomeStickyHeaderContext.Provider>
+    );
+  }, [homePage, stickyHeaderCtx]);
 }
