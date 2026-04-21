@@ -35,24 +35,31 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
+  usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
-  usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
+  SPOT_MIN_VOLUME_STRICT,
+  formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
-  parseDexCoin,
+  getSpotTokenDisplayName,
+  getTokenSubtitle,
+  isSpotInstrument,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpsAssetCtx,
   IPerpsUniverse,
+  ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import {
   DEFAULT_PERP_TOKEN_ACTIVE_TAB,
@@ -67,15 +74,24 @@ import {
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
+import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import { SortableHeaderCell } from './SortableHeaderCell';
 
+export const SPOT_DEX_INDEX = -1;
+
 export type ITokenSelectorListItem = {
   dexIndex: number;
   index: number;
   assetId?: number;
+  // Perp-specific: pre-computed static token data so rows don't subscribe to universe atom
+  tokenName?: string;
+  tokenMaxLeverage?: number;
+  tokenSubtitle?: string;
+  // Spot-specific: carries display name for rendering since spot uses @N identifiers
+  spotUniverse?: ISpotUniverse;
 };
 
 const TabItem = memo(
@@ -113,7 +129,7 @@ const TabItem = memo(
 );
 TabItem.displayName = 'TabItem';
 
-function TokenListHeader() {
+function TokenListHeader({ isSpot }: { isSpot?: boolean }) {
   const intl = useIntl();
   return (
     <XStack
@@ -143,27 +159,47 @@ function TokenListHeader() {
         })}
         width={150}
       />
-      <SortableHeaderCell
-        field="fundingRate"
-        label={intl.formatMessage({
-          id: ETranslations.perp_position_funding,
-        })}
-        width={110}
-      />
-      <SortableHeaderCell
-        field="volume24h"
-        label={intl.formatMessage({
-          id: ETranslations.perp_token_selector_volume,
-        })}
-        width={110}
-      />
-      <SortableHeaderCell
-        field="openInterest"
-        label={intl.formatMessage({
-          id: ETranslations.perp_token_bar_open_Interest,
-        })}
-        width={120}
-      />
+      {isSpot ? null : (
+        <>
+          <SortableHeaderCell
+            field="fundingRate"
+            label={intl.formatMessage({
+              id: ETranslations.perp_position_funding,
+            })}
+            width={110}
+          />
+          <SortableHeaderCell
+            field="volume24h"
+            label={intl.formatMessage({
+              id: ETranslations.perp_token_selector_volume,
+            })}
+            width={110}
+          />
+          <SortableHeaderCell
+            field="openInterest"
+            label={intl.formatMessage({
+              id: ETranslations.perp_token_bar_open_Interest,
+            })}
+            width={120}
+          />
+        </>
+      )}
+      {isSpot ? (
+        <>
+          <SortableHeaderCell
+            field="volume24h"
+            label={intl.formatMessage({
+              id: ETranslations.perp_token_selector_volume,
+            })}
+            width={130}
+          />
+          <SortableHeaderCell
+            field="openInterest"
+            label="Market Cap" // TODO: add i18n key (ETranslations)
+            width={200}
+          />
+        </>
+      ) : null}
     </XStack>
   );
 }
@@ -182,6 +218,7 @@ function BasePerpTokenSelectorContent({
 
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
+  const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
@@ -194,9 +231,34 @@ function BasePerpTokenSelectorContent({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
+      spot: 'Spot', // TODO: add i18n key (ETranslations)
     }),
     [intl],
   );
+
+  // Spot data — try cache first, fallback to refresh if empty
+  const [spotPriceMap] = useSpotAssetCtxsMapAtom();
+  const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
+  const [spotLoading, setSpotLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      let { universes } =
+        await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+      if (!universes?.length) {
+        await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+        const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        universes = res.universes;
+      }
+      if (!cancelled) {
+        setSpotUniverses(universes ?? []);
+        setSpotLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
 
@@ -213,25 +275,42 @@ function BasePerpTokenSelectorContent({
             }) as any,
         );
       });
+      actions.current.setTradeRouteViewState({
+        tokenSelectorTab: tab,
+      });
     },
-    [setSelectorConfig],
+    [actions, setSelectorConfig],
   );
 
   const handleSelectToken = useCallback(
     async (symbol: string) => {
+      const isSpotToken = isSpotInstrument(symbol);
       try {
         onLoadingChange(true);
+        if (isSpotToken) {
+          const universe = spotUniverses.find((u) => u.name === symbol);
+          if (!universe) {
+            return;
+          }
+          await actions.current.switchTradeInstrument({
+            mode: 'spot',
+            coin: symbol,
+            spotUniverse: universe,
+          });
+        } else {
+          await actions.current.switchTradeInstrument({
+            mode: 'perp',
+            coin: symbol,
+          });
+        }
         void closePopover?.();
-        await actions.current.changeActiveAsset({
-          coin: symbol,
-        });
       } catch (error) {
         console.error('Failed to switch token:', error);
       } finally {
         onLoadingChange(false);
       }
     },
-    [closePopover, actions, onLoadingChange],
+    [closePopover, actions, onLoadingChange, spotUniverses],
   );
 
   const { favoriteItems, isReady: isFavoritesReady } = usePerpsFavorites();
@@ -268,6 +347,12 @@ function BasePerpTokenSelectorContent({
       actions.current.markAllAssetCtxsNotRequired();
     };
   }, [actions]);
+
+  useEffect(() => {
+    actions.current.setTradeRouteViewState({
+      tokenSelectorTab: activeTab,
+    });
+  }, [actions, activeTab]);
 
   const computeSortValues = useCallback(
     (assetCtx: IPerpsAssetCtx | undefined) => {
@@ -339,7 +424,9 @@ function BasePerpTokenSelectorContent({
     [selectorConfig?.direction, selectorConfig?.field],
   );
 
-  const activeTabData = useMemo(() => {
+  // Layer 1a: perp sort — only reruns when sort config or perp assets change.
+  // Never reruns on tab switch, spot WS updates, search, or favorites changes.
+  const perpSortedList = useMemo((): ITokenSelectorListItem[] => {
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] =
       ctxSnapshotRef.current || [];
@@ -353,44 +440,137 @@ function BasePerpTokenSelectorContent({
               ? asset.assetId - XYZ_ASSET_ID_OFFSET
               : asset.assetId;
           const sortValues = computeSortValues(ctxs?.[normalizedAssetId]);
-          return {
-            dexIndex,
-            index,
-            asset,
-            assetId: asset.assetId,
-            sortValues,
-          };
+          return { dexIndex, index, asset, assetId: asset.assetId, sortValues };
         });
       },
     );
 
+    const mapEntry = (
+      entry: (typeof combinedEntries)[0],
+    ): ITokenSelectorListItem => ({
+      dexIndex: entry.dexIndex,
+      index: entry.index,
+      assetId: entry.assetId,
+      tokenName: entry.asset.name,
+      tokenMaxLeverage: entry.asset.maxLeverage,
+      tokenSubtitle: getTokenSubtitle(entry.asset.name, tokenSearchAliases),
+    });
+
     const sortField = selectorConfig?.field ?? '';
-    let result: ITokenSelectorListItem[];
     if (!sortField) {
-      result = combinedEntries.map((entry) => ({
-        dexIndex: entry.dexIndex,
-        index: entry.index,
-        assetId: entry.assetId,
-      }));
-    } else {
-      const sorted = combinedEntries.toSorted((a, b) =>
+      return combinedEntries.map(mapEntry);
+    }
+    return combinedEntries
+      .toSorted((a, b) =>
         sortCompare(
           { asset: a.asset, sortValues: a.sortValues },
           { asset: b.asset, sortValues: b.sortValues },
         ),
-      );
-      result = sorted.map((entry) => ({
-        dexIndex: entry.dexIndex,
-        index: entry.index,
-        assetId: entry.assetId,
-      }));
+      )
+      .map(mapEntry);
+  }, [
+    assetsByDex,
+    computeSortValues,
+    sortCompare,
+    selectorConfig?.field,
+    tokenSearchAliases,
+  ]);
+
+  // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
+  // sort config changes. spotPriceMap WS updates never touch the perp list.
+  const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
+    const sortField = selectorConfig?.field ?? '';
+    const sortDirection = selectorConfig?.direction ?? 'desc';
+
+    const entries = spotUniverses
+      .map((u, index) => {
+        const ctx = spotPriceMap[u.name];
+        const markPrice = Number(ctx?.markPx || 0);
+        const prevDayPx = Number(ctx?.prevDayPx || 0);
+        const change24hPercent =
+          prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+        const volume24h = Number(ctx?.dayNtlVlm || 0);
+        const circulatingSupply = Number(ctx?.circulatingSupply || 0);
+        const marketCap = circulatingSupply * markPrice;
+        return {
+          item: {
+            dexIndex: SPOT_DEX_INDEX,
+            index,
+            assetId: u.assetId,
+            spotUniverse: u,
+          } as ITokenSelectorListItem,
+          name: u.baseName,
+          markPrice,
+          change24hPercent,
+          volume24h,
+          marketCap,
+        };
+      })
+      .filter((e) => e.volume24h >= SPOT_MIN_VOLUME_STRICT);
+
+    if (sortField) {
+      entries.sort((a, b) => {
+        let cmp = 0;
+        switch (sortField) {
+          case 'name':
+            cmp = a.name.localeCompare(b.name, undefined, {
+              sensitivity: 'base',
+            });
+            break;
+          case 'markPrice':
+            cmp = a.markPrice - b.markPrice;
+            break;
+          case 'change24hPercent':
+            cmp = a.change24hPercent - b.change24hPercent;
+            break;
+          case 'volume24h':
+            cmp = a.volume24h - b.volume24h;
+            break;
+          case 'openInterest':
+            // Reuse openInterest field for marketCap sort in spot tab
+            cmp = a.marketCap - b.marketCap;
+            break;
+          default:
+            break;
+        }
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    return entries.map((e) => e.item);
+  }, [
+    spotUniverses,
+    spotPriceMap,
+    selectorConfig?.field,
+    selectorConfig?.direction,
+  ]);
+
+  // Layer 2: filter — cheap O(n); no sort computation.
+  // Tab switches, search, and favorites changes only reach here.
+  // perpSortedList reference is stable unless sort config changes, so ListView
+  // bails out of re-rendering rows when spot WS updates trigger a component render.
+  const activeTabData = useMemo(() => {
+    if (activeTab === 'spot') {
+      if (!searchQuery) return spotSortedList;
+      const q = searchQuery.toLowerCase();
+      return spotSortedList.filter((item) => {
+        const u = item.spotUniverse;
+        if (!u) return false;
+        const displayBase = getSpotTokenDisplayName(u.baseName);
+        const pairDisplay = formatSpotPairDisplayName(u.baseName, u.quoteName);
+        return (
+          u.baseName.toLowerCase().includes(q) ||
+          displayBase.toLowerCase().includes(q) ||
+          pairDisplay.toLowerCase().includes(q)
+        );
+      });
     }
 
     if (activeTab === 'favorites') {
       const favoriteAssetIds = new Set(
         favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
       );
-      return result.filter((item) =>
+      return perpSortedList.filter((item) =>
         favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
       );
     }
@@ -398,25 +578,28 @@ function BasePerpTokenSelectorContent({
     const dynamicTab = dynamicTabs.find((t) => t.tabId === activeTab);
     if (dynamicTab) {
       const tokenSet = new Set(dynamicTab.tokens);
-      const matchingIds = new Set(
-        combinedEntries
-          .filter((entry) => tokenSet.has(entry.asset.name))
-          .map((entry) => `${entry.dexIndex}-${entry.assetId}`),
-      );
-      return result.filter((item) =>
+      const matchingIds = new Set<string>();
+      (assetsByDex || []).forEach((assets, dexIndex) => {
+        assets?.forEach((asset) => {
+          if (tokenSet.has(asset.name)) {
+            matchingIds.add(`${dexIndex}-${asset.assetId}`);
+          }
+        });
+      });
+      return perpSortedList.filter((item) =>
         matchingIds.has(`${item.dexIndex}-${item.assetId}`),
       );
     }
 
-    return result;
+    return perpSortedList;
   }, [
+    activeTab,
     assetsByDex,
-    computeSortValues,
     dynamicTabs,
     favoriteItems,
-    sortCompare,
-    selectorConfig?.field,
-    activeTab,
+    perpSortedList,
+    spotSortedList,
+    searchQuery,
   ]);
 
   // Always show all dynamic tabs — filtering them by search would hide tabs mid-search.
@@ -455,25 +638,31 @@ function BasePerpTokenSelectorContent({
     !searchQuery &&
     isFavoritesReady;
 
-  const listEmptyComponent = useMemo(
-    () =>
-      showFavoritesEmpty ? (
-        <FavoritesEmptyState />
-      ) : (
-        <XStack p="$4" justifyContent="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {searchQuery
-              ? intl.formatMessage({
-                  id: ETranslations.perp_token_selector_empty,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.perp_token_selector_loading,
-                })}
-          </SizableText>
-        </XStack>
-      ),
-    [showFavoritesEmpty, searchQuery, intl],
-  );
+  const listEmptyComponent = useMemo(() => {
+    if (activeTab === 'spot' && spotLoading) {
+      return (
+        <YStack p="$4" alignItems="center">
+          <Spinner size="small" />
+        </YStack>
+      );
+    }
+    if (showFavoritesEmpty) {
+      return <FavoritesEmptyState />;
+    }
+    return (
+      <XStack p="$4" justifyContent="center">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {searchQuery
+            ? intl.formatMessage({
+                id: ETranslations.perp_token_selector_empty,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_token_selector_loading,
+              })}
+        </SizableText>
+      </XStack>
+    );
+  }, [activeTab, spotLoading, showFavoritesEmpty, searchQuery, intl]);
 
   const content = (
     <YStack>
@@ -512,6 +701,12 @@ function BasePerpTokenSelectorContent({
             isFocused={activeTab === 'all'}
             onPress={setActiveTab}
           />
+          <TabItem
+            id="spot"
+            name={tabNames.spot}
+            isFocused={activeTab === 'spot'}
+            onPress={setActiveTab}
+          />
           {visibleDynamicTabs.map((tab: IPerpDynamicTab) => (
             <TabItem
               key={tab.tabId}
@@ -523,19 +718,20 @@ function BasePerpTokenSelectorContent({
           ))}
         </XStack>
         <YStack>
-          {!showFavoritesEmpty ? <TokenListHeader /> : null}
+          {!showFavoritesEmpty ? (
+            <TokenListHeader isSpot={activeTab === 'spot'} />
+          ) : null}
           <YStack height={350}>
             {showFavoritesEmpty ? (
               <FavoritesEmptyState />
             ) : (
               <ListView
-                key={activeTab}
                 useFlashList
                 ref={listRef}
                 keyExtractor={keyExtractor}
                 estimatedItemSize={40}
                 windowSize={3}
-                initialNumToRender={10}
+                initialNumToRender={5}
                 data={activeTabData}
                 renderItem={renderItem}
                 ListEmptyComponent={listEmptyComponent}
@@ -572,10 +768,9 @@ const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
   const intl = useIntl();
+  const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
-  const [currentToken] = usePerpsActiveAssetAtom();
-  const { coin } = currentToken;
-  const parsedActive = useMemo(() => parseDexCoin(coin), [coin]);
+  const { displayName, baseName, mode } = useActiveTradeDisplay();
   const [isLoading, setIsLoading] = useState(false);
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
 
@@ -586,6 +781,11 @@ function BasePerpTokenSelector() {
         setBuilderFeeRate(fee);
       });
   }, []);
+  useEffect(() => {
+    actions.current.setTradeRouteViewState({
+      tokenSelectorOpen: isOpen,
+    });
+  }, [actions, isOpen]);
   const content = useMemo(
     () => (
       <Popover
@@ -594,7 +794,9 @@ function BasePerpTokenSelector() {
           width: 800,
         }}
         open={isOpen}
-        onOpenChange={setIsOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+        }}
         placement="bottom-start"
         renderTrigger={
           <Badge
@@ -614,15 +816,13 @@ function BasePerpTokenSelector() {
             <Token
               size="md"
               borderRadius="$full"
-              tokenImageUri={getHyperliquidTokenImageUrl(
-                parsedActive.displayName,
-              )}
+              tokenImageUri={getHyperliquidTokenImageUrl(baseName)}
               fallbackIcon="CryptoCoinOutline"
             />
 
             {/* Token Name */}
             <SizableText size="$heading2xl">
-              {parsedActive.displayName}USDC
+              {mode === 'spot' ? displayName : `${displayName}USDC`}
             </SizableText>
             {builderFeeRate === 0 ? (
               <Tooltip
@@ -655,7 +855,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, isLoading, parsedActive.displayName, builderFeeRate, intl],
+    [isOpen, isLoading, displayName, baseName, mode, builderFeeRate, intl],
   );
   return (
     <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>
@@ -667,54 +867,55 @@ export const PerpTokenSelector = memo(BasePerpTokenSelector);
 const BasePerpTokenSelectorMobileView = memo(
   ({
     onPressTokenSelector,
-    coin,
+    displayLabel,
     change24hPercent,
   }: {
     onPressTokenSelector: () => void;
-    coin: string;
+    displayLabel: string;
     change24hPercent: number;
-  }) => {
-    const parsedCoin = useMemo(() => parseDexCoin(coin), [coin]);
-    const displayCoin = parsedCoin.displayName || coin;
-
-    return (
-      <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
-        <XStack
-          gap="$1"
-          bg="$bgApp"
-          justifyContent="center"
-          alignItems="center"
-          onPress={onPressTokenSelector}
-          hitSlop={NATIVE_HIT_SLOP}
+  }) => (
+    <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
+      <XStack
+        gap="$1"
+        bg="$bgApp"
+        justifyContent="center"
+        alignItems="center"
+        onPress={onPressTokenSelector}
+        hitSlop={NATIVE_HIT_SLOP}
+      >
+        <SizableText size="$headingLg">{displayLabel}</SizableText>
+        <NumberSizeableText
+          style={{ fontSize: 10 }}
+          fontFamily="$monoRegular"
+          fontVariant={['tabular-nums']}
+          alignSelf="center"
+          color={change24hPercent >= 0 ? '$green11' : '$red11'}
+          formatter="priceChange"
+          formatterOptions={{
+            showPlusMinusSigns: true,
+          }}
         >
-          <SizableText size="$headingLg">{displayCoin}USDC</SizableText>
-          <NumberSizeableText
-            style={{ fontSize: 10 }}
-            fontFamily="$monoRegular"
-            fontVariant={['tabular-nums']}
-            alignSelf="center"
-            color={change24hPercent >= 0 ? '$green11' : '$red11'}
-            formatter="priceChange"
-            formatterOptions={{
-              showPlusMinusSigns: true,
-            }}
-          >
-            {change24hPercent}
-          </NumberSizeableText>
-          <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
-        </XStack>
-      </DebugRenderTracker>
-    );
-  },
+          {change24hPercent}
+        </NumberSizeableText>
+        <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
+      </XStack>
+    </DebugRenderTracker>
+  ),
 );
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
+  const { displayName, mode } = useActiveTradeDisplay();
 
-  const [asset] = usePerpsActiveAssetAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const coin = asset?.coin || '';
-  const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const change24hPercent =
+    mode === 'spot'
+      ? spotAssetCtx?.ctx?.change24hPercent || 0
+      : assetCtx?.ctx?.change24hPercent || 0;
+
+  const displayLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
+
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
@@ -724,7 +925,7 @@ function BasePerpTokenSelectorMobile() {
   return (
     <BasePerpTokenSelectorMobileView
       onPressTokenSelector={onPressTokenSelector}
-      coin={coin}
+      displayLabel={displayLabel}
       change24hPercent={change24hPercent}
     />
   );

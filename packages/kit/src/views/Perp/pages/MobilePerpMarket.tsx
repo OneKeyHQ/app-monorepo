@@ -14,7 +14,7 @@ import {
   isNativeTablet,
   useIsSplitView,
 } from '@onekeyhq/components';
-import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -23,10 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import {
-  getHyperliquidTokenImageUrl,
-  parseDexCoin,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -37,6 +34,7 @@ import PerpMarketFooter from '../components/PerpMarketFooter';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
 import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow';
+import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
@@ -55,8 +53,8 @@ function MobilePerpCandlesTouchBridge() {
 
 function MobilePerpMarket() {
   const intl = useIntl();
-  const [currentToken] = usePerpsActiveAssetAtom();
-  const { coin } = currentToken;
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const { baseName, displayName, mode } = useActiveTradeDisplay();
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
 
@@ -71,9 +69,14 @@ function MobilePerpMarket() {
   }, [navigation]);
 
   const renderHeaderTitle = useCallback(() => {
-    const parsedCoin = coin ? parseDexCoin(coin) : null;
-    const displayCoin = parsedCoin?.displayName || coin || '';
-    const pairLabel = displayCoin ? `${displayCoin}USDC` : '--';
+    let pairLabel: string;
+    if (mode === 'spot') {
+      pairLabel = displayName || '--';
+    } else if (displayName) {
+      pairLabel = `${displayName}USDC`;
+    } else {
+      pairLabel = '--';
+    }
     return (
       <XStack alignItems="center" gap="$2">
         <NavBackButton
@@ -94,23 +97,34 @@ function MobilePerpMarket() {
             borderRadius="$full"
             bg={themeVariant === 'light' ? undefined : '$bgInverse'}
             tokenImageUri={
-              displayCoin ? getHyperliquidTokenImageUrl(displayCoin) : undefined
+              baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
             }
             fallbackIcon="CryptoCoinOutline"
           />
           <SizableText size="$headingLg">{pairLabel}</SizableText>
           <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
             <SizableText color="$textSubdued" fontSize={11}>
-              {intl.formatMessage({
-                id: ETranslations.perp_label_perp,
-              })}
+              {/* TODO: add i18n key for 'Spot' (ETranslations) */}
+              {mode === 'spot'
+                ? 'Spot'
+                : intl.formatMessage({
+                    id: ETranslations.perp_label_perp,
+                  })}
             </SizableText>
           </Badge>
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
       </XStack>
     );
-  }, [coin, themeVariant, onPressTokenSelector, onPageGoBack, intl]);
+  }, [
+    baseName,
+    displayName,
+    mode,
+    onPageGoBack,
+    onPressTokenSelector,
+    themeVariant,
+    intl,
+  ]);
 
   const isTablet = isNativeTablet();
   const isLandscape = useIsSplitView();
@@ -126,8 +140,14 @@ function MobilePerpMarket() {
   }, [isLandscape, isTablet]);
 
   const renderHeaderRight = useCallback(
-    () => <FavoriteButton coin={coin} iconSize="$5" />,
-    [coin],
+    () => (
+      <FavoriteButton
+        coin={activeTradeInstrument.coin}
+        iconSize="$5"
+        isSpot={mode === 'spot'}
+      />
+    ),
+    [activeTradeInstrument.coin, mode],
   );
 
   const pageHeader = useMemo(

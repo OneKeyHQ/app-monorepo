@@ -5,14 +5,17 @@ import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountAtom,
-  usePerpsActiveAssetAtom,
+  useSpotActiveOpenOrdersAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -35,12 +38,15 @@ function PerpOpenOrdersList({
   disableListScroll,
 }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
-  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const openOrders = isSpot ? spotOpenOrders : perpOpenOrders;
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
@@ -54,14 +60,16 @@ function PerpOpenOrdersList({
     if (isMobile && filterByCurrentToken) {
       setCurrentListPage(1);
     }
-  }, [activeAsset?.coin, isMobile, filterByCurrentToken]);
+  }, [activeTradeInstrument?.coin, isMobile, filterByCurrentToken]);
 
   const filteredOrders = useMemo(() => {
-    if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
+    if (!isMobile || !filterByCurrentToken || !activeTradeInstrument?.coin) {
       return openOrders;
     }
-    return openOrders.filter((order) => order.coin === activeAsset.coin);
-  }, [openOrders, isMobile, filterByCurrentToken, activeAsset?.coin]);
+    return openOrders.filter(
+      (order) => order.coin === activeTradeInstrument.coin,
+    );
+  }, [openOrders, isMobile, filterByCurrentToken, activeTradeInstrument]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
