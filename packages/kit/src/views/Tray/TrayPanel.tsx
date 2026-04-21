@@ -22,16 +22,17 @@ export function TrayPanel() {
   const [data, setData] = useState<ITrayData | null>(null);
 
   useEffect(() => {
-    const handler = (trayData: ITrayData) => {
-      setData(trayData);
-    };
-
     // `removeIpcEventListener` is a no-op in the main preload — only the
     // unsubscribe function returned here actually detaches the listener.
     const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
       TRAY_IPC.UPDATE,
-      handler as (...args: unknown[]) => void,
+      setData as (...args: unknown[]) => void,
     );
+
+    // Must fire after the listener is attached; main replies synchronously
+    // with cached data (or triggers a gather) so the panel doesn't stall
+    // on the loading placeholder.
+    globalThis.desktopApi?.sendTrayReady?.();
 
     return () => {
       if (typeof unsubscribe === 'function') {
