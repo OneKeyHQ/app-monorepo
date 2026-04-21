@@ -1448,3 +1448,4 @@ minimizable
 maximizable
 fullscreenable
 frecency
+reactnativeappupdate
