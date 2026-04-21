@@ -20,6 +20,7 @@ import {
 import {
   createTrayWindow,
   destroyTrayWindow,
+  getTrayWindow,
   onTrayWindowVisibilityChange,
   showTrayWindow,
 } from './trayWindow';
@@ -106,36 +107,28 @@ export function initTrayManager(
   );
   const icon = nativeImage.createFromPath(iconPath);
   if (icon.isEmpty()) {
+    // `new Tray(emptyImage)` throws on macOS, so skip init rather than
+    // crash the main process when packaging drops the PNG.
     logger.warn('[TrayManager] tray icon not found at', iconPath);
+    return;
   }
   tray = new Tray(icon);
   tray.setToolTip('OneKey');
 
-  let panelCreated = false;
-
-  const handleClick = (eventType: 'click' | 'right-click') => () => {
-    logger.info('[TrayManager] tray click received', {
-      eventType,
-      panelCreated,
-      hasTray: !!tray,
-    });
+  const handleClick = () => {
     if (!tray) return;
-    if (!panelCreated) {
-      // First-open path: tray renderer emits TRAY_READY from its mount
-      // useEffect, which is when main delivers cached data (or triggers a
-      // fresh gather). No setTimeout heuristics — the renderer tells us
-      // exactly when its listener is registered.
-      createTrayWindow(tray, loadTrayUrl);
-      panelCreated = true;
-    } else {
-      // Subsequent opens: renderer stays mounted, just push the latest cache.
+    if (getTrayWindow()) {
       sendCachedDataToTrayWindow();
+    } else {
+      // Renderer emits TRAY_READY from its mount effect; main delivers data
+      // then, so no setTimeout heuristics here.
+      createTrayWindow(tray, loadTrayUrl);
     }
     showTrayWindow(tray);
   };
 
-  tray.on('click', handleClick('click'));
-  tray.on('right-click', handleClick('right-click'));
+  tray.on('click', handleClick);
+  tray.on('right-click', handleClick);
 
   onTrayWindowVisibilityChange((visible) => {
     if (visible) {

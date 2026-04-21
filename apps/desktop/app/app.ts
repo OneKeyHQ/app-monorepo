@@ -1169,11 +1169,14 @@ async function createMainWindow() {
           return;
         }
 
-        // move to parent folder
-        // Drop any query string before path resolution — tray window loads
-        // index.html with `?render=tray`, and without this split the query
-        // gets concatenated onto the resolved file path and fs misses.
-        const url = request.url.split('?')[0].substring(PROTOCOL.length + 1);
+        // Strip the query string before path resolution — without this the
+        // tray window's `?render=tray` gets concatenated into the resolved
+        // filename and fs misses. Guarded by indexOf so the common
+        // no-query case (main window resources) stays allocation-free.
+        const queryIdx = request.url.indexOf('?');
+        const rawUrl =
+          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
+        const url = rawUrl.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
           if (decodedUrl.includes(bundleDirPath)) {
@@ -1343,12 +1346,8 @@ if (!singleInstance && !process.mas) {
           void win.loadURL(`http://localhost:${port}?render=tray`);
           return;
         }
-        // Match the main window (createMainWindow) — loadURL with a
-        // `file://`-scheme formatUrl so the interceptFileProtocol handler
-        // receives a relative URL its string-based resolver can handle.
-        // loadFile(abs, { query }) produced an absolute URL + query that
-        // the interceptor resolved incorrectly into a nested non-existent
-        // path, tripping ERR_FILE_NOT_FOUND and aborting the tray renderer.
+        // Mirror createMainWindow's URL builder — the interceptFileProtocol
+        // handler only resolves the relative `file://index.html` form.
         const bundleData = store.getUpdateBundleData();
         const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
         void win.loadURL(
