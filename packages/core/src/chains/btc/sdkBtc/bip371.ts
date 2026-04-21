@@ -33,3 +33,12 @@ export function isTaprootInput(input: PsbtInput): boolean {
     )
   );
 }
+
+// P2MR scriptPubKey: OP_2 (0x52) + OP_PUSHBYTES_32 (0x20) + 32 bytes
+export function isP2MROutput(script: Uint8Array): boolean {
+  return script.length === 34 && script[0] === 0x52 && script[1] === 0x20;
+}
+
+export function isP2MRInput(input: PsbtInput): boolean {
+  return !!(input?.witnessUtxo && isP2MROutput(input.witnessUtxo.script));
+}

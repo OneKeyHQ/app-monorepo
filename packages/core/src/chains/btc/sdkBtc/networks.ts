@@ -22,6 +22,10 @@ const btc: IBtcForkNetwork = {
       public: 0x04_88_b2_1e,
       private: 0x04_88_ad_e4,
     },
+    [EAddressEncodings.P2MR]: {
+      public: 0x04_88_b2_1e,
+      private: 0x04_88_ad_e4,
+    },
   },
 };
 
@@ -38,6 +42,10 @@ const tbtc: IBtcForkNetwork = {
       private: 0x04_5f_18_bc,
     },
     [EAddressEncodings.P2TR]: {
+      public: 0x04_35_87_cf,
+      private: 0x04_35_83_94,
+    },
+    [EAddressEncodings.P2MR]: {
       public: 0x04_35_87_cf,
       private: 0x04_35_83_94,
     },
