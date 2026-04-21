@@ -1441,3 +1441,4 @@ ellipsize
 minimizable
 maximizable
 fullscreenable
+frecency
