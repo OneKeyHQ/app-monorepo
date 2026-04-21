@@ -638,7 +638,6 @@ function DeFiContainerScrollableWeb() {
   const tabBarOffset = useScrollContentTabBarOffset();
   const sentinelRef = useRef<HTMLElement | null>(null);
   const scrollerRef = useRef<HTMLElement | null>(null);
-  const outerRef = useRef<HTMLElement | null>(null);
   const [backToTopVisible, setBackToTopVisible] = useState(false);
 
   useEffect(() => {
@@ -671,21 +670,8 @@ function DeFiContainerScrollableWeb() {
     scroller.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    const target = e.target as Node | null;
-    if (target && scroller.contains(target)) return;
-    scroller.scrollBy({ top: e.deltaY, left: e.deltaX });
-  }, []);
-
   return (
-    <Stack
-      flex={1}
-      ref={outerRef as any}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      {...({ onWheel: handleWheel } as any)}
-    >
+    <Stack flex={1}>
       <Tabs.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarOffset }}

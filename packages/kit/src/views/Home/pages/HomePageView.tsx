@@ -551,6 +551,37 @@ export function HomePageView({
     void Icon.prefetch('CloudOffOutline');
   }, []);
 
+  // Forward wheel events fired outside any scrollable (page-shell gutters,
+  // BasicPage right margin, border area) to the active tab's scroller.
+  useEffect(() => {
+    if (platformEnv.isNative) return;
+    const onWheel = (e: WheelEvent) => {
+      const scroller = document.querySelector(
+        '.onekey-tabs-container',
+      ) as HTMLElement | null;
+      if (!scroller) return;
+      let node: Node | null = e.target as Node | null;
+      while (node) {
+        if (node === scroller) return;
+        if (node instanceof HTMLElement) {
+          const { overflowY } = globalThis.getComputedStyle(node);
+          if (
+            (overflowY === 'auto' || overflowY === 'scroll') &&
+            node.scrollHeight > node.clientHeight
+          ) {
+            return;
+          }
+        }
+        node = (node as Node).parentNode;
+      }
+      scroller.scrollBy({ top: e.deltaY, left: e.deltaX });
+    };
+    globalThis.addEventListener('wheel', onWheel, { passive: true });
+    return () => {
+      globalThis.removeEventListener('wheel', onWheel);
+    };
+  }, []);
+
   useEffect(() => {
     const clearCache = async () => {
       await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
