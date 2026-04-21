@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -136,10 +137,11 @@ class ServiceRookieGuide extends ServiceBase {
     }
   }
 
-  // Read the home scene account selector snapshot — same source of truth as
-  // WalletBanner's useActiveAccount({ num: 0 }) hook. This keeps the banner
-  // and the rookie guide querying eligibility for the exact same address,
-  // including non-default deriveTypes (e.g. ledger_live EVM path).
+  // Account identity (indexedAccountId / accountId) comes from the home scene
+  // selector so we target the same HD index the user is currently viewing.
+  // deriveType, however, must come from the user's GLOBAL EVM preference for
+  // PERPS_NETWORK_ID — the home scene's deriveType may be a non-EVM value
+  // (e.g. 'native_segwit' when home is on BTC) which would fail EVM resolution.
   private async _getHyperliquidReferralEligibility(): Promise<
     IRookieGuideInfo['hyperliquidReferral']
   > {
@@ -151,18 +153,22 @@ class ServiceRookieGuide extends ServiceBase {
         });
 
       const indexedAccountId = homeSelected?.indexedAccountId;
-      const accountId =
-        indexedAccountId || homeSelected?.othersWalletAccountId;
+      const accountId = indexedAccountId || homeSelected?.othersWalletAccountId;
       if (!accountId) {
         return undefined;
       }
+
+      const deriveType =
+        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        });
 
       const res =
         await this.backgroundApi.serviceHyperliquidReferral.checkBannerReferralEligibility(
           {
             accountId,
             indexedAccountId,
-            deriveType: homeSelected?.deriveType || 'default',
+            deriveType,
           },
         );
 
