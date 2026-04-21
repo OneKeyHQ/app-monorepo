@@ -46,6 +46,8 @@ export function resetCachedTrayData(): void {
 
 // Sender-id gates: the tray window shares the main preload, so without
 // these checks either renderer could forge traffic on the other's channels.
+// Rejection logs dump the id comparison so field reports can pinpoint
+// whether the expected window was missing vs. a different sender.
 function isFromMainWindow(
   event: IpcMainEvent,
   getMainWindow: () => BrowserWindow | undefined,
@@ -53,7 +55,11 @@ function isFromMainWindow(
 ): boolean {
   const mainWindow = getMainWindow();
   if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
-    logger.warn(`[TrayIpc] rejected ${channel} from non-main window`);
+    logger.warn(`[TrayIpc] rejected ${channel} from non-main window`, {
+      senderId: event.sender.id,
+      hasMainWindow: !!mainWindow,
+      mainWindowId: mainWindow?.webContents.id ?? null,
+    });
     return false;
   }
   return true;
@@ -62,7 +68,11 @@ function isFromMainWindow(
 function isFromTrayWindow(event: IpcMainEvent, channel: string): boolean {
   const trayWindow = getTrayWindow();
   if (!trayWindow || event.sender.id !== trayWindow.webContents.id) {
-    logger.warn(`[TrayIpc] rejected ${channel} from non-tray window`);
+    logger.warn(`[TrayIpc] rejected ${channel} from non-tray window`, {
+      senderId: event.sender.id,
+      hasTrayWindow: !!trayWindow,
+      trayWindowId: trayWindow?.webContents.id ?? null,
+    });
     return false;
   }
   return true;
