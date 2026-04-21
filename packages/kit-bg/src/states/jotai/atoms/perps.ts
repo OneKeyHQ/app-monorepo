@@ -373,6 +373,15 @@ export const {
   initialValue: undefined,
 });
 
+// #region Trading Mode
+export type ITradingMode = 'perp' | 'spot';
+export const { target: tradingModeAtom, use: useTradingModeAtom } =
+  globalAtom<ITradingMode>({
+    name: EAtomNames.tradingModeAtom,
+    initialValue: 'perp',
+  });
+// #endregion
+
 // Token Selector Config (Persisted)
 export const {
   target: perpTokenSelectorConfigPersistAtom,

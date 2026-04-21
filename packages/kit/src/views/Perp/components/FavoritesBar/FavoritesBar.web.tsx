@@ -11,7 +11,10 @@ import { noop } from 'lodash';
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   type IPerpFavoritesDisplayMode,
   usePerpTokenFavoritesPersistAtom,
@@ -149,7 +152,8 @@ const ScrollButton = memo(
 ScrollButton.displayName = 'ScrollButton';
 
 function FavoritesBar() {
-  const { favoriteItems } = usePerpsFavorites();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const { favoriteItems } = usePerpsFavorites({ mode: 'current' });
   const actions = useHyperliquidActions();
   const hasFavorites = favoriteItems.length > 0;
 
@@ -209,6 +213,8 @@ function FavoritesBar() {
             coinName={item.coinName}
             dexIndex={item.dexIndex}
             assetId={item.assetId}
+            imageTokenName={item.imageTokenName}
+            mode={item.mode}
             displayMode={displayMode}
             onPress={noop}
           />
@@ -267,14 +273,14 @@ function FavoritesBar() {
   }, []);
 
   useEffect(() => {
-    if (hasFavorites) {
+    if (hasFavorites && activeTradeInstrument.mode === 'perp') {
       const currentActions = actions.current;
       currentActions.markAllAssetCtxsRequired();
       return () => {
         currentActions.markAllAssetCtxsNotRequired();
       };
     }
-  }, [actions, hasFavorites]);
+  }, [actions, activeTradeInstrument.mode, hasFavorites]);
 
   if (!hasFavorites) {
     return null;
@@ -337,10 +343,13 @@ function FavoritesBar() {
                           coinName={item.coinName}
                           dexIndex={item.dexIndex}
                           assetId={item.assetId}
+                          imageTokenName={item.imageTokenName}
+                          mode={item.mode}
                           displayMode={displayMode}
                           onPress={() =>
-                            void actions.current.changeActiveAsset({
+                            void actions.current.switchTradeInstrument({
                               coin: item.coinName,
+                              mode: item.mode,
                             })
                           }
                         />

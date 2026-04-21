@@ -15,10 +15,15 @@ export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
 export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
 export type IWsBbo = HL.BboWsEvent;
 
-// Spot state types
+// Spot WebSocket event types
 export type IWsSpotState = HL.SpotStateWsEvent;
+export type IWsSpotAssetCtxs = HL.SpotAssetCtxsWsEvent;
+export type IWsActiveSpotAssetCtx = HL.ActiveSpotAssetCtxWsEvent;
 export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
 export type IEventSpotStateParameters = HL.SpotStateWsParameters;
+export type IEventSpotAssetCtxsParameters = Record<string, never>;
+export type IEventActiveSpotAssetCtxParameters =
+  HL.ActiveSpotAssetCtxWsParameters;
 
 // Abstraction query types
 export type IUserAbstractionResponse = HL.UserAbstractionResponse;
@@ -56,6 +61,22 @@ export type IPerpsActiveAssetData = Omit<IActiveAssetData, 'user'> & {
   assetId: number | undefined;
 };
 export type IAllPerpMetasResponse = HL.AllPerpMetasResponse;
+
+// Spot info types
+export type ISpotMetaResponse = HL.SpotMetaResponse;
+export type ISpotMetaAndAssetCtxsResponse = HL.SpotMetaAndAssetCtxsResponse;
+export type ISpotClearinghouseStateResponse = HL.SpotClearinghouseStateResponse;
+export type ISpotToken = ISpotMetaResponse['tokens'][number];
+export type ISpotUniverseRaw = ISpotMetaResponse['universe'][number];
+export type ISpotUniverse = ISpotUniverseRaw & {
+  assetId: number;
+  baseName: string;
+  quoteName: string;
+  displayName: string;
+  baseSzDecimals: number;
+};
+export type ISpotAssetCtx = IWsSpotAssetCtxs[number];
+
 export type IMarginTable = HL.MarginTableResponse;
 export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
 
@@ -147,6 +168,8 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.ALL_DEXS_ASSET_CTXS]: IEventAllDexsAssetCtxsParameters;
   [ESubscriptionType.TWAP_STATES]: IEventTwapStatesParameters;
   [ESubscriptionType.SPOT_STATE]: IEventSpotStateParameters;
+  [ESubscriptionType.SPOT_ASSET_CTXS]: IEventSpotAssetCtxsParameters;
+  [ESubscriptionType.ACTIVE_SPOT_ASSET_CTX]: IEventActiveSpotAssetCtxParameters;
 };
 
 export type IWebSocketTransportOptions = HL.WebSocketTransportOptions;

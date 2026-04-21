@@ -13,15 +13,19 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAssetAtom,
-  usePerpsCustomSettingsAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+  useActiveTradeInstrumentAtom,
+  useTradingFormAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { inferTpsl, parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getSpotTokenDisplayName,
+  inferTpsl,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
@@ -56,11 +60,15 @@ function OrderConfirmContent({
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
-  const [selectedSymbol] = usePerpsActiveAssetAtom();
+  const [activeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeInstrument.mode === 'spot';
   const effectiveSide = overrideSide || formData.side;
   const { computedSizeForSide, orderValue } =
     useTradingCalculationsForSide(effectiveSide);
-  const szDecimals = selectedSymbol?.universe?.szDecimals ?? 2;
+  const szDecimals =
+    activeInstrument.mode === 'spot'
+      ? (activeInstrument.universe?.baseSzDecimals ?? 2)
+      : (activeInstrument.universe?.szDecimals ?? 2);
   const actionColor = getTradingSideTextColor(effectiveSide);
 
   const [onekeyFee, setOnekeyFee] = useState<number | undefined>(undefined);
@@ -129,23 +137,40 @@ function OrderConfirmContent({
     });
   }, [isTriggerMode, formData.triggerPrice, midPriceBN, effectiveSide, intl]);
 
-  const actionText =
-    effectiveSide === 'long'
-      ? intl.formatMessage({
-          id: ETranslations.perp_trade_long,
-        })
-      : intl.formatMessage({
-          id: ETranslations.perp_trade_short,
-        });
+  const actionText = isSpot
+    ? intl.formatMessage({
+        id:
+          effectiveSide === 'long'
+            ? ETranslations.global_buy
+            : ETranslations.global_sell,
+      })
+    : intl.formatMessage({
+        id:
+          effectiveSide === 'long'
+            ? ETranslations.perp_trade_long
+            : ETranslations.perp_trade_short,
+      });
 
   const sizeDisplay = useMemo(() => {
     const sizeString = computedSizeForSide.toFixed(szDecimals);
-    if (selectedSymbol?.coin) {
-      const parsed = parseDexCoin(selectedSymbol.coin);
-      return `${sizeString} ${parsed.displayName}`;
+    if (activeInstrument?.coin) {
+      // Spot coins use @N format, resolve to display name (e.g. HYPE)
+      const coinDisplay =
+        activeInstrument.mode === 'spot'
+          ? getSpotTokenDisplayName(
+              activeInstrument.universe?.baseName ?? activeInstrument.coin,
+            )
+          : parseDexCoin(activeInstrument.coin).displayName;
+      return `${sizeString} ${coinDisplay}`;
     }
     return sizeString;
-  }, [computedSizeForSide, szDecimals, selectedSymbol?.coin]);
+  }, [
+    computedSizeForSide,
+    szDecimals,
+    activeInstrument?.coin,
+    activeInstrument.mode,
+    activeInstrument.universe,
+  ]);
 
   const priceDisplay = useMemo(() => {
     if (formData.type === 'market' || !formData.price) {
@@ -302,6 +327,23 @@ function OrderConfirmContent({
           <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
         </XStack>
 
+        {/* Order Value */}
+        {orderValue.isFinite() && orderValue.gt(0) ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_order_value,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {numberFormat(orderValue.toFixed(2), {
+                formatter: 'value',
+                formatterOptions: { currency: '$' },
+              })}
+            </SizableText>
+          </XStack>
+        ) : null}
+
         {/* Price (standard orders only — trigger orders show trigger/execution price above) */}
         {!isTriggerMode ? (
           <XStack justifyContent="space-between" alignItems="center">
@@ -315,19 +357,21 @@ function OrderConfirmContent({
         ) : null}
 
         {/* Liquidation Price */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {appLocale.intl.formatMessage({
-              id: ETranslations.perp_position_liq_price,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd">
-            <LiquidationPriceDisplay
-              textSize="$bodyMdMedium"
-              side={effectiveSide}
-            />
-          </SizableText>
-        </XStack>
+        {isSpot ? null : (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_position_liq_price,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              <LiquidationPriceDisplay
+                textSize="$bodyMdMedium"
+                side={effectiveSide}
+              />
+            </SizableText>
+          </XStack>
+        )}
 
         {/* OneKey Fee */}
         {onekeyFee === 0 ? (
