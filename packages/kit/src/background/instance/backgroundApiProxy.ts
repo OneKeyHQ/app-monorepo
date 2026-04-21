@@ -6,12 +6,17 @@ import backgroundApiInit from './backgroundApiInit';
 
 let backgroundApi = null;
 
-if (!platformEnv.isExtensionUi) {
+const shouldDeferLocalBackgroundApi =
+  platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread;
+
+if (!platformEnv.isExtensionUi && !shouldDeferLocalBackgroundApi) {
   // Ext use mock backgroundApi in UI
   backgroundApi = backgroundApiInit();
 }
+
 const backgroundApiProxy = new BackgroundApiProxy({
   backgroundApi,
+  getBackgroundApi: backgroundApiInit,
 });
 
 appGlobals.$backgroundApiProxy = backgroundApiProxy;
