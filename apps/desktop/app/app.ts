@@ -1350,12 +1350,7 @@ if (!singleInstance && !process.mas) {
 
       // Default to on; renderer sends TRAY_TOGGLE(false) on startup if
       // the user had previously disabled it.
-      initTrayManager(
-        getSafelyMainWindow,
-        showMainWindow,
-        appStaticResourcesPath,
-        loadTrayUrl,
-      );
+      initTrayManager(getSafelyMainWindow, showMainWindow, loadTrayUrl);
 
       // Sender gate: tray window shares the main preload and also exposes
       // `toggleTray`, so without this a tray-side caller could disable itself.
@@ -1369,12 +1364,7 @@ if (!singleInstance && !process.mas) {
           return;
         }
         if (enabled) {
-          initTrayManager(
-            getSafelyMainWindow,
-            showMainWindow,
-            appStaticResourcesPath,
-            loadTrayUrl,
-          );
+          initTrayManager(getSafelyMainWindow, showMainWindow, loadTrayUrl);
         } else {
           destroyTrayManager();
         }

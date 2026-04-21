@@ -84,7 +84,6 @@ export function stopPolling(): void {
 export function initTrayManager(
   getMainWindow: () => BrowserWindow | undefined,
   showMainWindow: () => void,
-  appStaticResourcesPath: string,
   loadTrayUrl: (win: BrowserWindow) => void,
 ): void {
   if (isInitialized) return;
@@ -92,12 +91,23 @@ export function initTrayManager(
   logger.info('[TrayManager] Initializing macOS system tray');
   cachedGetMainWindow = getMainWindow;
 
+  // esbuild bundles TrayManager into dist/app.js, so __dirname resolves to
+  // <app>/dist both in dev and inside app.asar. '../build/static/...' lands
+  // on the webpack renderer output that electron-builder packs into asar.
+  // (Don't use app.getAppPath(): dev returns the entry script's parent dir
+  // `<app>/dist`, while prod returns the asar root — different levels.)
   const iconPath = path.join(
-    appStaticResourcesPath,
+    __dirname,
+    '..',
+    'build',
+    'static',
     'images',
     'trayTemplate.png',
   );
   const icon = nativeImage.createFromPath(iconPath);
+  if (icon.isEmpty()) {
+    logger.warn('[TrayManager] tray icon not found at', iconPath);
+  }
   tray = new Tray(icon);
   tray.setToolTip('OneKey');
 
