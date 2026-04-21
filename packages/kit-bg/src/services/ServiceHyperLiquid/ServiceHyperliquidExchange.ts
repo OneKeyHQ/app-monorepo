@@ -89,12 +89,13 @@ interface IOrderLogOptions {
   extra?: Record<string, unknown>;
 }
 
-// TV lowercases coins; HL wants `BTC`/`ETH` upper-case but `@N` spot pairs
-// and `xyz:` sub-DEX tags must stay lowercase for downstream routing.
+// TV lowercases everything; HL universe keys perps as `BTC`, spot as `@N`,
+// and sub-DEX as `xyz:<TICKER>` (lowercase prefix, uppercase ticker).
 function normalizePerpsCoin(coin: string): string {
   if (!coin) return coin;
   if (coin.startsWith('@')) return coin;
-  if (/^xyz:/i.test(coin)) return coin.toLowerCase();
+  const xyzMatch = coin.match(/^xyz:(.*)$/i);
+  if (xyzMatch) return `xyz:${xyzMatch[1].toUpperCase()}`;
   return coin.toUpperCase();
 }
 
