@@ -68,4 +68,6 @@ export const TRAY_IPC = {
   DATA_RESPONSE: 'tray/dataResponse',
   UPDATE: 'tray/update',
   ACTION: 'tray/action',
+  // Tray renderer → main: listener is attached, safe to push TRAY_UPDATE.
+  READY: 'tray/ready',
 } as const;
