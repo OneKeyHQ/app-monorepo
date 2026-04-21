@@ -287,7 +287,7 @@ export function TradingViewPerpsV2(
               oid,
               newPrice: payload.price,
             }),
-          actionType: EActionType.PLACE_ORDER,
+          actionType: EActionType.MODIFY_ORDER,
         });
       } catch {
         webRef.current?.sendMessageViaInjectedScript({
