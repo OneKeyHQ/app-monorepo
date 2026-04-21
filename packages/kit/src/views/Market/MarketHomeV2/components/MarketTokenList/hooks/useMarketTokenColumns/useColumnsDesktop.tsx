@@ -178,13 +178,16 @@ export const useColumnsDesktop = (
       dataIndex: 'change24h',
       columnProps: { flex: 1 },
       render: (text: number) => {
+        const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
+          priceChange: text,
+        });
         return (
           <NumberSizeableText
             size="$bodyMd"
             formatter="priceChange"
-            color={getTokenPriceChangeStyle({ priceChange: text }).changeColor}
+            color={changeColor}
             formatterOptions={{
-              showPlusMinusSigns: true,
+              showPlusMinusSigns,
             }}
           >
             {text}

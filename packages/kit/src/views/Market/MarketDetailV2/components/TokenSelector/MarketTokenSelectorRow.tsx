@@ -63,7 +63,7 @@ const MarketTokenSelectorRow = memo(
       return 'price' as const;
     }, [item.price]);
 
-    const { changeColor } = getTokenPriceChangeStyle({
+    const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
       priceChange: item.change24h,
     });
 
@@ -183,7 +183,7 @@ const MarketTokenSelectorRow = memo(
           <NumberSizeableText
             size="$bodySm"
             formatter="priceChange"
-            formatterOptions={{ showPlusMinusSigns: true }}
+            formatterOptions={{ showPlusMinusSigns }}
             color={changeColor}
           >
             {String(item.change24h)}

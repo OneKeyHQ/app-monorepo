@@ -207,6 +207,14 @@ export function UniversalSearchV2MarketTokenItem({
     [],
   );
 
+  const priceChangeStyle = useMemo(
+    () =>
+      getTokenPriceChangeStyle({
+        priceChange: Number(priceChange24hPercent),
+      }),
+    [priceChange24hPercent],
+  );
+
   const handlePress = useCallback(() => {
     const searchText = getSearchInput?.();
     if (searchText) {
@@ -376,12 +384,10 @@ export function UniversalSearchV2MarketTokenItem({
             <NumberSizeableText
               size="$bodySm"
               formatter="priceChange"
-              color={
-                getTokenPriceChangeStyle({
-                  priceChange: Number(priceChange24hPercent),
-                }).changeColor
-              }
-              formatterOptions={{ showPlusMinusSigns: true }}
+              color={priceChangeStyle.changeColor}
+              formatterOptions={{
+                showPlusMinusSigns: priceChangeStyle.showPlusMinusSigns,
+              }}
             >
               {priceChange24hPercent}
             </NumberSizeableText>
