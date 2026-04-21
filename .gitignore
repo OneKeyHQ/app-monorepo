@@ -133,6 +133,8 @@ debug.log
 .local_docs/
 /.claude/worktrees
 /.worktree
+.worktree
+.claude/worktrees
 /.worktrees
 .skillshare/logs/operations.log
 .gstack/
