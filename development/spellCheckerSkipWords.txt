@@ -1435,3 +1435,4 @@ posthog
 Posthog
 autocapture
 ellipsize
+reactnativeappupdate

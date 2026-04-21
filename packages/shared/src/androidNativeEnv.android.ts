@@ -11,7 +11,7 @@
 //
 // Using `hasHybridObject` — a documented, side-effect-free boolean query
 // — rather than catching an exception from `createHybridObject` avoids
-// relying on Nitro's throw-behaviour contract and does not touch the
+// relying on Nitro's throw-behavior contract and does not touch the
 // HybridObject itself at detection time.
 //
 // This mirrors the APK flavor exactly, independent of the Metro-inlined
