@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import 'fake-indexeddb/auto';
 
 import { version as PKG_VERSION } from '../package.json';
+
 import {
   handleAuthCommandDiscoveryFallback,
   registerAuthCommands,
