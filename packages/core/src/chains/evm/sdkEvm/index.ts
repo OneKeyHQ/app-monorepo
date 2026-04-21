@@ -1,5 +1,4 @@
 import { getAddress } from '@ethersproject/address';
-import { splitSignature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { TransactionTypes, serialize } from '@ethersproject/transactions';
 import BigNumber from 'bignumber.js';
@@ -15,6 +14,13 @@ import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import type { IUnsignedTxPro } from '../../../types';
 import type { IEncodedTxEvm } from '../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
+
+export { buildHardwareEvmTransaction } from './hardwareEvm';
+export type {
+  IHardwareEvmTransaction,
+  IHardwareEvmTransactionEIP1559,
+} from './hardwareEvmTypes';
+export { buildSignedTxFromSignatureEvm } from './signatureEvm';
 
 export async function getPublicKeyFromPrivateKey({
   privateKeyRaw,
@@ -115,33 +121,4 @@ export function validateEvmAddress(
     displayAddress: checksumAddress || '',
     isValid,
   });
-}
-
-export function buildSignedTxFromSignatureEvm({
-  tx,
-  signature,
-}: {
-  tx: UnsignedTransaction;
-  signature: {
-    v: string | number; // '0x11' , '17', 17
-    r: string; // prefix 0x
-    s: string; // prefix 0x
-  };
-}) {
-  const { r, s, v } = signature;
-  /**
-   * sdk legacy return {v,r,s}; eip1559 return {recoveryParam,r,s}
-   * splitSignature auto convert v to recoveryParam
-   */
-  const sig = splitSignature({
-    v: Number(v),
-    r,
-    s,
-  });
-  const rawTx = serialize(tx, sig);
-  const txid = keccak256(rawTx);
-  return {
-    rawTx,
-    txid,
-  };
 }

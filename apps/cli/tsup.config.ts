@@ -258,6 +258,72 @@ const shimReactNativePlugin: Plugin = {
   },
 };
 
+const shimCrossInpageProviderDebugBrowserPlugin: Plugin = {
+  name: 'shim-cross-inpage-provider-debug-browser',
+  setup(build) {
+    // Intercept the hardcoded `import browser from './browser'` inside
+    // @onekeyfe/cross-inpage-provider-core/dist/debug/index.js.
+    // The browser.js module tries to use localStorage which doesn't exist in Node.
+    build.onResolve({ filter: /^\.\/browser$/ }, (args) => {
+      if (
+        args.importer.includes(
+          `${pathSeparator}@onekeyfe${pathSeparator}cross-inpage-provider-core${pathSeparator}`,
+        ) &&
+        args.importer.includes(`${pathSeparator}debug${pathSeparator}`)
+      ) {
+        return {
+          path: resolvePath(args.resolveDir, args.path),
+          namespace: 'cross-inpage-provider-debug-browser-shim',
+        };
+      }
+      return undefined;
+    });
+
+    build.onLoad(
+      {
+        filter: /.*/,
+        namespace: 'cross-inpage-provider-debug-browser-shim',
+      },
+      () => ({
+        resolveDir: resolvePath(repoRoot, 'node_modules'),
+        contents: `
+          // Node.js-compatible shim for cross-inpage-provider-core debug/browser.js
+          var ms = require("ms");
+          var noopStorage = {
+            getItem: function() { return Promise.resolve(""); },
+            setItem: function() { return Promise.resolve(); },
+            removeItem: function() { return Promise.resolve(); },
+          };
+          var exportsBrowser = {
+            formatArgs: function(args) {
+              args[0] = this.namespace + " " + args[0] + " +" + ms(this.diff);
+            },
+            save: function() {},
+            load: function() {
+              return typeof process !== "undefined" && process.env && process.env.DEBUG
+                ? process.env.DEBUG
+                : "";
+            },
+            useColors: function() { return false; },
+            storage: noopStorage,
+            humanize: ms,
+            destroy: function() {},
+            log: function() {
+              if (typeof console !== "undefined" && console.debug) {
+                console.debug.apply(console, arguments);
+              }
+            },
+            colors: [],
+          };
+          module.exports = exportsBrowser;
+          module.exports.default = exportsBrowser;
+        `,
+        loader: 'js',
+      }),
+    );
+  },
+};
+
 const shimCrossInpageProviderLoggerPlugin: Plugin = {
   name: 'shim-cross-inpage-provider-logger',
   setup(build) {
@@ -344,6 +410,7 @@ export default defineConfig((options) => {
     target: 'node22',
     clean: true,
     noExternal: [/.*/],
+    external: [],
     banner: {
       js: [
         '#!/usr/bin/env node',
@@ -360,9 +427,18 @@ export default defineConfig((options) => {
       guardBrowserStoragePlugin,
       shimLocalePlugin,
       shimReactNativePlugin,
+      shimCrossInpageProviderDebugBrowserPlugin,
       shimCrossInpageProviderLoggerPlugin,
     ],
     esbuildOptions(esbuildOptions) {
+      // hd-common-connect-sdk has native USB deps (libusb) — must stay external // cspell:disable-line
+      // Only loaded at runtime when --hardware flag is used
+      const ext = new Set(esbuildOptions.external ?? []);
+      ext.add('@onekeyfe/hd-common-connect-sdk');
+      ext.add('@onekeyfe/hd-core');
+      ext.add('@onekeyfe/hd-transport-usb');
+      esbuildOptions.external = [...ext];
+
       if (!isProductionBuild) {
         return;
       }

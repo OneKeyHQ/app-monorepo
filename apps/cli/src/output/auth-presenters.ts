@@ -16,6 +16,7 @@ export interface IAuthStatusOutput {
   sourceLabel: string | null;
   displayAddress: string | null;
   importedAt: string | null;
+  device?: { connectId: string; deviceId: string; deviceLabel: string } | null;
 }
 
 export interface IAuthLogoutOutput {
@@ -56,6 +57,7 @@ export function presentAuthStatus(
     sourceLabel: session.sourceLabel ?? null,
     displayAddress: session.displayAddress ?? null,
     importedAt: session.importedAt ?? null,
+    device: session.device ?? null,
   };
 }
 

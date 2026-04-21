@@ -16,6 +16,8 @@ import {
   presentInterruptedAuthLoginResult,
 } from '../../output/auth-presenters';
 
+import { executeHardwareLoginCommand } from './hardware-login-command';
+
 import type { IEndpointEnv } from '../../config';
 import type {
   AppTransferLoginResult,
@@ -36,6 +38,7 @@ interface IAuthLoginHandler {
 interface IExecuteAuthLoginCommandParams {
   output: OutputFormatter;
   appTransferFlag?: boolean;
+  hardwareFlag?: boolean;
   isHumanMode?: boolean;
   isTTY?: boolean;
   env?: IEndpointEnv;
@@ -50,11 +53,22 @@ interface IExecuteAuthLoginCommandParams {
   waitForHeadlessAppTransferCompletion?: (
     pairingSession: AppTransferLoginResult,
   ) => Promise<void>;
+  runHardwareLogin?: (deps: {
+    output: OutputFormatter;
+    isTTY: boolean;
+    isHumanMode: boolean;
+    getStatus: () => Promise<ResolvedAuthSession>;
+  }) => Promise<void>;
   exit?: (code: number) => void;
 }
 
-const MISSING_METHOD_MESSAGE = 'Login method required. Use --app-transfer.';
-const MISSING_METHOD_SUGGESTION = 'Run: onekey auth login --app-transfer';
+const MISSING_METHOD_MESSAGE =
+  'Login method required. Use --app-transfer or --hardware.';
+const MISSING_METHOD_SUGGESTION =
+  'Run: onekey auth login --app-transfer | --hardware';
+const CONFLICTING_METHODS_MESSAGE =
+  '--app-transfer and --hardware are mutually exclusive.';
+const CONFLICTING_METHODS_SUGGESTION = 'Pass only one of the two flags.';
 
 function assertCompletedAppTransferSession(
   session: ResolvedAuthSession,
@@ -251,6 +265,7 @@ function buildAuthLoginInterruptionError(appError: AppError): AppError {
 export async function executeAuthLoginCommand({
   output,
   appTransferFlag,
+  hardwareFlag,
   isHumanMode = false,
   isTTY = false,
   env = 'prod',
@@ -275,6 +290,7 @@ export async function executeAuthLoginCommand({
       shouldWriteInstructions,
     });
   },
+  runHardwareLogin = executeHardwareLoginCommand,
   exit,
 }: IExecuteAuthLoginCommandParams): Promise<void> {
   let shouldRunInterruptionCleanup = false;
@@ -286,13 +302,39 @@ export async function executeAuthLoginCommand({
   let forcedExitCode: number | null = null;
 
   try {
-    if (!appTransferFlag) {
+    if (appTransferFlag && hardwareFlag) {
+      output.error({
+        code: ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+        message: CONFLICTING_METHODS_MESSAGE,
+        suggestion: CONFLICTING_METHODS_SUGGESTION,
+      });
+      process.exitCode = ERROR_CODES.PARAM_MISSING_REQUIRED.exitCode;
+      return;
+    }
+
+    if (!appTransferFlag && !hardwareFlag) {
       output.error({
         code: ERROR_CODES.PARAM_MISSING_REQUIRED.code,
         message: MISSING_METHOD_MESSAGE,
         suggestion: MISSING_METHOD_SUGGESTION,
       });
       process.exitCode = ERROR_CODES.PARAM_MISSING_REQUIRED.exitCode;
+      return;
+    }
+
+    if (hardwareFlag) {
+      try {
+        await runHardwareLogin({
+          output,
+          isTTY,
+          isHumanMode,
+          getStatus: () => authManager.getStatus(),
+        });
+      } catch (error) {
+        const appError = AppError.from(error);
+        output.error(appError.toErrorDetail());
+        process.exitCode = appError.exitCode;
+      }
       return;
     }
 

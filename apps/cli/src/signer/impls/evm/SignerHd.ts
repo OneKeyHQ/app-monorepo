@@ -1,7 +1,6 @@
 import type {
   ICoreApiGetAddressItem,
   ICoreApiSignMsgPayload,
-  ICoreApiSignTxPayload,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 
@@ -9,9 +8,9 @@ import { listEvmChains } from '../../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../../errors';
 import { CLI_PASSWORD, SignerBase } from '../../base/SignerBase';
 
-import type { ISigner } from '../../types';
+import type { ICliSignTransactionParams, ISigner } from '../../types';
 
-// Lazy-loaded EVM scope — avoids bundling all chain SDKs
+// Lazy-loaded EVM scope — avoids bundling all chain SDKs at CLI startup.
 let evmScopePromise: Promise<
   InstanceType<typeof import('@onekeyhq/core/src/chains/evm').default>
 > | null = null;
@@ -28,7 +27,12 @@ async function getEvmScope() {
 
 const EVM_TEMPLATE = "m/44'/60'/0'/0/$$INDEX$$";
 
-export class EvmSigner extends SignerBase implements ISigner {
+/**
+ * HD (software) EVM signer. Uses the mnemonic + encryption key persisted in
+ * the OS keychain. Hardware signing lives in the sibling `SignerHardware`
+ * class (kit-bg convention: `KeyringHd` / `KeyringHardware`).
+ */
+export class SignerHd extends SignerBase implements ISigner {
   async getAddress(networkId: string): Promise<ICoreApiGetAddressItem> {
     const hdCredential = await this.getHdCredential();
     const scope = await getEvmScope();
@@ -47,9 +51,25 @@ export class EvmSigner extends SignerBase implements ISigner {
     return result.addresses[0];
   }
 
-  async signTransaction(payload: ICoreApiSignTxPayload): Promise<ISignedTxPro> {
+  async signTransaction(
+    params: ICliSignTransactionParams,
+  ): Promise<ISignedTxPro> {
     const scope = await getEvmScope();
-    return scope.hd.signTransaction(payload);
+    const hdCredential = await this.getHdCredential();
+    const encodedPassword = await this.getEncodedPassword();
+    const networkInfo = this.buildNetworkInfo(params.networkId);
+
+    return scope.hd.signTransaction({
+      networkInfo,
+      password: encodedPassword,
+      credentials: { hd: hdCredential },
+      account: {
+        address: params.account.address,
+        path: params.account.path,
+        pub: params.account.publicKey,
+      },
+      unsignedTx: params.unsignedTx,
+    });
   }
 
   async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {

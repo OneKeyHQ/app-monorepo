@@ -4,9 +4,26 @@ import type {
   ITransferPairingSession,
 } from '../prime-transfer/transfer-types';
 
-type IAuthLoginMethod = 'app_transfer';
-type IAuthWalletKind = 'hd';
+type IAuthLoginMethod = 'app_transfer' | 'hardware';
+type IAuthWalletKind = 'hd' | 'hardware';
 type IAuthStatus = 'authenticated' | 'unauthenticated';
+
+/**
+ * How the passphrase is obtained for hidden wallet sessions.
+ * - 'none': standard wallet (useEmptyPassphrase)
+ * - 'on_host': passphrase entered via pinentry on host machine each time
+ * - 'on_device': passphrase entered on device screen each time
+ *
+ * The passphrase value itself and passphraseState are NEVER persisted;
+ * only the mode is stored so subsequent commands know how to re-prompt.
+ */
+type IPassphraseMode = 'none' | 'on_host' | 'on_device';
+
+interface IDeviceInfo {
+  connectId: string;
+  deviceId: string;
+  deviceLabel: string;
+}
 
 interface IAuthSessionMetadata {
   schemaVersion: number;
@@ -15,6 +32,8 @@ interface IAuthSessionMetadata {
   displayAddress: string;
   importedAt: string;
   sourceLabel: string;
+  device?: IDeviceInfo;
+  passphraseMode?: IPassphraseMode;
 }
 
 interface IPersistAuthSessionInput {
@@ -35,6 +54,8 @@ interface IResolvedAuthSession {
   displayAddress?: string;
   importedAt?: string;
   sourceLabel?: string;
+  device?: IDeviceInfo;
+  passphraseMode?: IPassphraseMode;
 }
 
 export const AUTH_DEFAULT_EVM_NETWORK_ID = 'evm--1';
@@ -45,6 +66,8 @@ export type {
   IAuthSessionMetadata as AuthSessionMetadata,
   IAuthStatus as AuthStatus,
   IAuthWalletKind as AuthWalletKind,
+  IDeviceInfo as DeviceInfo,
+  IPassphraseMode as PassphraseMode,
   IPersistAuthSessionInput as PersistAuthSessionInput,
   IResolvedAuthSession as ResolvedAuthSession,
   IStartAppTransferLoginInput as StartAppTransferLoginInput,

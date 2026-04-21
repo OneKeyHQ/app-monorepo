@@ -12,6 +12,8 @@ const WALLET_NAME = 'default';
 
 export const KEYCHAIN_MNEMONIC_KEY = `wallet:${WALLET_NAME}/mnemonic`;
 export const KEYCHAIN_ENCRYPTION_KEY = `wallet:${WALLET_NAME}/encryption-key`;
+export const KEYCHAIN_PASSPHRASE_STATE_KEY = `wallet:${WALLET_NAME}/passphrase-state`;
+export const KEYCHAIN_SESSION_ID_KEY = `wallet:${WALLET_NAME}/session-id`;
 export { CLI_PASSWORD };
 
 export class SignerBase {

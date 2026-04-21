@@ -190,8 +190,11 @@ export function registerBalanceCommand(program: Command): void {
           // Resolve wallet address
           let address = options.address;
           if (!address) {
-            await requireAuthenticatedSession();
-            const signer = await getSignerByImpl(chainConfig.impl);
+            const session = await requireAuthenticatedSession();
+            const signer = await getSignerByImpl({
+              impl: chainConfig.impl,
+              session,
+            });
             const addrInfo = await signer.getAddress(chainConfig.networkId);
             address = addrInfo.address;
           } else if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {

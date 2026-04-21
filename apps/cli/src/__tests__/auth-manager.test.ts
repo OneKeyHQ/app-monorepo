@@ -341,7 +341,9 @@ describe('AuthManager', () => {
     const manager = new AuthManager(
       storage,
       sessionStore,
-      jest.fn<Promise<ISigner>, [string]>(async () => createMockSigner()),
+      jest.fn<Promise<ISigner>, [{ impl: string }]>(async () =>
+        createMockSigner(),
+      ),
       appTransferLogin,
     );
 
@@ -373,7 +375,9 @@ describe('AuthManager', () => {
     const manager = new AuthManager(
       storage,
       sessionStore,
-      jest.fn<Promise<ISigner>, [string]>(async () => createMockSigner()),
+      jest.fn<Promise<ISigner>, [{ impl: string }]>(async () =>
+        createMockSigner(),
+      ),
       appTransferLogin,
     );
 
@@ -390,8 +394,9 @@ describe('AuthManager', () => {
   it('persists app transfer sessions through the shared mnemonic import core', async () => {
     const storage = new InMemorySecureStorage();
     const sessionStore = new AuthSessionStore(sessionPath);
-    const signerFactory = jest.fn<Promise<ISigner>, [string]>(async () =>
-      createMockSigner('0x9999999999999999999999999999999999999999'),
+    const signerFactory = jest.fn<Promise<ISigner>, [{ impl: string }]>(
+      async () =>
+        createMockSigner('0x9999999999999999999999999999999999999999'),
     );
     const appTransferLogin = jest.fn(
       async (
@@ -445,7 +450,7 @@ describe('AuthManager', () => {
       sourceLabel: APP_TRANSFER_SOURCE_LABEL,
       displayAddress: '0x9999999999999999999999999999999999999999',
     });
-    expect(signerFactory).toHaveBeenCalledWith('evm');
+    expect(signerFactory).toHaveBeenCalledWith({ impl: 'evm' });
   });
 
   it('rebuilds the app transfer source label from stored mnemonic for existing sessions', async () => {
@@ -483,7 +488,7 @@ describe('AuthManager', () => {
     const manager = new AuthManager(
       storage,
       sessionStore,
-      jest.fn<Promise<ISigner>, [string]>(async () =>
+      jest.fn<Promise<ISigner>, [{ impl: string }]>(async () =>
         createMockSigner('0x9999999999999999999999999999999999999999'),
       ),
       jest.fn(
@@ -549,7 +554,9 @@ describe('AuthManager', () => {
     const manager = new AuthManager(
       storage,
       sessionStore,
-      jest.fn<Promise<ISigner>, [string]>(async () => createMockSigner()),
+      jest.fn<Promise<ISigner>, [{ impl: string }]>(async () =>
+        createMockSigner(),
+      ),
       jest.fn(
         async (
           _input: unknown,

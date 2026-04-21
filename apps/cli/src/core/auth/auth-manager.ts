@@ -46,9 +46,9 @@ export class AuthManager {
   constructor(
     private readonly storage: ISecureStorage = createSecureStorage(),
     private readonly sessionStore: AuthSessionStore = new AuthSessionStore(),
-    private readonly signerFactory: (
-      impl: string,
-    ) => Promise<ISigner> = getSignerByImpl,
+    private readonly signerFactory: (options: {
+      impl: string;
+    }) => Promise<ISigner> = getSignerByImpl,
     private readonly appTransferLogin: IAppTransferLoginExecutor = startAppTransferLogin,
   ) {
     this.resolver = new AuthSessionResolver(this.storage, this.sessionStore);
@@ -172,7 +172,7 @@ export class AuthManager {
       await this.storage.set(KEYCHAIN_ENCRYPTION_KEY, encryptionKeyBuffer);
       await this.storage.set(KEYCHAIN_MNEMONIC_KEY, encryptedMnemonic);
 
-      const signer = await this.signerFactory('evm');
+      const signer = await this.signerFactory({ impl: 'evm' });
       const addressInfo = await signer.getAddress(AUTH_DEFAULT_EVM_NETWORK_ID);
 
       await this.sessionStore.save(

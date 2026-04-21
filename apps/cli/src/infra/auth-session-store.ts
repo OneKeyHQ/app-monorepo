@@ -9,6 +9,8 @@ import type {
   AuthLoginMethod,
   AuthSessionMetadata,
   AuthWalletKind,
+  DeviceInfo,
+  PassphraseMode,
 } from '../core/auth/auth-types';
 
 const DEFAULT_AUTH_SESSION_PATH = join(
@@ -21,6 +23,12 @@ const AUTH_SESSION_FILE_MODE = 0o600;
 
 export const AUTH_SESSION_SCHEMA_VERSION = 1;
 
+interface IRawDeviceInfo {
+  connect_id: string;
+  device_id: string;
+  device_label: string;
+}
+
 interface IRawAuthSessionMetadata {
   schema_version: number;
   login_method: AuthLoginMethod;
@@ -28,6 +36,27 @@ interface IRawAuthSessionMetadata {
   display_address: string;
   imported_at: string;
   source_label: string;
+  device?: IRawDeviceInfo;
+  passphrase_mode?: PassphraseMode;
+}
+
+function isValidDeviceInfo(value: unknown): value is DeviceInfo {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const info = value as Record<string, unknown>;
+  return (
+    typeof info.connectId === 'string' &&
+    info.connectId.length > 0 &&
+    typeof info.deviceId === 'string' &&
+    info.deviceId.length > 0 &&
+    typeof info.deviceLabel === 'string' &&
+    info.deviceLabel.length > 0
+  );
+}
+
+function isValidPassphraseMode(value: unknown): value is PassphraseMode {
+  return value === 'none' || value === 'on_host' || value === 'on_device';
 }
 
 function isErrnoCode(error: unknown, code: string): boolean {
@@ -46,21 +75,37 @@ function isValidSessionMetadata(value: unknown): value is AuthSessionMetadata {
 
   const metadata = value as Record<string, unknown>;
 
-  return (
+  const baseValid =
     metadata.schemaVersion === AUTH_SESSION_SCHEMA_VERSION &&
-    metadata.loginMethod === 'app_transfer' &&
-    metadata.walletKind === 'hd' &&
     typeof metadata.displayAddress === 'string' &&
     metadata.displayAddress.length > 0 &&
     typeof metadata.importedAt === 'string' &&
     !Number.isNaN(Date.parse(metadata.importedAt)) &&
     typeof metadata.sourceLabel === 'string' &&
-    metadata.sourceLabel.length > 0
-  );
+    metadata.sourceLabel.length > 0;
+
+  if (!baseValid) {
+    return false;
+  }
+
+  if (metadata.loginMethod === 'app_transfer' && metadata.walletKind === 'hd') {
+    return true;
+  }
+
+  if (
+    metadata.loginMethod === 'hardware' &&
+    metadata.walletKind === 'hardware' &&
+    isValidDeviceInfo(metadata.device) &&
+    isValidPassphraseMode(metadata.passphraseMode)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function toRawSession(metadata: AuthSessionMetadata): IRawAuthSessionMetadata {
-  return {
+  const raw: IRawAuthSessionMetadata = {
     schema_version: metadata.schemaVersion,
     login_method: metadata.loginMethod,
     wallet_kind: metadata.walletKind,
@@ -68,6 +113,19 @@ function toRawSession(metadata: AuthSessionMetadata): IRawAuthSessionMetadata {
     imported_at: metadata.importedAt,
     source_label: metadata.sourceLabel,
   };
+
+  if (metadata.device) {
+    raw.device = {
+      connect_id: metadata.device.connectId,
+      device_id: metadata.device.deviceId,
+      device_label: metadata.device.deviceLabel,
+    };
+  }
+  if (metadata.passphraseMode) {
+    raw.passphrase_mode = metadata.passphraseMode;
+  }
+
+  return raw;
 }
 
 function fromRawSession(value: unknown): AuthSessionMetadata {
@@ -88,6 +146,17 @@ function fromRawSession(value: unknown): AuthSessionMetadata {
     importedAt: raw.imported_at as string,
     sourceLabel: raw.source_label as string,
   };
+
+  if (raw.device) {
+    metadata.device = {
+      connectId: raw.device.connect_id,
+      deviceId: raw.device.device_id,
+      deviceLabel: raw.device.device_label,
+    };
+  }
+  if (raw.passphrase_mode) {
+    metadata.passphraseMode = raw.passphrase_mode;
+  }
 
   if (!isValidSessionMetadata(metadata)) {
     throw new AppError(
