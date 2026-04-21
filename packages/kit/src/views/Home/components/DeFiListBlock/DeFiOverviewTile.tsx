@@ -1,0 +1,95 @@
+import { useIntl } from 'react-intl';
+
+import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  IDeFiProtocol,
+  IProtocolSummary,
+} from '@onekeyhq/shared/types/defi';
+
+export type IDeFiOverviewTileProps = {
+  protocol: IDeFiProtocol;
+  protocolInfo: IProtocolSummary | undefined;
+  netWorth: number | string;
+  onPress: () => void;
+};
+
+function DeFiOverviewTile({
+  protocol,
+  protocolInfo,
+  netWorth,
+  onPress,
+}: IDeFiOverviewTileProps) {
+  const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const currencySymbol = settings.currencyInfo.symbol;
+  const name = protocolInfo?.protocolName ?? protocol.protocol;
+  const logo = protocolInfo?.protocolLogo;
+  const detailsLabel = intl.formatMessage({ id: ETranslations.global_details });
+
+  return (
+    <XStack
+      flex={1}
+      bg="$bgSubdued"
+      borderRadius="$3"
+      px="$4"
+      py="$3.5"
+      alignItems="center"
+      gap="$3"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      cursor="pointer"
+      onPress={onPress}
+      role="button"
+      aria-label={`${name}. ${detailsLabel}`}
+    >
+      <Stack
+        width={36}
+        height={36}
+        flexShrink={0}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Stack
+          width={32}
+          height={32}
+          borderRadius="$full"
+          bg="$bgApp"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Token
+            size="md"
+            tokenImageUri={logo}
+            networkId={protocol.networkId}
+            showNetworkIcon={Boolean(protocol.networkId)}
+          />
+        </Stack>
+      </Stack>
+      <YStack flex={1} minWidth={0} gap="$0.5">
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {name}
+        </SizableText>
+        <NumberSizeableTextWrapper
+          hideValue
+          size="$bodyLgMedium"
+          formatter="value"
+          formatterOptions={{ currency: currencySymbol }}
+          numberOfLines={1}
+        >
+          {netWorth ?? 0}
+        </NumberSizeableTextWrapper>
+      </YStack>
+    </XStack>
+  );
+}
+
+export { DeFiOverviewTile };
