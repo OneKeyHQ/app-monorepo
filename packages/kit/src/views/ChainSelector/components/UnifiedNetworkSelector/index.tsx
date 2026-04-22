@@ -405,6 +405,7 @@ function UnifiedNetworkSelector() {
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks: newEnabledNetworks,
             disabledNetworks: newDisabledNetworks,
+            cacheContext: { walletId, accountId },
           });
           appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
         } else {
@@ -413,7 +414,13 @@ function UnifiedNetworkSelector() {
         }
       },
     });
-  }, [navigation, handleNetworkPressItem, networksState]);
+  }, [
+    navigation,
+    handleNetworkPressItem,
+    networksState,
+    walletId,
+    accountId,
+  ]);
 
   const handleEditCustomNetwork = useCallback(
     async (network: IServerNetwork) => {
@@ -485,6 +492,7 @@ function UnifiedNetworkSelector() {
         await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
           enabledNetworks: networksState.enabledNetworks,
           disabledNetworks: networksState.disabledNetworks,
+          cacheContext: { walletId, accountId },
         });
 
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
