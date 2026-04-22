@@ -53,10 +53,13 @@ const transportLog = (msg: string) => {
 const OBSERVER_RETRY_MS = 50;
 const MAX_OBSERVER_RETRY_COUNT = 600;
 const READY_TIMEOUT_MS = 10_000;
-const REQUEST_TIMEOUT_MS = 30_000;
+// Long enough to cover HW + passphrase batch derivation (dozens of BLE
+// round-trips, ~1.5 min in practice) plus headroom. A per-call timeout only
+// rejects that single call — it no longer tears down the transport.
+const REQUEST_TIMEOUT_MS = 10 * 60_000; // 10 minutes
 // bridge-calls may wait for user interaction (e.g. DApp connect modal),
 // so they need a much longer timeout and should NOT break the transport.
-const BRIDGE_CALL_TIMEOUT_MS = 5 * 60_000; // 5 minutes
+const BRIDGE_CALL_TIMEOUT_MS = 10 * 60_000; // 10 minutes
 const MAX_REMOTE_CALL_SLOT_COUNT = 512;
 
 type IQueuedCall = {
@@ -626,22 +629,20 @@ function dispatchRemoteRequest(
         return;
       }
       transportLog(`dispatchRemoteRequest TIMEOUT: callId=${callId}`);
-      if (isBridgeCall) {
-        // bridge-call timeouts mean user didn't interact in time,
-        // NOT that the background thread is dead — don't break transport.
-        const pending = pendingRemoteCalls.get(callId);
-        pendingRemoteCalls.delete(callId);
-        if (pending) {
-          clearTimeout(pending.timer);
-          pending.reject(
-            createTransportError(
-              `Bridge call timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`,
-            ),
-          );
-        }
-      } else {
-        switchToRemoteBroken(
-          `Background request timeout. request=${getRequestDebugLabel(request)}`,
+      // A single slow call (e.g. batch account derivation that legitimately
+      // runs past REQUEST_TIMEOUT_MS) must NOT tear down the whole main↔bg
+      // transport. Reject only this pending call; keep transport alive so
+      // subsequent RPCs still reach the background runtime.
+      const pending = pendingRemoteCalls.get(callId);
+      pendingRemoteCalls.delete(callId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        pending.reject(
+          createTransportError(
+            isBridgeCall
+              ? `Bridge call timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`
+              : `Background request timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`,
+          ),
         );
       }
     }, timeoutMs);
