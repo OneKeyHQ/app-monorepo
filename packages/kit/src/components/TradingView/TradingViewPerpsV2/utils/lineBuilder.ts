@@ -132,7 +132,7 @@ export function buildOrderLine(
   const orderTypeLabel = order.orderType || 'Limit';
   const priceLabel = formatPriceForLabel(order.limitPx);
   const labelText = order.isTrigger
-    ? `${orderTypeLabel} ${priceLabel} ${order.triggerCondition}`
+    ? `${orderTypeLabel} ${priceLabel} ${order.triggerCondition ?? ''}`.trimEnd()
     : `${orderTypeLabel} ${priceLabel}`;
 
   return {
