@@ -250,10 +250,10 @@ const OverviewComponent = ({
   );
 
   const handleHistoryPress = useCallback(async () => {
-    if (!evmAccount || !account?.id) return;
+    if (!evmAccount) return;
     const currentEarnAccount =
       await backgroundApiProxy.serviceStaking.getEarnAccount({
-        accountId: account.id,
+        accountId: account?.id || '',
         indexedAccountId: indexedAccount?.id || '',
         networkId: evmNetworkId,
         btcOnlyTaproot: true,

@@ -60,7 +60,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import { ENFTType } from '@onekeyhq/shared/types/nft';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -74,6 +73,7 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 import RecipientQuickSelect from './RecipientQuickSelect';
 import {
   normalizeOptionalRecipientText,
+  shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
 } from './recipientSelectionUtils';
 import { useWebDappRecipientOptions } from './useWebDappRecipientOptions';
@@ -490,9 +490,11 @@ function SendDataInputContainer() {
       // page — skip straight to confirm with a fixed quantity of 1 (OK-53248).
       const nftItem = nfts?.[0];
       if (
-        isNFT &&
         nftItem &&
-        nftItem.collectionType !== ENFTType.ERC1155 &&
+        shouldSkipAmountInputForNFT({
+          isNFT,
+          nft: nftItem,
+        }) &&
         account
       ) {
         const transfersInfo: ITransferInfo[] = [
@@ -939,6 +941,57 @@ function SendDataInputContainer() {
 
         const effectiveNote =
           selectedNote || (isNoteOnlyChain ? selectedMemo?.trim() : undefined);
+        const recipientMemo = displayMemoForm
+          ? selectedMemo?.trim() || undefined
+          : undefined;
+        const recipientPaymentId = form.getValues('paymentId') || undefined;
+        const recipientNote = effectiveNote || undefined;
+        const nftItem = nfts?.[0];
+
+        if (
+          nftItem &&
+          shouldSkipAmountInputForNFT({
+            isNFT,
+            nft: nftItem,
+          }) &&
+          account
+        ) {
+          const transfersInfo: ITransferInfo[] = [
+            {
+              from: account.address,
+              to: resolvedAddress,
+              amount: '1',
+              nftInfo: {
+                nftId: nftItem.itemId,
+                nftAddress: nftItem.collectionAddress,
+                nftType: nftItem.collectionType,
+              },
+              memo: recipientMemo,
+              paymentId: recipientPaymentId,
+              note: recipientNote,
+            },
+          ];
+          await signatureConfirm.navigationToTxConfirm({
+            transfersInfo,
+            sameModal: true,
+            onSuccess,
+            onFail,
+            onCancel,
+            transferPayload: {
+              amountToSend: '1',
+              isMaxSend: false,
+              isNFT: true,
+              originalRecipient: resolvedAddress,
+              isToContract: queryResult.isContract ?? false,
+              memo: recipientMemo,
+              paymentId: recipientPaymentId,
+              note: recipientNote,
+            },
+            isInternalTransfer: true,
+          });
+          return;
+        }
+
         pushAmountInput({
           networkId: currentAccount.networkId,
           accountId: currentAccount.accountId,
@@ -947,11 +1000,9 @@ function SendDataInputContainer() {
           nfts,
           recipientAddress: resolvedAddress,
           recipientIsContract: queryResult.isContract ?? false,
-          recipientMemo: displayMemoForm
-            ? selectedMemo?.trim() || undefined
-            : undefined,
-          recipientPaymentId: form.getValues('paymentId') || undefined,
-          recipientNote: effectiveNote || undefined,
+          recipientMemo,
+          recipientPaymentId,
+          recipientNote,
           amount: scannedAmount || sendAmount || undefined,
           isAllNetworks,
           onSuccess,
@@ -972,6 +1023,7 @@ function SendDataInputContainer() {
     [
       currentAccount.accountId,
       currentAccount.networkId,
+      account,
       displayMemoForm,
       isNoteOnlyChain,
       fillRecipientFromQuickSelect,
@@ -984,6 +1036,7 @@ function SendDataInputContainer() {
       onFail,
       onSuccess,
       pushAmountInput,
+      signatureConfirm,
       scannedAmount,
       sendAmount,
       tokenInfo,
