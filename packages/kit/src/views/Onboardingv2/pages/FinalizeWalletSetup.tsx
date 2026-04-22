@@ -72,6 +72,14 @@ import type { SearchDevice } from '@onekeyfe/hd-core';
 // which can trigger SIGSEGV in Value::~Value on Fabric/New Architecture.
 const NAVIGATION_TRANSITION_SETTLE_MS = 300;
 
+// Slow-step hint thresholds. ConnectingDevice gets more slack because hardware
+// prompts legitimately take longer than the backend pipeline.
+const SLOW_THRESHOLD_DEFAULT_MS = 8000;
+const SLOW_THRESHOLD_CONNECTING_MS = 12_000;
+
+// Keep the success state visible for a brief moment before closing.
+const WALLET_READY_DISPLAY_MS = 400;
+
 type IStepData = { pathData: string; title: string } | null;
 
 // Step definitions aligned with real backend phases (see spec).
@@ -154,13 +162,10 @@ function FinalizeWalletSetupPage({
   const [currentStep, setCurrentStep] =
     useState<EFinalizeWalletSetupSteps>(initialStep);
 
-  // 队列管理 — starts empty; real backend events fill it as they arrive.
+  // Step queue — starts empty; real backend events fill it as they arrive.
   const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
 
   const [isStepSlow, setIsStepSlow] = useState(false);
-
-  const SLOW_THRESHOLD_DEFAULT_MS = 8000;
-  const SLOW_THRESHOLD_CONNECTING_MS = 12_000;
 
   useEffect(() => {
     setIsStepSlow(false);
@@ -198,13 +203,20 @@ function FinalizeWalletSetupPage({
     openKeylessAutoConnectDappModal,
   } = useKeylessWebFlowAutoConnectDapp();
 
-  // Keep Wallet-ready visible for a brief success moment, then close.
-  const WALLET_READY_DISPLAY_MS = 400;
+  const unmountedRef = useRef(false);
+  useEffect(
+    () => () => {
+      unmountedRef.current = true;
+    },
+    [],
+  );
 
   const handleWalletSetupReadyInner = useCallback(async () => {
     setTimeout(() => {
+      if (unmountedRef.current) return;
       closePage();
       setTimeout(() => {
+        if (unmountedRef.current) return;
         void openKeylessAutoConnectDappModal();
       }, 600);
     }, WALLET_READY_DISPLAY_MS);
@@ -404,14 +416,6 @@ function FinalizeWalletSetupPage({
     setPendingKeylessAutoConnectWalletId,
     goNextStep,
   ]);
-
-  const unmountedRef = useRef(false);
-  useEffect(
-    () => () => {
-      unmountedRef.current = true;
-    },
-    [],
-  );
 
   useEffect(() => {
     // Defer createWallet until after navigation transition completes.

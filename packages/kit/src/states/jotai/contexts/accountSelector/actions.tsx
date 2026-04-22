@@ -718,11 +718,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         });
 
         const [{ wallet, indexedAccount, hidden, isOverrideWallet }] =
-          await Promise.all([
-            // eslint-disable-next-line @typescript-eslint/await-thenable
-            await createWalletFn(),
-            timerUtils.wait(1000),
-          ]);
+          await Promise.all([createWalletFn(), timerUtils.wait(1000)]);
 
         if (generatingAccountsFn) {
           appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
