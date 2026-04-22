@@ -26,6 +26,9 @@ export function SizeInputModeSelector({
   allowMarginInput = true,
 }: ISizeInputModeSelectorProps) {
   const intl = useIntl();
+  const tokenFallbackLabel = intl.formatMessage({
+    id: ETranslations.wallet_bulk_send_approval_token_fallback,
+  });
   const resolvedValue = !allowMarginInput && value === 'margin' ? 'usd' : value;
   const isTokenSelected = resolvedValue === 'token';
   const isUsdSelected = resolvedValue === 'usd' || resolvedValue === 'margin';
@@ -74,7 +77,7 @@ export function SizeInputModeSelector({
   const trigger = (
     <XStack alignItems="center" gap="$1" userSelect="none" cursor="default">
       <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {resolvedValue === 'token' ? tokenSymbol || 'Token' : 'USD'}
+        {resolvedValue === 'token' ? tokenSymbol || tokenFallbackLabel : 'USD'}
       </SizableText>
       <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
     </XStack>
@@ -110,13 +113,13 @@ export function SizeInputModeSelector({
           >
             <YStack gap="$1">
               <SizableText size="$headingSm" color="$text">
-                {tokenSymbol || 'Token'}
+                {tokenSymbol || tokenFallbackLabel}
               </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
                 {intl.formatMessage(
                   { id: ETranslations.perp_size_input_token_desc },
                   {
-                    token: tokenSymbol || 'Token',
+                    token: tokenSymbol || tokenFallbackLabel,
                   },
                 )}
               </SizableText>
