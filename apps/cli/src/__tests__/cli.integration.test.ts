@@ -1,6 +1,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
+import { version as PKG_VERSION } from '../../package.json';
+
 import { extractJson, stripDebugOutput } from './test-helpers';
 
 const BIN = resolve(__dirname, '../../bin/onekey');
@@ -25,26 +27,31 @@ function runResult(...args: string[]) {
 describe('onekey CLI (integration)', () => {
   it('prints version in human format', () => {
     const output = run('version');
-    expect(output).toContain('0.1.0');
+    expect(output).toContain(PKG_VERSION);
   });
 
   it('prints version as JSON with --json', () => {
     const output = run('--json', 'version');
     const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
-    expect(parsed.data.version).toBe('0.1.0');
-    expect(parsed.data.env).toBe('test');
+    expect(parsed.data.version).toBe(PKG_VERSION);
+    expect(parsed.data.env).toBe('prod');
   });
 
   it('prints only version value with --quiet', () => {
     const output = run('--quiet', 'version');
-    expect(stripDebugOutput(output)).toBe('0.1.0');
+    expect(stripDebugOutput(output)).toBe(PKG_VERSION);
   });
 
-  it('respects --env prod', () => {
-    const output = run('--json', '--env', 'prod', 'version');
+  it('respects --env test', () => {
+    const output = run('--json', '--env', 'test', 'version');
     const parsed = JSON.parse(extractJson(output));
-    expect(parsed.data.env).toBe('prod');
+    expect(parsed.data.env).toBe('test');
+  });
+
+  it('respects --version global flag with the package version', () => {
+    const output = run('--version');
+    expect(output.trim()).toBe(PKG_VERSION);
   });
 
   it('shows help with --help', () => {
