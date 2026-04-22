@@ -40,7 +40,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -114,23 +117,27 @@ function UnifiedNetworkSelector() {
 
   const [activeTab, setActiveTab] = useState<ITabType>(initialTab);
 
-  // Portfolio tab state (from AllNetworksManager)
+  // Portfolio tab state (from AllNetworksManager).
+  // Seed from the SWR cache synchronously so the first render doesn't flash
+  // the "no results" empty state before the useEffect below copies the
+  // revalidated networkMeta into state. The setter is still needed because
+  // handleAddCustomNetwork updates this locally before persisting to bg.
   const [networksState, setNetworksState] = useState<{
     enabledNetworks: Record<string, boolean>;
     disabledNetworks: Record<string, boolean>;
-  }>({
-    enabledNetworks: {},
-    disabledNetworks: {},
-  });
-
-  const [networks, setNetworks] = useState<{
-    allNetworks: IServerNetworkMatch[];
-    mainNetworks: IServerNetworkMatch[];
-    frequentlyUsedNetworks: IServerNetworkMatch[];
-  }>({
-    allNetworks: [],
-    mainNetworks: [],
-    frequentlyUsedNetworks: [],
+  }>(() => {
+    const cached = swrCacheUtils.get<{
+      allNetworksState: {
+        enabledNetworks: Record<string, boolean>;
+        disabledNetworks: Record<string, boolean>;
+      };
+    }>(swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }));
+    return (
+      cached?.allNetworksState ?? {
+        enabledNetworks: {},
+        disabledNetworks: {},
+      }
+    );
   });
 
   const enabledNetworksInit = useRef(false);
@@ -169,23 +176,6 @@ function UnifiedNetworkSelector() {
         deriveType: IAccountDeriveTypes;
       }[]
     >([]);
-
-  // Update enabled networks when state changes
-  useEffect(() => {
-    const result = networks.mainNetworks.filter((network) =>
-      isEnabledNetworksInAllNetworks({
-        networkId: network.id,
-        enabledNetworks: networksState.enabledNetworks,
-        disabledNetworks: networksState.disabledNetworks,
-        isTestnet: network.isTestnet,
-      }),
-    );
-    setEnabledNetworks(result);
-    if (!enabledNetworksInit.current && networks.allNetworks.length > 0) {
-      setOriginalEnabledNetworks(result);
-      enabledNetworksInit.current = true;
-    }
-  }, [networksState, networks.mainNetworks, networks.allNetworks]);
 
   // Use ref to track activeTab for closures (e.g. onSuccess in navigation)
   const activeTabRef = useRef(activeTab);
@@ -246,19 +236,53 @@ function UnifiedNetworkSelector() {
     },
   );
 
-  // Sync meta result into existing useState slots so downstream props/effects
-  // keep their current shape. usePromiseResult always returns a fresh object
-  // from setResult, so this effect correctly re-runs on each revalidation.
+  // Derive `networks` straight from the SWR result so the first render
+  // reflects cached data without a frame of empty arrays. Using useMemo
+  // instead of useState+useEffect eliminates the "no results" flash on
+  // Portfolio tab — previously the effect only copied networkMeta into
+  // state after mount, so the first render paint saw empty arrays.
+  //
+  // `networksState` stays as useState (seeded from cache above) because
+  // handleAddCustomNetwork needs a setter to optimistically toggle
+  // enable/disable before the bg round-trip.
+  const networks = useMemo<{
+    allNetworks: IServerNetworkMatch[];
+    mainNetworks: IServerNetworkMatch[];
+    frequentlyUsedNetworks: IServerNetworkMatch[];
+  }>(
+    () => ({
+      allNetworks: networkMeta?.allNetworks ?? [],
+      mainNetworks: networkMeta?.compatibleNetworks.mainnetItems ?? [],
+      frequentlyUsedNetworks:
+        networkMeta?.compatibleNetworks.frequentlyUsedItems ?? [],
+    }),
+    [networkMeta],
+  );
+
+  // Keep networksState in sync with revalidation. The seed above handles
+  // first paint; this effect picks up later updates from the SWR fetch.
   useEffect(() => {
     if (!networkMeta) return;
     setNetworksState(networkMeta.allNetworksState);
-    setNetworks({
-      allNetworks: networkMeta.allNetworks,
-      mainNetworks: networkMeta.compatibleNetworks.mainnetItems,
-      frequentlyUsedNetworks:
-        networkMeta.compatibleNetworks.frequentlyUsedItems,
-    });
   }, [networkMeta]);
+
+  // Derive the enabled subset from networks + state. Lives after the
+  // `networks` useMemo to keep declaration order clean.
+  useEffect(() => {
+    const result = networks.mainNetworks.filter((network) =>
+      isEnabledNetworksInAllNetworks({
+        networkId: network.id,
+        enabledNetworks: networksState.enabledNetworks,
+        disabledNetworks: networksState.disabledNetworks,
+        isTestnet: network.isTestnet,
+      }),
+    );
+    setEnabledNetworks(result);
+    if (!enabledNetworksInit.current && networks.allNetworks.length > 0) {
+      setOriginalEnabledNetworks(result);
+      enabledNetworksInit.current = true;
+    }
+  }, [networksState, networks.mainNetworks, networks.allNetworks]);
 
   const compatibleNetworks = networkMeta?.compatibleNetworks;
 

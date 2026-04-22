@@ -1,11 +1,8 @@
 /* cspell:ignore ISWR IMMKV */
-import type {
-  EAppSWRCacheScopes} from '../storage/syncStorageKeys';
-import {
-  EAppSyncStorageKeys,
-} from '../storage/syncStorageKeys';
+import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
+import type { EAppSWRCacheScopes } from '../storage/syncStorageKeys';
 
 // SWR cache uses the dedicated cold-start cache MMKV instance,
 // separate from onekey-app-setting.
