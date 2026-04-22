@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil, isUndefined } from 'lodash';
@@ -65,27 +65,25 @@ import {
   type ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
 
+import {
+  EGasAccountErrorStrategy,
+  getGasAccountErrorEntry,
+} from '../../constants/gasAccountErrorCodes';
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
 
-const GAS_ACCOUNT_REFRESH_ESTIMATE_CODES = new Set([
-  40_201, 40_202, 40_209, 90_201,
-]);
-const GAS_ACCOUNT_FALLBACK_CODES = new Set([
-  40_213, 40_218, 40_219, 90_200, 90_205,
-]);
-const GAS_ACCOUNT_HINT_ONLY_CODES = new Set([
-  40_203, 40_214, 40_215, 40_216, 40_217, 90_207, 90_208, 90_209,
-]);
-
 function getGasAccountErrorCode(error: unknown) {
+  // OneKey RPC errors surface as `{ data: { data: { res: { error: { code } } } } }`
+  // (see `IOneKeyRpcError` in shared/errors/types). Older non-RPC paths expose
+  // `.code` directly or at `.data.code` / `.data.data.code`, so probe all four.
   const e = error as
     | (IOneKeyError & {
         data?: {
           code?: number;
           data?: {
             code?: number;
+            res?: { error?: { code?: number } };
           };
         };
       })
@@ -102,6 +100,10 @@ function getGasAccountErrorCode(error: unknown) {
   if (typeof nestedErrorDataCode === 'number') {
     return nestedErrorDataCode;
   }
+  const rpcErrorCode = e?.data?.data?.res?.error?.code;
+  if (typeof rpcErrorCode === 'number') {
+    return rpcErrorCode;
+  }
 
   return undefined;
 }
@@ -110,38 +112,6 @@ function muteHandledErrorToast(error: unknown) {
   const e = error as IOneKeyError | undefined;
   if (e) {
     e.autoToast = false;
-  }
-}
-
-function getGasAccountErrorMessage(code: number) {
-  switch (code) {
-    case 40_201:
-    case 40_202:
-    case 90_201:
-      return 'Gas sponsor quote expired. Refreshing fee estimate.';
-    case 40_209:
-      return 'Gas sponsor nonce changed. Refreshing fee estimate.';
-    case 40_213:
-    case 40_218:
-    case 40_219:
-    case 90_200:
-    case 90_205:
-      return 'Gas sponsor unavailable. Switched to network fee.';
-    case 40_203:
-      return 'Transaction may already have been submitted. Check activity.';
-    case 40_214:
-      return 'A gas sponsor request is already in progress. Please try again shortly.';
-    case 40_215:
-    case 90_207:
-      return 'Too many gas sponsor requests. Please try again shortly.';
-    case 40_216:
-    case 90_208:
-      return 'Gas sponsor limit reached for today.';
-    case 40_217:
-    case 90_209:
-      return 'Gas sponsor is busy right now. Please try again later.';
-    default:
-      return undefined;
   }
 }
 
@@ -241,22 +211,30 @@ function TxConfirmActions(props: IProps) {
     usePreCheckFeeInfo();
 
   const handleGasAccountSubmitError = useCallback(
-    (error: unknown) => {
+    (error: unknown): EGasAccountErrorStrategy | undefined => {
       if (gasAccountUiState.selectedPayer !== 'gasAccount') {
-        return false;
+        return undefined;
       }
 
       const code = getGasAccountErrorCode(error);
-      if (!code) {
-        return false;
+      const entry = getGasAccountErrorEntry(code);
+      if (!entry) {
+        if (typeof code === 'number') {
+          // Unknown-but-numeric code — surface in dev so contract drift
+          // against the backend spec is visible, but don't alter UX.
+          console.warn(
+            `[GasAccount] unhandled submit error code ${code} on network ${networkId}`,
+          );
+        }
+        return undefined;
       }
 
       const message =
-        getGasAccountErrorMessage(code) ??
+        entry.message ??
         (error as Error | undefined)?.message ??
         'Failed to submit transaction.';
 
-      if (GAS_ACCOUNT_REFRESH_ESTIMATE_CODES.has(code)) {
+      if (entry.strategy === EGasAccountErrorStrategy.Refresh) {
         muteHandledErrorToast(error);
         resetGasAccountTemporarilyDisabled();
         resetGasAccountUiState();
@@ -268,20 +246,15 @@ function TxConfirmActions(props: IProps) {
         });
         Toast.warning({ title: message });
         appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
-        return true;
+        return EGasAccountErrorStrategy.Refresh;
       }
 
-      if (GAS_ACCOUNT_FALLBACK_CODES.has(code)) {
+      if (entry.strategy === EGasAccountErrorStrategy.Fallback) {
         muteHandledErrorToast(error);
         updateEffectiveFeePayer('user');
         updateGasAccountTemporarilyDisabled(true);
         resetGasAccountUiState();
-        updateGasAccountUiState({
-          payer: 'user',
-          gasAccountEligible: false,
-          selectedPayer: 'user',
-          idempotencyKey: '',
-        });
+        updateGasAccountUiState({ payer: 'user' });
         updateTxFeeInfoInit(false);
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
@@ -290,19 +263,19 @@ function TxConfirmActions(props: IProps) {
         });
         Toast.warning({ title: message });
         appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
-        return true;
+        return EGasAccountErrorStrategy.Fallback;
       }
 
-      if (GAS_ACCOUNT_HINT_ONLY_CODES.has(code)) {
-        muteHandledErrorToast(error);
-        Toast.warning({ title: message });
-        return true;
-      }
-
-      return false;
+      // Hint: suppress the generic toast, show our specific copy, but let the
+      // caller still invoke onFail / dappApprove.reject — the current attempt
+      // is terminal and the dApp needs to know.
+      muteHandledErrorToast(error);
+      Toast.warning({ title: message });
+      return EGasAccountErrorStrategy.Hint;
     },
     [
       gasAccountUiState.selectedPayer,
+      networkId,
       resetGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
       updateEffectiveFeePayer,
@@ -629,7 +602,15 @@ function TxConfirmActions(props: IProps) {
         navigation.pop();
       }
     } catch (e: any) {
-      if (handleGasAccountSubmitError(e)) {
+      const gasAccountStrategy = handleGasAccountSubmitError(e);
+      // Refresh and Fallback both keep the user on the confirm page with a
+      // fresh estimate in flight, so the dApp caller should also keep waiting.
+      // Hint is terminal for this attempt — propagate to onFail / dApp reject
+      // so callers aren't left pending indefinitely.
+      if (
+        gasAccountStrategy === EGasAccountErrorStrategy.Refresh ||
+        gasAccountStrategy === EGasAccountErrorStrategy.Fallback
+      ) {
         updateSendTxStatus({ isSubmitting: false });
         isSubmitted.current = false;
         return;
@@ -777,6 +758,22 @@ function TxConfirmActions(props: IProps) {
     },
     gasAccountUiState.selectedPayer === 'gasAccount' ? 1000 : null,
   );
+
+  // When the quote expires while the user is still on the confirm page, kick
+  // off a silent re-estimate instead of leaving the submit button disabled
+  // indefinitely. The ref gates this to a single shot per expiry transition.
+  const quoteExpiredHandledRef = useRef(false);
+  useEffect(() => {
+    if (isGasAccountQuoteExpired) {
+      if (quoteExpiredHandledRef.current) return;
+      quoteExpiredHandledRef.current = true;
+      resetGasAccountUiState();
+      updateTxFeeInfoInit(false);
+      appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+    } else {
+      quoteExpiredHandledRef.current = false;
+    }
+  }, [isGasAccountQuoteExpired, resetGasAccountUiState, updateTxFeeInfoInit]);
 
   const isConfirmInitializing = useMemo(
     () => !txFeeInfoInit || !decodedTxsInit || isBuildingDecodedTxs,
