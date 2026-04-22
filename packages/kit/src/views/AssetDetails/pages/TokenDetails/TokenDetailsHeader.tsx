@@ -68,6 +68,59 @@ const tokenDetailsCache = new cacheUtils.LRUCache<
   ttlAutopurge: true,
 });
 
+type ITokenDetailsAddressBlockProps = {
+  shouldShow: boolean;
+  label: string;
+  address: string;
+  onPress: () => void;
+};
+
+const TokenDetailsAddressBlock = memo(
+  ({ shouldShow, label, address, onPress }: ITokenDetailsAddressBlockProps) => {
+    if (!shouldShow) {
+      return null;
+    }
+
+    return (
+      <>
+        <Divider />
+        <YStack
+          userSelect="none"
+          onPress={onPress}
+          px="$5"
+          py="$3"
+          gap="$1"
+          {...listItemPressStyle}
+        >
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {label}
+          </SizableText>
+          <XStack gap="$4">
+            <SizableText
+              size="$bodyMd"
+              color="$text"
+              flexShrink={1}
+              $platform-web={{
+                wordBreak: 'break-word',
+              }}
+            >
+              {address}
+            </SizableText>
+            <Icon
+              name="Copy3Outline"
+              color="$iconSubdued"
+              size="$5"
+              flexShrink={0}
+              marginLeft="auto"
+            />
+          </XStack>
+        </YStack>
+      </>
+    );
+  },
+);
+TokenDetailsAddressBlock.displayName = 'TokenDetailsAddressBlock';
+
 function TokenDetailsHeader(props: IProps) {
   const {
     accountId,
@@ -348,6 +401,36 @@ function TokenDetailsHeader(props: IProps) {
     return true;
   }, [wallet?.type, networkId, wallet?.backuped, hideAccountAddress]);
 
+  const addressBlockLabel = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.global_my_address,
+      }),
+    [intl],
+  );
+
+  const addressBlockValue = useMemo(() => {
+    const address = account?.address ?? '';
+
+    if (
+      accountUtils.isHwWallet({ walletId }) ||
+      accountUtils.isQrWallet({ walletId })
+    ) {
+      return accountUtils.shortenAddress({ address });
+    }
+
+    return address;
+  }, [account?.address, walletId]);
+
+  const handleCopyAddressPress = useCallback(() => {
+    void copyAccountAddress({
+      accountId,
+      networkId,
+      token: tokenInfo,
+      deriveInfo,
+    });
+  }, [copyAccountAddress, accountId, networkId, tokenInfo, deriveInfo]);
+
   return (
     <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
       <>
@@ -456,56 +539,12 @@ function TokenDetailsHeader(props: IProps) {
           walletType={wallet?.type}
           tokenLogoURI={tokenInfo.logoURI}
         />
-        {shouldShowAddressBlock ? (
-          <>
-            <Divider />
-            <YStack
-              userSelect="none"
-              onPress={() =>
-                copyAccountAddress({
-                  accountId,
-                  networkId,
-                  token: tokenInfo,
-                  deriveInfo,
-                })
-              }
-              px="$5"
-              py="$3"
-              gap="$1"
-              {...listItemPressStyle}
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.global_my_address,
-                })}
-              </SizableText>
-              <XStack gap="$4">
-                <SizableText
-                  size="$bodyMd"
-                  color="$text"
-                  flexShrink={1}
-                  $platform-web={{
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {accountUtils.isHwWallet({ walletId }) ||
-                  accountUtils.isQrWallet({ walletId })
-                    ? accountUtils.shortenAddress({
-                        address: account?.address ?? '',
-                      })
-                    : account?.address}
-                </SizableText>
-                <Icon
-                  name="Copy3Outline"
-                  color="$iconSubdued"
-                  size="$5"
-                  flexShrink={0}
-                  marginLeft="auto"
-                />
-              </XStack>
-            </YStack>
-          </>
-        ) : null}
+        <TokenDetailsAddressBlock
+          shouldShow={shouldShowAddressBlock}
+          label={addressBlockLabel}
+          address={addressBlockValue}
+          onPress={handleCopyAddressPress}
+        />
         {/* History */}
         <Divider mb="$3" />
       </>
