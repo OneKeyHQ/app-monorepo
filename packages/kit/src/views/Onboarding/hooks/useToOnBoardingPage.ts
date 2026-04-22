@@ -4,7 +4,6 @@ import { resetToRoute } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
-  ONBOARDING_CREATE_OR_IMPORT_WALLET_PATH,
   ONBOARDING_FROM_EXT_PARAM,
   ONBOARDING_GET_STARTED_PATH,
 } from '@onekeyhq/shared/src/consts/onboardingConsts';
@@ -36,19 +35,14 @@ export const useToOnBoardingPage = () => {
         return;
       }
 
-      const { isOnboardingDone } =
-        await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
-
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel ||
         platformEnv.isExtensionUiStandaloneWindow
       ) {
         await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-          path: isOnboardingDone
-            ? ONBOARDING_CREATE_OR_IMPORT_WALLET_PATH
-            : ONBOARDING_GET_STARTED_PATH,
-          params: isOnboardingDone ? undefined : ONBOARDING_FROM_EXT_PARAM,
+          path: ONBOARDING_GET_STARTED_PATH,
+          params: ONBOARDING_FROM_EXT_PARAM,
         });
         if (
           platformEnv.isExtensionUiSidePanel ||
@@ -60,9 +54,7 @@ export const useToOnBoardingPage = () => {
         resetToRoute(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
-            screen: isOnboardingDone
-              ? EOnboardingPagesV2.CreateOrImportWallet
-              : EOnboardingPagesV2.GetStarted,
+            screen: EOnboardingPagesV2.GetStarted,
           },
         });
       }
