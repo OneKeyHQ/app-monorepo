@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { RefreshControl, ScrollView } from 'react-native';
 
@@ -12,6 +13,10 @@ import {
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import {
+  usePerpsActiveAccountSummaryAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -44,13 +49,13 @@ const tabNameToTranslationKey: Record<
   ETabName,
   | ETranslations.perp_position_title
   | ETranslations.perp_open_orders_title
-  | ETranslations.global_balance
+  | ETranslations.perp_holdings_tokens
   | ETranslations.Limit_open_order
   | ETranslations.Limit_order_history
 > = {
   [ETabName.Positions]: ETranslations.perp_position_title,
   [ETabName.OpenOrders]: ETranslations.perp_open_orders_title,
-  [ETabName.Balances]: ETranslations.global_balance,
+  [ETabName.Balances]: ETranslations.perp_holdings_tokens,
   [ETabName.SwapProOpenOrders]: ETranslations.Limit_open_order,
   [ETabName.SwapOrderHistory]: ETranslations.Limit_order_history,
 };
@@ -68,6 +73,13 @@ export const TabBarItem = memo(
     tabCount?: string;
   }) => {
     const intl = useIntl();
+    const tabTitle = intl.formatMessage({
+      id: tabNameToTranslationKey[name],
+    });
+    const displayTitle =
+      name === ETabName.Balances
+        ? `${tabTitle}${tabCount ?? ''}`
+        : `${tabTitle}${tabCount ? ` ${tabCount}` : ''}`;
 
     return (
       <DebugRenderTracker
@@ -81,11 +93,7 @@ export const TabBarItem = memo(
           onPress={() => onPress(name)}
           mb={-2}
         >
-          <SizableText size="$bodyMdMedium">
-            {`${intl.formatMessage({
-              id: tabNameToTranslationKey[name],
-            })}${tabCount ? ` ${tabCount}` : ''}`}
-          </SizableText>
+          <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
         </XStack>
       </DebugRenderTracker>
     );
@@ -124,6 +132,20 @@ export function PerpMobileLayout() {
 
   const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+
+  const holdingsCount = useMemo(() => {
+    const nonZeroSpotBalanceCount = balances.filter(
+      (item) => !new BigNumber(item.total).isZero(),
+    ).length;
+    const perpsUsdcCount =
+      accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0)
+        ? 1
+        : 0;
+    return nonZeroSpotBalanceCount + perpsUsdcCount;
+  }, [accountSummary?.totalRawUsd, balances]);
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {
@@ -138,6 +160,8 @@ export function PerpMobileLayout() {
     }
     return '';
   }, [openOrdersLength]);
+
+  const holdingsTabCount = useMemo(() => `(${holdingsCount})`, [holdingsCount]);
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
@@ -188,6 +212,7 @@ export function PerpMobileLayout() {
             name={ETabName.Balances}
             isFocused={activeTab === ETabName.Balances}
             onPress={setActiveTab}
+            tabCount={holdingsTabCount}
           />
         </XStack>
         <IconButton
