@@ -106,7 +106,7 @@ function BasicNotificationEnableAlert({
   }
 
   return (
-    <Stack px="$2" pb="$2">
+    <Stack px="$2" pt="$2">
       <Alert
         type="info"
         icon="InfoCircleOutline"
