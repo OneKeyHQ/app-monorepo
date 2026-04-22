@@ -2,10 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import Animated, {
-  useAnimatedProps,
-  useSharedValue,
-} from 'react-native-reanimated';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useThrottledCallback } from 'use-debounce';
 
@@ -70,8 +66,6 @@ import MatrixBackground from './MatrixBackground';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-
 // React Navigation's default Android screen transition is ~300ms.
 // Deferring worklet-heavy operations by this amount prevents a collision
 // between outgoing screen cleanup and incoming animated props registration,
@@ -128,10 +122,10 @@ function FinalizeWalletSetupPage({
   const navigation = useAppNavigation();
   const theme = useTheme();
   const bgAppColor = theme.bgApp.val;
-  const borderDisabledColor = theme.borderDisabled.val;
   const borderActiveColor = theme.borderActive.val;
   const neutral1Color = theme.neutral1.val;
   const neutral4Color = theme.neutral4.val;
+  const iconSuccessColor = theme.iconSuccess.val;
   const [setupError, setSetupError] = useState<
     | {
         messageId: ETranslations;
@@ -159,8 +153,6 @@ function FinalizeWalletSetupPage({
 
   const [currentStep, setCurrentStep] =
     useState<EFinalizeWalletSetupSteps>(initialStep);
-  const progress = useSharedValue(0);
-  const pathLength = 150;
 
   // 队列管理 — starts empty; real backend events fill it as they arrive.
   const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
@@ -184,19 +176,6 @@ function FinalizeWalletSetupPage({
     return () => clearTimeout(timer);
   }, [currentStep]);
 
-  const animatedProps = useAnimatedProps(() => {
-    // oxlint-disable-next-line @cspell/spellchecker
-    const strokeDashoffset = pathLength * (1 - progress.value);
-
-    return {
-      // oxlint-disable-next-line @cspell/spellchecker
-      strokeDashoffset,
-
-      // oxlint-disable-next-line @cspell/spellchecker
-      strokeDasharray: pathLength,
-    };
-  });
-
   const closePageCalled = useRef(false);
 
   const closePage = useCallback(() => {
@@ -219,13 +198,16 @@ function FinalizeWalletSetupPage({
     openKeylessAutoConnectDappModal,
   } = useKeylessWebFlowAutoConnectDapp();
 
+  // Keep Wallet-ready visible for a brief success moment, then close.
+  const WALLET_READY_DISPLAY_MS = 400;
+
   const handleWalletSetupReadyInner = useCallback(async () => {
     setTimeout(() => {
       closePage();
       setTimeout(() => {
         void openKeylessAutoConnectDappModal();
       }, 600);
-    }, 1000);
+    }, WALLET_READY_DISPLAY_MS);
   }, [closePage, openKeylessAutoConnectDappModal]);
 
   const handleWalletSetupReady = useThrottledCallback(
@@ -479,9 +461,42 @@ function FinalizeWalletSetupPage({
     });
   }, [createWallet, initialStep]);
 
-  const currentStepData =
-    STEPS_DATA[currentStep] ||
-    STEPS_DATA[EFinalizeWalletSetupSteps.CreatingWallet];
+  const isReady = currentStep === EFinalizeWalletSetupSteps.Ready;
+
+  const currentStepData = isReady
+    ? null
+    : STEPS_DATA[currentStep] ||
+      STEPS_DATA[EFinalizeWalletSetupSteps.CreatingWallet];
+
+  let stepIconNode: JSX.Element | null = null;
+  if (isReady) {
+    stepIconNode = (
+      <Svg width="48" height="48" viewBox="0 0 48 48">
+        {/* Success checkmark */}
+        <Path
+          d="M12 24L20 32L36 16"
+          stroke={iconSuccessColor}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </Svg>
+    );
+  } else if (currentStepData) {
+    stepIconNode = (
+      <Svg width="48" height="48" viewBox="0 0 48 48">
+        <Path
+          d={currentStepData.pathData}
+          stroke={borderActiveColor}
+          strokeWidth="2"
+          strokeLinecap="square"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </Svg>
+    );
+  }
 
   const svgMask = (
     <Svg
@@ -559,7 +574,7 @@ function FinalizeWalletSetupPage({
               </XStack>
             </YStack>
           ) : null}
-          {!setupError && currentStepData ? (
+          {!setupError && (currentStepData || isReady) ? (
             <YStack w="100%" h="100%">
               <YStack
                 position="absolute"
@@ -654,24 +669,7 @@ function FinalizeWalletSetupPage({
                             opacity: 0,
                           }}
                         >
-                          <Svg width="48" height="48" viewBox="0 0 48 48">
-                            <Path
-                              d={currentStepData.pathData}
-                              stroke={borderDisabledColor}
-                              strokeWidth="2"
-                              fill="none"
-                            />
-
-                            <AnimatedPath
-                              d={currentStepData.pathData}
-                              stroke={borderActiveColor}
-                              fill="none"
-                              stroke-width="2"
-                              stroke-linecap="square"
-                              stroke-linejoin="round"
-                              animatedProps={animatedProps}
-                            />
-                          </Svg>
+                          {stepIconNode}
                         </YStack>
                       </AnimatePresence>
                     </LinearGradient>
@@ -695,7 +693,10 @@ function FinalizeWalletSetupPage({
                       filter: 'blur(4px)',
                     }}
                   >
-                    {currentStepData?.title || ''}
+                    {isReady
+                      ? // TODO(i18n): ETranslations.onboarding_finalize_wallet_ready
+                        'Wallet ready'
+                      : currentStepData?.title || ''}
                   </SizableText>
                 </AnimatePresence>
                 <AnimatePresence>
