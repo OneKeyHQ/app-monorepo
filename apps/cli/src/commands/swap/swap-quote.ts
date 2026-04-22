@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
+import { version as VERSION } from '../../../package.json';
 import { ConfigManager, getHost } from '../../config';
 import { auditToken, resolveToken } from '../../core';
 import { resolveChain } from '../../core/chain-resolver';
@@ -126,7 +127,7 @@ export async function fetchQuotesViaSSE(
         'Cache-Control': 'no-cache',
         'X-Onekey-Request-ID': randomUUID(),
         'X-Onekey-Request-Platform': 'cli',
-        'X-Onekey-Request-Version': '0.1.0',
+        'X-Onekey-Request-Version': VERSION,
       },
       signal: controller.signal,
     });
