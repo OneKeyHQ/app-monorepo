@@ -7,7 +7,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
-import { shouldShowReferralBindEntry } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/referralBindStatusUtils';
+import {
+  shouldRevalidateReferralBindStatusCache,
+  shouldShowReferralBindEntry,
+} from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/referralBindStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -51,6 +54,19 @@ function WalletBoundReferralCodeButtonView({
           walletId: wallet?.id,
         });
         return { shouldBound, isNotBindable: false };
+      }
+      if (shouldRevalidateReferralBindStatusCache(referralCodeInfo)) {
+        const shouldBound = await getReferralCodeBondStatus({
+          walletId: wallet?.id,
+        });
+        const latestReferralCodeInfo =
+          await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
+            walletId: wallet?.id || '',
+          });
+        return {
+          shouldBound,
+          isNotBindable: latestReferralCodeInfo?.bindable === false,
+        };
       }
       return {
         shouldBound: shouldShowReferralBindEntry(referralCodeInfo),

@@ -211,6 +211,41 @@ describe('useFetchWalletsWithBoundStatus', () => {
     });
   });
 
+  it('keeps cached status and skips persistence when both batch APIs fail', async () => {
+    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockRejectedValue(
+      new Error('server failed'),
+    );
+    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCode.mockRejectedValue(
+      new Error('server failed'),
+    );
+    globalMockBag.__referralFetchBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
+      {
+        walletId: 'hd-1',
+        isBound: false,
+        bindable: false,
+        bindWindowReason: 'exceeded_bind_window',
+      },
+    );
+
+    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
+
+    await waitFor(() => {
+      expect(result.current.walletsWithStatus).toEqual([
+        expect.objectContaining({
+          wallet: expect.objectContaining({ id: 'hd-1' }),
+          isBound: false,
+          bindable: false,
+          reason: 'exceeded_bind_window',
+        }),
+      ]);
+    });
+
+    expect(
+      globalMockBag.__referralFetchBg?.serviceReferralCode
+        .setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
   it('uses V2 bindability and reason when the server supports the new API', async () => {
     globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockResolvedValue(
       {

@@ -47,7 +47,10 @@ import {
   useGetReferralCodeWalletInfo,
   useWalletBoundReferralCode,
 } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
-import { shouldShowReferralBindEntry } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/referralBindStatusUtils';
+import {
+  shouldRevalidateReferralBindStatusCache,
+  shouldShowReferralBindEntry,
+} from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/referralBindStatusUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -147,6 +150,12 @@ function ReferralCodeBlock({
           walletId: wallet?.id || '',
         });
       if (!referralCodeInfo) {
+        const shouldBound = await getReferralCodeBondStatus({
+          walletId: wallet?.id,
+        });
+        return shouldBound;
+      }
+      if (shouldRevalidateReferralBindStatusCache(referralCodeInfo)) {
         const shouldBound = await getReferralCodeBondStatus({
           walletId: wallet?.id,
         });

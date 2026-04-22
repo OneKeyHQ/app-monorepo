@@ -195,6 +195,34 @@ describe('useWalletBoundReferralCode', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('does not show bind path from cached positive status when the server check fails', async () => {
+    globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
+      {
+        walletId: 'hd-1',
+        isBound: false,
+        bindable: true,
+      },
+    );
+    globalMockBag.__referralBg?.serviceReferralCode.checkWalletBindStatus.mockRejectedValue(
+      new Error('server failed'),
+    );
+
+    const { result } = renderHook(() => useWalletBoundReferralCode());
+
+    let shouldBind = true;
+    await act(async () => {
+      shouldBind = await result.current.getReferralCodeBondStatus({
+        walletId: 'hd-1',
+      });
+    });
+
+    expect(shouldBind).toBe(false);
+    expect(result.current.shouldBondReferralCode).toBeUndefined();
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.setWalletReferralCode,
+    ).not.toHaveBeenCalled();
+  });
+
   it('skips local persistence when the bind-status request times out', async () => {
     const setTimeoutSpy = jest.spyOn(
       globalThis,

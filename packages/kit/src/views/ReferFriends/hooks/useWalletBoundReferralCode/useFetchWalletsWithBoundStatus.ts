@@ -85,11 +85,13 @@ export function useFetchWalletsWithBoundStatus() {
     // Try V2 batch check first, fall back to V1
     let batchV2Result: Record<string, IBatchCheckWalletV2Item> = {};
     let isV1Fallback = false;
+    let didFetchStatus = false;
     try {
       batchV2Result =
         await backgroundApiProxy.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2(
           batchCheckItems,
         );
+      didFetchStatus = true;
     } catch {
       // V2 not available, fall back to V1
       try {
@@ -105,8 +107,9 @@ export function useFetchWalletsWithBoundStatus() {
           };
         }
         isV1Fallback = true;
+        didFetchStatus = true;
       } catch {
-        // Treat wallets as not bound when both status APIs are unavailable.
+        // Keep local status unchanged when both status APIs are unavailable.
       }
     }
 
@@ -119,11 +122,24 @@ export function useFetchWalletsWithBoundStatus() {
         );
         const v2Item = batchV2Result[key];
 
-        const existing = isV1Fallback
-          ? await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
-              walletId: item.wallet.id,
-            })
-          : undefined;
+        const existing =
+          isV1Fallback || !didFetchStatus
+            ? await backgroundApiProxy.serviceReferralCode.getWalletReferralCode(
+                {
+                  walletId: item.wallet.id,
+                },
+              )
+            : undefined;
+
+        if (!didFetchStatus) {
+          return {
+            wallet: item.wallet,
+            isBound: existing?.isBound ?? false,
+            bindable: existing?.bindable ?? !existing?.isBound,
+            reason: existing?.bindWindowReason,
+          };
+        }
+
         const resolvedStatus = resolveBatchWalletBindStatus({
           batchStatus: v2Item,
           isV1Fallback,

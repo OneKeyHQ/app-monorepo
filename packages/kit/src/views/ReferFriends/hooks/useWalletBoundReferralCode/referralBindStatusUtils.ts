@@ -36,6 +36,16 @@ export function shouldShowReferralBindEntry(
   );
 }
 
+export function shouldRevalidateReferralBindStatusCache(
+  referralCodeInfo: IReferralWalletRecord | null | undefined,
+): boolean {
+  return Boolean(
+    referralCodeInfo?.walletId &&
+    !referralCodeInfo.isBound &&
+    referralCodeInfo.bindable !== false,
+  );
+}
+
 export function resolveWalletBindStatusAfterCheck({
   serverStatus,
   cachedReferralCodeInfo,
@@ -90,11 +100,15 @@ export function resolveWalletBindStatusAfterCheck({
     source = 'default';
   }
 
+  const shouldTrustStatus =
+    source !== 'cache' ||
+    !shouldRevalidateReferralBindStatusCache(cachedReferralCodeInfo);
+
   return {
     source,
     shouldPersist,
     shouldSkip: false,
-    shouldShowBindDialog: canBindReferralCode(status),
+    shouldShowBindDialog: shouldTrustStatus && canBindReferralCode(status),
     status,
   };
 }

@@ -2,6 +2,7 @@ import {
   canBindReferralCode,
   resolveBatchWalletBindStatus,
   resolveWalletBindStatusAfterCheck,
+  shouldRevalidateReferralBindStatusCache,
   shouldShowReferralBindEntry,
 } from './referralBindStatusUtils';
 
@@ -53,6 +54,42 @@ describe('referralBindStatusUtils', () => {
         shouldShowReferralBindEntry({
           walletId: '',
           isBound: false,
+          bindable: true,
+        }),
+      ).toBe(false);
+    });
+  });
+
+  describe('shouldRevalidateReferralBindStatusCache', () => {
+    it('requires server revalidation for cached positive or legacy unknown states', () => {
+      expect(
+        shouldRevalidateReferralBindStatusCache({
+          walletId: 'hd-1',
+          isBound: false,
+          bindable: true,
+        }),
+      ).toBe(true);
+
+      expect(
+        shouldRevalidateReferralBindStatusCache({
+          walletId: 'hd-1',
+          isBound: false,
+          bindable: undefined,
+        }),
+      ).toBe(true);
+
+      expect(
+        shouldRevalidateReferralBindStatusCache({
+          walletId: 'hd-1',
+          isBound: false,
+          bindable: false,
+        }),
+      ).toBe(false);
+
+      expect(
+        shouldRevalidateReferralBindStatusCache({
+          walletId: 'hd-1',
+          isBound: true,
           bindable: true,
         }),
       ).toBe(false);
@@ -124,6 +161,30 @@ describe('referralBindStatusUtils', () => {
           isBound: false,
           bindable: false,
           bindWindowReason: 'exceeded_bind_window',
+        },
+      });
+    });
+
+    it('does not show bind dialog from cached positive state after request failure', () => {
+      expect(
+        resolveWalletBindStatusAfterCheck({
+          cachedReferralCodeInfo: {
+            walletId: 'hd-1',
+            isBound: false,
+            bindable: true,
+          },
+          isTimeout: false,
+          skipIfTimeout: false,
+        }),
+      ).toEqual({
+        source: 'cache',
+        shouldPersist: false,
+        shouldSkip: false,
+        shouldShowBindDialog: false,
+        status: {
+          isBound: false,
+          bindable: true,
+          bindWindowReason: undefined,
         },
       });
     });
