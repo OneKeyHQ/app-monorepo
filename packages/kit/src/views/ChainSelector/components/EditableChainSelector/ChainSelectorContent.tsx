@@ -28,6 +28,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -467,7 +468,7 @@ export const EditableChainSelectorContent = ({
               allNetworkItem,
             ].filter(Boolean)}
             showAllNetwork={showAllNetworkInRecentNetworks}
-            swrKeyScope="editable-chain-selector"
+            swrKeyScope={EAppSWRCacheScopes.editableChainSelector}
           />
         ) : null}
         <Stack flex={1}>

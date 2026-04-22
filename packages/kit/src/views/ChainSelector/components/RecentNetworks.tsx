@@ -18,6 +18,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -68,10 +69,10 @@ function RecentNetworks({
   availableNetworks?: IServerNetwork[];
   containerProps?: IStackProps;
   showAllNetwork?: boolean;
-  // Opt-in SWR cache. Pass a stable scope (e.g. "unified-network-selector")
-  // to persist the resolved network list to MMKV and skip the cold-start
-  // N+1 getNetwork round-trips.
-  swrKeyScope?: string;
+  // Opt-in SWR cache. Pass one of the shared scope enum values (kept in
+  // sync/storage so bg can prime the same slots) to persist the resolved
+  // network list to MMKV and skip the cold-start N+1 getNetwork round-trips.
+  swrKeyScope?: EAppSWRCacheScopes;
 }) {
   const intl = useIntl();
 

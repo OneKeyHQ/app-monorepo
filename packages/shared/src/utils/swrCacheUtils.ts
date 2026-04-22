@@ -1,5 +1,8 @@
 /* cspell:ignore ISWR IMMKV */
-import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
+import {
+  EAppSWRCacheScopes,
+  EAppSyncStorageKeys,
+} from '../storage/syncStorageKeys';
 
 import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
 
@@ -211,7 +214,7 @@ export const swrKeys = {
     scope,
     showAllNetwork,
   }: {
-    scope: string;
+    scope: EAppSWRCacheScopes;
     showAllNetwork: boolean;
   }) => ['recentNets', 'v1', scope, showAllNetwork ? '1' : '0'].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,

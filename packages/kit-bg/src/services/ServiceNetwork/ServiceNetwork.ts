@@ -38,6 +38,7 @@ import type {
   IDetectedNetworkGroupItem,
 } from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
@@ -1580,9 +1581,9 @@ class ServiceNetwork extends ServiceBase {
   // MMKV instance, so we can write cross-context from bg without an event
   // roundtrip.
   //
-  // Scopes here must stay in sync with the `swrKeyScope` props passed to
-  // <RecentNetworks /> (see EditableChainSelector/ChainSelectorContent.tsx
-  // and PureChainSelector/ChainSelectorSectionList.tsx).
+  // Scopes are sourced from EAppSWRCacheScopes so UI call sites
+  // (<RecentNetworks swrKeyScope={...} />) and this priming step can't
+  // drift apart. Adding a new scope automatically extends what bg primes.
   private async _primeRecentNetworksSWRCache() {
     try {
       const ids =
@@ -1602,8 +1603,7 @@ class ServiceNetwork extends ServiceBase {
       const withoutAllNetwork = networks.filter(
         (n) => !networkUtils.isAllNetwork({ networkId: n.id }),
       );
-      const scopes = ['editable-chain-selector', 'pure-chain-selector'];
-      for (const scope of scopes) {
+      for (const scope of Object.values(EAppSWRCacheScopes)) {
         swrCacheUtils.set(
           swrKeys.recentNetworks({ scope, showAllNetwork: true }),
           networks,
