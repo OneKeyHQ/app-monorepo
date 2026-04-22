@@ -17,7 +17,7 @@ export function registerAuthLoginCommand(program: Command): void {
         appTransferFlag: options.appTransfer,
         isHumanMode: output.getMode() === 'human',
         isTTY: Boolean(process.stdin.isTTY && process.stdout.isTTY),
-        env: (globalOpts.env as 'test' | 'prod' | undefined) ?? 'test',
+        env: (globalOpts.env as 'test' | 'prod' | undefined) ?? 'prod',
         exit: (code) => process.exit(code),
       });
     });
