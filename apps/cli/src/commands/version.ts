@@ -1,3 +1,5 @@
+import { version as PKG_VERSION } from '../../package.json';
+
 import type { OutputFormatter } from '../output';
 import type { Command } from 'commander';
 
@@ -10,8 +12,8 @@ export function registerVersionCommand(program: Command): void {
       const globalOpts = command.optsWithGlobals() as Record<string, unknown>;
       const output = globalOpts._outputFormatter as OutputFormatter;
       output.success({
-        version: '0.1.0',
-        env: (globalOpts.env as string) ?? 'test',
+        version: PKG_VERSION,
+        env: (globalOpts.env as string) ?? 'prod',
       });
     });
 }
