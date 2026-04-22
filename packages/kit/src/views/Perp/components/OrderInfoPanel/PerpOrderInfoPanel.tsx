@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
@@ -14,6 +15,10 @@ import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveAccountSummaryAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -23,12 +28,12 @@ import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 import { SpotBalanceList } from './List/SpotBalanceList';
 
-const tabNameToTranslationKey: Record<string, string> = {
+const tabNameToTranslationKey: Record<string, ETranslations> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
   'Trades History': ETranslations.perp_trades_history_title,
   'Account': ETranslations.perp_account_history,
-  'Balances': 'Balances', // TODO: add i18n key (ETranslations)
+  'Balances': ETranslations.perp_holdings_tokens,
 };
 
 function TabBarItem({
@@ -44,8 +49,25 @@ function TabBarItem({
 
   const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+
+  const holdingsCount = useMemo(() => {
+    const nonZeroSpotBalanceCount = balances.filter(
+      (item) => !new BigNumber(item.total).isZero(),
+    ).length;
+    const perpsUsdcCount =
+      accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0)
+        ? 1
+        : 0;
+    return nonZeroSpotBalanceCount + perpsUsdcCount;
+  }, [accountSummary?.totalRawUsd, balances]);
 
   const tabCount = useMemo(() => {
+    if (name === 'Balances') {
+      return `(${holdingsCount})`;
+    }
     if (name === 'Trades History') {
       return '';
     }
@@ -56,15 +78,15 @@ function TabBarItem({
       return `(${openOrdersLength})`;
     }
     return '';
-  }, [positionsLength, openOrdersLength, name]);
+  }, [holdingsCount, positionsLength, openOrdersLength, name]);
 
   const translationKey = tabNameToTranslationKey[name];
-  let tabTitle = translationKey;
-  if (translationKey.startsWith('perp.')) {
-    tabTitle = intl.formatMessage({
-      id: translationKey as ETranslations,
-    });
-  }
+  const tabTitle = intl.formatMessage({
+    id: translationKey,
+  });
+
+  const displayTitle =
+    name === 'Balances' ? `${tabTitle}${tabCount}` : `${tabTitle} ${tabCount}`;
 
   return (
     <DebugRenderTracker
@@ -79,7 +101,7 @@ function TabBarItem({
         borderBottomColor="$borderActive"
         onPress={() => onPress(name)}
       >
-        <SizableText size="$bodyMdMedium">{`${tabTitle} ${tabCount}`}</SizableText>
+        <SizableText size="$bodyMdMedium">{displayTitle.trim()}</SizableText>
       </XStack>
     </DebugRenderTracker>
   );

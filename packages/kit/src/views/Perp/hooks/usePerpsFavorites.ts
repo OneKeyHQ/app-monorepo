@@ -46,8 +46,13 @@ export function usePerpsFavorites(options?: {
 
   // Fetch the full universe independently — must not read from the
   // search-filtered atom, otherwise favorites disappear during search.
-  const { result: universe } = usePromiseResult(
-    async (): Promise<IPerpsUniverse[][] | ISpotUniverse[]> => {
+  // Tagged with mode because usePromiseResult keeps the old result until
+  // the new promise resolves, which can briefly mix spot/perp structures.
+  const { result: taggedUniverse } = usePromiseResult(
+    async (): Promise<
+      | { mode: 'spot'; data: ISpotUniverse[] }
+      | { mode: 'perp'; data: IPerpsUniverse[][] }
+    > => {
       if (favoritesMode === 'spot') {
         let { universes } =
           await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
@@ -58,7 +63,7 @@ export function usePerpsFavorites(options?: {
           universes = res.universes;
         }
 
-        return universes ?? [];
+        return { mode: 'spot', data: universes ?? [] };
       }
 
       let { universesByDex } =
@@ -76,19 +81,24 @@ export function usePerpsFavorites(options?: {
         universesByDex = res.universesByDex;
       }
 
-      return universesByDex ?? [];
+      return { mode: 'perp', data: universesByDex ?? [] };
     },
     [favoritesMode],
     { checkIsFocused: false },
   );
 
   const favoriteItems = useMemo(() => {
-    if (!universe?.length || !favorites.length) return [];
+    if (!favorites.length || !taggedUniverse) {
+      return [];
+    }
 
     const items: IFavoriteItem[] = [];
 
-    if (favoritesMode === 'spot') {
-      const spotUniverses = universe as ISpotUniverse[];
+    if (taggedUniverse.mode === 'spot') {
+      const spotUniverses = taggedUniverse.data;
+      if (!spotUniverses.length) {
+        return [];
+      }
       favorites.forEach((favCoin) => {
         const asset = spotUniverses.find((item) => item.name === favCoin);
         if (asset) {
@@ -107,11 +117,16 @@ export function usePerpsFavorites(options?: {
       return items;
     }
 
-    const perpsUniverses = universe as IPerpsUniverse[][];
+    const perpsUniverses = taggedUniverse.data;
+    if (!perpsUniverses.length) {
+      return [];
+    }
     favorites.forEach((favCoin) => {
       for (let dexIndex = 0; dexIndex < perpsUniverses.length; dexIndex += 1) {
-        const assets = perpsUniverses[dexIndex] || [];
-        const asset = assets.find((item) => item.name === favCoin);
+        const assets = perpsUniverses[dexIndex];
+        const asset = Array.isArray(assets)
+          ? assets.find((item) => item.name === favCoin)
+          : undefined;
         if (asset) {
           const parsed = parseDexCoin(asset.name);
           items.push({
@@ -128,7 +143,7 @@ export function usePerpsFavorites(options?: {
     });
 
     return items;
-  }, [favorites, favoritesMode, universe]);
+  }, [favorites, taggedUniverse]);
 
-  return { favoriteItems, isReady: universe !== undefined };
+  return { favoriteItems, isReady: taggedUniverse !== undefined };
 }
