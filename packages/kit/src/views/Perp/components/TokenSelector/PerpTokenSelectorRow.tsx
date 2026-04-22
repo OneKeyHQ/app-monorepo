@@ -88,6 +88,14 @@ const TokenSelectorRowContext =
 const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
 const MOBILE_SUBTITLE_MAX_WIDTH = 80;
 
+export const SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT = {
+  asset: { flex: 1.8, minWidth: 180 },
+  price: { flex: 1.1, minWidth: 110 },
+  change24h: { flex: 1.5, minWidth: 150 },
+  volume: { flex: 1.1, minWidth: 110 },
+  marketCap: { flex: 1.2, minWidth: 120 },
+} as const;
+
 function useTokenSelectorRowContext() {
   const context = useContext(TokenSelectorRowContext);
   if (!context) {
@@ -273,11 +281,21 @@ const TokenInfoCellDesktop = memo(() => {
         offsetY={10}
       >
         <XStack
-          width={180}
+          width={isSpot ? undefined : 180}
+          flex={
+            isSpot
+              ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.asset.flex
+              : undefined
+          }
+          flexBasis={isSpot ? 0 : undefined}
+          minWidth={
+            isSpot
+              ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.asset.minWidth
+              : 180
+          }
           justifyContent="flex-start"
           gap="$1.5"
           alignItems="center"
-          minWidth={0}
         >
           <FavoriteButton coin={token.name} isSpot={isSpot} />
           <XStack
@@ -353,7 +371,7 @@ const TokenInfoCellDesktop = memo(() => {
 TokenInfoCellDesktop.displayName = 'TokenInfoCellDesktop';
 
 const TokenPriceCellDesktop = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -362,7 +380,21 @@ const TokenPriceCellDesktop = memo(() => {
         name="TokenPriceCellDesktop"
         offsetY={10}
       >
-        <XStack width={110} justifyContent="flex-start">
+        <XStack
+          width={isSpot ? undefined : 110}
+          flex={
+            isSpot
+              ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.price.flex
+              : undefined
+          }
+          flexBasis={isSpot ? 0 : undefined}
+          minWidth={
+            isSpot
+              ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.price.minWidth
+              : 110
+          }
+          justifyContent="flex-start"
+        >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <NumberSizeableText
               formatter="price"
@@ -375,7 +407,7 @@ const TokenPriceCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.markPrice, isLoading],
+    [assetCtx.markPrice, isLoading, isSpot],
   );
   return content;
 });
@@ -383,7 +415,7 @@ const TokenPriceCellDesktop = memo(() => {
 TokenPriceCellDesktop.displayName = 'TokenPriceCellDesktop';
 
 const Token24hChangeCellDesktop = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -392,7 +424,21 @@ const Token24hChangeCellDesktop = memo(() => {
         name="Token24hChangeCellDesktop"
         offsetY={10}
       >
-        <XStack width={150} justifyContent="flex-start">
+        <XStack
+          width={isSpot ? undefined : 150}
+          flex={
+            isSpot
+              ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.change24h.flex
+              : undefined
+          }
+          flexBasis={isSpot ? 0 : undefined}
+          minWidth={
+            isSpot
+              ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.change24h.minWidth
+              : 150
+          }
+          justifyContent="flex-start"
+        >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText
               size="$bodySm"
@@ -418,7 +464,7 @@ const Token24hChangeCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.change24h, assetCtx.change24hPercent, isLoading],
+    [assetCtx.change24h, assetCtx.change24hPercent, isLoading, isSpot],
   );
   return content;
 });
@@ -452,7 +498,7 @@ const TokenFundingCellDesktop = memo(() => {
 TokenFundingCellDesktop.displayName = 'TokenFundingCellDesktop';
 
 const TokenVolumeCellDesktop = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -461,7 +507,21 @@ const TokenVolumeCellDesktop = memo(() => {
         name="TokenVolumeCellDesktop"
         offsetY={10}
       >
-        <XStack width={110} justifyContent="flex-start">
+        <XStack
+          width={isSpot ? undefined : 110}
+          flex={
+            isSpot
+              ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.volume.flex
+              : undefined
+          }
+          flexBasis={isSpot ? 0 : undefined}
+          minWidth={
+            isSpot
+              ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.volume.minWidth
+              : 110
+          }
+          justifyContent="flex-start"
+        >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText size="$bodySm" color="$text">
               $
@@ -473,7 +533,7 @@ const TokenVolumeCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.volume24h, isLoading],
+    [assetCtx.volume24h, isLoading, isSpot],
   );
   return content;
 });
@@ -481,11 +541,25 @@ const TokenVolumeCellDesktop = memo(() => {
 TokenVolumeCellDesktop.displayName = 'TokenVolumeCellDesktop';
 
 const TokenMarketCapCellDesktop = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
-      <XStack width={200} justifyContent="flex-start">
+      <XStack
+        width={isSpot ? undefined : 120}
+        flex={
+          isSpot
+            ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.marketCap.flex
+            : undefined
+        }
+        flexBasis={isSpot ? 0 : undefined}
+        minWidth={
+          isSpot
+            ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.marketCap.minWidth
+            : 120
+        }
+        justifyContent="flex-start"
+      >
         <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
           <SizableText size="$bodySm" color="$text">
             {assetCtx.marketCap ?? '--'}
@@ -493,7 +567,7 @@ const TokenMarketCapCellDesktop = memo(() => {
         </SkeletonContainer>
       </XStack>
     ),
-    [assetCtx.marketCap, isLoading],
+    [assetCtx.marketCap, isLoading, isSpot],
   );
   return content;
 });
@@ -834,6 +908,20 @@ const SpotTokenSelectorRowInner = memo(
       () => () => onPress(spotUniverse.name),
       [onPress, spotUniverse.name],
     );
+    const marketCapDisplay = useMemo(() => {
+      if (!ctx?.circulatingSupply || markPxNum <= 0) {
+        return undefined;
+      }
+      const formatted = formatDisplayNumber(
+        NUMBER_FORMATTER.marketCap(
+          (Number(ctx.circulatingSupply) * markPxNum).toString(),
+        ),
+      );
+      if (typeof formatted !== 'string' || formatted.length === 0) {
+        return undefined;
+      }
+      return `$${formatted}`;
+    }, [ctx?.circulatingSupply, markPxNum]);
 
     const contextValue: ITokenSelectorRowContextValue = useMemo(
       () => ({
@@ -854,10 +942,7 @@ const SpotTokenSelectorRowInner = memo(
           fundingRate: '0',
           volume24h: ctx?.dayNtlVlm || '0',
           openInterest: '0',
-          marketCap:
-            ctx?.circulatingSupply && markPxNum > 0
-              ? `${Math.round(Number(ctx.circulatingSupply) * markPxNum).toLocaleString('en-US')} ${spotUniverse.quoteName}`
-              : undefined,
+          marketCap: marketCapDisplay,
         },
         isLoading: !ctx,
         onPress: handlePress,
@@ -865,10 +950,10 @@ const SpotTokenSelectorRowInner = memo(
       [
         spotUniverse,
         markPx,
-        markPxNum,
         change24h,
         change24hPercent,
         ctx,
+        marketCapDisplay,
         handlePress,
       ],
     );

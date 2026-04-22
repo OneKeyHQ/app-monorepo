@@ -16,16 +16,19 @@ export interface ISizeInputModeSelectorProps {
   value: 'token' | 'usd' | 'margin';
   onChange: (value: 'token' | 'usd' | 'margin') => void;
   tokenSymbol: string;
+  allowMarginInput?: boolean;
 }
 
 export function SizeInputModeSelector({
   value,
   onChange,
   tokenSymbol,
+  allowMarginInput = true,
 }: ISizeInputModeSelectorProps) {
   const intl = useIntl();
-  const isTokenSelected = value === 'token';
-  const isUsdSelected = value === 'usd' || value === 'margin';
+  const resolvedValue = !allowMarginInput && value === 'margin' ? 'usd' : value;
+  const isTokenSelected = resolvedValue === 'token';
+  const isUsdSelected = resolvedValue === 'usd' || resolvedValue === 'margin';
   const { gtMd } = useMedia();
 
   const handleUsdCardPress = useCallback(() => {
@@ -71,7 +74,7 @@ export function SizeInputModeSelector({
   const trigger = (
     <XStack alignItems="center" gap="$1" userSelect="none" cursor="default">
       <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {value === 'token' ? tokenSymbol || 'Token' : 'USD'}
+        {resolvedValue === 'token' ? tokenSymbol || 'Token' : 'USD'}
       </SizableText>
       <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
     </XStack>
@@ -148,16 +151,18 @@ export function SizeInputModeSelector({
                 intl.formatMessage({
                   id: ETranslations.perp_size_input_usd_order_size,
                 }),
-                value === 'usd',
+                resolvedValue === 'usd',
                 () => onChange('usd'),
               )}
-              {renderRadioItem(
-                intl.formatMessage({
-                  id: ETranslations.perp_size_input_usd_order_cost,
-                }),
-                value === 'margin',
-                () => onChange('margin'),
-              )}
+              {allowMarginInput
+                ? renderRadioItem(
+                    intl.formatMessage({
+                      id: ETranslations.perp_size_input_usd_order_cost,
+                    }),
+                    resolvedValue === 'margin',
+                    () => onChange('margin'),
+                  )
+                : null}
             </XStack>
           </YStack>
         </YStack>
