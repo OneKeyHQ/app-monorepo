@@ -1,0 +1,14 @@
+[
+  {
+    "seq": 1,
+    "commit": "ad5fb0b397ba03eda2918406947dea726ea45d2f",
+    "date": "2026-04-22T02:48:33Z",
+    "prs": [
+      "#11300",
+      "#11301",
+      "#11305",
+      "#11307"
+    ],
+    "notes": "fix: pass origin to parse transaction request(OK-53490), fix: pass origin to parse transaction request - bundle, feat(perp): simplify positions empty state(OK-53506), fix: sync swap history badge count with limit orders (OK-53226 OK-53243 OK-53291 OK-53430 OK-53500)"
+  }
+]
