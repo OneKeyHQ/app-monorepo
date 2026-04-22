@@ -80,8 +80,18 @@ const NAVIGATION_TRANSITION_SETTLE_MS = 300;
 
 type IStepData = { pathData: string; title: string } | null;
 
-// Regular wallet setup steps
+// Step definitions aligned with real backend phases (see spec).
+// EncryptingData is intentionally omitted — there is no corresponding real work.
 const STEPS_DATA: Partial<Record<EFinalizeWalletSetupSteps, IStepData>> = {
+  [EFinalizeWalletSetupSteps.ConnectingDevice]: {
+    // NOTE: pathData below is a working placeholder (rounded square + plus
+    // shape, roughly "device slot"). Designer to provide the final icon in
+    // a follow-up visual pass. The 48×48 viewBox is fixed.
+    pathData:
+      'M10 14C10 11.7909 11.7909 10 14 10H34C36.2091 10 38 11.7909 38 14V34C38 36.2091 36.2091 38 34 38H14C11.7909 38 10 36.2091 10 34V14ZM18 24H30M24 18V30',
+    // TODO(i18n): replace with ETranslations.onboarding_finalize_connecting_device once Lokalise key is created
+    title: 'Connecting to device',
+  },
   [EFinalizeWalletSetupSteps.CreatingWallet]: {
     pathData:
       'M7 12V35C7 38.3138 9.6863 41 13 41H35C38.3138 41 41 38.3138 41 35V23C41 19.6863 38.3138 17 35 17H33M7 12C7 14.7614 9.23858 17 12 17H33M7 12C7 9.23858 9.23858 7 12 7H28.6666C31.06 7 33 8.9401 33 11.3333V17M35 29C35 31.2091 33.2091 33 31 33C28.7909 33 27 31.2091 27 29C27 26.7909 28.7909 25 31 25C33.2091 25 35 26.7909 35 29Z',
@@ -94,13 +104,6 @@ const STEPS_DATA: Partial<Record<EFinalizeWalletSetupSteps, IStepData>> = {
       'M31.9971 13C31.9971 17.4183 28.4153 21 23.9971 21C19.5788 21 15.9971 17.4183 15.9971 13C15.9971 8.58172 19.5788 5 23.9971 5C28.4153 5 31.9971 8.58172 31.9971 13ZM23.9974 25C17.3083 25 12.1116 28.9362 9.58956 34.6762C8.17334 37.8996 11.0262 41 14.5469 41H33.4478C36.9686 41 39.8214 37.8996 38.4052 34.6762C35.883 28.9362 30.6864 25 23.9974 25Z',
     title: appLocale.intl.formatMessage({
       id: ETranslations.onboarding_finalize_generating_accounts,
-    }),
-  },
-  [EFinalizeWalletSetupSteps.EncryptingData]: {
-    pathData:
-      'M31 19V12C31 8.134 27.866 5 24 5C20.134 5 17 8.134 17 12V19M24 28V34M15 43H33C36.3138 43 39 40.3138 39 37V25C39 21.6862 36.3138 19 33 19H15C11.6863 19 9 21.6862 9 25V37C9 40.3138 11.6863 43 15 43Z',
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.onboarding_finalize_encrypting_data,
     }),
   },
   [EFinalizeWalletSetupSteps.Ready]: null,
@@ -454,7 +457,7 @@ function FinalizeWalletSetupPage({
 
   const currentStepData =
     STEPS_DATA[currentStep] ||
-    STEPS_DATA[EFinalizeWalletSetupSteps.EncryptingData];
+    STEPS_DATA[EFinalizeWalletSetupSteps.CreatingWallet];
 
   const svgMask = (
     <Svg
