@@ -12,6 +12,8 @@ import { globalAtom } from '../utils';
 
 export type IEndpointType = 'prod' | 'test';
 
+export type INewBrowserTabPosition = 'top' | 'bottom';
+
 // don't use deviceUtils.getDefaultHardwareTransportType(), it will cause resource export order conflict
 function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
@@ -68,6 +70,7 @@ export type ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar?: boolean;
   enableDesktopBluetooth?: boolean;
   enableBTCFreshAddress?: boolean;
+  newBrowserTabPosition?: INewBrowserTabPosition;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -104,6 +107,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar: true,
   enableDesktopBluetooth: true,
   enableBTCFreshAddress: true,
+  newBrowserTabPosition: 'bottom',
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
