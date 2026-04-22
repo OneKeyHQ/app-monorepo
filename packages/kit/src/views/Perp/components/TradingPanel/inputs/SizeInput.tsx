@@ -79,12 +79,6 @@ export const SizeInput = memo(
       [allowMarginInput, setTradingPreferences],
     );
 
-    useEffect(() => {
-      if (!allowMarginInput && rawInputMode === 'margin') {
-        setInputMode('usd');
-      }
-    }, [allowMarginInput, rawInputMode, setInputMode]);
-
     const [tokenAmount, setTokenAmount] = useState('');
     const [usdAmount, setUsdAmount] = useState('');
     const [marginAmount, setMarginAmount] = useState('');
