@@ -331,6 +331,15 @@ export const EditableChainSelectorContent = ({
   // getLastScrollOffset which is 0 at mount).
   const initialScrollFlatIndex = useMemo(() => {
     if (!initialScrollIndex || !sections.length) return undefined;
+    // Build up to the flat index of the *target section's header*, then
+    // add itemIndex. Matches SectionList's own scrollToLocation semantics
+    // (index = headerFlatIndex + itemIndex), where itemIndex = 0 lands on
+    // the header and itemIndex = 1 on the first item.
+    //
+    // Landing the scroll on the header (instead of on the selected item's
+    // exact row) avoids a FlashList v2 recycler glitch where a cell
+    // whose offset equals the scroll offset shows as an empty highlighted
+    // row — the section header row right above absorbs the boundary.
     let idx = 0;
     for (let si = 0; si < initialScrollIndex.sectionIndex; si += 1) {
       if (si !== 0) idx += 1; // separator
@@ -338,8 +347,8 @@ export const EditableChainSelectorContent = ({
       idx += sections[si].data.length;
       idx += 1; // footer
     }
-    if (initialScrollIndex.sectionIndex !== 0) idx += 1; // target's separator
-    idx += 1; // target section header
+    if (initialScrollIndex.sectionIndex !== 0) idx += 1; // target separator
+    // idx now points at the target section's header flat index.
     return idx + (initialScrollIndex.itemIndex ?? 0);
   }, [sections, initialScrollIndex]);
 
