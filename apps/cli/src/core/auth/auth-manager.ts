@@ -59,9 +59,9 @@ export class AuthManager {
     // Login-time HD signer builder. Skips the auth gate that
     // `getSignerByImpl` enforces (the session isn't persisted yet).
     // Overridden in tests to inject a stub with a fixed address.
-    private readonly signerFactory: (
-      impl: string,
-    ) => Promise<ISigner> = async (impl) => {
+    private readonly signerFactory: (impl: string) => Promise<ISigner> = async (
+      impl,
+    ) => {
       const registration = await resolveSignerRegistration(impl);
       return requireSignerBuilder(registration, WALLET_TYPE_HD)();
     },

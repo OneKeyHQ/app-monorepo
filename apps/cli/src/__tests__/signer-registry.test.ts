@@ -12,11 +12,11 @@ jest.mock(
   { virtual: true },
 );
 
+import { SignerHd } from '../signer/impls/evm/SignerHd';
 import {
   requireSignerBuilder,
   resolveSignerRegistration,
 } from '../signer/registry';
-import { SignerHd } from '../signer/impls/evm/SignerHd';
 
 async function buildHdSigner(impl: string) {
   const registration = await resolveSignerRegistration(impl);

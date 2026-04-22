@@ -26,8 +26,7 @@ export async function runDeviceAction(
   command: Command,
   handler: (ctx: IDeviceActionContext) => Promise<void>,
 ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const globalOpts = command.optsWithGlobals() as Record<string, unknown>;
+  const globalOpts = command.optsWithGlobals();
   const output = globalOpts._outputFormatter as OutputFormatter;
 
   try {
