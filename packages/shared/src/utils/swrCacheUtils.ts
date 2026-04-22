@@ -15,7 +15,7 @@ type ISWREntry<T = any> = {
 type ISWRStore = Record<string, ISWREntry>;
 
 // Max entries to prevent unbounded MMKV growth.
-const MAX_ENTRIES = 80;
+const MAX_ENTRIES = 300;
 
 let _syncStorage: ISyncStorage | undefined;
 let _cache: ISWRStore | undefined;
