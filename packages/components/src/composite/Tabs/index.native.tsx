@@ -9,12 +9,27 @@ import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 
 interface IExtendedContainerProps extends CollapsibleProps {
   useNativeHeaderAnimation?: boolean;
+  /**
+   * Web-only: slot between the sticky TabBar and tab content. On native, the
+   * equivalent should live inside each tab list's ListHeaderComponent, so the
+   * prop is accepted for API parity and ignored here.
+   */
+  renderSubHeader?: () => React.ReactNode;
 }
 
 const renderTabBarDefault = (tabProps: any) => <TabBar {...tabProps} />;
 
 const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
-  ({ children, pagerProps, headerContainerStyle, ...props }, ref) => {
+  (
+    {
+      children,
+      pagerProps,
+      headerContainerStyle,
+      renderSubHeader: _renderSubHeader,
+      ...props
+    },
+    ref,
+  ) => {
     const mergedHeaderContainerStyle = useMemo(
       () =>
         ({

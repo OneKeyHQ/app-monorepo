@@ -416,10 +416,16 @@ export function HomePageView({
         <RiskApprovalAlert />
         <WatchOnlyAlert />
         <HomeHeaderContainer />
-        <HistoryTabNotificationAlertSlot />
       </Stack>
     );
   }, []);
+
+  // Rendered on web only. On native the equivalent lives inside the history
+  // list's ListHeaderComponent so its height stays inside the list's measurer.
+  const renderSubHeader = useCallback(
+    () => <HistoryTabNotificationAlertSlot />,
+    [],
+  );
 
   const tabConfigs = useMemo(() => {
     return [
@@ -511,6 +517,7 @@ export function HomePageView({
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
+        renderSubHeader={renderSubHeader}
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
@@ -528,6 +535,7 @@ export function HomePageView({
     network?.id,
     renderHeader,
     renderTabBar,
+    renderSubHeader,
     tabConfigs,
   ]);
 

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty, uniqBy } from 'lodash';
 
@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -32,6 +33,7 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -446,6 +448,18 @@ function TxHistoryListContainer(
 
   const tabBarHeight = useScrollContentTabBarOffset();
 
+  // On native, the Alert renders inside the list header so it sits below the
+  // sticky TabBar and scrolls with the list. On web, the same Alert renders
+  // via Tabs.Container's `renderSubHeader` slot so its height changes cannot
+  // invalidate the virtualized list's CellMeasurer cache mid-scroll.
+  const listHeaderComponent = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <NotificationEnableAlert scene="txHistory" />
+      ) : null,
+    [],
+  );
+
   return (
     <TxHistoryListView
       plainMode={plainMode}
@@ -473,6 +487,7 @@ function TxHistoryListContainer(
       tokenMap={allTokenListMap}
       emptyTitle={emptyTitle}
       emptyDescription={emptyDescription}
+      ListHeaderComponent={listHeaderComponent}
     />
   );
 }
