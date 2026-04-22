@@ -355,6 +355,10 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
+        // Show "Connecting to device" while the transport is being established
+        // and the user confirms on the device. Backend emits CreatingWallet once
+        // createHWWallet enters withFinalizeWalletSetupStep.
+        goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
         await connectDevice(deviceData.device as SearchDevice);
         await createHWWallet({
           device: deviceData.device as SearchDevice,
@@ -397,6 +401,7 @@ function FinalizeWalletSetupPage({
     connectDevice,
     createHWWallet,
     setPendingKeylessAutoConnectWalletId,
+    goNextStep,
   ]);
 
   const unmountedRef = useRef(false);
