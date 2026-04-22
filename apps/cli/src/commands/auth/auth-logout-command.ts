@@ -1,11 +1,6 @@
 import { AuthManager } from '../../core/auth/auth-manager';
 import { AppError, ERROR_CODES } from '../../errors';
-import { KeychainStorage } from '../../infra/keychain-storage';
 import { presentAuthLogoutResult } from '../../output/auth-presenters';
-import {
-  KEYCHAIN_PASSPHRASE_STATE_KEY,
-  KEYCHAIN_SESSION_ID_KEY,
-} from '../../signer/keychain-keys';
 
 import { readConfirmation } from './auth-prompt-utils';
 
@@ -60,17 +55,6 @@ export async function executeAuthLogoutCommand(params: {
     }
 
     await authManager.clearSession();
-
-    // Clear passphraseState + sessionId from keychain (hardware hidden wallet sessions)
-    try {
-      const keychain = new KeychainStorage();
-      await Promise.allSettled([
-        keychain.delete(KEYCHAIN_PASSPHRASE_STATE_KEY),
-        keychain.delete(KEYCHAIN_SESSION_ID_KEY),
-      ]);
-    } catch {
-      // Non-fatal — keys may not exist for standard/HD wallets
-    }
 
     output.success(presentAuthLogoutResult('logged_out'));
   } catch (error) {

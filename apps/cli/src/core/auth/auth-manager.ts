@@ -4,10 +4,15 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 import { AppError } from '../../errors';
 import { AuthSessionStore } from '../../infra/auth-session-store';
-import { createSecureStorage } from '../../infra/keychain-storage';
+import {
+  KeychainStorage,
+  createSecureStorage,
+} from '../../infra/keychain-storage';
 import {
   KEYCHAIN_ENCRYPTION_KEY,
   KEYCHAIN_MNEMONIC_KEY,
+  KEYCHAIN_PASSPHRASE_STATE_KEY,
+  KEYCHAIN_SESSION_ID_KEY,
 } from '../../signer/keychain-keys';
 import {
   requireSignerBuilder,
@@ -31,6 +36,7 @@ import type {
   StartAppTransferLoginInput,
 } from './auth-types';
 import type { ISecureStorage } from '../../infra/keychain-storage';
+import type { ISigner } from '../../signer/types';
 import type {
   ITransferPayloadHandlingContext,
   ITransferPayloadHandlingResult,
@@ -50,6 +56,15 @@ export class AuthManager {
   constructor(
     private readonly storage: ISecureStorage = createSecureStorage(),
     private readonly sessionStore: AuthSessionStore = new AuthSessionStore(),
+    // Login-time HD signer builder. Skips the auth gate that
+    // `getSignerByImpl` enforces (the session isn't persisted yet).
+    // Overridden in tests to inject a stub with a fixed address.
+    private readonly signerFactory: (
+      impl: string,
+    ) => Promise<ISigner> = async (impl) => {
+      const registration = await resolveSignerRegistration(impl);
+      return requireSignerBuilder(registration, WALLET_TYPE_HD)();
+    },
     private readonly appTransferLogin: IAppTransferLoginExecutor = startAppTransferLogin,
   ) {
     this.resolver = new AuthSessionResolver(this.storage, this.sessionStore);
@@ -132,13 +147,23 @@ export class AuthManager {
   private async rollbackSession(): Promise<AppError | null> {
     secureCache.clearAll();
 
+    // Hardware hidden-wallet session state lives in a separate KeychainStorage
+    // instance (not this.storage, which is the HD wallet's secret storage).
+    // Best-effort — the keys may not exist for HD/Bot wallets.
+    const hardwareKeychain = new KeychainStorage();
+
     const results = await Promise.allSettled([
       this.storage.delete(KEYCHAIN_MNEMONIC_KEY),
       this.storage.delete(KEYCHAIN_ENCRYPTION_KEY),
+      hardwareKeychain.delete(KEYCHAIN_PASSPHRASE_STATE_KEY),
+      hardwareKeychain.delete(KEYCHAIN_SESSION_ID_KEY),
       this.sessionStore.clear(),
     ]);
 
-    const rejected = results.find(
+    // Report HD-wallet cleanup failures as errors; tolerate hardware-key
+    // deletion failures (those keys often don't exist).
+    const criticalFailures = results.slice(0, 2).concat(results.slice(4));
+    const rejected = criticalFailures.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
 
@@ -173,10 +198,7 @@ export class AuthManager {
       await this.storage.set(KEYCHAIN_ENCRYPTION_KEY, encryptionKeyBuffer);
       await this.storage.set(KEYCHAIN_MNEMONIC_KEY, encryptedMnemonic);
 
-      // Build an HD signer directly off the registry: the session isn't
-      // persisted yet, so `getSignerByImpl` (which auto-auths) would fail.
-      const registration = await resolveSignerRegistration('evm');
-      const signer = await requireSignerBuilder(registration, WALLET_TYPE_HD)();
+      const signer = await this.signerFactory('evm');
       const addressInfo = await signer.getAddress(AUTH_DEFAULT_EVM_NETWORK_ID);
 
       await this.sessionStore.save(

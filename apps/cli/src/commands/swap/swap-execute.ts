@@ -365,6 +365,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
   parent
     .command('execute')
     .description('Execute a pending swap order (sign + broadcast)')
+    .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
     .requiredOption('--order <orderId>', 'Order ID from swap build output')
     .option(
       '--approve-unlimited',
@@ -373,6 +374,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
     .action(
       async (
         options: {
+          chain: string;
           order: string;
           approveUnlimited?: boolean;
         },
@@ -384,6 +386,9 @@ export function registerSwapExecuteCommand(parent: Command): void {
         const skipConfirmation = Boolean(globalOpts.yes);
 
         try {
+          // Validate chain
+          const chainConfig = resolveChain(options.chain);
+
           // Resolve env
           const env = (
             (globalOpts.env as string) === 'prod' ? 'prod' : 'test'
@@ -405,8 +410,14 @@ export function registerSwapExecuteCommand(parent: Command): void {
             );
           }
 
-          // Resolve chain from the persisted order
-          const chainConfig = resolveChain(order.chain);
+          // Verify chain matches order
+          if (order.chain !== options.chain) {
+            throw new AppError(
+              ERROR_CODES.PARAM_INVALID_CHAIN.code,
+              `Order chain "${order.chain}" does not match --chain "${options.chain}"`,
+              `Use --chain ${order.chain}`,
+            );
+          }
 
           // Only pending orders can be executed
           if (order.status !== 'pending') {
@@ -589,7 +600,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               action: confirmAction,
               to: `${swapTxTo} (${order.provider ?? 'swap provider'})`,
               value: `${order.amount} ${order.fromToken.symbol}`,
-              network: order.chain,
+              network: options.chain,
             },
             output,
             skipConfirmation,
