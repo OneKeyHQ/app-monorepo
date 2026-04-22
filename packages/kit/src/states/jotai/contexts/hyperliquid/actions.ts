@@ -1565,22 +1565,43 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         throw new OneKeyLocalError('Mark price unavailable');
       }
 
-      // Derive side from drag destination vs mark — dragging below mark
-      // is a long, above is a short. Same semantics as plus-click create.
-      // A cross-mark drag flips direction so users don't end up with a
-      // limit above mark that would fill immediately as a market order.
+      // Derive side from drag destination vs mark — below is long, above
+      // is short — matching plus-click create semantics.
       const isBuy = new BigNumber(params.newPrice).lt(markPrice);
+      const existingIsBuy = existing.side === 'B';
 
       return withToast({
-        asyncFn: () =>
-          backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid({
+        asyncFn: async () => {
+          // Same side: HL supports true amend on the same oid.
+          if (isBuy === existingIsBuy) {
+            return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
+              {
+                coin: params.coin,
+                oid: params.oid,
+                newPrice: params.newPrice,
+                isBuy,
+                size: existing.sz,
+                reduceOnly: existing.reduceOnly,
+              },
+            );
+          }
+          // Cross-mark flip: HL rejects a modify that changes side with
+          // "invalid new order". Cancel the original and place a fresh
+          // order on the opposite side at the dragged price.
+          await backgroundApiProxy.serviceHyperliquidExchange.cancelOrderByOid({
             coin: params.coin,
             oid: params.oid,
-            newPrice: params.newPrice,
-            isBuy,
-            size: existing.sz,
-            reduceOnly: existing.reduceOnly,
-          }),
+          });
+          return backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin(
+            {
+              coin: params.coin,
+              isBuy,
+              size: existing.sz,
+              price: params.newPrice,
+              reduceOnly: existing.reduceOnly,
+            },
+          );
+        },
         actionType: EActionType.MODIFY_ORDER,
       });
     },
