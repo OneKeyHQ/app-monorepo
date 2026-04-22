@@ -4,6 +4,13 @@ import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import {
+  ScrollView,
+  SizableText,
+  Tooltip,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActivePositionAtom,
@@ -18,7 +25,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
+import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
 import { PositionRow } from '../Components/PositionsRow';
+import { calcCellAlign, getColumnStyle } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -144,7 +153,7 @@ function PerpPositionsList({
         minWidth: 80,
         align: 'right',
         flex: 1,
-        fixed: true,
+        fixed: positionsLength > 0,
         ...(positionsLength > 0 && {
           onPress: () => showCloseAllPositionsDialog(),
         }),
@@ -202,18 +211,96 @@ function PerpPositionsList({
     />
   );
   const actions = useHyperliquidActions();
+  const listViewDebugRenderTrackerProps = useMemo(
+    (): IDebugRenderTrackerProps => ({
+      name: 'PerpPositionsList',
+      position: 'top-left',
+    }),
+    [],
+  );
+
+  const renderDesktopHeaderCell = (column: IColumnConfig, index: number) => (
+    <XStack
+      key={`${column.key}-${index}`}
+      {...getColumnStyle(column)}
+      justifyContent={calcCellAlign(column.align) as any}
+      cursor="default"
+    >
+      {column.tooltip ? (
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <SizableText
+              size="$bodySmMedium"
+              borderBottomWidth="$px"
+              borderTopWidth={0}
+              borderLeftWidth={0}
+              borderRightWidth={0}
+              borderBottomColor="$border"
+              borderStyle="dashed"
+              cursor="help"
+              color="$textSubdued"
+              textAlign={column.align || 'left'}
+            >
+              {column.title}
+            </SizableText>
+          }
+          renderContent={column.tooltip}
+        />
+      ) : (
+        <SizableText
+          size="$bodySmMedium"
+          borderBottomWidth="$px"
+          borderBottomColor="transparent"
+          color="$textSubdued"
+          textAlign={column.align || 'left'}
+        >
+          {column.title}
+        </SizableText>
+      )}
+    </XStack>
+  );
+
+  if (!isMobile && mockedPositions.length === 0) {
+    return (
+      <YStack flex={1} width="100%">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator
+          nestedScrollEnabled
+          contentContainerStyle={{
+            minWidth: totalMinWidth,
+            flexGrow: 1,
+          }}
+        >
+          <XStack
+            flex={1}
+            py="$2"
+            pl="$5"
+            pr="$3"
+            display="flex"
+            minWidth={totalMinWidth}
+            width="100%"
+            borderBottomWidth="$px"
+            borderBottomColor="$borderSubdued"
+            bg="$bgSubtle"
+          >
+            {columnsConfig.map(renderDesktopHeaderCell)}
+          </XStack>
+        </ScrollView>
+        <YStack flex={1} width="100%">
+          <PerpPositionsEmptyState />
+        </YStack>
+      </YStack>
+    );
+  }
+
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
         await actions.current.refreshAllPerpsData();
       }}
-      listViewDebugRenderTrackerProps={useMemo(
-        (): IDebugRenderTrackerProps => ({
-          name: 'PerpPositionsList',
-          position: 'top-left',
-        }),
-        [],
-      )}
+      listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
       useTabsList={useTabsList}
       disableListScroll={disableListScroll}
       currentListPage={currentListPage}
@@ -224,6 +311,7 @@ function PerpPositionsList({
       data={mockedPositions}
       isMobile={isMobile}
       renderRow={renderPositionRow}
+      ListEmptyComponent={<PerpPositionsEmptyState isMobile={isMobile} />}
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_position_empty,
       })}
