@@ -209,7 +209,6 @@ function TxFeeInfo(props: IProps) {
     ? theme.brand8.val
     : gasSponsoredAccentColor;
   const sponsoredCouponSeparatorColor = theme.borderSubdued.val;
-  const sponsoredCouponActionColor = theme.iconSubdued.val;
 
   // For non-HD wallets, approve&swap transactions will be sent as separate consecutive transactions,
   // each requiring individual confirmation
@@ -456,12 +455,11 @@ function TxFeeInfo(props: IProps) {
         if (isCustomRpcEnabled || gasAccountTemporarilyDisabled) {
           resetGasAccountUiState();
           if (gasAccountTemporarilyDisabled) {
-            updateGasAccountUiState({
-              payer: 'user',
-              gasAccountEligible: false,
-              selectedPayer: 'user',
-              idempotencyKey: '',
-            });
+            // The default state already flags `selectedPayer='user'`,
+            // `gasAccountEligible=false`, `idempotencyKey=''`; only the
+            // explicit `payer='user'` is worth setting so downstream
+            // consumers see a concrete value instead of `undefined`.
+            updateGasAccountUiState({ payer: 'user' });
           }
         } else if (r.gasAccountEligible && r.gasAccountQuote) {
           resetGasAccountTemporarilyDisabled();
@@ -587,7 +585,13 @@ function TxFeeInfo(props: IProps) {
             (e as Error).message ??
             e,
         });
+        // The previous estimate may have populated sponsor state (badge, quote).
+        // Clear it together with the payer so a stale "free" UI never survives
+        // a failed re-estimate and misleads the user or leaks an expired quote
+        // into submit.
         updateEffectiveFeePayer('user');
+        resetGasAccountUiState();
+        resetMegafuelEligible();
       }
     },
     [
@@ -638,7 +642,7 @@ function TxFeeInfo(props: IProps) {
     }
 
     return chainValueUtils.convertChainValueToAmount({
-      value: gasAccountMaxFee || 0,
+      value: gasAccountMaxFee || '0',
       network,
     });
   }, [gasAccountMaxFee, network]);
@@ -1691,11 +1695,7 @@ function TxFeeInfo(props: IProps) {
               hoverStyle={{ opacity: 0.72 }}
               pressStyle={{ opacity: 0.56 }}
             >
-              <Icon
-                name="InfoCircleOutline"
-                size="$4.5"
-                color={sponsoredCouponActionColor}
-              />
+              <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
             </Stack>
           </Stack>
         </XStack>
@@ -1723,7 +1723,6 @@ function TxFeeInfo(props: IProps) {
     ),
     [
       handleOpenSponsoredFeesHelpCenter,
-      sponsoredCouponActionColor,
       sponsoredCouponBgColor,
       sponsoredCouponIconBgColor,
       sponsoredCouponSeparatorColor,

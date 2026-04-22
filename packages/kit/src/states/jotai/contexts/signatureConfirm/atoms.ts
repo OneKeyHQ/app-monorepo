@@ -206,6 +206,17 @@ export const { atom: megafuelEligibleAtom, use: useMegafuelEligibleAtom } =
 
 export const defaultEffectiveFeePayer = 'user' as IGasPayer;
 
+// `effectiveFeePayerAtom` is the authoritative "who pays the fee" signal the
+// UI renders from (sponsor badges, free copy, fee hiding). It mirrors the
+// server's `payer` field but is overridden to `'user'` when a custom RPC is
+// active or when gas account is temporarily disabled after a fallback.
+//
+// This is intentionally separate from `gasAccountUiState.selectedPayer` below:
+//   - `effectiveFeePayer` drives *display* (can be `'megafuel'` even when gas
+//     account quote exists — megafuel wins UI-wise).
+//   - `selectedPayer` drives *submit wiring* (whether to attach `quoteId` /
+//     `idempotencyKey` to the broadcast request).
+// Keep them aligned in TxFeeInfo's estimate handler.
 export const { atom: effectiveFeePayerAtom, use: useEffectiveFeePayerAtom } =
   contextAtom<IGasPayer>(defaultEffectiveFeePayer);
 

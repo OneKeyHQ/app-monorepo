@@ -473,6 +473,15 @@ class ServiceSend extends ServiceBase {
     const isMultiTxs = unsignedTxs.length > 1;
     const vault = await vaultFactory.getVault({ networkId, accountId });
 
+    // A Gas Account quote is bound to a single user tx (payloadHash + locked
+    // nonce). In batch flows (approve+swap, bulk send, multi-staking) every
+    // iteration would otherwise reuse the same quoteId/idempotencyKey and
+    // bounce off the server's single-use enforcement (40203 QUOTE_ALREADY_USED).
+    // Until per-tx quoting is supported, skip sponsor attachment in batches.
+    const effectiveGasAccountUiState = isMultiTxs
+      ? undefined
+      : gasAccountUiState;
+
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       let unsignedTx = unsignedTxs[i];
@@ -498,7 +507,7 @@ class ServiceSend extends ServiceBase {
               accountId,
               signOnly: false,
               tronResourceRentalInfo,
-              gasAccountUiState,
+              gasAccountUiState: effectiveGasAccountUiState,
               useDefaultRpc,
             });
         const decodedTx = await this.buildDecodedTx({
