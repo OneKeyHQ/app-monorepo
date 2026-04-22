@@ -208,10 +208,31 @@ export function ThemeListItem(props: ICustomElementProps) {
 
 function SuspenseBiologyAuthListItem(props: ICustomElementProps) {
   const [{ isPasswordSet }] = usePasswordPersistAtom();
-  const [{ isSupport: biologyAuthIsSupport }] =
+  const [{ isSupport: biologyAuthIsSupport, authType, isEnable }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
+  const shouldRender =
+    isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport);
+  // TODO(biologyAuth-debug): temporary log to diagnose biology auth visibility in Settings
+  useEffect(() => {
+    defaultLogger.setting.page.biologyAuthDebug('SuspenseBiologyAuthListItem', {
+      platform: platformEnv.symbol,
+      isPasswordSet,
+      biologyAuthIsSupport,
+      biologyAuthIsEnable: isEnable,
+      authType,
+      webAuthIsSupport,
+      shouldRender,
+    });
+  }, [
+    isPasswordSet,
+    biologyAuthIsSupport,
+    isEnable,
+    authType,
+    webAuthIsSupport,
+    shouldRender,
+  ]);
+  return shouldRender ? (
     <TabSettingsListItem {...props}>
       <UniversalContainerWithSuspense />
     </TabSettingsListItem>
@@ -723,6 +744,30 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
         size={ESwitchSize.small}
         value={enableDesktopBluetooth}
         onChange={toggleBluetooth}
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function MenuBarTrayListItem(props: ICustomElementProps) {
+  const [{ enableMenuBarTray }] = useSettingsPersistAtom();
+  // Fall back to true so migrated users (persisted atom lacks this field)
+  // match the main-process default of tray-enabled.
+  const isEnabled = enableMenuBarTray ?? true;
+  const toggleMenuBarTray = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
+      if (platformEnv.isDesktopMac) {
+        globalThis.desktopApi?.toggleTray(value);
+      }
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        size={ESwitchSize.small}
+        value={isEnabled}
+        onChange={toggleMenuBarTray}
       />
     </TabSettingsListItem>
   );

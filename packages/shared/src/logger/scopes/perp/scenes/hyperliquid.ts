@@ -261,6 +261,7 @@ export class HyperLiquidScene extends BaseScene {
 
 export type IHyperLiquidOrderAction =
   | 'placeOrder'
+  | 'placeSpotOrder'
   | 'orderOpen'
   | 'orderTrigger'
   | 'ordersClose'

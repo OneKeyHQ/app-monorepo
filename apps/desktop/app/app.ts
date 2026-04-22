@@ -62,6 +62,7 @@ import { getBackgroundColor } from './libs/utils';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
+import { setMainWindowForHttpServer } from './process/HttpServer';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -72,6 +73,7 @@ import { initSentry } from './sentry';
 import { startServices } from './service';
 // eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
+import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 
 initSentry();
 
@@ -703,6 +705,9 @@ async function createMainWindow() {
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
+  // Tray shares the same preload, so SERVER_* must be scoped to the main
+  // renderer via sender-id checks in HttpServer.
+  setMainWindowForHttpServer(browserWindow);
 
   // Protocol handler for win32
   if (isWin || isMac) {
@@ -1164,8 +1169,14 @@ async function createMainWindow() {
           return;
         }
 
-        // move to parent folder
-        const url = request.url.substring(PROTOCOL.length + 1);
+        // Strip the query string before path resolution — without this the
+        // tray window's `?render=tray` gets concatenated into the resolved
+        // filename and fs misses. Guarded by indexOf so the common
+        // no-query case (main window resources) stays allocation-free.
+        const queryIdx = request.url.indexOf('?');
+        const rawUrl =
+          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
+        const url = rawUrl.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
           if (decodedUrl.includes(bundleDirPath)) {
@@ -1328,6 +1339,50 @@ if (!singleInstance && !process.mas) {
       return;
     }
 
+    if (isMac) {
+      const loadTrayUrl = (win: BrowserWindow) => {
+        if (isDev) {
+          const port = process.env.PORT || 3001;
+          void win.loadURL(`http://localhost:${port}?render=tray`);
+          return;
+        }
+        // Mirror createMainWindow's URL builder — the interceptFileProtocol
+        // handler only resolves the relative `file://index.html` form.
+        const bundleData = store.getUpdateBundleData();
+        const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+        void win.loadURL(
+          formatUrl({
+            pathname: bundleIndexHtmlPath || 'index.html',
+            protocol: 'file',
+            slashes: true,
+            query: { render: 'tray' },
+          }),
+        );
+      };
+
+      // Default to on; renderer sends TRAY_TOGGLE(false) on startup if
+      // the user had previously disabled it.
+      initTrayManager(getSafelyMainWindow, showMainWindow, loadTrayUrl);
+
+      // Sender gate: tray window shares the main preload and also exposes
+      // `toggleTray`, so without this a tray-side caller could disable itself.
+      ipcMain.on(ipcMessageKeys.TRAY_TOGGLE, (event, enabled: boolean) => {
+        const senderMainWindow = getSafelyMainWindow();
+        if (
+          !senderMainWindow ||
+          event.sender.id !== senderMainWindow.webContents.id
+        ) {
+          logger.warn('[TrayToggle] rejected TRAY_TOGGLE from non-main window');
+          return;
+        }
+        if (enabled) {
+          initTrayManager(getSafelyMainWindow, showMainWindow, loadTrayUrl);
+        } else {
+          destroyTrayManager();
+        }
+      });
+    }
+
     startServices();
     void initChildProcess();
   });
@@ -1345,6 +1400,10 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  if (isMac) {
+    destroyTrayManager();
+  }
+
   // Reset crash counter on graceful shutdown so normal close
   // is not mistaken for a crash on next boot.
   // Skip reset when in recovery mode (count >= 3) so recovery is still

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { BigNumber } from 'bignumber.js';
 
 import {
+  useActiveTradeInstrumentAtom,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingFormComputedAtom,
@@ -26,6 +27,7 @@ export function useLiquidationPrice(
 ): BigNumber | null {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
@@ -60,6 +62,9 @@ export function useLiquidationPrice(
   }, [perpsPositions, coin]);
 
   const liquidationPrice: BigNumber | null = useMemo(() => {
+    if (activeTradeInstrument.mode === 'spot') {
+      return null;
+    }
     if (!leverage || !activeAssetData?.leverage.type) return null;
 
     const isTriggerMode = formData.orderMode === 'trigger';
@@ -146,6 +151,7 @@ export function useLiquidationPrice(
     });
     return _liquidationPrice?.gt(0) ? _liquidationPrice : null;
   }, [
+    activeTradeInstrument.mode,
     activeAsset?.universe?.maxLeverage,
     activeAssetCtx?.ctx?.markPrice,
     activeAssetData?.leverage.type,

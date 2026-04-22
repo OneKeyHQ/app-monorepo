@@ -1,6 +1,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
+import { version as PKG_VERSION } from '../../package.json';
+
 import { extractJson, stripDebugOutput } from './test-helpers';
 
 const BIN = resolve(__dirname, '../../bin/onekey');
@@ -25,26 +27,31 @@ function runResult(...args: string[]) {
 describe('onekey CLI (integration)', () => {
   it('prints version in human format', () => {
     const output = run('version');
-    expect(output).toContain('0.1.0');
+    expect(output).toContain(PKG_VERSION);
   });
 
   it('prints version as JSON with --json', () => {
     const output = run('--json', 'version');
     const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
-    expect(parsed.data.version).toBe('0.1.0');
-    expect(parsed.data.env).toBe('test');
+    expect(parsed.data.version).toBe(PKG_VERSION);
+    expect(parsed.data.env).toBe('prod');
   });
 
   it('prints only version value with --quiet', () => {
     const output = run('--quiet', 'version');
-    expect(stripDebugOutput(output)).toBe('0.1.0');
+    expect(stripDebugOutput(output)).toBe(PKG_VERSION);
   });
 
-  it('respects --env prod', () => {
-    const output = run('--json', '--env', 'prod', 'version');
+  it('respects --env test', () => {
+    const output = run('--json', '--env', 'test', 'version');
     const parsed = JSON.parse(extractJson(output));
-    expect(parsed.data.env).toBe('prod');
+    expect(parsed.data.env).toBe('test');
+  });
+
+  it('respects --version global flag with the package version', () => {
+    const output = run('--version');
+    expect(output.trim()).toBe(PKG_VERSION);
   });
 
   it('shows help with --help', () => {
@@ -58,9 +65,7 @@ describe('onekey CLI (integration)', () => {
 
   it('shows auth subcommands with auth --help', () => {
     const output = run('auth', '--help');
-    expect(output).toContain(
-      'Authenticate with a mnemonic or OneKey App Bot Wallet',
-    );
+    expect(output).toContain('Authenticate with OneKey App Bot Wallet');
     expect(output).toContain('login');
     expect(output).toContain('logout');
     expect(output).toContain('status');
@@ -72,24 +77,19 @@ describe('onekey CLI (integration)', () => {
 
     expect(result.status).toBe(1);
     expect(result.stdout).toBe('');
-    expect(helpOutput).toContain(
-      'Authenticate with a mnemonic or OneKey App Bot Wallet',
-    );
+    expect(helpOutput).toContain('Authenticate with OneKey App Bot Wallet');
     expect(helpOutput).toContain('Usage: onekey auth [options] [command]');
     expect(helpOutput).toContain('login');
     expect(helpOutput).toContain('logout');
     expect(helpOutput).toContain('status');
   });
 
-  it('shows both login methods in auth login --help', () => {
+  it('shows only --app-transfer as login method in auth login --help', () => {
     const output = run('auth', 'login', '--help');
-    expect(output).toContain(
-      'Authenticate with a mnemonic or OneKey App Bot Wallet',
-    );
-    expect(output).toContain('--mnemonic');
-    expect(output).toContain('Authenticate with a BIP39 mnemonic phrase');
-    expect(output).toContain('--app-transfer');
     expect(output).toContain('Authenticate with a OneKey App Bot Wallet');
+    expect(output).toContain('--app-transfer');
+    expect(output).not.toContain('--mnemonic');
+    expect(output).not.toContain('BIP39 mnemonic phrase');
   });
 
   it('formats bare auth discovery errors as JSON with --json', () => {
@@ -155,7 +155,7 @@ describe('onekey CLI (integration)', () => {
     expect(parsed.error.code).toMatch(/^NET_/);
   });
 
-  it('requires an explicit mnemonic selector for auth login in JSON mode', () => {
+  it('auth login with no flag exits with PARAM_MISSING_REQUIRED', () => {
     const result = runResult('--json', 'auth', 'login');
 
     expect(result.status).toBe(2);
@@ -164,9 +164,8 @@ describe('onekey CLI (integration)', () => {
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.status).toBe('error');
     expect(parsed.error.code).toBe('PARAM_MISSING_REQUIRED');
-    expect(parsed.error.message).toBe(
-      'Login method required. Use --mnemonic or --app-transfer.',
-    );
+    expect(parsed.error.message).toContain('--app-transfer');
+    expect(parsed.error.message).not.toContain('--mnemonic');
   });
 
   it('rejects app transfer login in non-tty JSON mode before pairing starts', () => {
@@ -234,19 +233,19 @@ describe('onekey CLI (integration)', () => {
     const parsed = JSON.parse(output) as {
       name: string;
       input: { properties: Record<string, unknown> };
-      output: { anyOf?: unknown[] };
+      output: { properties?: Record<string, unknown> };
     };
 
     expect(parsed.name).toBe('auth-login');
-    expect(parsed.input.properties.mnemonic).toBeDefined();
     expect(parsed.input.properties.appTransfer).toBeDefined();
-    expect(parsed.output.anyOf).toHaveLength(2);
+    expect(parsed.input.properties.mnemonic).toBeUndefined();
+    expect(parsed.output.properties).toBeDefined();
   });
 
-  it('shows mnemonic auth copy for the legacy import alias', () => {
-    const output = run('import', '--help');
-    expect(output).toContain('Authenticate with a BIP39 mnemonic wallet');
-    expect(output).toContain('Authenticate with a BIP39 mnemonic phrase');
+  it('onekey import is no longer a registered command', () => {
+    const result = runResult('import');
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/unknown command/i);
   });
 
   it('shows auth logout copy for the legacy logout alias', () => {

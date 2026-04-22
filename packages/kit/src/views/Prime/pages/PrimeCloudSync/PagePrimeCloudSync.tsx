@@ -240,8 +240,8 @@ function AppDataSection() {
   const kwExists = keylessWalletResult?.exists ?? false;
   const keylessWallet = keylessWalletResult?.wallet;
 
-  // Scenario derivation (7 states, priority: 4 > 5 > 3 > 2 > 6 > 7 > 1)
-  // Scenarios 1/2/5/6/7 depend on kwExists, so skip them while loading to avoid flash
+  // Scenario derivation (7 states, priority: 4 > 5 > 3 > 7 > 2 > 6 > 1)
+  // Scenarios 1/2/5/6 depend on kwExists, so skip them while loading to avoid flash
   const hasConflictingCloudSyncModes =
     !!config.isCloudSyncEnabled && !!config.isCloudSyncEnabledKeyless;
   const isActiveIdUser =
@@ -250,8 +250,6 @@ function AppDataSection() {
   const isKwRemovedWhileSyncOn = !kwLoading && isKwSyncEnabled && !kwExists; // Scenario 5
   const isActiveKwUser =
     !kwLoading && isKwSyncEnabled && !isKwRemovedWhileSyncOn; // Scenario 3
-  const isSyncOffWithKw =
-    !kwLoading && !isActiveIdUser && !isKwSyncEnabled && kwExists; // Scenario 2
   const hasUsedKeylessSyncBefore =
     !!config.hasEverEnabledKeylessSync ||
     !!config.lastSyncTimeKeyless ||
@@ -260,19 +258,27 @@ function AppDataSection() {
     !!config.hasEverEnabledOneKeyIdSync ||
     !!config.lastSyncTimeOneKeyId ||
     (!!config.lastSyncTime && !config.lastSyncTimeKeyless);
+  // Scenario 7: Former ID-only user (sync off). Applies regardless of KW
+  // existence — if the last sync mode was OneKey ID, keep showing the ID
+  // switch until the user explicitly migrates to Keyless.
+  const isFormerIdUser =
+    !kwLoading &&
+    !isActiveIdUser &&
+    !isKwSyncEnabled &&
+    !hasUsedKeylessSyncBefore &&
+    hasUsedOneKeyIdSyncBefore;
+  const isSyncOffWithKw =
+    !kwLoading &&
+    !isActiveIdUser &&
+    !isKwSyncEnabled &&
+    kwExists &&
+    !isFormerIdUser; // Scenario 2
   const isFormerKwUserNoKw =
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
     !kwExists &&
     hasUsedKeylessSyncBefore; // Scenario 6
-  const isFormerIdUserNoKw =
-    !kwLoading &&
-    !isActiveIdUser &&
-    !isKwSyncEnabled &&
-    !kwExists &&
-    !hasUsedKeylessSyncBefore &&
-    hasUsedOneKeyIdSyncBefore; // Scenario 7
   const isSyncOffNoKw =
     !kwLoading &&
     !isActiveIdUser &&
@@ -625,8 +631,8 @@ function AppDataSection() {
         </>
       ) : null}
 
-      {/* Scenario 7: Former ID sync user, no KW, sync off */}
-      {isFormerIdUserNoKw ? (
+      {/* Scenario 7: Former ID-only sync user, sync off (KW may or may not exist) */}
+      {isFormerIdUser ? (
         <>
           <Alert
             type="warning"

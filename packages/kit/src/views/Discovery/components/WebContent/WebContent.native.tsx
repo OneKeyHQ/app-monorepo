@@ -17,11 +17,16 @@ import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
+import {
+  BITREFILL_BRIDGE_SCRIPT,
+  isBitrefillEmbedUrl,
+} from '../../utils/bitrefillUtils';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
 
 import type { IWebTab } from '../../types';
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   WebView as ReactNativeWebview,
   WebViewMessageEvent,
@@ -38,6 +43,7 @@ type IWebContentProps = IWebTab &
     isCurrent: boolean;
     setBackEnabled: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled: Dispatch<SetStateAction<boolean>>;
+    customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
 function WebContent({
@@ -50,6 +56,7 @@ function WebContent({
   setForwardEnabled,
   onScroll,
   siteMode,
+  customReceiveHandler,
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
@@ -85,6 +92,17 @@ function WebContent({
       return;
     }
     changeNavigationInfo({ ...nativeEvent });
+    // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
+    if (isBitrefillEmbedUrl(nativeEvent.url)) {
+      const webview = webviewRefs[id]?.innerRef as
+        | ReactNativeWebview
+        | undefined;
+      try {
+        webview?.injectJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
+      } catch {
+        // best-effort injection
+      }
+    }
   };
 
   const onNavigationStateChange = useCallback(
@@ -164,6 +182,7 @@ function WebContent({
         pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
         mediaPermissionWhitelist={fiatPaySiteWhitelist}
+        customReceiveHandler={customReceiveHandler}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
@@ -212,6 +231,7 @@ function WebContent({
       showHome,
       siteMode,
       url,
+      customReceiveHandler,
     ],
   );
 

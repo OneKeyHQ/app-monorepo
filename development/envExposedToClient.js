@@ -41,6 +41,8 @@ function buildEnvExposedToClientDangerously({ platform }) {
     // Supabase (publishable)
     'SUPABASE_PROJECT_URL',
     'SUPABASE_PUBLIC_API_KEY',
+    // Native background thread split-bundle feature flag
+    'ENABLE_NATIVE_BACKGROUND_THREAD',
   ];
   // ***        also update Inject Environment Variables at release-ios.yml, release-android      ***
 
