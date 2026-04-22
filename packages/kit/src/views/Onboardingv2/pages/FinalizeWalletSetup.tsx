@@ -165,6 +165,25 @@ function FinalizeWalletSetupPage({
   // 队列管理 — starts empty; real backend events fill it as they arrive.
   const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
 
+  const [isStepSlow, setIsStepSlow] = useState(false);
+
+  const SLOW_THRESHOLD_DEFAULT_MS = 8000;
+  const SLOW_THRESHOLD_CONNECTING_MS = 12_000;
+
+  useEffect(() => {
+    setIsStepSlow(false);
+    // Don't surface a slow hint on the terminal Ready state.
+    if (currentStep === EFinalizeWalletSetupSteps.Ready) {
+      return;
+    }
+    const threshold =
+      currentStep === EFinalizeWalletSetupSteps.ConnectingDevice
+        ? SLOW_THRESHOLD_CONNECTING_MS
+        : SLOW_THRESHOLD_DEFAULT_MS;
+    const timer = setTimeout(() => setIsStepSlow(true), threshold);
+    return () => clearTimeout(timer);
+  }, [currentStep]);
+
   const animatedProps = useAnimatedProps(() => {
     // oxlint-disable-next-line @cspell/spellchecker
     const strokeDashoffset = pathLength * (1 - progress.value);
@@ -678,6 +697,28 @@ function FinalizeWalletSetupPage({
                   >
                     {currentStepData?.title || ''}
                   </SizableText>
+                </AnimatePresence>
+                <AnimatePresence>
+                  {isStepSlow ? (
+                    <SizableText
+                      key={`hint-${currentStep}`}
+                      size="$bodySm"
+                      color="$textSubdued"
+                      textAlign="center"
+                      animation="quick"
+                      animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                      enterStyle={{ y: 8, opacity: 0 }}
+                      exitStyle={{ y: -8, opacity: 0 }}
+                      mt="$2"
+                    >
+                      {currentStep ===
+                      EFinalizeWalletSetupSteps.ConnectingDevice
+                        ? // TODO(i18n): ETranslations.onboarding_finalize_check_your_device
+                          'Check your device — you may need to confirm'
+                        : // TODO(i18n): ETranslations.onboarding_finalize_taking_a_moment
+                          'This is taking a moment'}
+                    </SizableText>
+                  ) : null}
                 </AnimatePresence>
               </YStack>
             </YStack>
