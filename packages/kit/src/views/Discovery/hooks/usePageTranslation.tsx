@@ -20,7 +20,7 @@ import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWeb
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+// import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,13 +33,13 @@ import { ETranslateDisplayMode, ETranslateEngine } from '../types';
 import { useActiveTabId, useWebTabDataById } from './useWebTabs';
 
 function TranslateSettings({
-  onTestAITranslateError,
+  onTestAITranslateError: _onTestAITranslateError,
 }: {
   onTestAITranslateError?: (testFlag: string) => void;
 }) {
   const intl = useIntl();
   const [settings, setSettings] = useTranslateSettingsPersistAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
+  // const [devSettings] = useDevSettingsPersistAtom();
 
   const updateSetting = useCallback(
     <K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) => {
@@ -179,7 +179,7 @@ function TranslateSettings({
           }
         />
       </YStack>
-      {devSettings.enabled && onTestAITranslateError ? (
+      {/* {devSettings.enabled && onTestAITranslateError ? (
         <YStack gap="$2">
           <SizableText size="$headingSm" color="$textSubdued">
             {intl.formatMessage({
@@ -205,7 +205,7 @@ function TranslateSettings({
             </Button>
           </XStack>
         </YStack>
-      ) : null}
+      ) : null} */}
     </YStack>
   );
 }

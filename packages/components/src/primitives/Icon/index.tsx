@@ -177,6 +177,32 @@ const BasicIcon = styled(IconContainer, {
 const loadIcons = (...names: IKeyOfIcons[]) =>
   Promise.all(names.map((name) => loadIcon(name)));
 
+/**
+ * Pre-warm critical icon segment loading. Call at JS entry (before React mount)
+ * so segments start loading early and icons are ready by first render.
+ */
+export function warmCriticalIcons() {
+  const names: IKeyOfIcons[] = [
+    'ArrowTopOutline',
+    'ArrowBottomOutline',
+    'DotHorOutline',
+    'SearchOutline',
+    'BellOutline',
+    'DotGridOutline',
+  ];
+  for (const name of names) {
+    if (!ComponentMaps[name] && ICON_CONFIG[name]) {
+      void ICON_CONFIG[name]().then((module: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (module?.default) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          ComponentMaps[name] = module.default as typeof Svg;
+        }
+      });
+    }
+  }
+}
+
 export const Icon = withStaticProperties(BasicIcon, {
   prefetch: loadIcons,
 });

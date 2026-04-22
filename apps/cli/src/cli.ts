@@ -1,11 +1,12 @@
 import { Command } from 'commander';
 import 'fake-indexeddb/auto';
 
+import { version as PKG_VERSION } from '../package.json';
+
 import {
   handleAuthCommandDiscoveryFallback,
   registerAuthCommands,
   registerBalanceCommand,
-  registerImportCommand,
   registerLogoutCommand,
   registerMarketCommands,
   registerSchemaCommand,
@@ -33,14 +34,14 @@ const program = new Command();
 program
   .name('onekey')
   .description('OneKey wallet CLI for developers and AI agents')
-  .version('0.1.0', '-V, --version');
+  .version(PKG_VERSION, '-V, --version');
 
 program
   .option('--json', 'Force JSON output')
   .option('--interactive', 'Force interactive (human) mode')
   .option('--verbose', 'Enable verbose logging')
   .option('--quiet', 'Suppress all non-essential output')
-  .option('--env <env>', 'Environment: test | prod', 'test')
+  .option('--env <env>', 'Environment: test | prod', 'prod')
   .option('--yes', 'Skip confirmation prompts');
 
 program.hook('preAction', (_thisCommand, actionCommand) => {
@@ -52,7 +53,7 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
   });
   const output = new OutputFormatter(mode);
 
-  const env = (opts.env ?? 'test') as string;
+  const env = (opts.env ?? 'prod') as string;
   if (env !== 'test' && env !== 'prod') {
     output.error({
       code: ERROR_CODES.PARAM_INVALID_CONFIG.code,
@@ -71,7 +72,6 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
 
 registerVersionCommand(program);
 registerStatusCommand(program);
-registerImportCommand(program);
 registerLogoutCommand(program);
 registerBalanceCommand(program);
 registerTransferCommand(program);

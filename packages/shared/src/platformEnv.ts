@@ -39,6 +39,7 @@ export type IAppChannel =
   | 'linux'
   | 'linuxSnap'
   | 'linuxFlatpak';
+export type INativeRuntimeKind = 'main' | 'background';
 
 export type IPlatformEnv = {
   mobileDetectInfo: MobileDetect | undefined;
@@ -64,6 +65,7 @@ export type IPlatformEnv = {
   isProduction?: boolean;
   /** e2e mode */
   isE2E?: boolean;
+  enableNativeBackgroundThread?: boolean;
 
   /** running in the browsers */
   isWeb?: boolean;
@@ -80,6 +82,9 @@ export type IPlatformEnv = {
   isExtension?: boolean;
   /** running in mobile APP */
   isNative?: boolean;
+  nativeRuntimeKind?: INativeRuntimeKind;
+  isNativeMainThread?: boolean;
+  isNativeBackgroundThread?: boolean;
 
   isDesktopLinux?: boolean;
   isDesktopLinuxSnap?: boolean;
@@ -158,6 +163,7 @@ const {
   isExtFirefox,
   isExtEdge,
   isE2E,
+  enableNativeBackgroundThread,
 }: {
   isJest: boolean;
   isDev: boolean;
@@ -171,6 +177,7 @@ const {
   isExtFirefox: boolean;
   isExtEdge: boolean;
   isE2E: boolean;
+  enableNativeBackgroundThread: boolean;
 } = require('./buildTimeEnv.js');
 
 const desktopDeskChannel = globalThis?.desktopApi?.deskChannel || '';
@@ -202,6 +209,14 @@ const androidChannel = ANDROID_CHANNEL;
 const isNativeAndroidGooglePlay =
   isNativeAndroid && androidChannel === 'google';
 const isNativeAndroidHuawei = isNativeAndroid && androidChannel === 'huawei';
+const nativeRuntimeGlobal = globalThis as typeof globalThis & {
+  __ONEKEY_RUNTIME_KIND__?: INativeRuntimeKind;
+};
+const nativeRuntimeKind = isNative
+  ? (nativeRuntimeGlobal.__ONEKEY_RUNTIME_KIND__ ?? 'main')
+  : undefined;
+const isNativeBackgroundThread = isNative && nativeRuntimeKind === 'background';
+const isNativeMainThread = isNative && !isNativeBackgroundThread;
 
 // for platform building by file extension
 const getAppPlatform = (): IAppPlatform | undefined => {
@@ -488,6 +503,7 @@ const platformEnv: IPlatformEnv = {
   isDev,
   isProduction,
   isE2E,
+  enableNativeBackgroundThread,
 
   isWeb,
   isWebDappMode,
@@ -500,6 +516,9 @@ const platformEnv: IPlatformEnv = {
   isDesktop,
   isExtension,
   isNative,
+  nativeRuntimeKind,
+  isNativeMainThread,
+  isNativeBackgroundThread,
 
   isDesktopMac,
   isDesktopWin,

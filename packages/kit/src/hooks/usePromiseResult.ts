@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useIsMounted } from './useIsMounted';
@@ -40,6 +41,13 @@ export type IPromiseResultOptions<T> = {
   // automatically revalidate when the browser regains a network connection
   revalidateOnReconnect?: boolean;
   testID?: string;
+  /**
+   * When set, enables stale-while-revalidate:
+   * - On mount: sync-reads cached value from MMKV as initResult
+   * - On success: writes fresh result to MMKV cache
+   * - The real async request always fires (cache never blocks)
+   */
+  swrKey?: string;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -96,9 +104,45 @@ export function usePromiseResult<T>(
     return removeSubscription;
   }, [resetDefer, resolveDefer]);
 
+  // --- SWR: resolve initial value from sync cache ---
+  const swrKey = options.swrKey;
+  const swrKeyRef = useRef(swrKey);
+  swrKeyRef.current = swrKey;
+  const swrCacheEntry = useMemo(() => {
+    if (!swrKey) return undefined;
+    return swrCacheUtils.getWithTimestamp<T>(swrKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swrKey]);
+  // swrKey cache hit always has higher priority than initResult.
+  const effectiveInitResult =
+    swrCacheEntry !== undefined ? swrCacheEntry.data : options.initResult;
+
   const [result, setResult] = useState<T | undefined>(
-    options.initResult as any,
+    effectiveInitResult as any,
   );
+
+  // When `swrKey` identifies cross-account/wallet scope (e.g. walletId or
+  // networkId baked into the key), switching scope would leave `result`
+  // holding the previous scope's data until the async revalidation lands,
+  // causing a flash of wrong-identity data. Sync state during render so
+  // the new scope's cached value (or its initResult) becomes visible
+  // immediately. `useState` initializer only runs on mount, so we cannot
+  // rely on `effectiveInitResult` alone.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevSwrKey, setPrevSwrKey] = useState(swrKey);
+  if (swrKey !== prevSwrKey) {
+    setPrevSwrKey(swrKey);
+    if (swrKey !== undefined) {
+      setResult(
+        (swrCacheEntry !== undefined
+          ? swrCacheEntry.data
+          : options.initResult) as any,
+      );
+    } else {
+      // key→undefined: no cache to read, reset to default
+      setResult(options.initResult as any);
+    }
+  }
   const isEmptyResultRef = useRef<boolean>(true);
 
   if (platformEnv.isNative) {
@@ -190,11 +234,27 @@ export function usePromiseResult<T>(
             setLoadingTrue();
             nonceRef.current += 1;
             const requestNonce = nonceRef.current;
+            // Capture swrKey at dispatch time. If it changes mid-flight (e.g.
+            // user switches wallet/account), we must NOT write this result
+            // into the new scope's cache slot — that would cross-pollute
+            // cached balances between accounts.
+            const capturedSwrKey = swrKeyRef.current;
             const { r, nonce } = await methodWithNonce({
               nonce: requestNonce,
             });
             if (shouldSetState(config) && nonceRef.current === nonce) {
               setResult(r);
+              // Only persist if (1) swrKey is still the one we dispatched
+              // under, and (2) the result is defined — writing `undefined`
+              // would later override the caller's explicit initResult on
+              // next mount.
+              if (
+                capturedSwrKey &&
+                capturedSwrKey === swrKeyRef.current &&
+                r !== undefined
+              ) {
+                swrCacheUtils.set(capturedSwrKey, r);
+              }
             }
           }
         } catch (err) {
