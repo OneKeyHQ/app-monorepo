@@ -6,48 +6,48 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
-import type { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
+import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { keylessOnboardingCache } from '../../components/KeylessWallet/useKeylessWallet';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
-// [ONBOARDING-DEV] import { ActionCenterRouter } from '../../views/ActionCenter/router';
-// [ONBOARDING-DEV] import { ModalAddressBookRouter } from '../../views/AddressBook/router';
-// [ONBOARDING-DEV] import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
-// [ONBOARDING-DEV] import { AppUpdateRouter } from '../../views/AppUpdate/router';
+import { ActionCenterRouter } from '../../views/ActionCenter/router';
+import { ModalAddressBookRouter } from '../../views/AddressBook/router';
+import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
+import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
-// [ONBOARDING-DEV] import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
-// [ONBOARDING-DEV] import { BulkSendModalRouter } from '../../views/BulkSend/router';
+import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
+import { BulkSendModalRouter } from '../../views/BulkSend/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { CloudBackupPages } from '../../views/CloudBackup/router';
-// [ONBOARDING-DEV] import { DAppConnectionRouter } from '../../views/DAppConnection/router';
+import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { DeviceManagementStacks } from '../../views/DeviceManagement/router';
-// [ONBOARDING-DEV] import { ModalDiscoveryStack } from '../../views/Discovery/router';
-// [ONBOARDING-DEV] import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
+import { ModalDiscoveryStack } from '../../views/Discovery/router';
+import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
 import { KeyTagModalRouter } from '../../views/KeyTag/router';
-// [ONBOARDING-DEV] import { LiteCardPages } from '../../views/LiteCard/router';
-// [ONBOARDING-DEV] import { ManualBackupRouter } from '../../views/ManualBackup/router';
-// [ONBOARDING-DEV] import { ModalMarketStack } from '../../views/Market/router';
-// [ONBOARDING-DEV] import { NetworkDoctorModalRouter } from '../../views/NetworkDoctor/router';
-// [ONBOARDING-DEV] import { ModalNotificationsRouter } from '../../views/Notifications/router';
+import { LiteCardPages } from '../../views/LiteCard/router';
+import { ManualBackupRouter } from '../../views/ManualBackup/router';
+import { ModalMarketStack } from '../../views/Market/router';
+import { NetworkDoctorModalRouter } from '../../views/NetworkDoctor/router';
+import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
-// [ONBOARDING-DEV] import { ModalPerpStack } from '../../views/Perp/router';
-// [ONBOARDING-DEV] import { PrimeRouter } from '../../views/Prime/router';
-// [ONBOARDING-DEV] import { ModalReceiveStack } from '../../views/Receive/router';
-// [ONBOARDING-DEV] import { ReferFriendsRouter } from '../../views/ReferFriends/router';
+import { ModalPerpStack } from '../../views/Perp/router';
+import { PrimeRouter } from '../../views/Prime/router';
+import { ModalReceiveStack } from '../../views/Receive/router';
+import { ReferFriendsRouter } from '../../views/ReferFriends/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
-// [ONBOARDING-DEV] import { ModalSendStack } from '../../views/Send/router';
-// [ONBOARDING-DEV] import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
-// [ONBOARDING-DEV] import { ModalSignAndVerifyRouter } from '../../views/SignAndVerifyMessage/router';
-// [ONBOARDING-DEV] import { ModalSignatureConfirmStack } from '../../views/SignatureConfirm/router';
-// [ONBOARDING-DEV] import { StakingModalRouter } from '../../views/Staking/router';
-// [ONBOARDING-DEV] import { ModalSwapStack } from '../../views/Swap/router';
-// [ONBOARDING-DEV] import { TestModalRouter } from '../../views/TestModal/router';
-// [ONBOARDING-DEV] import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
-// [ONBOARDING-DEV] import { WalletAddressModalRouter } from '../../views/WalletAddress/router';
-// [ONBOARDING-DEV] import { ModalWebViewStack } from '../../views/WebView/router';
+import { ModalSendStack } from '../../views/Send/router';
+import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
+import { ModalSignAndVerifyRouter } from '../../views/SignAndVerifyMessage/router';
+import { ModalSignatureConfirmStack } from '../../views/SignatureConfirm/router';
+import { StakingModalRouter } from '../../views/Staking/router';
+import { ModalSwapStack } from '../../views/Swap/router';
+import { TestModalRouter } from '../../views/TestModal/router';
+import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
+import { WalletAddressModalRouter } from '../../views/WalletAddress/router';
+import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
 
@@ -73,28 +73,28 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     name: EModalRoutes.MainModal,
     children: ModalMainStack,
   },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.DiscoveryModal,
-  // [ONBOARDING-DEV]   children: ModalDiscoveryStack,
-  // [ONBOARDING-DEV] },
+  {
+    name: EModalRoutes.DiscoveryModal,
+    children: ModalDiscoveryStack,
+  },
   {
     name: EModalRoutes.SettingModal,
     children: ModalSettingStack,
     rewrite: '/settings',
     exact: true,
   },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.SwapModal,
-  // [ONBOARDING-DEV]   children: ModalSwapStack,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.PerpModal,
-  // [ONBOARDING-DEV]   children: ModalPerpStack,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.MarketModal,
-  // [ONBOARDING-DEV]   children: ModalMarketStack,
-  // [ONBOARDING-DEV] },
+  {
+    name: EModalRoutes.SwapModal,
+    children: ModalSwapStack,
+  },
+  {
+    name: EModalRoutes.PerpModal,
+    children: ModalPerpStack,
+  },
+  {
+    name: EModalRoutes.MarketModal,
+    children: ModalMarketStack,
+  },
   {
     name: EModalRoutes.AccountManagerStacks,
     children: AccountManagerStacks,
@@ -111,13 +111,13 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     },
   },
   onboardingRouterConfig,
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.PrimeModal,
-  // [ONBOARDING-DEV]   children: PrimeRouter,
-  // [ONBOARDING-DEV]   onUnmounted() {
-  // [ONBOARDING-DEV]     void backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
-  // [ONBOARDING-DEV]   },
-  // [ONBOARDING-DEV] },
+  {
+    name: EModalRoutes.PrimeModal,
+    children: PrimeRouter,
+    onUnmounted() {
+      void backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
+    },
+  },
   {
     name: EModalRoutes.FirmwareUpdateModal,
     children: ModalFirmwareUpdateStack,
@@ -130,125 +130,149 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     name: EModalRoutes.ChainSelectorModal,
     children: ChainSelectorRouter,
   },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.SendModal,
-  // [ONBOARDING-DEV]   children: ModalSendStack,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.SignatureConfirmModal,
-  // [ONBOARDING-DEV]   children: ModalSignatureConfirmStack,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.ReceiveModal,
-  // [ONBOARDING-DEV]   children: ModalReceiveStack,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.DAppConnectionModal,
-  // [ONBOARDING-DEV]   children: DAppConnectionRouter,
-  // [ONBOARDING-DEV] },
+  {
+    name: EModalRoutes.SendModal,
+    children: ModalSendStack,
+  },
+  {
+    name: EModalRoutes.SignatureConfirmModal,
+    children: ModalSignatureConfirmStack,
+  },
+  {
+    name: EModalRoutes.ReceiveModal,
+    children: ModalReceiveStack,
+  },
+  {
+    name: EModalRoutes.DAppConnectionModal,
+    children: DAppConnectionRouter,
+  },
   {
     name: EModalRoutes.ScanQrCodeModal,
     children: ScanQrCodeModalRouter,
   },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.LiteCardModal,
-  // [ONBOARDING-DEV]   children: LiteCardPages,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.ManualBackupModal,
-  // [ONBOARDING-DEV]   children: ManualBackupRouter,
-  // [ONBOARDING-DEV] },
+  {
+    name: EModalRoutes.LiteCardModal,
+    children: LiteCardPages,
+  },
+  {
+    name: EModalRoutes.ManualBackupModal,
+    children: ManualBackupRouter,
+  },
   {
     name: EModalRoutes.CloudBackupModal,
     children: CloudBackupPages,
   },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.WebViewModal,
-  // [ONBOARDING-DEV]   children: ModalWebViewStack,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.AddressBookModal,
-  // [ONBOARDING-DEV]   children: ModalAddressBookRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.AppUpdateModal,
-  // [ONBOARDING-DEV]   rewrite: '/update',
-  // [ONBOARDING-DEV]   children: AppUpdateRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.FiatCryptoModal,
-  // [ONBOARDING-DEV]   children: ModalFiatCryptoRouter,
-  // [ONBOARDING-DEV] },
+  {
+    name: EModalRoutes.WebViewModal,
+    children: ModalWebViewStack,
+  },
+  {
+    name: EModalRoutes.AddressBookModal,
+    children: ModalAddressBookRouter,
+  },
+  {
+    name: EModalRoutes.AppUpdateModal,
+    rewrite: '/update',
+    children: AppUpdateRouter,
+  },
+  {
+    name: EModalRoutes.FiatCryptoModal,
+    children: ModalFiatCryptoRouter,
+  },
   {
     name: EModalRoutes.KeyTagModal,
     children: KeyTagModalRouter,
   },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.UniversalSearchModal,
-  // [ONBOARDING-DEV]   children: UniversalSearchRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.StakingModal,
-  // [ONBOARDING-DEV]   children: StakingModalRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.WalletAddress,
-  // [ONBOARDING-DEV]   children: WalletAddressModalRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.NotificationsModal,
-  // [ONBOARDING-DEV]   children: ModalNotificationsRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.ShortcutsModal,
-  // [ONBOARDING-DEV]   children: ShortcutsModalRouter,
-  // [ONBOARDING-DEV] },
+  {
+    name: EModalRoutes.UniversalSearchModal,
+    children: UniversalSearchRouter,
+  },
+  {
+    name: EModalRoutes.StakingModal,
+    children: StakingModalRouter,
+  },
+  {
+    name: EModalRoutes.WalletAddress,
+    children: WalletAddressModalRouter,
+  },
+  {
+    name: EModalRoutes.NotificationsModal,
+    children: ModalNotificationsRouter,
+  },
+  {
+    name: EModalRoutes.ShortcutsModal,
+    children: ShortcutsModalRouter,
+  },
   {
     name: EModalRoutes.DeviceManagementModal,
     children: DeviceManagementStacks,
   },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.ReferFriendsModal,
-  // [ONBOARDING-DEV]   children: ReferFriendsRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.BulkCopyAddressesModal,
-  // [ONBOARDING-DEV]   children: BulkCopyAddressesModalRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.BulkSendModal,
-  // [ONBOARDING-DEV]   children: BulkSendModalRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.ApprovalManagementModal,
-  // [ONBOARDING-DEV]   children: ModalApprovalManagementStack,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.SignAndVerifyModal,
-  // [ONBOARDING-DEV]   children: ModalSignAndVerifyRouter,
-  // [ONBOARDING-DEV] },
-  // [ONBOARDING-DEV] {
-  // [ONBOARDING-DEV]   name: EModalRoutes.NetworkDoctorModal,
-  // [ONBOARDING-DEV]   children: NetworkDoctorModalRouter,
-  // [ONBOARDING-DEV] },
+  {
+    name: EModalRoutes.ReferFriendsModal,
+    children: ReferFriendsRouter,
+  },
+  {
+    name: EModalRoutes.BulkCopyAddressesModal,
+    children: BulkCopyAddressesModalRouter,
+  },
+  {
+    name: EModalRoutes.BulkSendModal,
+    children: BulkSendModalRouter,
+  },
+  {
+    name: EModalRoutes.ApprovalManagementModal,
+    children: ModalApprovalManagementStack,
+  },
+  {
+    name: EModalRoutes.SignAndVerifyModal,
+    children: ModalSignAndVerifyRouter,
+  },
+  {
+    name: EModalRoutes.NetworkDoctorModal,
+    children: NetworkDoctorModalRouter,
+  },
 ];
 
-// [ONBOARDING-DEV] Pages in Dev Mode
-// [ONBOARDING-DEV] if (platformEnv.isDev) {
-// [ONBOARDING-DEV]   router.push({
-// [ONBOARDING-DEV]     name: EModalRoutes.TestModal,
-// [ONBOARDING-DEV]     children: TestModalRouter,
-// [ONBOARDING-DEV]   });
-// [ONBOARDING-DEV] }
+// Pages in Dev Mode
+if (platformEnv.isDev) {
+  router.push({
+    name: EModalRoutes.TestModal,
+    children: TestModalRouter,
+  });
+}
 
 export const modalRouter = router;
 
-// [ONBOARDING-DEV] fullModalRouter disabled - no iOS full-screen modals needed
-export const fullModalRouter: IModalRootNavigatorConfig<EModalRoutes>[] = [];
+export const fullModalRouter = [
+  {
+    name: EModalRoutes.AppUpdateModal,
+    children: AppUpdateRouter,
+  },
+  {
+    name: EModalRoutes.DAppConnectionModal,
+    children: DAppConnectionRouter,
+  },
+  {
+    name: EModalRoutes.ReceiveModal,
+    children: ModalReceiveStack,
+  },
+  {
+    name: EModalRoutes.SendModal,
+    children: ModalSendStack,
+  },
+  {
+    name: EModalRoutes.SignatureConfirmModal,
+    children: ModalSignatureConfirmStack,
+  },
+];
 
-// [ONBOARDING-DEV] fullScreenPushRouterConfig disabled - no ActionCenter needed
 export const fullScreenPushRouterConfig: IModalRootNavigatorConfig<EFullScreenPushRoutes>[] =
-  [];
+  [
+    {
+      name: EFullScreenPushRoutes.ActionCenter,
+      children: ActionCenterRouter,
+    },
+  ];
 
 export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Routes>[] =
   [

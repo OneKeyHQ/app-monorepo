@@ -67,12 +67,15 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../components/AccountSelector';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
+import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
 import type { IntlShape } from 'react-intl';
 
@@ -778,12 +781,7 @@ export function Bootstrap() {
 
   useEffect(() => {
     if (devSettings.enabled) {
-      // [ONBOARDING-DEV] force-off native FPS/RAM overlay while Dev Settings
-      // is hidden on this branch; revert to `!!devSettings.settings?.showPerformanceMonitor`
-      const showMonitorView = platformEnv.isNative
-        ? false
-        : !!devSettings.settings?.showPerformanceMonitor;
-      performance.start(true, showMonitorView);
+      performance.start(true, !!devSettings.settings?.showPerformanceMonitor);
     }
     return () => {
       performance.stop();
@@ -824,18 +822,36 @@ export function Bootstrap() {
   }, []);
 
   useFetchCurrencyList();
-  // [ONBOARDING-DEV] useFetchMarketBasicConfig();
-  // [ONBOARDING-DEV] useFetchPerpConfig();
+  useFetchMarketBasicConfig();
+  useFetchPerpConfig();
   useAboutVersion();
   useDesktopEvents();
-  // [ONBOARDING-DEV] useLaunchEvents();
-  // [ONBOARDING-DEV] useCheckUpdateOnDesktop();
-  // [ONBOARDING-DEV] useIntercomInit();
-  // [ONBOARDING-DEV] useClearStorageOnExtension();
-  // [ONBOARDING-DEV] useRemindDevelopmentBuildExtension();
-  // [ONBOARDING-DEV] useTabletDetailView();
-  // [ONBOARDING-DEV] desktop tray data provider disabled; restore by returning
-  // [ONBOARDING-DEV] `platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null`
-  // [ONBOARDING-DEV] and re-adding DesktopTrayDataProvider + TrayDataProviderInner.
+  useLaunchEvents();
+  useCheckUpdateOnDesktop();
+  useIntercomInit();
+  useClearStorageOnExtension();
+  useRemindDevelopmentBuildExtension();
+  useTabletDetailView();
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  return platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null;
+}
+
+function DesktopTrayDataProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
+      <TrayDataProviderInner />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+function TrayDataProviderInner() {
+  useTrayDataProvider();
   return null;
 }

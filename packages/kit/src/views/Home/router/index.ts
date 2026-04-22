@@ -1,27 +1,3 @@
-// [ONBOARDING-DEV] Original home router commented out for onboarding dev mode
-// To restore: git revert this commit
-
-import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
-import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
-
-import { LazyLoadPage } from '../../../components/LazyLoadPage';
-
-const OnboardingDevPlaceholder = LazyLoadPage(
-  () => import('../pages/OnboardingDevPlaceholder'),
-);
-
-// [ONBOARDING-DEV] stub export — consumed by Modal/Main.tsx
-export const urlAccountRoutes: any[] = [];
-
-export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
-  {
-    name: ETabHomeRoutes.TabHome,
-    component: OnboardingDevPlaceholder,
-    rewrite: '/',
-  },
-];
-
-/* [ONBOARDING-DEV] Original content below:
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
@@ -148,4 +124,3 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     rewrite: '/approval-list',
   },
 ];
-*/

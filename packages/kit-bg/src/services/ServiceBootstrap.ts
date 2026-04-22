@@ -90,12 +90,12 @@ class ServiceBootstrap extends ServiceBase {
         timedDeferred('walletConnect.cleanupInactiveSessions', () =>
           this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
         ),
-        // [ONBOARDING-DEV] timedDeferred('serviceSwap.syncSwapHistoryPendingList', () =>
-        // [ONBOARDING-DEV]   this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
-        // [ONBOARDING-DEV] ),
-        // [ONBOARDING-DEV] timedDeferred('serviceSetting.fetchReviewControl', () =>
-        // [ONBOARDING-DEV]   this.backgroundApi.serviceSetting.fetchReviewControl(),
-        // [ONBOARDING-DEV] ),
+        timedDeferred('serviceSwap.syncSwapHistoryPendingList', () =>
+          this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
+        ),
+        timedDeferred('serviceSetting.fetchReviewControl', () =>
+          this.backgroundApi.serviceSetting.fetchReviewControl(),
+        ),
         timedDeferred(
           'servicePassword.addExtIntervalCheckLockStatusListener',
           () =>
@@ -104,9 +104,9 @@ class ServiceBootstrap extends ServiceBase {
         timedDeferred('serviceNotification.init', () =>
           this.backgroundApi.serviceNotification.init(),
         ),
-        // [ONBOARDING-DEV] timedDeferred('serviceToken.clearLastActiveTabNameData', () =>
-        // [ONBOARDING-DEV]   this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
-        // [ONBOARDING-DEV] ),
+        timedDeferred('serviceToken.clearLastActiveTabNameData', () =>
+          this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
+        ),
       ]);
     } catch (_error) {
       // individual errors already handled by timedDeferred
@@ -119,9 +119,9 @@ class ServiceBootstrap extends ServiceBase {
     // These are intentionally not awaited; individual timedDeferred logs
     // record each task's duration independently.
     const fireAndForgetTasks = [
-      // [ONBOARDING-DEV] timedDeferred('serviceContextMenu.init', () =>
-      // [ONBOARDING-DEV]   this.backgroundApi.serviceContextMenu.init(),
-      // [ONBOARDING-DEV] ),
+      timedDeferred('serviceContextMenu.init', () =>
+        this.backgroundApi.serviceContextMenu.init(),
+      ),
       ...(platformEnv.isExtension
         ? [
             timedDeferred('serviceDevSetting.initAnalytics', () =>
@@ -129,9 +129,9 @@ class ServiceBootstrap extends ServiceBase {
             ),
           ]
         : []),
-      // [ONBOARDING-DEV] timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
-      // [ONBOARDING-DEV]   this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
-      // [ONBOARDING-DEV] ),
+      timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
+        this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
+      ),
       timedDeferred('customTokens.migrateFromV1LegacyData', () =>
         this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData(),
       ),
@@ -150,22 +150,22 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceHardware.removeDeviceHomeScreen', () =>
         this.backgroundApi.serviceHardware.removeDeviceHomeScreen(),
       ),
-      // [ONBOARDING-DEV] timedDeferred('systemTimeUtils.startServerTimeInterval', async () => {
-      // [ONBOARDING-DEV]   systemTimeUtils.startServerTimeInterval();
-      // [ONBOARDING-DEV] }),
-      // [ONBOARDING-DEV] timedDeferred('serviceIpTable.init', () =>
-      // [ONBOARDING-DEV]   this.backgroundApi.serviceIpTable.init(),
-      // [ONBOARDING-DEV] ),
+      timedDeferred('systemTimeUtils.startServerTimeInterval', async () => {
+        systemTimeUtils.startServerTimeInterval();
+      }),
+      timedDeferred('serviceIpTable.init', () =>
+        this.backgroundApi.serviceIpTable.init(),
+      ),
       timedDeferred('serviceCloudBackupV2.init', () =>
         this.backgroundApi.serviceCloudBackupV2.init(),
       ),
-      // [ONBOARDING-DEV] timedDeferred('serviceSetting.restoreFiatPaySiteWhitelist', () =>
-      // [ONBOARDING-DEV]   this.backgroundApi.serviceSetting
-      // [ONBOARDING-DEV]     .restoreFiatPaySiteWhitelistFromPersist()
-      // [ONBOARDING-DEV]     .then(() =>
-      // [ONBOARDING-DEV]       this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
-      // [ONBOARDING-DEV]     ),
-      // [ONBOARDING-DEV] ),
+      timedDeferred('serviceSetting.restoreFiatPaySiteWhitelist', () =>
+        this.backgroundApi.serviceSetting
+          .restoreFiatPaySiteWhitelistFromPersist()
+          .then(() =>
+            this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
+          ),
+      ),
     ];
     // Wait for all fire-and-forget tasks to settle so initDeferredDone
     // reflects actual total deferred init time (#26).

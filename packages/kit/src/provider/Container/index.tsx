@@ -9,41 +9,41 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
-// [ONBOARDING-DEV] import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
+import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
-// [ONBOARDING-DEV] import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
+import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
-// [ONBOARDING-DEV] import { ColdStartByNotification } from './ColdStartByNotification';
+import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
-// [ONBOARDING-DEV] import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
+import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
-// [ONBOARDING-DEV] import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
+import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
-// [ONBOARDING-DEV] import InAppNotification from './InAppNotification';
+import InAppNotification from './InAppNotification';
 import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
-// [ONBOARDING-DEV] import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
-// [ONBOARDING-DEV] import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
-// [ONBOARDING-DEV] import { RookieShareContainer } from './RookieShareContainer';
+import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
+import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { RookieShareContainer } from './RookieShareContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
-// [ONBOARDING-DEV] import { VerifyTxContainer } from './VerifyTxContainer';
-// [ONBOARDING-DEV] import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
+import { VerifyTxContainer } from './VerifyTxContainer';
+import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
-// [ONBOARDING-DEV] const PageTrackerContainer = LazyLoad(
-//   () => import('./PageTrackerContainer'),
-//   100,
-// );
+const PageTrackerContainer = LazyLoad(
+  () => import('./PageTrackerContainer'),
+  100,
+);
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
@@ -54,34 +54,34 @@ function GlobalRootAppNavigationUpdate() {
 function DetailRouter() {
   return (
     <NavigationContainer>
-      {/* [ONBOARDING-DEV] <InAppNotification /> */}
+      <InAppNotification />
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />
       <Bootstrap />
       <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />
       <CreateAddressContainer />
-      {/* [ONBOARDING-DEV] <PrevCheckBeforeSendingContainer /> */}
-      {/* [ONBOARDING-DEV] <WalletBackupPreCheckContainer /> */}
-      {/* [ONBOARDING-DEV] <VerifyTxContainer /> */}
+      <PrevCheckBeforeSendingContainer />
+      <WalletBackupPreCheckContainer />
+      <VerifyTxContainer />
       <HardwareUiStateContainer />
-      {/* [ONBOARDING-DEV] <PrimeLoginContainerLazy /> */}
+      <PrimeLoginContainerLazy />
       <KeylessWalletContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
       <DialogLoadingContainer />
-      {/* [ONBOARDING-DEV] <DiskFullWarningDialogContainer /> */}
+      <DiskFullWarningDialogContainer />
       <CloudBackupContainer />
 
       {/* <PortalBodyContainer /> */}
-      {/* [ONBOARDING-DEV] <PageTrackerContainer /> */}
+      <PageTrackerContainer />
       <ErrorToastContainer />
       <GlobalErrorHandlerContainer />
-      {/* [ONBOARDING-DEV] <ForceFirmwareUpdateContainer /> */}
-      {/* [ONBOARDING-DEV] <ColdStartByNotification /> */}
-      {/* [ONBOARDING-DEV] <PrimeGlobalEffect /> */}
-      {/* [ONBOARDING-DEV] <WebPerformanceMonitorContainer /> */}
+      <ForceFirmwareUpdateContainer />
+      <ColdStartByNotification />
+      <PrimeGlobalEffect />
+      <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
-      {/* [ONBOARDING-DEV] <RookieShareContainer /> */}
+      <RookieShareContainer />
     </NavigationContainer>
   );
 }
