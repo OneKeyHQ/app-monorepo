@@ -707,7 +707,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         generatingAccountsFn,
       }: {
         createWalletFn: () => Promise<IFinalizeWalletSetupCreateWalletResult>;
-        generatingAccountsFn: (
+        generatingAccountsFn?: (
           params: IFinalizeWalletSetupCreateWalletResult,
         ) => Promise<void>;
       },
@@ -717,37 +717,27 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           step: EFinalizeWalletSetupSteps.CreatingWallet,
         });
 
-        await timerUtils.wait(100);
-
         const [{ wallet, indexedAccount, hidden, isOverrideWallet }] =
           await Promise.all([
             // eslint-disable-next-line @typescript-eslint/await-thenable
             await createWalletFn(),
-            await timerUtils.wait(1000),
+            timerUtils.wait(1000),
           ]);
 
-        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-          step: EFinalizeWalletSetupSteps.GeneratingAccounts,
-        });
+        if (generatingAccountsFn) {
+          appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+            step: EFinalizeWalletSetupSteps.GeneratingAccounts,
+          });
 
-        await timerUtils.wait(100);
-
-        await Promise.all([
-          generatingAccountsFn({ wallet, indexedAccount, hidden }),
-          await timerUtils.wait(1000),
-        ]);
-
-        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-          step: EFinalizeWalletSetupSteps.EncryptingData,
-        });
-
-        await timerUtils.wait(1000);
+          await Promise.all([
+            generatingAccountsFn({ wallet, indexedAccount, hidden }),
+            timerUtils.wait(1000),
+          ]);
+        }
 
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.Ready,
         });
-
-        await timerUtils.wait(2000);
 
         const createResult = {
           wallet,
