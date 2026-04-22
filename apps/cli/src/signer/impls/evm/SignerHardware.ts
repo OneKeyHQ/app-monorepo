@@ -12,7 +12,7 @@ import { unwrapSDKResult } from '../../../commands/device/hardware-sdk';
 import { AppError, ERROR_CODES } from '../../../errors';
 import { SignerHardwareBase } from '../../base/SignerHardwareBase';
 
-import type { ICliSignTransactionParams } from '../../types';
+import type { ISignTransactionPayload } from '../../types';
 
 interface IEvmAddressPayload {
   address: string;
@@ -57,11 +57,11 @@ export class SignerHardware extends SignerHardwareBase {
   }
 
   async signTransaction(
-    params: ICliSignTransactionParams,
+    payload: ISignTransactionPayload,
   ): Promise<ISignedTxPro> {
     const sdk = await this.getHardwareSDK();
     const commonParams = await this.getHwCommonParams();
-    const { encodedTx } = params.unsignedTx;
+    const { encodedTx } = payload.unsignedTx;
 
     const { hwTransaction, unsignedTx } = buildHardwareEvmTransaction(
       encodedTx as Parameters<typeof buildHardwareEvmTransaction>[0],
@@ -71,7 +71,7 @@ export class SignerHardware extends SignerHardwareBase {
       this.device.connectId,
       this.device.deviceId,
       {
-        path: params.account.path,
+        path: payload.account.path,
         transaction: hwTransaction,
         ...commonParams,
       },

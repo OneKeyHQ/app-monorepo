@@ -6,9 +6,10 @@ import type {
 
 import { listEvmChains } from '../../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../../errors';
-import { CLI_PASSWORD, SignerBase } from '../../base/SignerBase';
+import { SignerHdBase } from '../../base/SignerHdBase';
+import { CLI_PASSWORD } from '../../keychain-keys';
 
-import type { ICliSignTransactionParams, ISigner } from '../../types';
+import type { ISignTransactionPayload, ISigner } from '../../types';
 
 // Lazy-loaded EVM scope — avoids bundling all chain SDKs at CLI startup.
 let evmScopePromise: Promise<
@@ -32,7 +33,7 @@ const EVM_TEMPLATE = "m/44'/60'/0'/0/$$INDEX$$";
  * the OS keychain. Hardware signing lives in the sibling `SignerHardware`
  * class (kit-bg convention: `KeyringHd` / `KeyringHardware`).
  */
-export class SignerHd extends SignerBase implements ISigner {
+export class SignerHd extends SignerHdBase implements ISigner {
   async getAddress(networkId: string): Promise<ICoreApiGetAddressItem> {
     const hdCredential = await this.getHdCredential();
     const scope = await getEvmScope();
@@ -52,23 +53,23 @@ export class SignerHd extends SignerBase implements ISigner {
   }
 
   async signTransaction(
-    params: ICliSignTransactionParams,
+    payload: ISignTransactionPayload,
   ): Promise<ISignedTxPro> {
     const scope = await getEvmScope();
     const hdCredential = await this.getHdCredential();
     const encodedPassword = await this.getEncodedPassword();
-    const networkInfo = this.buildNetworkInfo(params.networkId);
+    const networkInfo = this.buildNetworkInfo(payload.networkId);
 
     return scope.hd.signTransaction({
       networkInfo,
       password: encodedPassword,
       credentials: { hd: hdCredential },
       account: {
-        address: params.account.address,
-        path: params.account.path,
-        pub: params.account.publicKey,
+        address: payload.account.address,
+        path: payload.account.path,
+        pub: payload.account.publicKey,
       },
-      unsignedTx: params.unsignedTx,
+      unsignedTx: payload.unsignedTx,
     });
   }
 

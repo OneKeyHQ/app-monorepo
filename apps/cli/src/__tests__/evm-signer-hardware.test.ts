@@ -13,11 +13,11 @@
  *   - signMessage throws when path missing
  */
 
+import { SignerHardware } from '../signer/impls/evm/SignerHardware';
 import {
   KEYCHAIN_PASSPHRASE_STATE_KEY,
   KEYCHAIN_SESSION_ID_KEY,
-} from '../signer/base/SignerBase';
-import { SignerHardware } from '../signer/impls/evm/SignerHardware';
+} from '../signer/keychain-keys';
 
 import type { DeviceInfo } from '../core/auth/auth-types';
 import type { ISignerHardwareDeps } from '../signer/base/SignerHardwareBase';

@@ -3,6 +3,18 @@ import fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+
+import {
+  AUTH_LOGIN_METHOD_APP_TRANSFER,
+  AUTH_LOGIN_METHOD_HARDWARE,
+  PASSPHRASE_MODE_NONE,
+  PASSPHRASE_MODE_ON_DEVICE,
+  PASSPHRASE_MODE_ON_HOST,
+} from '../core/auth/auth-types';
 import { AppError, ERROR_CODES } from '../errors';
 
 import type {
@@ -56,7 +68,11 @@ function isValidDeviceInfo(value: unknown): value is DeviceInfo {
 }
 
 function isValidPassphraseMode(value: unknown): value is PassphraseMode {
-  return value === 'none' || value === 'on_host' || value === 'on_device';
+  return (
+    value === PASSPHRASE_MODE_NONE ||
+    value === PASSPHRASE_MODE_ON_HOST ||
+    value === PASSPHRASE_MODE_ON_DEVICE
+  );
 }
 
 function isErrnoCode(error: unknown, code: string): boolean {
@@ -88,13 +104,16 @@ function isValidSessionMetadata(value: unknown): value is AuthSessionMetadata {
     return false;
   }
 
-  if (metadata.loginMethod === 'app_transfer' && metadata.walletKind === 'hd') {
+  if (
+    metadata.loginMethod === AUTH_LOGIN_METHOD_APP_TRANSFER &&
+    metadata.walletKind === WALLET_TYPE_HD
+  ) {
     return true;
   }
 
   if (
-    metadata.loginMethod === 'hardware' &&
-    metadata.walletKind === 'hardware' &&
+    metadata.loginMethod === AUTH_LOGIN_METHOD_HARDWARE &&
+    metadata.walletKind === WALLET_TYPE_HW &&
     isValidDeviceInfo(metadata.device) &&
     isValidPassphraseMode(metadata.passphraseMode)
   ) {

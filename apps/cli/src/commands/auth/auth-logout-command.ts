@@ -5,7 +5,7 @@ import { presentAuthLogoutResult } from '../../output/auth-presenters';
 import {
   KEYCHAIN_PASSPHRASE_STATE_KEY,
   KEYCHAIN_SESSION_ID_KEY,
-} from '../../signer/base/SignerBase';
+} from '../../signer/keychain-keys';
 
 import { readConfirmation } from './auth-prompt-utils';
 

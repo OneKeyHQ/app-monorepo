@@ -9,27 +9,18 @@ import {
   installPassphraseProvider,
   resolvePassphraseStateByMode,
 } from '../../commands/device/hardware-sdk';
+import { PASSPHRASE_MODE_NONE } from '../../core/auth/auth-types';
 import { KeychainStorage } from '../../infra/keychain-storage';
-
 import {
   KEYCHAIN_PASSPHRASE_STATE_KEY,
   KEYCHAIN_SESSION_ID_KEY,
-} from './SignerBase';
+} from '../keychain-keys';
 
 import type { DeviceInfo, PassphraseMode } from '../../core/auth/auth-types';
-import type { ICliSignTransactionParams, ISigner } from '../types';
+import type { ISignTransactionPayload, ISigner } from '../types';
 import type { CoreApi } from '@onekeyfe/hd-core';
 
-/**
- * Collaborators injected for testability. Production callers never pass these.
- *
- * Chain-agnostic — every hardware signer needs the same surface:
- *   - SDK singleton (USB transport)
- *   - keychain for persisted passphraseState / session_id
- *   - hd-core's preloadSessionCache
- *   - a passphrase provider for REQUEST_PASSPHRASE events
- *   - stderr for PIN / locked-device hints
- */
+/** Injected collaborators — production callers never pass these. Test seam. */
 export interface ISignerHardwareDeps {
   ensureSDKReady: typeof ensureSDKReady;
   installPassphraseProvider: typeof installPassphraseProvider;
@@ -72,23 +63,10 @@ export function createDefaultSignerHardwareDeps(): ISignerHardwareDeps {
 }
 
 /**
- * Base class for every chain-specific hardware signer.
- *
- * Owns the lifecycle concerns that are identical across chains:
- *   - install passphrase provider on construction
- *   - unlock device (PIN) before first call
- *   - preload session cache from keychain (skipped if device was locked)
- *   - assemble SDK common params (useEmptyPassphrase / passphraseState /
- *     skipPassphraseCheck) with a 4-step resolve chain: in-process cache →
- *     keychain → fresh SDK resolve → empty-passphrase fallback
- *
- * Subclasses only implement the three chain-specific SDK calls
- * (`getAddress`, `signTransaction`, `signMessage`).
- *
- * passphraseState lifecycle:
- *   Login:   getPassphraseState → passphraseState → keychain (OS encrypted)
- *   Command: keychain → passphraseState → SDK call (no user prompt)
- *   Logout:  keychain delete
+ * Shared base for chain-specific hardware signers — owns the unlock /
+ * passphrase / session-cache plumbing so subclasses only implement the
+ * three chain-specific SDK calls (`getAddress`, `signTransaction`,
+ * `signMessage`). Kit-bg analogue: `KeyringHardwareBase`.
  */
 export abstract class SignerHardwareBase implements ISigner {
   protected readonly device: DeviceInfo;
@@ -97,21 +75,13 @@ export abstract class SignerHardwareBase implements ISigner {
 
   protected readonly deps: ISignerHardwareDeps;
 
-  /**
-   * In-memory passphraseState cache for this signer's lifetime.
-   * NEVER persisted to disk — dies when CLI process exits.
-   */
+  /** NEVER persisted — dies when the CLI process exits. */
   private cachedPassphraseState: string | undefined;
 
-  /**
-   * Unlock + session preload promise. All hardware SDK calls await this.
-   */
+  /** All hardware SDK calls await this before proceeding. */
   private hwInitPromise: Promise<void> | undefined;
 
-  /**
-   * Whether the device had to be unlocked up-front. Locking invalidates
-   * passphrase sessions, so keychain reuse is skipped when true.
-   */
+  /** Locking invalidates passphrase sessions, so keychain reuse is skipped when true. */
   private deviceWasLocked = false;
 
   constructor(config: ISignerHardwareConfig) {
@@ -126,7 +96,7 @@ export abstract class SignerHardwareBase implements ISigner {
     // Unlock device + preload session cache from keychain. Must unlock
     // first: locked devices reject cached sessions.
     this.hwInitPromise = this.ensureDeviceUnlocked().then(() => {
-      if (this.passphraseMode !== 'none') {
+      if (this.passphraseMode !== PASSPHRASE_MODE_NONE) {
         return this.preloadSessionFromKeychain();
       }
     });
@@ -135,7 +105,7 @@ export abstract class SignerHardwareBase implements ISigner {
   abstract getAddress(networkId: string): Promise<ICoreApiGetAddressItem>;
 
   abstract signTransaction(
-    params: ICliSignTransactionParams,
+    payload: ISignTransactionPayload,
   ): Promise<ISignedTxPro>;
 
   abstract signMessage(payload: ICoreApiSignMsgPayload): Promise<string>;
@@ -165,7 +135,7 @@ export abstract class SignerHardwareBase implements ISigner {
     passphraseState?: string;
     skipPassphraseCheck?: true;
   }> {
-    if (this.passphraseMode === 'none') {
+    if (this.passphraseMode === PASSPHRASE_MODE_NONE) {
       return {
         useEmptyPassphrase: true as const,
         skipPassphraseCheck: true as const,

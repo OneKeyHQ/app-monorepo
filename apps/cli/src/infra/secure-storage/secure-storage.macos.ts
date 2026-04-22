@@ -32,7 +32,7 @@ export class MacOSSecureStorage implements ISecureStorage {
       //
       // The three interpolated values are all safe for security's parser:
       //   - service:  fixed `onekey-cli` constant (this file)
-      //   - account:  `wallet:<name>/<slot>` literals (signer/base/SignerBase.ts)
+      //   - account:  `wallet:<name>/<slot>` literals (signer/keychain-keys.ts)
       //   - password: hex-only (0-9a-f from value.toString('hex'))
       // None contain quotes or whitespace that would break the quoting.
       const cmd = `add-generic-password -s "${SERVICE_NAME}" -a "${key}" -w "${hex}" -U`;

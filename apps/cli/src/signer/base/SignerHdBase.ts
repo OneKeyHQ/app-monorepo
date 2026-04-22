@@ -6,17 +6,18 @@ import {
 import { decrypt, secureWipe } from '../../core/crypto-utils';
 import { AppError, ERROR_CODES } from '../../errors';
 import { KeychainStorage } from '../../infra/keychain-storage';
+import {
+  CLI_PASSWORD,
+  KEYCHAIN_ENCRYPTION_KEY,
+  KEYCHAIN_MNEMONIC_KEY,
+} from '../keychain-keys';
 
-const CLI_PASSWORD = 'onekey';
-const WALLET_NAME = 'default';
-
-export const KEYCHAIN_MNEMONIC_KEY = `wallet:${WALLET_NAME}/mnemonic`;
-export const KEYCHAIN_ENCRYPTION_KEY = `wallet:${WALLET_NAME}/encryption-key`;
-export const KEYCHAIN_PASSPHRASE_STATE_KEY = `wallet:${WALLET_NAME}/passphrase-state`;
-export const KEYCHAIN_SESSION_ID_KEY = `wallet:${WALLET_NAME}/session-id`;
-export { CLI_PASSWORD };
-
-export class SignerBase {
+/**
+ * Shared base for HD (software) signers. Owns the mnemonic decryption +
+ * password helpers every software signer needs. Kit-bg analogue:
+ * `KeyringHdBase`.
+ */
+export class SignerHdBase {
   protected keychain = new KeychainStorage();
 
   async getEncodedPassword(): Promise<string> {

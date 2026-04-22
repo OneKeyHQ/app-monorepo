@@ -1,62 +1,42 @@
 /**
- * Chain signer registry — mirrors kit-bg's vault factory pattern
- * (packages/kit-bg/src/vaults/factory.ts → vaultsLoader + Vault.keyringMap).
+ * Signer registry — per-impl lazy loader + per-wallet-kind builder map.
+ * Mirrors kit-bg's `vaultsLoader` + `Vault.keyringMap`.
  *
- * Two layers, both extensible without touching factory.ts:
- *
- *   Outer (SIGNER_LOADERS): impl string → lazy loader of the chain module.
- *   Adding a new chain is one new `impls/<chain>/index.ts` exporting
- *   `<chain>SignerRegistration` plus one line here.
- *
- *   Inner (signerBuilders): AuthWalletKind → builder function. Mirrors
- *   kit-bg's `keyringMap: Record<IDBWalletType, KeyringClass>` on each
- *   Vault. Adding a wallet kind (e.g. watching / imported) is a new key
- *   on `ISignerBuilders` — no changes to the outer interface or factory.
- *
- * The outer loaders are `() => import(...)` thunks so esbuild only
- * bundles a chain's code when the CLI actually asks for it. That keeps
- * cold-start fast and lets unsupported chains stay out of the CJS graph.
+ * Builder keys (`hd`, `hw`, …) use the same string literals as
+ * `@onekeyhq/shared/src/consts/dbConsts` (`WALLET_TYPE_HD`,
+ * `WALLET_TYPE_HW`), so `signerBuilders[WALLET_TYPE_HW]` resolves
+ * identically whether the caller spells the key out or uses the const.
  */
+
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AppError, ERROR_CODES } from '../errors';
 
 import type { ISigner } from './types';
 import type { DeviceInfo, PassphraseMode } from '../core/auth/auth-types';
 
-/**
- * Per-wallet-kind signer builders. The signature varies by kind because
- * different wallet types carry different context (HD needs nothing; a
- * hardware wallet needs the device handle + passphrase mode; a future
- * `watching` kind would take an address; `imported` would take a pk).
- *
- * Every chain populates the builders it actually supports; missing kinds
- * surface as a structured `AUTH_SESSION_INVALID` error at dispatch time.
- */
 export interface ISignerBuilders {
   hd?: () => Promise<ISigner>;
-  hardware?: (
-    device: DeviceInfo,
-    passphraseMode: PassphraseMode,
-  ) => Promise<ISigner>;
+  hw?: (device: DeviceInfo, passphraseMode: PassphraseMode) => Promise<ISigner>;
 }
 
-export interface IChainSignerRegistration {
+export interface ISignerRegistration {
   impl: string;
   signerBuilders: ISignerBuilders;
 }
 
-type IChainSignerLoader = () => Promise<IChainSignerRegistration>;
+type ISignerLoader = () => Promise<ISignerRegistration>;
 
-const SIGNER_LOADERS: Record<string, IChainSignerLoader> = {
-  evm: () => import('./impls/evm').then((m) => m.evmSignerRegistration),
+const signerLoaders: Record<string, ISignerLoader> = {
+  [IMPL_EVM]: () => import('./impls/evm').then((m) => m.evmSignerRegistration),
 };
 
 export async function resolveSignerRegistration(
   impl: string,
-): Promise<IChainSignerRegistration> {
-  const loader = SIGNER_LOADERS[impl];
+): Promise<ISignerRegistration> {
+  const loader = signerLoaders[impl];
   if (!loader) {
-    const supported = Object.keys(SIGNER_LOADERS).join(', ');
+    const supported = Object.keys(signerLoaders).join(', ');
     throw new AppError(
       ERROR_CODES.PARAM_INVALID_CHAIN.code,
       `Unsupported chain impl: ${impl}`,
@@ -66,14 +46,9 @@ export async function resolveSignerRegistration(
   return loader();
 }
 
-/**
- * Select a builder for the given wallet kind. Throws a structured error
- * when the chain doesn't register a builder for that kind — callers then
- * get a clear "this chain does not support <kind> wallets" signal
- * instead of a cryptic `undefined is not a function` at the call site.
- */
+/** Select a builder or throw a clear "chain X does not support <kind>" error. */
 export function requireSignerBuilder<K extends keyof ISignerBuilders>(
-  registration: IChainSignerRegistration,
+  registration: ISignerRegistration,
   kind: K,
 ): NonNullable<ISignerBuilders[K]> {
   const builder = registration.signerBuilders[kind];

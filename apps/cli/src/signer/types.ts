@@ -5,13 +5,15 @@ import type {
 } from '@onekeyhq/core/src/types';
 
 /**
- * Simplified sign-transaction input for CLI callers.
+ * Minimal sign-transaction input for `ISigner`.
  *
- * Callers only provide what they know (network, account, unsigned tx).
- * Each ISigner implementation internally assembles whatever else it needs
- * (HD credentials for software, SDK params for hardware).
+ * Commands only carry what they directly know (network, account, unsigned
+ * tx). Each `ISigner` implementation internally assembles whatever else
+ * it needs before delegating to core / the hardware SDK — HD credentials
+ * from the keychain for software, device params + passphrase state for
+ * hardware.
  */
-export interface ICliSignTransactionParams {
+export interface ISignTransactionPayload {
   networkId: string;
   account: { address: string; path: string; publicKey?: string };
   unsignedTx: { encodedTx: Record<string, unknown> };
@@ -20,7 +22,7 @@ export interface ICliSignTransactionParams {
 export interface ISigner {
   getAddress(networkId: string): Promise<ICoreApiGetAddressItem>;
 
-  signTransaction(params: ICliSignTransactionParams): Promise<ISignedTxPro>;
+  signTransaction(payload: ISignTransactionPayload): Promise<ISignedTxPro>;
 
   signMessage(payload: ICoreApiSignMsgPayload): Promise<string>;
 }

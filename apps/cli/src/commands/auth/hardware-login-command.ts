@@ -1,3 +1,11 @@
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
+
+import {
+  AUTH_LOGIN_METHOD_HARDWARE,
+  PASSPHRASE_MODE_NONE,
+  PASSPHRASE_MODE_ON_DEVICE,
+  PASSPHRASE_MODE_ON_HOST,
+} from '../../core/auth/auth-types';
 import { AppError, ERROR_CODES } from '../../errors';
 import {
   AUTH_SESSION_SCHEMA_VERSION,
@@ -8,7 +16,7 @@ import { presentAuthLoginResult } from '../../output/auth-presenters';
 import {
   KEYCHAIN_PASSPHRASE_STATE_KEY,
   KEYCHAIN_SESSION_ID_KEY,
-} from '../../signer/base/SignerBase';
+} from '../../signer/keychain-keys';
 import { promptPassphraseViaPinentry } from '../../utils/pinentry';
 import {
   ensureSDKReady,
@@ -59,17 +67,17 @@ async function promptPassphraseMode(
         const normalized = answer.trim();
         if (normalized === '1') {
           rl.close();
-          resolve('none');
+          resolve(PASSPHRASE_MODE_NONE);
           return;
         }
         if (normalized === '2') {
           rl.close();
-          resolve('on_host');
+          resolve(PASSPHRASE_MODE_ON_HOST);
           return;
         }
         if (normalized === '3') {
           rl.close();
-          resolve('on_device');
+          resolve(PASSPHRASE_MODE_ON_DEVICE);
           return;
         }
         process.stderr.write('Invalid selection. Enter 1, 2, or 3.\n');
@@ -145,7 +153,7 @@ export async function executeHardwareLoginCommand({
   output.info(`Found device: ${deviceLabel} (${deviceId})`);
 
   // Step 2: Select passphrase mode
-  let passphraseMode: PassphraseMode = 'none';
+  let passphraseMode: PassphraseMode = PASSPHRASE_MODE_NONE;
   let passphraseState: string | undefined;
 
   if (isTTY && isHumanMode) {
@@ -153,7 +161,7 @@ export async function executeHardwareLoginCommand({
   }
 
   // Step 3: Resolve passphraseState in memory (never persisted)
-  if (passphraseMode === 'on_host') {
+  if (passphraseMode === PASSPHRASE_MODE_ON_HOST) {
     // Use pinentry for secure passphrase input — no terminal echo, no shell history
     const passphrase = await promptPassphraseViaPinentry();
     output.info('Resolving passphrase state on device...');
@@ -161,13 +169,13 @@ export async function executeHardwareLoginCommand({
       passphrase,
     });
     // passphrase string is now eligible for GC — we only keep passphraseState in memory
-  } else if (passphraseMode === 'on_device') {
+  } else if (passphraseMode === PASSPHRASE_MODE_ON_DEVICE) {
     output.info('Please enter passphrase on device screen...');
     passphraseState = await resolvePassphraseState(connectId, {
       passphraseOnDevice: true,
     });
   }
-  // passphraseMode === 'none' → no passphrase needed
+  // passphraseMode === PASSPHRASE_MODE_NONE → no passphrase needed
 
   // Step 4: Persist passphraseState + sessionId to keychain BEFORE
   // evmGetAddress, and preload session cache. This ensures evmGetAddress
@@ -232,8 +240,8 @@ export async function executeHardwareLoginCommand({
   const sessionStore = new AuthSessionStore();
   await sessionStore.save({
     schemaVersion: AUTH_SESSION_SCHEMA_VERSION,
-    loginMethod: 'hardware',
-    walletKind: 'hardware',
+    loginMethod: AUTH_LOGIN_METHOD_HARDWARE,
+    walletKind: WALLET_TYPE_HW,
     displayAddress,
     importedAt: new Date().toISOString(),
     sourceLabel: `Hardware: ${deviceLabel}`,

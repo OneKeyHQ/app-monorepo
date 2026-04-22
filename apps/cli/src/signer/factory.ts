@@ -1,3 +1,8 @@
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+
 import { AppError, ERROR_CODES } from '../errors';
 
 import { requireSignerBuilder, resolveSignerRegistration } from './registry';
@@ -16,9 +21,9 @@ import type { ResolvedAuthSession } from '../core/auth/auth-types';
  * a session).
  *
  * Dispatch:
- *   - `session.walletKind === 'hardware'` → hardware builder
+ *   - `session.walletKind === WALLET_TYPE_HW` → hardware builder
  *     (requires `session.device` + `session.passphraseMode`)
- *   - `session` absent or `walletKind === 'hd'` → HD builder
+ *   - `session` absent or `walletKind === WALLET_TYPE_HD` → HD builder
  *
  * Call sites:
  *   - Wallet commands (balance / transfer / swap* / wallet-history):
@@ -34,7 +39,7 @@ export async function getSignerByImpl(options: {
   const { impl, session } = options;
   const registration = await resolveSignerRegistration(impl);
 
-  if (session?.walletKind === 'hardware') {
+  if (session?.walletKind === WALLET_TYPE_HW) {
     if (!session.device || !session.passphraseMode) {
       throw new AppError(
         ERROR_CODES.AUTH_SESSION_INVALID.code,
@@ -42,10 +47,10 @@ export async function getSignerByImpl(options: {
         'Run: onekey auth logout and login again with --hardware.',
       );
     }
-    const buildHardware = requireSignerBuilder(registration, 'hardware');
+    const buildHardware = requireSignerBuilder(registration, WALLET_TYPE_HW);
     return buildHardware(session.device, session.passphraseMode);
   }
 
-  const buildHd = requireSignerBuilder(registration, 'hd');
+  const buildHd = requireSignerBuilder(registration, WALLET_TYPE_HD);
   return buildHd();
 }

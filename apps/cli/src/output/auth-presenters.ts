@@ -1,3 +1,5 @@
+import { AUTH_LOGIN_METHOD_APP_TRANSFER } from '../core/auth/auth-types';
+
 import type { ResolvedAuthSession } from '../core/auth/auth-types';
 
 type IAuthLogoutOutputStatus =
@@ -16,7 +18,8 @@ export interface IAuthStatusOutput {
   sourceLabel: string | null;
   displayAddress: string | null;
   importedAt: string | null;
-  device?: { connectId: string; deviceId: string; deviceLabel: string } | null;
+  device: { connectId: string; deviceId: string; deviceLabel: string } | null;
+  passphraseMode: ResolvedAuthSession['passphraseMode'] | null;
 }
 
 export interface IAuthLogoutOutput {
@@ -58,6 +61,7 @@ export function presentAuthStatus(
     displayAddress: session.displayAddress ?? null,
     importedAt: session.importedAt ?? null,
     device: session.device ?? null,
+    passphraseMode: session.passphraseMode ?? null,
   };
 }
 
@@ -80,7 +84,7 @@ export function presentInterruptedAuthLoginResult(
   return {
     status,
     auth_status: 'unauthenticated',
-    login_method: 'app_transfer',
+    login_method: AUTH_LOGIN_METHOD_APP_TRANSFER,
     source_label: null,
     display_address: null,
     storage_backend: null,

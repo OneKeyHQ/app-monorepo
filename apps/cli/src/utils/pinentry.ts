@@ -1,12 +1,11 @@
 /**
- * Secure passphrase input via pinentry (macOS/Linux).
+ * Secure passphrase input via the system pinentry program
+ * (pinentry-mac / pinentry / pinentry-gnome3 / pinentry-qt).
  *
- * Uses the system pinentry program (pinentry-mac on macOS) to display
- * a native dialog for passphrase entry. This ensures:
- *   - Passphrase never appears in shell history
- *   - Passphrase never appears in terminal output
- *   - Passphrase never enters LLM context (no CLI args, no env vars)
- *   - Input is handled by a trusted OS-level component
+ * The passphrase is entered in an OS dialog and returned as a string —
+ * it never appears in the terminal, shell history, process arguments,
+ * or env vars. We pipe commands over stdin so the dialog configuration
+ * (description, prompt) doesn't show up in argv either.
  */
 
 import { execFile } from 'node:child_process';
@@ -23,7 +22,6 @@ const PINENTRY_PROGRAMS = [
 function findPinentry(): string | null {
   for (const prog of PINENTRY_PROGRAMS) {
     try {
-      // Use `which` to check if the program exists in PATH
       const { execFileSync } =
         require('node:child_process') as typeof import('node:child_process');
       const result = execFileSync('which', [prog], {
@@ -35,18 +33,12 @@ function findPinentry(): string | null {
         return prog;
       }
     } catch {
-      // Program not found, try next
+      // Program not found — try the next one.
     }
   }
   return null;
 }
 
-/**
- * Prompt for passphrase using pinentry (native OS dialog).
- *
- * The passphrase is entered in a secure OS dialog and returned as a string.
- * It never appears in the terminal, shell history, or process arguments.
- */
 export function promptPassphraseViaPinentry(
   prompt = 'Enter passphrase for hidden wallet',
   description = 'OneKey Hardware Wallet',
@@ -76,9 +68,14 @@ export function promptPassphraseViaPinentry(
       [],
       { timeout: 120_000, encoding: 'utf-8' },
       (error, stdout, _stderr) => {
+        // Pinentry error code 83886179 is the canonical "user cancelled"
+        // signal — surfaces either as a non-zero exit or as an ERR line.
+        const cancelled =
+          stdout.includes('ERR 83886179') ||
+          stdout.includes('Operation cancelled');
+
         if (error) {
-          // User cancelled the dialog
-          if (error.killed || (stdout && stdout.includes('ERR 83886179'))) {
+          if (error.killed || cancelled) {
             reject(
               new AppError(
                 ERROR_CODES.USER_CANCELLED.code,
@@ -98,7 +95,7 @@ export function promptPassphraseViaPinentry(
           return;
         }
 
-        // Parse pinentry response — look for "D <passphrase>" line
+        // Pinentry response protocol: `D <passphrase>` on success.
         const lines = stdout.split('\n');
         const dataLine = lines.find((l) => l.startsWith('D '));
         if (dataLine) {
@@ -106,11 +103,7 @@ export function promptPassphraseViaPinentry(
           return;
         }
 
-        // Check for cancellation
-        if (
-          stdout.includes('ERR 83886179') ||
-          stdout.includes('Operation cancelled')
-        ) {
+        if (cancelled) {
           reject(
             new AppError(
               ERROR_CODES.USER_CANCELLED.code,
@@ -121,7 +114,7 @@ export function promptPassphraseViaPinentry(
           return;
         }
 
-        // Empty passphrase returned (user clicked OK without typing)
+        // User clicked OK without typing anything.
         reject(
           new AppError(
             ERROR_CODES.USER_CANCELLED.code,

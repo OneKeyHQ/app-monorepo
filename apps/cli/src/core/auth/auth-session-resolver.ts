@@ -9,6 +9,10 @@ import {
 import { decrypt, secureWipe } from '../crypto-utils';
 
 import { createAppTransferSourceLabelFromMnemonic } from './app-transfer-session';
+import {
+  AUTH_LOGIN_METHOD_APP_TRANSFER,
+  AUTH_LOGIN_METHOD_HARDWARE,
+} from './auth-types';
 
 import type { AuthSessionMetadata, ResolvedAuthSession } from './auth-types';
 import type { ISecureStorage } from '../../infra/keychain-storage';
@@ -47,7 +51,7 @@ export class AuthSessionResolver {
 
     // Hardware sessions keep no mnemonic in the keychain — the device is the
     // secret holder. The session file itself is the source of truth.
-    if (metadata?.loginMethod === 'hardware') {
+    if (metadata?.loginMethod === AUTH_LOGIN_METHOD_HARDWARE) {
       return {
         authStatus: 'authenticated',
         hasSecrets: true,
@@ -81,7 +85,7 @@ export class AuthSessionResolver {
 
       let sourceLabel = metadata?.sourceLabel;
       if (
-        metadata?.loginMethod === 'app_transfer' &&
+        metadata?.loginMethod === AUTH_LOGIN_METHOD_APP_TRANSFER &&
         encryptedMnemonic &&
         encryptionKey
       ) {

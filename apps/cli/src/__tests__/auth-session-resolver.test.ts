@@ -286,7 +286,7 @@ describe('AuthSessionResolver hardware sessions', () => {
     const hardwareSession = {
       schema_version: 1,
       login_method: 'hardware',
-      wallet_kind: 'hardware',
+      wallet_kind: 'hw',
       display_address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
       imported_at: '2026-04-21T00:00:00.000Z',
       source_label: 'Hardware: OneKey Touch',
@@ -314,7 +314,7 @@ describe('AuthSessionResolver hardware sessions', () => {
       hasSecrets: true,
       storageBackend: 'macos-keychain',
       loginMethod: 'hardware',
-      walletKind: 'hardware',
+      walletKind: 'hw',
       displayAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
       importedAt: '2026-04-21T00:00:00.000Z',
       sourceLabel: 'Hardware: OneKey Touch',

@@ -2,7 +2,7 @@
 // @generated — do not edit manually
 // Generated from zod schemas in src/schemas/
 // Run: yarn generate:cli-types
-// Generated at: 2026-04-17T08:26:05.253Z
+// Generated at: 2026-04-22T08:59:47.621Z
 
 /** Print CLI version and environment */
 export interface VersionInput {}
@@ -82,11 +82,13 @@ export interface TransferOutput {
 export interface AuthLoginInput {
   /** Authenticate with a OneKey App Bot Wallet */
   appTransfer?: boolean;
+  /** Authenticate with a connected hardware wallet device */
+  hardware?: boolean;
 }
 
 export interface AuthLoginOutput {
-  auth_status: string;
-  login_method: string;
+  auth_status: "authenticated";
+  login_method: "app_transfer" | "hardware";
   source_label: string | null;
   display_address: string | null;
   storage_backend: "macos-keychain" | "linux-secret-service";
@@ -99,11 +101,17 @@ export interface AuthStatusOutput {
   authStatus: "authenticated" | "unauthenticated";
   hasSecrets: boolean;
   storageBackend: "macos-keychain" | "linux-secret-service";
-  loginMethod: "app_transfer" | null;
-  walletKind: "hd" | null;
+  loginMethod: "app_transfer" | "hardware" | null;
+  walletKind: "hd" | "hw" | null;
   sourceLabel: string | null;
   displayAddress: string | null;
   importedAt: string | null;
+  device: {
+    connectId: string;
+    deviceId: string;
+    deviceLabel: string;
+  } | null;
+  passphraseMode: "none" | "on_host" | "on_device" | null;
 }
 
 /** Log out of the current auth session */
