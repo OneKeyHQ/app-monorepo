@@ -9,7 +9,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from '../EditableChainSelector/ChainSelectorContent';
@@ -72,6 +75,22 @@ export function NetworkContent({
       }),
     [walletId, accountId, indexedAccountId, networkIdsKey],
   );
+
+  // Cold-start diagnostic: log every swrKey transition + whether the
+  // MMKV-backed SWR cache has an entry for the current key. Expect to
+  // see (a) an initial key with empty walletId/accountId if the jotai
+  // context hasn't resolved yet (hit=false), followed by (b) the real
+  // key (hit=? depends on whether it was primed). dtMs includes the
+  // one-time JSON.parse of the whole store on cold start.
+  useEffect(() => {
+    const t = Date.now();
+    const cached = swrCacheUtils.get(swrKey);
+    console.log(
+      `[NetSWR] netContent.swrKey -> ${swrKey} hit=${!!cached} dtMs=${
+        Date.now() - t
+      }`,
+    );
+  }, [swrKey]);
 
   const {
     result: {

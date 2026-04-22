@@ -18,9 +18,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import type { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
@@ -83,6 +86,18 @@ function RecentNetworks({
       showAllNetwork,
     });
   }, [swrKeyScope, showAllNetwork]);
+
+  // Cold-start diagnostic: does the MMKV SWR cache hold our chip list?
+  useEffect(() => {
+    if (!swrKey) return;
+    const t = Date.now();
+    const cached = swrCacheUtils.get<IServerNetwork[]>(swrKey);
+    console.log(
+      `[NetSWR] recent.swrKey -> ${swrKey} hit=${!!cached} len=${
+        Array.isArray(cached) ? cached.length : '?'
+      } dtMs=${Date.now() - t}`,
+    );
+  }, [swrKey]);
 
   const { result: recentNetworks, run } = usePromiseResult(
     async () => {

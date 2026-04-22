@@ -28,6 +28,7 @@ import { IMPL_BTC, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
@@ -38,7 +39,6 @@ import type {
   IDetectedNetworkGroupItem,
 } from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
-import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {

@@ -1,6 +1,7 @@
 /* cspell:ignore ISWR IMMKV */
+import type {
+  EAppSWRCacheScopes} from '../storage/syncStorageKeys';
 import {
-  EAppSWRCacheScopes,
   EAppSyncStorageKeys,
 } from '../storage/syncStorageKeys';
 
