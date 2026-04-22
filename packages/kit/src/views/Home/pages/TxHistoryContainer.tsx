@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { isEmpty, uniqBy } from 'lodash';
 
@@ -11,7 +11,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
-  useNotificationsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -23,7 +22,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -34,7 +32,6 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
-import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -82,8 +79,6 @@ function TxHistoryListContainer(
     isRefreshing: false,
   });
 
-  const [notificationAlertOpacity, setNotificationAlertOpacity] = useState(0);
-
   const refreshAllNetworksHistory = useRef(false);
 
   const media = useMedia();
@@ -101,7 +96,6 @@ function TxHistoryListContainer(
 
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
-  const [{ txHistoryAlertDismissed }] = useNotificationsAtom();
 
   const updateHistoryData = useCallback(
     (txs: IAccountHistoryTx[]) => {
@@ -449,40 +443,10 @@ function TxHistoryListContainer(
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
 
-  const ListComponentRef = useRef(null);
-
-  const recomputeLayout = useCallback(() => {
-    if (!platformEnv.isNative) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (ListComponentRef.current as any)?.recomputeLayout?.();
-    }
-  }, []);
-
-  const listHeaderComponent = useMemo(() => {
-    if (!historyState.initialized) {
-      return null;
-    }
-    return (
-      <NotificationEnableAlert
-        opacity={notificationAlertOpacity}
-        setOpacity={setNotificationAlertOpacity}
-        scene="txHistory"
-        recomputeLayout={recomputeLayout}
-      />
-    );
-  }, [
-    notificationAlertOpacity,
-    setNotificationAlertOpacity,
-    historyState.initialized,
-    recomputeLayout,
-  ]);
-
   const tabBarHeight = useScrollContentTabBarOffset();
 
   return (
     <TxHistoryListView
-      ref={ListComponentRef}
-      key={`tx-history-${txHistoryAlertDismissed ? 'dismissed' : 'shown'}`}
       plainMode={plainMode}
       isTabFocused={isFocused}
       showIcon
@@ -508,7 +472,6 @@ function TxHistoryListContainer(
       tokenMap={allTokenListMap}
       emptyTitle={emptyTitle}
       emptyDescription={emptyDescription}
-      ListHeaderComponent={listHeaderComponent}
     />
   );
 }
