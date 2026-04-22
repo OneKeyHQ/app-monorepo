@@ -33,6 +33,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
+  formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatSpotPairDisplayName,
@@ -933,6 +934,8 @@ const SpotTokenSelectorRowInner = memo(
       markPx,
       spotUniverse.baseSzDecimals ?? 2,
     );
+    const localizedDisplayMarkPrice =
+      formatLocalizedNumberString(displayMarkPrice);
 
     const handlePress = useMemo(
       () => () => onPress(spotUniverse.name),
@@ -966,7 +969,7 @@ const SpotTokenSelectorRowInner = memo(
           assetId: spotUniverse.assetId,
         },
         assetCtx: {
-          markPrice: displayMarkPrice,
+          markPrice: localizedDisplayMarkPrice,
           change24h,
           change24hPercent,
           fundingRate: '0',
@@ -979,7 +982,7 @@ const SpotTokenSelectorRowInner = memo(
       }),
       [
         spotUniverse,
-        displayMarkPrice,
+        localizedDisplayMarkPrice,
         change24h,
         change24hPercent,
         ctx,
