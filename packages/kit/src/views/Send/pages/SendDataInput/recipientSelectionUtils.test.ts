@@ -1,5 +1,8 @@
+import { ENFTType } from '@onekeyhq/shared/types/nft';
+
 import {
   normalizeOptionalRecipientText,
+  shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
 } from './recipientSelectionUtils';
 
@@ -51,6 +54,29 @@ describe('recipientSelectionUtils', () => {
       shouldSkipResolvedRecipientUpdate({
         currentTo: { raw: '0xabc' },
         selectedAddress: '0xabc',
+      }),
+    ).toBe(false);
+  });
+
+  it('skips amount input for ERC721 but not ERC1155', () => {
+    expect(
+      shouldSkipAmountInputForNFT({
+        isNFT: true,
+        nft: { collectionType: ENFTType.ERC721 },
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSkipAmountInputForNFT({
+        isNFT: true,
+        nft: { collectionType: ENFTType.ERC1155 },
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldSkipAmountInputForNFT({
+        isNFT: false,
+        nft: { collectionType: ENFTType.ERC721 },
       }),
     ).toBe(false);
   });
