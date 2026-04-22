@@ -40,6 +40,10 @@ import type {
 import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -1529,9 +1533,12 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
 
-    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
-      data,
-    );
+    const result =
+      await this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
+        data,
+      );
+    void this._primeRecentNetworksSWRCache();
+    return result;
   }
 
   @backgroundMethod()
@@ -1540,21 +1547,75 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
     const timestamp = Date.now();
-    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
-      [networkId]: { updatedAt: timestamp },
-    });
+    const result =
+      await this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
+        [networkId]: { updatedAt: timestamp },
+      });
+    void this._primeRecentNetworksSWRCache();
+    return result;
   }
 
   @backgroundMethod()
   async clearRecentNetworks() {
-    return this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+    const result =
+      await this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+    void this._primeRecentNetworksSWRCache();
+    return result;
   }
 
   @backgroundMethod()
   async deleteRecentNetwork({ networkId }: { networkId: string }) {
-    return this.backgroundApi.simpleDb.recentNetworks.deleteRecentNetwork({
-      networkId,
-    });
+    const result =
+      await this.backgroundApi.simpleDb.recentNetworks.deleteRecentNetwork({
+        networkId,
+      });
+    void this._primeRecentNetworksSWRCache();
+    return result;
+  }
+
+  // Writes the freshest recent-networks list into the UI's SWR cache slots
+  // (MMKV via swrCacheUtils) so the next UnifiedNetworkSelector mount paints
+  // directly from cache without the "stale chips -> revalidate -> new chips"
+  // flash. Architecture assumption: bg and UI share the same cold-start
+  // MMKV instance, so we can write cross-context from bg without an event
+  // roundtrip.
+  //
+  // Scopes here must stay in sync with the `swrKeyScope` props passed to
+  // <RecentNetworks /> (see EditableChainSelector/ChainSelectorContent.tsx
+  // and PureChainSelector/ChainSelectorSectionList.tsx).
+  private async _primeRecentNetworksSWRCache() {
+    try {
+      const ids =
+        await this.backgroundApi.simpleDb.recentNetworks.getRecentNetworks({});
+      const networks: IServerNetwork[] = [];
+      for (const id of ids) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const network = await this.getNetwork({ networkId: id });
+          if (network) {
+            networks.push(network);
+          }
+        } catch {
+          // Missing or invalid network id — skip.
+        }
+      }
+      const withoutAllNetwork = networks.filter(
+        (n) => !networkUtils.isAllNetwork({ networkId: n.id }),
+      );
+      const scopes = ['editable-chain-selector', 'pure-chain-selector'];
+      for (const scope of scopes) {
+        swrCacheUtils.set(
+          swrKeys.recentNetworks({ scope, showAllNetwork: true }),
+          networks,
+        );
+        swrCacheUtils.set(
+          swrKeys.recentNetworks({ scope, showAllNetwork: false }),
+          withoutAllNetwork,
+        );
+      }
+    } catch {
+      // Priming is best-effort; failures fall back to UI-side revalidation.
+    }
   }
 
   @backgroundMethod()
