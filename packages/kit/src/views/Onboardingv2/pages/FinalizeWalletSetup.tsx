@@ -43,6 +43,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import {
   type EOnboardingPagesV2,
   ERootRoutes,
@@ -63,12 +64,18 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
+import { useWalletBoundReferralCode } from '../../ReferFriends/hooks/useWalletBoundReferralCode';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 
+import {
+  closePageAndOpenKeylessAutoConnect,
+  openKeylessAutoConnectAfterDelay,
+  scheduleFinalizeCloseAndKeylessAutoConnect,
+} from './finalizeWalletSetupKeylessUtils';
 import MatrixBackground from './MatrixBackground';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
@@ -138,6 +145,7 @@ function FinalizeWalletSetupPage({
       }
     | undefined
   >(undefined);
+  const createdWalletRef = useRef<IDBWallet | undefined>(_wallet);
 
   const created = useRef(false);
   const mnemonic = route?.params?.mnemonic;
@@ -196,15 +204,75 @@ function FinalizeWalletSetupPage({
     setPendingKeylessAutoConnectWalletId,
     openKeylessAutoConnectDappModal,
   } = useKeylessWebFlowAutoConnectDapp();
+  const keylessAutoConnectScheduledRef = useRef(false);
+
+  const {
+    shouldBondReferralCode,
+    getReferralCodeBondStatus,
+    bindWalletInviteCode,
+  } = useWalletBoundReferralCode({
+    entry: 'tab',
+    mnemonicType,
+  });
+
+  useEffect(() => {
+    if (_wallet?.id) {
+      createdWalletRef.current = _wallet;
+    }
+  }, [_wallet]);
 
   const handleWalletSetupReadyInner = useCallback(async () => {
-    setTimeout(() => {
-      closePage();
-      setTimeout(() => {
-        void openKeylessAutoConnectDappModal();
-      }, 600);
-    }, 1000);
-  }, [closePage, openKeylessAutoConnectDappModal]);
+    const referralWallet = createdWalletRef.current ?? _wallet;
+    const referralWalletId = referralWallet?.id;
+    // Report wallet creation time to server for bind window tracking.
+    // If _wallet is not yet available (React state delay), the bootstrap
+    // migration will handle it on next launch since it runs before marking done.
+    if (referralWalletId) {
+      const walletCreatedAt = buildWalletCreatedAtISOString();
+      try {
+        await backgroundApiProxy.serviceReferralCode.cacheWalletCreationRecordTimestamp(
+          {
+            walletId: referralWalletId,
+            walletCreatedAt,
+          },
+        );
+        const info =
+          await backgroundApiProxy.serviceReferralCode.getReferralCodeWalletInfo(
+            { walletId: referralWalletId },
+          );
+        if (info) {
+          await backgroundApiProxy.serviceReferralCode.recordWalletCreation([
+            {
+              address: info.address,
+              networkId: info.networkId,
+              walletCreatedAt,
+            },
+          ]);
+        }
+      } catch {
+        // Startup migration will retry with the cached creation timestamp.
+      }
+    }
+
+    // Check bind status — needed for imported mnemonics / hardware wallets
+    // whose addresses may already exist on server with an expired 14-day window.
+    const needBondReferralCode = await getReferralCodeBondStatus({
+      walletId: referralWalletId,
+      skipIfTimeout: true,
+    });
+
+    if (!needBondReferralCode) {
+      scheduleFinalizeCloseAndKeylessAutoConnect({
+        closePage,
+        openKeylessAutoConnectDappModal,
+      });
+    }
+  }, [
+    closePage,
+    openKeylessAutoConnectDappModal,
+    getReferralCodeBondStatus,
+    _wallet,
+  ]);
 
   const handleWalletSetupReady = useThrottledCallback(
     handleWalletSetupReadyInner,
@@ -299,6 +367,7 @@ function FinalizeWalletSetupPage({
               isKeylessWallet,
               keylessDetailsInfo,
             });
+            createdWalletRef.current = hdWalletCreatedResult.wallet;
             if (shouldRunAutoReset) {
               void (async () => {
                 try {
@@ -383,11 +452,34 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
+        const { wallets: walletsBeforeCreate } =
+          await backgroundApiProxy.serviceAccount.getWallets({
+            nestedHiddenWallets: false,
+          });
+        const existingWalletIds = new Set(
+          walletsBeforeCreate.map((walletItem) => walletItem.id),
+        );
         await connectDevice(deviceData.device as SearchDevice);
         await createHWWallet({
           device: deviceData.device as SearchDevice,
           isFirmwareVerified,
         });
+        const { wallets: walletsAfterCreate } =
+          await backgroundApiProxy.serviceAccount.getWallets({
+            nestedHiddenWallets: false,
+          });
+        const createdWallet =
+          walletsAfterCreate.find(
+            (walletItem) =>
+              !existingWalletIds.has(walletItem.id) &&
+              !accountUtils.isHwHiddenWallet({ wallet: walletItem }),
+          ) ??
+          walletsAfterCreate.find(
+            (walletItem) => !existingWalletIds.has(walletItem.id),
+          );
+        if (createdWallet) {
+          createdWalletRef.current = createdWallet;
+        }
       } else if (keylessPackSetId && !created.current) {
         // Create keyless wallet
         // await actions.current.createKeylessWallet({
@@ -714,11 +806,57 @@ function FinalizeWalletSetupPage({
           ) : null}
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.do_not_exit_app_during_setup,
-            })}
-          </SizableText>
+          {shouldBondReferralCode ? (
+            <XStack gap="$2.5" w="100%" maxWidth="$96" alignSelf="center">
+              <Button
+                flex={1}
+                variant="primary"
+                size="large"
+                onPress={() => {
+                  const handleReferralBindExit = () => {
+                    if (keylessAutoConnectScheduledRef.current) {
+                      return;
+                    }
+                    keylessAutoConnectScheduledRef.current = true;
+                    openKeylessAutoConnectAfterDelay({
+                      openKeylessAutoConnectDappModal,
+                    });
+                  };
+                  keylessAutoConnectScheduledRef.current = false;
+                  closePage();
+                  bindWalletInviteCode({
+                    wallet: createdWalletRef.current ?? _wallet,
+                    onSuccess: handleReferralBindExit,
+                    onClose: handleReferralBindExit,
+                  });
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.referral_onboard_bind_code,
+                })}
+              </Button>
+              <Button
+                flex={1}
+                size="large"
+                onPress={() => {
+                  closePageAndOpenKeylessAutoConnect({
+                    closePage,
+                    openKeylessAutoConnectDappModal,
+                  });
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.referral_onboard_bind_code_finish,
+                })}
+              </Button>
+            </XStack>
+          ) : (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.do_not_exit_app_during_setup,
+              })}
+            </SizableText>
+          )}
         </OnboardingLayout.Footer>
       </OnboardingLayout>
     </Page>

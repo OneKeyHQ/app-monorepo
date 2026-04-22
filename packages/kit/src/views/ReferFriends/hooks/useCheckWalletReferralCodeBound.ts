@@ -3,6 +3,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useWalletBoundReferralCode } from './useWalletBoundReferralCode';
+import { shouldShowReferralBindEntry } from './useWalletBoundReferralCode/referralBindStatusUtils';
 
 export function useCheckWalletReferralCodeBound({
   walletId,
@@ -69,9 +70,7 @@ export function useCheckWalletReferralCodeBound({
       }
 
       // Has local record, check if binding is needed
-      const shouldBound = Boolean(
-        referralCodeInfo.walletId && !referralCodeInfo.isBound,
-      );
+      const shouldBound = shouldShowReferralBindEntry(referralCodeInfo);
       return { shouldBound, isSupported };
     },
     [walletId, getReferralCodeBondStatus],

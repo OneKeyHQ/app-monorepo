@@ -47,6 +47,7 @@ import {
   useGetReferralCodeWalletInfo,
   useWalletBoundReferralCode,
 } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
+import { shouldShowReferralBindEntry } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/referralBindStatusUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -151,7 +152,7 @@ function ReferralCodeBlock({
         });
         return shouldBound;
       }
-      return referralCodeInfo?.walletId && !referralCodeInfo?.isBound;
+      return shouldShowReferralBindEntry(referralCodeInfo);
     },
     [isHdOrHwWallet, wallet?.id, wallet?.xfp, getReferralCodeBondStatus],
     {
