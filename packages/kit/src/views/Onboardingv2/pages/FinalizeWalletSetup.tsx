@@ -280,15 +280,9 @@ function FinalizeWalletSetupPage({
         await withPromptPasswordVerify({
           run: async () => {
             if (mnemonicType === EMnemonicType.TON) {
-              // TODO check TON case
-              // **** TON mnemonic case
-              // Create TON imported account when mnemonicType is TON
+              // createTonImportedWallet now emits CreatingWallet + Ready events itself
+              // (with a 1s floor). UI advances via appEventBus listener, no manual sequencing.
               await actions.current.createTonImportedWallet({ mnemonic });
-              goNextStep(EFinalizeWalletSetupSteps.EncryptingData);
-              await timerUtils.wait(2200);
-              goNextStep(EFinalizeWalletSetupSteps.GeneratingAccounts);
-              await timerUtils.wait(2200);
-              goNextStep(EFinalizeWalletSetupSteps.Ready);
               return;
             }
             const shouldRunAutoReset =
@@ -422,7 +416,6 @@ function FinalizeWalletSetupPage({
     isKeylessWallet,
     keylessDetailsInfo,
     shouldAutoResetKeylessPinAfterRestore,
-    goNextStep,
     connectDevice,
     createHWWallet,
     setPendingKeylessAutoConnectWalletId,
