@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
@@ -60,14 +61,27 @@ function RecentNetworks({
   availableNetworks,
   containerProps,
   showAllNetwork = true,
+  swrKeyScope,
 }: {
   onPressItem?: (network: IServerNetwork) => void;
   setRecentNetworksHeight?: (height: number) => void;
   availableNetworks?: IServerNetwork[];
   containerProps?: IStackProps;
   showAllNetwork?: boolean;
+  // Opt-in SWR cache. Pass a stable scope (e.g. "unified-network-selector")
+  // to persist the resolved network list to MMKV and skip the cold-start
+  // N+1 getNetwork round-trips.
+  swrKeyScope?: string;
 }) {
   const intl = useIntl();
+
+  const swrKey = useMemo(() => {
+    if (!swrKeyScope) return undefined;
+    return swrKeys.recentNetworks({
+      scope: swrKeyScope,
+      showAllNetwork,
+    });
+  }, [swrKeyScope, showAllNetwork]);
 
   const { result: recentNetworks, run } = usePromiseResult(
     async () => {
@@ -95,6 +109,7 @@ function RecentNetworks({
     [availableNetworks, showAllNetwork],
     {
       initResult: [],
+      swrKey,
     },
   );
 
@@ -103,9 +118,35 @@ function RecentNetworks({
     void run();
   }, [run]);
 
+  // Chip rows re-measure mid-mount (the flexWrap layout flips between 1
+  // and 2 rows as NetworkAvatar images/fonts resolve). Left untreated,
+  // this makes the section list below jump down by ~40px.
+  //
+  // Two guards here:
+  //   1. max-only: never propagate a shrinking height (prevents any
+  //      bounce back).
+  //   2. debounced push: coalesce multiple onLayout fires within 48ms
+  //      into one setState, so the receiving parent only re-lays out
+  //      once per mount cycle. 48ms ≈ 3 frames — below perceptual
+  //      threshold but comfortably past the image-load remeasure.
+  const maxHeightRef = useRef(0);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+    },
+    [],
+  );
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      setRecentNetworksHeight?.(event.nativeEvent.layout.height);
+      const h = event.nativeEvent.layout.height;
+      if (h > maxHeightRef.current) {
+        maxHeightRef.current = h;
+      }
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = setTimeout(() => {
+        setRecentNetworksHeight?.(maxHeightRef.current);
+      }, 48);
     },
     [setRecentNetworksHeight],
   );

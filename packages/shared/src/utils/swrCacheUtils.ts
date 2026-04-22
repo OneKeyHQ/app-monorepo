@@ -157,6 +157,63 @@ export const swrKeys = {
       withNetworksInfo ? '1' : '0',
       enabledNetworkIdsKey ?? '',
     ].join(':'),
+  // UnifiedNetworkSelector modal's list/meta bundle:
+  // allNetworks + allNetworksState + compatibleNetworks grouped together so
+  // the modal can render its skeleton synchronously on mount. Balances/DeFi
+  // deliberately live outside this key — see UnifiedNetworkSelector/index.tsx.
+  unifiedNetworkSelectorMeta: ({
+    walletId,
+    accountId,
+  }: {
+    walletId: string;
+    accountId?: string;
+  }) => ['unsMeta', 'v1', walletId, accountId ?? ''].join(':'),
+  // NetworkContent (the "Network" tab inside UnifiedNetworkSelector) bundles
+  // sorted chainSelectorNetworks + account balances + DeFi overview into one
+  // result object. Balances/DeFi are included despite being volatile because
+  // the sorted list itself depends on them — caching them together lets the
+  // first render match the final UI. walletId + accountId in the key
+  // guarantees each account sees its own snapshot.
+  networkContentData: ({
+    walletId,
+    accountId,
+    indexedAccountId,
+    networkIdsKey,
+  }: {
+    walletId?: string;
+    accountId?: string;
+    indexedAccountId?: string;
+    networkIdsKey?: string;
+  }) =>
+    // v3: v2 stored an empty frequentlyUsedItems (stripped to avoid a
+    // "ghost row" flash). In practice this caused the opposite problem —
+    // every cold open jumped from 0 pinned networks to the account's real
+    // set (often 8 items), a far larger visual glitch. v3 persists the
+    // real frequentlyUsedItems again so the first frame already matches
+    // the post-revalidate layout for accounts whose pinned segment is
+    // stable across sessions. Old v2 (empty-freq) entries are orphaned.
+    [
+      'netContent',
+      'v3',
+      walletId ?? '',
+      accountId ?? '',
+      indexedAccountId ?? '',
+      networkIdsKey ?? '*',
+    ].join(':'),
+  // RecentNetworks chip row. `scope` identifies which UI surface rendered
+  // the component. availableNetworks is deliberately NOT in the key: the
+  // upstream list often hydrates empty-then-full on first render, and
+  // including it here would make swrKey flip between two cache slots mid-
+  // mount, which trips usePromiseResult's prevSwrKey reset logic and
+  // flashes the chip row. availableNetworks only filters the method output
+  // — its transient values are safe to ignore for cache identity.
+  recentNetworks: ({
+    scope,
+    showAllNetwork,
+  }: {
+    scope: string;
+    showAllNetwork: boolean;
+  }) => ['recentNets', 'v1', scope, showAllNetwork ? '1' : '0'].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
 };
 

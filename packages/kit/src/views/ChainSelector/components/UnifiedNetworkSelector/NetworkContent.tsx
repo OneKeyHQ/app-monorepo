@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -9,6 +9,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from '../EditableChainSelector/ChainSelectorContent';
@@ -54,6 +55,24 @@ export function NetworkContent({
   searchText,
   setSearchText,
 }: INetworkContentProps) {
+  // Stable hash of networkIds so the swrKey doesn't churn when the caller
+  // passes a fresh array reference with unchanged contents.
+  const networkIdsKey = useMemo(() => {
+    if (!networkIds) return undefined;
+    return networkIds.toSorted().join(',');
+  }, [networkIds]);
+
+  const swrKey = useMemo(
+    () =>
+      swrKeys.networkContentData({
+        walletId,
+        accountId,
+        indexedAccountId,
+        networkIdsKey,
+      }),
+    [walletId, accountId, indexedAccountId, networkIdsKey],
+  );
+
   const {
     result: {
       chainSelectorNetworks,
@@ -132,6 +151,7 @@ export function NetworkContent({
         accountDeFiOverview: {},
         zeroValue: true,
       },
+      swrKey,
     },
   );
 

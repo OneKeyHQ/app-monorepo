@@ -40,6 +40,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -209,33 +210,65 @@ function UnifiedNetworkSelector() {
     [],
   );
 
-  // Load networks data for portfolio tab
-  const { run: refreshPortfolioData } = usePromiseResult(async () => {
-    const [allNetworksState, { networks: allNetworks }] = await Promise.all([
-      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-      backgroundApiProxy.serviceNetwork.getAllNetworks(),
-    ]);
-    setNetworksState({
-      enabledNetworks: allNetworksState.enabledNetworks,
-      disabledNetworks: allNetworksState.disabledNetworks,
-    });
+  // Split into two hooks so the list skeleton can hydrate from MMKV on mount
+  // while balances/DeFi stay off the cache (stale money values would mislead
+  // the user more than a short skeleton does).
+  const { result: networkMeta, run: refreshNetworkMeta } = usePromiseResult(
+    async () => {
+      const [allNetworksStateResp, { networks: allNetworks }] =
+        await Promise.all([
+          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+          backgroundApiProxy.serviceNetwork.getAllNetworks(),
+        ]);
 
-    const compatibleNetworks =
-      await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-        {
-          accountId,
-          walletId,
-          networkIds: allNetworks.map((network) => network.id),
-          excludeTestNetwork: true,
+      const compatibleNetworks =
+        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+          {
+            accountId,
+            walletId,
+            networkIds: allNetworks.map((network) => network.id),
+            excludeTestNetwork: true,
+          },
+        );
+
+      return {
+        allNetworksState: {
+          enabledNetworks: allNetworksStateResp.enabledNetworks,
+          disabledNetworks: allNetworksStateResp.disabledNetworks,
         },
-      );
-    setNetworks({
-      allNetworks,
-      mainNetworks: compatibleNetworks.mainnetItems,
-      frequentlyUsedNetworks: compatibleNetworks.frequentlyUsedItems,
-    });
+        allNetworks,
+        compatibleNetworks,
+      };
+    },
+    [accountId, walletId],
+    {
+      swrKey: swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }),
+    },
+  );
 
-    // Fetch network values for portfolio tab
+  // Sync meta result into existing useState slots so downstream props/effects
+  // keep their current shape. usePromiseResult always returns a fresh object
+  // from setResult, so this effect correctly re-runs on each revalidation.
+  useEffect(() => {
+    if (!networkMeta) return;
+    setNetworksState(networkMeta.allNetworksState);
+    setNetworks({
+      allNetworks: networkMeta.allNetworks,
+      mainNetworks: networkMeta.compatibleNetworks.mainnetItems,
+      frequentlyUsedNetworks:
+        networkMeta.compatibleNetworks.frequentlyUsedItems,
+    });
+  }, [networkMeta]);
+
+  const compatibleNetworks = networkMeta?.compatibleNetworks;
+
+  // Balances + DeFi: intentionally uncached. Depends on compatibleNetworks for
+  // the sort step, so meta changes fan out here via the `compatibleNetworks`
+  // dep. No manual run needed — deps-driven revalidation covers every path.
+  usePromiseResult(async () => {
+    if (!compatibleNetworks) return;
+    if (!accountId && !indexedAccountId) return;
+
     const [_accountsValue, _localDeFiOverview] = await Promise.all([
       backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
         accounts: [{ accountId: indexedAccountId ?? accountId ?? '' }],
@@ -272,17 +305,17 @@ function UnifiedNetworkSelector() {
       setAccountNetworkValueCurrency(_accountsValue[0]?.currency);
       setAccountDeFiOverview(_accountDeFiOverview ?? {});
     }
-  }, [accountId, walletId, indexedAccountId]);
+  }, [accountId, indexedAccountId, compatibleNetworks]);
 
-  // Refresh portfolio data when a custom network is added
+  // Refresh portfolio data when a custom network is added. Meta revalidation
+  // produces a new compatibleNetworks reference, which cascades into the
+  // values hook via its deps — no explicit values refresh needed here.
   useEffect(() => {
     const fn = async () => {
       try {
-        // Use alwaysSetState to bypass the isFocused check, because this
-        // event can fire while the navigation-back animation is still
-        // running (screen not yet focused), which would silently skip
-        // the refresh and leave stale data.
-        await refreshPortfolioData({ alwaysSetState: true });
+        // alwaysSetState bypasses the isFocused guard because this event can
+        // fire while the back-nav animation is still running.
+        await refreshNetworkMeta({ alwaysSetState: true });
       } catch {
         // silently ignore refresh errors
       }
@@ -291,7 +324,7 @@ function UnifiedNetworkSelector() {
     return () => {
       appEventBus.off(EAppEventBusNames.AddedCustomNetwork, fn);
     };
-  }, [refreshPortfolioData]);
+  }, [refreshNetworkMeta]);
 
   // Network tab callbacks
   const handleNetworkPressItem = useCallback(
@@ -329,7 +362,7 @@ function UnifiedNetworkSelector() {
       onSuccess: async (network: IServerNetwork) => {
         if (activeTabRef.current === 'portfolio') {
           // Portfolio tab: enable the new network and persist to backend.
-          // Persist first to avoid race condition: refreshPortfolioData
+          // Persist first to avoid race condition: refreshNetworkMeta
           // (triggered by AddedCustomNetwork event) fetches backend state
           // and overwrites local state. By persisting before the event,
           // the backend already includes the enabled state.
@@ -555,7 +588,12 @@ function UnifiedNetworkSelector() {
 
   return (
     <Page
-      safeAreaEnabled
+      // Page safeAreaEnabled + SectionList contentContainerStyle.paddingBottom
+      // double-counted the home indicator inset (~34px each). Defer
+      // bottom safe area to the list's contentContainerStyle so the
+      // padding lives on the scroll container and doesn't animate
+      // during modal presentation. Matches EditableChainSelector/index.
+      safeAreaEnabled={false}
       onClose={() => {
         if (networkUtils.isAllNetwork({ networkId })) {
           appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);

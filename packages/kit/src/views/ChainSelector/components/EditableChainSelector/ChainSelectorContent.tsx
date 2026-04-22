@@ -11,7 +11,7 @@ import {
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { ISortableSectionListRef } from '@onekeyhq/components';
+import type { ISectionListRef } from '@onekeyhq/components';
 import {
   Empty,
   Icon,
@@ -19,7 +19,6 @@ import {
   SearchBar,
   SectionList,
   SizableText,
-  SortableSectionList,
   Stack,
   XStack,
   YStack,
@@ -38,11 +37,7 @@ import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import {
-  ALL_NETWORK_HEADER_HEIGHT,
-  CELL_HEIGHT,
-  ZERO_VALUE_TOOLTIP_HEIGHT,
-} from './type';
+import { CELL_HEIGHT } from './type';
 
 import type {
   IEditableChainSelectorContext,
@@ -165,19 +160,8 @@ export const EditableChainSelectorContent = ({
   const [tempFrequentlyUsedItems, setTempFrequentlyUsedItems] = useState(
     frequentlyUsedItems ?? [],
   );
-  const listRef = useRef<ISortableSectionListRef<any> | null>(null);
+  const listRef = useRef<ISectionListRef<any> | null>(null);
   const lastIsEditMode = usePrevious(isEditMode);
-  const showAllNetworkHeader = useMemo(
-    () => allNetworkItem && !searchText,
-    [allNetworkItem, searchText],
-  );
-
-  const showNonZeroValueTooltip = useMemo(
-    () => !zeroValue && !searchText,
-    [zeroValue, searchText],
-  );
-
-  const [recentNetworksHeight, setRecentNetworksHeight] = useState(0);
 
   useEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -275,70 +259,6 @@ export const EditableChainSelectorContent = ({
     networkFuseSearch,
   ]);
 
-  const listHeaderHeight = useMemo(() => {
-    return (
-      recentNetworksHeight +
-      (showAllNetworkHeader ? ALL_NETWORK_HEADER_HEIGHT : 0) +
-      (showNonZeroValueTooltip ? ZERO_VALUE_TOOLTIP_HEIGHT : 0)
-    );
-  }, [showAllNetworkHeader, recentNetworksHeight, showNonZeroValueTooltip]);
-
-  const dragItemOverflowHitSlop = useMemo(() => {
-    const dragCount = tempFrequentlyUsedItems.length;
-    if (dragCount <= 0) {
-      return undefined;
-    }
-    return { bottom: (dragCount + 1) * listHeaderHeight + 16 };
-  }, [tempFrequentlyUsedItems, listHeaderHeight]);
-
-  const layoutList = useMemo(() => {
-    let offset = 16 + listHeaderHeight;
-    const layouts: {
-      offset: number;
-      length: number;
-      index: number;
-      sectionIndex?: number;
-    }[] = [];
-    sections.forEach((section, sectionIndex) => {
-      if (sectionIndex !== 0) {
-        layouts.push({
-          offset,
-          length: 20,
-          index: layouts.length,
-          sectionIndex,
-        });
-        offset += 20;
-      }
-      const headerHeight = section.title ? 36 : 0;
-      layouts.push({
-        offset,
-        length: headerHeight,
-        index: layouts.length,
-        sectionIndex,
-      });
-      offset += headerHeight;
-      section.data.forEach(() => {
-        layouts.push({
-          offset,
-          length: CELL_HEIGHT,
-          index: layouts.length,
-          sectionIndex,
-        });
-        offset += CELL_HEIGHT;
-      });
-      const footerHeight = 0;
-      layouts.push({
-        offset,
-        length: footerHeight,
-        index: layouts.length,
-        sectionIndex,
-      });
-      offset += footerHeight;
-    });
-    layouts.push({ offset, length: 16, index: layouts.length });
-    return layouts;
-  }, [sections, listHeaderHeight]);
-
   const initialScrollIndex = useMemo(() => {
     if (searchText.trim() || tempFrequentlyUsedItems !== frequentlyUsedItems) {
       return undefined;
@@ -409,7 +329,6 @@ export const EditableChainSelectorContent = ({
       isEditMode,
       searchText,
       allNetworkItem,
-      setRecentNetworksHeight,
       accountNetworkValues,
       accountNetworkValueCurrency,
       accountDeFiOverview,
@@ -468,38 +387,24 @@ export const EditableChainSelectorContent = ({
     [],
   );
 
+  // Trigger the initial jump-to-selected once FlashList finishes its
+  // first measure pass (onLayout). Using a setTimeout after mount runs
+  // too early and FlashList's sticky compute hasn't caught up yet; the
+  // ref guard keeps later onLayout fires from re-jumping.
+  const didInitialScrollRef = useRef(false);
   useEffect(() => {
-    // For non-native platforms, initialScrollIndex causes display bugs
-    // Handle it by manually scrolling to the target position
-    if (!platformEnv.isNative) {
-      if (!initialScrollIndex || layoutList.length === 0) return;
-
-      let offset = 0;
-
-      if (initialScrollIndex.sectionIndex === 0) {
-        offset = CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
-      } else {
-        const index = layoutList.findIndex(
-          (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
-        );
-
-        if (index === -1) return;
-
-        offset =
-          layoutList[index].offset +
-          CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
-      }
-
-      setTimeout(() => {
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        listRef.current?._listRef?._scrollRef?.scrollTo?.({
-          y: offset,
-          animated: false,
-        });
-      }, 100);
-    }
-  }, [initialScrollIndex, layoutList]);
+    didInitialScrollRef.current = false;
+  }, [initialScrollIndex]);
+  const handleListLayout = useCallback(() => {
+    if (!initialScrollIndex || didInitialScrollRef.current) return;
+    didInitialScrollRef.current = true;
+    listRef.current?.scrollToLocation?.({
+      sectionIndex: initialScrollIndex.sectionIndex,
+      itemIndex: initialScrollIndex.itemIndex ?? 0,
+      viewPosition: 0,
+      animated: false,
+    });
+  }, [initialScrollIndex]);
 
   return (
     <EditableChainSelectorContext.Provider value={context}>
@@ -512,19 +417,13 @@ export const EditableChainSelectorContent = ({
             })}
             value={searchText}
             onChangeText={(text) => {
-              // @ts-ignore
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-              listRef?.current?._listRef?._scrollRef?.scrollTo?.({
-                y: 0,
+              // Reset list to the top whenever the user types in search.
+              listRef.current?.scrollToLocation?.({
+                sectionIndex: 0,
+                itemIndex: 0,
+                viewPosition: 0,
                 animated: false,
               });
-              // @ts-ignore
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              if (listRef?.current?._listRef?._hasDoneInitialScroll) {
-                // @ts-ignore
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                listRef.current._listRef._hasDoneInitialScroll = false;
-              }
               setSearchText(text);
             }}
             {...(!platformEnv.isNative && {
@@ -544,46 +443,22 @@ export const EditableChainSelectorContent = ({
               allNetworkItem,
             ].filter(Boolean)}
             showAllNetwork={showAllNetworkInRecentNetworks}
+            swrKeyScope="editable-chain-selector"
           />
         ) : null}
         <Stack flex={1}>
           {sections.length > 0 ? (
-            <SortableSectionList
+            <SectionList
               ref={listRef}
-              enabled={false}
               stickySectionHeadersEnabled
               sections={sections}
               renderItem={renderItem}
               keyExtractor={(item) => (item as IServerNetwork).id}
-              onDragEnd={(result) => {
-                const itemList = result?.sections?.[0]
-                  ?.data as IServerNetwork[];
-                setTempFrequentlyUsedItems(itemList);
-              }}
-              initialScrollIndex={
-                platformEnv.isNative ? initialScrollIndex : undefined
-              }
-              dragItemOverflowHitSlop={dragItemOverflowHitSlop}
-              getItemLayout={(_, index) => {
-                if (index === -1) {
-                  return {
-                    index,
-                    offset:
-                      showAllNetworkHeader || showNonZeroValueTooltip
-                        ? listHeaderHeight
-                        : 0,
-                    length: 0,
-                  };
-                }
-                return layoutList[index];
-              }}
+              estimatedItemSize={CELL_HEIGHT}
               ListHeaderComponent={<ListHeaderComponent />}
               renderSectionHeader={renderSectionHeader}
-              ListFooterComponent={
-                <>
-                  {isEditMode ? <Stack h="$2" /> : <Stack h={bottom || '$2'} />}
-                </>
-              } // Act as padding bottom
+              contentContainerStyle={{ paddingBottom: bottom || 8 }}
+              onLayout={handleListLayout}
             />
           ) : (
             <ListEmptyComponent />

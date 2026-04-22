@@ -474,6 +474,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
         <RecentNetworks
           onPressItem={onPressItem}
           availableNetworks={networks}
+          swrKeyScope="pure-chain-selector"
         />
       ) : null}
       {/* Re-render the entire list after each text update */}
