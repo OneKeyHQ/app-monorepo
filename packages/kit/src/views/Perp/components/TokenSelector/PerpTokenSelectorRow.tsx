@@ -7,6 +7,8 @@ import {
   useMemo,
 } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   DebugRenderTracker,
   IconButton,
@@ -27,6 +29,7 @@ import {
   useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -220,6 +223,43 @@ const SubtitleBadge = memo(
 );
 SubtitleBadge.displayName = 'SubtitleBadge';
 
+export const TradingModeBadge = memo(
+  ({
+    isSpot,
+    px = '$1',
+    bg = '$bgSubdued',
+    color = '$textSubdued',
+  }: {
+    isSpot: boolean;
+    px?: string | number;
+    bg?: string;
+    color?: string;
+  }) => {
+    const intl = useIntl();
+
+    return (
+      <XStack
+        borderRadius="$1"
+        bg={bg}
+        justifyContent="center"
+        alignItems="center"
+        px={px}
+      >
+        <SizableText color={color} fontSize={10} lineHeight={16}>
+          {isSpot
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_spot,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_label_perp,
+              })}
+        </SizableText>
+      </XStack>
+    );
+  },
+);
+TradingModeBadge.displayName = 'TradingModeBadge';
+
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
   const { token, isSpot } = useTokenSelectorRowContext();
@@ -260,6 +300,14 @@ const TokenInfoCellDesktop = memo(() => {
               {token.displayName}
             </SizableText>
             <XStack gap="$1" minWidth={0}>
+              {isSpot ? (
+                <TradingModeBadge
+                  isSpot
+                  px="$1.5"
+                  bg="$bgStrong"
+                  color="$textSubdued"
+                />
+              ) : null}
               {!isSpot && token.maxLeverage > 0 ? (
                 <XStack
                   borderRadius="$1"
@@ -582,6 +630,9 @@ const TokenNameMobile = memo(() => {
             <SizableText size="$bodyMdMedium">{token.displayName}</SizableText>
 
             <XStack gap="$1">
+              {isSpot ? (
+                <TradingModeBadge isSpot px="$1.5" bg="$bgStrong" />
+              ) : null}
               {!isSpot && token.maxLeverage > 0 ? (
                 <XStack
                   borderRadius="$1"

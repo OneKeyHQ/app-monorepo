@@ -237,7 +237,7 @@ function MobileTokenSelectorModal({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
-      spot: 'Spot', // TODO: add i18n key (ETranslations)
+      spot: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
     }),
     [intl],
   );
