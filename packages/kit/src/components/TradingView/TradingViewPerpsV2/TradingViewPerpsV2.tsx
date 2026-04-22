@@ -240,25 +240,38 @@ export function TradingViewPerpsV2(
       const oid = Number.parseInt(payload.orderId ?? '', 10);
       if (!Number.isFinite(oid)) return;
 
-      await actions.current.ensureTradingEnabled();
-      await actions.current.cancelChartOrder({ oid });
+      // Message handler invokes this without await — swallow rejections to
+      // avoid leaking them as unhandled; errors are already surfaced via
+      // withToast inside cancelChartOrder / ensureTradingEnabled.
+      try {
+        await actions.current.ensureTradingEnabled();
+        await actions.current.cancelChartOrder({ oid });
+      } catch {
+        // intentional: toast owns the user-facing message
+      }
     },
     [actions],
   );
 
   const onOrderDraftCreate = useCallback(
     async (payload: ITVOrderDraftCreatePayload) => {
-      await actions.current.ensureTradingEnabled();
-      await withToast({
-        asyncFn: () =>
-          backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin({
-            coin: payload.symbol,
-            isBuy: payload.side === 'buy',
-            size: payload.quantity,
-            price: payload.price,
-          }),
-        actionType: EActionType.PLACE_ORDER,
-      });
+      try {
+        await actions.current.ensureTradingEnabled();
+        await withToast({
+          asyncFn: () =>
+            backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin(
+              {
+                coin: payload.symbol,
+                isBuy: payload.side === 'buy',
+                size: payload.quantity,
+                price: payload.price,
+              },
+            ),
+          actionType: EActionType.PLACE_ORDER,
+        });
+      } catch {
+        // intentional: withToast owns the user-facing error message
+      }
     },
     [actions],
   );
