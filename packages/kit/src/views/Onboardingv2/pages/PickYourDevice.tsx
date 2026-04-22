@@ -16,7 +16,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
-  ANIMATE_ONLY_BACKGROUND_COLOR,
+  ANIMATE_ONLY_BG_BORDER_COLOR,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -144,7 +144,7 @@ export default function PickYourDevice() {
                 right={0}
                 bottom={0}
                 animation="quick"
-                animateOnly={ANIMATE_ONLY_BACKGROUND_COLOR}
+                animateOnly={ANIMATE_ONLY_BG_BORDER_COLOR}
                 pointerEvents="none"
                 $gtMd={{
                   borderLeftWidth: 1,
@@ -153,11 +153,11 @@ export default function PickYourDevice() {
                   borderRightColor: '$transparent',
                 }}
                 $group-card-hover={{
-                  bg: '$bgSubdued',
+                  bg: '$bgHover',
                   borderColor: '$borderSubdued',
                 }}
                 $group-card-press={{
-                  bg: '$bgStrong',
+                  bg: '$bgActive',
                   borderColor: '$borderSubdued',
                 }}
               />
@@ -175,6 +175,7 @@ export default function PickYourDevice() {
                 bottom={0}
                 alignItems="center"
                 justifyContent="center"
+                $group-card-hover={{ y: -4 }}
                 $gtMd={{
                   position: 'relative',
                   left: 'auto',
@@ -186,9 +187,6 @@ export default function PickYourDevice() {
                 }}
               >
                 <Image
-                  animation="quick"
-                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                  $group-card-hover={{ y: -4 }}
                   source={image}
                   width="100%"
                   height="90%"
