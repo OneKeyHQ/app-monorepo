@@ -3,13 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated, {
-  Easing,
   useAnimatedProps,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { scheduleOnRN } from 'react-native-worklets';
 import { useThrottledCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -151,16 +148,19 @@ function FinalizeWalletSetupPage({
   const shouldAutoResetKeylessPinAfterRestore =
     route?.params?.shouldAutoResetKeylessPinAfterRestore;
 
-  const initialStep = EFinalizeWalletSetupSteps.CreatingWallet;
+  // Hardware path starts with "Connecting to device" because connectDevice()
+  // runs before the backend wallet creation pipeline emits any events.
+  const initialStep = route?.params?.deviceData
+    ? EFinalizeWalletSetupSteps.ConnectingDevice
+    : EFinalizeWalletSetupSteps.CreatingWallet;
 
   const [currentStep, setCurrentStep] =
     useState<EFinalizeWalletSetupSteps>(initialStep);
   const progress = useSharedValue(0);
   const pathLength = 150;
 
-  // 队列管理
-  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([initialStep]);
-  const isProcessing = useRef(false);
+  // 队列管理 — starts empty; real backend events fill it as they arrive.
+  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
 
   const animatedProps = useAnimatedProps(() => {
     // oxlint-disable-next-line @cspell/spellchecker
@@ -212,56 +212,31 @@ function FinalizeWalletSetupPage({
     { leading: true, trailing: false },
   );
 
-  const changeIdProgress = useCallback((value: boolean) => {
-    isProcessing.current = value;
-  }, []);
-
-  const stepQueueIndex = useRef<number>(0);
+  // Step transitions are driven purely by real events.
+  // No animation lock, no polling — whenever goNextStep pushes, we react.
   const processNextStep = useCallback(() => {
-    if (isProcessing.current || stepQueue.current.length === 0) {
-      return;
+    while (stepQueue.current.length > 0) {
+      const nextStep = stepQueue.current.shift();
+      if (nextStep) {
+        if (nextStep === EFinalizeWalletSetupSteps.Ready) {
+          setCurrentStep(nextStep);
+          void handleWalletSetupReady();
+          return;
+        }
+        setCurrentStep(nextStep);
+      }
     }
-    isProcessing.current = true;
-    const nextStep = stepQueue.current[stepQueueIndex.current];
-    if (!nextStep) {
-      setTimeout(() => {
-        isProcessing.current = false;
-        void processNextStep();
-      }, 250);
-      return;
-    }
-    if (nextStep === EFinalizeWalletSetupSteps.Ready) {
-      setTimeout(() => {
-        void handleWalletSetupReady();
-      }, 150);
-      return;
-    }
-    setCurrentStep(nextStep);
-    setTimeout(() => {
-      stepQueueIndex.current += 1;
-      progress.value = 0;
-      progress.value = withTiming(
-        1,
-        {
-          duration: 2000,
-          easing: Easing.linear,
-        },
-        (finished) => {
-          if (finished) {
-            scheduleOnRN(setCurrentStep, nextStep);
-            scheduleOnRN(changeIdProgress, false);
-            scheduleOnRN(processNextStep);
-          }
-        },
-      );
-    }, 150);
-  }, [changeIdProgress, handleWalletSetupReady, progress]);
+  }, [handleWalletSetupReady]);
 
-  const goNextStep = useCallback((step: EFinalizeWalletSetupSteps) => {
-    if (!stepQueue.current.includes(step)) {
-      stepQueue.current.push(step);
-    }
-  }, []);
+  const goNextStep = useCallback(
+    (step: EFinalizeWalletSetupSteps) => {
+      if (!stepQueue.current.includes(step)) {
+        stepQueue.current.push(step);
+      }
+      processNextStep();
+    },
+    [processNextStep],
+  );
 
   const actions = useAccountSelectorActions();
 
@@ -430,19 +405,13 @@ function FinalizeWalletSetupPage({
   );
 
   useEffect(() => {
-    // Defer animation start until after navigation transition completes.
-    // This prevents a triple-worklet collision (HeightTransition cleanup +
-    // screen transition + AnimatedPath mount) that can cause SIGSEGV in
-    // worklets::SerializableObject::toJSValue → facebook::jsi::Value::~Value
-    // on Android with Fabric/New Architecture.
+    // Defer createWallet until after navigation transition completes.
+    // Queue starts empty; backend events drive all step transitions.
     void timerUtils.setTimeoutPromised(() => {
       if (!unmountedRef.current) {
-        processNextStep();
+        void createWallet();
       }
     }, NAVIGATION_TRANSITION_SETTLE_MS);
-    if (!unmountedRef.current) {
-      void createWallet();
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -477,7 +446,7 @@ function FinalizeWalletSetupPage({
   const retrySetup = useCallback(() => {
     setSetupError(undefined);
     setCurrentStep(initialStep);
-    stepQueueIndex.current = 0;
+    stepQueue.current = [];
     setTimeout(() => {
       void createWallet();
     });
