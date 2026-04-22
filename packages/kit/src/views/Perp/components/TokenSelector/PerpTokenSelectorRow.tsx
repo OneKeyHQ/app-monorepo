@@ -36,8 +36,11 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatSpotPairDisplayName,
+  formatSpotPriceToValid,
+  formatWithPrecision,
   getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
+  getValidSpotPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
@@ -396,13 +399,19 @@ const TokenPriceCellDesktop = memo(() => {
           justifyContent="flex-start"
         >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
-            <NumberSizeableText
-              formatter="price"
-              size="$bodySmMedium"
-              color="$text"
-            >
-              {assetCtx.markPrice}
-            </NumberSizeableText>
+            {isSpot ? (
+              <SizableText size="$bodySmMedium" color="$text">
+                {assetCtx.markPrice}
+              </SizableText>
+            ) : (
+              <NumberSizeableText
+                formatter="price"
+                size="$bodySmMedium"
+                color="$text"
+              >
+                {assetCtx.markPrice}
+              </NumberSizeableText>
+            )}
           </SkeletonContainer>
         </XStack>
       </DebugRenderTracker>
@@ -771,7 +780,7 @@ const TokenVolumeMobile = memo(() => {
 TokenVolumeMobile.displayName = 'TokenVolumeMobile';
 
 const TokenPriceMobile = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -786,18 +795,28 @@ const TokenPriceMobile = memo(() => {
           width={100}
           height={16}
         >
-          <NumberSizeableText
-            formatter="price"
-            size="$bodyMdMedium"
-            color="$text"
-            alignSelf="flex-end"
-          >
-            {assetCtx.markPrice}
-          </NumberSizeableText>
+          {isSpot ? (
+            <SizableText
+              size="$bodyMdMedium"
+              color="$text"
+              alignSelf="flex-end"
+            >
+              {assetCtx.markPrice}
+            </SizableText>
+          ) : (
+            <NumberSizeableText
+              formatter="price"
+              size="$bodyMdMedium"
+              color="$text"
+              alignSelf="flex-end"
+            >
+              {assetCtx.markPrice}
+            </NumberSizeableText>
+          )}
         </SkeletonContainer>
       </DebugRenderTracker>
     ),
-    [assetCtx.markPrice, isLoading],
+    [assetCtx.markPrice, isLoading, isSpot],
   );
   return content;
 });
@@ -900,9 +919,20 @@ const SpotTokenSelectorRowInner = memo(
     const markPx = ctx?.markPx || '0';
     const prevDayPx = Number(ctx?.prevDayPx || 0);
     const markPxNum = Number(markPx);
+    const priceDecimals = getValidSpotPriceDecimals(
+      markPx,
+      spotUniverse.baseSzDecimals ?? 2,
+    );
     const change24hPercent =
       prevDayPx > 0 ? ((markPxNum - prevDayPx) / prevDayPx) * 100 : 0;
-    const change24h = prevDayPx > 0 ? (markPxNum - prevDayPx).toFixed(6) : '0';
+    const change24h =
+      prevDayPx > 0
+        ? formatWithPrecision(markPxNum - prevDayPx, priceDecimals)
+        : '0';
+    const displayMarkPrice = formatSpotPriceToValid(
+      markPx,
+      spotUniverse.baseSzDecimals ?? 2,
+    );
 
     const handlePress = useMemo(
       () => () => onPress(spotUniverse.name),
@@ -936,7 +966,7 @@ const SpotTokenSelectorRowInner = memo(
           assetId: spotUniverse.assetId,
         },
         assetCtx: {
-          markPrice: markPx,
+          markPrice: displayMarkPrice,
           change24h,
           change24hPercent,
           fundingRate: '0',
@@ -949,7 +979,7 @@ const SpotTokenSelectorRowInner = memo(
       }),
       [
         spotUniverse,
-        markPx,
+        displayMarkPrice,
         change24h,
         change24hPercent,
         ctx,

@@ -98,6 +98,8 @@ function PerpAccountPanel() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const { showPortfolio } = useShowPortfolio();
+  const portfolioValueTooltip =
+    'Combined spot and perps portfolio value, including available balances and unrealized P&L from open perps positions. This does not represent withdrawable amount.';
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
@@ -126,9 +128,7 @@ function PerpAccountPanel() {
         <XStack justifyContent="space-between">
           <Tooltip
             placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_account_panel_account_value_tooltip,
-            })}
+            renderContent={portfolioValueTooltip}
             renderTrigger={
               <DashText
                 size="$bodySm"
@@ -138,7 +138,7 @@ function PerpAccountPanel() {
                 dashThickness={0.5}
               >
                 {intl.formatMessage({
-                  id: ETranslations.perp_account_panel_account_value,
+                  id: ETranslations.perp_portfolio_value,
                 })}
               </DashText>
             }
