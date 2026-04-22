@@ -146,8 +146,20 @@ export default function PickYourDevice() {
                 animation="quick"
                 animateOnly={ANIMATE_ONLY_BACKGROUND_COLOR}
                 pointerEvents="none"
-                $group-card-hover={{ bg: '$bgSubdued' }}
-                $group-card-press={{ bg: '$bgStrong' }}
+                $gtMd={{
+                  borderLeftWidth: 1,
+                  borderRightWidth: 1,
+                  borderLeftColor: '$transparent',
+                  borderRightColor: '$transparent',
+                }}
+                $group-card-hover={{
+                  bg: '$bgSubdued',
+                  borderColor: '$borderSubdued',
+                }}
+                $group-card-press={{
+                  bg: '$bgStrong',
+                  borderColor: '$borderSubdued',
+                }}
               />
               <YStack
                 position="absolute"
