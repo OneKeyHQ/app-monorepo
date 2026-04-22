@@ -63,26 +63,29 @@ describe('registerSecuritySimulateCommand', () => {
       '0x095ea7b3',
     ]);
 
-    expect(output.success).toHaveBeenCalledWith({
-      type: null,
-      display: null,
-      parsedTx: {
-        data: {
-          hexSignature: '0x095ea7b3',
-          textSignature: 'approve(address,uint256)',
-          name: 'approve',
+    expect(output.success).toHaveBeenCalledWith(
+      {
+        type: null,
+        display: null,
+        parsedTx: {
+          data: {
+            hexSignature: '0x095ea7b3',
+            textSignature: 'approve(address,uint256)',
+            name: 'approve',
+          },
+          to: {
+            address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+            name: 'Circle: USD Coin (USDC)',
+            labels: null,
+            isContract: true,
+            riskLevel: 1,
+          },
         },
-        to: {
-          address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
-          name: 'Circle: USD Coin (USDC)',
-          labels: null,
-          isContract: true,
-          riskLevel: 1,
-        },
+        accountAddress: '0x0000000000000000000000000000000000000001',
+        isConfirmationRequired: false,
       },
-      accountAddress: '0x0000000000000000000000000000000000000001',
-      isConfirmationRequired: false,
-    }, { chain: 'arbitrum' });
+      { chain: 'arbitrum' },
+    );
     expect(output.error).not.toHaveBeenCalled();
   });
 });
