@@ -34,7 +34,7 @@ const PickYourDevice = LazyLoadPage(
   () => import('../pages/PickYourDevice'),
   undefined,
   false,
-  <OnboardingLayoutFallback />,
+  <OnboardingPageFallback />,
 );
 const ImportPhraseOrPrivateKey = LazyLoadPage(
   () => import('../pages/ImportPhraseOrPrivateKey'),
