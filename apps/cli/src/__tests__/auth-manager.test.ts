@@ -43,8 +43,10 @@ jest.mock('../core/auth/app-transfer-payload', () => {
 
 // Registry is exercised only for the HD signer path during login. Mock it
 // here so tests don't need real crypto — each test configures the builder
-// return via `mockSignerAddress` before triggering the login flow.
-const mockSignerAddress = { current: '0x0000000000000000000000000000000000000000' };
+// return via `mockSignerAddress.current` before triggering the login flow.
+const DEFAULT_MOCK_SIGNER_ADDRESS =
+  '0x0000000000000000000000000000000000000000';
+const mockSignerAddress = { current: DEFAULT_MOCK_SIGNER_ADDRESS };
 
 jest.mock('../signer/registry', () => ({
   resolveSignerRegistration: jest.fn(async () => ({})),
@@ -191,6 +193,7 @@ const mockedExtractBotWalletMnemonic = jest.mocked(
 beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'auth-manager-'));
   sessionPath = join(tempDir, 'auth-session.json');
+  mockSignerAddress.current = DEFAULT_MOCK_SIGNER_ADDRESS;
   mockedExtractBotWalletMnemonic.mockImplementation(
     jest.requireActual<typeof import('../core/auth/app-transfer-payload')>(
       '../core/auth/app-transfer-payload',

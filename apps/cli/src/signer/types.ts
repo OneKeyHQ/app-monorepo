@@ -15,7 +15,7 @@ import type {
  */
 export interface ISignTransactionPayload {
   networkId: string;
-  account: { address: string; path: string; publicKey?: string };
+  account: { address: string; path: string; pub?: string };
   unsignedTx: { encodedTx: Record<string, unknown> };
 }
 

@@ -67,7 +67,7 @@ export class SignerHd extends SignerHdBase implements ISigner {
       account: {
         address: payload.account.address,
         path: payload.account.path,
-        pub: payload.account.publicKey,
+        pub: payload.account.pub,
       },
       unsignedTx: payload.unsignedTx,
     });
