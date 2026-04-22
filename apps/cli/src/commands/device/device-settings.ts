@@ -1,8 +1,8 @@
 import { AppError, ERROR_CODES } from '../../errors';
 
-import { ensureSDKReady, searchDevice, unwrapSDKResult } from './hardware-sdk';
+import { runDeviceAction } from './device-runner';
+import { unwrapSDKResult } from './hardware-sdk';
 
-import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
 export function registerDeviceSettingsCommand(parent: Command): void {
@@ -23,14 +23,8 @@ export function registerDeviceSettingsCommand(parent: Command): void {
           hapticFeedback?: string;
         },
         command: Command,
-      ) => {
-        const globalOpts = command.optsWithGlobals();
-        const output = globalOpts._outputFormatter as OutputFormatter;
-
-        try {
-          const sdk = await ensureSDKReady();
-          const { connectId } = await searchDevice();
-
+      ) =>
+        runDeviceAction(command, async ({ sdk, connectId, output }) => {
           const params: Record<string, unknown> = {};
           if (options.label !== undefined) params.label = options.label;
           if (options.autoLockDelay !== undefined) {
@@ -97,11 +91,6 @@ export function registerDeviceSettingsCommand(parent: Command): void {
             connectId,
             applied: params,
           });
-        } catch (error) {
-          const appError = AppError.from(error);
-          output.error(appError.toErrorDetail());
-          process.exitCode = appError.exitCode;
-        }
-      },
+        }),
     );
 }

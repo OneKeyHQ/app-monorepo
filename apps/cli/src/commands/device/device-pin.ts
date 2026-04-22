@@ -1,8 +1,6 @@
-import { AppError } from '../../errors';
+import { runDeviceAction } from './device-runner';
+import { unwrapSDKResult } from './hardware-sdk';
 
-import { ensureSDKReady, searchDevice, unwrapSDKResult } from './hardware-sdk';
-
-import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
 export function registerDevicePinCommand(parent: Command): void {
@@ -10,14 +8,8 @@ export function registerDevicePinCommand(parent: Command): void {
     .command('change-pin')
     .description('Change or remove device PIN')
     .option('--remove', 'Remove PIN protection (not recommended)')
-    .action(async (options: { remove?: boolean }, command: Command) => {
-      const globalOpts = command.optsWithGlobals();
-      const output = globalOpts._outputFormatter as OutputFormatter;
-
-      try {
-        const sdk = await ensureSDKReady();
-        const { connectId } = await searchDevice();
-
+    .action(async (options: { remove?: boolean }, command: Command) =>
+      runDeviceAction(command, async ({ sdk, connectId, output }) => {
         // useEmptyPassphrase: true — PIN management is device-level,
         // independent of any hidden wallet session.
         const result = await sdk.deviceChangePin(connectId, {
@@ -30,10 +22,6 @@ export function registerDevicePinCommand(parent: Command): void {
           status: options.remove ? 'pin_removed' : 'pin_changed',
           connectId,
         });
-      } catch (error) {
-        const appError = AppError.from(error);
-        output.error(appError.toErrorDetail());
-        process.exitCode = appError.exitCode;
-      }
-    });
+      }),
+    );
 }

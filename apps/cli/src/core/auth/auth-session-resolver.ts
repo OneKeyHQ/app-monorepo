@@ -5,7 +5,7 @@ import {
   KEYCHAIN_MNEMONIC_KEY,
   KEYCHAIN_PASSPHRASE_STATE_KEY,
   KEYCHAIN_SESSION_ID_KEY,
-} from '../../signer';
+} from '../../signer/keychain-keys';
 import { decrypt, secureWipe } from '../crypto-utils';
 
 import { createAppTransferSourceLabelFromMnemonic } from './app-transfer-session';

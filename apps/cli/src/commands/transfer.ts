@@ -1,4 +1,3 @@
-import { requireAuthenticatedSession } from '../core/auth/auth-gate';
 import { resolveChain } from '../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
@@ -107,11 +106,7 @@ export function registerTransferCommand(program: Command): void {
 
           const { feeDecimals, nativeDecimals, nativeSymbol } = chainConfig;
 
-          const session = await requireAuthenticatedSession();
-          const signer = await getSignerByImpl({
-            impl: chainConfig.impl,
-            session,
-          });
+          const signer = await getSignerByImpl(chainConfig.impl);
           const addressInfo = await signer.getAddress(chainConfig.networkId);
           const fromAddress = addressInfo.address;
 
@@ -391,7 +386,7 @@ export function registerTransferCommand(program: Command): void {
             account: {
               address: fromAddress,
               path: addressInfo.path ?? "m/44'/60'/0'/0/0",
-              publicKey: addressInfo.publicKey,
+              pub: addressInfo.publicKey,
             },
             unsignedTx: { encodedTx: encodedTxWithGas },
           });

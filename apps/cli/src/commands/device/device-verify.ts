@@ -1,24 +1,16 @@
 import { randomBytes } from 'node:crypto';
 
-import { AppError } from '../../errors';
+import { runDeviceAction } from './device-runner';
+import { unwrapSDKResult } from './hardware-sdk';
 
-import { ensureSDKReady, searchDevice, unwrapSDKResult } from './hardware-sdk';
-
-import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
 export function registerDeviceVerifyCommand(parent: Command): void {
   parent
     .command('verify')
     .description('Verify device authenticity (anti-tampering check)')
-    .action(async (_options: Record<string, unknown>, command: Command) => {
-      const globalOpts = command.optsWithGlobals();
-      const output = globalOpts._outputFormatter as OutputFormatter;
-
-      try {
-        const sdk = await ensureSDKReady();
-        const { connectId } = await searchDevice();
-
+    .action(async (_options: Record<string, unknown>, command: Command) =>
+      runDeviceAction(command, async ({ sdk, connectId, output }) => {
         // Cryptographically strong challenge for anti-tampering verification.
         // A predictable challenge would let a tampered device replay a
         // previously captured signature, defeating the attestation.
@@ -34,10 +26,6 @@ export function registerDeviceVerifyCommand(parent: Command): void {
           connectId,
           ...(payload as Record<string, unknown>),
         });
-      } catch (error) {
-        const appError = AppError.from(error);
-        output.error(appError.toErrorDetail());
-        process.exitCode = appError.exitCode;
-      }
-    });
+      }),
+    );
 }

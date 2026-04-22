@@ -1,8 +1,8 @@
 import { AppError, ERROR_CODES } from '../../errors';
 
-import { ensureSDKReady, searchDevice, unwrapSDKResult } from './hardware-sdk';
+import { runDeviceAction } from './device-runner';
+import { unwrapSDKResult } from './hardware-sdk';
 
-import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
 export function registerDevicePassphraseCommand(parent: Command): void {
@@ -10,11 +10,8 @@ export function registerDevicePassphraseCommand(parent: Command): void {
     .command('toggle-passphrase')
     .description('Enable or disable passphrase (hidden wallet) protection')
     .requiredOption('--enable <bool>', 'true to enable, false to disable')
-    .action(async (options: { enable: string }, command: Command) => {
-      const globalOpts = command.optsWithGlobals();
-      const output = globalOpts._outputFormatter as OutputFormatter;
-
-      try {
+    .action(async (options: { enable: string }, command: Command) =>
+      runDeviceAction(command, async ({ sdk, connectId, output }) => {
         if (options.enable !== 'true' && options.enable !== 'false') {
           throw new AppError(
             ERROR_CODES.PARAM_INVALID_CONFIG.code,
@@ -23,8 +20,6 @@ export function registerDevicePassphraseCommand(parent: Command): void {
           );
         }
 
-        const sdk = await ensureSDKReady();
-        const { connectId } = await searchDevice();
         const enable = options.enable === 'true';
 
         // useEmptyPassphrase: true — toggling passphrase is a device-level operation,
@@ -39,10 +34,6 @@ export function registerDevicePassphraseCommand(parent: Command): void {
           status: enable ? 'passphrase_enabled' : 'passphrase_disabled',
           connectId,
         });
-      } catch (error) {
-        const appError = AppError.from(error);
-        output.error(appError.toErrorDetail());
-        process.exitCode = appError.exitCode;
-      }
-    });
+      }),
+    );
 }

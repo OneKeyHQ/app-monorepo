@@ -1,13 +1,18 @@
 import { randomBytes } from 'node:crypto';
 
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+
 import { AppError } from '../../errors';
 import { AuthSessionStore } from '../../infra/auth-session-store';
 import { createSecureStorage } from '../../infra/keychain-storage';
 import {
   KEYCHAIN_ENCRYPTION_KEY,
   KEYCHAIN_MNEMONIC_KEY,
-  getSignerByImpl,
-} from '../../signer';
+} from '../../signer/keychain-keys';
+import {
+  requireSignerBuilder,
+  resolveSignerRegistration,
+} from '../../signer/registry';
 import { encrypt, secureWipe } from '../crypto-utils';
 import { secureCache } from '../secure-cache';
 
@@ -26,7 +31,6 @@ import type {
   StartAppTransferLoginInput,
 } from './auth-types';
 import type { ISecureStorage } from '../../infra/keychain-storage';
-import type { ISigner } from '../../signer/types';
 import type {
   ITransferPayloadHandlingContext,
   ITransferPayloadHandlingResult,
@@ -46,9 +50,6 @@ export class AuthManager {
   constructor(
     private readonly storage: ISecureStorage = createSecureStorage(),
     private readonly sessionStore: AuthSessionStore = new AuthSessionStore(),
-    private readonly signerFactory: (options: {
-      impl: string;
-    }) => Promise<ISigner> = getSignerByImpl,
     private readonly appTransferLogin: IAppTransferLoginExecutor = startAppTransferLogin,
   ) {
     this.resolver = new AuthSessionResolver(this.storage, this.sessionStore);
@@ -172,7 +173,10 @@ export class AuthManager {
       await this.storage.set(KEYCHAIN_ENCRYPTION_KEY, encryptionKeyBuffer);
       await this.storage.set(KEYCHAIN_MNEMONIC_KEY, encryptedMnemonic);
 
-      const signer = await this.signerFactory({ impl: 'evm' });
+      // Build an HD signer directly off the registry: the session isn't
+      // persisted yet, so `getSignerByImpl` (which auto-auths) would fail.
+      const registration = await resolveSignerRegistration('evm');
+      const signer = await requireSignerBuilder(registration, WALLET_TYPE_HD)();
       const addressInfo = await signer.getAddress(AUTH_DEFAULT_EVM_NETWORK_ID);
 
       await this.sessionStore.save(

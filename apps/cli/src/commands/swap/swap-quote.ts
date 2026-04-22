@@ -6,7 +6,6 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import { version as VERSION } from '../../../package.json';
 import { ConfigManager, getHost } from '../../config';
 import { auditToken, resolveToken } from '../../core';
-import { requireAuthenticatedSession } from '../../core/auth/auth-gate';
 import { resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { getSignerByImpl } from '../../signer';
@@ -283,8 +282,7 @@ async function tryGetWalletAddress(
   networkId: string,
 ): Promise<string | undefined> {
   try {
-    const session = await requireAuthenticatedSession();
-    const signer = await getSignerByImpl({ impl, session });
+    const signer = await getSignerByImpl(impl);
     const addressInfo = await signer.getAddress(networkId);
     return addressInfo.address;
   } catch (error) {

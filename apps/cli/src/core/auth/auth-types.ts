@@ -9,21 +9,14 @@ import type {
   ITransferPairingSession,
 } from '../prime-transfer/transfer-types';
 
-/**
- * CLI-specific login method tag. `'app_transfer'` covers the Bot Wallet
- * pairing flow; `'hardware'` covers the hardware-device login flow.
- * (No kit-bg equivalent — shared across the two `auth login` variants.)
- */
+/** CLI login-method tags (Bot Wallet pairing vs hardware device). */
 export const AUTH_LOGIN_METHOD_APP_TRANSFER = 'app_transfer';
 export const AUTH_LOGIN_METHOD_HARDWARE = 'hardware';
 
 /**
- * Passphrase entry mode for hidden-wallet hardware sessions. The mode is
- * persisted so subsequent commands know how to re-prompt; the passphrase
- * value and passphraseState are never written to disk.
- *   - 'none': standard wallet (useEmptyPassphrase)
- *   - 'on_host': entered via pinentry on the host each time
- *   - 'on_device': entered on the device screen each time
+ * Passphrase entry mode for hidden-wallet sessions. Persisted so follow-up
+ * commands know how to re-prompt; the passphrase value itself is never
+ * written to disk.
  */
 export const PASSPHRASE_MODE_NONE = 'none';
 export const PASSPHRASE_MODE_ON_HOST = 'on_host';
@@ -33,12 +26,7 @@ type IAuthLoginMethod =
   | typeof AUTH_LOGIN_METHOD_APP_TRANSFER
   | typeof AUTH_LOGIN_METHOD_HARDWARE;
 
-/**
- * Wallet kind tag. Aligned with kit-bg's `IDBWalletType` subset so a
- * session produced by the CLI can be recognized by shared account utils
- * (e.g. `accountUtils.isHdWallet` / `isHwWallet` checks walletId prefix,
- * but the kind label should also match for future interop).
- */
+/** Aligned with kit-bg's `IDBWalletType` subset for cross-surface interop. */
 type IAuthWalletKind = typeof WALLET_TYPE_HD | typeof WALLET_TYPE_HW;
 
 type IAuthStatus = 'authenticated' | 'unauthenticated';

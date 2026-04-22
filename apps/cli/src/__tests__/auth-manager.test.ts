@@ -28,7 +28,6 @@ import type {
   ISecureStorage,
   SecureStorageBackend,
 } from '../infra/keychain-storage';
-import type { ISigner } from '../signer/types';
 
 jest.mock('../core/auth/app-transfer-payload', () => {
   const actual = jest.requireActual<
@@ -41,6 +40,30 @@ jest.mock('../core/auth/app-transfer-payload', () => {
     ),
   };
 });
+
+// Registry is exercised only for the HD signer path during login. Mock it
+// here so tests don't need real crypto — each test configures the builder
+// return via `mockSignerAddress` before triggering the login flow.
+const mockSignerAddress = { current: '0x0000000000000000000000000000000000000000' };
+
+jest.mock('../signer/registry', () => ({
+  resolveSignerRegistration: jest.fn(async () => ({})),
+  requireSignerBuilder: jest.fn(() => async () => ({
+    async getAddress() {
+      return {
+        address: mockSignerAddress.current,
+        path: "m/44'/60'/0'/0/0",
+        publicKey: '0x',
+      };
+    },
+    async signTransaction() {
+      throw new Error('signTransaction not implemented in tests');
+    },
+    async signMessage() {
+      throw new Error('signMessage not implemented in tests');
+    },
+  })),
+}));
 
 class InMemorySecureStorage implements ISecureStorage {
   private readonly store = new Map<string, Buffer>();
@@ -121,32 +144,6 @@ function createPartiallyFailingReadSecureStorage(
     },
     async delete(_key: string): Promise<void> {
       return undefined;
-    },
-  };
-}
-
-function createMockSigner(
-  address = '0x1234567890abcdef1234567890abcdef12345678',
-): ISigner {
-  return {
-    async getAddress(
-      _networkId: Parameters<ISigner['getAddress']>[0],
-    ): Promise<Awaited<ReturnType<ISigner['getAddress']>>> {
-      return {
-        address,
-        path: "m/44'/60'/0'/0/0",
-        publicKey: '0x',
-      } as Awaited<ReturnType<ISigner['getAddress']>>;
-    },
-    async signTransaction(
-      _payload: Parameters<ISigner['signTransaction']>[0],
-    ): Promise<never> {
-      throw new AppError('TEST_NOT_IMPLEMENTED', 'not implemented', 'retry');
-    },
-    async signMessage(
-      _payload: Parameters<ISigner['signMessage']>[0],
-    ): Promise<never> {
-      throw new AppError('TEST_NOT_IMPLEMENTED', 'not implemented', 'retry');
     },
   };
 }
@@ -338,14 +335,7 @@ describe('AuthManager', () => {
     const appTransferLogin = jest.fn(async (_input: unknown, _deps: unknown) =>
       makePairingResult(),
     );
-    const manager = new AuthManager(
-      storage,
-      sessionStore,
-      jest.fn<Promise<ISigner>, [{ impl: string }]>(async () =>
-        createMockSigner(),
-      ),
-      appTransferLogin,
-    );
+    const manager = new AuthManager(storage, sessionStore, appTransferLogin);
 
     const result = await manager.startAppTransferLogin({
       endpointEnv: 'test',
@@ -372,14 +362,7 @@ describe('AuthManager', () => {
     const appTransferLogin = jest.fn(async (_input: unknown, _deps: unknown) =>
       makePairingResult(),
     );
-    const manager = new AuthManager(
-      storage,
-      sessionStore,
-      jest.fn<Promise<ISigner>, [{ impl: string }]>(async () =>
-        createMockSigner(),
-      ),
-      appTransferLogin,
-    );
+    const manager = new AuthManager(storage, sessionStore, appTransferLogin);
 
     await expect(
       manager.startAppTransferLogin({
@@ -394,10 +377,7 @@ describe('AuthManager', () => {
   it('persists app transfer sessions through the shared mnemonic import core', async () => {
     const storage = new InMemorySecureStorage();
     const sessionStore = new AuthSessionStore(sessionPath);
-    const signerFactory = jest.fn<Promise<ISigner>, [{ impl: string }]>(
-      async () =>
-        createMockSigner('0x9999999999999999999999999999999999999999'),
-    );
+    mockSignerAddress.current = '0x9999999999999999999999999999999999999999';
     const appTransferLogin = jest.fn(
       async (
         _input: unknown,
@@ -431,12 +411,7 @@ describe('AuthManager', () => {
         return makePairingResult();
       },
     );
-    const manager = new AuthManager(
-      storage,
-      sessionStore,
-      signerFactory,
-      appTransferLogin,
-    );
+    const manager = new AuthManager(storage, sessionStore, appTransferLogin);
 
     const result = await manager.startAppTransferLogin({
       endpointEnv: 'test',
@@ -450,7 +425,6 @@ describe('AuthManager', () => {
       sourceLabel: APP_TRANSFER_SOURCE_LABEL,
       displayAddress: '0x9999999999999999999999999999999999999999',
     });
-    expect(signerFactory).toHaveBeenCalledWith({ impl: 'evm' });
   });
 
   it('rebuilds the app transfer source label from stored mnemonic for existing sessions', async () => {
@@ -485,12 +459,10 @@ describe('AuthManager', () => {
   it('rolls back a persisted app transfer session if the runtime times out before completion', async () => {
     const storage = new InMemorySecureStorage();
     const sessionStore = new AuthSessionStore(sessionPath);
+    mockSignerAddress.current = '0x9999999999999999999999999999999999999999';
     const manager = new AuthManager(
       storage,
       sessionStore,
-      jest.fn<Promise<ISigner>, [{ impl: string }]>(async () =>
-        createMockSigner('0x9999999999999999999999999999999999999999'),
-      ),
       jest.fn(
         async (
           _input: unknown,
@@ -554,9 +526,6 @@ describe('AuthManager', () => {
     const manager = new AuthManager(
       storage,
       sessionStore,
-      jest.fn<Promise<ISigner>, [{ impl: string }]>(async () =>
-        createMockSigner(),
-      ),
       jest.fn(
         async (
           _input: unknown,

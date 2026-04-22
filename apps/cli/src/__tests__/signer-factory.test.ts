@@ -12,24 +12,32 @@ jest.mock(
   { virtual: true },
 );
 
-import { getSignerByImpl } from '../signer/factory';
+import {
+  requireSignerBuilder,
+  resolveSignerRegistration,
+} from '../signer/registry';
 import { SignerHd } from '../signer/impls/evm/SignerHd';
 
-describe('signer factory', () => {
+async function buildHdSigner(impl: string) {
+  const registration = await resolveSignerRegistration(impl);
+  return requireSignerBuilder(registration, 'hd')();
+}
+
+describe('signer registry', () => {
   it('returns SignerHd for evm impl', async () => {
-    const signer = await getSignerByImpl({ impl: 'evm' });
+    const signer = await buildHdSigner('evm');
     expect(signer).toBeInstanceOf(SignerHd);
   });
 
   it('throws for unsupported impl', async () => {
-    await expect(getSignerByImpl({ impl: 'unknown' })).rejects.toThrow(
+    await expect(resolveSignerRegistration('unknown')).rejects.toThrow(
       'Unsupported chain',
     );
   });
 
   it('returns same class for repeated calls', async () => {
-    const a = await getSignerByImpl({ impl: 'evm' });
-    const b = await getSignerByImpl({ impl: 'evm' });
+    const a = await buildHdSigner('evm');
+    const b = await buildHdSigner('evm');
     expect(a.constructor).toBe(b.constructor);
   });
 });

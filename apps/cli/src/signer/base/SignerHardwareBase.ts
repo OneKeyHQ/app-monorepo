@@ -20,7 +20,7 @@ import type { DeviceInfo, PassphraseMode } from '../../core/auth/auth-types';
 import type { ISignTransactionPayload, ISigner } from '../types';
 import type { CoreApi } from '@onekeyfe/hd-core';
 
-/** Injected collaborators — production callers never pass these. Test seam. */
+/** Test seam for injected collaborators. */
 export interface ISignerHardwareDeps {
   ensureSDKReady: typeof ensureSDKReady;
   installPassphraseProvider: typeof installPassphraseProvider;
@@ -40,7 +40,6 @@ export interface ISignerHardwareDeps {
 export interface ISignerHardwareConfig {
   device: DeviceInfo;
   passphraseMode: PassphraseMode;
-  /** Test seam. Production callers never pass this. */
   deps?: Partial<ISignerHardwareDeps>;
 }
 
@@ -51,8 +50,7 @@ export function createDefaultSignerHardwareDeps(): ISignerHardwareDeps {
     resolvePassphraseStateByMode,
     keychainFactory: () => new KeychainStorage(),
     preloadSessionCache: (deviceId, passphraseState, sessionId) => {
-      // Lazily require — hd-core is external and CJS-packaged, so ESM
-      // default-interop would break bundling.
+      // Lazy require: hd-core is external CJS; ESM default-interop breaks bundling.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { preloadSessionCache } =
         require('@onekeyfe/hd-core') as typeof import('@onekeyfe/hd-core');
@@ -63,10 +61,9 @@ export function createDefaultSignerHardwareDeps(): ISignerHardwareDeps {
 }
 
 /**
- * Shared base for chain-specific hardware signers — owns the unlock /
- * passphrase / session-cache plumbing so subclasses only implement the
- * three chain-specific SDK calls (`getAddress`, `signTransaction`,
- * `signMessage`). Kit-bg analogue: `KeyringHardwareBase`.
+ * Shared base for chain-specific hardware signers. Owns unlock, passphrase
+ * and session-cache plumbing so subclasses only implement `getAddress`,
+ * `signTransaction`, `signMessage`. Kit-bg analogue: `KeyringHardwareBase`.
  */
 export abstract class SignerHardwareBase implements ISigner {
   protected readonly device: DeviceInfo;
@@ -75,13 +72,12 @@ export abstract class SignerHardwareBase implements ISigner {
 
   protected readonly deps: ISignerHardwareDeps;
 
-  /** NEVER persisted — dies when the CLI process exits. */
+  /** In-memory only — dies with the CLI process. */
   private cachedPassphraseState: string | undefined;
 
-  /** All hardware SDK calls await this before proceeding. */
   private hwInitPromise: Promise<void> | undefined;
 
-  /** Locking invalidates passphrase sessions, so keychain reuse is skipped when true. */
+  /** Locking invalidates passphrase sessions → cached state is unusable. */
   private deviceWasLocked = false;
 
   constructor(config: ISignerHardwareConfig) {
@@ -89,12 +85,10 @@ export abstract class SignerHardwareBase implements ISigner {
     this.passphraseMode = config.passphraseMode;
     this.deps = { ...createDefaultSignerHardwareDeps(), ...config.deps };
 
-    // Install persistent passphrase provider as a fallback for SDK
-    // REQUEST_PASSPHRASE events (fires when session cache misses).
+    // Fallback for SDK REQUEST_PASSPHRASE events (fires on session-cache miss).
     this.deps.installPassphraseProvider(this.passphraseMode);
 
-    // Unlock device + preload session cache from keychain. Must unlock
-    // first: locked devices reject cached sessions.
+    // Unlock first — locked devices reject cached sessions.
     this.hwInitPromise = this.ensureDeviceUnlocked().then(() => {
       if (this.passphraseMode !== PASSPHRASE_MODE_NONE) {
         return this.preloadSessionFromKeychain();
@@ -110,10 +104,7 @@ export abstract class SignerHardwareBase implements ISigner {
 
   abstract signMessage(payload: ICoreApiSignMsgPayload): Promise<string>;
 
-  /**
-   * Await hardware init (unlock + session preload) then return the shared SDK.
-   * Subclasses must call this before any `sdk.*` invocation.
-   */
+  /** Awaits unlock + session preload, then returns the shared SDK. */
   protected async getHardwareSDK(): Promise<CoreApi> {
     if (this.hwInitPromise) {
       await this.hwInitPromise;
@@ -123,12 +114,10 @@ export abstract class SignerHardwareBase implements ISigner {
   }
 
   /**
-   * Resolve the common parameters to splat into every SDK call:
-   *   - 'none'    → useEmptyPassphrase + skipPassphraseCheck
-   *   - hidden    → passphraseState + skipPassphraseCheck
-   *
-   * Resolves passphraseState with a 4-step chain: in-process cache → keychain
-   * → fresh SDK resolve (pinentry / device) → empty-passphrase fallback.
+   * Common parameters spread into every SDK call.
+   * skipPassphraseCheck: unlock-first flow already owns device state; on a
+   * stale session the SDK fires REQUEST_PASSPHRASE and the installed
+   * provider responds, so the error-112 retry dance is unnecessary.
    */
   protected async getHwCommonParams(): Promise<{
     useEmptyPassphrase?: true;
@@ -142,62 +131,62 @@ export abstract class SignerHardwareBase implements ISigner {
       };
     }
 
-    // skipPassphraseCheck: the unlock-first flow handles device state.
-    // If the session is stale, the SDK fires REQUEST_PASSPHRASE which the
-    // installed provider handles automatically — no error-112 retry needed.
-    const base = { skipPassphraseCheck: true as const };
-
-    // 1. Reuse in-process cache.
-    if (this.cachedPassphraseState) {
-      return { ...base, passphraseState: this.cachedPassphraseState };
-    }
-
-    // 2. Try keychain (persisted at login) — skip if device was locked
-    //    (locking invalidates passphrase sessions; cached state is useless).
-    if (!this.deviceWasLocked) {
-      try {
-        const keychain = this.deps.keychainFactory();
-        const buf = await keychain.get(KEYCHAIN_PASSPHRASE_STATE_KEY);
-        if (buf) {
-          this.cachedPassphraseState = buf.toString('utf-8');
-          return { ...base, passphraseState: this.cachedPassphraseState };
-        }
-      } catch {
-        // Keychain unavailable — fall through to SDK prompt.
-      }
-    }
-
-    // 3. Keychain miss — resolve fresh via SDK (prompts pinentry / device).
-    this.cachedPassphraseState = await this.deps.resolvePassphraseStateByMode(
-      this.device.connectId,
-      this.passphraseMode,
-    );
-
-    // 4. Persist to keychain (best-effort) + preload session for this run.
-    // passphraseState from the SDK is an opaque token (format is SDK's
-    // business — currently base58/URL-safe ASCII). Encode as utf-8 so
-    // any string round-trips losslessly through the keychain layer.
-    if (this.cachedPassphraseState) {
-      try {
-        const keychain = this.deps.keychainFactory();
-        await keychain.set(
-          KEYCHAIN_PASSPHRASE_STATE_KEY,
-          Buffer.from(this.cachedPassphraseState, 'utf-8'),
-        );
-        await this.preloadSessionFromKeychain();
-      } catch {
-        // non-fatal: keychain may be locked / unavailable; we already
-        // have the state in memory for this process.
-      }
-    }
-
-    if (this.cachedPassphraseState) {
-      return { ...base, passphraseState: this.cachedPassphraseState };
+    const state = await this.resolvePassphraseState();
+    if (state) {
+      return { skipPassphraseCheck: true as const, passphraseState: state };
     }
     return {
       useEmptyPassphrase: true as const,
       skipPassphraseCheck: true as const,
     };
+  }
+
+  /** Fallback chain: cache → keychain → fresh SDK resolve. */
+  private async resolvePassphraseState(): Promise<string | undefined> {
+    if (this.cachedPassphraseState) {
+      return this.cachedPassphraseState;
+    }
+
+    const fromKeychain = await this.readPassphraseStateFromKeychain();
+    if (fromKeychain) {
+      this.cachedPassphraseState = fromKeychain;
+      return fromKeychain;
+    }
+
+    const fresh = await this.deps.resolvePassphraseStateByMode(
+      this.device.connectId,
+      this.passphraseMode,
+    );
+    if (fresh) {
+      this.cachedPassphraseState = fresh;
+      await this.persistPassphraseState(fresh);
+    }
+    return fresh || undefined;
+  }
+
+  private async readPassphraseStateFromKeychain(): Promise<string | undefined> {
+    if (this.deviceWasLocked) return undefined;
+    try {
+      const buf = await this.deps
+        .keychainFactory()
+        .get(KEYCHAIN_PASSPHRASE_STATE_KEY);
+      return buf?.toString('utf-8');
+    } catch {
+      return undefined;
+    }
+  }
+
+  // passphraseState is an opaque SDK token (currently base58/URL-safe ASCII);
+  // utf-8 round-trips any string through the keychain layer.
+  private async persistPassphraseState(state: string): Promise<void> {
+    try {
+      await this.deps
+        .keychainFactory()
+        .set(KEYCHAIN_PASSPHRASE_STATE_KEY, Buffer.from(state, 'utf-8'));
+      await this.preloadSessionFromKeychain();
+    } catch {
+      // non-fatal — in-memory state still works this run.
+    }
   }
 
   private async ensureDeviceUnlocked(): Promise<void> {
@@ -216,12 +205,12 @@ export abstract class SignerHardwareBase implements ISigner {
         await sdk.deviceUnlock(this.device.connectId, {});
       }
     } catch {
-      // Non-fatal — proceed anyway, SDK will surface errors on real calls.
+      // non-fatal — SDK will surface real errors on the next call.
     }
   }
 
   private async preloadSessionFromKeychain(): Promise<void> {
-    // Skip if device was locked — session is invalid after lock/unlock cycle.
+    // Session is invalid after a lock/unlock cycle.
     if (this.deviceWasLocked) return;
 
     try {
@@ -240,7 +229,7 @@ export abstract class SignerHardwareBase implements ISigner {
         );
       }
     } catch {
-      // Non-fatal — fallback to passphrase prompt via the installed provider.
+      // non-fatal — fall back to the installed passphrase provider.
     }
   }
 }

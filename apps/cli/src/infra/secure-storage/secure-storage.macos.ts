@@ -25,16 +25,10 @@ export class MacOSSecureStorage implements ISecureStorage {
     const hex = value.toString('hex');
 
     try {
-      // Use `security -i` (interactive/batch mode): the tool parses
-      // commands from stdin internally instead of spawning a sub-process
-      // per command, so the password argument never appears in argv and
-      // therefore never shows up in `ps aux` / /proc snapshots.
-      //
-      // The three interpolated values are all safe for security's parser:
-      //   - service:  fixed `onekey-cli` constant (this file)
-      //   - account:  `wallet:<name>/<slot>` literals (signer/keychain-keys.ts)
-      //   - password: hex-only (0-9a-f from value.toString('hex'))
-      // None contain quotes or whitespace that would break the quoting.
+      // `security -i` reads the command from stdin, so the password never
+      // appears in argv (unlike `-w <hex>`, visible via `ps aux`).
+      // All three interpolated values are safe for security's parser:
+      // fixed service constant, literal account key, hex-only password.
       const cmd = `add-generic-password -s "${SERVICE_NAME}" -a "${key}" -w "${hex}" -U`;
       await this.runner.spawnWithStdin('security', ['-i'], cmd);
     } catch (error) {
