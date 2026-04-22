@@ -1559,49 +1559,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         throw new OneKeyLocalError(`Order ${params.oid} not found`);
       }
 
-      const activeCtx = await perpsActiveAssetCtxAtom.get();
-      const markPrice = activeCtx?.ctx?.markPrice;
-      if (!markPrice) {
-        throw new OneKeyLocalError('Mark price unavailable');
-      }
-
-      // Derive side from drag destination vs mark — below is long, above
-      // is short — matching plus-click create semantics.
-      const isBuy = new BigNumber(params.newPrice).lt(markPrice);
-      const existingIsBuy = existing.side === 'B';
-
+      // Drag adjusts price only — side stays as originally placed. HL's
+      // modify rejects side changes ("Attempted to modify to invalid new
+      // order"), and product decided cross-mark flip is out of scope:
+      // users who want the opposite side cancel and place a new order.
       return withToast({
-        asyncFn: async () => {
-          // Same side: HL supports true amend on the same oid.
-          if (isBuy === existingIsBuy) {
-            return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
-              {
-                coin: params.coin,
-                oid: params.oid,
-                newPrice: params.newPrice,
-                isBuy,
-                size: existing.sz,
-                reduceOnly: existing.reduceOnly,
-              },
-            );
-          }
-          // Cross-mark flip: HL rejects a modify that changes side with
-          // "invalid new order". Cancel the original and place a fresh
-          // order on the opposite side at the dragged price.
-          await backgroundApiProxy.serviceHyperliquidExchange.cancelOrderByOid({
+        asyncFn: () =>
+          backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid({
             coin: params.coin,
             oid: params.oid,
-          });
-          return backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin(
-            {
-              coin: params.coin,
-              isBuy,
-              size: existing.sz,
-              price: params.newPrice,
-              reduceOnly: existing.reduceOnly,
-            },
-          );
-        },
+            newPrice: params.newPrice,
+            isBuy: existing.side === 'B',
+            size: existing.sz,
+            reduceOnly: existing.reduceOnly,
+          }),
         actionType: EActionType.MODIFY_ORDER,
       });
     },
