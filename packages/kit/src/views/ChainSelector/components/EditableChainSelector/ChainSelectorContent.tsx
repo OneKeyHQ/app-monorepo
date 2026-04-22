@@ -44,6 +44,12 @@ import type {
   IEditableChainSelectorSection,
 } from './type';
 
+// Passed through to FlashList v2's overrideProps. See SectionList JSX
+// below for why we use spread-cast instead of naming the prop directly.
+const flashListOverrideProps = {
+  overrideProps: { initialDrawBatchSize: 30 },
+};
+
 const ListEmptyComponent = () => {
   const intl = useIntl();
   return (
@@ -309,6 +315,34 @@ export const EditableChainSelectorContent = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, networkId, searchText]);
 
+  // Convert `initialScrollIndex` (section/item) into the flat data index
+  // that FlashList (via SectionList) uses for `initialScrollIndex` prop.
+  //
+  // SectionList flattens `sections` into [Header, Items..., Footer] for
+  // section 0, then [Separator, Header, Items..., Footer] for each
+  // subsequent section (see @onekeyhq/components/.../SectionList/index.tsx).
+  //
+  // Passing this as the *initial* scroll index (vs. imperative
+  // scrollToLocation after onLayout) lets FlashList v2 set its scroll
+  // offset before the first render, so the sticky-header compute runs
+  // once with the correct offset. Otherwise we'd observe ~100ms of
+  // "B header not stuck yet" because sticky compute depends on a
+  // scroll event to settle (StickyHeaders.tsx / useEffect reads
+  // getLastScrollOffset which is 0 at mount).
+  const initialScrollFlatIndex = useMemo(() => {
+    if (!initialScrollIndex || !sections.length) return undefined;
+    let idx = 0;
+    for (let si = 0; si < initialScrollIndex.sectionIndex; si += 1) {
+      if (si !== 0) idx += 1; // separator
+      idx += 1; // header
+      idx += sections[si].data.length;
+      idx += 1; // footer
+    }
+    if (initialScrollIndex.sectionIndex !== 0) idx += 1; // target's separator
+    idx += 1; // target section header
+    return idx + (initialScrollIndex.itemIndex ?? 0);
+  }, [sections, initialScrollIndex]);
+
   const context = useMemo<IEditableChainSelectorContext>(
     () => ({
       walletId: walletId ?? '',
@@ -387,25 +421,6 @@ export const EditableChainSelectorContent = ({
     [],
   );
 
-  // Trigger the initial jump-to-selected once FlashList finishes its
-  // first measure pass (onLayout). Using a setTimeout after mount runs
-  // too early and FlashList's sticky compute hasn't caught up yet; the
-  // ref guard keeps later onLayout fires from re-jumping.
-  const didInitialScrollRef = useRef(false);
-  useEffect(() => {
-    didInitialScrollRef.current = false;
-  }, [initialScrollIndex]);
-  const handleListLayout = useCallback(() => {
-    if (!initialScrollIndex || didInitialScrollRef.current) return;
-    didInitialScrollRef.current = true;
-    listRef.current?.scrollToLocation?.({
-      sectionIndex: initialScrollIndex.sectionIndex,
-      itemIndex: initialScrollIndex.itemIndex ?? 0,
-      viewPosition: 0,
-      animated: false,
-    });
-  }, [initialScrollIndex]);
-
   return (
     <EditableChainSelectorContext.Provider value={context}>
       <Stack flex={1} position="relative">
@@ -455,10 +470,25 @@ export const EditableChainSelectorContent = ({
               renderItem={renderItem}
               keyExtractor={(item) => (item as IServerNetwork).id}
               estimatedItemSize={CELL_HEIGHT}
+              // Set initial scroll before first paint so FlashList's
+              // sticky compute runs once at the target offset, instead
+              // of briefly sitting at offset=0 and snapping the sticky
+              // header into place after the first scroll event.
+              initialScrollIndex={initialScrollFlatIndex}
+              // FlashList v2 ships with progressive rendering: first
+              // paint emits only `initialDrawBatchSize` cells (default
+              // 2) and then grows exponentially (2,4,8,16,...) every 5
+              // frames. That produces the visible "list fills in row
+              // by row" effect on modal open. Bumping this makes the
+              // first paint large enough to cover the viewport at
+              // initialScrollIndex, so users see a complete list
+              // instead of a trickle. `overrideProps` isn't in OneKey's
+              // ISectionListProps (the web variant maps to FlatList),
+              // so we funnel it through as any.
+              {...(flashListOverrideProps as Record<string, unknown>)}
               ListHeaderComponent={<ListHeaderComponent />}
               renderSectionHeader={renderSectionHeader}
               contentContainerStyle={{ paddingBottom: bottom || 8 }}
-              onLayout={handleListLayout}
             />
           ) : (
             <ListEmptyComponent />
