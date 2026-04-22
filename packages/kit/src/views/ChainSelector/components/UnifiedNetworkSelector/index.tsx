@@ -414,13 +414,7 @@ function UnifiedNetworkSelector() {
         }
       },
     });
-  }, [
-    navigation,
-    handleNetworkPressItem,
-    networksState,
-    walletId,
-    accountId,
-  ]);
+  }, [navigation, handleNetworkPressItem, networksState, walletId, accountId]);
 
   const handleEditCustomNetwork = useCallback(
     async (network: IServerNetwork) => {
