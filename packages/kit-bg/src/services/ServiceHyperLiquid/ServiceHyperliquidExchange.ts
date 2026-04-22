@@ -1144,21 +1144,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelOrderByOid(params: {
-    coin: string;
-    oid: number;
-  }): Promise<ICancelResponse> {
-    const symbolMeta =
-      await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
-        coin: normalizePerpsCoin(params.coin),
-      });
-    if (!symbolMeta) {
-      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
-    }
-    return this.cancelOrder([{ assetId: symbolMeta.assetId, oid: params.oid }]);
-  }
-
-  @backgroundMethod()
   async setPositionTpsl(
     params: IPositionTpslOrderParams,
   ): Promise<IOrderResponse> {
