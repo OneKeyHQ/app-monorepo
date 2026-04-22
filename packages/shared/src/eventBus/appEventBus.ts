@@ -71,6 +71,8 @@ export enum EFinalizeWalletSetupSteps {
   GeneratingAccounts = 'GeneratingAccounts',
   EncryptingData = 'EncryptingData',
   Ready = 'Ready',
+  // Hardware-only pre-step (UI-driven, not emitted from actions layer)
+  ConnectingDevice = 'ConnectingDevice',
 }
 
 export type IEventBusPayloadShowToast = {
