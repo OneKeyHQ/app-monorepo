@@ -9,7 +9,7 @@
 
 export type { ISigner } from './types';
 export { getSignerByImpl } from './factory';
-export { SignerHdBase } from './base/SignerHdBase';
+export { SignerSoftwareBase } from './base/SignerSoftwareBase';
 export { SignerHardwareBase } from './base/SignerHardwareBase';
 export type {
   ISignerHardwareConfig,

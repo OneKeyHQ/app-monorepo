@@ -4,12 +4,12 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 
-import { SignerHdBase } from '../../base/SignerHdBase';
+import { SignerSoftwareBase } from '../../base/SignerSoftwareBase';
 import { CLI_PASSWORD } from '../../keychain-keys';
 
 import { EVM_PATH_TEMPLATE, validateEvmNetworkId } from './evm-path';
 
-import type { ISignTransactionPayload, ISigner } from '../../types';
+import type { ISignTransactionPayload } from '../../types';
 
 // Lazy-loaded EVM scope — avoids bundling all chain SDKs at CLI startup.
 let evmScopePromise: Promise<
@@ -29,12 +29,14 @@ async function getEvmScope() {
 /**
  * HD (software) EVM signer. Uses the mnemonic + encryption key persisted in
  * the OS keychain. Hardware signing lives in the sibling `SignerHardware`
- * class (kit-bg convention: `KeyringHd` / `KeyringHardware`).
+ * class (kit-bg convention: `KeyringHd` / `KeyringHardware`). The base
+ * class declares the `ISigner` contract so this subclass only carries
+ * EVM-specific code.
  */
-export class SignerHd extends SignerHdBase implements ISigner {
+export class SignerHd extends SignerSoftwareBase {
   async getAddress(networkId: string): Promise<ICoreApiGetAddressItem> {
     validateEvmNetworkId(networkId);
-    const hdCredential = await this.getHdCredential();
+    const hdCredential = await this.baseGetHdCredential();
     const scope = await getEvmScope();
 
     const result = await scope.hd.getAddressesFromHd({
@@ -54,8 +56,8 @@ export class SignerHd extends SignerHdBase implements ISigner {
   ): Promise<ISignedTxPro> {
     validateEvmNetworkId(payload.networkId);
     const scope = await getEvmScope();
-    const hdCredential = await this.getHdCredential();
-    const encodedPassword = await this.getEncodedPassword();
+    const hdCredential = await this.baseGetHdCredential();
+    const encodedPassword = await this.baseGetEncodedPassword();
     const networkInfo = this.buildNetworkInfo(payload.networkId);
 
     return scope.hd.signTransaction({

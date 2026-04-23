@@ -2,6 +2,11 @@ import {
   encodeSensitiveTextAsync,
   revealableSeedFromMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type {
+  ICoreApiGetAddressItem,
+  ICoreApiSignMsgPayload,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
 
 import { decrypt, secureWipe } from '../../core/crypto-utils';
 import { AppError, ERROR_CODES } from '../../errors';
@@ -12,19 +17,36 @@ import {
   KEYCHAIN_MNEMONIC_KEY,
 } from '../keychain-keys';
 
+import type { ISignTransactionPayload, ISigner } from '../types';
+
 /**
- * Shared base for HD (software) signers. Owns the mnemonic decryption +
- * password helpers every software signer needs. Kit-bg analogue:
- * `KeyringHdBase`.
+ * Shared base for software signers (HD today; imported / watching in the
+ * future). Owns the mnemonic decryption + password helpers every software
+ * signer needs. Concrete chain implementations live under
+ * `signer/impls/<chain>/SignerHd.ts` and only implement the three
+ * `ISigner` methods.
+ *
+ * Kit-bg analogue: `KeyringSoftwareBase`. The kit-bg pattern keeps a
+ * separate marker subclass per wallet kind (`KeyringHdBase`,
+ * `KeyringImportedBase`); we don't have a wallet-kind enum yet, so HD
+ * extends this base directly until a second software wallet kind lands.
  */
-export class SignerHdBase {
+export abstract class SignerSoftwareBase implements ISigner {
   protected keychain = new KeychainStorage();
 
-  async getEncodedPassword(): Promise<string> {
+  abstract getAddress(networkId: string): Promise<ICoreApiGetAddressItem>;
+
+  abstract signTransaction(
+    payload: ISignTransactionPayload,
+  ): Promise<ISignedTxPro>;
+
+  abstract signMessage(payload: ICoreApiSignMsgPayload): Promise<string>;
+
+  protected async baseGetEncodedPassword(): Promise<string> {
     return encodeSensitiveTextAsync({ text: CLI_PASSWORD });
   }
 
-  async getHdCredential(): Promise<string> {
+  protected async baseGetHdCredential(): Promise<string> {
     const encryptionKeyBuf = await this.keychain.get(KEYCHAIN_ENCRYPTION_KEY);
     if (!encryptionKeyBuf) {
       throw new AppError(
