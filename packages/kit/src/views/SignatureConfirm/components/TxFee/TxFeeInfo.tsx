@@ -427,13 +427,24 @@ function TxFeeInfo(props: IProps) {
         const isCustomRpcEnabled = !!(
           customRpcInfo?.rpc && customRpcInfo?.enabled
         );
+        // Multi-tx flows fall through to this single-tx estimate path when
+        // `batchEstimateFee` is unavailable or fails. The single-tx estimate
+        // can return sponsor eligibility (gasAccount / megafuel) for the
+        // first tx, but `ServiceSend.batchSignAndSendTransaction` strips
+        // `gasAccountUiState` for any batch (a quote is bound to one user tx
+        // via payloadHash + locked nonce). Surfacing sponsor UI here would
+        // show "0 network fee" / sponsor badge while the actual broadcast
+        // falls back to user-paid. Treat batches like sponsor is disabled.
+        const sponsorDisabledForBatch = isMultiTxs;
         const nextEffectiveFeePayer: IGasPayer =
-          isCustomRpcEnabled || gasAccountTemporarilyDisabled
+          isCustomRpcEnabled ||
+          gasAccountTemporarilyDisabled ||
+          sponsorDisabledForBatch
             ? 'user'
             : (r.payer ?? 'user');
         updateEffectiveFeePayer(nextEffectiveFeePayer);
 
-        if (r.megafuelEligible) {
+        if (r.megafuelEligible && !sponsorDisabledForBatch) {
           // if custom rpc is enabled, disable megafuel eligible
           if (isCustomRpcEnabled) {
             r.megafuelEligible = undefined;
@@ -449,12 +460,23 @@ function TxFeeInfo(props: IProps) {
             updateMegafuelEligible(r.megafuelEligible);
           }
         } else {
+          if (sponsorDisabledForBatch) {
+            r.megafuelEligible = undefined;
+            r.gas = r.gas?.map((gas) => ({
+              ...gas,
+              gasPrice: gas.originalGasPrice ?? gas.gasPrice,
+            }));
+          }
           resetMegafuelEligible();
         }
 
-        if (isCustomRpcEnabled || gasAccountTemporarilyDisabled) {
+        if (
+          isCustomRpcEnabled ||
+          gasAccountTemporarilyDisabled ||
+          sponsorDisabledForBatch
+        ) {
           resetGasAccountUiState();
-          if (gasAccountTemporarilyDisabled) {
+          if (gasAccountTemporarilyDisabled || sponsorDisabledForBatch) {
             // The default state already flags `selectedPayer='user'`,
             // `gasAccountEligible=false`, `idempotencyKey=''`; only the
             // explicit `payer='user'` is worth setting so downstream
@@ -1441,10 +1463,34 @@ function TxFeeInfo(props: IProps) {
     if (!txFeeInfoInit) return;
 
     if (isGasAccountSelected) {
+      // Gas Account sponsorship only covers the network fee, not the
+      // principal native amount being transferred. Still validate that the
+      // user holds enough native balance for `amountToUpdate`, otherwise the
+      // top-up alert disappears and Confirm becomes clickable until the
+      // submit fails on chain.
+      if (nativeTokenInfo.isLoading || !nativeTokenInfo) return;
+
+      const requiredNativeBalance = new BigNumber(
+        nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
+      );
+      const fillUpNativeBalance = requiredNativeBalance.minus(
+        nativeTokenInfo.balance ?? 0,
+      );
+      const decodedTx = decodedTxs[0];
+      let isInsufficientNativeBalance =
+        nativeTokenTransferAmountToUpdate.isMaxSend
+          ? false
+          : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0);
+      if (decodedTx && decodedTx.isPsbt) {
+        isInsufficientNativeBalance = false;
+      }
+
       updateSendTxStatus({
-        isInsufficientNativeBalance: false,
+        isInsufficientNativeBalance,
         isInsufficientTokenBalance: false,
-        fillUpNativeBalance: '0',
+        fillUpNativeBalance: fillUpNativeBalance
+          .sd(4, BigNumber.ROUND_UP)
+          .toFixed(),
         fillUpTokenBalance: '0',
         isBaseOnEstimateMaxFee: false,
         maxFeeNative: '0',
