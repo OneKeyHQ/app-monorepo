@@ -208,8 +208,11 @@ export const defaultEffectiveFeePayer = 'user' as IGasPayer;
 
 // `effectiveFeePayerAtom` is the authoritative "who pays the fee" signal the
 // UI renders from (sponsor badges, free copy, fee hiding). It mirrors the
-// server's `payer` field but is overridden to `'user'` when a custom RPC is
-// active or when gas account is temporarily disabled after a fallback.
+// server's `payer` field with two narrow overrides to `'user'`:
+//   - when a custom RPC is active (all sponsors disabled), and
+//   - when the server indicates `'gasAccount'` while gas account is
+//     temporarily disabled after a fallback (the gas-account path only;
+//     a concurrent `'megafuel'` payer still surfaces).
 //
 // This is intentionally separate from `gasAccountUiState.selectedPayer` below:
 //   - `effectiveFeePayer` drives *display* (can be `'megafuel'` even when gas

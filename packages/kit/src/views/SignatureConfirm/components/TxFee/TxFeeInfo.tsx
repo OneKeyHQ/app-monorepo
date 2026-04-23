@@ -465,12 +465,18 @@ function TxFeeInfo(props: IProps) {
         // show "0 network fee" / sponsor badge while the actual broadcast
         // falls back to user-paid. Treat batches like sponsor is disabled.
         const sponsorDisabledForBatch = isMultiTxs;
+        // `gasAccountTemporarilyDisabled` narrows only the gas-account path.
+        // Megafuel is an independent sponsor mechanism and should still be
+        // honored when the server indicates `payer='megafuel'` after a
+        // gas-account fallback. Custom RPC and multi-tx batches still force
+        // user-paid for all sponsors (see the block comment above).
+        const serverPayer: IGasPayer = r.payer ?? 'user';
         const nextEffectiveFeePayer: IGasPayer =
           isCustomRpcEnabled ||
-          gasAccountTemporarilyDisabled ||
-          sponsorDisabledForBatch
+          sponsorDisabledForBatch ||
+          (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
             ? 'user'
-            : (r.payer ?? 'user');
+            : serverPayer;
         updateEffectiveFeePayer(nextEffectiveFeePayer);
 
         if (r.megafuelEligible && !sponsorDisabledForBatch) {
