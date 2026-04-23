@@ -715,11 +715,22 @@ function formatOptionTag(tag, { selected = false, tone = ANSI.cyan } = {}) {
   return styleText(`[${tag}]`, ANSI.bold, tone);
 }
 
-function renderOptionCard({ details, selected, tag, tagTone, title, width }) {
+function renderOptionCard({
+  details,
+  selected,
+  tag,
+  tagTone,
+  title,
+  titleTone,
+  width,
+}) {
   const prefix = selected ? styleText('❯', ANSI.bold, ANSI.cyan) : ' ';
   const titleWidth = Math.max(20, width - 12);
   const titleText = truncateText(title, titleWidth);
-  const renderedTitle = selected ? styleText(titleText, ANSI.bold) : titleText;
+  const renderedTitle =
+    titleTone || selected
+      ? styleText(titleText, selected ? ANSI.bold : '', titleTone || '')
+      : titleText;
   const tagPart = tag
     ? `${formatOptionTag(tag, { selected, tone: tagTone })} `
     : '';
@@ -770,12 +781,21 @@ function renderWorktreeSelector({
     ...worktrees.flatMap((entry, index) => {
       const baseTitle = entry.isBase ? entry.branchName : entry.displayName;
       const prefix = entry.isBase ? '' : getTreePrefix(entry.depth || 0);
-      const title = `${prefix}${baseTitle} (${entry.pathLabel})`;
+      const suffix = entry.isCurrent ? ' *' : '';
+      const title = `${prefix}${baseTitle} (${entry.pathLabel})${suffix}`;
+      let titleTone = ANSI.green;
+
+      if (entry.isBase) {
+        titleTone = ANSI.cyan;
+      } else if (entry.isCurrent) {
+        titleTone = ANSI.yellow;
+      }
 
       return renderOptionCard({
         details: [],
         selected: selectedIndex === index + 1,
         title,
+        titleTone,
         width,
       });
     }),
