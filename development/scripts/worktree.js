@@ -659,12 +659,16 @@ exec ${quoteForShell(shellPath)} -i
 }
 
 function getCreatePreview({
+  currentBranch,
+  currentWorktreeName,
   defaultTarget,
   inputValue,
   repoRoot,
   worktreeDir,
 }) {
   const trimmedName = inputValue.trim();
+  const fromBranchLabel = currentBranch || '(unknown)';
+  const fromWorktreeLabel = currentWorktreeName || 'base';
 
   if (!trimmedName) {
     const modeLabel =
@@ -674,6 +678,8 @@ function getCreatePreview({
 
     return {
       branchName: defaultTarget.branchName,
+      fromBranchLabel,
+      fromWorktreeLabel,
       modeLabel,
       nameLabel: `${defaultTarget.branchName} (auto)`,
       pathLabel: getWorktreePathLabel(repoRoot, defaultTarget.worktreePath),
@@ -693,6 +699,8 @@ function getCreatePreview({
 
   return {
     branchName: trimmedName,
+    fromBranchLabel,
+    fromWorktreeLabel,
     modeLabel: 'Typed name',
     nameLabel: trimmedName,
     pathLabel,
@@ -727,6 +735,8 @@ function renderOptionCard({ details, selected, tag, tagTone, title, width }) {
 }
 
 function renderWorktreeSelector({
+  currentBranch,
+  currentWorktreeName,
   defaultTarget,
   errorMessage,
   inputValue,
@@ -737,6 +747,8 @@ function renderWorktreeSelector({
 }) {
   const width = getTerminalWidth();
   const createPreview = getCreatePreview({
+    currentBranch,
+    currentWorktreeName,
     defaultTarget,
     inputValue,
     repoRoot,
@@ -747,6 +759,8 @@ function renderWorktreeSelector({
       details: [
         ['Branch', createPreview.branchName],
         ['Path', createPreview.pathLabel],
+        ['From WT', createPreview.fromWorktreeLabel],
+        ['From br', createPreview.fromBranchLabel],
         ['Mode', createPreview.modeLabel],
       ],
       selected: selectedIndex === 0,
@@ -866,6 +880,7 @@ function getCreateTargetFromInput({ defaultTarget, inputValue, worktreeDir }) {
 }
 
 function selectWorktreeTarget({
+  currentBranch,
   currentWorktreeName,
   defaultTarget,
   repoRoot,
@@ -885,6 +900,8 @@ function selectWorktreeTarget({
 
     const render = () => {
       renderWorktreeSelector({
+        currentBranch,
+        currentWorktreeName,
         defaultTarget,
         errorMessage,
         inputValue,
@@ -1171,8 +1188,10 @@ async function resolveWorktreeSelection({ customName }) {
     existingWorktrees,
     syncedMetadata,
   );
+  const currentBranch = getCurrentBranch();
 
   return selectWorktreeTarget({
+    currentBranch,
     currentWorktreeName,
     defaultTarget,
     repoRoot,
