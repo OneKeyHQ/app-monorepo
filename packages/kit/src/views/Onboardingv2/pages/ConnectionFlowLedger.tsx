@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   EVideoResizeMode,
   HeightTransition,
   SizableText,
@@ -15,6 +16,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
+import { ThirdPartyDevicePermissionDenied } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
@@ -27,6 +29,7 @@ import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { RequireBlePermissionDialog } from '../../../components/Hardware/HardwareDialog';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -35,7 +38,7 @@ import { getForceTransportType, sortDevicesData } from '../utils';
 
 import { ConnectionIndicator } from './ConnectYourDevice';
 
-import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
 
 enum EConnectionStatus {
@@ -120,17 +123,24 @@ export default function LedgerConnectionFlow() {
       (response) => {
         pollsCompleted += 1;
         if (!response.success) {
-          // Ledger goes through @onekeyfe/hwk-* SDK + native HID/BLE; OneKey Bridge,
-          // iframe and Bluetooth-permission errors do not apply here. Keep this
-          // simple and surface whatever the SDK reports.
           const error = convertDeviceError(response.payload);
-          Toast.error({
-            title:
-              error.message ||
-              intl.formatMessage({
-                id: ETranslationsMock.hardware_third_party_device_scan_error,
-              }),
-          });
+          // BLE permission denied → show system-settings dialog instead of toast
+          // (shares RequireBlePermissionDialog with OneKey native BLE flow).
+          if (error instanceof ThirdPartyDevicePermissionDenied) {
+            Dialog.show({
+              dialogContainer: ({ ref }) => (
+                <RequireBlePermissionDialog ref={ref} />
+              ),
+            });
+          } else {
+            Toast.error({
+              title:
+                error.message ||
+                intl.formatMessage({
+                  id: ETranslationsMock.hardware_third_party_device_scan_error,
+                }),
+            });
+          }
           // Reset the searching flag so a subsequent scanDevice() call can re-enter.
           isSearchingRef.current = false;
           // Return to init so the Start Connection button reappears.
@@ -320,42 +330,42 @@ export default function LedgerConnectionFlow() {
           </ConnectionIndicator.Content>
         </ConnectionIndicator.Card>
 
-        <ConnectionIndicator.Footer>
-          {connectStatus === EConnectionStatus.listing ? (
-            <YStack px="$5">
-              <XStack alignItems="center" justifyContent="space-between">
-                <SizableText color="$textDisabled">
-                  {intl.formatMessage({
-                    id: ETranslations.onboarding_bluetooth_connect_help_text,
-                  })}
-                  ...
-                </SizableText>
-              </XStack>
-            </YStack>
-          ) : null}
-          <HeightTransition initialHeight={0}>
-            {sortedDevicesData.length > 0 ? (
-              <>
-                {sortedDevicesData.map((data) => (
-                  <ListItem
-                    key={data.device?.deviceId}
-                    drillIn
-                    onPress={async () => {
-                      await handleDeviceSelect(data);
-                    }}
-                    userSelect="none"
-                  >
-                    <WalletAvatar
-                      wallet={undefined}
-                      img={data.device?.deviceType as IDeviceType}
-                    />
-                    <ListItem.Text primary={data.device?.name} flex={1} />
-                  </ListItem>
-                ))}
-              </>
+        {connectStatus === EConnectionStatus.listing ||
+        sortedDevicesData.length > 0 ? (
+          <ConnectionIndicator.Footer>
+            {connectStatus === EConnectionStatus.listing ? (
+              <YStack px="$5">
+                <XStack alignItems="center" justifyContent="space-between">
+                  <SizableText color="$textDisabled">
+                    {intl.formatMessage({
+                      id: ETranslations.onboarding_bluetooth_connect_help_text,
+                    })}
+                    ...
+                  </SizableText>
+                </XStack>
+              </YStack>
             ) : null}
-          </HeightTransition>
-        </ConnectionIndicator.Footer>
+            <HeightTransition initialHeight={0}>
+              {sortedDevicesData.length > 0 ? (
+                <>
+                  {sortedDevicesData.map((data) => (
+                    <ListItem
+                      key={data.device?.deviceId}
+                      drillIn
+                      onPress={async () => {
+                        await handleDeviceSelect(data);
+                      }}
+                      userSelect="none"
+                    >
+                      <WalletAvatar wallet={undefined} img="ledger" />
+                      <ListItem.Text primary={data.device?.name} flex={1} />
+                    </ListItem>
+                  ))}
+                </>
+              ) : null}
+            </HeightTransition>
+          </ConnectionIndicator.Footer>
+        ) : null}
       </ConnectionIndicator>
     </>
   );

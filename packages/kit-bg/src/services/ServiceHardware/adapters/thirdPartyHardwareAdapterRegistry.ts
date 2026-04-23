@@ -1,3 +1,5 @@
+import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { IThirdPartyHardwareAdapter } from './types';
@@ -25,10 +27,27 @@ export const thirdPartyHardwareAdapterRegistry = {
     //   - desktop / native / web   → `ledger.desktop.ts` / `.native.ts` / `.ts`
     const { createLedgerConnector } =
       await import('@onekeyhq/shared/src/hardware/connector-loader/ledger');
-    const { LedgerAdapter: HwkLedgerAdapter } =
+    const { LedgerAdapter: HwkLedgerAdapter, setDebugEnabled } =
       await import('@onekeyfe/hwk-ledger-adapter');
+    const { UI_REQUEST, UI_RESPONSE } =
+      await import('@onekeyfe/hwk-adapter-core');
+    // DEV: surface real DMK errors that SDK maps to code=0 Unknown.
+    setDebugEnabled(platformEnv.isDev ?? false);
     const connector = await createLedgerConnector();
     const hw = new HwkLedgerAdapter(connector);
+    // Only native mobile (iOS/Android) has an app-level BLE permission.
+    // Desktop/web/extension handle device permission at the OS/browser layer
+    // (WebHID/WebUSB prompts, node-hid, system Bluetooth) — from this app's
+    // perspective there's nothing to check, so grant immediately.
+    hw.on(UI_REQUEST.REQUEST_DEVICE_PERMISSION, async () => {
+      const granted = platformEnv.isNative
+        ? !!(await checkBLEPermissions())
+        : true;
+      hw.uiResponse({
+        type: UI_RESPONSE.RECEIVE_DEVICE_PERMISSION,
+        payload: { granted },
+      });
+    });
     return new LedgerAdapter(hw, connector);
   },
 } satisfies Partial<Record<EHardwareVendor, IThirdPartyHardwareAdapterFactory>>;
