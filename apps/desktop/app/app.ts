@@ -1025,7 +1025,7 @@ async function createMainWindow() {
     }
     if (details.deviceType === 'hid') {
       // WebHID has no protected-class blocklist (unlike WebUSB), so tighten
-      // to Ledger vendorId only. VID is stable across Nano S/X/S+/Stax.
+      // to Ledger vendorId only.
       return details.device?.vendorId === 0x2c_97;
     }
     return false;

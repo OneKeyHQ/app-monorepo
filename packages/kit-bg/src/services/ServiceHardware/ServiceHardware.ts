@@ -844,9 +844,7 @@ class ServiceHardware extends ServiceBase {
         };
       } catch (error) {
         // Preserve HWK's structured error (code + message) so downstream
-        // can route to the correct error class. HWK throws
-        // `Object.assign(new Error(msg), { code })` — stringifying would
-        // drop the code and wrap the message with an "Error: " prefix.
+        // can route to the correct error class.
         const err = error as { code?: number | string; message?: string };
         const rawCode =
           typeof err?.code === 'number' ? err.code : Number(err?.code);
