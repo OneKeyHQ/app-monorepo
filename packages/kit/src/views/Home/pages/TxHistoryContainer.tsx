@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isEmpty, uniqBy } from 'lodash';
 
 import {
+  onVisibilityStateChange,
   useMedia,
   useScrollContentTabBarOffset,
   useTabIsRefreshingFocused,
@@ -406,6 +407,29 @@ function TxHistoryListContainer(
       void run();
     }
   }, [isHeaderRefreshing, run]);
+
+  const lastVisibilityRefreshAtRef = useRef(0);
+  const handleRefreshOnVisibilityActive = useCallback(() => {
+    const now = Date.now();
+    if (
+      now - lastVisibilityRefreshAtRef.current <
+      POLLING_INTERVAL_FOR_HISTORY
+    ) {
+      return;
+    }
+    lastVisibilityRefreshAtRef.current = now;
+    isManualRefresh.current = true;
+    void run({ alwaysSetState: true });
+  }, [run]);
+
+  useEffect(() => {
+    const removeSubscription = onVisibilityStateChange((visible) => {
+      if (visible && isFocused) {
+        handleRefreshOnVisibilityActive();
+      }
+    });
+    return removeSubscription;
+  }, [handleRefreshOnVisibilityActive, isFocused]);
 
   useEffect(() => {
     const refresh = () => {
