@@ -1,16 +1,7 @@
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Stack,
-  Tooltip,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import {
-  NetworkAvatar,
-  NetworkAvatarGroup,
-} from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PORTFOLIO_OTHERS_KEY } from './DeFiPortfolioStats';
@@ -31,14 +22,15 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
   return (
     <YStack flex={1} gap="$2.5">
       {slices.map((slice) => {
-        const label =
-          slice.key === PORTFOLIO_OTHERS_KEY ? othersLabel : slice.label;
+        const isOthers = slice.key === PORTFOLIO_OTHERS_KEY;
+        const label = isOthers ? othersLabel : slice.label;
         return (
           <XStack
             key={slice.key}
             alignItems="center"
             justifyContent="space-between"
             gap="$2"
+            minHeight={24}
           >
             <XStack flex={1} minWidth={0} alignItems="center" gap="$2">
               <Stack
@@ -52,34 +44,23 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
                 flexShrink={1}
                 minWidth={0}
                 size="$bodyMd"
+                color={isOthers ? '$textSubdued' : '$text'}
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
                 {label}
               </SizableText>
               {slice.networkIds.length > 0 ? (
-                <Tooltip
-                  placement="top"
-                  renderTrigger={
-                    <NetworkAvatarGroup
-                      networkIds={slice.networkIds}
-                      size="$5"
-                      flexShrink={0}
-                    />
-                  }
-                  renderContent={
-                    <XStack gap="$2" p="$2" alignItems="center">
-                      {slice.networkIds.map((id) => (
-                        <NetworkAvatar key={id} networkId={id} size="$6" />
-                      ))}
-                    </XStack>
-                  }
+                <NetworkAvatarGroup
+                  networkIds={slice.networkIds}
+                  size="$4"
+                  flexShrink={0}
                 />
               ) : null}
             </XStack>
             <SizableText
               size="$bodyMdMedium"
-              color="$text"
+              color={isOthers ? '$textSubdued' : '$text'}
               fontVariant={TABULAR_NUMS}
               flexShrink={0}
             >

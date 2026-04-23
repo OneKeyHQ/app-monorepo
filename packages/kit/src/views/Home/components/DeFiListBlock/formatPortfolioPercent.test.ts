@@ -13,10 +13,16 @@ describe('formatPortfolioPercent', () => {
     expect(formatPortfolioPercent(0, '12.34')).toBe('<0.1%');
   });
 
-  it('returns one-decimal percent for normal values', () => {
-    expect(formatPortfolioPercent(31.8)).toBe('31.8%');
+  it('drops the decimal for values ≥ 10%', () => {
+    expect(formatPortfolioPercent(31.8)).toBe('32%');
+    expect(formatPortfolioPercent(10)).toBe('10%');
+    expect(formatPortfolioPercent(100)).toBe('100%');
+  });
+
+  it('keeps one decimal for values below 10%', () => {
+    expect(formatPortfolioPercent(9.9)).toBe('9.9%');
+    expect(formatPortfolioPercent(8.2)).toBe('8.2%');
     expect(formatPortfolioPercent(0.1)).toBe('0.1%');
-    expect(formatPortfolioPercent(100)).toBe('100.0%');
   });
 
   it('returns 0.0% for non-finite values', () => {
