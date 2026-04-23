@@ -30,6 +30,10 @@ import {
   formatTrayPendingTxAmount,
 } from '@onekeyhq/shared/src/utils/trayDataUtils';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  composeTrayAccountChange24h,
+  formatTrayPendingTxAmount,
+} from '@onekeyhq/shared/src/utils/trayDataUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
