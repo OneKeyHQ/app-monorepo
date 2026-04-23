@@ -3005,6 +3005,7 @@
   "perp_portfolio_total_trades": "总交易次数",
   "perp_portfolio_unrealized_pnl": "未实现盈亏",
   "perp_portfolio_value": "账户资产",
+  "perp_portfolio_value_tooltip": "现货与 Perps 的组合资产价值，包含可用余额和 Perps 未平仓位的未实现盈亏，不代表可提现金额。",
   "perp_portfolio_volume": "交易量",
   "perp_portfolio_win_rate": "胜率",
   "perp_portfolio_win_rate_tooltip_all_time__desc": "根据过去最多 2 年内已平仓交易计算。",
