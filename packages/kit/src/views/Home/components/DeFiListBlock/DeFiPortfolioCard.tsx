@@ -33,11 +33,8 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
   if (isLoading) {
     return (
       <XStack
-        bg="$bgSubdued"
-        borderRadius="$3"
-        p="$5"
         gap="$6"
-        alignItems="center"
+        alignItems="flex-start"
         justifyContent="space-between"
       >
         <YStack flex={1} gap="$2" minWidth={0}>
@@ -68,11 +65,8 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
 
   return (
     <XStack
-      bg="$bgSubdued"
-      borderRadius="$3"
-      p="$5"
       gap="$6"
-      alignItems="center"
+      alignItems="flex-start"
       justifyContent="space-between"
       userSelect="none"
     >
