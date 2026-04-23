@@ -19,6 +19,7 @@ export type IDeFiOverviewTileProps = {
   protocolInfo: IProtocolSummary | undefined;
   netWorth: number | string;
   percent?: number;
+  isAllNetworks?: boolean;
   onPress: () => void;
 };
 
@@ -27,6 +28,7 @@ function DeFiOverviewTile({
   protocolInfo,
   netWorth,
   percent,
+  isAllNetworks,
   onPress,
 }: IDeFiOverviewTileProps) {
   const intl = useIntl();
@@ -71,7 +73,7 @@ function DeFiOverviewTile({
             size="md"
             tokenImageUri={logo}
             networkId={protocol.networkId}
-            showNetworkIcon={Boolean(protocol.networkId)}
+            showNetworkIcon={Boolean(isAllNetworks && protocol.networkId)}
           />
         </Stack>
       </Stack>

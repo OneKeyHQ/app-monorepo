@@ -23,6 +23,7 @@ export type IDeFiOverviewCardProps = {
   protocols: IDeFiProtocol[] | undefined;
   protocolMap: Record<string, IProtocolSummary>;
   isLoading?: boolean;
+  isAllNetworks?: boolean;
   getNetWorth: (p: IDeFiProtocol) => number;
   onPressProtocol: (p: IDeFiProtocol) => void;
 };
@@ -34,6 +35,7 @@ function DeFiOverviewCard({
   protocols,
   protocolMap,
   isLoading,
+  isAllNetworks,
   getNetWorth,
   onPressProtocol,
 }: IDeFiOverviewCardProps) {
@@ -88,6 +90,7 @@ function DeFiOverviewCard({
       onPressProtocol={onPressProtocol}
       onPressMore={handleMore}
       onPressLess={handleLess}
+      isAllNetworks={isAllNetworks}
     />
   );
 }

@@ -20,6 +20,7 @@ export type IDeFiOverviewDesktopGridProps = {
   onPressProtocol: (protocol: IDeFiProtocol) => void;
   onPressMore: () => void;
   onPressLess: () => void;
+  isAllNetworks?: boolean;
 };
 
 function DeFiOverviewDesktopGrid({
@@ -28,6 +29,7 @@ function DeFiOverviewDesktopGrid({
   onPressProtocol,
   onPressMore,
   onPressLess,
+  isAllNetworks,
 }: IDeFiOverviewDesktopGridProps) {
   return (
     <XStack width="100%" gap="$2" style={OVERVIEW_GRID_STYLE}>
@@ -44,6 +46,7 @@ function DeFiOverviewDesktopGrid({
               netWorth={cell.netWorth}
               percent={cell.percent}
               onPress={() => onPressProtocol(cell.protocol)}
+              isAllNetworks={isAllNetworks}
             />
           ) : null}
           {cell.kind === 'more' ? (

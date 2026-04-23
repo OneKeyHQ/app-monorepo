@@ -516,6 +516,7 @@ function DeFiContainer() {
                 <DeFiPortfolioCard
                   stats={portfolioStats}
                   isLoading={isOverviewLoading}
+                  isAllNetworks={isAllNetworks}
                 />
                 <DeFiOverviewCard
                   stats={portfolioStats}
@@ -524,6 +525,7 @@ function DeFiContainer() {
                   isLoading={isOverviewLoading}
                   getNetWorth={getNetWorth}
                   onPressProtocol={handleTilePress}
+                  isAllNetworks={isAllNetworks}
                 />
               </YStack>
             ) : null}

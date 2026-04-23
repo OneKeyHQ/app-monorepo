@@ -22,6 +22,7 @@ import type { IPortfolioStats } from './DeFiPortfolioStats';
 export type IDeFiPortfolioCardProps = {
   stats: IPortfolioStats;
   isLoading?: boolean;
+  isAllNetworks?: boolean;
 };
 
 export type IPortfolioNetworkInfoMap = Record<string, IServerNetwork>;
@@ -49,7 +50,11 @@ function formatPortfolioTotal(
   return `${currency}${new BigNumber(Math.round(total)).toFormat()}`;
 }
 
-function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
+function DeFiPortfolioCard({
+  stats,
+  isLoading,
+  isAllNetworks,
+}: IDeFiPortfolioCardProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
@@ -140,6 +145,7 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
           <DeFiPortfolioLegend
             slices={stats.slices}
             networkInfoMap={networkInfoMap ?? EMPTY_NETWORK_INFO_MAP}
+            showNetworkBadges={Boolean(isAllNetworks)}
           />
         </YStack>
       </XStack>

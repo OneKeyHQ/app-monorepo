@@ -15,11 +15,16 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 export type IDeFiPortfolioLegendProps = {
   slices: IPortfolioSlice[];
   networkInfoMap: IPortfolioNetworkInfoMap;
+  // Single-chain mode: every slice's networkIds collapses to the same chain,
+  // so rendering the badge is pure noise. Only show when the account is in
+  // All Networks mode.
+  showNetworkBadges?: boolean;
 };
 
 function DeFiPortfolioLegend({
   slices,
   networkInfoMap,
+  showNetworkBadges,
 }: IDeFiPortfolioLegendProps) {
   const intl = useIntl();
   const othersLabel = intl.formatMessage({ id: ETranslations.global_others });
@@ -55,7 +60,7 @@ function DeFiPortfolioLegend({
               >
                 {label}
               </SizableText>
-              {slice.networkIds.length > 0 ? (
+              {showNetworkBadges && slice.networkIds.length > 0 ? (
                 <XStack flexShrink={0}>
                   {slice.networkIds.map((networkId, index) => {
                     const info = networkInfoMap[networkId];
