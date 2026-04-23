@@ -11,6 +11,7 @@ import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { AddressDisplay } from '../../../AddressDisplay';
 import { TransactionAmount } from '../../components/TransactionAmount';
+import { TransactionRelativeTime } from '../../components/TransactionRelativeTime';
 import { useTransactionItemData } from '../../hooks/useTransactionItemData';
 
 import { useTransactionsLayoutNormal } from './useTransactionsLayoutNormal';
@@ -36,7 +37,6 @@ function TransactionItemNormalBase({
     typeText,
     price,
     value,
-    formattedTime,
   } = useTransactionItemData({ item });
 
   return (
@@ -49,9 +49,12 @@ function TransactionItemNormalBase({
       {...(index % 2 === 1 && { backgroundColor: '$bgSubdued' })}
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
-      <SizableText size="$bodyMd" color="$textSubdued" {...styles.time}>
-        {formattedTime}
-      </SizableText>
+      <TransactionRelativeTime
+        timestamp={item.timestamp}
+        size="$bodyMd"
+        color="$textSubdued"
+        textProps={styles.time}
+      />
 
       <XStack alignItems="center" gap="$2" {...styles.type}>
         {item.poolLogoUrl ? (
