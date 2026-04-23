@@ -1230,10 +1230,6 @@ const resolveTradingSize = (params: ITradingSizeParams): string => {
   return sizeBN.toFixed();
 };
 
-function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
-  return `https://uni.onekey-asset.com/static/hyperliquid/${tokenSymbol}.png`;
-}
-
 /**
  * Sort perps assets by various fields
  * Pre-converts numeric values to avoid repeated conversions during sorting
@@ -1652,6 +1648,11 @@ const SPOT_TOKEN_DISPLAY_MAP: Record<string, string> = {
 
 function getSpotTokenDisplayName(rawName: string): string {
   return SPOT_TOKEN_DISPLAY_MAP[rawName] ?? rawName;
+}
+
+function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
+  const normalizedSymbol = getSpotTokenDisplayName(tokenSymbol);
+  return `https://uni.onekey-asset.com/static/hyperliquid/${normalizedSymbol}.png`;
 }
 
 function formatSpotPairDisplayName(
