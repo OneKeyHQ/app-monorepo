@@ -804,10 +804,6 @@ function renderWorktreeSelector({
     styleText('Worktree Picker', ANSI.bold, ANSI.cyan),
     subtitle,
     '',
-    createSectionDivider('Create', width),
-    formatField('Name', createPreview.nameLabel, width),
-    '',
-    createSectionDivider('Options', width),
     ...optionLines,
   ];
 
