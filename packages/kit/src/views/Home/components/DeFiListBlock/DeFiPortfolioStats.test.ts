@@ -1,3 +1,4 @@
+import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
   IProtocolSummary,
@@ -17,11 +18,12 @@ function makeProtocol(protocol: string, networkId = 'evm--1'): IDeFiProtocol {
 }
 
 function makeMap(
-  entries: Array<{ protocol: string; name?: string }>,
+  entries: Array<{ protocol: string; name?: string; networkId?: string }>,
 ): Record<string, IProtocolSummary> {
   const map: Record<string, IProtocolSummary> = {};
-  entries.forEach(({ protocol, name }) => {
-    map[`evm--1_${protocol}`] = {
+  entries.forEach(({ protocol, name, networkId = 'evm--1' }) => {
+    const key = defiUtils.buildProtocolMapKey({ protocol, networkId });
+    map[key] = {
       protocolName: name ?? protocol,
       protocolLogo: '',
     } as IProtocolSummary;
@@ -156,10 +158,12 @@ describe('buildPortfolioStats', () => {
       getNetWorth: (p) => values[Number(p.protocol.slice(1))],
     });
     const sum = stats.slices.reduce((acc, s) => acc + s.percent, 0);
-    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.1);
+    // ± 0.15 to absorb one-decimal rounding AND float accumulation error
+    // (e.g. 33.3 + 33.3 + 33.3 = 99.8999…).
+    expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.15);
     stats.slices.forEach((s) => {
-      // one decimal: toFixed(1) round-trip == original
-      expect(Number(s.percent.toFixed(1))).toBe(s.percent);
+      // percent already rounded; toFixed(1) round-trip must match.
+      expect(s.percent).toBeCloseTo(Number(s.percent.toFixed(1)), 10);
     });
   });
 
