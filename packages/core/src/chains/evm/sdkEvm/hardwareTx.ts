@@ -73,9 +73,10 @@ export function buildHardwareEvmTransaction(
   const nonce = numberUtils.numberToHex(checkIsDefined(encodedTx.nonce), {
     prefix0x: true,
   });
-  const gasLimit = numberUtils.numberToHex(checkIsDefined(encodedTx.gasLimit), {
-    prefix0x: true,
-  });
+  const gasLimit = numberUtils.numberToHex(
+    checkIsDefined(encodedTx.gasLimit ?? encodedTx.gas),
+    { prefix0x: true },
+  );
   const chainId = Number(encodedTx.chainId);
   const value = encodedTx.value ?? '0x0';
   const data = encodedTx.data ?? '0x';

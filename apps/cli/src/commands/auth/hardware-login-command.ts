@@ -45,11 +45,24 @@ async function promptPassphraseMode(
   _output: OutputFormatter,
 ): Promise<PassphraseMode> {
   const { createInterface } = await import('node:readline');
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const rl = createInterface({
       input: process.stdin,
       output: process.stderr,
       terminal: true,
+    });
+
+    // If stdin closes (Ctrl+D / EOF) before the user answers, readline
+    // emits 'close' without invoking the question callback → reject so
+    // the CLI exits cleanly instead of hanging forever.
+    rl.on('close', () => {
+      reject(
+        new AppError(
+          ERROR_CODES.AUTH_NO_WALLET.code,
+          'Input closed before passphrase mode was selected',
+          'Run the command again in an interactive terminal',
+        ),
+      );
     });
 
     const prompt = () => {
@@ -98,16 +111,19 @@ async function promptPassphraseMode(
  *    - none: standard wallet (useEmptyPassphrase)
  *    - on_host: passphrase entered via pinentry (secure OS dialog)
  *    - on_device: passphrase entered on device screen
- * 4. Resolve passphraseState in memory (NEVER persisted to disk)
+ * 4. Resolve passphraseState via device, then cache in OS keychain
  * 5. Get address from device
  * 6. Persist session.json with device info + passphraseMode
  *
  * SECURITY:
- * - Passphrase NEVER touches disk (no keychain, no file)
+ * - Passphrase (user-entered text) NEVER touches disk — only the
+ *   derived passphraseState session token is cached in the OS keychain
  * - Passphrase NEVER appears in shell history or terminal output
- * - passphraseState exists only in process memory during this invocation
- * - Session stores only the MODE (how to re-prompt), not the value
- * - Each subsequent CLI command re-obtains passphrase via pinentry/device
+ * - passphraseState is persisted to the OS keychain so follow-up
+ *   commands can reuse the session without re-prompting
+ * - Session stores the MODE (how to re-prompt if cache is stale)
+ * - If the device is locked between commands, the cached session is
+ *   invalidated and the user is re-prompted via pinentry/device
  */
 export async function executeHardwareLoginCommand({
   output,
