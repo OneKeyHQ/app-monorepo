@@ -44,7 +44,10 @@ export interface IRookieGuideInfo {
 
 // ============ Rookie Share Types ============
 
-// Data passed from H5 WebView for sharing
+// Data passed from H5 WebView for sharing.
+// Note: referralCode / referralUrl are injected by the App from the
+// logged-in user's primary referral code in wallet_showRookieShare; any
+// values passed from H5 are ignored.
 export interface IRookieShareData {
   // Content card
   imageUrl: string; // Badge/avatar image URL (required)
@@ -53,8 +56,8 @@ export interface IRookieShareData {
 
   // Footer area
   footerText?: string; // Footer text, defaults to "Open source and easy to use from day one."
-  referralCode?: string; // Referral code (displayed in Footer)
-  referralUrl?: string; // Referral URL (used for QR code generation)
+  referralCode?: string; // Referral code (displayed in footer). Injected by App.
+  referralUrl?: string; // Referral URL (QR code / copy / X share target). Injected by App.
 }
 
 export interface IRookieShareImageGeneratorRef {
