@@ -43,9 +43,7 @@ export function appendBufferedTransaction({
   const isOverflow = nextTransactions.length > maxBufferSize;
 
   return {
-    bufferedTransactions: isOverflow
-      ? nextTransactions.slice(nextTransactions.length - maxBufferSize)
-      : nextTransactions,
+    bufferedTransactions: nextTransactions,
     isOverflow,
   };
 }

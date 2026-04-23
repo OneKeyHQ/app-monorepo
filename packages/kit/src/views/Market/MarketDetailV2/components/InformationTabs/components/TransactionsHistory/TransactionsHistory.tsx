@@ -13,6 +13,7 @@ import {
   useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
+import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EMPTY_MARKET_TRANSACTIONS_REALTIME_PAUSE_STATE,
@@ -37,6 +38,10 @@ interface ITransactionsHistoryProps {
   tokenAddress: string;
   networkId: string;
   onScrollEnd?: () => void;
+}
+
+interface ITransactionsHistoryBaseProps extends ITransactionsHistoryProps {
+  isTabFocused?: boolean;
 }
 
 function getScrollableParent(element: HTMLElement | null) {
@@ -75,11 +80,12 @@ const useScrollEnd = platformEnv.isNative
     }
   : () => {};
 
-export function TransactionsHistory({
+export function TransactionsHistoryBase({
   tokenAddress,
   networkId,
   onScrollEnd,
-}: ITransactionsHistoryProps) {
+  isTabFocused = true,
+}: ITransactionsHistoryBaseProps) {
   const { websocketConfig, isNative } = useTokenDetail();
   const isVisible = useRouteIsFocused();
   const { gtXl } = useMedia();
@@ -234,7 +240,7 @@ export function TransactionsHistory({
     }
   }, [hasMore, isLoadingMore, loadMore]);
   const isRelativeTimeTickingEnabled =
-    isVisible && transactions.length > 0 && !isRealtimePaused;
+    isVisible && isTabFocused && transactions.length > 0 && !isRealtimePaused;
 
   useScrollEnd(onScrollEnd ?? noop);
 
@@ -296,5 +302,22 @@ export function TransactionsHistory({
         />
       </Stack>
     </TransactionsRelativeTimeProvider>
+  );
+}
+
+export function TransactionsHistory(props: ITransactionsHistoryProps) {
+  const intl = useIntl();
+  const focusedTab = useFocusedTab();
+  const transactionsTabName = useMemo(() => {
+    return intl.formatMessage({
+      id: ETranslations.dexmarket_details_transactions,
+    });
+  }, [intl]);
+
+  return (
+    <TransactionsHistoryBase
+      {...props}
+      isTabFocused={focusedTab === transactionsTabName}
+    />
   );
 }

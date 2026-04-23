@@ -102,12 +102,29 @@ export function useMarketTransactions({
     clearBufferedTransactions();
   }, [clearBufferedTransactions, clearRealtimeHoverOutTimer]);
 
+  const disableRealtimePause = useCallback(() => {
+    clearRealtimeHoverOutTimer();
+    isRealtimePausedRef.current = false;
+    setIsRealtimeHovering(false);
+
+    if (bufferedTransactionsRef.current.length > 0) {
+      flushBufferedTransactions();
+      return;
+    }
+
+    clearBufferedTransactions();
+  }, [
+    clearBufferedTransactions,
+    clearRealtimeHoverOutTimer,
+    flushBufferedTransactions,
+  ]);
+
   useEffect(() => {
     enableRealtimePauseRef.current = enableRealtimePause;
     if (!enableRealtimePause) {
-      resetRealtimePause();
+      disableRealtimePause();
     }
-  }, [enableRealtimePause, resetRealtimePause]);
+  }, [disableRealtimePause, enableRealtimePause]);
 
   const {
     result: transactionsData,

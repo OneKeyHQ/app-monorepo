@@ -4,7 +4,9 @@ import type { ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
-import { TransactionsHistory } from './TransactionsHistory';
+import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import { TransactionsHistoryBase as TransactionsHistory } from './TransactionsHistory';
+
 
 const mockUseTransactionsWebSocket: jest.MockedFunction<
   (params: unknown) => void
@@ -18,9 +20,34 @@ const mockHandleRealtimePauseHoverIn = jest.fn();
 const mockHandleRealtimePauseHoverOut = jest.fn();
 const mockHandleRealtimePauseTouchStart = jest.fn();
 const mockHandleRealtimePauseTouchEnd = jest.fn();
+const mockTransactionsRelativeTimeProvider = jest.fn();
+
+function createTransaction(hash: string): IMarketTokenTransaction {
+  return {
+    pairAddress: 'pair-1',
+    hash,
+    owner: '0xowner',
+    type: 'buy',
+    timestamp: 1,
+    url: '',
+    volumeUSD: 1,
+    from: {
+      symbol: 'AAA',
+      amount: '1',
+      address: '0xaaa',
+      price: '1',
+    },
+    to: {
+      symbol: 'BBB',
+      amount: '1',
+      address: '0xbbb',
+      price: '1',
+    },
+  };
+}
 
 const mockMarketTransactionsResult = {
-  transactions: [],
+  transactions: [] as IMarketTokenTransaction[],
   isRefreshing: false,
   isLoadingMore: false,
   hasMore: false,
@@ -43,6 +70,7 @@ jest.mock('@onekeyhq/components', () => {
   );
 
   return {
+    __esModule: true,
     SizableText: Stack,
     Spinner: Stack,
     Stack,
@@ -92,9 +120,13 @@ jest.mock('use-debounce', () => ({
 jest.mock('./components/TransactionRelativeTime', () => ({
   TransactionsRelativeTimeProvider: ({
     children,
+    ...props
   }: {
     children?: ReactNode;
-  }) => <div>{children}</div>,
+  }) => {
+    mockTransactionsRelativeTimeProvider(props);
+    return <div>{children}</div>;
+  },
 }));
 
 jest.mock('./components/TransactionsSkeleton', () => ({
@@ -139,10 +171,19 @@ describe('TransactionsHistory', () => {
     mockHandleRealtimePauseHoverOut.mockReset();
     mockHandleRealtimePauseTouchStart.mockReset();
     mockHandleRealtimePauseTouchEnd.mockReset();
+    mockTransactionsRelativeTimeProvider.mockReset();
+    mockMarketTransactionsResult.transactions = [];
+    mockMarketTransactionsResult.isRealtimePaused = false;
   });
 
   it('keeps realtime pause state outside websocket self-heal callbacks', () => {
-    render(<TransactionsHistory tokenAddress="0xabc" networkId="evm--1" />);
+    render(
+      <TransactionsHistory
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        isTabFocused
+      />,
+    );
 
     expect(mockUseTransactionsWebSocket).toHaveBeenCalledTimes(1);
 
@@ -157,5 +198,23 @@ describe('TransactionsHistory', () => {
       }),
     );
     expect(websocketParams).not.toHaveProperty('onSubscriptionRestored');
+  });
+
+  it('disables relative time ticking when the transactions tab is hidden', () => {
+    mockMarketTransactionsResult.transactions = [createTransaction('0xtx')];
+
+    render(
+      <TransactionsHistory
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        isTabFocused={false}
+      />,
+    );
+
+    expect(mockTransactionsRelativeTimeProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isTickingEnabled: false,
+      }),
+    );
   });
 });

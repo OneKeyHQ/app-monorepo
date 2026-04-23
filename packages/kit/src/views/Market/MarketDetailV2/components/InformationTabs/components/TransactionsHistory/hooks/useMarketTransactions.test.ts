@@ -93,15 +93,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-function createTransaction(hash: string): IMarketTokenTransaction {
+function createTransaction(
+  hash: string,
+  timestamp = 1,
+): IMarketTokenTransaction {
   return {
     pairAddress: 'pair-1',
     hash,
     owner: '0xowner',
     type: 'buy',
-    timestamp: 1,
+    timestamp,
     url: '',
-    volumeUSD: '1',
+    volumeUSD: 1,
     from: {
       symbol: 'AAA',
       amount: '1',
@@ -156,9 +159,9 @@ describe('useMarketTransactions', () => {
     ]);
 
     act(() => {
-      result.current.addNewTransaction(createTransaction('live-1'));
+      result.current.addNewTransaction(createTransaction('live-1', 2));
       result.current.handleRealtimePauseHoverIn();
-      result.current.addNewTransaction(createTransaction('buffered-1'));
+      result.current.addNewTransaction(createTransaction('buffered-1', 3));
     });
 
     expect(result.current.bufferedTransactionsCount).toBe(1);
@@ -185,5 +188,49 @@ describe('useMarketTransactions', () => {
       'live-1',
       'base-1',
     ]);
+  });
+
+  it('flushes buffered transactions before disabling realtime pause', () => {
+    const { result, rerender } = renderHook(
+      ({ enableRealtimePause }: { enableRealtimePause: boolean }) =>
+        useMarketTransactions({
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          normalMode: false,
+          enableRealtimePause,
+        }),
+      {
+        initialProps: {
+          enableRealtimePause: true,
+        },
+      },
+    );
+
+    const throttledUpdate = mockThrottledTransactionsUpdates[0];
+
+    expect(throttledUpdate).toBeDefined();
+
+    act(() => {
+      throttledUpdate.flush();
+    });
+
+    act(() => {
+      result.current.handleRealtimePauseHoverIn();
+      result.current.addNewTransaction(createTransaction('buffered-1', 2));
+    });
+
+    expect(result.current.bufferedTransactionsCount).toBe(1);
+
+    act(() => {
+      rerender({ enableRealtimePause: false });
+    });
+
+    expect(throttledUpdate.cancel).toHaveBeenCalledTimes(1);
+    expect(result.current.transactions.map((tx) => tx.hash)).toEqual([
+      'buffered-1',
+      'base-1',
+    ]);
+    expect(result.current.bufferedTransactionsCount).toBe(0);
+    expect(result.current.isRealtimePaused).toBe(false);
   });
 });

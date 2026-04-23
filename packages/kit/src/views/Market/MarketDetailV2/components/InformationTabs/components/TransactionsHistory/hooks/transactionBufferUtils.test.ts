@@ -52,7 +52,7 @@ describe('transactionBufferUtils', () => {
     expect(result.isOverflow).toBe(false);
   });
 
-  it('keeps the newest buffered entries when the buffer overflows', () => {
+  it('keeps all buffered entries after crossing the overflow threshold', () => {
     const result = appendBufferedTransaction({
       bufferedTransactions: [buildTx('1', 1), buildTx('2', 2)],
       currentTransactions: [],
@@ -61,6 +61,7 @@ describe('transactionBufferUtils', () => {
     });
 
     expect(result.bufferedTransactions.map((tx) => tx.hash)).toEqual([
+      '1',
       '2',
       '3',
     ]);
