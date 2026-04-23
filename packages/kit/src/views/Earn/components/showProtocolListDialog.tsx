@@ -352,9 +352,10 @@ export function ProtocolListContent({
       const isSelected =
         selectedProtocolKey !== undefined &&
         getProtocolItemKey(item) === selectedProtocolKey;
+      const tvlText = formatTvl(item.provider.tvl);
       const secondaryText = [
-        formatTvl(item.provider.tvl),
         item.provider.vaultName,
+        tvlText ? `TVL ${tvlText}` : undefined,
       ]
         .filter(Boolean)
         .join(' · ');
