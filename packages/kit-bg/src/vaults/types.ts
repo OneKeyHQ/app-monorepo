@@ -25,6 +25,7 @@ import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import type {
   IFeeInfoUnit,
+  IGasAccountUiState,
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
@@ -645,6 +646,7 @@ export interface IBroadcastTransactionParams {
   signature?: string;
   rawTxType?: 'json' | 'hex';
   tronResourceRentalInfo?: ITronResourceRentalInfo;
+  gasAccountUiState?: IGasAccountUiState;
   useDefaultRpc?: boolean;
 }
 
@@ -686,6 +688,7 @@ export interface IBatchSignTransactionParamsBase {
   transferPayload: ITransferPayload | undefined;
   successfullySentTxs?: string[];
   tronResourceRentalInfo?: ITronResourceRentalInfo;
+  gasAccountUiState?: IGasAccountUiState;
   useDefaultRpc?: boolean;
 }
 
