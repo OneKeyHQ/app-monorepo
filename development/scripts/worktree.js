@@ -483,8 +483,7 @@ function getExistingWorktrees(repoRoot, currentTopLevelPath) {
 }
 
 function buildWorktreeTreeOrder(existingWorktrees, metadata) {
-  // base first (fixed at depth 0, not part of the managed tree)
-  const baseEntries = existingWorktrees.filter((entry) => entry.isBase);
+  const baseEntry = existingWorktrees.find((entry) => entry.isBase);
   const managedEntries = existingWorktrees.filter((entry) => !entry.isBase);
   const byName = new Map(
     managedEntries.map((entry) => [entry.displayName, entry]),
@@ -529,17 +528,22 @@ function buildWorktreeTreeOrder(existingWorktrees, metadata) {
     });
   };
 
-  walk(null, 0, []);
+  // Base acts as the tree root so managed worktrees visually descend from it.
+  if (baseEntry) {
+    walk(null, 1, []);
+    return [
+      {
+        ...baseEntry,
+        ancestorIsLast: [],
+        depth: 0,
+        isLastSibling: true,
+      },
+      ...ordered,
+    ];
+  }
 
-  return [
-    ...baseEntries.map((entry) => ({
-      ...entry,
-      ancestorIsLast: [],
-      depth: 0,
-      isLastSibling: true,
-    })),
-    ...ordered,
-  ];
+  walk(null, 0, []);
+  return ordered;
 }
 
 function getTreePrefix(entry) {
@@ -680,10 +684,9 @@ function getCreatePreview({
   if (!trimmedName) {
     return {
       branchName: defaultTarget.branchName,
-      cardTitle: 'Create worktree — random name (type below to customize)',
+      cardTitle: 'New worktree · type to name, Enter for random',
       fromPathLabel,
       fromWorktreeLabel,
-      nameLabel: `${defaultTarget.branchName} (auto)`,
       pathLabel: getWorktreePathLabel(repoRoot, defaultTarget.worktreePath),
     };
   }
@@ -701,10 +704,9 @@ function getCreatePreview({
 
   return {
     branchName: trimmedName,
-    cardTitle: `Create worktree "${trimmedName}" (backspace to clear and use random)`,
+    cardTitle: `New worktree: ${trimmedName} (⌫ reset)`,
     fromPathLabel,
     fromWorktreeLabel,
-    nameLabel: trimmedName,
     pathLabel,
   };
 }
@@ -717,26 +719,12 @@ function formatOptionTag(tag, { selected = false, tone = ANSI.cyan } = {}) {
   return styleText(`[${tag}]`, ANSI.bold, tone);
 }
 
-function renderOptionCard({
-  details,
-  selected,
-  tag,
-  tagTone,
-  title,
-  titleTone,
-  width,
-}) {
-  const prefix = selected ? styleText('❯', ANSI.bold, ANSI.cyan) : ' ';
-  const titleWidth = Math.max(20, width - 12);
-  const titleText = truncateText(title, titleWidth);
-  const renderedTitle =
-    titleTone || selected
-      ? styleText(titleText, selected ? ANSI.bold : '', titleTone || '')
-      : titleText;
+function renderOptionCard({ details, selected, tag, tagTone, title, width }) {
+  const leadPrefix = selected ? styleText('❯', ANSI.bold, ANSI.cyan) : ' ';
   const tagPart = tag
     ? `${formatOptionTag(tag, { selected, tone: tagTone })} `
     : '';
-  const lines = [`${prefix} ${tagPart}${renderedTitle}`];
+  const lines = [`${leadPrefix} ${tagPart}${title}`];
 
   for (const [label, value] of details) {
     lines.push(`    ${formatField(label, value, width - 4, { selected })}`);
@@ -765,6 +753,10 @@ function renderWorktreeSelector({
     repoRoot,
     worktreeDir,
   });
+  const newSelected = selectedIndex === 0;
+  const newTitle = newSelected
+    ? styleText(createPreview.cardTitle, ANSI.bold, ANSI.green)
+    : styleText(createPreview.cardTitle, ANSI.green);
   const newCardLines = renderOptionCard({
     details: [
       ['Branch', `${createPreview.branchName} (${createPreview.pathLabel})`],
@@ -773,31 +765,40 @@ function renderWorktreeSelector({
         `${createPreview.fromWorktreeLabel} (${createPreview.fromPathLabel})`,
       ],
     ],
-    selected: selectedIndex === 0,
-    tag: 'NEW',
-    tagTone: ANSI.green,
-    title: createPreview.cardTitle,
+    selected: newSelected,
+    title: newTitle,
     width,
   });
   const existingHeader = styleText(`Switch to (${worktrees.length})`, ANSI.dim);
   const existingRows = worktrees.flatMap((entry, index) => {
+    const selected = selectedIndex === index + 1;
     const baseTitle = entry.isBase ? entry.branchName : entry.displayName;
-    const prefix = entry.isBase ? '' : getTreePrefix(entry);
-    const suffix = entry.isCurrent ? ' *' : '';
-    const title = `${prefix}${baseTitle} (${entry.pathLabel})${suffix}`;
-    let titleTone = ANSI.green;
+    const rawPrefix = entry.isBase ? '' : getTreePrefix(entry);
+    const prefix = rawPrefix ? styleText(rawPrefix, ANSI.gray) : '';
 
+    let tone = ANSI.green;
     if (entry.isBase) {
-      titleTone = ANSI.cyan;
+      tone = ANSI.cyan;
     } else if (entry.isCurrent) {
-      titleTone = ANSI.yellow;
+      tone = ANSI.yellow;
     }
+
+    const nameStyled = selected
+      ? styleText(baseTitle, ANSI.bold, tone)
+      : styleText(baseTitle, tone);
+    const pathStyled = styleText(`(${entry.pathLabel})`, ANSI.dim);
+    let suffixStyled = '';
+    if (entry.isCurrent) {
+      suffixStyled = selected
+        ? styleText(' *', ANSI.bold, tone)
+        : styleText(' *', tone);
+    }
+    const title = `${prefix}${nameStyled} ${pathStyled}${suffixStyled}`;
 
     return renderOptionCard({
       details: [],
-      selected: selectedIndex === index + 1,
+      selected,
       title,
-      titleTone,
       width,
     });
   });
@@ -806,7 +807,7 @@ function renderWorktreeSelector({
   const subtitle = `${styleText('↑/↓', ANSI.bold)} move · ${styleText(
     'Enter',
     ANSI.bold,
-  )} confirm · ${styleText('Esc', ANSI.bold)} cancel · type to name`;
+  )} confirm · ${styleText('Esc', ANSI.bold)} cancel`;
   const lines = [
     styleText('Worktree Picker', ANSI.bold, ANSI.cyan),
     subtitle,
