@@ -9,13 +9,10 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import type { ISectionListRef } from '@onekeyhq/components';
 import {
   Empty,
-  Icon,
-  Page,
   SearchBar,
   SectionList,
   SizableText,
@@ -24,8 +21,6 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -98,15 +93,12 @@ const ListHeaderComponent = () => {
           />
         </XStack>
       )}
-      {allNetworkItem ? (
-        <EditableListItem item={allNetworkItem} isEditable={false} />
-      ) : null}
+      {allNetworkItem ? <EditableListItem item={allNetworkItem} /> : null}
     </YStack>
   );
 };
 
 type IEditableChainSelectorContentProps = {
-  isEditMode?: boolean;
   recentNetworksEnabled?: boolean;
   accountNetworkValues: Record<string, string>;
   mainnetItems: IServerNetwork[];
@@ -119,9 +111,7 @@ type IEditableChainSelectorContentProps = {
   accountId?: string;
   indexedAccountId?: string;
   onPressItem?: (network: IServerNetwork) => void;
-  onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
-  onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   setAllNetworksChanged?: (value: boolean) => void;
   accountNetworkValueCurrency?: string;
   accountDeFiOverview: Record<
@@ -147,12 +137,9 @@ export const EditableChainSelectorContent = ({
   frequentlyUsedItems,
   unavailableItems,
   onPressItem,
-  onAddCustomNetwork,
   onEditCustomNetwork,
   networkId,
-  isEditMode,
   allNetworkItem,
-  onFrequentlyUsedItemsChange,
   accountDeFiOverview,
   showAllNetworkInRecentNetworks,
   zeroValue,
@@ -168,18 +155,6 @@ export const EditableChainSelectorContent = ({
     frequentlyUsedItems ?? [],
   );
   const listRef = useRef<ISectionListRef<any> | null>(null);
-  const lastIsEditMode = usePrevious(isEditMode);
-
-  useEffect(() => {
-    if (!isEditMode && lastIsEditMode) {
-      onFrequentlyUsedItemsChange?.(tempFrequentlyUsedItems);
-    }
-  }, [
-    isEditMode,
-    lastIsEditMode,
-    tempFrequentlyUsedItems,
-    onFrequentlyUsedItemsChange,
-  ]);
 
   useEffect(() => {
     setTempFrequentlyUsedItems(frequentlyUsedItems);
@@ -233,7 +208,6 @@ export const EditableChainSelectorContent = ({
     const _sections: IEditableChainSelectorSection[] = [
       {
         data: tempFrequentlyUsedItems,
-        draggable: true,
       },
       ...mainnetSections,
     ];
@@ -364,13 +338,7 @@ export const EditableChainSelectorContent = ({
       ),
       networkId,
       onPressItem,
-      onAddCustomNetwork,
-      onEditCustomNetwork: (network: IServerNetwork) => {
-        // Save list edits before editing custom network
-        onFrequentlyUsedItemsChange?.(tempFrequentlyUsedItems);
-        onEditCustomNetwork?.(network);
-      },
-      isEditMode,
+      onEditCustomNetwork,
       searchText,
       allNetworkItem,
       accountNetworkValues,
@@ -384,13 +352,10 @@ export const EditableChainSelectorContent = ({
       tempFrequentlyUsedItems,
       networkId,
       onPressItem,
-      onAddCustomNetwork,
-      isEditMode,
       searchText,
       allNetworkItem,
       accountNetworkValues,
       accountNetworkValueCurrency,
-      onFrequentlyUsedItemsChange,
       onEditCustomNetwork,
       accountDeFiOverview,
       zeroValue,
@@ -400,22 +365,14 @@ export const EditableChainSelectorContent = ({
     ({
       item,
       section,
-      drag,
-      dragProps,
     }: {
       item: IServerNetwork;
       section: IEditableChainSelectorSection;
-      drag?: () => void;
-      dragProps?: Record<string, any>;
     }) => (
       <EditableListItem
         item={item}
-        isDraggable={section.draggable}
         isDisabled={section.unavailable}
-        isEditable={section.editable}
         isCustomNetworkEditable={item.isCustomNetwork}
-        drag={drag}
-        dragProps={dragProps}
       />
     ),
     [],
@@ -504,30 +461,6 @@ export const EditableChainSelectorContent = ({
             <ListEmptyComponent />
           )}
         </Stack>
-        {isEditMode ? (
-          <Page.Footer>
-            <Stack
-              pt="$2"
-              pb={bottom || '$2'}
-              borderTopWidth={StyleSheet.hairlineWidth}
-              borderTopColor="$borderSubdued"
-            >
-              <ListItem
-                userSelect="none"
-                onPress={() => onAddCustomNetwork?.()}
-              >
-                <Stack p="$1" borderRadius="$full" bg="$bgStrong">
-                  <Icon name="PlusSmallOutline" color="$iconSubdued" />
-                </Stack>
-                <ListItem.Text
-                  primary={intl.formatMessage({
-                    id: ETranslations.custom_network_add_network_action_text,
-                  })}
-                />
-              </ListItem>
-            </Stack>
-          </Page.Footer>
-        ) : null}
       </Stack>
     </EditableChainSelectorContext.Provider>
   );

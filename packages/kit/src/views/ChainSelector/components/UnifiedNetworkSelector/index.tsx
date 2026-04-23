@@ -673,7 +673,6 @@ function UnifiedNetworkSelector() {
                   networkId={networkId}
                   networkIds={networkIds}
                   onPressItem={handleNetworkPressItem}
-                  onAddCustomNetwork={handleAddCustomNetwork}
                   onEditCustomNetwork={handleEditCustomNetwork}
                   searchText={searchKey}
                   setSearchText={setSearchKey}
@@ -718,7 +717,6 @@ function UnifiedNetworkSelector() {
                   networkId={networkId}
                   networkIds={networkIds}
                   onPressItem={handleNetworkPressItem}
-                  onAddCustomNetwork={handleAddCustomNetwork}
                   onEditCustomNetwork={handleEditCustomNetwork}
                   searchText={searchKey}
                   setSearchText={setSearchKey}
@@ -735,7 +733,6 @@ function UnifiedNetworkSelector() {
               networkId={networkId}
               networkIds={networkIds}
               onPressItem={handleNetworkPressItem}
-              onAddCustomNetwork={handleAddCustomNetwork}
               onEditCustomNetwork={handleEditCustomNetwork}
               searchText={searchKey}
               setSearchText={setSearchKey}
