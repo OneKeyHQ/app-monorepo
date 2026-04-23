@@ -105,8 +105,6 @@
     "app:native-bundle:keychain": "yarn keychain yarn app:native-bundle",
     "keyless:mock-server:build": "yarn workspace @onekeyhq/kit-bg keyless:mock-server:build",
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
-    "wt": "node development/scripts/worktree.js",
-    "worktree": "node development/scripts/worktree.js",
     "onekeyhq:modules:upgrade": "node development/scripts/upgrade-modules.js",
     "check:release-age": "npx tsx development/scripts/minimum-release-age/run.ts diff",
     "check:release-age:full": "npx tsx development/scripts/minimum-release-age/run.ts full"
