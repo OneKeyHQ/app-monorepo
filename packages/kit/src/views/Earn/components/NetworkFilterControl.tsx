@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Button,
@@ -13,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface INetworkFilterControlProps {
   availableNetworkIds: string[];
@@ -27,6 +30,7 @@ function NetworkFilterControl({
   networkAssetCounts,
   onSelectionChange,
 }: INetworkFilterControlProps) {
+  const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
 
   const { result: networks } = usePromiseResult(async () => {
@@ -68,14 +72,20 @@ function NetworkFilterControl({
 
   const buttonLabel = useMemo(() => {
     if (selectedNetworkIds.length === 0) {
-      return 'All Networks';
+      return intl.formatMessage({ id: ETranslations.global_all_networks });
     }
     if (selectedNetworkIds.length === 1) {
       const network = networks?.find((n) => n.id === selectedNetworkIds[0]);
-      return network?.name ?? 'All Networks';
+      return (
+        network?.name ??
+        intl.formatMessage({ id: ETranslations.global_all_networks })
+      );
     }
-    return `${selectedNetworkIds.length} Networks`;
-  }, [selectedNetworkIds, networks]);
+    return intl.formatMessage(
+      { id: ETranslations.global_count_networks },
+      { count: selectedNetworkIds.length },
+    );
+  }, [selectedNetworkIds, networks, intl]);
 
   return (
     <Popover
@@ -105,11 +115,11 @@ function NetworkFilterControl({
         <YStack px="$5" py="$4">
           <XStack jc="space-between" ai="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Networks
+              {intl.formatMessage({ id: ETranslations.global_networks })}
             </SizableText>
             {selectedNetworkIds.length > 0 ? (
               <Button variant="tertiary" size="small" onPress={handleReset}>
-                Reset
+                {intl.formatMessage({ id: ETranslations.global_reset })}
               </Button>
             ) : null}
           </XStack>
