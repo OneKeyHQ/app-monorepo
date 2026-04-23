@@ -1,7 +1,6 @@
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import * as ThirdPartyErrors from '../errors/thirdPartyHardwareErrors';
-import { OneKeyThirdPartyExtHwErrorCode } from '../errors/thirdPartyHardwareErrors';
 
 import type { IOneKeyHardwareErrorPayload } from '../types/errorTypes';
 
@@ -35,30 +34,45 @@ export function convertThirdPartyDeviceError(
     appName: payload.appName,
   };
 
-  // OneKey-side extended codes for vendor-specific APDU errors. The SDK
-  // (@onekeyfe/hwk-ledger-adapter) is responsible for identifying these and
-  // surfacing the matching numeric code — this layer only routes to i18n.
   switch (payload.code) {
-    case OneKeyThirdPartyExtHwErrorCode.EvmBlindSigningRequired:
+    // EVM-specific (chain-specific copy, production-validated)
+    case ThirdPartyHwErrorCode.EvmBlindSigningRequired:
       return new ThirdPartyErrors.ThirdPartyEvmBlindSigningRequired(props);
-    case OneKeyThirdPartyExtHwErrorCode.EvmClearSignPluginMissing:
+    case ThirdPartyHwErrorCode.EvmClearSignPluginMissing:
       return new ThirdPartyErrors.ThirdPartyEvmClearSignPluginMissing(props);
-    case OneKeyThirdPartyExtHwErrorCode.EvmDataTooLarge:
+    case ThirdPartyHwErrorCode.EvmDataTooLarge:
       return new ThirdPartyErrors.ThirdPartyEvmDataTooLarge(props);
-    case OneKeyThirdPartyExtHwErrorCode.EvmTxTypeNotSupported:
+    case ThirdPartyHwErrorCode.EvmTxTypeNotSupported:
       return new ThirdPartyErrors.ThirdPartyEvmTxTypeNotSupported(props);
-    case OneKeyThirdPartyExtHwErrorCode.AppTooOld:
+    case ThirdPartyHwErrorCode.AppTooOld:
       return new ThirdPartyErrors.ThirdPartyAppTooOld(props);
-    default:
-      break;
-  }
 
-  switch (payload.code) {
+    // Non-EVM generic: "Please enable Blind signing and follow device prompts"
+    case ThirdPartyHwErrorCode.SolanaBlindSigningRequired:
+    case ThirdPartyHwErrorCode.TronCustomContractRequired:
+    case ThirdPartyHwErrorCode.TronDataSigningRequired:
+    case ThirdPartyHwErrorCode.TronSignByHashRequired:
+      return new ThirdPartyErrors.ThirdPartyEnableBlindSigning({
+        ...props,
+        code: payload.code,
+      });
+
+    // Non-EVM generic: "This operation is not supported on your Ledger device"
+    case ThirdPartyHwErrorCode.BtcWalletPolicyHmacMismatch:
+    case ThirdPartyHwErrorCode.BtcUnexpectedState:
+      return new ThirdPartyErrors.ThirdPartyFeatureNotSupported({
+        ...props,
+        code: payload.code,
+      });
+
     case ThirdPartyHwErrorCode.AppNotOpen:
       return new ThirdPartyErrors.ThirdPartyAppNotInstalled(props);
 
     case ThirdPartyHwErrorCode.UserRejected:
       return new ThirdPartyErrors.ThirdPartyUserRejected(props);
+
+    case ThirdPartyHwErrorCode.DevicePermissionDenied:
+      return new ThirdPartyErrors.ThirdPartyDevicePermissionDenied(props);
 
     case ThirdPartyHwErrorCode.DeviceLocked:
       return new ThirdPartyErrors.ThirdPartyDeviceLocked(props);

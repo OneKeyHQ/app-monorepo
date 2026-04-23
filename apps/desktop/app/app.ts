@@ -1020,8 +1020,13 @@ async function createMainWindow() {
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
 
   browserWindow.webContents.session.setDevicePermissionHandler((details) => {
-    if (details.deviceType === 'usb' || details.deviceType === 'hid') {
+    if (details.deviceType === 'usb') {
       return true;
+    }
+    if (details.deviceType === 'hid') {
+      // WebHID has no protected-class blocklist (unlike WebUSB), so tighten
+      // to Ledger vendorId only. VID is stable across Nano S/X/S+/Stax.
+      return details.device?.vendorId === 0x2c_97;
     }
     return false;
   });
