@@ -269,14 +269,14 @@ const ProtocolDesktopLayout = memo(
                         ))}
                       </YStack>
                       {position.action ? (
-                        <Stack px="$5" pt="$2">
+                        <Stack px="$5" pt="$3">
                           <ProtocolPositionActionShell
                             action={position.action}
                           />
                         </Stack>
                       ) : null}
                       {index !== positions.length - 1 ? (
-                        <Stack px="$5" pt="$3" pb="$1">
+                        <Stack px="$5" py="$3">
                           <Divider />
                         </Stack>
                       ) : null}
