@@ -81,6 +81,7 @@ export function useMarketTransactions({
       return;
     }
 
+    throttleSetAccumulatedTransactions.cancel();
     setAccumulatedTransactionsImmediately(
       mergeUniqueTransactions([
         ...buffered,
@@ -88,7 +89,11 @@ export function useMarketTransactions({
       ]),
     );
     clearBufferedTransactions();
-  }, [clearBufferedTransactions, setAccumulatedTransactionsImmediately]);
+  }, [
+    clearBufferedTransactions,
+    setAccumulatedTransactionsImmediately,
+    throttleSetAccumulatedTransactions,
+  ]);
 
   const resetRealtimePause = useCallback(() => {
     clearRealtimeHoverOutTimer();
@@ -328,6 +333,7 @@ export function useMarketTransactions({
     isRealtimePaused,
     isRealtimePauseActive,
     flushBufferedTransactions,
+    resumeRealtimeUpdates,
     resetRealtimePause,
     handleRealtimePauseHoverIn: pauseRealtimeUpdates,
     handleRealtimePauseHoverOut,

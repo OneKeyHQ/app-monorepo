@@ -1,0 +1,161 @@
+/** @jest-environment jsdom */
+
+import type { ReactNode } from 'react';
+
+import { render } from '@testing-library/react';
+
+import { TransactionsHistory } from './TransactionsHistory';
+
+const mockUseTransactionsWebSocket: jest.MockedFunction<
+  (params: unknown) => void
+> = jest.fn();
+const mockSetRealtimePauseState = jest.fn();
+const mockLoadMore = jest.fn();
+const mockAddNewTransaction = jest.fn();
+const mockFlushBufferedTransactions = jest.fn();
+const mockResumeRealtimeUpdates = jest.fn();
+const mockHandleRealtimePauseHoverIn = jest.fn();
+const mockHandleRealtimePauseHoverOut = jest.fn();
+const mockHandleRealtimePauseTouchStart = jest.fn();
+const mockHandleRealtimePauseTouchEnd = jest.fn();
+
+const mockMarketTransactionsResult = {
+  transactions: [],
+  isRefreshing: false,
+  isLoadingMore: false,
+  hasMore: false,
+  loadMore: mockLoadMore,
+  addNewTransaction: mockAddNewTransaction,
+  bufferedTransactionsCount: 0,
+  hasBufferOverflow: false,
+  isRealtimePaused: false,
+  flushBufferedTransactions: mockFlushBufferedTransactions,
+  resumeRealtimeUpdates: mockResumeRealtimeUpdates,
+  handleRealtimePauseHoverIn: mockHandleRealtimePauseHoverIn,
+  handleRealtimePauseHoverOut: mockHandleRealtimePauseHoverOut,
+  handleRealtimePauseTouchStart: mockHandleRealtimePauseTouchStart,
+  handleRealtimePauseTouchEnd: mockHandleRealtimePauseTouchEnd,
+};
+
+jest.mock('@onekeyhq/components', () => {
+  const Stack = ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  );
+
+  return {
+    SizableText: Stack,
+    Spinner: Stack,
+    Stack,
+    Tabs: {
+      FlatList: () => <div data-testid="transactions-list" />,
+    },
+    useCurrentTabScrollY: () => ({ value: 0 }),
+    useMedia: () => ({ gtXl: true }),
+  };
+});
+
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => true,
+}));
+
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  EMPTY_MARKET_TRANSACTIONS_REALTIME_PAUSE_STATE: {
+    isPaused: false,
+    bufferedCount: 0,
+    hasBufferOverflow: false,
+  },
+  useMarketTransactionsRealtimePauseAtom: () => [{}, mockSetRealtimePauseState],
+}));
+
+jest.mock('@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks', () => ({
+  useTokenDetail: () => ({
+    websocketConfig: { txs: true },
+    isNative: false,
+  }),
+}));
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
+jest.mock('react-native-reanimated', () => ({
+  runOnJS: (callback: (...args: unknown[]) => void) => callback,
+  useAnimatedReaction: jest.fn(),
+}));
+
+jest.mock('use-debounce', () => ({
+  useDebouncedCallback: (callback: (...args: unknown[]) => void) => callback,
+}));
+
+jest.mock('./components/TransactionRelativeTime', () => ({
+  TransactionsRelativeTimeProvider: ({
+    children,
+  }: {
+    children?: ReactNode;
+  }) => <div>{children}</div>,
+}));
+
+jest.mock('./components/TransactionsSkeleton', () => ({
+  TransactionsSkeleton: () => <div>skeleton</div>,
+}));
+
+jest.mock('./hooks/useMarketTransactions', () => ({
+  useMarketTransactions: () => mockMarketTransactionsResult,
+}));
+
+jest.mock('./hooks/useTransactionsWebSocket', () => ({
+  useTransactionsWebSocket: (params: unknown) => {
+    mockUseTransactionsWebSocket(params);
+  },
+}));
+
+jest.mock('./layout/TransactionItemNormal/TransactionItemNormal', () => ({
+  TransactionItemNormal: () => <div>normal-item</div>,
+}));
+
+jest.mock('./layout/TransactionItemSmall/TransactionItemSmall', () => ({
+  TransactionItemSmall: () => <div>small-item</div>,
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    isNative: false,
+    isNativeAndroid: false,
+  },
+}));
+
+describe('TransactionsHistory', () => {
+  beforeEach(() => {
+    mockSetRealtimePauseState.mockReset();
+    mockUseTransactionsWebSocket.mockReset();
+    mockLoadMore.mockReset();
+    mockAddNewTransaction.mockReset();
+    mockFlushBufferedTransactions.mockReset();
+    mockResumeRealtimeUpdates.mockReset();
+    mockHandleRealtimePauseHoverIn.mockReset();
+    mockHandleRealtimePauseHoverOut.mockReset();
+    mockHandleRealtimePauseTouchStart.mockReset();
+    mockHandleRealtimePauseTouchEnd.mockReset();
+  });
+
+  it('keeps realtime pause state outside websocket self-heal callbacks', () => {
+    render(<TransactionsHistory tokenAddress="0xabc" networkId="evm--1" />);
+
+    expect(mockUseTransactionsWebSocket).toHaveBeenCalledTimes(1);
+
+    const websocketParams = mockUseTransactionsWebSocket.mock.calls[0][0];
+
+    expect(websocketParams).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        enabled: true,
+        onNewTransaction: mockAddNewTransaction,
+      }),
+    );
+    expect(websocketParams).not.toHaveProperty('onSubscriptionRestored');
+  });
+});

@@ -67,6 +67,7 @@ export interface IMarketTransactionsRealtimePauseState {
   bufferedCount: number;
   hasBufferOverflow: boolean;
   flushBufferedTransactions?: () => void;
+  resumeRealtimeUpdates?: () => void;
   scrollTransactionsToTop?: () => void;
   handleRealtimePauseHoverIn?: () => void;
   handleRealtimePauseHoverOut?: () => void;

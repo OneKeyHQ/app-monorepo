@@ -140,11 +140,13 @@ export function formatDistanceStrict(
   date: Date | number,
   baseDate: Date | number,
   addSuffix?: boolean,
+  roundingMethod?: 'floor' | 'ceil' | 'round',
 ) {
   const locale = appLocale.getLocale();
   const distance = fnsFormatDistanceStrict(date, baseDate, {
     locale: parseToDateFnsLocale(locale),
     addSuffix,
+    roundingMethod,
   });
 
   return distance ?? '';

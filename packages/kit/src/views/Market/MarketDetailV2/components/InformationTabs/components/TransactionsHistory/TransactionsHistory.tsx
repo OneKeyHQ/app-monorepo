@@ -108,7 +108,7 @@ export function TransactionsHistory({
     hasBufferOverflow,
     isRealtimePaused,
     flushBufferedTransactions,
-    resetRealtimePause,
+    resumeRealtimeUpdates,
     handleRealtimePauseHoverIn,
     handleRealtimePauseHoverOut,
     handleRealtimePauseTouchStart,
@@ -127,7 +127,6 @@ export function TransactionsHistory({
     tokenAddress,
     enabled: !normalMode && isVisible,
     onNewTransaction: addNewTransaction,
-    onSubscriptionRestored: resetRealtimePause,
   });
 
   const scrollTransactionsToTop = useCallback(() => {
@@ -167,6 +166,7 @@ export function TransactionsHistory({
         prev.bufferedCount === bufferedTransactionsCount &&
         prev.hasBufferOverflow === hasBufferOverflow &&
         prev.flushBufferedTransactions === flushBufferedTransactions &&
+        prev.resumeRealtimeUpdates === resumeRealtimeUpdates &&
         prev.scrollTransactionsToTop === scrollTransactionsToTop &&
         prev.handleRealtimePauseHoverIn === handleRealtimePauseHoverIn &&
         prev.handleRealtimePauseHoverOut === handleRealtimePauseHoverOut
@@ -178,6 +178,7 @@ export function TransactionsHistory({
         bufferedCount: bufferedTransactionsCount,
         hasBufferOverflow,
         flushBufferedTransactions,
+        resumeRealtimeUpdates,
         scrollTransactionsToTop,
         handleRealtimePauseHoverIn,
         handleRealtimePauseHoverOut,
@@ -190,6 +191,7 @@ export function TransactionsHistory({
     handleRealtimePauseHoverOut,
     hasBufferOverflow,
     isRealtimePaused,
+    resumeRealtimeUpdates,
     scrollTransactionsToTop,
     setRealtimePauseState,
   ]);
