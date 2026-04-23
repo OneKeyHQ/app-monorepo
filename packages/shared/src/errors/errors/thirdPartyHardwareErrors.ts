@@ -1,36 +1,13 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
-import { ETranslationsMock } from '../../locale';
+import { ETranslations } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
 import { OneKeyHardwareError } from './hardwareErrors';
 
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
-
-// ---------------------------------------------------------------------------
-// OneKey-side extended error codes for vendor-specific APDU errors that the
-// upstream `HardwareErrorCode` enum (in @onekeyfe/hwk-adapter-core) doesn't
-// cover. Numeric range 7000+ is reserved here to avoid colliding with the
-// upstream enum values (0-10, 5520-5560).
-// ---------------------------------------------------------------------------
-
-export const OneKeyThirdPartyExtHwErrorCode = {
-  // Ledger Ethereum App — APDU 0x6a80 "Invalid data" when blind signing is off
-  EvmBlindSigningRequired: 7001,
-  // Ledger Ethereum App — APDU 0x6984 "Plugin not installed"
-  EvmClearSignPluginMissing: 7002,
-  // Ledger Ethereum App — APDU 0x6a84 "Insufficient memory" (Nano S)
-  EvmDataTooLarge: 7003,
-  // Ledger Ethereum App — APDU 0x6501 "TransactionType not supported"
-  EvmTxTypeNotSupported: 7004,
-  // Ledger Ethereum App — APDU 0x911c "Command code not supported"
-  AppTooOld: 7005,
-} as const;
-
-export type IOneKeyThirdPartyExtHwErrorCode =
-  (typeof OneKeyThirdPartyExtHwErrorCode)[keyof typeof OneKeyThirdPartyExtHwErrorCode];
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -51,9 +28,8 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
   appName?: string;
 }
 
-// Error classes use `ETranslationsMock` keys until real locale data ships;
-// swap to `ETranslations` imports then. Do NOT pass `defaultMessage` — the
-// mock enum value already holds the human-readable text.
+// Do NOT pass `defaultMessage` — the locale key's translation already holds
+// the human-readable text.
 
 /**
  * App not installed on device (Ledger 0x6807 "Unknown application name").
@@ -74,7 +50,7 @@ export class ThirdPartyAppNotInstalled extends ThirdPartyHardwareError {
   ) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_app_not_installed,
+        defaultKey: ETranslations.hardware_third_party_app_not_installed,
       }),
     );
     this.vendor = props?.vendor;
@@ -90,7 +66,7 @@ export class ThirdPartyDeviceLocked extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_device_locked,
+        defaultKey: ETranslations.hardware_third_party_device_locked,
       }),
     );
     this.vendor = props?.vendor;
@@ -104,13 +80,28 @@ export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_user_rejected,
+        defaultKey: ETranslations.hardware_third_party_user_rejected,
         defaultAutoToast: true,
       }),
     );
   }
 
   override code = ThirdPartyHwErrorCode.UserRejected;
+}
+
+/** OS-level device permission (Bluetooth / USB) denied. */
+export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.onboarding_bluetooth_permission_needed,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DevicePermissionDenied;
 }
 
 /** Wrong app is open on device */
@@ -120,7 +111,7 @@ export class ThirdPartyWrongApp extends ThirdPartyHardwareError {
   ) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_wrong_app,
+        defaultKey: ETranslations.hardware_third_party_wrong_app,
       }),
     );
     this.vendor = props?.vendor;
@@ -135,7 +126,7 @@ export class ThirdPartyDeviceDisconnected extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_device_disconnected,
+        defaultKey: ETranslations.hardware_third_party_device_disconnected,
         defaultAutoToast: true,
       }),
     );
@@ -150,7 +141,7 @@ export class ThirdPartyDeviceMismatch extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_device_mismatch,
+        defaultKey: ETranslations.hardware_third_party_device_mismatch,
       }),
     );
     this.vendor = props?.vendor;
@@ -164,7 +155,7 @@ export class ThirdPartyOperationTimeout extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_operation_timeout,
+        defaultKey: ETranslations.hardware_third_party_operation_timeout,
         defaultAutoToast: true,
       }),
     );
@@ -178,7 +169,7 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_method_not_supported,
+        defaultKey: ETranslations.hardware_third_party_method_not_supported,
         defaultAutoToast: true,
       }),
     );
@@ -192,7 +183,7 @@ export class ThirdPartyUnknownError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_unknown_error,
+        defaultKey: ETranslations.hardware_third_party_unknown_error,
         defaultAutoToast: true,
       }),
     );
@@ -206,7 +197,7 @@ export class ThirdPartyDeviceNotFound extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_device_not_found,
+        defaultKey: ETranslations.hardware_third_party_device_not_found,
         defaultAutoToast: true,
       }),
     );
@@ -221,7 +212,7 @@ export class ThirdPartyDeviceBusy extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_device_busy,
+        defaultKey: ETranslations.hardware_third_party_device_busy,
         defaultAutoToast: true,
       }),
     );
@@ -236,7 +227,7 @@ export class ThirdPartyTransportError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_transport_error,
+        defaultKey: ETranslations.hardware_third_party_transport_error,
         defaultAutoToast: true,
       }),
     );
@@ -252,7 +243,7 @@ export class ThirdPartyTransportNotAvailable extends ThirdPartyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultKey:
-          ETranslationsMock.hardware_third_party_transport_not_available,
+          ETranslations.hardware_third_party_transport_not_available,
         defaultAutoToast: true,
       }),
     );
@@ -264,6 +255,10 @@ export class ThirdPartyTransportNotAvailable extends ThirdPartyHardwareError {
 
 // ---------------------------------------------------------------------------
 // EVM-specific Ledger Ethereum App errors (mapped from Ledger APDU codes)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// EVM-specific error classes (chain-specific copy, production-validated)
 // ---------------------------------------------------------------------------
 
 /**
@@ -280,14 +275,14 @@ export class ThirdPartyEvmBlindSigningRequired extends ThirdPartyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultKey:
-          ETranslationsMock.hardware_third_party_evm_blind_signing_required,
+          ETranslations.hardware_third_party_evm_blind_signing_required,
         defaultAutoToast: true,
       }),
     );
     this.vendor = props?.vendor;
   }
 
-  override code = OneKeyThirdPartyExtHwErrorCode.EvmBlindSigningRequired;
+  override code = ThirdPartyHwErrorCode.EvmBlindSigningRequired;
 }
 
 /** Ledger APDU 0x6984 — required clear-sign plugin missing */
@@ -296,14 +291,14 @@ export class ThirdPartyEvmClearSignPluginMissing extends ThirdPartyHardwareError
     super(
       normalizeErrorProps(props, {
         defaultKey:
-          ETranslationsMock.hardware_third_party_evm_clear_sign_plugin_missing,
+          ETranslations.hardware_third_party_evm_clear_sign_plugin_missing,
         defaultAutoToast: true,
       }),
     );
     this.vendor = props?.vendor;
   }
 
-  override code = OneKeyThirdPartyExtHwErrorCode.EvmClearSignPluginMissing;
+  override code = ThirdPartyHwErrorCode.EvmClearSignPluginMissing;
 }
 
 /** Ledger APDU 0x6a84 — device memory not enough (typically Nano S) */
@@ -311,14 +306,14 @@ export class ThirdPartyEvmDataTooLarge extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_evm_data_too_large,
+        defaultKey: ETranslations.hardware_third_party_evm_data_too_large,
         defaultAutoToast: true,
       }),
     );
     this.vendor = props?.vendor;
   }
 
-  override code = OneKeyThirdPartyExtHwErrorCode.EvmDataTooLarge;
+  override code = ThirdPartyHwErrorCode.EvmDataTooLarge;
 }
 
 /** Ledger APDU 0x6501 — transaction type not supported by current Ethereum app */
@@ -327,14 +322,60 @@ export class ThirdPartyEvmTxTypeNotSupported extends ThirdPartyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultKey:
-          ETranslationsMock.hardware_third_party_evm_tx_type_not_supported,
+          ETranslations.hardware_third_party_evm_tx_type_not_supported,
         defaultAutoToast: true,
       }),
     );
     this.vendor = props?.vendor;
   }
 
-  override code = OneKeyThirdPartyExtHwErrorCode.EvmTxTypeNotSupported;
+  override code = ThirdPartyHwErrorCode.EvmTxTypeNotSupported;
+}
+
+// ---------------------------------------------------------------------------
+// Generic error classes (non-EVM chains: SOL / TRON / BTC)
+// Device screen shows the exact setting name, so one generic copy per bucket.
+// ---------------------------------------------------------------------------
+
+/**
+ * "Please enable Blind signing and follow the on-device instructions."
+ * Covers every non-EVM app-setting toggle that blocks signing:
+ *   SOL BlindSigning, TRON Custom Contracts / Data Signing / Sign by Hash.
+ */
+export class ThirdPartyEnableBlindSigning extends ThirdPartyHardwareError {
+  constructor(
+    props?: IOneKeyErrorHardwareProps & { vendor?: string; code?: number },
+  ) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_enable_blind_signing,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+    this.code = props?.code ?? ThirdPartyHwErrorCode.SolanaBlindSigningRequired;
+  }
+}
+
+/**
+ * "This operation is not supported on your Ledger device."
+ * Covers BTC edge cases: wallet policy hmac mismatch, unexpected signing state.
+ */
+export class ThirdPartyFeatureNotSupported extends ThirdPartyHardwareError {
+  constructor(
+    props?: IOneKeyErrorHardwareProps & { vendor?: string; code?: number },
+  ) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_feature_not_supported,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+    this.code =
+      props?.code ?? ThirdPartyHwErrorCode.BtcWalletPolicyHmacMismatch;
+  }
 }
 
 /** Ledger APDU 0x911c — app too old / command not supported */
@@ -342,12 +383,12 @@ export class ThirdPartyAppTooOld extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_app_too_old,
+        defaultKey: ETranslations.hardware_third_party_app_too_old,
         defaultAutoToast: true,
       }),
     );
     this.vendor = props?.vendor;
   }
 
-  override code = OneKeyThirdPartyExtHwErrorCode.AppTooOld;
+  override code = ThirdPartyHwErrorCode.AppTooOld;
 }

@@ -24,6 +24,8 @@ import {
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -47,20 +49,28 @@ function getDeviceLabel(vendor: string | undefined): string {
   );
 }
 
-// TODO: replace template literals with i18n + ICU {device} placeholder once
-// the real ETranslations keys ship; mock lookup doesn't do ICU substitution.
-function getToastLabel(action: string | undefined, vendor: string): string {
-  const device = getDeviceLabel(vendor);
+function getToastLabel(
+  action: string | undefined,
+  _vendor: string,
+): string {
   switch (action) {
     case EThirdPartyHardwareUiAction.openApp:
-      return `Please open the app on your ${device}`;
+      return appLocale.intl.formatMessage({
+        id: ETranslations.hardware_third_party_app_not_installed,
+      });
     case EThirdPartyHardwareUiAction.unlockDevice:
-      return `Please unlock your ${device}`;
+      return appLocale.intl.formatMessage({
+        id: ETranslations.hardware_third_party_device_locked,
+      });
     case EThirdPartyHardwareUiAction.searching:
-      return `Searching for ${device}...`;
+      return appLocale.intl.formatMessage({
+        id: ETranslations.hardware_searching_for_device,
+      });
     case EThirdPartyHardwareUiAction.confirmOnDevice:
     default:
-      return `Please confirm on your ${device}`;
+      return appLocale.intl.formatMessage({
+        id: ETranslations.global_confirm_on_device,
+      });
   }
 }
 
@@ -72,12 +82,12 @@ function getLedgerActionVideo(
     case EThirdPartyHardwareUiAction.confirmOnDevice:
     case EThirdPartyHardwareUiAction.openApp:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/hardware/confirm-on-ledger-dark.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/hardware/confirm-on-ledger-light.mp4') as ReactVideoSource);
+        ? (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json') as ReactVideoSource);
     case EThirdPartyHardwareUiAction.unlockDevice:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/hardware/enter-pin-on-ledger-dark.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/hardware/enter-pin-on-ledger-light.mp4') as ReactVideoSource);
+        ? (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json') as ReactVideoSource);
     default:
       return null;
   }
