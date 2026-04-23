@@ -2,14 +2,13 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   DialogContainer,
-  EVideoResizeMode,
   Icon,
   IconButton,
+  LottieView,
   Portal,
   SizableText,
   Stack,
   Toast,
-  Video,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -31,7 +30,6 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
-import type { ReactVideoSource } from 'react-native-video';
 
 const AUTO_CLOSED_FLAG = 'autoClosed';
 const SHOW_CLOSE_BUTTON_DELAY = 8000;
@@ -74,20 +72,22 @@ function getToastLabel(
   }
 }
 
-function getLedgerActionVideo(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getLedgerActionAnimation(
   action: string | undefined,
   themeVariant: 'light' | 'dark',
-): ReactVideoSource | null {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
   switch (action) {
     case EThirdPartyHardwareUiAction.confirmOnDevice:
     case EThirdPartyHardwareUiAction.openApp:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json') as ReactVideoSource);
+        ? require('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json')
+        : require('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json');
     case EThirdPartyHardwareUiAction.unlockDevice:
       return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json') as ReactVideoSource);
+        ? require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json')
+        : require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json');
     default:
       return null;
   }
@@ -113,9 +113,9 @@ function DeviceActionToast({
 
   const label = getToastLabel(action, vendor);
 
-  const videoSource = useMemo<ReactVideoSource | null>(() => {
+  const animationSource = useMemo(() => {
     if (vendor !== EHardwareVendor.ledger) return null;
-    return getLedgerActionVideo(action, themeVariant);
+    return getLedgerActionAnimation(action, themeVariant);
   }, [action, vendor, themeVariant]);
 
   return (
@@ -130,16 +130,14 @@ function DeviceActionToast({
         justifyContent="center"
         overflow="hidden"
       >
-        {videoSource ? (
-          <Video
-            muted
+        {animationSource ? (
+          <LottieView
             autoPlay
-            w="100%"
-            h="100%"
-            controls={false}
-            playInBackground={false}
-            resizeMode={EVideoResizeMode.COVER}
-            source={videoSource}
+            loop
+            width="100%"
+            height="100%"
+            resizeMode="cover"
+            source={animationSource}
           />
         ) : (
           <Icon name="CheckboxOutline" size="$10" color="$iconSubdued" />
