@@ -137,7 +137,12 @@ function DeFiContainer() {
   const [{ protocols }] = useDeFiListProtocolsAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
-  const isOverviewLoading = !initialized && isRefreshing;
+  // `initialized` flips before the protocols atom lands, so a naive
+  // `!initialized && isRefreshing` gate leaves a ~1s gap where the card
+  // unmounts (shouldShowOverview drops to false because protocols.length<2)
+  // right before data arrives. Hold the skeleton through that gap.
+  const isOverviewLoading =
+    !initialized || (isRefreshing && (protocols?.length ?? 0) === 0);
 
   const triggerPinCheckRef = useRef<() => void>(() => {});
   const scrollContainerRef = useRef<HTMLElement | null>(null);
