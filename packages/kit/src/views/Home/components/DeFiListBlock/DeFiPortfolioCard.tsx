@@ -4,14 +4,18 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { DeFiPortfolioDonut } from './DeFiPortfolioDonut';
 import { DeFiPortfolioLegend } from './DeFiPortfolioLegend';
+import { PORTFOLIO_TOP_N } from './DeFiPortfolioStats';
 
 import type { IPortfolioStats } from './DeFiPortfolioStats';
 
@@ -20,6 +24,8 @@ export type IDeFiPortfolioCardProps = {
   isLoading?: boolean;
 };
 
+export type IPortfolioNetworkInfoMap = Record<string, IServerNetwork>;
+
 const DONUT_SIZE = 140;
 const DONUT_THICKNESS = 20;
 const LEGEND_MIN_WIDTH = 220;
@@ -27,6 +33,7 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 // Net worth above this reads as "substantial"; cents are noise at that scale.
 // Below it, two decimals stay informative.
 const PORTFOLIO_DECIMAL_THRESHOLD = 10;
+const EMPTY_NETWORK_INFO_MAP: IPortfolioNetworkInfoMap = {};
 
 function formatPortfolioTotal(
   total: number,
@@ -50,8 +57,33 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
   const title = intl.formatMessage({ id: ETranslations.earn_portfolio_title });
 
   const formattedTotal = useMemo(
-    () => formatPortfolioTotal(stats.total, currencySymbol, settingsValue.hideValue),
+    () =>
+      formatPortfolioTotal(
+        stats.total,
+        currencySymbol,
+        settingsValue.hideValue,
+      ),
     [stats.total, currencySymbol, settingsValue.hideValue],
+  );
+
+  // Resolve every chain icon in one bridge RPC instead of letting each
+  // legend-row NetworkAvatar fire its own. For a portfolio with 6 slices
+  // averaging ~2 chains each, this drops ~12 redundant RPCs to 1.
+  const uniqueNetworkIds = useMemo(
+    () => Array.from(new Set(stats.slices.flatMap((s) => s.networkIds))),
+    [stats.slices],
+  );
+  const { result: networkInfoMap } = usePromiseResult<IPortfolioNetworkInfoMap>(
+    async () => {
+      if (uniqueNetworkIds.length === 0) return {};
+      const { networks } =
+        await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+          networkIds: uniqueNetworkIds,
+        });
+      return Object.fromEntries(networks.map((n) => [n.id, n]));
+    },
+    [uniqueNetworkIds],
+    { initResult: EMPTY_NETWORK_INFO_MAP, checkIsFocused: false },
   );
 
   if (isLoading) {
@@ -68,7 +100,7 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
             borderRadius="$full"
           />
           <YStack width={LEGEND_MIN_WIDTH} gap="$2.5">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: PORTFOLIO_TOP_N }).map((_, i) => (
               <Skeleton
                 // eslint-disable-next-line react/no-array-index-key
                 key={`portfolio-legend-skeleton-${i}`}
@@ -105,7 +137,10 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
           thickness={DONUT_THICKNESS}
         />
         <YStack width={LEGEND_MIN_WIDTH}>
-          <DeFiPortfolioLegend slices={stats.slices} />
+          <DeFiPortfolioLegend
+            slices={stats.slices}
+            networkInfoMap={networkInfoMap ?? EMPTY_NETWORK_INFO_MAP}
+          />
         </YStack>
       </XStack>
     </XStack>

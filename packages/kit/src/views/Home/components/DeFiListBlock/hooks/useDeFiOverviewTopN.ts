@@ -16,7 +16,15 @@ export function useDeFiOverviewTopN(
       return [];
     }
     return protocols
-      .map((p) => ({ protocol: p, netWorth: getNetWorth(p) }))
-      .toSorted((a, b) => b.netWorth - a.netWorth);
+      .map((protocol, originalIndex) => ({
+        protocol,
+        originalIndex,
+        netWorth: getNetWorth(protocol),
+      }))
+      .toSorted((a, b) => {
+        if (a.netWorth !== b.netWorth) return b.netWorth - a.netWorth;
+        return a.originalIndex - b.originalIndex;
+      })
+      .map(({ protocol, netWorth }) => ({ protocol, netWorth }));
   }, [protocols, getNetWorth]);
 }

@@ -74,8 +74,7 @@ describe('buildDonutArcPath', () => {
     // Gap shortens both ends, so the start x-coord with a 2° inset is > 0
     // (it was exactly 0 without inset — 12 o'clock). A strict inequality
     // guards against the helper silently ignoring gapDeg.
-    const firstNumberAfterMove = (path: string) =>
-      Number(path.split(' ')[1]);
+    const firstNumberAfterMove = (path: string) => Number(path.split(' ')[1]);
     expect(firstNumberAfterMove(noGap)).toBe(0);
     expect(firstNumberAfterMove(withGap)).toBeGreaterThan(0);
   });

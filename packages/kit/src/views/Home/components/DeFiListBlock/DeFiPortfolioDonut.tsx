@@ -16,9 +16,8 @@ type IDeFiPortfolioDonutProps = {
   gapDeg?: number;
 };
 
-// Top finance apps (Coinbase, Wealthfront, Copilot Money, Apple Health pie)
-// all put a small visible gap between slices. 2° reads as an intentional
-// boundary without fragmenting the ring.
+// A small angular gap reads as an intentional slice boundary without
+// fragmenting the ring; zero looks like one continuous blob.
 const DEFAULT_SLICE_GAP_DEG = 2;
 
 type IResolvedPath = {
