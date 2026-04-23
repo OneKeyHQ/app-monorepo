@@ -1074,7 +1074,12 @@ function DeFiListBlock({
         headerContainerProps={{ px: '$pagePadding' }}
         plainContentContainer
         content={
-          !initialized && isRefreshing ? (
+          // Hide the empty state during the All-Networks throttle gap: once
+          // protocolMap has entries, protocols are pending a 1s-throttled
+          // update (see `updateAllNetworkData`) — show loading, not empty.
+          !initialized ||
+          isRefreshing ||
+          Object.keys(protocolMap).length > 0 ? (
             <ListLoading isTokenSelectorView={false} />
           ) : (
             <EmptyDeFi tableLayout={tableLayout} />

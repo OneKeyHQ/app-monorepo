@@ -137,12 +137,17 @@ function DeFiContainer() {
   const [{ protocols }] = useDeFiListProtocolsAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
-  // `initialized` flips before the protocols atom lands, so a naive
-  // `!initialized && isRefreshing` gate leaves a ~1s gap where the card
-  // unmounts (shouldShowOverview drops to false because protocols.length<2)
-  // right before data arrives. Hold the skeleton through that gap.
+  // All Networks path flips `initialized` immediately but throttles the
+  // `protocols` update up to 1s (via `updateAllNetworkData` in
+  // DeFiListBlock). `protocolMap` updates immediately, so its presence is a
+  // reliable "data is still landing" signal — keep the skeleton until
+  // protocols catch up.
+  const hasPendingProtocolsHydration =
+    (protocols?.length ?? 0) === 0 && Object.keys(protocolMap).length > 0;
   const isOverviewLoading =
-    !initialized || (isRefreshing && (protocols?.length ?? 0) === 0);
+    !initialized ||
+    (isRefreshing && (protocols?.length ?? 0) === 0) ||
+    hasPendingProtocolsHydration;
 
   const triggerPinCheckRef = useRef<() => void>(() => {});
   const scrollContainerRef = useRef<HTMLElement | null>(null);
