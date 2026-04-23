@@ -359,14 +359,12 @@ export function HomePageView({
     [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
   );
 
+  // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
+  // Keeping them inside renderHeader made them scroll through the sticky
+  // TabBar area — a partially-scrolled alert would leave a visible band
+  // between TabPageHeader and the tabs.
   const renderHeader = useCallback(() => {
-    return (
-      <>
-        <RiskApprovalAlert />
-        <WatchOnlyAlert />
-        <HomeHeaderContainer />
-      </>
-    );
+    return <HomeHeaderContainer />;
   }, []);
 
   const tabConfigs = useMemo(() => {
@@ -739,6 +737,8 @@ export function HomePageView({
             ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
+            <RiskApprovalAlert />
+            <WatchOnlyAlert />
             <NetworkAlert />
             {content}
             {platformEnv.isNative ? (
