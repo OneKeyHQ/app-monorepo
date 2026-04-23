@@ -12,8 +12,12 @@ import {
   ANIMATE_ONLY_OPACITY_TRANSFORM,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import { formatPortfolioTotal } from './formatPortfolioTotal';
+
+const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 export type IProtocolHeaderRowProps = {
   name: string;
@@ -47,6 +51,12 @@ function ProtocolHeaderRow({
   const progress = Math.max(0, Math.min(1, compactProgress));
   const topRadius = 12 * (1 - progress);
   const isInteractive = Boolean(onPress);
+  const [settingsValue] = useSettingsValuePersistAtom();
+  const formattedNetWorth = formatPortfolioTotal(
+    Number(netWorth) || 0,
+    currencySymbol,
+    settingsValue.hideValue,
+  );
 
   return (
     <Stack
@@ -113,21 +123,19 @@ function ProtocolHeaderRow({
           ) : null}
         </YStack>
       </XStack>
-      <NumberSizeableTextWrapper
-        hideValue
+      <SizableText
         size="$headingLg"
-        formatter="value"
-        formatterOptions={{ currency: currencySymbol }}
         numberOfLines={1}
         textAlign="right"
         minWidth={120}
         maxWidth={168}
         color="$text"
+        fontVariant={TABULAR_NUMS}
         animation={reducedMotion ? undefined : 'quick'}
         animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
       >
-        {netWorth}
-      </NumberSizeableTextWrapper>
+        {formattedNetWorth}
+      </SizableText>
       <View
         ml="$3"
         animation={reducedMotion ? undefined : 'quick'}

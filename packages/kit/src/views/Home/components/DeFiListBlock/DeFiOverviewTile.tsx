@@ -1,9 +1,11 @@
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDeFiProtocol,
@@ -11,6 +13,7 @@ import type {
 } from '@onekeyhq/shared/types/defi';
 
 import { formatPortfolioPercent } from './formatPortfolioPercent';
+import { formatPortfolioTotal } from './formatPortfolioTotal';
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
@@ -33,10 +36,16 @@ function DeFiOverviewTile({
 }: IDeFiOverviewTileProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [settingsValue] = useSettingsValuePersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
   const name = protocolInfo?.protocolName ?? protocol.protocol;
   const logo = protocolInfo?.protocolLogo;
   const detailsLabel = intl.formatMessage({ id: ETranslations.global_details });
+  const formattedNetWorth = formatPortfolioTotal(
+    Number(netWorth) || 0,
+    currencySymbol,
+    settingsValue.hideValue,
+  );
 
   return (
     <XStack
@@ -86,15 +95,13 @@ function DeFiOverviewTile({
         >
           {name}
         </SizableText>
-        <NumberSizeableTextWrapper
-          hideValue
+        <SizableText
           size="$bodyLgMedium"
-          formatter="value"
-          formatterOptions={{ currency: currencySymbol }}
           numberOfLines={1}
+          fontVariant={TABULAR_NUMS}
         >
-          {netWorth ?? 0}
-        </NumberSizeableTextWrapper>
+          {formattedNetWorth}
+        </SizableText>
         {typeof percent === 'number' ? (
           <SizableText
             size="$bodyMd"
