@@ -3,6 +3,8 @@ import { useIntl } from 'react-intl';
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { PORTFOLIO_OTHERS_KEY } from './DeFiPortfolioStats';
+
 import type { IPortfolioSlice } from './DeFiPortfolioStats';
 
 /**
@@ -34,7 +36,8 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
   return (
     <YStack flex={1} gap="$2.5">
       {slices.map((slice) => {
-        const label = slice.key === 'others' ? othersLabel : slice.label;
+        const label =
+          slice.key === PORTFOLIO_OTHERS_KEY ? othersLabel : slice.label;
         return (
           <XStack
             key={slice.key}

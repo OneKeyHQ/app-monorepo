@@ -15,6 +15,7 @@ import {
   scrollTo,
   useAnimatedReaction,
   useReducedMotion,
+  useSharedValue,
 } from 'react-native-reanimated';
 
 import {
@@ -74,6 +75,21 @@ import {
 // Scroll depth beyond which back-to-top may reveal; deep enough to be past
 // the initial fold, shallow enough to not require a full viewport of scroll.
 const BACK_TO_TOP_NEAR_TOP_PX = 200;
+
+// Industry pattern: reveal on any upward scroll past the initial fold; hide
+// on downward scroll or when back near the top. rAF / animated-reaction
+// throttles already absorb wheel jitter, so no extra dead zone. Returns
+// `previous` when direction is neutral so callers can dedup by identity.
+function decideBackToTopVisible(
+  current: number,
+  last: number,
+  previous: boolean,
+): boolean {
+  if (current <= BACK_TO_TOP_NEAR_TOP_PX) return false;
+  if (current < last) return true;
+  if (current > last) return false;
+  return previous;
+}
 
 function scrollToAnchor(
   anchor: HTMLElement,
@@ -603,21 +619,21 @@ function DeFiContainerScrollableNative() {
   const { refMap, focusedTab } = useTabsContext();
 
   const [backToTopVisible, setBackToTopVisible] = useState(false);
+  const lastVisibleShared = useSharedValue(false);
 
-  // Industry pattern: reveal on any upward scroll once the user has passed
-  // the initial fold; hide on downward scroll or when back near the top.
+  // UI-thread dedup: only cross the RN bridge when the decision flips.
   useAnimatedReaction(
     () => scrollYShared.value as number,
     (current, previous) => {
       if (previous === null) return;
-      if (current <= BACK_TO_TOP_NEAR_TOP_PX) {
-        runOnJS(setBackToTopVisible)(false);
-        return;
-      }
-      if (current < previous) {
-        runOnJS(setBackToTopVisible)(true);
-      } else if (current > previous) {
-        runOnJS(setBackToTopVisible)(false);
+      const next = decideBackToTopVisible(
+        current,
+        previous,
+        lastVisibleShared.value,
+      );
+      if (next !== lastVisibleShared.value) {
+        lastVisibleShared.value = next;
+        runOnJS(setBackToTopVisible)(next);
       }
     },
     [scrollYShared],
@@ -658,6 +674,7 @@ function DeFiContainerScrollableWeb() {
   const sentinelRef = useRef<HTMLElement | null>(null);
   const scrollerRef = useRef<HTMLElement | null>(null);
   const lastScrollTopRef = useRef(0);
+  const lastVisibleRef = useRef(false);
   const [backToTopVisible, setBackToTopVisible] = useState(false);
 
   useEffect(() => {
@@ -668,9 +685,6 @@ function DeFiContainerScrollableWeb() {
     if (!scroller) return;
 
     let rafId = 0;
-    // Industry pattern: reveal on any upward scroll past the initial fold;
-    // hide on downward scroll or near the top. rAF throttles already filter
-    // wheel jitter into a single per-frame delta, so no extra dead zone.
     const onScroll = () => {
       if (rafId) return;
       rafId = requestAnimationFrame(() => {
@@ -678,15 +692,14 @@ function DeFiContainerScrollableWeb() {
         const current = scroller.scrollTop;
         const last = lastScrollTopRef.current;
         lastScrollTopRef.current = current;
-
-        if (current <= BACK_TO_TOP_NEAR_TOP_PX) {
-          setBackToTopVisible(false);
-          return;
-        }
-        if (current < last) {
-          setBackToTopVisible(true);
-        } else if (current > last) {
-          setBackToTopVisible(false);
+        const next = decideBackToTopVisible(
+          current,
+          last,
+          lastVisibleRef.current,
+        );
+        if (next !== lastVisibleRef.current) {
+          lastVisibleRef.current = next;
+          setBackToTopVisible(next);
         }
       });
     };

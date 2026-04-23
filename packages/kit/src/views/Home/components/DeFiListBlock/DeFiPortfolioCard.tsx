@@ -3,7 +3,6 @@ import { useIntl } from 'react-intl';
 import {
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -81,13 +80,11 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
         </NumberSizeableTextWrapper>
       </YStack>
       <XStack gap="$4" alignItems="center" flexShrink={0}>
-        <Stack flexShrink={0}>
-          <DeFiPortfolioDonut
-            slices={stats.slices}
-            size={DONUT_SIZE}
-            thickness={DONUT_THICKNESS}
-          />
-        </Stack>
+        <DeFiPortfolioDonut
+          slices={stats.slices}
+          size={DONUT_SIZE}
+          thickness={DONUT_THICKNESS}
+        />
         <YStack width={LEGEND_MIN_WIDTH}>
           <DeFiPortfolioLegend slices={stats.slices} />
         </YStack>

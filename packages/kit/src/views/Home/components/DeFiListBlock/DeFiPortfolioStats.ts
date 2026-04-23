@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
@@ -12,6 +10,7 @@ import {
 } from './DeFiPortfolioPalette';
 
 export const PORTFOLIO_TOP_N = 5;
+export const PORTFOLIO_OTHERS_KEY = 'others';
 
 export type IPortfolioSlice = {
   key: string;
@@ -68,11 +67,10 @@ export function buildPortfolioStats(
       return a.originalIndex - b.originalIndex;
     });
 
-  const totalBn = ranked.reduce(
-    (acc, entry) => acc.plus(entry.netWorth),
-    new BigNumber(0),
-  );
-  const total = totalBn.isFinite() ? totalBn.toNumber() : 0;
+  const total = ranked.reduce((acc, entry) => {
+    const next = acc + entry.netWorth;
+    return Number.isFinite(next) ? next : acc;
+  }, 0);
 
   const headEntries = ranked.slice(0, PORTFOLIO_TOP_N);
   const tailEntries = ranked.slice(PORTFOLIO_TOP_N);
@@ -80,12 +78,11 @@ export function buildPortfolioStats(
   const slices: IPortfolioSlice[] = headEntries.map((entry, rank) => {
     const percent =
       total > 0 ? roundToOneDecimal((entry.netWorth / total) * 100) : 0;
-    const key = `protocol-${defiUtils.buildProtocolMapKey({
-      protocol: entry.protocol.protocol,
-      networkId: entry.protocol.networkId,
-    })}`;
     return {
-      key,
+      key: defiUtils.buildProtocolMapKey({
+        protocol: entry.protocol.protocol,
+        networkId: entry.protocol.networkId,
+      }),
       label: resolveLabel(entry.protocol, protocolMap),
       netWorth: entry.netWorth,
       percent,
@@ -99,7 +96,7 @@ export function buildPortfolioStats(
   const tailSum = tailEntries.reduce((acc, entry) => acc + entry.netWorth, 0);
   if (tailSum > 0) {
     slices.push({
-      key: 'others',
+      key: PORTFOLIO_OTHERS_KEY,
       label: 'Others',
       netWorth: tailSum,
       percent: total > 0 ? roundToOneDecimal((tailSum / total) * 100) : 0,
