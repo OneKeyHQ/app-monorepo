@@ -4,12 +4,18 @@ import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  AnimatePresence,
   Button,
   SizableText,
   XStack,
   YStack,
-  useSafeAreaInsets,
+  useMedia,
+  useTheme,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import type {
   IDBIndexedAccount,
   IDBWallet,
@@ -38,9 +44,14 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useInterval } from '../../../hooks/useInterval';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
+import {
+  flushPendingExistingWalletSwitchToast,
+  setExistingWalletSwitchToastDeferred,
+} from '../../../utils/toastExistingWalletSwitch';
 import { OnboardingPage } from '../components/Layout';
 import {
   useConnectDeviceError,
@@ -56,6 +67,157 @@ const fixErrorString = (errorMessage: string) => {
   return errorMessage;
 };
 
+// Only the steps the pipeline actually emits (see actions.tsx
+// withFinalizeWalletSetupStep). EFinalizeWalletSetupSteps.EncryptingData is
+// declared in the enum but never emitted, so it gets no copy here.
+// TODO(i18n): step copy and eyebrow labels — Lokalise keys TBD
+const STEP_CONFIG: Partial<
+  Record<EFinalizeWalletSetupSteps, { mono: string; copy: string }>
+> = {
+  [EFinalizeWalletSetupSteps.ConnectingDevice]: {
+    mono: 'LINK',
+    copy: 'One moment while we open a secure line to your device.',
+  },
+  [EFinalizeWalletSetupSteps.CreatingWallet]: {
+    mono: 'FORGE',
+    copy: 'Forging a wallet that only you can unlock, on this device.',
+  },
+  [EFinalizeWalletSetupSteps.GeneratingAccounts]: {
+    mono: 'DERIVE',
+    copy: "Deriving your accounts from the wallet's root key.",
+  },
+  [EFinalizeWalletSetupSteps.Ready]: {
+    mono: 'READY',
+    copy: 'Everything is sealed. Your wallet is ready to use.',
+  },
+};
+
+function PulsingDot({ color, size = 8 }: { color: string; size?: number }) {
+  const [on, setOn] = useState(true);
+  useInterval(() => setOn((v) => !v), 700);
+
+  return (
+    <YStack
+      w={size}
+      h={size}
+      borderRadius={size / 2}
+      bg={color}
+      shadowColor={color}
+      shadowOpacity={1}
+      shadowRadius={12}
+      shadowOffset={{ width: 0, height: 0 }}
+      animation="slow"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+      opacity={on ? 1 : 0.4}
+    />
+  );
+}
+
+function StepEyebrow({
+  children,
+  color,
+}: {
+  children: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <XStack gap="$3" alignItems="center">
+      <PulsingDot color={color} />
+      <SizableText
+        size="$bodySm"
+        color={color}
+        letterSpacing={3}
+        textTransform="uppercase"
+      >
+        {children}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function SentenceSwap({
+  lines,
+  activeIndex,
+}: {
+  lines: string[];
+  activeIndex: number;
+}) {
+  // Container is sized for 3 lines at mobile (heading3xl lineHeight 36 * 3 = 108)
+  // and 2 lines at desktop (heading5xl lineHeight 48 * 2 = 96). AnimatePresence
+  // overlaps the outgoing + incoming text via absolute positioning so the
+  // container height stays stable while the slot-machine animation runs.
+  return (
+    <YStack position="relative" h={96} overflow="hidden" $md={{ h: 108 }}>
+      <AnimatePresence>
+        <SizableText
+          key={activeIndex}
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          size="$heading5xl"
+          fontWeight={600}
+          letterSpacing={-0.5}
+          numberOfLines={3}
+          $md={{ size: '$heading3xl', letterSpacing: -0.4 }}
+          animation="medium"
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+          enterStyle={{ opacity: 0, y: 24 }}
+          exitStyle={{ opacity: 0, y: -24 }}
+        >
+          {lines[activeIndex] ?? ''}
+        </SizableText>
+      </AnimatePresence>
+    </YStack>
+  );
+}
+
+function ProgressTicks({
+  stepIndex,
+  total,
+  color,
+  isReady,
+}: {
+  stepIndex: number;
+  total: number;
+  color: string;
+  isReady: boolean;
+}) {
+  // Tamagui's shadow* props alone render too faintly on a 2px bar, so we also
+  // set an explicit web boxShadow. Resolve the accent hex from the theme so
+  // the glow stays in sync with light/dark.
+  const theme = useTheme();
+  const glowHex = theme.brand9?.val ?? color;
+  return (
+    <XStack gap="$2" w={280} $md={{ w: 180, gap: '$1.5' }}>
+      {Array.from({ length: total }).map((_, i) => {
+        const filled = i <= stepIndex;
+        const isCurrent = i === stepIndex && !isReady;
+        return (
+          <YStack
+            key={i}
+            flex={1}
+            h={2}
+            mt="$10"
+            animation="medium"
+            bg={filled ? color : '$borderSubdued'}
+            {...(isCurrent && {
+              shadowColor: color,
+              shadowOpacity: 1,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 0 },
+              elevation: 6,
+              '$platform-web': {
+                boxShadow: `0 0 10px ${glowHex}, 0 0 4px ${glowHex}`,
+              },
+            })}
+          />
+        );
+      })}
+    </XStack>
+  );
+}
+
 function FinalizeWalletSetupPage({
   route,
 }: IPageScreenProps<
@@ -64,24 +226,7 @@ function FinalizeWalletSetupPage({
 >) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { bottom: safeAreaBottom } = useSafeAreaInsets();
 
-  // EncryptingData is intentionally omitted — there is no corresponding real work.
-  const stepTitles = useMemo<
-    Partial<Record<EFinalizeWalletSetupSteps, string>>
-  >(
-    () => ({
-      // TODO(i18n): replace with ETranslations.onboarding_finalize_connecting_device once Lokalise key is created
-      [EFinalizeWalletSetupSteps.ConnectingDevice]: 'Connecting to device',
-      [EFinalizeWalletSetupSteps.CreatingWallet]: intl.formatMessage({
-        id: ETranslations.onboarding_finalize_creating_wallet,
-      }),
-      [EFinalizeWalletSetupSteps.GeneratingAccounts]: intl.formatMessage({
-        id: ETranslations.onboarding_finalize_generating_accounts,
-      }),
-    }),
-    [intl],
-  );
   const [setupError, setSetupError] = useState<
     | {
         messageId: ETranslations;
@@ -127,12 +272,26 @@ function FinalizeWalletSetupPage({
     openKeylessAutoConnectDappModal,
   } = useKeylessWebFlowAutoConnectDapp();
 
+  // Hold the "existing wallet switched" toast until the user confirms with
+  // Enter wallet, so it doesn't pop over the setup progress animation.
+  useEffect(() => {
+    setExistingWalletSwitchToastDeferred(true);
+    return () => {
+      // Flush before releasing so the toast still fires if the page was
+      // dismissed without Enter wallet (hardware back, app kill, etc.);
+      // the setter would otherwise drop the pending result.
+      flushPendingExistingWalletSwitchToast();
+      setExistingWalletSwitchToastDeferred(false);
+    };
+  }, []);
+
   // Ready state waits for the user's Let's-go press instead of auto-closing.
   // The 600ms delay gives the page-dismiss animation time to finish before
   // the auto-connect dapp modal appears on top of the next (Main) screen.
   const handleLetsGo = useCallback(async () => {
     if (closePageCalled.current) return;
     closePage();
+    flushPendingExistingWalletSwitchToast();
     await timerUtils.wait(600);
     void openKeylessAutoConnectDappModal();
   }, [closePage, openKeylessAutoConnectDappModal]);
@@ -334,7 +493,63 @@ function FinalizeWalletSetupPage({
     void createWallet();
   }, [createWallet, initialStep]);
 
+  // Hardware path shows all 4 steps; other paths skip ConnectingDevice.
+  const activeSteps = useMemo(
+    () =>
+      deviceData
+        ? [
+            EFinalizeWalletSetupSteps.ConnectingDevice,
+            EFinalizeWalletSetupSteps.CreatingWallet,
+            EFinalizeWalletSetupSteps.GeneratingAccounts,
+            EFinalizeWalletSetupSteps.Ready,
+          ]
+        : [
+            EFinalizeWalletSetupSteps.CreatingWallet,
+            EFinalizeWalletSetupSteps.GeneratingAccounts,
+            EFinalizeWalletSetupSteps.Ready,
+          ],
+    [deviceData],
+  );
+
+  const { gtMd } = useMedia();
+
   const isReady = currentStep === EFinalizeWalletSetupSteps.Ready;
+  const stepIndex = Math.max(0, activeSteps.indexOf(currentStep));
+  const total = activeSteps.length;
+  // activeSteps only contains keys that exist in STEP_CONFIG, so these
+  // lookups are non-null at runtime.
+  const stepConfig =
+    STEP_CONFIG[currentStep] ??
+    STEP_CONFIG[EFinalizeWalletSetupSteps.CreatingWallet]!;
+  const accentColor = '$brand9';
+  const sentences = useMemo(
+    () => activeSteps.map((s) => STEP_CONFIG[s]!.copy),
+    [activeSteps],
+  );
+
+  const enterWalletTransitionProps = {
+    opacity: isReady ? 1 : 0,
+    pointerEvents: isReady ? 'auto' : 'none',
+    ...(!platformEnv.isNative && {
+      animation: 'quick' as const,
+      animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
+    }),
+  };
+
+  const enterWalletButton = (
+    <Button
+      variant="primary"
+      size="large"
+      onPress={handleLetsGo}
+      iconAfter="ArrowRightOutline"
+      {...(gtMd
+        ? { alignSelf: 'flex-start' as const, minWidth: 240 }
+        : { w: '100%' as const })}
+    >
+      {/* TODO(i18n): ETranslations.onboarding_finalize_enter_wallet */}
+      Enter wallet
+    </Button>
+  );
 
   return (
     <OnboardingPage
@@ -344,26 +559,29 @@ function FinalizeWalletSetupPage({
     >
       <YStack flex={1}>
         {setupError ? (
-          <YStack
-            gap="$4"
-            alignSelf="center"
-            w="100%"
-            maxWidth="$96"
-            flex={1}
-            justifyContent="center"
-          >
-            <SizableText size="$heading2xl">
-              {intl.formatMessage({
-                id: ETranslations.failed_to_create_wallet,
-              })}
+          <YStack flex={1} justifyContent="center" gap="$7">
+            <StepEyebrow color="$textCritical">
+              Error / setup interrupted
+            </StepEyebrow>
+            <SizableText size="$heading5xl" fontWeight={600}>
+              {/* TODO(i18n): ETranslations.onboarding_finalize_error_interrupted */}
+              Something interrupted the setup. We haven&apos;t written anything
+              — try again.
             </SizableText>
-            <SizableText size="$bodyLg">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              maxWidth={620}
+              pl="$3"
+              borderLeftWidth={1}
+              borderLeftColor="$borderSubdued"
+            >
               {intl.formatMessage({
                 id: setupError.messageId,
                 defaultMessage: setupError.messageId,
               })}
             </SizableText>
-            <XStack gap="$2.5" mt="$4">
+            <XStack gap="$2.5" mt="$4" maxWidth={420}>
               <Button
                 flex={1}
                 variant="primary"
@@ -379,38 +597,28 @@ function FinalizeWalletSetupPage({
           </YStack>
         ) : (
           <>
-            <YStack flex={1} alignItems="center" justifyContent="center">
-              <SizableText size="$heading2xl" textAlign="center">
-                {isReady
-                  ? // TODO(i18n): ETranslations.onboarding_finalize_wallet_ready
-                    'Wallet ready'
-                  : (stepTitles[currentStep] ?? '')}
-              </SizableText>
+            <YStack flex={1} justifyContent="center" gap="$7">
+              <StepEyebrow color={accentColor}>
+                {`${stepConfig.mono} • 0${stepIndex + 1} / 0${total}`}
+              </StepEyebrow>
+              <SentenceSwap lines={sentences} activeIndex={stepIndex} />
+              <ProgressTicks
+                stepIndex={stepIndex}
+                total={total}
+                color={accentColor}
+                isReady={isReady}
+              />
+              {gtMd ? (
+                <YStack mt="$4" minHeight={48} {...enterWalletTransitionProps}>
+                  {enterWalletButton}
+                </YStack>
+              ) : null}
             </YStack>
-            <YStack
-              pt="$4"
-              alignItems="center"
-              pb={safeAreaBottom > 0 ? safeAreaBottom + 12 : 0}
-            >
-              {isReady ? (
-                <Button
-                  variant="primary"
-                  size="large"
-                  onPress={handleLetsGo}
-                  $md={{ w: '100%' }}
-                  $gtMd={{ minWidth: 240 }}
-                >
-                  {/* TODO(i18n): ETranslations.onboarding_finalize_lets_go */}
-                  Let&apos;s go
-                </Button>
-              ) : (
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.do_not_exit_app_during_setup,
-                  })}
-                </SizableText>
-              )}
-            </YStack>
+            {!gtMd ? (
+              <YStack {...enterWalletTransitionProps}>
+                {enterWalletButton}
+              </YStack>
+            ) : null}
           </>
         )}
       </YStack>
