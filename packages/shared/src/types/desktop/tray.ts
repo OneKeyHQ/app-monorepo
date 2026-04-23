@@ -41,12 +41,20 @@ export interface ITrayData {
     emoji: string;
     avatarImg: string;
   };
+  // Active account's display name (e.g. "Account 1"); wallet.name covers
+  // the wallet/HD identity only. Empty string when unavailable (cold start).
+  account: {
+    name: string;
+  };
   totalBalance: {
     amount: string;
     currency: string;
     // Resolved from currencyMap so unknown currencies don't collapse to '$'.
     symbol: string;
-    change24h: number;
+    // Undefined when no 24h source is wired — UI hides the badge instead of
+    // rendering a misleading 0.00% (OK-53612 partial: full fix waits on a
+    // backend account-level 24h change feed).
+    change24h?: number;
   };
   watchlist: ITrayWatchlistItem[];
   pendingTxs: IPendingTx[];
