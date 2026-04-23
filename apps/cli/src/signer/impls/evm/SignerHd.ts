@@ -4,10 +4,10 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 
-import { listEvmChains } from '../../../core/chain-resolver';
-import { AppError, ERROR_CODES } from '../../../errors';
 import { SignerHdBase } from '../../base/SignerHdBase';
 import { CLI_PASSWORD } from '../../keychain-keys';
+
+import { EVM_PATH_TEMPLATE, validateEvmNetworkId } from './evm-path';
 
 import type { ISignTransactionPayload, ISigner } from '../../types';
 
@@ -26,8 +26,6 @@ async function getEvmScope() {
   return evmScopePromise;
 }
 
-const EVM_TEMPLATE = "m/44'/60'/0'/0/$$INDEX$$";
-
 /**
  * HD (software) EVM signer. Uses the mnemonic + encryption key persisted in
  * the OS keychain. Hardware signing lives in the sibling `SignerHardware`
@@ -35,14 +33,13 @@ const EVM_TEMPLATE = "m/44'/60'/0'/0/$$INDEX$$";
  */
 export class SignerHd extends SignerHdBase implements ISigner {
   async getAddress(networkId: string): Promise<ICoreApiGetAddressItem> {
+    validateEvmNetworkId(networkId);
     const hdCredential = await this.getHdCredential();
     const scope = await getEvmScope();
 
-    this.validateNetworkId(networkId);
-
     const result = await scope.hd.getAddressesFromHd({
       networkInfo: this.buildNetworkInfo(networkId),
-      template: EVM_TEMPLATE,
+      template: EVM_PATH_TEMPLATE,
       hdCredential,
       password: CLI_PASSWORD,
       indexes: [0],
@@ -55,6 +52,7 @@ export class SignerHd extends SignerHdBase implements ISigner {
   async signTransaction(
     payload: ISignTransactionPayload,
   ): Promise<ISignedTxPro> {
+    validateEvmNetworkId(payload.networkId);
     const scope = await getEvmScope();
     const hdCredential = await this.getHdCredential();
     const encodedPassword = await this.getEncodedPassword();
@@ -76,18 +74,6 @@ export class SignerHd extends SignerHdBase implements ISigner {
   async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     const scope = await getEvmScope();
     return scope.hd.signMessage(payload);
-  }
-
-  private validateNetworkId(networkId: string): void {
-    const evmChains = listEvmChains();
-    const chainConfig = evmChains.find((c) => c.networkId === networkId);
-    if (!chainConfig) {
-      throw new AppError(
-        ERROR_CODES.PARAM_INVALID_CHAIN.code,
-        `Unsupported EVM networkId: ${networkId}`,
-        `Supported: ${evmChains.map((c) => c.networkId).join(', ')}`,
-      );
-    }
   }
 
   buildNetworkInfo(networkId: string) {

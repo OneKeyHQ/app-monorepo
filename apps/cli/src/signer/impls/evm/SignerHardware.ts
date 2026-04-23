@@ -12,6 +12,8 @@ import { unwrapSDKResult } from '../../../commands/device/hardware-sdk';
 import { AppError, ERROR_CODES } from '../../../errors';
 import { SignerHardwareBase } from '../../base/SignerHardwareBase';
 
+import { resolveEvmPath, validateEvmNetworkId } from './evm-path';
+
 import type { ISignTransactionPayload } from '../../types';
 
 interface IEvmAddressPayload {
@@ -35,7 +37,8 @@ interface IEvmSignMsgPayload {
  * ISigner call into the three EVM SDK methods.
  */
 export class SignerHardware extends SignerHardwareBase {
-  async getAddress(_networkId: string): Promise<ICoreApiGetAddressItem> {
+  async getAddress(networkId: string): Promise<ICoreApiGetAddressItem> {
+    validateEvmNetworkId(networkId);
     const sdk = await this.getHardwareSDK();
     const commonParams = await this.getHwCommonParams();
 
@@ -43,7 +46,7 @@ export class SignerHardware extends SignerHardwareBase {
       this.device.connectId,
       this.device.deviceId,
       {
-        path: "m/44'/60'/0'/0/0",
+        path: resolveEvmPath(0),
         showOnOneKey: false,
         ...commonParams,
       },
@@ -59,6 +62,7 @@ export class SignerHardware extends SignerHardwareBase {
   async signTransaction(
     payload: ISignTransactionPayload,
   ): Promise<ISignedTxPro> {
+    validateEvmNetworkId(payload.networkId);
     const sdk = await this.getHardwareSDK();
     const commonParams = await this.getHwCommonParams();
     const { encodedTx } = payload.unsignedTx;
