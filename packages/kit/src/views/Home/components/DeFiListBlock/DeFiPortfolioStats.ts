@@ -18,7 +18,6 @@ export type IPortfolioSlice = {
   netWorth: number;
   percent: number;
   colorToken: string;
-  protocol?: IDeFiProtocol;
 };
 
 export type IPortfolioStats = {
@@ -30,6 +29,13 @@ type IBuildPortfolioStatsInput = {
   protocols: IDeFiProtocol[] | undefined;
   protocolMap: Record<string, IProtocolSummary>;
   getNetWorth: (p: IDeFiProtocol) => number;
+};
+
+type IAggregatedProtocol = {
+  slug: string;
+  label: string;
+  netWorth: number;
+  firstIndex: number;
 };
 
 function resolveLabel(
@@ -56,40 +62,49 @@ export function buildPortfolioStats(
     return { total: 0, slices: [] };
   }
 
-  const ranked = protocols
-    .map((protocol, originalIndex) => ({
-      protocol,
-      originalIndex,
-      netWorth: getNetWorth(protocol),
-    }))
-    .toSorted((a, b) => {
-      if (a.netWorth !== b.netWorth) return b.netWorth - a.netWorth;
-      return a.originalIndex - b.originalIndex;
-    });
+  // Aggregate same protocol across networks. All Networks mode lists an
+  // entry per (protocol, network); the pie's semantic unit is "protocol",
+  // so collapse by `protocol.protocol` slug and sum netWorth.
+  const aggregateMap = new Map<string, IAggregatedProtocol>();
+  protocols.forEach((p, index) => {
+    const existing = aggregateMap.get(p.protocol);
+    const netWorth = getNetWorth(p);
+    if (existing) {
+      existing.netWorth += netWorth;
+    } else {
+      aggregateMap.set(p.protocol, {
+        slug: p.protocol,
+        label: resolveLabel(p, protocolMap),
+        netWorth,
+        firstIndex: index,
+      });
+    }
+  });
 
-  const total = ranked.reduce((acc, entry) => {
+  const aggregated = Array.from(aggregateMap.values()).toSorted((a, b) => {
+    if (a.netWorth !== b.netWorth) return b.netWorth - a.netWorth;
+    return a.firstIndex - b.firstIndex;
+  });
+
+  const total = aggregated.reduce((acc, entry) => {
     const next = acc + entry.netWorth;
     return Number.isFinite(next) ? next : acc;
   }, 0);
 
-  const headEntries = ranked.slice(0, PORTFOLIO_TOP_N);
-  const tailEntries = ranked.slice(PORTFOLIO_TOP_N);
+  const headEntries = aggregated.slice(0, PORTFOLIO_TOP_N);
+  const tailEntries = aggregated.slice(PORTFOLIO_TOP_N);
 
   const slices: IPortfolioSlice[] = headEntries.map((entry, rank) => {
     const percent =
       total > 0 ? roundToOneDecimal((entry.netWorth / total) * 100) : 0;
     return {
-      key: defiUtils.buildProtocolMapKey({
-        protocol: entry.protocol.protocol,
-        networkId: entry.protocol.networkId,
-      }),
-      label: resolveLabel(entry.protocol, protocolMap),
+      key: entry.slug,
+      label: entry.label,
       netWorth: entry.netWorth,
       percent,
       colorToken:
         PORTFOLIO_PALETTE_TOKENS[rank] ??
         PORTFOLIO_PALETTE_TOKENS[PORTFOLIO_PALETTE_TOKENS.length - 1],
-      protocol: entry.protocol,
     };
   });
 

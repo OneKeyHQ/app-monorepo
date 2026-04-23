@@ -26,10 +26,12 @@ import {
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useDeFiListActions,
+  useDeFiListProtocolMapAtom,
   useDeFiListProtocolsAtom,
   useDeFiListSlicedAtom,
   useDeFiListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
+import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import type { IDeFiDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDeFi';
 import {
   useCurrencyPersistAtom,
@@ -103,6 +105,7 @@ function DeFiListBlock({
   const [overview] = useAccountDeFiOverviewAtom();
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
   const [{ protocols }] = useDeFiListProtocolsAtom();
+  const [{ protocolMap }] = useDeFiListProtocolMapAtom();
 
   const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
   const initializedRef = useRef(initialized);
@@ -922,14 +925,40 @@ function DeFiListBlock({
   ]);
 
   const filteredProtocols = useMemo(() => {
+    // Sort by netWorth desc so the list order matches the overview's
+    // ranking (biggest positions first). Ties keep the backend's original
+    // order via a stable secondary compare.
+    const sorted = protocols
+      .map((protocol, originalIndex) => {
+        const key = defiUtils.buildProtocolMapKey({
+          protocol: protocol.protocol,
+          networkId: protocol.networkId,
+        });
+        const info = buildProtocolDisplayInfo({
+          protocol,
+          protocolInfo: protocolMap[key],
+        });
+        const nw = new BigNumber(info.netWorth);
+        return {
+          protocol,
+          originalIndex,
+          netWorth: nw.isFinite() ? nw.toNumber() : 0,
+        };
+      })
+      .toSorted((a, b) => {
+        if (a.netWorth !== b.netWorth) return b.netWorth - a.netWorth;
+        return a.originalIndex - b.originalIndex;
+      })
+      .map((e) => e.protocol);
+
     if (isOverflow && isSliced) {
       const limit = tableLayout
         ? MAX_PROTOCOLS_ON_LARGE_SCREEN
         : MAX_PROTOCOLS_ON_SMALL_SCREEN;
-      return protocols.slice(0, limit);
+      return sorted.slice(0, limit);
     }
-    return protocols;
-  }, [protocols, isOverflow, isSliced, tableLayout]);
+    return sorted;
+  }, [protocols, protocolMap, isOverflow, isSliced, tableLayout]);
 
   const renderSubTitle = useCallback(() => {
     if (!initialized && isRefreshing) {

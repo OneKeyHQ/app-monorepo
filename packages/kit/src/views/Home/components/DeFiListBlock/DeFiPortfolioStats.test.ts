@@ -65,7 +65,39 @@ describe('buildPortfolioStats', () => {
       percent: 100,
       colorToken: PORTFOLIO_PALETTE_TOKENS[0],
     });
-    expect(stats.slices[0].protocol).toBe(p);
+  });
+
+  it('aggregates the same protocol across networks', () => {
+    const aaveEth = makeProtocol('aave', 'evm--1');
+    const aaveArb = makeProtocol('aave', 'evm--42161');
+    const pendle = makeProtocol('pendle');
+    const stats = buildPortfolioStats({
+      protocols: [aaveEth, aaveArb, pendle],
+      protocolMap: makeMap([
+        { protocol: 'aave', networkId: 'evm--1', name: 'Aave V3' },
+        { protocol: 'aave', networkId: 'evm--42161', name: 'Aave V3' },
+        { protocol: 'pendle', name: 'Pendle' },
+      ]),
+      getNetWorth: (p) => {
+        if (p.protocol === 'aave' && p.networkId === 'evm--1') return 50;
+        if (p.protocol === 'aave' && p.networkId === 'evm--42161') return 30;
+        return 20;
+      },
+    });
+    expect(stats.total).toBe(100);
+    expect(stats.slices).toHaveLength(2);
+    expect(stats.slices[0]).toMatchObject({
+      key: 'aave',
+      label: 'Aave V3',
+      netWorth: 80,
+      colorToken: PORTFOLIO_PALETTE_TOKENS[0],
+    });
+    expect(stats.slices[1]).toMatchObject({
+      key: 'pendle',
+      label: 'Pendle',
+      netWorth: 20,
+      colorToken: PORTFOLIO_PALETTE_TOKENS[1],
+    });
   });
 
   it('returns 5 slices and no Others when given exactly TOP_N protocols', () => {
@@ -112,7 +144,6 @@ describe('buildPortfolioStats', () => {
     expect(others.netWorth).toBe(3 + 2 + 1);
     expect(others.percent).toBe(6);
     expect(others.colorToken).toBe(PORTFOLIO_OTHERS_TOKEN);
-    expect(others.protocol).toBeUndefined();
   });
 
   it('drops the Others slice when tail sum is zero', () => {
@@ -148,7 +179,9 @@ describe('buildPortfolioStats', () => {
   });
 
   it('rounds percents to one decimal and keeps sum within 0.1 of 100', () => {
-    const protocols = Array.from({ length: 3 }, (_, i) => makeProtocol(`p${i}`));
+    const protocols = Array.from({ length: 3 }, (_, i) =>
+      makeProtocol(`p${i}`),
+    );
     const values = [1, 1, 1];
     const stats = buildPortfolioStats({
       protocols,
