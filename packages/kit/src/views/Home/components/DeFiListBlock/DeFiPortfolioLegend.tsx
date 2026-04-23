@@ -5,8 +5,19 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IPortfolioSlice } from './DeFiPortfolioStats';
 
-export function formatPortfolioPercent(percent: number): string {
+/**
+ * `percent` is the rounded-to-1-decimal display value. When it rounds down to
+ * `0.0` but the underlying position is still non-zero, show `<0.1%` so tiny
+ * slices don't read as missing data.
+ */
+export function formatPortfolioPercent(
+  percent: number,
+  netWorth?: number | string,
+): string {
   if (!Number.isFinite(percent)) return '0.0%';
+  if (percent === 0 && netWorth !== undefined && Number(netWorth) > 0) {
+    return '<0.1%';
+  }
   return `${percent.toFixed(1)}%`;
 }
 
@@ -53,7 +64,7 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
               color="$text"
               fontVariant={TABULAR_NUMS}
             >
-              {formatPortfolioPercent(slice.percent)}
+              {formatPortfolioPercent(slice.percent, slice.netWorth)}
             </SizableText>
           </XStack>
         );

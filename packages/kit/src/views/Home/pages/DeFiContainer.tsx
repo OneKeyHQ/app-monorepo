@@ -598,18 +598,28 @@ function DeFiContainerScrollableNative() {
   const scrollYShared = useCurrentTabScrollY();
   const { refMap, focusedTab, containerHeight } = useTabsContext();
 
-  const [scrollY, setScrollY] = useState(0);
+  const [backToTopVisible, setBackToTopVisible] = useState(false);
+
+  // Industry pattern: reveal on upward scroll once the user has moved past
+  // one viewport; hide on downward scroll or when near the top. 4px dead
+  // zone absorbs fingertip jitter / inertial micro-movement.
   useAnimatedReaction(
     () => scrollYShared.value as number,
     (current, previous) => {
-      if (current !== previous) {
-        runOnJS(setScrollY)(current);
+      if (previous === null || containerHeight <= 0) return;
+      if (current <= containerHeight) {
+        runOnJS(setBackToTopVisible)(false);
+        return;
+      }
+      const delta = current - previous;
+      if (delta < -4) {
+        runOnJS(setBackToTopVisible)(true);
+      } else if (delta > 4) {
+        runOnJS(setBackToTopVisible)(false);
       }
     },
-    [scrollYShared],
+    [scrollYShared, containerHeight],
   );
-
-  const backToTopVisible = containerHeight > 0 && scrollY > containerHeight * 2;
 
   const onPressBackToTop = useCallback(() => {
     runOnUI(() => {
@@ -645,6 +655,7 @@ function DeFiContainerScrollableWeb() {
   const tabBarOffset = useScrollContentTabBarOffset();
   const sentinelRef = useRef<HTMLElement | null>(null);
   const scrollerRef = useRef<HTMLElement | null>(null);
+  const lastScrollTopRef = useRef(0);
   const [backToTopVisible, setBackToTopVisible] = useState(false);
 
   useEffect(() => {
@@ -655,16 +666,30 @@ function DeFiContainerScrollableWeb() {
     if (!scroller) return;
 
     let rafId = 0;
+    // Industry pattern: reveal on upward scroll past one viewport; hide on
+    // downward scroll or near the top. 4px dead zone absorbs wheel jitter.
     const onScroll = () => {
       if (rafId) return;
       rafId = requestAnimationFrame(() => {
         rafId = 0;
-        const next = scroller.scrollTop > scroller.clientHeight * 2;
-        setBackToTopVisible((prev) => (prev === next ? prev : next));
+        const current = scroller.scrollTop;
+        const last = lastScrollTopRef.current;
+        lastScrollTopRef.current = current;
+
+        if (current <= scroller.clientHeight) {
+          setBackToTopVisible((prev) => (prev === false ? prev : false));
+          return;
+        }
+        const delta = current - last;
+        if (delta < -4) {
+          setBackToTopVisible((prev) => (prev === true ? prev : true));
+        } else if (delta > 4) {
+          setBackToTopVisible((prev) => (prev === false ? prev : false));
+        }
       });
     };
     scroller.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+    lastScrollTopRef.current = scroller.scrollTop;
     return () => {
       scroller.removeEventListener('scroll', onScroll);
       if (rafId) cancelAnimationFrame(rafId);

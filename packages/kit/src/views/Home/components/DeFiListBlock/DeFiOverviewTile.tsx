@@ -101,7 +101,7 @@ function DeFiOverviewTile({
             ellipsizeMode="tail"
             fontVariant={TABULAR_NUMS}
           >
-            {formatPortfolioPercent(percent)}
+            {formatPortfolioPercent(percent, netWorth)}
           </SizableText>
         ) : null}
       </YStack>
