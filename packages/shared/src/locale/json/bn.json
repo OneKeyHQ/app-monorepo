@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "সর্বোচ্চ ক্রয়",
   "perp_spot_max_buy_sell_tooltip": "সর্বোচ্চ ক্রয় বা বিক্রয়ের পরিমাণ আপনার উপলব্ধ ব্যালেন্স এবং অর্ডারের মূল্যের উপর নির্ভর করে। লিমিট অর্ডারে মূল্য দেওয়ার পর এটি স্বয়ংক্রিয়ভাবে আপডেট হবে।",
   "perp_spot_max_sell": "সর্বোচ্চ বিক্রয়",
+  "perp_spot_reference_price__desc": "স্পট রেফারেন্স মূল্য সম্পদ মূল্যায়ন এবং PnL গণনার জন্য ব্যবহৃত হয়।",
+  "perp_spot_reference_price__title": "রেফারেন্স মূল্য",
   "perp_trades_history_recent_range_desc": "গত ২ বছরের ট্রেড পর্যন্ত দেখানো হয়।",
   "perp_trading_adjust_margin": "মার্জিন সমন্বয় করুন",
   "perp_trading_adjust_margin_max": "সর্বোচ্চ যোগ",
