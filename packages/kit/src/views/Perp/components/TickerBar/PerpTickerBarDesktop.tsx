@@ -411,6 +411,7 @@ const TickerBarSpotContractView = memo(
                 size="$headingXs"
                 fontFamily="$monoRegular"
                 color="$text"
+                numberOfLines={1}
               >
                 {shortenedContract}
               </SizableText>
@@ -774,6 +775,7 @@ function PerpTickerBarDesktop() {
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
   const marketDataGap = useMemo(() => (isSpot ? '$6' : '$8'), [isSpot]);
+  const priceSectionWidth = useMemo(() => (isSpot ? 168 : 140), [isSpot]);
   const content = (
     <XStack
       bg="$bgApp"
@@ -787,8 +789,8 @@ function PerpTickerBarDesktop() {
       gap="$6"
       h={PERP_LAYOUT_CONFIG.desktop.tickerBarHeight}
     >
-      <XStack gap="$4" alignItems="center">
-        <XStack gap="$2" alignItems="center">
+      <XStack gap="$4" alignItems="center" minWidth={0} flexShrink={1}>
+        <XStack gap="$2" alignItems="center" minWidth={0} flexShrink={1}>
           <FavoriteButton
             coin={activeAsset.coin}
             iconSize="$4"
@@ -797,7 +799,14 @@ function PerpTickerBarDesktop() {
           <PerpTokenSelector />
         </XStack>
 
-        <XStack alignItems="center" width={140} gap="$1.5" cursor="default">
+        <XStack
+          alignItems="center"
+          minWidth={priceSectionWidth}
+          width={priceSectionWidth}
+          gap="$1.5"
+          flexShrink={0}
+          cursor="default"
+        >
           <TickerBarMarkPrice />
           <TickerBarChange24hPercent />
         </XStack>
@@ -808,6 +817,7 @@ function PerpTickerBarDesktop() {
         cursor="default"
         horizontal
         flex={1}
+        minWidth={0}
         contentContainerStyle={{
           gap: marketDataGap,
           alignItems: 'center',

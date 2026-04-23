@@ -239,10 +239,11 @@ function BalanceRowDesktop({
 
   return (
     <XStack
+      width="100%"
       py="$1.5"
       px="$5"
       minHeight={48}
-      bg={index % 2 === 0 ? '$bgApp' : '$bg'}
+      bg={index % 2 === 0 ? '$bgApp' : '$bgSubdued'}
       hoverStyle={{ bg: '$bgHover' }}
     >
       {cells.map((cell) => (
