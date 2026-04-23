@@ -600,7 +600,7 @@ function DeFiContainerScrollableNative() {
   const tabBarOffset = useScrollContentTabBarOffset();
 
   const scrollYShared = useCurrentTabScrollY();
-  const { refMap, focusedTab, containerHeight } = useTabsContext();
+  const { refMap, focusedTab } = useTabsContext();
 
   const [backToTopVisible, setBackToTopVisible] = useState(false);
 
