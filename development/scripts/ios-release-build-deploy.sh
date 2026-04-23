@@ -64,7 +64,7 @@ cmd_build() {
 
   echo ""
   echo "$(timestamp) ✅ Build complete:"
-  ls -lh out-dir-bundle/ios/dist/common.jsbundle.hbc \
+  ls -lh out-dir-bundle/ios/dist/common.bundle \
          out-dir-bundle/ios/dist/main.jsbundle.hbc \
          out-dir-bundle/ios/dist/background.bundle 2>/dev/null
   echo ""
@@ -87,13 +87,13 @@ cmd_deploy() {
     exit 1
   fi
 
-  if [ ! -f "out-dir-bundle/ios/dist/common.jsbundle.hbc" ]; then
+  if [ ! -f "out-dir-bundle/ios/dist/common.bundle" ]; then
     echo "❌ No HBC bundles found. Run '$0 build' first."
     exit 1
   fi
 
   echo "   Copying bundles..."
-  cp out-dir-bundle/ios/dist/common.jsbundle.hbc "$APP/common.jsbundle"
+  cp out-dir-bundle/ios/dist/common.bundle "$APP/common.bundle"
   cp out-dir-bundle/ios/dist/main.jsbundle.hbc "$APP/main.jsbundle"
   cp out-dir-bundle/ios/dist/background.bundle "$APP/background.bundle"
   rsync -a --delete out-dir-bundle/ios/dist/segments/ "$APP/segments/"
