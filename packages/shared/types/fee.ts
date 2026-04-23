@@ -179,6 +179,25 @@ export type IEstimateGasParams = {
   accountAddress: string;
   encodedTx?: IEncodedTx;
   transfersInfo?: ITransferInfo[];
+  lockedUserNonce?: number;
+  gasAccountEnabled?: boolean;
+};
+
+export type IGasPayer = 'user' | 'megafuel' | 'gasAccount';
+
+export type IGasAccountQuote = {
+  quoteId: string;
+  maxFee: string;
+  expiresAt: string;
+};
+
+export type IGasAccountUiState = {
+  payer?: IGasPayer;
+  gasAccountEligible?: boolean;
+  gasAccountQuote?: IGasAccountQuote;
+  selectedPayer?: 'user' | 'gasAccount';
+  lockedUserNonce?: number;
+  idempotencyKey?: string;
 };
 
 export type IFeesInfoUnit = {
@@ -271,6 +290,9 @@ export type IEstimateGasResp = {
     sponsorable: boolean;
     sponsorName: string;
   };
+  payer?: IGasPayer;
+  gasAccountEligible?: boolean;
+  gasAccountQuote?: IGasAccountQuote;
 };
 
 export type IServerBatchEstimateFeeResponse = {
