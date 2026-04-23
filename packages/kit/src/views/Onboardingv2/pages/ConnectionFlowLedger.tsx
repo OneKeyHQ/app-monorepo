@@ -19,7 +19,6 @@ import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDe
 import { ThirdPartyDevicePermissionDenied } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { ThirdPartyWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -137,7 +136,7 @@ export default function LedgerConnectionFlow() {
               title:
                 error.message ||
                 intl.formatMessage({
-                  id: ETranslationsMock.hardware_third_party_device_scan_error,
+                  id: ETranslations.hardware_third_party_device_scan_error,
                 }),
             });
           }
@@ -302,13 +301,13 @@ export default function LedgerConnectionFlow() {
               <SizableText color="$textSubdued">
                 {`1. ${intl.formatMessage({
                   id: isBle
-                    ? ETranslationsMock.hardware_third_party_connect_step_ble
-                    : ETranslationsMock.hardware_third_party_connect_step_usb,
+                    ? ETranslations.hardware_third_party_connect_step_ble
+                    : ETranslations.hardware_third_party_connect_step_usb,
                 })}`}
               </SizableText>
               <SizableText color="$textSubdued">
                 {`2. ${intl.formatMessage({
-                  id: ETranslationsMock.hardware_third_party_connect_step_power_on_and_unlock,
+                  id: ETranslations.hardware_third_party_connect_step_power_on_and_unlock,
                 })}`}
               </SizableText>
             </YStack>

@@ -4,8 +4,8 @@ import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -81,7 +81,7 @@ export class LedgerAdapter
         type: EThirdPartyHardwareUiAction.requestUnlock,
         payload: {
           message: appLocale.intl.formatMessage({
-            id: ETranslationsMock.hardware_third_party_connect_ledger_message,
+            id: ETranslations.hardware_third_party_connect_ledger_message,
           }),
         },
       });
