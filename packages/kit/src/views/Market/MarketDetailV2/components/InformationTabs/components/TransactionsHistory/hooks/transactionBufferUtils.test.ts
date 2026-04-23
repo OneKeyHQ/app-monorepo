@@ -31,7 +31,10 @@ describe('transactionBufferUtils', () => {
 
   it('keeps all buffered entries after crossing the overflow threshold', () => {
     const result = appendBufferedTransaction({
-      bufferedTransactions: [createMockTransaction('1', 1), createMockTransaction('2', 2)],
+      bufferedTransactions: [
+        createMockTransaction('1', 1),
+        createMockTransaction('2', 2),
+      ],
       currentTransactions: [],
       transaction: createMockTransaction('3', 3),
       maxBufferSize: 2,
