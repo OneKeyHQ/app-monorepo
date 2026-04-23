@@ -300,7 +300,7 @@ export function TradingViewPerpsV2(
         });
       }
     },
-    [actions],
+    [actions, webRef],
   );
 
   const { customReceiveHandler } = usePerpsTradingViewMessageHandler({

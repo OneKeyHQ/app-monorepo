@@ -74,8 +74,6 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   // Perps chart lines methods
   'tradingview_perpsReady',
   'tradingview_perpsOrderCancel',
-  'tradingview_perpsOrderDraftCreate',
-  'tradingview_perpsOrderPriceUpdate',
   'tradingview_lineDragCommit',
 ];
 
