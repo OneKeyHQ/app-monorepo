@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PORTFOLIO_OTHERS_KEY } from './DeFiPortfolioStats';
@@ -52,11 +52,19 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
                 {label}
               </SizableText>
               {slice.networkIds.length > 0 ? (
-                <NetworkAvatarGroup
-                  networkIds={slice.networkIds}
-                  size="$4"
-                  flexShrink={0}
-                />
+                <XStack flexShrink={0}>
+                  {slice.networkIds.map((networkId, index) => (
+                    <Stack
+                      key={networkId}
+                      p="$0.5"
+                      borderRadius="$full"
+                      bg="$bgApp"
+                      {...(index !== 0 && { ml: '$-1.5' })}
+                    >
+                      <NetworkAvatar networkId={networkId} size="$4" />
+                    </Stack>
+                  ))}
+                </XStack>
               ) : null}
             </XStack>
             <SizableText
