@@ -6,19 +6,23 @@ import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared
 
 export function PortfolioOverview({
   wallet,
+  account,
   totalBalance,
   onPress,
 }: {
   wallet: { name: string; emoji: string; avatarImg: string };
+  account: { name: string };
   totalBalance: {
     amount: string;
     currency: string;
     symbol: string;
-    change24h: number;
+    change24h?: number;
   };
   onPress: () => void;
 }) {
-  const isPositive = totalBalance.change24h >= 0;
+  const change24h = totalBalance.change24h;
+  const hasChange = typeof change24h === 'number';
+  const isPositive = hasChange && change24h >= 0;
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
 
@@ -70,14 +74,20 @@ export function PortfolioOverview({
           {wallet.name}
         </SizableText>
       </Stack>
+      {account.name ? (
+        <SizableText fontSize="$bodySm" color="$textSubdued" marginBottom="$1">
+          {account.name}
+        </SizableText>
+      ) : null}
       <SizableText fontSize="$headingXl" color="$text" fontWeight="600">
         {currencySymbol}
         {formattedAmount}
       </SizableText>
-      <SizableText fontSize="$bodySm" color={changeColor} marginTop="$1">
-        {changePrefix}
-        {totalBalance.change24h.toFixed(2)}%
-      </SizableText>
+      {hasChange ? (
+        <SizableText fontSize="$bodySm" color={changeColor} marginTop="$1">
+          {`${changePrefix}${change24h.toFixed(2)}%`}
+        </SizableText>
+      ) : null}
     </Stack>
   );
 }
