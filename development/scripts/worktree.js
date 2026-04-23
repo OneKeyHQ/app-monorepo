@@ -77,13 +77,6 @@ function getDateString() {
   return `${month}${day}`;
 }
 
-function getTimeString() {
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  return `${hours}${minutes}`;
-}
-
 function getCurrentBranch() {
   try {
     return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
@@ -202,20 +195,18 @@ function syncMetadataWithExistingWorktrees(metadata, existingWorktrees) {
     }
   }
 
+  // Pre-existing worktrees created before metadata was introduced: record
+  // them as orphans so they show up in the tree but claim no parent.
   for (const entry of existingWorktrees) {
-    if (entry.isBase || nextWorktrees[entry.displayName]) {
-      continue;
+    if (!entry.isBase && !nextWorktrees[entry.displayName]) {
+      nextWorktrees[entry.displayName] = {
+        branch: entry.branchName,
+        parent: null,
+        parentBranch: null,
+        createdAt: null,
+        createdFromBranch: null,
+      };
     }
-
-    // Pre-existing worktrees created before metadata was introduced: record
-    // them as orphans so they show up in the tree but claim no parent.
-    nextWorktrees[entry.displayName] = {
-      branch: entry.branchName,
-      parent: null,
-      parentBranch: null,
-      createdAt: null,
-      createdFromBranch: null,
-    };
   }
 
   return { version: METADATA_VERSION, worktrees: nextWorktrees };
