@@ -103,9 +103,10 @@ function PerpBadgesRow() {
     <XStack alignItems="center" gap="$1.5">
       <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
         <SizableText color="$textSubdued" fontSize={10}>
-          {/* TODO: add i18n key for 'Spot' (ETranslations) */}
           {isSpot
-            ? 'Spot'
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_spot,
+              })
             : intl.formatMessage({
                 id: ETranslations.perp_label_perp,
               })}

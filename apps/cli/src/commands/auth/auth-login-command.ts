@@ -253,7 +253,7 @@ export async function executeAuthLoginCommand({
   appTransferFlag,
   isHumanMode = false,
   isTTY = false,
-  env = 'test',
+  env = 'prod',
   authManager = new AuthManager(),
   stderr = process.stderr,
   runAppTransferPairingDisplay:
