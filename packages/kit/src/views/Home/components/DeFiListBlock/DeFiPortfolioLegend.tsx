@@ -21,7 +21,7 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
   const othersLabel = intl.formatMessage({ id: ETranslations.global_others });
 
   return (
-    <YStack flex={1} gap="$2">
+    <YStack flex={1} gap="$2.5">
       {slices.map((slice) => {
         const label = slice.key === 'others' ? othersLabel : slice.label;
         return (

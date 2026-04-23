@@ -21,7 +21,8 @@ export type IDeFiPortfolioCardProps = {
   isLoading?: boolean;
 };
 
-const DONUT_SIZE = 120;
+const DONUT_SIZE = 140;
+const DONUT_THICKNESS = 20;
 const LEGEND_MIN_WIDTH = 220;
 
 function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
@@ -43,7 +44,7 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
             height={DONUT_SIZE}
             borderRadius="$full"
           />
-          <YStack width={LEGEND_MIN_WIDTH} gap="$2">
+          <YStack width={LEGEND_MIN_WIDTH} gap="$2.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton
                 // eslint-disable-next-line react/no-array-index-key
@@ -66,7 +67,7 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
       justifyContent="space-between"
       userSelect="none"
     >
-      <YStack flex={1} gap="$1" minWidth={0}>
+      <YStack flex={1} gap="$2" minWidth={0}>
         <SizableText size="$headingLg" role="heading" aria-level={2}>
           {title}
         </SizableText>
@@ -81,7 +82,11 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
       </YStack>
       <XStack gap="$4" alignItems="center" flexShrink={0}>
         <Stack flexShrink={0}>
-          <DeFiPortfolioDonut slices={stats.slices} size={DONUT_SIZE} />
+          <DeFiPortfolioDonut
+            slices={stats.slices}
+            size={DONUT_SIZE}
+            thickness={DONUT_THICKNESS}
+          />
         </Stack>
         <YStack width={LEGEND_MIN_WIDTH}>
           <DeFiPortfolioLegend slices={stats.slices} />

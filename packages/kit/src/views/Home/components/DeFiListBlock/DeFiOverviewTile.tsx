@@ -75,7 +75,7 @@ function DeFiOverviewTile({
           />
         </Stack>
       </Stack>
-      <YStack flex={1} minWidth={0} gap="$0.5">
+      <YStack flex={1} minWidth={0} gap="$1">
         <SizableText
           size="$bodyMd"
           color="$textSubdued"
