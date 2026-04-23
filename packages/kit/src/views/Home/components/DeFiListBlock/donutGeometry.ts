@@ -3,13 +3,10 @@ type IBuildDonutArcPathInput = {
   sweepPercent: number;
   outerRadius: number;
   innerRadius: number;
-  /**
-   * Visual gap between slices, measured in percent of full circle. Splits
-   * evenly across both ends of the slice so the "Apple-style" rounded caps
-   * don't touch adjacent slices. Clamped so a slice never loses more than a
-   * quarter of its sweep.
-   */
-  gapPercent?: number;
+  // Angular gap (degrees) inset on each end of the slice. Creates a visible
+  // gap between adjacent slices equal to `gapDeg` (each neighbor contributes
+  // half). Skipped automatically for 100% / zero-sweep slices.
+  gapDeg?: number;
 };
 
 function polar(angleRad: number, radius: number) {
@@ -23,48 +20,57 @@ function formatNumber(n: number) {
   return Number.isInteger(rounded) ? rounded.toFixed(0) : String(rounded);
 }
 
-/**
- * Returns an SVG path for the centerline arc of a donut slice, suitable for
- * rendering with `<Path stroke strokeLinecap="round" />`. The stroke width
- * fills the ring (outer - inner). Rounded caps give the Apple-style look.
- */
 export function buildDonutArcPath(input: IBuildDonutArcPathInput): string {
-  const {
-    startPercent,
-    sweepPercent,
-    outerRadius,
-    innerRadius,
-    gapPercent = 0,
-  } = input;
+  const { startPercent, sweepPercent, outerRadius, innerRadius } = input;
+  const gapDeg = input.gapDeg ?? 0;
   if (sweepPercent <= 0) return '';
 
-  const centerRadius = (outerRadius + innerRadius) / 2;
+  const rawStart = (startPercent / 100) * 2 * Math.PI - Math.PI / 2;
+  const rawEnd =
+    ((startPercent + sweepPercent) / 100) * 2 * Math.PI - Math.PI / 2;
 
-  // Full ring: split into two semicircle arcs so start and end don't collapse.
+  // Full ring — no gap makes sense; keep a continuous circle drawn as two
+  // semicircle arcs to avoid the degenerate start≈end endpoint.
   if (sweepPercent >= 100) {
-    const startAngle = (startPercent / 100) * 2 * Math.PI - Math.PI / 2;
-    const midAngle = startAngle + Math.PI;
-    const p0 = polar(startAngle, centerRadius);
-    const p1 = polar(midAngle, centerRadius);
+    const midAngle = rawStart + Math.PI;
+    const p0Outer = polar(rawStart, outerRadius);
+    const p1Outer = polar(midAngle, outerRadius);
+    const p0Inner = polar(rawStart, innerRadius);
+    const p1Inner = polar(midAngle, innerRadius);
     return [
-      `M ${formatNumber(p0.x)} ${formatNumber(p0.y)}`,
-      `A ${formatNumber(centerRadius)} ${formatNumber(centerRadius)} 0 1 1 ${formatNumber(p1.x)} ${formatNumber(p1.y)}`,
-      `A ${formatNumber(centerRadius)} ${formatNumber(centerRadius)} 0 1 1 ${formatNumber(p0.x)} ${formatNumber(p0.y)}`,
+      `M ${formatNumber(p0Outer.x)} ${formatNumber(p0Outer.y)}`,
+      `A ${formatNumber(outerRadius)} ${formatNumber(outerRadius)} 0 1 1 ${formatNumber(p1Outer.x)} ${formatNumber(p1Outer.y)}`,
+      `A ${formatNumber(outerRadius)} ${formatNumber(outerRadius)} 0 1 1 ${formatNumber(p0Outer.x)} ${formatNumber(p0Outer.y)}`,
+      `L ${formatNumber(p0Inner.x)} ${formatNumber(p0Inner.y)}`,
+      `A ${formatNumber(innerRadius)} ${formatNumber(innerRadius)} 0 1 0 ${formatNumber(p1Inner.x)} ${formatNumber(p1Inner.y)}`,
+      `A ${formatNumber(innerRadius)} ${formatNumber(innerRadius)} 0 1 0 ${formatNumber(p0Inner.x)} ${formatNumber(p0Inner.y)}`,
+      'Z',
     ].join(' ');
   }
 
-  const effectiveGap = Math.max(0, Math.min(gapPercent, sweepPercent * 0.5));
-  const effStart = startPercent + effectiveGap / 2;
-  const effSweep = sweepPercent - effectiveGap;
+  // Apply half-gap inset on both ends so two neighboring slices together
+  // leave a full `gapDeg` gap. Clamp so tiny slices don't invert.
+  const sweepRad = rawEnd - rawStart;
+  const halfGapRad = Math.min(
+    (gapDeg / 2) * (Math.PI / 180),
+    Math.max(0, sweepRad / 2 - 0.001),
+  );
+  const startAngle = rawStart + halfGapRad;
+  const endAngle = rawEnd - halfGapRad;
+  const effectiveSweep = endAngle - startAngle;
+  if (effectiveSweep <= 0) return '';
 
-  const startAngle = (effStart / 100) * 2 * Math.PI - Math.PI / 2;
-  const endAngle = ((effStart + effSweep) / 100) * 2 * Math.PI - Math.PI / 2;
-  const largeArc = effSweep > 50 ? 1 : 0;
-  const start = polar(startAngle, centerRadius);
-  const end = polar(endAngle, centerRadius);
+  const largeArc = effectiveSweep > Math.PI ? 1 : 0;
+  const outerStart = polar(startAngle, outerRadius);
+  const outerEnd = polar(endAngle, outerRadius);
+  const innerStart = polar(startAngle, innerRadius);
+  const innerEnd = polar(endAngle, innerRadius);
 
   return [
-    `M ${formatNumber(start.x)} ${formatNumber(start.y)}`,
-    `A ${formatNumber(centerRadius)} ${formatNumber(centerRadius)} 0 ${largeArc} 1 ${formatNumber(end.x)} ${formatNumber(end.y)}`,
+    `M ${formatNumber(outerStart.x)} ${formatNumber(outerStart.y)}`,
+    `A ${formatNumber(outerRadius)} ${formatNumber(outerRadius)} 0 ${largeArc} 1 ${formatNumber(outerEnd.x)} ${formatNumber(outerEnd.y)}`,
+    `L ${formatNumber(innerEnd.x)} ${formatNumber(innerEnd.y)}`,
+    `A ${formatNumber(innerRadius)} ${formatNumber(innerRadius)} 0 ${largeArc} 0 ${formatNumber(innerStart.x)} ${formatNumber(innerStart.y)}`,
+    'Z',
   ].join(' ');
 }

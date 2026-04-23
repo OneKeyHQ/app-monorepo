@@ -13,12 +13,18 @@ type IDeFiPortfolioDonutProps = {
   slices: IPortfolioSlice[];
   size?: number;
   thickness?: number;
+  gapDeg?: number;
 };
+
+// Top finance apps (Coinbase, Wealthfront, Copilot Money, Apple Health pie)
+// all put a small visible gap between slices. 2° reads as an intentional
+// boundary without fragmenting the ring.
+const DEFAULT_SLICE_GAP_DEG = 2;
 
 type IResolvedPath = {
   key: string;
   d: string;
-  stroke: string;
+  fill: string;
 };
 
 type ITamaguiThemeShape = Record<string, { val?: string } | undefined>;
@@ -34,18 +40,18 @@ function resolveSliceFill(
   return (theme as unknown as ITamaguiThemeShape)[key]?.val ?? token;
 }
 
-// Apple-style gap between slices (as % of full circle). ~1.4° separation so
-// rounded caps breathe but tiny slices still render legibly.
-const SLICE_GAP_PERCENT = 0.4;
-
 export function DeFiPortfolioDonut({
   slices,
   size = 120,
   thickness = 18,
+  gapDeg = DEFAULT_SLICE_GAP_DEG,
 }: IDeFiPortfolioDonutProps) {
   const theme = useTheme();
   const outerRadius = size / 2;
   const innerRadius = Math.max(0, outerRadius - thickness);
+  // Single-slice (100% one protocol) looks wrong with a gap — the one arc
+  // would be a C-shape. Suppress the gap then.
+  const effectiveGap = slices.length > 1 ? gapDeg : 0;
 
   const paths = useMemo<IResolvedPath[]>(() => {
     if (slices.length === 0) {
@@ -60,35 +66,32 @@ export function DeFiPortfolioDonut({
         {
           key: 'empty-ring',
           d,
-          stroke: resolveSliceFill(theme, PORTFOLIO_EMPTY_RING_TOKEN),
+          fill: resolveSliceFill(theme, PORTFOLIO_EMPTY_RING_TOKEN),
         },
       ];
     }
 
     const result: IResolvedPath[] = [];
     let cursor = 0;
-    // Only gap when there are 2+ slices; a single 100% slice renders as a
-    // full ring.
-    const gapPercent = slices.length > 1 ? SLICE_GAP_PERCENT : 0;
     for (const slice of slices) {
       const d = buildDonutArcPath({
         startPercent: cursor,
         sweepPercent: slice.percent,
         outerRadius,
         innerRadius,
-        gapPercent,
+        gapDeg: effectiveGap,
       });
       cursor += slice.percent;
       if (d) {
         result.push({
           key: slice.key,
           d,
-          stroke: resolveSliceFill(theme, slice.colorToken),
+          fill: resolveSliceFill(theme, slice.colorToken),
         });
       }
     }
     return result;
-  }, [slices, outerRadius, innerRadius, theme]);
+  }, [slices, outerRadius, innerRadius, theme, effectiveGap]);
 
   return (
     <Svg
@@ -100,14 +103,7 @@ export function DeFiPortfolioDonut({
       importantForAccessibility="no-hide-descendants"
     >
       {paths.map((p) => (
-        <Path
-          key={p.key}
-          d={p.d}
-          stroke={p.stroke}
-          strokeWidth={thickness}
-          strokeLinecap="round"
-          fill="none"
-        />
+        <Path key={p.key} d={p.d} fill={p.fill} />
       ))}
     </Svg>
   );

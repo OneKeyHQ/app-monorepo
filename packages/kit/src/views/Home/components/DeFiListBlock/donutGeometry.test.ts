@@ -1,20 +1,13 @@
 import { buildDonutArcPath } from './donutGeometry';
 
-// Centerline radius = (outerRadius + innerRadius) / 2. The stroke-based path
-// tracks the middle of the ring (rendered with strokeLinecap="round" for the
-// Apple-style look), so all arc commands use this radius rather than outer.
-const OUTER = 60;
-const INNER = 42;
-const CENTER = (OUTER + INNER) / 2; // 51
-
 describe('buildDonutArcPath', () => {
   it('returns an empty string for zero-percent slice', () => {
     expect(
       buildDonutArcPath({
         startPercent: 0,
         sweepPercent: 0,
-        outerRadius: OUTER,
-        innerRadius: INNER,
+        outerRadius: 60,
+        innerRadius: 42,
       }),
     ).toBe('');
   });
@@ -23,70 +16,81 @@ describe('buildDonutArcPath', () => {
     const d = buildDonutArcPath({
       startPercent: 0,
       sweepPercent: 100,
-      outerRadius: OUTER,
-      innerRadius: INNER,
+      outerRadius: 60,
+      innerRadius: 42,
     });
-    // Full ring needs two arc commands to avoid the degenerate start=end
-    // endpoint in a single `A` instruction.
+    // Two "A" arc commands are required to draw a full ring without a
+    // degenerate start=end endpoint.
     expect((d.match(/A/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(d.trim().endsWith('Z')).toBe(true);
   });
 
   it('uses largeArc=1 when sweep > 50%', () => {
     const d = buildDonutArcPath({
       startPercent: 0,
       sweepPercent: 60,
-      outerRadius: OUTER,
-      innerRadius: INNER,
+      outerRadius: 60,
+      innerRadius: 42,
     });
-    expect(d).toContain(`A ${CENTER} ${CENTER} 0 1 1 `);
+    // First arc command should have "1 1" for large-arc + sweep-flag.
+    expect(d).toMatch(/A 60 60 0 1 1 /);
   });
 
   it('uses largeArc=0 when sweep <= 50%', () => {
     const d = buildDonutArcPath({
       startPercent: 0,
       sweepPercent: 40,
-      outerRadius: OUTER,
-      innerRadius: INNER,
+      outerRadius: 60,
+      innerRadius: 42,
     });
-    expect(d).toContain(`A ${CENTER} ${CENTER} 0 0 1 `);
+    expect(d).toMatch(/A 60 60 0 0 1 /);
   });
 
   it("starts drawing at 12 o'clock for startPercent=0", () => {
     const d = buildDonutArcPath({
       startPercent: 0,
       sweepPercent: 25,
-      outerRadius: OUTER,
-      innerRadius: INNER,
+      outerRadius: 60,
+      innerRadius: 42,
     });
-    expect(d.startsWith(`M 0 -${CENTER}`)).toBe(true);
+    // First Move command lands on (0, -60) relative to centre.
+    expect(d.startsWith('M 0 -60')).toBe(true);
   });
 
-  it('shrinks the arc when gapPercent is provided', () => {
-    const withoutGap = buildDonutArcPath({
+  it('insets both ends by half the requested gap', () => {
+    const noGap = buildDonutArcPath({
       startPercent: 0,
-      sweepPercent: 50,
-      outerRadius: OUTER,
-      innerRadius: INNER,
+      sweepPercent: 25,
+      outerRadius: 60,
+      innerRadius: 42,
     });
     const withGap = buildDonutArcPath({
       startPercent: 0,
-      sweepPercent: 50,
-      outerRadius: OUTER,
-      innerRadius: INNER,
-      gapPercent: 1,
+      sweepPercent: 25,
+      outerRadius: 60,
+      innerRadius: 42,
+      gapDeg: 4,
     });
-    expect(withoutGap).not.toBe(withGap);
+    // Gap shortens both ends, so the start x-coord with a 2° inset is > 0
+    // (it was exactly 0 without inset — 12 o'clock). A strict inequality
+    // guards against the helper silently ignoring gapDeg.
+    const firstNumberAfterMove = (path: string) =>
+      Number(path.split(' ')[1]);
+    expect(firstNumberAfterMove(noGap)).toBe(0);
+    expect(firstNumberAfterMove(withGap)).toBeGreaterThan(0);
   });
 
-  it('clamps gapPercent so tiny slices do not invert', () => {
-    const d = buildDonutArcPath({
+  it('ignores gapDeg on the full-ring branch', () => {
+    const full = buildDonutArcPath({
       startPercent: 0,
-      sweepPercent: 0.2,
-      outerRadius: OUTER,
-      innerRadius: INNER,
-      gapPercent: 1, // larger than the slice itself
+      sweepPercent: 100,
+      outerRadius: 60,
+      innerRadius: 42,
+      gapDeg: 10,
     });
-    expect(d).not.toBe('');
-    expect(d.startsWith('M ')).toBe(true);
+    // Full ring uses the two-arc trick — largeArc=1 on both outer arcs, no
+    // inset applied. Start Move still at (0, -60).
+    expect(full.startsWith('M 0 -60')).toBe(true);
+    expect((full.match(/A/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 });
