@@ -77,12 +77,11 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
     { id: ETranslations.marketdex_new_updates },
     { amount: updatesAmount },
   );
-  const { flushBufferedTransactions, scrollTransactionsToTop } =
-    realtimePauseState;
+  const { resumeRealtimeUpdates, scrollTransactionsToTop } = realtimePauseState;
   const handleUpdatesPress = useCallback(() => {
-    flushBufferedTransactions?.();
+    resumeRealtimeUpdates?.();
     scrollTransactionsToTop?.();
-  }, [flushBufferedTransactions, scrollTransactionsToTop]);
+  }, [resumeRealtimeUpdates, scrollTransactionsToTop]);
 
   return (
     <YStack
