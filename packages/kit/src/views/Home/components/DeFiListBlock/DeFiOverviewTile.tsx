@@ -10,10 +10,13 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { formatPortfolioPercent } from './DeFiPortfolioLegend';
+
 export type IDeFiOverviewTileProps = {
   protocol: IDeFiProtocol;
   protocolInfo: IProtocolSummary | undefined;
   netWorth: number | string;
+  percent?: number;
   onPress: () => void;
 };
 
@@ -21,6 +24,7 @@ function DeFiOverviewTile({
   protocol,
   protocolInfo,
   netWorth,
+  percent,
   onPress,
 }: IDeFiOverviewTileProps) {
   const intl = useIntl();
@@ -87,6 +91,16 @@ function DeFiOverviewTile({
         >
           {netWorth ?? 0}
         </NumberSizeableTextWrapper>
+        {typeof percent === 'number' ? (
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {formatPortfolioPercent(percent)}
+          </SizableText>
+        ) : null}
       </YStack>
     </XStack>
   );
