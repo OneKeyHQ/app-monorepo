@@ -111,7 +111,7 @@ describe('swapHistoryStatusUtils', () => {
     ).toBe(false);
   });
 
-  it('emits once when Houdini source token sent state is first detected', () => {
+  it('emits once when Houdini confirming state is first detected', () => {
     expect(
       shouldEmitSwapHistoryBalanceUpdate({
         swapTxHistory: createSwapHistory({ stateDetail: 'CONFIRMING' }),
@@ -125,6 +125,14 @@ describe('swapHistoryStatusUtils', () => {
         swapTxHistory: createSwapHistory({ stateDetail: 'EXCHANGING' }),
         txStatusRes: createTxStatus({ stateDetail: 'EXCHANGING' }),
         previousStateDetail: 'CONFIRMING',
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldEmitSwapHistoryBalanceUpdate({
+        swapTxHistory: createSwapHistory({ stateDetail: 'EXCHANGING' }),
+        txStatusRes: createTxStatus({ stateDetail: 'EXCHANGING' }),
+        previousStateDetail: 'WAITING',
       }),
     ).toBe(false);
   });

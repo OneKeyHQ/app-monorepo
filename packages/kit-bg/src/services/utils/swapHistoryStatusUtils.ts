@@ -9,13 +9,7 @@ import {
 
 const HOUDINI_SWAP_PROVIDER = 'SwapHoudi';
 
-const HOUDINI_SOURCE_TOKEN_SENT_STATE_DETAILS = new Set([
-  'CONFIRMING',
-  'EXCHANGING',
-  'ANONYMIZING',
-  'FINISHED',
-]);
-
+const HOUDINI_SOURCE_TOKEN_SENT_STATE_DETAIL = 'CONFIRMING';
 const HOUDINI_REFUNDED_STATE_DETAIL = 'REFUNDED';
 
 const BALANCE_REFRESH_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>([
@@ -29,9 +23,7 @@ function isHoudiniSwapProvider(provider?: string) {
 }
 
 function isHoudiniSourceTokenSentStateDetail(stateDetail?: string) {
-  return stateDetail
-    ? HOUDINI_SOURCE_TOKEN_SENT_STATE_DETAILS.has(stateDetail)
-    : false;
+  return stateDetail === HOUDINI_SOURCE_TOKEN_SENT_STATE_DETAIL;
 }
 
 function isHoudiniRefundedStateDetail(stateDetail?: string) {
