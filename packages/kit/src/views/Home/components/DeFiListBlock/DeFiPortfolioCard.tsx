@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -138,4 +138,10 @@ function DeFiPortfolioCard({
 
 DeFiPortfolioCard.displayName = 'DeFiPortfolioCard';
 
-export { DeFiPortfolioCard };
+// Memoized: DeFiContainer's sticky-scroll state (pinnedKey, sticky line,
+// sidebar metrics) updates every rAF while the user scrolls. Without memo
+// the entire donut + legend tree re-renders on every scroll frame.
+const MemoDeFiPortfolioCard = memo(DeFiPortfolioCard);
+MemoDeFiPortfolioCard.displayName = 'DeFiPortfolioCard';
+
+export { MemoDeFiPortfolioCard as DeFiPortfolioCard };

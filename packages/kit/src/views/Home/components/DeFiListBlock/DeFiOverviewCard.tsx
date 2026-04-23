@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { Skeleton, XStack } from '@onekeyhq/components';
 import { useDeFiListSlicedAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
@@ -124,4 +124,10 @@ function DeFiOverviewCard({
   );
 }
 
-export { DeFiOverviewCard };
+// Memoized: same reason as DeFiPortfolioCard — sticky scroll updates in
+// DeFiContainer re-render this tree every rAF frame otherwise. 10+ tile
+// children skip re-render when props haven't changed.
+const MemoDeFiOverviewCard = memo(DeFiOverviewCard);
+MemoDeFiOverviewCard.displayName = 'DeFiOverviewCard';
+
+export { MemoDeFiOverviewCard as DeFiOverviewCard };
