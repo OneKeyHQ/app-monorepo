@@ -431,7 +431,14 @@ function GetStarted() {
   ] as const;
 
   return (
-    <OnboardingPage headerBack="exit">
+    <OnboardingPage
+      headerBack="exit"
+      contentContainerProps={
+        platformEnv.isNative
+          ? undefined
+          : { enterStyle: { opacity: 0, scale: 0.9 } }
+      }
+    >
       <YStack
         $md={{
           flex: 1,
