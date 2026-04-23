@@ -30,8 +30,6 @@ import { TradesHistoryRow } from '../Components/TradesHistoryRow';
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
 const TRADES_HISTORY_PAGE_SIZE = 20;
-const TRADES_HISTORY_EMPTY_SUB_MESSAGE =
-  'Trades from up to the last 2 years are shown.';
 
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
@@ -288,7 +286,9 @@ function PerpTradesHistoryList({
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty,
       })}
-      emptySubMessage={TRADES_HISTORY_EMPTY_SUB_MESSAGE}
+      emptySubMessage={intl.formatMessage({
+        id: ETranslations.perp_trades_history_recent_range_desc,
+      })}
       enablePagination
       pageSize={TRADES_HISTORY_PAGE_SIZE}
       paginationToBottom={isMobile}
