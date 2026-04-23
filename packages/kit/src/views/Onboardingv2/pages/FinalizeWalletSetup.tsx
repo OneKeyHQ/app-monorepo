@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -13,6 +13,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useSafeAreaInsets,
   useTheme,
 } from '@onekeyhq/components';
 import {
@@ -59,8 +60,6 @@ import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
-
-import MatrixBackground from './MatrixBackground';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -124,7 +123,7 @@ function FinalizeWalletSetupPage({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const theme = useTheme();
-  const bgAppColor = theme.bgApp.val;
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const borderActiveColor = theme.borderActive.val;
   const neutral1Color = theme.neutral1.val;
   const neutral4Color = theme.neutral4.val;
@@ -157,7 +156,6 @@ function FinalizeWalletSetupPage({
   const [currentStep, setCurrentStep] =
     useState<EFinalizeWalletSetupSteps>(initialStep);
 
-  // Step queue — starts empty; real backend events fill it as they arrive.
   const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
 
   const [isStepSlow, setIsStepSlow] = useState(false);
@@ -207,14 +205,15 @@ function FinalizeWalletSetupPage({
   );
 
   // Ready state waits for the user's Let's-go press instead of auto-closing.
-  // The 600ms after closePage gives the page-dismiss animation time to finish
-  // before the auto-connect dapp modal appears on top of the main screen.
-  const handleLetsGo = useCallback(() => {
+  // The 600ms delay gives the page-dismiss animation time to finish before
+  // the auto-connect dapp modal appears on top of the next (Main) screen.
+  // No unmount guard here: the modal should fire regardless, since by then
+  // this page is intentionally gone.
+  const handleLetsGo = useCallback(async () => {
+    if (closePageCalled.current) return;
     closePage();
-    setTimeout(() => {
-      if (unmountedRef.current) return;
-      void openKeylessAutoConnectDappModal();
-    }, 600);
+    await timerUtils.wait(600);
+    void openKeylessAutoConnectDappModal();
   }, [closePage, openKeylessAutoConnectDappModal]);
 
   // Step transitions are driven purely by real events.
@@ -486,34 +485,6 @@ function FinalizeWalletSetupPage({
     );
   }
 
-  const svgMask = (
-    <Svg
-      height="100%"
-      width="100%"
-      style={{
-        position: 'absolute',
-        inset: 0,
-      }}
-    >
-      <Defs>
-        <RadialGradient
-          id="finalize-grad"
-          cx="50%"
-          cy="50%"
-          {...(platformEnv.isNative && {
-            rx: '60%',
-            ry: '30%',
-          })}
-        >
-          <Stop offset="0%" stopColor={bgAppColor} stopOpacity="0" />
-          <Stop offset="50%" stopColor={bgAppColor} stopOpacity="0.5" />
-          <Stop offset="100%" stopColor={bgAppColor} stopOpacity="1" />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#finalize-grad)" />
-    </Svg>
-  );
-
   return (
     <OnboardingPage
       headerBack={false}
@@ -560,178 +531,172 @@ function FinalizeWalletSetupPage({
               </Button>
             </XStack>
           </YStack>
-        ) : null}
-        {!setupError && (currentStepData || isReady) ? (
-          <YStack flex={1} w="100%">
-            <YStack
-              position="absolute"
-              left="50%"
-              top="50%"
-              x="-50%"
-              y="-50%"
-              opacity={0.15}
-            >
-              <MatrixBackground />
-              {!platformEnv.isNativeAndroid ? svgMask : null}
-            </YStack>
-            {platformEnv.isNativeAndroid ? svgMask : null}
-            <YStack
-              animation="quick"
-              animateOnly={ANIMATE_ONLY_OPACITY}
-              enterStyle={{
-                opacity: 0,
-              }}
-              flex={1}
-              alignItems="center"
-              justifyContent="center"
-              gap="$6"
-            >
-              <YStack w="$16" h="$16">
-                <Image
-                  position="absolute"
-                  $theme-dark={{
-                    opacity: 0.5,
-                  }}
-                  bottom={0}
-                  left="50%"
-                  x="-50%"
-                  y="50%"
-                  // eslint-disable-next-line @typescript-eslint/no-require-imports
-                  source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
-                  w={87}
-                  h={49}
-                />
+        ) : (
+          <>
+            {currentStepData || isReady ? (
+              <YStack flex={1} w="100%">
                 <YStack
-                  w="100%"
-                  h="100%"
-                  bg="$bg"
-                  borderRadius="$2"
-                  borderCurve="continuous"
+                  animation="quick"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
+                  enterStyle={{
+                    opacity: 0,
+                  }}
+                  flex={1}
                   alignItems="center"
                   justifyContent="center"
-                  $platform-web={{
-                    boxShadow:
-                      '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(0, 0, 0, 0.10), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-                  }}
-                  $theme-dark={{
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: '$borderSubdued',
-                  }}
-                  $platform-native={{
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: '$borderSubdued',
-                  }}
-                  $platform-android={{ elevation: 1 }}
-                  $platform-ios={{
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 1,
-                  }}
+                  gap="$6"
                 >
-                  <LinearGradient
-                    colors={[neutral1Color, neutral4Color]}
-                    start={{ x: 1, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    w="$14"
-                    h="$14"
-                    borderRadius="$1"
-                    borderCurve="continuous"
-                    alignItems="center"
-                    justifyContent="center"
-                    borderWidth={1}
-                    borderColor="$borderSubdued"
-                  >
-                    <AnimatePresence exitBeforeEnter initial={false}>
-                      <YStack
-                        key={`icon-${currentStep}`}
+                  <YStack w="$16" h="$16">
+                    <Image
+                      position="absolute"
+                      $theme-dark={{
+                        opacity: 0.5,
+                      }}
+                      bottom={0}
+                      left="50%"
+                      x="-50%"
+                      y="50%"
+                      // eslint-disable-next-line @typescript-eslint/no-require-imports
+                      source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
+                      w={87}
+                      h={49}
+                    />
+                    <YStack
+                      w="100%"
+                      h="100%"
+                      bg="$bg"
+                      borderRadius="$2"
+                      borderCurve="continuous"
+                      alignItems="center"
+                      justifyContent="center"
+                      $platform-web={{
+                        boxShadow:
+                          '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(0, 0, 0, 0.10), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+                      }}
+                      $theme-dark={{
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: '$borderSubdued',
+                      }}
+                      $platform-native={{
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: '$borderSubdued',
+                      }}
+                      $platform-android={{ elevation: 1 }}
+                      $platform-ios={{
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 1,
+                      }}
+                    >
+                      <LinearGradient
+                        colors={[neutral1Color, neutral4Color]}
+                        start={{ x: 1, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        w="$14"
+                        h="$14"
+                        borderRadius="$1"
+                        borderCurve="continuous"
+                        alignItems="center"
+                        justifyContent="center"
+                        borderWidth={1}
+                        borderColor="$borderSubdued"
+                      >
+                        <AnimatePresence exitBeforeEnter initial={false}>
+                          <YStack
+                            key={`icon-${currentStep}`}
+                            animation="quick"
+                            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                            enterStyle={{
+                              y: 4,
+                              opacity: 0,
+                            }}
+                            exitStyle={{
+                              y: -4,
+                              opacity: 0,
+                            }}
+                          >
+                            {stepIconNode}
+                          </YStack>
+                        </AnimatePresence>
+                      </LinearGradient>
+                    </YStack>
+                  </YStack>
+                  <AnimatePresence exitBeforeEnter initial={false}>
+                    <SizableText
+                      key={`title-${currentStep}`}
+                      size="$heading2xl"
+                      textAlign="center"
+                      animation="quick"
+                      animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                      enterStyle={{
+                        y: 8,
+                        opacity: 0,
+                        filter: 'blur(4px)',
+                      }}
+                      exitStyle={{
+                        y: -8,
+                        opacity: 0,
+                        filter: 'blur(4px)',
+                      }}
+                    >
+                      {isReady
+                        ? // TODO(i18n): ETranslations.onboarding_finalize_wallet_ready
+                          'Wallet ready'
+                        : currentStepData?.title || ''}
+                    </SizableText>
+                  </AnimatePresence>
+                  <AnimatePresence>
+                    {isStepSlow ? (
+                      <SizableText
+                        key={`hint-${currentStep}`}
+                        size="$bodySm"
+                        color="$textSubdued"
+                        textAlign="center"
                         animation="quick"
                         animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                        enterStyle={{
-                          y: 4,
-                          opacity: 0,
-                        }}
-                        exitStyle={{
-                          y: -4,
-                          opacity: 0,
-                        }}
+                        enterStyle={{ y: 8, opacity: 0 }}
+                        exitStyle={{ y: -8, opacity: 0 }}
+                        mt="$2"
                       >
-                        {stepIconNode}
-                      </YStack>
-                    </AnimatePresence>
-                  </LinearGradient>
+                        {currentStep ===
+                        EFinalizeWalletSetupSteps.ConnectingDevice
+                          ? // TODO(i18n): ETranslations.onboarding_finalize_check_your_device
+                            'Check your device — you may need to confirm'
+                          : // TODO(i18n): ETranslations.onboarding_finalize_taking_a_moment
+                            'This is taking a moment'}
+                      </SizableText>
+                    ) : null}
+                  </AnimatePresence>
                 </YStack>
               </YStack>
-              <AnimatePresence exitBeforeEnter initial={false}>
-                <SizableText
-                  key={`title-${currentStep}`}
-                  size="$heading2xl"
-                  textAlign="center"
-                  animation="quick"
-                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                  enterStyle={{
-                    y: 8,
-                    opacity: 0,
-                    filter: 'blur(4px)',
-                  }}
-                  exitStyle={{
-                    y: -8,
-                    opacity: 0,
-                    filter: 'blur(4px)',
-                  }}
+            ) : null}
+            <YStack
+              pt="$4"
+              alignItems="center"
+              pb={safeAreaBottom > 0 ? safeAreaBottom + 12 : 0}
+            >
+              {isReady ? (
+                <Button
+                  variant="primary"
+                  size="large"
+                  onPress={handleLetsGo}
+                  $md={{ w: '100%' }}
+                  $gtMd={{ minWidth: 240 }}
                 >
-                  {isReady
-                    ? // TODO(i18n): ETranslations.onboarding_finalize_wallet_ready
-                      'Wallet ready'
-                    : currentStepData?.title || ''}
+                  {/* TODO(i18n): ETranslations.onboarding_finalize_lets_go */}
+                  Let&apos;s go
+                </Button>
+              ) : (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.do_not_exit_app_during_setup,
+                  })}
                 </SizableText>
-              </AnimatePresence>
-              <AnimatePresence>
-                {isStepSlow ? (
-                  <SizableText
-                    key={`hint-${currentStep}`}
-                    size="$bodySm"
-                    color="$textSubdued"
-                    textAlign="center"
-                    animation="quick"
-                    animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                    enterStyle={{ y: 8, opacity: 0 }}
-                    exitStyle={{ y: -8, opacity: 0 }}
-                    mt="$2"
-                  >
-                    {currentStep === EFinalizeWalletSetupSteps.ConnectingDevice
-                      ? // TODO(i18n): ETranslations.onboarding_finalize_check_your_device
-                        'Check your device — you may need to confirm'
-                      : // TODO(i18n): ETranslations.onboarding_finalize_taking_a_moment
-                        'This is taking a moment'}
-                  </SizableText>
-                ) : null}
-              </AnimatePresence>
+              )}
             </YStack>
-          </YStack>
-        ) : null}
-        {!setupError ? (
-          <YStack pt="$4" alignItems="center">
-            {isReady ? (
-              <Button
-                variant="primary"
-                size="large"
-                onPress={handleLetsGo}
-                $md={{ w: '100%' }}
-                $gtMd={{ minWidth: 240 }}
-              >
-                {/* TODO(i18n): ETranslations.onboarding_finalize_lets_go */}
-                Let&apos;s go
-              </Button>
-            ) : (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.do_not_exit_app_during_setup,
-                })}
-              </SizableText>
-            )}
-          </YStack>
-        ) : null}
+          </>
+        )}
       </YStack>
     </OnboardingPage>
   );
