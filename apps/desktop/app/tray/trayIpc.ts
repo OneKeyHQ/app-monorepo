@@ -91,6 +91,13 @@ export function registerTrayIpcHandlers(
     // doesn't have to wait for the backstop timeout.
     onResponseReceived?.();
 
+    // Detect account switch before we mutate cachedTrayData so the comparison
+    // reflects the identity the tray window is currently showing.
+    const accountChanged =
+      cachedTrayData?.accountId !== undefined &&
+      data.accountId !== undefined &&
+      cachedTrayData.accountId !== data.accountId;
+
     if (data.isLocked) {
       isLocked = true;
       cachedTrayData = data;
@@ -110,12 +117,14 @@ export function registerTrayIpcHandlers(
       diffAndNotify(data.pendingTxs, data.accountId, data.pendingTxsCleared);
     }
 
-    // Only push when the panel is actually visible — hidden window still
-    // re-renders on setState, and the next open re-reads cachedTrayData via
-    // TRAY_READY anyway.
     const trayWindow = getTrayWindow();
-    if (trayWindow && trayWindow.isVisible()) {
-      trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, data);
+    // Forward when visible (normal update) OR when account just switched —
+    // the switch case must push even to a hidden window so the next open
+    // doesn't re-read stale cachedTrayData before the next poll (OK-53623).
+    if (trayWindow) {
+      if (accountChanged || trayWindow.isVisible()) {
+        trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, data);
+      }
     }
   };
   ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, onTrayDataResponse);
