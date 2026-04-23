@@ -97,6 +97,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private canceledOrderIds = new Set<number>();
 
+  private async findChartOrder(
+    get: (atom: ReturnType<typeof perpsActiveOpenOrdersAtom>) => {
+      openOrders: HL.IPerpsFrontendOrder[];
+    },
+    oid: number,
+  ): Promise<HL.IPerpsFrontendOrder | undefined> {
+    const { openOrders: perpOpenOrders } = get(perpsActiveOpenOrdersAtom());
+    const perpOrder = perpOpenOrders.find((order) => order.oid === oid);
+    if (perpOrder) {
+      return perpOrder;
+    }
+
+    const { openOrders: spotOpenOrders } = await spotActiveOpenOrdersAtom.get();
+    return spotOpenOrders.find((order) => order.oid === oid);
+  }
+
   private buildOpenOrdersByCoinMap(
     openOrders: HL.IPerpsFrontendOrder[],
     prevMap?: Record<string, HL.IPerpsFrontendOrder[]>,
@@ -1553,8 +1569,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         newPrice: string;
       },
     ) => {
-      const { openOrders } = get(perpsActiveOpenOrdersAtom());
-      const existing = openOrders.find((o) => o.oid === params.oid);
+      const existing = await this.findChartOrder(get, params.oid);
       if (!existing) {
         throw new OneKeyLocalError(`Order ${params.oid} not found`);
       }
@@ -1586,8 +1601,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         oid: number;
       },
     ) => {
-      const { openOrders } = get(perpsActiveOpenOrdersAtom());
-      const existing = openOrders.find((o) => o.oid === params.oid);
+      const existing = await this.findChartOrder(get, params.oid);
       if (!existing) {
         throw new OneKeyLocalError(`Order ${params.oid} not found`);
       }
@@ -1648,6 +1662,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             ...prev,
             openOrders,
             openOrdersByCoin,
+          });
+
+          const prevSpot = await spotActiveOpenOrdersAtom.get();
+          const nextSpotOpenOrders = prevSpot.openOrders.filter(
+            (o) => !this.canceledOrderIds.has(o.oid),
+          );
+          await spotActiveOpenOrdersAtom.set({
+            ...prevSpot,
+            openOrders: nextSpotOpenOrders,
           });
 
           return result;

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
+  useActiveTradeInstrumentAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsCustomSettingsAtom,
+  useSpotActiveOpenOrdersAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { MESSAGE_TYPES } from '../constants/messageTypes';
 import { buildAllLinesForSymbol } from '../utils/lineBuilder';
@@ -128,10 +132,14 @@ export function useChartLines({
   webRef,
   isReady,
 }: IUseChartLinesParams): IUseChartLinesReturn {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [{ activePositions, accountAddress: positionsAccountAddress }] =
     usePerpsActivePositionAtom();
   const [{ openOrdersByCoin, accountAddress: ordersAccountAddress }] =
     usePerpsActiveOpenOrdersAtom();
+  const [
+    { openOrders: spotOpenOrders, accountAddress: spotOrdersAccountAddress },
+  ] = useSpotActiveOpenOrdersAtom();
   const [{ showChartLines }] = usePerpsCustomSettingsAtom();
   const normalizedUserAddress = useMemo(
     () => normalizeAddress(userAddress),
@@ -181,15 +189,33 @@ export function useChartLines({
 
   // Get orders for current symbol
   const currentOrders = useMemo(() => {
-    if (
-      !normalizedUserAddress ||
-      normalizeAddress(ordersAccountAddress) !== normalizedUserAddress
-    ) {
+    if (!normalizedUserAddress) {
+      return [];
+    }
+
+    if (activeTradeInstrument.mode === 'spot') {
+      if (
+        normalizeAddress(spotOrdersAccountAddress) !== normalizedUserAddress
+      ) {
+        return [];
+      }
+      return spotOpenOrders.filter((order) => order.coin === symbol);
+    }
+
+    if (normalizeAddress(ordersAccountAddress) !== normalizedUserAddress) {
       return [];
     }
 
     return openOrdersByCoin[symbol] || [];
-  }, [normalizedUserAddress, openOrdersByCoin, ordersAccountAddress, symbol]);
+  }, [
+    activeTradeInstrument.mode,
+    normalizedUserAddress,
+    openOrdersByCoin,
+    ordersAccountAddress,
+    spotOpenOrders,
+    spotOrdersAccountAddress,
+    symbol,
+  ]);
 
   // Build current lines (returns empty if showChartLines is disabled)
   const currentLines = useMemo(() => {
