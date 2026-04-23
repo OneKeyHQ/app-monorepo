@@ -1494,15 +1494,17 @@ function TxFeeInfo(props: IProps) {
 
     if (isGasAccountSelected) {
       // Gas Account sponsorship only covers the network fee, not the
-      // principal native amount being transferred. Still validate that the
-      // user holds enough native balance for `amountToUpdate`, otherwise the
+      // principal native amount being transferred or chain-specific extra
+      // fees paid from the user's native balance (e.g. Solana SPL token
+      // account creation rent). Still validate that the user holds enough
+      // native balance for `amountToUpdate + extraFee`, otherwise the
       // top-up alert disappears and Confirm becomes clickable until the
       // submit fails on chain.
       if (nativeTokenInfo.isLoading || !nativeTokenInfo) return;
 
       const requiredNativeBalance = new BigNumber(
         nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
-      );
+      ).plus(extraFeeInfo.feeNative ?? 0);
       const fillUpNativeBalance = requiredNativeBalance.minus(
         nativeTokenInfo.balance ?? 0,
       );

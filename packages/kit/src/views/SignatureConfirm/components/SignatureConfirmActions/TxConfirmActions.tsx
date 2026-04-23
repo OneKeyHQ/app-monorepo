@@ -731,8 +731,16 @@ function TxConfirmActions(props: IProps) {
     }
 
     const expiresAt = gasAccountUiState.gasAccountQuote?.expiresAt;
+    // Treat missing or invalid `expiresAt` as "no client-side expiry
+    // signal" rather than "already expired". Otherwise the expiry
+    // `useEffect` would auto-reset + re-estimate; if the server keeps
+    // returning quotes with an empty or invalid expiresAt, the
+    // `quoteExpiredHandledRef` reset path creates an infinite loop of
+    // network requests and UI flicker. Falling through to the submit
+    // flow lets the backend reject (routed through handleGasAccountSubmitError)
+    // or succeed — which requires user action and cannot auto-loop.
     if (!expiresAt) {
-      return true;
+      return false;
     }
 
     const numericValue = Number(expiresAt);
@@ -742,7 +750,7 @@ function TxConfirmActions(props: IProps) {
         numericValue > 10 ** 12 ? numericValue : numericValue * 1000;
     }
     if (!Number.isFinite(expiresAtMs)) {
-      return true;
+      return false;
     }
 
     return expiresAtMs <= gasAccountNow;
