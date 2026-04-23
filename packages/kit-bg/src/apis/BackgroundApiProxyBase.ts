@@ -10,10 +10,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  EEventBusBroadcastMethodNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -73,6 +70,7 @@ export class BackgroundApiProxyBase
           type: 'app-event';
           eventName: string;
           payload: unknown;
+          originNodeId?: string;
         },
         localFallback: () => Promise<any>,
       ) => Promise<any>;
@@ -279,9 +277,12 @@ export class BackgroundApiProxyBase
     void jotaiBgSync.jotaiInitFromUi().catch((err: unknown) => {
       console.error('[JOTAI_INIT_ERROR] jotaiInitFromUi failed', err);
     });
-    appEventBus.registerBroadcastMethods(
-      EEventBusBroadcastMethodNames.uiToBg,
-      async (type, payload) => {
+    // Register the 'main' role transport: forward ui-emitted events to the
+    // singleton background, which will fan-out to every foreground. The
+    // sender's `originNodeId` travels with the message so it can skip its
+    // own echo when the broadcast comes back.
+    appEventBus.registerTransports({
+      sendToBackground: async ({ type, payload, originNodeId }) => {
         if (
           platformEnv.isNativeMainThread &&
           platformEnv.enableNativeBackgroundThread
@@ -295,19 +296,23 @@ export class BackgroundApiProxyBase
                   type: 'app-event',
                   eventName: type,
                   payload,
+                  originNodeId,
                 },
-                async () => this.emitEvent(type as any, payload),
+                async () => this.emitEvent(type as any, payload, originNodeId),
               )
               .catch((error: unknown) => {
-                console.error('appEventBus uiToBg relay failed', error);
+                console.error(
+                  'appEventBus sendToBackground relay failed',
+                  error,
+                );
               });
             return;
           }
         }
 
-        await this.emitEvent(type as any, payload);
+        await this.emitEvent(type as any, payload, originNodeId);
       },
-    );
+    });
     globalErrorHandler.addListener(errorToastUtils.showToastOfError);
   }
 
@@ -323,8 +328,9 @@ export class BackgroundApiProxyBase
   async emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
+    originNodeId?: string,
   ): Promise<boolean> {
-    return this.callBackground('emitEvent', type, payload);
+    return this.callBackground('emitEvent', type, payload, originNodeId);
   }
 
   bridge = {} as JsBridgeBase;

@@ -126,6 +126,7 @@ export interface IBackgroundApiBridge {
   emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
+    originNodeId?: string,
   ): Promise<boolean>;
 
   // **** webview bridge

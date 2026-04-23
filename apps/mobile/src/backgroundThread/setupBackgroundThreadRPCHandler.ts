@@ -2,6 +2,7 @@ import { getSharedRPC } from '@onekeyfe/react-native-background-thread';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   LogLevel,
   NativeLogger,
@@ -49,6 +50,7 @@ type IBackgroundRuntimeGlobal = typeof globalThis & {
     emitAppEventToUi: (payload: {
       eventName: string;
       payload: unknown;
+      originNodeId?: string;
     }) => boolean;
     sendBridgeMessageToUi: (
       payload: IBackgroundThreadBridgeSendPayload,
@@ -243,6 +245,7 @@ function broadcastJotaiStateUpdateFromBgToUi(
 function emitAppEventFromBgToUi(payload: {
   eventName: string;
   payload: unknown;
+  originNodeId?: string;
 }) {
   const sharedRPC = getSharedRPC();
   if (!sharedRPC) {
@@ -275,11 +278,25 @@ function sendBridgeMessageFromBgToUi(
 }
 
 function handleAppEventRequest(request: IBackgroundThreadAppEventRequest) {
-  appEventBus.emitToSelf({
-    type: request.eventName as any,
+  if (!request.originNodeId) {
+    // Symmetric with BackgroundApi.emitEvent: warn loudly so a bridge
+    // regression that drops originNodeId surfaces here too. Routing keeps
+    // working (the empty-string sentinel never matches a real foreground
+    // nodeId, so all foregrounds — including the original sender — fire),
+    // and the sender double-fire serves as the visible failure mode.
+    defaultLogger.app.eventBus.missingOriginNodeId({
+      source: 'native bg-thread handleAppEventRequest',
+      eventName: request.eventName,
+    });
+  }
+  // We are the 'background' node receiving an event from the main-thread
+  // foreground. Run background listeners AND fan-out to all foregrounds so
+  // any sibling foreground (future-proof) also gets it. The original sender
+  // identifies its own echo by originNodeId.
+  appEventBus.dispatchInboundFromForeground({
+    type: request.eventName,
     payload: request.payload,
-    isRemote: true,
-    cloned: false,
+    originNodeId: request.originNodeId ?? '',
   });
   return true;
 }
