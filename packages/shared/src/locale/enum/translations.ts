@@ -961,6 +961,7 @@ export enum ETranslations {
   earn_period_tge_time = 'earn.period_tge_time',
   earn_portfolio = 'earn.portfolio',
   earn_portfolio_details = 'earn.portfolio_details',
+  earn_portfolio_title = 'earn.portfolio_title',
   earn_positions = 'earn.positions',
   earn_protection = 'earn.protection',
   earn_protocol_rewards = 'earn.protocol_rewards',
