@@ -53,7 +53,12 @@ export function useTrayDataProvider() {
   walletRef.current = wallet;
   const accountNameRef = useRef<string>('');
   accountNameRef.current = accountName || '';
-  const prevAccountIdRef = useRef<string | undefined>(undefined);
+  // Seed with the current accountId so the first mount isn't mis-detected as
+  // an account switch, which would clobber cache primed by main-process
+  // guardedRequest() with an optimistic $0.00 placeholder.
+  const prevAccountIdRef = useRef<string | undefined>(
+    activeAccountValue?.accountId,
+  );
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
   const pendingTxsClearedRef = useRef(false);
   // Renderer-side inflight guard — main-process `guardedRequest` only
