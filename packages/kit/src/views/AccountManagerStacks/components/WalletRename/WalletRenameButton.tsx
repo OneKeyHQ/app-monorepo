@@ -44,7 +44,7 @@ export function WalletRenameButton({
     () =>
       Boolean(
         wallet?.associatedDeviceInfo?.vendor &&
-          getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
+        getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
       ),
     [wallet?.associatedDeviceInfo?.vendor],
   );
