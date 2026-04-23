@@ -42,7 +42,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -849,7 +848,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               if (allAppNotInstalled) {
                 Toast.error({
                   title: appLocale.intl.formatMessage({
-                    id: ETranslationsMock.hardware_third_party_no_app_installed_on_device,
+                    id: ETranslations.hardware_third_party_no_app_installed_on_device,
                   }),
                 });
                 return;
