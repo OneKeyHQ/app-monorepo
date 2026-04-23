@@ -3010,6 +3010,7 @@ export enum ETranslations {
   perp_portfolio_total_trades = 'perp_portfolio_total_trades',
   perp_portfolio_unrealized_pnl = 'perp_portfolio_unrealized_pnl',
   perp_portfolio_value = 'perp_portfolio_value',
+  perp_portfolio_value_tooltip = 'perp_portfolio_value_tooltip',
   perp_portfolio_volume = 'perp_portfolio_volume',
   perp_portfolio_win_rate = 'perp_portfolio_win_rate',
   perp_portfolio_win_rate_tooltip_all_time__desc = 'perp_portfolio_win_rate_tooltip_all_time__desc',
