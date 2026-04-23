@@ -6,19 +6,27 @@ import { useIntl } from 'react-intl';
 import {
   DashText,
   Icon,
+  IconButton,
   NumberSizeableText,
   Popover,
   SizableText,
   Skeleton,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useConnectionStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpsActiveAssetCtxAtom,
+  useSpotActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { usePerpSession } from '../../hooks';
+import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
+import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 
 function StatRow({
   label,
@@ -43,9 +51,18 @@ function StatRow({
 
 function MobilePerpMarketHeader() {
   const intl = useIntl();
-  const { isReady, hasError } = usePerpSession();
+  const { copyText } = useClipboard();
+  const { mode } = useActiveTradeDisplay();
+  const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [spotAsset] = useSpotActiveAssetAtom();
+  const { tokenContractMap } = useSpotMetaMaps();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+  const hasError = connectionState.reconnectCount > 3;
+  const isReady = connectionState.isConnected && !hasError;
+  const isSpot = mode === 'spot';
+  const currentCtx = isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx;
 
   useEffect(() => {
     void backgroundApiProxy.simpleDb.perp
@@ -55,21 +72,18 @@ function MobilePerpMarketHeader() {
       });
   }, []);
 
-  const {
-    midPrice,
-    markPrice,
-    fundingRate,
-    openInterest,
-    volume24h,
-    change24hPercent,
-  } = assetCtx?.ctx || {
-    midPrice: '0',
-    markPrice: '0',
-    fundingRate: '0',
-    openInterest: '0',
-    volume24h: '0',
-    change24hPercent: 0,
-  };
+  // Common fields exist on both IPerpsFormattedAssetCtx and ISpotFormattedAssetCtx
+  const midPrice = currentCtx?.midPrice ?? '0';
+  const markPrice = currentCtx?.markPrice ?? '0';
+  const volume24h = currentCtx?.volume24h ?? '0';
+  const change24hPercent = currentCtx?.change24hPercent ?? 0;
+  // Perp-only fields
+  const perpCtx = assetCtx?.ctx;
+  const fundingRate = perpCtx?.fundingRate ?? '0';
+  const openInterest = perpCtx?.openInterest ?? '0';
+  // Spot-only fields
+  const spotCtx = spotAssetCtx?.ctx;
+  const circulatingSupply = spotCtx?.circulatingSupply ?? '0';
 
   const midPriceNumber = useMemo(() => parseFloat(midPrice), [midPrice]);
   const fundingRateNumber = useMemo(
@@ -109,6 +123,19 @@ function MobilePerpMarketHeader() {
   }, [volume24h]);
 
   const openInterestDisplay = useMemo(() => {
+    if (isSpot) {
+      const marketCap = (
+        Number(circulatingSupply || 0) * Number(markPrice || 0)
+      ).toString();
+      const formatted = numberFormat(marketCap, {
+        formatter: 'marketCap',
+      });
+      if (typeof formatted !== 'string' || formatted.length === 0) {
+        return '--';
+      }
+      return `$${formatted}`;
+    }
+
     if (
       openInterest === undefined ||
       openInterest === null ||
@@ -127,7 +154,14 @@ function MobilePerpMarketHeader() {
       return '--';
     }
     return `$${formatted}`;
-  }, [markPrice, openInterest]);
+  }, [circulatingSupply, isSpot, markPrice, openInterest]);
+
+  const spotContract =
+    tokenContractMap[spotAsset?.universe?.baseName ?? ''] ||
+    tokenContractMap[spotAsset?.coin ?? ''];
+  const spotContractDisplay = spotContract
+    ? `${spotContract.slice(0, 6)}...${spotContract.slice(-4)}`
+    : '--';
 
   return (
     <YStack bg="$bgApp" px="$5" pt="$3" gap="$2">
@@ -224,7 +258,9 @@ function MobilePerpMarketHeader() {
 
           <StatRow
             label={intl.formatMessage({
-              id: ETranslations.perp_token_bar_open_Interest,
+              id: isSpot
+                ? ETranslations.global_market_cap
+                : ETranslations.perp_token_bar_open_Interest,
             })}
             skeletonWidth={120}
             showSkeleton={showSkeleton}
@@ -239,24 +275,62 @@ function MobilePerpMarketHeader() {
             </SizableText>
           </StatRow>
 
-          <StatRow
-            label={intl.formatMessage({
-              id: ETranslations.perp_position_funding,
-            })}
-            skeletonWidth={140}
-            showSkeleton={showSkeleton}
-          >
-            <SizableText
-              size="$bodySmMedium"
-              flex={1}
-              textAlign="right"
-              color={fundingColor}
+          {isSpot ? (
+            <StatRow
+              label={intl.formatMessage({
+                id: ETranslations.global_contract,
+              })}
+              skeletonWidth={120}
+              showSkeleton={showSkeleton}
             >
-              {fundingDisplay}
-            </SizableText>
-          </StatRow>
+              <XStack
+                flex={1}
+                justifyContent="flex-end"
+                alignItems="center"
+                gap="$1"
+              >
+                <SizableText
+                  size="$bodySmMedium"
+                  color="$text"
+                  fontFamily="$monoRegular"
+                >
+                  {spotContractDisplay}
+                </SizableText>
+                {spotContract ? (
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    icon="Copy3Outline"
+                    iconSize="$3"
+                    onPress={() => {
+                      copyText(spotContract);
+                    }}
+                  />
+                ) : null}
+              </XStack>
+            </StatRow>
+          ) : null}
 
-          {builderFeeRate === 0 ? (
+          {isSpot ? null : (
+            <StatRow
+              label={intl.formatMessage({
+                id: ETranslations.perp_position_funding,
+              })}
+              skeletonWidth={140}
+              showSkeleton={showSkeleton}
+            >
+              <SizableText
+                size="$bodySmMedium"
+                flex={1}
+                textAlign="right"
+                color={fundingColor}
+              >
+                {fundingDisplay}
+              </SizableText>
+            </StatRow>
+          )}
+
+          {!isSpot && builderFeeRate === 0 ? (
             <XStack alignItems="center" justifyContent="space-between" gap="$1">
               <Popover
                 title={intl.formatMessage({

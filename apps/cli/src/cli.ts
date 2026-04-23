@@ -1,11 +1,15 @@
 import { Command } from 'commander';
 import 'fake-indexeddb/auto';
 
+import { version as PKG_VERSION } from '../package.json';
+
 import {
+  handleAuthCommandDiscoveryFallback,
+  registerAuthCommands,
   registerBalanceCommand,
-  registerImportCommand,
   registerLogoutCommand,
   registerMarketCommands,
+  registerSchemaCommand,
   registerSecurityCommands,
   registerStatusCommand,
   registerSwapCommands,
@@ -15,9 +19,11 @@ import {
   registerWalletHistoryCommand,
 } from './commands';
 import { secureCache } from './core';
+import { createSignalCleanupHandler } from './core/auth/auth-flow-interruption';
 import { ERROR_CODES } from './errors';
 import { apiClient } from './infra';
 import { OutputFormatter } from './output';
+import './schemas/register-all';
 import { createLogger } from './utils/logger';
 import { detectOutputMode } from './utils/mode-detector';
 
@@ -28,14 +34,14 @@ const program = new Command();
 program
   .name('onekey')
   .description('OneKey wallet CLI for developers and AI agents')
-  .version('0.1.0', '-V, --version');
+  .version(PKG_VERSION, '-V, --version');
 
 program
   .option('--json', 'Force JSON output')
   .option('--interactive', 'Force interactive (human) mode')
   .option('--verbose', 'Enable verbose logging')
   .option('--quiet', 'Suppress all non-essential output')
-  .option('--env <env>', 'Environment: test | prod', 'test')
+  .option('--env <env>', 'Environment: test | prod', 'prod')
   .option('--yes', 'Skip confirmation prompts');
 
 program.hook('preAction', (_thisCommand, actionCommand) => {
@@ -47,7 +53,7 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
   });
   const output = new OutputFormatter(mode);
 
-  const env = (opts.env ?? 'test') as string;
+  const env = (opts.env ?? 'prod') as string;
   if (env !== 'test' && env !== 'prod') {
     output.error({
       code: ERROR_CODES.PARAM_INVALID_CONFIG.code,
@@ -66,10 +72,10 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
 
 registerVersionCommand(program);
 registerStatusCommand(program);
-registerImportCommand(program);
 registerLogoutCommand(program);
 registerBalanceCommand(program);
 registerTransferCommand(program);
+registerAuthCommands(program);
 
 // Phase 3A command groups
 registerTokenCommands(program);
@@ -77,19 +83,31 @@ registerMarketCommands(program);
 registerSwapCommands(program);
 registerSecurityCommands(program);
 registerWalletHistoryCommand(program);
+registerSchemaCommand(program);
 
 // Signal handlers: use Unix-conventional exit codes (128 + signal number)
-process.on('SIGINT', () => {
-  secureCache.clearAll();
-  process.exit(130); // 128 + 2
-});
-process.on('SIGTERM', () => {
-  secureCache.clearAll();
-  process.exit(143); // 128 + 15
-});
-process.on('SIGHUP', () => {
-  secureCache.clearAll();
-  process.exit(129); // 128 + 1
-});
+process.on(
+  'SIGINT',
+  createSignalCleanupHandler({
+    exitCode: 130,
+    clearSecureCache: () => secureCache.clearAll(),
+  }),
+);
+process.on(
+  'SIGTERM',
+  createSignalCleanupHandler({
+    exitCode: 143,
+    clearSecureCache: () => secureCache.clearAll(),
+  }),
+);
+process.on(
+  'SIGHUP',
+  createSignalCleanupHandler({
+    exitCode: 129,
+    clearSecureCache: () => secureCache.clearAll(),
+  }),
+);
 
-program.parse();
+if (!handleAuthCommandDiscoveryFallback(process.argv.slice(2))) {
+  program.parse();
+}

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import type { IIconProps } from '@onekeyhq/components';
 import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
@@ -9,7 +9,7 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
-function DAppSiteMark({
+function DAppSiteMarkInner({
   origin,
   urlSecurityInfo,
   favicon,
@@ -103,5 +103,7 @@ function DAppSiteMark({
     </XStack>
   );
 }
+
+const DAppSiteMark = memo(DAppSiteMarkInner);
 
 export { DAppSiteMark };

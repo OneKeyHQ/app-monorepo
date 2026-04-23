@@ -14,11 +14,8 @@ import {
   Stack,
   XStack,
   YStack,
-  getCurrentVisibilityState,
-  onVisibilityStateChange,
-  popModalPages,
   popToTabRootScreen,
-  switchTab,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -40,7 +37,6 @@ import {
   type EModalBulkSendRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -58,6 +54,9 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import BulkSendBar from '../../components/BulkSendBar';
+import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
+import BulkSendHeader from '../../components/BulkSendHeader';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 
 import BulkSendProcessItem from './BulkSendProcessItem';
@@ -70,7 +69,7 @@ function getConfirmText({
   progressState: EBulkSendProgressState;
 }) {
   if (progressState === EBulkSendProgressState.Finished) {
-    return intl.formatMessage({ id: ETranslations.global_finish });
+    return intl.formatMessage({ id: ETranslations.explore_back_to_home });
   }
   return progressState === EBulkSendProgressState.InProgress
     ? intl.formatMessage({ id: ETranslations.global_pause })
@@ -223,6 +222,7 @@ function BulkSendProcessContent({
   unsignedTxs: initialUnsignedTxs,
   tokenInfo,
   transfersInfo,
+  bulkSendMode,
   totalTokenAmount,
   totalFiatAmount,
   intervalSettings,
@@ -230,6 +230,7 @@ function BulkSendProcessContent({
   onFail,
 }: IBulkSendProcessRouteParams) {
   const intl = useIntl();
+  const media = useMedia();
   const navigation = useAppNavigation();
 
   const tokenPrice = useMemo(() => {
@@ -509,9 +510,6 @@ function BulkSendProcessContent({
     if (isInModal) {
       navigation.popStack();
     } else {
-      await popModalPages();
-      switchTab(ETabRoutes.Home);
-      await timerUtils.wait(50);
       await popToTabRootScreen();
     }
   }, [isInModal, navigation, accountId]);
@@ -573,15 +571,34 @@ function BulkSendProcessContent({
 
           if (isNil(networkStatusRef.current[balanceKey]?.nativeBalance)) {
             try {
-              const nativeTokenAddress =
-                await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+              const [
+                nativeTokenAddress,
+                checkInscriptionProtectionEnabled,
+                vaultSettings,
+              ] = await Promise.all([
+                backgroundApiProxy.serviceToken.getNativeTokenAddress({
                   networkId,
-                });
+                }),
+                backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                  {
+                    networkId,
+                    accountId: txAccountId,
+                  },
+                ),
+                backgroundApiProxy.serviceNetwork.getVaultSettings({
+                  networkId,
+                }),
+              ]);
+              const withCheckInscription =
+                checkInscriptionProtectionEnabled &&
+                vaultSettings.hasFrozenBalance;
               const resp =
                 await backgroundApiProxy.serviceToken.fetchTokensDetails({
                   accountId: txAccountId,
                   networkId,
                   contractList: [nativeTokenAddress],
+                  withFrozenBalance: true,
+                  withCheckInscription,
                 });
               if (resp?.[0] && !isNil(resp[0].balanceParsed)) {
                 networkStatusRef.current[balanceKey] = {
@@ -948,29 +965,12 @@ function BulkSendProcessContent({
     progressStateRef.current = progressState;
   }, [progressState]);
 
-  // Auto-pause when app loses focus
-  useEffect(() => {
-    const handleVisibilityStateChange = (visible: boolean) => {
-      if (
-        visible === false &&
-        progressState === EBulkSendProgressState.InProgress
-      ) {
-        setProgressState(EBulkSendProgressState.Paused);
-        setTxStatusMap((prev) => ({
-          ...prev,
-          [currentProcessIndex]: {
-            ...prev[currentProcessIndex],
-            status: EBulkSendTxStatus.Paused,
-          },
-        }));
-      }
-    };
-    handleVisibilityStateChange(getCurrentVisibilityState());
-    const removeSubscription = onVisibilityStateChange(
-      handleVisibilityStateChange,
-    );
-    return removeSubscription;
-  }, [currentProcessIndex, progressState]);
+  useEffect(
+    () => () => {
+      isAborted.current = true;
+    },
+    [],
+  );
 
   const handleOnConfirm = useCallback(() => {
     if (progressState === EBulkSendProgressState.Finished) {
@@ -1030,7 +1030,7 @@ function BulkSendProcessContent({
     // Abort
     isAborted.current = true;
     setProgressState(EBulkSendProgressState.Aborted);
-    navigation.popStack();
+    navigation.pop();
   }, [progressState, failedTxCount, skippedTxCount, txStatusMap, navigation]);
 
   return (
@@ -1043,101 +1043,120 @@ function BulkSendProcessContent({
         }
       }}
     >
-      <Page.Header
-        headerTitle={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_title,
-        })}
-      />
-      <Page.Body>
-        <Stack pb="$2" px="$5">
-          <Alert
-            icon="InfoCircleOutline"
-            title={intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_alert_keep_page_active,
-            })}
-            type="warning"
-          />
-        </Stack>
-        <Stack flex={1} pb="$5">
-          {unsignedTxs.map((tx, index) => {
-            const transfer = transfersInfoState?.[index];
-            if (!transfer) return null;
-            const status = txStatusMap[index] ?? {
-              status: EBulkSendTxStatus.Pending,
-            };
-            return (
-              <BulkSendProcessItem
-                key={`${index}-${tx.uuid ?? ''}`}
-                transferInfo={transfer}
-                tokenInfo={tokenInfo}
-                status={status}
-                networkId={networkId}
-                tokenPrice={tokenPrice}
-                onFillUp={handleFillUp}
-              />
-            );
+      {media.gtMd ? null : (
+        <Page.Header
+          headerTitle={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_title,
           })}
-        </Stack>
+        />
+      )}
+      <BulkSendBar />
+      <Page.Body>
+        <BulkSendContentWrapper pb="$0" px="$0">
+          <Stack px="$5" $gtMd={{ px: '$0' }}>
+            <BulkSendHeader bulkSendMode={bulkSendMode} />
+            {progressState !== EBulkSendProgressState.Finished ? (
+              <Alert
+                icon="InfoCircleOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.wallet_bulk_send_alert_keep_page_active,
+                })}
+                type="warning"
+                mb="$2"
+              />
+            ) : null}
+          </Stack>
+          <Stack flex={1} pb="$5">
+            {unsignedTxs.map((tx, index) => {
+              const transfer = transfersInfoState?.[index];
+              if (!transfer) return null;
+              const status = txStatusMap[index] ?? {
+                status: EBulkSendTxStatus.Pending,
+              };
+              return (
+                <BulkSendProcessItem
+                  key={`${index}-${tx.uuid ?? ''}`}
+                  transferInfo={transfer}
+                  tokenInfo={tokenInfo}
+                  status={status}
+                  networkId={networkId}
+                  tokenPrice={tokenPrice}
+                  onFillUp={handleFillUp}
+                />
+              );
+            })}
+          </Stack>
+        </BulkSendContentWrapper>
       </Page.Body>
-      <Page.Footer>
-        <Page.FooterActions
-          onConfirm={handleOnConfirm}
-          onConfirmText={getConfirmText({ intl, progressState })}
-          cancelButton={
-            progressState === EBulkSendProgressState.Finished &&
-            failedTxCount === 0 &&
-            skippedTxCount === 0 ? undefined : (
-              <Button
-                $md={
-                  {
-                    flexGrow: 1,
-                    flexBasis: 0,
-                    size: 'large',
-                  } as any
-                }
-                onPress={handleOnCancel}
-              >
-                {progressState === EBulkSendProgressState.Finished &&
-                (failedTxCount !== 0 || skippedTxCount !== 0)
-                  ? `${intl.formatMessage({
-                      id: ETranslations.global_retry,
-                    })} (${failedTxCount + skippedTxCount})`
-                  : intl.formatMessage({
-                      id: ETranslations.global_cancel,
-                    })}
-              </Button>
-            )
-          }
+      <Page.Footer borderTopWidth={1} borderColor="$borderDefault">
+        <BulkSendContentWrapper
+          $gtMd={{
+            mt: '$0',
+            px: '$0',
+            mx: 'auto',
+            maxWidth: '$180',
+          }}
         >
-          <YStack
-            gap="$1"
-            $md={{
-              width: '100%',
-              pb: '$2.5',
-            }}
+          <Page.FooterActions
+            px="$0"
+            onConfirm={handleOnConfirm}
+            onConfirmText={getConfirmText({ intl, progressState })}
+            cancelButton={
+              progressState === EBulkSendProgressState.Finished &&
+              failedTxCount === 0 &&
+              skippedTxCount === 0 ? undefined : (
+                <Button
+                  $md={
+                    {
+                      flexGrow: 1,
+                      flexBasis: 0,
+                      size: 'large',
+                    } as any
+                  }
+                  onPress={handleOnCancel}
+                >
+                  {progressState === EBulkSendProgressState.Finished &&
+                  (failedTxCount !== 0 || skippedTxCount !== 0)
+                    ? `${intl.formatMessage({
+                        id: ETranslations.global_retry,
+                      })} (${failedTxCount + skippedTxCount})`
+                    : intl.formatMessage({
+                        id: ETranslations.global_cancel,
+                      })}
+                </Button>
+              )
+            }
           >
-            <XStack
-              alignItems="center"
-              gap="$2"
+            <YStack
+              gap="$1"
               $md={{
-                justifyContent: 'space-between',
+                width: '100%',
+                pb: '$2.5',
               }}
             >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.global_process })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {`${currentProcessIndex + 1}/${unsignedTxs.length} (${succeededTxCount} ${intl.formatMessage(
-                  {
-                    id: ETranslations.global_success,
-                  },
-                )}, ${failedTxCount} ${intl.formatMessage({
-                  id: ETranslations.wallet_approval_bulk_revoke_status_failed,
-                })})`}
-              </SizableText>
-            </XStack>
-          </YStack>
-        </Page.FooterActions>
+              <XStack
+                alignItems="center"
+                gap="$2"
+                $md={{
+                  justifyContent: 'space-between',
+                }}
+              >
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({ id: ETranslations.global_process })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {`${currentProcessIndex + 1}/${unsignedTxs.length} (${succeededTxCount} ${intl.formatMessage(
+                    {
+                      id: ETranslations.global_success,
+                    },
+                  )}, ${failedTxCount} ${intl.formatMessage({
+                    id: ETranslations.wallet_approval_bulk_revoke_status_failed,
+                  })})`}
+                </SizableText>
+              </XStack>
+            </YStack>
+          </Page.FooterActions>
+        </BulkSendContentWrapper>
       </Page.Footer>
     </Page>
   );

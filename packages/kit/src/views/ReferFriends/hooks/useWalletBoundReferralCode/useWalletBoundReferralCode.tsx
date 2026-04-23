@@ -7,7 +7,6 @@ import {
   Toast,
   useInPageDialog,
 } from '@onekeyhq/components';
-import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -15,8 +14,9 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import {
@@ -248,6 +248,11 @@ export function useWalletBoundReferralCode({
           });
           // Clear cached invite code after successful binding
           await backgroundApiProxy.serviceReferralCode.setCachedInviteCode('');
+          defaultLogger.referral.page.referralBindingCompleted({
+            referralCode,
+            address: walletInfo.address,
+            networkId: walletInfo.networkId,
+          });
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.global_success,
@@ -256,17 +261,12 @@ export function useWalletBoundReferralCode({
           onSuccess?.();
         }
       } catch (e) {
-        // Disable auto toast for this error to show custom toast without requestId
-        errorToastUtils.toastIfErrorDisable(e);
-
-        // Show custom error toast without requestId
         const err = e as OneKeyError;
         if (err?.message) {
           Toast.error({
             title: err.message,
           });
         }
-
         preventClose?.();
         throw e;
       }

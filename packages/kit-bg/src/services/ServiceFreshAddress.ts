@@ -32,6 +32,20 @@ import type { IAccountDeriveTypes } from '../vaults/types';
 
 @backgroundClass()
 class ServiceFreshAddress extends ServiceBase {
+  constructor({ backgroundApi }: { backgroundApi: any }) {
+    super({ backgroundApi });
+
+    appEventBus.on(EAppEventBusNames.WalletRemove, () => {
+      this.getAccountNameFromFreshAddressMemo.clear();
+    });
+    appEventBus.on(EAppEventBusNames.AccountRemove, () => {
+      this.getAccountNameFromFreshAddressMemo.clear();
+    });
+    appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
+      this.getAccountNameFromFreshAddressMemo.clear();
+    });
+  }
+
   private getLocalPendingTxsForFreshAddress = memoizee(
     async ({ networkId }: { networkId: string }) => {
       const localPendingTxs =
@@ -455,6 +469,71 @@ class ServiceFreshAddress extends ServiceBase {
     });
   }
 
+  private async resolveFreshAddressOwner({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<
+    | {
+        accountId: string;
+        accountName: string;
+        walletName: string;
+      }
+    | undefined
+  > {
+    if (!accountId) {
+      return undefined;
+    }
+
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    if (!walletId) {
+      return undefined;
+    }
+
+    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+      walletId,
+    });
+    if (!wallet || accountUtils.isWalletDeprecatedOrMocked(wallet)) {
+      return undefined;
+    }
+
+    const isTempWalletRemoved =
+      await this.backgroundApi.serviceAccount.isTempWalletRemoved({
+        wallet,
+      });
+    if (isTempWalletRemoved) {
+      return undefined;
+    }
+
+    const indexedAccount =
+      await this.backgroundApi.serviceAccount.getIndexedAccountSafe({
+        id: accountId,
+      });
+    if (indexedAccount) {
+      return {
+        accountId: indexedAccount.id,
+        accountName: indexedAccount.name,
+        walletName: wallet.name,
+      };
+    }
+
+    const dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+      accountId,
+    });
+    if (
+      !dbAccount ||
+      accountUtils.isUrlAccountFn({ accountId: dbAccount.id })
+    ) {
+      return undefined;
+    }
+
+    return {
+      accountId: dbAccount.id,
+      accountName: dbAccount.name,
+      walletName: wallet.name,
+    };
+  }
+
   getAccountNameFromFreshAddressMemo = memoizee(
     async ({ address, networkId }: { address: string; networkId: string }) => {
       if (!networkUtils.isBTCNetwork(networkId)) {
@@ -477,19 +556,13 @@ class ServiceFreshAddress extends ServiceBase {
         await this.backgroundApi.simpleDb.btcFreshAddressMeta.getRecordByKey(
           key,
         );
-      if (
-        metadata &&
-        metadata.lastUsedAccountName &&
-        metadata.lastUsedAccountId &&
-        metadata.lastUsedWalletName
-      ) {
-        return [
-          {
-            accountName: metadata.lastUsedAccountName,
-            accountId: metadata.lastUsedAccountId,
-            walletName: metadata.lastUsedWalletName,
-          },
-        ];
+      if (metadata && metadata.lastUsedAccountId) {
+        const owner = await this.resolveFreshAddressOwner({
+          accountId: metadata.lastUsedAccountId,
+        });
+        if (owner) {
+          return [owner];
+        }
       }
       return [];
     },
@@ -500,6 +573,74 @@ class ServiceFreshAddress extends ServiceBase {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
     },
   );
+
+  // Return all searchable fresh addresses for a list of BTC accounts.
+  // Consolidates derive-type-aware xpub key selection and fresh address
+  // extraction that was previously inlined in RecipientQuickSelect UI.
+  @backgroundMethod()
+  async getSearchableAddressesForAccounts({
+    networkId,
+    accounts,
+  }: {
+    networkId: string;
+    accounts: Array<{
+      accountId: string;
+      deriveType?: string;
+    }>;
+  }): Promise<Record<string, string[]>> {
+    if (!networkUtils.isBTCNetwork(networkId) || accounts.length === 0) {
+      return {};
+    }
+
+    const result: Record<string, string[]> = {};
+
+    await Promise.all(
+      accounts.map(async ({ accountId, deriveType }) => {
+        try {
+          const dbAccount =
+            (await this.backgroundApi.serviceAccount.getDBAccount({
+              accountId,
+            })) as IDBUtxoAccount | undefined;
+          if (!dbAccount) return;
+
+          // Fresh address DB key depends on derive type: Taproot (BIP86)
+          // uses xpubSegwit, all others use xpub.
+          const xpubSegwit =
+            deriveType === 'BIP86'
+              ? dbAccount.xpubSegwit
+              : (dbAccount.xpub ?? dbAccount.xpubSegwit);
+          if (!xpubSegwit) return;
+
+          const freshData =
+            await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddresses(
+              { networkId, xpubSegwit },
+            );
+          if (!freshData) return;
+
+          const addresses: string[] = [];
+          [
+            freshData.fresh?.used,
+            freshData.fresh?.unused,
+            freshData.change?.used,
+            freshData.change?.unused,
+          ].forEach((group) => {
+            group?.forEach((item) => {
+              const addr = item.address ?? item.name;
+              if (addr) addresses.push(addr);
+            });
+          });
+
+          if (addresses.length > 0) {
+            result[accountId] = addresses;
+          }
+        } catch {
+          // non-fatal per account
+        }
+      }),
+    );
+
+    return result;
+  }
 }
 
 export default ServiceFreshAddress;

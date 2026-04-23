@@ -343,11 +343,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapToAnotherAddress,
       params: {
-        address: toAddressInfo.address,
         storeName,
       },
     });
-  }, [navigation, storeName, toAddressInfo.address]);
+  }, [navigation, storeName]);
 
   const refreshAction = useCallback(
     (manual?: boolean) => {

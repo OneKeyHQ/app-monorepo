@@ -274,6 +274,7 @@ function BaseInput(
     autoScrollTopDelayMs,
     secureTextEntry,
     onSecureTextEntryChange,
+    children: _children,
     ...props
   } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];

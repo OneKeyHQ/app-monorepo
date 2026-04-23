@@ -1,8 +1,8 @@
 import type { ISizableTextProps } from '@onekeyhq/components';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAddressBadge, IAddressInfo } from './address';
+import type { ICurrencyItem } from './currency';
 import type { IAccountNFT } from './nft';
 import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
@@ -271,6 +271,13 @@ export interface IServerFetchAccountHistoryDetailResp {
 }
 
 // Transfer Recipient API Types
+export interface ITransferRecipientBadge {
+  type: string;
+  title: string;
+  tip?: string;
+  icon?: string;
+}
+
 export interface ITransferRecipient {
   address: string;
   networkId?: string;
@@ -279,6 +286,10 @@ export interface ITransferRecipient {
   amount?: string;
   symbol?: string;
   memo?: string;
+  isContract?: boolean;
+  isCex?: boolean;
+  isScam?: boolean;
+  badges?: ITransferRecipientBadge[];
 }
 
 export interface IFetchTransferRecipientsParams {

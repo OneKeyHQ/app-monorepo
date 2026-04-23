@@ -23,6 +23,10 @@ export function mockApiError(
 export class MockKeychainStorage {
   private store = new Map<string, Buffer>();
 
+  getBackendType(): 'macos-keychain' {
+    return 'macos-keychain';
+  }
+
   async get(key: string): Promise<Buffer | null> {
     return this.store.get(key) ?? null;
   }

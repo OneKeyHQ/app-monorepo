@@ -21,8 +21,9 @@ export default {
     '**/*.test.{ts,tsx}',
   ],
   testPathIgnorePatterns: [
-    // Detox E2E tests have their own Jest config under apps/mobile/e2e
-    'apps/mobile/e2e',
+    // Keep harness tests in apps/mobile/e2e discoverable; only ignore the
+    // perf guard that runs under its own Jest setup.
+    'apps/mobile/e2e/perf-regression-guard\\.test\\.js',
     // Same chain ignores as root jest.config.js
     'packages/core/src/chains/ada',
     'packages/core/src/chains/algo',

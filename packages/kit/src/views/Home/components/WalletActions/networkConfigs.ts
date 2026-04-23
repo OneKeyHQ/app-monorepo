@@ -1,8 +1,8 @@
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   TRON_SCAN_STAKING_URL,
   TRON_SCAN_VOTE_URL,
-} from '@onekeyhq/core/src/chains/tron/constants';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

@@ -1,5 +1,9 @@
 // oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
+const {
+  baseFiles,
+  winExcludePrebuilds,
+} = require('./electron-builder-files.config');
 const DLLs = require('./electron-dll.config');
 
 module.exports = {
@@ -15,6 +19,7 @@ module.exports = {
     'deleteAppDataOnUninstall': true,
   },
   'win': {
+    'files': [...baseFiles, ...winExcludePrebuilds],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/win-${arch}',
