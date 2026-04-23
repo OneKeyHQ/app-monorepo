@@ -27,7 +27,6 @@ type IEditableChainSelectorProps = {
   onPressItem?: (network: IServerNetwork) => void;
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
-  onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   recentNetworksEnabled?: boolean;
   accountNetworkValues: Record<string, string>;
   accountNetworkValueCurrency?: string;
@@ -65,14 +64,12 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
   onPressItem,
   onAddCustomNetwork,
   onEditCustomNetwork,
-  onFrequentlyUsedItemsChange,
   allNetworkItem,
   recentNetworksEnabled = true,
   accountDeFiOverview,
   showAllNetworkInRecentNetworks,
 }) => {
   const intl = useIntl();
-  // const [isEditMode, setIsEditMode] = useState(false);
   const [allNetworksChanged, setAllNetworksChanged] = useState(false);
   const headerRight = useCallback(
     () => (
@@ -102,7 +99,6 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
       />
       <Page.Body>
         <EditableChainSelectorContent
-          // isEditMode={isEditMode}
           frequentlyUsedItems={frequentlyUsedItems}
           unavailableItems={unavailableItems}
           accountId={accountId}
@@ -112,10 +108,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           mainnetItems={mainnetItems}
           testnetItems={testnetItems}
           onPressItem={onPressItem}
-          onAddCustomNetwork={onAddCustomNetwork}
           onEditCustomNetwork={onEditCustomNetwork}
           allNetworkItem={allNetworkItem}
-          onFrequentlyUsedItemsChange={onFrequentlyUsedItemsChange}
           setAllNetworksChanged={setAllNetworksChanged}
           recentNetworksEnabled={recentNetworksEnabled}
           accountNetworkValues={accountNetworkValues}
