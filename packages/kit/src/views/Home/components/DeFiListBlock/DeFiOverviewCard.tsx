@@ -16,7 +16,10 @@ import {
 import { buildDeFiOverviewRenderCells } from './DeFiOverviewPlanner';
 import { useDeFiOverviewTopN } from './hooks/useDeFiOverviewTopN';
 
+import type { IPortfolioStats } from './DeFiPortfolioStats';
+
 export type IDeFiOverviewCardProps = {
+  stats: IPortfolioStats;
   protocols: IDeFiProtocol[] | undefined;
   protocolMap: Record<string, IProtocolSummary>;
   isLoading?: boolean;
@@ -27,6 +30,7 @@ export type IDeFiOverviewCardProps = {
 const SKELETON_TILE_HEIGHT = 60;
 
 function DeFiOverviewCard({
+  stats,
   protocols,
   protocolMap,
   isLoading,
@@ -44,8 +48,9 @@ function DeFiOverviewCard({
         rankedProtocols,
         protocolMap,
         isExpanded,
+        total: stats.total,
       }),
-    [rankedProtocols, protocolMap, isExpanded],
+    [rankedProtocols, protocolMap, isExpanded, stats.total],
   );
 
   const handleMore = () => setIsSliced(false);
