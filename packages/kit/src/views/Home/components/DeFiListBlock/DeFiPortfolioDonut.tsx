@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import Svg, { Path } from 'react-native-svg';
 
-import { getTokenValue } from '@onekeyhq/components';
+import { useTheme } from '@onekeyhq/components';
 
 import { PORTFOLIO_EMPTY_RING_TOKEN } from './DeFiPortfolioPalette';
 import { buildDonutArcPath } from './donutGeometry';
@@ -21,10 +21,17 @@ type IResolvedPath = {
   fill: string;
 };
 
-function resolveSliceFill(token: string): string {
-  // getTokenValue returns `any`; the 'color' category guarantees a string.
-  const resolved: unknown = getTokenValue(token as `$${string}`, 'color');
-  return typeof resolved === 'string' ? resolved : token;
+type ITamaguiThemeShape = Record<string, { val?: string } | undefined>;
+
+// Palette tokens come from the theme layer (`semantic.ts` spreading alpha
+// color scales), not the `color` category of `createTokens`. `getTokenValue`
+// only covers the latter, so theme-token lookup via `useTheme()` is required.
+function resolveSliceFill(
+  theme: ReturnType<typeof useTheme>,
+  token: string,
+): string {
+  const key = token.startsWith('$') ? token.slice(1) : token;
+  return (theme as unknown as ITamaguiThemeShape)[key]?.val ?? token;
 }
 
 export function DeFiPortfolioDonut({
@@ -32,6 +39,7 @@ export function DeFiPortfolioDonut({
   size = 120,
   thickness = 18,
 }: IDeFiPortfolioDonutProps) {
+  const theme = useTheme();
   const outerRadius = size / 2;
   const innerRadius = Math.max(0, outerRadius - thickness);
 
@@ -48,7 +56,7 @@ export function DeFiPortfolioDonut({
         {
           key: 'empty-ring',
           d,
-          fill: resolveSliceFill(PORTFOLIO_EMPTY_RING_TOKEN),
+          fill: resolveSliceFill(theme, PORTFOLIO_EMPTY_RING_TOKEN),
         },
       ];
     }
@@ -67,12 +75,12 @@ export function DeFiPortfolioDonut({
         result.push({
           key: slice.key,
           d,
-          fill: resolveSliceFill(slice.colorToken),
+          fill: resolveSliceFill(theme, slice.colorToken),
         });
       }
     }
     return result;
-  }, [slices, outerRadius, innerRadius]);
+  }, [slices, outerRadius, innerRadius, theme]);
 
   return (
     <Svg
