@@ -63,16 +63,23 @@ function RecentNetworks({
   containerProps,
   showAllNetwork = true,
   swrKeyScope,
+  walletId,
+  accountId,
 }: {
   onPressItem?: (network: IServerNetwork) => void;
   setRecentNetworksHeight?: (height: number) => void;
   availableNetworks?: IServerNetwork[];
   containerProps?: IStackProps;
   showAllNetwork?: boolean;
-  // Opt-in SWR cache. Pass one of the shared scope enum values (kept in
-  // sync/storage so bg can prime the same slots) to persist the resolved
-  // network list to MMKV and skip the cold-start N+1 getNetwork round-trips.
+  // Opt-in SWR cache. Pass one of the shared scope enum values to persist
+  // the resolved network list to MMKV and skip the cold-start N+1
+  // getNetwork round-trips.
   swrKeyScope?: EAppSWRCacheScopes;
+  // Pass wallet/account for account-scoped surfaces (Editable selector).
+  // Omit for account-agnostic surfaces (Pure selector) — that shares a
+  // single slot per scope across callers.
+  walletId?: string;
+  accountId?: string;
 }) {
   const intl = useIntl();
 
@@ -81,8 +88,10 @@ function RecentNetworks({
     return swrKeys.recentNetworks({
       scope: swrKeyScope,
       showAllNetwork,
+      walletId,
+      accountId,
     });
-  }, [swrKeyScope, showAllNetwork]);
+  }, [swrKeyScope, showAllNetwork, walletId, accountId]);
 
   const { result: recentNetworks, run } = usePromiseResult(
     async () => {

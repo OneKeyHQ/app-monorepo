@@ -28,7 +28,6 @@ import { IMPL_BTC, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
@@ -1533,13 +1532,9 @@ class ServiceNetwork extends ServiceBase {
     if (!data) {
       return;
     }
-
-    const result =
-      await this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
-        data,
-      );
-    void this._primeRecentNetworksSWRCache();
-    return result;
+    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
+      data,
+    );
   }
 
   @backgroundMethod()
@@ -1548,74 +1543,21 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
     const timestamp = Date.now();
-    const result =
-      await this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
-        [networkId]: { updatedAt: timestamp },
-      });
-    void this._primeRecentNetworksSWRCache();
-    return result;
+    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
+      [networkId]: { updatedAt: timestamp },
+    });
   }
 
   @backgroundMethod()
   async clearRecentNetworks() {
-    const result =
-      await this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
-    void this._primeRecentNetworksSWRCache();
-    return result;
+    return this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
   }
 
   @backgroundMethod()
   async deleteRecentNetwork({ networkId }: { networkId: string }) {
-    const result =
-      await this.backgroundApi.simpleDb.recentNetworks.deleteRecentNetwork({
-        networkId,
-      });
-    void this._primeRecentNetworksSWRCache();
-    return result;
-  }
-
-  // Writes the freshest recent-networks list into the UI's SWR cache slots
-  // (MMKV via swrCacheUtils) so the next UnifiedNetworkSelector mount paints
-  // directly from cache without the "stale chips -> revalidate -> new chips"
-  // flash. Architecture assumption: bg and UI share the same cold-start
-  // MMKV instance, so we can write cross-context from bg without an event
-  // roundtrip.
-  //
-  // Scopes are sourced from EAppSWRCacheScopes so UI call sites
-  // (<RecentNetworks swrKeyScope={...} />) and this priming step can't
-  // drift apart. Adding a new scope automatically extends what bg primes.
-  private async _primeRecentNetworksSWRCache() {
-    try {
-      const ids =
-        await this.backgroundApi.simpleDb.recentNetworks.getRecentNetworks({});
-      const networks: IServerNetwork[] = [];
-      for (const id of ids) {
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          const network = await this.getNetwork({ networkId: id });
-          if (network) {
-            networks.push(network);
-          }
-        } catch {
-          // Missing or invalid network id — skip.
-        }
-      }
-      const withoutAllNetwork = networks.filter(
-        (n) => !networkUtils.isAllNetwork({ networkId: n.id }),
-      );
-      for (const scope of Object.values(EAppSWRCacheScopes)) {
-        swrCacheUtils.set(
-          swrKeys.recentNetworks({ scope, showAllNetwork: true }),
-          networks,
-        );
-        swrCacheUtils.set(
-          swrKeys.recentNetworks({ scope, showAllNetwork: false }),
-          withoutAllNetwork,
-        );
-      }
-    } catch {
-      // Priming is best-effort; failures fall back to UI-side revalidation.
-    }
+    return this.backgroundApi.simpleDb.recentNetworks.deleteRecentNetwork({
+      networkId,
+    });
   }
 
   // Prime the SWR cache used by UnifiedNetworkSelector's Portfolio tab so

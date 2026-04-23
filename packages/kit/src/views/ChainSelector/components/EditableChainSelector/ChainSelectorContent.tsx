@@ -129,6 +129,7 @@ type IEditableChainSelectorContentProps = {
 export const EditableChainSelectorContent = ({
   recentNetworksEnabled,
   walletId,
+  accountId,
   indexedAccountId,
   accountNetworkValues,
   accountNetworkValueCurrency,
@@ -426,6 +427,8 @@ export const EditableChainSelectorContent = ({
             ].filter(Boolean)}
             showAllNetwork={showAllNetworkInRecentNetworks}
             swrKeyScope={EAppSWRCacheScopes.editableChainSelector}
+            walletId={walletId}
+            accountId={accountId}
           />
         ) : null}
         <Stack flex={1}>

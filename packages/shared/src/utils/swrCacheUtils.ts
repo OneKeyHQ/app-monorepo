@@ -208,13 +208,31 @@ export const swrKeys = {
   // mount, which trips usePromiseResult's prevSwrKey reset logic and
   // flashes the chip row. availableNetworks only filters the method output
   // — its transient values are safe to ignore for cache identity.
+  //
+  // walletId/accountId ARE in the key: the fetcher passes availableNetworks
+  // (derived from the account) to bg for filtering, so the cached result is
+  // account-specific. Without wallet/account in the key, switching accounts
+  // would leak one account's recent chips into another's first paint. v2
+  // bumps the version to orphan the old (account-agnostic) v1 entries.
   recentNetworks: ({
     scope,
     showAllNetwork,
+    walletId,
+    accountId,
   }: {
     scope: EAppSWRCacheScopes;
     showAllNetwork: boolean;
-  }) => ['recentNets', 'v1', scope, showAllNetwork ? '1' : '0'].join(':'),
+    walletId?: string;
+    accountId?: string;
+  }) =>
+    [
+      'recentNets',
+      'v2',
+      scope,
+      showAllNetwork ? '1' : '0',
+      walletId ?? '',
+      accountId ?? '',
+    ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
 };
 
