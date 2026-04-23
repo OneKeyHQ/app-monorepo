@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
@@ -16,6 +15,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { DeFiPortfolioDonut } from './DeFiPortfolioDonut';
 import { DeFiPortfolioLegend } from './DeFiPortfolioLegend';
 import { PORTFOLIO_TOP_N } from './DeFiPortfolioStats';
+import { formatPortfolioTotal } from './formatPortfolioTotal';
 
 import type { IPortfolioStats } from './DeFiPortfolioStats';
 
@@ -31,24 +31,7 @@ const DONUT_SIZE = 140;
 const DONUT_THICKNESS = 20;
 const LEGEND_MIN_WIDTH = 220;
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-// Net worth above this reads as "substantial"; cents are noise at that scale.
-// Below it, two decimals stay informative.
-const PORTFOLIO_DECIMAL_THRESHOLD = 10;
 const EMPTY_NETWORK_INFO_MAP: IPortfolioNetworkInfoMap = {};
-
-function formatPortfolioTotal(
-  total: number,
-  currency: string,
-  hide: boolean,
-): string {
-  if (hide) return `${currency}****`;
-  if (!Number.isFinite(total) || total < 0) return `${currency}0.00`;
-  const bn = new BigNumber(total);
-  if (bn.lt(PORTFOLIO_DECIMAL_THRESHOLD)) {
-    return `${currency}${bn.toFormat(2)}`;
-  }
-  return `${currency}${new BigNumber(Math.round(total)).toFormat()}`;
-}
 
 function DeFiPortfolioCard({
   stats,

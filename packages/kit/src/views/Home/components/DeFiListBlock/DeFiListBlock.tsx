@@ -7,6 +7,7 @@ import { useThrottledCallback } from 'use-debounce';
 import {
   Button,
   Divider,
+  SizableText,
   Skeleton,
   XStack,
   YStack,
@@ -15,7 +16,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
@@ -36,6 +36,7 @@ import type { IDeFiDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/Simpl
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -58,7 +59,10 @@ import { OVERVIEW_TOP_N } from '../../types';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import { deFiListLoadingReducer } from './deFiListLoadingReducer';
+import { formatPortfolioTotal } from './formatPortfolioTotal';
 import { type IProtocolHandle, Protocol } from './Protocol';
+
+const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const MAX_PROTOCOLS_ON_LARGE_SCREEN = OVERVIEW_TOP_N;
@@ -106,6 +110,7 @@ function DeFiListBlock({
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
   const [{ protocols }] = useDeFiListProtocolsAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
+  const [settingsValue] = useSettingsValuePersistAtom();
 
   const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
   const initializedRef = useRef(initialized);
@@ -966,20 +971,21 @@ function DeFiListBlock({
     }
 
     return (
-      <NumberSizeableTextWrapper
-        hideValue
+      <SizableText
         size="$headingXl"
         color={tableLayout ? '$textSubdued' : '$text'}
-        formatter="value"
-        formatterOptions={{
-          currency: settings.currencyInfo.symbol,
-        }}
+        fontVariant={TABULAR_NUMS}
       >
-        {overview.netWorth}
-      </NumberSizeableTextWrapper>
+        {formatPortfolioTotal(
+          Number(overview.netWorth) || 0,
+          settings.currencyInfo.symbol,
+          settingsValue.hideValue,
+        )}
+      </SizableText>
     );
   }, [
     settings.currencyInfo.symbol,
+    settingsValue.hideValue,
     overview.netWorth,
     initialized,
     isRefreshing,

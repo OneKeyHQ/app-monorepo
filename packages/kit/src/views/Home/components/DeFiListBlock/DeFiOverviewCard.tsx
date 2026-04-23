@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { Skeleton, XStack } from '@onekeyhq/components';
 import { useDeFiListSlicedAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
@@ -17,6 +17,12 @@ import { buildDeFiOverviewRenderCells } from './DeFiOverviewPlanner';
 import { useDeFiOverviewTopN } from './hooks/useDeFiOverviewTopN';
 
 import type { IPortfolioStats } from './DeFiPortfolioStats';
+
+// Window after a More/Less toggle during which protocol-tile taps are
+// ignored. Prevents a second quick click from landing on a newly-revealed
+// tile during the layout shift and accidentally deep-linking into its
+// protocol detail page.
+const OVERVIEW_TOGGLE_PRESS_LOCK_MS = 400;
 
 export type IDeFiOverviewCardProps = {
   stats: IPortfolioStats;
@@ -55,8 +61,25 @@ function DeFiOverviewCard({
     [rankedProtocols, protocolMap, isExpanded, stats.total],
   );
 
-  const handleMore = () => setIsSliced(false);
-  const handleLess = () => setIsSliced(true);
+  const pressLockUntilRef = useRef(0);
+  const lockPress = useCallback(() => {
+    pressLockUntilRef.current = Date.now() + OVERVIEW_TOGGLE_PRESS_LOCK_MS;
+  }, []);
+  const handleMore = useCallback(() => {
+    setIsSliced(false);
+    lockPress();
+  }, [setIsSliced, lockPress]);
+  const handleLess = useCallback(() => {
+    setIsSliced(true);
+    lockPress();
+  }, [setIsSliced, lockPress]);
+  const handleProtocolPress = useCallback(
+    (p: IDeFiProtocol) => {
+      if (pressLockUntilRef.current > Date.now()) return;
+      onPressProtocol(p);
+    },
+    [onPressProtocol],
+  );
 
   if (isLoading) {
     return (
@@ -87,7 +110,7 @@ function DeFiOverviewCard({
     <DeFiOverviewDesktopGrid
       cells={cells}
       protocolMap={protocolMap}
-      onPressProtocol={onPressProtocol}
+      onPressProtocol={handleProtocolPress}
       onPressMore={handleMore}
       onPressLess={handleLess}
       isAllNetworks={isAllNetworks}
