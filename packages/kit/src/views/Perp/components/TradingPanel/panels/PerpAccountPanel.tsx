@@ -127,7 +127,7 @@ function PerpAccountPanel() {
           <Tooltip
             placement="top"
             renderContent={intl.formatMessage({
-              id: ETranslations.perp_account_panel_account_value_tooltip,
+              id: ETranslations.perp_portfolio_value_tooltip,
             })}
             renderTrigger={
               <DashText
@@ -138,7 +138,7 @@ function PerpAccountPanel() {
                 dashThickness={0.5}
               >
                 {intl.formatMessage({
-                  id: ETranslations.perp_account_panel_account_value,
+                  id: ETranslations.perp_portfolio_value,
                 })}
               </DashText>
             }
