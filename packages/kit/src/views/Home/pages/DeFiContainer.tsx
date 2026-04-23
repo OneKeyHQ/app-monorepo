@@ -482,27 +482,20 @@ function DeFiContainer() {
         <XStack gap="$6">
           <YStack flex={1} gap="$8" pt="$3" pb="$8">
             {shouldShowOverview ? (
-              <XStack
-                gap="$6"
-                px="$pagePadding"
-                userSelect="none"
-                alignItems="flex-start"
-              >
+              <YStack gap="$4" px="$pagePadding" userSelect="none">
                 <DeFiPortfolioCard
                   stats={portfolioStats}
                   isLoading={isOverviewLoading}
                 />
-                <Stack flex={1}>
-                  <DeFiOverviewCard
-                    stats={portfolioStats}
-                    protocols={protocols}
-                    protocolMap={protocolMap}
-                    isLoading={isOverviewLoading}
-                    getNetWorth={getNetWorth}
-                    onPressProtocol={handleTilePress}
-                  />
-                </Stack>
-              </XStack>
+                <DeFiOverviewCard
+                  stats={portfolioStats}
+                  protocols={protocols}
+                  protocolMap={protocolMap}
+                  isLoading={isOverviewLoading}
+                  getNetWorth={getNetWorth}
+                  onPressProtocol={handleTilePress}
+                />
+              </YStack>
             ) : null}
             <DeFiListBlock
               tableLayout

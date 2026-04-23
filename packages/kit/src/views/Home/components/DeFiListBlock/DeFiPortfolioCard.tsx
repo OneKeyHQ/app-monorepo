@@ -21,8 +21,8 @@ export type IDeFiPortfolioCardProps = {
   isLoading?: boolean;
 };
 
-const CARD_WIDTH = 320;
 const DONUT_SIZE = 120;
+const LEGEND_MIN_WIDTH = 220;
 
 function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
   const intl = useIntl();
@@ -32,23 +32,25 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
 
   if (isLoading) {
     return (
-      <YStack
-        width={CARD_WIDTH}
-        flexShrink={0}
+      <XStack
         bg="$bgSubdued"
         borderRadius="$3"
         p="$5"
-        gap="$4"
+        gap="$6"
+        alignItems="center"
+        justifyContent="space-between"
       >
-        <Skeleton width={120} height={16} borderRadius="$1" />
-        <Skeleton width={180} height={28} borderRadius="$1" />
-        <XStack gap="$4" alignItems="center">
+        <YStack flex={1} gap="$2" minWidth={0}>
+          <Skeleton width={140} height={16} borderRadius="$1" />
+          <Skeleton width={220} height={32} borderRadius="$1" />
+        </YStack>
+        <XStack gap="$4" alignItems="center" flexShrink={0}>
           <Skeleton
             width={DONUT_SIZE}
             height={DONUT_SIZE}
             borderRadius="$full"
           />
-          <YStack flex={1} gap="$2">
+          <YStack width={LEGEND_MIN_WIDTH} gap="$2">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton
                 // eslint-disable-next-line react/no-array-index-key
@@ -60,21 +62,21 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
             ))}
           </YStack>
         </XStack>
-      </YStack>
+      </XStack>
     );
   }
 
   return (
-    <YStack
-      width={CARD_WIDTH}
-      flexShrink={0}
+    <XStack
       bg="$bgSubdued"
       borderRadius="$3"
       p="$5"
-      gap="$4"
+      gap="$6"
+      alignItems="center"
+      justifyContent="space-between"
       userSelect="none"
     >
-      <YStack gap="$1">
+      <YStack flex={1} gap="$1" minWidth={0}>
         <SizableText size="$bodyMd" color="$textSubdued">
           {title}
         </SizableText>
@@ -87,13 +89,15 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
           {stats.total}
         </NumberSizeableTextWrapper>
       </YStack>
-      <XStack gap="$4" alignItems="center">
+      <XStack gap="$4" alignItems="center" flexShrink={0}>
         <Stack flexShrink={0}>
           <DeFiPortfolioDonut slices={stats.slices} size={DONUT_SIZE} />
         </Stack>
-        <DeFiPortfolioLegend slices={stats.slices} />
+        <YStack width={LEGEND_MIN_WIDTH}>
+          <DeFiPortfolioLegend slices={stats.slices} />
+        </YStack>
       </XStack>
-    </YStack>
+    </XStack>
   );
 }
 
