@@ -569,18 +569,15 @@ export function useTrayDataProvider() {
     };
   }, [isTrayActive, handleTrayDataRequest, handleTrayNavigation]);
 
-  // When the active account changes, two things happen in parallel:
-  // 1. Emit an optimistic placeholder immediately so the tray window clears
-  //    the previous account's balance/watchlist/pendingTxs within one frame —
-  //    otherwise the user sees up to 2s of stale numbers (OK-53623).
-  // 2. Fire the gather immediately (no 300ms wait). The inFlight guard in
-  //    handleTrayDataRequest coalesces rapid cascades from ServiceAccountProfile
-  //    refreshing per-network values; the trailing refresh re-runs once the
-  //    burst settles so OK-53610 is also covered here.
+  // Account switch: push an optimistic placeholder + gather immediately so the
+  // panel clears stale numbers within one frame (OK-53623). Non-switch identity
+  // changes (per-network profile refresh) keep the 300ms debounce so the
+  // cascade in OK-53610 is absorbed.
   useEffect(() => {
     if (!isTrayActive) return;
     const currentAccountId = activeAccountValue?.accountId;
-    if (currentAccountId !== prevAccountIdRef.current) {
+    const accountJustChanged = currentAccountId !== prevAccountIdRef.current;
+    if (accountJustChanged) {
       prevAccountIdRef.current = currentAccountId;
       globalThis.desktopApi?.sendTrayData({
         accountId: currentAccountId,
@@ -593,14 +590,19 @@ export function useTrayDataProvider() {
         account: { name: accountNameRef.current },
         totalBalance: {
           amount: '0.00',
-          currency: 'usd',
+          currency: 'USD',
           symbol: '$',
         },
         watchlist: [],
         pendingTxs: [],
       });
+      handleTrayDataRequestRef.current?.();
+      return;
     }
-    handleTrayDataRequestRef.current?.();
+    const timer = setTimeout(() => {
+      handleTrayDataRequestRef.current?.();
+    }, 300);
+    return () => clearTimeout(timer);
   }, [isTrayActive, activeAccountValue]);
 
   useEffect(() => {
