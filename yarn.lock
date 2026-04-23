@@ -7187,7 +7187,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ledgerhq/context-module@npm:^1.0.0, @ledgerhq/context-module@npm:^1.16.0":
+"@ledgerhq/context-module@npm:^1.0.0, @ledgerhq/context-module@npm:^1.15.0":
   version: 1.16.0
   resolution: "@ledgerhq/context-module@npm:1.16.0"
   dependencies:
@@ -7260,12 +7260,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ledgerhq/device-signer-kit-solana@npm:^1.7.0":
-  version: 1.8.0
-  resolution: "@ledgerhq/device-signer-kit-solana@npm:1.8.0"
+"@ledgerhq/device-signer-kit-solana@npm:1.7.1":
+  version: 1.7.1
+  resolution: "@ledgerhq/device-signer-kit-solana@npm:1.7.1"
   dependencies:
-    "@ledgerhq/context-module": "npm:^1.16.0"
-    "@ledgerhq/signer-utils": "npm:^1.2.0"
+    "@ledgerhq/context-module": "npm:^1.15.0"
+    "@ledgerhq/signer-utils": "npm:^1.1.3"
     "@solana/spl-token": "npm:^0.4.13"
     "@solana/web3.js": "npm:^1.98.2"
     bs58: "npm:^6.0.0"
@@ -7277,7 +7277,7 @@ __metadata:
     xstate: "npm:5.19.2"
   peerDependencies:
     "@ledgerhq/device-management-kit": ^1.2.0
-  checksum: 10/0d762b7d5d0276187c0e359581ad2da43a98d8b161f5d7e539bd2d4f353a4bd525e66ee090849e53916fbb94ce22b167e90e3667cf438ba1d89b120f4a79f9e6
+  checksum: 10/05bbd6798c83966f6103c7599c4aabc648fcfd664939ea19eb9f4c827aeafd4b044f4c5aaa7c9ea2d5ccf6adeb61e67d66a74d6bb108c15b937dde3e2c5043fc
   languageName: node
   linkType: hard
 
@@ -7324,6 +7324,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ledgerhq/errors@npm:6.33.0":
+  version: 6.33.0
+  resolution: "@ledgerhq/errors@npm:6.33.0"
+  checksum: 10/129b8d1d571c9c09a9ee131fdd07880ac06ebb2a3d718ba48e9653fe14839eb3c6876e6809cf2f5737efad53b4ffd691b5d6425e059b275c5db9ec0d3f677112
+  languageName: node
+  linkType: hard
+
 "@ledgerhq/errors@npm:^5.48.0":
   version: 5.50.0
   resolution: "@ledgerhq/errors@npm:5.50.0"
@@ -7331,19 +7338,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ledgerhq/errors@npm:^6.33.0":
-  version: 6.34.0
-  resolution: "@ledgerhq/errors@npm:6.34.0"
-  checksum: 10/fec76ea153e707735c8ff745375755fba3d67120a4dc7a2e0e481c7efb4dcdcd1e170c2d215f9157ab79d071c2568e1d3a6cfb1e493ecf5ff05d0b384922fc13
-  languageName: node
-  linkType: hard
-
-"@ledgerhq/hw-app-trx@npm:^6.34.1":
-  version: 6.36.0
-  resolution: "@ledgerhq/hw-app-trx@npm:6.36.0"
+"@ledgerhq/hw-app-trx@npm:6.35.0":
+  version: 6.35.0
+  resolution: "@ledgerhq/hw-app-trx@npm:6.35.0"
   dependencies:
-    "@ledgerhq/hw-transport": "npm:6.35.1"
-  checksum: 10/9c6035f28bb977df893417f05f72cb74413a39a3b44fbec437a2bd1d9f277e62a9d60418912e24070d400db363f4bd5138c77ddf2b12f6a2acb34942a3816f56
+    "@ledgerhq/hw-transport": "npm:6.35.0"
+  checksum: 10/85d519ee69bd69546a1155fcde82f00030ee0b2cab72259bd674ec946081666c3555cd464443564a0b57476e47bd2b754240d6b50e9be200d94ae4490b6ad9bc
   languageName: node
   linkType: hard
 
@@ -7410,7 +7410,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ledgerhq/signer-utils@npm:^1.2.0":
+"@ledgerhq/signer-utils@npm:^1.1.3, @ledgerhq/signer-utils@npm:^1.2.0":
   version: 1.2.0
   resolution: "@ledgerhq/signer-utils@npm:1.2.0"
   dependencies:
