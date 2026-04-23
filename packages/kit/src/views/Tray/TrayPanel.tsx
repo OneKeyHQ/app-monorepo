@@ -101,6 +101,7 @@ export function TrayPanel() {
     >
       <PortfolioOverview
         wallet={data.wallet}
+        account={data.account}
         totalBalance={data.totalBalance}
         onPress={() => handleNavigate('/main/tab-home')}
       />
