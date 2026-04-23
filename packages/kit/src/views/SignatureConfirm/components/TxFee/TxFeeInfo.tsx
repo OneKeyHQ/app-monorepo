@@ -396,6 +396,25 @@ function TxFeeInfo(props: IProps) {
           lockedUserNonceValue = Number(txAdvancedSettings.nonce);
         } else if (typeof unsignedTxs[0].nonce === 'number') {
           lockedUserNonceValue = unsignedTxs[0].nonce;
+        } else if (vaultSettings?.nonceRequired) {
+          // Submit resolves an unset nonce via `serviceSend.getNextNonce`
+          // before broadcast. The backend binds sponsor quotes to this
+          // locked nonce, so estimate must mirror the same resolution —
+          // otherwise the quote drifts against the broadcast nonce
+          // (typically for users with local pending txs, where
+          // `max(pending+1, chain)` differs from the chain nonce the
+          // backend defaults to) and triggers a 40209 NONCE_CHANGED
+          // refresh loop.
+          try {
+            lockedUserNonceValue =
+              await backgroundApiProxy.serviceSend.getNextNonce({
+                accountId,
+                networkId,
+                accountAddress,
+              });
+          } catch {
+            lockedUserNonceValue = undefined;
+          }
         }
         const lockedUserNonce = Number.isFinite(lockedUserNonceValue)
           ? lockedUserNonceValue
@@ -640,6 +659,7 @@ function TxFeeInfo(props: IProps) {
       updateTxAdvancedSettings,
       updateTxFeeInfoInit,
       txAdvancedSettings.nonce,
+      vaultSettings?.nonceRequired,
     ],
     {
       watchLoading: true,
