@@ -22,8 +22,9 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
   return (
     <YStack flex={1} gap="$2.5">
       {slices.map((slice) => {
+        const label =
+          slice.key === PORTFOLIO_OTHERS_KEY ? othersLabel : slice.label;
         const isOthers = slice.key === PORTFOLIO_OTHERS_KEY;
-        const label = isOthers ? othersLabel : slice.label;
         return (
           <XStack
             key={slice.key}

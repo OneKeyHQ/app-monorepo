@@ -560,7 +560,16 @@ function DeFiContainer() {
         </XStack>
         {portalTarget && isTabFocused && hasStickyOverlay ? (
           <DeFiStickyPortal target={portalTarget}>
-            <XStack gap="$6" px="$pagePadding" pt="$0" userSelect="none">
+            {/* Pull up by Tabs.TabBar's own py="$2" bottom padding so the
+                pinned card sits flush under the pill row. Without this, the
+                gap shows as a visible $bgApp band above $bgSubdued card. */}
+            <XStack
+              gap="$6"
+              px="$pagePadding"
+              pt="$0"
+              mt="$-2"
+              userSelect="none"
+            >
               <YStack
                 flex={1}
                 pointerEvents={pinnedProtocol ? 'auto' : 'none'}
