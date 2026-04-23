@@ -963,30 +963,18 @@ export default class ServiceSwap extends ServiceBase {
       kind,
       walletType,
     };
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Swap);
-      const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
-        '/swap/v1/build-tx',
-        params,
-        {
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            ),
-        },
-      );
-      return data?.data;
-    } catch (e) {
-      const error = e as { code: number; message: string; requestId: string };
-      void this.backgroundApi.serviceApp.showToast({
-        method: 'error',
-        title: error?.message,
-        message: error?.requestId,
-      });
-      throw e;
-    }
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
+      '/swap/v1/build-tx',
+      params,
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+    return data?.data;
   }
 
   @backgroundMethod()
