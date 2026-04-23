@@ -18,11 +18,11 @@ import { useDeFiOverviewTopN } from './hooks/useDeFiOverviewTopN';
 
 import type { IPortfolioStats } from './DeFiPortfolioStats';
 
-// Window after a More/Less toggle during which protocol-tile taps are
-// ignored. Prevents a second quick click from landing on a newly-revealed
-// tile during the layout shift and accidentally deep-linking into its
-// protocol detail page.
-const OVERVIEW_TOGGLE_PRESS_LOCK_MS = 400;
+// Window after any tile tap during which further taps are ignored. Prevents
+// a second quick click from landing on a newly-revealed tile during the
+// More/Less layout shift (deep-linking into a protocol accidentally) and
+// also kills rapid More↔Less double-toggle.
+const OVERVIEW_TOGGLE_PRESS_LOCK_MS = 600;
 
 export type IDeFiOverviewCardProps = {
   stats: IPortfolioStats;
@@ -62,23 +62,29 @@ function DeFiOverviewCard({
   );
 
   const pressLockUntilRef = useRef(0);
+  const isPressLocked = useCallback(
+    () => pressLockUntilRef.current > Date.now(),
+    [],
+  );
   const lockPress = useCallback(() => {
     pressLockUntilRef.current = Date.now() + OVERVIEW_TOGGLE_PRESS_LOCK_MS;
   }, []);
   const handleMore = useCallback(() => {
+    if (isPressLocked()) return;
     setIsSliced(false);
     lockPress();
-  }, [setIsSliced, lockPress]);
+  }, [setIsSliced, lockPress, isPressLocked]);
   const handleLess = useCallback(() => {
+    if (isPressLocked()) return;
     setIsSliced(true);
     lockPress();
-  }, [setIsSliced, lockPress]);
+  }, [setIsSliced, lockPress, isPressLocked]);
   const handleProtocolPress = useCallback(
     (p: IDeFiProtocol) => {
-      if (pressLockUntilRef.current > Date.now()) return;
+      if (isPressLocked()) return;
       onPressProtocol(p);
     },
-    [onPressProtocol],
+    [onPressProtocol, isPressLocked],
   );
 
   if (isLoading) {
