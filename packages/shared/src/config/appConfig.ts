@@ -56,6 +56,7 @@ export const TWITTER_FOLLOW_URL_CN =
   'https://x.com/intent/follow?screen_name=OneKeyCN';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
 export const ONEKEY_URL = 'https://onekey.so';
+export const ONEKEY_TEST_URL = 'https://onekeytest.com';
 export const ONEKEY_BLOCK_EXPLORER_URL = 'https://tx.onekey.so';
 export const ONEKEY_BLOCK_EXPLORER_TEST_URL = 'https://tx.onekeytest.com';
 
@@ -72,6 +73,10 @@ export const WEB_APP_URL_DEV = 'https://app.onekeytest.com';
 
 export function getWebAppUrl(env: IEndpointEnv): string {
   return env === 'prod' ? 'app.onekey.so' : 'app.onekeytest.com';
+}
+
+export function getOneKeyWebUrl(env: IEndpointEnv): string {
+  return env === 'prod' ? ONEKEY_URL : ONEKEY_TEST_URL;
 }
 
 export function buildReferralUrl({
