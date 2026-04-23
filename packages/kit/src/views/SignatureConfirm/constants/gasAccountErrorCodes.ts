@@ -107,6 +107,16 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     alias: 'GAS_ACCOUNT_SPONSOR_BUSY',
     message: 'Gas sponsor is busy right now. Please try again later.',
   },
+  // TOCTOU between estimate and execute — scenario gate was open at quote
+  // time but revoked by ops before submit. Not equivalent to quote expiry
+  // (40201/40202): retrying the gas-account path will keep failing until the
+  // scenario is re-enabled, so surface and fall through to user-paid reject.
+  40_227: {
+    strategy: EGasAccountErrorStrategy.Hint,
+    alias: 'GAS_ACCOUNT_SCENARIO_DISABLED',
+    message:
+      'Gas sponsor is temporarily disabled for this transaction type. Please pay the network fee yourself or try again later.',
+  },
   90_207: {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'UPSTREAM_RATE_LIMITED',

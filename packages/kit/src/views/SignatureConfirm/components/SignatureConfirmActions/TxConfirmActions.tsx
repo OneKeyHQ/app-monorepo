@@ -57,6 +57,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
@@ -129,6 +130,7 @@ type IProps = {
   popStack?: boolean;
   isQueueMode?: boolean;
   unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
+  gasAccountScenario?: IGasAccountScenario;
 };
 
 function TxConfirmActions(props: IProps) {
@@ -146,6 +148,7 @@ function TxConfirmActions(props: IProps) {
     popStack = true,
     isQueueMode,
     unsignedTxQueue,
+    gasAccountScenario,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
@@ -895,6 +898,7 @@ function TxConfirmActions(props: IProps) {
             useFeeInTx={useFeeInTx}
             feeInfoEditable={feeInfoEditable}
             transferPayload={transferPayload}
+            gasAccountScenario={gasAccountScenario}
           />
           {showTakeRiskAlert ? (
             <Checkbox

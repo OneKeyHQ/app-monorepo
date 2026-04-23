@@ -614,6 +614,7 @@ const usePerpDeposit = (
               accountAddress: result?.fromUserAddress,
               networkId: token.networkId,
               accountId,
+              scenario: 'perps',
             });
             if (i === unsignedTxArr.length - 2) {
               lastTxUseGasInfo = {
@@ -641,6 +642,7 @@ const usePerpDeposit = (
           accountAddress: result?.fromUserAddress,
           networkId: token.networkId,
           accountId,
+          scenario: 'perps',
         });
         const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
         gasFeeInfos.push({
@@ -983,6 +985,7 @@ const usePerpDeposit = (
                 accountAddress: result?.fromUserAddress,
                 networkId: token.networkId,
                 accountId,
+                scenario: 'perps',
               });
               if (i === unsignedTxArr.length - 2) {
                 lastTxUseGasInfo = {
@@ -1027,6 +1030,7 @@ const usePerpDeposit = (
           accountAddress: result?.fromUserAddress,
           networkId: token.networkId,
           accountId,
+          scenario: 'perps',
         });
 
         const gasParseInfo = buildGasInfo(gasRes, gasRes.common);

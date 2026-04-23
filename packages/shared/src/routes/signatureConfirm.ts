@@ -12,6 +12,8 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
+import type { IGasAccountScenario } from '../../types/fee';
+
 import type {
   IAggregateTokenSelectorParams,
   ITokenSelectorParamList,
@@ -104,6 +106,7 @@ export type IModalSignatureConfirmParamList = {
     popStack?: boolean;
     isQueueMode?: boolean;
     unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
+    gasAccountScenario?: IGasAccountScenario;
   };
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;
@@ -131,6 +134,7 @@ export type IModalSignatureConfirmParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
+    gasAccountScenario?: IGasAccountScenario;
   };
   [EModalSignatureConfirmRoutes.TxReplace]: {
     networkId: string;

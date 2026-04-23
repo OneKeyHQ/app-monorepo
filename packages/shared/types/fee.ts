@@ -173,6 +173,19 @@ export type IBatchEstimateFeeParams = {
   encodedTxs: IEncodedTx[];
 };
 
+// Gas Account scenario codes maintained as a frontend contract enum.
+// Backend intentionally does not expose these; new values land via coordinated
+// PR with the onchain server team (see scenario-gate.types.ts on backend).
+export const GAS_ACCOUNT_SCENARIOS = [
+  'send',
+  'swap',
+  'perps',
+  'earn',
+  'dapp',
+  'internal',
+] as const;
+export type IGasAccountScenario = (typeof GAS_ACCOUNT_SCENARIOS)[number];
+
 export type IEstimateGasParams = {
   accountId: string;
   networkId: string;
@@ -181,6 +194,7 @@ export type IEstimateGasParams = {
   transfersInfo?: ITransferInfo[];
   lockedUserNonce?: number;
   gasAccountEnabled?: boolean;
+  scenario?: IGasAccountScenario;
 };
 
 export type IGasPayer = 'user' | 'megafuel' | 'gasAccount';
@@ -198,6 +212,9 @@ export type IGasAccountUiState = {
   selectedPayer?: 'user' | 'gasAccount';
   lockedUserNonce?: number;
   idempotencyKey?: string;
+  // L3 scenario gate reason from backend when gasAccountEligible=false due to
+  // business-scenario policy (vs L2 chain-level degradation).
+  gasAccountScenarioReason?: string;
 };
 
 export type IFeesInfoUnit = {
@@ -293,6 +310,10 @@ export type IEstimateGasResp = {
   payer?: IGasPayer;
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
+  // L3 scenario gate reason — present when eligible=false due to scenario policy.
+  // Unbounded string (backend uses this to observe unknown client values); frontend
+  // does prefix checks like startsWith('scenario_disabled_').
+  gasAccountScenarioReason?: string;
 };
 
 export type IServerBatchEstimateFeeResponse = {
