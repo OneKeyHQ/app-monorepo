@@ -39,6 +39,7 @@ import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
 import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
+import { NetworkFilterControl } from './NetworkFilterControl';
 
 export function AvailableAssetsTabViewList() {
   const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
@@ -47,6 +48,7 @@ export function AvailableAssetsTabViewList() {
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const [searchText, setSearchText] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
   const media = useMedia();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -64,10 +66,20 @@ export function AvailableAssetsTabViewList() {
   }, [tabData]);
   const focusedTab = useSharedValue(TabNames[0]);
 
-  // Get filtered assets based on selected tab and search text
+  // Get filtered assets based on selected tab, network filter, and search text
   const assets = useMemo(() => {
     const currentTabType = tabData[selectedTabIndex]?.type;
-    const source = availableAssetsByType[currentTabType] || [];
+    let source = availableAssetsByType[currentTabType] || [];
+
+    // Network filter
+    if (selectedNetworkIds.length > 0) {
+      const networkSet = new Set(selectedNetworkIds);
+      source = source.filter((a) =>
+        a.protocols.some((p) => networkSet.has(p.networkId)),
+      );
+    }
+
+    // Search filter
     if (!searchText) return source;
     const query = searchText.toLowerCase();
     return source.filter(
@@ -75,7 +87,37 @@ export function AvailableAssetsTabViewList() {
         a.symbol.toLowerCase().includes(query) ||
         a.name.toLowerCase().includes(query),
     );
-  }, [availableAssetsByType, selectedTabIndex, tabData, searchText]);
+  }, [
+    availableAssetsByType,
+    selectedTabIndex,
+    tabData,
+    searchText,
+    selectedNetworkIds,
+  ]);
+
+  // Compute available network IDs for the current tab
+  const { availableNetworkIds, networkAssetCounts } = useMemo(() => {
+    const currentTabType = tabData[selectedTabIndex]?.type;
+    const source = availableAssetsByType[currentTabType] || [];
+    const counts: Record<string, number> = {};
+    for (const asset of source) {
+      const seen = new Set<string>();
+      for (const p of asset.protocols) {
+        if (!seen.has(p.networkId)) {
+          seen.add(p.networkId);
+          counts[p.networkId] = (counts[p.networkId] ?? 0) + 1;
+        }
+      }
+    }
+    return {
+      availableNetworkIds: Object.keys(counts),
+      networkAssetCounts: counts,
+    };
+  }, [availableAssetsByType, selectedTabIndex, tabData]);
+
+  const handleNetworkFilterChange = useCallback((networkIds: string[]) => {
+    setSelectedNetworkIds(networkIds);
+  }, []);
 
   // Use ref to track component mount status to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -143,6 +185,7 @@ export function AvailableAssetsTabViewList() {
       if (index !== -1) {
         focusedTab.value = name;
         setSelectedTabIndex(index);
+        setSelectedNetworkIds([]);
       }
     },
     [focusedTab, tabData],
@@ -356,10 +399,9 @@ export function AvailableAssetsTabViewList() {
       <XStack
         px="$2"
         py="$1.5"
-        mr="$1"
-        bg={isFocused ? '$bgActive' : '$bg'}
-        borderRadius="$2"
-        borderCurve="continuous"
+        mr="$2"
+        bg={isFocused ? '$bgActive' : '$bgSubdued'}
+        borderRadius="$full"
         onPress={() => onPress(name)}
       >
         <SizableText
@@ -389,7 +431,7 @@ export function AvailableAssetsTabViewList() {
   // Memoize ListEmptyComponent
   const listEmptyComponent = useMemo(
     () =>
-      searchText ? (
+      searchText || selectedNetworkIds.length > 0 ? (
         <Empty
           icon="SearchOutline"
           title={intl.formatMessage({
@@ -397,7 +439,7 @@ export function AvailableAssetsTabViewList() {
           })}
         />
       ) : null,
-    [searchText, intl],
+    [searchText, selectedNetworkIds, intl],
   );
 
   // Pre-fetch all categories and open search dialog
@@ -477,7 +519,7 @@ export function AvailableAssetsTabViewList() {
   }, [fetchAssetsData]);
 
   return (
-    <YStack gap="$3">
+    <YStack gap="$4">
       <XStack px="$pagePadding" ai="center" jc="space-between">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_available_assets })}
@@ -503,29 +545,40 @@ export function AvailableAssetsTabViewList() {
           renderItem={renderTabItem}
         />
         {media.gtMd ? (
-          <SearchBar
-            placeholder={intl.formatMessage({
-              id: ETranslations.global_search_asset,
-            })}
-            onSearchTextChange={setSearchText}
-            containerProps={searchBarContainerProps}
-          />
+          <XStack ai="center" gap="$3">
+            <NetworkFilterControl
+              availableNetworkIds={availableNetworkIds}
+              selectedNetworkIds={selectedNetworkIds}
+              networkAssetCounts={networkAssetCounts}
+              onSelectionChange={handleNetworkFilterChange}
+            />
+            <SearchBar
+              size="small"
+              placeholder={intl.formatMessage({
+                id: ETranslations.global_search_asset,
+              })}
+              onSearchTextChange={setSearchText}
+              containerProps={searchBarContainerProps}
+            />
+          </XStack>
         ) : null}
       </XStack>
 
-      <TableList<IEarnAvailableAsset>
-        key={`assets-tab-${selectedTabIndex}`}
-        data={assets ?? []}
-        columns={columns}
-        keyExtractor={keyExtractor}
-        withHeader={platformEnv.isNative ? false : media.gtMd}
-        defaultSortKey="yield"
-        defaultSortDirection="desc"
-        onPressRow={onPressRow}
-        mobileRenderItem={mobileRenderItem}
-        enableDrillIn
-        ListEmptyComponent={listEmptyComponent}
-      />
+      <YStack {...(media.gtMd && { minHeight: 400 })}>
+        <TableList<IEarnAvailableAsset>
+          key={`assets-tab-${selectedTabIndex}`}
+          data={assets ?? []}
+          columns={columns}
+          keyExtractor={keyExtractor}
+          withHeader={platformEnv.isNative ? false : media.gtMd}
+          defaultSortKey="yield"
+          defaultSortDirection="desc"
+          onPressRow={onPressRow}
+          mobileRenderItem={mobileRenderItem}
+          enableDrillIn
+          ListEmptyComponent={listEmptyComponent}
+        />
+      </YStack>
     </YStack>
   );
 }
