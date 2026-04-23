@@ -1,6 +1,5 @@
 export { DeFiListBlock } from './DeFiListBlock';
 export { DeFiOverviewCard } from './DeFiOverviewCard';
-export { DeFiHeroTotal } from './DeFiHeroTotal';
 export { DeFiPortfolioCard } from './DeFiPortfolioCard';
 export { DeFiStickyPortal } from './DeFiStickyPortal';
 export { PinnedProtocolHeader } from './PinnedProtocolHeader';

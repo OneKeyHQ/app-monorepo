@@ -66,7 +66,8 @@ export type IDeFiListBlockProps = {
   tableLayout?: boolean;
   /**
    * Desktop: when `true`, the internal "DeFi · $total" header row is not
-   * rendered — the parent mounts DeFiHeroTotal above the grid instead.
+   * rendered — the parent mounts DeFiPortfolioCard (which carries the total)
+   * alongside the overview grid instead.
    */
   hideInternalTitle?: boolean;
   registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
