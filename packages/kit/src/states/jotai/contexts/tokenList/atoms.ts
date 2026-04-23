@@ -1,3 +1,4 @@
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
@@ -188,3 +189,25 @@ export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
     sortType: ETokenListSortType.Value,
     sortDirection: 'desc',
   });
+
+/**
+ * Cached snapshot of the final rendered token list (after filtering
+ * hideZeroBalance, hideDeFiMarked, etc.). Used for cold start cache
+ * so the exact UI-visible list is restored on next launch.
+ */
+export const {
+  atom: renderedTokenListCacheAtom,
+  use: useRenderedTokenListCacheAtom,
+} = contextAtom<{
+  tokens: IAccountToken[];
+  initialized: boolean;
+  accountId?: string;
+  networkId?: string;
+}>(
+  { tokens: [], initialized: false },
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.renderedTokenListCacheAtom,
+  },
+);

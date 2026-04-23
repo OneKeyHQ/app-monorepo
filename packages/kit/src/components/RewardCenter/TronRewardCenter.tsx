@@ -22,7 +22,7 @@ import {
 import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
-} from '@onekeyhq/core/src/chains/tron/constants';
+} from '@onekeyhq/shared/src/consts/chainConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';

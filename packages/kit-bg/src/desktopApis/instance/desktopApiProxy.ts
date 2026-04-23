@@ -3,14 +3,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnvLite from '@onekeyhq/shared/src/platformEnvLite';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
-import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
-import { JsBridgeDesktopApiOfRender } from '../base/JsBridgeDesktopApiOfRender';
 
-import type {
-  IDesktopApi,
-  IDesktopApiKeys,
-  IDesktopApiMessagePayload,
-} from '../base/types';
+import type { IDesktopApi, IDesktopApiKeys } from '../base/types';
 import type DesktopApiAppleAuth from '../DesktopApiAppleAuth';
 import type DesktopApiAppUpdate from '../DesktopApiAppUpdate';
 import type DesktopApiBluetooth from '../DesktopApiBluetooth';
@@ -28,8 +22,6 @@ import type DesktopApiSystem from '../DesktopApiSystem';
 import type DesktopApiWebview from '../DesktopApiWebview';
 
 export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
-  bridge = new JsBridgeDesktopApiOfRender();
-
   override checkEnvAvailable(): void {
     if (!platformEnvLite.isDesktop) {
       throw new OneKeyLocalError(
@@ -48,18 +40,13 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
     params: any[];
   }): Promise<any> {
     const { module, method, params } = options;
-    const message: IDesktopApiMessagePayload = {
-      type: DESKTOP_API_MESSAGE_TYPE,
-      module: module as any,
+    // Use contextBridge-exposed desktopApiBridge (invoke-based, no JsBridge needed)
+    const result: unknown = await globalThis.desktopApiBridge.call(
+      module as string,
       method,
-      params,
-    };
-
-    return this.bridge.request({
-      data: message,
-      // scope,
-      // remoteId,
-    });
+      ...params,
+    );
+    return result;
   }
 
   system: DesktopApiSystem = this._createProxyModule<IDesktopApiKeys>('system');
@@ -107,5 +94,11 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
 }
 
 const desktopApiProxy = new DesktopApiProxy();
+
+// With contextIsolation enabled, preload can no longer assign to renderer's globalThis.
+// Assign here so that ~29 consumer files accessing globalThis.desktopApiProxy still work.
+if (typeof globalThis !== 'undefined' && platformEnvLite.isDesktop) {
+  globalThis.desktopApiProxy = desktopApiProxy;
+}
+
 export default desktopApiProxy;
-// appGlobals.$desktopApiProxy = desktopApiProxy;

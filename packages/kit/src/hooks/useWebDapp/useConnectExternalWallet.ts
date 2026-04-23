@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Toast, resetAboveMainRoute } from '@onekeyhq/components';
+import { Toast, resetOnboardingModal } from '@onekeyhq/components';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
@@ -25,7 +25,6 @@ import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import useAppNavigation from '../useAppNavigation';
 
 import keylessWebPendingLoginCache from './keylessWebPendingLoginCache';
 
@@ -45,7 +44,6 @@ export function useConnectExternalWallet() {
     useOnboardingConnectWalletLoadingAtom();
   const [localLoading, setLocalLoading] = useState(false);
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
 
@@ -189,9 +187,13 @@ export function useConnectExternalWallet() {
           walletId: WALLET_TYPE_EXTERNAL,
           othersWalletAccountId: account.id,
         });
-        navigation.popStack();
+        // Atomically drop OnboardingModal (the wallet-add sub-page sits
+        // inside it) in one reset dispatch. Avoids the popStack() animated
+        // dismiss that causes the iOS RNSScreenStack window=NIL retry storm,
+        // and preserves any non-onboarding parent overlay (LiteCard, KeyTag,
+        // Swap, Perp, etc.) the user may have come from.
+        resetOnboardingModal();
         await timerUtils.wait(150);
-        resetAboveMainRoute();
         await dialogRef.current?.close();
 
         let finalConnectionInfo: IExternalConnectionInfo;
@@ -228,7 +230,6 @@ export function useConnectExternalWallet() {
       actions,
       hideLoading,
       intl,
-      navigation,
       selectedAccount.networkId,
       showLoading,
       isSoftwareWalletOnlyUser,
@@ -243,22 +244,44 @@ export function useConnectExternalWallet() {
         nonce?: string;
       },
     ) => {
+      const cachedPendingLogin = options?.provider
+        ? keylessWebPendingLoginCache.readKeylessPendingLogin()
+        : undefined;
+
       let webKeylessPendingLogin: IKeylessPendingLogin | undefined =
-        keylessWebPendingLoginCache.readKeylessPendingLogin();
-      if (!webKeylessPendingLogin && options?.provider) {
-        webKeylessPendingLogin =
-          keylessWebPendingLoginCache.createKeylessPendingLogin({
-            provider: options?.provider,
-            nonce: options?.nonce || `silent-${Date.now()}`,
+        cachedPendingLogin;
+
+      if (options?.provider) {
+        const shouldReusePendingLogin =
+          cachedPendingLogin?.provider === options.provider &&
+          (!options.nonce || cachedPendingLogin?.nonce === options.nonce);
+
+        if (!shouldReusePendingLogin) {
+          keylessWebPendingLoginCache.clearKeylessPendingLogin({
+            nonce: cachedPendingLogin?.nonce,
           });
+          webKeylessPendingLogin =
+            keylessWebPendingLoginCache.createKeylessPendingLogin({
+              provider: options.provider,
+              nonce: options.nonce || `silent-${Date.now()}`,
+            });
+        }
       }
 
-      return connectToWallet(connectionInfo, {
+      const connected = await connectToWallet(connectionInfo, {
         allowEmptyAuthorizedAddresses: true,
         suppressDeniedToast: true,
         skipDisconnectConnector: true,
         webKeylessPendingLogin,
       });
+
+      if (connected) {
+        keylessWebPendingLoginCache.clearKeylessPendingLogin({
+          nonce: webKeylessPendingLogin?.nonce,
+        });
+      }
+
+      return connected;
     },
     [connectToWallet],
   );

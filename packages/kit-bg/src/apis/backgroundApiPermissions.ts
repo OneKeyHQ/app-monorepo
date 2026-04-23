@@ -59,6 +59,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_lastFocusUrl',
   'wallet_closeCurrentBrowserTab',
   'wallet_addBrowserUrlToRiskWhiteList',
+  'wallet_requestClipboardPermission',
   'tradingview_getKLineData',
   'tradingview_layoutUpdate',
   'tradingview_getMarks',
@@ -93,6 +94,10 @@ export function isProviderApiPrivateAllowedMethod(method?: string) {
 
 export function isProviderApiPrivateKeylessMethod(method?: string) {
   return method && PROVIDER_API_PRIVATE_KEYLESS_METHOD.includes(method || '');
+}
+
+export function isProviderApiPrivateAllowedKeylessOrigin(origin?: string) {
+  return !!origin && KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN.includes(origin);
 }
 
 export function isProviderApiPrivateAllowedOrigin(origin?: string) {

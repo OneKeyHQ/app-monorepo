@@ -109,6 +109,7 @@ import {
   extractMarketSwapSuccessResult,
   normalizeMarketReviewQuoteResult,
 } from './marketSwapReviewUtils';
+import { usePaymentTokenPrice } from './usePaymentTokenPrice';
 import { ESwapDirection } from './useTradeType';
 
 export type IMarketSwapReviewAdapter = ISwapReviewAdapter;
@@ -125,6 +126,42 @@ type IMarketReviewExecutionSnapshot = {
   buildRes?: IFetchBuildTxResponse;
 };
 
+export function buildMarketReviewTokens({
+  tradeType,
+  fromToken,
+  toToken,
+  tradeTokenPrice,
+}: {
+  tradeType: ESwapDirection;
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  tradeTokenPrice?: BigNumber;
+}) {
+  if (!tradeTokenPrice || tradeTokenPrice.isNaN() || !tradeTokenPrice.gt(0)) {
+    return { fromToken, toToken };
+  }
+
+  const resolvedPrice = tradeTokenPrice.toFixed();
+
+  if (tradeType === ESwapDirection.BUY) {
+    return {
+      fromToken: {
+        ...fromToken,
+        price: resolvedPrice,
+      },
+      toToken,
+    };
+  }
+
+  return {
+    fromToken,
+    toToken: {
+      ...toToken,
+      price: resolvedPrice,
+    },
+  };
+}
+
 export function useSpeedSwapActions(props: {
   marketToken: ISwapToken;
   tradeToken: ISwapTokenBase;
@@ -133,7 +170,6 @@ export function useSpeedSwapActions(props: {
   provider: string;
   spenderAddress: string;
   slippage: number;
-  defaultTradeTokens: ISwapTokenBase[];
   antiMEV: boolean;
   isCustomRpcUnavailable?: boolean;
   isReviewDialogOpen?: boolean;
@@ -147,7 +183,6 @@ export function useSpeedSwapActions(props: {
     provider,
     spenderAddress,
     slippage,
-    defaultTradeTokens,
     antiMEV,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
@@ -185,6 +220,8 @@ export function useSpeedSwapActions(props: {
   const [checkSpenderAddress, setCheckSpenderAddress] = useState('');
   const [isStock, setIsStock] = useState(false);
   const speedCheckRequestIdRef = useRef(0);
+  const balanceRequestIdRef = useRef(0);
+  const priceRequestIdRef = useRef(0);
   const reviewExecutionSnapshotRef = useRef<
     IMarketReviewExecutionSnapshot | undefined
   >(undefined);
@@ -195,23 +232,35 @@ export function useSpeedSwapActions(props: {
 
   const effectiveSpenderAddress = checkSpenderAddress || spenderAddress;
 
-  const [tradeTokenDetail, setTradeTokenDetail] =
-    useState<ISwapToken>(tradeToken);
-
   const { fromToken, toToken, balanceToken } = useMemo(() => {
     if (tradeType === ESwapDirection.BUY) {
       return {
-        fromToken: tradeTokenDetail,
+        fromToken: tradeToken,
         toToken: marketToken,
-        balanceToken: tradeTokenDetail,
+        balanceToken: tradeToken,
       };
     }
     return {
       fromToken: marketToken,
-      toToken: tradeTokenDetail,
+      toToken: tradeToken,
       balanceToken: marketToken,
     };
-  }, [tradeType, marketToken, tradeTokenDetail]);
+  }, [tradeType, marketToken, tradeToken]);
+  const tradeTokenPriceKey = `${tradeToken.networkId ?? ''}:${tradeToken.contractAddress ?? ''}`;
+  const { price: liveTradeTokenPrice, tokenKey: liveTradeTokenPriceKey } =
+    usePaymentTokenPrice(tradeToken, tradeToken.networkId);
+  const effectiveTradeTokenPrice = useMemo(() => {
+    if (liveTradeTokenPriceKey === tradeTokenPriceKey) {
+      return liveTradeTokenPrice ?? new BigNumber(tradeToken.price || 0);
+    }
+
+    return new BigNumber(tradeToken.price || 0);
+  }, [
+    liveTradeTokenPrice,
+    liveTradeTokenPriceKey,
+    tradeToken.price,
+    tradeTokenPriceKey,
+  ]);
 
   // Use atom to get selected derive type from Market Detail page
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
@@ -267,6 +316,33 @@ export function useSpeedSwapActions(props: {
     accountId: netAccountRes.result?.id ?? '',
     networkId: fromToken.networkId,
   });
+  const balanceRefreshToken = useMemo(() => {
+    if (
+      !balanceToken?.networkId &&
+      !balanceToken?.contractAddress &&
+      !balanceToken?.symbol
+    ) {
+      return undefined;
+    }
+
+    return {
+      networkId: balanceToken?.networkId,
+      contractAddress: balanceToken?.contractAddress,
+      symbol: balanceToken?.symbol,
+      decimals: balanceToken?.decimals,
+      logoURI: balanceToken?.logoURI,
+      name: balanceToken?.name,
+      isNative: balanceToken?.isNative,
+    };
+  }, [
+    balanceToken?.contractAddress,
+    balanceToken?.decimals,
+    balanceToken?.isNative,
+    balanceToken?.logoURI,
+    balanceToken?.name,
+    balanceToken?.networkId,
+    balanceToken?.symbol,
+  ]);
 
   // Listen for derive type changes and re-fetch network account
   useEffect(() => {
@@ -293,38 +369,6 @@ export function useSpeedSwapActions(props: {
   const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
     leading: true,
   });
-
-  const tradeTokenRef = useRef<ISwapToken>(undefined);
-  if (tradeTokenRef.current !== tradeToken) {
-    tradeTokenRef.current = tradeToken;
-  }
-  const tradeTokenNetworkId = tradeToken.networkId;
-  const tradeTokenContractAddress = tradeToken.contractAddress;
-  useEffect(() => {
-    void (async () => {
-      if (!tradeTokenNetworkId) return;
-      const tokenDetail =
-        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-          networkId: tradeTokenNetworkId,
-          contractAddress: tradeTokenContractAddress,
-          currency: 'usd',
-        });
-      if (tokenDetail?.length) {
-        setTradeTokenDetail({
-          ...tokenDetail[0],
-          symbol: tradeTokenRef.current?.symbol ?? '',
-          logoURI: tokenDetail[0]?.logoURI
-            ? tokenDetail[0]?.logoURI
-            : (tradeTokenRef.current?.logoURI ?? ''),
-        });
-      }
-    })();
-  }, [
-    tradeType,
-    defaultTradeTokens,
-    tradeTokenNetworkId,
-    tradeTokenContractAddress,
-  ]);
 
   const buildReviewStepTexts = useCallback(
     (providerName?: string): ISwapReviewStepTexts => ({
@@ -1110,10 +1154,17 @@ export function useSpeedSwapActions(props: {
       const amount = fromAmount ?? fromTokenAmountDebounced;
       const fromTokenFinal = currentFromToken ?? fromToken;
       const toTokenFinal = currentToToken ?? toToken;
+      const { fromToken: reviewFromToken, toToken: reviewToToken } =
+        buildMarketReviewTokens({
+          tradeType,
+          fromToken: fromTokenFinal,
+          toToken: toTokenFinal,
+          tradeTokenPrice: effectiveTradeTokenPrice,
+        });
 
       if (isWrap || isWrapped) {
         const shouldFallback = buildMarketReviewShouldFallback({
-          networkId: fromTokenFinal.networkId,
+          networkId: reviewFromToken.networkId,
           isCustomRpcUnavailable,
         });
         const {
@@ -1122,18 +1173,18 @@ export function useSpeedSwapActions(props: {
           swapInfo,
         } = buildWrappedSwapData({
           fromAmount: amount,
-          fromToken: fromTokenFinal,
-          toToken: toTokenFinal,
+          fromToken: reviewFromToken,
+          toToken: reviewToToken,
         });
         reviewExecutionSnapshotRef.current = {
           kind: 'wrap',
           accountAddress: swapInfo.accountAddress,
           accountId: netAccountRes.result?.id ?? '',
-          networkId: fromTokenFinal.networkId,
+          networkId: reviewFromToken.networkId,
           shouldFallback,
           quoteResult: wrappedQuoteResult,
           buildUnsignedParams: {
-            networkId: fromTokenFinal.networkId,
+            networkId: reviewFromToken.networkId,
             accountId: netAccountRes.result?.id ?? '',
             wrappedInfo,
             swapInfo,
@@ -1149,27 +1200,32 @@ export function useSpeedSwapActions(props: {
         );
       }
 
-      const { buildRes, encodedTx, transferInfo, swapInfo, userAddress } =
-        await buildSpeedSwapTxData({
+      const currentSpenderAddress = effectiveSpenderAddress;
+      const [
+        { buildRes, encodedTx, transferInfo, swapInfo, userAddress },
+        allowanceState,
+      ] = await Promise.all([
+        buildSpeedSwapTxData({
           fromAmount: amount,
-          fromToken: fromTokenFinal,
-          toToken: toTokenFinal,
-        });
-      const allowanceState = await resolveMarketReviewAllowanceState({
-        amount,
-        currentState: {
-          allowanceTarget: effectiveSpenderAddress,
-          shouldApprove,
-          shouldResetApprove,
-        },
-        isWrapped,
-        spenderAddress: effectiveSpenderAddress,
-        token: fromTokenFinal,
-        walletAddress: netAccountRes.result?.addressDetail.address,
-      });
+          fromToken: reviewFromToken,
+          toToken: reviewToToken,
+        }),
+        resolveMarketReviewAllowanceState({
+          amount,
+          currentState: {
+            allowanceTarget: currentSpenderAddress,
+            shouldApprove,
+            shouldResetApprove,
+          },
+          isWrapped,
+          spenderAddress: currentSpenderAddress,
+          token: reviewFromToken,
+          walletAddress: netAccountRes.result?.addressDetail.address,
+        }),
+      ]);
       setShouldApprove(allowanceState.shouldApprove);
       setShouldResetApprove(allowanceState.shouldResetApprove);
-      if (allowanceState.allowanceTarget !== effectiveSpenderAddress) {
+      if (allowanceState.allowanceTarget !== currentSpenderAddress) {
         setCheckSpenderAddress(allowanceState.allowanceTarget ?? '');
       }
       const normalizedQuoteResult = assertMarketReviewQuoteResult(
@@ -1181,23 +1237,23 @@ export function useSpeedSwapActions(props: {
           shouldApprove: allowanceState.shouldApprove,
           shouldResetApprove: allowanceState.shouldResetApprove,
           spenderAddress:
-            allowanceState.allowanceTarget ?? effectiveSpenderAddress,
+            allowanceState.allowanceTarget ?? currentSpenderAddress,
           amount,
         }),
       );
       const shouldFallback = buildMarketReviewShouldFallback({
-        networkId: fromTokenFinal.networkId,
+        networkId: reviewFromToken.networkId,
         isCustomRpcUnavailable,
       });
       reviewExecutionSnapshotRef.current = {
         kind: 'swap',
         accountAddress: userAddress,
         accountId: netAccountRes.result?.id ?? '',
-        networkId: fromTokenFinal.networkId,
+        networkId: reviewFromToken.networkId,
         shouldFallback,
         quoteResult: normalizedQuoteResult,
         buildUnsignedParams: {
-          networkId: fromTokenFinal.networkId,
+          networkId: reviewFromToken.networkId,
           accountId: netAccountRes.result?.id ?? '',
           transfersInfo: transferInfo ? [transferInfo] : undefined,
           encodedTx,
@@ -1229,6 +1285,8 @@ export function useSpeedSwapActions(props: {
       shouldApprove,
       shouldResetApprove,
       slippage,
+      effectiveTradeTokenPrice,
+      tradeType,
       toToken,
     ],
   );
@@ -2197,46 +2255,66 @@ export function useSpeedSwapActions(props: {
       orderFromToken?: ISwapTokenBase;
       orderToToken?: ISwapTokenBase;
     }) => {
-      if (
-        netAccountRes.result?.id &&
-        netAccountRes.result?.addressDetail.address &&
-        orderFromToken?.networkId ===
-          netAccountRes.result?.addressDetail.networkId &&
-        (equalTokenNoCaseSensitive({
+      const currentBalanceToken = {
+        networkId: balanceToken?.networkId,
+        contractAddress: balanceToken?.contractAddress,
+      };
+      const matchesCurrentBalanceToken =
+        equalTokenNoCaseSensitive({
           token1: orderFromToken,
-          token2: {
-            networkId: balanceToken?.networkId,
-            contractAddress: balanceToken?.contractAddress,
-          },
+          token2: currentBalanceToken,
         }) ||
-          equalTokenNoCaseSensitive({
-            token1: orderToToken,
-            token2: {
-              networkId: balanceToken?.networkId,
-              contractAddress: balanceToken?.contractAddress,
-            },
-          }))
+        equalTokenNoCaseSensitive({
+          token1: orderToToken,
+          token2: currentBalanceToken,
+        });
+      if (!matchesCurrentBalanceToken) {
+        return;
+      }
+
+      const accountId = netAccountRes.result?.id;
+      const accountAddress = netAccountRes.result?.addressDetail.address;
+      const accountNetworkId = netAccountRes.result?.addressDetail.networkId;
+      if (
+        !accountId ||
+        !accountAddress ||
+        !balanceToken?.networkId ||
+        accountNetworkId !== balanceToken.networkId
       ) {
-        if (!balanceToken?.networkId) return;
-        setFetchBalanceLoading(true);
-        try {
-          const tokenDetail =
-            await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-              networkId: balanceToken?.networkId ?? '',
-              contractAddress: balanceToken?.contractAddress ?? '',
-              accountId: netAccountRes.result?.id ?? '',
-              accountAddress: netAccountRes.result?.addressDetail.address ?? '',
-              currency: 'usd',
-            });
-          if (tokenDetail?.length) {
-            setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
-          }
-          setFetchBalanceLoading(false);
-        } catch (_e) {
+        balanceRequestIdRef.current += 1;
+        setFetchBalanceLoading(false);
+        setBalance(new BigNumber(0));
+        return;
+      }
+
+      const currentRequestId = balanceRequestIdRef.current + 1;
+      balanceRequestIdRef.current = currentRequestId;
+      setFetchBalanceLoading(true);
+
+      try {
+        const tokenDetail =
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: balanceToken.networkId,
+            contractAddress: balanceToken.contractAddress ?? '',
+            accountId,
+            accountAddress,
+            currency: 'usd',
+          });
+        if (currentRequestId !== balanceRequestIdRef.current) {
+          return;
+        }
+
+        setBalance(new BigNumber(tokenDetail?.[0]?.balanceParsed ?? 0));
+      } catch (_e) {
+        if (currentRequestId !== balanceRequestIdRef.current) {
+          return;
+        }
+
+        setBalance(new BigNumber(0));
+      } finally {
+        if (currentRequestId === balanceRequestIdRef.current) {
           setFetchBalanceLoading(false);
         }
-      } else {
-        setBalance(new BigNumber(0));
       }
     },
     [
@@ -2249,13 +2327,33 @@ export function useSpeedSwapActions(props: {
   );
 
   const fetchTokenPrice = useCallback(async () => {
-    setPriceRate((prev) => ({
-      ...prev,
+    const currentRequestId = priceRequestIdRef.current + 1;
+    priceRequestIdRef.current = currentRequestId;
+    const fromTokenPriceBN =
+      tradeType === ESwapDirection.BUY
+        ? effectiveTradeTokenPrice
+        : new BigNumber(fromToken.price || 0);
+    const toTokenPriceBN =
+      tradeType === ESwapDirection.SELL
+        ? effectiveTradeTokenPrice
+        : new BigNumber(toToken.price || 0);
+    const canUseInlineTokenPrices =
+      !fromTokenPriceBN.isNaN() &&
+      !toTokenPriceBN.isNaN() &&
+      fromTokenPriceBN.gt(0) &&
+      toTokenPriceBN.gt(0);
+
+    setPriceRate({
+      rate: undefined,
+      fromTokenSymbol: fromToken.symbol,
+      toTokenSymbol: toToken.symbol,
       loading: true,
-    }));
-    if (fromToken.price && toToken.price) {
-      const fromTokenPriceBN = new BigNumber(fromToken.price || 0);
-      const toTokenPriceBN = new BigNumber(toToken.price || 0);
+    });
+    if (canUseInlineTokenPrices) {
+      if (currentRequestId !== priceRequestIdRef.current) {
+        return;
+      }
+
       setPriceRate({
         rate: toTokenPriceBN.isZero()
           ? 0
@@ -2264,8 +2362,24 @@ export function useSpeedSwapActions(props: {
         toTokenSymbol: toToken.symbol,
         loading: false,
       });
-    } else {
-      if (!fromToken?.networkId || !toToken?.networkId) return;
+      return;
+    }
+
+    if (!fromToken?.networkId || !toToken?.networkId) {
+      if (currentRequestId !== priceRequestIdRef.current) {
+        return;
+      }
+
+      setPriceRate({
+        rate: undefined,
+        fromTokenSymbol: fromToken.symbol,
+        toTokenSymbol: toToken.symbol,
+        loading: false,
+      });
+      return;
+    }
+
+    try {
       const [fromTokenPrice, toTokenPrice] = await Promise.all([
         backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
           networkId: fromToken.networkId ?? '',
@@ -2278,25 +2392,46 @@ export function useSpeedSwapActions(props: {
           currency: 'usd',
         }),
       ]);
+      if (currentRequestId !== priceRequestIdRef.current) {
+        return;
+      }
+
       if (fromTokenPrice?.length && toTokenPrice?.length) {
-        const fromTokenPriceBN = new BigNumber(fromTokenPrice[0].price || 0);
-        const toTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
+        const fetchedFromTokenPriceBN = new BigNumber(
+          fromTokenPrice[0].price || 0,
+        );
+        const fetchedToTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
         setPriceRate({
-          rate: toTokenPriceBN.isZero()
+          rate: fetchedToTokenPriceBN.isZero()
             ? 0
-            : fromTokenPriceBN.dividedBy(toTokenPriceBN).toNumber(),
+            : fetchedFromTokenPriceBN
+                .dividedBy(fetchedToTokenPriceBN)
+                .toNumber(),
           fromTokenSymbol: fromToken.symbol,
           toTokenSymbol: toToken.symbol,
           loading: false,
         });
-      } else {
-        setPriceRate((prev) => ({
-          ...prev,
-          loading: false,
-        }));
+        return;
+      }
+    } catch (_e) {
+      if (currentRequestId !== priceRequestIdRef.current) {
+        return;
       }
     }
+
+    if (currentRequestId !== priceRequestIdRef.current) {
+      return;
+    }
+
+    setPriceRate({
+      rate: undefined,
+      fromTokenSymbol: fromToken.symbol,
+      toTokenSymbol: toToken.symbol,
+      loading: false,
+    });
   }, [
+    effectiveTradeTokenPrice,
+    tradeType,
     fromToken.price,
     fromToken.symbol,
     fromToken.networkId,
@@ -2487,24 +2622,10 @@ export function useSpeedSwapActions(props: {
 
   useEffect(() => {
     void syncTokensBalance({
-      orderFromToken: {
-        networkId: balanceToken?.networkId,
-        contractAddress: balanceToken?.contractAddress,
-        symbol: balanceToken?.symbol,
-        decimals: balanceToken?.decimals,
-        logoURI: balanceToken?.logoURI,
-        name: balanceToken?.name,
-        isNative: balanceToken?.isNative,
-      },
+      orderFromToken: balanceRefreshToken,
     });
   }, [
-    balanceToken?.contractAddress,
-    balanceToken?.decimals,
-    balanceToken?.isNative,
-    balanceToken?.logoURI,
-    balanceToken?.name,
-    balanceToken?.networkId,
-    balanceToken?.symbol,
+    balanceRefreshToken,
     netAccountRes.result?.addressDetail.address,
     syncTokensBalance,
   ]);

@@ -68,6 +68,7 @@ export type ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar?: boolean;
   enableDesktopBluetooth?: boolean;
   enableBTCFreshAddress?: boolean;
+  enableMenuBarTray?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -104,6 +105,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar: true,
   enableDesktopBluetooth: true,
   enableBTCFreshAddress: true,
+  enableMenuBarTray: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -133,7 +135,6 @@ export type ISettingsAtom = {
   swapEnableRecipientAddress: boolean;
   // Swap page UI state should reset with the page/session instead of persisting silently.
   swapIncognitoMode: boolean;
-  swapEnableRecipientAddressBeforeIncognito?: boolean;
 };
 
 export const { target: settingsAtom, use: useSettingsAtom } =
@@ -145,7 +146,6 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       swapSlippagePercentageCustomValue: swapSlippageAutoValue,
       swapEnableRecipientAddress: false,
       swapIncognitoMode: false,
-      swapEnableRecipientAddressBeforeIncognito: undefined,
     },
   });
 

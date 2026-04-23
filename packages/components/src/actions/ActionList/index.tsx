@@ -44,6 +44,7 @@ export interface IActionListItemProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
   label: string;
+  renderLabel?: () => ReactNode;
   extra?: ReactNode;
   description?: string;
   descriptionNumberOfLines?: number;
@@ -105,6 +106,7 @@ export function ActionListItem(
     icon,
     iconProps,
     label,
+    renderLabel,
     extra,
     description,
     descriptionNumberOfLines,
@@ -173,17 +175,21 @@ export function ActionListItem(
         ) : null}
         <YStack gap="$0.5" flex={1}>
           <XStack>
-            <SizableText
-              flex={1}
-              textAlign="left"
-              size="$bodyMd"
-              width="100%"
-              flexShrink={1}
-              $md={ACTION_LIST_TEXT_MD}
-              color={destructive ? '$textCritical' : '$text'}
-            >
-              {label}
-            </SizableText>
+            {renderLabel ? (
+              renderLabel()
+            ) : (
+              <SizableText
+                flex={1}
+                textAlign="left"
+                size="$bodyMd"
+                width="100%"
+                flexShrink={1}
+                $md={ACTION_LIST_TEXT_MD}
+                color={destructive ? '$textCritical' : '$text'}
+              >
+                {label}
+              </SizableText>
+            )}
 
             {platformEnv.isDesktop && keys?.length ? (
               <Shortcut>

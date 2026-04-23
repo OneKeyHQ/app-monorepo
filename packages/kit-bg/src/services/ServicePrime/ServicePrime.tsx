@@ -1,5 +1,5 @@
 import { Semaphore } from 'async-mutex';
-import { cloneDeep, isString } from 'lodash';
+import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import {
@@ -11,6 +11,7 @@ import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/cons
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   OneKeyLocalError,
+  OneKeyServerApiError,
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
 import {
@@ -22,6 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -53,6 +55,78 @@ class ServicePrime extends ServiceBase {
 
   async getPrimeClient() {
     return this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+  }
+
+  @backgroundMethod()
+  async apiTranslate({
+    texts,
+    sourceLang,
+    targetLang,
+    engine = ETranslateEngine.standard,
+    testFlag,
+  }: {
+    texts: string[];
+    sourceLang: string;
+    targetLang: string;
+    engine?: ETranslateEngine;
+    testFlag?: string;
+  }): Promise<{ translations: Array<string | null> }> {
+    const client = await this.getPrimeClient();
+    // API limit: max 4 texts per translate request
+    const batches = chunk(texts, 4);
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const results: Array<Array<string | null>> = await Promise.all(
+      batches.map(async (batch): Promise<Array<string | null>> => {
+        try {
+          const res = await client.post<{
+            code: number;
+            message: string;
+            data?: {
+              translations?: Array<string | null>;
+            };
+          }>(
+            '/prime/v1/translate/dapp',
+            {
+              texts: batch,
+              source_lang: sourceLang,
+              target_lang: targetLang,
+              engine,
+              test_flag: testFlag,
+              category: 'dapp_browser',
+            },
+            requestConfig,
+          );
+
+          if (res.data.code !== 0) {
+            throw new OneKeyServerApiError({
+              autoToast: false,
+              disableFallbackMessage: true,
+              message: res.data.message || 'OneKeyServer Unknown Error',
+              code: res.data.code,
+              httpStatusCode: res.status,
+              data: res.data,
+            });
+          }
+
+          const translations = res?.data?.data?.translations;
+
+          return Array.isArray(translations) ? translations : batch;
+        } catch (error) {
+          const errorCode = Number((error as OneKeyError | undefined)?.code);
+          if ([90_104, 90_105].includes(errorCode)) {
+            throw error;
+          }
+
+          console.error('[Prime Translate] batch error:', error);
+          return batch;
+        }
+      }),
+    );
+    return { translations: results.flat() };
   }
 
   @backgroundMethod()

@@ -1,8 +1,14 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
+import type { KeyboardEvent } from 'react';
 
-import { ScrollView, XStack, useMedia } from '@onekeyhq/components';
+import { XStack, useMedia } from '@onekeyhq/components';
+import { ScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { CategoryFilterItem } from '../CategoryFilterItem';
+import {
+  CategoryFilterItem,
+  CategoryFilterItemWithLayout,
+} from '../CategoryFilterItem';
 
 import type { IMarketCategoryItem } from '../../types';
 
@@ -10,36 +16,64 @@ interface ICategorySelectorProps {
   categories: IMarketCategoryItem[];
   selectedCategoryId: string;
   onSelectCategory: (id: string) => void;
+  triggerOnPressDown?: boolean;
 }
 
 function CategorySelectorImpl({
   categories,
   selectedCategoryId,
   onSelectCategory,
+  triggerOnPressDown = false,
 }: ICategorySelectorProps) {
   const { md } = useMedia();
+  const shouldUseScrollableBar = md || platformEnv.isNative;
+  const getCategoryInteractionProps = useCallback(
+    (categoryId: string) => {
+      const handleSelect = () => {
+        onSelectCategory(categoryId);
+      };
 
-  if (md) {
+      if (!triggerOnPressDown) {
+        return {
+          onPress: handleSelect,
+        };
+      }
+
+      return {
+        onPressIn: handleSelect,
+        onKeyDown: (event: KeyboardEvent) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+          event.preventDefault();
+          handleSelect();
+        },
+      };
+    },
+    [onSelectCategory, triggerOnPressDown],
+  );
+
+  if (shouldUseScrollableBar) {
     return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
+      <ScrollableFilterBar
+        selectedItemId={selectedCategoryId}
+        itemGap="$1"
         contentContainerStyle={{
-          gap: 4,
           paddingHorizontal: 20,
           paddingVertical: 8,
         }}
       >
         {categories.map((item) => (
-          <CategoryFilterItem
+          <CategoryFilterItemWithLayout
             key={item.id}
+            id={item.id}
             name={item.name}
             icon={item.icon}
             isSelected={item.id === selectedCategoryId}
-            onPress={() => onSelectCategory(item.id)}
+            {...getCategoryInteractionProps(item.id)}
           />
         ))}
-      </ScrollView>
+      </ScrollableFilterBar>
     );
   }
 
@@ -59,7 +93,7 @@ function CategorySelectorImpl({
           name={item.name}
           icon={item.icon}
           isSelected={item.id === selectedCategoryId}
-          onPress={() => onSelectCategory(item.id)}
+          {...getCategoryInteractionProps(item.id)}
         />
       ))}
     </XStack>

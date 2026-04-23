@@ -79,8 +79,30 @@ export function AccountSelectorTriggerBase({
     showAccountSelector();
   }, [isTriggerDisabled, showAccountSelector]);
 
-  const contentView = useMemo(
-    () => (
+  const contentView = useMemo(() => {
+    if (isWebDappModeWithNoWallet) {
+      return (
+        <Button
+          testID="AccountSelectorTriggerBase"
+          size="small"
+          variant="primary"
+          h="$8"
+          shadowOpacity={0}
+          elevation={0}
+          hoverStyle={{
+            opacity: 0.9,
+          }}
+          pressStyle={{
+            opacity: 0.8,
+          }}
+          onPress={handleAccountSelectorPress}
+        >
+          {intl.formatMessage({ id: ETranslations.global_connect })}
+        </Button>
+      );
+    }
+
+    return (
       <XStack
         testID="AccountSelectorTriggerBase"
         role={isTriggerDisabled ? undefined : 'button'}
@@ -107,104 +129,79 @@ export function AccountSelectorTriggerBase({
         onPress={handleAccountSelectorPress}
         userSelect="none"
       >
-        {isWebDappModeWithNoWallet ? (
-          <Button
-            size="small"
-            variant="primary"
-            h="$8"
-            shadowOpacity={0}
-            elevation={0}
-            hoverStyle={{
-              opacity: 0.9,
-            }}
-            pressStyle={{
-              opacity: 0.8,
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_connect })}
-          </Button>
-        ) : (
-          <>
-            <AccountAvatar
-              size="small"
-              borderRadius="$1"
-              indexedAccount={indexedAccount}
-              account={account}
-              dbAccount={dbAccount}
-              wallet={showWalletAvatar ? wallet : undefined}
-            />
-            <Stack
-              flexDirection={horizontalLayout ? 'row' : 'column'}
-              pl={showWalletAvatar ? '$2.5' : '$2'}
+        <AccountAvatar
+          size="small"
+          borderRadius="$1"
+          indexedAccount={indexedAccount}
+          account={account}
+          dbAccount={dbAccount}
+          wallet={showWalletAvatar ? wallet : undefined}
+        />
+        <Stack
+          flexDirection={horizontalLayout ? 'row' : 'column'}
+          pl={showWalletAvatar ? '$2.5' : '$2'}
+          flexShrink={1}
+          flex={platformEnv.isNative ? undefined : 1}
+        >
+          {horizontalLayout ? (
+            <SizableText
+              size={showWalletName ? '$bodyMdMedium' : '$bodyLgMedium'}
+              $gtMd={{
+                size: '$bodyMdMedium',
+              }}
+              color="$text"
+              $gtXl={{
+                maxWidth: '56',
+              }}
+              numberOfLines={1}
               flexShrink={1}
-              flex={platformEnv.isNative ? undefined : 1}
+              maxWidth="$36"
             >
-              {horizontalLayout ? (
-                <SizableText
-                  size={showWalletName ? '$bodyMdMedium' : '$bodyLgMedium'}
-                  $gtMd={{
-                    size: '$bodyMdMedium',
-                  }}
-                  color="$text"
-                  $gtXl={{
-                    maxWidth: '56',
-                  }}
-                  numberOfLines={1}
-                  flexShrink={1}
-                  maxWidth="$36"
-                >
-                  {showWalletName
-                    ? `${walletName} / ${displayLabel}`
-                    : displayLabel}
-                </SizableText>
-              ) : (
-                <>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$text"
-                    numberOfLines={horizontalLayout ? undefined : 1}
-                    flexShrink={1}
-                  >
-                    {walletName}
-                  </SizableText>
-                  <SizableText
-                    size="$bodyMd"
-                    numberOfLines={horizontalLayout ? undefined : 1}
-                    flexShrink={1}
-                    testID="account-name"
-                  >
-                    {displayLabel}
-                  </SizableText>
-                </>
-              )}
-            </Stack>
-            {isTriggerDisabled ? null : (
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
-            )}
-          </>
+              {showWalletName
+                ? `${walletName} / ${displayLabel}`
+                : displayLabel}
+            </SizableText>
+          ) : (
+            <>
+              <SizableText
+                size="$bodyMd"
+                color="$text"
+                numberOfLines={horizontalLayout ? undefined : 1}
+                flexShrink={1}
+              >
+                {walletName}
+              </SizableText>
+              <SizableText
+                size="$bodyMd"
+                numberOfLines={horizontalLayout ? undefined : 1}
+                flexShrink={1}
+                testID="account-name"
+              >
+                {displayLabel}
+              </SizableText>
+            </>
+          )}
+        </Stack>
+        {isTriggerDisabled ? null : (
+          <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
         )}
       </XStack>
-    ),
-    [
-      account,
-      dbAccount,
-      displayLabel,
-      handleAccountSelectorPress,
-      horizontalLayout,
-      indexedAccount,
-      isWebDappModeWithNoWallet,
-      isTriggerDisabled,
-      showWalletAvatar,
-      showWalletName,
-      wallet,
-      walletName,
-      intl,
-    ],
-  );
+    );
+  }, [
+    account,
+    dbAccount,
+    displayLabel,
+    handleAccountSelectorPress,
+    horizontalLayout,
+    indexedAccount,
+    isWebDappModeWithNoWallet,
+    isTriggerDisabled,
+    showWalletAvatar,
+    showWalletName,
+    wallet,
+    walletName,
+    intl,
+  ]);
 
   const content = (
     <DebugRenderTracker

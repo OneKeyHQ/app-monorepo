@@ -37,6 +37,7 @@ function MobileBrowserBottomBar({
     disabledGoForward,
     isTranslated,
     handleTranslate,
+    handleTranslateTestAIError,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
   return (
@@ -85,6 +86,7 @@ function MobileBrowserBottomBar({
         <TranslatePopoverTrigger
           isTranslated={isTranslated}
           onTranslate={handleTranslate}
+          onTestAITranslateError={handleTranslateTestAIError}
         />
       </Stack>
 

@@ -45,6 +45,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 const PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
@@ -502,14 +503,7 @@ function PerpsReferralDialogContent({
 
 function WalletBanner() {
   const {
-    activeAccount: {
-      account,
-      network,
-      wallet,
-      vaultSettings,
-      indexedAccount,
-      deriveType,
-    },
+    activeAccount: { account, network, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
   const intl = useIntl();
@@ -535,16 +529,26 @@ function WalletBanner() {
     if (!account?.id) {
       return null;
     }
+    // Use the global EVM deriveType for PERPS_NETWORK_ID, not the scene-local
+    // deriveType. Home may currently be on a non-EVM network (e.g. BTC with
+    // 'native_segwit'), in which case the scene deriveType cannot resolve the
+    // Arbitrum account.
+    const globalEvmDeriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: PERPS_NETWORK_ID,
+      });
     return backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
       {
         accountId: account.id,
         indexedAccountId: indexedAccount?.id || undefined,
-        deriveType: deriveType || 'default',
+        deriveType: globalEvmDeriveType,
       },
     );
-  }, [account?.id, indexedAccount?.id, deriveType]);
+  }, [account?.id, indexedAccount?.id]);
 
   const handleReferralBind = useCallback(async () => {
+    // Guard against eligibility flipping mid-signing (race condition).
+    if (!referralEligibility?.shouldShow) return;
     if (
       !referralEligibility?.resolvedAddress ||
       !referralEligibility?.resolvedAccountId
@@ -578,6 +582,9 @@ function WalletBanner() {
       if (submitResult.status === 'ok') {
         await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
           { userAddress: resolvedAddress },
+        );
+        void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+          ERookieTaskType.HYPERLIQUID_REFERRAL,
         );
         setReferralBannerHiddenForAccount(resolvedAddress);
         Toast.success({

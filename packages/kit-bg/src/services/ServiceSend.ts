@@ -160,6 +160,7 @@ class ServiceSend extends ServiceBase {
       signature,
       rawTxType,
       tronResourceRentalInfo,
+      gasAccountUiState,
       useDefaultRpc,
     } = params;
 
@@ -212,6 +213,13 @@ class ServiceSend extends ServiceBase {
         disableBroadcast,
         disableAntiMev: signedTx.disableMev,
         hasEnergyRented,
+        ...(gasAccountUiState?.selectedPayer === 'gasAccount' &&
+        gasAccountUiState.gasAccountQuote?.quoteId
+          ? {
+              quoteId: gasAccountUiState.gasAccountQuote.quoteId,
+              idempotencyKey: gasAccountUiState.idempotencyKey,
+            }
+          : {}),
       },
       {
         timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
@@ -316,7 +324,10 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async signAndSendTransaction(
-    params: ISendTxBaseParams & ISignTransactionParamsBase,
+    params: ISendTxBaseParams &
+      ISignTransactionParamsBase & {
+        gasAccountUiState?: IBatchSignTransactionParamsBase['gasAccountUiState'];
+      },
   ) {
     const {
       networkId,
@@ -325,6 +336,7 @@ class ServiceSend extends ServiceBase {
       signOnly,
       rawTxType,
       tronResourceRentalInfo,
+      gasAccountUiState,
       useDefaultRpc,
     } = params;
 
@@ -369,6 +381,7 @@ class ServiceSend extends ServiceBase {
           signedTx,
           rawTxType,
           tronResourceRentalInfo,
+          gasAccountUiState,
           useDefaultRpc,
         });
       };
@@ -453,11 +466,21 @@ class ServiceSend extends ServiceBase {
       transferPayload,
       successfullySentTxs,
       tronResourceRentalInfo,
+      gasAccountUiState,
       useDefaultRpc,
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
     const vault = await vaultFactory.getVault({ networkId, accountId });
+
+    // A Gas Account quote is bound to a single user tx (payloadHash + locked
+    // nonce). In batch flows (approve+swap, bulk send, multi-staking) every
+    // iteration would otherwise reuse the same quoteId/idempotencyKey and
+    // bounce off the server's single-use enforcement (40203 QUOTE_ALREADY_USED).
+    // Until per-tx quoting is supported, skip sponsor attachment in batches.
+    const effectiveGasAccountUiState = isMultiTxs
+      ? undefined
+      : gasAccountUiState;
 
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -484,6 +507,7 @@ class ServiceSend extends ServiceBase {
               accountId,
               signOnly: false,
               tronResourceRentalInfo,
+              gasAccountUiState: effectiveGasAccountUiState,
               useDefaultRpc,
             });
         const decodedTx = await this.buildDecodedTx({
@@ -850,22 +874,11 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     toAddress: string;
   }) {
-    // For BTC network with fresh address enabled, skip interaction check
-    let checkInteraction: boolean | undefined;
-    if (networkUtils.isBTCNetwork(networkId)) {
-      const enableBTCFreshAddress =
-        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
-      if (enableBTCFreshAddress) {
-        checkInteraction = false;
-      }
-    }
-
     const { isContract, isScam } =
       await this.backgroundApi.serviceAccountProfile.getAddressAccountBadge({
         networkId,
         fromAddress,
         toAddress,
-        checkInteraction,
       });
     if (isContract || isScam) {
       await new Promise<boolean>((resolve, reject) => {
@@ -932,6 +945,26 @@ class ServiceSend extends ServiceBase {
         encodedTx,
       });
 
+    // parse-transaction is scoped to the xpub that built this encoded tx,
+    // so here we always use the caller's own account xpub (not the merged
+    // set in OK-52897 — those are other derive paths whose inputs are not
+    // in this encodedTx). Failure to resolve the xpub is non-fatal: the
+    // backend parses the tx from encodedTx regardless, xpub is only used
+    // as an additional identity hint for the interaction-history check.
+    let xpub: string | undefined;
+    try {
+      xpub =
+        (await this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        })) || undefined;
+    } catch (error) {
+      console.warn(
+        'ServiceSend.parseTransaction: failed to resolve xpub, continuing without it',
+        error,
+      );
+    }
+
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
@@ -941,6 +974,7 @@ class ServiceSend extends ServiceBase {
         networkId,
         accountAddress,
         encodedTx: encodedTxToParse,
+        xpub,
       },
       {
         headers:
@@ -957,15 +991,17 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     accountId?: string;
     memo: string;
+    tokenAddress?: string;
   }) {
-    const { networkId, accountId, memo } = params;
+    const { networkId, accountId, memo, tokenAddress } = params;
     if (accountId) {
       const vault = await vaultFactory.getVault({ networkId, accountId });
-      return vault.validateMemo(memo);
+      return vault.validateMemo(memo, tokenAddress);
     }
 
     return (await vaultFactory.getChainOnlyVault({ networkId })).validateMemo(
       memo,
+      tokenAddress,
     );
   }
 

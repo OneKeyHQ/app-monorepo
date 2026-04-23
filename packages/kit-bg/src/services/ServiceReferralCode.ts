@@ -10,6 +10,8 @@ import type {
   IEarnPositionsResponse,
   IEarnRewardResponse,
   IEarnWalletHistory,
+  IEditInviteCodeParams,
+  IEditInviteCodeResponse,
   IExportInviteDataParams,
   IHardwareCumulativeRewards,
   IHardwareRecordItem,
@@ -94,6 +96,19 @@ class ServiceReferralCode extends ServiceBase {
     const response = await client.put<{
       data: IUpdateInviteCodeNoteResponse;
     }>('/rebate/v1/invite-codes/note', params);
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async editInviteCode(params: IEditInviteCodeParams) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const { originalCode, ...body } = params;
+    const response = await client.put<{
+      data: IEditInviteCodeResponse;
+    }>(
+      `/rebate/v1/invite-codes/edit/${encodeURIComponent(originalCode)}`,
+      body,
+    );
     return response.data.data;
   }
 

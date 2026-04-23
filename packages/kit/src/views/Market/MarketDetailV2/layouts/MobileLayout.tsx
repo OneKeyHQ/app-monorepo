@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -52,11 +52,13 @@ function MobileTradingViewTouchBridge({
   networkId,
   tokenSymbol,
   dataSource,
+  pageWidth,
 }: {
   tokenAddress: string;
   networkId: string;
   tokenSymbol: string;
   dataSource: 'websocket' | 'polling';
+  pageWidth?: number;
 }) {
   const handleTouchScroll = useMobileTabTouchScrollBridge();
 
@@ -66,6 +68,7 @@ function MobileTradingViewTouchBridge({
       networkId={networkId}
       tokenSymbol={tokenSymbol}
       dataSource={dataSource}
+      pageWidth={pageWidth}
       onTouchScroll={handleTouchScroll}
     />
   );
@@ -117,6 +120,16 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   }, [bottom, top, isIOSModalPage]);
 
   const width = usePageWidth();
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const effectivePageWidth = useMemo(() => {
+    if (containerWidth > 0) {
+      return containerWidth;
+    }
+    if (typeof width === 'number' && width > 0) {
+      return width;
+    }
+    return Dimensions.get('window').width;
+  }, [containerWidth, width]);
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
@@ -129,12 +142,41 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     (tabName: string) => {
       focusedTab.value = tabName;
       scrollViewRef.current?.scrollTo({
-        x: width * tabNames.indexOf(tabName),
+        x: effectivePageWidth * tabNames.indexOf(tabName),
         animated: true,
       });
     },
-    [focusedTab, tabNames, width],
+    [focusedTab, tabNames, effectivePageWidth],
   );
+
+  const handleContainerLayout = useCallback(
+    (event: { nativeEvent: { layout: { width: number } } }) => {
+      const nextWidth = Math.round(event.nativeEvent.layout.width);
+      if (nextWidth > 0) {
+        setContainerWidth((prevWidth) =>
+          prevWidth === nextWidth ? prevWidth : nextWidth,
+        );
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const activeTabIndex = tabNames.indexOf(focusedTab.value);
+    if (activeTabIndex < 0 || effectivePageWidth <= 0) {
+      return;
+    }
+
+    // Keep horizontal pages aligned after fold/unfold or split-width changes.
+    const alignTimer = setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        x: effectivePageWidth * activeTabIndex,
+        animated: false,
+      });
+    }, 0);
+
+    return () => clearTimeout(alignTimer);
+  }, [effectivePageWidth, focusedTab, tabNames]);
 
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
@@ -240,6 +282,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                       dataSource={
                         websocketConfig?.kline ? 'websocket' : 'polling'
                       }
+                      pageWidth={effectivePageWidth}
                     />
                   );
                 }
@@ -251,6 +294,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                     dataSource={
                       websocketConfig?.kline ? 'websocket' : 'polling'
                     }
+                    pageWidth={effectivePageWidth}
                   />
                 );
               })()}
@@ -272,6 +316,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       </YStack>
     );
   }, [
+    effectivePageWidth,
     handleHeaderHorizontalSwipe,
     networkId,
     tokenAddress,
@@ -386,7 +431,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   };
 
   return (
-    <YStack flex={1} position="relative">
+    <YStack flex={1} position="relative" onLayout={handleContainerLayout}>
       <Tabs.TabBar
         divider={false}
         onTabPress={handleTabChange}
@@ -395,7 +440,12 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       />
       <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
         {tabNames.map((_, index) => (
-          <YStack key={index} h={height} w={width}>
+          <YStack
+            key={index}
+            h={height}
+            overflow="hidden"
+            w={effectivePageWidth}
+          >
             {renderItem({ index })}
           </YStack>
         ))}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,6 +23,7 @@ import type { IInvitationDetailsSectionProps } from './types';
 
 export function InvitationDetailsSection({
   summaryInfo,
+  fetchSummaryInfo,
 }: IInvitationDetailsSectionProps) {
   const intl = useIntl();
   const [selectedTab, setSelectedTab] = useState<EInvitationDetailsTab>(
@@ -35,13 +36,23 @@ export function InvitationDetailsSection({
   // Fetch Perps cumulative rewards
   const { perpsCumulativeRewards } = usePerpsCumulativeRewards();
 
-  // Handle code creation: refresh list and switch to table tab if on reward tab
-  const handleCodeCreated = () => {
-    refetch();
+  const handleCodeCreated = useCallback(() => {
+    void refetch();
     if (selectedTab === EInvitationDetailsTab.REWARD) {
       setSelectedTab(EInvitationDetailsTab.REFERRAL);
     }
-  };
+  }, [refetch, selectedTab]);
+
+  const handleCodeUpdated = useCallback(
+    async (shouldRefreshSummary?: boolean) => {
+      if (shouldRefreshSummary) {
+        await Promise.all([refetch(), fetchSummaryInfo()]);
+      } else {
+        await refetch();
+      }
+    },
+    [fetchSummaryInfo, refetch],
+  );
 
   const tabs = useMemo(
     () => [
@@ -112,6 +123,7 @@ export function InvitationDetailsSection({
             codeListData={codeListData}
             isLoading={isLoading ?? false}
             refetch={refetch}
+            onCodeUpdated={handleCodeUpdated}
           />
         </YStack>
       )}

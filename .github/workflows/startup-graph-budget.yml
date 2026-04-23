@@ -1,0 +1,98 @@
+name: Startup Graph Budget Check
+
+on:
+  pull_request:
+    branches:
+      - x
+    paths:
+      - 'packages/**'
+      - 'apps/mobile/**'
+      - 'yarn.lock'
+
+# Cancel previous runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  # Dual-thread three-bundle architecture check (Phase 4)
+  # Runs unionBuild to produce allocation reports, then validates
+  # forbidden packages, module budgets, and architectural rules.
+  bundle-architecture:
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Union Build (three-bundle split)
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          UNION_BUILD: 'true'
+        run: |
+          cd apps/mobile
+          node scripts/unionBuild.js \
+            --platform ios \
+            --common-bundle-output /tmp/common.jsbundle \
+            --common-sourcemap-output /tmp/common.jsbundle.map \
+            --main-bundle-output /tmp/main.jsbundle \
+            --main-sourcemap-output /tmp/main.jsbundle.map \
+            --background-bundle-output /tmp/background.bundle.js \
+            --background-sourcemap-output /tmp/background.bundle.map \
+            --assets-dest /tmp/assets
+
+      - name: Budget Check (main entry)
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          ENTRY: main
+          # main entry currently: ~2666 modules / ~12.63 MB
+          STARTUP_MODULE_BUDGET: '3000'
+          STARTUP_SIZE_BUDGET_MB: '15'
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+
+      - name: Budget Check (background entry)
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          ENTRY: background
+          # background entry currently: ~4359 modules / ~34.66 MB
+          STARTUP_MODULE_BUDGET: '5000'
+          STARTUP_SIZE_BUDGET_MB: '38'
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+
+      - name: Architecture Check (three-bundle rules)
+        run: node apps/mobile/scripts/check-bundle-architecture.js
+
+      - name: Upload Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-architecture-reports
+          path: |
+            apps/mobile/dist/allocation-report-*.json
+            apps/mobile/out-dir-analysis/budget-check-report.json
+          retention-days: 30

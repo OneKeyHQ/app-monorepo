@@ -7,13 +7,13 @@ import {
   Checkbox,
   Dialog,
   Illustration,
-  Markdown,
   Page,
   SizableText,
   Stack,
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import { Markdown } from '@onekeyhq/components/src/content/Markdown';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';

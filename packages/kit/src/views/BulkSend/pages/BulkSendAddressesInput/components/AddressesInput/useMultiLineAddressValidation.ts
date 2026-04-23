@@ -1,5 +1,5 @@
 /* eslint-disable no-continue */
-import { useCallback, useRef, useState } from 'react';
+import { type MutableRefObject, useCallback, useRef, useState } from 'react';
 
 import pLimit from 'p-limit';
 import { useIntl } from 'react-intl';
@@ -21,6 +21,13 @@ import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ELineAnnotationType, type ILineError } from './LineNumberedTextArea';
+import {
+  type IBulkSendSelectorAccountItem,
+  buildBulkSendSelectorAddressKey,
+  resolveBulkSendSelectorFallbackAccount,
+  resolveBulkSendSenderFallbackSelection,
+  resolveBulkSendSenderSelection,
+} from './senderSelectorAccountUtils';
 
 type IUseMultiLineAddressValidationParams = {
   selectedNetworkId: string | undefined;
@@ -32,9 +39,17 @@ type IUseMultiLineAddressValidationParams = {
   checkAllowlist: boolean;
   selectedAccountId?: string;
   resolveAccountId?: boolean;
-  onResolvedAccountIds?: (ids: Record<number, string>) => void;
+  onResolvedAccountIds?: (
+    ids: Record<number, { accountId: string; indexedAccountId?: string }>,
+  ) => void;
   onDuplicateAddressCountChange?: (count: number) => void;
   duplicateWarningMode?: boolean;
+  currentWalletId?: string;
+  connectedDeviceIds?: Set<string>;
+  selectorAccountItemsRef?: MutableRefObject<
+    Record<string, IBulkSendSelectorAccountItem>
+  >;
+  onErrorsChange?: (errors: ILineError[]) => void;
 };
 
 function useMultiLineAddressValidation(
@@ -54,6 +69,10 @@ function useMultiLineAddressValidation(
     onResolvedAccountIds,
     onDuplicateAddressCountChange,
     duplicateWarningMode = false,
+    currentWalletId,
+    connectedDeviceIds,
+    selectorAccountItemsRef,
+    onErrorsChange,
   } = params;
 
   const intl = useIntl();
@@ -63,9 +82,11 @@ function useMultiLineAddressValidation(
   const onDuplicateAddressCountChangeRef = useRef(
     onDuplicateAddressCountChange,
   );
+  const onErrorsChangeRef = useRef(onErrorsChange);
   const validationSeqRef = useRef(0);
   onResolvedAccountIdsRef.current = onResolvedAccountIds;
   onDuplicateAddressCountChangeRef.current = onDuplicateAddressCountChange;
+  onErrorsChangeRef.current = onErrorsChange;
 
   const { result: vaultSettings } = usePromiseResult(
     async () =>
@@ -92,25 +113,40 @@ function useMultiLineAddressValidation(
     async (
       address: string,
     ): Promise<{ isValid: false; error: string } | IAddressValidation> => {
+      const networkId = selectedNetworkId ?? '';
       const result =
         await backgroundApiProxy.serviceValidator.localValidateAddress({
-          networkId: selectedNetworkId ?? '',
+          networkId,
           address: address.trim(),
         });
       if (!result.isValid) {
+        // Fetch the network name at validation time to avoid stale names
+        // when the user switches networks while addresses are already entered
+        let networkName = network?.name ?? '';
+        if (networkId && networkId !== network?.id) {
+          try {
+            const networkInfo =
+              await backgroundApiProxy.serviceNetwork.getNetwork({
+                networkId,
+              });
+            networkName = networkInfo.name;
+          } catch {
+            // fallback to hook value
+          }
+        }
         return {
           isValid: false,
           error: intl.formatMessage(
             {
               id: ETranslations.wallet_bulk_send_error_invalid_network_address,
             },
-            { network: network?.name ?? '' },
+            { network: networkName },
           ),
         };
       }
       return result;
     },
-    [intl, selectedNetworkId, network?.name],
+    [intl, selectedNetworkId, network?.name, network?.id],
   );
 
   const validateAmount = useCallback(
@@ -179,15 +215,44 @@ function useMultiLineAddressValidation(
     async (
       address: string,
       networkId: string,
-    ): Promise<{ accountId: string } | { error: string }> => {
+    ): Promise<
+      { accountId: string; indexedAccountId?: string } | { error: string }
+    > => {
+      const trimmedAddress = address.trim();
+      const fallbackAccountItem =
+        selectorAccountItemsRef?.current[
+          buildBulkSendSelectorAddressKey(trimmedAddress)
+        ];
+
       try {
         const walletAccountItems =
           await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
             networkId,
-            address: address.trim(),
+            address: trimmedAddress,
           });
 
         if (walletAccountItems.length === 0) {
+          const fallbackResult = await resolveBulkSendSenderFallbackSelection({
+            fallbackAccountItem,
+            currentWalletId,
+            networkId,
+            connectedDeviceIds,
+          });
+          if (fallbackResult) {
+            if (fallbackResult.type === 'error') {
+              return {
+                error: intl.formatMessage({
+                  id: fallbackResult.errorMessageId,
+                }),
+              };
+            }
+
+            return {
+              accountId: fallbackResult.accountId,
+              indexedAccountId: fallbackResult.indexedAccountId,
+            };
+          }
+
           return {
             error: intl.formatMessage({
               id: ETranslations.wallet_bulk_send_error_address_not_found,
@@ -195,40 +260,47 @@ function useMultiLineAddressValidation(
           };
         }
 
-        for (const item of walletAccountItems) {
-          if (accountUtils.isWatchingAccount({ accountId: item.accountId })) {
-            continue;
-          }
+        const selection = await resolveBulkSendSenderSelection({
+          walletAccountItems,
+          currentWalletId,
+          networkId,
+          connectedDeviceIds,
+        });
 
-          if (
-            accountUtils.isHdAccount({ accountId: item.accountId }) ||
-            accountUtils.isHwAccount({ accountId: item.accountId })
-          ) {
-            const networkAccounts =
-              await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-                {
-                  indexedAccountId: item.accountId,
-                  networkIds: [networkId],
-                },
-              );
-            if (networkAccounts[0]?.account) {
-              return { accountId: networkAccounts[0].account.id };
-            }
-          } else if (
-            accountUtils.isExternalAccount({ accountId: item.accountId }) ||
-            accountUtils.isImportedAccount({ accountId: item.accountId })
-          ) {
-            return { accountId: item.accountId };
-          }
+        if (selection.type === 'error') {
+          return {
+            error: intl.formatMessage({
+              id: selection.errorMessageId,
+            }),
+          };
         }
 
-        // All matched accounts are watching accounts
         return {
-          error: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_watching_account,
-          }),
+          accountId: selection.accountId,
+          indexedAccountId: selection.indexedAccountId,
         };
       } catch (_) {
+        const fallbackResult = await resolveBulkSendSenderFallbackSelection({
+          fallbackAccountItem,
+          currentWalletId,
+          networkId,
+          connectedDeviceIds,
+        });
+        if (fallbackResult) {
+          if (fallbackResult.type === 'error') {
+            return {
+              error: intl.formatMessage({
+                id: fallbackResult.errorMessageId,
+              }),
+            };
+          }
+
+          return {
+            accountId: fallbackResult.accountId,
+            indexedAccountId: fallbackResult.indexedAccountId,
+          };
+        }
+
         return {
           error: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_address_not_found,
@@ -236,7 +308,7 @@ function useMultiLineAddressValidation(
         };
       }
     },
-    [intl],
+    [intl, currentWalletId, connectedDeviceIds, selectorAccountItemsRef],
   );
 
   const handleValidateAddresses = useCallback(
@@ -247,6 +319,7 @@ function useMultiLineAddressValidation(
 
       if (!value) {
         setErrors([]);
+        onErrorsChangeRef.current?.([]);
         onDuplicateAddressCountChangeRef.current?.(0);
         if (resolveAccountId) {
           onResolvedAccountIdsRef.current?.({});
@@ -270,6 +343,7 @@ function useMultiLineAddressValidation(
         });
         onDuplicateAddressCountChangeRef.current?.(0);
         setErrors(lineErrors);
+        onErrorsChangeRef.current?.(lineErrors);
         return lineErrors[0].message;
       }
 
@@ -382,7 +456,10 @@ function useMultiLineAddressValidation(
       }
 
       // Phase 2: Concurrent address validation with rate limiting and duplicate detection
-      const resolvedIds: Record<number, string> = {};
+      const resolvedIds: Record<
+        number,
+        { accountId: string; indexedAccountId?: string }
+      > = {};
 
       if (addressesToValidate.length > 0) {
         const limit = pLimit(10);
@@ -480,7 +557,10 @@ function useMultiLineAddressValidation(
               for (let i = 0; i <= index; i += 1) {
                 if (lines[i].trim()) {
                   if (i === index) {
-                    resolvedIds[nonEmptyIndex] = result.accountId;
+                    resolvedIds[nonEmptyIndex] = {
+                      accountId: result.accountId,
+                      indexedAccountId: result.indexedAccountId,
+                    };
                   }
                   nonEmptyIndex += 1;
                 }
@@ -504,6 +584,10 @@ function useMultiLineAddressValidation(
             validAddresses.map(({ index, address }) =>
               limit(async () => {
                 const trimmedAddress = address.trim();
+                const fallbackAccountItem =
+                  selectorAccountItemsRef?.current[
+                    buildBulkSendSelectorAddressKey(trimmedAddress)
+                  ];
 
                 try {
                   let walletAccountItems: { accountId: string }[] =
@@ -530,6 +614,20 @@ function useMultiLineAddressValidation(
                         accountId: item.accountId,
                       }),
                     )
+                  ) {
+                    return { index, isAllowed: true };
+                  }
+
+                  const fallbackResult =
+                    await resolveBulkSendSelectorFallbackAccount({
+                      fallbackAccountItem,
+                      networkId: selectedNetworkId,
+                    });
+                  if (
+                    fallbackResult?.type === 'resolved' &&
+                    accountUtils.isOwnAccount({
+                      accountId: fallbackResult.accountId,
+                    })
                   ) {
                     return { index, isAllowed: true };
                   }
@@ -566,6 +664,7 @@ function useMultiLineAddressValidation(
                 message: intl.formatMessage({
                   id: ETranslations.wallet_bulk_send_error_address_not_in_allowlist,
                 }),
+                translationId: ETranslations.send_address_not_allowlist_error,
               });
             }
           }
@@ -584,6 +683,7 @@ function useMultiLineAddressValidation(
       }
 
       setErrors(lineErrors);
+      onErrorsChangeRef.current?.(lineErrors);
       onDuplicateAddressCountChangeRef.current?.(
         duplicateWarningMode ? duplicateAddressCount : 0,
       );
@@ -637,6 +737,7 @@ function useMultiLineAddressValidation(
       resolveAccountId,
       resolveAccountIdForAddress,
       duplicateWarningMode,
+      selectorAccountItemsRef,
     ],
   );
 

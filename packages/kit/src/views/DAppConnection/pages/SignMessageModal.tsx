@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -145,23 +145,6 @@ function SignMessageModal() {
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
 
-  useEffect(() => {
-    if (isSignTypedDataV3orV4Method) {
-      void backgroundApiProxy.serviceDiscovery.postSignTypedDataMessage({
-        networkId,
-        accountId,
-        origin: $sourceInfo?.origin ?? '',
-        typedData: unsignedMessage.message,
-      });
-    }
-  }, [
-    isSignTypedDataV3orV4Method,
-    $sourceInfo?.origin,
-    accountId,
-    networkId,
-    unsignedMessage.message,
-  ]);
-
   const subtitle = useMemo(() => {
     if (!currentNetwork?.name) {
       return '';
@@ -192,16 +175,19 @@ function SignMessageModal() {
           unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
           unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
         ) {
-          validateSignMessageData(unsignedMessage, currentNetwork?.impl);
+          await validateSignMessageData(unsignedMessage, currentNetwork?.impl);
         }
         if (unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V1) {
-          validateTypedSignMessageDataV1(unsignedMessage, currentNetwork?.impl);
+          await validateTypedSignMessageDataV1(
+            unsignedMessage,
+            currentNetwork?.impl,
+          );
         }
         if (
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4
         ) {
-          validateTypedSignMessageDataV3V4(
+          await validateTypedSignMessageDataV3V4(
             unsignedMessage,
             networkUtils.getNetworkChainId({ networkId }),
             currentNetwork?.impl,

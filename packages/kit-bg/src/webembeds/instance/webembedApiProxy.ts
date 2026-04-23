@@ -32,6 +32,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
   override async waitRemoteApiReady(): Promise<void> {
     const ready = await this.isSDKReady();
+    defaultLogger.app.webembed.webEmbedWaitRemoteApiReady({ isReady: !!ready });
     if (!ready) {
       return new Promise((resolve, reject) => {
         const timerId = setTimeout(() => {
@@ -65,11 +66,21 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       params,
     };
 
-    // await timerUtils.wait(5*1000);
-
-    const result = await checkIsDefined(
-      appGlobals?.$backgroundApiProxy,
-    ).serviceDApp.callWebEmbedApiProxy(message);
+    let result: any;
+    // In dual-thread mode, the background thread doesn't have the JsBridge
+    // object. Route the call to the main thread via reverse RPC.
+    const callViaMainThread = (globalThis as any)
+      .__onekeyCallWebEmbedBridgeViaMainThread as
+      | ((data: unknown) => Promise<unknown>)
+      | undefined;
+    if (callViaMainThread) {
+      result = await callViaMainThread(message);
+    } else {
+      // Single-thread: existing flow through background serviceDApp
+      result = await checkIsDefined(
+        appGlobals?.$backgroundApiProxy,
+      ).serviceDApp.callWebEmbedApiProxy(message);
+    }
 
     if (
       module === 'secret' &&

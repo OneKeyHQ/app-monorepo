@@ -160,6 +160,10 @@ const DevBundleUpdateStatusModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/DevBundleUpdateStatus'),
 );
 
+const DevSplitBundleTest = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/DevSplitBundleTest'),
+);
+
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -301,6 +305,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevBundleUpdateStatusModal,
     component: DevBundleUpdateStatusModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevSplitBundleTestModal,
+    component: DevSplitBundleTest,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

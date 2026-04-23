@@ -71,6 +71,7 @@ const icons = {
   BnbCircleIllus: () => import("./react/illus/BnbCircle"),
   BnbSmartChainIllus: () => import("./react/illus/BnbSmartChain"),
   BobaNetworkIllus: () => import("./react/illus/BobaNetwork"),
+  BotIllus: () => import("./react/illus/Bot"),
   BookPencilIllus: () => import("./react/illus/BookPencil"),
   BookPencilDarkIllus: () => import("./react/illus/BookPencilDark"),
   BrandLogoIllus: () => import("./react/illus/BrandLogo"),

@@ -36,6 +36,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { buildPrimeTransferVerificationCode } from '@onekeyhq/shared/src/utils/primeTransferVerificationCode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EPrimeTransferDataType,
@@ -47,12 +48,6 @@ import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
 
 interface IDeviceItemProps {
   userInfo: IE2EESocketUserInfo | undefined;
-}
-
-function isRepeatedDigits(code: string): boolean {
-  // Check for repeated digits (e.g., 666666, 111111)
-  const firstDigit = code[0];
-  return code.split('').every((digit) => digit === firstDigit);
 }
 
 function buildVerifyCode({
@@ -76,26 +71,26 @@ function buildVerifyCode({
   if (randomNumber.length !== 6) {
     throw new OneKeyLocalError('Random number is incorrect');
   }
-  // userPart:     338713
-  // randomNumber: 576123
-  // verifyCode:   804836
-  const verifyCode = userPart
-    .split('')
-    .map((digit, index) => {
-      const userDigit = parseInt(digit, 10);
-      const randomDigit = parseInt(randomNumber[index] || '0', 10);
-      return (userDigit + randomDigit) % 10;
-    })
-    .join('');
+  const verifyCode = buildPrimeTransferVerificationCode({
+    userPart,
+    randomNumber,
+  });
 
-  // Check if verify code contains repeated digits
-  if (isRepeatedDigits(verifyCode)) {
+  if (!verifyCode.ok && verifyCode.reason === 'invalid-user-part') {
+    throw new OneKeyLocalError('User part is incorrect');
+  }
+
+  if (!verifyCode.ok && verifyCode.reason === 'invalid-random-number') {
+    throw new OneKeyLocalError('Random number is incorrect');
+  }
+
+  if (!verifyCode.ok) {
     throw new OneKeyLocalError(
       'Verification code contains repeated digits, retry required',
     );
   }
 
-  return verifyCode;
+  return verifyCode.code;
 }
 
 function DeviceItem({ userInfo }: IDeviceItemProps) {
@@ -158,14 +153,17 @@ export function WaitingTransferCompleteAlert() {
 
 export function PrimeTransferDirection({
   remotePairingCode,
+  botWalletId,
   transferType,
 }: {
   remotePairingCode: string;
+  botWalletId?: string;
   transferType?: EPrimeTransferDataType;
 }) {
   const [isKeylessWalletTransfer, setIsKeylessWalletTransfer] = useState(
     transferType === EPrimeTransferDataType.keylessWallet,
   );
+  const isBotWalletExport = !!botWalletId;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [primeTransferAtom, setPrimeTransferAtom] = usePrimeTransferAtom();
@@ -283,6 +281,53 @@ export function PrimeTransferDirection({
     primeTransferAtom.pairedRoomId,
   ]);
 
+  // Bot wallet export: auto-fix direction so current device is always the sender
+  const botDirectionFixDone = useRef(false);
+  const fixBotDirection = useCallback(async () => {
+    if (!isBotWalletExport) return;
+    if (!directionUserInfo?.fromUser || !directionUserInfo?.toUser) return;
+    if (!isTransferFromMe) {
+      await changeDirection();
+    }
+  }, [
+    isBotWalletExport,
+    directionUserInfo?.fromUser,
+    directionUserInfo?.toUser,
+    isTransferFromMe,
+    changeDirection,
+  ]);
+
+  // Delayed direction check: 1s after paired, auto-fix if needed
+  useEffect(() => {
+    if (!isBotWalletExport) return;
+    if (botDirectionFixDone.current) return;
+    if (primeTransferAtom.status !== EPrimeTransferStatus.paired) return;
+    if (!directionUserInfo?.fromUser || !directionUserInfo?.toUser) return;
+
+    const timer = setTimeout(() => {
+      botDirectionFixDone.current = true;
+      void fixBotDirection().catch((error) => {
+        console.error('[BotDirectionFix] failed:', error);
+      });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [
+    isBotWalletExport,
+    primeTransferAtom.status,
+    directionUserInfo?.fromUser,
+    directionUserInfo?.toUser,
+    fixBotDirection,
+  ]);
+
+  // Wrap handleStartTransfer to check direction before transfer for bot export
+  const handleStartTransferWithDirectionCheck = useCallback(async () => {
+    if (isBotWalletExport) {
+      await fixBotDirection();
+    }
+    await handleStartTransfer();
+  }, [isBotWalletExport, fixBotDirection, handleStartTransfer]);
+
   const dialogRef = useRef<IDialogInstance | null>(null);
 
   useEffect(() => {
@@ -291,6 +336,9 @@ export function PrimeTransferDirection({
       data: IAppEventBusPayload[EAppEventBusNames.PrimeTransferCancel],
     ) => {
       void dialogRef.current?.close();
+      if (isBotWalletExport) {
+        botDirectionFixDone.current = false;
+      }
       setPrimeTransferAtom(
         (v): IPrimeTransferAtomData => ({
           ...v,
@@ -302,7 +350,7 @@ export function PrimeTransferDirection({
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeTransferCancel, fn);
     };
-  }, [setPrimeTransferAtom]);
+  }, [setPrimeTransferAtom, isBotWalletExport]);
 
   const isClosedBySendData = useRef(false);
 
@@ -312,6 +360,10 @@ export function PrimeTransferDirection({
     }
     await backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
   }, []);
+
+  const allowCliImportableCredentials = Boolean(
+    botWalletId && directionUserInfo?.toUser?.appPlatform === 'cli',
+  );
 
   const verifyCodeAndSendData = useCallback(
     async ({
@@ -347,7 +399,8 @@ export function PrimeTransferDirection({
         // Check if remote device is in keylessWallet mode (sender queries receiver)
 
         // Handle keylessWallet transfer - either local or remote is in keylessWallet mode
-        if (isKeylessWalletTransfer) {
+        // Bot wallet export uses buildTransferData with scoped walletIds, not deviceKeyPack
+        if (isKeylessWalletTransfer && !isBotWalletExport) {
           const deviceKeyPack =
             await backgroundApiProxy.serviceKeylessWallet.getKeylessDevicePackSafe();
           if (!deviceKeyPack) {
@@ -375,7 +428,9 @@ export function PrimeTransferDirection({
           });
         } else {
           const transferData =
-            await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
+            await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
+              walletIds: botWalletId ? [botWalletId] : undefined,
+            });
           if (transferData?.isEmptyData) {
             Toast.error({
               title: intl.formatMessage({
@@ -386,6 +441,7 @@ export function PrimeTransferDirection({
           }
           await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
             transferData,
+            allowCliImportableCredentials,
           });
         }
 
@@ -426,6 +482,9 @@ export function PrimeTransferDirection({
       directionUserInfo?.toUser?.appPlatformName,
       exitTransferFlow,
       isKeylessWalletTransfer,
+      isBotWalletExport,
+      botWalletId,
+      allowCliImportableCredentials,
     ],
   );
 
@@ -612,9 +671,13 @@ export function PrimeTransferDirection({
   return (
     <>
       <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.transfer_transfer_data,
-        })}
+        title={
+          isBotWalletExport
+            ? 'Export Bot Wallet'
+            : intl.formatMessage({
+                id: ETranslations.transfer_transfer_data,
+              })
+        }
       />
 
       <Stack p="$5" gap="$3.5">
@@ -642,7 +705,7 @@ export function PrimeTransferDirection({
             px="$5"
             color="$iconSubdued"
             variant="tertiary"
-            disabled={isKeylessWalletTransfer}
+            disabled={isKeylessWalletTransfer || isBotWalletExport}
             onPress={changeDirection}
           />
         </XStack>
@@ -669,7 +732,7 @@ export function PrimeTransferDirection({
             primeTransferAtom.status === EPrimeTransferStatus.transferring,
         }}
         onConfirm={() => {
-          void handleStartTransfer();
+          void handleStartTransferWithDirectionCheck();
         }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_transfer,

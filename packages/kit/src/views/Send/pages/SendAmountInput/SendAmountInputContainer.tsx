@@ -13,9 +13,9 @@ import {
   HeightTransition,
   Icon,
   Image,
-  Input,
   NumberSizeableText,
   Page,
+  ScrollView,
   SizableText,
   Skeleton,
   Stack,
@@ -39,7 +39,6 @@ import {
   useSelectedUTXOsAtom,
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -146,8 +145,6 @@ function SendAmountInputContainer() {
     [currentAccountId],
   );
 
-  const [allTokenListMap] = useAllTokenListMapAtom();
-
   const signatureConfirm = useSignatureConfirm({
     accountId: currentAccountId,
     networkId,
@@ -167,6 +164,7 @@ function SendAmountInputContainer() {
 
   const amount = form.watch('amount');
   const nftAmount = form.watch('nftAmount');
+  const hasAmountError = !!form.formState.errors.amount;
   const txMessage = form.watch('txMessage');
 
   const { serviceToken, serviceNFT } = backgroundApiProxy;
@@ -344,10 +342,16 @@ function SendAmountInputContainer() {
       }
       // fiat / pricePerSat = sats. Convert to BTC if lnUnit is BTC.
       let originalAmt = amountBN.dividedBy(price);
-      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
-        originalAmt = new BigNumber(
-          chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
-        );
+      if (isLightningNetwork) {
+        // Sats are the smallest Lightning unit (0 decimals) — floor the
+        // fiat→sats result so the display never shows fractional sats,
+        // which would cause a send error (OK-53396).
+        originalAmt = originalAmt.integerValue(BigNumber.ROUND_FLOOR);
+        if (lnUnit === ELightningUnit.BTC) {
+          originalAmt = new BigNumber(
+            chainValueUtils.convertSatsToBtc(originalAmt.toFixed()),
+          );
+        }
       }
       return {
         originalAmount: originalAmt.toFixed(),
@@ -385,7 +389,10 @@ function SendAmountInputContainer() {
       }
     }
     setIsUseFiat((prev) => !prev);
-    form.setValue('amount', amountValue, { shouldValidate: true });
+    // Don't validate here — the validator closes over the stale isUseFiat
+    // value, causing false min-amount errors (OK-52679). A useEffect below
+    // re-triggers validation after isUseFiat state has propagated.
+    form.setValue('amount', amountValue);
   }, [
     form,
     isLightningNetwork,
@@ -396,12 +403,66 @@ function SendAmountInputContainer() {
     tokenDetails?.info.decimals,
   ]);
 
+  // Re-validate amount after isUseFiat state propagates so the validator
+  // reads the correct mode. Fixes false min-amount errors on toggle (OK-52679).
+  const isUseFiatRef = useRef(isUseFiat);
+  useEffect(() => {
+    if (isUseFiatRef.current !== isUseFiat) {
+      isUseFiatRef.current = isUseFiat;
+      void form.trigger('amount');
+    }
+  }, [isUseFiat, form]);
+
   const isIntegerAmount = useMemo(() => {
     if (!isUseFiat && isLightningNetwork && lnUnit === ELightningUnit.SATS) {
       return true;
     }
     return false;
   }, [isLightningNetwork, isUseFiat, lnUnit]);
+
+  const tokenMinAmount = useMemo(() => {
+    const decimals = tokenDetails?.info.decimals;
+    if (decimals === undefined || Number.isNaN(decimals)) {
+      return undefined;
+    }
+    return new BigNumber(1).shiftedBy(-decimals).toFixed();
+  }, [tokenDetails?.info.decimals]);
+
+  const minAmountHint = useMemo(() => {
+    if (!tokenSymbol || tokenMinAmount === undefined) return undefined;
+    const isNative = tokenDetails?.info.isNative;
+    // Only show the hint when the chain enforces a meaningful chain-level
+    // minimum. Without that, displaying the token-precision floor (e.g.
+    // 1e-18 for an 18-decimal ERC20) is noise.
+    const chainMinRaw = isNative
+      ? (vaultSettings?.nativeMinTransferAmount ??
+        vaultSettings?.minTransferAmount)
+      : vaultSettings?.minTransferAmount;
+    if (!chainMinRaw || new BigNumber(chainMinRaw).isLessThanOrEqualTo(0)) {
+      return undefined;
+    }
+    // Mirror the validator's effectiveMin = max(tokenPrecisionMin, chainMin)
+    // so the hint matches the value the validator actually rejects against.
+    const effectiveMin = BigNumber.max(tokenMinAmount, chainMinRaw).toFixed();
+    // Lightning BTC unit displays the min converted from sats.
+    const displayMinAmount =
+      isLightningNetwork && lnUnit === ELightningUnit.BTC
+        ? chainValueUtils.convertSatsToBtc(effectiveMin)
+        : effectiveMin;
+    return intl.formatMessage(
+      { id: ETranslations.send_error_minimum_amount },
+      { amount: displayMinAmount, token: tokenSymbol },
+    );
+  }, [
+    intl,
+    isLightningNetwork,
+    lnUnit,
+    tokenDetails?.info.isNative,
+    tokenMinAmount,
+    tokenSymbol,
+    vaultSettings?.minTransferAmount,
+    vaultSettings?.nativeMinTransferAmount,
+  ]);
 
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
@@ -439,6 +500,13 @@ function SendAmountInputContainer() {
             : tokenAmountBN; // already in sats
       }
 
+      // Block flow if token decimals is missing — server must return explicit decimals
+      if (tokenMinAmount === undefined) {
+        return intl.formatMessage({
+          id: ETranslations.send_amount_invalid,
+        });
+      }
+
       // Minimum transfer amount check
       const isNative = tokenDetails?.info.isNative;
       const minTransferAmount = isNative
@@ -447,16 +515,22 @@ function SendAmountInputContainer() {
           '0')
         : (vaultSettings?.minTransferAmount ?? '0');
 
+      // Effective minimum: the larger of token precision minimum and chain minimum
+      const effectiveMin = BigNumber.max(
+        tokenMinAmount,
+        minTransferAmount,
+      ).toFixed();
+
       // Display min amount in the current unit (BTC or sats for Lightning)
       const displayMinAmount =
         isLightningNetwork && lnUnit === ELightningUnit.BTC
-          ? chainValueUtils.convertSatsToBtc(minTransferAmount)
-          : minTransferAmount;
+          ? chainValueUtils.convertSatsToBtc(effectiveMin)
+          : effectiveMin;
 
       if (
         !isUseFiat &&
-        !new BigNumber(minTransferAmount).isZero() &&
-        amountBNForValidation.isLessThan(minTransferAmount) &&
+        !new BigNumber(effectiveMin).isZero() &&
+        amountBNForValidation.isLessThan(effectiveMin) &&
         !amountBNForValidation.isZero()
       ) {
         return intl.formatMessage(
@@ -468,8 +542,8 @@ function SendAmountInputContainer() {
       if (
         isUseFiat &&
         priceBN.isGreaterThan(0) &&
-        !new BigNumber(minTransferAmount).isZero() &&
-        tokenAmountBN.isLessThan(minTransferAmount) &&
+        !new BigNumber(effectiveMin).isZero() &&
+        tokenAmountBN.isLessThan(effectiveMin) &&
         !tokenAmountBN.isZero()
       ) {
         return intl.formatMessage(
@@ -519,6 +593,7 @@ function SendAmountInputContainer() {
       tokenDetails?.balanceParsed,
       tokenDetails?.info.isNative,
       tokenDetails?.price,
+      tokenMinAmount,
       vaultSettings?.nativeMinTransferAmount,
       vaultSettings?.minTransferAmount,
       vaultSettings?.transferZeroNativeTokenEnabled,
@@ -780,21 +855,65 @@ function SendAmountInputContainer() {
   const txMessageDescription = useMemo(() => {
     if (recipientIsContract) return '';
     if (!txMessage) return '';
-    return isHexTxMessage
-      ? intl.formatMessage(
-          { id: ETranslations.global_hex_data_input_desc_hex },
-          { utf: txMessageLinkedString },
-        )
-      : intl.formatMessage(
-          { id: ETranslations.global_hex_data_input_desc_utf },
-          { data: txMessageLinkedString },
+    return intl.formatMessage(
+      { id: ETranslations.current_input_format__desc },
+      {
+        format: isHexTxMessage
+          ? intl.formatMessage({ id: ETranslations.raw_data__title })
+          : 'UTF-8',
+      },
+    );
+  }, [intl, isHexTxMessage, recipientIsContract, txMessage]);
+
+  const txMessageViewActionLabel = useMemo(() => {
+    if (!txMessage) return '';
+    return intl.formatMessage(
+      { id: ETranslations.view_format__action },
+      {
+        format: isHexTxMessage
+          ? 'UTF-8'
+          : intl.formatMessage({ id: ETranslations.raw_data__title }),
+      },
+    );
+  }, [intl, isHexTxMessage, txMessage]);
+
+  const showTxMessageRawData = useCallback(() => {
+    if (!txMessage) return;
+    let content = txMessageLinkedString;
+    if (isHexTxMessage) {
+      try {
+        content = Buffer.from(txMessage.replace(/^0x/i, ''), 'hex').toString(
+          'utf-8',
         );
+      } catch {
+        content = txMessageLinkedString;
+      }
+    }
+    Dialog.show({
+      title: txMessageViewActionLabel,
+      renderContent: (
+        <ScrollView maxHeight="$96">
+          <SizableText
+            size="$bodyLg"
+            color="$textSubdued"
+            selectable
+            style={
+              platformEnv.isNative ? undefined : { wordBreak: 'break-all' }
+            }
+          >
+            {content}
+          </SizableText>
+        </ScrollView>
+      ),
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
+    });
   }, [
     intl,
     isHexTxMessage,
-    recipientIsContract,
     txMessage,
     txMessageLinkedString,
+    txMessageViewActionLabel,
   ]);
 
   const showTxMessageFaq = useCallback(() => {
@@ -845,6 +964,7 @@ function SendAmountInputContainer() {
         enableAddressBook: true,
         enableAddressContract: true,
         enableVerifySendFundToSelf: true,
+        enableWalletName: true,
         enableAllowListValidation,
         ignoreSimilarAddressInAddressBook: true,
         enableCheckSimilarAddressInAddressBook: true,
@@ -1063,11 +1183,18 @@ function SendAmountInputContainer() {
     if (isInsufficientBalance) return true;
     if (isNFT) {
       if (nft?.collectionType === ENFTType.ERC1155) {
-        return !nftAmount || nftAmount === '0';
+        return !nftAmount || new BigNumber(nftAmount).isLessThanOrEqualTo(0);
       }
       return false;
     }
-    return !amount || amount === '0';
+    if (!amount) return true;
+    if (
+      amount === '0' &&
+      !(tokenInfo?.isNative && vaultSettings?.transferZeroNativeTokenEnabled)
+    ) {
+      return true;
+    }
+    return false;
   }, [
     isSubmitting,
     form.formState.isValid,
@@ -1076,6 +1203,8 @@ function SendAmountInputContainer() {
     isNFT,
     nft?.collectionType,
     nftAmount,
+    tokenInfo?.isNative,
+    vaultSettings?.transferZeroNativeTokenEnabled,
     amount,
   ]);
 
@@ -1149,7 +1278,11 @@ function SendAmountInputContainer() {
           indexedAccountId={account?.indexedAccountId ?? ''}
           activeDeriveInfo={deriveInfo}
           activeDeriveType={deriveType}
-          tokenMap={allTokenListMap}
+          // Use refreshOnOpen so each derive type fetches its own balance.
+          // Do NOT pass tokenMap here — the global map only contains the
+          // currently selected derive type and would show wrong balances
+          // for other types (e.g. Taproot).
+          refreshOnOpen
           onSelect={async ({ account: a }) => {
             if (a) {
               setCurrentAccountId(a.id);
@@ -1185,7 +1318,6 @@ function SendAmountInputContainer() {
     );
   }, [
     account?.indexedAccountId,
-    allTokenListMap,
     deriveInfo,
     deriveType,
     displayCoinControlButton,
@@ -1196,12 +1328,17 @@ function SendAmountInputContainer() {
     walletId,
   ]);
 
+  const isAmountZeroOrEmpty = !amount || new BigNumber(amount).isZero();
+  const amountHint =
+    isAmountZeroOrEmpty || !hasAmountError ? minAmountHint : undefined;
+
   const renderAmountInput = useMemo(
     () => (
       <>
         <Form.Field
           name="amount"
           errorMessageAlign="center"
+          hint={amountHint}
           rules={{
             required: true,
             validate: handleValidateTokenAmount,
@@ -1252,6 +1389,7 @@ function SendAmountInputContainer() {
       </>
     ),
     [
+      amountHint,
       currencySymbol,
       handleAmountInputChange,
       handleToggleFiatMode,
@@ -1271,7 +1409,7 @@ function SendAmountInputContainer() {
     return (
       <Form.Field
         name="nftAmount"
-        label={intl.formatMessage({ id: ETranslations.send_nft_amount })}
+        errorMessageAlign="center"
         rules={{
           required: true,
           max: nftDetails?.amount ?? 1,
@@ -1286,42 +1424,90 @@ function SendAmountInputContainer() {
           },
         }}
       >
-        {isLoadingAssets ? null : (
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            position="absolute"
-            right="$0"
-            top="$0"
-          >
-            {intl.formatMessage({ id: ETranslations.global_available })}:{' '}
-            {nftDetails?.amount ?? 1}
-          </SizableText>
-        )}
-        <Input
-          size="large"
-          $gtMd={{
-            size: 'medium',
+        <SendAutoSizeAmountInput
+          tokenSymbol={nft?.metadata?.name ?? nft?.collectionName}
+          inputProps={{
+            placeholder: '0',
+            keyboardType: 'number-pad',
           }}
-          addOns={[
-            {
-              loading: isLoadingAssets,
-              label: intl.formatMessage({ id: ETranslations.send_max }),
-              onPress: () => {
-                form.setValue('nftAmount', nftDetails?.amount ?? '1');
-                void form.trigger('nftAmount');
-              },
-            },
-          ]}
         />
       </Form.Field>
     );
   }, [
     form,
-    intl,
-    isLoadingAssets,
     isNFT,
+    nft?.collectionName,
     nft?.collectionType,
+    nft?.metadata?.name,
+    nftDetails?.amount,
+  ]);
+
+  const renderNFTInfoCard = useMemo(() => {
+    if (!isNFT) return null;
+    const nftImage = nft?.metadata?.image;
+    const nftName = nft?.metadata?.name ?? nft?.collectionName ?? '';
+    return (
+      <XStack
+        bg="$bgStrong"
+        borderRadius="$3"
+        px="$3"
+        py="$2.5"
+        alignItems="center"
+        width="100%"
+      >
+        <Stack mr="$3">
+          {nftImage ? (
+            <Image size="$10" borderRadius="$2" source={{ uri: nftImage }} />
+          ) : (
+            <Stack
+              w="$10"
+              h="$10"
+              borderRadius="$2"
+              bg="$gray5"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon name="ImageMountainSolid" size="$6" color="$iconSubdued" />
+            </Stack>
+          )}
+        </Stack>
+        <YStack flex={1}>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {nftName}
+          </SizableText>
+          {nft?.collectionType === ENFTType.ERC1155 ? (
+            <XStack alignItems="center" mt="$0.5">
+              <SizableText size="$bodyLgMedium" color="$text">
+                {nftDetails?.amount ?? 1}
+              </SizableText>
+            </XStack>
+          ) : null}
+        </YStack>
+
+        {nft?.collectionType === ENFTType.ERC1155 ? (
+          <Button
+            variant="secondary"
+            size="small"
+            ml="$2"
+            onPress={() => {
+              form.setValue('nftAmount', nftDetails?.amount ?? '1', {
+                shouldValidate: true,
+              });
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.send_max })}
+          </Button>
+        ) : null}
+      </XStack>
+    );
+  }, [
+    form,
+    intl,
+    isNFT,
+    nft?.collectionName,
+    nft?.collectionType,
+    nft?.metadata?.image,
+    nft?.metadata?.name,
     nftDetails?.amount,
   ]);
 
@@ -1511,7 +1697,21 @@ function SendAmountInputContainer() {
                 rules={{
                   validate: validateTxMessage,
                 }}
-                description={txMessageDescription}
+                description={
+                  txMessageDescription ? (
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {`${txMessageDescription} `}
+                      <SizableText
+                        size="$bodySm"
+                        color="$textSubdued"
+                        textDecorationLine="underline"
+                        onPress={showTxMessageRawData}
+                      >
+                        {txMessageViewActionLabel}
+                      </SizableText>
+                    </SizableText>
+                  ) : undefined
+                }
                 labelAddon={
                   <Button
                     size="small"
@@ -1540,6 +1740,7 @@ function SendAmountInputContainer() {
           </HeightTransition>
           {extraContent}
           {renderBalanceCard}
+          {renderNFTInfoCard}
         </Stack>
         {showBuyButton ? (
           <Page.FooterActions

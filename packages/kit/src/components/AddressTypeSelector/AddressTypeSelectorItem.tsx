@@ -9,13 +9,13 @@ import {
   Tooltip,
   YStack,
 } from '@onekeyhq/components';
-import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -29,15 +29,16 @@ import {
   useAddressTypeSelectorStableContext,
 } from './AddressTypeSelectorContext';
 
-const addressTypeTooltipMap: Partial<Record<EAddressEncodings, ETranslations>> =
-  {
-    [EAddressEncodings.P2TR]: ETranslations.address_type_tooltip_taproot__desc,
-    [EAddressEncodings.P2WPKH]:
-      ETranslations.address_type_tooltip_native_segwit__desc,
-    [EAddressEncodings.P2SH_P2WPKH]:
-      ETranslations.address_type_tooltip_nested_segwit__desc,
-    [EAddressEncodings.P2PKH]: ETranslations.address_type_tooltip_legacy__desc,
-  };
+export const addressTypeTooltipMap: Partial<
+  Record<EAddressEncodings, ETranslations>
+> = {
+  [EAddressEncodings.P2TR]: ETranslations.address_type_tooltip_taproot__desc,
+  [EAddressEncodings.P2WPKH]:
+    ETranslations.address_type_tooltip_native_segwit__desc,
+  [EAddressEncodings.P2SH_P2WPKH]:
+    ETranslations.address_type_tooltip_nested_segwit__desc,
+  [EAddressEncodings.P2PKH]: ETranslations.address_type_tooltip_legacy__desc,
+};
 
 type IProps = {
   data: {

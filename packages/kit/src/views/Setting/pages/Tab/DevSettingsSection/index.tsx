@@ -72,7 +72,6 @@ import {
   isBgApiSerializableCheckingDisabled,
   toggleBgApiSerializableChecking,
 } from '@onekeyhq/shared/src/utils/assertUtils';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   isWebInDappMode,
   switchWebDappMode,
@@ -82,6 +81,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
+import {
+  cacheDevOnlyPassword,
+  clearCachedDevOnlyPassword,
+  getCachedDevOnlyPassword,
+} from '../../../utils/devOnlyPassword';
 
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
@@ -105,12 +109,6 @@ import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
-let correctDevOnlyPwd = '';
-
-if (process.env.NODE_ENV !== 'production') {
-  correctDevOnlyPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
-}
-
 export function showDevOnlyPasswordDialog({
   title,
   description,
@@ -130,7 +128,9 @@ export function showDevOnlyPasswordDialog({
       ...confirmButtonProps,
     },
     renderContent: (
-      <Dialog.Form formProps={{ values: { password: correctDevOnlyPwd } }}>
+      <Dialog.Form
+        formProps={{ values: { password: getCachedDevOnlyPassword() } }}
+      >
         <Dialog.FormField
           name="password"
           rules={{
@@ -149,8 +149,10 @@ export function showDevOnlyPasswordDialog({
           password: string;
         };
         if (!isCorrectDevOnlyPassword(password)) {
+          clearCachedDevOnlyPassword(password);
           return;
         }
+        cacheDevOnlyPassword(password);
         const params: IBackgroundMethodWithDevOnlyPassword = {
           $$devOnlyPassword: password,
         };
@@ -1107,6 +1109,17 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
 
                       <SectionPressItem
+                        icon="RepeatOutline"
+                        title="Split Bundle & Background Thread"
+                        subtitle="Check dual-thread mode & test service RPC"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSplitBundleTestModal,
+                          );
+                        }}
+                      />
+
+                      <SectionPressItem
                         icon="Lab2Outline"
                         title="Dev Unit Tests"
                         testID="dev-unit-tests-menu"
@@ -1596,6 +1609,15 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      <SectionFieldItem
+                        icon="WalletOutline"
+                        name="enableBotWalletFeature"
+                        title="启用 BotWallet 功能"
+                        subtitle="开启后，Keyless 钱包更多菜单显示 BotWallets 管理入口"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
                       <SectionPressItem
                         icon="ServerOutline"
                         title="Add ServerNetwork Test Data"
@@ -1766,6 +1788,14 @@ const BaseDevSettingsSection = () => {
                         name="alwaysSignOnlySendTx"
                         title="始终只签名不广播"
                         testID="always-sign-only-send-tx"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="EyeOutline"
+                        name="allowBulkSendWatchingAccount"
+                        title="批量转账允许观察账户进入前置流程"
+                        subtitle="仅放行前置校验，实际发送仍会在提交时拦截"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
