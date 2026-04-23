@@ -15,6 +15,7 @@ import {
   Stack,
   Tabs,
   YStack,
+  useFocusedTab,
   useScrollContentTabBarOffset,
   useTabContainerWidth,
 } from '@onekeyhq/components';
@@ -41,6 +42,7 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
+import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
@@ -106,6 +108,18 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
   : ({ children }: IAndroidScrollContainerProps) => {
       return children;
     };
+
+function HistoryTabNotificationAlertSlot() {
+  const intl = useIntl();
+  const focusedTab = useFocusedTab();
+  const historyTabName = intl.formatMessage({
+    id: ETranslations.global_history,
+  });
+  if (focusedTab !== historyTabName) {
+    return null;
+  }
+  return <NotificationEnableAlert scene="txHistory" />;
+}
 
 function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
   const isSyncLoading = useIsAccountSelectorSyncLoading(0);
@@ -406,6 +420,13 @@ export function HomePageView({
     );
   }, []);
 
+  // Rendered on web only. On native the equivalent lives inside the history
+  // list's ListHeaderComponent so its height stays inside the list's measurer.
+  const renderSubHeader = useCallback(
+    () => <HistoryTabNotificationAlertSlot />,
+    [],
+  );
+
   const tabConfigs = useMemo(() => {
     return [
       {
@@ -496,6 +517,7 @@ export function HomePageView({
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
+        renderSubHeader={renderSubHeader}
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
@@ -513,6 +535,7 @@ export function HomePageView({
     network?.id,
     renderHeader,
     renderTabBar,
+    renderSubHeader,
     tabConfigs,
   ]);
 
