@@ -5,8 +5,8 @@ import type { ReactNode } from 'react';
 import { render } from '@testing-library/react';
 
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
-import { TransactionsHistoryBase as TransactionsHistory } from './TransactionsHistory';
 
+import { TransactionsHistoryBase as TransactionsHistory } from './TransactionsHistory';
 
 const mockUseTransactionsWebSocket: jest.MockedFunction<
   (params: unknown) => void
