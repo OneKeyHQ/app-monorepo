@@ -1,7 +1,16 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import {
+  SizableText,
+  Stack,
+  Tooltip,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import {
+  NetworkAvatar,
+  NetworkAvatarGroup,
+} from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PORTFOLIO_OTHERS_KEY } from './DeFiPortfolioStats';
@@ -49,10 +58,22 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
                 {label}
               </SizableText>
               {slice.networkIds.length > 0 ? (
-                <NetworkAvatarGroup
-                  networkIds={slice.networkIds}
-                  size="$5"
-                  flexShrink={0}
+                <Tooltip
+                  placement="top"
+                  renderTrigger={
+                    <NetworkAvatarGroup
+                      networkIds={slice.networkIds}
+                      size="$5"
+                      flexShrink={0}
+                    />
+                  }
+                  renderContent={
+                    <XStack gap="$2" p="$2" alignItems="center">
+                      {slice.networkIds.map((id) => (
+                        <NetworkAvatar key={id} networkId={id} size="$6" />
+                      ))}
+                    </XStack>
+                  }
                 />
               ) : null}
             </XStack>

@@ -1,13 +1,20 @@
 import { buildDonutArcPath } from './donutGeometry';
 
+// Centerline radius = (outerRadius + innerRadius) / 2. The stroke-based path
+// tracks the middle of the ring (rendered with strokeLinecap="round" for the
+// Apple-style look), so all arc commands use this radius rather than outer.
+const OUTER = 60;
+const INNER = 42;
+const CENTER = (OUTER + INNER) / 2; // 51
+
 describe('buildDonutArcPath', () => {
   it('returns an empty string for zero-percent slice', () => {
     expect(
       buildDonutArcPath({
         startPercent: 0,
         sweepPercent: 0,
-        outerRadius: 60,
-        innerRadius: 42,
+        outerRadius: OUTER,
+        innerRadius: INNER,
       }),
     ).toBe('');
   });
@@ -16,44 +23,70 @@ describe('buildDonutArcPath', () => {
     const d = buildDonutArcPath({
       startPercent: 0,
       sweepPercent: 100,
-      outerRadius: 60,
-      innerRadius: 42,
+      outerRadius: OUTER,
+      innerRadius: INNER,
     });
-    // Two "A" arc commands are required to draw a full ring without a
-    // degenerate start=end endpoint.
+    // Full ring needs two arc commands to avoid the degenerate start=end
+    // endpoint in a single `A` instruction.
     expect((d.match(/A/g) ?? []).length).toBeGreaterThanOrEqual(2);
-    expect(d.trim().endsWith('Z')).toBe(true);
   });
 
   it('uses largeArc=1 when sweep > 50%', () => {
     const d = buildDonutArcPath({
       startPercent: 0,
       sweepPercent: 60,
-      outerRadius: 60,
-      innerRadius: 42,
+      outerRadius: OUTER,
+      innerRadius: INNER,
     });
-    // First arc command should have "1 1" for large-arc + sweep-flag.
-    expect(d).toMatch(/A 60 60 0 1 1 /);
+    expect(d).toContain(`A ${CENTER} ${CENTER} 0 1 1 `);
   });
 
   it('uses largeArc=0 when sweep <= 50%', () => {
     const d = buildDonutArcPath({
       startPercent: 0,
       sweepPercent: 40,
-      outerRadius: 60,
-      innerRadius: 42,
+      outerRadius: OUTER,
+      innerRadius: INNER,
     });
-    expect(d).toMatch(/A 60 60 0 0 1 /);
+    expect(d).toContain(`A ${CENTER} ${CENTER} 0 0 1 `);
   });
 
   it("starts drawing at 12 o'clock for startPercent=0", () => {
     const d = buildDonutArcPath({
       startPercent: 0,
       sweepPercent: 25,
-      outerRadius: 60,
-      innerRadius: 42,
+      outerRadius: OUTER,
+      innerRadius: INNER,
     });
-    // First Move command lands on (0, -60) relative to centre.
-    expect(d.startsWith('M 0 -60')).toBe(true);
+    expect(d.startsWith(`M 0 -${CENTER}`)).toBe(true);
+  });
+
+  it('shrinks the arc when gapPercent is provided', () => {
+    const withoutGap = buildDonutArcPath({
+      startPercent: 0,
+      sweepPercent: 50,
+      outerRadius: OUTER,
+      innerRadius: INNER,
+    });
+    const withGap = buildDonutArcPath({
+      startPercent: 0,
+      sweepPercent: 50,
+      outerRadius: OUTER,
+      innerRadius: INNER,
+      gapPercent: 1,
+    });
+    expect(withoutGap).not.toBe(withGap);
+  });
+
+  it('clamps gapPercent so tiny slices do not invert', () => {
+    const d = buildDonutArcPath({
+      startPercent: 0,
+      sweepPercent: 0.2,
+      outerRadius: OUTER,
+      innerRadius: INNER,
+      gapPercent: 1, // larger than the slice itself
+    });
+    expect(d).not.toBe('');
+    expect(d.startsWith('M ')).toBe(true);
   });
 });

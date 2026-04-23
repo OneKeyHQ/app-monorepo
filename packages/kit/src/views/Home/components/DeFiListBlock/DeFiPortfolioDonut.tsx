@@ -18,7 +18,7 @@ type IDeFiPortfolioDonutProps = {
 type IResolvedPath = {
   key: string;
   d: string;
-  fill: string;
+  stroke: string;
 };
 
 type ITamaguiThemeShape = Record<string, { val?: string } | undefined>;
@@ -33,6 +33,10 @@ function resolveSliceFill(
   const key = token.startsWith('$') ? token.slice(1) : token;
   return (theme as unknown as ITamaguiThemeShape)[key]?.val ?? token;
 }
+
+// Apple-style gap between slices (as % of full circle). ~1.4° separation so
+// rounded caps breathe but tiny slices still render legibly.
+const SLICE_GAP_PERCENT = 0.4;
 
 export function DeFiPortfolioDonut({
   slices,
@@ -56,26 +60,30 @@ export function DeFiPortfolioDonut({
         {
           key: 'empty-ring',
           d,
-          fill: resolveSliceFill(theme, PORTFOLIO_EMPTY_RING_TOKEN),
+          stroke: resolveSliceFill(theme, PORTFOLIO_EMPTY_RING_TOKEN),
         },
       ];
     }
 
     const result: IResolvedPath[] = [];
     let cursor = 0;
+    // Only gap when there are 2+ slices; a single 100% slice renders as a
+    // full ring.
+    const gapPercent = slices.length > 1 ? SLICE_GAP_PERCENT : 0;
     for (const slice of slices) {
       const d = buildDonutArcPath({
         startPercent: cursor,
         sweepPercent: slice.percent,
         outerRadius,
         innerRadius,
+        gapPercent,
       });
       cursor += slice.percent;
       if (d) {
         result.push({
           key: slice.key,
           d,
-          fill: resolveSliceFill(theme, slice.colorToken),
+          stroke: resolveSliceFill(theme, slice.colorToken),
         });
       }
     }
@@ -92,7 +100,14 @@ export function DeFiPortfolioDonut({
       importantForAccessibility="no-hide-descendants"
     >
       {paths.map((p) => (
-        <Path key={p.key} d={p.d} fill={p.fill} />
+        <Path
+          key={p.key}
+          d={p.d}
+          stroke={p.stroke}
+          strokeWidth={thickness}
+          strokeLinecap="round"
+          fill="none"
+        />
       ))}
     </Svg>
   );

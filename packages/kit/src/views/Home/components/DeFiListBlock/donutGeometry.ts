@@ -3,6 +3,13 @@ type IBuildDonutArcPathInput = {
   sweepPercent: number;
   outerRadius: number;
   innerRadius: number;
+  /**
+   * Visual gap between slices, measured in percent of full circle. Splits
+   * evenly across both ends of the slice so the "Apple-style" rounded caps
+   * don't touch adjacent slices. Clamped so a slice never loses more than a
+   * quarter of its sweep.
+   */
+  gapPercent?: number;
 };
 
 function polar(angleRad: number, radius: number) {
@@ -16,42 +23,48 @@ function formatNumber(n: number) {
   return Number.isInteger(rounded) ? rounded.toFixed(0) : String(rounded);
 }
 
+/**
+ * Returns an SVG path for the centerline arc of a donut slice, suitable for
+ * rendering with `<Path stroke strokeLinecap="round" />`. The stroke width
+ * fills the ring (outer - inner). Rounded caps give the Apple-style look.
+ */
 export function buildDonutArcPath(input: IBuildDonutArcPathInput): string {
-  const { startPercent, sweepPercent, outerRadius, innerRadius } = input;
+  const {
+    startPercent,
+    sweepPercent,
+    outerRadius,
+    innerRadius,
+    gapPercent = 0,
+  } = input;
   if (sweepPercent <= 0) return '';
 
-  const startAngle = (startPercent / 100) * 2 * Math.PI - Math.PI / 2;
-  const endAngle =
-    ((startPercent + sweepPercent) / 100) * 2 * Math.PI - Math.PI / 2;
+  const centerRadius = (outerRadius + innerRadius) / 2;
 
+  // Full ring: split into two semicircle arcs so start and end don't collapse.
   if (sweepPercent >= 100) {
+    const startAngle = (startPercent / 100) * 2 * Math.PI - Math.PI / 2;
     const midAngle = startAngle + Math.PI;
-    const p0Outer = polar(startAngle, outerRadius);
-    const p1Outer = polar(midAngle, outerRadius);
-    const p0Inner = polar(startAngle, innerRadius);
-    const p1Inner = polar(midAngle, innerRadius);
+    const p0 = polar(startAngle, centerRadius);
+    const p1 = polar(midAngle, centerRadius);
     return [
-      `M ${formatNumber(p0Outer.x)} ${formatNumber(p0Outer.y)}`,
-      `A ${formatNumber(outerRadius)} ${formatNumber(outerRadius)} 0 1 1 ${formatNumber(p1Outer.x)} ${formatNumber(p1Outer.y)}`,
-      `A ${formatNumber(outerRadius)} ${formatNumber(outerRadius)} 0 1 1 ${formatNumber(p0Outer.x)} ${formatNumber(p0Outer.y)}`,
-      `L ${formatNumber(p0Inner.x)} ${formatNumber(p0Inner.y)}`,
-      `A ${formatNumber(innerRadius)} ${formatNumber(innerRadius)} 0 1 0 ${formatNumber(p1Inner.x)} ${formatNumber(p1Inner.y)}`,
-      `A ${formatNumber(innerRadius)} ${formatNumber(innerRadius)} 0 1 0 ${formatNumber(p0Inner.x)} ${formatNumber(p0Inner.y)}`,
-      'Z',
+      `M ${formatNumber(p0.x)} ${formatNumber(p0.y)}`,
+      `A ${formatNumber(centerRadius)} ${formatNumber(centerRadius)} 0 1 1 ${formatNumber(p1.x)} ${formatNumber(p1.y)}`,
+      `A ${formatNumber(centerRadius)} ${formatNumber(centerRadius)} 0 1 1 ${formatNumber(p0.x)} ${formatNumber(p0.y)}`,
     ].join(' ');
   }
 
-  const largeArc = sweepPercent > 50 ? 1 : 0;
-  const outerStart = polar(startAngle, outerRadius);
-  const outerEnd = polar(endAngle, outerRadius);
-  const innerStart = polar(startAngle, innerRadius);
-  const innerEnd = polar(endAngle, innerRadius);
+  const effectiveGap = Math.max(0, Math.min(gapPercent, sweepPercent * 0.5));
+  const effStart = startPercent + effectiveGap / 2;
+  const effSweep = sweepPercent - effectiveGap;
+
+  const startAngle = (effStart / 100) * 2 * Math.PI - Math.PI / 2;
+  const endAngle = ((effStart + effSweep) / 100) * 2 * Math.PI - Math.PI / 2;
+  const largeArc = effSweep > 50 ? 1 : 0;
+  const start = polar(startAngle, centerRadius);
+  const end = polar(endAngle, centerRadius);
 
   return [
-    `M ${formatNumber(outerStart.x)} ${formatNumber(outerStart.y)}`,
-    `A ${formatNumber(outerRadius)} ${formatNumber(outerRadius)} 0 ${largeArc} 1 ${formatNumber(outerEnd.x)} ${formatNumber(outerEnd.y)}`,
-    `L ${formatNumber(innerEnd.x)} ${formatNumber(innerEnd.y)}`,
-    `A ${formatNumber(innerRadius)} ${formatNumber(innerRadius)} 0 ${largeArc} 0 ${formatNumber(innerStart.x)} ${formatNumber(innerStart.y)}`,
-    'Z',
+    `M ${formatNumber(start.x)} ${formatNumber(start.y)}`,
+    `A ${formatNumber(centerRadius)} ${formatNumber(centerRadius)} 0 ${largeArc} 1 ${formatNumber(end.x)} ${formatNumber(end.y)}`,
   ].join(' ');
 }
