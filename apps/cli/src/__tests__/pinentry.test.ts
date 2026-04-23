@@ -34,6 +34,40 @@ describe('decodeAssuanData', () => {
   it('leaves an empty string alone', () => {
     expect(decodeAssuanData('')).toBe('');
   });
+
+  // Assuan only percent-encodes %, CR, and LF. Every other byte — including
+  // multi-byte UTF-8 sequences, extended ASCII, spaces, symbols — goes over
+  // the D line untouched. These tests mirror the real passphrases exercised
+  // by hardware-js-sdk expo-example/TestSpecialPassphraseWallet, so a
+  // decoder change that accidentally mangles non-ASCII input fails here
+  // instead of only in a hardware-required integration run.
+  it('passes UTF-8 multi-byte scripts through unchanged', () => {
+    expect(decodeAssuanData('你好passphrase')).toBe('你好passphrase');
+    expect(decodeAssuanData('私のパスワード')).toBe('私のパスワード');
+    expect(decodeAssuanData('myسياسةpassphrase')).toBe('myسياسةpassphrase');
+  });
+
+  it('passes extended ASCII and accented chars unchanged', () => {
+    expect(decodeAssuanData('¥Øÿ')).toBe('¥Øÿ');
+    expect(decodeAssuanData('P@sswôrd€')).toBe('P@sswôrd€');
+    expect(decodeAssuanData('mi política de frase de contraseña')).toBe(
+      'mi política de frase de contraseña',
+    );
+  });
+
+  it('preserves leading and trailing spaces', () => {
+    // Regression guard: a .trim() added "defensively" anywhere in the pipe
+    // would derive the wrong passphraseState for a padded passphrase and
+    // silently unlock a different hidden wallet.
+    expect(decodeAssuanData(' My Passphrase ')).toBe(' My Passphrase ');
+  });
+
+  it('passes a multi-script mixed passphrase through unchanged', () => {
+    // The "everything all at once" case — multiple Unicode scripts plus
+    // punctuation — mirrors hardware-js-sdk Wallet-1.
+    const mixed = 'Aa0!)_+맪Ӎ¬}¨¥ϸΔѭЧゞく6鼵';
+    expect(decodeAssuanData(mixed)).toBe(mixed);
+  });
 });
 
 describe('parsePinentryStdout', () => {
@@ -92,6 +126,34 @@ describe('parsePinentryStdout', () => {
     const stdout = 'OK\nD line1%0Dline2%0Aline3\nOK\n';
     expect(parsePinentryStdout(stdout)).toEqual({
       data: 'line1\rline2\nline3',
+      cancelled: false,
+    });
+  });
+
+  // End-to-end sanity over a full stdout frame carrying the real-world
+  // passphrases exercised by hardware-js-sdk expo-example. Guards the
+  // `D ` prefix strip (`.slice(2)`) against any future refactor that would
+  // drop a byte from the leading space (e.g. switching to `.slice(1).trimStart()`).
+  it('parses a stdout frame carrying a UTF-8 passphrase', () => {
+    const stdout = 'OK Pleased to meet you\nOK\nOK\nD 你好passphrase\nOK\n';
+    expect(parsePinentryStdout(stdout)).toEqual({
+      data: '你好passphrase',
+      cancelled: false,
+    });
+  });
+
+  it('parses a stdout frame with surrounding spaces in the passphrase', () => {
+    const stdout = 'OK\nOK\nOK\nD  My Passphrase \nOK\n';
+    expect(parsePinentryStdout(stdout)).toEqual({
+      data: ' My Passphrase ',
+      cancelled: false,
+    });
+  });
+
+  it('parses a stdout frame with a mixed-script passphrase', () => {
+    const stdout = 'OK\nD Aa0!)_+맪Ӎ¬}¨¥ϸΔѭЧゞく6鼵\nOK\n';
+    expect(parsePinentryStdout(stdout)).toEqual({
+      data: 'Aa0!)_+맪Ӎ¬}¨¥ϸΔѭЧゞく6鼵',
       cancelled: false,
     });
   });
