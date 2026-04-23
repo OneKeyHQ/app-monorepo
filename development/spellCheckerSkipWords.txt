@@ -1453,3 +1453,5 @@ ledgerhq
 keyrings
 APDU
 webhid
+stringifying
+Stax
