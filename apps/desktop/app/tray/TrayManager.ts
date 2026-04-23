@@ -1,6 +1,7 @@
 import path from 'path';
 
 import { type BrowserWindow, Tray, nativeImage } from 'electron';
+import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from '../config';
@@ -93,18 +94,31 @@ export function initTrayManager(
   cachedGetMainWindow = getMainWindow;
 
   // esbuild bundles TrayManager into dist/app.js, so __dirname resolves to
-  // <app>/dist both in dev and inside app.asar. '../build/static/...' lands
-  // on the webpack renderer output that electron-builder packs into asar.
+  // <app>/dist both in dev and inside app.asar. In prod, '../build/static/...'
+  // lands on the webpack renderer output that electron-builder packs into
+  // asar. In dev, app/build/ doesn't exist — webpack runs via dev-server —
+  // so we read directly from public/static/ where finalize-renderer-assets.js
+  // would have copied from anyway.
   // (Don't use app.getAppPath(): dev returns the entry script's parent dir
   // `<app>/dist`, while prod returns the asar root — different levels.)
-  const iconPath = path.join(
-    __dirname,
-    '..',
-    'build',
-    'static',
-    'images',
-    'trayTemplate.png',
-  );
+  const iconPath = isDev
+    ? path.join(
+        __dirname,
+        '..',
+        '..',
+        'public',
+        'static',
+        'images',
+        'trayTemplate.png',
+      )
+    : path.join(
+        __dirname,
+        '..',
+        'build',
+        'static',
+        'images',
+        'trayTemplate.png',
+      );
   const icon = nativeImage.createFromPath(iconPath);
   if (icon.isEmpty()) {
     // `new Tray(emptyImage)` throws on macOS, so skip init rather than
