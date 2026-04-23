@@ -7,6 +7,7 @@ import {
   LOCALE_SEPARATORS,
   formatBalance,
   formatDisplayNumber,
+  formatLocalizedNumberString,
   formatMarketCap,
   formatPrice,
   formatPriceChange,
@@ -70,6 +71,17 @@ describe('numberUtils locale separators', () => {
       expect(result).toContain(`$42${decimal}50`);
     });
   }
+
+  test('formatLocalizedNumberString preserves raw decimals with locale separators', () => {
+    appLocale.setLocale('de', {} as any);
+    expect(formatLocalizedNumberString('78056.1')).toBe('78.056,1');
+    expect(formatLocalizedNumberString('2508.9')).toBe('2.508,9');
+  });
+
+  test('formatLocalizedNumberString supports Indian grouping', () => {
+    appLocale.setLocale('hi-IN', {} as any);
+    expect(formatLocalizedNumberString('12345678.9')).toBe('1,23,45,678.9');
+  });
 });
 
 describe('numberUtils it-IT formatting', () => {

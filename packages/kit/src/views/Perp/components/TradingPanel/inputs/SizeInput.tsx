@@ -38,6 +38,7 @@ interface ISizeInputProps {
   label?: string;
   isMobile?: boolean;
   leverage: number;
+  allowMarginInput?: boolean;
 }
 
 export const SizeInput = memo(
@@ -57,6 +58,7 @@ export const SizeInput = memo(
     label,
     isMobile = false,
     leverage,
+    allowMarginInput = true,
   }: ISizeInputProps) => {
     const intl = useIntl();
     const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
@@ -64,12 +66,17 @@ export const SizeInput = memo(
 
     const [tradingPreferences, setTradingPreferences] =
       usePerpsTradingPreferencesAtom();
-    const inputMode = tradingPreferences.sizeInputUnit ?? 'usd';
+    const rawInputMode = tradingPreferences.sizeInputUnit ?? 'usd';
+    const inputMode =
+      !allowMarginInput && rawInputMode === 'margin' ? 'usd' : rawInputMode;
     const setInputMode = useCallback(
       (mode: 'token' | 'usd' | 'margin') => {
-        setTradingPreferences((prev) => ({ ...prev, sizeInputUnit: mode }));
+        setTradingPreferences((prev) => ({
+          ...prev,
+          sizeInputUnit: !allowMarginInput && mode === 'margin' ? 'usd' : mode,
+        }));
       },
-      [setTradingPreferences],
+      [allowMarginInput, setTradingPreferences],
     );
 
     const [tokenAmount, setTokenAmount] = useState('');
@@ -397,10 +404,11 @@ export const SizeInput = memo(
             value={inputMode}
             onChange={handleModeChange}
             tokenSymbol={symbol || ''}
+            allowMarginInput={allowMarginInput}
           />
         </XStack>
       ),
-      [inputMode, handleModeChange, symbol, isMobile],
+      [inputMode, handleModeChange, symbol, isMobile, allowMarginInput],
     );
 
     const displayValue = useMemo(() => {
