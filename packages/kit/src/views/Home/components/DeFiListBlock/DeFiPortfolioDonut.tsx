@@ -88,6 +88,9 @@ export function DeFiPortfolioDonut({
       width={size}
       height={size}
       viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`}
+      aria-hidden
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
     >
       {paths.map((p) => (
         <Path key={p.key} d={p.d} fill={p.fill} />

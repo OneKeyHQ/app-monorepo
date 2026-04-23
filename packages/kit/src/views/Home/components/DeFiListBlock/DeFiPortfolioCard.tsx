@@ -67,7 +67,9 @@ function DeFiPortfolioCard({ stats, isLoading }: IDeFiPortfolioCardProps) {
       userSelect="none"
     >
       <YStack flex={1} gap="$1" minWidth={0}>
-        <SizableText size="$headingLg">{title}</SizableText>
+        <SizableText size="$headingLg" role="heading" aria-level={2}>
+          {title}
+        </SizableText>
         <NumberSizeableTextWrapper
           hideValue
           size="$heading3xl"
