@@ -412,8 +412,18 @@ function TxFeeInfo(props: IProps) {
                 networkId,
                 accountAddress,
               });
-          } catch {
+          } catch (nonceErr) {
+            // Degrade to the pre-fix behavior for this attempt; a
+            // downstream 40209 would still route through the Refresh
+            // strategy, so the flow stays recoverable.
+            console.warn(
+              '[GasAccount] pre-estimate nonce lock failed',
+              nonceErr,
+            );
             lockedUserNonceValue = undefined;
+          }
+          if (getStaleResult()) {
+            return staleResult;
           }
         }
         const lockedUserNonce = Number.isFinite(lockedUserNonceValue)
