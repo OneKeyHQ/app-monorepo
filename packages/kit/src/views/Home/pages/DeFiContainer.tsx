@@ -71,6 +71,10 @@ import {
   getStickySidebarMaxHeight,
 } from './defiDesktopStickyDom';
 
+// Scroll depth beyond which back-to-top may reveal; deep enough to be past
+// the initial fold, shallow enough to not require a full viewport of scroll.
+const BACK_TO_TOP_NEAR_TOP_PX = 200;
+
 function scrollToAnchor(
   anchor: HTMLElement,
   offset: number,
@@ -600,25 +604,23 @@ function DeFiContainerScrollableNative() {
 
   const [backToTopVisible, setBackToTopVisible] = useState(false);
 
-  // Industry pattern: reveal on upward scroll once the user has moved past
-  // one viewport; hide on downward scroll or when near the top. 4px dead
-  // zone absorbs fingertip jitter / inertial micro-movement.
+  // Industry pattern: reveal on any upward scroll once the user has passed
+  // the initial fold; hide on downward scroll or when back near the top.
   useAnimatedReaction(
     () => scrollYShared.value as number,
     (current, previous) => {
-      if (previous === null || containerHeight <= 0) return;
-      if (current <= containerHeight) {
+      if (previous === null) return;
+      if (current <= BACK_TO_TOP_NEAR_TOP_PX) {
         runOnJS(setBackToTopVisible)(false);
         return;
       }
-      const delta = current - previous;
-      if (delta < -4) {
+      if (current < previous) {
         runOnJS(setBackToTopVisible)(true);
-      } else if (delta > 4) {
+      } else if (current > previous) {
         runOnJS(setBackToTopVisible)(false);
       }
     },
-    [scrollYShared, containerHeight],
+    [scrollYShared],
   );
 
   const onPressBackToTop = useCallback(() => {
@@ -666,8 +668,9 @@ function DeFiContainerScrollableWeb() {
     if (!scroller) return;
 
     let rafId = 0;
-    // Industry pattern: reveal on upward scroll past one viewport; hide on
-    // downward scroll or near the top. 4px dead zone absorbs wheel jitter.
+    // Industry pattern: reveal on any upward scroll past the initial fold;
+    // hide on downward scroll or near the top. rAF throttles already filter
+    // wheel jitter into a single per-frame delta, so no extra dead zone.
     const onScroll = () => {
       if (rafId) return;
       rafId = requestAnimationFrame(() => {
@@ -676,15 +679,14 @@ function DeFiContainerScrollableWeb() {
         const last = lastScrollTopRef.current;
         lastScrollTopRef.current = current;
 
-        if (current <= scroller.clientHeight) {
-          setBackToTopVisible((prev) => (prev === false ? prev : false));
+        if (current <= BACK_TO_TOP_NEAR_TOP_PX) {
+          setBackToTopVisible(false);
           return;
         }
-        const delta = current - last;
-        if (delta < -4) {
-          setBackToTopVisible((prev) => (prev === true ? prev : true));
-        } else if (delta > 4) {
-          setBackToTopVisible((prev) => (prev === false ? prev : false));
+        if (current < last) {
+          setBackToTopVisible(true);
+        } else if (current > last) {
+          setBackToTopVisible(false);
         }
       });
     };
