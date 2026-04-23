@@ -8777,18 +8777,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.4":
-  version: 1.1.26-alpha.4
-  resolution: "@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.4"
+"@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.8":
+  version: 1.1.26-alpha.8
+  resolution: "@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.8"
   dependencies:
     "@noble/hashes": "npm:^1.7.1"
-  checksum: 10/270e056231372cb91d0f387d4ba505dc147bb9f565456d06ff018d6221ec245570018c74b580753c90b7d73fecae2741fa88aff86b3c4601cc58f523256d3375
+  checksum: 10/f9a2370dcc5363975967d60980fd96e69005f547dfd251a6e306374dc61b86ba19a4712a1c7f77c8d5b003a53accda7430ae9ed624c2768101e45db32355d0e6
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.4":
-  version: 1.1.26-alpha.4
-  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.4"
+"@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.8":
+  version: 1.1.26-alpha.8
+  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.8"
   dependencies:
     "@ledgerhq/context-module": "npm:^1.0.0"
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
@@ -8797,39 +8797,39 @@ __metadata:
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/hw-app-trx": "npm:^6.34.1"
     "@ledgerhq/hw-transport": "npm:^6.34.1"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.4"
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.8"
     bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
-  checksum: 10/d960394d0e81ac15ac29d66d28cdd425c4106326b2ef35898b808033abd8efb06fa42f645009ab94a0dc920d4a902761e55eaada190ac766334b8f00f6cb4a2a
+  checksum: 10/4c4ce03a385767bb384e61f8b9b8e5f6c46827cd1124f0d340f8d5a309dc37241633ded4627d5bf87e8b1c07b51982bfec47c64f31d7409d4f04453564b7436c
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.4":
-  version: 1.1.26-alpha.4
-  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.4"
+"@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.8":
+  version: 1.1.26-alpha.8
+  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.8"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-react-native-ble": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.4"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.4"
-  checksum: 10/afe83f073b9bcc0b9c7c9809521750bf6b80448aec2963461a70ec950a05d8719d58794579b74da5bbb16fc64ab7ac15ade947c02779e87c6f106bfb87b3a888
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.8"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.8"
+  checksum: 10/cb2f4a670ca3d1abdd6554071fa91bf0f84cfca4ab4087e70b5160dd042b6086ba73b0715638f7f58d0f8ba04b29120b437796d9f262424ec861b66e0b836c3c
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.4":
-  version: 1.1.26-alpha.4
-  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.4"
+"@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.8":
+  version: 1.1.26-alpha.8
+  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.8"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-web-hid": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.4"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.4"
-  checksum: 10/48dc2ee47fd2d8437d3de15985e2ff0c1594c356287c7350663fd261d3b3245b19974d817e9babe488e3dee53210e3c22ee3b50e27704e0b1883736652e2470e
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.8"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.8"
+  checksum: 10/f7328a50c23486a78f8b91dab58523f6dc216e194b198fe1fa9b6e66cff35e375e1c0a3944e62aeb386a7582fd6bfd605fad2dc980bfd976ef11d6dbf727ee6a
   languageName: node
   linkType: hard
 
@@ -9458,10 +9458,10 @@ __metadata:
     "@onekeyfe/hd-transport": "npm:1.1.25"
     "@onekeyfe/hd-transport-electron": "npm:1.1.25"
     "@onekeyfe/hd-web-sdk": "npm:1.1.25"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.4"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.4"
-    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.1.26-alpha.4"
-    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.1.26-alpha.4"
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.8"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.8"
+    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.1.26-alpha.8"
+    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.1.26-alpha.8"
     "@onekeyfe/onekey-cross-webview": "npm:2.2.68"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
