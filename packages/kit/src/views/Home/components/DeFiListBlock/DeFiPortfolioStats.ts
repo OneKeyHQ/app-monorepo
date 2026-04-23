@@ -44,7 +44,7 @@ function resolveLabel(
   return protocolMap[key]?.protocolName ?? protocol.protocol;
 }
 
-function roundToOneDecimal(n: number): number {
+export function roundToOneDecimal(n: number): number {
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 10) / 10;
 }
@@ -63,7 +63,7 @@ export function buildPortfolioStats(
       originalIndex,
       netWorth: getNetWorth(protocol),
     }))
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       if (a.netWorth !== b.netWorth) return b.netWorth - a.netWorth;
       return a.originalIndex - b.originalIndex;
     });
@@ -102,8 +102,7 @@ export function buildPortfolioStats(
       key: 'others',
       label: 'Others',
       netWorth: tailSum,
-      percent:
-        total > 0 ? roundToOneDecimal((tailSum / total) * 100) : 0,
+      percent: total > 0 ? roundToOneDecimal((tailSum / total) * 100) : 0,
       colorToken: PORTFOLIO_OTHERS_TOKEN,
     });
   }

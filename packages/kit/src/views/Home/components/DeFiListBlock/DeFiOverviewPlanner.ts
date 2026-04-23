@@ -4,6 +4,8 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { roundToOneDecimal } from './DeFiPortfolioStats';
+
 import type { IDeFiOverviewCell } from './hooks/useDeFiOverviewTopN';
 
 export const OVERVIEW_COLLAPSED_PROTOCOL_COUNT = 10;
@@ -16,6 +18,7 @@ export type IDeFiOverviewProtocolRenderCell = {
   protocol: IDeFiProtocol;
   protocolInfo: IProtocolSummary | undefined;
   netWorth: number;
+  percent: number | undefined;
 };
 
 export type IDeFiOverviewMoreRenderCell = {
@@ -40,6 +43,7 @@ export type IDeFiOverviewRenderCell =
 function toProtocolCell(
   cell: IDeFiOverviewCell,
   protocolMap: Record<string, IProtocolSummary>,
+  total: number,
 ): IDeFiOverviewProtocolRenderCell {
   const key = defiUtils.buildProtocolMapKey({
     protocol: cell.protocol.protocol,
@@ -52,6 +56,8 @@ function toProtocolCell(
     protocol: cell.protocol,
     protocolInfo: protocolMap[key],
     netWorth: cell.netWorth,
+    percent:
+      total > 0 ? roundToOneDecimal((cell.netWorth / total) * 100) : undefined,
   };
 }
 
@@ -59,12 +65,15 @@ export function buildDeFiOverviewRenderCells({
   rankedProtocols,
   protocolMap,
   isExpanded,
+  total,
 }: {
   rankedProtocols: IDeFiOverviewCell[];
   protocolMap: Record<string, IProtocolSummary>;
   isExpanded: boolean;
+  total: number;
 }): IDeFiOverviewRenderCell[] {
-  const toCell = (c: IDeFiOverviewCell) => toProtocolCell(c, protocolMap);
+  const toCell = (c: IDeFiOverviewCell) =>
+    toProtocolCell(c, protocolMap, total);
 
   if (rankedProtocols.length <= OVERVIEW_COLLAPSED_PROTOCOL_COUNT) {
     return rankedProtocols.map(toCell);
