@@ -242,8 +242,7 @@ export class ThirdPartyTransportNotAvailable extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey:
-          ETranslations.hardware_third_party_transport_not_available,
+        defaultKey: ETranslations.hardware_third_party_transport_not_available,
         defaultAutoToast: true,
       }),
     );
@@ -367,8 +366,7 @@ export class ThirdPartyFeatureNotSupported extends ThirdPartyHardwareError {
   ) {
     super(
       normalizeErrorProps(props, {
-        defaultKey:
-          ETranslations.hardware_third_party_feature_not_supported,
+        defaultKey: ETranslations.hardware_third_party_feature_not_supported,
         defaultAutoToast: true,
       }),
     );

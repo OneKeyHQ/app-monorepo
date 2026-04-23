@@ -12,7 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IDialogInstance } from '@onekeyhq/components';
+import type { IDialogInstance, ILottieViewProps } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import type { IThirdPartyHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -30,7 +30,6 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
-
 const AUTO_CLOSED_FLAG = 'autoClosed';
 const SHOW_CLOSE_BUTTON_DELAY = 8000;
 const TOAST_VIEWPORT_NAME = 'THIRD_PARTY_HW_TOAST';
@@ -47,10 +46,7 @@ function getDeviceLabel(vendor: string | undefined): string {
   );
 }
 
-function getToastLabel(
-  action: string | undefined,
-  _vendor: string,
-): string {
+function getToastLabel(action: string | undefined, _vendor: string): string {
   switch (action) {
     case EThirdPartyHardwareUiAction.openApp:
       return appLocale.intl.formatMessage({
@@ -72,22 +68,20 @@ function getToastLabel(
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getLedgerActionAnimation(
   action: string | undefined,
   themeVariant: 'light' | 'dark',
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any {
+): ILottieViewProps['source'] | null {
   switch (action) {
     case EThirdPartyHardwareUiAction.confirmOnDevice:
     case EThirdPartyHardwareUiAction.openApp:
       return themeVariant === 'dark'
-        ? require('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json')
-        : require('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json');
+        ? (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-dark.json') as ILottieViewProps['source'])
+        : (require('@onekeyhq/kit/assets/animations/confirm-on-ledger-light.json') as ILottieViewProps['source']);
     case EThirdPartyHardwareUiAction.unlockDevice:
       return themeVariant === 'dark'
-        ? require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json')
-        : require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json');
+        ? (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-dark.json') as ILottieViewProps['source'])
+        : (require('@onekeyhq/kit/assets/animations/enter-pin-on-ledger-light.json') as ILottieViewProps['source']);
     default:
       return null;
   }
