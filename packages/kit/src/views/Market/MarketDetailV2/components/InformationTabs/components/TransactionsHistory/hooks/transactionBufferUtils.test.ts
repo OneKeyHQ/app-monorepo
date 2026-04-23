@@ -1,50 +1,27 @@
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import { createMockTransaction } from '../__tests__/fixtures';
 
 import {
   appendBufferedTransaction,
   mergeUniqueTransactions,
 } from './transactionBufferUtils';
 
-function buildTx(hash: string, timestamp: number): IMarketTokenTransaction {
-  return {
-    pairAddress: 'pair',
-    hash,
-    owner: 'owner',
-    type: 'buy',
-    timestamp,
-    url: '',
-    from: {
-      symbol: 'ETH',
-      amount: '1',
-      address: '0xeth',
-      price: '1',
-    },
-    to: {
-      symbol: 'USDT',
-      amount: '1',
-      address: '0xusdt',
-      price: '1',
-    },
-  };
-}
-
 describe('transactionBufferUtils', () => {
   it('merges transactions by timestamp and removes duplicate hashes', () => {
     expect(
       mergeUniqueTransactions([
-        buildTx('old', 1),
-        buildTx('new', 3),
-        buildTx('old', 2),
+        createMockTransaction('old', 1),
+        createMockTransaction('new', 3),
+        createMockTransaction('old', 2),
       ]).map((tx) => tx.hash),
     ).toEqual(['new', 'old']);
   });
 
   it('skips buffered transactions already present in the live list', () => {
-    const currentTransactions = [buildTx('existing', 1)];
+    const currentTransactions = [createMockTransaction('existing', 1)];
     const result = appendBufferedTransaction({
       bufferedTransactions: [],
       currentTransactions,
-      transaction: buildTx('existing', 2),
+      transaction: createMockTransaction('existing', 2),
       maxBufferSize: 2,
     });
 
@@ -54,9 +31,9 @@ describe('transactionBufferUtils', () => {
 
   it('keeps all buffered entries after crossing the overflow threshold', () => {
     const result = appendBufferedTransaction({
-      bufferedTransactions: [buildTx('1', 1), buildTx('2', 2)],
+      bufferedTransactions: [createMockTransaction('1', 1), createMockTransaction('2', 2)],
       currentTransactions: [],
-      transaction: buildTx('3', 3),
+      transaction: createMockTransaction('3', 3),
       maxBufferSize: 2,
     });
 

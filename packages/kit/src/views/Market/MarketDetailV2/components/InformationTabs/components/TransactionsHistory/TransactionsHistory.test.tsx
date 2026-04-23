@@ -6,6 +6,7 @@ import { render } from '@testing-library/react';
 
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
+import { createMockTransaction } from './__tests__/fixtures';
 import { TransactionsHistoryBase as TransactionsHistory } from './TransactionsHistory';
 
 const mockUseTransactionsWebSocket: jest.MockedFunction<
@@ -21,30 +22,6 @@ const mockHandleRealtimePauseHoverOut = jest.fn();
 const mockHandleRealtimePauseTouchStart = jest.fn();
 const mockHandleRealtimePauseTouchEnd = jest.fn();
 const mockTransactionsRelativeTimeProvider = jest.fn();
-
-function createTransaction(hash: string): IMarketTokenTransaction {
-  return {
-    pairAddress: 'pair-1',
-    hash,
-    owner: '0xowner',
-    type: 'buy',
-    timestamp: 1,
-    url: '',
-    volumeUSD: 1,
-    from: {
-      symbol: 'AAA',
-      amount: '1',
-      address: '0xaaa',
-      price: '1',
-    },
-    to: {
-      symbol: 'BBB',
-      amount: '1',
-      address: '0xbbb',
-      price: '1',
-    },
-  };
-}
 
 const mockMarketTransactionsResult = {
   transactions: [] as IMarketTokenTransaction[],
@@ -201,7 +178,7 @@ describe('TransactionsHistory', () => {
   });
 
   it('disables relative time ticking when the transactions tab is hidden', () => {
-    mockMarketTransactionsResult.transactions = [createTransaction('0xtx')];
+    mockMarketTransactionsResult.transactions = [createMockTransaction('0xtx')];
 
     render(
       <TransactionsHistory

@@ -4,6 +4,8 @@ import { act, renderHook } from '@testing-library/react';
 
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
+import { createMockTransaction } from '../__tests__/fixtures';
+
 import { useMarketTransactions } from './useMarketTransactions';
 
 type IThrottledTransactionsUpdate = ((
@@ -93,33 +95,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-function createTransaction(
-  hash: string,
-  timestamp = 1,
-): IMarketTokenTransaction {
-  return {
-    pairAddress: 'pair-1',
-    hash,
-    owner: '0xowner',
-    type: 'buy',
-    timestamp,
-    url: '',
-    volumeUSD: 1,
-    from: {
-      symbol: 'AAA',
-      amount: '1',
-      address: '0xaaa',
-      price: '1',
-    },
-    to: {
-      symbol: 'BBB',
-      amount: '1',
-      address: '0xbbb',
-      price: '1',
-    },
-  };
-}
-
 describe('useMarketTransactions', () => {
   beforeEach(() => {
     mockFetchTransactions.mockReset();
@@ -128,7 +103,7 @@ describe('useMarketTransactions', () => {
 
     mockUsePromiseResult.mockReturnValue({
       result: {
-        list: [createTransaction('base-1')],
+        list: [createMockTransaction('base-1')],
         cursor: 'cursor-1',
       },
       isLoading: false,
@@ -159,9 +134,9 @@ describe('useMarketTransactions', () => {
     ]);
 
     act(() => {
-      result.current.addNewTransaction(createTransaction('live-1', 2));
+      result.current.addNewTransaction(createMockTransaction('live-1', 2));
       result.current.handleRealtimePauseHoverIn();
-      result.current.addNewTransaction(createTransaction('buffered-1', 3));
+      result.current.addNewTransaction(createMockTransaction('buffered-1', 3));
     });
 
     expect(result.current.bufferedTransactionsCount).toBe(1);
@@ -216,7 +191,7 @@ describe('useMarketTransactions', () => {
 
     act(() => {
       result.current.handleRealtimePauseHoverIn();
-      result.current.addNewTransaction(createTransaction('buffered-1', 2));
+      result.current.addNewTransaction(createMockTransaction('buffered-1', 2));
     });
 
     expect(result.current.bufferedTransactionsCount).toBe(1);
