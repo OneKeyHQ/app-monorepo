@@ -6,5 +6,4 @@ ignore:
         reason: 'Only affects CLI usage, not library usage'
   SNYK-JS-BIGINTBUFFER-3364597:
     - '*':
-        reason: 'Patched via patch-package (patches/bigint-buffer+1.1.5.patch), commit ac9fd03e4d — upstream unmaintained, 1.1.5 is latest available'
-        expires: '2027-04-23T00:00:00.000Z'
+        reason: 'Patched via patch-package (patches/bigint-buffer+1.1.5.patch)'
