@@ -40,6 +40,40 @@ import ServiceBase from './ServiceBase';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
 
+function mergeAddressComponentTags(
+  results: IParseTransactionResp[],
+): IParseTransactionResp {
+  const base = results[0];
+
+  if (!base.display?.components?.length) {
+    return base;
+  }
+
+  base.display.components.forEach((component, index) => {
+    if (component.type !== EParseTxComponentType.Address) {
+      return;
+    }
+
+    const addressComponents = results
+      .map((result) => result.display?.components?.[index])
+      .filter(
+        (candidate): candidate is typeof component =>
+          candidate?.type === EParseTxComponentType.Address,
+      );
+
+    const preferredTags =
+      addressComponents.find((candidate) =>
+        candidate.tags?.some((tag) => tag.key === 'transferred'),
+      )?.tags ?? addressComponents[0]?.tags;
+
+    if (preferredTags) {
+      component.tags = preferredTags;
+    }
+  });
+
+  return base;
+}
+
 @backgroundClass()
 class ServiceSignatureConfirm extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -250,7 +284,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
-    const { accountId, networkId, encodedTx } = params;
+    const { accountId, networkId, encodedTx, origin } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -313,6 +347,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           accountAddress,
           encodedTx: encodedTxToParse,
           xpub,
+          origin,
         },
         { headers: walletTypeHeaders },
       );
@@ -340,7 +375,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     }
     // Use the first result as base, merge riskLevel across xpubs
     // (take the highest risk seen from any derive path).
-    const base = validResults[0];
+    const base = mergeAddressComponentTags(validResults);
     if (base.parsedTx?.to) {
       const maxRiskLevel = Math.max(
         ...validResults.map((r) => r.parsedTx?.to?.riskLevel ?? 0),

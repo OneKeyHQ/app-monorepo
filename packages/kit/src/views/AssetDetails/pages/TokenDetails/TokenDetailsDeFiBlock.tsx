@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +19,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface ITokenDetailsDeFiBlockProps {
@@ -28,9 +29,30 @@ interface ITokenDetailsDeFiBlockProps {
   tokenLogoURI?: string;
 }
 
+type ITokenDetailsDeFiBlockResult = {
+  symbolInfo: Awaited<
+    ReturnType<
+      typeof backgroundApiProxy.serviceStaking.findSymbolByTokenAddress
+    >
+  >;
+  maxApr: number;
+  protocolList: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceStaking.getProtocolList>
+  >;
+  blockData: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceStaking.getBlockRegion>
+  >;
+} | null;
+
+type ITokenDetailsDeFiBlockCacheValue = {
+  result: ITokenDetailsDeFiBlockResult;
+};
+
 // Module-level cache: prevents skeleton flash on remount when scrolling
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const earnResultCache = new cacheUtils.LRUCache<string, any>({
+const earnResultCache = new cacheUtils.LRUCache<
+  string,
+  ITokenDetailsDeFiBlockCacheValue
+>({
   max: 50,
   ttl: timerUtils.getTimeDurationMs({ minute: 10 }),
   ttlAutopurge: true,
@@ -45,51 +67,96 @@ export function TokenDetailsDeFiBlock({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const requestIdRef = useRef(generateUUID());
+  const isUnmountedRef = useRef(false);
 
   const cacheKey = `${networkId}_${tokenAddress}`;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  const cachedResult = useMemo(() => earnResultCache.get(cacheKey), [cacheKey]);
+  // `undefined` means cache miss; `null` means cached "no DeFi banner".
+  // The cache wraps values in `{ result }` so we can distinguish the two cases.
+  const cachedEntry = useMemo(() => earnResultCache.get(cacheKey), [cacheKey]);
+  const hasCachedResult = cachedEntry !== undefined;
+  const cachedResult = cachedEntry?.result;
 
   const { result: earnResult, isLoading } = usePromiseResult(
     async () => {
+      if (hasCachedResult) {
+        return cachedResult;
+      }
+
       const symbolInfo =
         await backgroundApiProxy.serviceStaking.findSymbolByTokenAddress({
           networkId,
           tokenAddress,
         });
-      if (!symbolInfo) {
-        earnResultCache.delete(cacheKey);
+      if (isUnmountedRef.current) {
         return undefined;
       }
-      const protocolList =
-        await backgroundApiProxy.serviceStaking.getProtocolList({
+      if (!symbolInfo) {
+        earnResultCache.set(cacheKey, { result: null });
+        return null;
+      }
+      let protocolList;
+      try {
+        protocolList = await backgroundApiProxy.serviceStaking.getProtocolList({
           symbol: symbolInfo.symbol,
           filterNetworkId: networkId,
           includeWithdrawOnly: true,
+          requestId: requestIdRef.current,
         });
-      if (!Array.isArray(protocolList) || !protocolList.length) {
-        earnResultCache.delete(cacheKey);
+      } catch {
+        // Transient error — don't cache so retry happens on next mount
+        return null;
+      }
+      if (isUnmountedRef.current) {
         return undefined;
+      }
+      if (!Array.isArray(protocolList) || !protocolList.length) {
+        earnResultCache.set(cacheKey, { result: null });
+        return null;
       }
       const aprItems = protocolList
         .map((o) => Number(o.provider.aprWithoutFee))
         .filter((n) => n > 0);
       const maxApr = Math.max(0, ...aprItems);
       if (maxApr === 0) {
-        earnResultCache.delete(cacheKey);
+        earnResultCache.set(cacheKey, { result: null });
+        return null;
+      }
+      const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion({
+        requestId: requestIdRef.current,
+      });
+      if (isUnmountedRef.current) {
         return undefined;
       }
-      const blockData =
-        await backgroundApiProxy.serviceStaking.getBlockRegion();
       const data = { symbolInfo, maxApr, protocolList, blockData };
-      earnResultCache.set(cacheKey, data);
+      earnResultCache.set(cacheKey, { result: data });
       return data;
     },
-    [networkId, tokenAddress, cacheKey],
+    [networkId, tokenAddress, cacheKey, hasCachedResult, cachedResult],
     {
       watchLoading: true,
-      ...(cachedResult ? { initResult: cachedResult } : {}),
+      ...(hasCachedResult ? { initResult: cachedResult } : {}),
     },
+  );
+
+  const renderState = useMemo(() => {
+    if (isLoading && earnResult === undefined) {
+      return 'loading';
+    }
+    if (!earnResult) {
+      return 'hidden';
+    }
+    return 'content';
+  }, [earnResult, isLoading]);
+
+  useEffect(
+    () => () => {
+      isUnmountedRef.current = true;
+      void backgroundApiProxy.serviceStaking.abortPendingRequestsByRequestId({
+        requestId: requestIdRef.current,
+      });
+    },
+    [],
   );
 
   const handlePress = useCallback(async () => {
@@ -150,9 +217,9 @@ export function TokenDetailsDeFiBlock({
     tokenLogoURI,
   ]);
 
-  // Show skeleton only on first load (no cache). On remount after scroll,
-  // initResult provides cached data so we skip straight to the real content.
-  if (isLoading && !earnResult) {
+  // Show skeleton only on first load (no cache). Cache also stores null for
+  // "no DeFi banner", so remounts do not flash skeleton again.
+  if (renderState === 'loading') {
     return (
       <XStack
         bg="$bgSubdued"
@@ -175,7 +242,7 @@ export function TokenDetailsDeFiBlock({
   }
 
   // No earn data available
-  if (!earnResult) {
+  if (renderState === 'hidden' || !earnResult) {
     return null;
   }
 
