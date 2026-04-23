@@ -74,13 +74,14 @@ app-monorepo/
 
 ## 🚀 Getting Onboard
 
-> **Prerequisites:** Node.js >= 22, Yarn 4.x (bundled via Corepack), [Git LFS](https://git-lfs.github.com/)
+> **Prerequisites:** Node.js >= 22, Yarn 4.x (the exact version is pinned via the `packageManager` field in `package.json` and provisioned by Corepack), [Git LFS](https://git-lfs.github.com/)
 
 ```bash
 git clone https://github.com/OneKeyHQ/app-monorepo.git
 cd app-monorepo
+corepack enable    # bootstraps the Yarn version pinned in package.json
 yarn
-yarn app:web    # starts dev server at http://localhost:3000
+yarn app:web      # starts dev server at http://localhost:3000
 ```
 
 <details>
