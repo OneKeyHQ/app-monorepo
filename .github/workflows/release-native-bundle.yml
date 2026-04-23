@@ -202,6 +202,8 @@ jobs:
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UNION_BUILD: 'true'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
         run: 'yarn app:build-bundle'
       
       - name: upload zips
