@@ -796,9 +796,13 @@ function renderWorktreeSelector({
     }),
   ];
 
+  const subtitle = `${styleText('↑/↓', ANSI.bold)} move · ${styleText(
+    'Enter',
+    ANSI.bold,
+  )} confirm · ${styleText('Esc', ANSI.bold)} cancel · type to name`;
   const lines = [
     styleText('Worktree Picker', ANSI.bold, ANSI.cyan),
-    styleText('Create a new worktree or jump into an existing one.', ANSI.dim),
+    subtitle,
     '',
     createSectionDivider('Create', width),
     formatField('Name', createPreview.nameLabel, width),
@@ -817,15 +821,6 @@ function renderWorktreeSelector({
       )}`,
     );
   }
-
-  lines.push(
-    '',
-    createSectionDivider('Keys', width),
-    `${styleText('↑/↓', ANSI.bold)} move  ${styleText('Enter', ANSI.bold)} confirm  ${styleText(
-      'Esc',
-      ANSI.bold,
-    )} cancel`,
-  );
 
   process.stdout.write('\x1b[2J\x1b[H');
   process.stdout.write(`${lines.join('\n')}\n`);
