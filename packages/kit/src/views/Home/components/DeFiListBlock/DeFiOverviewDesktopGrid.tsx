@@ -7,6 +7,7 @@ import type {
 import { DeFiOverviewLessTile } from './DeFiOverviewLessTile';
 import { DeFiOverviewMoreTile } from './DeFiOverviewMoreTile';
 import { DeFiOverviewTile } from './DeFiOverviewTile';
+
 import type { IDeFiOverviewRenderCell } from './DeFiOverviewPlanner';
 
 export type IDeFiOverviewDesktopGridProps = {
