@@ -297,6 +297,7 @@ function WalletActionSend({
         }),
         networkId: network.id,
         accountId: account?.id ?? '',
+        isAllNetworks: network.isAllNetworks,
         tokens: {
           data: allTokens.tokens,
           keys: allTokens.keys,
