@@ -211,8 +211,7 @@ const insertGroupingSeparator = (intStr: string): string => {
   const abs = isNegative ? intStr.slice(1) : intStr;
   const sep = lazyGroupingSeparator();
   const locale = appLocale.intl.locale;
-  const useIndian =
-    platformEnv.isNative && LOCALE_SEPARATORS[locale]?.indianGrouping;
+  const useIndian = LOCALE_SEPARATORS[locale]?.indianGrouping;
 
   if (useIndian && abs.length > 3) {
     // Indian grouping: last 3 digits, then groups of 2 from the right
@@ -238,6 +237,36 @@ const insertGroupingSeparator = (intStr: string): string => {
     result += abs[i];
   }
   return isNegative ? `-${result}` : result;
+};
+
+export const formatLocalizedNumberString = (
+  value: string,
+  {
+    disableThousandSeparator = false,
+  }: { disableThousandSeparator?: boolean } = {},
+): string => {
+  if (!value) return value;
+
+  const trimmedValue = value.trim();
+  const match = trimmedValue.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+
+  if (!match) {
+    return trimmedValue;
+  }
+
+  const [, sign, integerPart, decimalPart] = match;
+  const signedInteger = sign === '-' ? `-${integerPart}` : integerPart;
+  const localizedInteger = disableThousandSeparator
+    ? signedInteger
+    : insertGroupingSeparator(signedInteger);
+  const integerWithSign =
+    sign === '+' ? `+${localizedInteger}` : localizedInteger;
+
+  if (!decimalPart) {
+    return integerWithSign;
+  }
+
+  return `${integerWithSign}${lazyDecimalSymbol(decimalPart.length)}${decimalPart}`;
 };
 
 const formatLocalNumber = (
