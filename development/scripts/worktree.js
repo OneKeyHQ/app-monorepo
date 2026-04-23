@@ -1193,9 +1193,22 @@ async function resolveWorktreeSelection({ customName }) {
   });
 }
 
+function getInvocationCommand() {
+  const rawName = path.basename(process.argv[1] || '').replace(/\.js$/, '');
+
+  // When run as `yarn worktree` (or `node worktree.js`) inside a repo, argv[1]
+  // resolves to the script file. Keep the `yarn worktree` branding in that
+  // case. Otherwise use whatever the file is invoked as (e.g. `zbin-wt`).
+  if (!rawName || rawName === 'worktree') {
+    return 'yarn worktree';
+  }
+  return rawName;
+}
+
 function showHelp() {
+  const cmd = getInvocationCommand();
   console.log(`
-Usage: yarn worktree [-n <name> | --name <name>] [--] [command...]
+Usage: ${cmd} [-n <name> | --name <name>] [--] [command...]
 
 Opens an interactive picker to create a new worktree or jump into an existing
 one. Existing worktrees are rendered as a tree based on parent-child
@@ -1210,15 +1223,15 @@ relationships (see metadata below).
   worktrees). Pre-existing worktrees are auto-registered as orphans.
 
 Examples (quotes optional):
-  yarn worktree                    # Pick a worktree, drop into its shell
-  yarn worktree claude
-  yarn worktree -n fix-wallet claude
-  yarn worktree --name fix-wallet yarn app:web
-  yarn worktree yarn app:web
-  yarn worktree yarn app:web --port 3000
-  yarn worktree npm run test -- --watch
-  yarn worktree -- -h              # Pass flags through to the target command
-  yarn worktree help               # Show this help message
+  ${cmd}                    # Pick a worktree, drop into its shell
+  ${cmd} claude
+  ${cmd} -n fix-wallet claude
+  ${cmd} --name fix-wallet yarn app:web
+  ${cmd} yarn app:web
+  ${cmd} yarn app:web --port 3000
+  ${cmd} npm run test -- --watch
+  ${cmd} -- -h              # Pass flags through to the target command
+  ${cmd} help               # Show this help message
   `);
 }
 
