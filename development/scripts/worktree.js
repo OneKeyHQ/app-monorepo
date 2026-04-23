@@ -515,23 +515,26 @@ function buildWorktreeTreeOrder(existingWorktrees, metadata) {
   };
 
   const ordered = [];
-  const walk = (parentName, depth) => {
+  const walk = (parentName, depth, ancestorIsLast) => {
     const siblings = sortSiblings(childrenByParent.get(parentName) || []);
     siblings.forEach((entry, index) => {
+      const isLast = index === siblings.length - 1;
       ordered.push({
         ...entry,
+        ancestorIsLast: [...ancestorIsLast],
         depth,
-        isLastSibling: index === siblings.length - 1,
+        isLastSibling: isLast,
       });
-      walk(entry.displayName, depth + 1);
+      walk(entry.displayName, depth + 1, [...ancestorIsLast, isLast]);
     });
   };
 
-  walk(null, 0);
+  walk(null, 0, []);
 
   return [
     ...baseEntries.map((entry) => ({
       ...entry,
+      ancestorIsLast: [],
       depth: 0,
       isLastSibling: true,
     })),
@@ -539,10 +542,14 @@ function buildWorktreeTreeOrder(existingWorktrees, metadata) {
   ];
 }
 
-function getTreePrefix(depth) {
-  if (depth <= 0) return '';
-  // Depth >= 1 → one level of indent per step, branch marker on the last one.
-  return `${'  '.repeat(depth - 1)}└─ `;
+function getTreePrefix(entry) {
+  if (!entry.ancestorIsLast || entry.depth === 0) {
+    return '';
+  }
+  const verticals = entry.ancestorIsLast
+    .map((last) => (last ? '   ' : '│  '))
+    .join('');
+  return `${verticals}${entry.isLastSibling ? '└─ ' : '├─ '}`;
 }
 
 function parseArgs(rawArgs) {
@@ -758,43 +765,43 @@ function renderWorktreeSelector({
     repoRoot,
     worktreeDir,
   });
-  const optionLines = [
-    ...renderOptionCard({
-      details: [
-        ['Branch', `${createPreview.branchName} (${createPreview.pathLabel})`],
-        [
-          'From',
-          `${createPreview.fromWorktreeLabel} (${createPreview.fromPathLabel})`,
-        ],
+  const newCardLines = renderOptionCard({
+    details: [
+      ['Branch', `${createPreview.branchName} (${createPreview.pathLabel})`],
+      [
+        'From',
+        `${createPreview.fromWorktreeLabel} (${createPreview.fromPathLabel})`,
       ],
-      selected: selectedIndex === 0,
-      tag: 'NEW',
-      tagTone: ANSI.green,
-      title: createPreview.cardTitle,
+    ],
+    selected: selectedIndex === 0,
+    tag: 'NEW',
+    tagTone: ANSI.green,
+    title: createPreview.cardTitle,
+    width,
+  });
+  const existingHeader = styleText(`Switch to (${worktrees.length})`, ANSI.dim);
+  const existingRows = worktrees.flatMap((entry, index) => {
+    const baseTitle = entry.isBase ? entry.branchName : entry.displayName;
+    const prefix = entry.isBase ? '' : getTreePrefix(entry);
+    const suffix = entry.isCurrent ? ' *' : '';
+    const title = `${prefix}${baseTitle} (${entry.pathLabel})${suffix}`;
+    let titleTone = ANSI.green;
+
+    if (entry.isBase) {
+      titleTone = ANSI.cyan;
+    } else if (entry.isCurrent) {
+      titleTone = ANSI.yellow;
+    }
+
+    return renderOptionCard({
+      details: [],
+      selected: selectedIndex === index + 1,
+      title,
+      titleTone,
       width,
-    }),
-    ...worktrees.flatMap((entry, index) => {
-      const baseTitle = entry.isBase ? entry.branchName : entry.displayName;
-      const prefix = entry.isBase ? '' : getTreePrefix(entry.depth || 0);
-      const suffix = entry.isCurrent ? ' *' : '';
-      const title = `${prefix}${baseTitle} (${entry.pathLabel})${suffix}`;
-      let titleTone = ANSI.green;
-
-      if (entry.isBase) {
-        titleTone = ANSI.cyan;
-      } else if (entry.isCurrent) {
-        titleTone = ANSI.yellow;
-      }
-
-      return renderOptionCard({
-        details: [],
-        selected: selectedIndex === index + 1,
-        title,
-        titleTone,
-        width,
-      });
-    }),
-  ];
+    });
+  });
+  const optionLines = [...newCardLines, '', existingHeader, ...existingRows];
 
   const subtitle = `${styleText('↑/↓', ANSI.bold)} move · ${styleText(
     'Enter',
