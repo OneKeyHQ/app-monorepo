@@ -115,7 +115,7 @@ Run these commands from the root directory:
 
 ## 🔰 Security
 
-- Please read the [Bug Bounty Rules](docs/BUG_RULES.md), we have detailed the exact plan in this article.
+- Please read the [Bug Bounty Rules](docs/BUG_RULES.md) for the full details of our disclosure program.
 - Report suspected vulnerabilities privately to **dev@onekey.so** or via [BugRap](https://bugrap.io/bounties/OneKey).
 - Please do **NOT** create publicly viewable issues for suspected security vulnerabilities.
 - As an open source project, although we are not yet profitable, we try to give some rewards to white hat hackers who disclose vulnerabilities to us in a timely manner.
