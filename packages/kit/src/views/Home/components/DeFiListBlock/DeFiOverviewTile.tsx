@@ -12,6 +12,8 @@ import type {
 
 import { formatPortfolioPercent } from './DeFiPortfolioLegend';
 
+const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
+
 export type IDeFiOverviewTileProps = {
   protocol: IDeFiProtocol;
   protocolInfo: IProtocolSummary | undefined;
@@ -97,6 +99,7 @@ function DeFiOverviewTile({
             color="$textSubdued"
             numberOfLines={1}
             ellipsizeMode="tail"
+            fontVariant={TABULAR_NUMS}
           >
             {formatPortfolioPercent(percent)}
           </SizableText>

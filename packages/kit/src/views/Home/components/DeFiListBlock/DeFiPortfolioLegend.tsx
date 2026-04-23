@@ -10,6 +10,8 @@ export function formatPortfolioPercent(percent: number): string {
   return `${percent.toFixed(1)}%`;
 }
 
+const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
+
 export type IDeFiPortfolioLegendProps = {
   slices: IPortfolioSlice[];
 };
@@ -46,7 +48,11 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
                 {label}
               </SizableText>
             </XStack>
-            <SizableText size="$bodyMdMedium" color="$text">
+            <SizableText
+              size="$bodyMdMedium"
+              color="$text"
+              fontVariant={TABULAR_NUMS}
+            >
               {formatPortfolioPercent(slice.percent)}
             </SizableText>
           </XStack>
