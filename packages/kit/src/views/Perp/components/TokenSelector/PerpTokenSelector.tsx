@@ -77,7 +77,11 @@ import {
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
-import { PerpTokenSelectorRow, TradingModeBadge } from './PerpTokenSelectorRow';
+import {
+  PerpTokenSelectorRow,
+  SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT,
+  TradingModeBadge,
+} from './PerpTokenSelectorRow';
 import { SortableHeaderCell } from './SortableHeaderCell';
 
 export const SPOT_DEX_INDEX = -1;
@@ -143,21 +147,51 @@ function TokenListHeader({ isSpot }: { isSpot?: boolean }) {
         label={intl.formatMessage({
           id: ETranslations.perp_token_selector_asset,
         })}
-        width={180}
+        width={isSpot ? undefined : 180}
+        flex={
+          isSpot
+            ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.asset.flex
+            : undefined
+        }
+        minWidth={
+          isSpot
+            ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.asset.minWidth
+            : 180
+        }
       />
       <SortableHeaderCell
         field="markPrice"
         label={intl.formatMessage({
           id: ETranslations.perp_token_selector_last_price,
         })}
-        width={110}
+        width={isSpot ? undefined : 110}
+        flex={
+          isSpot
+            ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.price.flex
+            : undefined
+        }
+        minWidth={
+          isSpot
+            ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.price.minWidth
+            : 110
+        }
       />
       <SortableHeaderCell
         field="change24hPercent"
         label={intl.formatMessage({
           id: ETranslations.perp_token_selector_24h_change,
         })}
-        width={150}
+        width={isSpot ? undefined : 150}
+        flex={
+          isSpot
+            ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.change24h.flex
+            : undefined
+        }
+        minWidth={
+          isSpot
+            ? SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.change24h.minWidth
+            : 150
+        }
       />
       {isSpot ? null : (
         <>
@@ -191,14 +225,18 @@ function TokenListHeader({ isSpot }: { isSpot?: boolean }) {
             label={intl.formatMessage({
               id: ETranslations.perp_token_selector_volume,
             })}
-            width={130}
+            flex={SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.volume.flex}
+            minWidth={SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.volume.minWidth}
           />
           <SortableHeaderCell
             field="openInterest"
             label={intl.formatMessage({
               id: ETranslations.global_market_cap,
             })}
-            width={200}
+            flex={SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.marketCap.flex}
+            minWidth={
+              SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.marketCap.minWidth
+            }
           />
         </>
       ) : null}
@@ -788,6 +826,7 @@ function BasePerpTokenSelector() {
       tokenSelectorOpen: isOpen,
     });
   }, [actions, isOpen]);
+  const triggerLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
   const content = useMemo(
     () => (
       <Popover
@@ -810,6 +849,8 @@ function BasePerpTokenSelector() {
             py="$1.5"
             borderRadius="$full"
             cursor="default"
+            minWidth={0}
+            maxWidth={420}
             hoverStyle={{
               bg: '$bgHover',
             }}
@@ -825,8 +866,13 @@ function BasePerpTokenSelector() {
             />
 
             {/* Token Name */}
-            <SizableText size="$heading2xl">
-              {mode === 'spot' ? displayName : `${displayName}USDC`}
+            <SizableText
+              size="$heading2xl"
+              numberOfLines={1}
+              minWidth={0}
+              flexShrink={1}
+            >
+              {triggerLabel}
             </SizableText>
             <TradingModeBadge isSpot={mode === 'spot'} />
             {builderFeeRate === 0 ? (
@@ -860,7 +906,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, isLoading, displayName, baseName, mode, builderFeeRate, intl],
+    [isOpen, isLoading, triggerLabel, baseName, mode, builderFeeRate, intl],
   );
   return (
     <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>

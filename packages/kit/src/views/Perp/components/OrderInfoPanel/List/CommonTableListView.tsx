@@ -167,6 +167,7 @@ const PaginationFooter = ({
   onPageChange,
   headerBgColor,
   headerTextColor,
+  borderColor,
   onViewAll,
 }: {
   currentPage: number;
@@ -176,6 +177,7 @@ const PaginationFooter = ({
   onPageChange: (page: number) => void;
   headerBgColor: string;
   headerTextColor: string;
+  borderColor: string;
   isMobile?: boolean;
   onViewAll?: () => void;
 }) => {
@@ -215,6 +217,8 @@ const PaginationFooter = ({
       justifyContent={isMobile ? 'center' : 'flex-start'}
       alignItems="center"
       bg={headerBgColor}
+      borderTopWidth="$px"
+      borderTopColor={borderColor}
     >
       {totalPages > 1 ? (
         <>
@@ -496,6 +500,7 @@ export function CommonTableListView<T>({
                 onPageChange={handlePageChange}
                 headerBgColor={headerBgColor}
                 headerTextColor={headerTextColor}
+                borderColor={borderColor}
               />
             ) : null
           }
@@ -538,6 +543,7 @@ export function CommonTableListView<T>({
             onPageChange={handlePageChange}
             headerBgColor={headerBgColor}
             headerTextColor={headerTextColor}
+            borderColor={borderColor}
           />
         </YStack>
       );
@@ -715,6 +721,7 @@ export function CommonTableListView<T>({
             isMobile={isMobile}
             headerBgColor={headerBgColor}
             headerTextColor={headerTextColor}
+            borderColor={borderColor}
             onViewAll={onViewAll}
           />
         ) : null}

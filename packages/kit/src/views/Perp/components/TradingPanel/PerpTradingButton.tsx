@@ -25,6 +25,7 @@ import {
   usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -73,8 +74,10 @@ export function PerpTradingButton({
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
+  const [tradingMode] = useTradingModeAtom();
   const { midPrice } = useTradingPrice();
   const themeVariant = useThemeVariant();
+  const isSpot = tradingMode === 'spot';
 
   const handleConnectWallet = useCallback(async () => {
     if (platformEnv.isWebDappMode) {
@@ -149,7 +152,9 @@ export function PerpTradingButton({
       });
     if (isNoEnoughMargin)
       return intl.formatMessage({
-        id: ETranslations.perp_trading_button_no_enough_margin,
+        id: isSpot
+          ? ETranslations.dexmarket_insufficient_balance
+          : ETranslations.perp_trading_button_no_enough_margin,
       });
     if (isMinimumOrderNotMet)
       return intl.formatMessage(
@@ -157,13 +162,13 @@ export function PerpTradingButton({
           id: ETranslations.perp_size_least,
         },
         {
-          num: '$10',
+          amount: '$10',
         },
       );
     return intl.formatMessage({
       id: ETranslations.perp_trade_button_place_order,
     });
-  }, [isSubmitting, isNoEnoughMargin, isMinimumOrderNotMet, intl]);
+  }, [isSpot, isSubmitting, isNoEnoughMargin, isMinimumOrderNotMet, intl]);
 
   const isLong = useMemo(() => formData.side === 'long', [formData.side]);
   const buttonStyles = useMemo(() => {
