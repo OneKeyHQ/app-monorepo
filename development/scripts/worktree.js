@@ -2,9 +2,13 @@
 // oxlint-disable @cspell/spellchecker
 
 const { execFileSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+
+const METADATA_FILE_NAME = 'worktree-meta.json';
+const METADATA_VERSION = 1;
 
 const ANSI = {
   black: '\x1b[30m',
@@ -129,6 +133,114 @@ function getCurrentTopLevelPath() {
     console.error('❌ Failed to get current worktree path');
     process.exit(1);
   }
+}
+
+function getGitCommonDir() {
+  try {
+    return execFileSync(
+      'git',
+      ['rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { encoding: 'utf-8' },
+    ).trim();
+  } catch (_error) {
+    console.error('❌ Failed to locate git common dir');
+    process.exit(1);
+  }
+}
+
+function getMetadataFilePath(gitCommonDir) {
+  return path.join(gitCommonDir, METADATA_FILE_NAME);
+}
+
+function createEmptyMetadata() {
+  return { version: METADATA_VERSION, worktrees: {} };
+}
+
+function readMetadata(metadataFilePath) {
+  if (!fs.existsSync(metadataFilePath)) {
+    return createEmptyMetadata();
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(metadataFilePath, 'utf-8'));
+
+    if (!parsed || typeof parsed !== 'object' || !parsed.worktrees) {
+      return createEmptyMetadata();
+    }
+
+    return {
+      version: parsed.version || METADATA_VERSION,
+      worktrees: { ...parsed.worktrees },
+    };
+  } catch (_error) {
+    // Corrupt metadata is non-fatal: rebuild on the fly from live worktrees.
+    return createEmptyMetadata();
+  }
+}
+
+function writeMetadata(metadataFilePath, metadata) {
+  const tmpPath = `${metadataFilePath}.tmp`;
+  fs.writeFileSync(tmpPath, `${JSON.stringify(metadata, null, 2)}\n`);
+  fs.renameSync(tmpPath, metadataFilePath);
+}
+
+function metadataEquals(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function syncMetadataWithExistingWorktrees(metadata, existingWorktrees) {
+  const nextWorktrees = { ...metadata.worktrees };
+  const liveNames = new Set(
+    existingWorktrees
+      .filter((entry) => !entry.isBase)
+      .map((entry) => entry.displayName),
+  );
+
+  for (const name of Object.keys(nextWorktrees)) {
+    if (!liveNames.has(name)) {
+      delete nextWorktrees[name];
+    }
+  }
+
+  for (const entry of existingWorktrees) {
+    if (entry.isBase || nextWorktrees[entry.displayName]) {
+      continue;
+    }
+
+    // Pre-existing worktrees created before metadata was introduced: record
+    // them as orphans so they show up in the tree but claim no parent.
+    nextWorktrees[entry.displayName] = {
+      branch: entry.branchName,
+      parent: null,
+      parentBranch: null,
+      createdAt: null,
+      createdFromBranch: null,
+    };
+  }
+
+  return { version: METADATA_VERSION, worktrees: nextWorktrees };
+}
+
+function getWorktreeRandomHash() {
+  return crypto.randomBytes(2).toString('hex');
+}
+
+function recordCreatedWorktreeMetadata({
+  branchName,
+  createdFromBranch,
+  displayName,
+  parentName,
+}) {
+  const metadataFilePath = getMetadataFilePath(getGitCommonDir());
+  const metadata = readMetadata(metadataFilePath);
+  metadata.worktrees[displayName] = {
+    branch: branchName,
+    parent: parentName || null,
+    parentBranch: createdFromBranch || null,
+    createdAt: new Date().toISOString(),
+    createdFromBranch: createdFromBranch || null,
+  };
+  writeMetadata(metadataFilePath, metadata);
 }
 
 function quoteForShell(value) {
@@ -259,56 +371,31 @@ function getCurrentWorktreeName(repoRoot, currentTopLevelPath) {
   return relativePath;
 }
 
-function getAvailableRandomWorktreeTarget(worktreeDir) {
+function getAutoCreateTarget(worktreeDir) {
   const maxAttempts = 5;
+  const date = getDateString();
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const city = getRandomCity();
-    const date = getDateString();
-    const branchName = `${city}-${date}`;
+    const hash = getWorktreeRandomHash();
+    const branchName = `${city}-${date}-${hash}`;
     const worktreePath = resolveWorktreePath(worktreeDir, branchName);
 
     if (isWorktreeTargetAvailable(worktreePath, branchName)) {
       return {
         kind: 'create',
-        mode: 'random',
+        mode: 'auto',
         branchName,
         city,
         date,
+        hash,
         worktreePath,
       };
     }
   }
 
   console.error(
-    `\n❌ Failed to generate a unique random worktree name after ${maxAttempts} attempts`,
-  );
-  process.exit(1);
-}
-
-function getDerivedWorktreeTarget(worktreeDir, currentWorktreeName) {
-  const maxAttempts = 5;
-  const time = getTimeString();
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const suffix = attempt === 0 ? time : `${time}-${attempt + 1}`;
-    const branchName = `${currentWorktreeName}-${suffix}`;
-    const worktreePath = resolveWorktreePath(worktreeDir, branchName);
-
-    if (isWorktreeTargetAvailable(worktreePath, branchName)) {
-      return {
-        kind: 'create',
-        mode: 'derived',
-        branchName,
-        sourceWorktreeName: currentWorktreeName,
-        time: suffix,
-        worktreePath,
-      };
-    }
-  }
-
-  console.error(
-    `\n❌ Failed to generate a unique worktree name for ${currentWorktreeName}`,
+    `\n❌ Failed to generate a unique worktree name after ${maxAttempts} attempts`,
   );
   process.exit(1);
 }
@@ -320,14 +407,6 @@ function getCustomWorktreeTarget(worktreeDir, branchName) {
     branchName,
     worktreePath: resolveWorktreePath(worktreeDir, branchName),
   };
-}
-
-function getDefaultCreateTarget(worktreeDir, currentWorktreeName) {
-  if (currentWorktreeName) {
-    return getDerivedWorktreeTarget(worktreeDir, currentWorktreeName);
-  }
-
-  return getAvailableRandomWorktreeTarget(worktreeDir);
 }
 
 function parseBranchName(branchRef) {
@@ -410,6 +489,69 @@ function getExistingWorktrees(repoRoot, currentTopLevelPath) {
     isBase: path.resolve(entry.path) === path.resolve(repoRoot),
     isCurrent: path.resolve(entry.path) === path.resolve(currentTopLevelPath),
   }));
+}
+
+function buildWorktreeTreeOrder(existingWorktrees, metadata) {
+  // base first (fixed at depth 0, not part of the managed tree)
+  const baseEntries = existingWorktrees.filter((entry) => entry.isBase);
+  const managedEntries = existingWorktrees.filter((entry) => !entry.isBase);
+  const byName = new Map(
+    managedEntries.map((entry) => [entry.displayName, entry]),
+  );
+  const childrenByParent = new Map();
+
+  for (const entry of managedEntries) {
+    const meta = metadata.worktrees[entry.displayName];
+    const parentName =
+      meta && meta.parent && byName.has(meta.parent) ? meta.parent : null;
+
+    if (!childrenByParent.has(parentName)) {
+      childrenByParent.set(parentName, []);
+    }
+    childrenByParent.get(parentName).push(entry);
+  }
+
+  const sortSiblings = (entries) => {
+    entries.sort((a, b) => {
+      const aCreated = metadata.worktrees[a.displayName]?.createdAt || '';
+      const bCreated = metadata.worktrees[b.displayName]?.createdAt || '';
+      if (aCreated && bCreated) return aCreated.localeCompare(bCreated);
+      if (aCreated) return -1;
+      if (bCreated) return 1;
+      return a.displayName.localeCompare(b.displayName);
+    });
+    return entries;
+  };
+
+  const ordered = [];
+  const walk = (parentName, depth) => {
+    const siblings = sortSiblings(childrenByParent.get(parentName) || []);
+    siblings.forEach((entry, index) => {
+      ordered.push({
+        ...entry,
+        depth,
+        isLastSibling: index === siblings.length - 1,
+      });
+      walk(entry.displayName, depth + 1);
+    });
+  };
+
+  walk(null, 0);
+
+  return [
+    ...baseEntries.map((entry) => ({
+      ...entry,
+      depth: 0,
+      isLastSibling: true,
+    })),
+    ...ordered,
+  ];
+}
+
+function getTreePrefix(depth) {
+  if (depth <= 0) return '';
+  // Depth >= 1 → one level of indent per step, branch marker on the last one.
+  return `${'  '.repeat(depth - 1)}└─ `;
 }
 
 function parseArgs(rawArgs) {
@@ -534,13 +676,10 @@ function getCreatePreview({
   const trimmedName = inputValue.trim();
 
   if (!trimmedName) {
-    let modeLabel = 'Auto-generated name';
-
-    if (defaultTarget.mode === 'derived') {
-      modeLabel = `From ${defaultTarget.sourceWorktreeName} + ${defaultTarget.time}`;
-    } else if (defaultTarget.mode === 'random') {
-      modeLabel = `Random ${defaultTarget.city} + ${defaultTarget.date}`;
-    }
+    const modeLabel =
+      defaultTarget.mode === 'auto'
+        ? `Random ${defaultTarget.city} + ${defaultTarget.date} + ${defaultTarget.hash}`
+        : 'Auto-generated name';
 
     return {
       branchName: defaultTarget.branchName,
@@ -629,18 +768,22 @@ function renderWorktreeSelector({
       let statusLabel = 'ready';
       let tag = 'WT';
       let tagTone = ANSI.green;
-      let title = entry.displayName;
+      let baseTitle = entry.displayName;
 
       if (entry.isBase) {
         statusLabel = 'base';
         tag = 'BASE';
         tagTone = ANSI.cyan;
-        title = 'Base repository';
+        baseTitle = 'Base repository';
       } else if (entry.isCurrent) {
         statusLabel = 'current';
         tag = 'CUR';
         tagTone = ANSI.yellow;
       }
+
+      const title = entry.isBase
+        ? baseTitle
+        : `${getTreePrefix(entry.depth || 0)}${baseTitle}`;
 
       return renderOptionCard({
         details: [
@@ -732,6 +875,7 @@ function getCreateTargetFromInput({ defaultTarget, inputValue, worktreeDir }) {
 }
 
 function selectWorktreeTarget({
+  currentWorktreeName,
   defaultTarget,
   repoRoot,
   worktreeDir,
@@ -787,7 +931,7 @@ function selectWorktreeTarget({
         }
 
         cleanup();
-        resolve(target);
+        resolve({ ...target, parentName: currentWorktreeName });
         return;
       }
 
@@ -874,21 +1018,27 @@ function logWorktreeSelection({
       `📚 Selected worktree: ${selection.isBase ? 'base' : selection.displayName}`,
     );
     console.log(`🌿 Target branch: ${selection.branchName}`);
-  } else if (selection.mode === 'custom') {
-    console.log(`🏷️  Custom name: ${selection.branchName}`);
-    console.log(`🌿 New branch: ${selection.branchName}`);
-  } else if (selection.mode === 'derived') {
-    console.log(`🧬 Source worktree: ${selection.sourceWorktreeName}`);
-    console.log(`🕒 Time suffix: ${selection.time}`);
-    console.log(`🌿 New branch: ${selection.branchName}`);
   } else {
-    console.log(`🌍 Random city: ${selection.city}`);
-    console.log(`📅 Date: ${selection.date}`);
+    if (selection.mode === 'custom') {
+      console.log(`🏷️  Custom name: ${selection.branchName}`);
+    } else {
+      console.log(`🌍 Random city: ${selection.city}`);
+      console.log(`📅 Date: ${selection.date}`);
+      console.log(`🔑 Hash: ${selection.hash}`);
+    }
     console.log(`🌿 New branch: ${selection.branchName}`);
+    if (selection.parentName) {
+      console.log(`🧬 Parent worktree: ${selection.parentName}`);
+    }
   }
 
   console.log(`📂 Worktree path: ${selection.worktreePath}`);
-  console.log(`📝 Command: ${commandToRun}\n`);
+
+  if (commandToRun) {
+    console.log(`📝 Command: ${commandToRun}\n`);
+  } else {
+    console.log('📝 Command: (interactive shell)\n');
+  }
 
   if (stayInWorktreeShell) {
     console.log(
@@ -897,13 +1047,25 @@ function logWorktreeSelection({
   }
 }
 
+function openInteractiveShellInWorktree({ shellPath, worktreePath }) {
+  console.log('🐚 Starting interactive shell...');
+  console.log(`📂 Current directory: ${worktreePath}`);
+  console.log('↩️  Exit this shell to return to the original terminal.\n');
+  execFileSync(shellPath, ['-i'], {
+    cwd: worktreePath,
+    stdio: 'inherit',
+  });
+}
+
 function runWorktreeCommand({ commandArgs, commandToRun, selection }) {
   const currentBranch = getCurrentBranch();
   const shellPath = process.env.SHELL || '/bin/zsh';
-  const stayInWorktreeShell = shouldStayInWorktreeShell(commandArgs);
+  const isShellOnly = commandArgs.length === 0;
+  const stayInWorktreeShell =
+    !isShellOnly && shouldStayInWorktreeShell(commandArgs);
 
   logWorktreeSelection({
-    commandToRun,
+    commandToRun: isShellOnly ? null : commandToRun,
     currentBranch,
     selection,
     stayInWorktreeShell,
@@ -923,6 +1085,13 @@ function runWorktreeCommand({ commandArgs, commandToRun, selection }) {
         },
       );
 
+      recordCreatedWorktreeMetadata({
+        branchName: selection.branchName,
+        createdFromBranch: currentBranch,
+        displayName: path.basename(selection.worktreePath),
+        parentName: selection.parentName || null,
+      });
+
       console.log('\n✅ Worktree created successfully!');
       console.log(`📂 Changed directory to: ${selection.worktreePath}`);
     } else {
@@ -930,16 +1099,27 @@ function runWorktreeCommand({ commandArgs, commandToRun, selection }) {
       console.log(`📂 Changed directory to: ${selection.worktreePath}`);
     }
 
-    console.log(`\n🚀 Running command in this worktree...\n`);
+    if (isShellOnly) {
+      console.log('\n🚀 Entering this worktree...\n');
+    } else {
+      console.log('\n🚀 Running command in this worktree...\n');
+    }
 
     try {
       process.chdir(selection.worktreePath);
-      runCommandInWorktree({
-        commandToRun,
-        shellPath,
-        stayInWorktreeShell,
-        worktreePath: selection.worktreePath,
-      });
+      if (isShellOnly) {
+        openInteractiveShellInWorktree({
+          shellPath,
+          worktreePath: selection.worktreePath,
+        });
+      } else {
+        runCommandInWorktree({
+          commandToRun,
+          shellPath,
+          stayInWorktreeShell,
+          worktreePath: selection.worktreePath,
+        });
+      }
     } catch (_error) {
       console.log('\n✋ Command ended');
     }
@@ -963,43 +1143,71 @@ async function resolveWorktreeSelection({ customName }) {
   const repoRoot = getRepoRoot();
   const currentTopLevelPath = getCurrentTopLevelPath();
   const worktreeDir = path.join(repoRoot, '.worktree');
-  const currentWorktreeName = customName
-    ? null
-    : getCurrentWorktreeName(repoRoot, currentTopLevelPath);
+  const currentWorktreeName = getCurrentWorktreeName(
+    repoRoot,
+    currentTopLevelPath,
+  );
 
   if (!fs.existsSync(worktreeDir)) {
     fs.mkdirSync(worktreeDir, { recursive: true });
   }
 
-  if (customName) {
-    return getCustomWorktreeTarget(worktreeDir, customName);
+  const gitCommonDir = getGitCommonDir();
+  const metadataFilePath = getMetadataFilePath(gitCommonDir);
+  const existingWorktrees = getExistingWorktrees(repoRoot, currentTopLevelPath);
+  const metadata = readMetadata(metadataFilePath);
+  const syncedMetadata = syncMetadataWithExistingWorktrees(
+    metadata,
+    existingWorktrees,
+  );
+
+  if (!metadataEquals(metadata, syncedMetadata)) {
+    writeMetadata(metadataFilePath, syncedMetadata);
   }
 
-  const defaultTarget = getDefaultCreateTarget(
-    worktreeDir,
-    currentWorktreeName,
+  if (customName) {
+    return {
+      ...getCustomWorktreeTarget(worktreeDir, customName),
+      parentName: currentWorktreeName,
+    };
+  }
+
+  const defaultTarget = {
+    ...getAutoCreateTarget(worktreeDir),
+    parentName: currentWorktreeName,
+  };
+  const orderedWorktrees = buildWorktreeTreeOrder(
+    existingWorktrees,
+    syncedMetadata,
   );
-  const existingWorktrees = getExistingWorktrees(repoRoot, currentTopLevelPath);
 
   return selectWorktreeTarget({
+    currentWorktreeName,
     defaultTarget,
     repoRoot,
     worktreeDir,
-    worktrees: existingWorktrees,
+    worktrees: orderedWorktrees,
   });
 }
 
 function showHelp() {
   console.log(`
-Usage: yarn worktree [-n <name> | --name <name>] [--] <command...>
+Usage: yarn worktree [-n <name> | --name <name>] [--] [command...]
 
-Creates a new worktree or runs the command in an existing one. Without -n/--name,
-the script opens an interactive picker with:
-- first item: create new worktree
-- existing worktrees: includes the base repository and every managed worktree
-- blank create name: auto-generate from current worktree + time, or random city+date
+Opens an interactive picker to create a new worktree or jump into an existing
+one. Existing worktrees are rendered as a tree based on parent-child
+relationships (see metadata below).
+
+- No command: drops you into an interactive shell inside the selected worktree.
+- With command: runs the command in the selected worktree. For 'codex' / 'claude'
+  the shell stays alive after the command exits.
+- -n/--name <name>: skip the picker and create a worktree with the given name.
+- Auto-generated names: {city}-{MMDD}-{hash4}, e.g. 'london-0423-a1b2'.
+- Metadata: recorded at <gitCommonDir>/${METADATA_FILE_NAME} (shared by all
+  worktrees). Pre-existing worktrees are auto-registered as orphans.
 
 Examples (quotes optional):
+  yarn worktree                    # Pick a worktree, drop into its shell
   yarn worktree claude
   yarn worktree -n fix-wallet claude
   yarn worktree --name fix-wallet yarn app:web
@@ -1022,7 +1230,7 @@ async function main() {
     process.exit(1);
   }
 
-  if (parsedArgs.showHelp || parsedArgs.commandArgs.length === 0) {
+  if (parsedArgs.showHelp) {
     showHelp();
     return;
   }
