@@ -2982,6 +2982,7 @@ export enum ETranslations {
   perp_you_will_get = 'perp.you_will_get',
   perp__deposit_no_second_confirmation__desc = 'perp__deposit_no_second_confirmation__desc',
   perp_guide_title = 'perp_guide_title',
+  perp_holdings_empty_message = 'perp_holdings_empty_message',
   perp_holdings_tokens = 'perp_holdings_tokens',
   perp_order_trigger_limit = 'perp_order_trigger_limit',
   perp_order_trigger_market = 'perp_order_trigger_market',

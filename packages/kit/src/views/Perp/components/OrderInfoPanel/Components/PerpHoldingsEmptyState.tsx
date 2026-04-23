@@ -98,7 +98,7 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
           maxWidth={isMobile ? 280 : 360}
         >
           {intl.formatMessage({
-            id: ETranslations.send_no_token_message,
+            id: ETranslations.perp_holdings_empty_message,
           })}
         </SizableText>
 
