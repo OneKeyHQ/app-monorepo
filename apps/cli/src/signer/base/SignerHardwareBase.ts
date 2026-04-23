@@ -178,14 +178,50 @@ export abstract class SignerHardwareBase implements ISigner {
 
   // passphraseState is an opaque SDK token (currently base58/URL-safe ASCII);
   // utf-8 round-trips any string through the keychain layer.
+  //
+  // After a lock/unlock cycle the keychain still holds the previous login's
+  // session-id, which is now invalid on the device. We must refresh BOTH
+  // keys atomically — a fresh passphrase-state paired with a stale
+  // session-id makes the next process feed the SDK a rejected combo, and
+  // every command keeps re-prompting through pinentry.
+  // Mirrors hardware-login-command.ts' post-resolve persistence step.
   private async persistPassphraseState(state: string): Promise<void> {
+    const keychain = this.deps.keychainFactory();
     try {
-      await this.deps
-        .keychainFactory()
-        .set(KEYCHAIN_PASSPHRASE_STATE_KEY, Buffer.from(state, 'utf-8'));
-      await this.preloadSessionFromKeychain();
+      await keychain.set(
+        KEYCHAIN_PASSPHRASE_STATE_KEY,
+        Buffer.from(state, 'utf-8'),
+      );
     } catch {
       // non-fatal — in-memory state still works this run.
+      return;
+    }
+
+    try {
+      const sdk = await this.deps.ensureSDKReady();
+      const search = await sdk.searchDevices();
+      if (!search?.success) return;
+      const devices = search.payload as Array<{
+        connectId?: string | null;
+        features?: { device_id?: string; session_id?: string };
+      }>;
+      const match =
+        devices.find((d) => d.connectId === this.device.connectId) ??
+        devices[0];
+      const sessionId = match?.features?.session_id;
+      if (!sessionId) return;
+
+      await keychain.set(
+        KEYCHAIN_SESSION_ID_KEY,
+        Buffer.from(sessionId, 'utf-8'),
+      );
+      // Warm the in-process SDK cache too. Idempotent — getPassphraseState
+      // already populated it for this run, but doing it here keeps the path
+      // consistent with how hardware-login-command primes the cache.
+      this.deps.preloadSessionCache(this.device.deviceId, state, sessionId);
+    } catch {
+      // non-fatal — next run will pop pinentry once until the session is
+      // rebuilt; no security or data-loss consequence.
     }
   }
 

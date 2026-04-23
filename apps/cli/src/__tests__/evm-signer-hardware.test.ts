@@ -42,6 +42,10 @@ const MOCK_SID_FROM_KEYCHAIN = 'sess_N1fKj3BvP4kRZ';
 const MOCK_STALE_PS = 'stalePsXyz7HkLm9';
 const MOCK_STALE_SID = 'staleSidAbc4JkRp';
 const MOCK_RESOLVED_PS = 'freshResolveWxYz23';
+// Returned by sdk.searchDevices() after a fresh getPassphraseState — this
+// is the session_id that persistPassphraseState must capture and write to
+// the keychain to replace the now-invalid stale one.
+const MOCK_FRESH_SID_AFTER_RESOLVE = 'sess_freshAfterUnlockK7';
 
 const DEVICE: DeviceInfo = {
   connectId: 'connect-123',
@@ -84,6 +88,20 @@ function makeDeps(
       makeSuccess({ unlocked: overrides.unlocked ?? true }),
     ),
     deviceUnlock: jest.fn(async () => makeSuccess({})),
+    // searchDevices is invoked by persistPassphraseState to discover the
+    // session_id the device just minted for the freshly-resolved passphrase.
+    searchDevices: jest.fn(async () =>
+      makeSuccess([
+        {
+          connectId: DEVICE.connectId,
+          deviceId: DEVICE.deviceId,
+          features: {
+            device_id: DEVICE.deviceId,
+            session_id: MOCK_FRESH_SID_AFTER_RESOLVE,
+          },
+        },
+      ]),
+    ),
     evmGetAddress: jest.fn(async () =>
       makeSuccess({ address: '0xabc', path: "m/44'/60'/0'/0/0" }),
     ),
@@ -207,7 +225,7 @@ describe('SignerHardware', () => {
   });
 
   describe('passphraseMode = on_host with locked device', () => {
-    it('unlocks device, skips stale keychain session, resolves fresh, re-persists', async () => {
+    it('unlocks device, skips stale keychain session, resolves fresh, re-persists BOTH keys', async () => {
       const { deps, mocks } = makeDeps({
         unlocked: false,
         keychainEntries: {
@@ -225,17 +243,37 @@ describe('SignerHardware', () => {
       await signer.getAddress('evm--1');
 
       expect(mocks.sdk.deviceUnlock).toHaveBeenCalledWith(DEVICE.connectId, {});
-      expect(mocks.preloadSessionCache).not.toHaveBeenCalled();
       expect(mocks.resolvePassphraseStateByMode).toHaveBeenCalledWith(
         DEVICE.connectId,
         'on_host',
       );
-      // Keychain stores the token's utf-8 bytes; the MacOSSecureStorage
-      // layer hex-encodes those bytes for transport via `security -i`.
+
+      // Regression guard for the post-lock pinentry-loop bug:
+      // persistPassphraseState MUST refresh BOTH keychain keys, otherwise
+      // the next process reads (NEW passphraseState, OLD session_id), feeds
+      // that combo to the SDK, and the device rejects → pinentry pops on
+      // every command after a lock/unlock cycle.
       expect(mocks.keychainSet).toHaveBeenCalledWith(
         KEYCHAIN_PASSPHRASE_STATE_KEY,
         Buffer.from(MOCK_RESOLVED_PS, 'utf-8'),
       );
+      expect(mocks.keychainSet).toHaveBeenCalledWith(
+        KEYCHAIN_SESSION_ID_KEY,
+        Buffer.from(MOCK_FRESH_SID_AFTER_RESOLVE, 'utf-8'),
+      );
+
+      // searchDevices is the source of the fresh session_id post-resolve.
+      expect(mocks.sdk.searchDevices).toHaveBeenCalled();
+
+      // After persisting, warm the SDK in-process cache with the new
+      // (deviceId, freshPassphraseState, freshSessionId) triple so any
+      // subsequent call this run hits the cache too.
+      expect(mocks.preloadSessionCache).toHaveBeenCalledWith(
+        DEVICE.deviceId,
+        MOCK_RESOLVED_PS,
+        MOCK_FRESH_SID_AFTER_RESOLVE,
+      );
+
       expect(mocks.sdk.evmGetAddress.mock.calls[0][2]).toMatchObject({
         passphraseState: MOCK_RESOLVED_PS,
         skipPassphraseCheck: true,
@@ -244,7 +282,7 @@ describe('SignerHardware', () => {
   });
 
   describe('passphraseMode = on_host with empty keychain + unlocked device', () => {
-    it('resolves fresh passphraseState via SDK and persists to keychain', async () => {
+    it('resolves fresh passphraseState via SDK and persists BOTH keys to keychain', async () => {
       const { deps, mocks } = makeDeps();
       const signer = new SignerHardware({
         device: DEVICE,
@@ -257,6 +295,12 @@ describe('SignerHardware', () => {
       expect(mocks.resolvePassphraseStateByMode).toHaveBeenCalledWith(
         DEVICE.connectId,
         'on_host',
+      );
+      // Both keys must be written so the next process can preload a valid
+      // (passphraseState, session_id) pair without re-prompting pinentry.
+      expect(mocks.keychainSet).toHaveBeenCalledWith(
+        KEYCHAIN_SESSION_ID_KEY,
+        Buffer.from(MOCK_FRESH_SID_AFTER_RESOLVE, 'utf-8'),
       );
       expect(mocks.keychainSet).toHaveBeenCalledWith(
         KEYCHAIN_PASSPHRASE_STATE_KEY,
