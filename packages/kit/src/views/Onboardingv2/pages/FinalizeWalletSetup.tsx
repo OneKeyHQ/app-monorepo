@@ -77,8 +77,10 @@ const NAVIGATION_TRANSITION_SETTLE_MS = 300;
 const SLOW_THRESHOLD_DEFAULT_MS = 8000;
 const SLOW_THRESHOLD_CONNECTING_MS = 12_000;
 
-// Keep the success state visible for a brief moment before closing.
-const WALLET_READY_DISPLAY_MS = 400;
+// Keep the success state visible before closing. ~300ms of that window is
+// eaten by the AnimatePresence exit/enter of the title+icon, so budget
+// enough time for a stable success moment after the transition settles.
+const WALLET_READY_DISPLAY_MS = 1000;
 
 type IStepData = { pathData: string; title: string } | null;
 
