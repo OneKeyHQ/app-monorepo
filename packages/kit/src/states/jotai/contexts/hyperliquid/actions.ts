@@ -1585,6 +1585,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             openOrdersByCoin,
           });
 
+          const prevSpotOpenOrders = await spotActiveOpenOrdersAtom.get();
+          await spotActiveOpenOrdersAtom.set({
+            ...prevSpotOpenOrders,
+            openOrders: prevSpotOpenOrders.openOrders.filter(
+              (o) => !this.canceledOrderIds.has(o.oid),
+            ),
+          });
+
           return result;
         },
         actionType: EActionType.CANCEL_ORDER,
