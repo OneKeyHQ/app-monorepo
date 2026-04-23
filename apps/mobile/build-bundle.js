@@ -153,93 +153,6 @@ const shouldIgnoreFile = (fileName) => {
   });
 };
 
-const isManifestVariantRecord = (record) => {
-  return typeof record === 'object' && record !== null && 'variants' in record;
-};
-
-const buildManifestEntrySignature = (entry) => {
-  return JSON.stringify({
-    id: entry.id,
-    key: entry.key,
-    runtime: entry.runtime,
-    relativePath: entry.relativePath,
-    sha256: entry.sha256,
-    dependsOn: entry.dependsOn || [],
-    critical: entry.critical || false,
-    size: entry.size ?? null,
-  });
-};
-
-const buildManifestRecordSignature = (record) => {
-  if (!record) {
-    return '';
-  }
-  if (!isManifestVariantRecord(record)) {
-    return buildManifestEntrySignature(record);
-  }
-  return JSON.stringify({
-    key: record.key,
-    variants: Object.entries(record.variants)
-      .filter(([, entry]) => Boolean(entry))
-      .toSorted(([left], [right]) => left.localeCompare(right))
-      .map(([runtime, entry]) => [runtime, buildManifestEntrySignature(entry)]),
-  });
-};
-
-const toManifestVariantRecord = (segmentKey, record) => {
-  if (isManifestVariantRecord(record)) {
-    return {
-      key: record.key || segmentKey,
-      variants: { ...record.variants },
-    };
-  }
-  return {
-    key: segmentKey,
-    variants: {
-      [record.runtime]: record,
-    },
-  };
-};
-
-const mergeSegmentManifestRecord = (segmentKey, existingRecord, nextRecord) => {
-  if (!existingRecord) {
-    return nextRecord;
-  }
-  if (
-    buildManifestRecordSignature(existingRecord) ===
-    buildManifestRecordSignature(nextRecord)
-  ) {
-    return existingRecord;
-  }
-
-  const mergedRecord = toManifestVariantRecord(segmentKey, existingRecord);
-  const nextVariantRecord = toManifestVariantRecord(segmentKey, nextRecord);
-
-  Object.entries(nextVariantRecord.variants).forEach(([runtime, entry]) => {
-    if (!entry) {
-      return;
-    }
-    const existingEntry = mergedRecord.variants[runtime];
-    if (
-      existingEntry &&
-      buildManifestEntrySignature(existingEntry) !==
-        buildManifestEntrySignature(entry)
-    ) {
-      throw new Error(
-        `Conflicting segment manifest entry for ${segmentKey} (${runtime})`,
-      );
-    }
-    mergedRecord.variants[runtime] = entry;
-  });
-
-  const runtimes = Object.keys(mergedRecord.variants);
-  if (runtimes.length === 1) {
-    return mergedRecord.variants[runtimes[0]];
-  }
-
-  return mergedRecord;
-};
-
 const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
   const metadata = {};
 
@@ -279,68 +192,35 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
       }
     });
 
-    // MetadataV2: embed structured bundle entries and segment manifest data.
-    // Merge segment entries from both main and background manifests.
-    // This adds bundleFormat, runtimeGraphVersion, commonEntry, mainEntry,
-    // backgroundEntry, and segments while preserving v1 backward compatibility
-    // (flat file→hash entries).
+    // Flat file→sha256 map only (scalar string values).
+    // native consumers (iOS Swift / Android Kotlin) iterate this flat map
+    // for file-level SHA256 verification. Structured bundle/segment manifests
+    // used to live here as nested objects but were dropped: Android
+    // JSONObject.getString() throws on non-string values, and no runtime code
+    // actually reads those descriptors — native resolves bundle entries by
+    // hard-coded filenames (common.bundle / main.jsbundle.hbc /
+    // background.bundle) and loads segments via SplitBundleLoader at JS call
+    // time.
     const mainManifestPath = getManifestPath('main');
     const bgManifestPath = getManifestPath('background');
-    const allSegments = {};
-
+    let hasSegments = false;
     [mainManifestPath, bgManifestPath].forEach((manifestPath) => {
-      if (fs.existsSync(manifestPath)) {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-        if (manifest.segments) {
-          Object.entries(manifest.segments).forEach(([segmentKey, record]) => {
-            allSegments[segmentKey] = mergeSegmentManifestRecord(
-              segmentKey,
-              allSegments[segmentKey],
-              record,
-            );
-          });
-        }
+      if (
+        !hasSegments &&
+        fs.existsSync(manifestPath) &&
+        Object.keys(
+          JSON.parse(fs.readFileSync(manifestPath, 'utf-8')).segments || {},
+        ).length > 0
+      ) {
+        hasSegments = true;
       }
     });
-
-    // MetadataV2 fields as proper typed values (not stringified).
-    // V1 consumers iterate flat string→string entries and skip non-string
-    // values, so nested objects don't interfere with v1 file-hash lookups.
-    //
-    // bundleFormat distinguishes the OTA package layout:
-    //   "three-bundle" — common + main + background (union build)
-    //   absent / "two-bundle" — main + background (legacy)
-    //
-    // NOTE: The native BundleUpdate module (Android isReservedMetadataKey,
-    // iOS metadata parsing) must be updated to skip these V2 keys when
-    // iterating file→hash entries for verification. Until then, the nested
-    // objects are harmless for V1 consumers that call getString() — they
-    // receive a JSON-stringified representation which won't match any
-    // on-disk file path and is therefore ignored during file validation.
-    const hasSegments = Object.keys(allSegments).length > 0;
     const isThreeBundleBuild = useUnionBuild || hasSegments;
 
     if (isThreeBundleBuild) {
       metadata.bundleFormat = 'three-bundle';
-      metadata.runtimeGraphVersion = 2;
-      metadata.commonEntry = {
-        file: 'common.jsbundle.hbc',
-        sha256: metadata['common.jsbundle.hbc'] || '',
-      };
-      metadata.mainEntry = {
-        file: 'main.jsbundle.hbc',
-        sha256: metadata['main.jsbundle.hbc'] || '',
-      };
-      metadata.backgroundEntry = {
-        file: 'background.bundle',
-        sha256: metadata['background.bundle'] || '',
-      };
-      if (hasSegments) {
-        metadata.segments = allSegments;
-      }
-      log(
-        `MetadataV2: bundleFormat=three-bundle, ${Object.keys(allSegments).length} segment(s)`,
-      );
+      metadata.requiresCommonBundle = 'true';
+      log('metadata: bundleFormat=three-bundle, requiresCommonBundle=true');
     }
 
     // Write metadata.json
@@ -1026,12 +906,15 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('main.jsbundle.hbc'),
     buildIOSOutputAssetPath('dist/main.jsbundle.hbc'),
   );
-  // Move common bundle into dist if it exists (union build)
+  // Move common bundle into dist if it exists (union build).
+  // Rename to "common.bundle" to match the filename the native loader
+  // (BundleUpdateStore / SplitBundle two-step loader) looks for on disk —
+  // see docs/ota-three-bundle.md.
   const iosCommonBundleHbc = buildIOSOutputAssetPath('common.jsbundle.hbc');
   if (fs.existsSync(iosCommonBundleHbc)) {
     fs.moveSync(
       iosCommonBundleHbc,
-      buildIOSOutputAssetPath('dist/common.jsbundle.hbc'),
+      buildIOSOutputAssetPath('dist/common.bundle'),
     );
   }
   fs.moveSync(
@@ -1314,14 +1197,17 @@ const buildAndroidBundle = async () => {
     buildAndroidOutputAssetPath('main.jsbundle.hbc'),
     buildAndroidOutputAssetPath('dist/main.jsbundle.hbc'),
   );
-  // Move common bundle into dist if it exists (union build)
+  // Move common bundle into dist if it exists (union build).
+  // Rename to "common.bundle" to match the filename the native loader
+  // (BundleUpdateStoreAndroid / ExpoReactHostFactory sequential file loader /
+  // BackgroundThreadManager) looks for on disk — see docs/ota-three-bundle.md.
   const androidCommonBundleHbc = buildAndroidOutputAssetPath(
     'common.jsbundle.hbc',
   );
   if (fs.existsSync(androidCommonBundleHbc)) {
     fs.moveSync(
       androidCommonBundleHbc,
-      buildAndroidOutputAssetPath('dist/common.jsbundle.hbc'),
+      buildAndroidOutputAssetPath('dist/common.bundle'),
     );
   }
   fs.moveSync(
