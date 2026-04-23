@@ -15,8 +15,8 @@ import {
   KEYCHAIN_SESSION_ID_KEY,
 } from '../../signer/keychain-keys';
 import {
+  loadSignerBuilders,
   requireSignerBuilder,
-  resolveSignerRegistration,
 } from '../../signer/registry';
 import { encrypt, secureWipe } from '../crypto-utils';
 import { secureCache } from '../secure-cache';
@@ -62,8 +62,8 @@ export class AuthManager {
     private readonly signerFactory: (impl: string) => Promise<ISigner> = async (
       impl,
     ) => {
-      const registration = await resolveSignerRegistration(impl);
-      return requireSignerBuilder(registration, WALLET_TYPE_HD)();
+      const builders = await loadSignerBuilders(impl);
+      return requireSignerBuilder(impl, builders, WALLET_TYPE_HD)();
     },
     private readonly appTransferLogin: IAppTransferLoginExecutor = startAppTransferLogin,
   ) {

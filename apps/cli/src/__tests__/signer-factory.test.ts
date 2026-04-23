@@ -12,32 +12,35 @@ jest.mock(
   { virtual: true },
 );
 
+// getSignerByImpl auto-auths via requireAuthenticatedSession; stub it so
+// tests don't need a real session on disk.
+jest.mock('../core/auth/auth-gate', () => ({
+  requireAuthenticatedSession: jest.fn(async () => ({
+    authStatus: 'authenticated',
+    hasSecrets: true,
+    storageBackend: 'macos-keychain',
+    walletKind: 'hd',
+  })),
+}));
+
+import { getSignerByImpl } from '../signer/factory';
 import { SignerHd } from '../signer/impls/evm/SignerHd';
-import {
-  requireSignerBuilder,
-  resolveSignerRegistration,
-} from '../signer/registry';
 
-async function buildHdSigner(impl: string) {
-  const registration = await resolveSignerRegistration(impl);
-  return requireSignerBuilder(registration, 'hd')();
-}
-
-describe('signer registry', () => {
+describe('signer factory', () => {
   it('returns SignerHd for evm impl', async () => {
-    const signer = await buildHdSigner('evm');
+    const signer = await getSignerByImpl('evm');
     expect(signer).toBeInstanceOf(SignerHd);
   });
 
   it('throws for unsupported impl', async () => {
-    await expect(resolveSignerRegistration('unknown')).rejects.toThrow(
+    await expect(getSignerByImpl('unknown')).rejects.toThrow(
       'Unsupported chain',
     );
   });
 
   it('returns same class for repeated calls', async () => {
-    const a = await buildHdSigner('evm');
-    const b = await buildHdSigner('evm');
+    const a = await getSignerByImpl('evm');
+    const b = await getSignerByImpl('evm');
     expect(a.constructor).toBe(b.constructor);
   });
 });

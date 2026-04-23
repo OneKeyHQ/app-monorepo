@@ -6,7 +6,7 @@ import {
 import { requireAuthenticatedSession } from '../core/auth/auth-gate';
 import { AppError, ERROR_CODES } from '../errors';
 
-import { requireSignerBuilder, resolveSignerRegistration } from './registry';
+import { loadSignerBuilders, requireSignerBuilder } from './registry';
 
 import type { ISigner } from './types';
 
@@ -19,7 +19,7 @@ import type { ISigner } from './types';
  */
 export async function getSignerByImpl(impl: string): Promise<ISigner> {
   const session = await requireAuthenticatedSession();
-  const registration = await resolveSignerRegistration(impl);
+  const builders = await loadSignerBuilders(impl);
 
   if (session.walletKind === WALLET_TYPE_HW) {
     if (!session.device || !session.passphraseMode) {
@@ -29,10 +29,10 @@ export async function getSignerByImpl(impl: string): Promise<ISigner> {
         'Run: onekey auth logout and login again with --hardware.',
       );
     }
-    const buildHardware = requireSignerBuilder(registration, WALLET_TYPE_HW);
+    const buildHardware = requireSignerBuilder(impl, builders, WALLET_TYPE_HW);
     return buildHardware(session.device, session.passphraseMode);
   }
 
-  const buildHd = requireSignerBuilder(registration, WALLET_TYPE_HD);
+  const buildHd = requireSignerBuilder(impl, builders, WALLET_TYPE_HD);
   return buildHd();
 }
