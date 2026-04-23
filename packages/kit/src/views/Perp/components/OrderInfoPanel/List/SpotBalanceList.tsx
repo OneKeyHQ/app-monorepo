@@ -50,6 +50,14 @@ interface ISpotBalanceListProps {
   ListHeaderComponent?: ReactElement | null;
 }
 
+function getBalanceSortPriority(item: IBalanceDisplayItem): number {
+  if (item.coin !== 'USDC') {
+    return 2;
+  }
+
+  return item.type === 'spot' ? 0 : 1;
+}
+
 function SpotBalanceList({
   isMobile,
   useTabsList,
@@ -168,6 +176,10 @@ function SpotBalanceList({
     }
 
     return items.toSorted((a, b) => {
+      const priorityDiff =
+        getBalanceSortPriority(a) - getBalanceSortPriority(b);
+      if (priorityDiff !== 0) return priorityDiff;
+
       const valueDiff = Math.abs(b.usdcValueNum) - Math.abs(a.usdcValueNum);
       if (valueDiff !== 0) return valueDiff;
       return new BigNumber(b.total).comparedTo(new BigNumber(a.total));
