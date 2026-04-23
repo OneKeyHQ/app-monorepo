@@ -770,32 +770,24 @@ function renderWorktreeSelector({
       width,
     }),
     ...worktrees.flatMap((entry, index) => {
-      let statusLabel = 'ready';
       let tag = 'WT';
       let tagTone = ANSI.green;
       let baseTitle = entry.displayName;
 
       if (entry.isBase) {
-        statusLabel = 'base';
         tag = 'BASE';
         tagTone = ANSI.cyan;
         baseTitle = 'Base repository';
       } else if (entry.isCurrent) {
-        statusLabel = 'current';
         tag = 'CUR';
         tagTone = ANSI.yellow;
       }
 
-      const title = entry.isBase
-        ? baseTitle
-        : `${getTreePrefix(entry.depth || 0)}${baseTitle}`;
+      const prefix = entry.isBase ? '' : getTreePrefix(entry.depth || 0);
+      const title = `${prefix}${baseTitle} (${entry.pathLabel})`;
 
       return renderOptionCard({
-        details: [
-          ['Branch', entry.branchName],
-          ['Path', entry.pathLabel],
-          ['Status', statusLabel],
-        ],
+        details: [],
         selected: selectedIndex === index + 1,
         tag,
         tagTone,
