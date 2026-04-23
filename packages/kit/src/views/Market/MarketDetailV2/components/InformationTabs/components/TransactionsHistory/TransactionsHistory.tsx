@@ -31,7 +31,11 @@ import { useTransactionsWebSocket } from './hooks/useTransactionsWebSocket';
 import { TransactionItemNormal } from './layout/TransactionItemNormal/TransactionItemNormal';
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 
-import type { FlatListProps } from 'react-native';
+import type {
+  FlatListProps,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 interface ITransactionsHistoryProps {
@@ -91,6 +95,9 @@ export function TransactionsHistoryBase({
   const { gtXl } = useMedia();
   const [, setRealtimePauseState] = useMarketTransactionsRealtimePauseAtom();
   const transactionsListRootRef = useRef<HTMLElement | null>(null);
+  const didScrollDuringTouchRef = useRef(false);
+  const isMomentumScrollingRef = useRef(false);
+  const hasPendingTouchResumeRef = useRef(false);
 
   // Enable polling mode for native tokens (which don't have WebSocket support)
   // or for web non-xl screens without WebSocket txs enabled
@@ -118,7 +125,6 @@ export function TransactionsHistoryBase({
     handleRealtimePauseHoverIn,
     handleRealtimePauseHoverOut,
     handleRealtimePauseTouchStart,
-    handleRealtimePauseTouchEnd,
   } = useMarketTransactions({
     tokenAddress,
     networkId,
@@ -213,6 +219,74 @@ export function TransactionsHistoryBase({
     return `${networkId}-${tokenAddress}`;
   }, [networkId, tokenAddress]);
 
+  const flushPendingTouchResume = useCallback(() => {
+    if (
+      !hasPendingTouchResumeRef.current ||
+      isMomentumScrollingRef.current
+    ) {
+      return;
+    }
+
+    hasPendingTouchResumeRef.current = false;
+    resumeRealtimeUpdates();
+  }, [resumeRealtimeUpdates]);
+
+  const schedulePendingTouchResumeCheck = useCallback(() => {
+    if (typeof requestAnimationFrame !== 'function') {
+      flushPendingTouchResume();
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      flushPendingTouchResume();
+    });
+  }, [flushPendingTouchResume]);
+
+  const handleRealtimePauseNativeTouchStart = useCallback(() => {
+    didScrollDuringTouchRef.current = false;
+    hasPendingTouchResumeRef.current = false;
+    handleRealtimePauseTouchStart();
+  }, [handleRealtimePauseTouchStart]);
+
+  const handleRealtimePauseNativeTouchEnd = useCallback(() => {
+    if (!didScrollDuringTouchRef.current) {
+      hasPendingTouchResumeRef.current = false;
+      resumeRealtimeUpdates();
+      return;
+    }
+
+    hasPendingTouchResumeRef.current = true;
+  }, [resumeRealtimeUpdates]);
+
+  const handleRealtimePauseNativeScrollBeginDrag = useCallback(() => {
+    didScrollDuringTouchRef.current = true;
+  }, []);
+
+  const handleRealtimePauseNativeScrollEndDrag = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (!hasPendingTouchResumeRef.current) {
+        return;
+      }
+
+      const velocityY = Math.abs(event.nativeEvent.velocity?.y ?? 0);
+      if (velocityY > 0) {
+        return;
+      }
+
+      schedulePendingTouchResumeCheck();
+    },
+    [schedulePendingTouchResumeCheck],
+  );
+
+  const handleRealtimePauseNativeMomentumScrollBegin = useCallback(() => {
+    isMomentumScrollingRef.current = true;
+  }, []);
+
+  const handleRealtimePauseNativeMomentumScrollEnd = useCallback(() => {
+    isMomentumScrollingRef.current = false;
+    flushPendingTouchResume();
+  }, [flushPendingTouchResume]);
+
   const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
       ({ item, index }: { item: IMarketTokenTransaction; index: number }) => {
@@ -266,9 +340,15 @@ export function TransactionsHistoryBase({
             : undefined)}
           {...(enableTouchRealtimePause
             ? {
-                onTouchStart: handleRealtimePauseTouchStart,
-                onTouchEnd: handleRealtimePauseTouchEnd,
-                onTouchCancel: handleRealtimePauseTouchEnd,
+                onTouchStart: handleRealtimePauseNativeTouchStart,
+                onTouchEnd: handleRealtimePauseNativeTouchEnd,
+                onTouchCancel: handleRealtimePauseNativeTouchEnd,
+                onScrollBeginDrag: handleRealtimePauseNativeScrollBeginDrag,
+                onScrollEndDrag: handleRealtimePauseNativeScrollEndDrag,
+                onMomentumScrollBegin:
+                  handleRealtimePauseNativeMomentumScrollBegin,
+                onMomentumScrollEnd:
+                  handleRealtimePauseNativeMomentumScrollEnd,
               }
             : undefined)}
           ListEmptyComponent={

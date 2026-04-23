@@ -6,6 +6,7 @@ import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { createMockTransaction } from '../__tests__/fixtures';
 
+import { MAX_BUFFERED_TRANSACTIONS } from './transactionBufferUtils';
 import { useMarketTransactions } from './useMarketTransactions';
 
 type IThrottledTransactionsUpdate = ((
@@ -207,5 +208,55 @@ describe('useMarketTransactions', () => {
     ]);
     expect(result.current.bufferedTransactionsCount).toBe(0);
     expect(result.current.isRealtimePaused).toBe(false);
+  });
+
+  it('caps paused realtime buffers after hitting the overflow threshold', () => {
+    const { result } = renderHook(() =>
+      useMarketTransactions({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        normalMode: false,
+        enableRealtimePause: true,
+      }),
+    );
+
+    const throttledUpdate = mockThrottledTransactionsUpdates[0];
+
+    expect(throttledUpdate).toBeDefined();
+
+    act(() => {
+      throttledUpdate.flush();
+      result.current.handleRealtimePauseHoverIn();
+
+      for (let i = 1; i <= MAX_BUFFERED_TRANSACTIONS + 5; i += 1) {
+        result.current.addNewTransaction(
+          createMockTransaction(`buffered-${i}`, i + 1),
+        );
+      }
+    });
+
+    expect(result.current.bufferedTransactionsCount).toBe(
+      MAX_BUFFERED_TRANSACTIONS,
+    );
+    expect(result.current.hasBufferOverflow).toBe(true);
+
+    act(() => {
+      result.current.flushBufferedTransactions();
+    });
+
+    expect(result.current.transactions).toHaveLength(
+      MAX_BUFFERED_TRANSACTIONS + 1,
+    );
+    expect(result.current.transactions[0]?.hash).toBe(
+      `buffered-${MAX_BUFFERED_TRANSACTIONS + 5}`,
+    );
+    expect(
+      result.current.transactions.some((tx) => tx.hash === 'buffered-1'),
+    ).toBe(false);
+    expect(
+      result.current.transactions.some(
+        (tx) => tx.hash === `buffered-${MAX_BUFFERED_TRANSACTIONS + 5}`,
+      ),
+    ).toBe(true);
   });
 });

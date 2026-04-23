@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
@@ -22,6 +22,8 @@ const mockHandleRealtimePauseHoverOut = jest.fn();
 const mockHandleRealtimePauseTouchStart = jest.fn();
 const mockHandleRealtimePauseTouchEnd = jest.fn();
 const mockTransactionsRelativeTimeProvider = jest.fn();
+let mockFlatListProps: Record<string, ((...args: unknown[]) => void) | unknown> =
+  {};
 
 const mockMarketTransactionsResult = {
   transactions: [] as IMarketTokenTransaction[],
@@ -52,7 +54,10 @@ jest.mock('@onekeyhq/components', () => {
     Spinner: Stack,
     Stack,
     Tabs: {
-      FlatList: () => <div data-testid="transactions-list" />,
+      FlatList: (props: Record<string, unknown>) => {
+        mockFlatListProps = props;
+        return <div data-testid="transactions-list" />;
+      },
     },
     useCurrentTabScrollY: () => ({ value: 0 }),
     useMedia: () => ({ gtXl: true }),
@@ -136,8 +141,17 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+function getMockPlatformEnv() {
+  return jest.requireMock('@onekeyhq/shared/src/platformEnv').default as {
+    isNative: boolean;
+    isNativeAndroid: boolean;
+  };
+}
+
 describe('TransactionsHistory', () => {
   beforeEach(() => {
+    const platformEnv = getMockPlatformEnv();
+    mockFlatListProps = {};
     mockSetRealtimePauseState.mockReset();
     mockUseTransactionsWebSocket.mockReset();
     mockLoadMore.mockReset();
@@ -151,6 +165,8 @@ describe('TransactionsHistory', () => {
     mockTransactionsRelativeTimeProvider.mockReset();
     mockMarketTransactionsResult.transactions = [];
     mockMarketTransactionsResult.isRealtimePaused = false;
+    platformEnv.isNative = false;
+    platformEnv.isNativeAndroid = false;
   });
 
   it('keeps realtime pause state outside websocket self-heal callbacks', () => {
@@ -193,5 +209,51 @@ describe('TransactionsHistory', () => {
         isTickingEnabled: false,
       }),
     );
+  });
+
+  it('waits for momentum scrolling to finish before resuming realtime updates on native', () => {
+    getMockPlatformEnv().isNative = true;
+
+    render(
+      <TransactionsHistory
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        isTabFocused
+      />,
+    );
+
+    expect(mockFlatListProps).toEqual(
+      expect.objectContaining({
+        onTouchStart: expect.any(Function),
+        onTouchEnd: expect.any(Function),
+        onScrollBeginDrag: expect.any(Function),
+        onMomentumScrollBegin: expect.any(Function),
+        onMomentumScrollEnd: expect.any(Function),
+      }),
+    );
+
+    act(() => {
+      (
+        mockFlatListProps.onTouchStart as (() => void) | undefined
+      )?.();
+      (
+        mockFlatListProps.onScrollBeginDrag as (() => void) | undefined
+      )?.();
+      (mockFlatListProps.onTouchEnd as (() => void) | undefined)?.();
+    });
+
+    expect(mockHandleRealtimePauseTouchStart).toHaveBeenCalledTimes(1);
+    expect(mockResumeRealtimeUpdates).not.toHaveBeenCalled();
+
+    act(() => {
+      (
+        mockFlatListProps.onMomentumScrollBegin as (() => void) | undefined
+      )?.();
+      (
+        mockFlatListProps.onMomentumScrollEnd as (() => void) | undefined
+      )?.();
+    });
+
+    expect(mockResumeRealtimeUpdates).toHaveBeenCalledTimes(1);
   });
 });

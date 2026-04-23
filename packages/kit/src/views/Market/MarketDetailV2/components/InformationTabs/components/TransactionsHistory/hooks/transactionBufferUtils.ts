@@ -39,8 +39,11 @@ export function appendBufferedTransaction({
     };
   }
 
-  const nextTransactions = [...bufferedTransactions, transaction];
-  const isOverflow = nextTransactions.length > maxBufferSize;
+  const nextTransactions = mergeUniqueTransactions([
+    ...bufferedTransactions,
+    transaction,
+  ]).slice(0, maxBufferSize);
+  const isOverflow = bufferedTransactions.length + 1 > maxBufferSize;
 
   return {
     bufferedTransactions: nextTransactions,

@@ -29,7 +29,7 @@ describe('transactionBufferUtils', () => {
     expect(result.isOverflow).toBe(false);
   });
 
-  it('keeps all buffered entries after crossing the overflow threshold', () => {
+  it('caps buffered entries to the newest items after crossing the overflow threshold', () => {
     const result = appendBufferedTransaction({
       bufferedTransactions: [
         createMockTransaction('1', 1),
@@ -41,9 +41,8 @@ describe('transactionBufferUtils', () => {
     });
 
     expect(result.bufferedTransactions.map((tx) => tx.hash)).toEqual([
-      '1',
-      '2',
       '3',
+      '2',
     ]);
     expect(result.isOverflow).toBe(true);
   });
