@@ -77,23 +77,12 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
     { id: ETranslations.marketdex_new_updates },
     { amount: updatesAmount },
   );
-  const {
-    flushBufferedTransactions,
-    resumeRealtimeUpdates,
-    scrollTransactionsToTop,
-  } = realtimePauseState;
+  const { flushBufferedTransactions, scrollTransactionsToTop } =
+    realtimePauseState;
   const handleUpdatesPress = useCallback(() => {
-    if (resumeRealtimeUpdates) {
-      resumeRealtimeUpdates();
-    } else {
-      flushBufferedTransactions?.();
-    }
+    flushBufferedTransactions?.();
     scrollTransactionsToTop?.();
-  }, [
-    flushBufferedTransactions,
-    resumeRealtimeUpdates,
-    scrollTransactionsToTop,
-  ]);
+  }, [flushBufferedTransactions, scrollTransactionsToTop]);
 
   return (
     <YStack

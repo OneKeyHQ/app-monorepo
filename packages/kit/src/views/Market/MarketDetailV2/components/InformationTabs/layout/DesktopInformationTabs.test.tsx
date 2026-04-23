@@ -171,13 +171,13 @@ describe('DesktopInformationTabs', () => {
     mockHandleRealtimePauseHoverOut.mockReset();
   });
 
-  it('resumes realtime updates when the updates pill is clicked', () => {
+  it('flushes buffered transactions without resuming when the updates pill is clicked', () => {
     render(<DesktopInformationTabs portfolioData={[]} />);
 
     fireEvent.click(screen.getByText('marketdex.new_updates:2'));
 
-    expect(mockResumeRealtimeUpdates).toHaveBeenCalledTimes(1);
+    expect(mockFlushBufferedTransactions).toHaveBeenCalledTimes(1);
     expect(mockScrollTransactionsToTop).toHaveBeenCalledTimes(1);
-    expect(mockFlushBufferedTransactions).not.toHaveBeenCalled();
+    expect(mockResumeRealtimeUpdates).not.toHaveBeenCalled();
   });
 });

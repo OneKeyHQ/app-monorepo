@@ -332,7 +332,7 @@ export function useMarketTransactions({
     realtimeHoverOutTimerRef.current = setTimeout(() => {
       resumeRealtimeUpdates();
       realtimeHoverOutTimerRef.current = undefined;
-    }, 80);
+    }, 200);
   }, [clearRealtimeHoverOutTimer, resumeRealtimeUpdates]);
 
   return {
