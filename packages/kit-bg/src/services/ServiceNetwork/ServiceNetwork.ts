@@ -40,6 +40,10 @@ import type {
 import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -1528,7 +1532,6 @@ class ServiceNetwork extends ServiceBase {
     if (!data) {
       return;
     }
-
     return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
       data,
     );
@@ -1555,6 +1558,56 @@ class ServiceNetwork extends ServiceBase {
     return this.backgroundApi.simpleDb.recentNetworks.deleteRecentNetwork({
       networkId,
     });
+  }
+
+  // Prime the SWR cache used by UnifiedNetworkSelector's Portfolio tab so
+  // that after the user mutates enabled/disabled networks (via the "完成"
+  // button), the next cold open paints the new state directly from MMKV
+  // instead of flashing the previously cached allNetworksState for a
+  // frame before revalidation lands. Same assumption as recent-networks:
+  // bg shares the UI's MMKV instance.
+  //
+  // We aggregate the same shape that UnifiedNetworkSelector's
+  // `usePromiseResult(... swrKey: swrKeys.unifiedNetworkSelectorMeta)`
+  // returns — allNetworksState + allNetworks + compatibleNetworks.
+  @backgroundMethod()
+  async primeUnifiedNetworkSelectorMetaCache({
+    walletId,
+    accountId,
+  }: {
+    walletId: string;
+    accountId?: string;
+  }) {
+    if (!walletId) return;
+    try {
+      const [allNetworksStateResp, { networks: allNetworks }] =
+        await Promise.all([
+          this.backgroundApi.serviceAllNetwork.getAllNetworksState(),
+          this.getAllNetworks(),
+        ]);
+
+      const compatibleNetworks =
+        await this.getChainSelectorNetworksCompatibleWithAccountId({
+          accountId,
+          walletId,
+          networkIds: allNetworks.map((network) => network.id),
+          excludeTestNetwork: true,
+        });
+
+      swrCacheUtils.set(
+        swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }),
+        {
+          allNetworksState: {
+            enabledNetworks: allNetworksStateResp.enabledNetworks,
+            disabledNetworks: allNetworksStateResp.disabledNetworks,
+          },
+          allNetworks,
+          compatibleNetworks,
+        },
+      );
+    } catch {
+      // Best-effort — fall back to UI-side revalidation on miss.
+    }
   }
 
   @backgroundMethod()
