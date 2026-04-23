@@ -17,7 +17,6 @@ import {
   HeightTransition,
   IconButton,
   LottieView,
-  Page,
   Popover,
   SegmentControl,
   SizableText,
@@ -81,7 +80,7 @@ import { HyperlinkText } from '../../../components/HyperlinkText';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingPage } from '../components/Layout';
 import {
   EBluetoothStatus,
   useDesktopBluetoothStatusPolling,
@@ -504,10 +503,8 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
               id: ETranslations.troubleshooting_show_helper_cta_label,
             })}
           </SizableText>
-          <XStack gap="$2" flexWrap="wrap">
+          <YStack gap="$2">
             <Button
-              flex={1}
-              minWidth="$40"
               icon="OpenOutline"
               onPress={() => {
                 void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
@@ -516,8 +513,6 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
               {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
             </Button>
             <Button
-              flex={1}
-              minWidth="$40"
               icon="HelpSupportOutline"
               onPress={() => {
                 void showIntercom();
@@ -525,7 +520,7 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
             >
               {intl.formatMessage({ id: ETranslations.settings_contact_us })}
             </Button>
-          </XStack>
+          </YStack>
         </YStack>
       ) : null}
     </>
@@ -1283,60 +1278,57 @@ function ConnectYourDevicePage({
   );
 
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header
-          title={intl.formatMessage({
-            id: ETranslations.onboarding_connect_your_device,
-          })}
-        />
-        <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent>
-            <XStack alignItems="center" gap="$4">
-              {tabOptions.length > 1 ? (
-                <SegmentControl
-                  fullWidth
-                  value={tabValue}
-                  onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-                  options={tabOptions}
+    <OnboardingPage
+      headerTitle={intl.formatMessage({
+        id: ETranslations.onboarding_connect_your_device,
+      })}
+      scrollable
+      alignTop
+      narrow
+      contentContainerProps={{ gap: '$5' }}
+    >
+      <XStack alignItems="center" gap="$4">
+        {tabOptions.length > 1 ? (
+          <SegmentControl
+            fullWidth
+            value={tabValue}
+            onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+            options={tabOptions}
+          />
+        ) : null}
+        {isSupportedQRCode ? (
+          <YStack ml="auto">
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.global_advanced,
+              })}
+              renderTrigger={
+                <IconButton variant="tertiary" icon="DotHorOutline" />
+              }
+              renderContent={
+                <QRWalletConnect
+                  navigateToCreateQRWallet={navigateToCreateQRWallet}
                 />
-              ) : null}
-              {isSupportedQRCode ? (
-                <YStack ml="auto">
-                  <Popover
-                    title={intl.formatMessage({
-                      id: ETranslations.global_advanced,
-                    })}
-                    renderTrigger={
-                      <IconButton variant="tertiary" icon="DotHorOutline" />
-                    }
-                    renderContent={
-                      <QRWalletConnect
-                        navigateToCreateQRWallet={navigateToCreateQRWallet}
-                      />
-                    }
-                  />
-                </YStack>
-              ) : null}
-            </XStack>
-            {tabValue === EConnectDeviceChannel.usbOrBle ? (
-              <USBOrBLEConnectionIndicator
-                tabValue={tabValue}
-                deviceTypeItems={deviceTypeItems}
-                connectDevice={connectDevice}
-              />
-            ) : null}
-            {tabValue === EConnectDeviceChannel.bluetooth ? (
-              <BluetoothConnectionIndicator
-                tabValue={tabValue}
-                deviceTypeItems={deviceTypeItems}
-                connectDevice={connectDevice}
-              />
-            ) : null}
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-      </OnboardingLayout>
-    </Page>
+              }
+            />
+          </YStack>
+        ) : null}
+      </XStack>
+      {tabValue === EConnectDeviceChannel.usbOrBle ? (
+        <USBOrBLEConnectionIndicator
+          tabValue={tabValue}
+          deviceTypeItems={deviceTypeItems}
+          connectDevice={connectDevice}
+        />
+      ) : null}
+      {tabValue === EConnectDeviceChannel.bluetooth ? (
+        <BluetoothConnectionIndicator
+          tabValue={tabValue}
+          deviceTypeItems={deviceTypeItems}
+          connectDevice={connectDevice}
+        />
+      ) : null}
+    </OnboardingPage>
   );
 }
 

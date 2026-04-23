@@ -110,8 +110,9 @@ export const LayoutHeaderTitle = memo(
       zIndex={0}
       justifyContent="center"
       alignItems="center"
+      px="$16"
     >
-      <SizableText size="$headingLg" textAlign="center">
+      <SizableText size="$headingLg" textAlign="center" numberOfLines={1}>
         {children}
       </SizableText>
     </YStack>
@@ -166,19 +167,25 @@ LayoutHeaderLanguageSelector.displayName = 'LayoutHeaderLanguageSelector';
 
 export interface IOnboardingPageProps extends IPageProps {
   headerBack?: boolean | 'exit';
+  headerTitle?: string;
   showLanguageSelector?: boolean;
   scrollable?: boolean;
   contentContainerProps?: IYStackProps;
   enterAnimation?: boolean;
+  alignTop?: boolean;
+  narrow?: boolean;
   children: React.ReactNode;
 }
 
 export function OnboardingPage({
   headerBack = true,
+  headerTitle,
   showLanguageSelector = true,
   scrollable = false,
   contentContainerProps,
   enterAnimation = true,
+  alignTop = false,
+  narrow = false,
   children,
   ...pageProps
 }: IOnboardingPageProps) {
@@ -187,14 +194,20 @@ export function OnboardingPage({
     <YStack
       flex={1}
       px="$5"
-      $gtMd={{ alignItems: 'center', justifyContent: 'center' }}
+      $gtMd={{
+        alignItems: 'center',
+        justifyContent: alignTop ? 'flex-start' : 'center',
+      }}
     >
       <YStack
         w="100%"
         maxWidth={800}
         mx="auto"
         $md={{ flex: 1 }}
-        $gtMd={{ minHeight: 522 }}
+        $gtMd={{
+          minHeight: 522,
+          ...(narrow && { py: '$10', maxWidth: 400 }),
+        }}
         {...(shouldAnimate && {
           animation: 'quick',
           animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
@@ -216,6 +229,9 @@ export function OnboardingPage({
       <LayoutHeader>
         {headerBack !== false ? (
           <LayoutHeaderBack exit={headerBack === 'exit'} />
+        ) : null}
+        {headerTitle ? (
+          <LayoutHeaderTitle>{headerTitle}</LayoutHeaderTitle>
         ) : null}
         {showLanguageSelector ? <LayoutHeaderLanguageSelector /> : null}
       </LayoutHeader>
