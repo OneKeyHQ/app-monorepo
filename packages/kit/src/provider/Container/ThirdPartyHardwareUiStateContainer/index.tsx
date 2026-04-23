@@ -24,8 +24,6 @@ import {
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -175,15 +173,6 @@ function getDialogContent(state: IThirdPartyHardwareUiState): {
           `Please connect and unlock your ${device} device, then press Confirm.`,
         showFooter: true,
       };
-    case EThirdPartyHardwareUiAction.requestRetry:
-      // TODO: replace with ETranslations + ICU {retryCount}/{maxRetries} placeholders when available
-      return {
-        title: appLocale.intl.formatMessage({
-          id: ETranslationsMock.hardware_third_party_device_not_found_title,
-        }),
-        message: `Device not found. Attempt ${payload?.retryCount || 0}/${payload?.maxRetries || 3}. Please check connection and try again.`,
-        showFooter: true,
-      };
     // open-app, searching, unlock-device, confirm-on-device → handled by Toast
     // error → let withHardwareProcessing handle it, no separate dialog
     default:
@@ -192,10 +181,7 @@ function getDialogContent(state: IThirdPartyHardwareUiState): {
 }
 
 // Actions that need confirm/cancel footer (blocking requests)
-const REQUEST_ACTIONS = new Set([
-  EThirdPartyHardwareUiAction.requestUnlock,
-  EThirdPartyHardwareUiAction.requestRetry,
-]);
+const REQUEST_ACTIONS = new Set([EThirdPartyHardwareUiAction.requestUnlock]);
 
 // ---------------------------------------------------------------------------
 // Container

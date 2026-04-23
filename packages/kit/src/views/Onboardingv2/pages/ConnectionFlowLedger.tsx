@@ -20,10 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import {
-  HwWalletAvatarImages,
-  getDeviceAvatarImage,
-} from '@onekeyhq/shared/src/utils/avatarUtils';
+import { ThirdPartyWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
@@ -193,7 +190,7 @@ export default function LedgerConnectionFlow() {
     () =>
       searchedDevices.map((item: SearchDevice) => ({
         title: item.name,
-        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
+        src: ThirdPartyWalletAvatarImages.ledger,
         device: item,
       })),
     [searchedDevices],

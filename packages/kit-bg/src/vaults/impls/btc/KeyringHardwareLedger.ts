@@ -373,8 +373,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
 
     // Ledger SDK's signTransaction returns a fully signed raw tx hex
     // (internally it does sign → finalize → extractTransaction)
-    const serializedTx =
-      result.payload.signedPsbt || result.payload.serializedTx;
+    const { serializedTx } = result.payload;
     if (!serializedTx) {
       throw new OneKeyLocalError('Missing signed transaction data from Ledger');
     }

@@ -15,17 +15,13 @@ export type { DeviceInfo, IHardwareWallet, Response, IConnector };
 // UI Event types (OneKey-specific adapter UI layer)
 // =====================================================================
 
-export type IAdapterUiRequestType =
-  | EThirdPartyHardwareUiAction.requestUnlock
-  | EThirdPartyHardwareUiAction.requestRetry;
+export type IAdapterUiRequestType = EThirdPartyHardwareUiAction.requestUnlock;
 
 export type IAdapterUiRequest = {
   kind: 'request';
   type: IAdapterUiRequestType;
   payload?: {
     message?: string;
-    retryCount?: number;
-    maxRetries?: number;
   };
 };
 

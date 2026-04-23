@@ -9,5 +9,9 @@ export const createLedgerConnector = async (): Promise<IConnector> => {
       import('@onekeyfe/hwk-adapter-core'),
       import('@onekeyhq/kit-bg/src/services/ServiceHardware/adapters/offscreenHardwareBridgeClient'),
     ]);
-  return createBridgedConnector('ledger', getOffscreenHardwareBridgeClient());
+  return createBridgedConnector(
+    'ledger',
+    'usb',
+    getOffscreenHardwareBridgeClient(),
+  );
 };

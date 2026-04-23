@@ -833,7 +833,10 @@ class ServiceHardware extends ServiceBase {
               connectId,
               deviceId: null,
               name,
-              deviceType: params.vendor || 'unknown',
+              // Third-party vendors (Ledger) don't map to OneKey IDeviceType;
+              // use 'unknown' and carry vendor identity separately via
+              // IConnectYourDeviceItem.vendor at the UI layer.
+              deviceType: 'unknown',
               uuid: '',
               commType: 'bridge',
             } as SearchDevice;

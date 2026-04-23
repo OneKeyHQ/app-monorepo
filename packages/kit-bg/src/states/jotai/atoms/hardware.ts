@@ -146,7 +146,6 @@ export const {
 export enum EThirdPartyHardwareUiAction {
   // Blocking requests — UI waits for user response
   requestUnlock = 'request-ledger-unlock',
-  requestRetry = 'request-ledger-retry',
   // Non-blocking notifications — UI shows status
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
@@ -183,8 +182,6 @@ export type IThirdPartyHardwareUiState = {
   vendor: EHardwareVendor;
   payload?: {
     message?: string;
-    retryCount?: number;
-    maxRetries?: number;
     chain?: string;
   };
 };
