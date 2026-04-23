@@ -4,6 +4,7 @@ export enum ERookieTaskType {
   SWAP = 'swap',
   PERPS = 'perps',
   DAPP = 'dapp',
+  HYPERLIQUID_REFERRAL = 'hyperliquid_referral',
 }
 
 // Task progress: key existence indicates completion, value is timestamp
@@ -13,6 +14,7 @@ export interface IRookieGuideProgress {
   [ERookieTaskType.SWAP]?: number;
   [ERookieTaskType.PERPS]?: number;
   [ERookieTaskType.DAPP]?: number;
+  [ERookieTaskType.HYPERLIQUID_REFERRAL]?: number;
 }
 
 // Data stored in SimpleDB
@@ -33,6 +35,11 @@ export interface IRookieGuideInfo {
   oneKeyId: IRookieGuideOneKeyIdInfo;
   instanceId: string;
   taskProgress: IRookieGuideProgress;
+  hyperliquidReferral?: {
+    eligible: boolean;
+    reason: string;
+    address?: string;
+  };
 }
 
 // ============ Rookie Share Types ============
