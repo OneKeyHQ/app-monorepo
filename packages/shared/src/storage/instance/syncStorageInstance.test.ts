@@ -4,10 +4,13 @@
 
 import { createMMKV } from 'react-native-mmkv';
 
-// Mock platformEnv before importing module
+// Mock platformEnv before importing module.
+// isNative: true keeps coldStartCacheStorage bound to the real MMKV-backed
+// variant; on non-native it would be a no-op stub and tests below would be
+// vacuously passing.
 jest.mock('../../platformEnv', () => ({
   __esModule: true,
-  default: { isExtensionBackgroundServiceWorker: false },
+  default: { isExtensionBackgroundServiceWorker: false, isNative: true },
 }));
 
 // Mock resetUtils
