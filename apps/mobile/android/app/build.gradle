@@ -381,7 +381,7 @@ android.applicationVariants.configureEach { variant ->
  *
  * This runs `node build-bundle.js --platform android` which calls
  * scripts/unionBuild.js under the hood, producing:
- *   - common.jsbundle.hbc  (shared polyfills + modules)
+ *   - common.bundle  (shared polyfills + modules)
  *   - main.jsbundle.hbc    (main-only modules)
  *   - background.bundle    (background-only modules)
  *   - segments/             (main-runtime segments)
@@ -445,12 +445,11 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
             // (overwriting what the standard bundle task produced)
 
             // common.bundle (shared polyfills + modules, loaded first)
-            def commonBundle = file("${unionOutputDir}/common.jsbundle.hbc")
+            def commonBundle = file("${unionOutputDir}/common.bundle")
             if (commonBundle.exists()) {
                 copy {
                     from commonBundle
                     into mainBundleAssetsDir
-                    rename { "common.bundle" }
                 }
             }
 
@@ -505,7 +504,7 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
             [mergedAssetsDir, sentryInjectedAssetsDir].each { destDir ->
                 destDir.mkdirs()
                 if (commonBundle.exists()) {
-                    copy { from commonBundle; into destDir; rename { "common.bundle" } }
+                    copy { from commonBundle; into destDir }
                 }
                 if (mainBundle.exists()) {
                     copy { from mainBundle; into destDir; rename { "index.android.bundle" } }
