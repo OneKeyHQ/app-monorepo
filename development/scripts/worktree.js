@@ -720,12 +720,10 @@ function renderOptionCard({ details, selected, tag, tagTone, title, width }) {
   const titleWidth = Math.max(20, width - 12);
   const titleText = truncateText(title, titleWidth);
   const renderedTitle = selected ? styleText(titleText, ANSI.bold) : titleText;
-  const lines = [
-    `${prefix} ${formatOptionTag(tag, {
-      selected,
-      tone: tagTone,
-    })} ${renderedTitle}`,
-  ];
+  const tagPart = tag
+    ? `${formatOptionTag(tag, { selected, tone: tagTone })} `
+    : '';
+  const lines = [`${prefix} ${tagPart}${renderedTitle}`];
 
   for (const [label, value] of details) {
     lines.push(`    ${formatField(label, value, width - 4, { selected })}`);
@@ -770,27 +768,13 @@ function renderWorktreeSelector({
       width,
     }),
     ...worktrees.flatMap((entry, index) => {
-      let tag = 'WT';
-      let tagTone = ANSI.green;
-      let baseTitle = entry.displayName;
-
-      if (entry.isBase) {
-        tag = 'BASE';
-        tagTone = ANSI.cyan;
-        baseTitle = 'Base repository';
-      } else if (entry.isCurrent) {
-        tag = 'CUR';
-        tagTone = ANSI.yellow;
-      }
-
+      const baseTitle = entry.isBase ? entry.branchName : entry.displayName;
       const prefix = entry.isBase ? '' : getTreePrefix(entry.depth || 0);
       const title = `${prefix}${baseTitle} (${entry.pathLabel})`;
 
       return renderOptionCard({
         details: [],
         selected: selectedIndex === index + 1,
-        tag,
-        tagTone,
         title,
         width,
       });
