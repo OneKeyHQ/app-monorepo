@@ -86,9 +86,10 @@ function scrollToAnchor(
   }
 
   const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+  const scrollerRect = scroller.getBoundingClientRect();
   const targetY = Math.min(
     maxScroll,
-    Math.max(0, anchorRect.top + scroller.scrollTop - offset),
+    Math.max(0, anchorRect.top - scrollerRect.top + scroller.scrollTop - offset),
   );
   scroller.scrollTo({ top: targetY, behavior });
 }

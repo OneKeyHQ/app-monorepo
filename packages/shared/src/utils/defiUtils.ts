@@ -100,14 +100,8 @@ function buildProtocolMapKey({
   return `${networkId}-${protocol}`;
 }
 
-function buildGroupedPositionKey({
-  groupId,
-  category,
-}: {
-  groupId: string;
-  category: string;
-}) {
-  return `${groupId}-${category}`;
+function buildGroupedPositionKey({ groupId }: { groupId: string }) {
+  return groupId;
 }
 
 function getSafeGroupedPositionId({
@@ -192,7 +186,7 @@ function transformDeFiData({
           rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
           value: BigNumber;
         }
-      >; // key: groupId-category
+      >; // key: groupId
       categorySet: Set<string>;
     }
   >();
@@ -238,7 +232,7 @@ function transformDeFiData({
             rewards: (IDeFiAsset & { type: EDeFiAssetType })[];
             value: BigNumber;
           }
-        >; // key: groupId-category
+        >; // key: groupId
         categorySet: Set<string>;
       };
 
@@ -249,7 +243,6 @@ function transformDeFiData({
 
       const positionKey = buildGroupedPositionKey({
         groupId: safeGroupId,
-        category: position.category,
       });
 
       if (!protocolPositionsMapValue.positionMap.has(positionKey)) {

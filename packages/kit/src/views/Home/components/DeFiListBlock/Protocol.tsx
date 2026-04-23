@@ -214,7 +214,6 @@ const ProtocolDesktopLayout = memo(
                         <Badge bg={position.categoryConfig.bg} badgeSize="lg">
                           <Badge.Text
                             color={position.categoryConfig.text}
-                            textTransform="capitalize"
                           >
                             {position.categoryLabel}
                           </Badge.Text>

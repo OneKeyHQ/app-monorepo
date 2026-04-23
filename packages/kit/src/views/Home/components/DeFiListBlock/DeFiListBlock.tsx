@@ -59,7 +59,7 @@ import { deFiListLoadingReducer } from './deFiListLoadingReducer';
 import { type IProtocolHandle, Protocol } from './Protocol';
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
-const MAX_PROTOCOLS_ON_LARGE_SCREEN = OVERVIEW_TOP_N - 1;
+const MAX_PROTOCOLS_ON_LARGE_SCREEN = OVERVIEW_TOP_N;
 
 export type IDeFiListBlockProps = {
   refreshCacheOnly?: boolean;

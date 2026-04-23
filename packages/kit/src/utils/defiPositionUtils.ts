@@ -197,7 +197,6 @@ export type IProtocolPositionItem = {
   groupId: string;
   category: string;
   categoryLabel: string;
-  categoryTitleId?: ETranslations;
   categoryConfig: ICategoryConfig;
   poolName?: string;
   poolFullName?: string;
@@ -321,7 +320,7 @@ function buildPositionSections(position: IDeFiProtocol['positions'][number]) {
     const label = POSITION_SECTION_LABELS[sectionKey];
 
     return {
-      key: `${position.groupId}-${position.category}-${sectionKey}`,
+      key: `${position.groupId}-${sectionKey}`,
       assetType: sectionKey,
       title: label.title,
       titleId: label.titleId,
@@ -336,11 +335,10 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
     const sections = buildPositionSections(position);
 
     return {
-      positionKey: `${position.groupId}-${position.category}`,
+      positionKey: position.groupId,
       groupId: position.groupId,
       category: position.category,
       categoryLabel: categoryLabel.title,
-      categoryTitleId: categoryLabel.titleId,
       categoryConfig: getCategoryConfig(position.category),
       poolName: position.poolName,
       poolFullName: position.poolFullName,
@@ -361,9 +359,7 @@ function buildLocalizedProtocolPositionItems({
   return buildProtocolPositionItems(protocol).map(
     (position): ILocalizedProtocolPositionItem => ({
       ...position,
-      categoryLabel: position.categoryTitleId
-        ? translate(position.categoryTitleId)
-        : position.categoryLabel,
+      categoryLabel: position.categoryLabel,
       action: position.action
         ? {
             ...position.action,

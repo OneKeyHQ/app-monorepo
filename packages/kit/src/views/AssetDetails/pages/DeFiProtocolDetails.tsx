@@ -136,7 +136,6 @@ function DeFiProtocolDetails() {
                 <Badge bg={position.categoryConfig.bg} badgeSize="sm">
                   <Badge.Text
                     color={position.categoryConfig.text}
-                    textTransform="capitalize"
                   >
                     {position.categoryLabel}
                   </Badge.Text>
