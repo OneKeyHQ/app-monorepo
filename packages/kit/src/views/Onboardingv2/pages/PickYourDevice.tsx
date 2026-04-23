@@ -32,6 +32,7 @@ import {
   LayoutHeaderLanguageSelector,
   LayoutHeaderTitle,
 } from '../components/Layout';
+import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
 
 export default function PickYourDevice() {
   const intl = useIntl();
@@ -68,7 +69,8 @@ export default function PickYourDevice() {
         image: require('@onekeyhq/kit/assets/pick-mini.png'),
       },
       {
-        name: 'Other Devices',
+        name: intl.formatMessage({ id: ETranslations.use_another_device }),
+        tags: ['Ledger', 'Trezor'],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
       },
@@ -80,7 +82,7 @@ export default function PickYourDevice() {
     }
 
     return devices;
-  }, []);
+  }, [intl]);
 
   const scrollable = platformEnv.isNative || !gtMd;
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
@@ -105,12 +107,16 @@ export default function PickYourDevice() {
             userSelect="none"
             $gtMd={{ flex: 1 }}
             onPress={() => {
-              void navigation.push(EOnboardingPagesV2.ConnectYourDevice, {
-                deviceType,
-              });
               defaultLogger.onboarding.page.pickYourDevice(
                 deviceType.join(','),
               );
+              if (deviceType.length === 0) {
+                showOtherDevicesDialog();
+                return;
+              }
+              void navigation.push(EOnboardingPagesV2.ConnectYourDevice, {
+                deviceType,
+              });
             }}
           >
             <YStack
