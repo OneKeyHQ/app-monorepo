@@ -2943,7 +2943,7 @@
   "perp.trade_isolated": "逐倉",
   "perp.trade_limit": "限價单",
   "perp.trade_limit_pirce": "限價",
-  "perp.trade_long": "買入 /做 多",
+  "perp.trade_long": "買入 / 做多",
   "perp.trade_margin": "保證金",
   "perp.trade_margin_required": "所需保證金",
   "perp.trade_margin_tooltip": "執行此訂單所需的保證金。減少倉位不會消耗保證金",
