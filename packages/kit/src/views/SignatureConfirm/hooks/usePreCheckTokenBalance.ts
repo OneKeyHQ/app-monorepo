@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import {
   useDecodedTxsAtom,
+  useGasAccountUiStateAtom,
   useNativeTokenInfoAtom,
   usePayWithTokenInfoAtom,
   useSendSelectedFeeInfoAtom,
@@ -29,6 +30,7 @@ function usePreCheckTokenBalance({
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [{ decodedTxs, isBuildingDecodedTxs }] = useDecodedTxsAtom();
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
+  const [gasAccountUiState] = useGasAccountUiStateAtom();
   const {
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
@@ -96,7 +98,19 @@ function usePreCheckTokenBalance({
       }
 
       const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
-      const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
+      // Gas account sponsors the network fee, so for max-send the user
+      // can afford to transfer the full native balance — the fee
+      // (reflected in `sendSelectedFeeInfo.totalNative`) will be paid by
+      // the sponsor, not deducted from the user's wallet. Mirror the
+      // `selectedPayer === 'gasAccount'` gate used at broadcast time
+      // (ServiceSend attaches `quoteId` under the same condition), so
+      // fee=0 here iff the submit would actually be sponsored.
+      const isGasAccountSponsored =
+        gasAccountUiState.selectedPayer === 'gasAccount' &&
+        !!gasAccountUiState.gasAccountQuote?.quoteId;
+      const feeBN = isGasAccountSponsored
+        ? new BigNumber(0)
+        : new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
 
       if (
         transferPayload?.isMaxSend &&
@@ -140,6 +154,8 @@ function usePreCheckTokenBalance({
     updateTokenTransferAmount(payWithTokenTransferBN.toFixed());
   }, [
     decodedTxs,
+    gasAccountUiState.gasAccountQuote?.quoteId,
+    gasAccountUiState.selectedPayer,
     isBuildingDecodedTxs,
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
