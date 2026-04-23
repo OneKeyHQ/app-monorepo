@@ -1,11 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Skeleton,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

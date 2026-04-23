@@ -1,4 +1,4 @@
-import { formatPortfolioPercent } from './DeFiPortfolioLegend';
+import { formatPortfolioPercent } from './formatPortfolioPercent';
 
 describe('formatPortfolioPercent', () => {
   it('returns 0.0% for a true zero', () => {

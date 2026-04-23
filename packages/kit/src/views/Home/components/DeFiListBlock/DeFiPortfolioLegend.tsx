@@ -1,27 +1,13 @@
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PORTFOLIO_OTHERS_KEY } from './DeFiPortfolioStats';
+import { formatPortfolioPercent } from './formatPortfolioPercent';
 
 import type { IPortfolioSlice } from './DeFiPortfolioStats';
-
-/**
- * `percent` is the rounded-to-1-decimal display value. When it rounds down to
- * `0.0` but the underlying position is still non-zero, show `<0.1%` so tiny
- * slices don't read as missing data.
- */
-export function formatPortfolioPercent(
-  percent: number,
-  netWorth?: number | string,
-): string {
-  if (!Number.isFinite(percent)) return '0.0%';
-  if (percent === 0 && netWorth !== undefined && Number(netWorth) > 0) {
-    return '<0.1%';
-  }
-  return `${percent.toFixed(1)}%`;
-}
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
@@ -51,9 +37,10 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
                 height={8}
                 borderRadius="$full"
                 bg={slice.colorToken}
+                flexShrink={0}
               />
               <SizableText
-                flex={1}
+                flexShrink={1}
                 minWidth={0}
                 size="$bodyMd"
                 numberOfLines={1}
@@ -61,11 +48,19 @@ function DeFiPortfolioLegend({ slices }: IDeFiPortfolioLegendProps) {
               >
                 {label}
               </SizableText>
+              {slice.networkIds.length > 0 ? (
+                <NetworkAvatarGroup
+                  networkIds={slice.networkIds}
+                  size="$5"
+                  flexShrink={0}
+                />
+              ) : null}
             </XStack>
             <SizableText
               size="$bodyMdMedium"
               color="$text"
               fontVariant={TABULAR_NUMS}
+              flexShrink={0}
             >
               {formatPortfolioPercent(slice.percent, slice.netWorth)}
             </SizableText>

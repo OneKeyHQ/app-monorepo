@@ -18,6 +18,7 @@ export type IPortfolioSlice = {
   netWorth: number;
   percent: number;
   colorToken: string;
+  networkIds: string[];
 };
 
 export type IPortfolioStats = {
@@ -35,6 +36,7 @@ type IAggregatedProtocol = {
   slug: string;
   label: string;
   netWorth: number;
+  networkIds: string[];
   firstIndex: number;
 };
 
@@ -71,11 +73,15 @@ export function buildPortfolioStats(
     const netWorth = getNetWorth(p);
     if (existing) {
       existing.netWorth += netWorth;
+      if (p.networkId && !existing.networkIds.includes(p.networkId)) {
+        existing.networkIds.push(p.networkId);
+      }
     } else {
       aggregateMap.set(p.protocol, {
         slug: p.protocol,
         label: resolveLabel(p, protocolMap),
         netWorth,
+        networkIds: p.networkId ? [p.networkId] : [],
         firstIndex: index,
       });
     }
@@ -105,6 +111,7 @@ export function buildPortfolioStats(
       colorToken:
         PORTFOLIO_PALETTE_TOKENS[rank] ??
         PORTFOLIO_PALETTE_TOKENS[PORTFOLIO_PALETTE_TOKENS.length - 1],
+      networkIds: entry.networkIds,
     };
   });
 
@@ -116,6 +123,7 @@ export function buildPortfolioStats(
       netWorth: tailSum,
       percent: total > 0 ? roundToOneDecimal((tailSum / total) * 100) : 0,
       colorToken: PORTFOLIO_OTHERS_TOKEN,
+      networkIds: [],
     });
   }
 

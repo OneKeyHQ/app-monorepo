@@ -10,7 +10,7 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
-import { formatPortfolioPercent } from './DeFiPortfolioLegend';
+import { formatPortfolioPercent } from './formatPortfolioPercent';
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 

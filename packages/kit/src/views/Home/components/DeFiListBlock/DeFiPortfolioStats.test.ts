@@ -64,6 +64,7 @@ describe('buildPortfolioStats', () => {
       netWorth: 100,
       percent: 100,
       colorToken: PORTFOLIO_PALETTE_TOKENS[0],
+      networkIds: ['evm--1'],
     });
   });
 
@@ -91,12 +92,14 @@ describe('buildPortfolioStats', () => {
       label: 'Aave V3',
       netWorth: 80,
       colorToken: PORTFOLIO_PALETTE_TOKENS[0],
+      networkIds: ['evm--1', 'evm--42161'],
     });
     expect(stats.slices[1]).toMatchObject({
       key: 'pendle',
       label: 'Pendle',
       netWorth: 20,
       colorToken: PORTFOLIO_PALETTE_TOKENS[1],
+      networkIds: ['evm--1'],
     });
   });
 
