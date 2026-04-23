@@ -673,6 +673,7 @@ function getCreatePreview({
   if (!trimmedName) {
     return {
       branchName: defaultTarget.branchName,
+      cardTitle: 'Create worktree — random name (type below to customize)',
       fromPathLabel,
       fromWorktreeLabel,
       nameLabel: `${defaultTarget.branchName} (auto)`,
@@ -693,6 +694,7 @@ function getCreatePreview({
 
   return {
     branchName: trimmedName,
+    cardTitle: `Create worktree "${trimmedName}" (backspace to clear and use random)`,
     fromPathLabel,
     fromWorktreeLabel,
     nameLabel: trimmedName,
@@ -768,7 +770,7 @@ function renderWorktreeSelector({
       selected: selectedIndex === 0,
       tag: 'NEW',
       tagTone: ANSI.green,
-      title: 'input custom worktree name',
+      title: createPreview.cardTitle,
       width,
     }),
     ...worktrees.flatMap((entry, index) => {
