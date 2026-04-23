@@ -57,6 +57,7 @@ import {
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapLimitOrderStatus,
   ESwapProTradeType,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
@@ -459,7 +460,8 @@ const SwapHeaderRightActionContainer = ({
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const [{ swapHistoryPendingList, swapLimitOrders }] =
+    useInAppNotificationAtom();
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -473,6 +475,17 @@ const SwapHeaderRightActionContainer = ({
       ),
     [swapHistoryPendingList],
   );
+  const limitOpenStatusList = useMemo(
+    () =>
+      swapLimitOrders.filter(
+        (i) =>
+          i.status === ESwapLimitOrderStatus.OPEN ||
+          i.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+      ),
+    [swapLimitOrders],
+  );
+  const historyBadgeCount =
+    swapPendingStatusList.length + limitOpenStatusList.length;
   const slippageTitle = useMemo(() => {
     if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
       return (
@@ -567,7 +580,7 @@ const SwapHeaderRightActionContainer = ({
         />
       )}
 
-      {swapPendingStatusList.length > 0 ? (
+      {historyBadgeCount > 0 ? (
         <Stack
           m="$0.5"
           w="$5"
@@ -593,7 +606,7 @@ const SwapHeaderRightActionContainer = ({
           onPress={onOpenHistoryListModal}
         >
           <SizableText color="$text" size="$bodySm">
-            {`${swapPendingStatusList.length}`}
+            {`${historyBadgeCount}`}
           </SizableText>
         </Stack>
       ) : (
