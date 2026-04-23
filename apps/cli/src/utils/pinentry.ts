@@ -19,6 +19,45 @@ const PINENTRY_PROGRAMS = [
   'pinentry-qt',
 ];
 
+// Assuan protocol percent-encodes %, CR, and LF in D data lines.
+// Without decoding, a passphrase containing `%` would be silently corrupted
+// (e.g. `a%b` → `a%25b`), deriving a wrong passphraseState and exposing a
+// different — empty — hidden wallet.
+export function decodeAssuanData(encoded: string): string {
+  return encoded.replace(/%([0-9A-Fa-f]{2})/g, (_, hex: string) =>
+    String.fromCharCode(parseInt(hex, 16)),
+  );
+}
+
+// Parse pinentry stdout into either a passphrase or a cancellation signal.
+// Handles two edge cases beyond the basic `D <data>` shape:
+//   1. Multi-line D responses — long passphrases past Assuan's ~1000-byte
+//      line limit get split across several `D` lines and must be concatenated
+//      *before* percent-decoding (a split inside `%XX` would otherwise corrupt
+//      the byte).
+//   2. CRLF line endings — pinentry-mac uses LF, but pinentry-gnome3/qt may
+//      emit CRLF; splitting on `\r?\n` strips the trailing CR that would
+//      otherwise become a literal trailing byte in the passphrase.
+export function parsePinentryStdout(stdout: string): {
+  data?: string;
+  cancelled: boolean;
+} {
+  // Pinentry error code 83886179 is the canonical "user cancelled" signal —
+  // surfaces either as a non-zero exit or as an ERR line.
+  const cancelled =
+    stdout.includes('ERR 83886179') || stdout.includes('Operation cancelled');
+
+  const dataChunks = stdout
+    .split(/\r?\n/)
+    .filter((l) => l.startsWith('D '))
+    .map((l) => l.slice(2));
+
+  if (dataChunks.length > 0) {
+    return { data: decodeAssuanData(dataChunks.join('')), cancelled };
+  }
+  return { cancelled };
+}
+
 function findPinentry(): string | null {
   for (const prog of PINENTRY_PROGRAMS) {
     try {
@@ -68,11 +107,7 @@ export function promptPassphraseViaPinentry(
       [],
       { timeout: 120_000, encoding: 'utf-8' },
       (error, stdout, _stderr) => {
-        // Pinentry error code 83886179 is the canonical "user cancelled"
-        // signal — surfaces either as a non-zero exit or as an ERR line.
-        const cancelled =
-          stdout.includes('ERR 83886179') ||
-          stdout.includes('Operation cancelled');
+        const { data, cancelled } = parsePinentryStdout(stdout);
 
         if (error) {
           if (error.killed || cancelled) {
@@ -95,11 +130,8 @@ export function promptPassphraseViaPinentry(
           return;
         }
 
-        // Pinentry response protocol: `D <passphrase>` on success.
-        const lines = stdout.split('\n');
-        const dataLine = lines.find((l) => l.startsWith('D '));
-        if (dataLine) {
-          resolve(dataLine.slice(2));
+        if (data !== undefined) {
+          resolve(data);
           return;
         }
 
