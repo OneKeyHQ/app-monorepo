@@ -90,7 +90,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
-  ESwapCrossChainStatus,
   ESwapDirectionType,
   ESwapFetchCancelCause,
   ESwapLimitOrderStatus,
@@ -108,6 +107,10 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
+import {
+  shouldEmitSwapHistoryBalanceUpdate,
+  shouldUpdateSwapHistoryAfterTxState,
+} from './utils/swapHistoryStatusUtils';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 
@@ -1652,13 +1655,18 @@ export default class ServiceSwap extends ServiceBase {
         orderId: currentSwapTxHistory.swapInfo.orderId,
       });
       if (
-        txStatusRes?.state !== ESwapTxHistoryStatus.PENDING ||
-        txStatusRes.crossChainStatus !== currentSwapTxHistory.crossChainStatus
+        shouldUpdateSwapHistoryAfterTxState({
+          swapTxHistory: currentSwapTxHistory,
+          txStatusRes,
+        })
       ) {
+        const previousStateDetail = currentSwapTxHistory.stateDetail;
         currentSwapTxHistory = {
           ...currentSwapTxHistory,
           status: txStatusRes.state,
           extraStatus: txStatusRes.extraStatus,
+          stateDetail:
+            txStatusRes.stateDetail ?? currentSwapTxHistory.stateDetail,
           swapInfo: {
             ...currentSwapTxHistory.swapInfo,
             surplus:
@@ -1692,15 +1700,11 @@ export default class ServiceSwap extends ServiceBase {
         };
         await this.updateSwapHistoryItem(currentSwapTxHistory);
         if (
-          currentSwapTxHistory.crossChainStatus ===
-            ESwapCrossChainStatus.FROM_SUCCESS ||
-          currentSwapTxHistory.crossChainStatus ===
-            ESwapCrossChainStatus.TO_SUCCESS ||
-          currentSwapTxHistory.crossChainStatus ===
-            ESwapCrossChainStatus.REFUNDED ||
-          (!currentSwapTxHistory.crossChainStatus &&
-            (txStatusRes?.state === ESwapTxHistoryStatus.SUCCESS ||
-              txStatusRes?.state === ESwapTxHistoryStatus.PARTIALLY_FILLED))
+          shouldEmitSwapHistoryBalanceUpdate({
+            swapTxHistory: currentSwapTxHistory,
+            txStatusRes,
+            previousStateDetail,
+          })
         ) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
             fromToken: currentSwapTxHistory.baseInfo.fromToken,
