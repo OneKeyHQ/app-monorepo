@@ -371,6 +371,7 @@
     "worker-rspack-loader": "^3.1.2"
   },
   "resolutions": {
+    "@noble/curves": "1.9.7",
     "axios": "1.15.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",

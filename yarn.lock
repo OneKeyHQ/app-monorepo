@@ -8211,102 +8211,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:1.1.0, @noble/curves@npm:~1.1.0":
-  version: 1.1.0
-  resolution: "@noble/curves@npm:1.1.0"
-  dependencies:
-    "@noble/hashes": "npm:1.3.1"
-  checksum: 10/7028e3f19a4a2a601f9159e5423f51ae86ab231bed79a6e40649b063e1ed7f55f5da0475f1377bd2c5a8e5fc485af9ce0549ad89da6b983d6af48e5d0a2041ca
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:1.2.0":
-  version: 1.2.0
-  resolution: "@noble/curves@npm:1.2.0"
-  dependencies:
-    "@noble/hashes": "npm:1.3.2"
-  checksum: 10/94e02e9571a9fd42a3263362451849d2f54405cb3ce9fa7c45bc6b9b36dcd7d1d20e2e1e14cfded24937a13d82f1e60eefc4d7a14982ce0bc219a9fc0f51d1f9
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:1.4.2, @noble/curves@npm:~1.4.0":
-  version: 1.4.2
-  resolution: "@noble/curves@npm:1.4.2"
-  dependencies:
-    "@noble/hashes": "npm:1.4.0"
-  checksum: 10/f433a2e8811ae345109388eadfa18ef2b0004c1f79417553241db4f0ad0d59550be6298a4f43d989c627e9f7551ffae6e402a4edf0173981e6da95fc7cab5123
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:1.6.0, @noble/curves@npm:^1.4.2, @noble/curves@npm:~1.6.0":
-  version: 1.6.0
-  resolution: "@noble/curves@npm:1.6.0"
-  dependencies:
-    "@noble/hashes": "npm:1.5.0"
-  checksum: 10/9090b5a020b7e38c7b6d21506afaacd0c7557129d716a174334c1efc36385bf3ca6de16a543c216db58055e019c6a6c3bea8d9c0b79386e6bacff5c4c6b438a9
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:1.8.0, @noble/curves@npm:^1.6.0":
-  version: 1.8.0
-  resolution: "@noble/curves@npm:1.8.0"
-  dependencies:
-    "@noble/hashes": "npm:1.7.0"
-  checksum: 10/c54ce84cf54b8bda1a37a10dfae2e49e5b6cdf5dd98b399efa8b8a80a286b3f8f27bde53202cb308353bfd98719938991a78bed6e43f81f13b17f8181b7b82eb
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:1.9.1":
-  version: 1.9.1
-  resolution: "@noble/curves@npm:1.9.1"
-  dependencies:
-    "@noble/hashes": "npm:1.8.0"
-  checksum: 10/5c82ec828ca4a4218b1666ba0ddffde17afd224d0bd5e07b64c2a0c83a3362483387f55c11cfd8db0fc046605394fe4e2c67fe024628a713e864acb541a7d2bb
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:1.9.7, @noble/curves@npm:^1.7.0, @noble/curves@npm:^1.9.6":
+"@noble/curves@npm:1.9.7":
   version: 1.9.7
   resolution: "@noble/curves@npm:1.9.7"
   dependencies:
     "@noble/hashes": "npm:1.8.0"
   checksum: 10/3cfe2735ea94972988ca9e217e0ebb2044372a7160b2079bf885da789492a6291fc8bf76ca3d8bf8dee477847ee2d6fac267d1e6c4f555054059f5e8c4865d44
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:^1.1.0, @noble/curves@npm:^1.3.0, @noble/curves@npm:~1.3.0":
-  version: 1.3.0
-  resolution: "@noble/curves@npm:1.3.0"
-  dependencies:
-    "@noble/hashes": "npm:1.3.3"
-  checksum: 10/f3cbdd1af00179e30146eac5539e6df290228fb857a7a8ba36d1a772cbe59288a2ca83d06f175d3446ef00db3a80d7fd8b8347f7de9c2d4d5bf3865d8bb78252
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:^1.8.1":
-  version: 1.9.0
-  resolution: "@noble/curves@npm:1.9.0"
-  dependencies:
-    "@noble/hashes": "npm:1.8.0"
-  checksum: 10/f2c5946310722fee23e04ed747f21ce72e0436e38e1fa620d226a8c613262e7d0dbab5341f14caf92936089d01d9e9231964c409cd1ac2a73a075f3cdb1acc41
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:~1.8.1":
-  version: 1.8.1
-  resolution: "@noble/curves@npm:1.8.1"
-  dependencies:
-    "@noble/hashes": "npm:1.7.1"
-  checksum: 10/e861db372cc0734b02a4c61c0f5a6688d4a7555edca3d8a9e7c846c9aa103ca52d3c3818e8bc333a1a95b5be7f370ff344668d5d759471b11c2d14c7f24b3984
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:~1.9.0":
-  version: 1.9.2
-  resolution: "@noble/curves@npm:1.9.2"
-  dependencies:
-    "@noble/hashes": "npm:1.8.0"
-  checksum: 10/f60f00ad86296054566b67be08fd659999bb64b692bfbf11dbe3be1f422ad4d826bf5ebb2015ce2e246538eab2b677707e0a46ffa8323a6fae7a9a30ec1fe318
   languageName: node
   linkType: hard
 
@@ -8338,13 +8248,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.3.3, @noble/hashes@npm:^1.1.5, @noble/hashes@npm:^1.2.0, @noble/hashes@npm:^1.3.1, @noble/hashes@npm:^1.3.3, @noble/hashes@npm:~1.3.0, @noble/hashes@npm:~1.3.1, @noble/hashes@npm:~1.3.2":
-  version: 1.3.3
-  resolution: "@noble/hashes@npm:1.3.3"
-  checksum: 10/1025ddde4d24630e95c0818e63d2d54ee131b980fe113312d17ed7468bc18f54486ac86c907685759f8a7e13c2f9b9e83ec7b67d1cc20836f36b5e4a65bb102d
-  languageName: node
-  linkType: hard
-
 "@noble/hashes@npm:1.4.0, @noble/hashes@npm:^1.4.0, @noble/hashes@npm:~1.4.0":
   version: 1.4.0
   resolution: "@noble/hashes@npm:1.4.0"
@@ -8366,13 +8269,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.7.1, @noble/hashes@npm:~1.7.1":
-  version: 1.7.1
-  resolution: "@noble/hashes@npm:1.7.1"
-  checksum: 10/ca3120da0c3e7881d6a481e9667465cc9ebbee1329124fb0de442e56d63fef9870f8cc96f264ebdb18096e0e36cebc0e6e979a872d545deb0a6fed9353f17e05
-  languageName: node
-  linkType: hard
-
 "@noble/hashes@npm:1.7.2":
   version: 1.7.2
   resolution: "@noble/hashes@npm:1.7.2"
@@ -8387,10 +8283,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/hashes@npm:^1.1.5, @noble/hashes@npm:^1.2.0, @noble/hashes@npm:^1.3.1, @noble/hashes@npm:^1.3.3, @noble/hashes@npm:~1.3.0, @noble/hashes@npm:~1.3.1, @noble/hashes@npm:~1.3.2":
+  version: 1.3.3
+  resolution: "@noble/hashes@npm:1.3.3"
+  checksum: 10/1025ddde4d24630e95c0818e63d2d54ee131b980fe113312d17ed7468bc18f54486ac86c907685759f8a7e13c2f9b9e83ec7b67d1cc20836f36b5e4a65bb102d
+  languageName: node
+  linkType: hard
+
 "@noble/hashes@npm:^2":
   version: 2.0.1
   resolution: "@noble/hashes@npm:2.0.1"
   checksum: 10/f4d00e7564eb4ff4e6d16be151dd0e404aede35f91e4372b0a8a6ec888379c1dd1e02c721b480af8e7853bea9637185b5cb9533970c5b77d60c254ead0cfd8f7
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:~1.7.1":
+  version: 1.7.1
+  resolution: "@noble/hashes@npm:1.7.1"
+  checksum: 10/ca3120da0c3e7881d6a481e9667465cc9ebbee1329124fb0de442e56d63fef9870f8cc96f264ebdb18096e0e36cebc0e6e979a872d545deb0a6fed9353f17e05
   languageName: node
   linkType: hard
 
@@ -8867,18 +8777,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.106":
-  version: 1.1.26-alpha.106
-  resolution: "@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.106"
+"@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.4":
+  version: 1.1.26-alpha.4
+  resolution: "@onekeyfe/hwk-adapter-core@npm:1.1.26-alpha.4"
   dependencies:
     "@noble/hashes": "npm:^1.7.1"
-  checksum: 10/c3badda6486c5e28b3fdea9763f9e38fabce5f189bae80b060ff6fdcaae41239bc1904a399c83c97ecef8e5c1eb19f981b3acaa0edf7872e4b5cc4f4bb7ed48f
+  checksum: 10/270e056231372cb91d0f387d4ba505dc147bb9f565456d06ff018d6221ec245570018c74b580753c90b7d73fecae2741fa88aff86b3c4601cc58f523256d3375
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.106":
-  version: 1.1.26-alpha.106
-  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.106"
+"@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.4":
+  version: 1.1.26-alpha.4
+  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.1.26-alpha.4"
   dependencies:
     "@ledgerhq/context-module": "npm:^1.0.0"
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
@@ -8887,39 +8797,39 @@ __metadata:
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/hw-app-trx": "npm:^6.34.1"
     "@ledgerhq/hw-transport": "npm:^6.34.1"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.106"
-    rxjs: "npm:^7.8.1"
-  checksum: 10/af4962eeb3805313f8ca2fd5b30bc0bad7d79dbcddceeb0835d9a9ea18031db41d1519feaa039b3bd4a98ccffdebb5e6df1e9b9f88c0cff463790b590549b703
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.4"
+    bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
+  checksum: 10/d960394d0e81ac15ac29d66d28cdd425c4106326b2ef35898b808033abd8efb06fa42f645009ab94a0dc920d4a902761e55eaada190ac766334b8f00f6cb4a2a
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.106":
-  version: 1.1.26-alpha.106
-  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.106"
+"@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.4":
+  version: 1.1.26-alpha.4
+  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.1.26-alpha.4"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-react-native-ble": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.106"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.106"
-  checksum: 10/78ded4e84adebf1f2a95613e26d390c54ff7aa7aaa9a2a27d13ac102c2ea6762d2ce841ffbb155d06d3a98db7d08f4c8a3d510e277748bfa59446089175a5c24
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.4"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.4"
+  checksum: 10/afe83f073b9bcc0b9c7c9809521750bf6b80448aec2963461a70ec950a05d8719d58794579b74da5bbb16fc64ab7ac15ade947c02779e87c6f106bfb87b3a888
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.106":
-  version: 1.1.26-alpha.106
-  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.106"
+"@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.4":
+  version: 1.1.26-alpha.4
+  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.1.26-alpha.4"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:^1.1.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:^1.0.0"
     "@ledgerhq/device-signer-kit-ethereum": "npm:^1.9.0"
     "@ledgerhq/device-signer-kit-solana": "npm:^1.7.0"
     "@ledgerhq/device-transport-kit-web-hid": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.106"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.106"
-  checksum: 10/f467f89943dd497ed668d8d262f0493f838498b9b2585c4987d621ecbb65a76019e38bbfe31b0ce07c20dc224fe948632faabad50a20b99dc2e65911d09749de
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.4"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.4"
+  checksum: 10/48dc2ee47fd2d8437d3de15985e2ff0c1594c356287c7350663fd261d3b3245b19974d817e9babe488e3dee53210e3c22ee3b50e27704e0b1883736652e2470e
   languageName: node
   linkType: hard
 
@@ -9548,10 +9458,10 @@ __metadata:
     "@onekeyfe/hd-transport": "npm:1.1.25"
     "@onekeyfe/hd-transport-electron": "npm:1.1.25"
     "@onekeyfe/hd-web-sdk": "npm:1.1.25"
-    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.106"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.106"
-    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.1.26-alpha.106"
-    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.1.26-alpha.106"
+    "@onekeyfe/hwk-adapter-core": "npm:1.1.26-alpha.4"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.1.26-alpha.4"
+    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.1.26-alpha.4"
+    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.1.26-alpha.4"
     "@onekeyfe/onekey-cross-webview": "npm:2.2.68"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
