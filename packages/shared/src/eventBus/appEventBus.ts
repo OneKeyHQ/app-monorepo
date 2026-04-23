@@ -642,7 +642,16 @@ class AppEventBusClass extends CrossEventEmitter {
       return payloadCloned;
     };
 
-    if (isRemoteEventPayload) {
+    // Skip re-broadcasting remote-origin payloads only on native, where the
+    // main-thread ↔ bg-thread relay would otherwise echo. On extension, the
+    // bg→ui broadcast is the only way for a ui-emitted event to reach other
+    // UI listeners (shouldEmitToSelf is false for isExtensionUi), so we must
+    // let it through.
+    if (
+      isRemoteEventPayload &&
+      platformEnv.isNative &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
       return;
     }
 
