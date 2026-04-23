@@ -50,7 +50,7 @@ export function useMarketTransactions({
   const setAccumulatedTransactionsImmediately = useCallback(
     (transactions: IMarketTokenTransaction[]) => {
       const current = platformEnv.isNative
-        ? transactions.slice(0, 30 + loadTimesRef.current * 30)
+        ? transactions.slice(0, 50 + loadTimesRef.current * 30)
         : transactions;
       setAccumulatedTransactions(current);
       accumulatedTransactionsRef.current = current;
@@ -229,6 +229,7 @@ export function useMarketTransactions({
         ...response.list,
       ]);
 
+      accumulatedTransactionsRef.current = uniqueTransactions;
       throttleSetAccumulatedTransactions(uniqueTransactions);
 
       setHasMore(Boolean(response.cursor));
