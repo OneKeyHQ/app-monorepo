@@ -3005,6 +3005,7 @@
   "perp_portfolio_total_trades": "Total Trades",
   "perp_portfolio_unrealized_pnl": "Unrealized P&L",
   "perp_portfolio_value": "Portfolio Value",
+  "perp_portfolio_value_tooltip": "Combined spot and perps portfolio value, including available balances and unrealized P&L from open perps positions. This does not represent withdrawable amount.",
   "perp_portfolio_volume": "Volume",
   "perp_portfolio_win_rate": "Win Rate",
   "perp_portfolio_win_rate_tooltip_all_time__desc": "Calculated from closed trades in up to the last 2 years.",
