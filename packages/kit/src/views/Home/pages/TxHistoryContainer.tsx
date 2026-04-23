@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isEmpty, uniqBy } from 'lodash';
 
 import {
+  onVisibilityStateChange,
   useMedia,
   useScrollContentTabBarOffset,
   useTabIsRefreshingFocused,
@@ -11,7 +12,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
-  useNotificationsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -82,8 +82,6 @@ function TxHistoryListContainer(
     isRefreshing: false,
   });
 
-  const [notificationAlertOpacity, setNotificationAlertOpacity] = useState(0);
-
   const refreshAllNetworksHistory = useRef(false);
 
   const media = useMedia();
@@ -101,7 +99,6 @@ function TxHistoryListContainer(
 
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
-  const [{ txHistoryAlertDismissed }] = useNotificationsAtom();
 
   const updateHistoryData = useCallback(
     (txs: IAccountHistoryTx[]) => {
@@ -312,6 +309,7 @@ function TxHistoryListContainer(
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      revalidateOnFocus: true,
     },
   );
 
@@ -410,6 +408,29 @@ function TxHistoryListContainer(
     }
   }, [isHeaderRefreshing, run]);
 
+  const lastVisibilityRefreshAtRef = useRef(0);
+  const handleRefreshOnVisibilityActive = useCallback(() => {
+    const now = Date.now();
+    if (
+      now - lastVisibilityRefreshAtRef.current <
+      POLLING_INTERVAL_FOR_HISTORY
+    ) {
+      return;
+    }
+    lastVisibilityRefreshAtRef.current = now;
+    isManualRefresh.current = true;
+    void run({ alwaysSetState: true });
+  }, [run]);
+
+  useEffect(() => {
+    const removeSubscription = onVisibilityStateChange((visible) => {
+      if (visible && isFocused) {
+        handleRefreshOnVisibilityActive();
+      }
+    });
+    return removeSubscription;
+  }, [handleRefreshOnVisibilityActive, isFocused]);
+
   useEffect(() => {
     const refresh = () => {
       if (isFocused) {
@@ -449,40 +470,22 @@ function TxHistoryListContainer(
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
 
-  const ListComponentRef = useRef(null);
-
-  const recomputeLayout = useCallback(() => {
-    if (!platformEnv.isNative) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (ListComponentRef.current as any)?.recomputeLayout?.();
-    }
-  }, []);
-
-  const listHeaderComponent = useMemo(() => {
-    if (!historyState.initialized) {
-      return null;
-    }
-    return (
-      <NotificationEnableAlert
-        opacity={notificationAlertOpacity}
-        setOpacity={setNotificationAlertOpacity}
-        scene="txHistory"
-        recomputeLayout={recomputeLayout}
-      />
-    );
-  }, [
-    notificationAlertOpacity,
-    setNotificationAlertOpacity,
-    historyState.initialized,
-    recomputeLayout,
-  ]);
-
   const tabBarHeight = useScrollContentTabBarOffset();
+
+  // On native, the Alert renders inside the list header so it sits below the
+  // sticky TabBar and scrolls with the list. On web, the same Alert renders
+  // via Tabs.Container's `renderSubHeader` slot so its height changes cannot
+  // invalidate the virtualized list's CellMeasurer cache mid-scroll.
+  const listHeaderComponent = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <NotificationEnableAlert scene="txHistory" />
+      ) : null,
+    [],
+  );
 
   return (
     <TxHistoryListView
-      ref={ListComponentRef}
-      key={`tx-history-${txHistoryAlertDismissed ? 'dismissed' : 'shown'}`}
       plainMode={plainMode}
       isTabFocused={isFocused}
       showIcon
