@@ -376,7 +376,6 @@ export function useTrayDataProvider() {
               firstSend: firstSend
                 ? { amount: firstSend.amount, symbol: firstSend.symbol }
                 : undefined,
-              txType,
             });
 
             const to = firstSend?.to || decodedTx?.to || '';
@@ -582,8 +581,11 @@ export function useTrayDataProvider() {
       globalThis.desktopApi?.sendTrayData({
         accountId: currentAccountId,
         pendingTxsCleared: false,
+        // Fall back to 'Wallet' — an empty name falls through to the
+        // `noWallet` empty-state branch in TrayPanel, which would replace
+        // the optimistic zeros with a full-panel "no wallet" screen.
         wallet: {
-          name: walletRef.current?.name || '',
+          name: walletRef.current?.name || 'Wallet',
           emoji: '',
           avatarImg: '',
         },
