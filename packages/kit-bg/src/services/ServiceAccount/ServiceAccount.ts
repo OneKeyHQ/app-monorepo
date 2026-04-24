@@ -72,6 +72,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -116,6 +117,7 @@ import type {
 import {
   EConfirmOnDeviceType,
   EHardwareCallContext,
+  EHardwareVendor,
 } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
@@ -162,6 +164,7 @@ import {
   indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
+import { verifySeedMatch as verifyLedgerSeedMatch } from '../../vaults/base/ledgerFingerprintUtils';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -3110,12 +3113,25 @@ class ServiceAccount extends ServiceBase {
         'createHWWalletBase ERROR: features is required',
       );
     }
+
+    // Resolve vendor from params or device
+    const vendor =
+      (params as { vendor?: EHardwareVendor }).vendor ??
+      ((params.device as { vendor?: string }).vendor as
+        | EHardwareVendor
+        | undefined);
+    const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
+
+    // Vendors without persistent USB connectId don't need compatible resolution
     const compatibleConnectId =
-      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-        connectId: params.device.connectId ?? '',
-        featuresDeviceId: params.device.deviceId ?? '',
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      });
+      vendorProfile?.isThirdParty &&
+      !vendorProfile.hasPersistentConnectId('usb')
+        ? (params.device.connectId ?? '')
+        : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+            connectId: params.device.connectId ?? '',
+            featuresDeviceId: params.device.deviceId ?? '',
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
     const searchDeviceId = params.device.deviceId ?? '';
     const deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
@@ -3136,6 +3152,7 @@ class ServiceAccount extends ServiceBase {
         passphraseState,
         throwError: true,
         withUserInteraction: true,
+        vendor,
       });
       console.log('createHWWalletBase xfp', xfp, compatibleConnectId, deviceId);
     }
@@ -3144,6 +3161,7 @@ class ServiceAccount extends ServiceBase {
       const refreshedDevice = await localDb.getDeviceByQuery({
         connectId: params.device.connectId || compatibleConnectId,
         featuresDeviceId: deviceId,
+        vendor,
       });
       if (refreshedDevice) {
         params.device = refreshedDevice;
@@ -3151,6 +3169,7 @@ class ServiceAccount extends ServiceBase {
     }
     const result = await localDb.createHwWallet({
       ...params,
+      vendor,
       xfp,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: async (): Promise<string | null> => {
@@ -3163,12 +3182,27 @@ class ServiceAccount extends ServiceBase {
               connectId: compatibleConnectId,
               deviceId,
               path: FIRST_EVM_ADDRESS_PATH,
+              vendor,
             },
           );
         return r;
       },
+      verifySeedMatchFn:
+        vendor === EHardwareVendor.ledger
+          ? async (matchedDevice) =>
+              verifyLedgerSeedMatch(
+                this.backgroundApi,
+                matchedDevice,
+                compatibleConnectId,
+              )
+          : undefined,
       transportType,
     });
+    // Chain fingerprints for third-party vendors (Ledger) are generated on-demand
+    // by ensureLedgerChainFingerprint() in KeyringHardwareBase when a chain's
+    // keyring is first used. This ensures the fingerprint is generated using the
+    // SDK's getChainFingerprint() method (single source of truth for hashing).
+
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
@@ -4378,6 +4412,11 @@ class ServiceAccount extends ServiceBase {
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     // getHWAccountAddresses
+    // Third-party vendors (Ledger) don't use OneKey SDK's hardware UI flow
+    const deviceVendor =
+      deviceParams?.dbDevice?.vendor ?? EHardwareVendor.onekey;
+    const isThirdPartyVendor = getVendorProfile(deviceVendor).isThirdParty;
+
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const addresses = await vault.keyring.batchGetAddresses(prepareParams);
@@ -4420,7 +4459,8 @@ class ServiceAccount extends ServiceBase {
         return results;
       },
       {
-        deviceParams,
+        deviceParams: isThirdPartyVendor ? undefined : deviceParams,
+        hideCheckingDeviceLoading: isThirdPartyVendor,
         skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
       },
@@ -5270,6 +5310,7 @@ class ServiceAccount extends ServiceBase {
       passphraseState: wallet?.passphraseState,
       throwError: throwError ?? false,
       withUserInteraction,
+      vendor: wallet?.associatedDeviceInfo?.vendor,
     });
     if (xfp) {
       await localDb.updateWalletsHashAndXfp({
@@ -6452,6 +6493,25 @@ class ServiceAccount extends ServiceBase {
     }
 
     return false;
+  }
+
+  /**
+   * Check if the wallet belongs to a third-party hardware vendor (e.g. Ledger, Trezor)
+   */
+  @backgroundMethod()
+  async isThirdPartyHwByWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<boolean> {
+    if (!accountUtils.isHwWallet({ walletId })) {
+      return false;
+    }
+    const device = await this.getWalletDeviceSafe({ walletId });
+    if (!device?.vendor) {
+      return false;
+    }
+    return getVendorProfile(device.vendor).isThirdParty;
   }
 
   /**

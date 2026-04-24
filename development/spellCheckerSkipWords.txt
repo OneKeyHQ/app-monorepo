@@ -1456,3 +1456,7 @@ SETDESC
 Bixin
 libsecret
 libusb
+ledgerhq
+keyrings
+APDU
+webhid
