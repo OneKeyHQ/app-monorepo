@@ -260,9 +260,6 @@ export function useTrayDataProvider() {
                   { tokenAddressList },
                 );
               if (response?.list?.length) {
-                // Key shape mirrors useMarketWatchlistTokenList so tray
-                // navigation identifiers stay consistent with the rest
-                // of the app (OK-53609 BTC, OK-53626 contract tokens).
                 const buildKey = (
                   networkId: string,
                   address: string | undefined,
@@ -285,8 +282,6 @@ export function useTrayDataProvider() {
                   );
                   responseByKey.set(key, coin);
                 });
-                // Iterate in watchlist order so the tray mirrors the
-                // user's saved order regardless of API response ordering.
                 spotItems.forEach((spotItem: any) => {
                   const spotIsNative = spotItem.isNative ?? false;
                   const key = buildKey(
@@ -304,10 +299,8 @@ export function useTrayDataProvider() {
                     price: formatPriceInTarget(coin.price),
                     change24h: Number(coin.priceChange24hPercent || 0),
                     type: 'spot',
-                    // Trust watchlist identifiers — the DB stores canonical
-                    // networkId + contractAddress; API responses may use
-                    // different casing or a shortcode for networkId, which
-                    // would break MarketDetailV2 navigation downstream.
+                    // Watchlist's chainId/contractAddress are canonical;
+                    // API responses can shift casing or return a shortcode.
                     tokenAddress: spotIsNative
                       ? ''
                       : spotItem.contractAddress || '',
@@ -531,9 +524,8 @@ export function useTrayDataProvider() {
         nav.navigate(ERootRoutes.Main, {
           screen: ETabRoutes.Home,
         });
-        // HomePageView subscribes to this event and calls
-        // tabsRef.jumpToTab; a small delay lets the Home screen mount
-        // its listener before the emit fires (OK-53625).
+        // Delay lets HomePageView mount its SwitchWalletHomeTab listener
+        // before we emit.
         setTimeout(() => {
           appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
             id: EHomeWalletTab.History,
@@ -550,8 +542,6 @@ export function useTrayDataProvider() {
               screen: ETabRoutes.Perp,
             });
             try {
-              // Covers the cold-start path: on first Perp-tab focus this
-              // session, useHyperliquidSymbolSelect reads the bg atom.
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
                 coin,
               });
@@ -562,8 +552,6 @@ export function useTrayDataProvider() {
                 }`,
               );
             }
-            // Covers the warm path: an already-mounted Perp context runs
-            // switchTradeInstrument to refresh its context atoms.
             appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
               mode: 'perp',
               coin,
@@ -572,8 +560,6 @@ export function useTrayDataProvider() {
           return;
         }
 
-        // Native coins (BTC, ETH, …) carry an empty tokenAddress — the
-        // route expects isNative=true + networkId instead (OK-53609).
         const isNative = (action.isNative as boolean) || false;
         if (action.networkId && (isNative || action.tokenAddress)) {
           const networkId = action.networkId as string;
