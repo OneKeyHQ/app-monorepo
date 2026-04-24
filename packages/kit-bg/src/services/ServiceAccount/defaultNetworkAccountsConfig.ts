@@ -2,6 +2,8 @@ import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { uniqBy } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IAccountDeriveTypes } from '../../vaults/types';
@@ -11,6 +13,10 @@ type IBuildDefaultAddAccountNetworksParams = {
   walletId: string;
   includingNetworkWithGlobalDeriveType?: boolean;
   firmwareType: EFirmwareType | undefined;
+  /** true when called from wallet-creation flow; undefined/false means add-account flow */
+  isCreateWallet?: boolean;
+  /** custom networks selected by user (current network), used for third-party HW add-account to expand BTC derive types */
+  customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
 };
 
 type INetworkWithDeriveType = {
@@ -169,6 +175,7 @@ export async function buildDefaultAddAccountNetworks(
 ) {
   const { backgroundApi, walletId } = params;
 
+  // BTC-only firmware → only BTC (regardless of create/add scenario)
   const isBtcOnlyFirmware =
     await backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
       walletId,
@@ -178,6 +185,28 @@ export async function buildDefaultAddAccountNetworks(
       ...params,
       btc: true,
     });
+  }
+
+  // Third-party HW (Ledger, Trezor) + add-account → only current network,
+  // but BTC need all derive types expanded
+  if (!params.isCreateWallet) {
+    const isThirdPartyHw =
+      await backgroundApi.serviceAccount.isThirdPartyHwByWalletId({
+        walletId,
+      });
+    if (isThirdPartyHw) {
+      const hasBtc = params.customNetworks?.some(
+        (n) =>
+          networkUtils.getNetworkImpl({ networkId: n.networkId }) === IMPL_BTC,
+      );
+      if (hasBtc) {
+        return buildAddAccountsNetworks({
+          ...params,
+          btc: hasBtc,
+        });
+      }
+      return [];
+    }
   }
 
   const networks: INetworkWithDeriveType[] = await buildAddAccountsNetworks({

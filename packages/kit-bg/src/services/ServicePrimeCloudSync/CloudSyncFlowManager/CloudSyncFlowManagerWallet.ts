@@ -1,4 +1,5 @@
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   ICloudSyncPayloadWallet,
@@ -22,7 +23,17 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   override async isSupportSync(
     target: ICloudSyncTargetWallet,
   ): Promise<boolean> {
-    const { wallet } = target;
+    const { wallet, dbDevice } = target;
+
+    // Third-party HW vendors (Ledger, ...) don't participate in cloud sync.
+    // Without this gate, buildSyncRawKey falls through to '' and every
+    // such wallet collapses onto the same hashed sync key.
+    if (
+      dbDevice?.vendor &&
+      !getVendorProfile(dbDevice.vendor).supportsCloudSync
+    ) {
+      return false;
+    }
 
     return (
       (accountUtils.isHdWallet({ walletId: wallet.id }) &&
@@ -39,14 +50,17 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   }) {
     const { wallet, dbDevice } = target;
 
-    const { rawKey } = cloudSyncItemBuilder.buildWalletSyncKey({
+    const result = cloudSyncItemBuilder.buildWalletSyncKey({
       dataType: EPrimeCloudSyncDataType.Wallet,
       wallet,
       dbDevice,
       accountIndex: undefined,
     });
 
-    return rawKey;
+    // Third-party HW wallets (Ledger) skip cloud sync
+    if (!result) return '';
+
+    return result.rawKey;
   }
 
   override async buildSyncPayload({
