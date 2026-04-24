@@ -234,6 +234,13 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardCloseHardwareUiStateDialog]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
+  [EAppEventBusNames.GasAccountSubmitRetryScheduled]: {
+    attempt: number;
+    maxAttempts: number;
+    retryAfterSec: number;
+    scheduledAt: number;
+  };
+  [EAppEventBusNames.GasAccountSubmitRetryCleared]: undefined;
   [EAppEventBusNames.TokenListUpdate]: {
     tokens: IAccountToken[];
     keys: string;
