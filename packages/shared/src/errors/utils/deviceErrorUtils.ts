@@ -1,4 +1,5 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as HwkHardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { isArray, isNil } from 'lodash';
 
 import platformEnv from '../../platformEnv';
@@ -9,12 +10,28 @@ import {
 } from '../types/errorTypes';
 
 import { getDeviceErrorPayloadMessage } from './errorUtils';
+import { convertThirdPartyDeviceError } from './thirdPartyDeviceErrorUtils';
 
 import type { IDeviceResponseResult } from '../../../types/device';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
+
+// HWK (third-party hardware) error codes live in a disjoint range from
+// OneKey HD-SDK's enum. When convertDeviceError's switch can't match a
+// code, we check this set to decide whether to delegate to the
+// third-party mapper before falling back to UnknownHardwareError.
+const HWK_ERROR_CODES: ReadonlySet<number> = new Set<number>(
+  Object.values(HwkHardwareErrorCode).filter(
+    (v): v is number => typeof v === 'number',
+  ),
+);
+
+function isHwkErrorCode(code: unknown): code is number {
+  const n = typeof code === 'string' ? Number(code) : code;
+  return typeof n === 'number' && Number.isFinite(n) && HWK_ERROR_CODES.has(n);
+}
 
 export function captureSpecialError(
   code: string | number | undefined,
@@ -234,6 +251,12 @@ export function convertDeviceError(
     case 'ERR_BAD_REQUEST':
       return new HardwareErrors.HardwareCommunicationError({ payload });
     default:
+      if (isHwkErrorCode(code)) {
+        return convertThirdPartyDeviceError({
+          code: Number(code),
+          error: payload.error ?? message ?? '',
+        });
+      }
       return new HardwareErrors.UnknownHardwareError({ payload });
 
     // TODO not working as HardwareErrorCode is const but not enum
