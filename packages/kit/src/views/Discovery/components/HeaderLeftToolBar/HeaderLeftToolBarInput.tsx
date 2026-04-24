@@ -39,6 +39,7 @@ interface IHeaderLeftToolBarInputProps {
   isLoading?: boolean;
   isTranslated?: boolean;
   onTranslate?: () => void;
+  onRetranslate?: () => void;
   onTestAITranslateError?: (testFlag: string) => void;
 }
 
@@ -54,6 +55,7 @@ function HeaderLeftToolBarInput({
   isLoading,
   isTranslated,
   onTranslate,
+  onRetranslate,
   onTestAITranslateError,
 }: IHeaderLeftToolBarInputProps) {
   const intl = useIntl();
@@ -256,6 +258,7 @@ function HeaderLeftToolBarInput({
             <TranslatePopoverContent
               isTranslated={!!isTranslated}
               onTranslate={onTranslate ?? (() => {})}
+              onRetranslate={onRetranslate}
               onTestAITranslateError={onTestAITranslateError}
               closePopover={closePopover}
               showSettings={translateShowSettings}
