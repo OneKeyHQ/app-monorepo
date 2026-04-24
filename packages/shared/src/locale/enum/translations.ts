@@ -3033,6 +3033,8 @@ export enum ETranslations {
   perp_spot_max_buy = 'perp_spot_max_buy',
   perp_spot_max_buy_sell_tooltip = 'perp_spot_max_buy_sell_tooltip',
   perp_spot_max_sell = 'perp_spot_max_sell',
+  perp_spot_reference_price__desc = 'perp_spot_reference_price__desc',
+  perp_spot_reference_price__title = 'perp_spot_reference_price__title',
   perp_trades_history_recent_range_desc = 'perp_trades_history_recent_range_desc',
   perp_trading_adjust_margin = 'perp_trading_adjust_margin',
   perp_trading_adjust_margin_max = 'perp_trading_adjust_margin_max',
