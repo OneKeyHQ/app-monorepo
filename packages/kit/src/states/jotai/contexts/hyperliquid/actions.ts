@@ -1569,13 +1569,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         newPrice: string;
       },
     ) => {
-      // Drag adjusts price only — side stays as originally placed. HL's
-      // modify rejects side changes ("Attempted to modify to invalid new
-      // order"), and product decided cross-mark flip is out of scope:
-      // users who want the opposite side cancel and place a new order.
-      // Wrap the whole body in withToast so early-validation throws
-      // (order not found in atom) also surface as a toast — not just
-      // the network call failure.
+      // Side stays as placed — HL rejects modify that flips isBuy.
       return withToast({
         asyncFn: async () => {
           const existing = await this.findChartOrder(get, params.oid);
@@ -1606,18 +1600,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         oid: number;
       },
     ) => {
-      // Validate up-front and surface a toast explicitly on failure —
-      // nesting this under withToast would double-toast with the inner
-      // cancelOrder (which already runs under its own CANCEL_ORDER
-      // withToast for the actual network call).
+      // Inner cancelOrder owns the CANCEL_ORDER toast; emit our own
+      // error toast for pre-network validation so failures aren't silent.
       const existing = await this.findChartOrder(get, params.oid);
       if (!existing) {
         Toast.error({ title: `Order ${params.oid} not found` });
         return undefined;
       }
-
-      // order.coin is HL-native (e.g. xyz sub-DEX tickers); hand to
-      // backend as-is so getSymbolMeta hits the right entry.
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
           coin: existing.coin,
@@ -1626,7 +1615,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         Toast.error({ title: `Unknown coin: ${existing.coin}` });
         return undefined;
       }
-
       return this.cancelOrder.call(set, {
         orders: [{ assetId: symbolMeta.assetId, oid: params.oid }],
       });
