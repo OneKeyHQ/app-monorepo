@@ -8,6 +8,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
+const MARKET_FOOTER_BUTTON_WIDTH = '44%';
+const MARKET_FOOTER_BUTTON_HEIGHT = 36;
+
 function PerpMarketFooter() {
   const intl = useIntl();
   const actionsRef = useHyperliquidActions();
@@ -32,6 +35,8 @@ function PerpMarketFooter() {
 
   return (
     <Page.Footer
+      pt="$3"
+      pb="$8"
       onCancelText={intl.formatMessage({
         id: ETranslations.perp_trade_long,
       })}
@@ -39,9 +44,9 @@ function PerpMarketFooter() {
         id: ETranslations.perp_trade_short,
       })}
       cancelButtonProps={{
-        flex: 1,
-        padding: 0,
-        height: 38,
+        width: MARKET_FOOTER_BUTTON_WIDTH,
+        height: MARKET_FOOTER_BUTTON_HEIGHT,
+        size: 'small',
         borderRadius: '$full',
         bg: longButtonStyle.bg,
         hoverStyle: longButtonStyle.hoverStyle,
@@ -51,9 +56,9 @@ function PerpMarketFooter() {
         alignItems: 'center',
       }}
       confirmButtonProps={{
-        flex: 1,
-        padding: 0,
-        height: 38,
+        width: MARKET_FOOTER_BUTTON_WIDTH,
+        height: MARKET_FOOTER_BUTTON_HEIGHT,
+        size: 'small',
         borderRadius: '$full',
         bg: shortButtonStyle.bg,
         hoverStyle: shortButtonStyle.hoverStyle,
@@ -61,6 +66,10 @@ function PerpMarketFooter() {
         color: shortButtonStyle.textColor,
         justifyContent: 'center',
         alignItems: 'center',
+      }}
+      buttonContainerProps={{
+        width: '100%',
+        justifyContent: 'space-between',
       }}
       onCancel={handleCancel}
       onConfirm={handleConfirm}

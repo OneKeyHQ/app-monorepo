@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "Compra máx.",
   "perp_spot_max_buy_sell_tooltip": "La cantidad máxima de compra o venta depende de tu saldo disponible y del precio de la orden. En las órdenes limitadas, se actualiza automáticamente después de introducir el precio.",
   "perp_spot_max_sell": "Venta máx.",
+  "perp_spot_reference_price__desc": "El precio de referencia spot se usa para valorar activos y calcular el PnL.",
+  "perp_spot_reference_price__title": "Precio de referencia",
   "perp_trades_history_recent_range_desc": "Se muestran las operaciones de hasta los últimos 2 años.",
   "perp_trading_adjust_margin": "Ajustar margen",
   "perp_trading_adjust_margin_max": "Máx. añadir",

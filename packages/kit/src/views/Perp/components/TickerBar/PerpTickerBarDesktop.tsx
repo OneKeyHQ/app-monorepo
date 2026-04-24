@@ -31,6 +31,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
+  formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
@@ -62,9 +63,11 @@ const TickerBarMarkPriceView = memo(
   ({
     formattedMarkPrice,
     isLoading,
+    tooltipContentId,
   }: {
     formattedMarkPrice: string;
     isLoading: boolean;
+    tooltipContentId: ETranslations;
   }) => {
     const intl = useIntl();
     return (
@@ -84,7 +87,7 @@ const TickerBarMarkPriceView = memo(
             renderContent={
               <SizableText size="$bodySm">
                 {intl.formatMessage({
-                  id: ETranslations.perp_mark_price_tooltip,
+                  id: tooltipContentId,
                 })}
               </SizableText>
             }
@@ -100,15 +103,20 @@ function TickerBarMarkPrice() {
   const [tradingMode] = useTradingModeAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const formattedMarkPrice =
-    tradingMode === 'spot'
-      ? spotAssetCtx?.ctx?.markPrice || ''
-      : assetCtx?.ctx?.markPrice || '';
+  const isSpot = tradingMode === 'spot';
+  const formattedMarkPrice = isSpot
+    ? formatLocalizedNumberString(spotAssetCtx?.ctx?.markPrice || '')
+    : assetCtx?.ctx?.markPrice || '';
   const isLoading = useTickerBarIsLoading();
   return (
     <TickerBarMarkPriceView
       formattedMarkPrice={formattedMarkPrice}
       isLoading={isLoading}
+      tooltipContentId={
+        isSpot
+          ? ETranslations.perp_spot_reference_price__desc
+          : ETranslations.perp_mark_price_tooltip
+      }
     />
   );
 }
