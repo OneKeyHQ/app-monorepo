@@ -27,23 +27,19 @@ import {
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 
-function StatRow({
-  label,
-  children,
-  skeletonWidth,
-  showSkeleton,
-}: {
-  label: string;
-  children: ReactNode;
-  skeletonWidth: number;
-  showSkeleton: boolean;
-}) {
+function StatRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <XStack alignItems="center" justifyContent="space-between" gap="$1">
-      <SizableText size="$bodySm" color="$textSubdued">
+    <XStack alignItems="center" justifyContent="space-between" gap="$2">
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        numberOfLines={1}
+        flex={1}
+        minWidth={0}
+      >
         {label}
       </SizableText>
-      {showSkeleton ? <Skeleton width={skeletonWidth} height={16} /> : children}
+      <XStack flexShrink={0}>{children}</XStack>
     </XStack>
   );
 }
@@ -153,66 +149,38 @@ function MobilePerpMarketHeader() {
   }, [circulatingSupply, isSpot, markPrice, openInterest]);
 
   const priceMetaContent = useMemo(() => {
-    if (showSkeleton) {
-      return <Skeleton width={72} height={16} />;
-    }
-
-    if (isSpot) {
-      return (
-        <XStack alignItems="center" gap="$1.5" mt="$-1">
-          <Popover
-            title={intl.formatMessage({
-              id: ETranslations.perp_spot_reference_price__title,
-            })}
-            renderTrigger={
-              <DashText
-                fontSize={10}
-                lineHeight={14}
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {markPriceDisplay}
-              </DashText>
-            }
-            renderContent={
-              <YStack px="$5" pb="$4">
-                <SizableText size="$bodyMd" color="$text">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_spot_reference_price__desc,
-                  })}
-                </SizableText>
-              </YStack>
-            }
-          />
-          <XStack alignItems="center" gap="$1">
-            <Icon
-              name={
-                change24hPercent >= 0
-                  ? 'ArrowTriangleTopSolid'
-                  : 'ArrowTriangleBottomSolid'
-              }
-              size="$2"
-              color={change24hPercent >= 0 ? '$green11' : '$red11'}
-            />
-            <NumberSizeableText
-              fontSize={10}
-              color={change24hPercent >= 0 ? '$green11' : '$red11'}
-              formatter="priceChange"
-              formatterOptions={{
-                showPlusMinusSigns: true,
-              }}
-            >
-              {change24hPercent}
-            </NumberSizeableText>
-          </XStack>
-        </XStack>
-      );
-    }
-
     return (
-      <>
-        <XStack alignItems="center" gap="$1" mt="$-1">
+      <XStack alignItems="center" gap="$1.5" mt="$-1">
+        <Popover
+          title={intl.formatMessage({
+            id: isSpot
+              ? ETranslations.perp_spot_reference_price__title
+              : ETranslations.perp_position_mark_price,
+          })}
+          renderTrigger={
+            <DashText
+              fontSize={10}
+              lineHeight={14}
+              color="$textSubdued"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+            >
+              {markPriceDisplay}
+            </DashText>
+          }
+          renderContent={
+            <YStack px="$5" pb="$4">
+              <SizableText size="$bodyMd" color="$text">
+                {intl.formatMessage({
+                  id: isSpot
+                    ? ETranslations.perp_spot_reference_price__desc
+                    : ETranslations.perp_mark_price_tooltip,
+                })}
+              </SizableText>
+            </YStack>
+          }
+        />
+        <XStack alignItems="center" gap="$1">
           <Icon
             name={
               change24hPercent >= 0
@@ -233,57 +201,114 @@ function MobilePerpMarketHeader() {
             {change24hPercent}
           </NumberSizeableText>
         </XStack>
-        <XStack alignItems="center" gap="$1" mt="$-1">
-          <SizableText fontSize={10} color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_position_mark_price,
-            })}
-          </SizableText>
-          <SizableText fontSize={10} color="$text">
-            {markPriceDisplay}
-          </SizableText>
-        </XStack>
-      </>
+      </XStack>
     );
-  }, [change24hPercent, intl, isSpot, markPriceDisplay, showSkeleton]);
+  }, [change24hPercent, intl, isSpot, markPriceDisplay]);
+
+  if (showSkeleton) {
+    const statItems = [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_token_bar_24h_Volume,
+        }),
+        valueWidth: 80,
+      },
+      {
+        label: intl.formatMessage({
+          id: isSpot
+            ? ETranslations.global_market_cap
+            : ETranslations.perp_token_bar_open_Interest,
+        }),
+        valueWidth: 80,
+      },
+    ];
+
+    if (!isSpot) {
+      statItems.push({
+        label: intl.formatMessage({
+          id: ETranslations.perp_position_funding,
+        }),
+        valueWidth: 64,
+      });
+    }
+
+    if (!isSpot && builderFeeRate === 0) {
+      statItems.push({
+        label: intl.formatMessage({
+          id: ETranslations.referral_perps_onekey_fee,
+        }),
+        valueWidth: 48,
+      });
+    }
+
+    return (
+      <YStack bg="$bgApp" px="$5" pt="$3" gap="$2">
+        <XStack alignItems="flex-start" gap="$4">
+          <YStack flex={1} minWidth={0} width="50%">
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_order_mid_price_title,
+              })}
+            </DashText>
+            <Skeleton
+              width={isSpot ? 144 : 136}
+              height={40}
+              mt="$1"
+              mb="$1"
+              borderRadius="$2"
+            />
+          </YStack>
+
+          <YStack gap="$1.5" flex={1} minWidth={0} width="50%">
+            {statItems.map((item) => (
+              <StatRow key={item.label} label={item.label}>
+                <Skeleton width={item.valueWidth} height={16} />
+              </StatRow>
+            ))}
+          </YStack>
+        </XStack>
+      </YStack>
+    );
+  }
 
   return (
     <YStack bg="$bgApp" px="$5" pt="$3" gap="$2">
       <XStack alignItems="flex-start" gap="$4">
         <YStack flex={1} minWidth={0} width="50%">
-          {showSkeleton ? (
-            <Skeleton width={120} height={28} />
-          ) : (
-            <>
-              <Popover
-                title={intl.formatMessage({
-                  id: ETranslations.perp_order_mid_price_title,
-                })}
-                renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    dashColor="$textDisabled"
-                    dashThickness={0.5}
-                  >
+          <>
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_order_mid_price_title,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_order_mid_price_title,
+                  })}
+                </DashText>
+              }
+              renderContent={
+                <YStack px="$5" pb="$4">
+                  <SizableText size="$bodyMd" color="$text">
                     {intl.formatMessage({
-                      id: ETranslations.perp_order_mid_price_title,
+                      id: ETranslations.perp_order_mid_price_title_desc,
                     })}
-                  </DashText>
-                }
-                renderContent={
-                  <YStack px="$5" pb="$4">
-                    <SizableText size="$bodyMd" color="$text">
-                      {intl.formatMessage({
-                        id: ETranslations.perp_order_mid_price_title_desc,
-                      })}
-                    </SizableText>
-                  </YStack>
-                }
-              />
-              <SizableText size="$heading2xl">{midPrice}</SizableText>
-            </>
-          )}
+                  </SizableText>
+                </YStack>
+              }
+            />
+            <SizableText size="$heading2xl">{midPrice}</SizableText>
+          </>
 
           {priceMetaContent}
         </YStack>
@@ -293,8 +318,6 @@ function MobilePerpMarketHeader() {
             label={intl.formatMessage({
               id: ETranslations.perp_token_bar_24h_Volume,
             })}
-            skeletonWidth={120}
-            showSkeleton={showSkeleton}
           >
             <SizableText
               size="$bodySmMedium"
@@ -312,8 +335,6 @@ function MobilePerpMarketHeader() {
                 ? ETranslations.global_market_cap
                 : ETranslations.perp_token_bar_open_Interest,
             })}
-            skeletonWidth={120}
-            showSkeleton={showSkeleton}
           >
             <SizableText
               size="$bodySmMedium"
@@ -330,8 +351,6 @@ function MobilePerpMarketHeader() {
               label={intl.formatMessage({
                 id: ETranslations.perp_position_funding,
               })}
-              skeletonWidth={140}
-              showSkeleton={showSkeleton}
             >
               <SizableText
                 size="$bodySmMedium"
