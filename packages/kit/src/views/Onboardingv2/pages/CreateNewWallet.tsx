@@ -13,7 +13,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -80,7 +79,7 @@ function CreateNewWallet() {
   } = useKeylessLocalExistenceLogin({ autoLoginKeylessProvider });
 
   const handleCreateSeedPhraseWallet = useCallback(async () => {
-    const mnemonic = generateMnemonic();
+    const mnemonic = await backgroundApiProxy.serviceAccount.generateMnemonic();
     const encodedMnemonic =
       await backgroundApiProxy.servicePassword.encodeSensitiveText({
         text: mnemonic,
@@ -221,7 +220,7 @@ function CreateNewWallet() {
           </Button>
           {isWebKeylessSidePanelMode ? null : (
             <>
-              <OnboardingOrDivider />
+              {!md ? <OnboardingOrDivider /> : null}
               <Button
                 size="large"
                 alignSelf="stretch"
