@@ -197,6 +197,7 @@ export type IProtocolPositionItem = {
   groupId: string;
   category: string;
   categoryLabel: string;
+  categoryLabelId?: ETranslations;
   categoryConfig: ICategoryConfig;
   poolName?: string;
   poolFullName?: string;
@@ -339,6 +340,7 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
       groupId: position.groupId,
       category: position.category,
       categoryLabel: categoryLabel.title,
+      categoryLabelId: categoryLabel.titleId,
       categoryConfig: getCategoryConfig(position.category),
       poolName: position.poolName,
       poolFullName: position.poolFullName,
@@ -359,7 +361,9 @@ function buildLocalizedProtocolPositionItems({
   return buildProtocolPositionItems(protocol).map(
     (position): ILocalizedProtocolPositionItem => ({
       ...position,
-      categoryLabel: position.categoryLabel,
+      categoryLabel: position.categoryLabelId
+        ? translate(position.categoryLabelId)
+        : position.categoryLabel,
       action: position.action
         ? {
             ...position.action,
