@@ -15,16 +15,11 @@ import { SignerHardwareBase } from '../../base/SignerHardwareBase';
 import { resolveEvmPath, validateEvmNetworkId } from './evm-path';
 
 import type { ISignTransactionPayload } from '../../types';
+import type { EVMSignedTx } from '@onekeyfe/hd-core';
 
 interface IEvmAddressPayload {
   address: string;
   path: string;
-}
-
-interface IEvmSignTxPayload {
-  v: string | number;
-  r: string;
-  s: string;
 }
 
 interface IEvmSignMsgPayload {
@@ -81,7 +76,7 @@ export class SignerHardware extends SignerHardwareBase {
       },
     );
 
-    const sig = unwrapSDKResult<IEvmSignTxPayload>(result, 'signTransaction');
+    const sig = unwrapSDKResult<EVMSignedTx>(result, 'signTransaction');
     const { rawTx, txid } = buildSignedTxFromSignatureEvm({
       tx: unsignedTx,
       signature: sig,

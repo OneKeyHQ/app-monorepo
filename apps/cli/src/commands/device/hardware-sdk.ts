@@ -214,18 +214,55 @@ export function unwrapSDKResult<T>(
   return result.payload as T;
 }
 
-export async function searchDevice(): Promise<{
+export async function searchDevice(opts?: {
+  deviceIdHint?: string;
+}): Promise<{
   connectId: string;
   deviceId: string;
 }> {
   const sdk = await ensureSDKReady();
   const result = await sdk.searchDevices();
-  const devices = unwrapSDKResult(result, 'searchDevices');
+  const devices = unwrapSDKResult(result, 'searchDevices') as Array<{
+    connectId?: string | null;
+    deviceId?: string | null;
+  }>;
   if (!Array.isArray(devices) || devices.length === 0) {
     throw new AppError(
       ERROR_CODES.PARAM_INVALID_CONFIG.code,
       'No OneKey hardware device found',
       'Connect your OneKey device via USB and try again',
+    );
+  }
+  // With a hint, select by the stable deviceId (device UUID). This is the
+  // user-visible identifier printed by `onekey device search`.
+  if (opts?.deviceIdHint) {
+    const match = devices.find((d) => d.deviceId === opts.deviceIdHint);
+    if (!match) {
+      const available = devices
+        .map((d) => d.deviceId ?? '<unknown>')
+        .join(', ');
+      throw new AppError(
+        ERROR_CODES.PARAM_INVALID_CONFIG.code,
+        `Device ${opts.deviceIdHint} not found among connected devices (${available})`,
+        'Run `onekey device search` to list connected devices and confirm the ID.',
+      );
+    }
+    return {
+      connectId: match.connectId ?? '',
+      deviceId: match.deviceId ?? '',
+    };
+  }
+  // Without a hint, picking devices[0] would bind the command to SDK
+  // enumeration order — not stable across reconnects — and silently operate
+  // on the wrong device when multiple OneKeys are plugged in.
+  if (devices.length > 1) {
+    const available = devices
+      .map((d) => d.deviceId ?? '<unknown>')
+      .join(', ');
+    throw new AppError(
+      ERROR_CODES.PARAM_INVALID_CONFIG.code,
+      `Multiple OneKey devices detected (${devices.length}): ${available}`,
+      'Pass --device-id <id> to pick one, or disconnect all but one device.',
     );
   }
   return {
@@ -248,7 +285,19 @@ export async function resolvePassphraseState(
   connectId: string,
   opts: { passphrase?: string; passphraseOnDevice?: boolean },
 ): Promise<string | undefined> {
-  if (!opts.passphrase && !opts.passphraseOnDevice) {
+  // BIP-39 treats an empty-string passphrase as a distinct hidden wallet
+  // from the standard (no-passphrase) wallet. A falsy check would silently
+  // map `{ passphrase: '' }` onto the standard wallet and derive the wrong
+  // addresses. Enforce explicit intent at the API boundary so future callers
+  // can't regress past the pinentry-layer guard.
+  if (opts.passphrase === '') {
+    throw new AppError(
+      ERROR_CODES.PARAM_INVALID_CONFIG.code,
+      'Empty passphrase string is not accepted',
+      'Omit `passphrase` for the standard wallet, or provide a non-empty passphrase for a hidden wallet.',
+    );
+  }
+  if (opts.passphrase === undefined && !opts.passphraseOnDevice) {
     return undefined; // standard wallet — no passphrase needed
   }
 

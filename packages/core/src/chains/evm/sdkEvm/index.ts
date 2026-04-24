@@ -136,8 +136,8 @@ export function buildSignedTxFromSignatureEvm({
 }) {
   const { r, s, v } = signature;
   /**
-   * sdk legacy return {v,r,s}; eip1559 return {recoveryParam,r,s}
-   * splitSignature auto converts v to recoveryParam
+   * hd-core returns {v, r, s} for both legacy and EIP-1559 transactions.
+   * ethers' splitSignature derives recoveryParam from v internally.
    */
   const sig = splitSignature({
     v: Number(v),

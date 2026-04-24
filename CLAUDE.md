@@ -112,5 +112,5 @@ login --app-transfer`) and hardware wallet login (`onekey auth login
 After `onekey auth login --hardware`, the active session is hardware-backed,
 so normal `onekey balance`, `onekey transfer`, `onekey swap …` run against the
 device automatically — no `--hardware` flag on those commands. Device
-lifecycle commands live under `onekey device <subcommand>` (search, lock,
-verify, firmware, change-pin, toggle-passphrase, settings).
+lifecycle commands live under `onekey device <subcommand>` (search, verify,
+change-pin, toggle-passphrase, settings).

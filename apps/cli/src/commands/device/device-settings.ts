@@ -79,7 +79,7 @@ export function registerDeviceSettingsCommand(parent: Command): void {
           }
 
           // useEmptyPassphrase: true — device settings are wallet-independent;
-          // consistent with device-lock and device-verify.
+          // consistent with device-verify.
           const result = await sdk.deviceSettings(connectId, {
             ...params,
             useEmptyPassphrase: true,

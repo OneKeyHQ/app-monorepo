@@ -2,7 +2,7 @@
 // @generated — do not edit manually
 // Generated from zod schemas in src/schemas/
 // Run: yarn generate:cli-types
-// Generated at: 2026-04-22T08:59:47.621Z
+// Generated at: 2026-04-24T08:50:17.364Z
 
 /** Print CLI version and environment */
 export interface VersionInput {}
@@ -84,6 +84,8 @@ export interface AuthLoginInput {
   appTransfer?: boolean;
   /** Authenticate with a connected hardware wallet device */
   hardware?: boolean;
+  /** Target hardware device UUID (from `onekey device search`). Required when multiple devices are connected. Only valid with --hardware. */
+  deviceId?: string;
 }
 
 export interface AuthLoginOutput {

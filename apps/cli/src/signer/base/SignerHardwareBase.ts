@@ -200,12 +200,15 @@ export abstract class SignerHardwareBase implements ISigner {
       const search = await sdk.searchDevices();
       if (!search?.success) return;
       const devices = search.payload as Array<{
-        connectId?: string | null;
+        deviceId?: string | null;
         features?: { device_id?: string; session_id?: string };
       }>;
-      const match =
-        devices.find((d) => d.connectId === this.device.connectId) ??
-        devices[0];
+      // Match on the stable deviceId (device UUID) rather than connectId —
+      // USB connectId is a per-session transport handle that may be reassigned
+      // across CLI invocations, so connectId-based matching breaks session
+      // reuse after a process restart. Mirrors the app-monorepo strategy of
+      // `localDb.getDeviceByQuery({ featuresDeviceId })`.
+      const match = devices.find((d) => d.deviceId === this.device.deviceId);
       const sessionId = match?.features?.session_id;
       if (!sessionId) return;
 

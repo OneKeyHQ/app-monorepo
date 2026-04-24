@@ -12,9 +12,17 @@ export function registerAuthLoginCommand(program: Command): void {
       '--hardware',
       'Authenticate with a connected hardware wallet device',
     )
+    .option(
+      '--device-id <id>',
+      'Target device UUID (from `onekey device search`). Required when multiple devices are connected.',
+    )
     .action(
       async (
-        options: { appTransfer?: boolean; hardware?: boolean },
+        options: {
+          appTransfer?: boolean;
+          hardware?: boolean;
+          deviceId?: string;
+        },
         command: Command,
       ) => {
         const globalOpts = command.optsWithGlobals();
@@ -24,6 +32,7 @@ export function registerAuthLoginCommand(program: Command): void {
           output,
           appTransferFlag: options.appTransfer,
           hardwareFlag: options.hardware,
+          deviceIdHint: options.deviceId,
           isHumanMode: output.getMode() === 'human',
           isTTY: Boolean(process.stdin.isTTY && process.stdout.isTTY),
           env: (globalOpts.env as 'test' | 'prod' | undefined) ?? 'prod',

@@ -1,5 +1,3 @@
-import { registerDeviceFirmwareCommand } from './device-firmware';
-import { registerDeviceLockCommand } from './device-lock';
 import { registerDevicePassphraseCommand } from './device-passphrase';
 import { registerDevicePinCommand } from './device-pin';
 import { registerDeviceSearchCommand } from './device-search';
@@ -14,9 +12,7 @@ export function registerDeviceCommands(program: Command) {
     .description('OneKey hardware device management');
 
   registerDeviceSearchCommand(device);
-  registerDeviceLockCommand(device);
   registerDeviceVerifyCommand(device);
-  registerDeviceFirmwareCommand(device);
   registerDevicePinCommand(device);
   registerDevicePassphraseCommand(device);
   registerDeviceSettingsCommand(device);

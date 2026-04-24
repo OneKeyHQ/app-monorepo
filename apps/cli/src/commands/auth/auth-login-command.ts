@@ -39,6 +39,7 @@ interface IExecuteAuthLoginCommandParams {
   output: OutputFormatter;
   appTransferFlag?: boolean;
   hardwareFlag?: boolean;
+  deviceIdHint?: string;
   isHumanMode?: boolean;
   isTTY?: boolean;
   env?: IEndpointEnv;
@@ -57,6 +58,7 @@ interface IExecuteAuthLoginCommandParams {
     output: OutputFormatter;
     isTTY: boolean;
     isHumanMode: boolean;
+    deviceIdHint?: string;
     getStatus: () => Promise<ResolvedAuthSession>;
   }) => Promise<void>;
   exit?: (code: number) => void;
@@ -266,6 +268,7 @@ export async function executeAuthLoginCommand({
   output,
   appTransferFlag,
   hardwareFlag,
+  deviceIdHint,
   isHumanMode = false,
   isTTY = false,
   env = 'prod',
@@ -322,12 +325,23 @@ export async function executeAuthLoginCommand({
       return;
     }
 
+    if (deviceIdHint && !hardwareFlag) {
+      output.error({
+        code: ERROR_CODES.PARAM_INVALID_CONFIG.code,
+        message: '--device-id is only valid with --hardware.',
+        suggestion: 'Add --hardware, or drop --device-id for App Transfer login.',
+      });
+      process.exitCode = ERROR_CODES.PARAM_INVALID_CONFIG.exitCode;
+      return;
+    }
+
     if (hardwareFlag) {
       try {
         await runHardwareLogin({
           output,
           isTTY,
           isHumanMode,
+          deviceIdHint,
           getStatus: () => authManager.getStatus(),
         });
       } catch (error) {

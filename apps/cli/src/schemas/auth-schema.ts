@@ -44,6 +44,12 @@ export const authLoginInputSchema = z.object({
     .boolean()
     .optional()
     .describe('Authenticate with a connected hardware wallet device'),
+  deviceId: z
+    .string()
+    .optional()
+    .describe(
+      'Target hardware device UUID (from `onekey device search`). Required when multiple devices are connected. Only valid with --hardware.',
+    ),
 });
 
 export const authLoginOutputSchema = z.object({

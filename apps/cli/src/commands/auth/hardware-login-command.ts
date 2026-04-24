@@ -36,6 +36,7 @@ interface IHardwareLoginDeps {
   output: OutputFormatter;
   isTTY?: boolean;
   isHumanMode?: boolean;
+  deviceIdHint?: string;
   getStatus: () => Promise<ResolvedAuthSession>;
 }
 
@@ -136,6 +137,7 @@ export async function executeHardwareLoginCommand({
   output,
   isTTY = process.stdin.isTTY ?? false,
   isHumanMode = false,
+  deviceIdHint,
   getStatus,
 }: IHardwareLoginDeps): Promise<void> {
   // Guard: no existing session
@@ -150,7 +152,7 @@ export async function executeHardwareLoginCommand({
 
   // Step 1: Find device
   output.info('Searching for OneKey hardware device...');
-  const { connectId, deviceId } = await searchDevice();
+  const { connectId, deviceId } = await searchDevice({ deviceIdHint });
 
   // Get device features for label
   const sdk = await ensureSDKReady();
@@ -176,11 +178,22 @@ export async function executeHardwareLoginCommand({
   output.info(`Found device: ${deviceLabel} (${deviceId})`);
 
   // Step 2: Select passphrase mode
+  //
+  // Only offer the hidden-wallet choice when the device has passphrase
+  // protection turned on. If it's off, a hidden wallet cannot be derived on
+  // this device — prompting would just trap the user into invalid choices.
+  // Mirrors app-monorepo's `Boolean(features.passphrase_protection)` gate in
+  // DeviceSettingsManager.
   let passphraseMode: PassphraseMode = PASSPHRASE_MODE_NONE;
   let passphraseState: string | undefined;
+  const passphraseEnabled = Boolean(features.passphrase_protection);
 
-  if (isTTY && isHumanMode) {
+  if (isTTY && isHumanMode && passphraseEnabled) {
     passphraseMode = await promptPassphraseMode(output);
+  } else if (isTTY && isHumanMode && !passphraseEnabled) {
+    output.info(
+      'Passphrase protection is disabled on device — using standard wallet. Enable it in device settings to use a hidden wallet.',
+    );
   }
 
   // Step 3: Resolve passphraseState in memory (never persisted)
@@ -210,17 +223,23 @@ export async function executeHardwareLoginCommand({
       Buffer.from(passphraseState, 'utf-8'),
     );
 
-    // Get session_id from device features (set by resolvePassphraseState)
+    // Get session_id from device features (set by resolvePassphraseState).
+    // Match by the `connectId` captured in Step 1 — never `refreshedDevices[0]`,
+    // which would write another device's session into this login's keychain
+    // when multiple OneKeys are plugged in.
     const refreshResult = await sdk.searchDevices();
     const refreshedDevices = unwrapSDKResult(
       refreshResult,
       'searchDevices',
     ) as Array<{
+      connectId?: string;
       features?: { session_id?: string; device_id?: string };
     }>;
-    const sessionId = refreshedDevices?.[0]?.features?.session_id;
-    const resolvedDeviceId =
-      refreshedDevices?.[0]?.features?.device_id || deviceId;
+    const targetDevice = refreshedDevices.find(
+      (d) => d.connectId === connectId,
+    );
+    const sessionId = targetDevice?.features?.session_id;
+    const resolvedDeviceId = targetDevice?.features?.device_id || deviceId;
     if (sessionId) {
       await keychain.set(
         KEYCHAIN_SESSION_ID_KEY,
