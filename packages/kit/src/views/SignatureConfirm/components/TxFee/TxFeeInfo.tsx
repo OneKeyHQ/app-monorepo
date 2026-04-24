@@ -21,6 +21,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   useTheme,
   useThemeName,
@@ -66,7 +67,11 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
-import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyRpcError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -91,9 +96,15 @@ import {
 import type {
   IFeeInfoUnit,
   IFeeSelectorItem,
+  IGasAccountScenario,
   IGasPayer,
   IMultiTxsFeeSelectorItem,
 } from '@onekeyhq/shared/types/fee';
+
+import {
+  EGasAccountErrorStrategy,
+  getGasAccountErrorEntry,
+} from '../../constants/gasAccountErrorCodes';
 
 import { TxFeeEditor } from './TxFeeEditor';
 import { TxFeeSelectorTrigger } from './TxFeeSelectorTrigger';
@@ -106,6 +117,7 @@ type IProps = {
   tableLayout?: boolean;
   feeInfoWrapperProps?: React.ComponentProps<typeof Stack>;
   transferPayload?: ITransferPayload;
+  gasAccountScenario?: IGasAccountScenario;
 };
 
 const SPONSORED_COUPON_INFO_WIDTH = 56;
@@ -127,6 +139,7 @@ function TxFeeInfo(props: IProps) {
     feeInfoEditable = true,
     feeInfoWrapperProps,
     transferPayload,
+    gasAccountScenario,
   } = props;
   const intl = useIntl();
   const theme = useTheme();
@@ -183,6 +196,7 @@ function TxFeeInfo(props: IProps) {
     resetMegafuelEligible,
     updateEffectiveFeePayer,
     resetGasAccountTemporarilyDisabled,
+    updateGasAccountTemporarilyDisabled,
     updateGasAccountUiState,
     resetGasAccountUiState,
     updateTxFeeInfoInit,
@@ -438,7 +452,24 @@ function TxFeeInfo(props: IProps) {
           transfersInfo: unsignedTxs[0].transfersInfo,
           lockedUserNonce,
           gasAccountEnabled: !gasAccountTemporarilyDisabled,
+          scenario: gasAccountScenario,
         });
+        // L3 scenario gate telemetry: surface frontend contract bugs. Both
+        // reasons indicate a client-side mismatch with the backend enum; log
+        // to console so it shows up in dev/staging. Backend already records
+        // `admission_*` events for this, so we don't double-report here.
+        // `scenario_disabled_*` is a policy outcome and stays silent per
+        // product decision.
+        if (
+          r.gasAccountScenarioReason === 'scenario_missing' ||
+          r.gasAccountScenarioReason === 'scenario_unknown'
+        ) {
+          console.error(
+            '[GasAccount] scenario gate rejected request',
+            r.gasAccountScenarioReason,
+            { scenario: gasAccountScenario, networkId },
+          );
+        }
         if (getStaleResult()) {
           return staleResult;
         }
@@ -535,9 +566,21 @@ function TxFeeInfo(props: IProps) {
               nextSelectedPayer === 'gasAccount'
                 ? buildGasAccountIdempotencyKey(r.gasAccountQuote.quoteId)
                 : '',
+            gasAccountScenarioReason: r.gasAccountScenarioReason,
           });
         } else {
           resetGasAccountUiState();
+          // L3 reason is observational: record it so downstream consumers
+          // (and Grafana-equivalent telemetry) can distinguish policy gate
+          // from transient chain failure. Do NOT set
+          // `gasAccountTemporarilyDisabled` — scenario gate is not a
+          // fallback-worthy condition, retrying won't flip it.
+          if (r.gasAccountScenarioReason) {
+            updateGasAccountUiState({
+              payer: 'user',
+              gasAccountScenarioReason: r.gasAccountScenarioReason,
+            });
+          }
         }
 
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
@@ -632,6 +675,61 @@ function TxFeeInfo(props: IProps) {
         if (getStaleResult()) {
           return staleResult;
         }
+
+        // Mirror the submit-flow strategy table (see
+        // `handleGasAccountSubmitError` in TxConfirmActions). Estimate polls on
+        // an interval with `gasAccountEnabled: !gasAccountTemporarilyDisabled`,
+        // so a sponsor-side failure (e.g. 40_218 SPONSOR_UNAVAILABLE) that
+        // isn't classified here would loop: every tick re-asks for a sponsor
+        // and gets the same error. Classifying the error and flipping
+        // `gasAccountTemporarilyDisabled` forces the next tick onto the
+        // user-paid path.
+        const gasAccountCode = getGasAccountErrorCode(e);
+        const gasAccountEntry = getGasAccountErrorEntry(gasAccountCode);
+        if (
+          gasAccountEntry &&
+          !gasAccountTemporarilyDisabled &&
+          (gasAccountEntry.strategy === EGasAccountErrorStrategy.Fallback ||
+            gasAccountEntry.strategy === EGasAccountErrorStrategy.Hint)
+        ) {
+          if (e) {
+            (e as IOneKeyError).autoToast = false;
+          }
+          updateEffectiveFeePayer('user');
+          updateGasAccountTemporarilyDisabled(true);
+          resetGasAccountUiState();
+          updateGasAccountUiState({ payer: 'user' });
+          resetMegafuelEligible();
+          updateTxFeeInfoInit(false);
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Loading,
+            errMessage: '',
+            discountPercent: 0,
+          });
+          Toast.warning({ title: gasAccountEntry.message });
+          appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+          return staleResult;
+        }
+        if (
+          gasAccountEntry &&
+          gasAccountEntry.strategy === EGasAccountErrorStrategy.Refresh
+        ) {
+          if (e) {
+            (e as IOneKeyError).autoToast = false;
+          }
+          resetGasAccountUiState();
+          resetMegafuelEligible();
+          updateTxFeeInfoInit(false);
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Loading,
+            errMessage: '',
+            discountPercent: 0,
+          });
+          Toast.warning({ title: gasAccountEntry.message });
+          appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+          return staleResult;
+        }
+
         updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
@@ -662,6 +760,7 @@ function TxFeeInfo(props: IProps) {
       unsignedTxs,
       gasAccountTemporarilyDisabled,
       resetGasAccountTemporarilyDisabled,
+      updateGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
       resetMegafuelEligible,
       resetPayWithTokenInfo,
@@ -676,6 +775,7 @@ function TxFeeInfo(props: IProps) {
       updateTxFeeInfoInit,
       txAdvancedSettings.nonce,
       vaultSettings?.nonceRequired,
+      gasAccountScenario,
     ],
     {
       watchLoading: true,
