@@ -213,7 +213,9 @@ const compileAndCopySegments = (runtimeTarget, outputSubdir) => {
     const preBuiltHbcPath = path.join(segmentsInputDir, `${baseName}.seg.hbc`);
     if (fs.existsSync(preBuiltHbcPath)) {
       fs.copyFileSync(preBuiltHbcPath, segHbcPath);
-      log(`  ${baseName} → ${outputSubdir}/${baseName}.seg.hbc (reused pre-built .seg.hbc)`);
+      log(
+        `  ${baseName} → ${outputSubdir}/${baseName}.seg.hbc (reused pre-built .seg.hbc)`,
+      );
       continue;
     }
     runCommand(

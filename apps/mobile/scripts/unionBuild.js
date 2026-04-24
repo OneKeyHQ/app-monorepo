@@ -182,11 +182,7 @@ async function runWithConcurrencyLocal(tasks, concurrency) {
  */
 function resolveSegmentIoPaths(relativePath) {
   const baseName = path.basename(relativePath, '.seg.hbc');
-  const segDir = path.join(
-    mobileDirPath,
-    'dist',
-    path.dirname(relativePath),
-  );
+  const segDir = path.join(mobileDirPath, 'dist', path.dirname(relativePath));
   return {
     jsPath: path.join(segDir, `${baseName}.seg.js`),
     hbcPath: path.join(segDir, `${baseName}.seg.hbc`),
