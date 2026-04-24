@@ -9,6 +9,7 @@ import {
   useHyperliquidActions,
   usePerpsActiveOpenOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useSpotActiveOpenOrdersAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
@@ -26,16 +27,14 @@ function CancelAllOrdersContent({
 }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
-  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders: perpOpenOrders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders: spotOpenOrders }] = useSpotActiveOpenOrdersAtom();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const ordersToProcess = useMemo(
-    () =>
-      filterByCoin
-        ? openOrders.filter((o) => o.coin === filterByCoin)
-        : openOrders,
-    [openOrders, filterByCoin],
-  );
+  const ordersToProcess = useMemo(() => {
+    const all = [...perpOpenOrders, ...spotOpenOrders];
+    return filterByCoin ? all.filter((o) => o.coin === filterByCoin) : all;
+  }, [perpOpenOrders, spotOpenOrders, filterByCoin]);
 
   const handleConfirm = useCallback(async () => {
     if (isSubmitting) return;
