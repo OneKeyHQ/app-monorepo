@@ -45,8 +45,13 @@ function PerpOpenOrdersList({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
-  const isSpot = activeTradeInstrument.mode === 'spot';
-  const openOrders = isSpot ? spotOpenOrders : perpOpenOrders;
+  const openOrders = useMemo(
+    () =>
+      [...perpOpenOrders, ...spotOpenOrders].toSorted(
+        (a, b) => b.timestamp - a.timestamp,
+      ),
+    [perpOpenOrders, spotOpenOrders],
+  );
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
