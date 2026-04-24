@@ -22,6 +22,7 @@ import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { BalanceRow } from '../Components/BalanceRow';
+import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -48,6 +49,14 @@ interface ISpotBalanceListProps {
   useTabsList?: boolean;
   disableListScroll?: boolean;
   ListHeaderComponent?: ReactElement | null;
+}
+
+function getBalanceSortPriority(item: IBalanceDisplayItem): number {
+  if (item.coin !== 'USDC') {
+    return 2;
+  }
+
+  return item.type === 'spot' ? 0 : 1;
 }
 
 function SpotBalanceList({
@@ -168,6 +177,10 @@ function SpotBalanceList({
     }
 
     return items.toSorted((a, b) => {
+      const priorityDiff =
+        getBalanceSortPriority(a) - getBalanceSortPriority(b);
+      if (priorityDiff !== 0) return priorityDiff;
+
       const valueDiff = Math.abs(b.usdcValueNum) - Math.abs(a.usdcValueNum);
       if (valueDiff !== 0) return valueDiff;
       return new BigNumber(b.total).comparedTo(new BigNumber(a.total));
@@ -362,6 +375,7 @@ function SpotBalanceList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
+      ListEmptyComponent={<PerpHoldingsEmptyState isMobile={isMobile} />}
       ListHeaderComponent={mobileHeaderComponent}
     />
   );

@@ -696,6 +696,10 @@ jobs:
       - name: 'Build Main Process (AppImage)'
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
+          # Baked into the bundle via esbuild `define` in scripts/build.js.
+          # Lets the main process tell at runtime that it's the AppImage build
+          # without relying on the ambiguous runtime `APPIMAGE` env var.
+          DESK_CHANNEL: appImage
         run: |
           cd apps/desktop
           yarn build:main

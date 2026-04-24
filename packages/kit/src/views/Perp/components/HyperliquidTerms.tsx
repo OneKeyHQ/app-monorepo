@@ -267,20 +267,36 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
   }
 
   return new Promise((resolve) => {
+    let didConfirm = false;
+    let hasResolved = false;
+    const safeResolve = (value: boolean) => {
+      if (!hasResolved) {
+        hasResolved = true;
+        resolve(value);
+      }
+    };
+
     const dialog = Dialog.show({
       renderContent: (
         <HyperliquidTermsContent
           renderDelay={300}
           onConfirm={async () => {
-            await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
-              true,
-            );
-            await dialog.close();
-            resolve(true);
+            try {
+              await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
+                true,
+              );
+              didConfirm = true;
+              await dialog.close();
+              safeResolve(true);
+            } catch {
+              safeResolve(didConfirm);
+            }
           }}
           onClose={() => {
             void dialog.close();
-            resolve(false);
+            if (!didConfirm) {
+              safeResolve(false);
+            }
           }}
         />
       ),
@@ -291,7 +307,9 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
       showCancelButton: false,
       showConfirmButton: false,
       onClose: () => {
-        resolve(false);
+        if (!didConfirm) {
+          safeResolve(false);
+        }
       },
     });
   });

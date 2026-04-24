@@ -24,6 +24,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
 
 const settings: IVaultSettings = {
   ...settingsBtc,
+  // Clear inherited [ledger] — Ledger does not support Neurai.
+  supportedThirdPartyVendors: undefined,
 
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,

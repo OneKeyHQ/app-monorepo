@@ -29,6 +29,7 @@ import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
 import { CELL_HEIGHT } from '../../types';
@@ -474,6 +475,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
         <RecentNetworks
           onPressItem={onPressItem}
           availableNetworks={networks}
+          swrKeyScope={EAppSWRCacheScopes.pureChainSelector}
         />
       ) : null}
       {/* Re-render the entire list after each text update */}

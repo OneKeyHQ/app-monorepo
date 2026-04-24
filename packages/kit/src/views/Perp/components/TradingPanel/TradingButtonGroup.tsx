@@ -193,7 +193,9 @@ function SideButtonInternal({
       });
     if (isNoEnoughMargin)
       return intl.formatMessage({
-        id: ETranslations.perp_trading_button_no_enough_margin,
+        id: isSpot
+          ? ETranslations.dexmarket_insufficient_balance
+          : ETranslations.perp_trading_button_no_enough_margin,
       });
     if (isSpot) {
       if (!spotTradeSymbol) {
