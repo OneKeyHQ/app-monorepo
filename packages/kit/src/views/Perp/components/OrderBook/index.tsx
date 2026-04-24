@@ -24,9 +24,14 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpsActiveAssetCtxAtom,
+  useSpotActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateSpreadPercentage,
   parseDexCoin,
@@ -1435,11 +1440,17 @@ export function OrderBookMobile({
   onTickOptionChange,
 }: IOrderBookProps) {
   const intl = useIntl();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const { markPrice } = assetCtx?.ctx || {
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const currentCtx = isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const { markPrice } = currentCtx || {
     markPrice: '0',
     oraclePrice: '0',
   };
+  const localizedMarkPrice = formatLocalizedNumberString(markPrice);
+  const referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
   const aggregatedData = useAggregatedBook(
     variant,
     bids,
@@ -1692,30 +1703,50 @@ export function OrderBookMobile({
               />
               <Popover
                 title={intl.formatMessage({
-                  id: ETranslations.perp_position_mark_price,
+                  id: isSpot
+                    ? ETranslations.perp_spot_reference_price__title
+                    : ETranslations.perp_position_mark_price,
                 })}
                 renderTrigger={
-                  <DashText
-                    style={[
-                      styles.monospaceText,
-                      {
-                        color: textColor.textSubdued,
-                        fontSize: 10,
-                        fontWeight: '400',
-                        lineHeight: 14,
-                      },
-                    ]}
-                    dashColor="$textDisabled"
-                    dashThickness={0.5}
-                  >
-                    {markPrice}
-                  </DashText>
+                  isSpot ? (
+                    <PerpBookText
+                      style={[
+                        styles.monospaceText,
+                        {
+                          color: textColor.textSubdued,
+                          fontSize: 11,
+                          fontWeight: '400',
+                          lineHeight: 16,
+                        },
+                      ]}
+                    >
+                      {referencePriceDisplay}
+                    </PerpBookText>
+                  ) : (
+                    <DashText
+                      style={[
+                        styles.monospaceText,
+                        {
+                          color: textColor.textSubdued,
+                          fontSize: 10,
+                          fontWeight: '400',
+                          lineHeight: 14,
+                        },
+                      ]}
+                      dashColor="$textDisabled"
+                      dashThickness={0.5}
+                    >
+                      {referencePriceDisplay}
+                    </DashText>
+                  )
                 }
                 renderContent={
                   <YStack px="$5" pb="$4">
                     <SizableText>
                       {intl.formatMessage({
-                        id: ETranslations.perp_mark_price_tooltip,
+                        id: isSpot
+                          ? ETranslations.perp_spot_reference_price__desc
+                          : ETranslations.perp_mark_price_tooltip,
                       })}
                     </SizableText>
                   </YStack>

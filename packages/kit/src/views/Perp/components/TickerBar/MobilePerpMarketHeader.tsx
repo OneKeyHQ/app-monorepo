@@ -23,7 +23,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
@@ -106,7 +109,7 @@ function MobilePerpMarketHeader() {
     if (markPrice === undefined || markPrice === null || markPrice === '') {
       return '--';
     }
-    return `$${markPrice}`;
+    return `$${formatLocalizedNumberString(markPrice)}`;
   }, [markPrice]);
 
   const volumeDisplay = useMemo(() => {
@@ -229,7 +232,9 @@ function MobilePerpMarketHeader() {
           <XStack alignItems="center" gap="$1" mt="$-1">
             <SizableText fontSize={10} color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.perp_position_mark_price,
+                id: isSpot
+                  ? ETranslations.perp_spot_reference_price__title
+                  : ETranslations.perp_position_mark_price,
               })}
             </SizableText>
             <SizableText fontSize={10} color="$text">
