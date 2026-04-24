@@ -731,9 +731,7 @@ describe('integration: cross-segment sync edge detection', () => {
   it('bg-shared pass flags cross_segment_sync when dependsOn misses a bg-only prerequisite', () => {
     const segmentsMainDir = path.join(tmpDir, 'segments');
     const segmentsBgDir = path.join(tmpDir, 'segments-background');
-    writeSegJs(segmentsMainDir, 'nm._shared', [
-      { moduleId: 200, deps: [999] },
-    ]);
+    writeSegJs(segmentsMainDir, 'nm._shared', [{ moduleId: 200, deps: [999] }]);
     writeSegJs(segmentsBgDir, 'bg-only', [{ moduleId: 999, deps: [] }]);
 
     const sharedRelativePath = 'segments/nm._shared.seg.hbc';
