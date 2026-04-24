@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
@@ -69,6 +69,7 @@ import {
 } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
@@ -95,6 +96,8 @@ import {
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
 
+const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
+
 enum EConnectionStatus {
   init = 'init',
   searching = 'searching',
@@ -120,6 +123,7 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
 interface IDeviceConnectionProps {
   tabValue: EConnectDeviceChannel;
   deviceTypeItems: EDeviceType[];
+  vendor?: EHardwareVendor;
   connectDevice: (
     item: IConnectYourDeviceItem,
     innerTabValue: EConnectDeviceChannel,
@@ -130,9 +134,11 @@ interface IDeviceConnectionProps {
 function useDeviceConnection({
   tabValue,
   onDeviceSelect,
+  vendor,
 }: {
   tabValue: EConnectDeviceChannel;
   onDeviceSelect?: (item: IConnectYourDeviceItem) => Promise<void> | void;
+  vendor?: EHardwareVendor;
 }) {
   const intl = useIntl();
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
@@ -306,8 +312,9 @@ function useDeviceConnection({
       undefined, // pollIntervalRate
       undefined, // pollInterval
       undefined, // maxTryCount
+      vendor,
     );
-  }, [deviceScanner, intl, tabValue]);
+  }, [deviceScanner, intl, tabValue, vendor]);
 
   const stopScan = useCallback(() => {
     isSearchingRef.current = false;
@@ -340,8 +347,9 @@ function useDeviceConnection({
         title: item.name,
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
+        ...(vendor ? { vendor } : {}),
       })),
-    [searchedDevices],
+    [searchedDevices, vendor],
   );
 
   const handleDeviceSelect = useCallback(
@@ -718,6 +726,7 @@ function USBOrBLEConnectionIndicator({
   tabValue,
   deviceTypeItems,
   connectDevice,
+  vendor,
 }: IDeviceConnectionProps) {
   const themeVariant = useThemeVariant();
   const intl = useIntl();
@@ -729,6 +738,7 @@ function USBOrBLEConnectionIndicator({
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceSelect: async (item) => connectDevice(item, tabValue),
+    vendor,
   });
 
   const {
@@ -845,6 +855,7 @@ function USBOrBLEConnectionIndicator({
       return;
     }
 
+    // OneKey: auto-start listing
     const timeoutId = setTimeout(
       () => {
         void (platformEnv.isNative ? startBLEConnection() : listingDevice());
@@ -852,7 +863,13 @@ function USBOrBLEConnectionIndicator({
       platformEnv.isNative ? 120 : 0,
     );
     return () => clearTimeout(timeoutId);
-  }, [listingDevice, hardwareTransportType, tabValue, startBLEConnection]);
+  }, [
+    listingDevice,
+    hardwareTransportType,
+    tabValue,
+    startBLEConnection,
+    vendor,
+  ]);
 
   useEffect(
     () => () => {
@@ -962,6 +979,7 @@ function BluetoothConnectionIndicator({
   deviceTypeItems,
   tabValue,
   connectDevice,
+  vendor,
 }: IDeviceConnectionProps) {
   const intl = useIntl();
   const isFocused = useIsFocused();
@@ -973,6 +991,7 @@ function BluetoothConnectionIndicator({
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceSelect: async (item) => connectDevice(item, tabValue),
+    vendor,
   });
 
   const { devicesData, scanDevice, stopScan, handleDeviceSelect } =
@@ -1182,7 +1201,7 @@ function ConnectYourDevicePage({
   IOnboardingParamListV2,
   EOnboardingPagesV2.ConnectYourDevice
 >) {
-  const { deviceType: deviceTypeItems } = routeParams?.params || {};
+  const { deviceType: deviceTypeItems, vendor } = routeParams?.params || {};
   console.log('deviceTypeItems', deviceTypeItems);
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
@@ -1235,6 +1254,18 @@ function ConnectYourDevicePage({
       }
       const connectId = item.device.connectId ?? '';
       try {
+        // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
+        if (item.vendor === EHardwareVendor.ledger) {
+          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+            deviceData: {
+              ...item,
+              vendor: item.vendor,
+            },
+            isFirmwareVerified: true,
+          });
+          return;
+        }
+
         if (
           item.device?.commType === 'electron-ble' ||
           item.device?.commType === 'ble'
@@ -1282,6 +1313,26 @@ function ConnectYourDevicePage({
     [navigation],
   );
 
+  // Ledger has its own dedicated flow — completely separate from OneKey
+  if (vendor === EHardwareVendor.ledger) {
+    return (
+      <Page>
+        <OnboardingLayout>
+          <OnboardingLayout.Header
+            title={intl.formatMessage({
+              id: ETranslations.onboarding_connect_your_device,
+            })}
+          />
+          <OnboardingLayout.Body constrained={false}>
+            <OnboardingLayout.ConstrainedContent>
+              <LedgerConnectionFlow />
+            </OnboardingLayout.ConstrainedContent>
+          </OnboardingLayout.Body>
+        </OnboardingLayout>
+      </Page>
+    );
+  }
+
   return (
     <Page>
       <OnboardingLayout>
@@ -1324,6 +1375,7 @@ function ConnectYourDevicePage({
                 tabValue={tabValue}
                 deviceTypeItems={deviceTypeItems}
                 connectDevice={connectDevice}
+                vendor={vendor}
               />
             ) : null}
             {tabValue === EConnectDeviceChannel.bluetooth ? (
@@ -1331,6 +1383,7 @@ function ConnectYourDevicePage({
                 tabValue={tabValue}
                 deviceTypeItems={deviceTypeItems}
                 connectDevice={connectDevice}
+                vendor={vendor}
               />
             ) : null}
           </OnboardingLayout.ConstrainedContent>
