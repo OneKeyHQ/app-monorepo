@@ -86,6 +86,7 @@ type INativeBackgroundThreadTransport = {
       type: 'app-event';
       eventName: string;
       payload: unknown;
+      originNodeId?: string;
     },
     localFallback: () => Promise<any>,
   ) => Promise<any>;
@@ -417,11 +418,13 @@ function handleBackgroundThreadAppEventUpdate(
     return;
   }
 
-  appEventBus.emitToSelf({
-    type: payload.eventName as any,
+  // We are the main-thread foreground receiving a broadcast from the
+  // background. Route through dispatchInboundFromBackground so we skip our
+  // own echoes via originNodeId.
+  appEventBus.dispatchInboundFromBackground({
+    type: payload.eventName,
     payload: payload.payload,
-    isRemote: true,
-    cloned: false,
+    originNodeId: payload.originNodeId ?? '',
   });
 }
 
@@ -722,6 +725,7 @@ function emitAppEventRequest(
     type: 'app-event';
     eventName: string;
     payload: unknown;
+    originNodeId?: string;
   },
   localFallback: () => Promise<any>,
 ) {
