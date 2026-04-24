@@ -93,14 +93,11 @@ export function initTrayManager(
   logger.info('[TrayManager] Initializing macOS system tray');
   cachedGetMainWindow = getMainWindow;
 
-  // esbuild bundles TrayManager into dist/app.js, so __dirname resolves to
-  // <app>/dist both in dev and inside app.asar. In prod, '../build/static/...'
-  // lands on the webpack renderer output that electron-builder packs into
-  // asar. In dev, app/build/ doesn't exist — webpack runs via dev-server —
-  // so we read directly from public/static/ where finalize-renderer-assets.js
-  // would have copied from anyway.
-  // (Don't use app.getAppPath(): dev returns the entry script's parent dir
-  // `<app>/dist`, while prod returns the asar root — different levels.)
+  // __dirname resolves to <app>/dist in both dev and inside asar. In prod,
+  // build/ holds the packed webpack renderer output; in dev, build/ doesn't
+  // exist (renderer runs via dev-server), so we read from public/static/.
+  // Don't use app.getAppPath(): dev returns <app>/dist, prod returns the
+  // asar root — different levels.
   const iconPath = isDev
     ? path.join(
         __dirname,
