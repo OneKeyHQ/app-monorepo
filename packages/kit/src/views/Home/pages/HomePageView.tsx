@@ -823,38 +823,43 @@ export function HomePageView({
     return (
       <>
         <Page.Body>
-          <Page.Container
-            ref={(node) => {
-              homeWheelScopeRef.current = node as unknown as HTMLElement | null;
-            }}
-            flex={1}
-            padded={false}
-          >
-            {platformEnv.isNative ? (
-              <Stack h={tabPageHeight} />
-            ) : (
-              <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-            )}
-            <RiskApprovalAlert />
-            <WatchOnlyAlert />
-            <NetworkAlert />
-            {content}
-            {platformEnv.isNative ? (
-              <YStack
-                position="absolute"
-                top={-20}
-                left={0}
-                bg="$bgApp"
-                pt="$5"
-                width="100%"
-                onLayout={handleTabPageLayout}
-              >
+          <Page.Container flex={1} padded={false}>
+            <Stack
+              ref={(node: unknown) => {
+                homeWheelScopeRef.current =
+                  node as HTMLElement | null;
+              }}
+              flex={1}
+            >
+              {platformEnv.isNative ? (
+                <Stack h={tabPageHeight} />
+              ) : (
                 <TabPageHeader
                   sceneName={sceneName}
                   tabRoute={ETabRoutes.Home}
                 />
-              </YStack>
-            ) : null}
+              )}
+              <RiskApprovalAlert />
+              <WatchOnlyAlert />
+              <NetworkAlert />
+              {content}
+              {platformEnv.isNative ? (
+                <YStack
+                  position="absolute"
+                  top={-20}
+                  left={0}
+                  bg="$bgApp"
+                  pt="$5"
+                  width="100%"
+                  onLayout={handleTabPageLayout}
+                >
+                  <TabPageHeader
+                    sceneName={sceneName}
+                    tabRoute={ETabRoutes.Home}
+                  />
+                </YStack>
+              ) : null}
+            </Stack>
           </Page.Container>
         </Page.Body>
       </>
