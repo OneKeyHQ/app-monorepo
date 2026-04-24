@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { PageFaviconUpdatedEvent } from '@onekeyhq/kit/src/components/WebView/DesktopWebView';
-import { notifyTabNavigation } from '@onekeyhq/kit/src/components/WebView/translateBridge';
+import {
+  notifyTabNavigation,
+  notifyTabNavigationEnd,
+} from '@onekeyhq/kit/src/components/WebView/translateBridge';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -91,6 +94,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     [getNavStatusInfo, id, onNavigation],
   );
   const onDidFinishLoad = useCallback(() => {
+    notifyTabNavigationEnd(id);
     onNavigation({
       id,
       loading: false,
