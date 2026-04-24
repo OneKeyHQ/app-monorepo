@@ -116,7 +116,7 @@ const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const bgEntry = path.resolve(mobileDirPath, 'background.ts');
 const projectRootPath = path.resolve(mobileDirPath, '../..');
 
-// Hermesc binary — same resolution as build-bundle.js keeps behaviour
+// Hermesc binary — same resolution as build-bundle.js keeps behavior
 // identical across the two entry points. We need it here so segment sha256
 // hashes can be computed from the actual .seg.hbc bytes before the manifest
 // gets baked into common.bundle, instead of from the .seg.js text which no
