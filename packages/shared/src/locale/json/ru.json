@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "Макс. покупка",
   "perp_spot_max_buy_sell_tooltip": "Максимальный объём покупки или продажи зависит от доступного баланса и цены ордера. Для лимитных ордеров значение обновляется автоматически после ввода цены.",
   "perp_spot_max_sell": "Макс. продажа",
+  "perp_spot_reference_price__desc": "Справочная спотовая цена используется для оценки активов и расчёта PnL.",
+  "perp_spot_reference_price__title": "Справочная цена",
   "perp_trades_history_recent_range_desc": "Отображаются сделки максимум за последние 2 года.",
   "perp_trading_adjust_margin": "Настроить поля",
   "perp_trading_adjust_margin_max": "Макс. добавление",

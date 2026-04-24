@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "Max buy",
   "perp_spot_max_buy_sell_tooltip": "The max buy or max sell amount depends on your available balance and the order price. For limit orders, it updates automatically after you enter a price.",
   "perp_spot_max_sell": "Max sell",
+  "perp_spot_reference_price__desc": "The spot reference price is used for asset valuation and PnL calculations.",
+  "perp_spot_reference_price__title": "Reference Price",
   "perp_trades_history_recent_range_desc": "Trades from up to the last 2 years are shown.",
   "perp_trading_adjust_margin": "Adjust Margin",
   "perp_trading_adjust_margin_max": "Max. add",

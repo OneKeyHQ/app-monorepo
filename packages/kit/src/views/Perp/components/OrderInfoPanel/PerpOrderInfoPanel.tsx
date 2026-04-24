@@ -66,7 +66,7 @@ function TabBarItem({
 
   const tabCount = useMemo(() => {
     if (name === 'Balances') {
-      return `(${holdingsCount})`;
+      return holdingsCount > 0 ? `(${holdingsCount})` : '';
     }
     if (name === 'Trades History') {
       return '';
