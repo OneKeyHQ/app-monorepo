@@ -18,6 +18,7 @@ import {
 import {
   type IPerpFavoritesDisplayMode,
   usePerpTokenFavoritesPersistAtom,
+  useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { usePerpsFavorites } from '../../hooks/usePerpsFavorites';
@@ -160,9 +161,12 @@ function FavoritesBar() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [favoritesSettings, setFavoritesSettings] =
-    usePerpTokenFavoritesPersistAtom();
-  const displayMode = favoritesSettings.displayMode ?? 'price';
+  const [perpFavorites, setPerpFavorites] = usePerpTokenFavoritesPersistAtom();
+  const [spotFavorites, setSpotFavorites] = useSpotTokenFavoritesPersistAtom();
+  const isSpotMode = activeTradeInstrument.mode === 'spot';
+  // displayMode is a UI preference shared by perps and spot favorites bars,
+  // so it always lives on the perp atom (spot atom has no displayMode field).
+  const displayMode = perpFavorites.displayMode ?? 'price';
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragStart = useCallback(() => {
@@ -176,20 +180,34 @@ function FavoritesBar() {
       if (result.source.index === result.destination.index) return;
 
       // Use coinName to locate items in persisted array (rendered list may be a filtered subset).
-      setFavoritesSettings((prev) => {
+      const reorder = (
+        prevFavorites: string[],
+      ): string[] | undefined => {
         const sourceCoin = favoriteItems[result.source.index]?.coinName;
         const destCoin = favoriteItems[result.destination!.index]?.coinName;
-        if (!sourceCoin || !destCoin) return prev;
-        const newFavorites = [...prev.favorites];
-        const sourceIdx = newFavorites.indexOf(sourceCoin);
-        const destIdx = newFavorites.indexOf(destCoin);
-        if (sourceIdx === -1 || destIdx === -1) return prev;
-        const [moved] = newFavorites.splice(sourceIdx, 1);
-        newFavorites.splice(destIdx, 0, moved);
-        return { ...prev, favorites: newFavorites };
-      });
+        if (!sourceCoin || !destCoin) return undefined;
+        const next = [...prevFavorites];
+        const sourceIdx = next.indexOf(sourceCoin);
+        const destIdx = next.indexOf(destCoin);
+        if (sourceIdx === -1 || destIdx === -1) return undefined;
+        const [moved] = next.splice(sourceIdx, 1);
+        next.splice(destIdx, 0, moved);
+        return next;
+      };
+
+      if (isSpotMode) {
+        setSpotFavorites((prev) => {
+          const next = reorder(prev.favorites);
+          return next ? { ...prev, favorites: next } : prev;
+        });
+      } else {
+        setPerpFavorites((prev) => {
+          const next = reorder(prev.favorites);
+          return next ? { ...prev, favorites: next } : prev;
+        });
+      }
     },
-    [setFavoritesSettings, favoriteItems],
+    [isSpotMode, setPerpFavorites, setSpotFavorites, favoriteItems],
   );
 
   const renderClone = useCallback(
@@ -225,11 +243,11 @@ function FavoritesBar() {
   );
 
   const toggleDisplayMode = useCallback(() => {
-    setFavoritesSettings((prev) => ({
+    setPerpFavorites((prev) => ({
       ...prev,
       displayMode: prev.displayMode === 'price' ? 'percent' : 'price',
     }));
-  }, [setFavoritesSettings]);
+  }, [setPerpFavorites]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;

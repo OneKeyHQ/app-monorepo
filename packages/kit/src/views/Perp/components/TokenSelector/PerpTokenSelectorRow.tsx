@@ -65,6 +65,9 @@ interface IPerpTokenSelectorRowProps {
 
 interface ITokenSelectorRowContextValue {
   isSpot?: boolean;
+  // For spot, the unique HL pair identifier (e.g. PURR/USDC, @149) used as the
+  // favorite key. token.name remains the base name for image / display lookups.
+  pairCoin?: string;
   token: {
     name: string;
     displayName: string;
@@ -274,7 +277,7 @@ TradingModeBadge.displayName = 'TradingModeBadge';
 
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
-  const { token, isSpot } = useTokenSelectorRowContext();
+  const { token, isSpot, pairCoin } = useTokenSelectorRowContext();
   const { gtLg } = useMedia();
 
   const content = useMemo(
@@ -301,7 +304,7 @@ const TokenInfoCellDesktop = memo(() => {
           gap="$1.5"
           alignItems="center"
         >
-          <FavoriteButton coin={token.name} isSpot={isSpot} />
+          <FavoriteButton coin={pairCoin ?? token.name} isSpot={isSpot} />
           <XStack
             gap="$1.5"
             alignItems="center"
@@ -671,7 +674,7 @@ TokenSelectorRowDesktop.displayName = 'TokenSelectorRowDesktop';
 
 // Mobile cell components
 const TokenImageMobile = memo(() => {
-  const { token, isSpot } = useTokenSelectorRowContext();
+  const { token, isSpot, pairCoin } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -681,7 +684,11 @@ const TokenImageMobile = memo(() => {
         offsetY={10}
       >
         <XStack gap="$2" alignItems="center">
-          <FavoriteButton coin={token.name} isMobile isSpot={isSpot} />
+          <FavoriteButton
+            coin={pairCoin ?? token.name}
+            isMobile
+            isSpot={isSpot}
+          />
           <Token
             size="lg"
             borderRadius="$full"
@@ -693,7 +700,7 @@ const TokenImageMobile = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.name, isSpot],
+    [token.displayName, token.name, isSpot, pairCoin],
   );
   return content;
 });
@@ -962,6 +969,7 @@ const SpotTokenSelectorRowInner = memo(
     const contextValue: ITokenSelectorRowContextValue = useMemo(
       () => ({
         isSpot: true,
+        pairCoin: spotUniverse.name,
         token: {
           name: getSpotTokenDisplayName(spotUniverse.baseName),
           displayName: formatSpotPairDisplayName(
