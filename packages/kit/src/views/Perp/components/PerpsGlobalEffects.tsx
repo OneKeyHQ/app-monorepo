@@ -746,12 +746,39 @@ function AutoPauseSubscriptions() {
   return null;
 }
 
+// External callers (tray, notifications, deep-links) can emit
+// PerpSwitchActiveInstrument to swap the active Perp instrument without
+// holding a Jotai context ref. `serviceHyperliquid.changeActiveAsset`
+// alone only updates the bg-level `perpsActiveAssetAtom`; the Perp UI
+// also reads `activeTradeInstrumentAtom` from this context, and without
+// a context-side update it keeps rendering the previously-selected
+// coin even after the bg atom changes (OK-53626).
+function useHyperliquidInstrumentSwitchRequest() {
+  const actions = useHyperliquidActions();
+  useEffect(() => {
+    const handler = (
+      payload: IAppEventBusPayload[EAppEventBusNames.PerpSwitchActiveInstrument],
+    ) => {
+      if (!payload?.coin) return;
+      void actions.current.switchTradeInstrument({
+        mode: payload.mode,
+        coin: payload.coin,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.PerpSwitchActiveInstrument, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpSwitchActiveInstrument, handler);
+    };
+  }, [actions]);
+}
+
 function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
   usePerpTokenUrlSync();
   useHyperliquidSymbolSelect();
+  useHyperliquidInstrumentSwitchRequest();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
   useTradeRouteViewStateSync();
