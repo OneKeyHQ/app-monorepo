@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "ซื้อสูงสุด",
   "perp_spot_max_buy_sell_tooltip": "จำนวนซื้อหรือขายสูงสุดขึ้นอยู่กับยอดคงเหลือที่ใช้ได้และราคาคำสั่งของคุณ สำหรับคำสั่งลิมิต ระบบจะอัปเดตให้อัตโนมัติหลังจากคุณกรอกราคา",
   "perp_spot_max_sell": "ขายสูงสุด",
+  "perp_spot_reference_price__desc": "ราคาอ้างอิงสปอตใช้สำหรับประเมินมูลค่าสินทรัพย์และคำนวณ PnL",
+  "perp_spot_reference_price__title": "ราคาอ้างอิง",
   "perp_trades_history_recent_range_desc": "แสดงรายการเทรดย้อนหลังได้สูงสุด 2 ปีล่าสุด",
   "perp_trading_adjust_margin": "ปรับระยะขอบ",
   "perp_trading_adjust_margin_max": "เพิ่มสูงสุด",

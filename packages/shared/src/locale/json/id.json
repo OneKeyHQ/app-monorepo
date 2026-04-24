@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "Beli maks.",
   "perp_spot_max_buy_sell_tooltip": "Jumlah maksimum beli atau jual bergantung pada saldo tersedia dan harga order Anda. Untuk order limit, nilainya akan diperbarui otomatis setelah Anda memasukkan harga.",
   "perp_spot_max_sell": "Jual maks.",
+  "perp_spot_reference_price__desc": "Harga referensi spot digunakan untuk valuasi aset dan perhitungan PnL.",
+  "perp_spot_reference_price__title": "Harga Referensi",
   "perp_trades_history_recent_range_desc": "Trade hingga 2 tahun terakhir ditampilkan.",
   "perp_trading_adjust_margin": "Sesuaikan Margin",
   "perp_trading_adjust_margin_max": "Tambah maks.",

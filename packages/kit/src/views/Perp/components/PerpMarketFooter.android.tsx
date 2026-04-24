@@ -12,6 +12,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
+const MARKET_FOOTER_BUTTON_WIDTH = '44%';
+const MARKET_FOOTER_BUTTON_HEIGHT = 36;
+
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)
 // intercepts touches in the tab bar area, preventing RN's built-in touch
 // system from dispatching events to buttons in this region — even when the
@@ -21,7 +24,7 @@ import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
 const styles = StyleSheet.create({
   buttonContainer: {
-    flex: 1,
+    width: MARKET_FOOTER_BUTTON_WIDTH,
   },
 });
 
@@ -71,8 +74,9 @@ function PerpMarketFooter() {
       <GestureDetector gesture={buyGesture}>
         <View style={styles.buttonContainer}>
           <Button
-            padding={0}
-            height={38}
+            width="100%"
+            height={MARKET_FOOTER_BUTTON_HEIGHT}
+            size="small"
             borderRadius="$full"
             bg={longButtonStyle.bg}
             color={longButtonStyle.textColor}
@@ -94,8 +98,9 @@ function PerpMarketFooter() {
         <View style={styles.buttonContainer}>
           <Button
             variant="primary"
-            padding={0}
-            height={38}
+            width="100%"
+            height={MARKET_FOOTER_BUTTON_HEIGHT}
+            size="small"
             borderRadius="$full"
             bg={shortButtonStyle.bg}
             color={shortButtonStyle.textColor}
@@ -111,7 +116,18 @@ function PerpMarketFooter() {
     [sellGesture, shortButtonStyle, intl],
   );
 
-  return <Page.Footer cancelButton={buyButton} confirmButton={sellButton} />;
+  return (
+    <Page.Footer
+      pt="$3"
+      pb="$8"
+      cancelButton={buyButton}
+      confirmButton={sellButton}
+      buttonContainerProps={{
+        width: '100%',
+        justifyContent: 'space-between',
+      }}
+    />
+  );
 }
 
 export default PerpMarketFooter;
