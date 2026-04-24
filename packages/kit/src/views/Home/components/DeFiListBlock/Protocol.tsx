@@ -212,9 +212,7 @@ const ProtocolDesktopLayout = memo(
                         minHeight={40}
                       >
                         <Badge bg={position.categoryConfig.bg} badgeSize="lg">
-                          <Badge.Text
-                            color={position.categoryConfig.text}
-                          >
+                          <Badge.Text color={position.categoryConfig.text}>
                             {position.categoryLabel}
                           </Badge.Text>
                         </Badge>
