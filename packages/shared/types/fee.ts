@@ -176,13 +176,14 @@ export type IBatchEstimateFeeParams = {
 // Gas Account scenario codes maintained as a frontend contract enum.
 // Backend intentionally does not expose these; new values land via coordinated
 // PR with the onchain server team (see scenario-gate.types.ts on backend).
+// Note: internal-account transfers intentionally share the 'send' scenario —
+// the backend scenario gate does not differentiate them at this time.
 export const GAS_ACCOUNT_SCENARIOS = [
   'send',
   'swap',
   'perps',
   'earn',
   'dapp',
-  'internal',
 ] as const;
 export type IGasAccountScenario = (typeof GAS_ACCOUNT_SCENARIOS)[number];
 

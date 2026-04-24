@@ -1,5 +1,10 @@
 export const GAS_ACCOUNT_ADMISSION_OVERLOADED_CODE = 90_212;
 export const MAX_GAS_ACCOUNT_RETRY_ATTEMPTS = 3;
+// Handoff §4.3: retryAfterSec beyond this threshold is treated as system-level
+// congestion rather than transient admission load. We refuse to park the user
+// on a disabled confirm screen for longer than this and let the error surface
+// as Refresh (re-estimate) instead.
+export const MAX_GAS_ACCOUNT_RETRY_AFTER_SEC = 60;
 
 type IGasAccountErrorShape = {
   code?: unknown;
@@ -69,10 +74,10 @@ export function getGasAccountRetryAfterSec(error: unknown): number | undefined {
   return undefined;
 }
 
-// Gate from BFF handoff §3.3: only retry 90212 with a finite integer
-// retryAfterSec >= 1. BFF already absorbed the [0, 5] window, so no upper
-// bound is enforced here; any larger wait is intentional congestion guidance
-// from Prime.
+// Gate from BFF handoff §3.3 + §4.3: only retry 90212 with a finite integer
+// retryAfterSec in [1, MAX_GAS_ACCOUNT_RETRY_AFTER_SEC]. BFF already absorbed
+// the [0, 5] window; we cap the upper bound so a malformed or anomalous Prime
+// value can't park the user on a disabled confirm screen for minutes.
 export function shouldDeepRetryGasAccount(params: {
   code: number | undefined;
   retryAfterSec: number | undefined;
@@ -82,5 +87,7 @@ export function shouldDeepRetryGasAccount(params: {
   if (typeof retryAfterSec !== 'number') return false;
   if (!Number.isFinite(retryAfterSec)) return false;
   if (!Number.isInteger(retryAfterSec)) return false;
-  return retryAfterSec >= 1;
+  if (retryAfterSec < 1) return false;
+  if (retryAfterSec > MAX_GAS_ACCOUNT_RETRY_AFTER_SEC) return false;
+  return true;
 }

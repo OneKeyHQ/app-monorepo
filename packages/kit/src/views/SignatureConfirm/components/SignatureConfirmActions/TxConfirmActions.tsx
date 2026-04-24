@@ -745,6 +745,16 @@ function TxConfirmActions(props: IProps) {
       : null,
   );
 
+  // Gate by the local `isSubmitting` state to ignore orphan retry events
+  // from another TxConfirmActions instance whose background loop is still
+  // running (e.g. stacked confirm flows, side panel, tablet detail view).
+  // `Cleared` is idempotent so we don't gate it — worst case it clears an
+  // already-null state.
+  const isSubmittingRef = useRef(sendTxStatus.isSubmitting);
+  useEffect(() => {
+    isSubmittingRef.current = sendTxStatus.isSubmitting;
+  }, [sendTxStatus.isSubmitting]);
+
   useEffect(() => {
     const onScheduled = (payload: {
       attempt: number;
@@ -752,6 +762,7 @@ function TxConfirmActions(props: IProps) {
       retryAfterSec: number;
       scheduledAt: number;
     }) => {
+      if (!isSubmittingRef.current) return;
       setGasAccountRetryState(payload);
       setGasAccountNow(Date.now());
     };
@@ -908,7 +919,12 @@ function TxConfirmActions(props: IProps) {
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
         cancelButtonProps={{
-          disabled: sendTxStatus.isSubmitting,
+          // Keep Cancel enabled during the 90212 retry wait so the user can
+          // abandon the flow instead of being parked on a disabled screen for
+          // up to 3 × retryAfterSec. The background retry loop is not torn
+          // down (handoff §10.2 allows background completion), but the user
+          // regains control of the UI.
+          disabled: sendTxStatus.isSubmitting && gasAccountRetryState === null,
         }}
         onConfirmText={confirmText}
         onConfirm={handleOnConfirm}

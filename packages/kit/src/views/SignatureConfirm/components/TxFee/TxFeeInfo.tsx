@@ -444,9 +444,11 @@ function TxFeeInfo(props: IProps) {
           scenario: gasAccountScenario,
         });
         // L3 scenario gate telemetry: surface frontend contract bugs. Both
-        // reasons indicate a client-side mismatch with the backend enum, so
-        // we want a loud signal (console + defaultLogger). `scenario_disabled_*`
-        // is a policy outcome and stays silent per product decision.
+        // reasons indicate a client-side mismatch with the backend enum; log
+        // to console so it shows up in dev/staging. Backend already records
+        // `admission_*` events for this, so we don't double-report here.
+        // `scenario_disabled_*` is a policy outcome and stays silent per
+        // product decision.
         if (
           r.gasAccountScenarioReason === 'scenario_missing' ||
           r.gasAccountScenarioReason === 'scenario_unknown'

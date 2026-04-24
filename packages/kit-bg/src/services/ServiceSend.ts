@@ -461,19 +461,30 @@ class ServiceSend extends ServiceBase {
             );
       };
 
-      const broadcastTx = isGasAccountSubmit
-        ? broadcastWithGasAccountRetry
-        : broadcastOnce;
+      // Gas account submit runs its own bounded deep-retry loop (3 × 90212).
+      // We deliberately bypass the outer pRetry here: vault
+      // checkShouldRetryBroadcastTx returns true for generic transient codes
+      // (EVM 40001 SERVICE_BUSY, SOL BLOCK_HASH_NOT_FOUND, Algo follower-mode)
+      // and would re-enter `broadcastWithGasAccountRetry` with its attempt
+      // counter reset, amplifying the nominal 3-retry budget to
+      // (pRetry.retries × inner.retries) ≈ 24 broadcasts and violating the
+      // product contract with Prime/BFF on retry amplification.
+      const runBroadcast = async () => {
+        if (isGasAccountSubmit) {
+          return broadcastWithGasAccountRetry();
+        }
+        return pRetry(broadcastOnce, {
+          retries: vaultSettings.maxRetryBroadcastTxCount ?? 5,
+          minTimeout:
+            vaultSettings.minRetryBroadcastTxInterval ??
+            timerUtils.getTimeDurationMs({ seconds: 3 }),
+          shouldRetry: async (error) => {
+            return vault.checkShouldRetryBroadcastTx(error);
+          },
+        });
+      };
 
-      const { txid } = await pRetry(broadcastTx, {
-        retries: vaultSettings.maxRetryBroadcastTxCount ?? 5,
-        minTimeout:
-          vaultSettings.minRetryBroadcastTxInterval ??
-          timerUtils.getTimeDurationMs({ seconds: 3 }),
-        shouldRetry: async (error) => {
-          return vault.checkShouldRetryBroadcastTx(error);
-        },
-      });
+      const { txid } = await runBroadcast();
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
           return signedTx;
