@@ -908,10 +908,12 @@ TokenSelectorRowMobile.displayName = 'TokenSelectorRowMobile';
 const SpotTokenSelectorRowInner = memo(
   ({
     spotUniverse,
+    tokenSubtitle,
     onPress,
     isOnModal,
   }: {
     spotUniverse: ISpotUniverse;
+    tokenSubtitle?: string;
     onPress: (name: string) => void;
     isOnModal?: boolean;
   }) => {
@@ -966,6 +968,7 @@ const SpotTokenSelectorRowInner = memo(
             spotUniverse.baseName,
             spotUniverse.quoteName,
           ),
+          subtitle: tokenSubtitle,
           maxLeverage: 0,
           assetId: spotUniverse.assetId,
         },
@@ -986,6 +989,7 @@ const SpotTokenSelectorRowInner = memo(
         localizedDisplayMarkPrice,
         change24h,
         change24hPercent,
+        tokenSubtitle,
         ctx,
         marketCapDisplay,
         handlePress,
@@ -1088,6 +1092,7 @@ const PerpTokenSelectorRow = memo(
       return (
         <SpotTokenSelectorRowInner
           spotUniverse={mockedToken.spotUniverse}
+          tokenSubtitle={mockedToken.tokenSubtitle}
           onPress={onPress}
           isOnModal={isOnModal}
         />

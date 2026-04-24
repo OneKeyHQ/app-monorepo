@@ -537,6 +537,11 @@ function BasePerpTokenSelectorContent({
             dexIndex: SPOT_DEX_INDEX,
             index,
             assetId: u.assetId,
+            tokenSubtitle:
+              getTokenSubtitle(
+                getSpotTokenDisplayName(u.baseName),
+                tokenSearchAliases,
+              ) ?? getTokenSubtitle(u.baseName, tokenSearchAliases),
             spotUniverse: u,
           } as ITokenSelectorListItem,
           name: u.baseName,
@@ -581,6 +586,7 @@ function BasePerpTokenSelectorContent({
   }, [
     spotUniverses,
     spotPriceMap,
+    tokenSearchAliases,
     selectorConfig?.field,
     selectorConfig?.direction,
   ]);
