@@ -465,6 +465,23 @@ function TxConfirmActions(props: IProps) {
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
 
+      // If the user clicked Cancel while `broadcastOnce` was mid-HTTP, the
+      // abort signal only unblocks `abortableWait` sleeps — the in-flight
+      // request completes normally and we land here with a successful
+      // result. `handleOnCancel` already rejected the dApp and nulled the
+      // submitId ref, so comparing against the submitId we captured at the
+      // start of this attempt is how we detect that race. Skip all success
+      // side-effects (toast, dapp resolve, onSuccess, history save,
+      // navigation) so the UI stays consistent with the cancel intent.
+      // The tx may still land on chain — Prime idempotency prevents any
+      // double-charge and the user will see it in their activity.
+      if (gasAccountSubmitIdRef.current !== submitId) {
+        updateSendTxStatus({ isSubmitting: false });
+        setGasAccountRetryState(null);
+        isSubmitted.current = false;
+        return;
+      }
+
       if (vaultSettings?.afterSendTxActionEnabled) {
         await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
           networkId,
