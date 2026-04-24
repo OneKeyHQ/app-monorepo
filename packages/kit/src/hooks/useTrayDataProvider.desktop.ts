@@ -35,6 +35,7 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
+import { getNativeTokenInfo } from '../views/Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
@@ -259,36 +260,38 @@ export function useTrayDataProvider() {
                   { tokenAddressList },
                 );
               if (response?.list?.length) {
-                // Normalize contract address for matching: lowercase for
-                // ERC-20-like tokens (API may return checksummed), empty
-                // string for native coins (API may omit `address`). Matches
-                // the pattern used by useMarketWatchlistTokenList so tray
-                // navigation identifiers stay consistent with the rest of
-                // the app (OK-53609 BTC, OK-53626 contract tokens).
+                // Key shape mirrors useMarketWatchlistTokenList so tray
+                // navigation identifiers stay consistent with the rest
+                // of the app (OK-53609 BTC, OK-53626 contract tokens).
                 const buildKey = (
                   networkId: string,
-                  address: string,
-                  isNative: boolean,
-                ) =>
-                  `${networkId}:${isNative ? '' : (address || '').toLowerCase()}`;
+                  address: string | undefined,
+                  isNativeField: boolean | undefined,
+                ) => {
+                  const { normalizedAddress } = getNativeTokenInfo(
+                    isNativeField,
+                    address,
+                  );
+                  return `${networkId}:${normalizedAddress}`;
+                };
                 const responseByKey = new Map<string, any>();
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 response.list.forEach((coin: any) => {
                   if (!coin?.symbol) return;
                   const key = buildKey(
                     coin.networkId || coin.chainId || '',
-                    coin.address || '',
-                    coin.isNative ?? false,
+                    coin.address,
+                    coin.isNative,
                   );
                   responseByKey.set(key, coin);
                 });
-                // Iterate in watchlist order so the tray mirrors the user's
-                // saved order regardless of API response ordering.
+                // Iterate in watchlist order so the tray mirrors the
+                // user's saved order regardless of API response ordering.
                 spotItems.forEach((spotItem: any) => {
                   const spotIsNative = spotItem.isNative ?? false;
                   const key = buildKey(
                     spotItem.chainId,
-                    spotItem.contractAddress || '',
+                    spotItem.contractAddress,
                     spotIsNative,
                   );
                   const coin = responseByKey.get(key);
@@ -541,16 +544,16 @@ export function useTrayDataProvider() {
 
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
+          const coin = action.perpsCoin as string;
           setTimeout(async () => {
             nav.navigate(ERootRoutes.Main, {
               screen: ETabRoutes.Perp,
             });
             try {
-              // Service call updates the bg-level perpsActiveAssetAtom so
-              // the cold-start path (first time entering Perp tab this
-              // session) picks up the new coin via useHyperliquidSymbolSelect.
+              // Covers the cold-start path: on first Perp-tab focus this
+              // session, useHyperliquidSymbolSelect reads the bg atom.
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-                coin: action.perpsCoin as string,
+                coin,
               });
             } catch (e) {
               defaultLogger.app.error.log(
@@ -559,13 +562,11 @@ export function useTrayDataProvider() {
                 }`,
               );
             }
-            // Event tells an already-mounted Perp context to run
-            // switchTradeInstrument, which updates activeTradeInstrumentAtom
-            // + tradingModeAtom — the service call alone leaves those
-            // stale so the UI keeps showing the previous coin (OK-53626).
+            // Covers the warm path: an already-mounted Perp context runs
+            // switchTradeInstrument to refresh its context atoms.
             appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
               mode: 'perp',
-              coin: action.perpsCoin as string,
+              coin,
             });
           }, 80);
           return;
