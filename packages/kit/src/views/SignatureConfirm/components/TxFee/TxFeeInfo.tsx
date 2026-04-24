@@ -21,6 +21,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   useTheme,
   useThemeName,
@@ -66,7 +67,11 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
-import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyRpcError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -95,6 +100,11 @@ import type {
   IGasPayer,
   IMultiTxsFeeSelectorItem,
 } from '@onekeyhq/shared/types/fee';
+
+import {
+  EGasAccountErrorStrategy,
+  getGasAccountErrorEntry,
+} from '../../constants/gasAccountErrorCodes';
 
 import { TxFeeEditor } from './TxFeeEditor';
 import { TxFeeSelectorTrigger } from './TxFeeSelectorTrigger';
@@ -186,6 +196,7 @@ function TxFeeInfo(props: IProps) {
     resetMegafuelEligible,
     updateEffectiveFeePayer,
     resetGasAccountTemporarilyDisabled,
+    updateGasAccountTemporarilyDisabled,
     updateGasAccountUiState,
     resetGasAccountUiState,
     updateTxFeeInfoInit,
@@ -664,6 +675,59 @@ function TxFeeInfo(props: IProps) {
         if (getStaleResult()) {
           return staleResult;
         }
+
+        // Mirror the submit-flow strategy table (see
+        // `handleGasAccountSubmitError` in TxConfirmActions). Estimate polls on
+        // an interval with `gasAccountEnabled: !gasAccountTemporarilyDisabled`,
+        // so a sponsor-side failure (e.g. 40_218 SPONSOR_UNAVAILABLE) that
+        // isn't classified here would loop: every tick re-asks for a sponsor
+        // and gets the same error. Classifying the error and flipping
+        // `gasAccountTemporarilyDisabled` forces the next tick onto the
+        // user-paid path.
+        const gasAccountCode = getGasAccountErrorCode(e);
+        const gasAccountEntry = getGasAccountErrorEntry(gasAccountCode);
+        if (
+          gasAccountEntry &&
+          !gasAccountTemporarilyDisabled &&
+          (gasAccountEntry.strategy === EGasAccountErrorStrategy.Fallback ||
+            gasAccountEntry.strategy === EGasAccountErrorStrategy.Hint)
+        ) {
+          (e as IOneKeyError | undefined) &&
+            ((e as IOneKeyError).autoToast = false);
+          updateEffectiveFeePayer('user');
+          updateGasAccountTemporarilyDisabled(true);
+          resetGasAccountUiState();
+          updateGasAccountUiState({ payer: 'user' });
+          resetMegafuelEligible();
+          updateTxFeeInfoInit(false);
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Loading,
+            errMessage: '',
+            discountPercent: 0,
+          });
+          Toast.warning({ title: gasAccountEntry.message });
+          appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+          return staleResult;
+        }
+        if (
+          gasAccountEntry &&
+          gasAccountEntry.strategy === EGasAccountErrorStrategy.Refresh
+        ) {
+          (e as IOneKeyError | undefined) &&
+            ((e as IOneKeyError).autoToast = false);
+          resetGasAccountUiState();
+          resetMegafuelEligible();
+          updateTxFeeInfoInit(false);
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Loading,
+            errMessage: '',
+            discountPercent: 0,
+          });
+          Toast.warning({ title: gasAccountEntry.message });
+          appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+          return staleResult;
+        }
+
         updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
@@ -694,6 +758,7 @@ function TxFeeInfo(props: IProps) {
       unsignedTxs,
       gasAccountTemporarilyDisabled,
       resetGasAccountTemporarilyDisabled,
+      updateGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
       resetMegafuelEligible,
       resetPayWithTokenInfo,
