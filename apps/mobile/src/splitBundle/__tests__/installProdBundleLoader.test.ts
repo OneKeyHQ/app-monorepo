@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
-type LoadBundleAsyncGlobal = typeof globalThis & {
+type ILoadBundleAsyncGlobal = typeof globalThis & {
   __METRO_GLOBAL_PREFIX__?: string;
   __loadBundleAsync?: (
     bundlePath:
@@ -247,7 +247,7 @@ describe('installProdBundleLoader', () => {
     installProdBundleLoader(mock);
 
     await expect(
-      (globalThis as LoadBundleAsyncGlobal).__loadBundleAsync?.('seg:test.a'),
+      (globalThis as ILoadBundleAsyncGlobal).__loadBundleAsync?.('seg:test.a'),
     ).resolves.toBe(undefined);
     expect(isSegmentLoaded('seg:test.a')).toBe(true);
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
@@ -262,7 +262,7 @@ describe('installProdBundleLoader', () => {
     installProdBundleLoader(mock);
 
     await expect(
-      (globalThis as LoadBundleAsyncGlobal).__loadBundleAsync?.({
+      (globalThis as ILoadBundleAsyncGlobal).__loadBundleAsync?.({
         main: 'seg:test.a',
         background: null,
       }),
@@ -282,7 +282,7 @@ describe('installProdBundleLoader', () => {
 
     await expect(
       (
-        globalThis as LoadBundleAsyncGlobal & {
+        globalThis as ILoadBundleAsyncGlobal & {
           test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
         }
       ).test__loadBundleAsync?.('seg:test.a'),
@@ -307,7 +307,7 @@ describe('installProdBundleLoader', () => {
 
     await expect(
       (
-        globalThis as LoadBundleAsyncGlobal & {
+        globalThis as ILoadBundleAsyncGlobal & {
           test__loadBundleAsync?: (bundlePath: string) => Promise<void>;
         }
       ).test__loadBundleAsync?.('seg:test.a'),

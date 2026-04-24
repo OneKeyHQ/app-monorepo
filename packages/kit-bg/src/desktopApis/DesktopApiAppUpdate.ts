@@ -594,12 +594,10 @@ class DesktopApiAppUpdate {
   // `--appimage-extract-and-run`, or through AppImageLauncher's FUSE overlay
   // (where it points to a read-only mount).
   //
-  // Bracket notation is used to make clear this is a runtime env lookup (the
-  // AppImage launcher sets it), not a build-time target — unlike DESK_CHANNEL,
-  // APPIMAGE is never injected via esbuild `define`.
+  // APPIMAGE is a runtime env var set by the AppImage launcher — unlike
+  // DESK_CHANNEL it is never injected via esbuild `define`.
   private canAutoInstallAppImage(): boolean {
-    // eslint-disable-next-line @typescript-eslint/dot-notation -- runtime env, not a build flag
-    const appImagePath = process.env['APPIMAGE'];
+    const appImagePath = process.env.APPIMAGE;
     if (!appImagePath || appImagePath.trim().length === 0) {
       logger.warn(
         'auto-updater',

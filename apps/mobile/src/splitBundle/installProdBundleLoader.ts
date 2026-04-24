@@ -30,7 +30,7 @@ import {
   isSegmentAllowedInRuntime,
 } from './segmentManifest';
 
-import type { ISplitBundleNativeLoader, SegmentLoadState } from './types';
+import type { ISegmentLoadState, ISplitBundleNativeLoader } from './types';
 
 // Prefix reserved for keys produced by the split-bundle serializer.
 // Anything NOT starting with this is a Metro default async-require
@@ -44,7 +44,7 @@ const SEG_PREFIX = 'seg:';
 // State
 // ---------------------------------------------------------------------------
 
-const segmentStates = new Map<string, SegmentLoadState>();
+const segmentStates = new Map<string, ISegmentLoadState>();
 const loadedSegments = new Set<string>();
 const failedSegments = new Map<string, Error>();
 const inflightSegments = new Map<string, Promise<void>>();
@@ -281,13 +281,13 @@ export async function loadSegment(segmentKey: string): Promise<void> {
   return loadSegmentInternal(segmentKey);
 }
 
-type RuntimeBundlePathRecord = Partial<
+type IRuntimeBundlePathRecord = Partial<
   Record<'main' | 'background' | 'shared', string | null>
 >;
 
-type BundlePathRequest = string | RuntimeBundlePathRecord;
+type IBundlePathRequest = string | IRuntimeBundlePathRecord;
 
-function resolveBundlePathRequest(request: BundlePathRequest): string | null {
+function resolveBundlePathRequest(request: IBundlePathRequest): string | null {
   if (typeof request === 'string') {
     return request;
   }
@@ -311,7 +311,7 @@ function resolveBundlePathRequest(request: BundlePathRequest): string | null {
   return resolved;
 }
 
-async function loadBundleRequest(request: BundlePathRequest): Promise<void> {
+async function loadBundleRequest(request: IBundlePathRequest): Promise<void> {
   const resolved = resolveBundlePathRequest(request);
   if (resolved === null) {
     return;
@@ -332,7 +332,7 @@ export async function retrySegment(segmentKey: string): Promise<void> {
 /**
  * Query the current load state of a segment.
  */
-export function getSegmentState(segmentKey: string): SegmentLoadState {
+export function getSegmentState(segmentKey: string): ISegmentLoadState {
   return segmentStates.get(segmentKey) || 'idle';
 }
 
@@ -363,23 +363,23 @@ export function getEagerFallbackKeys(): string[] {
 // Install global __loadBundleAsync
 // ---------------------------------------------------------------------------
 
-type LoadBundleAsyncGlobal = typeof globalThis & {
+type ILoadBundleAsyncGlobal = typeof globalThis & {
   __METRO_GLOBAL_PREFIX__?: string;
-  __loadBundleAsync?: (bundlePath: BundlePathRequest) => Promise<void>;
+  __loadBundleAsync?: (bundlePath: IBundlePathRequest) => Promise<void>;
 };
 
-type BundleLoaderFn = (bundlePath: BundlePathRequest) => Promise<void>;
+type IBundleLoaderFn = (bundlePath: IBundlePathRequest) => Promise<void>;
 
 const loadBundleGlobalOverrides = new Map<
   string,
   {
-    current: BundleLoaderFn;
-    wrapper: BundleLoaderFn;
+    current: IBundleLoaderFn;
+    wrapper: IBundleLoaderFn;
   }
 >();
 
 function getLoadBundleAsyncGlobalKeys(
-  globalRef: LoadBundleAsyncGlobal,
+  globalRef: ILoadBundleAsyncGlobal,
 ): string[] {
   const keys = new Set<string>(['__loadBundleAsync']);
   const metroPrefix = globalRef.__METRO_GLOBAL_PREFIX__;
@@ -390,8 +390,8 @@ function getLoadBundleAsyncGlobalKeys(
 }
 
 function installLoadBundleAsyncOverride(
-  globalRef: LoadBundleAsyncGlobal,
-  loader: BundleLoaderFn,
+  globalRef: ILoadBundleAsyncGlobal,
+  loader: IBundleLoaderFn,
 ) {
   for (const key of getLoadBundleAsyncGlobalKeys(globalRef)) {
     const existing = loadBundleGlobalOverrides.get(key);
@@ -400,7 +400,7 @@ function installLoadBundleAsyncOverride(
     } else {
       const state = {
         current: loader,
-        wrapper: (bundlePath: BundlePathRequest) => state.current(bundlePath),
+        wrapper: (bundlePath: IBundlePathRequest) => state.current(bundlePath),
       };
       loadBundleGlobalOverrides.set(key, state);
 
@@ -441,7 +441,7 @@ export function installProdBundleLoader(
 ): void {
   setNativeLoader(loader);
   installLoadBundleAsyncOverride(
-    globalThis as LoadBundleAsyncGlobal,
+    globalThis as ILoadBundleAsyncGlobal,
     loadBundleRequest,
   );
   try {

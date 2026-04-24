@@ -160,6 +160,7 @@ function ensureReadyTimeout() {
 
   readyTimeoutTimer = setTimeout(() => {
     readyTimeoutTimer = undefined;
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     switchToRemoteBroken('Background runtime ready timeout');
   }, READY_TIMEOUT_MS);
 }
@@ -223,6 +224,7 @@ function dispatchQueuedCallsToRemote() {
     .reduce<Promise<void>>((promise, queuedCall) => {
       return promise.finally(async () => {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-use-before-define
           const result = await dispatchRemoteRequest(
             queuedCall.request,
             queuedCall.localFallback,
