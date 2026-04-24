@@ -85,6 +85,7 @@ export type IPerpsFrontendOrder = HL.OpenOrdersWsEvent['orders'][number];
 export type IOrderParams = HL.OrderParameters['orders'][number];
 export type IOrderResponse = HL.OrderSuccessResponse;
 export type ICancelResponse = HL.CancelSuccessResponse;
+export type IModifyResponse = HL.ModifySuccessResponse;
 export type ITIF = 'Gtc' | 'Ioc' | 'Alo';
 
 // Account and asset states
