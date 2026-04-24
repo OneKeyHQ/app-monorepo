@@ -31,10 +31,12 @@ function init() {
     if (method === GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME) {
       console.log('background event bus sync', params);
       const p = params as IGlobalEventBusSyncBroadcastParams;
-      appEventBus.emitToSelf({
-        type: p.type as any,
+      // Route through dispatchInboundFromBackground so the receiver skips
+      // its own echo (originNodeId === appEventBus.nodeId).
+      appEventBus.dispatchInboundFromBackground({
+        type: p.type,
         payload: p.payload,
-        isRemote: true,
+        originNodeId: p.originNodeId ?? '',
       });
     }
   };
