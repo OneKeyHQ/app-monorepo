@@ -1023,8 +1023,27 @@ async function createMainWindow() {
     if (details.deviceType === 'usb') {
       return true;
     }
+    if (details.deviceType === 'hid') {
+      // WebHID has no protected-class blocklist (unlike WebUSB), so tighten
+      // to Ledger vendorId only.
+      return details.device?.vendorId === 0x2c_97;
+    }
     return false;
   });
+
+  browserWindow.webContents.session.on(
+    'select-hid-device',
+    (event, details, callback) => {
+      // preventDefault is required; otherwise Electron auto-picks the first
+      // device and ignores the callback — see Electron Session docs.
+      event.preventDefault();
+      // Only auto-select Ledger devices (vendorId 0x2c97)
+      const ledgerDevice = details.deviceList.find(
+        (d) => d.vendorId === 0x2c_97,
+      );
+      callback(ledgerDevice ? ledgerDevice.deviceId : '');
+    },
+  );
 
   // Permission handler for webview (partition: persist:onekey)
   //
