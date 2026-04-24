@@ -226,6 +226,21 @@ class ServiceHistory extends ServiceBase {
       }
     }
 
+    // Notify subscribers (e.g. DeFi scheduler) that locally-pending txs
+    // submitted by this app have just transitioned to confirmed/failed.
+    for (const tx of confirmedTxs) {
+      try {
+        appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+          accountId: tx.decodedTx.accountId,
+          networkId: tx.decodedTx.networkId,
+          txid: tx.decodedTx.txid,
+          status: tx.decodedTx.status,
+        });
+      } catch {
+        // swallow per-tx emit failures to avoid affecting history pipeline
+      }
+    }
+
     // 3. Get the locally confirmed transactions
     if (isAllNetworks) {
       const allNetworksParams = accounts.map((account) => ({

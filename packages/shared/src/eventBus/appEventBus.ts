@@ -26,6 +26,7 @@ import platformEnv from '../platformEnv';
 import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
+import type { IDeFiProtocol, IProtocolSummary } from '../../types/defi';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type {
@@ -44,6 +45,7 @@ import type {
   ISwapTokenBase,
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type { EDecodedTxStatus } from '../../types/tx';
 import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes } from '../routes';
@@ -234,6 +236,29 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
   [EAppEventBusNames.HardCloseHardwareUiStateDialog]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
+  [EAppEventBusNames.LocalPendingTxConfirmed]: {
+    accountId: string;
+    networkId: string;
+    txid: string;
+    status: EDecodedTxStatus;
+    accountAddress?: string;
+    xpub?: string;
+  };
+  [EAppEventBusNames.DeFiPositionRefreshed]: {
+    accountId: string;
+    networkId: string;
+    overview: {
+      totalValue: number;
+      totalDebt: number;
+      totalReward: number;
+      netWorth: number;
+      chains: string[];
+      protocolCount: number;
+      positionCount: number;
+    };
+    protocols: IDeFiProtocol[];
+    protocolMap: Record<string, IProtocolSummary>;
+  };
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
   [EAppEventBusNames.TokenListUpdate]: {
     tokens: IAccountToken[];

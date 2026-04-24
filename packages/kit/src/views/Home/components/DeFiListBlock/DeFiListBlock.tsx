@@ -25,6 +25,7 @@ import {
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useDeFiListActions,
+  useDeFiListProtocolMapAtom,
   useDeFiListProtocolsAtom,
   useDeFiListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
@@ -42,6 +43,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
@@ -87,6 +89,7 @@ function DeFiListBlock({
   const [overview] = useAccountDeFiOverviewAtom();
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
   const [{ protocols }] = useDeFiListProtocolsAtom();
+  const [{ protocolMap }] = useDeFiListProtocolMapAtom();
 
   const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
   const initializedRef = useRef(initialized);
@@ -827,6 +830,124 @@ function DeFiListBlock({
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
     };
   }, [isFocused, network?.isAllNetworks, handleRefreshAllNetworkData, run]);
+
+  useEffect(() => {
+    const onDeFiPositionRefreshed = (payload: {
+      accountId: string;
+      networkId: string;
+      overview: {
+        totalValue: number;
+        totalDebt: number;
+        totalReward: number;
+        netWorth: number;
+        chains: string[];
+        protocolCount: number;
+        positionCount: number;
+      };
+      protocols: IDeFiProtocol[];
+      protocolMap: Record<string, IProtocolSummary>;
+    }) => {
+      if (refreshCacheOnly) return;
+      if (!account?.id || !network?.id) return;
+
+      // Gate events to the currently viewed wallet. Single-network mode
+      // additionally matches exact accountId + networkId below.
+      const { walletId: payloadWalletId } = accountUtils.parseAccountId({
+        accountId: payload.accountId,
+      });
+      const { walletId: currentWalletId } = accountUtils.parseAccountId({
+        accountId: account.id,
+      });
+      if (!payloadWalletId || payloadWalletId !== currentWalletId) return;
+
+      if (!network.isAllNetworks) {
+        if (
+          payload.accountId !== account.id ||
+          payload.networkId !== network.id
+        ) {
+          return;
+        }
+        updateAccountDeFiOverview({
+          currency: settings.currencyInfo.id,
+          accountId: account.id,
+          networkId: network.id,
+          overview: {
+            totalValue: payload.overview.totalValue,
+            totalDebt: payload.overview.totalDebt,
+            totalReward: payload.overview.totalReward,
+            netWorth: payload.overview.netWorth,
+          },
+          isReady: true,
+        });
+        updateDeFiListProtocols({ protocols: payload.protocols });
+        updateDeFiListProtocolMap({ protocolMap: payload.protocolMap });
+        updateDeFiListState({ initialized: true, isRefreshing: false });
+        return;
+      }
+
+      // All Networks: drop this network's old entries and splice in the
+      // refreshed ones. Aggregated overview is recomputed from the merged
+      // protocolMap so the header total stays in sync.
+      const prefix = `${payload.networkId}-`;
+      const nextProtocols = protocols
+        .filter((p) => p.networkId !== payload.networkId)
+        .concat(payload.protocols);
+
+      const nextProtocolMap: Record<string, IProtocolSummary> = {};
+      for (const [k, v] of Object.entries(protocolMap)) {
+        if (!k.startsWith(prefix)) nextProtocolMap[k] = v;
+      }
+      Object.assign(nextProtocolMap, payload.protocolMap);
+
+      let totalValue = 0;
+      let totalDebt = 0;
+      let totalReward = 0;
+      let netWorth = 0;
+      for (const s of Object.values(nextProtocolMap)) {
+        totalValue = new BigNumber(totalValue)
+          .plus(s.totalValue ?? 0)
+          .toNumber();
+        totalDebt = new BigNumber(totalDebt).plus(s.totalDebt ?? 0).toNumber();
+        totalReward = new BigNumber(totalReward)
+          .plus(s.totalReward ?? 0)
+          .toNumber();
+        netWorth = new BigNumber(netWorth).plus(s.netWorth ?? 0).toNumber();
+      }
+
+      updateDeFiListProtocols({ protocols: nextProtocols });
+      updateDeFiListProtocolMap({ protocolMap: nextProtocolMap });
+      updateAccountDeFiOverview({
+        currency: settings.currencyInfo.id,
+        accountId: account.id,
+        networkId: network.id,
+        overview: { totalValue, totalDebt, totalReward, netWorth },
+        isReady: true,
+      });
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.DeFiPositionRefreshed,
+      onDeFiPositionRefreshed,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.DeFiPositionRefreshed,
+        onDeFiPositionRefreshed,
+      );
+    };
+  }, [
+    account?.id,
+    network?.id,
+    network?.isAllNetworks,
+    protocols,
+    protocolMap,
+    refreshCacheOnly,
+    settings.currencyInfo.id,
+    updateAccountDeFiOverview,
+    updateDeFiListProtocols,
+    updateDeFiListProtocolMap,
+    updateDeFiListState,
+  ]);
 
   useEffect(() => {
     if (allNetworksResult) {
