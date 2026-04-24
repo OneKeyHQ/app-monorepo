@@ -22,6 +22,7 @@ import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { BalanceRow } from '../Components/BalanceRow';
+import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -374,6 +375,7 @@ function SpotBalanceList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
+      ListEmptyComponent={<PerpHoldingsEmptyState isMobile={isMobile} />}
       ListHeaderComponent={mobileHeaderComponent}
     />
   );

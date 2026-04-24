@@ -5,6 +5,7 @@ import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
   notifyTabNavigation,
+  notifyTabNavigationEnd,
   tryDispatchTranslateMessage,
 } from '@onekeyhq/kit/src/components/WebView/translateBridge';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
@@ -91,6 +92,7 @@ function WebContent({
     if (nativeEvent.loading) {
       return;
     }
+    notifyTabNavigationEnd(id);
     changeNavigationInfo({ ...nativeEvent });
     // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
     if (isBitrefillEmbedUrl(nativeEvent.url)) {

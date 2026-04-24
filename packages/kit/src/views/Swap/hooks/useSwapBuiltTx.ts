@@ -1393,6 +1393,7 @@ export function useSwapBuildTx() {
                 accountAddress: fromUserAddress,
                 networkId,
                 accountId,
+                scenario: 'swap',
               });
               if (i === unsignedTxArr.length - 2) {
                 lastTxUseGasInfo = {
@@ -1460,6 +1461,7 @@ export function useSwapBuildTx() {
             accountAddress: fromUserAddress,
             networkId,
             accountId,
+            scenario: 'swap',
           });
           if (!isApprove) {
             void swapEstimateFeeEvent(
@@ -2791,6 +2793,7 @@ export function useSwapBuildTx() {
                 accountAddress: fromUserAddress ?? '',
                 networkId,
                 accountId,
+                scenario: 'swap',
               });
               if (i === unsignedTxArr.length - 2) {
                 lastTxUseGasInfo = {
@@ -2819,6 +2822,7 @@ export function useSwapBuildTx() {
               accountAddress: fromUserAddress ?? '',
               networkId,
               accountId,
+              scenario: 'swap',
             });
             void swapEstimateFeeEvent(
               ESwapEventAPIStatus.SUCCESS,

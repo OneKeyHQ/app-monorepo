@@ -348,6 +348,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         selectedPayer?: 'user' | 'gasAccount';
         lockedUserNonce?: number;
         idempotencyKey?: string;
+        gasAccountScenarioReason?: string;
       },
     ) => {
       set(gasAccountUiStateAtom(), {
