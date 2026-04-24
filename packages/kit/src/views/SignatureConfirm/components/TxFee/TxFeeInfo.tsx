@@ -692,8 +692,9 @@ function TxFeeInfo(props: IProps) {
           (gasAccountEntry.strategy === EGasAccountErrorStrategy.Fallback ||
             gasAccountEntry.strategy === EGasAccountErrorStrategy.Hint)
         ) {
-          (e as IOneKeyError | undefined) &&
-            ((e as IOneKeyError).autoToast = false);
+          if (e) {
+            (e as IOneKeyError).autoToast = false;
+          }
           updateEffectiveFeePayer('user');
           updateGasAccountTemporarilyDisabled(true);
           resetGasAccountUiState();
@@ -713,8 +714,9 @@ function TxFeeInfo(props: IProps) {
           gasAccountEntry &&
           gasAccountEntry.strategy === EGasAccountErrorStrategy.Refresh
         ) {
-          (e as IOneKeyError | undefined) &&
-            ((e as IOneKeyError).autoToast = false);
+          if (e) {
+            (e as IOneKeyError).autoToast = false;
+          }
           resetGasAccountUiState();
           resetMegafuelEligible();
           updateTxFeeInfoInit(false);

@@ -707,13 +707,30 @@ function TxConfirmActions(props: IProps) {
   }, [decodedTxs, submitTxs, transferPayload?.originalRecipient]);
 
   const cancelCalledRef = useRef(false);
+  // If a 90212 retry loop is in flight, tear it down before the flow
+  // unwinds. Otherwise the background would keep sleeping/broadcasting
+  // after the user already chose to abandon — with Prime idempotency it
+  // wouldn't double-charge, but the tx could still land on-chain after
+  // the dApp saw a rejection, which is the UX we're explicitly avoiding.
+  // Shared between the explicit Cancel button and `usePageUnMounted`, so
+  // system-back / popStack paths also tear down the loop.
+  const abortPendingGasAccountSubmit = useCallback(() => {
+    const pendingSubmitId = gasAccountSubmitIdRef.current;
+    if (pendingSubmitId) {
+      gasAccountSubmitIdRef.current = null;
+      void backgroundApiProxy.serviceSend.abortGasAccountSubmit(
+        pendingSubmitId,
+      );
+    }
+  }, []);
   const onCancelOnce = useCallback(() => {
     if (cancelCalledRef.current) {
       return;
     }
     cancelCalledRef.current = true;
+    abortPendingGasAccountSubmit();
     onCancel?.();
-  }, [onCancel]);
+  }, [abortPendingGasAccountSubmit, onCancel]);
 
   const handleOnCancel = useCallback(
     (close: () => void, closePageStack: () => void) => {
@@ -725,19 +742,7 @@ function TxConfirmActions(props: IProps) {
         return;
       }
 
-      // If a 90212 retry loop is in flight, tear it down before the modal
-      // closes. Otherwise the background would keep sleeping/broadcasting
-      // after the user already chose to abandon the flow — with Prime
-      // idempotency it wouldn't double-charge, but the tx could still land
-      // on-chain after the dApp saw a rejection, which is the UX we're
-      // explicitly avoiding.
-      const pendingSubmitId = gasAccountSubmitIdRef.current;
-      if (pendingSubmitId) {
-        gasAccountSubmitIdRef.current = null;
-        void backgroundApiProxy.serviceSend.abortGasAccountSubmit(
-          pendingSubmitId,
-        );
-      }
+      abortPendingGasAccountSubmit();
 
       dappApprove.reject();
       if (!sourceInfo) {
@@ -748,6 +753,7 @@ function TxConfirmActions(props: IProps) {
       onCancelOnce();
     },
     [
+      abortPendingGasAccountSubmit,
       dappApprove,
       isQueueMode,
       onCancelOnce,
