@@ -1308,19 +1308,6 @@ function ConnectYourDevicePage({
     [navigation],
   );
 
-  // Ledger has its own dedicated flow — completely separate from OneKey
-  if (vendor === EHardwareVendor.ledger) {
-    return (
-      <OnboardingPage
-        headerTitle={intl.formatMessage({
-          id: ETranslations.onboarding_connect_your_device,
-        })}
-      >
-        <LedgerConnectionFlow />
-      </OnboardingPage>
-    );
-  }
-
   return (
     <OnboardingPage
       headerTitle={intl.formatMessage({
@@ -1331,49 +1318,55 @@ function ConnectYourDevicePage({
       narrow
       contentContainerProps={{ gap: '$5' }}
     >
-      <XStack alignItems="center" gap="$4">
-        {tabOptions.length > 1 ? (
-          <SegmentControl
-            fullWidth
-            value={tabValue}
-            onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-            options={tabOptions}
-          />
-        ) : null}
-        {isSupportedQRCode ? (
-          <YStack ml="auto">
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.global_advanced,
-              })}
-              renderTrigger={
-                <IconButton variant="tertiary" icon="DotHorOutline" />
-              }
-              renderContent={
-                <QRWalletConnect
-                  navigateToCreateQRWallet={navigateToCreateQRWallet}
+      {vendor === EHardwareVendor.ledger ? (
+        <LedgerConnectionFlow />
+      ) : (
+        <>
+          <XStack alignItems="center" gap="$4">
+            {tabOptions.length > 1 ? (
+              <SegmentControl
+                fullWidth
+                value={tabValue}
+                onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+                options={tabOptions}
+              />
+            ) : null}
+            {isSupportedQRCode ? (
+              <YStack ml="auto">
+                <Popover
+                  title={intl.formatMessage({
+                    id: ETranslations.global_advanced,
+                  })}
+                  renderTrigger={
+                    <IconButton variant="tertiary" icon="DotHorOutline" />
+                  }
+                  renderContent={
+                    <QRWalletConnect
+                      navigateToCreateQRWallet={navigateToCreateQRWallet}
+                    />
+                  }
                 />
-              }
+              </YStack>
+            ) : null}
+          </XStack>
+          {tabValue === EConnectDeviceChannel.usbOrBle ? (
+            <USBOrBLEConnectionIndicator
+              tabValue={tabValue}
+              deviceTypeItems={deviceTypeItems}
+              connectDevice={connectDevice}
+              vendor={vendor}
             />
-          </YStack>
-        ) : null}
-      </XStack>
-      {tabValue === EConnectDeviceChannel.usbOrBle ? (
-        <USBOrBLEConnectionIndicator
-          tabValue={tabValue}
-          deviceTypeItems={deviceTypeItems}
-          connectDevice={connectDevice}
-          vendor={vendor}
-        />
-      ) : null}
-      {tabValue === EConnectDeviceChannel.bluetooth ? (
-        <BluetoothConnectionIndicator
-          tabValue={tabValue}
-          deviceTypeItems={deviceTypeItems}
-          connectDevice={connectDevice}
-          vendor={vendor}
-        />
-      ) : null}
+          ) : null}
+          {tabValue === EConnectDeviceChannel.bluetooth ? (
+            <BluetoothConnectionIndicator
+              tabValue={tabValue}
+              deviceTypeItems={deviceTypeItems}
+              connectDevice={connectDevice}
+              vendor={vendor}
+            />
+          ) : null}
+        </>
+      )}
     </OnboardingPage>
   );
 }

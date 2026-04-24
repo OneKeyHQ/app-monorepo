@@ -1,14 +1,26 @@
 import { useIntl } from 'react-intl';
 
-import { Dialog, Image, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Image,
+  SizableText,
+  YStack,
+  useDialogInstance,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 const ledgerLogo = require('@onekeyhq/kit/assets/pick-ledger.png');
 const trezorLogo = require('@onekeyhq/kit/assets/pick-trezor.png');
 
 function OtherDevicesDialogContent() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const dialog = useDialogInstance();
 
   return (
     <YStack>
@@ -24,6 +36,16 @@ function OtherDevicesDialogContent() {
           }
           title="Ledger"
           drillIn
+          onPress={async () => {
+            await dialog.close();
+            defaultLogger.onboarding.page.pickYourDevice(
+              EHardwareVendor.ledger,
+            );
+            navigation.push(EOnboardingPagesV2.ConnectYourDevice, {
+              deviceType: [],
+              vendor: EHardwareVendor.ledger,
+            });
+          }}
         />
         <ListItem
           disabled
