@@ -94,7 +94,15 @@ const useMarketHomeLayoutProps = () => {
     const hasTargetCategory = categories.some(
       (item) => item.id === spotCategoryToSelect,
     );
-    if (!hasTargetCategory && isMarketBasicConfigLoading) {
+    if (!hasTargetCategory) {
+      if (isMarketBasicConfigLoading) {
+        return;
+      }
+
+      setMarketSelectedTab((prev) => ({
+        ...prev,
+        spotCategoryToSelect: undefined,
+      }));
       return;
     }
 

@@ -57,71 +57,17 @@ import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
 
+import {
+  DEFAULT_MARKET_CATEGORY_ID,
+  DEFAULT_SPOT_CATEGORIES,
+  FAVORITES_CATEGORY_ID,
+} from './constants';
+import { MarketCategoryTokenList } from './MarketCategoryTokenList';
+import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
+import { getTokenKey } from './utils';
+
+import type { IFavoriteTokenDisplay } from './types';
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
-
-const FAVORITES_CATEGORY_ID = 'favorites';
-const DEFAULT_MARKET_CATEGORY_ID = 'trending';
-const DEFAULT_SPOT_CATEGORIES: IMarketCategoryItem[] = [
-  { id: 'trending', name: 'Trending' },
-  { id: 'x_mentioned', name: 'X Mentioned' },
-];
-const HOME_MARKET_CATEGORY_REQUEST_LIMIT = 3;
-
-function getTokenKey(token: {
-  chainId: string;
-  contractAddress: string;
-  perpsCoin?: string;
-}) {
-  if (token.perpsCoin) {
-    return `perps:${token.perpsCoin}`;
-  }
-  return `${token.chainId}:${token.contractAddress}`;
-}
-
-interface IFavoriteTokenDisplay {
-  chainId: string;
-  contractAddress: string;
-  isNative: boolean;
-  symbol: string;
-  name: string;
-  logoUrl: string;
-  price: number;
-  priceChange24h: number;
-  marketCap: number;
-  volume24h: number;
-  // Perps fields — present when perpsCoin is set
-  perpsCoin?: string;
-  maxLeverage?: number;
-}
-
-const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
-
-function mapMarketTokenToDisplay(
-  item: IMarketTokenListItem,
-): IFavoriteTokenDisplay | null {
-  const chainId = item.networkId ?? item.chainId ?? '';
-  if (!chainId) {
-    return null;
-  }
-
-  const { isNative, normalizedAddress } = getNativeTokenInfo(
-    item.isNative,
-    item.address,
-  );
-
-  return {
-    chainId,
-    contractAddress: normalizedAddress,
-    isNative,
-    symbol: item.symbol,
-    name: item.name,
-    logoUrl: item.logoUrl ?? '',
-    price: parseFloat(item.price ?? '0'),
-    priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
-    marketCap: parseFloat(item.marketCap ?? '0'),
-    volume24h: parseFloat(item.volume24h ?? '0'),
-  };
-}
 
 function RecommendCardItem({
   token,
@@ -549,246 +495,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     ];
   }, [intl, tableLayout]);
 
-  const categoryColumns = useMemo(() => {
-    if (tableLayout) {
-      return [
-        {
-          dataIndex: 'symbol',
-          title: intl.formatMessage({ id: ETranslations.global_name }),
-          render: (
-            _: unknown,
-            record: IFavoriteTokenDisplay,
-            _index: number,
-          ) => {
-            const checked = isMarketCategoryTokenInWatchList(record);
-            return (
-              <XStack alignItems="center" gap="$2">
-                <IconButton
-                  title={intl.formatMessage({
-                    id: checked
-                      ? ETranslations.market_remove_from_favorites
-                      : ETranslations.market_add_to_favorites,
-                  })}
-                  icon={checked ? 'StarSolid' : 'StarOutline'}
-                  variant="tertiary"
-                  size="small"
-                  iconProps={{
-                    color: checked ? '$iconActive' : '$iconSubdued',
-                  }}
-                  onPress={() => void handleMarketCategoryStarPress(record)}
-                />
-                <XStack alignItems="center" gap="$2">
-                  <Token
-                    size="md"
-                    tokenImageUri={record.logoUrl}
-                    networkId={record.chainId}
-                    showNetworkIcon
-                  />
-                  <YStack>
-                    <SizableText size="$bodyLgMedium">
-                      {record.symbol}
-                    </SizableText>
-                    <SizableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                      maxWidth={200}
-                    >
-                      {record.name}
-                    </SizableText>
-                  </YStack>
-                </XStack>
-              </XStack>
-            );
-          },
-        },
-        {
-          dataIndex: 'price',
-          title: intl.formatMessage({ id: ETranslations.global_price }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="price"
-              formatterOptions={{
-                currency: '$',
-              }}
-            >
-              {record.price ?? '-'}
-            </NumberSizeableText>
-          ),
-        },
-        {
-          dataIndex: 'priceChange24h',
-          title: intl.formatMessage({ id: ETranslations.market_change_24h }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => {
-            const { changeColor, showPlusMinusSigns } =
-              getTokenPriceChangeStyle({
-                priceChange: record.priceChange24h ?? 0,
-              });
-            return (
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyLgMedium"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            );
-          },
-        },
-        {
-          dataIndex: 'volume24h',
-          title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="marketCap"
-              formatterOptions={{
-                currency: '$',
-              }}
-            >
-              {!record.volume24h ? '--' : record.volume24h}
-            </NumberSizeableText>
-          ),
-        },
-      ];
-    }
-
-    return [
-      {
-        dataIndex: 'symbol',
-        title: intl.formatMessage({ id: ETranslations.global_name }),
-        render: (_: unknown, record: IFavoriteTokenDisplay, _index: number) => {
-          const checked = isMarketCategoryTokenInWatchList(record);
-          return (
-            <XStack alignItems="center" gap="$2" justifyContent="flex-end">
-              <IconButton
-                title={intl.formatMessage({
-                  id: checked
-                    ? ETranslations.market_remove_from_favorites
-                    : ETranslations.market_add_to_favorites,
-                })}
-                icon={checked ? 'StarSolid' : 'StarOutline'}
-                variant="tertiary"
-                size="small"
-                iconProps={{
-                  color: checked ? '$iconActive' : '$iconSubdued',
-                }}
-                onPress={() => void handleMarketCategoryStarPress(record)}
-                hoverStyle={{ bg: 'transparent' }}
-                pressStyle={{ bg: 'transparent' }}
-              />
-              <XStack alignItems="center" gap="$2">
-                <Token
-                  size="lg"
-                  tokenImageUri={record.logoUrl}
-                  networkId={record.chainId}
-                  showNetworkIcon
-                />
-                <YStack>
-                  <SizableText size="$bodyLgMedium">
-                    {record.symbol}
-                  </SizableText>
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    formatter="marketCap"
-                    formatterOptions={{
-                      currency: '$',
-                    }}
-                  >
-                    {!record.volume24h ? '--' : record.volume24h}
-                  </NumberSizeableText>
-                </YStack>
-              </XStack>
-            </XStack>
-          );
-        },
-      },
-      {
-        dataIndex: 'price',
-        title: intl.formatMessage({ id: ETranslations.global_price }),
-        render: (_: unknown, record: IFavoriteTokenDisplay) => {
-          const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-            priceChange: record.priceChange24h ?? 0,
-          });
-          return (
-            <YStack alignItems="flex-end">
-              <NumberSizeableText
-                size="$bodyLgMedium"
-                formatter="price"
-                formatterOptions={{
-                  currency: '$',
-                }}
-              >
-                {record.price ?? '-'}
-              </NumberSizeableText>
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyMd"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            </YStack>
-          );
-        },
-      },
-    ];
-  }, [
-    handleMarketCategoryStarPress,
-    intl,
-    isMarketCategoryTokenInWatchList,
-    tableLayout,
-  ]);
-
-  const {
-    result: categoryTokensResult,
-    isLoading: isCategoryLoading,
-    run: refreshCategoryTokens,
-  } = usePromiseResult(
-    async () => {
-      if (!selectedMarketCategoryId) {
-        return [];
-      }
-
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-          networkId: '',
-          sortBy: 'v24hUSD',
-          sortType: 'desc',
-          page: 1,
-          limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
-          minLiquidity,
-          type: selectedMarketCategoryId,
-          timeFrame: '2',
-        });
-
-      return response.list
-        .map(mapMarketTokenToDisplay)
-        .filter((item): item is IFavoriteTokenDisplay => item !== null)
-        .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT);
-    },
-    [minLiquidity, selectedMarketCategoryId],
-    {
-      initResult: [],
-      watchLoading: true,
-      pollingInterval: selectedMarketCategoryId
-        ? timerUtils.getTimeDurationMs({ seconds: 30 })
-        : undefined,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      undefinedResultIfReRun: true,
-    },
-  );
-  const categoryTokens = categoryTokensResult ?? EMPTY_DISPLAY_TOKENS;
-
-  useEffect(() => {
-    if (selectedMarketCategoryId) {
-      void refreshCategoryTokens();
-    }
-  }, [refreshCategoryTokens, selectedMarketCategoryId]);
+  const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
+    minLiquidity,
+    selectedMarketCategoryId,
+  });
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
@@ -1277,79 +987,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     totalFavoritesCount,
   ]);
 
-  const renderMarketCategoryList = useCallback(() => {
-    if (isCategoryLoading && categoryTokens.length === 0) {
-      return (
-        <ListLoading
-          listCount={HOME_MARKET_CATEGORY_REQUEST_LIMIT}
-          listContainerProps={{ py: '$0' }}
-          listHeaderProps={{ px: '$3' }}
-        />
-      );
-    }
-
-    if (categoryTokens.length === 0) {
-      return (
-        <Stack alignItems="center" justifyContent="center" p="$8">
-          <SizableText size="$bodyLg" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.global_no_data,
-            })}
-          </SizableText>
-        </Stack>
-      );
-    }
-
-    return (
-      <YStack>
-        <RichTable<IFavoriteTokenDisplay>
-          showHeader={!!tableLayout}
-          dataSource={categoryTokens}
-          columns={categoryColumns}
-          keyExtractor={(item) => `${item.chainId}-${item.contractAddress}`}
-          estimatedItemSize={56}
-          rowProps={{
-            mx: '$2',
-            px: '$3',
-          }}
-          headerRowProps={{
-            px: '$3',
-            mx: '$2',
-          }}
-          onRow={(record) => ({
-            onPress: () => handleTokenPress(record),
-          })}
-        />
-        <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
-          <Button
-            variant="secondary"
-            iconAfter="ChevronRightSmallOutline"
-            onPress={handleViewMore}
-            flexGrow={1}
-            flexBasis={0}
-            $md={
-              {
-                borderRadius: '$full',
-                hoverStyle: { bg: 'transparent' },
-                pressStyle: { bg: 'transparent' },
-              } as any
-            }
-          >
-            {intl.formatMessage({ id: ETranslations.global_view_more })}
-          </Button>
-        </XStack>
-      </YStack>
-    );
-  }, [
-    categoryColumns,
-    categoryTokens,
-    handleTokenPress,
-    handleViewMore,
-    intl,
-    isCategoryLoading,
-    tableLayout,
-  ]);
-
   // Header action button (only show "Add tokens" button in empty state)
   const headerActions = useMemo(() => {
     if (selectedMarketCategoryId) {
@@ -1387,7 +1024,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const renderContent = useCallback(() => {
     const listContent = (() => {
       if (selectedMarketCategoryId) {
-        return renderMarketCategoryList();
+        return (
+          <MarketCategoryTokenList
+            tokens={categoryTokens}
+            isLoading={isCategoryLoading}
+            tableLayout={tableLayout}
+            isTokenInWatchList={isMarketCategoryTokenInWatchList}
+            onStarPress={handleMarketCategoryStarPress}
+            onTokenPress={handleTokenPress}
+            onViewMore={handleViewMore}
+          />
+        );
       }
 
       if (!initializedRef.current && isLoading) {
@@ -1432,17 +1079,23 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       </YStack>
     );
   }, [
+    categoryTokens,
     displayCount,
     favoriteTokens.length,
+    handleMarketCategoryStarPress,
+    handleTokenPress,
+    handleViewMore,
     hasUserFavorites,
     homeCategories,
     intl,
+    isCategoryLoading,
+    isMarketCategoryTokenInWatchList,
     isLoading,
     renderEmptyStateCards,
-    renderMarketCategoryList,
     renderUserFavoritesList,
     selectedCategoryId,
     selectedMarketCategoryId,
+    tableLayout,
   ]);
 
   return (
