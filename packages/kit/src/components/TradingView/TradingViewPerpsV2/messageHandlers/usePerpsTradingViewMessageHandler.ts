@@ -41,6 +41,8 @@ import type {
   IGetMarksResponse,
   ITVLineReadyPayload,
   ITVOrderCancelPayload,
+  ITVOrderDraftCreatePayload,
+  ITVOrderPriceUpdatePayload,
   ITradingMark,
 } from '../types';
 
@@ -50,6 +52,8 @@ export function usePerpsTradingViewMessageHandler({
   webRef,
   onChartLinesReady,
   onOrderCancel,
+  onOrderDraftCreate,
+  onOrderPriceUpdate,
   onTouchScroll,
 }: {
   symbol: string;
@@ -57,6 +61,8 @@ export function usePerpsTradingViewMessageHandler({
   webRef: React.RefObject<IWebViewRef | null>;
   onChartLinesReady?: (payload: ITVLineReadyPayload) => void;
   onOrderCancel?: (payload: ITVOrderCancelPayload) => void;
+  onOrderDraftCreate?: (payload: ITVOrderDraftCreatePayload) => void;
+  onOrderPriceUpdate?: (payload: ITVOrderPriceUpdatePayload) => void;
   onTouchScroll?: (deltaY: number) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
@@ -374,6 +380,12 @@ export function usePerpsTradingViewMessageHandler({
           // User clicked cancel button on order line in TradingView chart
           onOrderCancel?.(messageData.data as ITVOrderCancelPayload);
           break;
+        case PERPS_TV_MESSAGE_METHODS.ORDER_DRAFT_CREATE:
+          onOrderDraftCreate?.(messageData.data as ITVOrderDraftCreatePayload);
+          break;
+        case PERPS_TV_MESSAGE_METHODS.ORDER_PRICE_UPDATE:
+          onOrderPriceUpdate?.(messageData.data as ITVOrderPriceUpdatePayload);
+          break;
         case PERPS_TV_MESSAGE_METHODS.CHART_EXPAND: {
           const expandData = messageData.data as
             | { expanded?: boolean }
@@ -401,6 +413,8 @@ export function usePerpsTradingViewMessageHandler({
       handleGetHyperliquidPriceScale,
       onChartLinesReady,
       onOrderCancel,
+      onOrderDraftCreate,
+      onOrderPriceUpdate,
       onTouchScroll,
       setLayoutState,
     ],

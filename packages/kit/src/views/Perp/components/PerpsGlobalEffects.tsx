@@ -715,51 +715,13 @@ function AutoPauseSubscriptions() {
     platformEnv.isNative ? handleAppActiveFromBackground : undefined,
   );
 
-  // useListenTabFocusState only covers in-app route changes;
-  // browser tab switches need platform-level visibility events
-  useEffect(() => {
-    if (platformEnv.isNative) return undefined;
-
-    if (platformEnv.isDesktop) {
-      return globalThis.desktopApi.onAppState(
-        (state: 'active' | 'background' | 'blur') => {
-          if (!state) return; // fullscreen transitions send undefined
-          const isActive = state === 'active';
-          if (isActive && isFocusedRef.current) {
-            void onFocusHandler({ isFocus: true });
-          } else if (!isActive) {
-            void onFocusHandler({ isFocus: false });
-          }
-        },
-      );
-    }
-
-    const handleVisibilityChange = () => {
-      const isVisible = document.visibilityState === 'visible';
-      if (isVisible && isFocusedRef.current) {
-        void onFocusHandler({ isFocus: true });
-      } else if (!isVisible) {
-        void onFocusHandler({ isFocus: false });
-      }
-    };
-    const handleWindowFocus = () => {
-      if (isFocusedRef.current) {
-        void onFocusHandler({ isFocus: true });
-      }
-    };
-    const handleWindowBlur = () => {
-      void onFocusHandler({ isFocus: false });
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('blur', handleWindowBlur);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleWindowFocus);
-      window.removeEventListener('blur', handleWindowBlur);
-    };
-  }, [onFocusHandler]);
+  // Desktop / web: keep the subscription live as long as the Perp route
+  // is mounted. Browser-tab hidden, window blur, switching to another OS
+  // app, same-origin iframe focus — none of these should pause the data
+  // flow. Only in-app navigation away from Perp (handled by
+  // useListenTabFocusState above) or auto-lock triggers a pause. On
+  // native the OS itself suspends JS in the background and resume is
+  // handled by useHandleAppStateActive.
 
   const [isLocked] = useAppIsLockedAtom();
 
