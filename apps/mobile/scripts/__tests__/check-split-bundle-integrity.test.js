@@ -623,7 +623,7 @@ describe('integration: cross-segment sync edge detection', () => {
   // runtime needs. scanRuntime must then scope its walk to this-runtime's
   // ownership — otherwise main's scan traverses bg-only __d(...) whose
   // sync deps live only in bg's segment graph and falsely reports them.
-  it('scopes shared-segment scan to this runtime\'s ownership (mainOwned / bgOwned)', () => {
+  it("scopes shared-segment scan to this runtime's ownership (mainOwned / bgOwned)", () => {
     const segmentsMainDir = path.join(tmpDir, 'segments');
     const segmentsBgDir = path.join(tmpDir, 'segments-background');
     // Shared segment carries two main-owned modules (100, 101) and one

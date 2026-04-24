@@ -1068,9 +1068,7 @@ describe('expandSegmentsWithCrossRuntimeDeps', () => {
     ]);
     const remote = [];
     const segmentOutputs = new Map([['seg:a', [[10, 'code:10']]]]);
-    const segmentAbsPathsByKey = new Map([
-      ['seg:a', new Set(['/root.js'])],
-    ]);
+    const segmentAbsPathsByKey = new Map([['seg:a', new Set(['/root.js'])]]);
     const moduleIdToAbsPath = new Map([[10, '/root.js']]);
 
     const { pulledFromLocal, pulledFromRemote, missingAbsPaths } =
@@ -1103,13 +1101,9 @@ describe('expandSegmentsWithCrossRuntimeDeps', () => {
         dependencies: [{ key: 'dep', absolutePath: '/dep.js' }],
       },
     ]);
-    const remote = buildEntries([
-      { absolutePath: '/dep.js', moduleId: 11 },
-    ]);
+    const remote = buildEntries([{ absolutePath: '/dep.js', moduleId: 11 }]);
     const segmentOutputs = new Map([['seg:a', [[10, 'code:10']]]]);
-    const segmentAbsPathsByKey = new Map([
-      ['seg:a', new Set(['/root.js'])],
-    ]);
+    const segmentAbsPathsByKey = new Map([['seg:a', new Set(['/root.js'])]]);
     const moduleIdToAbsPath = new Map([[10, '/root.js']]);
 
     const { pulledFromLocal, pulledFromRemote, missingAbsPaths } =

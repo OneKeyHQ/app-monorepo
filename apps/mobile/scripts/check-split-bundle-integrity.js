@@ -286,12 +286,11 @@ function scanRuntime({
     // runtime never invokes (e.g. main scanning DMK's require("rxjs")
     // where rxjs lives only in a bg-specific segment).
     const idMapEntry = idMap.segments?.[segKey];
-    const ownedIds =
-      idMapEntry?.runtime === 'shared'
-        ? runtimeLabel === 'main'
-          ? idMapEntry.mainOwned
-          : idMapEntry.bgOwned
-        : null;
+    let ownedIds = null;
+    if (idMapEntry?.runtime === 'shared') {
+      ownedIds =
+        runtimeLabel === 'main' ? idMapEntry.mainOwned : idMapEntry.bgOwned;
+    }
     const ownedIdSet = ownedIds
       ? new Set(Object.keys(ownedIds).map(Number))
       : null;
