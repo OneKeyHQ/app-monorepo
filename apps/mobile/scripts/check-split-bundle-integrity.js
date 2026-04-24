@@ -229,6 +229,11 @@ function scanRuntime({
   manifest,
   idMap,
   runtimeBucketNames,
+  // Optional predicate (segKey, idMapEntry) => boolean. When provided,
+  // restricts the scan to segments the filter accepts. Used by main() to run
+  // a bg-scoped pass over shared segments (which live on disk under
+  // SEGMENTS_MAIN even though bg needs to verify its own ownership).
+  segmentKeyFilter,
 }) {
   const violations = [];
   if (!fs.existsSync(segmentsDir)) {
@@ -263,6 +268,12 @@ function scanRuntime({
     if (!fname.endsWith('.seg.js')) continue;
     const segKey = filenameToSegKey.get(fname);
     if (!segKey || !manifest.segments[segKey]) {
+      if (segmentKeyFilter) {
+        // Filtered passes are intentionally partial (e.g. a bg-scoped pass
+        // over main's segments directory). Non-matching files belong to
+        // other passes and are not structural bugs for this one.
+        continue;
+      }
       // Manifest entry missing for an emitted segment — itself a structural bug.
       violations.push({
         kind: 'missing_manifest_entry',
@@ -270,6 +281,12 @@ function scanRuntime({
         segment: segKey || `<unknown for ${fname}>`,
         message: `Segment file ${fname} has no entry in ${runtimeLabel} manifest`,
       });
+      continue;
+    }
+    if (
+      segmentKeyFilter &&
+      !segmentKeyFilter(segKey, idMap.segments?.[segKey])
+    ) {
       continue;
     }
 

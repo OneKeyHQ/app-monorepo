@@ -180,9 +180,13 @@ async function runWithConcurrencyLocal(tasks, concurrency) {
  * the target `.seg.hbc` output path — both live next to each other inside
  * apps/mobile/dist/.
  */
-function resolveSegmentIoPaths(relativePath) {
-  const baseName = path.basename(relativePath, '.seg.hbc');
-  const segDir = path.join(mobileDirPath, 'dist', path.dirname(relativePath));
+function resolveSegmentIoPaths(segRelativePath) {
+  const baseName = path.basename(segRelativePath, '.seg.hbc');
+  const segDir = path.join(
+    mobileDirPath,
+    'dist',
+    path.dirname(segRelativePath),
+  );
   return {
     jsPath: path.join(segDir, `${baseName}.seg.js`),
     hbcPath: path.join(segDir, `${baseName}.seg.hbc`),
@@ -231,13 +235,13 @@ async function compileEmittedSegmentsAndRewriteSha256({
     process.env.SEGMENT_BUILD_CONCURRENCY || '4',
     10,
   );
-  const tasks = relativePaths.map((relativePath) => async () => {
-    const { jsPath, hbcPath } = resolveSegmentIoPaths(relativePath);
+  const tasks = relativePaths.map((segRelativePath) => async () => {
+    const { jsPath, hbcPath } = resolveSegmentIoPaths(segRelativePath);
     await runHermescAsync({ inputPath: jsPath, outPath: hbcPath });
     const hbcBytes = fs.readFileSync(hbcPath);
     const hbcSha = sha256(hbcBytes);
     const hbcSize = hbcBytes.length;
-    for (const entry of entriesByRelativePath.get(relativePath)) {
+    for (const entry of entriesByRelativePath.get(segRelativePath)) {
       entry.sha256 = hbcSha;
       entry.size = hbcSize;
     }
@@ -1349,12 +1353,34 @@ async function writeSegments({
             mainModuleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
             backgroundModuleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
           });
+        // Union both runtimes' segmentDeps and graphs for this shared entry.
+        // After mergeSharedSegmentOutputs pulls bg-only modules in, dependsOn
+        // must reflect bg's cross-segment sync edges (otherwise the bg loader
+        // won't preload the prerequisite segment and crashes with
+        // "Requiring unknown module"); and generateSegmentSourceMap needs
+        // graph.dependencies entries for bg-only absolute paths so their
+        // source maps aren't silently dropped.
+        const mergedSharedDeps = new Map([
+          [segmentKey, new Set([...mainDeps, ...backgroundDeps])],
+        ]);
+        const mergedGraphDependencies = new Map(
+          mainRuntime.graph.dependencies,
+        );
+        for (const [absPath, moduleData] of backgroundRuntime.graph
+          .dependencies) {
+          if (!mergedGraphDependencies.has(absPath)) {
+            mergedGraphDependencies.set(absPath, moduleData);
+          }
+        }
         const sharedEntry = await emitSegment({
           segmentKey,
           runtime: 'shared',
           segModules: mergedSegModules,
-          graph: mainRuntime.graph,
-          segmentDeps: mainRuntime.segmentDeps,
+          graph: {
+            ...mainRuntime.graph,
+            dependencies: mergedGraphDependencies,
+          },
+          segmentDeps: mergedSharedDeps,
           moduleIdToAbsPath: mergedModuleIdToAbsPath,
           outputDir: getSegmentsDir('main'),
           relativeDir: 'segments',
