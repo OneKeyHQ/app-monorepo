@@ -1449,3 +1449,4 @@ maximizable
 fullscreenable
 frecency
 reactnativeappupdate
+TOCTOU

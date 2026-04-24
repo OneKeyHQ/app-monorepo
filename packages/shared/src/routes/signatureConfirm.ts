@@ -12,14 +12,13 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
-import type { IGasAccountScenario } from '../../types/fee';
-
 import type {
   IAggregateTokenSelectorParams,
   ITokenSelectorParamList,
 } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
+import type { IGasAccountScenario } from '../../types/fee';
 import type { IAccountHistoryTx } from '../../types/history';
 import type {
   ILNURLAuthServiceResponse,
