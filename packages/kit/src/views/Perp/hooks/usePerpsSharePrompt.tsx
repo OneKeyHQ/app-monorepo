@@ -10,6 +10,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
@@ -72,7 +73,9 @@ export function usePerpsSharePrompt() {
       return;
     }
 
-    const fills = tradesData?.fills;
+    const fills = tradesData?.fills?.filter(
+      (fill) => !isSpotInstrument(fill.coin),
+    );
     if (
       !fills ||
       !tradesData?.isLoaded ||
