@@ -161,7 +161,12 @@ export function PerpMobileLayout() {
     return '';
   }, [openOrdersLength]);
 
-  const holdingsTabCount = useMemo(() => `(${holdingsCount})`, [holdingsCount]);
+  const holdingsTabCount = useMemo(() => {
+    if (holdingsCount > 0) {
+      return `(${holdingsCount})`;
+    }
+    return '';
+  }, [holdingsCount]);
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
