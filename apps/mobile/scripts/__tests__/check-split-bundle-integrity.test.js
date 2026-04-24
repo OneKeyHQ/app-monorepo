@@ -615,4 +615,89 @@ describe('integration: cross-segment sync edge detection', () => {
     });
     expect(bgRun.violations[0]).not.toHaveProperty('depSegment');
   });
+
+  // Regression guard for the shared-segment @ledgerhq orphan incident:
+  // when the same seg:nm.@foo is forced shared but carries DIFFERENT
+  // module sets per runtime (main reaches 23 modules, bg reaches 300+),
+  // the emitted .seg.js file must ship __d(...) for every module either
+  // runtime needs. scanRuntime must then scope its walk to this-runtime's
+  // ownership — otherwise main's scan traverses bg-only __d(...) whose
+  // sync deps live only in bg's segment graph and falsely reports them.
+  it('scopes shared-segment scan to this runtime\'s ownership (mainOwned / bgOwned)', () => {
+    const segmentsMainDir = path.join(tmpDir, 'segments');
+    const segmentsBgDir = path.join(tmpDir, 'segments-background');
+    // Shared segment carries two main-owned modules (100, 101) and one
+    // bg-only module (200). Module 200's sync dep 999 lives only in a
+    // bg-runtime segment — main must NOT follow that edge.
+    writeSegJs(segmentsMainDir, 'nm._shared', [
+      { moduleId: 100, deps: [101] },
+      { moduleId: 101, deps: [] },
+      { moduleId: 200, deps: [999] },
+    ]);
+    writeSegJs(segmentsBgDir, 'bg-only', [{ moduleId: 999, deps: [] }]);
+
+    const manifestMain = {
+      segments: {
+        'seg:nm.@shared': {
+          relativePath: 'segments/nm._shared.seg.hbc',
+          dependsOn: [],
+        },
+      },
+    };
+    const manifestBg = {
+      segments: {
+        'seg:nm.@shared': {
+          relativePath: 'segments/nm._shared.seg.hbc',
+          dependsOn: [],
+        },
+        'seg:bg-only': {
+          relativePath: 'segments-background/bg-only.seg.hbc',
+          dependsOn: [],
+        },
+      },
+    };
+    const idMap = {
+      common: {},
+      main: {},
+      background: {},
+      segments: {
+        'seg:nm.@shared': {
+          runtime: 'shared',
+          modules: {
+            100: 'main/a.ts',
+            101: 'main/b.ts',
+            200: 'bg/dmk.ts',
+          },
+          mainOwned: { 100: 'main/a.ts', 101: 'main/b.ts' },
+          bgOwned: { 200: 'bg/dmk.ts' },
+        },
+        'seg:bg-only': {
+          runtime: 'background',
+          modules: { 999: 'bg/rxjs.js' },
+        },
+      },
+    };
+
+    const mainRun = scanRuntime({
+      runtimeLabel: 'main',
+      segmentsDir: segmentsMainDir,
+      manifest: manifestMain,
+      idMap,
+      runtimeBucketNames: ['common', 'main'],
+    });
+    const bgRun = scanRuntime({
+      runtimeLabel: 'background',
+      segmentsDir: segmentsBgDir,
+      manifest: manifestBg,
+      idMap,
+      runtimeBucketNames: ['common', 'background'],
+    });
+
+    // Main must not traverse module 200 (bg-owned), so its sync dep 999
+    // is never checked — 0 violations. (Without the ownership scope the
+    // old behavior reported 999 as orphan_dep from main's view.)
+    expect(mainRun.violations).toHaveLength(0);
+    // Bg owns module 200; its sync dep 999 resolves via seg:bg-only → OK.
+    expect(bgRun.violations).toHaveLength(0);
+  });
 });

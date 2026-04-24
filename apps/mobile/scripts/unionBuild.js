@@ -64,9 +64,11 @@ const {
   collectCommonReferencedSegmentKeys,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
+  expandSegmentsWithCrossRuntimeDeps,
   expandSegmentsWithSyncDeps,
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
+  mergeSharedSegmentOutputs,
   rewriteAsyncRequirePaths,
   seedSegmentAssignments,
   setEquals,
@@ -1047,16 +1049,85 @@ async function writeSegments({
     serializedEntries: mainRuntime.serializedEntries,
     eagerAbsPaths: mainEagerAbsPaths,
     moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+    segmentAbsPathsByKey: mainRuntime.segmentAbsPathsByKey,
   });
   const bgSyncDepsAdded = expandSegmentsWithSyncDeps({
     segmentOutputs: backgroundSegmentOutputs,
     serializedEntries: backgroundRuntime.serializedEntries,
     eagerAbsPaths: bgEagerAbsPaths,
     moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
+    segmentAbsPathsByKey: backgroundRuntime.segmentAbsPathsByKey,
   });
   if (mainSyncDepsAdded > 0 || bgSyncDepsAdded > 0) {
     console.log(
       `[unionBuild] Expanded segments with sync deps: main +${mainSyncDepsAdded}, background +${bgSyncDepsAdded}`,
+    );
+  }
+
+  // Cross-runtime sync-dep rescue. The per-runtime allocator has been
+  // observed to miss modules that are sync-required from a segment but
+  // whose definition only landed in the OTHER runtime's serialized
+  // output (root cause: their absolute path is absent from this runtime's
+  // graph.dependencies). Without this pass, those modules become orphan
+  // __d-refs that crash as "Requiring unknown module <N>" on first use
+  // (see the @ledgerhq bg-segment orphan incident). Because fileToIdMap is
+  // a monorepo-wide singleton, it's safe to splice the remote runtime's
+  // __d(fn, id, [deps]) code into a local segment without ID translation.
+  const mainCrossRuntimeRescue = expandSegmentsWithCrossRuntimeDeps({
+    segmentOutputs: mainSegmentOutputs,
+    localSerializedEntries: mainRuntime.serializedEntries,
+    remoteSerializedEntries: backgroundRuntime.serializedEntries,
+    eagerAbsPaths: mainEagerAbsPaths,
+    moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+    segmentAbsPathsByKey: mainRuntime.segmentAbsPathsByKey,
+  });
+  const bgCrossRuntimeRescue = expandSegmentsWithCrossRuntimeDeps({
+    segmentOutputs: backgroundSegmentOutputs,
+    localSerializedEntries: backgroundRuntime.serializedEntries,
+    remoteSerializedEntries: mainRuntime.serializedEntries,
+    eagerAbsPaths: bgEagerAbsPaths,
+    moduleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
+    segmentAbsPathsByKey: backgroundRuntime.segmentAbsPathsByKey,
+  });
+  if (
+    mainCrossRuntimeRescue.pulledFromRemote > 0 ||
+    bgCrossRuntimeRescue.pulledFromRemote > 0 ||
+    mainCrossRuntimeRescue.pulledFromLocal > 0 ||
+    bgCrossRuntimeRescue.pulledFromLocal > 0
+  ) {
+    console.log(
+      `[unionBuild] Cross-runtime sync-dep rescue: main +${mainCrossRuntimeRescue.pulledFromLocal}(local)+${mainCrossRuntimeRescue.pulledFromRemote}(remote), background +${bgCrossRuntimeRescue.pulledFromLocal}(local)+${bgCrossRuntimeRescue.pulledFromRemote}(remote)`,
+    );
+  }
+  const crossRuntimeMissing = [
+    ...mainCrossRuntimeRescue.missingAbsPaths.map((p) => ({
+      runtime: 'main',
+      absolutePath: p,
+    })),
+    ...bgCrossRuntimeRescue.missingAbsPaths.map((p) => ({
+      runtime: 'background',
+      absolutePath: p,
+    })),
+  ];
+  if (crossRuntimeMissing.length > 0) {
+    const sample = crossRuntimeMissing
+      .slice(0, 20)
+      .map(({ runtime, absolutePath }) => `  [${runtime}] ${absolutePath}`)
+      .join('\n');
+    const extra =
+      crossRuntimeMissing.length > 20
+        ? `\n  ... and ${crossRuntimeMissing.length - 20} more`
+        : '';
+    throw new Error(
+      [
+        `[unionBuild] ${crossRuntimeMissing.length} sync-required module(s) are orphaned:`,
+        'referenced by a segment but not serialized by either runtime.',
+        'This would crash as "Requiring unknown module <N>" at runtime.',
+        'Either add the module to apps/mobile/bundle-groups.config.js, promote',
+        'the offending segment, or fix the upstream graph to include the dep.',
+        '',
+        sample + extra,
+      ].join('\n'),
     );
   }
 
@@ -1130,21 +1201,35 @@ async function writeSegments({
           ));
 
       if (canShare) {
+        const { mergedSegModules, mergedAbsPaths, mergedModuleIdToAbsPath } =
+          mergeSharedSegmentOutputs({
+            mainSegModules: mainSegmentOutputs.get(segmentKey),
+            backgroundSegModules: backgroundSegmentOutputs.get(segmentKey),
+            mainAbsPaths,
+            backgroundAbsPaths,
+            mainModuleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+            backgroundModuleIdToAbsPath: backgroundRuntime.moduleIdToAbsPath,
+          });
         const sharedEntry = await emitSegment({
           segmentKey,
           runtime: 'shared',
-          segModules: mainSegmentOutputs.get(segmentKey),
+          segModules: mergedSegModules,
           graph: mainRuntime.graph,
           segmentDeps: mainRuntime.segmentDeps,
-          moduleIdToAbsPath: mainRuntime.moduleIdToAbsPath,
+          moduleIdToAbsPath: mergedModuleIdToAbsPath,
           outputDir: getSegmentsDir('main'),
           relativeDir: 'segments',
         });
         mainManifest.segments[segmentKey] = sharedEntry;
         backgroundManifest.segments[segmentKey] = sharedEntry;
+        // Keep the per-runtime report views honest: each reflects exactly
+        // the modules that runtime's graph actually reaches. The idMap
+        // builder in collectSegmentModules unions both when emitting a
+        // shared segment, so readers get the full picture without this
+        // bookkeeping having to double-count.
         mainReportSegments.set(segmentKey, mainAbsPaths);
         backgroundReportSegments.set(segmentKey, backgroundAbsPaths);
-        setMergedReportSegmentModules(segmentKey, 'shared', mainAbsPaths);
+        setMergedReportSegmentModules(segmentKey, 'shared', mergedAbsPaths);
         continue;
       }
 
@@ -1818,44 +1903,80 @@ async function main() {
     const collectSegmentModules = (segKey, entry) => {
       const runtime = segmentRuntimeOf(entry);
       const out = {};
-      const addFrom = (absPaths, absToId, idToAbs) => {
+      const mainOwned = {};
+      const bgOwned = {};
+      const addFrom = (absPaths, absToId, idToAbs, ownTarget) => {
         if (!absPaths) return;
         for (const absPath of absPaths) {
           const id = absToId.get(absPath);
           if (id !== undefined && idToAbs.get(id)) {
             out[id] = toRelPath(absPath);
+            if (ownTarget) ownTarget[id] = toRelPath(absPath);
           }
         }
       };
-      // For shared segments take main's view as canonical (matches the IDs
-      // baked into common.bundle); fall back to background where needed.
+      // For shared segments we need the UNION of both runtimes' module sets:
+      // when a segment like `seg:nm.@onekeyfe` is forced shared but main only
+      // reaches 23 of its modules while bg reaches 300+ (transitive deps of
+      // @onekeyfe/hwk-ledger-adapter → @ledgerhq/* → inversify / xstate /
+      // crypto-js / etc.), the emitted .seg.js carries all 300+ but only
+      // main's 23 show up in idMap. That leaves 280+ module IDs referenced
+      // by sibling segment __d(... id ...) calls with no idMap entry, which
+      // the integrity check flags as orphan_dep. Walk both runtimes'
+      // abs-to-id maps so idMap.segments[segKey].modules reflects every
+      // module shipped inside the file.
       if (runtime === 'background') {
         addFrom(
           reportSegmentModules.background.get(segKey),
           bgAbsToId,
           backgroundModuleIndex.moduleIdToAbsPath,
+          bgOwned,
         );
       } else {
         addFrom(
           reportSegmentModules.main.get(segKey),
           mainAbsToId,
           mainModuleIndex.moduleIdToAbsPath,
+          mainOwned,
         );
-        if (Object.keys(out).length === 0) {
-          addFrom(
-            reportSegmentModules.background.get(segKey),
-            bgAbsToId,
-            backgroundModuleIndex.moduleIdToAbsPath,
-          );
-        }
+        // Always also pull bg-only entries for shared segments. Their
+        // __d(...) definitions must ship in the shared .seg.js so the bg
+        // runtime can execute them, but main runtime will never actually
+        // call into them — bg-owned bookkeeping is written alongside so the
+        // integrity check can scope its scan to this-runtime-owned modules.
+        addFrom(
+          reportSegmentModules.background.get(segKey),
+          bgAbsToId,
+          backgroundModuleIndex.moduleIdToAbsPath,
+          bgOwned,
+        );
       }
-      return out;
+      return { modules: out, mainOwned, bgOwned };
     };
     for (const [segKey, entry] of segmentEntries) {
+      const runtime = segmentRuntimeOf(entry);
+      const { modules, mainOwned, bgOwned } = collectSegmentModules(
+        segKey,
+        entry,
+      );
       moduleIdMap.segments[segKey] = {
         id: segmentIdOf(entry),
-        runtime: segmentRuntimeOf(entry),
-        modules: collectSegmentModules(segKey, entry),
+        runtime,
+        modules,
+        // For shared segments the same .seg.js file carries __d(...) for
+        // modules each runtime reaches, but only one side actually calls
+        // into them at runtime. Record per-runtime ownership so the
+        // integrity check can scope its sync-dep walk to this-runtime's
+        // reachable modules — without this, main runtime's scan would
+        // traverse bg-only __d(...) (e.g. @ledgerhq/device-management-kit's
+        // RxJS requires) and report false orphan_dep for transitive deps
+        // that exist only in bg's graph view.
+        ...(runtime === 'shared'
+          ? {
+              mainOwned,
+              bgOwned,
+            }
+          : {}),
       };
     }
     const mergedMapPath = getMergedModuleIdMapPath();
