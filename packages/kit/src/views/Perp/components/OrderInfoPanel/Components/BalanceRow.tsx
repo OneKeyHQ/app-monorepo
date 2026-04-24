@@ -38,8 +38,13 @@ interface IBalanceRowProps {
 }
 
 function formatPnlText(pnl?: string, pnlPercent?: number): string {
-  if (!pnl || parseFloat(pnl) === 0) return '';
-  const sign = parseFloat(pnl) > 0 ? '+' : '';
+  if (!pnl) return '--';
+
+  const numericPnl = parseFloat(pnl);
+  if (!Number.isFinite(numericPnl)) return '--';
+  if (numericPnl === 0) return '--';
+
+  const sign = numericPnl > 0 ? '+' : '';
   const formatted = numberFormat(pnl, balanceCurrencyFormatter);
   const pct = pnlPercent?.toFixed(1) ?? '0';
   return `${sign}${formatted} (${sign}${pct}%)`;

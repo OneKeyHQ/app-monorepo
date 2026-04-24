@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "最大購入",
   "perp_spot_max_buy_sell_tooltip": "最大購入数量または最大売却数量は、利用可能残高と注文価格によって決まります。指値注文では、価格を入力すると自動的に更新されます。",
   "perp_spot_max_sell": "最大売却",
+  "perp_spot_reference_price__desc": "現物の参考価格は、資産評価とPnL計算に使用されます。",
+  "perp_spot_reference_price__title": "参考価格",
   "perp_trades_history_recent_range_desc": "最大で過去2年分の取引が表示されます。",
   "perp_trading_adjust_margin": "マージンを調整",
   "perp_trading_adjust_margin_max": "最大追加",
