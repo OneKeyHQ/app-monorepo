@@ -149,6 +149,7 @@ function SendConfirmFromDApp() {
             signOnly,
             useFeeInTx,
             feeInfoEditable,
+            gasAccountScenario: 'dapp',
             onSuccess: (result) => sendConfirmCallback(result, undefined),
             onFail: (error) => sendConfirmCallback(null, error),
             // @ts-ignore
