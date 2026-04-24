@@ -16,19 +16,19 @@ const loadSkiaOpts = {
   locateFile: () => canvaskitWasmUrl as unknown as string,
 };
 
-// canvaskit-wasm (~2.5MB) is fetched lazily inside WithSkiaWeb; onboarding is
-// a transient flow so a brief blank canvas during init is acceptable.
+// canvaskit-wasm (~2.5MB) is fetched lazily inside WithSkiaWeb. The fallback
+// below is shown during that load window on every entry, so keep it invisible
+// to avoid a "green success" flash before the orb appears. Actual Skia-failure
+// degradation lives in OrbShader.native (static brand circle when the shader
+// fails to compile); there's no load phase on native so no flash there.
 export function OrbShader(props: IOrbShaderProps) {
   const size = props.size ?? 240;
-  const fallback = (
-    <YStack w={size} h={size} borderRadius={size / 2} bg="$brand10" />
-  );
   return (
     <WithSkiaWeb
       getComponent={() => import('./OrbShader.native')}
       componentProps={props}
       opts={loadSkiaOpts}
-      fallback={fallback}
+      fallback={<YStack w={size} h={size} />}
     />
   );
 }
