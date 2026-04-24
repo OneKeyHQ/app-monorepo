@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
@@ -761,6 +762,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         skipDeviceCancel?: boolean;
         hideCheckingDeviceLoading?: boolean;
         autoHandleExitError?: boolean;
+        isCreateWallet?: boolean;
       },
     ) => {
       const {
@@ -769,6 +771,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         skipDeviceCancel,
         hideCheckingDeviceLoading,
         autoHandleExitError = true,
+        isCreateWallet,
       } = params;
       defaultLogger.account.batchCreatePerf.addDefaultNetworkAccounts({
         wallet,
@@ -804,7 +807,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 networkId && deriveType
                   ? [{ networkId, deriveType }]
                   : undefined,
-
+              isCreateWallet,
               skipDeviceCancel,
               hideCheckingDeviceLoading,
               autoHandleExitError,
@@ -814,7 +817,36 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
       if (autoHandleExitError) {
         void (async () => {
-          for (const failedAccount of result?.failedAccounts || []) {
+          let failedList = result?.failedAccounts || [];
+
+          // Third-party HW wallet-creation: filter out AppNotInstalled errors
+          if (isCreateWallet && failedList.length > 0) {
+            const isThirdPartyHw =
+              await backgroundApiProxy.serviceAccount.isThirdPartyHwByWalletId({
+                walletId: wallet.id,
+              });
+            if (isThirdPartyHw) {
+              const allAppNotInstalled =
+                result.addedAccounts.length === 0 &&
+                failedList.every(
+                  (f) => f.error.code === ThirdPartyHwErrorCode.AppNotOpen,
+                );
+              if (allAppNotInstalled) {
+                Toast.error({
+                  title: appLocale.intl.formatMessage({
+                    id: ETranslations.hardware_third_party_no_app_installed_on_device,
+                  }),
+                });
+                return;
+              }
+              // Strip AppNotInstalled errors, let other errors fall through
+              failedList = failedList.filter(
+                (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotOpen,
+              );
+            }
+          }
+
+          for (const failedAccount of failedList) {
             const network = await backgroundApiProxy.serviceNetwork.getNetwork({
               networkId: failedAccount.networkId,
             });
@@ -904,6 +936,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.addDefaultNetworkAccounts.call(set, {
               wallet,
               indexedAccount,
+              isCreateWallet: true,
             });
           }
           if (wallet.isKeyless) {
@@ -998,6 +1031,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.addDefaultNetworkAccounts.call(set, {
               wallet,
               indexedAccount,
+              isCreateWallet: true,
               skipDeviceCancel,
               hideCheckingDeviceLoading: options?.showAddAccountsLoading
                 ? true
@@ -1054,6 +1088,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           await this.addDefaultNetworkAccounts.call(set, {
             wallet,
             indexedAccount,
+            isCreateWallet: true,
             skipDeviceCancel: false,
             hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
           });
@@ -1141,6 +1176,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.addDefaultNetworkAccounts.call(set, {
               wallet: hidden.wallet,
               indexedAccount: hidden.indexedAccount,
+              isCreateWallet: true,
               skipDeviceCancel: true,
               hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
             });
@@ -1150,6 +1186,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.addDefaultNetworkAccounts.call(set, {
               wallet,
               indexedAccount,
+              isCreateWallet: true,
               skipDeviceCancel: false,
               hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
             });
@@ -1187,6 +1224,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             const result = await this.addDefaultNetworkAccounts.call(set, {
               wallet,
               indexedAccount,
+              isCreateWallet: true,
             });
             // update networkId and deriveType matched with first account
             await this.updateSelectedAccount.call(set, {

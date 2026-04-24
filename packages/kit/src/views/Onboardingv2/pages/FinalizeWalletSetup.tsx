@@ -39,6 +39,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -418,12 +419,30 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
-        goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
-        await connectDevice(deviceData.device as SearchDevice);
-        await createHWWallet({
-          device: deviceData.device as SearchDevice,
-          isFirmwareVerified,
-        });
+        if (deviceData.vendor) {
+          // Third-party vendor device (e.g., Ledger): call
+          // createHWWalletWithoutHidden directly to avoid the
+          // onSelectAddWalletType path which would push another
+          // FinalizeWalletSetup page on top of this one.
+          await actions.current.createHWWalletWithoutHidden({
+            device: deviceData.device as SearchDevice,
+            hideCheckingDeviceLoading: true,
+            features: {
+              device_id: (deviceData.device as SearchDevice)?.deviceId || '',
+              vendor: deviceData.vendor,
+            } as IOneKeyDeviceFeatures,
+            isFirmwareVerified: true,
+            defaultIsTemp: true,
+            vendor: deviceData.vendor,
+          });
+        } else {
+          goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
+          await connectDevice(deviceData.device as SearchDevice);
+          await createHWWallet({
+            device: deviceData.device as SearchDevice,
+            isFirmwareVerified,
+          });
+        }
       } else if (keylessPackSetId && !created.current) {
         created.current = true;
       }

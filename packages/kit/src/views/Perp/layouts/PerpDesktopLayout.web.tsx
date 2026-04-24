@@ -86,7 +86,8 @@ function PerpDesktopLayout() {
   const accountPanel = useMemo(() => {
     return (
       <YStack
-        h={layout.bottomPanelHeight}
+        minHeight={layout.bottomPanelHeight}
+        alignSelf="stretch"
         minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
         maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
         w={tradingWidth}
@@ -211,6 +212,7 @@ function PerpDesktopLayout() {
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"
             minHeight={layout.bottomPanelHeight}
+            alignItems="stretch"
           >
             <YStack flex={1}>
               <PerpOrderInfoPanel />

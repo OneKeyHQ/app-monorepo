@@ -105,8 +105,6 @@
     "app:native-bundle:keychain": "yarn keychain yarn app:native-bundle",
     "keyless:mock-server:build": "yarn workspace @onekeyhq/kit-bg keyless:mock-server:build",
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
-    "wt": "node development/scripts/worktree.js",
-    "worktree": "node development/scripts/worktree.js",
     "onekeyhq:modules:upgrade": "node development/scripts/upgrade-modules.js",
     "check:release-age": "npx tsx development/scripts/minimum-release-age/run.ts diff",
     "check:release-age:full": "npx tsx development/scripts/minimum-release-age/run.ts full"
@@ -145,6 +143,10 @@
     "@onekeyfe/hd-transport": "1.1.25",
     "@onekeyfe/hd-transport-electron": "1.1.25",
     "@onekeyfe/hd-web-sdk": "1.1.25",
+    "@onekeyfe/hwk-adapter-core": "1.1.26-alpha.8",
+    "@onekeyfe/hwk-ledger-adapter": "1.1.26-alpha.8",
+    "@onekeyfe/hwk-ledger-connector-ble": "1.1.26-alpha.8",
+    "@onekeyfe/hwk-ledger-connector-webhid": "1.1.26-alpha.8",
     "@onekeyfe/onekey-cross-webview": "2.2.68",
     "@polkadot/extension-inject": "0.54.1",
     "@polkadot/types": "14.3.1",
@@ -211,7 +213,7 @@
     "react-native": "0.81.5",
     "react-native-confirmation-code-field": "^7.4.0",
     "react-native-draggable-flatlist": "4.0.3",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.20",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.22",
     "react-native-reanimated": "4.2.1",
     "react-native-screens": "4.23.0",
     "react-native-web": "0.21.2",
@@ -285,6 +287,7 @@
     "@types/react-virtualized": "^9",
     "@types/text-encoding": "^0",
     "@types/validator": "^13",
+    "@types/w3c-web-hid": "^1.0.6",
     "@types/w3c-web-usb": "^1.0.10",
     "@types/web": "0.0.269",
     "@types/zxcvbn": "^4",
@@ -368,6 +371,12 @@
     "worker-rspack-loader": "^3.1.2"
   },
   "resolutions": {
+    "@noble/curves": "1.9.7",
+    "@ledgerhq/devices": "8.14.0",
+    "@ledgerhq/hw-transport": "6.35.0",
+    "@ledgerhq/device-signer-kit-solana": "1.7.1",
+    "@ledgerhq/errors@^6.33.0": "6.33.0",
+    "@ledgerhq/hw-app-trx": "6.35.0",
     "axios": "1.15.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -438,7 +447,7 @@
     "react-native-reanimated": "4.2.1",
     "react-native-worklets": "0.7.1",
     "react-native-screens": "4.23.0",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.20",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.22",
     "@isaacs/brace-expansion": "5.0.1",
     "fast-xml-parser": "4.5.4"
   }

@@ -26,6 +26,10 @@ import {
 } from '@onekeyhq/shared/src/types/desktop/tray';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  composeTrayAccountChange24h,
+  formatTrayPendingTxAmount,
+} from '@onekeyhq/shared/src/utils/trayDataUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -36,7 +40,7 @@ export function useTrayDataProvider() {
   const [appIsLocked] = useAppIsLockedAtom();
   const [{ enableMenuBarTray }] = useSettingsPersistAtom();
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet, accountName },
   } = useActiveAccount({ num: 0 });
   // Guard every effect on this predicate so flipping the setting tears
   // down IPC/event subscriptions and re-subscribes without remounting.
@@ -47,6 +51,14 @@ export function useTrayDataProvider() {
   appIsLockedRef.current = appIsLocked;
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
+  const accountNameRef = useRef<string>('');
+  accountNameRef.current = accountName || '';
+  // Seed with the current accountId so the first mount isn't mis-detected as
+  // an account switch, which would clobber cache primed by main-process
+  // guardedRequest() with an optimistic $0.00 placeholder.
+  const prevAccountIdRef = useRef<string | undefined>(
+    activeAccountValue?.accountId,
+  );
   const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
   const pendingTxsClearedRef = useRef(false);
   // Renderer-side inflight guard — main-process `guardedRequest` only
@@ -76,11 +88,11 @@ export function useTrayDataProvider() {
       accountId: activeAccountId,
       pendingTxsCleared: pendingTxsClearedRef.current,
       wallet: { name: '', emoji: '', avatarImg: '' },
+      account: { name: accountNameRef.current },
       totalBalance: {
         amount: '0.00',
         currency: 'USD',
         symbol: '$',
-        change24h: 0,
       },
       watchlist: [],
       pendingTxs: [],
@@ -122,11 +134,11 @@ export function useTrayDataProvider() {
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
         wallet: { name: '', emoji: '', avatarImg: '' },
+        account: { name: accountNameRef.current },
         totalBalance: {
           amount: '0.00',
           currency: displayCurrency,
           symbol: displaySymbol,
-          change24h: 0,
         },
         watchlist: [],
         pendingTxs: [],
@@ -205,7 +217,7 @@ export function useTrayDataProvider() {
             amount: new BigNumber(total).toFixed(2),
             currency: displayCurrency,
             symbol: displaySymbol,
-            change24h: 0,
+            change24h: composeTrayAccountChange24h(),
           };
         } catch (e) {
           defaultLogger.app.error.log(
@@ -360,26 +372,16 @@ export function useTrayDataProvider() {
               txType = 'send';
             }
 
-            // BigNumber preserves precision for 18-decimal tokens that
-            // a raw JS Number would collapse to 0.
-            let amount = '';
             const firstSend = transfer?.sends?.[0];
-            if (firstSend) {
-              const bn = new BigNumber(firstSend.amount ?? '');
-              let formatted: string;
-              if (bn.isNaN()) {
-                formatted = firstSend.amount;
-              } else if (bn.abs().lt('0.01')) {
-                formatted = bn.toPrecision(3);
-              } else {
-                formatted = bn.toFixed(4).replace(/\.?0+$/, '');
-              }
-              amount = `${formatted} ${firstSend.symbol}`;
-            } else if (decodedTx?.totalFeeFiatValue) {
-              amount = `${displaySymbol}${new BigNumber(
-                decodedTx.totalFeeFiatValue,
-              ).toFixed(2)}`;
-            }
+            // NEVER fall back to totalFeeFiatValue here (OK-53607): gas fee is
+            // not the tx amount and displaying it misleads users into thinking
+            // they transferred cents when they actually approved or called a
+            // contract.
+            const amount = formatTrayPendingTxAmount({
+              firstSend: firstSend
+                ? { amount: firstSend.amount, symbol: firstSend.symbol }
+                : undefined,
+            });
 
             const to = firstSend?.to || decodedTx?.to || '';
 
@@ -439,11 +441,11 @@ export function useTrayDataProvider() {
         accountId: activeAccountId,
         pendingTxsCleared: pendingTxsClearedRef.current,
         wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
+        account: { name: accountNameRef.current },
         totalBalance: {
           amount: '0.00',
           currency: 'USD',
           symbol: '$',
-          change24h: 0,
         },
         watchlist: [],
         pendingTxs: [],
@@ -571,8 +573,39 @@ export function useTrayDataProvider() {
     };
   }, [isTrayActive, handleTrayDataRequest, handleTrayNavigation]);
 
+  // Account switch: push an optimistic placeholder + gather immediately so the
+  // panel clears stale numbers within one frame (OK-53623). Non-switch identity
+  // changes (per-network profile refresh) keep the 300ms debounce so the
+  // cascade in OK-53610 is absorbed.
   useEffect(() => {
     if (!isTrayActive) return;
+    const currentAccountId = activeAccountValue?.accountId;
+    const accountJustChanged = currentAccountId !== prevAccountIdRef.current;
+    if (accountJustChanged) {
+      prevAccountIdRef.current = currentAccountId;
+      globalThis.desktopApi?.sendTrayData({
+        accountId: currentAccountId,
+        pendingTxsCleared: false,
+        // Fall back to 'Wallet' — an empty name falls through to the
+        // `noWallet` empty-state branch in TrayPanel, which would replace
+        // the optimistic zeros with a full-panel "no wallet" screen.
+        wallet: {
+          name: walletRef.current?.name || 'Wallet',
+          emoji: '',
+          avatarImg: '',
+        },
+        account: { name: accountNameRef.current },
+        totalBalance: {
+          amount: '0.00',
+          currency: 'USD',
+          symbol: '$',
+        },
+        watchlist: [],
+        pendingTxs: [],
+      });
+      handleTrayDataRequestRef.current?.();
+      return;
+    }
     const timer = setTimeout(() => {
       handleTrayDataRequestRef.current?.();
     }, 300);

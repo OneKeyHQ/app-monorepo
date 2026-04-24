@@ -24,6 +24,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
@@ -43,7 +44,8 @@ export default function PickYourDevice() {
       name: string;
       tags?: string[];
       deviceType: EDeviceType[];
-      image: ReturnType<typeof require>;
+      image?: ReturnType<typeof require>;
+      vendor?: EHardwareVendor;
     }>
   >(() => {
     const devices = [
@@ -69,8 +71,13 @@ export default function PickYourDevice() {
         image: require('@onekeyhq/kit/assets/pick-mini.png'),
       },
       {
+        name: 'Ledger',
+        deviceType: [],
+        vendor: EHardwareVendor.ledger,
+      },
+      {
         name: intl.formatMessage({ id: ETranslations.use_another_device }),
-        tags: ['Ledger', 'Trezor'],
+        tags: ['Trezor'],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
       },
@@ -100,7 +107,7 @@ export default function PickYourDevice() {
           px: 0,
         }}
       >
-        {DEVICES.map(({ name, tags, image, deviceType }) => (
+        {DEVICES.map(({ name, tags, image, deviceType, vendor }) => (
           <YStack
             key={name}
             group="card"
@@ -108,15 +115,23 @@ export default function PickYourDevice() {
             $gtMd={{ flex: 1 }}
             onPress={() => {
               defaultLogger.onboarding.page.pickYourDevice(
-                deviceType.join(','),
+                vendor || deviceType.join(','),
               );
-              if (deviceType.length === 0) {
+              if (deviceType.length === 0 && !vendor) {
                 showOtherDevicesDialog();
                 return;
               }
-              void navigation.push(EOnboardingPagesV2.ConnectYourDevice, {
-                deviceType,
-              });
+              const navParams: {
+                deviceType: EDeviceType[];
+                vendor?: EHardwareVendor;
+              } = { deviceType };
+              if (vendor) {
+                navParams.vendor = vendor;
+              }
+              void navigation.push(
+                EOnboardingPagesV2.ConnectYourDevice,
+                navParams,
+              );
             }}
           >
             <YStack
@@ -192,13 +207,15 @@ export default function PickYourDevice() {
                   h: 240,
                 }}
               >
-                <Image
-                  source={image}
-                  width="100%"
-                  height="90%"
-                  $gtMd={{ height: '100%' }}
-                  resizeMode="contain"
-                />
+                {image ? (
+                  <Image
+                    source={image}
+                    width="100%"
+                    height="90%"
+                    $gtMd={{ height: '100%' }}
+                    resizeMode="contain"
+                  />
+                ) : null}
               </YStack>
               <YStack gap="$3" $gtMd={{ gap: '$5', alignItems: 'center' }}>
                 <SizableText size="$headingXl" $gtMd={{ size: '$heading2xl' }}>
