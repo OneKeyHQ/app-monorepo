@@ -39,9 +39,8 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
           this.subscribeConnectorEvents(vendor, connector);
           return connector;
         })
-        .catch((error) => {
+        .finally(() => {
           this.connectorInitPromises.delete(vendor);
-          throw error;
         });
       this.connectorInitPromises.set(vendor, pending);
     }
