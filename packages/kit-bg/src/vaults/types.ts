@@ -704,6 +704,10 @@ export interface IBatchSignTransactionParamsBase {
   successfullySentTxs?: string[];
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   gasAccountUiState?: IGasAccountUiState;
+  // UI-generated token that identifies a single submit attempt. The background
+  // retry loop registers an AbortController against this id so the UI can
+  // cancel an in-flight 90212 retry via ServiceSend.abortGasAccountSubmit.
+  gasAccountSubmitId?: string;
   useDefaultRpc?: boolean;
 }
 

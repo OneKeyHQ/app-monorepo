@@ -1143,6 +1143,7 @@ function DepositWithdrawContent({
                 tokenInfo: USDC_TOKEN_INFO,
               },
             ],
+            gasAccountScenario: 'perps',
           });
         } else {
           await buildPerpDepositTx();

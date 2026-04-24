@@ -46,6 +46,14 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     alias: 'UPSTREAM_QUOTE_EXPIRED',
     message: 'Gas sponsor quote expired. Refreshing fee estimate.',
   },
+  // Reached only after the client has already exhausted its deep-retry window
+  // (see MAX_GAS_ACCOUNT_RETRY_ATTEMPTS in ServiceSend). Treat the final 90212
+  // as a stale-quote signal and bounce into a fresh estimate.
+  90_212: {
+    strategy: EGasAccountErrorStrategy.Refresh,
+    alias: 'GAS_ACCOUNT_ADMISSION_OVERLOADED',
+    message: 'Gas sponsor is temporarily busy. Refreshing fee estimate.',
+  },
 
   // --- Fallback: disable gas account for this flow and re-estimate as user-paid ---
   40_212: {
@@ -106,6 +114,16 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     strategy: EGasAccountErrorStrategy.Hint,
     alias: 'GAS_ACCOUNT_SPONSOR_BUSY',
     message: 'Gas sponsor is busy right now. Please try again later.',
+  },
+  // TOCTOU between estimate and execute — scenario gate was open at quote
+  // time but revoked by ops before submit. Not equivalent to quote expiry
+  // (40201/40202): retrying the gas-account path will keep failing until the
+  // scenario is re-enabled, so surface and fall through to user-paid reject.
+  40_227: {
+    strategy: EGasAccountErrorStrategy.Hint,
+    alias: 'GAS_ACCOUNT_SCENARIO_DISABLED',
+    message:
+      'Gas sponsor is temporarily disabled for this transaction type. Please pay the network fee yourself or try again later.',
   },
   90_207: {
     strategy: EGasAccountErrorStrategy.Hint,

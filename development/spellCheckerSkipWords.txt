@@ -1456,6 +1456,7 @@ SETDESC
 Bixin
 libsecret
 libusb
+TOCTOU
 ledgerhq
 keyrings
 APDU
