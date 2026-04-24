@@ -45,6 +45,7 @@ import type {
   IApiRequestResult,
   ICancelResponse,
   IHex,
+  IModifyResponse,
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
@@ -54,6 +55,7 @@ import type {
   IBuilderFeeRequest,
   ICancelOrderParams,
   ILeverageUpdateRequest,
+  IModifyOrderParams,
   IOrderCloseParams,
   IOrderOpenParams,
   IPlaceOrderParams,
@@ -83,6 +85,16 @@ interface IOrderLogOptions {
   action?: IHyperLiquidOrderAction;
   originalParams?: unknown;
   extra?: Record<string, unknown>;
+}
+
+// TV lowercases everything; HL universe keys perps as `BTC`, spot as `@N`,
+// and sub-DEX as `xyz:<TICKER>` (lowercase prefix, uppercase ticker).
+function normalizePerpsCoin(coin: string): string {
+  if (!coin) return coin;
+  if (coin.startsWith('@')) return coin;
+  const xyzMatch = coin.match(/^xyz:(.*)$/i);
+  if (xyzMatch) return `xyz:${xyzMatch[1].toUpperCase()}`;
+  return coin.toUpperCase();
 }
 
 @backgroundClass()
@@ -968,6 +980,49 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  async modifyOrder(params: IModifyOrderParams): Promise<IModifyResponse> {
+    await this.checkAccountCanTrade();
+
+    const order: IOrderParams = {
+      a: params.assetId,
+      b: params.isBuy,
+      p: params.price,
+      s: params.sz,
+      r: params.reduceOnly ?? false,
+      t: params.orderType ?? { limit: { tif: 'Gtc' } },
+    };
+
+    const client = await this.getExchangeClientForTrading();
+    const requestPayload = { oid: params.oid, order };
+    const context = await this._buildLogContext();
+    const extra = { originalParams: params };
+
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.modify({ oid: params.oid, order }),
+      );
+      defaultLogger.perp.hyperliquid.modifyOrder({
+        ...context,
+        request: requestPayload,
+        response,
+        extra,
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.modifyOrder({
+        ...context,
+        request: requestPayload,
+        response: extractHyperLiquidErrorResponse<
+          IModifyResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra,
+      });
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
   async cancelOrder(cancels: ICancelOrderParams[]): Promise<ICancelResponse> {
     await this.checkAccountCanTrade();
 
@@ -1006,6 +1061,86 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       throw error;
     }
+  }
+
+  @backgroundMethod()
+  async placeLimitOrderByCoin(params: {
+    coin: string;
+    isBuy: boolean;
+    size: string;
+    price: string;
+    tif?: 'Gtc' | 'Ioc';
+    reduceOnly?: boolean;
+  }): Promise<IOrderResponse> {
+    const symbolMeta =
+      await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
+        coin: normalizePerpsCoin(params.coin),
+      });
+    if (!symbolMeta) {
+      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+    }
+
+    if (symbolMeta.isSpot) {
+      const szDecimals = symbolMeta.spotUniverse?.baseSzDecimals ?? 0;
+      return this.placeSpotOrder({
+        assetId: symbolMeta.assetId,
+        isBuy: params.isBuy,
+        sz: params.size,
+        limitPx: formatSpotPriceToValid(params.price, szDecimals),
+        orderType: 'limit',
+        tif: params.tif ?? 'Gtc',
+        szDecimals,
+      });
+    }
+
+    return this.placeOrder({
+      assetId: symbolMeta.assetId,
+      isBuy: params.isBuy,
+      sz: params.size,
+      limitPx: formatPriceToSignificantDigits(
+        params.price,
+        symbolMeta.universe?.szDecimals,
+      ),
+      orderType: { limit: { tif: params.tif ?? 'Gtc' } },
+      reduceOnly: params.reduceOnly,
+    });
+  }
+
+  @backgroundMethod()
+  async amendOrderPriceByOid(params: {
+    coin: string;
+    oid: number;
+    newPrice: string;
+    isBuy: boolean;
+    size: string;
+    reduceOnly: boolean;
+  }): Promise<IModifyResponse> {
+    const symbolMeta =
+      await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
+        coin: normalizePerpsCoin(params.coin),
+      });
+    if (!symbolMeta) {
+      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+    }
+
+    const formattedPrice = symbolMeta.isSpot
+      ? formatSpotPriceToValid(
+          params.newPrice,
+          symbolMeta.spotUniverse?.baseSzDecimals ?? 0,
+        )
+      : formatPriceToSignificantDigits(
+          params.newPrice,
+          symbolMeta.universe?.szDecimals,
+        );
+
+    return this.modifyOrder({
+      oid: params.oid,
+      assetId: symbolMeta.assetId,
+      isBuy: params.isBuy,
+      sz: params.size,
+      price: formattedPrice,
+      reduceOnly: params.reduceOnly,
+    });
   }
 
   @backgroundMethod()

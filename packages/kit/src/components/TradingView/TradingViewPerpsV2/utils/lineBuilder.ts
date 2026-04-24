@@ -129,11 +129,11 @@ export function buildOrderLine(
   }
 
   const side: ITVLineSide = order.side === 'B' ? 'long' : 'short';
-  const triggerCondition = order.triggerCondition || 'N/A';
   const orderTypeLabel = order.orderType || 'Limit';
-  const labelText = `${orderTypeLabel} ${formatPriceForLabel(
-    order.limitPx,
-  )} ${triggerCondition}`;
+  const priceLabel = formatPriceForLabel(order.limitPx);
+  const labelText = order.isTrigger
+    ? `${orderTypeLabel} ${priceLabel} ${order.triggerCondition ?? ''}`.trimEnd()
+    : `${orderTypeLabel} ${priceLabel}`;
 
   return {
     id: `order:${order.oid}`,
