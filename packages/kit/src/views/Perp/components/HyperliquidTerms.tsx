@@ -281,12 +281,16 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
         <HyperliquidTermsContent
           renderDelay={300}
           onConfirm={async () => {
-            didConfirm = true;
-            await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
-              true,
-            );
-            await dialog.close();
-            safeResolve(true);
+            try {
+              await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
+                true,
+              );
+              didConfirm = true;
+              await dialog.close();
+              safeResolve(true);
+            } catch {
+              safeResolve(didConfirm);
+            }
           }}
           onClose={() => {
             void dialog.close();
