@@ -7,10 +7,10 @@ import {
   Anchor,
   Button,
   EVideoResizeMode,
-  Page,
   SizableText,
   Video,
   XStack,
+  YStack,
   resetToRoute,
   useThemeName,
 } from '@onekeyhq/components';
@@ -25,7 +25,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingPage } from '../components/Layout';
 import { trackHardwareWalletConnection } from '../utils';
 
 import { ConnectionIndicator } from './ConnectYourDevice';
@@ -91,61 +91,63 @@ function ConnectQRCodePage() {
   }, [createQrWallet, isSoftwareWalletOnlyUser]);
 
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header
-          title={intl.formatMessage({ id: ETranslations.connect_with_qr_code })}
-        />
-        <OnboardingLayout.Body>
-          <ConnectionIndicator>
-            <ConnectionIndicator.Card>
-              <ConnectionIndicator.Animation>
-                <Video
-                  w="100%"
-                  h="100%"
-                  repeat
-                  muted
-                  autoPlay
-                  resizeMode={EVideoResizeMode.COVER}
-                  controls={false}
-                  playInBackground={false}
-                  source={
-                    themeVariant === 'light'
-                      ? require('@onekeyhq/kit/assets/onboarding/onBoarding-QR.mp4')
-                      : require('@onekeyhq/kit/assets/onboarding/onBoarding-QR-D.mp4')
-                  }
-                />
-              </ConnectionIndicator.Animation>
-              <ConnectionIndicator.Content gap="$4">
-                {STEPS.map((step, index) => (
-                  <XStack key={index}>
-                    <SizableText w="$6">{index + 1}.</SizableText>
-                    <SizableText flex={1} flexShrink={1}>
-                      {step}
-                    </SizableText>
-                  </XStack>
-                ))}
-                <Button mt="$2" variant="primary" onPress={handleScanQRCode}>
-                  {intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
-                </Button>
-              </ConnectionIndicator.Content>
-            </ConnectionIndicator.Card>
-          </ConnectionIndicator>
-        </OnboardingLayout.Body>
-        <OnboardingLayout.Footer>
-          <Anchor
-            href="https://help.onekey.so/articles/11461088"
-            target="_blank"
-            size="$bodySm"
-            color="$textSubdued"
-          >
-            {intl.formatMessage({
-              id: ETranslations.learn_more_about_qr_code_wallet,
-            })}
-          </Anchor>
-        </OnboardingLayout.Footer>
-      </OnboardingLayout>
-    </Page>
+    <OnboardingPage
+      headerTitle={intl.formatMessage({
+        id: ETranslations.connect_with_qr_code,
+      })}
+      scrollable
+      alignTop
+      narrow
+      contentContainerProps={{ gap: '$5' }}
+    >
+      <ConnectionIndicator>
+        <ConnectionIndicator.Card>
+          <ConnectionIndicator.Animation>
+            <Video
+              w="100%"
+              h="100%"
+              repeat
+              muted
+              autoPlay
+              resizeMode={EVideoResizeMode.COVER}
+              controls={false}
+              playInBackground={false}
+              source={
+                themeVariant === 'light'
+                  ? require('@onekeyhq/kit/assets/onboarding/onBoarding-QR.mp4')
+                  : require('@onekeyhq/kit/assets/onboarding/onBoarding-QR-D.mp4')
+              }
+            />
+          </ConnectionIndicator.Animation>
+          <ConnectionIndicator.Content gap="$4">
+            {STEPS.map((step, index) => (
+              <XStack key={index}>
+                <SizableText w="$6">{index + 1}.</SizableText>
+                <SizableText flex={1} flexShrink={1}>
+                  {step}
+                </SizableText>
+              </XStack>
+            ))}
+            <Button mt="$2" variant="primary" onPress={handleScanQRCode}>
+              {intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
+            </Button>
+          </ConnectionIndicator.Content>
+        </ConnectionIndicator.Card>
+      </ConnectionIndicator>
+      <YStack pt="$1" alignItems="center">
+        {/* Keep the help entry outside the card while staying inside the new page shell. */}
+        <Anchor
+          href="https://help.onekey.so/articles/11461088"
+          target="_blank"
+          size="$bodySm"
+          color="$textSubdued"
+        >
+          {intl.formatMessage({
+            id: ETranslations.learn_more_about_qr_code_wallet,
+          })}
+        </Anchor>
+      </YStack>
+    </OnboardingPage>
   );
 }
 

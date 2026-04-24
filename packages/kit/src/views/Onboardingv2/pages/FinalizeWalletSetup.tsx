@@ -74,17 +74,6 @@ const fixErrorString = (errorMessage: string) => {
   return errorMessage;
 };
 
-// Short status captions shown under the orb. Only the 4 reachable steps
-// (see actions.tsx withFinalizeWalletSetupStep); EncryptingData is declared
-// in the enum but never emitted.
-// TODO(i18n): Lokalise keys TBD — confirm copy after visual sign-off.
-const STEP_COPY: Partial<Record<EFinalizeWalletSetupSteps, string>> = {
-  [EFinalizeWalletSetupSteps.ConnectingDevice]: 'Connecting your device',
-  [EFinalizeWalletSetupSteps.CreatingWallet]: 'Creating your wallet',
-  [EFinalizeWalletSetupSteps.GeneratingAccounts]: 'Generating your accounts',
-  [EFinalizeWalletSetupSteps.Ready]: 'Your wallet is ready',
-};
-
 function StepTextSwap({ text }: { text: string }) {
   return (
     <YStack
@@ -411,9 +400,24 @@ function FinalizeWalletSetupPage({
   const { gtMd } = useMedia();
 
   const isReady = currentStep === EFinalizeWalletSetupSteps.Ready;
+  // Keep step captions reactive to runtime locale changes within the same app session.
+  const stepCopy: Partial<Record<EFinalizeWalletSetupSteps, string>> = {
+    [EFinalizeWalletSetupSteps.ConnectingDevice]: intl.formatMessage({
+      id: ETranslations.connecting_your_device,
+    }),
+    [EFinalizeWalletSetupSteps.CreatingWallet]: intl.formatMessage({
+      id: ETranslations.onboarding_finalize_creating_wallet,
+    }),
+    [EFinalizeWalletSetupSteps.GeneratingAccounts]: intl.formatMessage({
+      id: ETranslations.onboarding_finalize_generating_accounts,
+    }),
+    [EFinalizeWalletSetupSteps.Ready]: intl.formatMessage({
+      id: ETranslations.your_wallet_is_ready,
+    }),
+  };
   const stepText =
-    STEP_COPY[currentStep] ??
-    STEP_COPY[EFinalizeWalletSetupSteps.CreatingWallet]!;
+    stepCopy[currentStep] ??
+    stepCopy[EFinalizeWalletSetupSteps.CreatingWallet]!;
 
   // Breathe up to 0.8 during active steps; on Ready fade to a faint hold
   // (0.15) so the orb visibly "settles" before the user taps Enter wallet.
@@ -461,8 +465,7 @@ function FinalizeWalletSetupPage({
       iconAfter="ArrowRightOutline"
       {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
     >
-      {/* TODO(i18n): ETranslations.onboarding_finalize_enter_wallet */}
-      Enter wallet
+      {intl.formatMessage({ id: ETranslations.enter_wallet })}
     </Button>
   );
 
@@ -484,9 +487,9 @@ function FinalizeWalletSetupPage({
               Error / setup interrupted
             </SizableText>
             <SizableText size="$heading5xl" fontWeight={600}>
-              {/* TODO(i18n): ETranslations.onboarding_finalize_error_interrupted */}
-              Something interrupted the setup. We haven&apos;t written anything
-              — try again.
+              {intl.formatMessage({
+                id: ETranslations.failed_to_create_wallet,
+              })}
             </SizableText>
             <SizableText
               size="$bodyMd"
