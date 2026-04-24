@@ -1,16 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import {
+  Easing,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
+  Icon,
   SizableText,
   XStack,
   YStack,
   useMedia,
-  useTheme,
 } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
@@ -45,7 +51,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useInterval } from '../../../hooks/useInterval';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
@@ -54,6 +59,7 @@ import {
   setExistingWalletSwitchToastDeferred,
 } from '../../../utils/toastExistingWalletSwitch';
 import { OnboardingPage } from '../components/Layout';
+import { OrbShader } from '../components/OrbShader';
 import {
   useConnectDeviceError,
   useDeviceConnect,
@@ -68,154 +74,44 @@ const fixErrorString = (errorMessage: string) => {
   return errorMessage;
 };
 
-// Only the steps the pipeline actually emits (see actions.tsx
-// withFinalizeWalletSetupStep). EFinalizeWalletSetupSteps.EncryptingData is
-// declared in the enum but never emitted, so it gets no copy here.
-// TODO(i18n): step copy and eyebrow labels — Lokalise keys TBD
-const STEP_CONFIG: Partial<
-  Record<EFinalizeWalletSetupSteps, { mono: string; copy: string }>
-> = {
-  [EFinalizeWalletSetupSteps.ConnectingDevice]: {
-    mono: 'LINK',
-    copy: 'One moment while we open a secure line to your device.',
-  },
-  [EFinalizeWalletSetupSteps.CreatingWallet]: {
-    mono: 'FORGE',
-    copy: 'Forging a wallet that only you can unlock, on this device.',
-  },
-  [EFinalizeWalletSetupSteps.GeneratingAccounts]: {
-    mono: 'DERIVE',
-    copy: "Deriving your accounts from the wallet's root key.",
-  },
-  [EFinalizeWalletSetupSteps.Ready]: {
-    mono: 'READY',
-    copy: 'Everything is sealed. Your wallet is ready to use.',
-  },
+// Short status captions shown under the orb. Only the 4 reachable steps
+// (see actions.tsx withFinalizeWalletSetupStep); EncryptingData is declared
+// in the enum but never emitted.
+// TODO(i18n): Lokalise keys TBD — confirm copy after visual sign-off.
+const STEP_COPY: Partial<Record<EFinalizeWalletSetupSteps, string>> = {
+  [EFinalizeWalletSetupSteps.ConnectingDevice]: 'Connecting your device',
+  [EFinalizeWalletSetupSteps.CreatingWallet]: 'Creating your wallet',
+  [EFinalizeWalletSetupSteps.GeneratingAccounts]: 'Generating your accounts',
+  [EFinalizeWalletSetupSteps.Ready]: 'Your wallet is ready',
 };
 
-function PulsingDot({ color, size = 8 }: { color: string; size?: number }) {
-  const [on, setOn] = useState(true);
-  useInterval(() => setOn((v) => !v), 700);
-
+function StepTextSwap({ text }: { text: string }) {
   return (
     <YStack
-      w={size}
-      h={size}
-      borderRadius={size / 2}
-      bg={color}
-      shadowColor={color}
-      shadowOpacity={1}
-      shadowRadius={12}
-      shadowOffset={{ width: 0, height: 0 }}
-      animation="slow"
-      animateOnly={ANIMATE_ONLY_OPACITY}
-      opacity={on ? 1 : 0.4}
-    />
-  );
-}
-
-function StepEyebrow({
-  children,
-  color,
-}: {
-  children: React.ReactNode;
-  color: string;
-}) {
-  return (
-    <XStack gap="$3" alignItems="center">
-      <PulsingDot color={color} />
-      <SizableText
-        size="$bodySm"
-        color={color}
-        letterSpacing={3}
-        textTransform="uppercase"
-      >
-        {children}
-      </SizableText>
-    </XStack>
-  );
-}
-
-function SentenceSwap({
-  lines,
-  activeIndex,
-}: {
-  lines: string[];
-  activeIndex: number;
-}) {
-  // Container is sized for 3 lines at mobile (heading3xl lineHeight 36 * 3 = 108)
-  // and 2 lines at desktop (heading5xl lineHeight 48 * 2 = 96). AnimatePresence
-  // overlaps the outgoing + incoming text via absolute positioning so the
-  // container height stays stable while the slot-machine animation runs.
-  return (
-    <YStack position="relative" h={96} overflow="hidden" $md={{ h: 108 }}>
+      w="100%"
+      h={32}
+      position="relative"
+      overflow="hidden"
+      $md={{ h: 28 }}
+    >
       <AnimatePresence>
         <SizableText
-          key={activeIndex}
+          key={text}
           position="absolute"
           top={0}
           left={0}
           right={0}
-          size="$heading5xl"
-          fontWeight={600}
-          letterSpacing={-0.5}
-          numberOfLines={3}
-          $md={{ size: '$heading3xl', letterSpacing: -0.4 }}
+          size="$heading2xl"
+          textAlign="center"
           animation="medium"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-          enterStyle={{ opacity: 0, y: 24 }}
-          exitStyle={{ opacity: 0, y: -24 }}
+          enterStyle={{ opacity: 0, y: 16 }}
+          exitStyle={{ opacity: 0, y: -16 }}
         >
-          {lines[activeIndex] ?? ''}
+          {text}
         </SizableText>
       </AnimatePresence>
     </YStack>
-  );
-}
-
-function ProgressTicks({
-  stepIndex,
-  total,
-  color,
-  isReady,
-}: {
-  stepIndex: number;
-  total: number;
-  color: string;
-  isReady: boolean;
-}) {
-  // Tamagui's shadow* props alone render too faintly on a 2px bar, so we also
-  // set an explicit web boxShadow. Resolve the accent hex from the theme so
-  // the glow stays in sync with light/dark.
-  const theme = useTheme();
-  const glowHex = theme.brand9?.val ?? color;
-  return (
-    <XStack gap="$2" w={280} $md={{ w: 180, gap: '$1.5' }}>
-      {Array.from({ length: total }).map((_, i) => {
-        const filled = i <= stepIndex;
-        const isCurrent = i === stepIndex && !isReady;
-        return (
-          <YStack
-            key={i}
-            flex={1}
-            h={2}
-            mt="$10"
-            animation="medium"
-            bg={filled ? color : '$borderSubdued'}
-            {...(isCurrent && {
-              shadowColor: color,
-              shadowOpacity: 1,
-              shadowRadius: 10,
-              shadowOffset: { width: 0, height: 0 },
-              elevation: 6,
-              '$platform-web': {
-                boxShadow: `0 0 10px ${glowHex}, 0 0 4px ${glowHex}`,
-              },
-            })}
-          />
-        );
-      })}
-    </XStack>
   );
 }
 
@@ -512,43 +408,45 @@ function FinalizeWalletSetupPage({
     void createWallet();
   }, [createWallet, initialStep]);
 
-  // Hardware path shows all 4 steps; other paths skip ConnectingDevice.
-  const activeSteps = useMemo(
-    () =>
-      deviceData
-        ? [
-            EFinalizeWalletSetupSteps.ConnectingDevice,
-            EFinalizeWalletSetupSteps.CreatingWallet,
-            EFinalizeWalletSetupSteps.GeneratingAccounts,
-            EFinalizeWalletSetupSteps.Ready,
-          ]
-        : [
-            EFinalizeWalletSetupSteps.CreatingWallet,
-            EFinalizeWalletSetupSteps.GeneratingAccounts,
-            EFinalizeWalletSetupSteps.Ready,
-          ],
-    [deviceData],
-  );
-
   const { gtMd } = useMedia();
 
   const isReady = currentStep === EFinalizeWalletSetupSteps.Ready;
-  const stepIndex = Math.max(0, activeSteps.indexOf(currentStep));
-  const total = activeSteps.length;
-  // activeSteps only contains keys that exist in STEP_CONFIG, so these
-  // lookups are non-null at runtime.
-  const stepConfig =
-    STEP_CONFIG[currentStep] ??
-    STEP_CONFIG[EFinalizeWalletSetupSteps.CreatingWallet]!;
-  const accentColor = '$brand9';
-  const sentences = useMemo(
-    () => activeSteps.map((s) => STEP_CONFIG[s]!.copy),
-    [activeSteps],
-  );
+  const stepText =
+    STEP_COPY[currentStep] ??
+    STEP_COPY[EFinalizeWalletSetupSteps.CreatingWallet]!;
+
+  // Breathe up to 0.8 during active steps; on Ready fade to a faint hold
+  // (0.15) so the orb visibly "settles" before the user taps Enter wallet.
+  const orbIntensity = useSharedValue(0);
+  useEffect(() => {
+    if (isReady) {
+      orbIntensity.value = withTiming(0.15, { duration: 600 });
+      return;
+    }
+    orbIntensity.value = withRepeat(
+      withTiming(0.8, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+  }, [isReady, orbIntensity]);
+
+  // Release the shader canvas ~1s after Ready so the GPU isn't running a
+  // per-frame noise pass while the user lingers on the success badge.
+  const [isOrbMounted, setIsOrbMounted] = useState(true);
+  useEffect(() => {
+    if (!isReady) {
+      setIsOrbMounted(true);
+      return undefined;
+    }
+    const timeout = setTimeout(() => setIsOrbMounted(false), 1000);
+    return () => clearTimeout(timeout);
+  }, [isReady]);
+
+  const orbSize = 160;
 
   const enterWalletTransitionProps = {
     opacity: isReady ? 1 : 0,
-    pointerEvents: isReady ? 'auto' : 'none',
+    pointerEvents: isReady ? ('auto' as const) : ('none' as const),
     ...(!platformEnv.isNative && {
       animation: 'quick' as const,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
@@ -561,9 +459,7 @@ function FinalizeWalletSetupPage({
       size="large"
       onPress={handleLetsGo}
       iconAfter="ArrowRightOutline"
-      {...(gtMd
-        ? { alignSelf: 'flex-start' as const, minWidth: 240 }
-        : { w: '100%' as const })}
+      {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
     >
       {/* TODO(i18n): ETranslations.onboarding_finalize_enter_wallet */}
       Enter wallet
@@ -579,9 +475,14 @@ function FinalizeWalletSetupPage({
       <YStack flex={1}>
         {setupError ? (
           <YStack flex={1} justifyContent="center" gap="$7">
-            <StepEyebrow color="$textCritical">
+            <SizableText
+              size="$bodySm"
+              color="$textCritical"
+              letterSpacing={3}
+              textTransform="uppercase"
+            >
               Error / setup interrupted
-            </StepEyebrow>
+            </SizableText>
             <SizableText size="$heading5xl" fontWeight={600}>
               {/* TODO(i18n): ETranslations.onboarding_finalize_error_interrupted */}
               Something interrupted the setup. We haven&apos;t written anything
@@ -616,17 +517,48 @@ function FinalizeWalletSetupPage({
           </YStack>
         ) : (
           <>
-            <YStack flex={1} justifyContent="center" gap="$7">
-              <StepEyebrow color={accentColor}>
-                {`${stepConfig.mono} • 0${stepIndex + 1} / 0${total}`}
-              </StepEyebrow>
-              <SentenceSwap lines={sentences} activeIndex={stepIndex} />
-              <ProgressTicks
-                stepIndex={stepIndex}
-                total={total}
-                color={accentColor}
-                isReady={isReady}
-              />
+            <YStack
+              flex={1}
+              justifyContent="center"
+              alignItems="center"
+              gap="$8"
+            >
+              <YStack w={orbSize} h={orbSize} position="relative">
+                <YStack
+                  position="absolute"
+                  inset={0}
+                  animation="medium"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
+                  opacity={isReady ? 0 : 1}
+                >
+                  {isOrbMounted ? (
+                    <OrbShader
+                      intensity={orbIntensity}
+                      paused={isReady}
+                      autoRotate
+                      size={orbSize}
+                    />
+                  ) : null}
+                </YStack>
+                <YStack
+                  position="absolute"
+                  left="20%"
+                  top="20%"
+                  bottom="20%"
+                  right="20%"
+                  borderRadius={orbSize / 2}
+                  bg="$brand10"
+                  alignItems="center"
+                  justifyContent="center"
+                  animation="medium"
+                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                  opacity={isReady ? 1 : 0}
+                  scale={isReady ? 1 : 0.7}
+                >
+                  <Icon name="CheckmarkSolid" size="$8" color="$bgApp" />
+                </YStack>
+              </YStack>
+              <StepTextSwap text={stepText} />
               {gtMd ? (
                 <YStack mt="$4" minHeight={48} {...enterWalletTransitionProps}>
                   {enterWalletButton}
