@@ -14,11 +14,15 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareVendor,
+  EOneKeyDeviceMode,
+} from '@onekeyhq/shared/types/device';
 import type {
   IDeviceSharedCallParams,
   IOneKeyDeviceFeatures,
@@ -27,7 +31,9 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
+  EThirdPartyHardwareUiAction,
   hardwareUiStateAtom,
+  thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -467,6 +473,12 @@ class ServiceHardwareUI extends ServiceBase {
     const connectId = device?.connectId;
     let isOuterCall = false;
 
+    // Third-party vendors (Ledger) don't use OneKey SDK
+    // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
+    const isThirdPartyVendor = getVendorProfile(
+      device?.vendor ?? EHardwareVendor.onekey,
+    ).isThirdParty;
+
     let deviceResetToHome = true;
     let isBusy = false;
     try {
@@ -497,9 +509,19 @@ class ServiceHardwareUI extends ServiceBase {
         // }
 
         await this.cleanHardwareUiState();
-        if (connectId && !hideCheckingDeviceLoading) {
+        if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
           await this.showCheckingDeviceDialog({
             connectId,
+          });
+        }
+        if (
+          isThirdPartyVendor &&
+          !hideCheckingDeviceLoading &&
+          device?.vendor
+        ) {
+          void thirdPartyHardwareUiStateAtom.set({
+            action: EThirdPartyHardwareUiAction.searching,
+            vendor: device.vendor,
           });
         }
 
@@ -528,19 +550,22 @@ class ServiceHardwareUI extends ServiceBase {
       // test delay
       // await timerUtils.wait(6000);
 
-      let isMutexLocked =
-        this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
-      if (isMutexLocked) {
-        await this.backgroundApi.serviceHardware.getFeaturesMutex.waitForUnlock();
-        isMutexLocked =
+      // Skip OneKey SDK mutex check for third-party vendors
+      if (!isThirdPartyVendor) {
+        let isMutexLocked =
           this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
         if (isMutexLocked) {
-          isBusy = true;
-          throw new OneKeyLocalError(
-            appLocale.intl.formatMessage({
-              id: ETranslations.feedback_hardware_is_busy,
-            }),
-          );
+          await this.backgroundApi.serviceHardware.getFeaturesMutex.waitForUnlock();
+          isMutexLocked =
+            this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
+          if (isMutexLocked) {
+            isBusy = true;
+            throw new OneKeyLocalError(
+              appLocale.intl.formatMessage({
+                id: ETranslations.feedback_hardware_is_busy,
+              }),
+            );
+          }
         }
       }
 
@@ -632,32 +657,40 @@ class ServiceHardwareUI extends ServiceBase {
         processingNestedNum: this.processingNestedNum,
         skipCloseHardwareUiStateDialog,
       });
-      if (connectId && isOuterCall) {
-        if (!skipCloseHardwareUiStateDialog) {
-          const closeDialogParams = {
-            // skipDeviceCancel: true,
-            skipDeviceCancel: skipDeviceCancel ?? false, // auto cancel if device call interaction action
-            deviceResetToHome,
-          };
-          if (isBusy) {
-            closeDialogParams.skipDeviceCancel = true;
-            closeDialogParams.deviceResetToHome = false;
+      // Third-party vendors may have empty connectId (e.g. USB Ledger),
+      // but still need to clear their loading UI state.
+      if (isOuterCall) {
+        if (isThirdPartyVendor) {
+          if (!skipCloseHardwareUiStateDialog) {
+            void thirdPartyHardwareUiStateAtom.set(undefined);
           }
-          await this.closeHardwareUiStateDialog({
-            connectId,
-            skipDeviceCancel: closeDialogParams.skipDeviceCancel,
-            deviceResetToHome: closeDialogParams.deviceResetToHome,
-          });
-          void this.backgroundApi.serviceAccount.generateHwWalletsMissingXfp({
-            wallet: deviceParams?.dbWallet,
-            connectId,
-            deviceId: device?.deviceId,
-            withUserInteraction: false,
-          });
+        } else if (connectId) {
+          if (!skipCloseHardwareUiStateDialog) {
+            const closeDialogParams = {
+              // skipDeviceCancel: true,
+              skipDeviceCancel: skipDeviceCancel ?? false, // auto cancel if device call interaction action
+              deviceResetToHome,
+            };
+            if (isBusy) {
+              closeDialogParams.skipDeviceCancel = true;
+              closeDialogParams.deviceResetToHome = false;
+            }
+            await this.closeHardwareUiStateDialog({
+              connectId,
+              skipDeviceCancel: closeDialogParams.skipDeviceCancel,
+              deviceResetToHome: closeDialogParams.deviceResetToHome,
+            });
+            void this.backgroundApi.serviceAccount.generateHwWalletsMissingXfp({
+              wallet: deviceParams?.dbWallet,
+              connectId,
+              deviceId: device?.deviceId,
+              withUserInteraction: false,
+            });
+          }
+          void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
+            { connectId },
+          );
         }
-        void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
-          { connectId },
-        );
       }
       this.processingNestedNum -= 1;
       onFinally?.();
