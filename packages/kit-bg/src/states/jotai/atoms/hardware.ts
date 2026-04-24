@@ -4,6 +4,7 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   EFirmwareUpdateTipMessages,
+  EHardwareVendor,
   EOneKeyDeviceMode,
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
@@ -138,6 +139,59 @@ export const {
 } = globalAtom<IHardwareUiState | undefined>({
   initialValue: undefined,
   name: EAtomNames.hardwareUiStateCompletedAtom,
+});
+
+// third-party hardware ui state -----------------------------------
+
+export enum EThirdPartyHardwareUiAction {
+  // Blocking requests — UI waits for user response
+  requestUnlock = 'request-ledger-unlock',
+  // Non-blocking notifications — UI shows status
+  openApp = 'ui-event-ledger-open-app',
+  confirmOnDevice = 'ui-event-ledger-confirm-on-device',
+  searching = 'ui-event-ledger-searching',
+  connecting = 'ui-event-ledger-connecting',
+  processing = 'ui-event-ledger-processing',
+  done = 'ui-event-ledger-done',
+  unlockDevice = 'ui-event-ledger-unlock-device',
+  error = 'ui-event-ledger-error',
+}
+
+/** Actions shown as a passive toast (user acts on the physical device, not in the app). */
+const TOAST_ACTIONS = new Set<string>([
+  EThirdPartyHardwareUiAction.confirmOnDevice,
+  EThirdPartyHardwareUiAction.openApp,
+  EThirdPartyHardwareUiAction.searching,
+  EThirdPartyHardwareUiAction.unlockDevice,
+]);
+
+/** Is this a non-interactive notification that should show as a Toast (not Dialog)? */
+export function isThirdPartyToastAction(action: string | undefined): boolean {
+  return !!action && TOAST_ACTIONS.has(action);
+}
+
+/** Is this a "confirm on device" action specifically? (used by ReceiveToken for address display) */
+export function isThirdPartyConfirmOnDevice(
+  action: string | undefined,
+): boolean {
+  return action === EThirdPartyHardwareUiAction.confirmOnDevice;
+}
+
+export type IThirdPartyHardwareUiState = {
+  action: EThirdPartyHardwareUiAction;
+  vendor: EHardwareVendor;
+  payload?: {
+    message?: string;
+    chain?: string;
+  };
+};
+
+export const {
+  target: thirdPartyHardwareUiStateAtom,
+  use: useThirdPartyHardwareUiStateAtom,
+} = globalAtom<IThirdPartyHardwareUiState | undefined>({
+  initialValue: undefined,
+  name: EAtomNames.thirdPartyHardwareUiStateAtom,
 });
 
 // firmware update ----------------------------------------------
