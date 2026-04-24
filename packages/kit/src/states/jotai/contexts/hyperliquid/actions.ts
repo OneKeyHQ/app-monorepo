@@ -97,6 +97,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private canceledOrderIds = new Set<number>();
 
+  private async findChartOrder(
+    get: (atom: ReturnType<typeof perpsActiveOpenOrdersAtom>) => {
+      openOrders: HL.IPerpsFrontendOrder[];
+    },
+    oid: number,
+  ): Promise<HL.IPerpsFrontendOrder | undefined> {
+    const { openOrders: perpOpenOrders } = get(perpsActiveOpenOrdersAtom());
+    const perpOrder = perpOpenOrders.find((order) => order.oid === oid);
+    if (perpOrder) {
+      return perpOrder;
+    }
+
+    const { openOrders: spotOpenOrders } = await spotActiveOpenOrdersAtom.get();
+    return spotOpenOrders.find((order) => order.oid === oid);
+  }
+
   private buildOpenOrdersByCoinMap(
     openOrders: HL.IPerpsFrontendOrder[],
     prevMap?: Record<string, HL.IPerpsFrontendOrder[]>,
@@ -1543,6 +1559,68 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  amendChartOrder = contextAtomMethod(
+    async (
+      get,
+      _set,
+      params: {
+        coin: string;
+        oid: number;
+        newPrice: string;
+      },
+    ) => {
+      // Side stays as placed — HL rejects modify that flips isBuy.
+      return withToast({
+        asyncFn: async () => {
+          const existing = await this.findChartOrder(get, params.oid);
+          if (!existing) {
+            throw new OneKeyLocalError(`Order ${params.oid} not found`);
+          }
+          return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
+            {
+              coin: params.coin,
+              oid: params.oid,
+              newPrice: params.newPrice,
+              isBuy: existing.side === 'B',
+              size: existing.sz,
+              reduceOnly: existing.reduceOnly,
+            },
+          );
+        },
+        actionType: EActionType.MODIFY_ORDER,
+      });
+    },
+  );
+
+  cancelChartOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        oid: number;
+      },
+    ) => {
+      // Inner cancelOrder owns the CANCEL_ORDER toast; emit our own
+      // error toast for pre-network validation so failures aren't silent.
+      const existing = await this.findChartOrder(get, params.oid);
+      if (!existing) {
+        Toast.error({ title: `Order ${params.oid} not found` });
+        return undefined;
+      }
+      const symbolMeta =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: existing.coin,
+        });
+      if (!symbolMeta) {
+        Toast.error({ title: `Unknown coin: ${existing.coin}` });
+        return undefined;
+      }
+      return this.cancelOrder.call(set, {
+        orders: [{ assetId: symbolMeta.assetId, oid: params.oid }],
+      });
+    },
+  );
+
   cancelOrder = contextAtomMethod(
     async (
       get,
@@ -1585,12 +1663,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             openOrdersByCoin,
           });
 
-          const prevSpotOpenOrders = await spotActiveOpenOrdersAtom.get();
+          const prevSpot = await spotActiveOpenOrdersAtom.get();
+          const nextSpotOpenOrders = prevSpot.openOrders.filter(
+            (o) => !this.canceledOrderIds.has(o.oid),
+          );
           await spotActiveOpenOrdersAtom.set({
-            ...prevSpotOpenOrders,
-            openOrders: prevSpotOpenOrders.openOrders.filter(
-              (o) => !this.canceledOrderIds.has(o.oid),
-            ),
+            ...prevSpot,
+            openOrders: nextSpotOpenOrders,
           });
 
           return result;
@@ -1933,6 +2012,8 @@ export function useHyperliquidActions() {
   const updateLeverage = actions.updateLeverage.use();
   const updateIsolatedMargin = actions.updateIsolatedMargin.use();
   const ordersClose = actions.ordersClose.use();
+  const amendChartOrder = actions.amendChartOrder.use();
+  const cancelChartOrder = actions.cancelChartOrder.use();
   const cancelOrder = actions.cancelOrder.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
@@ -1993,6 +2074,8 @@ export function useHyperliquidActions() {
     updateLeverage,
     updateIsolatedMargin,
     ordersClose,
+    amendChartOrder,
+    cancelChartOrder,
     cancelOrder,
     setPositionTpsl,
     withdraw,
