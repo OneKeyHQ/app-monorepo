@@ -29,6 +29,8 @@ import { TradesHistoryRow } from '../Components/TradesHistoryRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
+const TRADES_HISTORY_PAGE_SIZE = 20;
+
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
   useTabsList?: boolean;
@@ -285,12 +287,17 @@ function PerpTradesHistoryList({
         id: ETranslations.perp_trade_history_empty,
       })}
       emptySubMessage={intl.formatMessage({
-        id: ETranslations.perp_trade_history_empty_desc,
+        id: ETranslations.perp_trades_history_recent_range_desc,
       })}
       enablePagination
+      pageSize={TRADES_HISTORY_PAGE_SIZE}
       paginationToBottom={isMobile}
       listLoading={isLoading}
-      onViewAll={!isMobile ? onViewAllUrl : undefined}
+      onViewAll={
+        !isMobile && trades.length > TRADES_HISTORY_PAGE_SIZE
+          ? onViewAllUrl
+          : undefined
+      }
     />
   );
 }
