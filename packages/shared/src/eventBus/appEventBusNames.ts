@@ -117,6 +117,8 @@ export enum EAppEventBusNames {
   ShowHardwareErrorDialog = 'ShowHardwareErrorDialog',
   SwapPanelDismissKeyboard = 'SwapPanelDismissKeyboard',
   ShowFallbackUpdateDialog = 'ShowFallbackUpdateDialog',
+  PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
+  HomePageReady = 'HomePageReady',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
   ShowNotificationPageNavigation = 'ShowNotificationPageNavigation',
   ShowNotificationInDappPage = 'ShowNotificationInDappPage',
@@ -142,4 +144,5 @@ export enum EAppEventBusNames {
   ExecuteNotificationCommand = 'ExecuteNotificationCommand',
   ShowRookieShare = 'ShowRookieShare',
   CreateNewBrowserTab = 'CreateNewBrowserTab',
+  NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
 }

@@ -10,6 +10,7 @@ import {
   IconButton,
   Skeleton,
   Stack,
+  onVisibilityStateChange,
   useOnRouterChange,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
@@ -501,6 +502,7 @@ function TokenListBlock({
         (isPageFocused && isFocused) || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+      revalidateOnFocus: true,
     },
   );
 
@@ -1913,6 +1915,30 @@ function TokenListBlock({
     isAllNetworkManualRefresh.current = true;
     void runAllNetworksRequests({ alwaysSetState: true });
   }, [runAllNetworksRequests]);
+
+  const lastVisibilityRefreshAtRef = useRef(0);
+  const handleRefreshOnVisibilityActive = useCallback(() => {
+    const now = Date.now();
+    if (now - lastVisibilityRefreshAtRef.current < POLLING_INTERVAL_FOR_TOKEN) {
+      return;
+    }
+    lastVisibilityRefreshAtRef.current = now;
+
+    if (network?.isAllNetworks) {
+      handleRefreshAllNetworkData();
+      return;
+    }
+    void run({ alwaysSetState: true });
+  }, [handleRefreshAllNetworkData, network?.isAllNetworks, run]);
+
+  useEffect(() => {
+    const removeSubscription = onVisibilityStateChange((visible) => {
+      if (visible && isFocused) {
+        handleRefreshOnVisibilityActive();
+      }
+    });
+    return removeSubscription;
+  }, [handleRefreshOnVisibilityActive, isFocused]);
 
   useEffect(() => {
     const fn = () => {

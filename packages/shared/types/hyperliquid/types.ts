@@ -1,6 +1,6 @@
 import type { IPerpServerBannerConfig } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 
-import type { IHex, IWithdraw3Request } from './sdk';
+import type { IFill, IHex, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum EPerpsSubscriptionCategory {
@@ -24,6 +24,8 @@ export enum ESubscriptionType {
   TWAP_STATES = 'twapStates',
   BBO = 'bbo',
   SPOT_STATE = 'spotState',
+  SPOT_ASSET_CTXS = 'spotAssetCtxs',
+  ACTIVE_SPOT_ASSET_CTX = 'activeSpotAssetCtx',
   // TRADES = 'trades',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
@@ -115,6 +117,17 @@ export interface ICancelOrderParams {
   oid: number;
 }
 
+export interface IModifyOrderParams {
+  oid: number;
+  assetId: number;
+  isBuy: boolean;
+  // HL modify is not a patch: callers must pass full current values even when only amending price.
+  sz: string;
+  price: string;
+  reduceOnly?: boolean;
+  orderType?: { limit: { tif: 'Gtc' | 'Ioc' | 'Alo' } };
+}
+
 export interface IWithdrawParams extends IWithdraw3Request {
   userAccountId: string;
 }
@@ -172,6 +185,18 @@ export interface ITriggerOrderParams {
   executionPx?: string; // required for limit triggers
   reduceOnly: boolean;
   slippage?: number;
+}
+
+export interface ISpotOrderParams {
+  // Spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index
+  assetId: number;
+  isBuy: boolean;
+  sz: string;
+  limitPx: string;
+  orderType: 'limit' | 'market';
+  tif?: 'Gtc' | 'Ioc';
+  slippage?: number;
+  szDecimals?: number;
 }
 
 export interface IL2BookOptions {
@@ -276,4 +301,39 @@ export enum EHyperLiquidAbstractionMode {
   PORTFOLIO_MARGIN = 'portfolioMargin',
   DEX_ABSTRACTION = 'dexAbstraction',
   DEFAULT = 'default',
+}
+
+// ── Shared Types ──
+
+export interface ITradesHistoryData {
+  fills: IFill[];
+  isLoaded: boolean;
+  latestTime: number;
+  accountAddress: string | undefined;
+}
+
+// ── Spot Types ──
+
+export type ISpotFormattedAssetCtx = {
+  midPrice: string;
+  markPrice: string;
+  prevDayPrice: string;
+  volume24h: string;
+  change24h: string;
+  change24hPercent: number;
+  circulatingSupply: string;
+  totalSupply: string;
+  dayBaseVlm: string;
+};
+
+export type ISpotTokenSortField =
+  | 'name'
+  | 'markPrice'
+  | 'change24hPercent'
+  | 'volume24h';
+
+export interface ISpotTokenSelectorConfig {
+  field: ISpotTokenSortField;
+  direction: IPerpTokenSortDirection;
+  activeTab: 'all' | 'favorites' | string;
 }

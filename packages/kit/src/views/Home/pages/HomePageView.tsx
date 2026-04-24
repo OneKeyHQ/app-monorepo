@@ -17,13 +17,17 @@ import {
   Tabs,
   XStack,
   YStack,
+  useFocusedTab,
   useScrollContentTabBarOffset,
   useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -33,12 +37,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
+import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
@@ -107,6 +113,18 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
       return children;
     };
 
+function HistoryTabNotificationAlertSlot() {
+  const intl = useIntl();
+  const focusedTab = useFocusedTab();
+  const historyTabName = intl.formatMessage({
+    id: ETranslations.global_history,
+  });
+  if (focusedTab !== historyTabName) {
+    return null;
+  }
+  return <NotificationEnableAlert scene="txHistory" />;
+}
+
 function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
   const isSyncLoading = useIsAccountSelectorSyncLoading(0);
   if (isSyncLoading) {
@@ -151,6 +169,7 @@ export function HomePageView({
       ready,
       device,
       indexedAccount,
+      vaultSettings: cachedVaultSettings,
     },
   } = useActiveAccount({ num: 0 });
 
@@ -220,29 +239,59 @@ export function HomePageView({
     };
   }, [network, indexedAccount]);
 
-  const { vaultSettings, networkAccounts } = result.result ?? {};
+  const { vaultSettings: fetchedVaultSettings, networkAccounts } =
+    result.result ?? {};
+  // Use cached vaultSettings from activeAccountsAtom (coldStartCache) as
+  // fallback to avoid tab config change on first render.
+  const vaultSettings = fetchedVaultSettings ?? cachedVaultSettings;
 
   const isNFTEnabled =
-    vaultSettings?.NFTEnabled &&
-    networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? '');
+    // All Networks always supports NFT; for single network check vaultSettings
+    network?.isAllNetworks ||
+    (vaultSettings?.NFTEnabled &&
+      networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''));
 
-  const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
-  useEffect(() => {
-    const checkDeFiEnabled = async () => {
-      if (!network?.id) {
-        setIsDeFiEnabled(false);
-        return;
-      }
-      if (networkUtils.isAllNetwork({ networkId: network.id })) {
-        setIsDeFiEnabled(true);
-        return;
-      }
+  const { result: isDeFiEnabled = true } = usePromiseResult(
+    async () => {
+      if (!network?.id) return false;
+      if (networkUtils.isAllNetwork({ networkId: network.id })) return true;
       const enabledNetworks =
         await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-      setIsDeFiEnabled(!!enabledNetworks[network.id]);
-    };
-    void checkDeFiEnabled();
-  }, [network?.id]);
+      return !!enabledNetworks[network.id];
+    },
+    [network?.id],
+    {
+      initResult: true,
+      swrKey: network?.id ? swrKeys.defiEnabled(network.id) : undefined,
+    },
+  );
+
+  // DEBUG: trace tab config state changes
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { NativeLogger: NL, LogLevel: LL } =
+        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+      const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${network?.id ?? ''}-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
+      NL.write(
+        LL.Info,
+        `[LayoutDiag] HomePageView: ready=${ready}, isDeFi=${isDeFiEnabled}, isNFT=${isNFTEnabled}, ` +
+          `cachedVS=${!!cachedVaultSettings}, fetchedVS=${!!fetchedVaultSettings}, ` +
+          `networkId=${network?.id?.slice(-10) ?? 'nil'}, key=${key}`,
+      );
+    } catch {
+      /* */
+    }
+  }, [
+    ready,
+    isDeFiEnabled,
+    isNFTEnabled,
+    cachedVaultSettings,
+    fetchedVaultSettings,
+    network?.id,
+    account?.id,
+    account?.indexedAccountId,
+  ]);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -252,6 +301,10 @@ export function HomePageView({
   }, [wallet]);
 
   const isBulkRevokeApprovalEnabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING) {
+      return false;
+    }
+
     if (network?.isAllNetworks) {
       if (
         accountUtils.isOthersAccount({
@@ -267,6 +320,7 @@ export function HomePageView({
 
     return networksSupportBulkRevokeApproval[network?.id ?? ''] ?? false;
   }, [
+    wallet?.type,
     network?.isAllNetworks,
     network?.id,
     account?.id,
@@ -368,6 +422,13 @@ export function HomePageView({
   const renderHeader = useCallback(() => {
     return <HomeHeaderContainer />;
   }, []);
+
+  // Rendered on web only. On native the equivalent lives inside the history
+  // list's ListHeaderComponent so its height stays inside the list's measurer.
+  const renderSubHeader = useCallback(
+    () => <HistoryTabNotificationAlertSlot />,
+    [],
+  );
 
   const tabConfigs = useMemo(() => {
     return [
@@ -560,19 +621,24 @@ export function HomePageView({
         </Keyboard.AwareScrollView>
       );
     }
+    // Exclude isDeFiEnabled/isNFTEnabled from key to prevent Tabs.Container
+    // from being destroyed and recreated when these values change async.
+    // Tabs render conditionally inside the container instead.
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
-    }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
+    }`;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
+        headerHeight={platformEnv.isNative ? 312 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
         onTabChange={handleTabChange}
+        renderSubHeader={renderSubHeader}
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
@@ -586,13 +652,12 @@ export function HomePageView({
     tabContainerWidth,
     account?.id,
     account?.indexedAccountId,
-    isDeFiEnabled,
-    isNFTEnabled,
     isWalletNotBackedUp,
     network?.id,
     renderHeader,
     renderTabBar,
     handleTabChange,
+    renderSubHeader,
     tabConfigs,
   ]);
 
@@ -607,7 +672,14 @@ export function HomePageView({
   );
 
   useEffect(() => {
-    void Icon.prefetch('CloudOffOutline');
+    void Icon.prefetch(
+      'CloudOffOutline',
+      'ArrowTopOutline',
+      'ArrowBottomOutline',
+      'DotHorOutline',
+      'SearchOutline',
+      'BellOutline',
+    );
   }, []);
 
   // Wheel fired over page-shell gutters (BasicPage right margin / border) lands
@@ -790,12 +862,13 @@ export function HomePageView({
     tabs,
   ]);
 
-  // Initial heights based on typical header sizes on each platform
+  // Initial heights based on measured header sizes on each platform.
+  // iOS measured: 162 (raw 182 - 20 offset). Must match actual layout
+  // to prevent content shift when onLayout fires.
   const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
+    platformEnv.isNativeIOS ? 162 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    // Use the actual measured height without arbitrary adjustments
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);

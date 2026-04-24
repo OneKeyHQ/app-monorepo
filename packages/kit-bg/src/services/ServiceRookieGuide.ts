@@ -4,8 +4,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ERookieTaskType,
   type IRookieGuideInfo,
@@ -28,14 +30,19 @@ class ServiceRookieGuide extends ServiceBase {
     await this.backgroundApi.simpleDb.rookieGuide.activate();
     defaultLogger.rookieGuide.guide.activated();
 
-    const [taskProgress, balanceInfo, oneKeyId, instanceId] = await Promise.all(
-      [
-        this.getTaskProgress(),
-        this._getActiveFiatBalance(),
-        this._getOneKeyIdInfo(),
-        this.backgroundApi.serviceSetting.getInstanceId(),
-      ],
-    );
+    const [
+      taskProgress,
+      balanceInfo,
+      oneKeyId,
+      instanceId,
+      hyperliquidReferral,
+    ] = await Promise.all([
+      this.getTaskProgress(),
+      this._getActiveFiatBalance(),
+      this._getOneKeyIdInfo(),
+      this.backgroundApi.serviceSetting.getInstanceId(),
+      this._getHyperliquidReferralEligibility(),
+    ]);
 
     const result: IRookieGuideInfo = {
       fiatBalance: balanceInfo.balance,
@@ -43,6 +50,7 @@ class ServiceRookieGuide extends ServiceBase {
       oneKeyId,
       instanceId,
       taskProgress,
+      hyperliquidReferral,
     };
 
     defaultLogger.rookieGuide.guide.getInfo({
@@ -64,7 +72,7 @@ class ServiceRookieGuide extends ServiceBase {
     );
     defaultLogger.rookieGuide.guide.getProgress({
       completedTasks,
-      totalTasks: 5,
+      totalTasks: 6,
     });
     return progress;
   }
@@ -126,6 +134,70 @@ class ServiceRookieGuide extends ServiceBase {
       };
     } catch {
       return { isLoggedIn: false };
+    }
+  }
+
+  // Account identity (indexedAccountId / accountId) comes from the home scene
+  // selector so we target the same HD index the user is currently viewing.
+  // deriveType, however, must come from the user's GLOBAL EVM preference for
+  // PERPS_NETWORK_ID — the home scene's deriveType may be a non-EVM value
+  // (e.g. 'native_segwit' when home is on BTC) which would fail EVM resolution.
+  private async _getHyperliquidReferralEligibility(): Promise<
+    IRookieGuideInfo['hyperliquidReferral']
+  > {
+    try {
+      const homeSelected =
+        await this.backgroundApi.simpleDb.accountSelector.getSelectedAccount({
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+        });
+
+      const indexedAccountId = homeSelected?.indexedAccountId;
+      const accountId = indexedAccountId || homeSelected?.othersWalletAccountId;
+      if (!accountId) {
+        defaultLogger.rookieGuide.guide.hyperliquidReferralResolved({
+          skipped: 'no_account',
+        });
+        return undefined;
+      }
+
+      const deriveType =
+        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        });
+
+      const res =
+        await this.backgroundApi.serviceHyperliquidReferral.checkBannerReferralEligibility(
+          {
+            accountId,
+            indexedAccountId,
+            deriveType,
+          },
+        );
+
+      const result = {
+        eligible: res.shouldShow,
+        reason: res.reason ?? (res.shouldShow ? 'eligible' : 'unknown'),
+        address: res.resolvedAddress || undefined,
+      };
+
+      defaultLogger.rookieGuide.guide.hyperliquidReferralResolved({
+        accountId,
+        indexedAccountId,
+        deriveType,
+        eligible: result.eligible,
+        reason: result.reason,
+        address: result.address,
+      });
+
+      return result;
+    } catch (error) {
+      // Silent fail — errors here must not break the rest of the guide response
+      defaultLogger.rookieGuide.guide.hyperliquidReferralResolved({
+        skipped: 'catch_error',
+        catchError: (error as Error)?.message ?? String(error),
+      });
+      return undefined;
     }
   }
 

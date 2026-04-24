@@ -179,16 +179,16 @@ function MessageConfirmActions(props: IProps) {
           unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
           unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
         ) {
-          validateSignMessageData(unsignedMessage, network?.impl);
+          await validateSignMessageData(unsignedMessage, network?.impl);
         }
         if (unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V1) {
-          validateTypedSignMessageDataV1(unsignedMessage, network?.impl);
+          await validateTypedSignMessageDataV1(unsignedMessage, network?.impl);
         }
         if (
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4
         ) {
-          validateTypedSignMessageDataV3V4(
+          await validateTypedSignMessageDataV3V4(
             unsignedMessage,
             networkUtils.getNetworkChainId({ networkId }),
             network?.impl,

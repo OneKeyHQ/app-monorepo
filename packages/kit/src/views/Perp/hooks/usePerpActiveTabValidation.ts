@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react';
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
-const FIXED_TAB_IDS = ['favorites', 'all'] as const;
+const FIXED_TAB_IDS = ['favorites', 'all', 'spot'] as const;
 
 /**
  * Validates the active tab and resets to 'all' if the currently selected

@@ -71,6 +71,7 @@ export type ISettingsPersistAtom = {
   enableDesktopBluetooth?: boolean;
   enableBTCFreshAddress?: boolean;
   newBrowserTabPosition?: INewBrowserTabPosition;
+  enableMenuBarTray?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -108,6 +109,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   enableDesktopBluetooth: true,
   enableBTCFreshAddress: true,
   newBrowserTabPosition: 'bottom',
+  enableMenuBarTray: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

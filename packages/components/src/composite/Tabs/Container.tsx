@@ -103,6 +103,13 @@ export interface ITabContainerRef {
 export interface ITabContainerProps {
   renderHeader?: () => React.ReactNode;
   renderTabBar?: (props: TabBarProps<string>) => React.ReactNode;
+  /**
+   * Slot rendered below the sticky TabBar and above the virtualized tab
+   * content. Scrolls with the page flow (non-sticky) and slides behind the
+   * TabBar when the user scrolls down. Use this for per-tab banners that must
+   * not live inside the virtualized list's CellMeasurer cache.
+   */
+  renderSubHeader?: () => React.ReactNode;
   onIndexChange?: (index: number) => void;
   onTabChange?: (data: {
     prevIndex: number;
@@ -126,6 +133,7 @@ export function Container({
   children,
   renderHeader,
   renderTabBar = renderDefaultTabBar,
+  renderSubHeader,
   onIndexChange,
   onTabChange,
   width: containerWidth,
@@ -134,7 +142,10 @@ export function Container({
   disableScroll,
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
-  Pick<ITabContainerProps, 'disableScroll' | 'useNativeHeaderAnimation'>) {
+  Pick<
+    ITabContainerProps,
+    'disableScroll' | 'useNativeHeaderAnimation' | 'renderSubHeader'
+  >) {
   const getTabContentHeight = useCallback((element: Element | null) => {
     const htmlElement = element as HTMLElement | null;
     if (!htmlElement) {
@@ -433,6 +444,7 @@ export function Container({
                     onTabPress,
                     containerWidth,
                   } as any)}
+                  {renderSubHeader?.()}
                   <ContainerChild
                     containerWidth={containerWidth}
                     height={height}

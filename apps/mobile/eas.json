@@ -6,7 +6,11 @@
     "base": {
       "node": "24.13.0",
       "env": {
-        "EAS_USE_CACHE": "1"
+        "EAS_USE_CACHE": "1",
+        "ENABLE_NATIVE_BACKGROUND_THREAD": "true",
+        "SPLIT_BUNDLE": "1",
+        "SPLIT_BUNDLE_SEGMENTS": "true",
+        "UNION_BUILD": "true"
       },
       "android": {
         "image": "ubuntu-24.04-jdk-17-ndk-r27b",
@@ -83,6 +87,12 @@
         "credentialsSource": "local"
       }
     },
+    "qa-internal-startup-profile": {
+      "extends": "qa-internal",
+      "env": {
+        "ONEKEY_STARTUP_PROFILE": "1"
+      }
+    },
     "qa-internal-store": {
       "extends": "base",
       "distribution": "store",
@@ -101,20 +111,6 @@
         "enterpriseProvisioning": "universal",
         "buildConfiguration": "Release",
         "credentialsSource": "local"
-      }
-    },
-    "production-huawei": {
-      "extends": "base",
-      "distribution": "store",
-      "env": {
-        "ENVIRONMENT": "production"
-      },
-      "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleProdRelease",
-        "env": {
-          "ANDROID_CHANNEL": "huawei"
-        }
       }
     },
     "simulator": {
