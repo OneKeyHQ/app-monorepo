@@ -18,6 +18,7 @@ function DesktopBrowserInfoBar({
   onSearch,
   isTranslated,
   onTranslate,
+  onRetranslate,
   onTestAITranslateError,
 }: IWebTab & {
   goBack: () => void;
@@ -31,6 +32,7 @@ function DesktopBrowserInfoBar({
   onSearch: (url: string) => void;
   isTranslated?: boolean;
   onTranslate?: () => void;
+  onRetranslate?: () => void;
   onTestAITranslateError?: (testFlag: string) => void;
 }) {
   return (
@@ -50,6 +52,7 @@ function DesktopBrowserInfoBar({
       onSearch={onSearch}
       isTranslated={isTranslated}
       onTranslate={onTranslate}
+      onRetranslate={onRetranslate}
       onTestAITranslateError={onTestAITranslateError}
     />
   );

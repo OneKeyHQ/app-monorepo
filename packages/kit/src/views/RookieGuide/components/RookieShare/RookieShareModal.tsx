@@ -6,6 +6,7 @@ import type { useInPageDialog } from '@onekeyhq/components';
 import { Dialog, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
@@ -23,10 +24,16 @@ let isDialogShowing = false;
 interface IShareContentProps {
   data: IRookieShareData;
   onClose?: () => void;
+  actionTaken?: { current: boolean };
   isMobile?: boolean;
 }
 
-function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
+function ShareContent({
+  data,
+  onClose,
+  actionTaken,
+  isMobile,
+}: IShareContentProps) {
   const generatorRef = useRef<IRookieShareImageGeneratorRef | null>(null);
   const intl = useIntl();
 
@@ -35,7 +42,16 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     useShareActions(referralUrl);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
+  const trackAction = useCallback(
+    (action: 'save' | 'share' | 'copy' | 'x') => {
+      if (actionTaken) actionTaken.current = true;
+      defaultLogger.rookieGuide.share.shareRookieLink(action);
+    },
+    [actionTaken],
+  );
+
   const handleSaveImage = useCallback(async () => {
+    trackAction('save');
     setIsActionLoading(true);
     try {
       const generator: IRookieShareImageGeneratorRef | null =
@@ -72,9 +88,10 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [saveImage, intl]);
+  }, [saveImage, intl, trackAction]);
 
   const handleShareImage = useCallback(async () => {
+    trackAction('share');
     setIsActionLoading(true);
     try {
       const generator: IRookieShareImageGeneratorRef | null =
@@ -93,9 +110,15 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [shareImage]);
+  }, [shareImage, trackAction]);
+
+  const handleCopyLink = useCallback(() => {
+    trackAction('copy');
+    copyLink();
+  }, [copyLink, trackAction]);
 
   const handleShareToX = useCallback(async () => {
+    trackAction('x');
     setIsActionLoading(true);
     try {
       const generator: IRookieShareImageGeneratorRef | null =
@@ -119,7 +142,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [shareToX, title, onClose]);
+  }, [shareToX, title, onClose, trackAction]);
 
   const desktopLayout = (
     <YStack gap="$5">
@@ -129,7 +152,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
       <ControlPanel
         onSaveImage={handleSaveImage}
         onShareImage={handleShareImage}
-        onCopyLink={copyLink}
+        onCopyLink={handleCopyLink}
         onShareToX={handleShareToX}
         isLoading={isActionLoading}
         isMobile={false}
@@ -144,7 +167,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
       <ControlPanel
         onSaveImage={handleSaveImage}
         onShareImage={handleShareImage}
-        onCopyLink={copyLink}
+        onCopyLink={handleCopyLink}
         onShareToX={handleShareToX}
         isLoading={isActionLoading}
         isMobile
@@ -167,6 +190,13 @@ export function showRookieShareDialog(
 
   isDialogShowing = true;
 
+  defaultLogger.rookieGuide.share.enterRookieShare({
+    isLoggedIn: !!data.referralCode,
+    referralCode: data.referralCode ?? '',
+  });
+
+  const actionTaken = { current: false };
+
   try {
     const DialogInstance = dialog ?? Dialog;
 
@@ -186,12 +216,17 @@ export function showRookieShareDialog(
           onClose={() => {
             void dialogInstance.close();
           }}
+          actionTaken={actionTaken}
           isMobile={platformEnv.isNative}
         />
       ),
       showFooter: false,
       onClose: () => {
         isDialogShowing = false;
+        defaultLogger.rookieGuide.share.closeRookieShare({
+          didAction: actionTaken.current,
+          referralCode: data.referralCode ?? '',
+        });
       },
     });
 
