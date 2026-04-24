@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -26,7 +26,6 @@ import type {
 import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRecoveryPhraseProtected } from '../../../hooks/useRecoveryPhraseProtected/useRecoveryPhraseProtected';
 import {
   OnboardingHeading,
@@ -131,17 +130,24 @@ export default function BackupWalletReminder() {
     >();
 
   const [showingPhrase, setShowingPhrase] = useState(false);
+  const [mnemonic, setMnemonic] = useState('');
 
-  const { result: mnemonic = '' } = usePromiseResult(async () => {
+  // Fail-closed: this page must not render a synthetic mnemonic. If the
+  // caller failed to pass a valid encoded mnemonic (e.g. the upstream
+  // password prompt was cancelled), bail out instead of showing anything the
+  // user could mistake for their real recovery phrase.
+  useEffect(() => {
     const routeMnemonic = route.params?.mnemonic;
-    if (routeMnemonic) {
-      ensureSensitiveTextEncoded(routeMnemonic);
-      return backgroundApiProxy.servicePassword.decodeSensitiveText({
-        encodedText: routeMnemonic,
-      });
+    if (!routeMnemonic) {
+      navigation.popStack();
+      return;
     }
-    return backgroundApiProxy.serviceAccount.generateMnemonic();
-  }, [route.params?.mnemonic]);
+    try {
+      ensureSensitiveTextEncoded(routeMnemonic);
+    } catch {
+      navigation.popStack();
+    }
+  }, [navigation, route.params?.mnemonic]);
 
   const recoveryPhrase = useMemo(
     () => mnemonic.split(' ').filter(Boolean),
@@ -150,9 +156,19 @@ export default function BackupWalletReminder() {
 
   const { copyText } = useClipboard();
 
-  const handleShowPhrase = useCallback(() => {
+  // Decode lazily so the plaintext mnemonic is not in React state while the
+  // user is still reading the warning bullets — it only lands in memory when
+  // they actually tap "Show Recovery Phrase".
+  const handleShowPhrase = useCallback(async () => {
+    const routeMnemonic = route.params?.mnemonic;
+    if (!routeMnemonic) return;
+    const decoded =
+      await backgroundApiProxy.servicePassword.decodeSensitiveText({
+        encodedText: routeMnemonic,
+      });
+    setMnemonic(decoded);
     setShowingPhrase(true);
-  }, []);
+  }, [route.params?.mnemonic]);
 
   const handleCopyMnemonic = useCallback(() => {
     Dialog.show({

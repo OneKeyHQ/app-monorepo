@@ -22,6 +22,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useKeylessWalletFeatureIsEnabled } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   OnboardingHeading,
@@ -70,6 +71,7 @@ function CreateNewWallet() {
   const isWebKeylessSidePanelMode = Boolean(
     route?.params?.fromExt && autoLoginKeylessProvider,
   );
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
 
   const {
     enableKeylessWalletLoading,
@@ -103,7 +105,9 @@ function CreateNewWallet() {
   useAutoStartKeylessProvider({
     autoStartProvider: autoLoginKeylessProvider,
     autoStartTriggerKey: autoConnectNonce,
-    enabled: !enableKeylessWalletLoading,
+    enabled:
+      (isKeylessWalletEnabled || isWebKeylessSidePanelMode) &&
+      !enableKeylessWalletLoading,
     onGoogleLogin: handleGoogleLogin,
     onAppleLogin: handleAppleLogin,
   });
