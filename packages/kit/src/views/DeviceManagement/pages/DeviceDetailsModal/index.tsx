@@ -7,6 +7,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
   ProviderJotaiContextDeviceDetails,
+  useDeviceAtom,
   useDeviceDetailsActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
@@ -14,6 +15,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalDeviceManagementRoutes,
@@ -23,6 +25,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
 import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalStyle';
@@ -63,6 +66,10 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
   const { handleBackPress } = useDeviceBackNavigation();
 
   const isQrWallet = accountUtils.isQrWallet({ walletId });
+  const [device] = useDeviceAtom();
+  const isOnekeyDevice =
+    !isQrWallet &&
+    !getVendorProfile(device?.vendor ?? EHardwareVendor.onekey).isThirdParty;
 
   useEffect(() => {
     if (!walletId) return;
@@ -119,9 +126,8 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
           <XStack bg="$bgApp" gap="$8" alignItems="flex-start">
             <YStack gap="$8" flex={1}>
               <DeviceBasicInfo />
-              {isQrWallet ? (
-                <DeviceSectionQrInfo />
-              ) : (
+              {isQrWallet ? <DeviceSectionQrInfo /> : null}
+              {isOnekeyDevice ? (
                 <>
                   <DeviceUpdateAlert type="bottom" />
                   <DeviceSectionSupport
@@ -135,7 +141,7 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
                     onPressCheckForUpdates={onPressCheckForUpdates}
                   />
                 </>
-              )}
+              ) : null}
             </YStack>
             <DeviceGetStartedLayout />
           </XStack>

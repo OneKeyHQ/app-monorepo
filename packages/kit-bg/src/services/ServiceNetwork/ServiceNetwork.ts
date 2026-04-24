@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/consts/networkConsts';
 import { IMPL_BTC, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -1243,6 +1244,24 @@ class ServiceNetwork extends ServiceBase {
               .map((o) => o.network.id);
             networkIdsIncompatible =
               networkIdsIncompatible.concat(nonBtcNetworks);
+          }
+
+          // Filter by third-party vendor (e.g. Ledger).
+          // OneKey's own devices fall through — `isThirdParty` is false there
+          // and the whitelist doesn't apply to them.
+          const walletVendor = walletDevice.vendor;
+          if (walletVendor && getVendorProfile(walletVendor).isThirdParty) {
+            const networksNotSupportedByVendor = networkVaultSettings
+              .filter(
+                (o) =>
+                  !o.vaultSetting.supportedThirdPartyVendors?.includes(
+                    walletVendor,
+                  ),
+              )
+              .map((o) => o.network.id);
+            networkIdsIncompatible = networkIdsIncompatible.concat(
+              networksNotSupportedByVendor,
+            );
           }
         }
       } else if (isHdWallet) {
