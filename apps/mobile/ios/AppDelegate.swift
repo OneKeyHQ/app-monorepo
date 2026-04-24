@@ -94,7 +94,7 @@ private func isStartupProfileEnabled() -> Bool {
 
 /// Tracks which bundle `bundleURL()` returned as RN's initial bundle, so
 /// `handleHostDidStart` can decide whether the main entry bundle still needs
-/// to be loaded. In single-bundle Release builds (no `common.jsbundle`) the
+/// to be loaded. In single-bundle Release builds (no `common.bundle`) the
 /// initial bundle is already `main.jsbundle` and loading it again would
 /// double-evaluate module side effects.
 private enum InitialBundleKind {
@@ -347,7 +347,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(DEBUG): metroURL=\(metroURL?.absoluteString ?? "nil")")
     return metroURL
 #else
-    // In split-bundle mode the initial bundle is common.jsbundle (polyfills + shared modules).
+    // In split-bundle mode the initial bundle is common.bundle (polyfills + shared modules).
     // The entry-specific main.jsbundle is loaded later in handleHostDidStart via SplitBundleLoader.
 
     // Check for OTA-updated common bundle first
@@ -392,9 +392,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA main path not found, will fallback")
     }
 
-    // Three-bundle mode: initial bundle is common.jsbundle (polyfills + shared modules).
+    // Three-bundle mode: initial bundle is common.bundle (polyfills + shared modules).
     // Single-bundle mode: fall back to main.jsbundle (standard react-native bundle output).
-    let candidates: [(String, String)] = [("common", "jsbundle"), ("main", "jsbundle")]
+    let candidates: [(String, String)] = [("common", "bundle"), ("main", "jsbundle")]
     for (name, ext) in candidates {
       if let url = Bundle.main.url(forResource: name, withExtension: ext) {
         initialBundleKind = (name == "common") ? .common : .main
@@ -406,7 +406,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     }
 
     initialBundleKind = .none
-    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): no bundle found (common.jsbundle / main.jsbundle)")
+    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): no bundle found (common.bundle / main.jsbundle)")
     return nil
 #endif
   }
@@ -448,10 +448,10 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
 #if !DEBUG
     // Skip entry bundle loading when RN's initial bundle is already main.jsbundle
-    // (single-bundle Release: no common.jsbundle shipped, or legacy OTA pushed a
+    // (single-bundle Release: no common.bundle shipped, or legacy OTA pushed a
     // monolithic main.jsbundle). Re-evaluating the same file would double-run module
     // side effects (timers, subscriptions, global init). Only proceed when the
-    // initial bundle was common.jsbundle, which is the split-bundle mode contract.
+    // initial bundle was common.bundle, which is the split-bundle mode contract.
     if initialBundleKind != .common {
       NitroModuleBridge.logInfo("SplitBundle", "hostDidStart: initial bundle kind=\(initialBundleKind), skip main entry load to avoid double-evaluation")
     } else {
@@ -523,8 +523,8 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     BackgroundThreadBridge.startBackgroundRunner(entryURL: entryURL)
 #else
     // Release split-bundle: pass empty string so BackgroundRunnerReactNativeDelegate
-    // uses the default two-step strategy (common.jsbundle first, then background.bundle).
-    // Passing any non-empty path would bypass common.jsbundle loading.
+    // uses the default two-step strategy (common.bundle first, then background.bundle).
+    // Passing any non-empty path would bypass common.bundle loading.
     let bgStartAt = CFAbsoluteTimeGetCurrent()
     NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch (ios)")
     BackgroundThreadBridge.startBackgroundRunner(entryURL: "")
