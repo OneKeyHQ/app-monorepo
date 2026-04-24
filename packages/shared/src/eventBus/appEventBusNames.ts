@@ -56,6 +56,8 @@ export enum EAppEventBusNames {
   HardCloseHardwareUiStateDialog = 'CloseHardwareUiStateDialog',
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
+  GasAccountSubmitRetryScheduled = 'gasAccountSubmitRetryScheduled',
+  GasAccountSubmitRetryCleared = 'gasAccountSubmitRetryCleared',
   TokenListUpdate = 'TokenListUpdate',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',

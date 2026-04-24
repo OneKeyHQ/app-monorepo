@@ -23,7 +23,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IFeeInfoUnit,
+  IGasAccountScenario,
+} from '@onekeyhq/shared/types/fee';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -57,7 +60,20 @@ type IBuildUnsignedTxParams = {
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
   disableMev?: boolean;
+  // Gas Account scenario code for backend scenario gate.
+  // When omitted, resolved from stakingInfo/swapInfo/isInternalSwap flags; defaults to 'send'.
+  // Callers with scenarios not derivable from those flags (perps, dapp) must set it explicitly.
+  gasAccountScenario?: IGasAccountScenario;
 };
+
+function resolveGasAccountScenario(
+  params: IBuildUnsignedTxParams,
+): IGasAccountScenario {
+  if (params.gasAccountScenario) return params.gasAccountScenario;
+  if (params.isInternalSwap || params.swapInfo) return 'swap';
+  if (params.stakingInfo) return 'earn';
+  return 'send';
+}
 
 export type INavigationToMessageConfirmParams = {
   unsignedMessage: IUnsignedMessage;
@@ -189,6 +205,8 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           noop();
         }
 
+        const gasAccountScenario = resolveGasAccountScenario(params);
+
         if (sameModal) {
           navigation.push(target, {
             accountId,
@@ -201,6 +219,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             signOnly,
             useFeeInTx,
             feeInfoEditable,
+            gasAccountScenario,
           });
         } else {
           navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
@@ -216,6 +235,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               signOnly,
               useFeeInTx,
               feeInfoEditable,
+              gasAccountScenario,
             },
           });
         }
