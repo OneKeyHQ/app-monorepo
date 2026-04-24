@@ -11,6 +11,22 @@ import { AppError, ERROR_CODES } from '../../errors';
 import type { PassphraseMode } from '../../core/auth/auth-types';
 import type { CoreApi } from '@onekeyfe/hd-core';
 
+/**
+ * CLI-local analogue of `@onekeyhq/shared` `CoreSDKLoader`.
+ *
+ * Node 22 CJS runtime double-defaults `module.exports` when called via
+ * dynamic `import()`, so named exports from `@onekeyfe/hd-core` are
+ * unreachable that way. `require()` returns `module.exports` directly and
+ * preserves the named exports. The `.eslintrc.js` rule bans static imports
+ * of `@onekeyfe/hd-core`; route all value-level access through this helper
+ * so the `require` call stays in one audited place.
+ */
+export const CoreSDKLoader = async (): Promise<
+  typeof import('@onekeyfe/hd-core')
+> =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('@onekeyfe/hd-core') as typeof import('@onekeyfe/hd-core');
+
 // Promise-singleton: set on first call, reused by all concurrent callers.
 // Using a Promise instead of a boolean flag eliminates the race condition
 // where two concurrent ensureSDKReady() calls could both enter the init block
@@ -67,9 +83,7 @@ async function initSDK(): Promise<CoreApi> {
     NodeUsbTransport,
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { UI_EVENT, UI_REQUEST, UI_RESPONSE } =
-    require('@onekeyfe/hd-core') as typeof import('@onekeyfe/hd-core');
+  const { UI_EVENT, UI_REQUEST, UI_RESPONSE } = await CoreSDKLoader();
 
   sdk.on(
     UI_EVENT,

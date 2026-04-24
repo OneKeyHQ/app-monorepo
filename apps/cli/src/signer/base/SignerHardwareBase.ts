@@ -5,6 +5,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 
 import {
+  CoreSDKLoader,
   ensureSDKReady,
   installPassphraseProvider,
   resolvePassphraseStateByMode,
@@ -33,7 +34,7 @@ export interface ISignerHardwareDeps {
     deviceId: string,
     passphraseState: string,
     sessionId: string,
-  ) => void;
+  ) => Promise<void> | void;
   stderr: { write(chunk: string): boolean };
 }
 
@@ -49,11 +50,8 @@ export function createDefaultSignerHardwareDeps(): ISignerHardwareDeps {
     installPassphraseProvider,
     resolvePassphraseStateByMode,
     keychainFactory: () => new KeychainStorage(),
-    preloadSessionCache: (deviceId, passphraseState, sessionId) => {
-      // Lazy require: hd-core is external CJS; ESM default-interop breaks bundling.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { preloadSessionCache } =
-        require('@onekeyfe/hd-core') as typeof import('@onekeyfe/hd-core');
+    preloadSessionCache: async (deviceId, passphraseState, sessionId) => {
+      const { preloadSessionCache } = await CoreSDKLoader();
       preloadSessionCache(deviceId, passphraseState, sessionId);
     },
     stderr: process.stderr,
@@ -218,7 +216,11 @@ export abstract class SignerHardwareBase implements ISigner {
       // Warm the in-process SDK cache too. Idempotent — getPassphraseState
       // already populated it for this run, but doing it here keeps the path
       // consistent with how hardware-login-command primes the cache.
-      this.deps.preloadSessionCache(this.device.deviceId, state, sessionId);
+      await this.deps.preloadSessionCache(
+        this.device.deviceId,
+        state,
+        sessionId,
+      );
     } catch {
       // non-fatal — next run will pop pinentry once until the session is
       // rebuilt; no security or data-loss consequence.
@@ -258,7 +260,7 @@ export abstract class SignerHardwareBase implements ISigner {
       if (psBuf && sidBuf) {
         const passphraseState = psBuf.toString('utf-8');
         const sessionId = sidBuf.toString('utf-8');
-        this.deps.preloadSessionCache(
+        await this.deps.preloadSessionCache(
           this.device.deviceId,
           passphraseState,
           sessionId,

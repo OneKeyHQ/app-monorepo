@@ -19,6 +19,7 @@ import {
 } from '../../signer/keychain-keys';
 import { promptPassphraseViaPinentry } from '../../utils/pinentry';
 import {
+  CoreSDKLoader,
   ensureSDKReady,
   resolvePassphraseState,
   searchDevice,
@@ -228,9 +229,7 @@ export async function executeHardwareLoginCommand({
 
       // Preload session cache so evmGetAddress below doesn't re-prompt
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { preloadSessionCache } =
-          require('@onekeyfe/hd-core') as typeof import('@onekeyfe/hd-core');
+        const { preloadSessionCache } = await CoreSDKLoader();
         preloadSessionCache(resolvedDeviceId, passphraseState, sessionId);
       } catch {
         // non-fatal
