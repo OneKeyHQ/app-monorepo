@@ -7,6 +7,10 @@ import {
   useHyperliquidActions,
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  EActionType,
+  withToast,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -19,10 +23,16 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
+import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
 import { usePerpsTradingViewMessageHandler } from './messageHandlers';
 
-import type { ITVOrderCancelPayload, ITradeEvent } from './types';
+import type {
+  ITVOrderCancelPayload,
+  ITVOrderDraftCreatePayload,
+  ITVOrderPriceUpdatePayload,
+  ITradeEvent,
+} from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
@@ -225,48 +235,72 @@ export function TradingViewPerpsV2(
     setIsChartLinesReady(true);
   }, []);
 
-  // Callback when user clicks cancel button on order line in TradingView chart
   const onOrderCancel = useCallback(
     async (payload: ITVOrderCancelPayload) => {
-      const { symbol: orderSymbol, orderId } = payload;
+      const oid = Number.parseInt(payload.orderId ?? '', 10);
+      if (!Number.isFinite(oid)) return;
 
-      if (!orderId) {
-        console.warn('[TradingViewPerpsV2] Order cancel: missing orderId');
-        return;
-      }
-
+      // Message handler invokes this without await — swallow rejections to
+      // avoid leaking them as unhandled; errors are already surfaced via
+      // withToast inside cancelChartOrder / ensureTradingEnabled.
       try {
-        // Ensure trading is enabled before canceling
         await actions.current.ensureTradingEnabled();
-
-        // Get symbol metadata to obtain assetId
-        const symbolMeta =
-          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-            coin: orderSymbol,
-          });
-
-        if (!symbolMeta) {
-          console.warn(
-            '[TradingViewPerpsV2] Token info not found for coin:',
-            orderSymbol,
-          );
-          return;
-        }
-
-        // Cancel the order
-        await actions.current.cancelOrder({
-          orders: [
-            {
-              assetId: symbolMeta.assetId,
-              oid: parseInt(orderId, 10),
-            },
-          ],
-        });
-      } catch (error) {
-        console.error('[TradingViewPerpsV2] Failed to cancel order:', error);
+        await actions.current.cancelChartOrder({ oid });
+      } catch {
+        // intentional: toast owns the user-facing message
       }
     },
     [actions],
+  );
+
+  const onOrderDraftCreate = useCallback(
+    async (payload: ITVOrderDraftCreatePayload) => {
+      try {
+        await actions.current.ensureTradingEnabled();
+        await withToast({
+          asyncFn: () =>
+            backgroundApiProxy.serviceHyperliquidExchange.placeLimitOrderByCoin(
+              {
+                coin: payload.symbol,
+                isBuy: payload.side === 'buy',
+                size: payload.quantity,
+                price: payload.price,
+              },
+            ),
+          actionType: EActionType.PLACE_ORDER,
+        });
+      } catch {
+        // intentional: withToast owns the user-facing error message
+      }
+    },
+    [actions],
+  );
+
+  const onOrderPriceUpdate = useCallback(
+    async (payload: ITVOrderPriceUpdatePayload) => {
+      const oid = Number.parseInt(payload.orderId ?? '', 10);
+      if (!Number.isFinite(oid)) return;
+
+      try {
+        await actions.current.ensureTradingEnabled();
+        await actions.current.amendChartOrder({
+          coin: payload.symbol,
+          oid,
+          newPrice: payload.price,
+        });
+      } catch {
+        webRef.current?.sendMessageViaInjectedScript({
+          type: MESSAGE_TYPES.PERPS_TV_ORDER_PRICE_UPDATE_REJECTED,
+          payload: {
+            requestId: payload.requestId,
+            lineId: payload.lineId,
+            symbol: payload.symbol,
+            orderId: payload.orderId,
+          },
+        });
+      }
+    },
+    [actions, webRef],
   );
 
   const { customReceiveHandler } = usePerpsTradingViewMessageHandler({
@@ -275,6 +309,8 @@ export function TradingViewPerpsV2(
     webRef,
     onChartLinesReady,
     onOrderCancel,
+    onOrderDraftCreate,
+    onOrderPriceUpdate,
     onTouchScroll,
   });
 
