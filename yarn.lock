@@ -9836,7 +9836,7 @@ __metadata:
     "@rozenite/react-navigation-plugin": "npm:1.0.0-alpha.16"
     "@sentry/react-native": "npm:6.22.0"
     "@shopify/flash-list": "npm:2.2.0"
-    "@shopify/react-native-skia": "npm:^2.6.2"
+    "@shopify/react-native-skia": "npm:2.6.2"
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/react-native-compat": "npm:2.21.9"
     burnt: "npm:0.12.2"
@@ -15286,7 +15286,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@shopify/react-native-skia@npm:^2.6.2":
+"@shopify/react-native-skia@npm:2.6.2":
   version: 2.6.2
   resolution: "@shopify/react-native-skia@npm:2.6.2"
   dependencies:
