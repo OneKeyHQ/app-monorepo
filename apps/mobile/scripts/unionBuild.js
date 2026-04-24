@@ -23,6 +23,7 @@
  *     --assets-dest out-dir-bundle/ios/assets
  */
 
+const { spawn } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
@@ -113,6 +114,148 @@ const { sourceMapStringNonBlocking } = require(
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const bgEntry = path.resolve(mobileDirPath, 'background.ts');
+const projectRootPath = path.resolve(mobileDirPath, '../..');
+
+// Hermesc binary — same resolution as build-bundle.js keeps behaviour
+// identical across the two entry points. We need it here so segment sha256
+// hashes can be computed from the actual .seg.hbc bytes before the manifest
+// gets baked into common.bundle, instead of from the .seg.js text which no
+// longer matches what the native split-bundle-loader verifies at load time
+// (3.0.23+ enforces per-segment hash check; before then the mismatch was
+// tolerated and went unnoticed).
+const HERMES_PLATFORM_DIR =
+  process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
+const HERMES_COMMAND = path.join(
+  projectRootPath,
+  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+);
+
+function runHermescAsync({ outPath, inputPath }) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      HERMES_COMMAND,
+      [
+        '-O',
+        '-emit-binary',
+        '-output-source-map',
+        `-out=${outPath}`,
+        inputPath,
+      ],
+      { stdio: 'inherit' },
+    );
+    child.on('error', reject);
+    child.on('exit', (code, signal) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(
+          new Error(
+            `hermesc failed for ${inputPath} (code=${code}, signal=${signal})`,
+          ),
+        );
+      }
+    });
+  });
+}
+
+async function runWithConcurrencyLocal(tasks, concurrency) {
+  const results = [];
+  let index = 0;
+  const runOne = async () => {
+    while (index < tasks.length) {
+      const i = index;
+      index += 1;
+      results[i] = await tasks[i]();
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, tasks.length) }, runOne),
+  );
+  return results;
+}
+
+/**
+ * Resolve a manifest entry's `relativePath` (e.g. `segments/foo.seg.hbc`)
+ * to the absolute on-disk path of the matching `.seg.js` source file and
+ * the target `.seg.hbc` output path — both live next to each other inside
+ * apps/mobile/dist/.
+ */
+function resolveSegmentIoPaths(relativePath) {
+  const baseName = path.basename(relativePath, '.seg.hbc');
+  const segDir = path.join(
+    mobileDirPath,
+    'dist',
+    path.dirname(relativePath),
+  );
+  return {
+    jsPath: path.join(segDir, `${baseName}.seg.js`),
+    hbcPath: path.join(segDir, `${baseName}.seg.hbc`),
+  };
+}
+
+/**
+ * Compile every emitted `.seg.js` to `.seg.hbc` via hermesc, then rewrite
+ * each manifest entry's `sha256` and `size` to reflect the compiled bytes.
+ * Shared entries (same object reference in both manifests, or in the
+ * merged manifest's variant map) are updated in place so all three views
+ * stay consistent.
+ *
+ * Concurrency mirrors build-bundle.js's buildSegments to avoid regressing
+ * overall build time — buildSegments subsequently detects pre-compiled
+ * .seg.hbc on disk and skips its own hermesc call.
+ */
+async function compileEmittedSegmentsAndRewriteSha256({
+  mainManifest,
+  backgroundManifest,
+}) {
+  // relativePath -> array of manifest entries whose sha256 must be refreshed
+  // after this path's .seg.hbc is written. Shared entries show up in both
+  // manifests; collect without dedupe so every live reference gets the
+  // update (mutating one may not reach the other in every case).
+  const entriesByRelativePath = new Map();
+  const collect = (manifest) => {
+    for (const [, record] of Object.entries(manifest.segments)) {
+      for (const entry of getManifestRecordEntries(record)) {
+        const rel = entry.relativePath;
+        if (!rel) continue;
+        if (!entriesByRelativePath.has(rel)) {
+          entriesByRelativePath.set(rel, []);
+        }
+        entriesByRelativePath.get(rel).push(entry);
+      }
+    }
+  };
+  collect(mainManifest);
+  collect(backgroundManifest);
+
+  const relativePaths = [...entriesByRelativePath.keys()];
+  if (relativePaths.length === 0) return;
+
+  const concurrency = parseInt(
+    process.env.SEGMENT_BUILD_CONCURRENCY || '4',
+    10,
+  );
+  const tasks = relativePaths.map((relativePath) => async () => {
+    const { jsPath, hbcPath } = resolveSegmentIoPaths(relativePath);
+    await runHermescAsync({ inputPath: jsPath, outPath: hbcPath });
+    const hbcBytes = fs.readFileSync(hbcPath);
+    const hbcSha = sha256(hbcBytes);
+    const hbcSize = hbcBytes.length;
+    for (const entry of entriesByRelativePath.get(relativePath)) {
+      entry.sha256 = hbcSha;
+      entry.size = hbcSize;
+    }
+  });
+
+  console.log(
+    `[unionBuild] Compiling ${relativePaths.length} segment(s) to .seg.hbc and rewriting manifest sha256 (concurrency=${concurrency})`,
+  );
+  const hermescStart = Date.now();
+  await runWithConcurrencyLocal(tasks, concurrency);
+  console.log(
+    `[unionBuild] Segment hermesc done in ${((Date.now() - hermescStart) / 1000).toFixed(1)}s`,
+  );
+}
 
 function ensureProductionBuildEnv() {
   process.env.NODE_ENV = 'production';
@@ -1323,6 +1466,24 @@ async function writeSegments({
       backgroundRuntime.segmentAbsPathsByKey.get(segmentKey) || new Set(),
     );
   }
+
+  // Compile each emitted .seg.js to .seg.hbc via hermesc NOW — before
+  // the manifest is finalized / baked into common.bundle — so the sha256
+  // field on every manifest entry can be the hash of the actual .seg.hbc
+  // bytes that ship to the device. Without this step the sha256 would be
+  // the hash of the .seg.js text (what `emitSegment` defaults to), which
+  // the native split-bundle-loader (3.0.23+) rejects at load time with
+  // "Segment SHA-256 mismatch" because it hashes .seg.hbc at runtime.
+  //
+  // Hermesc is deterministic given same input + same version, so running
+  // it here and again later in build-bundle.js's buildSegments would
+  // produce byte-identical .seg.hbc — but we make buildSegments detect
+  // the already-compiled file and skip the redundant work to keep total
+  // build time the same.
+  await compileEmittedSegmentsAndRewriteSha256({
+    mainManifest,
+    backgroundManifest,
+  });
 
   const mergedManifest = mergeSegmentManifests(
     mainManifest,
