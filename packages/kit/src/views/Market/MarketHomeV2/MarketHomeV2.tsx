@@ -95,7 +95,7 @@ const useMarketHomeLayoutProps = () => {
       (item) => item.id === spotCategoryToSelect,
     );
     if (!hasTargetCategory) {
-      if (isMarketBasicConfigLoading) {
+      if (isMarketBasicConfigLoading !== false) {
         return;
       }
 
