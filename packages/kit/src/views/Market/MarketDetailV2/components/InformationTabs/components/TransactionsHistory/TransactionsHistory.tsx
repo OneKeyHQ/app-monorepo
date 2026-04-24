@@ -220,10 +220,7 @@ export function TransactionsHistoryBase({
   }, [networkId, tokenAddress]);
 
   const flushPendingTouchResume = useCallback(() => {
-    if (
-      !hasPendingTouchResumeRef.current ||
-      isMomentumScrollingRef.current
-    ) {
+    if (!hasPendingTouchResumeRef.current || isMomentumScrollingRef.current) {
       return;
     }
 
@@ -347,8 +344,7 @@ export function TransactionsHistoryBase({
                 onScrollEndDrag: handleRealtimePauseNativeScrollEndDrag,
                 onMomentumScrollBegin:
                   handleRealtimePauseNativeMomentumScrollBegin,
-                onMomentumScrollEnd:
-                  handleRealtimePauseNativeMomentumScrollEnd,
+                onMomentumScrollEnd: handleRealtimePauseNativeMomentumScrollEnd,
               }
             : undefined)}
           ListEmptyComponent={

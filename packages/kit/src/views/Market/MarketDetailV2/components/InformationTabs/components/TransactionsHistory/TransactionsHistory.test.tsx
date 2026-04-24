@@ -22,8 +22,10 @@ const mockHandleRealtimePauseHoverOut = jest.fn();
 const mockHandleRealtimePauseTouchStart = jest.fn();
 const mockHandleRealtimePauseTouchEnd = jest.fn();
 const mockTransactionsRelativeTimeProvider = jest.fn();
-let mockFlatListProps: Record<string, ((...args: unknown[]) => void) | unknown> =
-  {};
+let mockFlatListProps: Record<
+  string,
+  ((...args: unknown[]) => void) | unknown
+> = {};
 
 const mockMarketTransactionsResult = {
   transactions: [] as IMarketTokenTransaction[],
@@ -233,12 +235,8 @@ describe('TransactionsHistory', () => {
     );
 
     act(() => {
-      (
-        mockFlatListProps.onTouchStart as (() => void) | undefined
-      )?.();
-      (
-        mockFlatListProps.onScrollBeginDrag as (() => void) | undefined
-      )?.();
+      (mockFlatListProps.onTouchStart as (() => void) | undefined)?.();
+      (mockFlatListProps.onScrollBeginDrag as (() => void) | undefined)?.();
       (mockFlatListProps.onTouchEnd as (() => void) | undefined)?.();
     });
 
@@ -246,12 +244,8 @@ describe('TransactionsHistory', () => {
     expect(mockResumeRealtimeUpdates).not.toHaveBeenCalled();
 
     act(() => {
-      (
-        mockFlatListProps.onMomentumScrollBegin as (() => void) | undefined
-      )?.();
-      (
-        mockFlatListProps.onMomentumScrollEnd as (() => void) | undefined
-      )?.();
+      (mockFlatListProps.onMomentumScrollBegin as (() => void) | undefined)?.();
+      (mockFlatListProps.onMomentumScrollEnd as (() => void) | undefined)?.();
     });
 
     expect(mockResumeRealtimeUpdates).toHaveBeenCalledTimes(1);
