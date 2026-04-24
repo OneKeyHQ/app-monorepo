@@ -117,6 +117,17 @@ export interface ICancelOrderParams {
   oid: number;
 }
 
+export interface IModifyOrderParams {
+  oid: number;
+  assetId: number;
+  isBuy: boolean;
+  // HL modify is not a patch: callers must pass full current values even when only amending price.
+  sz: string;
+  price: string;
+  reduceOnly?: boolean;
+  orderType?: { limit: { tif: 'Gtc' | 'Ioc' | 'Alo' } };
+}
+
 export interface IWithdrawParams extends IWithdraw3Request {
   userAccountId: string;
 }
