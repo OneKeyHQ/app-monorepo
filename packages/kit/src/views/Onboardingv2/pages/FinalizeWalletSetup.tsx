@@ -74,6 +74,20 @@ const fixErrorString = (errorMessage: string) => {
   return errorMessage;
 };
 
+// EncryptingData is declared in the enum but never emitted; fall back to the
+// CreatingWallet copy so the UI has something to show if it ever appears.
+const STEP_MESSAGE_IDS: Record<EFinalizeWalletSetupSteps, ETranslations> = {
+  [EFinalizeWalletSetupSteps.ConnectingDevice]:
+    ETranslations.connecting_your_device,
+  [EFinalizeWalletSetupSteps.CreatingWallet]:
+    ETranslations.onboarding_finalize_creating_wallet,
+  [EFinalizeWalletSetupSteps.GeneratingAccounts]:
+    ETranslations.onboarding_finalize_generating_accounts,
+  [EFinalizeWalletSetupSteps.EncryptingData]:
+    ETranslations.onboarding_finalize_creating_wallet,
+  [EFinalizeWalletSetupSteps.Ready]: ETranslations.your_wallet_is_ready,
+};
+
 function StepTextSwap({ text }: { text: string }) {
   return (
     <YStack
@@ -400,24 +414,7 @@ function FinalizeWalletSetupPage({
   const { gtMd } = useMedia();
 
   const isReady = currentStep === EFinalizeWalletSetupSteps.Ready;
-  // Keep step captions reactive to runtime locale changes within the same app session.
-  const stepCopy: Partial<Record<EFinalizeWalletSetupSteps, string>> = {
-    [EFinalizeWalletSetupSteps.ConnectingDevice]: intl.formatMessage({
-      id: ETranslations.connecting_your_device,
-    }),
-    [EFinalizeWalletSetupSteps.CreatingWallet]: intl.formatMessage({
-      id: ETranslations.onboarding_finalize_creating_wallet,
-    }),
-    [EFinalizeWalletSetupSteps.GeneratingAccounts]: intl.formatMessage({
-      id: ETranslations.onboarding_finalize_generating_accounts,
-    }),
-    [EFinalizeWalletSetupSteps.Ready]: intl.formatMessage({
-      id: ETranslations.your_wallet_is_ready,
-    }),
-  };
-  const stepText =
-    stepCopy[currentStep] ??
-    stepCopy[EFinalizeWalletSetupSteps.CreatingWallet]!;
+  const stepText = intl.formatMessage({ id: STEP_MESSAGE_IDS[currentStep] });
 
   // Breathe up to 0.8 during active steps; on Ready fade to a faint hold
   // (0.15) so the orb visibly "settles" before the user taps Enter wallet.

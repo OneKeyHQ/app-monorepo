@@ -217,6 +217,21 @@ function OneKeyIDLoginPage() {
     await handleSocialLogin(EOAuthSocialLoginProvider.Apple);
   }, [handleSocialLogin]);
 
+  const title = isVerifyMode
+    ? intl.formatMessage({ id: ETranslations.keyless_verify_identity_title })
+    : intl.formatMessage({ id: ETranslations.select_your_email });
+  const desc = isVerifyMode
+    ? intl.formatMessage(
+        { id: ETranslations.keyless_verify_identity_desc },
+        {
+          provider:
+            requiredProvider === EOAuthSocialLoginProvider.Apple
+              ? 'Apple'
+              : 'Google',
+        },
+      )
+    : intl.formatMessage({ id: ETranslations.select_your_email_desc });
+
   return (
     <OnboardingPage
       scrollable={!platformEnv.isNative}
@@ -224,27 +239,9 @@ function OneKeyIDLoginPage() {
       contentContainerProps={{ gap: '$10' }}
     >
       <YStack gap="$2">
-        <SizableText size="$heading3xl">
-          {isVerifyMode
-            ? intl.formatMessage({
-                id: ETranslations.keyless_verify_identity_title,
-              })
-            : intl.formatMessage({ id: ETranslations.select_your_email })}
-        </SizableText>
+        <SizableText size="$heading3xl">{title}</SizableText>
         <SizableText size="$bodyLg" color="$textSubdued">
-          {isVerifyMode
-            ? intl.formatMessage(
-                { id: ETranslations.keyless_verify_identity_desc },
-                {
-                  provider:
-                    requiredProvider === EOAuthSocialLoginProvider.Apple
-                      ? 'Apple'
-                      : 'Google',
-                },
-              )
-            : intl.formatMessage({
-                id: ETranslations.select_your_email_desc,
-              })}
+          {desc}
         </SizableText>
       </YStack>
       <YStack gap="$3">

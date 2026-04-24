@@ -10,7 +10,6 @@ import {
   SizableText,
   Video,
   XStack,
-  YStack,
   resetToRoute,
   useThemeName,
 } from '@onekeyhq/components';
@@ -134,19 +133,18 @@ function ConnectQRCodePage() {
           </ConnectionIndicator.Content>
         </ConnectionIndicator.Card>
       </ConnectionIndicator>
-      <YStack pt="$1" alignItems="center">
-        {/* Keep the help entry outside the card while staying inside the new page shell. */}
-        <Anchor
-          href="https://help.onekey.so/articles/11461088"
-          target="_blank"
-          size="$bodySm"
-          color="$textSubdued"
-        >
-          {intl.formatMessage({
-            id: ETranslations.learn_more_about_qr_code_wallet,
-          })}
-        </Anchor>
-      </YStack>
+      <Anchor
+        href="https://help.onekey.so/articles/11461088"
+        target="_blank"
+        size="$bodySm"
+        color="$textSubdued"
+        alignSelf="center"
+        mt="$1"
+      >
+        {intl.formatMessage({
+          id: ETranslations.learn_more_about_qr_code_wallet,
+        })}
+      </Anchor>
     </OnboardingPage>
   );
 }
