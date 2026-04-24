@@ -36,13 +36,22 @@ export function useSpotMetaMaps() {
     };
   }, []);
 
-  const universeByBaseName = useMemo(
-    () =>
-      Object.fromEntries(
-        spotUniverses.map((universe) => [universe.baseName, universe]),
-      ) as Record<string, ISpotUniverse>,
-    [spotUniverses],
-  );
+  const universeByBaseName = useMemo(() => {
+    const map: Record<string, ISpotUniverse> = {};
+    // First pass: prefer USDC-quoted pair so default switch lands on USDC.
+    for (const u of spotUniverses) {
+      if (u.quoteName === 'USDC') {
+        map[u.baseName] = u;
+      }
+    }
+    // Second pass: fill remaining base coins with any quote.
+    for (const u of spotUniverses) {
+      if (!map[u.baseName]) {
+        map[u.baseName] = u;
+      }
+    }
+    return map;
+  }, [spotUniverses]);
 
   return {
     spotUniverses,
