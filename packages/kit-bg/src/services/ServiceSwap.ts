@@ -1634,6 +1634,26 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
+  private async clearLocalPendingTxForTerminalSwap(
+    swapTxHistory: ISwapTxHistory,
+  ) {
+    const txId = swapTxHistory.txInfo.txId;
+    if (!txId) {
+      return;
+    }
+
+    try {
+      await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId({
+        accountId: swapTxHistory.accountInfo.sender.accountId,
+        networkId: swapTxHistory.baseInfo.fromToken.networkId,
+        txid: txId,
+        accountAddress: swapTxHistory.txInfo.sender,
+      });
+    } catch (error) {
+      console.error('Clear swap local pending tx error', error);
+    }
+  }
+
   async swapHistoryStatusRunFetch(swapTxHistory: ISwapTxHistory) {
     let enableInterval = true;
     let currentSwapTxHistory = cloneDeep(swapTxHistory);
@@ -1691,6 +1711,12 @@ export default class ServiceSwap extends ServiceBase {
           },
         };
         await this.updateSwapHistoryItem(currentSwapTxHistory);
+        if (
+          txStatusRes?.state === ESwapTxHistoryStatus.FAILED ||
+          txStatusRes?.state === ESwapTxHistoryStatus.CANCELED
+        ) {
+          await this.clearLocalPendingTxForTerminalSwap(currentSwapTxHistory);
+        }
         if (
           currentSwapTxHistory.crossChainStatus ===
             ESwapCrossChainStatus.FROM_SUCCESS ||
