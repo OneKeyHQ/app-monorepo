@@ -42,6 +42,7 @@ import {
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  NotImplemented,
   OneKeyInternalError,
   OneKeyLocalError,
   VaultKeyringNotDefinedError,
@@ -49,6 +50,7 @@ import {
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { VaultFactory } from './base/VaultFactory';
 
@@ -60,7 +62,10 @@ export async function createKeyringInstance(vault: VaultBase) {
   const { walletId } = vault;
 
   let keyring: KeyringBase | null = null;
-  const keyringMap = vault.keyringMap as Record<string, typeof KeyringBaseMock>;
+  const keyringMap = vault.keyringMap as unknown as Record<
+    string,
+    typeof KeyringBaseMock
+  >;
 
   const checkKeyringClassExists = (
     keyringClass: typeof KeyringBaseMock,
@@ -85,8 +90,34 @@ export async function createKeyringInstance(vault: VaultBase) {
     keyring = new keyringMap.qr(vault);
   }
   if (walletId.startsWith('hw-')) {
-    checkKeyringClassExists(keyringMap.hw);
-    keyring = new keyringMap.hw(vault);
+    // Exhaustive switch: adding a new EHardwareVendor without handling it
+    // here will fail to compile (the `never` assertion in `default`).
+    const vendor = vault.options.hardwareVendor;
+    switch (vendor) {
+      case EHardwareVendor.ledger:
+        if (!keyringMap.hwLedger) {
+          throw new NotImplemented(`Ledger does not support this chain yet`);
+        }
+        keyring = new keyringMap.hwLedger(vault);
+        break;
+      case EHardwareVendor.trezor:
+        if (!keyringMap.hwTrezor) {
+          throw new NotImplemented(`Trezor does not support this chain yet`);
+        }
+        keyring = new keyringMap.hwTrezor(vault);
+        break;
+      case EHardwareVendor.onekey:
+      case undefined:
+        checkKeyringClassExists(keyringMap.hw);
+        keyring = new keyringMap.hw(vault);
+        break;
+      default: {
+        const _exhaustive: never = vendor;
+        throw new OneKeyInternalError(
+          `Unknown hardware vendor: ${String(_exhaustive)}`,
+        );
+      }
+    }
   }
   if (walletId === WALLET_TYPE_WATCHING) {
     checkKeyringClassExists(keyringMap.watching);

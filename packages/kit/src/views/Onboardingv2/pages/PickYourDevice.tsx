@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
@@ -30,7 +31,13 @@ export default function PickYourDevice() {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const DEVICES = useMemo(() => {
-    const devices = [
+    const devices: {
+      name: string;
+      deviceType: EDeviceType[];
+      image?: ReturnType<typeof require>;
+      tags?: string[];
+      vendor?: EHardwareVendor;
+    }[] = [
       {
         name: 'OneKey Pro',
         deviceType: [EDeviceType.Pro],
@@ -51,6 +58,11 @@ export default function PickYourDevice() {
         name: 'OneKey Mini',
         deviceType: [EDeviceType.Mini],
         image: require('@onekeyhq/kit/assets/pick-mini.png'),
+      },
+      {
+        name: 'Ledger',
+        deviceType: [],
+        vendor: EHardwareVendor.ledger,
       },
     ];
 
@@ -82,7 +94,7 @@ export default function PickYourDevice() {
               alignContent: 'stretch',
             }}
           >
-            {DEVICES.map(({ name, tags, image, deviceType }, index) => (
+            {DEVICES.map(({ name, tags, image, deviceType, vendor }, index) => (
               <YStack
                 key={name}
                 animateOnly={ANIMATE_ONLY_BACKGROUND_COLOR}
@@ -109,11 +121,19 @@ export default function PickYourDevice() {
                 gap="$3"
                 group
                 onPress={() => {
-                  void navigation.push(EOnboardingPagesV2.ConnectYourDevice, {
-                    deviceType,
-                  });
+                  const navParams: {
+                    deviceType: EDeviceType[];
+                    vendor?: EHardwareVendor;
+                  } = { deviceType };
+                  if (vendor) {
+                    navParams.vendor = vendor;
+                  }
+                  void navigation.push(
+                    EOnboardingPagesV2.ConnectYourDevice,
+                    navParams,
+                  );
                   defaultLogger.onboarding.page.pickYourDevice(
-                    deviceType.join(','),
+                    vendor || deviceType.join(','),
                   );
                 }}
               >
@@ -137,35 +157,37 @@ export default function PickYourDevice() {
                     ))}
                   </XStack>
                 ) : null}
-                <YStack
-                  position="absolute"
-                  animation="quick"
-                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                  enterStyle={{
-                    opacity: 0,
-                    y: 16,
-                  }}
-                  left="50%"
-                  top={0}
-                  right={0}
-                  bottom={0}
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Image
-                    $group-hover={{
-                      y: -4,
+                {image ? (
+                  <YStack
+                    position="absolute"
+                    animation="quick"
+                    animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                    enterStyle={{
+                      opacity: 0,
+                      y: 16,
                     }}
-                    style={{
-                      transition:
-                        'transform 150ms cubic-bezier(.455, .03, .515, .955)',
-                    }}
-                    source={image}
-                    width="100%"
-                    height="90%"
-                    resizeMode="contain"
-                  />
-                </YStack>
+                    left="50%"
+                    top={0}
+                    right={0}
+                    bottom={0}
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <Image
+                      $group-hover={{
+                        y: -4,
+                      }}
+                      style={{
+                        transition:
+                          'transform 150ms cubic-bezier(.455, .03, .515, .955)',
+                      }}
+                      source={image}
+                      width="100%"
+                      height="90%"
+                      resizeMode="contain"
+                    />
+                  </YStack>
+                ) : null}
               </YStack>
             ))}
           </YStack>

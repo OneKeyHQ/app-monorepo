@@ -44,7 +44,7 @@ export class CloudSyncFlowManagerBotWallet extends CloudSyncFlowManagerBase<
   }: {
     target: ICloudSyncTargetBotWallet;
   }): Promise<string> {
-    const { rawKey } = cloudSyncItemBuilder.buildWalletSyncKey({
+    const result = cloudSyncItemBuilder.buildWalletSyncKey({
       dataType: EPrimeCloudSyncDataType.BotWallet,
       wallet: (target.wallet ??
         ({
@@ -58,7 +58,9 @@ export class CloudSyncFlowManagerBotWallet extends CloudSyncFlowManagerBase<
       accountIndex: undefined,
     });
 
-    return rawKey;
+    if (!result) return '';
+
+    return result.rawKey;
   }
 
   override async buildSyncPayload({
