@@ -599,7 +599,7 @@ class DesktopApiAppUpdate {
   // APPIMAGE is never injected via esbuild `define`.
   private canAutoInstallAppImage(): boolean {
     // eslint-disable-next-line @typescript-eslint/dot-notation -- runtime env, not a build flag
-    const appImagePath = process.env.APPIMAGE;
+    const appImagePath = process.env['APPIMAGE'];
     if (!appImagePath || appImagePath.trim().length === 0) {
       logger.warn(
         'auto-updater',
