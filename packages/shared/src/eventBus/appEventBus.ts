@@ -26,7 +26,11 @@ import platformEnv from '../platformEnv';
 import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
-import type { IDeFiProtocol, IProtocolSummary } from '../../types/defi';
+import type {
+  IDeFiProtocol,
+  IFetchAccountDeFiPositionsResp,
+  IProtocolSummary,
+} from '../../types/defi';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type {
@@ -238,24 +242,16 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
   [EAppEventBusNames.LocalPendingTxConfirmed]: {
     accountId: string;
+    indexedAccountId?: string;
     networkId: string;
     txid: string;
     status: EDecodedTxStatus;
-    accountAddress?: string;
-    xpub?: string;
   };
   [EAppEventBusNames.DeFiPositionRefreshed]: {
     accountId: string;
+    indexedAccountId?: string;
     networkId: string;
-    overview: {
-      totalValue: number;
-      totalDebt: number;
-      totalReward: number;
-      netWorth: number;
-      chains: string[];
-      protocolCount: number;
-      positionCount: number;
-    };
+    overview: IFetchAccountDeFiPositionsResp['data']['totals'];
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
   };

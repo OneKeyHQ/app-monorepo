@@ -228,17 +228,22 @@ class ServiceHistory extends ServiceBase {
 
     // Notify subscribers (e.g. DeFi scheduler) that locally-pending txs
     // submitted by this app have just transitioned to confirmed/failed.
+    // Resolve indexedAccountId so UI subscribers in All Networks mode (where
+    // the active account.id may not share a walletId with the tx's per-
+    // network accountId) can do a reliable equality match.
     for (const tx of confirmedTxs) {
-      try {
-        appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
-          accountId: tx.decodedTx.accountId,
-          networkId: tx.decodedTx.networkId,
-          txid: tx.decodedTx.txid,
-          status: tx.decodedTx.status,
+      const txAccountId = tx.decodedTx.accountId;
+      const txDBAccount =
+        await this.backgroundApi.serviceAccount.getDBAccountSafe({
+          accountId: txAccountId,
         });
-      } catch {
-        // swallow per-tx emit failures to avoid affecting history pipeline
-      }
+      appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+        accountId: txAccountId,
+        indexedAccountId: txDBAccount?.indexedAccountId,
+        networkId: tx.decodedTx.networkId,
+        txid: tx.decodedTx.txid,
+        status: tx.decodedTx.status,
+      });
     }
 
     // 3. Get the locally confirmed transactions

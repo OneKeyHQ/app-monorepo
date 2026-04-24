@@ -8,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -47,12 +48,11 @@ class ServiceDeFi extends ServiceBase {
 
   // Offsets (ms) from a local tx being confirmed at which we force-refresh
   // the DeFi portfolio for that chain. Covers indexer lag after the tx lands.
-  private readonly _FORCE_REFRESH_OFFSETS_MS = [40_000, 80_000] as const;
+  private readonly _deFiForceRefreshOffsetsMs = [40_000, 80_000] as const;
 
-  // Per (accountId + networkId) pending timers; newer txs reset the schedule.
   private _deFiForceRefreshTimers = new Map<
     string,
-    { timers: ReturnType<typeof setTimeout>[]; scheduledAt: number }
+    ReturnType<typeof setTimeout>[]
   >();
 
   _localDeFiOverviewCache: Record<
@@ -134,6 +134,7 @@ class ServiceDeFi extends ServiceBase {
       targetCurrencyInfo,
       saveToLocal,
       isForceRefresh,
+      abortable = true,
     } = params;
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
@@ -155,7 +156,9 @@ class ServiceDeFi extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
 
     const controller = new AbortController();
-    this._fetchAccountDeFiPositionsControllers.push(controller);
+    if (abortable) {
+      this._fetchAccountDeFiPositionsControllers.push(controller);
+    }
 
     let accountAddress = params.accountAddress;
     let xpub = params.xpub;
@@ -291,9 +294,9 @@ class ServiceDeFi extends ServiceBase {
   }
 
   private _cancelDeFiForceRefresh(key: string) {
-    const entry = this._deFiForceRefreshTimers.get(key);
-    if (!entry) return;
-    entry.timers.forEach((t) => clearTimeout(t));
+    const timers = this._deFiForceRefreshTimers.get(key);
+    if (!timers) return;
+    timers.forEach((t) => clearTimeout(t));
     this._deFiForceRefreshTimers.delete(key);
   }
 
@@ -305,15 +308,10 @@ class ServiceDeFi extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async onLocalTxConfirmedForDeFi(payload: {
-    accountId: string;
-    networkId: string;
-    status: EDecodedTxStatus;
-    txid?: string;
-    accountAddress?: string;
-    xpub?: string;
-  }) {
-    const { accountId, networkId, status } = payload;
+  public async onLocalTxConfirmedForDeFi(
+    payload: IAppEventBusPayload[EAppEventBusNames.LocalPendingTxConfirmed],
+  ) {
+    const { accountId, indexedAccountId, networkId, status } = payload;
 
     if (!accountId || !networkId) return;
 
@@ -328,23 +326,31 @@ class ServiceDeFi extends ServiceBase {
     // Coalesce multiple confirmed txs: reset the schedule to the latest one.
     this._cancelDeFiForceRefresh(key);
 
-    const timers = this._FORCE_REFRESH_OFFSETS_MS.map((offset) =>
+    const maxOffset = Math.max(...this._deFiForceRefreshOffsetsMs);
+    const timers = this._deFiForceRefreshOffsetsMs.map((offset) =>
       setTimeout(() => {
-        void this._runDeFiForceRefresh({ accountId, networkId });
+        void this._runDeFiForceRefresh({
+          accountId,
+          indexedAccountId,
+          networkId,
+        });
+        // After the last scheduled offset fires, drop the Map entry so it
+        // does not linger once every timer has run.
+        if (offset === maxOffset) {
+          this._deFiForceRefreshTimers.delete(key);
+        }
       }, offset),
     );
 
-    this._deFiForceRefreshTimers.set(key, {
-      timers,
-      scheduledAt: Date.now(),
-    });
+    this._deFiForceRefreshTimers.set(key, timers);
   }
 
   private async _runDeFiForceRefresh(params: {
     accountId: string;
+    indexedAccountId?: string;
     networkId: string;
   }) {
-    const { accountId, networkId } = params;
+    const { accountId, indexedAccountId, networkId } = params;
     try {
       const [settings, currencyMap] = await Promise.all([
         settingsPersistAtom.get(),
@@ -361,25 +367,22 @@ class ServiceDeFi extends ServiceBase {
         targetCurrencyInfo,
         saveToLocal: true,
         isForceRefresh: true,
+        // Do not share the abort pool: a UI-initiated
+        // abortFetchAccountDeFiPositions() must not cancel the scheduled
+        // force refresh, which is what delivers the post-tx freshness.
+        abortable: false,
       });
 
       appEventBus.emit(EAppEventBusNames.DeFiPositionRefreshed, {
         accountId,
+        indexedAccountId,
         networkId,
-        overview: {
-          totalValue: resp.overview.totalValue ?? 0,
-          totalDebt: resp.overview.totalDebt ?? 0,
-          totalReward: resp.overview.totalReward ?? 0,
-          netWorth: resp.overview.netWorth ?? 0,
-          chains: resp.overview.chains ?? [],
-          protocolCount: resp.overview.protocolCount ?? 0,
-          positionCount: resp.overview.positionCount ?? 0,
-        },
+        overview: resp.overview,
         protocols: resp.protocols,
         protocolMap: resp.protocolMap,
       });
     } catch (e) {
-      // Swallow: do not let a failed force-refresh poison the timer table.
+      // Swallow so a failed force-refresh does not block future schedules.
       console.error(
         '[ServiceDeFi] force refresh failed',
         { accountId, networkId },

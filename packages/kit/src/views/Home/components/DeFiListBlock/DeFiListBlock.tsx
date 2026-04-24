@@ -38,6 +38,7 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_DEFI,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -96,6 +97,10 @@ function DeFiListBlock({
   const isRefreshingRef = useRef(isRefreshing);
   initializedRef.current = initialized;
   isRefreshingRef.current = isRefreshing;
+  const protocolsRef = useRef(protocols);
+  const protocolMapRef = useRef(protocolMap);
+  protocolsRef.current = protocols;
+  protocolMapRef.current = protocolMap;
   const pendingRefreshRef = useRef(false);
 
   const [overflowState, setOverflowState] = useState<{
@@ -832,33 +837,28 @@ function DeFiListBlock({
   }, [isFocused, network?.isAllNetworks, handleRefreshAllNetworkData, run]);
 
   useEffect(() => {
-    const onDeFiPositionRefreshed = (payload: {
-      accountId: string;
-      networkId: string;
-      overview: {
-        totalValue: number;
-        totalDebt: number;
-        totalReward: number;
-        netWorth: number;
-        chains: string[];
-        protocolCount: number;
-        positionCount: number;
-      };
-      protocols: IDeFiProtocol[];
-      protocolMap: Record<string, IProtocolSummary>;
-    }) => {
+    const onDeFiPositionRefreshed = (
+      payload: IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed],
+    ) => {
       if (refreshCacheOnly) return;
       if (!account?.id || !network?.id) return;
 
-      // Gate events to the currently viewed wallet. Single-network mode
-      // additionally matches exact accountId + networkId below.
-      const { walletId: payloadWalletId } = accountUtils.parseAccountId({
-        accountId: payload.accountId,
-      });
-      const { walletId: currentWalletId } = accountUtils.parseAccountId({
-        accountId: account.id,
-      });
-      if (!payloadWalletId || payloadWalletId !== currentWalletId) return;
+      // Prefer indexedAccountId equality (robust for All Networks mode);
+      // fall back to walletId match for accounts without an indexed id
+      // (e.g. imported / watching-only).
+      const currentIndexedId = account.indexedAccountId;
+      const payloadIndexedId = payload.indexedAccountId;
+      if (currentIndexedId && payloadIndexedId) {
+        if (currentIndexedId !== payloadIndexedId) return;
+      } else {
+        const { walletId: payloadWalletId } = accountUtils.parseAccountId({
+          accountId: payload.accountId,
+        });
+        const { walletId: currentWalletId } = accountUtils.parseAccountId({
+          accountId: account.id,
+        });
+        if (!payloadWalletId || payloadWalletId !== currentWalletId) return;
+      }
 
       if (!network.isAllNetworks) {
         if (
@@ -889,29 +889,25 @@ function DeFiListBlock({
       // refreshed ones. Aggregated overview is recomputed from the merged
       // protocolMap so the header total stays in sync.
       const prefix = `${payload.networkId}-`;
-      const nextProtocols = protocols
+      const nextProtocols = protocolsRef.current
         .filter((p) => p.networkId !== payload.networkId)
         .concat(payload.protocols);
 
       const nextProtocolMap: Record<string, IProtocolSummary> = {};
-      for (const [k, v] of Object.entries(protocolMap)) {
+      for (const [k, v] of Object.entries(protocolMapRef.current)) {
         if (!k.startsWith(prefix)) nextProtocolMap[k] = v;
       }
       Object.assign(nextProtocolMap, payload.protocolMap);
 
-      let totalValue = 0;
-      let totalDebt = 0;
-      let totalReward = 0;
-      let netWorth = 0;
+      let totalValueBN = new BigNumber(0);
+      let totalDebtBN = new BigNumber(0);
+      let totalRewardBN = new BigNumber(0);
+      let netWorthBN = new BigNumber(0);
       for (const s of Object.values(nextProtocolMap)) {
-        totalValue = new BigNumber(totalValue)
-          .plus(s.totalValue ?? 0)
-          .toNumber();
-        totalDebt = new BigNumber(totalDebt).plus(s.totalDebt ?? 0).toNumber();
-        totalReward = new BigNumber(totalReward)
-          .plus(s.totalReward ?? 0)
-          .toNumber();
-        netWorth = new BigNumber(netWorth).plus(s.netWorth ?? 0).toNumber();
+        totalValueBN = totalValueBN.plus(s.totalValue ?? 0);
+        totalDebtBN = totalDebtBN.plus(s.totalDebt ?? 0);
+        totalRewardBN = totalRewardBN.plus(s.totalReward ?? 0);
+        netWorthBN = netWorthBN.plus(s.netWorth ?? 0);
       }
 
       updateDeFiListProtocols({ protocols: nextProtocols });
@@ -920,7 +916,12 @@ function DeFiListBlock({
         currency: settings.currencyInfo.id,
         accountId: account.id,
         networkId: network.id,
-        overview: { totalValue, totalDebt, totalReward, netWorth },
+        overview: {
+          totalValue: totalValueBN.toNumber(),
+          totalDebt: totalDebtBN.toNumber(),
+          totalReward: totalRewardBN.toNumber(),
+          netWorth: netWorthBN.toNumber(),
+        },
         isReady: true,
       });
     };
@@ -937,10 +938,9 @@ function DeFiListBlock({
     };
   }, [
     account?.id,
+    account?.indexedAccountId,
     network?.id,
     network?.isAllNetworks,
-    protocols,
-    protocolMap,
     refreshCacheOnly,
     settings.currencyInfo.id,
     updateAccountDeFiOverview,
