@@ -10,6 +10,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { ITableProps } from '@onekeyhq/components';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
@@ -43,6 +44,7 @@ function MarketCategoryTokenList({
   onViewMore,
 }: IMarketCategoryTokenListProps) {
   const intl = useIntl();
+  const { md } = useMedia();
 
   const columns = useMemo<ITableProps<IFavoriteTokenDisplay>['columns']>(() => {
     if (tableLayout) {
@@ -282,13 +284,13 @@ function MarketCategoryTokenList({
           onPress={onViewMore}
           flexGrow={1}
           flexBasis={0}
-          $md={
-            {
-              borderRadius: '$full',
-              hoverStyle: { bg: 'transparent' },
-              pressStyle: { bg: 'transparent' },
-            } as any
-          }
+          {...(md
+            ? {
+                borderRadius: '$full',
+                hoverStyle: { bg: 'transparent' },
+                pressStyle: { bg: 'transparent' },
+              }
+            : undefined)}
         >
           {intl.formatMessage({ id: ETranslations.global_view_more })}
         </Button>
