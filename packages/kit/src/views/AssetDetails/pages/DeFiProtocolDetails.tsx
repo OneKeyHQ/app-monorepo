@@ -134,9 +134,7 @@ function DeFiProtocolDetails() {
             <Stack key={position.positionKey} px="$5">
               <XStack alignItems="center" py="$3" gap="$2">
                 <Badge bg={position.categoryConfig.bg} badgeSize="sm">
-                  <Badge.Text
-                    color={position.categoryConfig.text}
-                  >
+                  <Badge.Text color={position.categoryConfig.text}>
                     {position.categoryLabel}
                   </Badge.Text>
                 </Badge>

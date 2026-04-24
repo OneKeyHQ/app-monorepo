@@ -826,8 +826,7 @@ export function HomePageView({
           <Page.Container flex={1} padded={false}>
             <Stack
               ref={(node: unknown) => {
-                homeWheelScopeRef.current =
-                  node as HTMLElement | null;
+                homeWheelScopeRef.current = node as HTMLElement | null;
               }}
               flex={1}
             >
