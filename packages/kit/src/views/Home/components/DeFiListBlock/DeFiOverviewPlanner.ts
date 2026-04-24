@@ -43,7 +43,7 @@ export type IDeFiOverviewRenderCell =
 function toProtocolCell(
   cell: IDeFiOverviewCell,
   protocolMap: Record<string, IProtocolSummary>,
-  total: number,
+  exposureTotal: number,
 ): IDeFiOverviewProtocolRenderCell {
   const key = defiUtils.buildProtocolMapKey({
     protocol: cell.protocol.protocol,
@@ -57,7 +57,9 @@ function toProtocolCell(
     protocolInfo: protocolMap[key],
     netWorth: cell.netWorth,
     percent:
-      total > 0 ? roundToOneDecimal((cell.netWorth / total) * 100) : undefined,
+      exposureTotal > 0
+        ? roundToOneDecimal((Math.abs(cell.netWorth) / exposureTotal) * 100)
+        : undefined,
   };
 }
 
@@ -65,15 +67,15 @@ export function buildDeFiOverviewRenderCells({
   rankedProtocols,
   protocolMap,
   isExpanded,
-  total,
+  exposureTotal,
 }: {
   rankedProtocols: IDeFiOverviewCell[];
   protocolMap: Record<string, IProtocolSummary>;
   isExpanded: boolean;
-  total: number;
+  exposureTotal: number;
 }): IDeFiOverviewRenderCell[] {
   const toCell = (c: IDeFiOverviewCell) =>
-    toProtocolCell(c, protocolMap, total);
+    toProtocolCell(c, protocolMap, exposureTotal);
 
   if (rankedProtocols.length <= OVERVIEW_COLLAPSED_PROTOCOL_COUNT) {
     return rankedProtocols.map(toCell);

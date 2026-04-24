@@ -8,7 +8,6 @@ import {
 } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 import {
   runOnJS,
   runOnUI,
@@ -30,10 +29,10 @@ import {
 import { useTabsContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { BackToTopButton } from '../../../components/BackToTopButton';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -58,7 +57,7 @@ import { buildPortfolioStats } from '../components/DeFiListBlock/DeFiPortfolioSt
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
-import { RecentHistory } from '../components/RecentHistory';
+import { RecentHistory, RecentHistoryTitle } from '../components/RecentHistory';
 import { SupportHub } from '../components/SupportHub';
 import { Upgrade } from '../components/Upgrade';
 import {
@@ -199,11 +198,11 @@ function DeFiContainer() {
     [protocols, protocolMap, getNetWorth],
   );
 
-  const intl = useIntl();
   const stickyHeaderCtx = useContext(HomeStickyHeaderContext);
   const portalTarget = stickyHeaderCtx?.portalTarget ?? null;
-  const defiTabName = intl.formatMessage({ id: ETranslations.global_earn });
-  const isTabFocused = stickyHeaderCtx?.activeTabName === defiTabName;
+  const tabBarRightPortalTarget =
+    stickyHeaderCtx?.tabBarRightPortalTarget ?? null;
+  const isTabFocused = stickyHeaderCtx?.activeTabId === EHomeWalletTab.DeFi;
   const getLiveStickyOffset = useCallback(() => {
     const stickyBottom =
       stickyHeaderCtx?.stickyHost?.getBoundingClientRect().bottom ?? 0;
@@ -317,8 +316,8 @@ function DeFiContainer() {
       const stickyHostRect =
         stickyHeaderCtx?.stickyHost?.getBoundingClientRect() ?? null;
       const nextSidebarStickyTop =
-        stickyHostRect && stickyHostRect.top >= 0
-          ? stickyHostRect.top
+        stickyHostRect && stickyHostRect.bottom > 0
+          ? stickyHostRect.bottom
           : STICKY_TOP_OFFSET;
       const nextStickyLine =
         stickyHostRect && stickyHostRect.bottom > 0
@@ -370,9 +369,13 @@ function DeFiContainer() {
         setIsSidebarPinned(false);
       } else {
         const sidebarRect = sidebarAnchor.getBoundingClientRect();
-        const measuredHeight =
+        const measuredContentHeight =
           sidebarContentRef.current?.getBoundingClientRect().height ??
           sidebarRect.height;
+        const measuredHeight = Math.max(
+          sidebarRect.height,
+          measuredContentHeight,
+        );
         setSidebarShellHeight((prev) =>
           prev === measuredHeight ? prev : measuredHeight,
         );
@@ -522,7 +525,6 @@ function DeFiContainer() {
                   isAllNetworks={isAllNetworks}
                 />
                 <DeFiOverviewCard
-                  stats={portfolioStats}
                   protocols={protocols}
                   protocolMap={protocolMap}
                   isLoading={isOverviewLoading}
@@ -567,7 +569,7 @@ function DeFiContainer() {
                     }
                   : null)}
               >
-                <RecentHistory />
+                <RecentHistory hideTitle={isSidebarPinned} />
               </YStack>
             </YStack>
           ) : null}
@@ -620,6 +622,14 @@ function DeFiContainer() {
                 />
               ) : null}
             </XStack>
+          </DeFiStickyPortal>
+        ) : null}
+        {tabBarRightPortalTarget &&
+        showRecentHistory &&
+        isTabFocused &&
+        isSidebarPinned ? (
+          <DeFiStickyPortal target={tabBarRightPortalTarget}>
+            <RecentHistoryTitle />
           </DeFiStickyPortal>
         ) : null}
       </>
@@ -688,7 +698,11 @@ function DeFiContainerScrollableNative() {
       >
         <DeFiContainer />
       </Tabs.ScrollView>
-      <BackToTopButton visible={backToTopVisible} onPress={onPressBackToTop} />
+      <BackToTopButton
+        visible={backToTopVisible}
+        onPress={onPressBackToTop}
+        placement="left"
+      />
     </Stack>
   );
 }
@@ -704,16 +718,18 @@ function DeFiContainerScrollableWeb() {
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
-    const scroller = findScrollableAncestorFromLocalNode(sentinel);
-    scrollerRef.current = scroller;
-    if (!scroller) return;
 
-    let rafId = 0;
+    let attachedScroller: HTMLElement | null = null;
+    let scrollRafId = 0;
+    let attachRafId = 0;
+    const scrollOpts: AddEventListenerOptions = { passive: true };
+
     const onScroll = () => {
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = 0;
-        const current = scroller.scrollTop;
+      if (scrollRafId || !attachedScroller) return;
+      scrollRafId = requestAnimationFrame(() => {
+        scrollRafId = 0;
+        if (!attachedScroller) return;
+        const current = attachedScroller.scrollTop;
         const last = lastScrollTopRef.current;
         lastScrollTopRef.current = current;
         const next = decideBackToTopVisible(
@@ -727,11 +743,58 @@ function DeFiContainerScrollableWeb() {
         }
       });
     };
-    scroller.addEventListener('scroll', onScroll, { passive: true });
-    lastScrollTopRef.current = scroller.scrollTop;
+
+    const detachScroller = () => {
+      if (attachedScroller) {
+        attachedScroller.removeEventListener('scroll', onScroll, scrollOpts);
+      }
+      attachedScroller = null;
+      scrollerRef.current = null;
+    };
+
+    const attachScroller = () => {
+      const nextScroller = findScrollableAncestorFromLocalNode(sentinel);
+      if (nextScroller === attachedScroller) {
+        scrollerRef.current = nextScroller;
+        return;
+      }
+
+      detachScroller();
+      attachedScroller = nextScroller;
+      scrollerRef.current = nextScroller;
+
+      if (attachedScroller) {
+        attachedScroller.addEventListener('scroll', onScroll, scrollOpts);
+        lastScrollTopRef.current = attachedScroller.scrollTop;
+      }
+    };
+
+    const scheduleAttach = () => {
+      if (attachRafId) cancelAnimationFrame(attachRafId);
+      attachRafId = requestAnimationFrame(() => {
+        attachRafId = 0;
+        attachScroller();
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? undefined
+        : new ResizeObserver(scheduleAttach);
+    resizeObserver?.observe(sentinel);
+    if (sentinel.parentElement) {
+      resizeObserver?.observe(sentinel.parentElement);
+    }
+
+    attachScroller();
+    globalThis.addEventListener('resize', scheduleAttach);
+
     return () => {
-      scroller.removeEventListener('scroll', onScroll);
-      if (rafId) cancelAnimationFrame(rafId);
+      globalThis.removeEventListener('resize', scheduleAttach);
+      resizeObserver?.disconnect();
+      detachScroller();
+      if (scrollRafId) cancelAnimationFrame(scrollRafId);
+      if (attachRafId) cancelAnimationFrame(attachRafId);
     };
   }, []);
 
@@ -761,7 +824,11 @@ function DeFiContainerScrollableWeb() {
         />
         <DeFiContainer />
       </Tabs.ScrollView>
-      <BackToTopButton visible={backToTopVisible} onPress={onPressBackToTop} />
+      <BackToTopButton
+        visible={backToTopVisible}
+        onPress={onPressBackToTop}
+        placement="left"
+      />
     </Stack>
   );
 }

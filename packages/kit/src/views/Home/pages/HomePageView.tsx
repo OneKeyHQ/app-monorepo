@@ -15,6 +15,7 @@ import {
   Stack,
   TABS_CONTAINER_CLASSNAME,
   Tabs,
+  XStack,
   YStack,
   useScrollContentTabBarOffset,
   useTabContainerWidth,
@@ -180,6 +181,7 @@ export function HomePageView({
   );
 
   const hasRiskApprovalsRef = useRef(hasRiskApprovals);
+  const homeWheelScopeRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     hasRiskApprovalsRef.current = hasRiskApprovals;
   }, [hasRiskApprovals]);
@@ -408,17 +410,19 @@ export function HomePageView({
     return <TabBarItem {...props} />;
   }, []);
 
-  const renderToolbar = useCallback(
-    ({ focusedTab }: { focusedTab: string }) => (
-      <TabHeaderSettings focusedTab={focusedTab} />
-    ),
-    [],
-  );
-
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
     setPortalTarget((prev) => (prev === el ? prev : el));
   }, []);
+
+  const [tabBarRightPortalTarget, setTabBarRightPortalTarget] =
+    useState<HTMLElement | null>(null);
+  const tabBarRightPortalRefCallback = useCallback(
+    (el: HTMLDivElement | null) => {
+      setTabBarRightPortalTarget((prev) => (prev === el ? prev : el));
+    },
+    [],
+  );
 
   const [stickyHost, setStickyHost] = useState<HTMLElement | null>(null);
   const stickyHostRefCallback = useCallback((el: unknown) => {
@@ -431,11 +435,48 @@ export function HomePageView({
 
   const initialTabName = tabConfigs[0]?.name ?? '';
   const [activeTabName, setActiveTabName] = useState(initialTabName);
+  const initialTabId = tabConfigs[0]?.id;
+  const [activeTabId, setActiveTabId] = useState<EHomeWalletTab | undefined>(
+    initialTabId,
+  );
+
+  useEffect(() => {
+    setActiveTabName((prev) =>
+      tabConfigs.some((tab) => tab.name === prev)
+        ? prev
+        : (tabConfigs[0]?.name ?? ''),
+    );
+    setActiveTabId((prev) =>
+      tabConfigs.some((tab) => tab.id === prev) ? prev : tabConfigs[0]?.id,
+    );
+  }, [tabConfigs]);
+
+  const renderToolbar = useCallback(
+    ({ focusedTab }: { focusedTab: string }) => (
+      <XStack alignItems="center" gap="$3" flexShrink={0}>
+        {platformEnv.isNative ? null : (
+          <div
+            ref={tabBarRightPortalRefCallback}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+              minWidth: 0,
+            }}
+          />
+        )}
+        <TabHeaderSettings focusedTab={focusedTab} />
+      </XStack>
+    ),
+    [tabBarRightPortalRefCallback],
+  );
 
   const renderTabBar = useCallback(
     (tabBarProps: any) => {
       const handleTabPress = (name: string) => {
-        setActiveTabName(name);
+        const nextTab = tabConfigs.find((tab) => tab.name === name);
+        setActiveTabName(nextTab?.name ?? name);
+        setActiveTabId(nextTab?.id);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         tabBarProps.onTabPress?.(name);
       };
@@ -470,16 +511,39 @@ export function HomePageView({
         </YStack>
       );
     },
-    [portalRefCallback, stickyHostRefCallback, handleRenderItem, renderToolbar],
+    [
+      portalRefCallback,
+      stickyHostRefCallback,
+      handleRenderItem,
+      renderToolbar,
+      tabConfigs,
+    ],
   );
 
-  const handleTabChange = useCallback((data: { tabName: string }) => {
-    setActiveTabName(data.tabName);
-  }, []);
+  const handleTabChange = useCallback(
+    (data: { tabName: string }) => {
+      const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
+      setActiveTabName(nextTab?.name ?? data.tabName);
+      setActiveTabId(nextTab?.id);
+    },
+    [tabConfigs],
+  );
 
   const stickyHeaderCtx = useMemo(
-    () => ({ portalTarget, stickyHost, activeTabName }),
-    [portalTarget, stickyHost, activeTabName],
+    () => ({
+      portalTarget,
+      tabBarRightPortalTarget,
+      stickyHost,
+      activeTabName,
+      activeTabId,
+    }),
+    [
+      portalTarget,
+      tabBarRightPortalTarget,
+      stickyHost,
+      activeTabName,
+      activeTabId,
+    ],
   );
 
   const tabs = useMemo(() => {
@@ -554,16 +618,44 @@ export function HomePageView({
     const scrollerSelector = `.${TABS_CONTAINER_CLASSNAME}`;
     let scroller: HTMLElement | null = null;
     const resolveScroller = () => {
-      if (!scroller || !scroller.isConnected) {
-        scroller = document.querySelector(scrollerSelector);
+      if (
+        !scroller ||
+        !scroller.isConnected ||
+        homeWheelScopeRef.current?.contains(scroller) === false
+      ) {
+        scroller =
+          homeWheelScopeRef.current?.querySelector(scrollerSelector) ?? null;
       }
       return scroller;
     };
+    const isDocumentSurfaceTarget = (target: EventTarget | null) =>
+      target === document ||
+      target === document.body ||
+      target === document.documentElement;
+    const isInsideWheelScope = (e: WheelEvent) => {
+      const scope = homeWheelScopeRef.current;
+      if (!scope) return false;
+      const rect = scope.getBoundingClientRect();
+      return (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom
+      );
+    };
     const onWheel = (e: WheelEvent) => {
+      if (!isInsideWheelScope(e)) return;
       const s = resolveScroller();
       if (!s) return;
       const target = e.target;
       if (target instanceof Node && s.contains(target)) return;
+      if (
+        target instanceof Node &&
+        homeWheelScopeRef.current?.contains(target) === false &&
+        !isDocumentSurfaceTarget(target)
+      ) {
+        return;
+      }
       if (
         target instanceof HTMLElement &&
         findScrollableAncestorFromLocalNode(target)
@@ -731,7 +823,13 @@ export function HomePageView({
     return (
       <>
         <Page.Body>
-          <Page.Container flex={1} padded={false}>
+          <Page.Container
+            ref={(node) => {
+              homeWheelScopeRef.current = node as unknown as HTMLElement | null;
+            }}
+            flex={1}
+            padded={false}
+          >
             {platformEnv.isNative ? (
               <Stack h={tabPageHeight} />
             ) : (

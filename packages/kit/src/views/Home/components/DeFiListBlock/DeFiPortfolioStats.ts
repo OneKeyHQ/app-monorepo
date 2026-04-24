@@ -36,6 +36,7 @@ type IAggregatedProtocol = {
   slug: string;
   label: string;
   netWorth: number;
+  exposure: number;
   networkIds: string[];
   firstIndex: number;
 };
@@ -70,9 +71,11 @@ export function buildPortfolioStats(
   const aggregateMap = new Map<string, IAggregatedProtocol>();
   protocols.forEach((p, index) => {
     const existing = aggregateMap.get(p.protocol);
-    const netWorth = getNetWorth(p);
+    const rawNetWorth = getNetWorth(p);
+    const netWorth = Number.isFinite(rawNetWorth) ? rawNetWorth : 0;
     if (existing) {
       existing.netWorth += netWorth;
+      existing.exposure = Math.abs(existing.netWorth);
       if (p.networkId && !existing.networkIds.includes(p.networkId)) {
         existing.networkIds.push(p.networkId);
       }
@@ -81,6 +84,7 @@ export function buildPortfolioStats(
         slug: p.protocol,
         label: resolveLabel(p, protocolMap),
         netWorth,
+        exposure: Math.abs(netWorth),
         networkIds: p.networkId ? [p.networkId] : [],
         firstIndex: index,
       });
@@ -88,12 +92,16 @@ export function buildPortfolioStats(
   });
 
   const aggregated = Array.from(aggregateMap.values()).toSorted((a, b) => {
-    if (a.netWorth !== b.netWorth) return b.netWorth - a.netWorth;
+    if (a.exposure !== b.exposure) return b.exposure - a.exposure;
     return a.firstIndex - b.firstIndex;
   });
 
   const total = aggregated.reduce((acc, entry) => {
     const next = acc + entry.netWorth;
+    return Number.isFinite(next) ? next : acc;
+  }, 0);
+  const exposureTotal = aggregated.reduce((acc, entry) => {
+    const next = acc + entry.exposure;
     return Number.isFinite(next) ? next : acc;
   }, 0);
 
@@ -102,7 +110,9 @@ export function buildPortfolioStats(
 
   const slices: IPortfolioSlice[] = headEntries.map((entry, rank) => {
     const percent =
-      total > 0 ? roundToOneDecimal((entry.netWorth / total) * 100) : 0;
+      exposureTotal > 0
+        ? roundToOneDecimal((entry.exposure / exposureTotal) * 100)
+        : 0;
     return {
       key: entry.slug,
       label: entry.label,
@@ -116,12 +126,19 @@ export function buildPortfolioStats(
   });
 
   const tailSum = tailEntries.reduce((acc, entry) => acc + entry.netWorth, 0);
-  if (tailSum > 0) {
+  const tailExposureSum = tailEntries.reduce(
+    (acc, entry) => acc + entry.exposure,
+    0,
+  );
+  if (tailExposureSum > 0) {
     slices.push({
       key: PORTFOLIO_OTHERS_KEY,
       label: 'Others',
       netWorth: tailSum,
-      percent: total > 0 ? roundToOneDecimal((tailSum / total) * 100) : 0,
+      percent:
+        exposureTotal > 0
+          ? roundToOneDecimal((tailExposureSum / exposureTotal) * 100)
+          : 0,
       colorToken: PORTFOLIO_OTHERS_TOKEN,
       networkIds: [],
     });

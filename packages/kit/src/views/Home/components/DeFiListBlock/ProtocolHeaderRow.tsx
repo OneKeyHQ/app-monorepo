@@ -8,10 +8,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -50,6 +47,7 @@ function ProtocolHeaderRow({
 }: IProtocolHeaderRowProps) {
   const progress = Math.max(0, Math.min(1, compactProgress));
   const topRadius = 12 * (1 - progress);
+  const contentOpacity = overlay ? 1 : 1 - progress;
   const isInteractive = Boolean(onPress);
   const [settingsValue] = useSettingsValuePersistAtom();
   const formattedNetWorth = formatPortfolioTotal(
@@ -91,7 +89,15 @@ function ProtocolHeaderRow({
           'border-radius 140ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 140ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms cubic-bezier(0.22, 1, 0.36, 1)',
       }}
     >
-      <XStack gap="$3" alignItems="center" flex={1} minWidth={0}>
+      <XStack
+        gap="$3"
+        alignItems="center"
+        flex={1}
+        minWidth={0}
+        opacity={contentOpacity}
+        animation={reducedMotion ? undefined : 'quick'}
+        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+      >
         <Token
           size="md"
           tokenImageUri={logo}
@@ -133,15 +139,16 @@ function ProtocolHeaderRow({
         fontVariant={TABULAR_NUMS}
         animation={reducedMotion ? undefined : 'quick'}
         animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+        opacity={contentOpacity}
       >
         {formattedNetWorth}
       </SizableText>
       <View
         ml="$3"
         animation={reducedMotion ? undefined : 'quick'}
-        animateOnly={ANIMATE_ONLY_TRANSFORM}
+        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
         rotate={open ? '180deg' : '0deg'}
-        opacity={1}
+        opacity={contentOpacity}
         transformOrigin="center"
       >
         <Icon name="ChevronDownSmallSolid" color="$iconSubdued" size="$6" />

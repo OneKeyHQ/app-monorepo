@@ -16,10 +16,12 @@ export function formatPortfolioTotal(
   hide: boolean,
 ): string {
   if (hide) return `${currency}****`;
-  if (!Number.isFinite(total) || total < 0) return `${currency}0.00`;
+  if (!Number.isFinite(total)) return `${currency}0.00`;
   const bn = new BigNumber(total);
-  if (bn.lt(PORTFOLIO_DECIMAL_THRESHOLD)) {
-    return `${currency}${bn.toFormat(2)}`;
+  const absTotal = bn.abs();
+  const sign = bn.lt(0) ? '-' : '';
+  if (absTotal.lt(PORTFOLIO_DECIMAL_THRESHOLD)) {
+    return `${sign}${currency}${absTotal.toFormat(2)}`;
   }
-  return `${currency}${new BigNumber(Math.round(total)).toFormat()}`;
+  return `${sign}${currency}${absTotal.decimalPlaces(0).toFormat()}`;
 }

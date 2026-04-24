@@ -16,8 +16,6 @@ import {
 import { buildDeFiOverviewRenderCells } from './DeFiOverviewPlanner';
 import { useDeFiOverviewTopN } from './hooks/useDeFiOverviewTopN';
 
-import type { IPortfolioStats } from './DeFiPortfolioStats';
-
 // Window after any tile tap during which further taps are ignored. Prevents
 // a second quick click from landing on a newly-revealed tile during the
 // More/Less layout shift (deep-linking into a protocol accidentally) and
@@ -25,7 +23,6 @@ import type { IPortfolioStats } from './DeFiPortfolioStats';
 const OVERVIEW_TOGGLE_PRESS_LOCK_MS = 600;
 
 export type IDeFiOverviewCardProps = {
-  stats: IPortfolioStats;
   protocols: IDeFiProtocol[] | undefined;
   protocolMap: Record<string, IProtocolSummary>;
   isLoading?: boolean;
@@ -37,7 +34,6 @@ export type IDeFiOverviewCardProps = {
 const SKELETON_TILE_HEIGHT = 60;
 
 function DeFiOverviewCard({
-  stats,
   protocols,
   protocolMap,
   isLoading,
@@ -49,6 +45,11 @@ function DeFiOverviewCard({
   const isExpanded = !isSliced;
 
   const rankedProtocols = useDeFiOverviewTopN(protocols, getNetWorth);
+  const overviewExposureTotal = useMemo(
+    () =>
+      rankedProtocols.reduce((acc, cell) => acc + Math.abs(cell.netWorth), 0),
+    [rankedProtocols],
+  );
 
   const cells = useMemo(
     () =>
@@ -56,9 +57,9 @@ function DeFiOverviewCard({
         rankedProtocols,
         protocolMap,
         isExpanded,
-        total: stats.total,
+        exposureTotal: overviewExposureTotal,
       }),
-    [rankedProtocols, protocolMap, isExpanded, stats.total],
+    [rankedProtocols, protocolMap, isExpanded, overviewExposureTotal],
   );
 
   const pressLockUntilRef = useRef(0);

@@ -22,7 +22,9 @@ export function useDeFiOverviewTopN(
         netWorth: getNetWorth(protocol),
       }))
       .toSorted((a, b) => {
-        if (a.netWorth !== b.netWorth) return b.netWorth - a.netWorth;
+        const aExposure = Math.abs(a.netWorth);
+        const bExposure = Math.abs(b.netWorth);
+        if (aExposure !== bExposure) return bExposure - aExposure;
         return a.originalIndex - b.originalIndex;
       })
       .map(({ protocol, netWorth }) => ({ protocol, netWorth }));

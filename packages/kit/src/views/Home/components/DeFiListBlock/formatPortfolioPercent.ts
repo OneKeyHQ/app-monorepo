@@ -8,7 +8,11 @@ export function formatPortfolioPercent(
   netWorth?: number | string,
 ): string {
   if (!Number.isFinite(percent)) return '0.0%';
-  if (percent === 0 && netWorth !== undefined && Number(netWorth) > 0) {
+  if (
+    percent === 0 &&
+    netWorth !== undefined &&
+    Math.abs(Number(netWorth)) > 0
+  ) {
     return '<0.1%';
   }
   return `${percent.toFixed(1)}%`;
