@@ -164,6 +164,9 @@ const SwapToAnotherAddressPage = () => {
             name="address"
             networkId={networkId}
             actionsLayout="recipient"
+            placeholder={intl.formatMessage({
+              id: ETranslations.search_or_paste_address__desc,
+            })}
             enableAddressBook
             enableWalletName
             enableAddressInteractionStatus
