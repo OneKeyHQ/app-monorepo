@@ -12,7 +12,6 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -21,7 +20,7 @@ import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
 // import { defaultLogger } from '../logger/logger';
-import platformEnv from '../platformEnv';
+import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import { EAppEventBusNames } from './appEventBusNames';
 
@@ -488,72 +487,152 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HomePageReady]: undefined;
 }
 
-export enum EEventBusBroadcastMethodNames {
-  uiToBg = 'uiToBg',
-  bgToUi = 'bgToUi',
+/**
+ * Cross-process event message exchanged between event bus nodes.
+ *
+ * `originNodeId` carries the sender's identity so receivers can avoid
+ * processing their own echoes (a foreground that just emitted locally still
+ * receives the broadcast back from the background).
+ */
+export interface IRemoteEventMessage {
+  type: string;
+  payload: unknown;
+  originNodeId: string;
 }
-type IEventBusBroadcastMethod = (type: string, payload: any) => Promise<void>;
 
+/**
+ * Transports the event bus uses to talk to other processes. Each runtime
+ * registers exactly one of these based on its `runtimeRole`:
+ *   - `Main` role registers `sendToBackground`
+ *   - `Background` role registers `broadcastToForegrounds`
+ * `Standalone` registers nothing — every emit stays local.
+ */
+export interface IEventBusTransports {
+  sendToBackground?: (msg: IRemoteEventMessage) => Promise<void> | void;
+  broadcastToForegrounds?: (msg: IRemoteEventMessage) => Promise<void> | void;
+}
+
+/**
+ * Generates a short, sufficiently-unique nodeId for this runtime instance.
+ * Same process → same id for its lifetime; different processes (popup vs.
+ * expand-tab vs. side-panel vs. background) get different ids.
+ */
+function generateNodeId(): string {
+  const role = platformEnv.runtimeRole;
+  // eslint-disable-next-line no-bitwise
+  const random = (Math.random() * 0xff_ff_ff_ff) >>> 0;
+  return `${role}-${random.toString(36)}-${Date.now().toString(36)}`;
+}
+
+/**
+ * AppEventBus
+ * -----------
+ * Cross-process event bus. The two responsibilities — fire local listeners
+ * and propagate to other processes — are decided purely by `runtimeRole`,
+ * not by scattered platform checks.
+ *
+ * Routing invariant
+ *   For every `emit(type, payload)` call, every listener for `type` in every
+ *   process where the bus is alive fires *exactly once*. Self-echo is
+ *   prevented by tagging messages with `originNodeId` and skipping them at
+ *   the receiver.
+ *
+ * Per-role behavior
+ *   `Main`       → emit fires local listeners + sends to background.
+ *                  Inbound broadcasts from background fire local listeners
+ *                  unless `originNodeId === this.nodeId` (own echo).
+ *   `Background` → emit fires local listeners + broadcasts to all
+ *                  foregrounds. Inbound from a foreground fires local
+ *                  listeners + re-broadcasts to *all* foregrounds (sender
+ *                  identifies its own echo by `originNodeId`).
+ *   `Standalone` → emit fires local listeners only. No transports.
+ */
 class AppEventBusClass extends CrossEventEmitter {
-  broadcastMethodsResolver: Record<
-    EEventBusBroadcastMethodNames,
-    ((value: IEventBusBroadcastMethod) => void) | undefined
-  > = {
-    uiToBg: undefined,
-    bgToUi: undefined,
-  };
+  /** Stable id for this runtime instance; survives the lifetime of the process. */
+  readonly nodeId: string = generateNodeId();
 
-  broadcastMethodsReady: Record<
-    EEventBusBroadcastMethodNames,
-    Promise<IEventBusBroadcastMethod>
-  > = {
-    uiToBg: new Promise<IEventBusBroadcastMethod>((resolve) => {
-      this.broadcastMethodsResolver.uiToBg = resolve;
-    }),
-    bgToUi: new Promise<IEventBusBroadcastMethod>((resolve) => {
-      this.broadcastMethodsResolver.bgToUi = resolve;
-    }),
-  };
+  private transports: IEventBusTransports = {};
 
-  broadcastMethods: Record<
-    EEventBusBroadcastMethodNames,
-    IEventBusBroadcastMethod
-  > = {
-    uiToBg: async (type: string, payload: any) => {
-      const fn = await this.broadcastMethodsReady.uiToBg;
-      await fn(type, payload);
-    },
-    bgToUi: async (type: string, payload: any) => {
-      const fn = await this.broadcastMethodsReady.bgToUi;
-      await fn(type, payload);
-    },
-  };
-
-  registerBroadcastMethods(
-    name: EEventBusBroadcastMethodNames,
-    method: IEventBusBroadcastMethod,
-  ) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    this.broadcastMethodsResolver[name]!(method);
-  }
-
-  get shouldEmitToSelf() {
-    return (
-      !platformEnv.isExtensionOffscreen &&
-      !platformEnv.isExtensionUi &&
-      !platformEnv.isWebEmbed
-    );
+  /**
+   * Called by per-platform glue code during runtime bootstrap. Calls *merge*
+   * — both `BackgroundApi` (background-side) and `BackgroundApiProxy`
+   * (foreground-side) constructors run in the same JS context for several
+   * runtimes (ext background, native bg-thread, standalone desktop/web).
+   * Each constructor only registers the transport relevant to its role; the
+   * merge guarantees that a `background`-role bus retains its
+   * `broadcastToForegrounds` even after a proxy constructor later wires
+   * `sendToBackground`.
+   *
+   * Re-registering the same key replaces only that key; pass `undefined` to
+   * clear it explicitly.
+   */
+  registerTransports(transports: IEventBusTransports): void {
+    this.transports = { ...this.transports, ...transports };
   }
 
   override emit<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
   ): boolean {
-    void this.emitToRemote({ type, payload });
-    if (this.shouldEmitToSelf) {
-      this.emitToSelf({ type, payload });
+    // Local listeners always fire on the originating node — no platform
+    // exception. Cross-process delivery is a separate, additive step.
+    this.emitToSelf({ type, payload, isRemote: false });
+
+    switch (platformEnv.runtimeRole) {
+      case ERuntimeRole.Main:
+        void this.transports.sendToBackground?.({
+          type,
+          payload: convertToRemoteEventPayload(payload),
+          originNodeId: this.nodeId,
+        });
+        break;
+      case ERuntimeRole.Background:
+        void this.transports.broadcastToForegrounds?.({
+          type,
+          payload: convertToRemoteEventPayload(payload),
+          originNodeId: this.nodeId,
+        });
+        break;
+      case ERuntimeRole.Standalone:
+        break;
     }
     return true;
+  }
+
+  /**
+   * Bridge handler entry point: the background received an event from a
+   * foreground. Runs background listeners and re-broadcasts to all
+   * foregrounds. The original sender will skip its own echo via
+   * `originNodeId`.
+   *
+   * `emitToSelf` runs with default cloning so any synchronous mutation by a
+   * BG listener stays isolated from the payload subsequently re-broadcast
+   * to foregrounds.
+   */
+  dispatchInboundFromForeground(msg: IRemoteEventMessage): void {
+    this.emitToSelf({
+      type: msg.type as keyof IAppEventBusPayload,
+      payload: msg.payload,
+      isRemote: true,
+    });
+    void this.transports.broadcastToForegrounds?.(msg);
+  }
+
+  /**
+   * Bridge handler entry point: a foreground received a broadcast from the
+   * background. Skips the message if it's our own echo, otherwise fires
+   * local listeners.
+   */
+  dispatchInboundFromBackground(msg: IRemoteEventMessage): void {
+    if (msg.originNodeId === this.nodeId) {
+      return;
+    }
+    this.emitToSelf({
+      type: msg.type as keyof IAppEventBusPayload,
+      payload: msg.payload,
+      isRemote: true,
+      cloned: false,
+    });
   }
 
   override once<T extends keyof IAppEventBusPayload>(
@@ -613,79 +692,29 @@ class AppEventBusClass extends CrossEventEmitter {
     super.emit(type, payloadCloned);
     return true;
   }
+}
 
-  //
-
-  async emitToRemote(params: { type: string; payload: unknown }) {
-    const { type, payload } = params;
-    const isRemoteEventPayload =
-      payload &&
-      typeof payload === 'object' &&
+/**
+ * Tags a payload that is about to cross a process boundary with
+ * `$$isRemoteEvent: true`. Listeners may inspect this metadata flag to detect
+ * remote-origin events (see e.g. AccountSelectorEffects). The flag is *not*
+ * used for routing — echo prevention is handled by `originNodeId` in the
+ * transport layer.
+ */
+function convertToRemoteEventPayload(payloadValue: unknown): unknown {
+  const payloadCloned = cloneDeep(payloadValue);
+  try {
+    if (payloadCloned && typeof payloadCloned === 'object') {
       (
-        payload as {
+        payloadCloned as {
           $$isRemoteEvent?: boolean;
         }
-      ).$$isRemoteEvent;
-    const convertToRemoteEventPayload = (payloadValue: unknown): unknown => {
-      const payloadCloned = cloneDeep(payloadValue);
-      try {
-        if (payloadCloned && typeof payloadCloned === 'object') {
-          (
-            payloadCloned as {
-              $$isRemoteEvent?: boolean;
-            }
-          ).$$isRemoteEvent = true;
-        }
-      } catch (_e) {
-        // ignore
-      }
-      return payloadCloned;
-    };
-
-    if (isRemoteEventPayload) {
-      return;
+      ).$$isRemoteEvent = true;
     }
-
-    if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
-      // request background
-      throw new OneKeyLocalError(
-        'offscreen or webembed event bus not support yet.',
-      );
-    }
-    if (
-      platformEnv.isNativeMainThread &&
-      platformEnv.enableNativeBackgroundThread
-    ) {
-      return this.broadcastMethods.uiToBg(
-        type,
-        convertToRemoteEventPayload(payload),
-      );
-    }
-    if (
-      platformEnv.isNativeBackgroundThread &&
-      platformEnv.enableNativeBackgroundThread
-    ) {
-      return this.broadcastMethods.bgToUi(
-        type,
-        convertToRemoteEventPayload(payload),
-      );
-    }
-    if (platformEnv.isExtensionUi) {
-      // request background
-      return this.broadcastMethods.uiToBg(
-        type,
-        convertToRemoteEventPayload(payload),
-      );
-    }
-    if (platformEnv.isExtensionBackground) {
-      // requestToOffscreen
-      // requestToAllUi
-      return this.broadcastMethods.bgToUi(
-        type,
-        convertToRemoteEventPayload(payload),
-      );
-    }
+  } catch (_e) {
+    // ignore
   }
+  return payloadCloned;
 }
 const appEventBus = new AppEventBusClass();
 

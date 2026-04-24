@@ -41,6 +41,27 @@ export type IAppChannel =
   | 'linuxFlatpak';
 export type INativeRuntimeKind = 'main' | 'background';
 
+/**
+ * Cross-platform runtime role used by the app event bus to decide how to route
+ * an event between processes:
+ *   - Main:       a foreground process (UI). May coexist with siblings (ext
+ *                 popup + side panel + expand tab). Talks to a single
+ *                 background via `sendToBackground`.
+ *   - Background: the singleton service process. Fans out events to every
+ *                 foreground via `broadcastToForegrounds`.
+ *   - Standalone: single-process runtime with no IPC (current desktop / web).
+ *                 When desktop/web later adopt service workers, simply remap
+ *                 them to Main / Background here.
+ *
+ * `INativeRuntimeKind` is the native-only ancestor of this concept; the new
+ * enum is the cross-platform generalization.
+ */
+export enum ERuntimeRole {
+  Main = 'main',
+  Background = 'background',
+  Standalone = 'standalone',
+}
+
 export type IPlatformEnv = {
   mobileDetectInfo: MobileDetect | undefined;
   isNewRouteMode: boolean;
@@ -85,6 +106,8 @@ export type IPlatformEnv = {
   nativeRuntimeKind?: INativeRuntimeKind;
   isNativeMainThread?: boolean;
   isNativeBackgroundThread?: boolean;
+  /** Cross-platform runtime role for app event bus routing. See ERuntimeRole. */
+  runtimeRole: ERuntimeRole;
 
   isDesktopLinux?: boolean;
   isDesktopLinuxSnap?: boolean;
@@ -484,6 +507,22 @@ export const supportAutoUpdate: boolean =
 
 export const isAppleStoreEnv = isMas || isNativeIOSStore || isNativeIOSPadStore;
 
+const computeRuntimeRole = (): ERuntimeRole => {
+  if (isExtensionBackground) return ERuntimeRole.Background;
+  if (isExtensionUi || isExtensionOffscreen) return ERuntimeRole.Main;
+  if (isNative && enableNativeBackgroundThread) {
+    return isNativeBackgroundThread
+      ? ERuntimeRole.Background
+      : ERuntimeRole.Main;
+  }
+  if (isWebEmbed) return ERuntimeRole.Main;
+  // desktop / web (currently single-process) and native dev without
+  // enableNativeBackgroundThread fall through to standalone — no IPC.
+  return ERuntimeRole.Standalone;
+};
+
+const runtimeRole: ERuntimeRole = computeRuntimeRole();
+
 const platformEnv: IPlatformEnv = {
   mobileDetectInfo,
   isNewRouteMode: true,
@@ -519,6 +558,7 @@ const platformEnv: IPlatformEnv = {
   nativeRuntimeKind,
   isNativeMainThread,
   isNativeBackgroundThread,
+  runtimeRole,
 
   isDesktopMac,
   isDesktopWin,

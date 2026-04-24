@@ -124,8 +124,11 @@ export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
   ? syncStorageExtBg
   : createMMKVSyncStorage(mmkvStorageInstance, { checkResetting: true });
 
-/** Cold-start cache storage (onekey-cold-start-cache MMKV instance) */
-export const coldStartCacheStorage =
-  platformEnv.isExtensionBackgroundServiceWorker
-    ? syncStorageExtBg
-    : createMMKVSyncStorage(coldStartCacheMMKVInstance);
+/** Cold-start cache storage (onekey-cold-start-cache MMKV instance).
+ *  Native-only: on web/desktop/ext, react-native-mmkv falls back to
+ *  localStorage, which can't match native MMKV's sync + capacity guarantees
+ *  this cache depends on. Non-native platforms get a no-op stub so reads
+ *  always miss and writes are discarded. */
+export const coldStartCacheStorage = platformEnv.isNative
+  ? createMMKVSyncStorage(coldStartCacheMMKVInstance)
+  : syncStorageExtBg;

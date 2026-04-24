@@ -94,6 +94,13 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
     successTitle: t(ETranslations.perp_toast_canceling_order_sucess),
   },
 
+  [EActionType.MODIFY_ORDER]: {
+    // TODO(i18n): swap for ETranslations.perp_toast_modifying_order once PM adds the key.
+    loading: 'Modifying order…',
+    // TODO(i18n): swap for ETranslations.perp_toast_order_modified once PM adds the key.
+    successTitle: 'Order modified',
+  },
+
   [EActionType.WITHDRAW]: {
     loading: t(ETranslations.perp_toast_withdraw_loading),
     successTitle: t(ETranslations.perp_toast_withdraw_success),

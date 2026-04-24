@@ -17,10 +17,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  EEventBusBroadcastMethodNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -122,6 +119,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         emitAppEventToUi: (payload: {
           eventName: string;
           payload: unknown;
+          originNodeId?: string;
         }) => boolean;
         sendBridgeMessageToUi: (payload: {
           channel: 'dapp' | 'webEmbed';
@@ -192,9 +190,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       };
     }
     // this.startDemoNowTimeUpdateInterval();
-    appEventBus.registerBroadcastMethods(
-      EEventBusBroadcastMethodNames.bgToUi,
-      async (type, payload) => {
+    // Register the 'background' role transport: fan-out received/emitted
+    // events to every foreground. Each foreground inspects originNodeId on
+    // arrival and skips its own echoes.
+    appEventBus.registerTransports({
+      broadcastToForegrounds: ({ type, payload, originNodeId }) => {
         if (
           platformEnv.isNativeBackgroundThread &&
           platformEnv.enableNativeBackgroundThread
@@ -202,6 +202,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           this.getNativeBackgroundThreadBridgeRelay()?.emitAppEventToUi({
             eventName: type,
             payload,
+            originNodeId,
           });
           return;
         }
@@ -209,13 +210,14 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           $$isFromBgEventBusSyncBroadcast: true,
           type,
           payload,
+          originNodeId,
         };
         this.bridgeExtBg?.requestToAllUi({
           method: GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
           params,
         });
       },
-    );
+    });
   }
 
   allAtoms: Promise<{
@@ -270,8 +272,28 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   async emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
+    originNodeId?: string,
   ): Promise<boolean> {
-    appEventBus.emit(type, payload);
+    if (!originNodeId) {
+      // A bridge regression dropped the sender's nodeId. Don't re-label as
+      // BG-originated (which would let the sender skip its own echo and
+      // mask the regression silently). Log so the regression is visible
+      // and pass through empty so downstream receivers all fire — the
+      // sender will then double-fire, which is detectable in dev.
+      defaultLogger.app.eventBus.missingOriginNodeId({
+        source: 'BackgroundApi.emitEvent',
+        eventName: type,
+      });
+    }
+    // Route the foreground-originated event through the bus' inbound handler
+    // so that (1) bg listeners fire with isRemote=true, and (2) the event is
+    // fanned out to every foreground with the *original* sender's nodeId —
+    // the sender then skips its own echo.
+    appEventBus.dispatchInboundFromForeground({
+      type,
+      payload,
+      originNodeId: originNodeId ?? '',
+    });
     return Promise.resolve(true);
   }
 
