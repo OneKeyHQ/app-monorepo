@@ -475,14 +475,6 @@ function FinalizeWalletSetupPage({
       <YStack flex={1}>
         {setupError ? (
           <YStack flex={1} justifyContent="center" gap="$7">
-            <SizableText
-              size="$bodySm"
-              color="$textCritical"
-              letterSpacing={3}
-              textTransform="uppercase"
-            >
-              Error / setup interrupted
-            </SizableText>
             <SizableText size="$heading5xl" fontWeight={600}>
               {intl.formatMessage({
                 id: ETranslations.failed_to_create_wallet,
