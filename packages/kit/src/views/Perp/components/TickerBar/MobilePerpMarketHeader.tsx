@@ -6,14 +6,12 @@ import { useIntl } from 'react-intl';
 import {
   DashText,
   Icon,
-  IconButton,
   NumberSizeableText,
   Popover,
   SizableText,
   Skeleton,
   XStack,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useConnectionStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -21,7 +19,6 @@ import {
   usePerpsActiveAssetCtxAtom,
   useSpotActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useSpotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatLocalizedNumberString,
@@ -29,7 +26,6 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
-import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 
 function StatRow({
   label,
@@ -54,13 +50,10 @@ function StatRow({
 
 function MobilePerpMarketHeader() {
   const intl = useIntl();
-  const { copyText } = useClipboard();
   const { mode } = useActiveTradeDisplay();
   const [connectionState] = useConnectionStateAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const [spotAsset] = useSpotActiveAssetAtom();
-  const { tokenContractMap } = useSpotMetaMaps();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const hasError = connectionState.reconnectCount > 3;
   const isReady = connectionState.isConnected && !hasError;
@@ -159,12 +152,100 @@ function MobilePerpMarketHeader() {
     return `$${formatted}`;
   }, [circulatingSupply, isSpot, markPrice, openInterest]);
 
-  const spotContract =
-    tokenContractMap[spotAsset?.universe?.baseName ?? ''] ||
-    tokenContractMap[spotAsset?.coin ?? ''];
-  const spotContractDisplay = spotContract
-    ? `${spotContract.slice(0, 6)}...${spotContract.slice(-4)}`
-    : '--';
+  const priceMetaContent = useMemo(() => {
+    if (showSkeleton) {
+      return <Skeleton width={72} height={16} />;
+    }
+
+    if (isSpot) {
+      return (
+        <XStack alignItems="center" gap="$1.5" mt="$-1">
+          <Popover
+            title={intl.formatMessage({
+              id: ETranslations.perp_spot_reference_price__title,
+            })}
+            renderTrigger={
+              <DashText
+                fontSize={10}
+                lineHeight={14}
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+              >
+                {markPriceDisplay}
+              </DashText>
+            }
+            renderContent={
+              <YStack px="$5" pb="$4">
+                <SizableText size="$bodyMd" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_spot_reference_price__desc,
+                  })}
+                </SizableText>
+              </YStack>
+            }
+          />
+          <XStack alignItems="center" gap="$1">
+            <Icon
+              name={
+                change24hPercent >= 0
+                  ? 'ArrowTriangleTopSolid'
+                  : 'ArrowTriangleBottomSolid'
+              }
+              size="$2"
+              color={change24hPercent >= 0 ? '$green11' : '$red11'}
+            />
+            <NumberSizeableText
+              fontSize={10}
+              color={change24hPercent >= 0 ? '$green11' : '$red11'}
+              formatter="priceChange"
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
+            >
+              {change24hPercent}
+            </NumberSizeableText>
+          </XStack>
+        </XStack>
+      );
+    }
+
+    return (
+      <>
+        <XStack alignItems="center" gap="$1" mt="$-1">
+          <Icon
+            name={
+              change24hPercent >= 0
+                ? 'ArrowTriangleTopSolid'
+                : 'ArrowTriangleBottomSolid'
+            }
+            size="$2"
+            color={change24hPercent >= 0 ? '$green11' : '$red11'}
+          />
+          <NumberSizeableText
+            fontSize={10}
+            color={change24hPercent >= 0 ? '$green11' : '$red11'}
+            formatter="priceChange"
+            formatterOptions={{
+              showPlusMinusSigns: true,
+            }}
+          >
+            {change24hPercent}
+          </NumberSizeableText>
+        </XStack>
+        <XStack alignItems="center" gap="$1" mt="$-1">
+          <SizableText fontSize={10} color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_position_mark_price,
+            })}
+          </SizableText>
+          <SizableText fontSize={10} color="$text">
+            {markPriceDisplay}
+          </SizableText>
+        </XStack>
+      </>
+    );
+  }, [change24hPercent, intl, isSpot, markPriceDisplay, showSkeleton]);
 
   return (
     <YStack bg="$bgApp" px="$5" pt="$3" gap="$2">
@@ -204,43 +285,7 @@ function MobilePerpMarketHeader() {
             </>
           )}
 
-          {showSkeleton ? (
-            <Skeleton width={72} height={16} />
-          ) : (
-            <XStack alignItems="center" gap="$1" mt="$-1">
-              <Icon
-                name={
-                  change24hPercent >= 0
-                    ? 'ArrowTriangleTopSolid'
-                    : 'ArrowTriangleBottomSolid'
-                }
-                size="$2"
-                color={change24hPercent >= 0 ? '$green11' : '$red11'}
-              />
-              <NumberSizeableText
-                fontSize={10}
-                color={change24hPercent >= 0 ? '$green11' : '$red11'}
-                formatter="priceChange"
-                formatterOptions={{
-                  showPlusMinusSigns: true,
-                }}
-              >
-                {change24hPercent}
-              </NumberSizeableText>
-            </XStack>
-          )}
-          <XStack alignItems="center" gap="$1" mt="$-1">
-            <SizableText fontSize={10} color="$textSubdued">
-              {intl.formatMessage({
-                id: isSpot
-                  ? ETranslations.perp_spot_reference_price__title
-                  : ETranslations.perp_position_mark_price,
-              })}
-            </SizableText>
-            <SizableText fontSize={10} color="$text">
-              {markPriceDisplay}
-            </SizableText>
-          </XStack>
+          {priceMetaContent}
         </YStack>
 
         <YStack gap="$1.5" flex={1} minWidth={0} width="50%">
@@ -279,42 +324,6 @@ function MobilePerpMarketHeader() {
               {openInterestDisplay}
             </SizableText>
           </StatRow>
-
-          {isSpot ? (
-            <StatRow
-              label={intl.formatMessage({
-                id: ETranslations.global_contract,
-              })}
-              skeletonWidth={120}
-              showSkeleton={showSkeleton}
-            >
-              <XStack
-                flex={1}
-                justifyContent="flex-end"
-                alignItems="center"
-                gap="$1"
-              >
-                <SizableText
-                  size="$bodySmMedium"
-                  color="$text"
-                  fontFamily="$monoRegular"
-                >
-                  {spotContractDisplay}
-                </SizableText>
-                {spotContract ? (
-                  <IconButton
-                    variant="tertiary"
-                    size="small"
-                    icon="Copy3Outline"
-                    iconSize="$3"
-                    onPress={() => {
-                      copyText(spotContract);
-                    }}
-                  />
-                ) : null}
-              </XStack>
-            </StatRow>
-          ) : null}
 
           {isSpot ? null : (
             <StatRow

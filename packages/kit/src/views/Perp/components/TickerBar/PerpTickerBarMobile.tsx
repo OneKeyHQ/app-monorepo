@@ -14,15 +14,13 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import {
-  usePerpsActiveAssetAtom,
-  useTradingModeAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useTradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
@@ -54,16 +52,17 @@ function PerpBadgesRow() {
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
-  const [asset] = usePerpsActiveAssetAtom();
+  const { baseName, coin } = useActiveTradeDisplay();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const [fetchedTokenSearchAliases, setFetchedTokenSearchAliases] = useState<
     ITokenSearchAliases | undefined
   >(undefined);
   const effectiveTokenSearchAliases =
     tokenSearchAliases ?? fetchedTokenSearchAliases;
+  const subtitleTarget = isSpot ? baseName : coin;
   const subtitle = useMemo(
-    () => getTokenSubtitle(asset?.coin ?? '', effectiveTokenSearchAliases),
-    [asset?.coin, effectiveTokenSearchAliases],
+    () => getTokenSubtitle(subtitleTarget, effectiveTokenSearchAliases),
+    [subtitleTarget, effectiveTokenSearchAliases],
   );
 
   // Fetch builder fee once on mount (independent of alias state)

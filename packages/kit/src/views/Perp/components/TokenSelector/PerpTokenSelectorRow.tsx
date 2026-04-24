@@ -639,6 +639,7 @@ const TokenSelectorRowDesktop = memo(() => {
           hoverStyle={{ bg: '$bgHover' }}
           px="$4"
           py="$3"
+          minHeight={48}
           flex={1}
           cursor="default"
         >
