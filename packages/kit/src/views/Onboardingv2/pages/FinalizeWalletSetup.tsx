@@ -90,13 +90,7 @@ const STEP_MESSAGE_IDS: Record<EFinalizeWalletSetupSteps, ETranslations> = {
 
 function StepTextSwap({ text }: { text: string }) {
   return (
-    <YStack
-      w="100%"
-      h={32}
-      position="relative"
-      overflow="hidden"
-      $md={{ h: 28 }}
-    >
+    <YStack w="100%" h={32} position="relative" overflow="hidden">
       <AnimatePresence>
         <SizableText
           key={text}
@@ -408,6 +402,11 @@ function FinalizeWalletSetupPage({
     setSetupError(undefined);
     setCurrentStep(initialStep);
     stepQueue.current = [];
+    // Reset the dedup guard so a retry triggered after a late, post-success
+    // error (e.g. a hardware-connect event firing after a non-hardware
+    // wallet was already created) can re-enter the create-wallet branch
+    // instead of being short-circuited.
+    created.current = false;
     void createWallet();
   }, [createWallet, initialStep]);
 
