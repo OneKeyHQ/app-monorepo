@@ -111,6 +111,7 @@ const baseResolve = ({
     https: false,
     http: false,
     net: false,
+    dgram: false,
     zlib: false,
     tls: false,
     child_process: false,
