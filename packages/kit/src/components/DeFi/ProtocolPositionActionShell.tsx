@@ -11,7 +11,7 @@ const ProtocolPositionActionShell = memo(
 
     return (
       <XStack justifyContent="flex-end">
-        <Button size="small" variant="primary" pointerEvents="none">
+        <Button size="small" variant="primary" disabled>
           {action.label}
         </Button>
       </XStack>

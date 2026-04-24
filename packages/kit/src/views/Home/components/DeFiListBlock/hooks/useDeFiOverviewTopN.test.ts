@@ -2,7 +2,10 @@ import { renderHook } from '@testing-library/react-native';
 
 import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 
-import { useDeFiOverviewTopN } from './useDeFiOverviewTopN';
+import {
+  buildDeFiOverviewCells,
+  useDeFiOverviewTopN,
+} from './useDeFiOverviewTopN';
 
 const mk = (id: string): IDeFiProtocol =>
   ({
@@ -29,7 +32,7 @@ describe('useDeFiOverviewTopN', () => {
     expect(empty.result.current).toEqual([]);
   });
 
-  it('sorts by netWorth desc', () => {
+  it('sorts by exposure desc when values are positive', () => {
     const protocols = [mk('a'), mk('b'), mk('c'), mk('d')];
     const values = { a: 10, b: 50, c: 30, d: 20 };
     const { result } = renderHook(() =>
@@ -42,5 +45,15 @@ describe('useDeFiOverviewTopN', () => {
       'a',
     ]);
     expect(result.current[0].netWorth).toBe(50);
+  });
+
+  it('sorts negative positions by absolute exposure', () => {
+    const protocols = [mk('a'), mk('b'), mk('c'), mk('d')];
+    const values = { a: 10, b: -80, c: 50, d: -20 };
+    expect(
+      buildDeFiOverviewCells(protocols, getNW(values)).map(
+        (c) => c.protocol.protocol,
+      ),
+    ).toEqual(['b', 'c', 'd', 'a']);
   });
 });

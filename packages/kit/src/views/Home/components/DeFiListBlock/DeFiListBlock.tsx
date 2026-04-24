@@ -60,6 +60,7 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 import { deFiListLoadingReducer } from './deFiListLoadingReducer';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
+import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
 import { type IProtocolHandle, Protocol } from './Protocol';
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
@@ -930,31 +931,20 @@ function DeFiListBlock({
   ]);
 
   const filteredProtocols = useMemo(() => {
-    // Sort by netWorth desc so the list order matches the overview's
-    // ranking (biggest positions first). Ties keep the backend's original
-    // order via a stable secondary compare.
-    const sorted = protocols
-      .map((protocol, originalIndex) => {
-        const key = defiUtils.buildProtocolMapKey({
-          protocol: protocol.protocol,
-          networkId: protocol.networkId,
-        });
-        const info = buildProtocolDisplayInfo({
-          protocol,
-          protocolInfo: protocolMap[key],
-        });
-        const nw = new BigNumber(info.netWorth);
-        return {
-          protocol,
-          originalIndex,
-          netWorth: nw.isFinite() ? nw.toNumber() : 0,
-        };
-      })
-      .toSorted((a, b) => {
-        if (a.netWorth !== b.netWorth) return b.netWorth - a.netWorth;
-        return a.originalIndex - b.originalIndex;
-      })
-      .map((e) => e.protocol);
+    // Keep the mounted list in the same exposure order as the overview tiles,
+    // so every collapsed overview tile can scroll to an existing protocol row.
+    const sorted = buildDeFiOverviewCells(protocols, (protocol) => {
+      const key = defiUtils.buildProtocolMapKey({
+        protocol: protocol.protocol,
+        networkId: protocol.networkId,
+      });
+      const info = buildProtocolDisplayInfo({
+        protocol,
+        protocolInfo: protocolMap[key],
+      });
+      const nw = new BigNumber(info.netWorth);
+      return nw.isFinite() ? nw.toNumber() : 0;
+    }).map((e) => e.protocol);
 
     if (isOverflow && isSliced) {
       const limit = tableLayout

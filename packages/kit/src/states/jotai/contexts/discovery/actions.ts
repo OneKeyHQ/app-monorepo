@@ -100,6 +100,11 @@ export const homeResettingFlags: Record<string, number> = {};
 // latter also drives sidebar sort order (`top` mode freezes it on creation).
 export const lastNavigationFlags: Record<string, number> = {};
 
+function clearTabScopedFlags(tabId: string) {
+  delete homeResettingFlags[tabId];
+  delete lastNavigationFlags[tabId];
+}
+
 function buildWebTabData(tabs: IWebTab[]) {
   const map: Record<string, IWebTab> = {};
   const keys: string[] = [];
@@ -384,6 +389,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       const { tabId, entry, navigation } = payload;
       delete webviewRefs[tabId];
+      clearTabScopedFlags(tabId);
       const { tabs } = get(webTabsAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
@@ -496,6 +502,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         if (!pinnedTabs.find((tab) => tab.id === id)) {
           delete webviewRefs[id];
         }
+      }
+      for (const tab of tabsToClose) {
+        clearTabScopedFlags(tab.id);
       }
 
       loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
