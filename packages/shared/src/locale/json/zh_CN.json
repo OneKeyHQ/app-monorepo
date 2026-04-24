@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "可买",
   "perp_spot_max_buy_sell_tooltip": "最大可买或最大可卖数量取决于可用余额和委托价格。限价单输入价格后会自动更新。",
   "perp_spot_max_sell": "可卖",
+  "perp_spot_reference_price__desc": "现货参考价格用于资产估值和盈亏计算。",
+  "perp_spot_reference_price__title": "参考价格",
   "perp_trades_history_recent_range_desc": "当前最多展示近 2 年的历史成交",
   "perp_trading_adjust_margin": "调整保证金",
   "perp_trading_adjust_margin_max": "最大可添加",

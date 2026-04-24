@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "अधिकतम खरीद",
   "perp_spot_max_buy_sell_tooltip": "अधिकतम खरीद या बिक्री मात्रा आपके उपलब्ध बैलेंस और ऑर्डर प्राइस पर निर्भर करती है। लिमिट ऑर्डर में कीमत दर्ज करने के बाद यह अपने आप अपडेट हो जाती है।",
   "perp_spot_max_sell": "अधिकतम बिक्री",
+  "perp_spot_reference_price__desc": "स्पॉट संदर्भ मूल्य का उपयोग एसेट वैल्यूएशन और PnL गणना के लिए किया जाता है।",
+  "perp_spot_reference_price__title": "संदर्भ मूल्य",
   "perp_trades_history_recent_range_desc": "पिछले अधिकतम 2 वर्षों तक के ट्रेड दिखाए जाते हैं।",
   "perp_trading_adjust_margin": "मार्जिन समायोजित करें",
   "perp_trading_adjust_margin_max": "अधिकतम जोड़",

@@ -3028,6 +3028,8 @@
   "perp_spot_max_buy": "Mua tối đa",
   "perp_spot_max_buy_sell_tooltip": "Số lượng mua hoặc bán tối đa phụ thuộc vào số dư khả dụng và giá lệnh. Với lệnh giới hạn, giá trị này sẽ tự động cập nhật sau khi bạn nhập giá.",
   "perp_spot_max_sell": "Bán tối đa",
+  "perp_spot_reference_price__desc": "Giá tham chiếu spot được dùng để định giá tài sản và tính PnL.",
+  "perp_spot_reference_price__title": "Giá tham chiếu",
   "perp_trades_history_recent_range_desc": "Hiển thị các giao dịch trong tối đa 2 năm gần đây.",
   "perp_trading_adjust_margin": "Điều chỉnh biên",
   "perp_trading_adjust_margin_max": "Tối đa thêm",
