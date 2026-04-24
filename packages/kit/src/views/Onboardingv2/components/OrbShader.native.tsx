@@ -1,4 +1,6 @@
 // cspell:ignore GLSL SkSL uniforms uniform uTime uRot uIntensity uBreath uHue uResolution fragCoord snoise yiq rgb2yiq yiq2rgb hueRad cosA sinA hueDeg adjustHue invLen iRadius innerRadius noiseScale glowFactor baseColor extractAlpha smoothstep clamp fract floor vec atan cos sin sqrt attenuation
+import { useMemo } from 'react';
+
 import {
   Canvas,
   Fill,
@@ -8,13 +10,16 @@ import {
 } from '@shopify/react-native-skia';
 import { useDerivedValue } from 'react-native-reanimated';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { YStack } from '@onekeyhq/components';
 
 import type { SharedValue } from 'react-native-reanimated';
 
-// SkSL shader — direct port of the shader in the Notion reference:
-// https://www.notion.so/francochen/React-Native-Animations-Orb-Shader-Animation-with-React-Native-Skia-34c2b5d2e10e80c3a4f4d103d12e733c
-const SHADER_SOURCE_CANDIDATE = Skia.RuntimeEffect.Make(`
+// SkSL shader — noise-driven gradient orb.
+// Uniforms:
+//   uIntensity (0..1) — overall brightness / activity
+//   uBreath    (0..1) — slow breathing radius modulation
+//   uHue       (deg)  — YIQ hue rotation for the three base colors
+const SKSL_SOURCE = `
 uniform vec3 uResolution;
 uniform float uTime;
 uniform float uHue;
@@ -153,12 +158,7 @@ vec4 main(vec2 fragCoord) {
   col *= glowFactor;
   return vec4(col.rgb * col.a, col.a);
 }
-`);
-
-if (!SHADER_SOURCE_CANDIDATE) {
-  throw new OneKeyLocalError('OrbShader: SkSL failed to compile');
-}
-const SHADER_SOURCE = SHADER_SOURCE_CANDIDATE;
+`;
 
 export interface IOrbShaderProps {
   /** Brightness / activity multiplier driven by parent; 0..1. */
@@ -183,12 +183,14 @@ export function OrbShader({
   hue = 140,
   size = 240,
 }: IOrbShaderProps) {
+  // Lazy-compile so a failing Skia driver on the user's device does not crash
+  // during module evaluation — we fall through to a static brand circle.
+  const shader = useMemo(() => Skia.RuntimeEffect.Make(SKSL_SOURCE), []);
   const clock = useClock();
 
-  // Matches the Notion demo: when paused we let the time-driven noise and
-  // inner oscillation continue (so the orb still breathes subtly) and only
-  // stop the global rotation. Intensity is expected to be faded by the
-  // parent, which is what actually "dims" the orb.
+  // When paused we keep the time-driven noise / breath running so the orb
+  // still subtly pulses, and only stop the global rotation. Intensity is
+  // faded by the parent, which is what actually "dims" the orb.
   const uniforms = useDerivedValue(() => {
     const t = clock.value / 1000;
     const rot = autoRotate && !paused ? t * 0.2 : 0;
@@ -204,10 +206,21 @@ export function OrbShader({
     };
   }, [size, hue, autoRotate, hueByIntensity, paused]);
 
+  if (!shader) {
+    return (
+      <YStack
+        width={size}
+        height={size}
+        borderRadius={size / 2}
+        bg="$brand10"
+      />
+    );
+  }
+
   return (
     <Canvas style={{ width: size, height: size }}>
       <Fill>
-        <Shader source={SHADER_SOURCE} uniforms={uniforms} />
+        <Shader source={shader} uniforms={uniforms} />
       </Fill>
     </Canvas>
   );

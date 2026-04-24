@@ -108,7 +108,7 @@ export default function PickYourDevice() {
             $gtMd={{ flex: 1 }}
             onPress={() => {
               defaultLogger.onboarding.page.pickYourDevice(
-                deviceType.join(','),
+                deviceType.length > 0 ? deviceType.join(',') : 'others',
               );
               if (deviceType.length === 0) {
                 showOtherDevicesDialog();

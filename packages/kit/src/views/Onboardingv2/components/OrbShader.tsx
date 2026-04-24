@@ -20,12 +20,15 @@ const loadSkiaOpts = {
 // a transient flow so a brief blank canvas during init is acceptable.
 export function OrbShader(props: IOrbShaderProps) {
   const size = props.size ?? 240;
+  const fallback = (
+    <YStack w={size} h={size} borderRadius={size / 2} bg="$brand10" />
+  );
   return (
     <WithSkiaWeb
       getComponent={() => import('./OrbShader.native')}
       componentProps={props}
       opts={loadSkiaOpts}
-      fallback={<YStack w={size} h={size} />}
+      fallback={fallback}
     />
   );
 }
