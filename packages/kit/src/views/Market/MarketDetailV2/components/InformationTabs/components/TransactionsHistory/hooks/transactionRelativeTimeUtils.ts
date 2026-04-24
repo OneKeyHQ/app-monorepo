@@ -17,6 +17,7 @@ export function formatRelativeTimeAbbrAt(
     normalizeTimestamp(baseDate),
     false,
     'floor',
+    'en-US',
   );
 
   return distance
