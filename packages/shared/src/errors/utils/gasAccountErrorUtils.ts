@@ -6,6 +6,52 @@ export const MAX_GAS_ACCOUNT_RETRY_ATTEMPTS = 3;
 // as Refresh (re-estimate) instead.
 export const MAX_GAS_ACCOUNT_RETRY_AFTER_SEC = 60;
 
+export const GAS_ACCOUNT_SUBMIT_CANCELLED_ERROR_NAME =
+  'GasAccountSubmitCancelledError';
+
+// Thrown by the background retry loop when the user aborts via Cancel while a
+// 90212 sleep is in flight. Kept as a plain Error so it crosses the background
+// bridge cleanly; identity is checked by `name` rather than `instanceof`.
+export class GasAccountSubmitCancelledError extends Error {
+  override name = GAS_ACCOUNT_SUBMIT_CANCELLED_ERROR_NAME;
+
+  constructor(message = 'Gas account submission cancelled by user.') {
+    super(message);
+  }
+}
+
+export function isGasAccountSubmitCancelledError(error: unknown): boolean {
+  return (
+    (error as { name?: string } | undefined)?.name ===
+    GAS_ACCOUNT_SUBMIT_CANCELLED_ERROR_NAME
+  );
+}
+
+// Promise-based sleep that rejects with GasAccountSubmitCancelledError as soon
+// as `signal` is aborted. If `signal` is omitted this behaves like a plain
+// timeout.
+export function abortableWait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new GasAccountSubmitCancelledError());
+      return;
+    }
+    // Use a holder so `onAbort` can clear the timeout without a forward
+    // reference, and so the timer id can be reassigned once setTimeout
+    // returns without tripping prefer-const on a bind-once pattern.
+    const handle: { timer?: ReturnType<typeof setTimeout> } = {};
+    const onAbort = () => {
+      if (handle.timer !== undefined) clearTimeout(handle.timer);
+      reject(new GasAccountSubmitCancelledError());
+    };
+    handle.timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 type IGasAccountErrorShape = {
   code?: unknown;
   retryAfterSec?: unknown;

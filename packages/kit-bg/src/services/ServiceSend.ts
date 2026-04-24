@@ -19,9 +19,12 @@ import {
   PendingQueueTooLong,
 } from '@onekeyhq/shared/src/errors';
 import {
+  GasAccountSubmitCancelledError,
   MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
+  abortableWait,
   getGasAccountErrorCode,
   getGasAccountRetryAfterSec,
+  isGasAccountSubmitCancelledError,
   shouldDeepRetryGasAccount,
 } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
@@ -71,6 +74,21 @@ import type {
 class ServiceSend extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  // submitId → AbortController for in-flight 90212 retry loops. Registered
+  // when `signAndSendTransaction` enters the gas-account retry branch and
+  // cleared in its `finally`. UI calls `abortGasAccountSubmit` to break the
+  // loop when the user cancels the confirm screen.
+  private gasAccountSubmitAborters: Map<string, AbortController> = new Map();
+
+  @backgroundMethod()
+  public async abortGasAccountSubmit(submitId: string): Promise<void> {
+    const controller = this.gasAccountSubmitAborters.get(submitId);
+    if (controller) {
+      controller.abort();
+      this.gasAccountSubmitAborters.delete(submitId);
+    }
   }
 
   @backgroundMethod()
@@ -333,6 +351,7 @@ class ServiceSend extends ServiceBase {
     params: ISendTxBaseParams &
       ISignTransactionParamsBase & {
         gasAccountUiState?: IBatchSignTransactionParamsBase['gasAccountUiState'];
+        gasAccountSubmitId?: IBatchSignTransactionParamsBase['gasAccountSubmitId'];
       },
   ) {
     const {
@@ -343,6 +362,7 @@ class ServiceSend extends ServiceBase {
       rawTxType,
       tronResourceRentalInfo,
       gasAccountUiState,
+      gasAccountSubmitId,
       useDefaultRpc,
     } = params;
 
@@ -402,63 +422,89 @@ class ServiceSend extends ServiceBase {
         gasAccountUiState?.selectedPayer === 'gasAccount' &&
         !!gasAccountUiState.gasAccountQuote?.quoteId;
 
+      // Register an AbortController against the UI-provided submitId so the
+      // confirm page can break the retry sleep via
+      // `serviceSend.abortGasAccountSubmit(submitId)`. Cleaned up in finally.
+      let abortController: AbortController | undefined;
+      if (isGasAccountSubmit && gasAccountSubmitId) {
+        abortController = new AbortController();
+        this.gasAccountSubmitAborters.set(gasAccountSubmitId, abortController);
+      }
+
       const broadcastWithGasAccountRetry = async () => {
         let lastError: unknown;
         let emittedScheduled = false;
-        for (
-          let attempt = 0;
-          attempt <= MAX_GAS_ACCOUNT_RETRY_ATTEMPTS;
-          attempt += 1
-        ) {
-          try {
-            const result = await broadcastOnce();
-            if (emittedScheduled) {
+        const emitClearedIfNeeded = () => {
+          if (emittedScheduled) {
+            appEventBus.emit(
+              EAppEventBusNames.GasAccountSubmitRetryCleared,
+              undefined,
+            );
+          }
+        };
+        try {
+          for (
+            let attempt = 0;
+            attempt <= MAX_GAS_ACCOUNT_RETRY_ATTEMPTS;
+            attempt += 1
+          ) {
+            if (abortController?.signal.aborted) {
+              throw new GasAccountSubmitCancelledError();
+            }
+            try {
+              const result = await broadcastOnce();
+              emitClearedIfNeeded();
+              return result;
+            } catch (error) {
+              if (isGasAccountSubmitCancelledError(error)) {
+                // abortableWait unwound mid-sleep; bubble straight up.
+                emitClearedIfNeeded();
+                throw error;
+              }
+              if (abortController?.signal.aborted) {
+                emitClearedIfNeeded();
+                throw new GasAccountSubmitCancelledError();
+              }
+              lastError = error;
+              const code = getGasAccountErrorCode(error);
+              const retryAfterSec = getGasAccountRetryAfterSec(error);
+              const canRetry =
+                attempt < MAX_GAS_ACCOUNT_RETRY_ATTEMPTS &&
+                shouldDeepRetryGasAccount({ code, retryAfterSec });
+              if (!canRetry) {
+                emitClearedIfNeeded();
+                throw error;
+              }
               appEventBus.emit(
-                EAppEventBusNames.GasAccountSubmitRetryCleared,
-                undefined,
+                EAppEventBusNames.GasAccountSubmitRetryScheduled,
+                {
+                  attempt: attempt + 1,
+                  maxAttempts: MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
+                  retryAfterSec: retryAfterSec as number,
+                  scheduledAt: Date.now(),
+                },
+              );
+              emittedScheduled = true;
+              await abortableWait(
+                (retryAfterSec as number) * 1000,
+                abortController?.signal,
               );
             }
-            return result;
-          } catch (error) {
-            lastError = error;
-            const code = getGasAccountErrorCode(error);
-            const retryAfterSec = getGasAccountRetryAfterSec(error);
-            const canRetry =
-              attempt < MAX_GAS_ACCOUNT_RETRY_ATTEMPTS &&
-              shouldDeepRetryGasAccount({ code, retryAfterSec });
-            if (!canRetry) {
-              if (emittedScheduled) {
-                appEventBus.emit(
-                  EAppEventBusNames.GasAccountSubmitRetryCleared,
-                  undefined,
-                );
-              }
-              throw error;
-            }
-            appEventBus.emit(EAppEventBusNames.GasAccountSubmitRetryScheduled, {
-              attempt: attempt + 1,
-              maxAttempts: MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
-              retryAfterSec: retryAfterSec as number,
-              scheduledAt: Date.now(),
-            });
-            emittedScheduled = true;
-            await timerUtils.wait((retryAfterSec as number) * 1000);
+          }
+          emitClearedIfNeeded();
+          // Structurally unreachable — every loop iteration returns on success
+          // or throws on exhaustion — but TS can't narrow `for` exit, so keep a
+          // typed fallback for the linter.
+          throw lastError instanceof Error
+            ? lastError
+            : new OneKeyLocalError(
+                'Gas account broadcast failed after deep retry.',
+              );
+        } finally {
+          if (gasAccountSubmitId) {
+            this.gasAccountSubmitAborters.delete(gasAccountSubmitId);
           }
         }
-        if (emittedScheduled) {
-          appEventBus.emit(
-            EAppEventBusNames.GasAccountSubmitRetryCleared,
-            undefined,
-          );
-        }
-        // Structurally unreachable — every loop iteration returns on success
-        // or throws on exhaustion — but TS can't narrow `for` exit, so keep a
-        // typed fallback for the linter.
-        throw lastError instanceof Error
-          ? lastError
-          : new OneKeyLocalError(
-              'Gas account broadcast failed after deep retry.',
-            );
       };
 
       // Gas account submit runs its own bounded deep-retry loop (3 × 90212).
@@ -557,6 +603,7 @@ class ServiceSend extends ServiceBase {
       successfullySentTxs,
       tronResourceRentalInfo,
       gasAccountUiState,
+      gasAccountSubmitId,
       useDefaultRpc,
     } = params;
 
@@ -571,6 +618,12 @@ class ServiceSend extends ServiceBase {
     const effectiveGasAccountUiState = isMultiTxs
       ? undefined
       : gasAccountUiState;
+    // Only thread the submitId through when we're actually going to engage the
+    // retry loop, to avoid registering a controller for paths that will never
+    // abort it.
+    const effectiveGasAccountSubmitId = isMultiTxs
+      ? undefined
+      : gasAccountSubmitId;
 
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -598,6 +651,7 @@ class ServiceSend extends ServiceBase {
               signOnly: false,
               tronResourceRentalInfo,
               gasAccountUiState: effectiveGasAccountUiState,
+              gasAccountSubmitId: effectiveGasAccountSubmitId,
               useDefaultRpc,
             });
         const decodedTx = await this.buildDecodedTx({

@@ -44,7 +44,10 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import {
+  getGasAccountErrorCode,
+  isGasAccountSubmitCancelledError,
+} from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -54,6 +57,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -147,6 +151,10 @@ function TxConfirmActions(props: IProps) {
     updateUnsignedTxs,
   } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
+  // Identifies the current submit attempt so the background retry loop can be
+  // aborted from the cancel handler. Rotated on every fresh submit; cleared
+  // once the attempt has terminated (success / failure / cancel).
+  const gasAccountSubmitIdRef = useRef<string | null>(null);
   const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
@@ -278,6 +286,10 @@ function TxConfirmActions(props: IProps) {
     }
 
     updateSendTxStatus({ isSubmitting: true });
+    // Rotate the submit token so the background retry loop knows which
+    // attempt this is and the cancel handler can target it precisely.
+    const submitId = generateUUID();
+    gasAccountSubmitIdRef.current = submitId;
     // Pre-check before submit
 
     const accountAddress =
@@ -314,6 +326,7 @@ function TxConfirmActions(props: IProps) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
       void dappApprove.reject(e);
       throw e;
     }
@@ -336,6 +349,7 @@ function TxConfirmActions(props: IProps) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
       void dappApprove.reject(e);
       throw e;
     }
@@ -374,6 +388,7 @@ function TxConfirmActions(props: IProps) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
       void dappApprove.reject(e);
       throw e;
     }
@@ -396,6 +411,7 @@ function TxConfirmActions(props: IProps) {
         const isConfirmed = await showFeeInfoOverflowConfirm();
         if (!isConfirmed) {
           isSubmitted.current = false;
+          gasAccountSubmitIdRef.current = null;
           updateSendTxStatus({ isSubmitting: false });
           return;
         }
@@ -445,6 +461,7 @@ function TxConfirmActions(props: IProps) {
           successfullySentTxs: successfullySentTxs.current,
           tronResourceRentalInfo,
           gasAccountUiState,
+          gasAccountSubmitId: submitId,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
 
@@ -518,6 +535,7 @@ function TxConfirmActions(props: IProps) {
       const signedTx = result[0].signedTx;
 
       isSubmitted.current = true;
+      gasAccountSubmitIdRef.current = null;
 
       void dappApprove.resolve({ result: signedTx });
 
@@ -577,6 +595,17 @@ function TxConfirmActions(props: IProps) {
         navigation.pop();
       }
     } catch (e: any) {
+      // User aborted a 90212 retry via Cancel: modal is closing, dappApprove
+      // was already rejected in handleOnCancel. Skip toast, skip re-estimate,
+      // skip dappApprove propagation — just unwind submit state.
+      if (isGasAccountSubmitCancelledError(e)) {
+        muteHandledErrorToast(e);
+        updateSendTxStatus({ isSubmitting: false });
+        setGasAccountRetryState(null);
+        isSubmitted.current = false;
+        gasAccountSubmitIdRef.current = null;
+        return;
+      }
       const gasAccountStrategy = handleGasAccountSubmitError(e);
       // Refresh and Fallback both keep the user on the confirm page with a
       // fresh estimate in flight, so the dApp caller should also keep waiting.
@@ -588,6 +617,7 @@ function TxConfirmActions(props: IProps) {
       ) {
         updateSendTxStatus({ isSubmitting: false });
         isSubmitted.current = false;
+        gasAccountSubmitIdRef.current = null;
         return;
       }
       if (accountUtils.isQrAccount({ accountId })) {
@@ -600,6 +630,7 @@ function TxConfirmActions(props: IProps) {
       // });
       onFail?.(e as Error);
       isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
       if (shouldRejectDappAction()) {
         void dappApprove.reject(e);
       }
@@ -675,6 +706,20 @@ function TxConfirmActions(props: IProps) {
           updateUnsignedTxs([unsignedTxQueue.current]);
         }
         return;
+      }
+
+      // If a 90212 retry loop is in flight, tear it down before the modal
+      // closes. Otherwise the background would keep sleeping/broadcasting
+      // after the user already chose to abandon the flow — with Prime
+      // idempotency it wouldn't double-charge, but the tx could still land
+      // on-chain after the dApp saw a rejection, which is the UX we're
+      // explicitly avoiding.
+      const pendingSubmitId = gasAccountSubmitIdRef.current;
+      if (pendingSubmitId) {
+        gasAccountSubmitIdRef.current = null;
+        void backgroundApiProxy.serviceSend.abortGasAccountSubmit(
+          pendingSubmitId,
+        );
       }
 
       dappApprove.reject();
