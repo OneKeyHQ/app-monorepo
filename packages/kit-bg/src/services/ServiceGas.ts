@@ -157,6 +157,7 @@ class ServiceGas extends ServiceBase {
       payer: feeInfo.payer,
       gasAccountEligible: feeInfo.gasAccountEligible,
       gasAccountQuote: feeInfo.gasAccountQuote,
+      gasAccountScenarioReason: feeInfo.gasAccountScenarioReason,
     };
 
     // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic

@@ -45,6 +45,10 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
+  getGasAccountErrorCode,
+  isGasAccountSubmitCancelledError,
+} from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -53,10 +57,12 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
@@ -72,41 +78,6 @@ import {
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
-
-function getGasAccountErrorCode(error: unknown) {
-  // OneKey RPC errors surface as `{ data: { data: { res: { error: { code } } } } }`
-  // (see `IOneKeyRpcError` in shared/errors/types). Older non-RPC paths expose
-  // `.code` directly or at `.data.code` / `.data.data.code`, so probe all four.
-  const e = error as
-    | (IOneKeyError & {
-        data?: {
-          code?: number;
-          data?: {
-            code?: number;
-            res?: { error?: { code?: number } };
-          };
-        };
-      })
-    | undefined;
-
-  if (typeof e?.code === 'number') {
-    return e.code;
-  }
-  const errorDataCode = e?.data?.code;
-  if (typeof errorDataCode === 'number') {
-    return errorDataCode;
-  }
-  const nestedErrorDataCode = e?.data?.data?.code;
-  if (typeof nestedErrorDataCode === 'number') {
-    return nestedErrorDataCode;
-  }
-  const rpcErrorCode = e?.data?.data?.res?.error?.code;
-  if (typeof rpcErrorCode === 'number') {
-    return rpcErrorCode;
-  }
-
-  return undefined;
-}
 
 function muteHandledErrorToast(error: unknown) {
   const e = error as IOneKeyError | undefined;
@@ -129,6 +100,7 @@ type IProps = {
   popStack?: boolean;
   isQueueMode?: boolean;
   unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
+  gasAccountScenario?: IGasAccountScenario;
 };
 
 function TxConfirmActions(props: IProps) {
@@ -146,6 +118,7 @@ function TxConfirmActions(props: IProps) {
     popStack = true,
     isQueueMode,
     unsignedTxQueue,
+    gasAccountScenario,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
@@ -178,6 +151,10 @@ function TxConfirmActions(props: IProps) {
     updateUnsignedTxs,
   } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
+  // Identifies the current submit attempt so the background retry loop can be
+  // aborted from the cancel handler. Rotated on every fresh submit; cleared
+  // once the attempt has terminated (success / failure / cancel).
+  const gasAccountSubmitIdRef = useRef<string | null>(null);
   const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
@@ -185,6 +162,12 @@ function TxConfirmActions(props: IProps) {
   const [customRpcStatus] = useCustomRpcStatusAtom();
   const [settings] = useSettingsPersistAtom();
   const [gasAccountNow, setGasAccountNow] = useState(Date.now());
+  const [gasAccountRetryState, setGasAccountRetryState] = useState<{
+    attempt: number;
+    maxAttempts: number;
+    retryAfterSec: number;
+    scheduledAt: number;
+  } | null>(null);
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
@@ -303,6 +286,10 @@ function TxConfirmActions(props: IProps) {
     }
 
     updateSendTxStatus({ isSubmitting: true });
+    // Rotate the submit token so the background retry loop knows which
+    // attempt this is and the cancel handler can target it precisely.
+    const submitId = generateUUID();
+    gasAccountSubmitIdRef.current = submitId;
     // Pre-check before submit
 
     const accountAddress =
@@ -339,6 +326,7 @@ function TxConfirmActions(props: IProps) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
       void dappApprove.reject(e);
       throw e;
     }
@@ -361,6 +349,7 @@ function TxConfirmActions(props: IProps) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
       void dappApprove.reject(e);
       throw e;
     }
@@ -399,6 +388,7 @@ function TxConfirmActions(props: IProps) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
       void dappApprove.reject(e);
       throw e;
     }
@@ -421,6 +411,7 @@ function TxConfirmActions(props: IProps) {
         const isConfirmed = await showFeeInfoOverflowConfirm();
         if (!isConfirmed) {
           isSubmitted.current = false;
+          gasAccountSubmitIdRef.current = null;
           updateSendTxStatus({ isSubmitting: false });
           return;
         }
@@ -470,8 +461,26 @@ function TxConfirmActions(props: IProps) {
           successfullySentTxs: successfullySentTxs.current,
           tronResourceRentalInfo,
           gasAccountUiState,
+          gasAccountSubmitId: submitId,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
+
+      // If the user clicked Cancel while `broadcastOnce` was mid-HTTP, the
+      // abort signal only unblocks `abortableWait` sleeps — the in-flight
+      // request completes normally and we land here with a successful
+      // result. `handleOnCancel` already rejected the dApp and nulled the
+      // submitId ref, so comparing against the submitId we captured at the
+      // start of this attempt is how we detect that race. Skip all success
+      // side-effects (toast, dapp resolve, onSuccess, history save,
+      // navigation) so the UI stays consistent with the cancel intent.
+      // The tx may still land on chain — Prime idempotency prevents any
+      // double-charge and the user will see it in their activity.
+      if (gasAccountSubmitIdRef.current !== submitId) {
+        updateSendTxStatus({ isSubmitting: false });
+        setGasAccountRetryState(null);
+        isSubmitted.current = false;
+        return;
+      }
 
       if (vaultSettings?.afterSendTxActionEnabled) {
         await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
@@ -543,6 +552,7 @@ function TxConfirmActions(props: IProps) {
       const signedTx = result[0].signedTx;
 
       isSubmitted.current = true;
+      gasAccountSubmitIdRef.current = null;
 
       void dappApprove.resolve({ result: signedTx });
 
@@ -602,6 +612,17 @@ function TxConfirmActions(props: IProps) {
         navigation.pop();
       }
     } catch (e: any) {
+      // User aborted a 90212 retry via Cancel: modal is closing, dappApprove
+      // was already rejected in handleOnCancel. Skip toast, skip re-estimate,
+      // skip dappApprove propagation — just unwind submit state.
+      if (isGasAccountSubmitCancelledError(e)) {
+        muteHandledErrorToast(e);
+        updateSendTxStatus({ isSubmitting: false });
+        setGasAccountRetryState(null);
+        isSubmitted.current = false;
+        gasAccountSubmitIdRef.current = null;
+        return;
+      }
       const gasAccountStrategy = handleGasAccountSubmitError(e);
       // Refresh and Fallback both keep the user on the confirm page with a
       // fresh estimate in flight, so the dApp caller should also keep waiting.
@@ -613,6 +634,7 @@ function TxConfirmActions(props: IProps) {
       ) {
         updateSendTxStatus({ isSubmitting: false });
         isSubmitted.current = false;
+        gasAccountSubmitIdRef.current = null;
         return;
       }
       if (accountUtils.isQrAccount({ accountId })) {
@@ -625,6 +647,7 @@ function TxConfirmActions(props: IProps) {
       // });
       onFail?.(e as Error);
       isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
       if (shouldRejectDappAction()) {
         void dappApprove.reject(e);
       }
@@ -684,13 +707,30 @@ function TxConfirmActions(props: IProps) {
   }, [decodedTxs, submitTxs, transferPayload?.originalRecipient]);
 
   const cancelCalledRef = useRef(false);
+  // If a 90212 retry loop is in flight, tear it down before the flow
+  // unwinds. Otherwise the background would keep sleeping/broadcasting
+  // after the user already chose to abandon — with Prime idempotency it
+  // wouldn't double-charge, but the tx could still land on-chain after
+  // the dApp saw a rejection, which is the UX we're explicitly avoiding.
+  // Shared between the explicit Cancel button and `usePageUnMounted`, so
+  // system-back / popStack paths also tear down the loop.
+  const abortPendingGasAccountSubmit = useCallback(() => {
+    const pendingSubmitId = gasAccountSubmitIdRef.current;
+    if (pendingSubmitId) {
+      gasAccountSubmitIdRef.current = null;
+      void backgroundApiProxy.serviceSend.abortGasAccountSubmit(
+        pendingSubmitId,
+      );
+    }
+  }, []);
   const onCancelOnce = useCallback(() => {
     if (cancelCalledRef.current) {
       return;
     }
     cancelCalledRef.current = true;
+    abortPendingGasAccountSubmit();
     onCancel?.();
-  }, [onCancel]);
+  }, [abortPendingGasAccountSubmit, onCancel]);
 
   const handleOnCancel = useCallback(
     (close: () => void, closePageStack: () => void) => {
@@ -702,6 +742,8 @@ function TxConfirmActions(props: IProps) {
         return;
       }
 
+      abortPendingGasAccountSubmit();
+
       dappApprove.reject();
       if (!sourceInfo) {
         closePageStack();
@@ -711,6 +753,7 @@ function TxConfirmActions(props: IProps) {
       onCancelOnce();
     },
     [
+      abortPendingGasAccountSubmit,
       dappApprove,
       isQueueMode,
       onCancelOnce,
@@ -764,8 +807,69 @@ function TxConfirmActions(props: IProps) {
     () => {
       setGasAccountNow(Date.now());
     },
-    gasAccountUiState.selectedPayer === 'gasAccount' ? 1000 : null,
+    gasAccountUiState.selectedPayer === 'gasAccount' ||
+      gasAccountRetryState !== null
+      ? 1000
+      : null,
   );
+
+  // Gate by the local `isSubmitting` state to ignore orphan retry events
+  // from another TxConfirmActions instance whose background loop is still
+  // running (e.g. stacked confirm flows, side panel, tablet detail view).
+  // `Cleared` is idempotent so we don't gate it — worst case it clears an
+  // already-null state.
+  const isSubmittingRef = useRef(sendTxStatus.isSubmitting);
+  useEffect(() => {
+    isSubmittingRef.current = sendTxStatus.isSubmitting;
+  }, [sendTxStatus.isSubmitting]);
+
+  useEffect(() => {
+    const onScheduled = (payload: {
+      attempt: number;
+      maxAttempts: number;
+      retryAfterSec: number;
+      scheduledAt: number;
+    }) => {
+      if (!isSubmittingRef.current) return;
+      setGasAccountRetryState(payload);
+      setGasAccountNow(Date.now());
+    };
+    const onCleared = () => {
+      setGasAccountRetryState(null);
+    };
+    appEventBus.on(
+      EAppEventBusNames.GasAccountSubmitRetryScheduled,
+      onScheduled,
+    );
+    appEventBus.on(EAppEventBusNames.GasAccountSubmitRetryCleared, onCleared);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GasAccountSubmitRetryScheduled,
+        onScheduled,
+      );
+      appEventBus.off(
+        EAppEventBusNames.GasAccountSubmitRetryCleared,
+        onCleared,
+      );
+    };
+  }, []);
+
+  const gasAccountRetryRemainingSec = useMemo(() => {
+    if (!gasAccountRetryState) return 0;
+    const dueAt =
+      gasAccountRetryState.scheduledAt +
+      gasAccountRetryState.retryAfterSec * 1000;
+    return Math.max(0, Math.ceil((dueAt - gasAccountNow) / 1000));
+  }, [gasAccountRetryState, gasAccountNow]);
+
+  // Safety net in case the `Cleared` event is dropped (e.g. transport hiccup
+  // between bg and ui). The retry loop only runs while `isSubmitting` is true,
+  // so any false transition is a terminal signal for the current submit.
+  useEffect(() => {
+    if (!sendTxStatus.isSubmitting && gasAccountRetryState) {
+      setGasAccountRetryState(null);
+    }
+  }, [sendTxStatus.isSubmitting, gasAccountRetryState]);
 
   // When the quote expires while the user is still on the confirm page, kick
   // off a silent re-estimate instead of leaving the submit button disabled
@@ -839,6 +943,13 @@ function TxConfirmActions(props: IProps) {
   });
 
   const confirmText = useMemo(() => {
+    if (gasAccountRetryState && gasAccountRetryRemainingSec > 0) {
+      // Lokalise key `error__gas_account_admission_overloaded` not yet
+      // published (PM handoff §8 item 3) — mirror the hardcoded English
+      // pattern used in GAS_ACCOUNT_ERROR_TABLE until i18n lands.
+      return `Retrying in ${gasAccountRetryRemainingSec}s...`;
+    }
+
     if (signOnly) {
       return intl.formatMessage({ id: ETranslations.global_sign });
     }
@@ -858,7 +969,14 @@ function TxConfirmActions(props: IProps) {
     }
 
     return intl.formatMessage({ id: ETranslations.global_confirm });
-  }, [intl, isFeeSponsored, sendFeeStatus.discountPercent, signOnly]);
+  }, [
+    gasAccountRetryState,
+    gasAccountRetryRemainingSec,
+    intl,
+    isFeeSponsored,
+    sendFeeStatus.discountPercent,
+    signOnly,
+  ]);
 
   return (
     <Page.Footer disableKeyboardAnimation>
@@ -869,7 +987,12 @@ function TxConfirmActions(props: IProps) {
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
         cancelButtonProps={{
-          disabled: sendTxStatus.isSubmitting,
+          // Keep Cancel enabled during the 90212 retry wait so the user can
+          // abandon the flow instead of being parked on a disabled screen for
+          // up to 3 × retryAfterSec. The background retry loop is not torn
+          // down (handoff §10.2 allows background completion), but the user
+          // regains control of the UI.
+          disabled: sendTxStatus.isSubmitting && gasAccountRetryState === null,
         }}
         onConfirmText={confirmText}
         onConfirm={handleOnConfirm}
@@ -895,6 +1018,7 @@ function TxConfirmActions(props: IProps) {
             useFeeInTx={useFeeInTx}
             feeInfoEditable={feeInfoEditable}
             transferPayload={transferPayload}
+            gasAccountScenario={gasAccountScenario}
           />
           {showTakeRiskAlert ? (
             <Checkbox
