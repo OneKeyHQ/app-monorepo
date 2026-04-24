@@ -46,6 +46,14 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     alias: 'UPSTREAM_QUOTE_EXPIRED',
     message: 'Gas sponsor quote expired. Refreshing fee estimate.',
   },
+  // Reached only after the client has already exhausted its deep-retry window
+  // (see MAX_GAS_ACCOUNT_RETRY_ATTEMPTS in ServiceSend). Treat the final 90212
+  // as a stale-quote signal and bounce into a fresh estimate.
+  90_212: {
+    strategy: EGasAccountErrorStrategy.Refresh,
+    alias: 'GAS_ACCOUNT_ADMISSION_OVERLOADED',
+    message: 'Gas sponsor is temporarily busy. Refreshing fee estimate.',
+  },
 
   // --- Fallback: disable gas account for this flow and re-estimate as user-paid ---
   40_212: {

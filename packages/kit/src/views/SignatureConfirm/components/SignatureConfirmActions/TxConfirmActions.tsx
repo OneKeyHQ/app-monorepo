@@ -44,6 +44,7 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -73,41 +74,6 @@ import {
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
-
-function getGasAccountErrorCode(error: unknown) {
-  // OneKey RPC errors surface as `{ data: { data: { res: { error: { code } } } } }`
-  // (see `IOneKeyRpcError` in shared/errors/types). Older non-RPC paths expose
-  // `.code` directly or at `.data.code` / `.data.data.code`, so probe all four.
-  const e = error as
-    | (IOneKeyError & {
-        data?: {
-          code?: number;
-          data?: {
-            code?: number;
-            res?: { error?: { code?: number } };
-          };
-        };
-      })
-    | undefined;
-
-  if (typeof e?.code === 'number') {
-    return e.code;
-  }
-  const errorDataCode = e?.data?.code;
-  if (typeof errorDataCode === 'number') {
-    return errorDataCode;
-  }
-  const nestedErrorDataCode = e?.data?.data?.code;
-  if (typeof nestedErrorDataCode === 'number') {
-    return nestedErrorDataCode;
-  }
-  const rpcErrorCode = e?.data?.data?.res?.error?.code;
-  if (typeof rpcErrorCode === 'number') {
-    return rpcErrorCode;
-  }
-
-  return undefined;
-}
 
 function muteHandledErrorToast(error: unknown) {
   const e = error as IOneKeyError | undefined;
@@ -188,6 +154,12 @@ function TxConfirmActions(props: IProps) {
   const [customRpcStatus] = useCustomRpcStatusAtom();
   const [settings] = useSettingsPersistAtom();
   const [gasAccountNow, setGasAccountNow] = useState(Date.now());
+  const [gasAccountRetryState, setGasAccountRetryState] = useState<{
+    attempt: number;
+    maxAttempts: number;
+    retryAfterSec: number;
+    scheduledAt: number;
+  } | null>(null);
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
@@ -767,8 +739,58 @@ function TxConfirmActions(props: IProps) {
     () => {
       setGasAccountNow(Date.now());
     },
-    gasAccountUiState.selectedPayer === 'gasAccount' ? 1000 : null,
+    gasAccountUiState.selectedPayer === 'gasAccount' ||
+      gasAccountRetryState !== null
+      ? 1000
+      : null,
   );
+
+  useEffect(() => {
+    const onScheduled = (payload: {
+      attempt: number;
+      maxAttempts: number;
+      retryAfterSec: number;
+      scheduledAt: number;
+    }) => {
+      setGasAccountRetryState(payload);
+      setGasAccountNow(Date.now());
+    };
+    const onCleared = () => {
+      setGasAccountRetryState(null);
+    };
+    appEventBus.on(
+      EAppEventBusNames.GasAccountSubmitRetryScheduled,
+      onScheduled,
+    );
+    appEventBus.on(EAppEventBusNames.GasAccountSubmitRetryCleared, onCleared);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GasAccountSubmitRetryScheduled,
+        onScheduled,
+      );
+      appEventBus.off(
+        EAppEventBusNames.GasAccountSubmitRetryCleared,
+        onCleared,
+      );
+    };
+  }, []);
+
+  const gasAccountRetryRemainingSec = useMemo(() => {
+    if (!gasAccountRetryState) return 0;
+    const dueAt =
+      gasAccountRetryState.scheduledAt +
+      gasAccountRetryState.retryAfterSec * 1000;
+    return Math.max(0, Math.ceil((dueAt - gasAccountNow) / 1000));
+  }, [gasAccountRetryState, gasAccountNow]);
+
+  // Safety net in case the `Cleared` event is dropped (e.g. transport hiccup
+  // between bg and ui). The retry loop only runs while `isSubmitting` is true,
+  // so any false transition is a terminal signal for the current submit.
+  useEffect(() => {
+    if (!sendTxStatus.isSubmitting && gasAccountRetryState) {
+      setGasAccountRetryState(null);
+    }
+  }, [sendTxStatus.isSubmitting, gasAccountRetryState]);
 
   // When the quote expires while the user is still on the confirm page, kick
   // off a silent re-estimate instead of leaving the submit button disabled
@@ -842,6 +864,13 @@ function TxConfirmActions(props: IProps) {
   });
 
   const confirmText = useMemo(() => {
+    if (gasAccountRetryState && gasAccountRetryRemainingSec > 0) {
+      // Lokalise key `error__gas_account_admission_overloaded` not yet
+      // published (PM handoff §8 item 3) — mirror the hardcoded English
+      // pattern used in GAS_ACCOUNT_ERROR_TABLE until i18n lands.
+      return `Retrying in ${gasAccountRetryRemainingSec}s...`;
+    }
+
     if (signOnly) {
       return intl.formatMessage({ id: ETranslations.global_sign });
     }
@@ -861,7 +890,14 @@ function TxConfirmActions(props: IProps) {
     }
 
     return intl.formatMessage({ id: ETranslations.global_confirm });
-  }, [intl, isFeeSponsored, sendFeeStatus.discountPercent, signOnly]);
+  }, [
+    gasAccountRetryState,
+    gasAccountRetryRemainingSec,
+    intl,
+    isFeeSponsored,
+    sendFeeStatus.discountPercent,
+    signOnly,
+  ]);
 
   return (
     <Page.Footer disableKeyboardAnimation>

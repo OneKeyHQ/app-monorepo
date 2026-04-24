@@ -19,6 +19,12 @@ import {
   PendingQueueTooLong,
 } from '@onekeyhq/shared/src/errors';
 import {
+  MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
+  getGasAccountErrorCode,
+  getGasAccountRetryAfterSec,
+  shouldDeepRetryGasAccount,
+} from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -373,7 +379,7 @@ class ServiceSend extends ServiceBase {
         accountId,
       });
 
-      const broadcastTx = async () => {
+      const broadcastOnce = async () => {
         return vault.broadcastTransaction({
           accountId,
           networkId,
@@ -385,6 +391,79 @@ class ServiceSend extends ServiceBase {
           useDefaultRpc,
         });
       };
+
+      // 90212 GasAccountAdmissionOverloaded is a transient, idempotent retry
+      // signal. Prime + BFF guarantee that re-sending the same signedTx with
+      // the same quoteId + idempotencyKey will not double-charge or consume
+      // the quote, so we can deep-retry up to N times without re-signing and
+      // without re-estimating. Only engage when the user actually picked the
+      // gas account payer and we have a live quote.
+      const isGasAccountSubmit =
+        gasAccountUiState?.selectedPayer === 'gasAccount' &&
+        !!gasAccountUiState.gasAccountQuote?.quoteId;
+
+      const broadcastWithGasAccountRetry = async () => {
+        let lastError: unknown;
+        let emittedScheduled = false;
+        for (
+          let attempt = 0;
+          attempt <= MAX_GAS_ACCOUNT_RETRY_ATTEMPTS;
+          attempt += 1
+        ) {
+          try {
+            const result = await broadcastOnce();
+            if (emittedScheduled) {
+              appEventBus.emit(
+                EAppEventBusNames.GasAccountSubmitRetryCleared,
+                undefined,
+              );
+            }
+            return result;
+          } catch (error) {
+            lastError = error;
+            const code = getGasAccountErrorCode(error);
+            const retryAfterSec = getGasAccountRetryAfterSec(error);
+            const canRetry =
+              attempt < MAX_GAS_ACCOUNT_RETRY_ATTEMPTS &&
+              shouldDeepRetryGasAccount({ code, retryAfterSec });
+            if (!canRetry) {
+              if (emittedScheduled) {
+                appEventBus.emit(
+                  EAppEventBusNames.GasAccountSubmitRetryCleared,
+                  undefined,
+                );
+              }
+              throw error;
+            }
+            appEventBus.emit(EAppEventBusNames.GasAccountSubmitRetryScheduled, {
+              attempt: attempt + 1,
+              maxAttempts: MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
+              retryAfterSec: retryAfterSec as number,
+              scheduledAt: Date.now(),
+            });
+            emittedScheduled = true;
+            await timerUtils.wait((retryAfterSec as number) * 1000);
+          }
+        }
+        if (emittedScheduled) {
+          appEventBus.emit(
+            EAppEventBusNames.GasAccountSubmitRetryCleared,
+            undefined,
+          );
+        }
+        // Structurally unreachable — every loop iteration returns on success
+        // or throws on exhaustion — but TS can't narrow `for` exit, so keep a
+        // typed fallback for the linter.
+        throw lastError instanceof Error
+          ? lastError
+          : new OneKeyLocalError(
+              'Gas account broadcast failed after deep retry.',
+            );
+      };
+
+      const broadcastTx = isGasAccountSubmit
+        ? broadcastWithGasAccountRetry
+        : broadcastOnce;
 
       const { txid } = await pRetry(broadcastTx, {
         retries: vaultSettings.maxRetryBroadcastTxCount ?? 5,
