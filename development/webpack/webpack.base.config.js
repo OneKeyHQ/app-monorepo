@@ -83,6 +83,7 @@ const baseResolve = ({ platform, configName, basePath }) => ({
     https: false,
     http: false,
     net: false,
+    dgram: false,
     zlib: false,
     tls: false,
     child_process: false,

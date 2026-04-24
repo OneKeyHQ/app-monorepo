@@ -17,6 +17,7 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   ICloudSyncCredential,
   ICloudSyncCredentialForLock,
@@ -109,6 +110,12 @@ class CloudSyncItemBuilder {
     let keyHash = hdWalletHash;
     let deviceType = '';
     if (walletType === WALLET_TYPE_HW) {
+      const deviceVendor = dbDevice?.vendor;
+      // No vendor field means OneKey. Only OneKey is cloud-synced;
+      // third-party vendors (Ledger, ...) are excluded.
+      if (deviceVendor && deviceVendor !== EHardwareVendor.onekey) {
+        return null;
+      }
       keyHash = dbDevice?.deviceId;
       deviceType = dbDevice?.deviceType || '';
     }

@@ -1,7 +1,10 @@
 import type { IKeylessWalletDetailsInfo } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
-import type { IConnectYourDeviceItem } from '../../types/device';
+import type {
+  EHardwareVendor,
+  IConnectYourDeviceItem,
+} from '../../types/device';
 import type { EOAuthSocialLoginProvider } from '../consts/authConsts';
 import type { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
 import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
@@ -94,6 +97,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {
     deviceType: EDeviceType[];
+    vendor?: EHardwareVendor;
   };
   [EOnboardingPagesV2.ConnectQRCode]: undefined;
   [EOnboardingPagesV2.CheckAndUpdate]: {
