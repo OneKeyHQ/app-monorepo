@@ -4,13 +4,12 @@ export type ITrayPendingTxType = 'send' | 'swap' | 'contract' | 'approve';
 
 export interface IFormatTrayPendingTxAmountInput {
   firstSend: { amount: string; symbol: string } | undefined;
-  txType: ITrayPendingTxType;
 }
 
 export function formatTrayPendingTxAmount(
   input: IFormatTrayPendingTxAmountInput,
 ): string {
-  const { firstSend, txType } = input;
+  const { firstSend } = input;
   if (firstSend) {
     const bn = new BigNumber(firstSend.amount ?? '');
     let formatted: string;
@@ -23,8 +22,8 @@ export function formatTrayPendingTxAmount(
     }
     return `${formatted} ${firstSend.symbol}`;
   }
-  if (txType === 'approve') return 'Approve';
-  if (txType === 'contract') return 'Contract';
+  // Don't put an English label here — PendingTransactions already renders an
+  // i18n'd typeLabel (tray_tx_type_approve / ..._contract_call) on the row.
   return '—';
 }
 
