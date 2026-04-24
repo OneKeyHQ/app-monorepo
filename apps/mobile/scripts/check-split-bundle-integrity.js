@@ -461,10 +461,27 @@ function main() {
     idMap,
     runtimeBucketNames: ['common', 'background'],
   });
+  // Shared-segment files live only under SEGMENTS_MAIN even though both
+  // runtimes load them. The main pass above checks main-owned modules; the
+  // bg pass above can't see these files. Run a third bg-scoped pass on
+  // SEGMENTS_MAIN restricted to shared segments so bg-owned modules inside
+  // them get their sync deps verified.
+  const bgShared = scanRuntime({
+    runtimeLabel: 'background',
+    segmentsDir: SEGMENTS_MAIN,
+    manifest: manifestBg,
+    idMap,
+    runtimeBucketNames: ['common', 'background'],
+    segmentKeyFilter: (_segKey, idMapEntry) => idMapEntry?.runtime === 'shared',
+  });
 
-  const allViolations = [...mainRuntime.violations, ...bg.violations];
+  const allViolations = [
+    ...mainRuntime.violations,
+    ...bg.violations,
+    ...bgShared.violations,
+  ];
   console.log(
-    `[check-split-bundle-integrity] scanned ${mainRuntime.scannedSegments} main + ${bg.scannedSegments} bg segments`,
+    `[check-split-bundle-integrity] scanned ${mainRuntime.scannedSegments} main + ${bg.scannedSegments} bg + ${bgShared.scannedSegments} bg-shared segments`,
   );
   console.log(
     `[check-split-bundle-integrity] main violations: ${mainRuntime.violations.length}`,

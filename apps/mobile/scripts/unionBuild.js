@@ -1363,9 +1363,7 @@ async function writeSegments({
         const mergedSharedDeps = new Map([
           [segmentKey, new Set([...mainDeps, ...backgroundDeps])],
         ]);
-        const mergedGraphDependencies = new Map(
-          mainRuntime.graph.dependencies,
-        );
+        const mergedGraphDependencies = new Map(mainRuntime.graph.dependencies);
         for (const [absPath, moduleData] of backgroundRuntime.graph
           .dependencies) {
           if (!mergedGraphDependencies.has(absPath)) {
