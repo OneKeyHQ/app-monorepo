@@ -1,4 +1,4 @@
-import { EPageType } from '@onekeyhq/components';
+import { EPageType, Theme } from '@onekeyhq/components';
 import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import type {
   EModalRoutes,
@@ -36,9 +36,11 @@ export function FullScreenPushNavigator() {
 
 export function OnboardingNavigator() {
   return (
-    <RootModalNavigator<EOnboardingV2Routes>
-      config={onboardingRouterV2Config}
-      pageType={EPageType.onboarding}
-    />
+    <Theme name="dark">
+      <RootModalNavigator<EOnboardingV2Routes>
+        config={onboardingRouterV2Config}
+        pageType={EPageType.onboarding}
+      />
+    </Theme>
   );
 }
