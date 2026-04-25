@@ -1,679 +1,537 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
-import { useRoute } from '@react-navigation/core';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import Svg, {
-  Defs,
-  Line,
-  Pattern,
-  RadialGradient,
-  Rect,
-  Stop,
-} from 'react-native-svg';
 
-import type { IDialogInstance, IYStackProps } from '@onekeyhq/components';
 import {
-  AnimatePresence,
-  BlurView,
   Button,
-  DecorativeOneKeyLogo,
-  Dialog,
   Icon,
-  Page,
   SizableText,
-  Spinner,
-  Stack,
   XStack,
   YStack,
   useMedia,
-  useTheme,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
-import {
-  useKeylessWallet,
-  useKeylessWalletFeatureIsEnabled,
-} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
-import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { WalletAvatar } from '../../../components/WalletAvatar';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
-import { OnboardingLayout } from '../components/OnboardingLayout';
-import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
+import { OnboardingPage } from '../components/Layout';
 
-import type { RouteProp } from '@react-navigation/core';
-import type { LayoutChangeEvent } from 'react-native';
+// English fallbacks kept for dev/unsynced-locale resilience.
+const HERO_SENTENCE_DEFAULT = 'Your most secure crypto wallet for {action}';
+const HERO_ACTIONS = [
+  {
+    id: ETranslations.onboarding_hero_action_trading,
+    defaultMessage: 'trading',
+  },
+  {
+    id: ETranslations.onboarding_hero_action_earning,
+    defaultMessage: 'earning',
+  },
+  {
+    id: ETranslations.onboarding_hero_action_swap,
+    defaultMessage: 'swapping',
+  },
+  {
+    id: ETranslations.onboarding_hero_action_buying,
+    defaultMessage: 'buying',
+  },
+] as const;
+// Private sentinel we inject in place of {action} so we can split the
+// localized template into prefix/suffix fragments around the rotating word.
+const HERO_ACTION_MARKER = '\u0000ACTION\u0000';
 
-const DEVICE_SIZE = 24;
+const HERO_CHAR_STAGGER_MS = 45;
+const HERO_CHAR_ANIMATION_MS = 550;
+const HERO_WORD_DISPLAY_MS = 2600;
+// Long enough for the last char's staggered exit to finish (550ms animation +
+// 20 × 45ms stagger covers words up to 20 graphemes).
+const HERO_EXIT_CLEANUP_MS = HERO_CHAR_ANIMATION_MS + 20 * HERO_CHAR_STAGGER_MS;
 
-// GridItem component - places items relative to center point
-const GridItem = memo(
-  ({
-    gridX,
-    gridY,
-    gridSize = 40,
-    unitSize = 2,
-    children,
-    scale = 1,
-    blur = false,
-  }: {
-    gridX: number; // Grid unit X coordinate relative to center (negative = left, positive = right)
-    gridY: number; // Grid unit Y coordinate relative to center (negative = up, positive = down)
-    gridSize?: number; // Size of single grid cell (default 40px)
-    unitSize?: number; // Number of cells per unit side (default 2, means 2x2=4 cells)
-    children: React.ReactNode;
-    blur?: boolean;
-    scale?: number;
-  }) => {
-    const themeVariant = useThemeVariant();
+// Unicode-safe grapheme split: handles CJK, combining marks, emoji ZWJ
+// sequences. Falls back to codepoint split where Intl.Segmenter is missing
+// (Hermes without intl polyfill).
+function splitGraphemes(str: string): string[] {
+  try {
+    const Seg = (Intl as unknown as { Segmenter?: unknown }).Segmenter;
+    if (typeof Seg === 'function') {
+      const SegCtor = Seg as new (
+        locale: string | undefined,
+        options: { granularity: 'grapheme' },
+      ) => { segment: (s: string) => Iterable<{ segment: string }> };
+      const segmenter = new SegCtor(undefined, { granularity: 'grapheme' });
+      return Array.from(segmenter.segment(str), (s) => s.segment);
+    }
+  } catch {
+    // fall through to codepoint split
+  }
+  return Array.from(str);
+}
 
-    // Memoize calculations to avoid recomputing on every render
-    const itemMetrics = useMemo(() => {
-      // Calculate the pixel size of one unit
-      // unitSize=2, gridSize=40 => 2 * 40 = 80px (2x2 cells = 4 cells total)
-      const unitPixelSize = gridSize * unitSize;
+function HeroCharLayer({
+  word,
+  mode,
+}: {
+  word: string;
+  mode: 'enter' | 'exit';
+}) {
+  const chars = splitGraphemes(word);
+  const [activated, setActivated] = useState(false);
 
-      // Calculate offset from center
-      // Positive gridX = move right, Negative = move left
-      // Positive gridY = move down, Negative = move up
-      const offsetX = gridX * unitPixelSize;
-      const offsetY = gridY * unitPixelSize;
+  useEffect(() => {
+    // Double rAF: first paints the initial (hidden) state, second triggers
+    // the transition. Without this, the browser/engine coalesces both into
+    // one paint and the element appears without animating.
+    let raf2: number | null = null;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        setActivated(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2 !== null) cancelAnimationFrame(raf2);
+    };
+  }, []);
 
-      return {
-        unitPixelSize,
-        transform: [
-          { translateX: offsetX - unitPixelSize / 2 },
-          { translateY: offsetY - unitPixelSize / 2 },
-          { scale },
-        ],
-      };
-    }, [gridX, gridY, gridSize, unitSize, scale]);
+  const isEnter = mode === 'enter';
+  // enter mode: activated=false → hidden above; activated=true → visible
+  // exit mode:  activated=false → visible;       activated=true → hidden below
+  const visible = isEnter ? activated : !activated;
+  const hiddenYOffset = isEnter ? -24 : 24;
+  const yOffset = visible ? 0 : hiddenYOffset;
 
-    // Memoize box shadow calculation for web platform
-    const webBoxShadow = useMemo(
-      () =>
-        `0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px ${
-          themeVariant === 'light'
-            ? 'rgba(0, 0, 0, 0.05)'
-            : 'rgba(255, 255, 255, 0.05)'
-        }, 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 12px 34px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.04)`,
-      [themeVariant],
-    );
+  return (
+    <XStack position="absolute" top={0} left={0} right={0}>
+      {chars.map((char, i) => {
+        const delay = i * HERO_CHAR_STAGGER_MS;
+        // Native skips filter (no RN primitive); web uses inline CSS so the
+        // browser interpolates blur natively (Reanimated cannot).
+        if (platformEnv.isNative) {
+          return (
+            <MotiView
+              // eslint-disable-next-line react/no-array-index-key
+              key={i}
+              animate={{
+                opacity: visible ? 1 : 0,
+                translateY: yOffset,
+              }}
+              transition={
+                {
+                  type: 'timing',
+                  duration: HERO_CHAR_ANIMATION_MS,
+                  delay,
+                } as any
+              }
+            >
+              <SizableText
+                size="$heading5xl"
+                fontWeight={600}
+                accessible={false}
+              >
+                {char === ' ' ? '\u00A0' : char}
+              </SizableText>
+            </MotiView>
+          );
+        }
+        return (
+          <YStack
+            // eslint-disable-next-line react/no-array-index-key
+            key={i}
+            style={
+              {
+                opacity: visible ? 1 : 0,
+                transform: `translateY(${yOffset}px)`,
+                filter: visible ? 'blur(0px)' : 'blur(6px)',
+                transition: `opacity ${HERO_CHAR_ANIMATION_MS}ms, transform ${HERO_CHAR_ANIMATION_MS}ms, filter ${HERO_CHAR_ANIMATION_MS}ms`,
+                transitionDelay: `${delay}ms`,
+              } as any
+            }
+          >
+            <SizableText size="$heading5xl" fontWeight={600} accessible={false}>
+              {char === ' ' ? '\u00A0' : char}
+            </SizableText>
+          </YStack>
+        );
+      })}
+    </XStack>
+  );
+}
 
-    return (
-      <YStack
-        position="absolute"
-        // Use transform to position relative to center
-        // 50% moves to center, then offset by grid coordinates
-        left="50%"
-        top="50%"
-        width={itemMetrics.unitPixelSize}
-        height={itemMetrics.unitPixelSize}
-        style={{
-          transform: itemMetrics.transform,
-        }}
-        alignItems="center"
-        justifyContent="center"
-        pointerEvents="none"
+function HeroRotatingWord({ words }: { words: string[] }) {
+  const [wordIndex, setWordIndex] = useState(0);
+  const [exitingIndex, setExitingIndex] = useState<number | null>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wordsLength = words.length;
+
+  useEffect(() => {
+    if (wordsLength === 0) {
+      return;
+    }
+    const intervalId = setInterval(() => {
+      setWordIndex((current) => {
+        setExitingIndex(current);
+        if (exitTimerRef.current) {
+          clearTimeout(exitTimerRef.current);
+        }
+        exitTimerRef.current = setTimeout(() => {
+          setExitingIndex(null);
+        }, HERO_EXIT_CLEANUP_MS);
+        return (current + 1) % wordsLength;
+      });
+    }, HERO_WORD_DISPLAY_MS);
+    return () => {
+      clearInterval(intervalId);
+      if (exitTimerRef.current) {
+        clearTimeout(exitTimerRef.current);
+      }
+    };
+  }, [wordsLength]);
+
+  const currentWord = words[wordIndex] ?? '';
+  const exitingWord =
+    exitingIndex !== null ? (words[exitingIndex] ?? null) : null;
+
+  // Reserve layout space for the widest translated word so the surrounding
+  // sentence doesn't reflow when the cycling word changes length.
+  const longestWord = useMemo(
+    () =>
+      words.reduce(
+        (longest, word) => (word.length > longest.length ? word : longest),
+        '',
+      ),
+    [words],
+  );
+
+  return (
+    <YStack position="relative" accessible accessibilityLabel={currentWord}>
+      <SizableText
+        size="$heading5xl"
+        fontWeight={600}
+        opacity={0}
+        accessible={false}
       >
-        <YStack
-          w="$14"
-          h="$14"
-          bg="$bg"
-          borderRadius="$3"
-          borderCurve="continuous"
-          alignItems="center"
-          justifyContent="center"
-          $platform-native={{
-            borderWidth: 1,
-            borderColor: '$neutral3',
-          }}
-          // $platform-android={{ elevation: 0.5 }}
-          $platform-ios={{
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 0.5 },
-            shadowOpacity: 0.2,
-            shadowRadius: 0.5,
-          }}
-          $platform-web={{
-            transition: 'transform 100ms linear',
-            boxShadow: webBoxShadow,
-          }}
-          hoverStyle={{
-            scale: 0.9,
+        {longestWord || '\u00A0'}
+      </SizableText>
+      {exitingWord !== null && exitingIndex !== null ? (
+        <HeroCharLayer
+          key={`exit-${exitingIndex}`}
+          word={exitingWord}
+          mode="exit"
+        />
+      ) : null}
+      <HeroCharLayer
+        key={`enter-${wordIndex}`}
+        word={currentWord}
+        mode="enter"
+      />
+    </YStack>
+  );
+}
+
+type IHeroLineMetric = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+// Native-only layout. React Native's flex treats text elements as rectangular
+// boxes (width = longest line), so the trailing whitespace on a wrapped
+// prefix's last line is invisible to sibling flex items — the rotating word
+// gets pushed to a new line even when it would visually fit inline. We work
+// around this by measuring the prefix's per-line metrics via onTextLayout and
+// absolute-positioning the rotating word (and suffix) at the end of the last
+// line when they fit.
+function HeroSentenceNative({
+  prefix,
+  suffix,
+  rotating,
+}: {
+  prefix: string;
+  suffix: string;
+  rotating: React.ReactElement;
+}) {
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [prefixLines, setPrefixLines] = useState<IHeroLineMetric[]>([]);
+  const [rotatingDims, setRotatingDims] = useState<{
+    w: number;
+    h: number;
+  } | null>(null);
+  const [suffixWidth, setSuffixWidth] = useState(0);
+
+  const lastLine = prefixLines[prefixLines.length - 1];
+  const tailX = lastLine ? lastLine.x + lastLine.width : 0;
+  const tailY = lastLine?.y ?? 0;
+  const lineHeight = lastLine?.height ?? rotatingDims?.h ?? 0;
+
+  const rotatingWidth = rotatingDims?.w ?? 0;
+  const inlineFootprint = rotatingWidth + suffixWidth;
+  const fitsInline =
+    containerWidth > 0 && tailX + inlineFootprint <= containerWidth;
+
+  const rotatingX = fitsInline ? tailX : 0;
+  const rotatingY = fitsInline ? tailY : tailY + lineHeight;
+  const suffixX = rotatingX + rotatingWidth;
+  const suffixY = rotatingY;
+
+  const prefixBottom = lastLine ? tailY + lineHeight : 0;
+  const totalHeight = fitsInline ? prefixBottom : prefixBottom + lineHeight;
+
+  const hasPrefix = prefix.length > 0;
+  const hasSuffix = suffix.length > 0;
+  const isMeasured =
+    containerWidth > 0 &&
+    rotatingDims !== null &&
+    (!hasPrefix || prefixLines.length > 0) &&
+    (!hasSuffix || suffixWidth > 0);
+
+  return (
+    <YStack
+      onLayout={(e) => {
+        setContainerWidth(e.nativeEvent.layout.width);
+      }}
+      minHeight={isMeasured ? totalHeight : undefined}
+      opacity={isMeasured ? 1 : 0}
+    >
+      {hasPrefix ? (
+        <SizableText
+          size="$heading5xl"
+          fontWeight={400}
+          onTextLayout={(e) => {
+            const next = e.nativeEvent.lines.map((line) => ({
+              x: line.x,
+              y: line.y,
+              width: line.width,
+              height: line.height,
+            }));
+            setPrefixLines((prev) => {
+              if (
+                prev.length === next.length &&
+                prev.every(
+                  (p, i) =>
+                    p.x === next[i].x &&
+                    p.y === next[i].y &&
+                    p.width === next[i].width &&
+                    p.height === next[i].height,
+                )
+              ) {
+                return prev;
+              }
+              return next;
+            });
           }}
         >
-          {children}
+          {prefix}
+        </SizableText>
+      ) : null}
+
+      <YStack
+        position="absolute"
+        left={rotatingX}
+        top={rotatingY}
+        alignSelf="flex-start"
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          const h = e.nativeEvent.layout.height;
+          setRotatingDims((prev) =>
+            prev && prev.w === w && prev.h === h ? prev : { w, h },
+          );
+        }}
+      >
+        {rotating}
+      </YStack>
+
+      {hasSuffix ? (
+        <YStack
+          position="absolute"
+          left={suffixX}
+          top={suffixY}
+          alignSelf="flex-start"
+          onLayout={(e) => {
+            setSuffixWidth(e.nativeEvent.layout.width);
+          }}
+        >
+          <SizableText size="$heading5xl" fontWeight={400}>
+            {suffix}
+          </SizableText>
         </YStack>
-        {blur ? (
-          <BlurView
-            position="absolute"
-            inset={0}
-            intensity={10}
-            tint={themeVariant === 'light' ? 'light' : 'dark'}
-          />
-        ) : null}
-      </YStack>
-    );
-  },
-);
-
-GridItem.displayName = 'GridItem';
-
-const GridBackground = memo(
-  ({
-    gridSize,
-    lineColor,
-    ...rest
-  }: {
-    gridSize: number;
-    lineColor: string;
-  } & IYStackProps) => {
-    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-
-    const handleLayout = (event: LayoutChangeEvent) => {
-      const { width: layoutWidth, height: layoutHeight } =
-        event.nativeEvent.layout;
-      setDimensions({ width: layoutWidth, height: layoutHeight });
-    };
-
-    // Memoize grid calculations to avoid recalculation on every render
-    const gridMetrics = useMemo(() => {
-      // Ensure cols and rows are always even numbers for symmetry
-      const cols = Math.floor(dimensions.width / gridSize / 2) * 2;
-      const rows = Math.floor(dimensions.height / gridSize / 2) * 2;
-
-      // Calculate offsets to center the grid
-      const offsetX = (dimensions.width - cols * gridSize) / 2;
-      const offsetY = (dimensions.height - rows * gridSize) / 2;
-
-      return { cols, rows, offsetX, offsetY };
-    }, [dimensions.width, dimensions.height, gridSize]);
-
-    return (
-      <YStack onLayout={handleLayout} {...rest}>
-        <Svg width="100%" height="100%">
-          <Defs>
-            <Pattern
-              id="grid"
-              width={gridSize}
-              height={gridSize}
-              patternUnits="userSpaceOnUse"
-              x={gridMetrics.offsetX}
-              y={gridMetrics.offsetY}
-            >
-              {/* Horizontal line */}
-              <Line
-                x1="0"
-                y1="0"
-                x2={gridSize}
-                y2="0"
-                stroke={lineColor}
-                strokeWidth="1"
-              />
-              {/* Vertical line */}
-              <Line
-                x1="0"
-                y1="0"
-                x2="0"
-                y2={gridSize}
-                stroke={lineColor}
-                strokeWidth="1"
-              />
-            </Pattern>
-          </Defs>
-          <Rect width="100%" height="100%" fill="url(#grid)" />
-        </Svg>
-      </YStack>
-    );
-  },
-);
-
-GridBackground.displayName = 'GridBackground';
-
-export const AnimatedDeviceAvatar = memo(
-  ({ deviceSize }: { deviceSize: number }) => {
-    const themeVariant = useThemeVariant();
-
-    const deviceData: (keyof typeof HwWalletAvatarImages)[] = useMemo(() => {
-      return [
-        themeVariant === 'light' ? `${EDeviceType.Pro}White` : EDeviceType.Pro,
-        EDeviceType.Classic,
-        EDeviceType.Touch,
-        ...(!platformEnv.isNative ? [EDeviceType.Mini] : []),
-      ];
-    }, [themeVariant]);
-
-    const [enableAnimation, setEnableAnimation] = useState(false);
-
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        setEnableAnimation(true);
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }, []);
-
-    return (
-      <YStack w="$5" h={deviceSize} overflow="hidden" alignItems="center">
-        {enableAnimation ? (
-          <MotiView
-            from={{
-              translateY: 0,
-            }}
-            animate={{
-              translateY: Array.from(
-                { length: deviceData.length },
-                (_, index) => ({
-                  type: 'spring',
-                  value: -index * deviceSize,
-                  delay: 1000,
-                }),
-              ),
-            }}
-            transition={{
-              loop: true,
-            }}
-          >
-            <YStack>
-              {deviceData.map((device, index) => (
-                <WalletAvatar
-                  key={index}
-                  wallet={undefined}
-                  img={device}
-                  size={deviceSize}
-                />
-              ))}
-            </YStack>
-          </MotiView>
-        ) : (
-          <YStack>
-            <WalletAvatar
-              wallet={undefined}
-              img={deviceData[0]}
-              size={deviceSize}
-            />
-          </YStack>
-        )}
-      </YStack>
-    );
-  },
-);
-
-AnimatedDeviceAvatar.displayName = 'AnimatedDeviceAvatar';
+      ) : null}
+    </YStack>
+  );
+}
 
 function GetStarted() {
   const navigation = useAppNavigation();
-  const route =
-    useRoute<
-      RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.GetStarted>
-    >();
-  const handleGetStarted = () => {
-    navigation.push(EOnboardingPagesV2.PickYourDevice);
-    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
-  };
-  const { gtMd } = useMedia();
   const intl = useIntl();
-  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
-  const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
-    useKeylessWallet();
+  const { gtMd } = useMedia();
 
-  // Track which provider is currently loading
-  const [loadingProvider, setLoadingProvider] =
-    useState<EOAuthSocialLoginProvider | null>(null);
+  const handleCreateNewWallet = () => {
+    navigation.push(EOnboardingPagesV2.CreateNewWallet);
+  };
 
-  const handleCreateOrImportWallet = () => {
+  const handleMoreOptions = () => {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
-  const autoLoginKeylessProvider = route?.params?.autoLoginKeylessProvider;
-  const autoConnectNonce = route?.params?.autoConnectNonce;
-  const isWebKeylessSidePanelMode = Boolean(
-    route?.params?.fromExt && autoLoginKeylessProvider,
+  const handleConnectHardwareWallet = () => {
+    navigation.push(EOnboardingPagesV2.PickYourDevice);
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
+  };
+
+  const heroActionWords = useMemo(
+    () =>
+      HERO_ACTIONS.map(({ id, defaultMessage }) =>
+        intl.formatMessage({ id, defaultMessage }),
+      ),
+    [intl],
   );
-  const loadingDialogRef = useRef<IDialogInstance | null>(null);
+  const heroSentenceTemplate = useMemo(
+    () =>
+      intl.formatMessage(
+        {
+          id: ETranslations.onboarding_hero_sentence,
+          defaultMessage: HERO_SENTENCE_DEFAULT,
+        },
+        { action: HERO_ACTION_MARKER },
+      ),
+    [intl],
+  );
+  const [heroPrefix = '', heroSuffix = ''] =
+    heroSentenceTemplate.split(HERO_ACTION_MARKER);
 
-  const handleGoogleLogin = useCallback(async () => {
-    setLoadingProvider(EOAuthSocialLoginProvider.Google);
-    try {
-      defaultLogger.account.wallet.onboard({
-        onboardMethod: 'createKeylessWallet',
-      });
-      if (autoLoginKeylessProvider) {
-        loadingDialogRef.current = Dialog.loading({
-          title: intl.formatMessage(
-            {
-              id: ETranslations.continue_with_social_platform,
-            },
-            { platform: 'Google' },
-          ),
-          description: intl.formatMessage(
-            {
-              id: ETranslations.extension_connecting_platform_account,
-            },
-            { platform: 'Google' },
-          ),
-        });
-      }
-      await checkKeylessWalletLocalExistence({
-        signInProvider: EOAuthSocialLoginProvider.Google,
-      });
-    } finally {
-      setLoadingProvider(null);
-      void loadingDialogRef.current?.close();
-    }
-  }, [checkKeylessWalletLocalExistence, intl, autoLoginKeylessProvider]);
-
-  const handleAppleLogin = useCallback(async () => {
-    setLoadingProvider(EOAuthSocialLoginProvider.Apple);
-    try {
-      defaultLogger.account.wallet.onboard({
-        onboardMethod: 'createKeylessWallet',
-      });
-      if (autoLoginKeylessProvider) {
-        loadingDialogRef.current = Dialog.loading({
-          title: intl.formatMessage(
-            {
-              id: ETranslations.continue_with_social_platform,
-            },
-            { platform: 'Apple' },
-          ),
-          description: intl.formatMessage(
-            {
-              id: ETranslations.extension_connecting_platform_account,
-            },
-            { platform: 'Apple' },
-          ),
-        });
-      }
-      await checkKeylessWalletLocalExistence({
-        signInProvider: EOAuthSocialLoginProvider.Apple,
-      });
-    } finally {
-      setLoadingProvider(null);
-      void loadingDialogRef.current?.close();
-    }
-  }, [checkKeylessWalletLocalExistence, intl, autoLoginKeylessProvider]);
-
-  useAutoStartKeylessProvider({
-    autoStartProvider: autoLoginKeylessProvider,
-    autoStartTriggerKey: autoConnectNonce,
-    enabled:
-      (isKeylessWalletEnabled || isWebKeylessSidePanelMode) &&
-      !enableKeylessWalletLoading,
-    onGoogleLogin: handleGoogleLogin,
-    onAppleLogin: handleAppleLogin,
-  });
-
-  // Cache theme values to avoid multiple useThemeValue calls during render
-  const theme = useTheme();
-  const neutral6 = theme.neutral6.val;
-  const bgColor = theme.bgApp.val;
+  const actions = [
+    {
+      labelId: ETranslations.onboarding_create_new_wallet,
+      icon: 'PlusCircleSolid',
+      onPress: handleCreateNewWallet,
+      mobileButtonProps: { variant: 'primary' },
+    },
+    {
+      labelId: ETranslations.add_existing_wallet,
+      icon: 'ArrowBottomCircleSolid',
+      onPress: handleMoreOptions,
+      mobileButtonProps: { variant: 'secondary' },
+    },
+    {
+      labelId: ETranslations.global_connect_hardware_wallet,
+      icon: 'EnergyCircleSolid',
+      onPress: handleConnectHardwareWallet,
+      mobileButtonProps: {
+        bg: '$transparent',
+        borderWidth: 1,
+        borderColor: '$borderSubdued',
+      },
+    },
+  ] as const;
 
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header showBackButton={false}>
-          <OnboardingLayout.Back exit />
-        </OnboardingLayout.Header>
-        <OnboardingLayout.Body scrollable={false} constrained={false}>
-          <YStack flex={1} justifyContent="center" alignItems="center">
-            <YStack
-              position="absolute"
-              left={0}
-              right={0}
-              top={0}
-              bottom={0}
-              overflow="hidden"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <GridBackground
-                w="100%"
-                h="100%"
-                gridSize={40}
-                lineColor={neutral6}
-              />
-              <Svg
-                height="100%"
-                width="100%"
-                style={{
-                  position: 'absolute',
-                  inset: 0,
+    <OnboardingPage
+      headerBack="exit"
+      contentContainerProps={
+        platformEnv.isNative
+          ? undefined
+          : { enterStyle: { opacity: 0, scale: 0.9 } }
+      }
+    >
+      <YStack
+        $md={{
+          flex: 1,
+          px: '$5',
+          pt: '$8',
+        }}
+        gap="$8"
+      >
+        <Icon name="OnekeyTextIllus" color="$text" h={48} w={174} />
+        {platformEnv.isNative ? (
+          <HeroSentenceNative
+            prefix={heroPrefix}
+            suffix={heroSuffix}
+            rotating={<HeroRotatingWord words={heroActionWords} />}
+          />
+        ) : (
+          <XStack flexWrap="wrap" alignItems="baseline">
+            {heroPrefix ? (
+              <SizableText size="$heading5xl" fontWeight={400}>
+                {heroPrefix}
+              </SizableText>
+            ) : null}
+            <HeroRotatingWord words={heroActionWords} />
+            {heroSuffix ? (
+              <SizableText size="$heading5xl" fontWeight={400}>
+                {heroSuffix}
+              </SizableText>
+            ) : null}
+          </XStack>
+        )}
+      </YStack>
+      <YStack
+        gap="$6"
+        $gtMd={{
+          pt: '$20',
+        }}
+      >
+        <TermsAndPrivacy
+          contentContainerProps={{
+            $md: {
+              px: '$5',
+            },
+          }}
+        />
+        {gtMd ? (
+          <XStack gap="$4" h="$40">
+            {actions.map((action) => (
+              <YStack
+                flexGrow={1}
+                flexBasis={0}
+                justifyContent="space-between"
+                bg="$bgStrong"
+                p="$6"
+                key={action.labelId}
+                onPress={action.onPress}
+                borderRadius="$6"
+                borderCurve="continuous"
+                $platform-web={{
+                  boxShadow:
+                    'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)',
                 }}
+                hoverStyle={{
+                  bg: '$bgStrongHover',
+                }}
+                pressStyle={{
+                  bg: '$bgStrongActive',
+                }}
+                userSelect="none"
               >
-                <Defs>
-                  <RadialGradient
-                    id="grad"
-                    cx="50%"
-                    cy="50%"
-                    rx={gtMd ? '90%' : '50%'}
-                    ry={gtMd ? '30%' : '50%'}
-                  >
-                    <Stop offset="0%" stopColor={bgColor} stopOpacity="0" />
-                    <Stop offset="50%" stopColor={bgColor} stopOpacity="0.5" />
-                    <Stop offset="100%" stopColor={bgColor} stopOpacity="1" />
-                  </RadialGradient>
-                </Defs>
-                <Rect
-                  x="0"
-                  y="0"
-                  width="100%"
-                  height="100%"
-                  fill="url(#grad)"
-                />
-              </Svg>
-              <YStack position="absolute" inset={0} opacity={0.5}>
-                <GridItem gridX={gtMd ? -6 : -0.5} gridY={gtMd ? -2 : 4} blur>
-                  <Icon name="OpCircleIllus" size="$8" />
-                </GridItem>
-                <GridItem gridX={gtMd ? -3 : -1.5} gridY={-2}>
-                  <Icon name="BtcCircleIllus" size="$8" />
-                </GridItem>
-                <GridItem
-                  gridX={gtMd ? -4.5 : -1}
-                  gridY={gtMd ? -0.5 : -3.5}
-                  // scale={gtMd ? 1 : 0.75}
-                >
-                  <Icon name="TrxCircleIllus" size="$8" />
-                </GridItem>
-                <GridItem gridX={-3.5} gridY={2}>
-                  <Icon name="SuiCircleIllus" size="$8" />
-                </GridItem>
-                <GridItem gridX={1} gridY={gtMd ? -3.5 : -4} blur>
-                  <Icon name="SolCircleIllus" size="$8" />
-                </GridItem>
-                <GridItem gridX={1} gridY={3}>
-                  <Icon name="ArbCircleIllus" size="$8" />
-                </GridItem>
-                <GridItem gridX={gtMd ? 3.5 : 1.5} gridY={gtMd ? 0 : -2.5}>
-                  <Icon name="EthCircleIllus" size="$8" />
-                </GridItem>
-                <GridItem gridX={4.5} gridY={-2}>
-                  <Icon name="MaticCircleIllus" size="$8" />
-                </GridItem>
-                <GridItem gridX={gtMd ? 5 : -1} gridY={gtMd ? 2 : 2.5}>
-                  <Icon name="BnbCircleIllus" size="$8" />
-                </GridItem>
+                <Icon size="$8" color="$iconActive" name={action.icon} />
+                <SizableText size="$headingLg">
+                  {intl.formatMessage({ id: action.labelId })}
+                </SizableText>
               </YStack>
-            </YStack>
-            <YStack
-              gap={38}
-              justifyContent="center"
-              alignItems="center"
-              pb={58}
-            >
-              <DecorativeOneKeyLogo />
-              <Stack gap="$4" minWidth="$80" zIndex={1}>
-                {isWebKeylessSidePanelMode ? null : (
-                  <Button
-                    size="large"
-                    variant="primary"
-                    alignSelf="stretch"
-                    childrenAsText={false}
-                    onPress={handleGetStarted}
-                  >
-                    <XStack alignItems="center" gap="$2">
-                      <AnimatedDeviceAvatar deviceSize={DEVICE_SIZE} />
-                      <SizableText size="$bodyLgMedium" color="$textInverse">
-                        {intl.formatMessage({
-                          id: ETranslations.global_connect_hardware_wallet,
-                        })}
-                      </SizableText>
-                    </XStack>
-                  </Button>
-                )}
-                {isKeylessWalletEnabled || isWebKeylessSidePanelMode ? (
-                  <>
-                    <Button
-                      bg="$gray3"
-                      hoverStyle={{ bg: '$gray4' }}
-                      pressStyle={{ bg: '$gray5' }}
-                      size="large"
-                      alignSelf="stretch"
-                      childrenAsText={false}
-                      onPress={
-                        enableKeylessWalletLoading
-                          ? undefined
-                          : handleGoogleLogin
-                      }
-                    >
-                      <XStack gap="$2" alignItems="center">
-                        <AnimatePresence exitBeforeEnter initial={false}>
-                          {enableKeylessWalletLoading &&
-                          loadingProvider ===
-                            EOAuthSocialLoginProvider.Google ? (
-                            <YStack
-                              key="loading"
-                              animation="quick"
-                              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                              enterStyle={{ scale: 0.7, opacity: 0 }}
-                              exitStyle={{ scale: 0.7, opacity: 0 }}
-                            >
-                              <Spinner size="small" />
-                            </YStack>
-                          ) : (
-                            <YStack
-                              key="icon"
-                              animation="quick"
-                              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                              enterStyle={{ scale: 0.7, opacity: 0 }}
-                              exitStyle={{ scale: 0.7, opacity: 0 }}
-                            >
-                              <Icon name="GoogleIllus" size="$5" />
-                            </YStack>
-                          )}
-                        </AnimatePresence>
-                        <SizableText size="$bodyLgMedium">
-                          {intl.formatMessage(
-                            { id: ETranslations.continue_with_social_platform },
-                            { platform: 'Google' },
-                          )}
-                        </SizableText>
-                      </XStack>
-                    </Button>
-                    <Button
-                      bg="$gray3"
-                      hoverStyle={{ bg: '$gray4' }}
-                      pressStyle={{ bg: '$gray5' }}
-                      size="large"
-                      alignSelf="stretch"
-                      childrenAsText={false}
-                      onPress={
-                        enableKeylessWalletLoading
-                          ? undefined
-                          : handleAppleLogin
-                      }
-                    >
-                      <XStack gap="$2" alignItems="center">
-                        <AnimatePresence exitBeforeEnter initial={false}>
-                          {enableKeylessWalletLoading &&
-                          loadingProvider ===
-                            EOAuthSocialLoginProvider.Apple ? (
-                            <YStack
-                              key="loading"
-                              animation="quick"
-                              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                              enterStyle={{ scale: 0.7, opacity: 0 }}
-                              exitStyle={{ scale: 0.7, opacity: 0 }}
-                            >
-                              <Spinner size="small" />
-                            </YStack>
-                          ) : (
-                            <YStack
-                              key="icon"
-                              animation="quick"
-                              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                              enterStyle={{ scale: 0.7, opacity: 0 }}
-                              exitStyle={{ scale: 0.7, opacity: 0 }}
-                            >
-                              <Icon name="AppleBrand" size="$5" />
-                            </YStack>
-                          )}
-                        </AnimatePresence>
-                        <SizableText size="$bodyLgMedium">
-                          {intl.formatMessage(
-                            { id: ETranslations.continue_with_social_platform },
-                            { platform: 'Apple' },
-                          )}
-                        </SizableText>
-                      </XStack>
-                    </Button>
-                    {isWebKeylessSidePanelMode ? null : (
-                      <Button
-                        variant="tertiary"
-                        size="large"
-                        alignSelf="stretch"
-                        mx="$0"
-                        onPress={handleCreateOrImportWallet}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.more_options,
-                        })}
-                      </Button>
-                    )}
-                  </>
-                ) : null}
-                {!isKeylessWalletEnabled && !isWebKeylessSidePanelMode ? (
-                  <Button
-                    bg="$gray3"
-                    hoverStyle={{ bg: '$gray4' }}
-                    pressStyle={{ bg: '$gray5' }}
-                    size="large"
-                    alignSelf="stretch"
-                    childrenAsText={false}
-                    onPress={handleCreateOrImportWallet}
-                  >
-                    <XStack gap="$2" alignItems="center">
-                      <Icon name="PlusLargeOutline" size="$5" />
-                      <SizableText size="$bodyLgMedium">
-                        {intl.formatMessage({
-                          id: ETranslations.onboarding_create_or_import_wallet,
-                        })}
-                      </SizableText>
-                    </XStack>
-                  </Button>
-                ) : null}
-              </Stack>
-            </YStack>
+            ))}
+          </XStack>
+        ) : (
+          <YStack gap="$3">
+            {actions.map((action) => (
+              <Button
+                key={action.labelId}
+                size="large"
+                alignSelf="stretch"
+                onPress={action.onPress}
+                {...action.mobileButtonProps}
+              >
+                {intl.formatMessage({ id: action.labelId })}
+              </Button>
+            ))}
           </YStack>
-        </OnboardingLayout.Body>
-        <OnboardingLayout.Footer>
-          <TermsAndPrivacy />
-        </OnboardingLayout.Footer>
-      </OnboardingLayout>
-    </Page>
+        )}
+      </YStack>
+    </OnboardingPage>
   );
 }
 
