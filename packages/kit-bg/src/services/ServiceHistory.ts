@@ -1292,7 +1292,7 @@ class ServiceHistory extends ServiceBase {
     await simpleDb.localHistory.batchUpdateLocalHistoryTxs([
       {
         networkId,
-        accountAddress,
+        accountAddress: accountAddress ?? '',
         xpub,
         confirmedTxs: pendingTxsToClear,
       },
