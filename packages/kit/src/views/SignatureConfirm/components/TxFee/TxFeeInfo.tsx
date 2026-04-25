@@ -706,7 +706,9 @@ function TxFeeInfo(props: IProps) {
             errMessage: '',
             discountPercent: 0,
           });
-          Toast.warning({ title: gasAccountEntry.message });
+          Toast.warning({
+            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+          });
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
           return staleResult;
         }
@@ -725,7 +727,9 @@ function TxFeeInfo(props: IProps) {
             errMessage: '',
             discountPercent: 0,
           });
-          Toast.warning({ title: gasAccountEntry.message });
+          Toast.warning({
+            title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+          });
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
           return staleResult;
         }
@@ -776,6 +780,7 @@ function TxFeeInfo(props: IProps) {
       txAdvancedSettings.nonce,
       vaultSettings?.nonceRequired,
       gasAccountScenario,
+      intl,
     ],
     {
       watchLoading: true,
@@ -1806,8 +1811,27 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const shouldShowFreeBadge = isMegafuelSponsored || isGasAccountSponsored;
-  const sponsoredInfoTitle = 'Fee Sponsorship';
-  const sponsoredCouponSubtitle = 'Sponsored by OneKey';
+  const sponsoredInfoTitle = intl.formatMessage({
+    id: ETranslations.wallet_fee_sponsorship__title,
+  });
+  const sponsoredCouponSubtitle = intl.formatMessage({
+    id: ETranslations.wallet_sponsored_by_onekey__title,
+  });
+  const sponsoredCouponTitle = intl.formatMessage({
+    id: ETranslations.wallet_zero_network_fee__title,
+  });
+  const sponsoredInfoDescription = intl.formatMessage({
+    id: ETranslations.wallet_sponsorship_availability_rules__desc,
+  });
+  const sponsoredLearnMoreText = intl.formatMessage({
+    id: ETranslations.wallet_learn_about_sponsored_fees__action,
+  });
+  const sponsoredSummaryTitle = intl.formatMessage({
+    id: ETranslations.wallet_onekey_sponsored__title,
+  });
+  const sponsoredSummaryDescription = intl.formatMessage({
+    id: ETranslations.wallet_you_pay_zero_network_fee__desc,
+  });
   const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
     openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
   }, []);
@@ -1841,7 +1865,7 @@ function TxFeeInfo(props: IProps) {
                 color={sponsoredCouponTextColor}
                 numberOfLines={1}
               >
-                0 Network Fee
+                {sponsoredCouponTitle}
               </SizableText>
               <SizableText
                 size="$bodySmMedium"
@@ -1911,6 +1935,7 @@ function TxFeeInfo(props: IProps) {
       sponsoredCouponIconBgColor,
       sponsoredCouponSeparatorColor,
       sponsoredCouponSubTextColor,
+      sponsoredCouponTitle,
       sponsoredCouponSubtitle,
       sponsoredCouponTextColor,
     ],
@@ -1926,9 +1951,7 @@ function TxFeeInfo(props: IProps) {
           {renderSponsoredCoupon()}
           <Stack px="$1" gap="$3">
             <SizableText size="$bodySm" color="$textSubdued">
-              Sponsorship depends on eligibility, availability, and fair use
-              checks. If it becomes unavailable, the standard network fee will
-              be shown before you send.
+              {sponsoredInfoDescription}
             </SizableText>
             <SizableText
               size="$bodySmMedium"
@@ -1940,7 +1963,7 @@ function TxFeeInfo(props: IProps) {
               pressStyle={{ opacity: 0.7 }}
               onPress={handleOpenSponsoredFeesHelpCenter}
             >
-              Learn about sponsored fees
+              {sponsoredLearnMoreText}
             </SizableText>
           </Stack>
           <Button
@@ -1949,13 +1972,20 @@ function TxFeeInfo(props: IProps) {
               void dialogInstance?.close?.();
             }}
           >
-            Got it
+            {intl.formatMessage({ id: ETranslations.global_got_it })}
           </Button>
         </Stack>
       ),
     });
     return dialogInstance;
-  }, [handleOpenSponsoredFeesHelpCenter, renderSponsoredCoupon]);
+  }, [
+    handleOpenSponsoredFeesHelpCenter,
+    intl,
+    renderSponsoredCoupon,
+    sponsoredInfoDescription,
+    sponsoredInfoTitle,
+    sponsoredLearnMoreText,
+  ]);
 
   const renderSponsoredSummary = useCallback(
     () => (
@@ -1975,15 +2005,19 @@ function TxFeeInfo(props: IProps) {
             dashThickness={0.5}
             cursor="pointer"
           >
-            OneKey Sponsored
+            {sponsoredSummaryTitle}
           </DashText>
           <SizableText size="$bodyMd" color="$text">
-            You pay 0 network fee
+            {sponsoredSummaryDescription}
           </SizableText>
         </Stack>
       </XStack>
     ),
-    [handleShowSponsoredInfo],
+    [
+      handleShowSponsoredInfo,
+      sponsoredSummaryDescription,
+      sponsoredSummaryTitle,
+    ],
   );
 
   const handlePress = useCallback(() => {
