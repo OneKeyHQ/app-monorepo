@@ -1717,9 +1717,10 @@ export default class ServiceSwap extends ServiceBase {
         txStatusRes?.state !== ESwapTxHistoryStatus.PENDING ||
         txStatusRes.crossChainStatus !== currentSwapTxHistory.crossChainStatus
       ) {
+        const rawStatus = txStatusRes.state;
         currentSwapTxHistory = {
           ...currentSwapTxHistory,
-          status: txStatusRes.state,
+          status: rawStatus,
           extraStatus: txStatusRes.extraStatus,
           swapInfo: {
             ...currentSwapTxHistory.swapInfo,
@@ -1770,13 +1771,13 @@ export default class ServiceSwap extends ServiceBase {
           currentSwapTxHistory.crossChainStatus ===
             ESwapCrossChainStatus.REFUNDED ||
           (!currentSwapTxHistory.crossChainStatus &&
-            (finalStatus === ESwapTxHistoryStatus.SUCCESS ||
-              finalStatus === ESwapTxHistoryStatus.PARTIALLY_FILLED))
+            (rawStatus === ESwapTxHistoryStatus.SUCCESS ||
+              rawStatus === ESwapTxHistoryStatus.PARTIALLY_FILLED))
         ) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
             fromToken: currentSwapTxHistory.baseInfo.fromToken,
             toToken: currentSwapTxHistory.baseInfo.toToken,
-            status: finalStatus,
+            status: rawStatus,
             crossChainStatus: txStatusRes.crossChainStatus,
           });
           appEventBus.emit(EAppEventBusNames.SwapSpeedBalanceUpdate, {
