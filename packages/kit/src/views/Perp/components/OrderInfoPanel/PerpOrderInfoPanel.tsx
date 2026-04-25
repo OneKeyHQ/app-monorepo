@@ -56,15 +56,19 @@ function TabBarItem({
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
 
   const holdingsCount = useMemo(() => {
-    const nonZeroSpotBalanceCount = balances.filter(
-      (item) => !new BigNumber(item.total).isZero(),
+    // OK-53644: spot USDC + perps USDC render as a single merged row, so
+    // count non-USDC spot balances and add 1 if either side has any USDC.
+    const nonUsdcSpotCount = balances.filter(
+      (item) =>
+        item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
-    const perpsUsdcCount =
-      accountSummary?.totalRawUsd &&
-      new BigNumber(accountSummary.totalRawUsd).gt(0)
-        ? 1
-        : 0;
-    return nonZeroSpotBalanceCount + perpsUsdcCount;
+    const hasSpotUsdc = balances.some(
+      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
+    );
+    const hasPerpsUsdc =
+      !!accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0);
+    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
   }, [accountSummary?.totalRawUsd, balances]);
 
   const tabCount = useMemo(() => {
