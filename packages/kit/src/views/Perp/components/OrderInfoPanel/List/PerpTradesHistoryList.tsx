@@ -98,6 +98,16 @@ function PerpTradesHistoryList({
       return exitPriceBN.plus(pnlPerUnit);
     }
 
+    // Spot Sell realizes PnL against the avg cost basis acquired through
+    // prior Buy fills — same math as a perp Close Long. closedPnl from HL
+    // is gross (before fee), so this returns the true avg entry price.
+    if (
+      normalizedDir === 'sell' &&
+      !new BigNumber(fill.closedPnl).isZero()
+    ) {
+      return exitPriceBN.minus(pnlPerUnit);
+    }
+
     return null;
   }, []);
 
