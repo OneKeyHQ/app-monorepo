@@ -1102,6 +1102,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       });
       this._rebuildSpotMappings(universes);
     }
+    // Pre-seed spot price cache from the same REST response so the first
+    // spot view after Perp tab focus doesn't have to wait 2-3s for the WS
+    // SPOT_ASSET_CTXS first message (OK-53621 skeleton flash).
+    const assetCtxs = result[1];
+    if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
+      void this.updateSpotAssetCtxsMap(assetCtxs);
+    }
   }
 
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
