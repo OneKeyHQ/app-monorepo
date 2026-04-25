@@ -1281,10 +1281,15 @@ class ServiceHistory extends ServiceBase {
       accountAddress: accountAddress ?? '',
       xpub,
     });
-    const txidLower = txid.toLowerCase();
-    const pendingTxsToClear = localHistoryPendingTxs.filter(
-      (tx) => tx.decodedTx.txid?.toLowerCase() === txidLower,
-    );
+    const shouldIgnoreTxIdCase = networkUtils.isEvmNetwork({ networkId });
+    const txidForCompare = shouldIgnoreTxIdCase ? txid.toLowerCase() : txid;
+    const pendingTxsToClear = localHistoryPendingTxs.filter((tx) => {
+      const pendingTxId = tx.decodedTx.txid;
+      return (
+        (shouldIgnoreTxIdCase ? pendingTxId?.toLowerCase() : pendingTxId) ===
+        txidForCompare
+      );
+    });
     if (!pendingTxsToClear.length) {
       return false;
     }
