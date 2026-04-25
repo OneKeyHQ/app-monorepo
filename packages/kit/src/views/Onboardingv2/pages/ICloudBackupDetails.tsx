@@ -9,10 +9,12 @@ import {
   Dialog,
   Icon,
   Page,
+  ScrollView,
   SizableText,
   Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
@@ -37,7 +39,12 @@ import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  LayoutHeader,
+  LayoutHeaderBack,
+  LayoutHeaderLanguageSelector,
+  LayoutHeaderTitle,
+} from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 
 export default function ICloudBackupDetails({
@@ -47,6 +54,7 @@ export default function ICloudBackupDetails({
   EOnboardingPagesV2.ICloudBackupDetails
 >) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const _backupTime = route.params?.backupTime;
   const actionType = route.params?.actionType;
   const hideRestoreButton = route.params?.hideRestoreButton;
@@ -189,12 +197,100 @@ export default function ICloudBackupDetails({
   const isButtonDisabled = useMemo(() => {
     return fetchLoading || checkLoading || !backupData || !walletData.length;
   }, [fetchLoading, checkLoading, backupData, walletData.length]);
+
+  const actionButtons = (
+    <XStack gap="$3" w="100%" py="$3">
+      {actionType === 'backup' ? (
+        <>
+          <Button
+            loading={checkLoading}
+            disabled={isButtonDisabled}
+            flex={1}
+            variant="primary"
+            size="large"
+            onPress={handleBackup}
+          >
+            {intl.formatMessage({ id: ETranslations.backup_backup_now })}
+          </Button>
+          <Button
+            loading={checkLoading}
+            size="large"
+            onPress={async () => {
+              await goToPageBackupList({
+                hideRestoreButton: true,
+              });
+            }}
+            childrenAsText={false}
+          >
+            <Icon name="SettingsOutline" />
+          </Button>
+        </>
+      ) : null}
+
+      {actionType === 'restore' ? (
+        <>
+          {!hideRestoreButton ? (
+            <Button
+              loading={checkLoading}
+              disabled={isButtonDisabled}
+              flex={1}
+              variant="primary"
+              size="large"
+              onPress={handleImport}
+            >
+              {intl.formatMessage({ id: ETranslations.global_import })}
+            </Button>
+          ) : null}
+          <Button
+            loading={checkLoading}
+            disabled={!route.params?.backupId}
+            size="large"
+            flex={hideRestoreButton ? 1 : undefined}
+            onPress={async () => {
+              doDeleteBackup({
+                recordID: route.params?.backupId ?? '',
+              });
+            }}
+            childrenAsText={false}
+          >
+            <Icon name="DeleteOutline" />
+          </Button>
+        </>
+      ) : null}
+    </XStack>
+  );
+
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header title={formattedDate} />
-        <OnboardingLayout.Body>
-          <YStack gap="$3">
+    <Page safeAreaEnabled={false}>
+      <YStack
+        $gtMd={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+        }}
+      >
+        <LayoutHeader>
+          <LayoutHeaderBack />
+          <LayoutHeaderTitle>{formattedDate}</LayoutHeaderTitle>
+          <LayoutHeaderLanguageSelector />
+        </LayoutHeader>
+      </YStack>
+      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <YStack
+          flex={1}
+          px="$5"
+          $gtMd={{ alignItems: 'center', justifyContent: 'center' }}
+        >
+          <YStack
+            w="100%"
+            maxWidth={480}
+            mx="auto"
+            gap="$3"
+            $md={{ flex: 1 }}
+            $gtMd={{ minHeight: 522 }}
+          >
             <CloudAccountBar />
             {renderContent()}
             <MultipleClickStack
@@ -255,77 +351,10 @@ export default function ICloudBackupDetails({
                 </YStack>
               }
             />
+            <YStack {...(!gtMd && { mt: 'auto' })}>{actionButtons}</YStack>
           </YStack>
-        </OnboardingLayout.Body>
-        <OnboardingLayout.Footer>
-          <XStack
-            gap="$3"
-            w="100%"
-            $gtMd={{
-              maxWidth: 400,
-            }}
-            py="$3"
-          >
-            {actionType === 'backup' ? (
-              <>
-                <Button
-                  loading={checkLoading}
-                  disabled={isButtonDisabled}
-                  flex={1}
-                  variant="primary"
-                  size="large"
-                  onPress={handleBackup}
-                >
-                  {intl.formatMessage({ id: ETranslations.backup_backup_now })}
-                </Button>
-                <Button
-                  loading={checkLoading}
-                  size="large"
-                  onPress={async () => {
-                    await goToPageBackupList({
-                      hideRestoreButton: true,
-                    });
-                  }}
-                  childrenAsText={false}
-                >
-                  <Icon name="SettingsOutline" />
-                </Button>
-              </>
-            ) : null}
-
-            {actionType === 'restore' ? (
-              <>
-                {!hideRestoreButton ? (
-                  <Button
-                    loading={checkLoading}
-                    disabled={isButtonDisabled}
-                    flex={1}
-                    variant="primary"
-                    size="large"
-                    onPress={handleImport}
-                  >
-                    {intl.formatMessage({ id: ETranslations.global_import })}
-                  </Button>
-                ) : null}
-                <Button
-                  loading={checkLoading}
-                  disabled={!route.params?.backupId}
-                  size="large"
-                  flex={hideRestoreButton ? 1 : undefined}
-                  onPress={async () => {
-                    doDeleteBackup({
-                      recordID: route.params?.backupId ?? '',
-                    });
-                  }}
-                  childrenAsText={false}
-                >
-                  <Icon name="DeleteOutline" />
-                </Button>
-              </>
-            ) : null}
-          </XStack>
-        </OnboardingLayout.Footer>
-      </OnboardingLayout>
+        </YStack>
+      </ScrollView>
     </Page>
   );
 }

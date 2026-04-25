@@ -708,7 +708,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         generatingAccountsFn,
       }: {
         createWalletFn: () => Promise<IFinalizeWalletSetupCreateWalletResult>;
-        generatingAccountsFn: (
+        generatingAccountsFn?: (
           params: IFinalizeWalletSetupCreateWalletResult,
         ) => Promise<void>;
       },
@@ -718,37 +718,23 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           step: EFinalizeWalletSetupSteps.CreatingWallet,
         });
 
-        await timerUtils.wait(100);
-
         const [{ wallet, indexedAccount, hidden, isOverrideWallet }] =
+          await Promise.all([createWalletFn(), timerUtils.wait(1000)]);
+
+        if (generatingAccountsFn) {
+          appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+            step: EFinalizeWalletSetupSteps.GeneratingAccounts,
+          });
+
           await Promise.all([
-            // eslint-disable-next-line @typescript-eslint/await-thenable
-            await createWalletFn(),
-            await timerUtils.wait(1000),
+            generatingAccountsFn({ wallet, indexedAccount, hidden }),
+            timerUtils.wait(1000),
           ]);
-
-        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-          step: EFinalizeWalletSetupSteps.GeneratingAccounts,
-        });
-
-        await timerUtils.wait(100);
-
-        await Promise.all([
-          generatingAccountsFn({ wallet, indexedAccount, hidden }),
-          await timerUtils.wait(1000),
-        ]);
-
-        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-          step: EFinalizeWalletSetupSteps.EncryptingData,
-        });
-
-        await timerUtils.wait(1000);
+        }
 
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.Ready,
         });
-
-        await timerUtils.wait(2000);
 
         const createResult = {
           wallet,
@@ -1279,40 +1265,59 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         mnemonic: string;
       },
     ) => {
-      const { servicePassword } = backgroundApiProxy;
-      const { mnemonic: realMnemonic } =
-        await serviceAccount.validateMnemonic(mnemonic);
-      const { tonMnemonicToKeyPair } =
-        await import('@onekeyhq/core/src/secret/ton-mnemonic');
-      const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
-      const secretKeyUint8Array = platformEnv.isNative
-        ? new Uint8Array(Object.values(keyPair.secretKey))
-        : keyPair.secretKey;
-      const privateHex = bufferUtils.bytesToHex(
-        secretKeyUint8Array.slice(0, 32),
-      );
-      const input = await servicePassword.encodeSensitiveText({
-        text: privateHex,
-      });
-      const r = await serviceAccount.addImportedAccount({
-        input,
-        deriveType: 'default',
-        networkId: getNetworkIdsMap().ton,
-        name: '',
-        shouldCheckDuplicateName: true,
-      });
+      try {
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.CreatingWallet,
+        });
 
-      const accountId = r?.accounts?.[0]?.id;
-      await serviceAccount.saveTonImportedAccountMnemonic({
-        accountId,
-        mnemonic,
-      });
-      void this.updateSelectedAccountForSingletonAccount.call(set, {
-        num: 0,
-        networkId: getNetworkIdsMap().ton,
-        walletId: WALLET_TYPE_IMPORTED,
-        othersWalletAccountId: accountId,
-      });
+        await Promise.all([
+          (async () => {
+            const { servicePassword } = backgroundApiProxy;
+            const { mnemonic: realMnemonic } =
+              await serviceAccount.validateMnemonic(mnemonic);
+            const { tonMnemonicToKeyPair } =
+              await import('@onekeyhq/core/src/secret/ton-mnemonic');
+            const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
+            const secretKeyUint8Array = platformEnv.isNative
+              ? new Uint8Array(Object.values(keyPair.secretKey))
+              : keyPair.secretKey;
+            const privateHex = bufferUtils.bytesToHex(
+              secretKeyUint8Array.slice(0, 32),
+            );
+            const input = await servicePassword.encodeSensitiveText({
+              text: privateHex,
+            });
+            const r = await serviceAccount.addImportedAccount({
+              input,
+              deriveType: 'default',
+              networkId: getNetworkIdsMap().ton,
+              name: '',
+              shouldCheckDuplicateName: true,
+            });
+            const accountId = r?.accounts?.[0]?.id;
+            await serviceAccount.saveTonImportedAccountMnemonic({
+              accountId,
+              mnemonic,
+            });
+            void this.updateSelectedAccountForSingletonAccount.call(set, {
+              num: 0,
+              networkId: getNetworkIdsMap().ton,
+              walletId: WALLET_TYPE_IMPORTED,
+              othersWalletAccountId: accountId,
+            });
+          })(),
+          timerUtils.wait(1000),
+        ]);
+
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.Ready,
+        });
+      } catch (error) {
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
+          error: error as IOneKeyError,
+        });
+        throw error;
+      }
     },
   );
 

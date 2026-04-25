@@ -2722,6 +2722,36 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - react-native-skia (2.6.2):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - react-native-slider (5.0.1):
     - boost
     - DoubleConversion
@@ -4664,6 +4694,7 @@ DEPENDENCIES:
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-performance-stats (from `../../../node_modules/react-native-performance-stats`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
+  - "react-native-skia (from `../../../node_modules/@shopify/react-native-skia`)"
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - "react-native-tab-view (from `../../../node_modules/@onekeyfe/react-native-tab-view`)"
   - react-native-video (from `../../../node_modules/react-native-video`)
@@ -4969,6 +5000,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-performance-stats"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
+  react-native-skia:
+    :path: "../../../node_modules/@shopify/react-native-skia"
   react-native-slider:
     :path: "../../../node_modules/@react-native-community/slider"
   react-native-tab-view:
@@ -5233,6 +5266,7 @@ SPEC CHECKSUMS:
   react-native-pager-view: 013793c1573737bae03cb8d578255bd7c16444e7
   react-native-performance-stats: 8820079bb3a8127f798f0e201d0ca1ab65735410
   react-native-safe-area-context: c00143b4823773bba23f2f19f85663ae89ceb460
+  react-native-skia: fc73e9bdc46ebb420a98c9c2be29fee80f565e79
   react-native-slider: 663776e5683e257de8df8091abc2d93ff6ec67db
   react-native-tab-view: aa72b08d9250f29cb0c0c532739f2271fc75e656
   react-native-video: 7b821291837d8ba7b9d7574bfeb0cd651e910141
