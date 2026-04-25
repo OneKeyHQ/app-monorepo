@@ -15,8 +15,9 @@ import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   type IPerpFavoritesDisplayMode,
+  type IPerpsFavoritesOrderEntry,
   usePerpTokenFavoritesPersistAtom,
-  useSpotTokenFavoritesPersistAtom,
+  usePerpsFavoritesOrderPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { usePerpsFavorites } from '../../hooks/usePerpsFavorites';
@@ -156,10 +157,70 @@ function FavoritesBar() {
   // computed in usePerpsFavorites, so users can tell quote currency at a glance.
   const { favoriteItems: perpItems } = usePerpsFavorites({ mode: 'perp' });
   const { favoriteItems: spotItems } = usePerpsFavorites({ mode: 'spot' });
-  const favoriteItems = useMemo(
-    () => [...perpItems, ...spotItems],
-    [perpItems, spotItems],
-  );
+  const [favoritesOrder, setFavoritesOrder] =
+    usePerpsFavoritesOrderPersistAtom();
+
+  // Build keyed lookup of resolved items, then walk the persisted order to
+  // produce the display sequence. Anything in membership but missing from
+  // the order is appended (legacy data, out-of-band toggles).
+  const favoriteItems = useMemo(() => {
+    const merged = [...perpItems, ...spotItems];
+    const lookup = new Map<string, (typeof merged)[number]>();
+    for (const item of merged) {
+      lookup.set(`${item.mode}:${item.coinName}`, item);
+    }
+    const ordered: typeof merged = [];
+    const seen = new Set<string>();
+    for (const entry of favoritesOrder.sequence) {
+      const key = `${entry.mode}:${entry.coinName}`;
+      const item = lookup.get(key);
+      if (item) {
+        ordered.push(item);
+        seen.add(key);
+      }
+    }
+    for (const item of merged) {
+      const key = `${item.mode}:${item.coinName}`;
+      if (!seen.has(key)) ordered.push(item);
+    }
+    return ordered;
+  }, [perpItems, spotItems, favoritesOrder]);
+
+  // Passive sync: prune sequence entries whose backing membership is gone
+  // and append any membership entries not yet in the sequence. Idempotent —
+  // only writes when something actually changed. Covers legacy data and
+  // toggles that bypass FavoriteButton (e.g. external watchlist sync).
+  useEffect(() => {
+    setFavoritesOrder((prev) => {
+      const allKeys = new Set<string>();
+      for (const it of perpItems) allKeys.add(`${it.mode}:${it.coinName}`);
+      for (const it of spotItems) allKeys.add(`${it.mode}:${it.coinName}`);
+      const filtered = prev.sequence.filter((e) =>
+        allKeys.has(`${e.mode}:${e.coinName}`),
+      );
+      const seqKeys = new Set(
+        filtered.map((e) => `${e.mode}:${e.coinName}`),
+      );
+      const additions: IPerpsFavoritesOrderEntry[] = [];
+      for (const it of [...perpItems, ...spotItems]) {
+        const key = `${it.mode}:${it.coinName}`;
+        if (!seqKeys.has(key)) {
+          additions.push({ mode: it.mode, coinName: it.coinName });
+          seqKeys.add(key);
+        }
+      }
+      const next = [...filtered, ...additions];
+      const changed =
+        next.length !== prev.sequence.length ||
+        next.some(
+          (e, i) =>
+            e.mode !== prev.sequence[i]?.mode ||
+            e.coinName !== prev.sequence[i]?.coinName,
+        );
+      return changed ? { sequence: next } : prev;
+    });
+  }, [perpItems, spotItems, setFavoritesOrder]);
+
   const actions = useHyperliquidActions();
   const hasFavorites = favoriteItems.length > 0;
 
@@ -167,7 +228,6 @@ function FavoritesBar() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [perpFavorites, setPerpFavorites] = usePerpTokenFavoritesPersistAtom();
-  const [, setSpotFavorites] = useSpotTokenFavoritesPersistAtom();
   // displayMode is a UI preference shared by perps and spot favorites bars,
   // so it always lives on the perp atom (spot atom has no displayMode field).
   const displayMode = perpFavorites.displayMode ?? 'price';
@@ -177,6 +237,9 @@ function FavoritesBar() {
     setIsDragging(true);
   }, []);
 
+  // Cross-mode drag is allowed: the unified `perpsFavoritesOrderPersistAtom`
+  // is the single source of truth for display order. Membership in the
+  // mode-specific atoms is unaffected by reorder.
   const handleDragEnd = useCallback(
     (result: DropResult) => {
       setIsDragging(false);
@@ -186,33 +249,24 @@ function FavoritesBar() {
       const sourceItem = favoriteItems[result.source.index];
       const destItem = favoriteItems[result.destination.index];
       if (!sourceItem || !destItem) return;
-      // Cross-mode drag is a no-op — perp and spot favorites live in separate
-      // atoms; reorder only persists when source and destination share a mode.
-      if (sourceItem.mode !== destItem.mode) return;
 
-      const reorder = (prevFavorites: string[]): string[] | undefined => {
-        const next = [...prevFavorites];
-        const sourceIdx = next.indexOf(sourceItem.coinName);
-        const destIdx = next.indexOf(destItem.coinName);
-        if (sourceIdx === -1 || destIdx === -1) return undefined;
+      setFavoritesOrder((prev) => {
+        const next = [...prev.sequence];
+        const sourceIdx = next.findIndex(
+          (e) =>
+            e.mode === sourceItem.mode && e.coinName === sourceItem.coinName,
+        );
+        const destIdx = next.findIndex(
+          (e) =>
+            e.mode === destItem.mode && e.coinName === destItem.coinName,
+        );
+        if (sourceIdx === -1 || destIdx === -1) return prev;
         const [moved] = next.splice(sourceIdx, 1);
         next.splice(destIdx, 0, moved);
-        return next;
-      };
-
-      if (sourceItem.mode === 'spot') {
-        setSpotFavorites((prev) => {
-          const next = reorder(prev.favorites);
-          return next ? { ...prev, favorites: next } : prev;
-        });
-      } else {
-        setPerpFavorites((prev) => {
-          const next = reorder(prev.favorites);
-          return next ? { ...prev, favorites: next } : prev;
-        });
-      }
+        return { sequence: next };
+      });
     },
-    [setPerpFavorites, setSpotFavorites, favoriteItems],
+    [favoriteItems, setFavoritesOrder],
   );
 
   const renderClone = useCallback(
@@ -348,10 +402,15 @@ function FavoritesBar() {
                   scrollbarWidth: 'none',
                 }}
               >
-                {favoriteItems.map((item, index) => (
+                {favoriteItems.map((item, index) => {
+                  // Combined key — perp/spot coin names should not collide
+                  // (perp = "BTC", spot = "PURR/USDC"), but tag with mode
+                  // for safety against any future symbol overlap.
+                  const draggableKey = `${item.mode}:${item.coinName}`;
+                  return (
                   <Draggable
-                    key={item.coinName}
-                    draggableId={item.coinName}
+                    key={draggableKey}
+                    draggableId={draggableKey}
                     index={index}
                   >
                     {(draggableProvided) => (
@@ -383,7 +442,8 @@ function FavoritesBar() {
                       </div>
                     )}
                   </Draggable>
-                ))}
+                  );
+                })}
                 {droppableProvided.placeholder}
               </div>
             )}

@@ -116,3 +116,24 @@ export const { target: spotAssetCtxsMapAtom, use: useSpotAssetCtxsMapAtom } =
     name: EAtomNames.spotAssetCtxsMapAtom,
     initialValue: {},
   });
+
+// Unified ordering for the FavoritesBar — single sequence interleaving spot
+// and perp favorites so users can drag-reorder across modes. Membership still
+// lives in {perp,spot}TokenFavoritesPersistAtom; this atom only stores the
+// display order. Auto-syncs in FavoritesBar so legacy / out-of-band toggles
+// don't get stranded outside the sequence.
+export interface IPerpsFavoritesOrderEntry {
+  mode: 'perp' | 'spot';
+  coinName: string;
+}
+export interface IPerpsFavoritesOrder {
+  sequence: IPerpsFavoritesOrderEntry[];
+}
+export const {
+  target: perpsFavoritesOrderPersistAtom,
+  use: usePerpsFavoritesOrderPersistAtom,
+} = globalAtom<IPerpsFavoritesOrder>({
+  name: EAtomNames.perpsFavoritesOrderPersistAtom,
+  persist: true,
+  initialValue: { sequence: [] },
+});

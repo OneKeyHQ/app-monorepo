@@ -25,6 +25,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   usePerpTokenFavoritesPersistAtom,
+  usePerpsFavoritesOrderPersistAtom,
   useSpotAssetCtxsMapAtom,
   useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -138,15 +139,20 @@ export const FavoriteButton = memo(
   }) => {
     const [perpFavs, setPerpFavs] = usePerpTokenFavoritesPersistAtom();
     const [spotFavs, setSpotFavs] = useSpotTokenFavoritesPersistAtom();
+    const [, setFavoritesOrder] = usePerpsFavoritesOrderPersistAtom();
     const isFavorite = isSpot
       ? spotFavs.favorites.includes(coin)
       : perpFavs.favorites.includes(coin);
 
     const handleToggle = useCallback(() => {
+      const mode: 'perp' | 'spot' = isSpot ? 'spot' : 'perp';
       const toggleFavorites = (prev: string[]) => {
         const removing = prev.includes(coin);
         return removing ? prev.filter((f) => f !== coin) : [...prev, coin];
       };
+      const wasFavorited = isSpot
+        ? spotFavs.favorites.includes(coin)
+        : perpFavs.favorites.includes(coin);
       if (isSpot) {
         setSpotFavs((prev) => ({
           ...prev,
@@ -165,7 +171,37 @@ export const FavoriteButton = memo(
           };
         });
       }
-    }, [coin, isSpot, setPerpFavs, setSpotFavs]);
+      // Mirror into unified order so the FavoritesBar shows new entries at
+      // the end and remove takes effect immediately. FavoritesBar also has
+      // a passive sync effect that backfills if this atom drifts.
+      setFavoritesOrder((prev) => {
+        if (wasFavorited) {
+          return {
+            sequence: prev.sequence.filter(
+              (e) => !(e.mode === mode && e.coinName === coin),
+            ),
+          };
+        }
+        if (
+          prev.sequence.some(
+            (e) => e.mode === mode && e.coinName === coin,
+          )
+        ) {
+          return prev;
+        }
+        return {
+          sequence: [...prev.sequence, { mode, coinName: coin }],
+        };
+      });
+    }, [
+      coin,
+      isSpot,
+      setPerpFavs,
+      setSpotFavs,
+      setFavoritesOrder,
+      perpFavs.favorites,
+      spotFavs.favorites,
+    ]);
 
     return (
       <IconButton
