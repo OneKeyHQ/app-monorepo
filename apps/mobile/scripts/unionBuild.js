@@ -63,6 +63,7 @@ const {
   buildGraphModuleIndex,
   buildRuntimeOwnership,
   collectCommonReferencedSegmentKeys,
+  computeSharedPerRuntimeDeps,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
   expandSegmentsWithCrossRuntimeDeps,
@@ -722,6 +723,8 @@ function buildManifestEntrySignature(entry) {
     relativePath: entry.relativePath,
     sha256: entry.sha256,
     dependsOn: entry.dependsOn || [],
+    mainDependsOn: entry.mainDependsOn || null,
+    backgroundDependsOn: entry.backgroundDependsOn || null,
     critical: entry.critical || false,
     size: entry.size ?? null,
   });
@@ -1383,6 +1386,24 @@ async function writeSegments({
           outputDir: getSegmentsDir('main'),
           relativeDir: 'segments',
         });
+        // When the two runtimes' segment-level deps diverge (only possible
+        // for forceShared segments — the canShare path above requires
+        // setEquals), attach per-runtime override lists so each runtime's
+        // loader only preloads deps that are reachable from its own
+        // segment graph. Without this, the merged manifest's union
+        // dependsOn would reference segments labelled `runtime: 'main'` or
+        // `'background'`, and the loader's runtime access check
+        // (installProdBundleLoader.ts:184) throws when consulted from the
+        // other runtime.
+        const perRuntimeDeps = computeSharedPerRuntimeDeps({
+          mainDeps,
+          backgroundDeps,
+          forceShared,
+        });
+        if (perRuntimeDeps) {
+          sharedEntry.mainDependsOn = perRuntimeDeps.mainDependsOn;
+          sharedEntry.backgroundDependsOn = perRuntimeDeps.backgroundDependsOn;
+        }
         mainManifest.segments[segmentKey] = sharedEntry;
         backgroundManifest.segments[segmentKey] = sharedEntry;
         // Keep the per-runtime report views honest: each reflects exactly

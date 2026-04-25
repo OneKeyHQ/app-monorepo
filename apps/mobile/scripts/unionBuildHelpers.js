@@ -913,6 +913,38 @@ function mergeSharedSegmentOutputs({
   return { mergedSegModules, mergedAbsPaths, mergedModuleIdToAbsPath };
 }
 
+/**
+ * Decide whether a forced-shared segment needs per-runtime dependsOn overrides.
+ *
+ * The shared entry's `dependsOn` ships as the union of the two runtimes' deps
+ * so generateSegmentSourceMap and the integrity checker still see every
+ * sync-edge target. But the runtime loader walks `dependsOn` to preload
+ * prerequisites, and a main-only dep is `runtime: 'main'` (rejected by the bg
+ * runtime's access check) and vice versa — so when the two sides diverge the
+ * loader needs per-runtime override lists, picked up via
+ * `entry.mainDependsOn` / `entry.backgroundDependsOn` in installProdBundleLoader.
+ *
+ * Returns `null` when no override is needed (deps identical, or not
+ * forceShared — the canShare path requires identical deps anyway, but the
+ * caller passes the flag so the intent is explicit).
+ */
+function computeSharedPerRuntimeDeps({
+  mainDeps,
+  backgroundDeps,
+  forceShared,
+}) {
+  if (!forceShared) {
+    return null;
+  }
+  if (setEquals(mainDeps, backgroundDeps)) {
+    return null;
+  }
+  return {
+    mainDependsOn: [...mainDeps].toSorted(),
+    backgroundDependsOn: [...backgroundDeps].toSorted(),
+  };
+}
+
 module.exports = {
   assertBundleCompleteness,
   buildPostSection,
@@ -921,6 +953,7 @@ module.exports = {
   buildModuleSignature,
   buildRuntimeOwnership,
   collectCommonReferencedSegmentKeys,
+  computeSharedPerRuntimeDeps,
   createAbsolutePathToSegmentMap,
   createSerializedModuleToSegmentMap,
   expandSegmentsWithCrossRuntimeDeps,

@@ -5,6 +5,7 @@ const {
   buildModuleSignature,
   buildRuntimeOwnership,
   collectCommonReferencedSegmentKeys,
+  computeSharedPerRuntimeDeps,
   createSerializedModuleToSegmentMap,
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
@@ -1445,5 +1446,76 @@ describe('collectCommonReferencedSegmentKeys', () => {
     });
 
     expect(result.size).toBe(0);
+  });
+});
+
+describe('computeSharedPerRuntimeDeps', () => {
+  it('returns null when not forceShared (the canShare path requires identical deps)', () => {
+    expect(
+      computeSharedPerRuntimeDeps({
+        mainDeps: new Set(['seg:a']),
+        backgroundDeps: new Set(['seg:b']),
+        forceShared: false,
+      }),
+    ).toBeNull();
+  });
+
+  it('returns null when forceShared but deps already match (no override needed)', () => {
+    expect(
+      computeSharedPerRuntimeDeps({
+        mainDeps: new Set(['seg:a', 'seg:b']),
+        backgroundDeps: new Set(['seg:b', 'seg:a']),
+        forceShared: true,
+      }),
+    ).toBeNull();
+  });
+
+  it('emits sorted per-runtime override lists when forceShared deps diverge', () => {
+    const result = computeSharedPerRuntimeDeps({
+      mainDeps: new Set(['seg:hid', 'seg:common']),
+      backgroundDeps: new Set(['seg:rxjs-bg', 'seg:common']),
+      forceShared: true,
+    });
+
+    expect(result).toEqual({
+      mainDependsOn: ['seg:common', 'seg:hid'],
+      backgroundDependsOn: ['seg:common', 'seg:rxjs-bg'],
+    });
+  });
+
+  it('handles one runtime having extra deps the other lacks', () => {
+    const result = computeSharedPerRuntimeDeps({
+      mainDeps: new Set(['seg:a']),
+      backgroundDeps: new Set(['seg:a', 'seg:bg-only']),
+      forceShared: true,
+    });
+
+    expect(result).toEqual({
+      mainDependsOn: ['seg:a'],
+      backgroundDependsOn: ['seg:a', 'seg:bg-only'],
+    });
+  });
+
+  it('handles empty dep sets on either side', () => {
+    const result = computeSharedPerRuntimeDeps({
+      mainDeps: new Set(),
+      backgroundDeps: new Set(['seg:bg-only']),
+      forceShared: true,
+    });
+
+    expect(result).toEqual({
+      mainDependsOn: [],
+      backgroundDependsOn: ['seg:bg-only'],
+    });
+  });
+
+  it('returns null when both sides are empty (still equal)', () => {
+    expect(
+      computeSharedPerRuntimeDeps({
+        mainDeps: new Set(),
+        backgroundDeps: new Set(),
+        forceShared: true,
+      }),
+    ).toBeNull();
   });
 });

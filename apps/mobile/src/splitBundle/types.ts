@@ -63,6 +63,18 @@ export type ISegmentManifestEntry = {
   sha256: string;
   /** Segment keys this segment depends on (must be loaded first) */
   dependsOn: string[];
+  /**
+   * Override of `dependsOn` for the main runtime.
+   *
+   * Set on shared entries whose two runtimes' segment-level deps diverge:
+   * the union (`dependsOn`) would point at segments that don't exist in the
+   * loading runtime's view, and the loader would crash trying to preload
+   * them. When present, the main runtime uses this list instead of
+   * `dependsOn`. Absent on entries whose deps are identical across runtimes.
+   */
+  mainDependsOn?: string[];
+  /** Same as `mainDependsOn` but for the background runtime. */
+  backgroundDependsOn?: string[];
   /** If true, loading failure triggers degraded-mode recovery */
   critical?: boolean;
   /** Byte size of the .seg.hbc file */

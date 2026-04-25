@@ -190,9 +190,20 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
 
       segmentStates.set(segmentKey, 'resolving');
 
-      // Recursively load dependencies first
-      if (entry.dependsOn.length > 0) {
-        for (const dep of entry.dependsOn) {
+      // Recursively load dependencies first.
+      //
+      // Shared segments whose two runtimes' segment-level deps diverge ship
+      // per-runtime override lists; without this, a main-only dep would
+      // throw "runtime not allowed" inside the bg runtime (and vice versa)
+      // when the merged manifest is consulted. Fall back to `dependsOn` when
+      // overrides aren't present (entries with identical deps across
+      // runtimes, or non-shared entries).
+      const runtimeDeps =
+        (currentRuntime === 'main' && entry.mainDependsOn) ||
+        (currentRuntime === 'background' && entry.backgroundDependsOn) ||
+        entry.dependsOn;
+      if (runtimeDeps.length > 0) {
+        for (const dep of runtimeDeps) {
           await loadSegmentInternal(dep);
         }
       }
