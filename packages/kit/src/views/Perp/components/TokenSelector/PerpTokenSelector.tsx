@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import {
+  type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   usePerpsActiveAssetCtxAtom,
@@ -379,6 +380,39 @@ function BasePerpTokenSelectorContent({
     }
   }, [selectorConfig?.direction, selectorConfig?.field, assetCtxsByDex]);
 
+  // Same freeze pattern for spot — sort uses a snapshot of spotPriceMap so
+  // every WS price update doesn't trigger an O(n log n) re-sort of a long
+  // spot list. Snapshot is held in state (not a ref) so the sort memo
+  // re-runs only when we explicitly bump it: on sort config change or on
+  // first price arrival after mount.
+  const [spotPriceSnapshot, setSpotPriceSnapshot] =
+    useState<ISpotAssetCtxsMap>(spotPriceMap);
+  const spotLastSortRef = useRef<{
+    field?: string;
+    direction?: string;
+  } | null>(null);
+  useEffect(() => {
+    const field = selectorConfig?.field;
+    const direction = selectorConfig?.direction;
+    const last = spotLastSortRef.current;
+    const sortChanged = last?.field !== field || last?.direction !== direction;
+    const snapshotEmpty = Object.keys(spotPriceSnapshot).length === 0;
+    if (!sortChanged && !snapshotEmpty) {
+      return;
+    }
+    spotLastSortRef.current = { field, direction };
+    setSpotPriceSnapshot(spotPriceMap);
+    if (sortChanged && activeTab === 'spot') {
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+    }
+  }, [
+    selectorConfig?.direction,
+    selectorConfig?.field,
+    spotPriceMap,
+    activeTab,
+    spotPriceSnapshot,
+  ]);
+
   // Container-level mark instead of per-row
   useEffect(() => {
     actions.current.markAllAssetCtxsRequired();
@@ -516,15 +550,19 @@ function BasePerpTokenSelectorContent({
     tokenSearchAliases,
   ]);
 
-  // Layer 1b: spot sort — isolated from perp. Reruns only when spot data or
-  // sort config changes. spotPriceMap WS updates never touch the perp list.
+  // Layer 1b: spot sort — isolated from perp. Uses a frozen price snapshot
+  // (refreshed only on sort change or first data arrival) so live WS price
+  // updates don't trigger O(n log n) resorts on every frame for what can be
+  // a 100+ item spot list. Live cell values still come from spotPriceMap at
+  // render time via per-row hooks; only the row order is frozen.
   const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
+    const snapshot = spotPriceSnapshot;
 
     const entries = spotUniverses
       .map((u, index) => {
-        const ctx = spotPriceMap[u.name];
+        const ctx = snapshot[u.name];
         const markPrice = Number(ctx?.markPx || 0);
         const prevDayPx = Number(ctx?.prevDayPx || 0);
         const change24hPercent =
@@ -585,10 +623,9 @@ function BasePerpTokenSelectorContent({
     return entries.map((e) => e.item);
   }, [
     spotUniverses,
-    spotPriceMap,
-    tokenSearchAliases,
     selectorConfig?.field,
     selectorConfig?.direction,
+    spotPriceSnapshot,
   ]);
 
   // Layer 2: filter — cheap O(n); no sort computation.
