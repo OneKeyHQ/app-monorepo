@@ -85,6 +85,7 @@
     "@reown/appkit-ethers5-react-native": "https://github.com/OneKeyHQ/app-modules#9d96daccc13625e5b3c8b236f9357956b049b884",
     "@sentry/react-native": "6.22.0",
     "@shopify/flash-list": "2.2.0",
+    "@shopify/react-native-skia": "2.6.2",
     "@types/react-native-canvas": "^0.1.13",
     "@walletconnect/react-native-compat": "2.21.9",
     "burnt": "0.12.2",
