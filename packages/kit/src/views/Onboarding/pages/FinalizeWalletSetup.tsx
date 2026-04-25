@@ -97,6 +97,7 @@ function FinalizeWalletSetupPage({
     [EFinalizeWalletSetupSteps.Ready]: intl.formatMessage({
       id: ETranslations.onboarding_finalize_ready,
     }),
+    [EFinalizeWalletSetupSteps.ConnectingDevice]: '', // Hardware-only pre-step, not shown in v1
   };
 
   const created = useRef(false);

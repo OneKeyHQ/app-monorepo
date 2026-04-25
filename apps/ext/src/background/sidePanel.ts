@@ -80,7 +80,7 @@ function buildKeylessGetStartedModalMessage(
         params: {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
-            screen: EOnboardingPagesV2.GetStarted,
+            screen: EOnboardingPagesV2.CreateNewWallet,
             params,
           },
         },
